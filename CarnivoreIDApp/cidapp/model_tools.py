@@ -73,28 +73,28 @@ def upload_to_unqiue_folder(instance, filename):
 
     datetimestr = datetime.now().strftime("%Y%m%d-%H%M%S")
 
-    return str(Path(settings.MEDIA_ROOT) / "upload" /
-        datetimestr + "_" + instance_filename + "_" + hash /
-        filename,
+    return str((Path(settings.MEDIA_ROOT) / "upload" /
+               (datetimestr + "_" + instance_filename + "_" + hash) /
+        filename).resolve()
         )
 
 
-def upload_to_unqiue_folder(instance, filename):
-    """
-    Uploads a file to an unique generated Path to keep the original filename
-    """
-    logger.debug("upload_to_unique_folder")
-    logger.debug(instance)
-    logger.debug(filename)
-    logger.debug(instance.uploaded_at)
-    hash = generate_sha1(instance.uploaded_at, "_")
-
-    # instance_filename = Path(instance.imagefile.path).stem # sometimes the instance.imagefile does not exist
-    instance_filename = Path(filename).stem
-
-    datetimestr = datetime.now().strftime("%Y%m%d-%H%M%S")
-
-    return str(Path(settings.MEDIA_ROOT) / "upload" /
-               datetimestr + "_" + instance_filename + "_" + hash /
-               filename,
-               )
+# def upload_to_unqiue_folder(instance, filename):
+#     """
+#     Uploads a file to an unique generated Path to keep the original filename
+#     """
+#     logger.debug("upload_to_unique_folder")
+#     logger.debug(instance)
+#     logger.debug(filename)
+#     logger.debug(instance.uploaded_at)
+#     hash = generate_sha1(instance.uploaded_at, "_")
+#
+#     # instance_filename = Path(instance.imagefile.path).stem # sometimes the instance.imagefile does not exist
+#     instance_filename = Path(filename).stem
+#
+#     datetimestr = datetime.now().strftime("%Y%m%d-%H%M%S")
+#
+#     return str(Path(settings.MEDIA_ROOT) / "upload" /
+#                (datetimestr + "_" + instance_filename + "_" + hash) /
+#                filename,
+#                )

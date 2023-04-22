@@ -11,5 +11,5 @@ urlpatterns = [
     path('upload/', views.model_form_upload, name='model_form_upload'),
     path('login/', TemplateView.as_view(template_name='cidapp/login.html'), name="login"), # <--I
     path('logout/', views.logout_view, name='logout_view'),
-    path('uploads/', TemplateView.as_view(template_name='cidapp/login.html'), name="uploads"), # <--I
+    path('uploads/', views.uploads, name="uploads"), # <--I
 ]

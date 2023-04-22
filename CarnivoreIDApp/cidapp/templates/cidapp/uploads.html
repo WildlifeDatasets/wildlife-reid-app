@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block head %}
+<!--refresh every 120 s-->
+<meta http-equiv="refresh" content="120">
+{% endblock %}
+{% block body %}
+    {% if user.is_authenticated %}
+        ahoj
+        {% if uploadedarchives %}
+            <div class="container">
+                {% for uploadedarchive in uploadedarchives %}
+                    <div class="container">
+                        {{ uploadedarchive }}
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p>No data available.</p>
+        {% endif %}
+    {% endif %}
+{% endblock %}

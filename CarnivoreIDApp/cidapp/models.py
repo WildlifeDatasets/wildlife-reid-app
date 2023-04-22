@@ -40,7 +40,7 @@ class CIDUser(models.Model):
             instance.ciduser
         except ObjectDoesNotExist:
             profile, created = CIDUser.objects.get_or_create(user=instance)
-            instance.ciduser= profile
+            instance.ciduser = profile
         # UserProfile.objects.get_or_create(user=request.user)
         instance.ciduser.save()
 def _hash():
@@ -70,7 +70,7 @@ class UploadedArchive(models.Model):
     owner = models.ForeignKey(CIDUser, on_delete=models.CASCADE, null=True, blank=True)
 
     def __str__(self):
-        return str(Path(self.mediafile.name).name)
+        return str(Path(self.archivefile.name).name)
 
 class Taxon(models.Model):
     name = models.CharField(max_length=50)

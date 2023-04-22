@@ -2,12 +2,25 @@ import django
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth import logout
 from .forms import UploadedArchiveForm
+from .models import UploadedArchive, CIDUser
 
 # Create your views here.
 
 def wellcome(request):
     pass
 
+def uploads(request):
+    uploadedarchives = UploadedArchive.objects.filter(
+        owner=request.user.ciduser,
+    ).all() #\
+    # .exclude(
+    #    tag__in=hide_tags
+    #)
+    print(uploadedarchives)
+    context = {
+        "uploadedarchives": uploadedarchives
+    }
+    return render(request, 'cidapp/uploads.html', context)
 
 def logout_view(request):
     logout(request)
@@ -39,7 +52,7 @@ def model_form_upload(request):
 
             # email_media_recived(archivefile)
             # print(f"user id={request.user.id}")
-            # archivefile.owner = request.user
+            uploaded_archive.owner = request.user.ciduser
             uploaded_archive.started_at = django.utils.timezone.now()
             uploaded_archive.save()
             # PIGLEGCV_HOSTNAME = os.getenv("PIGLEGCV_HOSTNAME", default="127.0.0.1")
@@ -55,7 +68,7 @@ def model_form_upload(request):
             #     timeout=settings.PIGLEGCV_TIMEOUT,
             #     hook="uploader.tasks.email_report_from_task",
             # )
-            return redirect("/cidapp/thanks/")
+            return redirect("/cidapp/uploads/")
     else:
         form = UploadedArchiveForm()
     return render(
