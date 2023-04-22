@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+
+{% block body%}
+<div class="container">
+    {% if user.is_authenticated %}
+    <div class="container">
+        <h1>{{ headline }}</h1>
+        <p class="text-danger">{{error_text}}</p>
+
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            {{ form.as_p }}
+        <button class="btn btn-primary has-spinner" id="btnUpload" type="submit">
+            <span class="spinner"><i class="fa fa-refresh fa-spin"></i></span>
+            {{ button }}
+        </button>
+            <a class="btn btn-secondary" href="{% url 'cidapp:index' %}">Cancel</a>
+
+        </form>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

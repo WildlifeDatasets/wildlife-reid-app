@@ -7,7 +7,7 @@ from django.db import models
 from datetime import datetime
 from django.contrib.auth import get_user_model
 
-from .model_tools import upload_to_unqiue_folder, generate_sha1, randomString, get_output_dir
+from .model_tools import upload_to_unqiue_folder, generate_sha1, randomString, get_output_dir, randomString12
 from django.dispatch import receiver
 from django.db.models.signals import post_save
 from pathlib import Path
@@ -15,13 +15,14 @@ from pathlib import Path
 logger = logging.getLogger(__file__)
 
 User = get_user_model()
+
 class CIDUser(models.Model):
     id = models.AutoField(primary_key=True)
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     # bio = models.TextField(max_length=500, blank=True)
     # location = models.CharField(max_length=30, blank=True)
     # birth_date = models.DateField(null=True, blank=True)
-    hash = models.CharField(max_length=50, default=lambda :randomString(12))
+    hash = models.CharField(max_length=50, default=randomString12)
 
     @receiver(post_save, sender=User)
     def create_user_profile(sender, instance, created, **kwargs):
@@ -36,12 +37,12 @@ class CIDUser(models.Model):
         # pdb.set_trace()
         from django.core.exceptions import ObjectDoesNotExist
         try:
-            instance.profile
+            instance.ciduser
         except ObjectDoesNotExist:
             profile, created = CIDUser.objects.get_or_create(user=instance)
-            instance.profile = profile
+            instance.ciduser= profile
         # UserProfile.objects.get_or_create(user=request.user)
-        instance.profile.save()
+        instance.ciduser.save()
 def _hash():
     dt = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
     hash = generate_sha1(dt, salt=randomString())
@@ -79,7 +80,7 @@ class Taxon(models.Model):
 
 class MediaFile(models.Model):
     parent = models.ForeignKey(UploadedArchive, on_delete=models.CASCADE)
-    species = models.ForeignKey(Taxon, blank=True, null=True)
+    species = models.ForeignKey(Taxon, blank=True, null=True, on_delete=models.CASCADE)
     mediafile = models.FileField(
         "Media File",
         # upload_to=upload_to_unqiue_folder,

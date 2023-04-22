@@ -5,7 +5,8 @@
 
 
 ```bash
-conda create -n cidapp -c conda-forge torchvision wandb environ
+conda create -n cidapp -c conda-forge torchvision wandb environ django-allauth django
+pip install django_q
 ```
 
 ```bash

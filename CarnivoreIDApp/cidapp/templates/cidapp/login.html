@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load socialaccount %}
+
+{% block body %}
+<!--<html>-->
+<!--  <head>-->
+<!--    <title>Google Registration</title>-->
+<!--  </head>-->
+<!--  <body>-->
+<div class="container">
+    <h1>ScaffAn</h1>
+    Application for liver scaffold analysis
+
+    <h2> How it works</h2>
+    <div class="jumbotron">
+        <div class="container">
+            <div class="row justify-content-md-center align-items-center">
+                <div class="col">
+                    <p class="text-center">
+                        <i class="fas fa-upload fa-6x"></i>
+                        <br>
+                        <br>
+                        Upload H&E Stained Image
+
+                    </p>
+                </div>
+                <div class="col">
+                    <p class="text-center">
+                        <i class="fas fa-long-arrow-alt-right fa-4x"></i>
+                    </p>
+                </div>
+                <div class="col">
+                    <p class="text-center">
+                    <i class="fas fa-chart-line fa-6x"></i>
+                    <br>
+                    <br>
+                    Run the analysis
+                    </p>
+                </div>
+                <div class="col">
+                    <p class="text-center">
+                        <i class="fas fa-long-arrow-alt-right fa-4x"></i>
+                    </p>
+                </div>
+                <div class="col">
+                    <p class="text-center">
+                        <i class="fas fa-star-half-alt fa-6x"></i>
+                        <br>
+                        <br>
+                        Get the score
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% if user.is_authenticated %}
+<!--    <p>Welcome, {{ user.username }} !</p>-->
+    <a class="btn btn-primary" href="{% url 'cidapp:uploads' %}">Go to the application</a>
+
+
+    {% else %}
+    <a class="btn btn-primary" href="{% provider_login_url 'google' %}?next={% url 'cidapp:uploads' %}">Login with Google</a>
+    {% endif %}
+
+    <h2 class="pt-5">High-quality liver tissue scaffold for tissue engineering</h2>
+    <div class="container-xl">
+        <img src="{% static 'microimprocessing/repopulation_of_decellularized_pig_scaffolds.png' %}" alt="Images modified from V. Liška, V. Moulisová, R. Pálek, J. Rosendorf, L. Červenková, L. Bolek, V. Třeška (2019): Repopulation of decellularized pig scaffolds: Promising approach for liver tissue engineering, Rozhl Chir 98(10) (2019) 388-393.
+" style="width:100%">
+        <div class="caption">
+            <p>
+                Images modified from V. Liška, V. Moulisová, R. Pálek, J. Rosendorf, L. Červenková, L. Bolek, V. Třeška (2019): Repopulation of decellularized pig scaffolds: Promising approach for liver tissue engineering, Rozhl Chir 98(10) (2019) 388-393.
+            </p>
+        </div>
+    </div>
+</div>
+<!--    <h2>Team</h2>-->
+
+{% endblock %}
+<!--  </body>-->
+<!--</html>-->

@@ -40,6 +40,9 @@ def randomString(stringLength=16):
     # alphabet = string.ascii_letters + string.digits
     return "".join(secrets.choice(alphabet) for i in range(stringLength))
 
+def randomString12():
+    return randomString(12)
+
 
 def get_output_dir():
     #
@@ -47,8 +50,9 @@ def get_output_dir():
     output_directory_path = Path(settings.MEDIA_ROOT) / "output"
     # datetimestr = datetime.datetime.now().strftime("%Y%m%d-%H%M%S.%f")
     datetimestr = datetime.now().strftime("%Y%m%d-%H%M%S")
-    filename = str(output_directory_path /
-        datetimestr + "_" + randomString(12)/
+    filename = str(
+        output_directory_path /
+        (datetimestr + "_" + randomString(12)) /
         datetimestr
         )
     return filename
