@@ -1,30 +1,52 @@
 from pathlib import Path
 from .models import UploadedArchive
 import shutil
+import django
+from .cv import dataset_tools, data_processing_pipeline
+import loguru
+from loguru import logger
 
-
-
-def run_processing(uploaded_archive: UploadedArchive, absolute_uri, hostname, port):
+def run_processing_test(uploaded_archive: UploadedArchive):
     outputdir = Path(uploaded_archive.outputdir)
     if outputdir.exists() and outputdir.is_dir():
         shutil.rmtree(outputdir, ignore_errors=True)
     outputdir.mkdir(parents=True, exist_ok=True)
-    # log_format = loguru._defaults.LOGURU_FORMAT
-    # logger_id = logger.add(
-    #     str(Path(serverfile.outputdir) / "webapp_log.txt"),
-    #     format=log_format,
-    #     level="DEBUG",
-    #     rotation="1 week",
-    #     backtrace=True,
-    #     diagnose=True,
-    # )
+    log_format = loguru._defaults.LOGURU_FORMAT
+    logger_id = logger.add(
+        str(Path(uploaded_archive.outputdir) / "log.txt"),
+        format=log_format,
+        level="DEBUG",
+        rotation="1 week",
+        backtrace=True,
+        diagnose=True,
+    )
+    logger.debug("Processing finished")
+    logger.remove(logger_id)
+
+def run_processing(uploaded_archive: UploadedArchive):
+    outputdir = Path(uploaded_archive.outputdir)
+    if outputdir.exists() and outputdir.is_dir():
+        shutil.rmtree(outputdir, ignore_errors=True)
+    outputdir.mkdir(parents=True, exist_ok=True)
+    log_format = loguru._defaults.LOGURU_FORMAT
+    logger_id = logger.add(
+        str(Path(uploaded_archive.outputdir) / "log.txt"),
+        format=log_format,
+        level="DEBUG",
+        rotation="1 week",
+        backtrace=True,
+        diagnose=True,
+    )
+    print(" processing běží")
     # logger.debug(f"Image processing of '{serverfile.mediafile}' initiated")
     # make_preview(serverfile)
     if uploaded_archive.zip_file and Path(uploaded_archive.zip_file.path).exists():
         uploaded_archive.zip_file.delete()
-    input_file = Path(uploaded_archive.mediafile.path)
+    input_file = Path(uploaded_archive.archivefile.path)
     # logger.debug(f"input_file={input_file}")
     outputdir = Path(uploaded_archive.outputdir)
+    outputdir_images = outputdir / 'images'
+    outputdir_csv = outputdir / "metadata.csv"
     # logger.debug(f"outputdir={outputdir}")
 
     # _run_media_processing_rest_api(input_file, outputdir, hostname, port)
@@ -34,6 +56,10 @@ def run_processing(uploaded_archive: UploadedArchive, absolute_uri, hostname, po
     if input_file.suffix in (".mp4", ".avi"):
         pass
         # make_images_from_video(input_file, outputdir=outputdir, n_frames=1)
+
+    data_processing_pipeline.data_processing(
+        input_file, outputdir_images, outputdir_csv
+    )
 
     # for video_pth in outputdir.glob("*.avi"):
     #     input_video_file = video_pth
@@ -46,8 +72,8 @@ def run_processing(uploaded_archive: UploadedArchive, absolute_uri, hostname, po
     # add_generated_images(uploaded_archive)
     # make_zip(uploaded_archive)
     #
-    # uploaded_archive.finished_at = django.utils.timezone.now()
-    # uploaded_archive.save()
+    uploaded_archive.finished_at = django.utils.timezone.now()
+    uploaded_archive.save()
     # _add_row_to_spreadsheet(uploaded_archive, absolute_uri)
-    # logger.debug("Processing finished")
-    # logger.remove(logger_id)
+    logger.debug("Processing finished")
+    logger.remove(logger_id)

@@ -3,11 +3,21 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth import logout
 from .forms import UploadedArchiveForm
 from .models import UploadedArchive, CIDUser
+from django.conf import settings
+from . import tasks
+from .cv.data_processing_pipeline import data_processing
+from loguru import logger
 
 # Create your views here.
 
 def wellcome(request):
     pass
+
+def media_files(request, uploadedarchive_id):
+    uploadedarchive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
+    uploadedarchive
+
+
 
 def uploads(request):
     uploadedarchives = UploadedArchive.objects.filter(
@@ -59,15 +69,18 @@ def model_form_upload(request):
             # PIGLEGCV_PORT= os.getenv("PIGLEGCV_PORT", default="5000")
             # make_preview(archivefile)
             # update_owner(archivefile)
-            # async_task(
-            #     "uploader.tasks.run_processing",
-            #     archivefile,
-            #     request.build_absolute_uri("/"),
-            #     PIGLEGCV_HOSTNAME,
-            #     int(PIGLEGCV_PORT),
-            #     timeout=settings.PIGLEGCV_TIMEOUT,
-            #     hook="uploader.tasks.email_report_from_task",
-            # )
+            print("async task ....")
+
+            logger.debug("Run processing ...")
+            tasks.run_processing(
+                uploaded_archive
+            )
+            async_task(
+                "cidapp.tasks.run_processing",
+                uploaded_archive,
+                timeout=settings.COMPUTER_VISION_TIMEOUT,
+                # hook="uploader.tasks.email_report_from_task",
+            )
             return redirect("/cidapp/uploads/")
     else:
         form = UploadedArchiveForm()

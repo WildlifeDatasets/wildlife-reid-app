@@ -145,7 +145,8 @@ STATIC_URL = "static/"
 MEDIA_URL = "/media/"
 MEDIA_ROOT = WEBAPP_DATA / "media"
 # use python manage.py collectstatic
-STATIC_ROOT = WEBAPP_DATA / "static"
+# STATIC_ROOT = BASE_DIR / "static"
+STATIC_ROOT = "static"
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
@@ -157,7 +158,7 @@ COMPUTER_VISION_TIMEOUT = 10*3600
 Q_CLUSTER = {
     "workers": 3,
     "redis": {
-        "host": "localhost",
+        "host": "127.0.0.1",
         "port": 6379,
         "db": 0,
         "password": None,

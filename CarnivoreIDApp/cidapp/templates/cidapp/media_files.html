@@ -17,27 +17,21 @@
             {#      </nav>#}
         </div><!-- End Page Title -->
         <section class="section">
-            <div class="container">
-{#            <div class="card">#}
-{#                <div class="card-body">#}
-{#                    <a class="btn btn-primary" href="{% url 'cidapp:model_form_upload' %}" >Upload new archive</a>#}
-{#                </div>#}
-{#            </div>#}
         {% if uploadedarchives %}
+            <div class="container">
                 {% for uploadedarchive in uploadedarchives %}
                   <div class="card">
                     <div class="card-body">
-                      <h5 class="card-title">{{ uploadedarchive }}</h5>
-                        <p>Uploaded at: {{ uploadedarchive.uploaded_at }} </p>
-                        <p>Finished at: {{ uploadedarchive.finished_at}} </p>
+                      <h5 class="card-title">Example Card</h5>
+                        {{ uploadedarchive }}
                       <p>This is an examle page with no contrnt. You can use it as a starter for your custom pages.</p>
                     </div>
                   </div>
                 {% endfor %}
+            </div>
         {% else %}
             <p>No data available.</p>
         {% endif %}
-            </div>
         </section>
     {% endif %}
 {% endblock %}
