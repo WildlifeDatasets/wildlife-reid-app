@@ -58,7 +58,7 @@ def model_form_upload(request):
             #     })
 
             uploaded_archive = form.save()
-            async_task("uploader.tasks.email_media_recived", uploaded_archive)
+            # async_task("uploader.tasks.email_media_recived", uploaded_archive)
 
             # email_media_recived(archivefile)
             # print(f"user id={request.user.id}")
@@ -72,9 +72,9 @@ def model_form_upload(request):
             print("async task ....")
 
             logger.debug("Run processing ...")
-            tasks.run_processing(
-                uploaded_archive
-            )
+            # tasks.run_processing(
+            #     uploaded_archive
+            # )
             async_task(
                 "cidapp.tasks.run_processing",
                 uploaded_archive,

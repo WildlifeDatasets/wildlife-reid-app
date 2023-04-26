@@ -5,9 +5,9 @@ import pandas as pd
 import pytest
 
 try:
-    import dataset_tools
-except ImportError:
     from . import dataset_tools
+except ImportError:
+    import dataset_tools
 
 
 CARNIVORE_DATASET_BASEDIR = Path(
@@ -29,8 +29,9 @@ def test_make_hash():
 def test_dataset_Sumava():
     """Test whole dataset preparation on small dataset."""
     metadata_path = Path("sumava_metadata")
-    sumava_processing = dataset_tools.SumavaDatasetProcessing(
-        CARNIVORE_DATASET_BASEDIR / "DATA_SUNAP_tiny_test_subset", file_mask="./**/*.*"
+    # sumava_processing = dataset_tools.SumavaDatasetProcessing(
+    sumava_processing = dataset_tools.SumavaInitialProcessing(
+        CARNIVORE_DATASET_BASEDIR / "DATA_SUNAP_tiny_test_subset", # file_mask="./**/*.*"
     )
 
     if sumava_processing.filelist_path.exists():
@@ -45,14 +46,15 @@ def test_dataset_Sumava():
     assert ~sumava_processing.filelist_path.exists()
 
     # check the update-check function
-    assert sumava_processing.is_update_recommended()
+    assert sumava_processing.is_update_necessary()
 
     # do the slow parts
-    sumava_processing.make_temp_initial_paths_and_exifs_parallel()
+    sumava_processing.make_paths_and_exifs_parallel(mask="./**/*.*")
     assert sumava_processing.cache_file.exists()
     assert sumava_processing.filelist_path.exists()
 
     sumava_processing.make_metadata_csv(metadata_path)
+    sumava_processing
     assert metadata_path.exists()
 
 

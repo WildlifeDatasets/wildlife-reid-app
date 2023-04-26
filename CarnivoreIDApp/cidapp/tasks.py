@@ -47,6 +47,7 @@ def run_processing(uploaded_archive: UploadedArchive):
     outputdir = Path(uploaded_archive.outputdir)
     outputdir_images = outputdir / 'images'
     outputdir_csv = outputdir / "metadata.csv"
+    outputdir_zip = outputdir / "images.zip"
     # logger.debug(f"outputdir={outputdir}")
 
     # _run_media_processing_rest_api(input_file, outputdir, hostname, port)
@@ -58,8 +59,9 @@ def run_processing(uploaded_archive: UploadedArchive):
         # make_images_from_video(input_file, outputdir=outputdir, n_frames=1)
 
     data_processing_pipeline.data_processing(
-        input_file, outputdir_images, outputdir_csv
+        input_file, outputdir_images, outputdir_csv, num_cores=1
     )
+    dataset_tools.make_zipfile(outputdir_zip, outputdir_images)
 
     # for video_pth in outputdir.glob("*.avi"):
     #     input_video_file = video_pth

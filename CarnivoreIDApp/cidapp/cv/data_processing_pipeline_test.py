@@ -4,12 +4,14 @@ from pathlib import Path
 
 import pytest
 
-try:
-    import data_processing_pipeline
-except ImportError:
-    from . import data_processing_pipeline
+from CarnivoreIDApp.cidapp.cv import data_processing_pipeline
 
-from .dataset_tools import (  # make_tarfile,
+# try:
+#     from . import data_processing_pipeline
+# except ImportError:
+#     import data_processing_pipeline
+
+from CarnivoreIDApp.cidapp.cv.dataset_tools import (  # make_tarfile,
     _species_czech_preprocessing,
     make_hash,
     make_zipfile,
@@ -58,7 +60,7 @@ def test_analyze_dir(dataset):
     assert len(metadata.location.unique()) > 1, "There should be some localities."
 
 
-def test_data_preprocessing():
+def test_data_preprocessing_parallel():
     """Try the whole processing starting from .tar.gz file."""
     tarfile_path = Path("images.tar.gz")
     tarfile_path = Path("images.zip")
@@ -70,7 +72,7 @@ def test_data_preprocessing():
     csv_path.unlink(missing_ok=True)
     assert not media_dir_path.exists()
 
-    metadata, duplicates = data_processing_pipeline.data_preprocessing(tarfile_path, media_dir_path)
+    metadata, duplicates = data_processing_pipeline.data_preprocessing(tarfile_path, media_dir_path, num_cores=1)
     assert (
         len(list(media_dir_path.glob("**/*"))) > 0
     ), "There should be some files in media dir path"

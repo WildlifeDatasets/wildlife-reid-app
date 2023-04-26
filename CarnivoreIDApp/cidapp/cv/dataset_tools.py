@@ -466,13 +466,13 @@ def make_dataset(
             output_file_path = output_path / Path(row["image_path"])
 
             output_file_path.parent.mkdir(parents=True, exist_ok=True)
-            logger.debug(f"copyfile {input_file_path}, {output_file_path}")
-            try:
-                shutil.copyfile(input_file_path, output_file_path)
-            except Exception as e:
-                import traceback
-
-                logger.warning(traceback.format_exception(e))
+            logger.debug(f"copyfile: {input_file_path}, {output_file_path}")
+            if input_file_path.is_file():
+                try:
+                    shutil.copyfile(input_file_path, output_file_path)
+                except Exception as e:
+                    import traceback
+                    logger.warning(traceback.format_exception(e))
 
     if make_tar:
         logger.info("... preparing .tar.gz")
@@ -489,8 +489,18 @@ class SumavaInitialProcessing:
         cache_file: Optional[Path] = None,
         filelist_path: Optional[Path] = None,
         group_mask: str = "./*/*/*",
-        num_cores=None,
+        num_cores:Optional[int]=None,
     ):
+        """
+
+        Parameters
+        ----------
+        dataset_basedir
+        cache_file
+        filelist_path
+        group_mask
+        num_cores: Default None. If None, the number of available CPUs is used. If 1 the Parallel is not used.
+        """
         if cache_file is None:
             cache_file = Path("cache.json")
         if filelist_path is None:
@@ -571,10 +581,18 @@ class SumavaInitialProcessing:
                 gmask = gmask + "/*"
 
             self.path_groups = group_of_dirs
-        vanilla_path_groups = Parallel(n_jobs=self.num_cores)(
-            delayed(get_relative_paths_in_dir)(self.dataset_basedir, path_group, mask)
-            for path_group in tqdm(self.path_groups, desc="getting file list")
-        )
+        if self.num_cores > 1:
+            vanilla_path_groups = Parallel(n_jobs=self.num_cores)(
+                delayed(get_relative_paths_in_dir)(self.dataset_basedir, path_group, mask)
+                for path_group in tqdm(self.path_groups, desc="getting file list")
+            )
+        else:
+            # single processor version to avoid Error: 'demonic processes are not allowed to have children'
+            logger.debug("Using single CPU")
+            vanilla_path_groups = [
+                get_relative_paths_in_dir(self.dataset_basedir, path_group, mask)
+                for path_group in tqdm(self.path_groups, desc="getting file list")
+            ]
         list_of_files = [
             item.relative_to(self.dataset_basedir)
             for item in list_of_files
@@ -630,10 +648,16 @@ class SumavaInitialProcessing:
 
     def add_datetime_from_exif_in_parallel(self, vanilla_paths: list):
         """Get list of datetimes from EXIF."""
-        datetime_list = Parallel(n_jobs=self.num_cores)(
-            delayed(get_datetime_from_exif)(self.dataset_basedir / vanilla_path)
-            for vanilla_path in tqdm(vanilla_paths, desc="getting EXIFs")
-        )
+        if self.num_cores > 1:
+            datetime_list = Parallel(n_jobs=self.num_cores)(
+                delayed(get_datetime_from_exif)(self.dataset_basedir / vanilla_path)
+                for vanilla_path in tqdm(vanilla_paths, desc="getting EXIFs")
+            )
+        else:
+            datetime_list = [
+                get_datetime_from_exif(self.dataset_basedir / vanilla_path)
+                for vanilla_path in tqdm(vanilla_paths, desc="getting EXIFs")
+            ]
         return datetime_list
 
 

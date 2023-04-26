@@ -2,7 +2,7 @@ import logging
 import shutil
 import tarfile
 from pathlib import Path
-from typing import Tuple
+from typing import Tuple, Optional
 from zipfile import ZipFile
 
 import numpy as np
@@ -12,8 +12,12 @@ import wandb
 from scipy.special import softmax
 from tqdm import tqdm
 
+
 from fgvc.utils.experiment import load_model
-from . import dataset_tools
+try:
+    import dataset_tools
+except Exception as E:
+    from . import dataset_tools
 
 logger = logging.getLogger(__file__)
 
@@ -33,7 +37,7 @@ def extract_zipfile(zipfile_path: Path, output_dir_path: Path):
         zObject.extractall(path=output_dir_path)
 
 
-def analyze_dataset_directory(dataset_dir_path: Path):
+def analyze_dataset_directory(dataset_dir_path: Path, num_cores:Optional[int]=None):
     """Get species, locality, datetime and sequence_id from directory with media files.
 
     Parameters
@@ -47,7 +51,7 @@ def analyze_dataset_directory(dataset_dir_path: Path):
     duplicates: DataFrame - List of duplicit files
 
     """
-    init_processing = dataset_tools.SumavaInitialProcessing(dataset_dir_path)
+    init_processing = dataset_tools.SumavaInitialProcessing(dataset_dir_path, num_cores=num_cores)
     df0 = init_processing.make_paths_and_exifs_parallel(
         mask="**/*.*", make_exifs=True, make_csv=False
     )
@@ -89,7 +93,7 @@ def analyze_dataset_directory(dataset_dir_path: Path):
     return metadata, duplicates
 
 
-def data_preprocessing(zip_path: Path, media_dir_path: Path) -> Tuple[pd.DataFrame, pd.DataFrame]:
+def data_preprocessing(zip_path: Path, media_dir_path: Path, num_cores: Optional[int] = None) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """Preprocessing of data in zip file.
 
     If the Sumava data dir structure is present, the additional information is extracted.
@@ -116,7 +120,7 @@ def data_preprocessing(zip_path: Path, media_dir_path: Path) -> Tuple[pd.DataFra
     elif zip_path.suffix.lower() in (".zip"):
         extract_zipfile(zip_path, temp_dir)
 
-    df, duplicates = analyze_dataset_directory(temp_dir)
+    df, duplicates = analyze_dataset_directory(temp_dir, num_cores=num_cores)
     # df["image_path"] = \
     # df["vanilla_path"].map(lambda fn: dataset_tools.make_hash(fn, prefix="media_data"))
     df = dataset_tools.make_dataset(
@@ -175,14 +179,15 @@ def prediction(metadata: pd.DataFrame):
         model_mean=model_mean,
         model_std=model_std,
         batch_size=config["batch_size"],
-        num_workers=config["workers"],
+        # num_workers=config["workers"],
+        num_workers=0,
         # architecture=config["architecture"]
     )
     logits, targs, _, scores = predict(model, testloader, device=device)
     return logits, targs, scores
 
 
-def data_processing(zip_path: Path, media_dir_path: Path, csv_path: Path):
+def data_processing(zip_path: Path, media_dir_path: Path, csv_path: Path, num_cores: Optional[int] = None):
     """Preprocessing and prediction on data in ZIP file.
 
     Files are renamed according to the hash based on input path.
@@ -192,7 +197,8 @@ def data_processing(zip_path: Path, media_dir_path: Path, csv_path: Path):
     media_dir_path: Path to content of zip. The file names are hashed.
     csv_path: Path to output CSV file.
     """
-    metadata, _ = data_preprocessing(zip_path, media_dir_path)
+
+    metadata, _ = data_preprocessing(zip_path, media_dir_path, num_cores=num_cores)
 
     metadata = metadata[metadata.media_type == "image"].reset_index(drop=True)
 
