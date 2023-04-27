@@ -28,34 +28,33 @@ services:
 #      - 'moodledata_data:/bitnami/moodledata'
 #    depends_on:
 #      - mariadb
-  piglegweb:
-    image: "${PIGLEG_IMAGE_PREFIX}piglegweb:latest"
+  cidapp:
+    image: "${WEBAPP_IMAGE_PREFIX}piglegweb:latest"
     ports:
-      - '8000:${PIGLEG_PORT}'
-    environment:
-      - PIGLEGCV_HOSTNAME=piglegcv
-      - PIGLEGCV_PORT=5000
-      - PIGLEGCV_HOSTNAME_DEVEL=piglegcv_devel
-      - PIGLEGCV_PORT_DEVEL=5000
+      - '8000:${WEBAPP_PORT}'
+#    environment:
+#      - PIGLEGCV_HOSTNAME=piglegcv
+#      - PIGLEGCV_PORT=5000
+#      - PIGLEGCV_HOSTNAME_DEVEL=piglegcv_devel
+#      - PIGLEGCV_PORT_DEVEL=5000
 #      - DOCKERLOGNAME="devel"
 #     dockery vidí své vnitřní porty, nikoliv ty vnější
     volumes:
-      - "${PIGLEG_ROOT_DIR}:/webapps/piglegsurgery"
-      - "${PIGLEG_MEDIA_DIR}:/webapps/piglegsurgery/piglegsurgeryweb/media"
-      - "${PIGLEG_LOG_DIR}:/root/pigleg/logs"
+      - "${WEBAPP_ROOT_DIR}:/webapps/CarnivoreID-App"
+#      - "${WEBAPP_LOG_DIR}:/root/pigleg/logs"
       #      - "C:/Users/Jirik/projects/piglegsurgery:/webapps/piglegsurgery"
-  piglegcv:
-    image: "${PIGLEG_IMAGE_PREFIX}piglegcv:latest"
-#    command: nvidia-smi
-#    runtime: nvidia
-    ports:
-      - '5000'
-#    environment:
-#      - DOCKERLOGNAME=""
-    volumes:
-      - "${PIGLEG_ROOT_DIR}:/webapps/piglegsurgery"
-      - '${PIGLEG_MEDIA_DIR}:/webapps/piglegsurgery/piglegsurgeryweb/media'
-      - "${PIGLEG_LOG_DIR}:/home/appuser/logs"
+#  piglegcv:
+#    image: "${PIGLEG_IMAGE_PREFIX}piglegcv:latest"
+##    command: nvidia-smi
+##    runtime: nvidia
+#    ports:
+#      - '5000'
+##    environment:
+##      - DOCKERLOGNAME=""
+#    volumes:
+#      - "${PIGLEG_ROOT_DIR}:/webapps/piglegsurgery"
+#      - '${PIGLEG_MEDIA_DIR}:/webapps/piglegsurgery/piglegsurgeryweb/media'
+#      - "${PIGLEG_LOG_DIR}:/home/appuser/logs"
       
 #  piglegcv_devel:
 #    privileged: true
@@ -86,7 +85,7 @@ volumes:
 #    driver: local
 #  moodledata_data:
 #    driver: local
-  piglegweb:
+  cidapp:
     driver: local
-  piglegcv:
-    driver: local
+#  piglegcv:
+#    driver: local
