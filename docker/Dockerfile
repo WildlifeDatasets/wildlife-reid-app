@@ -72,7 +72,7 @@ RUN conda list
 # Make RUN commands use the new environment:
 # SHELL ["conda", "run", "-n", "scaffanweb", "/bin/bash", "--login", "-c"]
 RUN /opt/conda/condabin/conda init bash
-RUN conda run -n cidapp--no-capture-output pip install -r requirements_pip.txt
+RUN conda run -n cidapp --no-capture-output pip install -r requirements_pip.txt
 
 # gunicorn is in conda env
 #RUN conda run -n cidapp--no-capture-output pip install gunicorn
@@ -109,7 +109,10 @@ RUN conda run -n cidapp--no-capture-output pip install -r requirements_pip.txt
 
 WORKDIR /webapps
 
-RUN conda run -n cidapp--no-capture-output pip install django-q
+RUN conda run -n cidapp --no-capture-output pip install django-q
+
+COPY ./resources/fgvc-1.3.3.dev0-py3-none-any.whl ./
+RUN conda run -n cidapp --no-capture-output pip install fgvc-1.3.3.dev0-py3-none-any.whl
 
 #RUN apt-get install multitail
 RUN mkdir -p ~/piglegcv/logs/
