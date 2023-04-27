@@ -3,6 +3,19 @@
 
 ## Development
 
+### In Docker
+
+Start:
+```bash
+docker-compose --env-file .env up --build
+```
+
+Stop:
+```bash
+docker-compose down
+```
+
+### On local machine
 
 ```bash
 conda create -n cidapp -c conda-forge torchvision wandb environ django-allauth django

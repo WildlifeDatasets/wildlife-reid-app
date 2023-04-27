@@ -29,8 +29,8 @@ services:
 #    depends_on:
 #      - mariadb
   cidapp:
-    build: .
-    image: "${WEBAPP_IMAGE_PREFIX}piglegweb:latest"
+    build: ./docker
+    image: "${WEBAPP_IMAGE_PREFIX}cidapp:latest"
     ports:
       - '8000:${WEBAPP_PORT}'
 #    environment:
