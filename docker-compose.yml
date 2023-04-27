@@ -29,10 +29,11 @@ services:
 #    depends_on:
 #      - mariadb
   cidapp:
-    build: ./docker
-    image: "${WEBAPP_IMAGE_PREFIX}cidapp:latest"
+    build: "./docker"
+    #image: "${WEBAPP_IMAGE_PREFIX}cidapp:latest"
     ports:
-      - '8000:${WEBAPP_PORT}'
+      - 8000:8100
+      #- '8000:${WEBAPP_PORT}'
 #    environment:
 #      - PIGLEGCV_HOSTNAME=piglegcv
 #      - PIGLEGCV_PORT=5000
@@ -41,7 +42,8 @@ services:
 #      - DOCKERLOGNAME="devel"
 #     dockery vidí své vnitřní porty, nikoliv ty vnější
     volumes:
-      - "${WEBAPP_ROOT_DIR}:/webapps/CarnivoreID-App"
+      - "/webapps/CarnivoreID-App:./"
+         # - "${WEBAPP_ROOT_DIR}:/webapps/CarnivoreID-App"
 #      - "${WEBAPP_LOG_DIR}:/root/pigleg/logs"
       #      - "C:/Users/Jirik/projects/piglegsurgery:/webapps/piglegsurgery"
 #  piglegcv:
