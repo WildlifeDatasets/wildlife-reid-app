@@ -7,7 +7,7 @@
 
 Start:
 ```bash
-docker-compose --env-file .env up --build
+docker-compose --verbose --env-file .env up --build
 ```
 
 Stop:
@@ -18,11 +18,10 @@ docker-compose down
 ### On local machine
 
 ```bash
-conda create -n cidapp -c conda-forge torchvision wandb django-environ django-allauth django pip pandas loguru
+conda create -n cidapp -c conda-forge torchvision wandb django-environ django-allauth django pip pandas loguru joblib
 pip install django_q
 ```
 
 ```bash
-cd resources
-pip install fgvc-1.3.3.dev0-py3-none-any.whl
+pip install docker/resources/fgvc-1.3.3.dev0-py3-none-any.whl
 ```
