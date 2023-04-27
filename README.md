@@ -18,7 +18,7 @@ docker-compose down
 ### On local machine
 
 ```bash
-conda create -n cidapp -c conda-forge torchvision wandb environ django-allauth django
+conda create -n cidapp -c conda-forge torchvision wandb django-environ django-allauth django pip
 pip install django_q
 ```
 
