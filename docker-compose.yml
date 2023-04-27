@@ -80,13 +80,13 @@ services:
 #      - "/webapps/piglegsurgery:/webapps/piglegsurgery"
 ##      - "C:/Users/Jirik/projects/piglegsurgery:/webapps/piglegsurgery"
 volumes:
+  cidapp:
+    driver: local
 #  mariadb_data:
 #    driver: local
 #  moodle_data:
 #    driver: local
 #  moodledata_data:
 #    driver: local
-  cidapp:
-    driver: local
 #  piglegcv:
 #    driver: local
