@@ -65,6 +65,7 @@ class UploadedArchive(models.Model):
     outputdir = models.CharField(max_length=255, blank=True, default=get_output_dir)
     thumbnail = models.ImageField(upload_to=outputdir, blank=True)
     zip_file = models.FileField(upload_to=outputdir, blank=True, null=True)
+    csv_file = models.FileField(upload_to=outputdir, blank=True, null=True)
     hash = models.CharField(max_length=255, blank=True, default=_hash)
     started_at = models.DateTimeField("Started at", blank=True, null=True)
     finished_at = models.DateTimeField("Finished at", blank=True, null=True)
