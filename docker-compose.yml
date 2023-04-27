@@ -29,6 +29,7 @@ services:
 #    depends_on:
 #      - mariadb
   cidapp:
+    build: .
     image: "${WEBAPP_IMAGE_PREFIX}piglegweb:latest"
     ports:
       - '8000:${WEBAPP_PORT}'
