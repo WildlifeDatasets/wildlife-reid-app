@@ -30,6 +30,14 @@
                       <h5 class="card-title">{{ uploadedarchive }}</h5>
                         <p>Uploaded at: {{ uploadedarchive.uploaded_at }} </p>
                         <p>Finished at: {{ uploadedarchive.finished_at}} </p>
+
+                        {% if uploadedarchive.zip_file %}
+                        <a class="btn btn-secondary" href="{{ uploadedarchive.zip_file.url }}"><i class="bi bi-download"></i> Download images</a>
+                        {% endif %}
+                        <a class="btn btn-secondary" href="{% url 'cidapp:delete_upload' uploadedarchive.id %}"
+                                onclick="return confirm('Delete file {{ uploadedarchive }}?')">
+                            <i class="bi bi-trash"></i> Delete
+                        </a>
                       <p>This is an examle page with no contrnt. You can use it as a starter for your custom pages.</p>
                     </div>
                   </div>

@@ -1,7 +1,9 @@
 from pathlib import Path
 from .models import UploadedArchive
 import shutil
+import os.path
 import django
+from django.conf import settings
 from .cv import dataset_tools, data_processing_pipeline
 import loguru
 from loguru import logger
@@ -75,6 +77,7 @@ def run_processing(uploaded_archive: UploadedArchive):
     # make_zip(uploaded_archive)
     #
     uploaded_archive.finished_at = django.utils.timezone.now()
+    uploaded_archive.zip_file = os.path.relpath(outputdir_zip, settings.MEDIA_ROOT)
     uploaded_archive.save()
     # _add_row_to_spreadsheet(uploaded_archive, absolute_uri)
     logger.debug("Processing finished")

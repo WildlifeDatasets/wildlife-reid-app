@@ -13,7 +13,7 @@ from loguru import logger
 def wellcome(request):
     pass
 
-def media_files(request, uploadedarchive_id):
+def media_files(request, ploadedarchive_id):
     uploadedarchive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
     uploadedarchive
 
@@ -89,3 +89,10 @@ def model_form_upload(request):
         "cidapp/model_form_upload.html",
         {"form": form, "headline": "Upload", "button": "Upload"},
     )
+
+
+def delete_upload(request, uploadedarchive_id):
+    uploadedarchive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
+    uploadedarchive.delete()
+    return redirect('/cidapp/uploads')
+
