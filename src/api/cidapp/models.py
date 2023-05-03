@@ -42,11 +42,8 @@ class CIDUser(models.Model):
         logger.debug(instance)
         logger.debug(kwargs)
         # pdb.set_trace()
-        from django.core.exceptions import ObjectDoesNotExist
 
-        try:
-            instance.ciduser
-        except ObjectDoesNotExist:
+        if not hasattr(instance, "ciduser"):
             profile, created = CIDUser.objects.get_or_create(user=instance)
             instance.ciduser = profile
         # UserProfile.objects.get_or_create(user=request.user)
