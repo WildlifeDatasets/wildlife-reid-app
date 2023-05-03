@@ -1,41 +1,43 @@
 import django
-from django.shortcuts import render, get_object_or_404, redirect
-from django.contrib.auth import logout
-from .forms import UploadedArchiveForm
-from .models import UploadedArchive, CIDUser
 from django.conf import settings
+from django.contrib.auth import logout
+from django.shortcuts import get_object_or_404, redirect, render
+from loguru import logger
+
 from . import tasks
 from .cv.data_processing_pipeline import data_processing
-from loguru import logger
+from .forms import UploadedArchiveForm
+from .models import CIDUser, UploadedArchive
 
 # Create your views here.
 
+
 def wellcome(request):
     pass
+
 
 def media_files(request, ploadedarchive_id):
     uploadedarchive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
     uploadedarchive
 
 
-
 def uploads(request):
     uploadedarchives = UploadedArchive.objects.filter(
         owner=request.user.ciduser,
-    ).all() #\
+    ).all()  # \
     # .exclude(
     #    tag__in=hide_tags
-    #)
+    # )
     print(uploadedarchives)
-    context = {
-        "uploadedarchives": uploadedarchives
-    }
-    return render(request, 'cidapp/uploads.html', context)
+    context = {"uploadedarchives": uploadedarchives}
+    return render(request, "cidapp/uploads.html", context)
+
 
 def logout_view(request):
     logout(request)
     # Redirect to a success page.
-    return redirect('/cidapp/login')
+    return redirect("/cidapp/login")
+
 
 def model_form_upload(request):
     if request.method == "POST":
@@ -94,5 +96,4 @@ def model_form_upload(request):
 def delete_upload(request, uploadedarchive_id):
     uploadedarchive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
     uploadedarchive.delete()
-    return redirect('/cidapp/uploads')
-
+    return redirect("/cidapp/uploads")

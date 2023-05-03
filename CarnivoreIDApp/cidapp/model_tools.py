@@ -1,10 +1,11 @@
-from hashlib import sha1 as sha_constructor
+import logging
 import secrets
 import string
-from django.conf import settings
 from datetime import datetime
-import logging
+from hashlib import sha1 as sha_constructor
 from pathlib import Path
+
+from django.conf import settings
 
 logger = logging.getLogger(__file__)
 
@@ -35,10 +36,12 @@ def generate_sha1(string, salt=None):
 
     return hash
 
+
 def randomString(stringLength=16):
     alphabet = string.ascii_lowercase + string.digits
     # alphabet = string.ascii_letters + string.digits
     return "".join(secrets.choice(alphabet) for i in range(stringLength))
+
 
 def randomString12():
     return randomString(12)
@@ -50,11 +53,7 @@ def get_output_dir():
     output_directory_path = Path(settings.MEDIA_ROOT) / "output"
     # datetimestr = datetime.datetime.now().strftime("%Y%m%d-%H%M%S.%f")
     datetimestr = datetime.now().strftime("%Y%m%d-%H%M%S")
-    filename = str(
-        output_directory_path /
-        (datetimestr + "_" + randomString(12)) /
-        datetimestr
-        )
+    filename = str(output_directory_path / (datetimestr + "_" + randomString(12)) / datetimestr)
     return filename
 
 
@@ -73,10 +72,14 @@ def upload_to_unqiue_folder(instance, filename):
 
     datetimestr = datetime.now().strftime("%Y%m%d-%H%M%S")
 
-    return str((Path(settings.MEDIA_ROOT) / "upload" /
-               (datetimestr + "_" + instance_filename + "_" + hash) /
-        filename).resolve()
-        )
+    return str(
+        (
+            Path(settings.MEDIA_ROOT)
+            / "upload"
+            / (datetimestr + "_" + instance_filename + "_" + hash)
+            / filename
+        ).resolve()
+    )
 
 
 # def upload_to_unqiue_folder(instance, filename):

@@ -1,12 +1,15 @@
-from pathlib import Path
-from .models import UploadedArchive
-import shutil
 import os.path
+import shutil
+from pathlib import Path
+
 import django
-from django.conf import settings
-from .cv import dataset_tools, data_processing_pipeline
 import loguru
+from django.conf import settings
 from loguru import logger
+
+from .cv import data_processing_pipeline, dataset_tools
+from .models import UploadedArchive
+
 
 def run_processing_test(uploaded_archive: UploadedArchive):
     outputdir = Path(uploaded_archive.outputdir)
@@ -24,6 +27,7 @@ def run_processing_test(uploaded_archive: UploadedArchive):
     )
     logger.debug("Processing finished")
     logger.remove(logger_id)
+
 
 def run_processing(uploaded_archive: UploadedArchive):
     outputdir = Path(uploaded_archive.outputdir)
@@ -47,7 +51,7 @@ def run_processing(uploaded_archive: UploadedArchive):
     input_file = Path(uploaded_archive.archivefile.path)
     # logger.debug(f"input_file={input_file}")
     outputdir = Path(uploaded_archive.outputdir)
-    outputdir_images = outputdir / 'images'
+    outputdir_images = outputdir / "images"
     outputdir_csv = outputdir / "metadata.csv"
     outputdir_zip = outputdir / "images.zip"
     # logger.debug(f"outputdir={outputdir}")

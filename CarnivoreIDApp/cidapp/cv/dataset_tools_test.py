@@ -31,7 +31,7 @@ def test_dataset_Sumava():
     metadata_path = Path("sumava_metadata")
     # sumava_processing = dataset_tools.SumavaDatasetProcessing(
     sumava_processing = dataset_tools.SumavaInitialProcessing(
-        CARNIVORE_DATASET_BASEDIR / "DATA_SUNAP_tiny_test_subset", # file_mask="./**/*.*"
+        CARNIVORE_DATASET_BASEDIR / "DATA_SUNAP_tiny_test_subset",  # file_mask="./**/*.*"
     )
 
     if sumava_processing.filelist_path.exists():

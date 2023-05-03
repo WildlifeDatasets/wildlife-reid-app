@@ -2,18 +2,17 @@ import logging
 import shutil
 import tarfile
 from pathlib import Path
-from typing import Tuple, Optional
+from typing import Optional, Tuple
 from zipfile import ZipFile
 
 import numpy as np
 import pandas as pd
 import torch
 import wandb
+from fgvc.utils.experiment import load_model
 from scipy.special import softmax
 from tqdm import tqdm
 
-
-from fgvc.utils.experiment import load_model
 try:
     import dataset_tools
 except Exception as E:
@@ -37,7 +36,7 @@ def extract_zipfile(zipfile_path: Path, output_dir_path: Path):
         zObject.extractall(path=output_dir_path)
 
 
-def analyze_dataset_directory(dataset_dir_path: Path, num_cores:Optional[int]=None):
+def analyze_dataset_directory(dataset_dir_path: Path, num_cores: Optional[int] = None):
     """Get species, locality, datetime and sequence_id from directory with media files.
 
     Parameters
@@ -93,7 +92,9 @@ def analyze_dataset_directory(dataset_dir_path: Path, num_cores:Optional[int]=No
     return metadata, duplicates
 
 
-def data_preprocessing(zip_path: Path, media_dir_path: Path, num_cores: Optional[int] = None) -> Tuple[pd.DataFrame, pd.DataFrame]:
+def data_preprocessing(
+    zip_path: Path, media_dir_path: Path, num_cores: Optional[int] = None
+) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """Preprocessing of data in zip file.
 
     If the Sumava data dir structure is present, the additional information is extracted.
@@ -187,7 +188,9 @@ def prediction(metadata: pd.DataFrame):
     return logits, targs, scores
 
 
-def data_processing(zip_path: Path, media_dir_path: Path, csv_path: Path, num_cores: Optional[int] = None):
+def data_processing(
+    zip_path: Path, media_dir_path: Path, csv_path: Path, num_cores: Optional[int] = None
+):
     """Preprocessing and prediction on data in ZIP file.
 
     Files are renamed according to the hash based on input path.

@@ -5,17 +5,17 @@ from pathlib import Path
 import pytest
 
 from CarnivoreIDApp.cidapp.cv import data_processing_pipeline
+from CarnivoreIDApp.cidapp.cv.dataset_tools import (  # make_tarfile,
+    _species_czech_preprocessing,
+    make_hash,
+    make_zipfile,
+)
 
 # try:
 #     from . import data_processing_pipeline
 # except ImportError:
 #     import data_processing_pipeline
 
-from CarnivoreIDApp.cidapp.cv.dataset_tools import (  # make_tarfile,
-    _species_czech_preprocessing,
-    make_hash,
-    make_zipfile,
-)
 
 CID_DATASET_BASEDIR = Path(os.getenv("CARNIVOREID_DATASET_BASEDIR", r"H:\biology\orig\CarnivoreID"))
 CI = os.getenv("CI", False)
@@ -72,7 +72,9 @@ def test_data_preprocessing_parallel():
     csv_path.unlink(missing_ok=True)
     assert not media_dir_path.exists()
 
-    metadata, duplicates = data_processing_pipeline.data_preprocessing(tarfile_path, media_dir_path, num_cores=1)
+    metadata, duplicates = data_processing_pipeline.data_preprocessing(
+        tarfile_path, media_dir_path, num_cores=1
+    )
     assert (
         len(list(media_dir_path.glob("**/*"))) > 0
     ), "There should be some files in media dir path"

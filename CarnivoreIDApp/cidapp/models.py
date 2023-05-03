@@ -1,20 +1,28 @@
 import logging
+from datetime import datetime
+from pathlib import Path
 
+from django.contrib.auth import get_user_model
 from django.db import models
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+
+from .model_tools import (
+    generate_sha1,
+    get_output_dir,
+    randomString,
+    randomString12,
+    upload_to_unqiue_folder,
+)
 
 # Create your models here.
 
-from datetime import datetime
-from django.contrib.auth import get_user_model
 
-from .model_tools import upload_to_unqiue_folder, generate_sha1, randomString, get_output_dir, randomString12
-from django.dispatch import receiver
-from django.db.models.signals import post_save
-from pathlib import Path
 
 logger = logging.getLogger(__file__)
 
 User = get_user_model()
+
 
 class CIDUser(models.Model):
     id = models.AutoField(primary_key=True)
@@ -36,6 +44,7 @@ class CIDUser(models.Model):
         logger.debug(kwargs)
         # pdb.set_trace()
         from django.core.exceptions import ObjectDoesNotExist
+
         try:
             instance.ciduser
         except ObjectDoesNotExist:
@@ -43,11 +52,12 @@ class CIDUser(models.Model):
             instance.ciduser = profile
         # UserProfile.objects.get_or_create(user=request.user)
         instance.ciduser.save()
+
+
 def _hash():
     dt = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
     hash = generate_sha1(dt, salt=randomString())
     return hash
-
 
 
 class UploadedArchive(models.Model):
@@ -74,11 +84,13 @@ class UploadedArchive(models.Model):
     def __str__(self):
         return str(Path(self.archivefile.name).name)
 
+
 class Taxon(models.Model):
     name = models.CharField(max_length=50)
 
     def __str__(self):
         return str(self.name)
+
 
 class MediaFile(models.Model):
     parent = models.ForeignKey(UploadedArchive, on_delete=models.CASCADE)
@@ -90,7 +102,6 @@ class MediaFile(models.Model):
         null=True,
         max_length=500,
     )
+
     def __str__(self):
         return str(Path(self.mediafile.name).name)
-
-

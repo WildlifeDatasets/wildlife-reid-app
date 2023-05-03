@@ -1,11 +1,9 @@
 from django.contrib import admin
 
+from .models import CIDUser, UploadedArchive
+
 # Register your models here.
 
-from .models import (
-    CIDUser,
-    UploadedArchive
-)
 
 
 admin.site.register(CIDUser)

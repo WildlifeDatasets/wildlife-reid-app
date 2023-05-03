@@ -472,6 +472,7 @@ def make_dataset(
                     shutil.copyfile(input_file_path, output_file_path)
                 except Exception as e:
                     import traceback
+
                     logger.warning(traceback.format_exception(e))
 
     if make_tar:
@@ -489,7 +490,7 @@ class SumavaInitialProcessing:
         cache_file: Optional[Path] = None,
         filelist_path: Optional[Path] = None,
         group_mask: str = "./*/*/*",
-        num_cores:Optional[int]=None,
+        num_cores: Optional[int] = None,
     ):
         """
 

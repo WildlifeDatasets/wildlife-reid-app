@@ -10,8 +10,8 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 import os
-
 from pathlib import Path
+
 # import environ
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -39,6 +39,7 @@ if scpath.exists():
 else:
     with open(scpath, "w") as f:
         from django.core.management.utils import get_random_secret_key
+
         SECRET_KEY = f.write(get_random_secret_key())
 
 # SECURITY WARNING: don't run with debug turned on in production!
@@ -57,11 +58,11 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "cidapp.apps.CidappConfig",
-    'allauth',  # <--
-    'allauth.account',  # <--
-    'allauth.socialaccount',  # <--
-    'allauth.socialaccount.providers.google',  # <--
-    "django_q"
+    "allauth",  # <--
+    "allauth.account",  # <--
+    "allauth.socialaccount",  # <--
+    "allauth.socialaccount.providers.google",  # <--
+    "django_q",
 ]
 
 MIDDLEWARE = [
@@ -154,7 +155,7 @@ STATIC_ROOT = "static"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 
-COMPUTER_VISION_TIMEOUT = 10*3600
+COMPUTER_VISION_TIMEOUT = 10 * 3600
 Q_CLUSTER = {
     "workers": 3,
     "redis": {
@@ -171,4 +172,4 @@ Q_CLUSTER = {
     "retry": COMPUTER_VISION_TIMEOUT + 1000,
 }
 
-CREDS_JSON_FILE = Path(PRIVATE_DIR) / 'piglegsurgery-creds.json'
+CREDS_JSON_FILE = Path(PRIVATE_DIR) / "piglegsurgery-creds.json"
