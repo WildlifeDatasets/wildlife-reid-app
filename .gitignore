@@ -130,3 +130,8 @@ dmypy.json
 
 # PyCharm
 .idea
+
+# Secrets
+secretkey.txt
+/cidapp_data
+/cidapp_private

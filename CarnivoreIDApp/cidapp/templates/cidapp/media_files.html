@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block head %}
+<!--refresh every 120 s-->
+{#<meta http-equiv="refresh" content="120">#}
+{% endblock %}
+{% block body %}
+    {% if user.is_authenticated %}
+        <div class="pagetitle">
+            <h1>Uploads</h1>
+            {#      <nav>#}
+            {#        <ol class="breadcrumb">#}
+            {#          <li class="breadcrumb-item"><a href="index.html">Home</a></li>#}
+            {#          <li class="breadcrumb-item">Pages</li>#}
+            {#          <li class="breadcrumb-item active">Blank</li>#}
+            {#        </ol>#}
+            {#      </nav>#}
+        </div><!-- End Page Title -->
+        <section class="section">
+        {% if uploadedarchives %}
+            <div class="container">
+                {% for uploadedarchive in uploadedarchives %}
+                  <div class="card">
+                    <div class="card-body">
+                      <h5 class="card-title">Example Card</h5>
+                        {{ uploadedarchive }}
+                      <p>This is an examle page with no contrnt. You can use it as a starter for your custom pages.</p>
+                    </div>
+                  </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p>No data available.</p>
+        {% endif %}
+        </section>
+    {% endif %}
+{% endblock %}

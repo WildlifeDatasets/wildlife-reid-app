@@ -1,0 +1,38 @@
+#!/bin/bash
+
+NAME="piglegsurgery_gunicorn"                                  # Name of the application
+DJANGODIR=/webapps/CarnivoreID-App/cidapp # Django project directory
+SOCKFILE=/webapps/CarnivoreID-App/docker/run/gunicorn.sock  # we will communicte using this unix socket
+#USER=root                                   # the user to run as
+#USER=scaffanweb                                        # the user to run as
+#GROUP=webapps                                     # the group to run as
+NUM_WORKERS=3                                     # how many worker processes should Gunicorn spawn
+DJANGO_SETTINGS_MODULE=cidapp.settings             # which settings file should Django use
+DJANGO_WSGI_MODULE=cidapp.wsgi                     # WSGI module name
+CONDA_ENV=piglegsurgery
+CONDA_DIR=/opt/conda/
+
+echo "Starting $NAME as `whoami`"
+
+# Activate the virtual environment
+cd $DJANGODIR
+# source ../bin/activate
+source $CONDA_DIR/bin/activate $CONDA_ENV
+# conda activate $CONDA_ENV
+export DJANGO_SETTINGS_MODULE=$DJANGO_SETTINGS_MODULE
+export PYTHONPATH=$DJANGODIR:$PYTHONPATH
+
+# Create the run directory if it doesn't exist
+RUNDIR=$(dirname $SOCKFILE)
+test -d $RUNDIR || mkdir -p $RUNDIR
+
+# Start your Django Unicorn
+# Programs meant to be run under supervisor should not daemonize themselves (do not use --daemon)
+# exec ../bin/gunicorn ${DJANGO_WSGI_MODULE}:application \
+exec gunicorn ${DJANGO_WSGI_MODULE}:application \
+  --name $NAME \
+  --workers $NUM_WORKERS \
+#  --user=$USER --group=$GROUP \
+  --bind=unix:$SOCKFILE \
+  --log-level=debug \
+  --log-file=-

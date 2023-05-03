@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block head %}
+<!--refresh every 120 s-->
+{#<meta http-equiv="refresh" content="120">#}
+{% endblock %}
+{% block body %}
+    {% if user.is_authenticated %}
+        <div class="pagetitle">
+            <h1>Uploads</h1>
+            {#      <nav>#}
+            {#        <ol class="breadcrumb">#}
+            {#          <li class="breadcrumb-item"><a href="index.html">Home</a></li>#}
+            {#          <li class="breadcrumb-item">Pages</li>#}
+            {#          <li class="breadcrumb-item active">Blank</li>#}
+            {#        </ol>#}
+            {#      </nav>#}
+        </div><!-- End Page Title -->
+        <section class="section">
+            <div class="container">
+{#            <div class="card">#}
+{#                <div class="card-body">#}
+{#                    <a class="btn btn-primary" href="{% url 'cidapp:model_form_upload' %}" >Upload new archive</a>#}
+{#                </div>#}
+{#            </div>#}
+        {% if uploadedarchives %}
+                {% for uploadedarchive in uploadedarchives %}
+                  <div class="card">
+                    <div class="card-body">
+                      <h5 class="card-title">{{ uploadedarchive }}</h5>
+                        <p>Uploaded at: {{ uploadedarchive.uploaded_at }} </p>
+                        <p>Finished at: {{ uploadedarchive.finished_at}} </p>
+
+                        {% if uploadedarchive.zip_file %}
+                        <a class="btn btn-secondary" href="{{ uploadedarchive.zip_file.url }}"><i class="bi bi-download"></i> Download images</a>
+                        {% endif %}
+                        {% if uploadedarchive.csv_file %}
+                            <a class="btn btn-secondary" href="{{ uploadedarchive.csv_file.url }}"><i class="bi bi-table"></i> Download images</a>
+                        {% endif %}
+                        <a class="btn btn-secondary" href="{% url 'cidapp:delete_upload' uploadedarchive.id %}"
+                                onclick="return confirm('Delete file {{ uploadedarchive }}?')">
+                            <i class="bi bi-trash"></i> Delete
+                        </a>
+                    </div>
+                  </div>
+                {% endfor %}
+        {% else %}
+            <p>No data available.</p>
+        {% endif %}
+            </div>
+        </section>
+    {% endif %}
+{% endblock %}

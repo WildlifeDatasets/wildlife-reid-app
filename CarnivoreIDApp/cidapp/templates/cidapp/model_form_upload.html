@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+
+{% block body%}
+{#<div class="container">#}
+    {% if user.is_authenticated %}
+        <div class="pagetitle">
+            <h1>{{ headline }}</h1>
+            {#      <nav>#}
+            {#        <ol class="breadcrumb">#}
+            {#          <li class="breadcrumb-item"><a href="index.html">Home</a></li>#}
+            {#          <li class="breadcrumb-item">Pages</li>#}
+            {#          <li class="breadcrumb-item active">Blank</li>#}
+            {#        </ol>#}
+            {#      </nav>#}
+        </div><!-- End Page Title -->
+    <div class="container">
+        <p class="text-danger">{{error_text}}</p>
+
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            {{ form.as_p }}
+        <button class="btn btn-primary has-spinner" id="btnUpload" type="submit">
+            <span class="spinner"><i class="fa fa-refresh fa-spin"></i></span>
+            {{ button }}
+        </button>
+            <a class="btn btn-secondary" href="{% url 'cidapp:uploads' %}">Cancel</a>
+
+        </form>
+    </div>
+    {% endif %}
+{#</div>#}
+{% endblock %}
