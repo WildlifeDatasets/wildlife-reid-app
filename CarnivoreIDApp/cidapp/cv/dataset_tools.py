@@ -482,7 +482,17 @@ def make_dataset(
 
 
 class SumavaInitialProcessing:
-    """Do slow list of paths and extraction of date and time from EXIF in parallel if necessary."""
+    """Do slow list of paths and extraction of date and time from EXIF in parallel if necessary.
+
+    Parameters
+    ----------
+    dataset_basedir
+    cache_file
+    filelist_path
+    group_mask
+    num_cores
+        Default None. If None, the number of available CPUs is used. If 1 the Parallel is not used.
+    """
 
     def __init__(
         self,
@@ -492,16 +502,6 @@ class SumavaInitialProcessing:
         group_mask: str = "./*/*/*",
         num_cores: Optional[int] = None,
     ):
-        """
-
-        Parameters
-        ----------
-        dataset_basedir
-        cache_file
-        filelist_path
-        group_mask
-        num_cores: Default None. If None, the number of available CPUs is used. If 1 the Parallel is not used.
-        """
         if cache_file is None:
             cache_file = Path("cache.json")
         if filelist_path is None:
@@ -588,7 +588,8 @@ class SumavaInitialProcessing:
                 for path_group in tqdm(self.path_groups, desc="getting file list")
             )
         else:
-            # single processor version to avoid Error: 'demonic processes are not allowed to have children'
+            # single processor version to avoid error:
+            #   Error: 'demonic processes are not allowed to have children'
             logger.debug("Using single CPU")
             vanilla_path_groups = [
                 get_relative_paths_in_dir(self.dataset_basedir, path_group, mask)

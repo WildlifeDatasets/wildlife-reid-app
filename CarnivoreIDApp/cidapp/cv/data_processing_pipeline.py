@@ -13,10 +13,7 @@ from fgvc.utils.experiment import load_model
 from scipy.special import softmax
 from tqdm import tqdm
 
-try:
-    import dataset_tools
-except Exception as E:
-    from . import dataset_tools
+from . import dataset_tools
 
 logger = logging.getLogger(__file__)
 
@@ -194,13 +191,13 @@ def data_processing(
     """Preprocessing and prediction on data in ZIP file.
 
     Files are renamed according to the hash based on input path.
+
     Parameters
     ----------
     zip_path: path to input zip file.
     media_dir_path: Path to content of zip. The file names are hashed.
     csv_path: Path to output CSV file.
     """
-
     metadata, _ = data_preprocessing(zip_path, media_dir_path, num_cores=num_cores)
 
     metadata = metadata[metadata.media_type == "image"].reset_index(drop=True)

@@ -16,9 +16,6 @@ from .model_tools import (
 )
 
 # Create your models here.
-
-
-
 logger = logging.getLogger(__file__)
 
 User = get_user_model()
@@ -34,11 +31,13 @@ class CIDUser(models.Model):
 
     @receiver(post_save, sender=User)
     def create_user_profile(sender, instance, created, **kwargs):
+        """TODO add docstring."""
         if created:
             CIDUser.objects.create(user=instance)
 
     @receiver(post_save, sender=User)
     def save_user_profile(sender, instance, **kwargs):
+        """TODO add docstring."""
         logger.debug(sender)
         logger.debug(instance)
         logger.debug(kwargs)

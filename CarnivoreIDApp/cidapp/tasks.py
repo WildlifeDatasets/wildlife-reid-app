@@ -12,6 +12,7 @@ from .models import UploadedArchive
 
 
 def run_processing_test(uploaded_archive: UploadedArchive):
+    """TODO add docstring."""
     outputdir = Path(uploaded_archive.outputdir)
     if outputdir.exists() and outputdir.is_dir():
         shutil.rmtree(outputdir, ignore_errors=True)
@@ -30,6 +31,7 @@ def run_processing_test(uploaded_archive: UploadedArchive):
 
 
 def run_processing(uploaded_archive: UploadedArchive):
+    """TODO add docstring."""
     outputdir = Path(uploaded_archive.outputdir)
     if outputdir.exists() and outputdir.is_dir():
         shutil.rmtree(outputdir, ignore_errors=True)

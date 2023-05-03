@@ -27,8 +27,8 @@ def generate_sha1(string, salt=None):
     string = str(string)
     if not salt:
         salt = str(sha_constructor(str(secrets.random())).hexdigest()[:5])
-    import hashlib
 
+    # import hashlib
     # >> > sha = hashlib.sha256()
     # >> > sha.update('somestring'.encode())
     # >> > sha.hexdigest()
@@ -38,16 +38,19 @@ def generate_sha1(string, salt=None):
 
 
 def randomString(stringLength=16):
+    """TODO add docstring."""
     alphabet = string.ascii_lowercase + string.digits
     # alphabet = string.ascii_letters + string.digits
     return "".join(secrets.choice(alphabet) for i in range(stringLength))
 
 
 def randomString12():
+    """TODO add docstring."""
     return randomString(12)
 
 
 def get_output_dir():
+    """TODO add docstring."""
     #
     # import datetime
     output_directory_path = Path(settings.MEDIA_ROOT) / "output"
@@ -58,16 +61,15 @@ def get_output_dir():
 
 
 def upload_to_unqiue_folder(instance, filename):
-    """
-    Uploads a file to an unique generated Path to keep the original filename
-    """
+    """Uploads a file to a unique generated Path to keep the original filename."""
     logger.debug("upload_to_unique_folder")
     logger.debug(instance)
     logger.debug(filename)
     logger.debug(instance.uploaded_at)
     hash = generate_sha1(instance.uploaded_at, "_")
 
-    # instance_filename = Path(instance.imagefile.path).stem # sometimes the instance.imagefile does not exist
+    # instance_filename = Path(instance.imagefile.path).stem
+    # sometimes the instance.imagefile does not exist
     instance_filename = Path(filename).stem
 
     datetimestr = datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -92,7 +94,8 @@ def upload_to_unqiue_folder(instance, filename):
 #     logger.debug(instance.uploaded_at)
 #     hash = generate_sha1(instance.uploaded_at, "_")
 #
-#     # instance_filename = Path(instance.imagefile.path).stem # sometimes the instance.imagefile does not exist
+#     # instance_filename = Path(instance.imagefile.path).stem
+#     # sometimes the instance.imagefile does not exist
 #     instance_filename = Path(filename).stem
 #
 #     datetimestr = datetime.now().strftime("%Y%m%d-%H%M%S")

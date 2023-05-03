@@ -4,24 +4,26 @@ from django.contrib.auth import logout
 from django.shortcuts import get_object_or_404, redirect, render
 from loguru import logger
 
-from . import tasks
-from .cv.data_processing_pipeline import data_processing
 from .forms import UploadedArchiveForm
-from .models import CIDUser, UploadedArchive
+from .models import UploadedArchive
 
 # Create your views here.
 
 
 def wellcome(request):
+    """TODO add docstring."""
     pass
 
 
 def media_files(request, ploadedarchive_id):
-    uploadedarchive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
-    uploadedarchive
+    """TODO add docstring."""
+    # uploadedarchive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
+    # uploadedarchive
+    pass
 
 
 def uploads(request):
+    """TODO add docstring."""
     uploadedarchives = UploadedArchive.objects.filter(
         owner=request.user.ciduser,
     ).all()  # \
@@ -34,12 +36,14 @@ def uploads(request):
 
 
 def logout_view(request):
+    """TODO add docstring."""
     logout(request)
     # Redirect to a success page.
     return redirect("/cidapp/login")
 
 
 def model_form_upload(request):
+    """TODO add docstring."""
     if request.method == "POST":
         form = UploadedArchiveForm(
             request.POST,
@@ -94,6 +98,7 @@ def model_form_upload(request):
 
 
 def delete_upload(request, uploadedarchive_id):
+    """TODO add docstring."""
     uploadedarchive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
     uploadedarchive.delete()
     return redirect("/cidapp/uploads")
