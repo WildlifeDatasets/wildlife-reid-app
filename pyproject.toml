@@ -1,0 +1,9 @@
+[tool.black]
+line-length = 100
+
+[tool.isort]
+line_length = 100
+profile = "black"
+# known_third_party = []
+# known_first_party = []
+# known_local_folder = []
