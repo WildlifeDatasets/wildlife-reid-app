@@ -1,6 +1,19 @@
 version: "3.8"
 
 services:
+  redis:
+    image: redis:7.0.11-alpine
+    container_name: carnivoreid-app-redis
+    restart: always
+    expose:
+      - 6379
+    command:
+      - --loglevel warning
+    volumes:
+      - redis-data:/data:Z
+    labels:
+      com.piva-ai.group: "applications"
+
   api:
     image: ${API_IMAGE:-api}${TAG:-:latest}
     build:
@@ -14,10 +27,33 @@ services:
       - api-data:/data
     ports:
       - "8080:8080"
+    depends_on:
+      - redis
+    labels:
+      com.piva-ai.group: "applications"
+
+  djangoq:
+    image: ${API_IMAGE:-djangoq}${TAG:-:latest}
+    build:
+      context: .
+      dockerfile: ./src/api/Dockerfile
+    container_name: carnivoreid-app-djangoq
+    restart: always
+    env_file:
+      - "src/variables.env"
+    volumes:
+      - api-data:/data
+    command: python manage.py qcluster
+    depends_on:
+      - redis
     labels:
       com.piva-ai.group: "applications"
 
 volumes:
+  redis-data:
+    labels:
+      com.piva-ai.group: "applications"
+      com.piva-ai.backup: "yes"
   api-data:
     labels:
       com.piva-ai.group: "applications"
