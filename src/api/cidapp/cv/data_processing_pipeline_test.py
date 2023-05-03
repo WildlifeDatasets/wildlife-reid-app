@@ -3,7 +3,6 @@ import shutil
 from pathlib import Path
 
 import pytest
-
 from CarnivoreIDApp.cidapp.cv import data_processing_pipeline
 from CarnivoreIDApp.cidapp.cv.dataset_tools import (  # make_tarfile,
     _species_czech_preprocessing,

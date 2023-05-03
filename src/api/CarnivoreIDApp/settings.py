@@ -9,8 +9,16 @@ https://docs.djangoproject.com/en/4.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.2/ref/settings/
 """
+import logging
 import os
 from pathlib import Path
+
+from .log import setup_logging
+
+setup_logging()
+logger = logging.getLogger("app")
+
+logger.info("Logger is set up.")
 
 # import environ
 

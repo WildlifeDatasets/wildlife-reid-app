@@ -16,7 +16,7 @@ from .model_tools import (
 )
 
 # Create your models here.
-logger = logging.getLogger(__file__)
+logger = logging.getLogger("database")
 
 User = get_user_model()
 

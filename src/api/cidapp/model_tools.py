@@ -7,7 +7,7 @@ from pathlib import Path
 
 from django.conf import settings
 
-logger = logging.getLogger(__file__)
+logger = logging.getLogger("database")
 
 
 def generate_sha1(string, salt=None):
