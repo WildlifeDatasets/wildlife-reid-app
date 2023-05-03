@@ -1,0 +1,3 @@
+static
+cidapp/migrations/*
+!cidapp/migrations/__init__.py
