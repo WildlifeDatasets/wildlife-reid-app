@@ -1,0 +1,11 @@
+version: "3.8"
+
+services:
+  api:
+    image: carnivoreid-app/api:dev
+    build:
+      context: .
+      dockerfile: ./src/api/Dockerfile_dev
+    restart: "no"
+    volumes:
+      - ./src/api:/api

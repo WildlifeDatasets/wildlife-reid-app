@@ -15,7 +15,7 @@ from pathlib import Path
 # import environ
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
-BASE_DIR = Path(__file__).resolve().parent.parent
+# BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 # Quick-start development settings - unsuitable for production
@@ -26,10 +26,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # )
 # environ.Env.read_env()
 
-PRIVATE_DIR = BASE_DIR / "../cidapp_private"
+PRIVATE_DIR = Path("/data/cidapp_private")  # BASE_DIR / "../cidapp_private"
 PRIVATE_DIR.mkdir(exist_ok=True, parents=True)
 
-WEBAPP_DATA = BASE_DIR / "../cidapp_data"
+WEBAPP_DATA = Path("/data/cidapp_data")  # BASE_DIR / "../cidapp_data"
 WEBAPP_DATA.mkdir(exist_ok=True, parents=True)
 
 scpath = PRIVATE_DIR / "secretkey.txt"

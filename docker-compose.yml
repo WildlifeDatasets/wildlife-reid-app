@@ -1,94 +1,24 @@
-version: '2'
-services:
-#  mariadb:
-#    image: docker.io/bitnami/mariadb:10.3
-#    environment:
-#      # ALLOW_EMPTY_PASSWORD is recommended only for development.
-#      - ALLOW_EMPTY_PASSWORD=yes
-#      - MARIADB_USER=bn_moodle
-#      - MARIADB_DATABASE=bitnami_moodle
-#      - MARIADB_CHARACTER_SET=utf8mb4
-#      - MARIADB_COLLATE=utf8mb4_unicode_ci
-#    volumes:
-#      - 'mariadb_data:/bitnami/mariadb'
-#  moodle:
-#    image: docker.io/bitnami/moodle:3
-#    ports:
-#      - '88:8080'
-#      - '443:8443'
-#    environment:
-#      - MOODLE_DATABASE_HOST=mariadb
-#      - MOODLE_DATABASE_PORT_NUMBER=3306
-#      - MOODLE_DATABASE_USER=bn_moodle
-#      - MOODLE_DATABASE_NAME=bitnami_moodle
-#      # ALLOW_EMPTY_PASSWORD is recommended only for development.
-#      - ALLOW_EMPTY_PASSWORD=yes
-#    volumes:
-#      - 'moodle_data:/bitnami/moodle'
-#      - 'moodledata_data:/bitnami/moodledata'
-#    depends_on:
-#      - mariadb
-  cidapp:
-    build: "./docker"
-    #image: "${WEBAPP_IMAGE_PREFIX}cidapp:latest"
-    ports:
-      - 8000:8100
-      #- '8000:${WEBAPP_PORT}'
-#    environment:
-#      - PIGLEGCV_HOSTNAME=piglegcv
-#      - PIGLEGCV_PORT=5000
-#      - PIGLEGCV_HOSTNAME_DEVEL=piglegcv_devel
-#      - PIGLEGCV_PORT_DEVEL=5000
-#      - DOCKERLOGNAME="devel"
-#     dockery vidí své vnitřní porty, nikoliv ty vnější
-    volumes:
-      - "/webapps/CarnivoreID-App:./"
-         # - "${WEBAPP_ROOT_DIR}:/webapps/CarnivoreID-App"
-#      - "${WEBAPP_LOG_DIR}:/root/pigleg/logs"
-      #      - "C:/Users/Jirik/projects/piglegsurgery:/webapps/piglegsurgery"
-#  piglegcv:
-#    image: "${PIGLEG_IMAGE_PREFIX}piglegcv:latest"
-##    command: nvidia-smi
-##    runtime: nvidia
-#    ports:
-#      - '5000'
-##    environment:
-##      - DOCKERLOGNAME=""
-#    volumes:
-#      - "${PIGLEG_ROOT_DIR}:/webapps/piglegsurgery"
-#      - '${PIGLEG_MEDIA_DIR}:/webapps/piglegsurgery/piglegsurgeryweb/media'
-#      - "${PIGLEG_LOG_DIR}:/home/appuser/logs"
-      
-#  piglegcv_devel:
-#    privileged: true
-#    image: piglegcv_devel:latest
-##    command: nvidia-smi
-##    runtime: nvidia
-#    ports:
-#      - '5001:5000'
-#    environment:
-#      - DOCKERLOGNAME=devel
-#    volumes:
-#      - "${PIGLEG_ROOT_DIR}:/webapps/piglegsurgery"
-#      - '${PIGLEG_MEDIA_DIR}:/webapps/piglegsurgery/piglegsurgeryweb/media'
-#      - "${PIGLEG_LOG_DIR}:/home/appuser/logs"
+version: "3.8"
 
-#      - "C:/Users/Jirik/projects/piglegsurgery:/webapps/piglegsurgery"
-#  piglegcv_devel:
-#    image: piglegcv:latest
-#    ports:
-#      - '5000:5001'
-#    volumes:
-#      - "/webapps/piglegsurgery:/webapps/piglegsurgery"
-##      - "C:/Users/Jirik/projects/piglegsurgery:/webapps/piglegsurgery"
+services:
+  api:
+    image: ${API_IMAGE:-api}${TAG:-:latest}
+    build:
+      context: .
+      dockerfile: ./src/api/Dockerfile
+    container_name: carnivoreid-app-api
+    restart: always
+    env_file:
+      - "src/variables.env"
+    volumes:
+      - api-data:/data
+    ports:
+      - "8080:8080"
+    labels:
+      com.piva-ai.group: "applications"
+
 volumes:
-  cidapp:
-    driver: local
-#  mariadb_data:
-#    driver: local
-#  moodle_data:
-#    driver: local
-#  moodledata_data:
-#    driver: local
-#  piglegcv:
-#    driver: local
+  api-data:
+    labels:
+      com.piva-ai.group: "applications"
+      com.piva-ai.backup: "yes"
