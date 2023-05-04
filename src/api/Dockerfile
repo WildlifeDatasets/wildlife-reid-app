@@ -16,4 +16,8 @@ EXPOSE 8080
 CMD python manage.py makemigrations && \
     python manage.py migrate && \
     python manage.py collectstatic --noinput && \
-    python manage.py runserver 0.0.0.0:8080
+    uvicorn CarnivoreIDApp.asgi:application \
+    --host 0.0.0.0 \
+    --port 8080 \
+    --log-config logging.yaml \
+    --log-level info
