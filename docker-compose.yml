@@ -1,14 +1,27 @@
 version: "3.8"
 
 services:
+  broker:
+    image: rabbitmq:3.8.34-management-alpine
+    container_name: czech-fungi-message-broker
+    restart: always
+    environment:
+      RABBITMQ_DEFAULT_USER: user
+      RABBITMQ_DEFAULT_PASS: 22pmDB%c
+    expose:
+      - 15672  # management tool
+    labels:
+      com.piva-ai.group: "applications"
+
   redis:
     image: redis:7.0.11-alpine
     container_name: carnivoreid-app-redis
     restart: always
     expose:
       - 6379
-    command:
-      - --loglevel warning
+    command: >
+      --loglevel warning
+      --requirepass password
     volumes:
       - redis-data:/data:Z
     labels:
@@ -25,26 +38,28 @@ services:
       - "src/variables.env"
     volumes:
       - api-data:/data
+      - shared-data:/shared_data
     ports:
       - "8080:8080"
     depends_on:
-      - redis
+      - inference_worker
     labels:
       com.piva-ai.group: "applications"
 
-  djangoq:
-    image: ${API_IMAGE:-djangoq}${TAG:-:latest}
+  inference_worker:
+    image: ${API_IMAGE:-inference-worker}${TAG:-:latest}
     build:
       context: .
-      dockerfile: ./src/api/Dockerfile
-    container_name: carnivoreid-app-djangoq
+      dockerfile: src/inference_worker/Dockerfile
+    container_name: carnivoreid-app-inference-worker
     restart: always
     env_file:
       - "src/variables.env"
     volumes:
-      - api-data:/data
-    command: python manage.py qcluster
+      - inference-worker-data:/data
+      - shared-data:/shared_data
     depends_on:
+      - broker
       - redis
     labels:
       com.piva-ai.group: "applications"
@@ -55,6 +70,14 @@ volumes:
       com.piva-ai.group: "applications"
       com.piva-ai.backup: "yes"
   api-data:
+    labels:
+      com.piva-ai.group: "applications"
+      com.piva-ai.backup: "yes"
+  inference-worker-data:
+    labels:
+      com.piva-ai.group: "applications"
+      com.piva-ai.backup: "yes"
+  shared-data:
     labels:
       com.piva-ai.group: "applications"
       com.piva-ai.backup: "yes"

@@ -37,7 +37,7 @@ logger.info("Logger is set up.")
 PRIVATE_DIR = Path("/data/cidapp_private")  # BASE_DIR / "../cidapp_private"
 PRIVATE_DIR.mkdir(exist_ok=True, parents=True)
 
-WEBAPP_DATA = Path("/data/cidapp_data")  # BASE_DIR / "../cidapp_data"
+WEBAPP_DATA = Path("/shared_data/cidapp_data")  # BASE_DIR / "../cidapp_data"
 WEBAPP_DATA.mkdir(exist_ok=True, parents=True)
 
 scpath = PRIVATE_DIR / "secretkey.txt"
@@ -70,7 +70,6 @@ INSTALLED_APPS = [
     "allauth.account",  # <--
     "allauth.socialaccount",  # <--
     "allauth.socialaccount.providers.google",  # <--
-    "django_q",
 ]
 
 MIDDLEWARE = [
@@ -161,23 +160,5 @@ STATIC_ROOT = "static"
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
-
-
-COMPUTER_VISION_TIMEOUT = 10 * 3600
-Q_CLUSTER = {
-    "workers": 3,
-    "redis": {
-        "host": "redis",
-        "port": 6379,
-        "db": 0,
-        "password": None,
-        "socket_timeout": None,
-        "charset": "utf-8",
-        "errors": "strict",
-        "unix_socket_path": None,
-    },
-    "timeout": COMPUTER_VISION_TIMEOUT,
-    "retry": COMPUTER_VISION_TIMEOUT + 1000,
-}
 
 CREDS_JSON_FILE = Path(PRIVATE_DIR) / "piglegsurgery-creds.json"

@@ -9,9 +9,12 @@ import numpy as np
 import pandas as pd
 import torch
 import wandb
-from fgvc.utils.experiment import load_model
 from scipy.special import softmax
 from tqdm import tqdm
+
+from fgvc.core.training import predict
+from fgvc.datasets import get_dataloaders
+from fgvc.utils.experiment import load_model
 
 from . import dataset_tools
 
@@ -161,9 +164,6 @@ def get_prediction_parameters():
 
 def prediction(metadata: pd.DataFrame):
     """Do the prediction of files listed in dataframe."""
-    from fgvc.core.training import predict
-    from fgvc.datasets import get_dataloaders
-
     config, weights_path, classid_category_map, device = get_prediction_parameters()
 
     model, model_mean, model_std = load_model(config, weights_path)

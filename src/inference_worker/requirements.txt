@@ -1,0 +1,12 @@
+celery[redis]==5.2.7
+
+# PyTorch
+-f https://download.pytorch.org/whl/torch_stable.html
+torch==1.8.0+cpu
+torchvision==0.9.0+cpu
+
+# FGVC library
+--index-url https://pypi.piva-ai.com/simple/
+fgvc==1.3.3.dev
+
+wandb

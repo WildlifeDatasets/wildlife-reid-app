@@ -1,4 +1,5 @@
 import json
+import logging
 import multiprocessing
 import os.path
 import re
@@ -14,10 +15,11 @@ from typing import List, Optional
 import numpy as np
 import pandas as pd
 from joblib import Parallel, delayed
-from loguru import logger
 from PIL import Image, UnidentifiedImageError
 from tqdm import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
+
+logger = logging.getLogger("app")
 
 # this is first level preprocessing fixing the most obvious typos.
 _species_czech_preprocessing = {
