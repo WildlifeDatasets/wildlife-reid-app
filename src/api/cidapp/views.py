@@ -3,13 +3,14 @@ import os
 from pathlib import Path
 
 import django
+from celery import signature
 from django.conf import settings
 from django.contrib.auth import logout
 from django.shortcuts import get_object_or_404, redirect, render
 
-from .celery import tasks
 from .forms import UploadedArchiveForm
 from .models import UploadedArchive
+from .tasks import predict_on_error, predict_on_success
 
 logger = logging.getLogger("app")
 
@@ -92,17 +93,7 @@ def model_form_upload(request):
 
             # send celery message to the data worker
             logger.info("Sending request to inference worker.")
-            # sig = signature(
-            #     "predict",
-            #     kwargs={
-            #         "input_archive_file": uploaded_archive.archivefile.name,
-            #         "output_dir": uploaded_archive.outputdir,
-            #         "output_archive_file": output_archive_file,
-            #         "output_metadata_file": output_metadata_file,
-            #     },
-            # )
-            # task = sig.apply_async()
-            task = tasks.send_task(
+            sig = signature(
                 "predict",
                 kwargs={
                     "input_archive_file": str(
@@ -113,14 +104,12 @@ def model_form_upload(request):
                     "output_metadata_file": str(output_metadata_file),
                 },
             )
+            task = sig.apply_async(
+                link=predict_on_success.s(uploaded_archive_id=uploaded_archive.id),
+                link_error=predict_on_error.s(),
+            )
             logger.info(f"Created worker task with id '{task.task_id}'.")
 
-            # async_task(
-            #     "cidapp.tasks.run_processing",
-            #     uploaded_archive,
-            #     timeout=settings.COMPUTER_VISION_TIMEOUT,
-            #     # hook="uploader.tasks.email_report_from_task",
-            # )
             return redirect("/cidapp/uploads/")
     else:
         form = UploadedArchiveForm()

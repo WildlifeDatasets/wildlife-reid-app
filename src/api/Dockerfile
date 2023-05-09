@@ -13,11 +13,4 @@ RUN pip install --no-cache-dir --upgrade pip build && \
 WORKDIR $APP_DIR
 ENV PYTHONUNBUFFERED=1
 EXPOSE 8080
-CMD python manage.py makemigrations && \
-    python manage.py migrate && \
-    python manage.py collectstatic --noinput && \
-    uvicorn CarnivoreIDApp.asgi:application \
-    --host 0.0.0.0 \
-    --port 8080 \
-    --log-config logging.yaml \
-    --log-level info
+CMD bash ./start.sh
