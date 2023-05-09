@@ -47,9 +47,7 @@ def predict(
 ):
     """Main method called by Celery broker."""
     try:
-        logger.info(
-            f"Applying inference task with args: {input_archive_file=}, {output_dir=}."
-        )
+        logger.info(f"Applying inference task with args: {input_archive_file=}, {output_dir=}.")
 
         # prepare input and output file names
         input_archive_file = Path(input_archive_file)
