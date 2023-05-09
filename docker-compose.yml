@@ -3,7 +3,7 @@ version: "3.8"
 services:
   broker:
     image: rabbitmq:3.8.34-management-alpine
-    container_name: czech-fungi-message-broker
+    container_name: carnivoreid-app-message-broker
     restart: always
     environment:
       RABBITMQ_DEFAULT_USER: user
