@@ -2,8 +2,8 @@ celery[redis]==5.2.7
 
 # PyTorch
 -f https://download.pytorch.org/whl/torch_stable.html
-torch==1.8.0+cpu
-torchvision==0.9.0+cpu
+torch==1.13.1+cpu
+torchvision==0.14.1+cpu
 
 # FGVC library
 --index-url https://pypi.piva-ai.com/simple/

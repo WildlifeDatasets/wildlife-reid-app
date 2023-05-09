@@ -1,5 +1,6 @@
 import logging
 import os
+import traceback
 from pathlib import Path
 
 from celery import Celery
@@ -8,6 +9,7 @@ from utils.log import setup_logging
 
 RABBITMQ_URL = os.environ["RABBITMQ_URL"]
 REDIS_URL = os.environ["REDIS_URL"]
+WANDB_API_KEY = os.environ["WANDB_API_KEY"]
 
 setup_logging()
 logger = logging.getLogger("app")
@@ -35,38 +37,46 @@ logger.info(f"{RABBITMQ_URL=}; {REDIS_URL=}")  # TODO - tmp
 
 
 @inference_worker.task(bind=True, name="predict")
-def predict(self, input_archive_file: str, output_dir: str, **kwargs):
+def predict(
+    self,
+    input_archive_file: str,
+    output_dir: str,
+    output_archive_file: str,
+    output_metadata_file: str,
+    **kwargs,
+):
     """Main method called by Celery broker."""
-    logger.info(f"Applying inference task with agrs: {input_archive_file=}, {output_dir=}.")
+    try:
+        logger.info(
+            f"Applying inference task with args: {input_archive_file=}, {output_dir=}."
+        )
 
-    # prepare input and output file names
-    input_archive_file = Path(input_archive_file)
-    assert input_archive_file.suffix.lower() in (".tar", ".tar.gz", ".zip")
-    output_dir = Path(output_dir)
-    output_dir.mkdir(exist_ok=False)
-    output_images_dir = output_dir / "images"
-    output_metadata_file = output_dir / "metadata.csv"
-    output_archive_file = output_dir / "images.zip"
+        # prepare input and output file names
+        input_archive_file = Path(input_archive_file)
+        # assert input_archive_file.suffix.lower() in (".tar", ".tar.gz", ".zip")
+        output_dir = Path(output_dir)
+        output_dir.mkdir(parents=True, exist_ok=False)
+        output_images_dir = output_dir / "images"
+        output_archive_file = Path(output_archive_file)
+        output_metadata_file = Path(output_metadata_file)
 
-    # process data
-    data_processing_pipeline.data_processing(
-        input_archive_file, output_images_dir, output_metadata_file, num_cores=1
-    )
-    dataset_tools.make_zipfile(output_archive_file, output_images_dir)
-    logger.info("Finished processing.")
+        # process data
+        data_processing_pipeline.data_processing(
+            input_archive_file,
+            output_images_dir,
+            output_metadata_file,
+            num_cores=1,
+            wandb_api_key=WANDB_API_KEY,
+        )
+        dataset_tools.make_zipfile(output_archive_file, output_images_dir)
 
-    # for video_pth in outputdir.glob("*.avi"):
-    #     input_video_file = video_pth
-    #     output_video_file = video_pth.with_suffix(".mp4")
-    #     logger.debug(f"input_video_file={input_video_file}")
-    #     logger.debug(f"outout_video_file={output_video_file}")
-    #     if output_video_file.exists():
-    #         output_video_file.unlink()
-    #     _convert_avi_to_mp4(str(input_video_file), str(output_video_file))
-    # add_generated_images(uploaded_archive)
-    # make_zip(uploaded_archive)
-
-    return {
-        "zip_file": output_archive_file,
-        "csv_file": output_metadata_file,
-    }
+        logger.info("Finished processing.")
+        # out = {
+        #     "zip_file": str(output_archive_file),
+        #     "csv_file": str(output_metadata_file),
+        # }
+    except Exception:
+        error = traceback.format_exc()
+        logger.critical(f"Returning unexpected error output: '{error}'.")
+        # out = {"zip_file": None, "csv_file": None}
+    # return out

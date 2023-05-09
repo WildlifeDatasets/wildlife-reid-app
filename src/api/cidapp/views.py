@@ -1,6 +1,9 @@
 import logging
+import os
+from pathlib import Path
 
 import django
+from django.conf import settings
 from django.contrib.auth import logout
 from django.shortcuts import get_object_or_404, redirect, render
 
@@ -64,37 +67,53 @@ def model_form_upload(request):
             #         "error_text": "Image File is mandatory"
             #     })
 
+            # get uploaded archive
             uploaded_archive = form.save()
-            # async_task("uploader.tasks.email_media_recived", uploaded_archive)
+            uploaded_archive_suffix = Path(uploaded_archive.archivefile.name).suffix.lower()
+            if uploaded_archive_suffix not in (".tar", ".tar.gz", ".zip"):
+                logger.warning(
+                    f"Uploaded file with extension '{uploaded_archive_suffix}' is not an archive."
+                )
+                # TODO - return error
 
-            # email_media_recived(archivefile)
-            # print(f"user id={request.user.id}")
+            # update record in the database
+            output_dir = Path(settings.MEDIA_ROOT) / uploaded_archive.outputdir
             uploaded_archive.owner = request.user.ciduser
             uploaded_archive.started_at = django.utils.timezone.now()
+            output_archive_file = output_dir / "images.zip"
+            output_metadata_file = output_dir / "metadata.csv"
+            uploaded_archive.zip_file = os.path.relpath(
+                str(output_archive_file), settings.MEDIA_ROOT
+            )
+            uploaded_archive.csv_file = os.path.relpath(
+                str(output_metadata_file), settings.MEDIA_ROOT
+            )
             uploaded_archive.save()
-            # PIGLEGCV_HOSTNAME = os.getenv("PIGLEGCV_HOSTNAME", default="127.0.0.1")
-            # PIGLEGCV_PORT= os.getenv("PIGLEGCV_PORT", default="5000")
-            # make_preview(archivefile)
-            # update_owner(archivefile)
 
             # send celery message to the data worker
-            logger.info("Created data worker ")
+            logger.info("Sending request to inference worker.")
+            # sig = signature(
+            #     "predict",
+            #     kwargs={
+            #         "input_archive_file": uploaded_archive.archivefile.name,
+            #         "output_dir": uploaded_archive.outputdir,
+            #         "output_archive_file": output_archive_file,
+            #         "output_metadata_file": output_metadata_file,
+            #     },
+            # )
+            # task = sig.apply_async()
             task = tasks.send_task(
-                "upload",
+                "predict",
                 kwargs={
-                    "input_archive_file": uploaded_archive.archivefile.name,
-                    "output_dir": uploaded_archive.outputdir,
+                    "input_archive_file": str(
+                        Path(settings.MEDIA_ROOT) / uploaded_archive.archivefile.name
+                    ),
+                    "output_dir": str(output_dir),
+                    "output_archive_file": str(output_archive_file),
+                    "output_metadata_file": str(output_metadata_file),
                 },
             )
             logger.info(f"Created worker task with id '{task.task_id}'.")
-
-            # result = task.get()
-            # logger.info(f"Retrieved result: {result}")
-
-            # uploaded_archive.finished_at = django.utils.timezone.now()
-            # uploaded_archive.zip_file = os.path.relpath(outputdir_zip, settings.MEDIA_ROOT)
-            # uploaded_archive.csv_file = os.path.relpath(outputdir_csv, settings.MEDIA_ROOT)
-            # uploaded_archive.save()
 
             # async_task(
             #     "cidapp.tasks.run_processing",
