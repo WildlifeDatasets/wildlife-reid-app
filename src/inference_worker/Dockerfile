@@ -11,5 +11,4 @@ RUN pip install --no-cache-dir --upgrade pip build && \
 
 # expose ports and run application
 WORKDIR $APP_DIR
-USER 1000
-CMD celery -A worker worker --pool threads --loglevel info --queues inference_worker
+CMD C_FORCE_ROOT=false celery -A worker.inference_worker worker --pool threads --loglevel info --queues inference_worker

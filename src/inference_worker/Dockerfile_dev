@@ -9,12 +9,6 @@ RUN pip install --no-cache-dir --upgrade pip build && \
     pip install --no-cache-dir --compile -r requirements.txt && \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/* /tmp/* /var/tmp/*
 
-USER 1000
-USER root
-RUN mkdir /data && chown -R 1000 /data && \
-    mkdir /shared_data && chown -R 1000 /shared_data
-USER 1000
-
 # expose ports and run application
 WORKDIR $APP_DIR
-CMD celery -A worker.inference_worker worker --pool threads --loglevel info --queues inference_worker
+CMD C_FORCE_ROOT=false celery -A worker.inference_worker worker --pool threads --loglevel info --queues inference_worker
