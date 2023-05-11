@@ -7,7 +7,7 @@ from pathlib import Path
 
 from django.conf import settings
 
-logger = logging.getLogger(__file__)
+logger = logging.getLogger("database")
 
 
 def generate_sha1(string, salt=None):
@@ -73,15 +73,10 @@ def upload_to_unqiue_folder(instance, filename):
     instance_filename = Path(filename).stem
 
     datetimestr = datetime.now().strftime("%Y%m%d-%H%M%S")
+    unique_id = datetimestr + "_" + instance_filename + "_" + hash
 
-    return str(
-        (
-            Path(settings.MEDIA_ROOT)
-            / "upload"
-            / (datetimestr + "_" + instance_filename + "_" + hash)
-            / filename
-        ).resolve()
-    )
+    # path cannot be absolute or contain "..", otherwise django will raise an error
+    return f"./upload/{unique_id}/{filename}"
 
 
 # def upload_to_unqiue_folder(instance, filename):

@@ -1,0 +1,23 @@
+version: "3.8"
+
+services:
+  redis:
+    restart: "no"
+
+  api:
+    image: carnivoreid-app/api:dev
+    build:
+      context: .
+      dockerfile: ./src/api/Dockerfile_dev
+    restart: "no"
+    volumes:
+      - ./src/api:/api
+
+  djangoq:
+    image: carnivoreid-app/djangoq:dev
+    build:
+      context: .
+      dockerfile: ./src/api/Dockerfile_dev
+    restart: "no"
+    volumes:
+      - ./src/api:/api

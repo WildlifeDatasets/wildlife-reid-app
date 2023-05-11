@@ -1,27 +1,20 @@
-# CarnivoreID-Web
+# CarnivoreID-App
 
+## Prerequisites
 
-## Development
+Using `python==3.9.16`.
 
-### In Docker
+## Run Application
+The application is orchestrated using `docker-compose` - a tool for defining and running multi-container Docker application. 
 
-Start:
+### Development
+Run the following commands to build and start the application in the development mode.
 ```bash
-docker-compose --verbose --env-file .env up --build
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml build
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
 ```
 
-Stop:
+Run the following commands to view the final development mode configuration with overrides from `docker-compose.dev.yml`. 
 ```bash
-docker-compose down
-```
-
-### On local machine
-
-```bash
-conda create -n cidapp -c conda-forge torchvision wandb django-environ django-allauth django pip pandas loguru joblib
-pip install django_q
-```
-
-```bash
-pip install docker/resources/fgvc-1.3.3.dev0-py3-none-any.whl
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml config
 ```

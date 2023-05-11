@@ -15,7 +15,7 @@ from tqdm import tqdm
 
 from . import dataset_tools
 
-logger = logging.getLogger(__file__)
+logger = logging.getLogger("app")
 
 
 def extract_tarfile(tarfile_path: Path, output_dir_path: Path):

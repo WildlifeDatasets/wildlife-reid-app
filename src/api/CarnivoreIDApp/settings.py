@@ -9,13 +9,21 @@ https://docs.djangoproject.com/en/4.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.2/ref/settings/
 """
+import logging
 import os
 from pathlib import Path
+
+from .log import setup_logging
+
+setup_logging()
+logger = logging.getLogger("app")
+
+logger.info("Logger is set up.")
 
 # import environ
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
-BASE_DIR = Path(__file__).resolve().parent.parent
+# BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 # Quick-start development settings - unsuitable for production
@@ -26,10 +34,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # )
 # environ.Env.read_env()
 
-PRIVATE_DIR = BASE_DIR / "../cidapp_private"
+PRIVATE_DIR = Path("/data/cidapp_private")  # BASE_DIR / "../cidapp_private"
 PRIVATE_DIR.mkdir(exist_ok=True, parents=True)
 
-WEBAPP_DATA = BASE_DIR / "../cidapp_data"
+WEBAPP_DATA = Path("/data/cidapp_data")  # BASE_DIR / "../cidapp_data"
 WEBAPP_DATA.mkdir(exist_ok=True, parents=True)
 
 scpath = PRIVATE_DIR / "secretkey.txt"
@@ -159,7 +167,7 @@ COMPUTER_VISION_TIMEOUT = 10 * 3600
 Q_CLUSTER = {
     "workers": 3,
     "redis": {
-        "host": "127.0.0.1",
+        "host": "redis",
         "port": 6379,
         "db": 0,
         "password": None,
