@@ -15,6 +15,8 @@ from pathlib import Path
 
 from .log import setup_logging
 
+SHARED_DATA_PATH = os.environ["SHARED_DATA_PATH"]
+
 setup_logging()
 logger = logging.getLogger("app")
 
@@ -37,7 +39,7 @@ logger.info("Logger is set up.")
 PRIVATE_DIR = Path("/data/cidapp_private")  # BASE_DIR / "../cidapp_private"
 PRIVATE_DIR.mkdir(exist_ok=True, parents=True)
 
-WEBAPP_DATA = Path("/shared_data/cidapp_data")  # BASE_DIR / "../cidapp_data"
+WEBAPP_DATA = Path(SHARED_DATA_PATH) / "cidapp_data"  # BASE_DIR / "../cidapp_data"
 WEBAPP_DATA.mkdir(exist_ok=True, parents=True)
 
 scpath = PRIVATE_DIR / "secretkey.txt"
