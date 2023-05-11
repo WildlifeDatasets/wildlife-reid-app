@@ -1,6 +1,7 @@
 FROM python:3.9.16-slim
 
 COPY ./src/api/requirements.txt /api/requirements.txt
+COPY ./src/api/start_dev.sh /api/start_dev.sh
 
 # install python dependencies
 ENV APP_DIR='/api'
@@ -13,7 +14,4 @@ RUN pip install --no-cache-dir --upgrade pip build && \
 WORKDIR $APP_DIR
 ENV PYTHONUNBUFFERED=1
 EXPOSE 8080
-CMD python manage.py makemigrations && \
-    python manage.py migrate && \
-    python manage.py collectstatic --noinput && \
-    python manage.py runserver 0.0.0.0:8080
+CMD bash ./start_dev.sh

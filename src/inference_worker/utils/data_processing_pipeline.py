@@ -9,9 +9,12 @@ import numpy as np
 import pandas as pd
 import torch
 import wandb
-from fgvc.utils.experiment import load_model
 from scipy.special import softmax
 from tqdm import tqdm
+
+from fgvc.core.training import predict
+from fgvc.datasets import get_dataloaders
+from fgvc.utils.experiment import load_model
 
 from . import dataset_tools
 
@@ -134,10 +137,10 @@ def data_preprocessing(
     return df, duplicates
 
 
-def get_prediction_parameters():
+def get_prediction_parameters(wandb_api_key: str):
     """Prepare config, model weights, names of classes and device."""
     # Download Artifact v2
-    api = wandb.Api()
+    api = wandb.Api(api_key=wandb_api_key)
     resources_path = Path("./resources")
 
     run = api.run("zcu_cv/CarnivoreID-Classification/runs/wucd6qgr")
@@ -159,12 +162,9 @@ def get_prediction_parameters():
     return config, weights_path, classid_category_map, device
 
 
-def prediction(metadata: pd.DataFrame):
+def prediction(metadata: pd.DataFrame, wandb_api_key: str):
     """Do the prediction of files listed in dataframe."""
-    from fgvc.core.training import predict
-    from fgvc.datasets import get_dataloaders
-
-    config, weights_path, classid_category_map, device = get_prediction_parameters()
+    config, weights_path, classid_category_map, device = get_prediction_parameters(wandb_api_key)
 
     model, model_mean, model_std = load_model(config, weights_path)
 
@@ -186,7 +186,12 @@ def prediction(metadata: pd.DataFrame):
 
 
 def data_processing(
-    zip_path: Path, media_dir_path: Path, csv_path: Path, num_cores: Optional[int] = None
+    zip_path: Path,
+    media_dir_path: Path,
+    csv_path: Path,
+    *,
+    num_cores: Optional[int] = None,
+    wandb_api_key: str,
 ):
     """Preprocessing and prediction on data in ZIP file.
 
@@ -212,7 +217,7 @@ def data_processing(
         # path.split("/", 5)[-1]
     )
     metadata.class_id = metadata.class_id.astype(int)
-    logits, targs, scores = prediction(metadata)
+    logits, targs, scores = prediction(metadata, wandb_api_key)
 
     probs = softmax(logits, 1)
     targs = metadata["class_id"]

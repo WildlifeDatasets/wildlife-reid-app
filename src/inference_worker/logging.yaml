@@ -28,26 +28,6 @@ loggers:
     handlers: [console, file_handler]
     propagate: no
 
-  database:
-    level: DEBUG
-    handlers: [ console, file_handler ]
-    propagate: no
-
-  script:
-    level: DEBUG
-    handlers: [ console, file_handler ]
-    propagate: no
-
-  test:
-    level: DEBUG
-    handlers: [ console ]
-    propagate: no
-
-  uvicorn:
-    level: INFO
-    handlers: [ console, file_handler ]
-    propagate: no
-
 root:
   level: INFO
   handlers: [console, file_handler]

@@ -5,5 +5,5 @@ line-length = 100
 line_length = 100
 profile = "black"
 # known_third_party = []
-# known_first_party = []
+known_first_party = ["fgvc"]
 # known_local_folder = []

@@ -1,6 +1,9 @@
 version: "3.8"
 
 services:
+  broker:
+    restart: "no"
+
   redis:
     restart: "no"
 
@@ -13,11 +16,11 @@ services:
     volumes:
       - ./src/api:/api
 
-  djangoq:
-    image: carnivoreid-app/djangoq:dev
+  inference_worker:
+    image: carnivoreid-app/inference-worker:dev
     build:
       context: .
-      dockerfile: ./src/api/Dockerfile_dev
+      dockerfile: src/inference_worker/Dockerfile_dev
     restart: "no"
     volumes:
-      - ./src/api:/api
+      - ./src/inference_worker:/inference_worker
