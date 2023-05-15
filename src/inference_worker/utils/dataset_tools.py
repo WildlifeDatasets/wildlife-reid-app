@@ -1,10 +1,11 @@
 import json
 import logging
 import multiprocessing
-import os.path
+import os
 import re
 import shutil
 import tarfile
+import traceback
 import typing
 import unicodedata
 from datetime import datetime, timedelta
@@ -400,20 +401,21 @@ def make_tarfile(output_filename, source_dir):
 
 
 def make_dataset(
-    dataframe: pd.DataFrame,
+    df: pd.DataFrame,
     dataset_name: str,
     dataset_base_dir: Path,
     output_path: Path,
     hash_filename: bool = False,
     make_tar: bool = False,
     copy_files: bool = False,
+    move_files: bool = False,
     create_csv: bool = False,
 ) -> pd.DataFrame:
     """Prepare the '.tar.gz' and '.csv' file based on the dataframe with list of the files.
 
     Parameters
     ----------
-    dataframe: DataFrame
+    df: DataFrame
         Pandas DataFrame with 'vanilla_path' column.
     dataset_name : str
         Name for output '.csv' and '.tar.gz'
@@ -432,55 +434,42 @@ def make_dataset(
 
     Returns
     -------
-    dataframe: DataFrame
-        The original input dataframe extended by 'image_file' column.
-
+    df: DataFrame
+        The original input df extended by 'image_file' column.
     """
-    if hash_filename:
-        # dataframe["image_path"] = dataframe["vanilla_path"].map(
-        #     lambda filename: make_hash(filename, prefix="media_{dataset_name}")
-        # )
+    assert not (copy_files and move_files), "Onle one arg 'copy_files' or 'move_files' can be True."
 
-        dataframe.loc[:, "image_path"] = dataframe.loc[:, "vanilla_path"].map(
-            lambda filename: make_hash(filename, prefix=dataset_name)
-        )
+    if hash_filename:
+        df["image_path"] = df["vanilla_path"].apply(make_hash, prefix=dataset_name)
     else:
-        # dataframe["image_path"] = dataframe["vanilla_path"].map(
-        #     lambda filename: str(Path(f"media_{dataset_name}") / filename)
-        # )
-        # dataframe["image_path"] = dataframe["vanilla_path"].map(
-        #     lambda fn: make_hash(fn, prefix="media_{dataset_name}")
-        # )
-        new_image_path = dataframe.loc[:, "vanilla_path"].map(
-            lambda filename: str(Path(f"{dataset_name}") / filename)
+        df["image_path"] = df["vanilla_path"].apply(
+            lambda filename: os.path.join(dataset_name, filename)
         )
-        # dataframe.loc[:, "image_path"] = list(new_image_path)
-        dataframe["image_path"] = list(new_image_path)
 
     output_path.mkdir(parents=True, exist_ok=True)
     if create_csv:
-        dataframe.to_csv(output_path / f"{dataset_name}.csv")
+        df.to_csv(output_path / f"{dataset_name}.csv")
 
-    if copy_files:
-        for index, row in tqdm(dataframe.iterrows(), total=len(dataframe), desc=f"{dataset_name}"):
+    if copy_files or move_files:
+        for index, row in tqdm(df.iterrows(), total=len(df), desc=f"{dataset_name}"):
             input_file_path = dataset_base_dir / row["vanilla_path"]
-
             output_file_path = output_path / Path(row["image_path"])
-
             output_file_path.parent.mkdir(parents=True, exist_ok=True)
-            logger.debug(f"copyfile: {input_file_path}, {output_file_path}")
             if input_file_path.is_file():
                 try:
-                    shutil.copyfile(input_file_path, output_file_path)
+                    if copy_files:
+                        shutil.copyfile(input_file_path, output_file_path)
+                    else:
+                        shutil.move(input_file_path, output_file_path)
                 except Exception as e:
-                    import traceback
-
-                    logger.warning(traceback.format_exception(e))
+                    error = traceback.format_exception(e)
+                    logger.critical(f"Error while copying/moving file:\n{error}")
 
     if make_tar:
-        logger.info("... preparing .tar.gz")
+        logger.info("Creating '.tar.gz' archive.")
         make_tarfile(output_path / f"{dataset_name}.tar.gz", output_path / f"media_{dataset_name}/")
-    return dataframe
+
+    return df
 
 
 class SumavaInitialProcessing:
@@ -629,7 +618,7 @@ class SumavaInitialProcessing:
 
         Returns
         -------
-        dataframe: DataFrame may contain vanilla_path and datetime column.
+        df: DataFrame may contain vanilla_path and datetime column.
         """
         output_dict = {}
         output_dict["vanilla_path"] = self.get_paths_from_dir_parallel(mask, exclude)

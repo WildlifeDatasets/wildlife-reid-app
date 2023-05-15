@@ -1,5 +1,6 @@
 import logging
 import os
+import shutil
 import uuid
 from pathlib import Path
 from typing import Optional, Tuple
@@ -111,18 +112,19 @@ def data_preprocessing(
     # extract files to the temporary directory
     extract_archive(zip_path, output_dir=tmp_dir)
 
-    #
+    # create metadata directory
     df, duplicates = analyze_dataset_directory(tmp_dir, num_cores=num_cores)
     # df["image_path"] = \
     # df["vanilla_path"].map(lambda fn: dataset_tools.make_hash(fn, prefix="media_data"))
     df = make_dataset(
-        dataframe=df,
+        df=df,
         dataset_name=None,
         dataset_base_dir=tmp_dir,
         output_path=media_dir_path,
         hash_filename=True,
         make_tar=False,
-        copy_files=True,
+        move_files=True,
+        create_csv=False,
     )
 
     return df, duplicates
@@ -210,10 +212,10 @@ def data_processing(
     # create metadata dataframe
     metadata, _ = data_preprocessing(zip_path, media_dir_path, num_cores=num_cores)
     metadata = metadata[metadata["media_type"] == "image"].reset_index(drop=True)
-    metadata["image_path"] = metadata["image_path"].apply(lambda x: os.path.join(media_dir_path, x))
 
     # run inference
-    probs, id2label = load_model_and_predict(metadata["image_path"].tolist())
+    image_path = metadata["image_path"].apply(lambda x: os.path.join(media_dir_path, x))
+    probs, id2label = load_model_and_predict(image_path)
 
     # add inference results to the metadata dataframe
     metadata["predicted_class_id"] = np.argmax(probs, 1)
@@ -223,6 +225,22 @@ def data_processing(
             lambda x: id2label.get(x, np.nan)
         )
     metadata["predicted_confidence"] = np.max(probs, 1)
+
+    # create category subdirectories and move images based on prediction
+    new_image_paths = []
+    for i, row in metadata.iterrows():
+        if pd.notnull(row["predicted_category"]):
+            predicted_category = row["predicted_category"]
+        else:
+            predicted_category = f"class_{row['predicted_class_id']}"
+
+        image_path = Path(media_dir_path) / row["image_path"]
+        target_dir = Path(media_dir_path, predicted_category)
+        target_dir.mkdir(parents=True, exist_ok=True)
+        target_image_path = target_dir / row["image_path"]
+        shutil.move(image_path, target_image_path)
+        new_image_paths.append(os.path.join(predicted_category, row["image_path"]))
+    metadata["image_path"] = new_image_paths
 
     # save metadata file
     metadata.to_csv(csv_path)
