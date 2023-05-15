@@ -1,11 +1,12 @@
 # CarnivoreID-App
 
-## Prerequisites
-
-Using `python==3.9.16`.
-
 ## Run Application
-The application is orchestrated using `docker-compose` - a tool for defining and running multi-container Docker application. 
+The application is orchestrated using `docker-compose` - a tool for defining and running multi-container Docker application.
+
+Before starting the application create `.env` file with secret variables.
+```bash
+echo "WANDB_API_KEY=..." >> .env
+```
 
 ### Development
 Run the following commands to build and start the application in the development mode.
