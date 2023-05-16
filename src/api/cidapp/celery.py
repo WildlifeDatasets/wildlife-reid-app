@@ -11,7 +11,6 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "CarnivoreIDApp.settings")
 
 logger = logging.getLogger("app")
 
-logger.info("Creating celery app instance.")
 app = Celery("cidapp", broker=RABBITMQ_URL, backend=REDIS_URL)
 app.config_from_object("django.conf:settings", namespace="CELERY")
 

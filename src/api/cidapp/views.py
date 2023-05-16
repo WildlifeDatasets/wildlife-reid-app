@@ -83,12 +83,7 @@ def model_form_upload(request):
             uploaded_archive.started_at = django.utils.timezone.now()
             output_archive_file = output_dir / "images.zip"
             output_metadata_file = output_dir / "metadata.csv"
-            uploaded_archive.zip_file = os.path.relpath(
-                str(output_archive_file), settings.MEDIA_ROOT
-            )
-            uploaded_archive.csv_file = os.path.relpath(
-                str(output_metadata_file), settings.MEDIA_ROOT
-            )
+            uploaded_archive.status = "Processing"
             uploaded_archive.save()
 
             # send celery message to the data worker
@@ -105,8 +100,12 @@ def model_form_upload(request):
                 },
             )
             task = sig.apply_async(
-                link=predict_on_success.s(uploaded_archive_id=uploaded_archive.id),
-                link_error=predict_on_error.s(),
+                link=predict_on_success.s(
+                    uploaded_archive_id=uploaded_archive.id,
+                    zip_file=os.path.relpath(str(output_archive_file), settings.MEDIA_ROOT),
+                    csv_file=os.path.relpath(str(output_metadata_file), settings.MEDIA_ROOT),
+                ),
+                link_error=predict_on_error.s(uploaded_archive_id=uploaded_archive.id),
             )
             logger.info(f"Created worker task with id '{task.task_id}'.")
 

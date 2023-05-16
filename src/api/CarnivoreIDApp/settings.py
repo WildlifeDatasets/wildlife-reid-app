@@ -22,10 +22,9 @@ logger = logging.getLogger("app")
 
 logger.info("Logger is set up.")
 
-# import environ
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
-# BASE_DIR = Path(__file__).resolve().parent.parent
+BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 # Quick-start development settings - unsuitable for production
@@ -158,8 +157,8 @@ STATIC_URL = "static/"
 MEDIA_URL = "/media/"
 MEDIA_ROOT = WEBAPP_DATA / "media"
 # use python manage.py collectstatic
-# STATIC_ROOT = BASE_DIR / "static"
-STATIC_ROOT = "static"
+STATIC_ROOT = BASE_DIR / "static"
+# STATIC_ROOT = "static"
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field

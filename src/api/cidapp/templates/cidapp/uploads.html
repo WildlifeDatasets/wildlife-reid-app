@@ -28,8 +28,11 @@
                   <div class="card">
                     <div class="card-body">
                       <h5 class="card-title">{{ uploadedarchive }}</h5>
+                        <p>Status: {{ uploadedarchive.status }} </p>
                         <p>Uploaded at: {{ uploadedarchive.uploaded_at }} </p>
-                        <p>Finished at: {{ uploadedarchive.finished_at}} </p>
+                        {% if uploadedarchive.finished_at %}
+                        <p>Finished at: {{ uploadedarchive.finished_at }} </p>
+                        {% endif %}
 
                         {% if uploadedarchive.zip_file %}
                         <a class="btn btn-secondary" href="{{ uploadedarchive.zip_file.url }}"><i class="bi bi-download"></i> Download images</a>

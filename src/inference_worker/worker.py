@@ -44,12 +44,9 @@ def predict(
         dataset_tools.make_zipfile(output_archive_file, output_images_dir)
 
         logger.info("Finished processing.")
-        # out = {
-        #     "zip_file": str(output_archive_file),
-        #     "csv_file": str(output_metadata_file),
-        # }
+        out = {"status": "DONE"}
     except Exception:
         error = traceback.format_exc()
         logger.critical(f"Returning unexpected error output: '{error}'.")
-        # out = {"zip_file": None, "csv_file": None}
-    # return out
+        out = {"status": "ERROR", "error": error}
+    return out

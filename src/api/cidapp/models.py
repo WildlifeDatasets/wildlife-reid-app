@@ -73,6 +73,7 @@ class UploadedArchive(models.Model):
     zip_file = models.FileField(upload_to=outputdir, blank=True, null=True)
     csv_file = models.FileField(upload_to=outputdir, blank=True, null=True)
     hash = models.CharField(max_length=255, blank=True, default=_hash)
+    status = models.CharField(max_length=255, blank=True, default="Created")
     started_at = models.DateTimeField("Started at", blank=True, null=True)
     finished_at = models.DateTimeField("Finished at", blank=True, null=True)
     owner = models.ForeignKey(CIDUser, on_delete=models.CASCADE, null=True, blank=True)
