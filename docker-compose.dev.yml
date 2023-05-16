@@ -13,6 +13,8 @@ services:
       context: .
       dockerfile: ./src/api/Dockerfile_dev
     restart: "no"
+    environment:
+      - DEBUG=true
     volumes:
       - ./src/api:/api
 

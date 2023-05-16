@@ -53,7 +53,10 @@ else:
         SECRET_KEY = f.write(get_random_secret_key())
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get("DEBUG", True)
+DEBUG = os.environ.get("DEBUG", False)
+if isinstance(DEBUG, str):
+    DEBUG = DEBUG.lower() == "true"
+logger.info(f"Setting environment variable {DEBUG=}.")
 
 ALLOWED_HOSTS = ["127.0.0.1", "*"]
 
