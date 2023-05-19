@@ -36,6 +36,7 @@ services:
     restart: always
     env_file:
       - "src/variables.env"
+      - ".env"
     volumes:
       - api-data:/data
       - shared-data:/shared_data
@@ -55,6 +56,7 @@ services:
     restart: always
     env_file:
       - "src/variables.env"
+      - ".env"
     volumes:
       - inference-worker-data:/data
       - shared-data:/shared_data

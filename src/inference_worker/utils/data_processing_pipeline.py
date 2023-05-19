@@ -1,39 +1,32 @@
 import logging
+import os
 import shutil
-import tarfile
+import uuid
 from pathlib import Path
 from typing import Optional, Tuple
-from zipfile import ZipFile
 
 import numpy as np
 import pandas as pd
-import torch
 import wandb
+import yaml
 from scipy.special import softmax
-from tqdm import tqdm
 
 from fgvc.core.training import predict
 from fgvc.datasets import get_dataloaders
 from fgvc.utils.experiment import load_model
 
-from . import dataset_tools
+from .config import RESOURCES_DIR, WANDB_API_KEY, WANDB_ARTIFACT_PATH
+from .dataset_tools import (
+    SumavaInitialProcessing,
+    extend_df_with_sequence_id,
+    extract_information_from_dir_structure,
+    get_lynx_id_in_sumava,
+    make_dataset,
+)
+from .io import extract_archive
+from .prediction_dataset import PredictionDataset
 
 logger = logging.getLogger("app")
-
-
-def extract_tarfile(tarfile_path: Path, output_dir_path: Path):
-    """Extract tar file."""
-    with tarfile.open(tarfile_path, "r") as tf:
-        tf.extractall(path=output_dir_path)
-
-
-def extract_zipfile(zipfile_path: Path, output_dir_path: Path):
-    """Extract content of zip file."""
-    # loading the temp.zip and creating a zip object
-    with ZipFile(zipfile_path) as zObject:
-        # Extracting all the members of the zip
-        # into a specific location.
-        zObject.extractall(path=output_dir_path)
 
 
 def analyze_dataset_directory(dataset_dir_path: Path, num_cores: Optional[int] = None):
@@ -41,22 +34,23 @@ def analyze_dataset_directory(dataset_dir_path: Path, num_cores: Optional[int] =
 
     Parameters
     ----------
-    dataset_dir_path: Input directory
+    dataset_dir_path
+        Input directory.
 
     Returns
     -------
-    metadata: DataFrame - Image and video metadata
-
-    duplicates: DataFrame - List of duplicit files
-
+    metadata: DataFrame
+        Image and video metadata.
+    duplicates: DataFrame
+        List of duplicit files.
     """
-    init_processing = dataset_tools.SumavaInitialProcessing(dataset_dir_path, num_cores=num_cores)
+    init_processing = SumavaInitialProcessing(dataset_dir_path, num_cores=num_cores)
     df0 = init_processing.make_paths_and_exifs_parallel(
         mask="**/*.*", make_exifs=True, make_csv=False
     )
 
-    df = dataset_tools.extract_information_from_dir_structure(df0)
-    # df["mediatype"] = df.vanilla_path.progress_map(
+    df = extract_information_from_dir_structure(df0)
+    # df["mediatype"] = df["vanilla_path"].apply(
     #     lambda path:
     #     "video"
     #     if Path(path).suffix.lower() in (".avi", ".m4v")
@@ -70,10 +64,9 @@ def analyze_dataset_directory(dataset_dir_path: Path, num_cores: Optional[int] =
     df.loc[:, "sequence_number"] = None
 
     # Get ID of lynx from directories in basedir beside "TRIDENA" and "NETRIDENA"
-    tqdm.pandas(desc="unique_name    ")
-    df.unique_name = df.vanilla_path.progress_map(dataset_tools.get_lynx_id_in_sumava)
+    df["unique_name"] = df["vanilla_path"].apply(get_lynx_id_in_sumava)
 
-    df = dataset_tools.extend_df_with_sequence_id(df, time_limit="120s")
+    df = extend_df_with_sequence_id(df, time_limit="120s")
 
     # Create list of duplicates based on the same EXIF time
     duplicates = df[df.delta_datetime != pd.Timedelta("0s")]
@@ -110,79 +103,90 @@ def data_preprocessing(
     -------
     metadata: DataFrame - Image and video metadata
 
-    duplicates: DataFrame - List of duplicit files
+    duplicates: DataFrame - List of duplicate files
     """
-    temp_dir = Path("./temp")
-    shutil.rmtree(temp_dir, ignore_errors=True)
-    temp_dir.mkdir(exist_ok=True, parents=True)
+    # create temporary directory
+    tmp_dir = Path(f"/tmp/{str(uuid.uuid4())}")
+    tmp_dir.mkdir(exist_ok=False, parents=True)
 
-    if zip_path.suffix.lower() in (".tar", ".tar.gz"):
-        extract_tarfile(zip_path, temp_dir)
-    elif zip_path.suffix.lower() in (".zip"):
-        extract_zipfile(zip_path, temp_dir)
+    # extract files to the temporary directory
+    extract_archive(zip_path, output_dir=tmp_dir)
 
-    df, duplicates = analyze_dataset_directory(temp_dir, num_cores=num_cores)
+    # create metadata directory
+    df, duplicates = analyze_dataset_directory(tmp_dir, num_cores=num_cores)
     # df["image_path"] = \
     # df["vanilla_path"].map(lambda fn: dataset_tools.make_hash(fn, prefix="media_data"))
-    df = dataset_tools.make_dataset(
-        dataframe=df,
+    df = make_dataset(
+        df=df,
         dataset_name=None,
-        dataset_base_dir=temp_dir,
+        dataset_base_dir=tmp_dir,
         output_path=media_dir_path,
         hash_filename=True,
         make_tar=False,
-        copy_files=True,
+        move_files=True,
+        create_csv=False,
     )
 
     return df, duplicates
 
 
-def get_prediction_parameters(wandb_api_key: str):
-    """Prepare config, model weights, names of classes and device."""
-    # Download Artifact v2
-    api = wandb.Api(api_key=wandb_api_key)
-    resources_path = Path("./resources")
-
-    run = api.run("zcu_cv/CarnivoreID-Classification/runs/wucd6qgr")
-
-    pth_files = list(resources_path.glob(f'{run.config["run_name"]}*.pth'))
-    if len(pth_files) > 0:
-        weights_path = pth_files[0]
-    else:
-        run.logged_artifacts()[0].download(resources_path)
-        pth_files = list(resources_path.glob(f'{run.config["run_name"]}*.pth'))
-        weights_path = pth_files[0]
-
+def get_model_config() -> Tuple[dict, str, dict]:
+    """Load model configuration from W&B including training config and fine-tuned checkpoint."""
+    # get artifact and run from W&B
+    api = wandb.Api(api_key=WANDB_API_KEY)
+    artifact = api.artifact(WANDB_ARTIFACT_PATH)
+    run = artifact.logged_by()
     config = run.config
+    artifact_files = [x.name for x in artifact.files()]
 
-    classid_category_map = {i: str(i) for i in range(config["number_of_classes"])}
+    # check if all artifact files are downloaded and optionally download artifact files
+    all_files_downloaded = all([(Path(RESOURCES_DIR) / x).is_file() for x in artifact_files])
+    if not all_files_downloaded:
+        artifact.download(root=RESOURCES_DIR)
 
-    device = "gpu" if torch.cuda.is_available() else "cpu"
+    # get artifact contents
+    assert (
+        sum([Path(x).suffix.lower() == ".pth" for x in artifact_files]) == 1
+    ), "Only one '.pth' file expected in the W&B artifact."
+    _suffix2name = {Path(x).suffix.lower(): x for x in artifact_files}
+    checkpoint_path = Path(RESOURCES_DIR) / _suffix2name[".pth"]
+    artifact_config_path = Path(RESOURCES_DIR) / "config.yaml"
+    with open(artifact_config_path) as f:
+        artifact_config = yaml.safe_load(f)
 
-    return config, weights_path, classid_category_map, device
+    return config, checkpoint_path, artifact_config
 
 
-def prediction(metadata: pd.DataFrame, wandb_api_key: str):
-    """Do the prediction of files listed in dataframe."""
-    config, weights_path, classid_category_map, device = get_prediction_parameters(wandb_api_key)
+def load_model_and_predict(image_paths: list) -> Tuple[np.ndarray, Optional[dict]]:
+    """Load model, create dataloaders, and run inference."""
+    config, checkpoint_path, artifact_config = get_model_config()
 
-    model, model_mean, model_std = load_model(config, weights_path)
+    logger.info("Creating model and loading fine-tuned checkpoint.")
+    model, model_mean, model_std = load_model(config, checkpoint_path)
 
     logger.info("Creating DataLoaders.")
     _, testloader, _, _ = get_dataloaders(
         None,
-        metadata,
+        image_paths,
         augmentations=config["augmentations"],
         image_size=config["image_size"],
         model_mean=model_mean,
         model_std=model_std,
         batch_size=config["batch_size"],
-        # num_workers=config["workers"],
         num_workers=0,
-        # architecture=config["architecture"]
+        dataset_cls=PredictionDataset,
     )
-    logits, targs, _, scores = predict(model, testloader, device=device)
-    return logits, targs, scores
+
+    logger.info("Running inference.")
+    predict_output = predict(model, testloader)
+    logits = predict_output.preds
+    if "temperature" in artifact_config:
+        logits = logits / artifact_config["temperature"]
+    else:
+        logger.warning("Artifact config from W&B is missing 'temperature' parameter.")
+    probs = softmax(logits, 1)
+
+    return probs, artifact_config.get("id2label")
 
 
 def data_processing(
@@ -191,7 +195,6 @@ def data_processing(
     csv_path: Path,
     *,
     num_cores: Optional[int] = None,
-    wandb_api_key: str,
 ):
     """Preprocessing and prediction on data in ZIP file.
 
@@ -199,35 +202,45 @@ def data_processing(
 
     Parameters
     ----------
-    zip_path: path to input zip file.
-    media_dir_path: Path to content of zip. The file names are hashed.
-    csv_path: Path to output CSV file.
+    zip_path
+        Path to input zip file.
+    media_dir_path
+        Path to content of zip. The file names are hashed.
+    csv_path
+        Path to output CSV file.
     """
+    # create metadata dataframe
     metadata, _ = data_preprocessing(zip_path, media_dir_path, num_cores=num_cores)
+    metadata = metadata[metadata["media_type"] == "image"].reset_index(drop=True)
 
-    metadata = metadata[metadata.media_type == "image"].reset_index(drop=True)
+    # run inference
+    image_path = metadata["image_path"].apply(lambda x: os.path.join(media_dir_path, x))
+    probs, id2label = load_model_and_predict(image_path)
 
-    if "class_id" not in metadata:
-        # TODO create loader with class_id not required
-        logger.warning("Create less restrictive loader")
-        metadata["class_id"] = 0
+    # add inference results to the metadata dataframe
+    metadata["predicted_class_id"] = np.argmax(probs, 1)
+    metadata["predicted_category"] = np.nan
+    if id2label is not None:
+        metadata["predicted_category"] = metadata["predicted_class_id"].apply(
+            lambda x: id2label.get(x, np.nan)
+        )
+    metadata["predicted_confidence"] = np.max(probs, 1)
 
-    metadata["image_path"] = metadata["image_path"].apply(
-        lambda path: str(Path(media_dir_path) / path)
-        # path.split("/", 5)[-1]
-    )
-    metadata.class_id = metadata.class_id.astype(int)
-    logits, targs, scores = prediction(metadata, wandb_api_key)
+    # create category subdirectories and move images based on prediction
+    new_image_paths = []
+    for i, row in metadata.iterrows():
+        if pd.notnull(row["predicted_category"]):
+            predicted_category = row["predicted_category"]
+        else:
+            predicted_category = f"class_{row['predicted_class_id']}"
 
-    probs = softmax(logits, 1)
-    targs = metadata["class_id"]
-    preds = np.argmax(probs, 1)
-    targs_probs = probs[np.arange(len(probs)), targs]
-    preds_probs = probs[np.arange(len(probs)), preds]
+        image_path = Path(media_dir_path) / row["image_path"]
+        target_dir = Path(media_dir_path, predicted_category)
+        target_dir.mkdir(parents=True, exist_ok=True)
+        target_image_path = target_dir / row["image_path"]
+        shutil.move(image_path, target_image_path)
+        new_image_paths.append(os.path.join(predicted_category, row["image_path"]))
+    metadata["image_path"] = new_image_paths
 
-    # metadata["class_id"]
-    metadata["targ_prob"] = targs_probs
-    metadata["pred"] = preds
-    metadata["pred_prob"] = preds_probs
-
+    # save metadata file
     metadata.to_csv(csv_path)
