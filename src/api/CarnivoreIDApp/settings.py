@@ -15,7 +15,6 @@ from pathlib import Path
 
 from .log import setup_logging
 
-SHARED_DATA_PATH = os.environ["SHARED_DATA_PATH"]
 
 setup_logging()
 logger = logging.getLogger("app")
@@ -26,6 +25,9 @@ logger.info("Logger is set up.")
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+SHARED_DATA_PATH = os.environ.get("SHARED_DATA_PATH", default=BASE_DIR.parent)
+logger.debug(f"{SHARED_DATA_PATH=}")
+
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
@@ -35,7 +37,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # )
 # environ.Env.read_env()
 
-PRIVATE_DIR = Path("/data/cidapp_private")  # BASE_DIR / "../cidapp_private"
+# PRIVATE_DIR = Path("/data/cidapp_private")  # BASE_DIR / "../cidapp_private"
+PRIVATE_DIR = Path(SHARED_DATA_PATH) / "/cidapp_private"  # BASE_DIR / "../cidapp_private"
 PRIVATE_DIR.mkdir(exist_ok=True, parents=True)
 
 WEBAPP_DATA = Path(SHARED_DATA_PATH) / "cidapp_data"  # BASE_DIR / "../cidapp_data"
