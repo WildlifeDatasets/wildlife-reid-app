@@ -69,25 +69,25 @@ services:
     labels:
       com.piva-ai.group: "applications"
 
-  nginx:
-    image: nginx:latest
-#    build: ./nginx
-    ports:
-      - 8008:80
-      - 44300:443
-    volumes:
-      - ./src/nginx/nginx.conf:/etc/nginx/nginx.conf
-#      - /home/mjirik/projects/scaffanweb:/webapps/scaffanweb_django/scaffanweb/
-      - caid-static:/caid_static
-      - shared-data:/shared_data
-#      - ./certbot/www/:/var/www/certbot/:ro
-#      - ./certbot/conf/:/etc/nginx/ssl/:ro
-#      - ./logs/:/webapps/scaffanweb_django/logs/
-    # load new ssh certificate from certbot every  6 hours
-#    command: "/bin/sh -c 'while :; do sleep 6h & wait $${!}; nginx -s reload; done & nginx -g \"daemon off;\"'"
-    restart: always
-    depends_on:
-      - api
+#  nginx:
+#    image: nginx:latest
+##    build: ./nginx
+#    ports:
+#      - 8008:80
+#      - 44300:443
+#    volumes:
+#      - ./src/nginx/nginx.conf:/etc/nginx/nginx.conf
+##      - /home/mjirik/projects/scaffanweb:/webapps/scaffanweb_django/scaffanweb/
+#      - caid-static:/caid_static
+#      - shared-data:/shared_data
+##      - ./certbot/www/:/var/www/certbot/:ro
+##      - ./certbot/conf/:/etc/nginx/ssl/:ro
+##      - ./logs/:/webapps/scaffanweb_django/logs/
+#    # load new ssh certificate from certbot every  6 hours
+##    command: "/bin/sh -c 'while :; do sleep 6h & wait $${!}; nginx -s reload; done & nginx -g \"daemon off;\"'"
+#    restart: always
+#    depends_on:
+#      - api
 #  certbot:
 #    image: certbot/certbot:latest
 #    volumes:
