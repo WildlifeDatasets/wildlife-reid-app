@@ -10,6 +10,16 @@ RUN pip install --no-cache-dir --upgrade pip build && \
     pip install --no-cache-dir --compile -r requirements.txt && \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/* /tmp/* /var/tmp/*
 
+# Get Boostrap style
+WORKDIR "/api_static"
+RUN apt-get update && apt-get install -y wget unzip
+
+# ADD https://bootstrapmade.com/content/templatefiles/Arsha/Arsha.zip Arsha.zip
+RUN wget https://bootstrapmade.com/content/templatefiles/Arsha/Arsha.zip
+RUN unzip Arsha.zip
+RUN mkdir -p /api/cidapp/static
+RUN mv  Arsha/assets /api/static/
+
 # expose ports and run application
 WORKDIR $APP_DIR
 ENV PYTHONUNBUFFERED=1

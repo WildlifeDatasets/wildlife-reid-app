@@ -12,6 +12,13 @@ echo "WANDB_API_KEY=..." >> .env
 export CAID_HOST="147.228..."
 ```
 
+```bash
+wget https://bootstrapmade.com/content/templatefiles/Arsha/Arsha.zip
+unzip Arsha.zip
+mv  Arsha/assets src/api/static/
+```
+
+
 ### Development
 Run the following commands to build and start the application in the development mode.
 ```bash

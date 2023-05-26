@@ -9,6 +9,9 @@ RUN pip install --no-cache-dir --upgrade pip build && \
     pip install --no-cache-dir --compile -r requirements.txt && \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/* /tmp/* /var/tmp/*
 
+# Get Boostrap style
+ADD https://bootstrapmade.com/arsha-free-bootstrap-html-template-corporate/download/ Arsha.zip
+
 # expose ports and run application
 WORKDIR $APP_DIR
 ENV PYTHONUNBUFFERED=1
