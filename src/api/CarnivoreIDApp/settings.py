@@ -161,7 +161,7 @@ STATIC_URL = "static/"
 MEDIA_URL = "/media/"
 MEDIA_ROOT = WEBAPP_DATA / "media"
 # use python manage.py collectstatic
-STATIC_ROOT = BASE_DIR / "static"
+STATIC_ROOT = Path(os.getenv("CAID_STATIC", default= BASE_DIR / "static"))
 # STATIC_ROOT = "static"
 # STATICFILES_DIRS = [
 #     BASE_DIR / "static",
@@ -174,3 +174,5 @@ STATIC_ROOT = BASE_DIR / "static"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 CREDS_JSON_FILE = Path(PRIVATE_DIR) / "piglegsurgery-creds.json"
+
+# LOGIN_REDIRECT_URL = "/cidapp/uploads"
