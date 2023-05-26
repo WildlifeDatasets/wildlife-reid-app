@@ -11,4 +11,5 @@ urlpatterns = [
     path("logout/", views.logout_view, name="logout_view"),
     path("uploads/", views.uploads, name="uploads"),  # <--I
     path("<int:uploadedarchive_id>/delete_upload/", views.delete_upload, name="delete_upload"),
+    path('djangologin/', views.MyLoginView.as_view(), name='djangologin'),
 ]

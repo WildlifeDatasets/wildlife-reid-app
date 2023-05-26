@@ -7,6 +7,9 @@ from celery import signature
 from django.conf import settings
 from django.contrib.auth import logout
 from django.shortcuts import get_object_or_404, redirect, render
+from django.contrib.auth.views import LoginView
+from django.urls import reverse_lazy
+from django.contrib import messages
 
 from .forms import UploadedArchiveForm
 from .models import UploadedArchive
@@ -124,3 +127,13 @@ def delete_upload(request, uploadedarchive_id):
     uploadedarchive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
     uploadedarchive.delete()
     return redirect("/cidapp/uploads")
+
+class MyLoginView(LoginView):
+    redirect_authenticated_user = True
+
+    def get_success_url(self):
+        return reverse_lazy('cidapp:uploads')
+
+    def form_invalid(self, form):
+        messages.error(self.request, 'Invalid username or password')
+        return self.render_to_response(self.get_context_data(form=form))
