@@ -61,6 +61,7 @@ if isinstance(DEBUG, str):
 logger.info(f"Setting environment variable {DEBUG=}.")
 
 ALLOWED_HOSTS = ["127.0.0.1", os.getenv("CAID_HOST", default="*"), "*"]
+logger.info(f"{ALLOWED_HOSTS=}.")
 
 
 # Application definition
