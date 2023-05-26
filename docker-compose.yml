@@ -34,6 +34,8 @@ services:
       dockerfile: ./src/api/Dockerfile
     container_name: carnivoreid-app-api
     restart: always
+    environment:
+      CAID_HOST: ${CAID_HOST:-localhost}
     env_file:
       - "src/variables.env"
       - ".env"

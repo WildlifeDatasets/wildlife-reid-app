@@ -38,7 +38,7 @@ logger.debug(f"{SHARED_DATA_PATH=}")
 # environ.Env.read_env()
 
 # PRIVATE_DIR = Path("/data/cidapp_private")  # BASE_DIR / "../cidapp_private"
-PRIVATE_DIR = Path(SHARED_DATA_PATH) / "/cidapp_private"  # BASE_DIR / "../cidapp_private"
+PRIVATE_DIR = Path(os.getenv("CIDAPP_PRIVATE", "/cidapp_private"))   # BASE_DIR / "../cidapp_private"
 PRIVATE_DIR.mkdir(exist_ok=True, parents=True)
 
 WEBAPP_DATA = Path(SHARED_DATA_PATH) / "cidapp_data"  # BASE_DIR / "../cidapp_data"
@@ -60,7 +60,7 @@ if isinstance(DEBUG, str):
     DEBUG = DEBUG.lower() == "true"
 logger.info(f"Setting environment variable {DEBUG=}.")
 
-ALLOWED_HOSTS = ["127.0.0.1", "*"]
+ALLOWED_HOSTS = ["127.0.0.1", os.getenv("CAID_HOST", default="*"), "*"]
 
 
 # Application definition
@@ -147,6 +147,7 @@ LANGUAGE_CODE = "en-us"
 
 # TIME_ZONE = "UTC"
 TIME_ZONE = "Europe/Prague"
+CELERY_TIMEZONE = "Europe/Prague"
 
 USE_I18N = True
 

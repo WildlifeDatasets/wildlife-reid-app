@@ -19,3 +19,8 @@ Run the following commands to view the final development mode configuration with
 ```bash
 docker-compose -f docker-compose.yml -f docker-compose.dev.yml config
 ```
+
+Create superuser:
+```bash
+docker exec -it api bash -ic 'python ~/manage.py createsuperuser'
+```
