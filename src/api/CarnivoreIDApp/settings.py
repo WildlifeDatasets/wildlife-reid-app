@@ -175,4 +175,4 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 CREDS_JSON_FILE = Path(PRIVATE_DIR) / "piglegsurgery-creds.json"
 
-# LOGIN_REDIRECT_URL = "/cidapp/uploads"
+LOGIN_REDIRECT_URL = "/cidapp/uploads"
