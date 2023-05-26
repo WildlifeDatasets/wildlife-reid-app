@@ -10,8 +10,11 @@ C_FORCE_ROOT=false celery -A cidapp.celery_app worker --pool threads --loglevel 
 
 # start django
 uvicorn CarnivoreIDApp.asgi:application \
-    --host 0.0.0.0 \
+    --host $CAID_HOST \
     --port 8080 \
     --log-config logging.yaml \
     --log-level info \
     --reload
+
+
+#    --host 0.0.0.0 \
