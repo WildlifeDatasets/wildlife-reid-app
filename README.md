@@ -8,6 +8,10 @@ Before starting the application create `.env` file with secret variables.
 echo "WANDB_API_KEY=..." >> .env
 ```
 
+```bash
+export CAID_HOST="147.228..."
+```
+
 ### Development
 Run the following commands to build and start the application in the development mode.
 ```bash
