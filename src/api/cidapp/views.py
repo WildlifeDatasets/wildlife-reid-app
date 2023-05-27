@@ -61,15 +61,6 @@ def model_form_upload(request):
             # owner=request.user
         )
         if form.is_valid():
-            # logger.debug(f"imagefile.name={dir(form)}")
-            # name = form.cleaned_data['imagefile']
-            # if name is None or name == '':
-            #     return render(request, 'uploader/model_form_upload.html', {
-            #         'form': form,
-            #         "headline": "Upload",
-            #         "button": "Upload",
-            #         "error_text": "Image File is mandatory"
-            #     })
 
             # get uploaded archive
             uploaded_archive = form.save()
@@ -78,7 +69,9 @@ def model_form_upload(request):
                 logger.warning(
                     f"Uploaded file with extension '{uploaded_archive_suffix}' is not an archive."
                 )
-                # TODO - return error
+                messages.warning(
+                    f"Uploaded file with extension '{uploaded_archive_suffix}' is not an archive."
+                )
 
             # update record in the database
             output_dir = Path(settings.MEDIA_ROOT) / uploaded_archive.outputdir
