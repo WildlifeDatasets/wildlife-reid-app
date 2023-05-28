@@ -12,6 +12,7 @@ RUN pip install --no-cache-dir --upgrade pip build && \
 
 # Get Boostrap style
 ENV CAID_STATIC='/caid_static'
+ENV CAID_STATIC='/api/static'
 RUN mkdir -p $CAID_STATIC
 WORKDIR $CAID_STATIC
 RUN apt-get update && apt-get install -y wget unzip
@@ -19,8 +20,8 @@ RUN apt-get update && apt-get install -y wget unzip
 # ADD https://bootstrapmade.com/content/templatefiles/Arsha/Arsha.zip Arsha.zip
 RUN wget https://bootstrapmade.com/content/templatefiles/Arsha/Arsha.zip
 RUN unzip Arsha.zip
-RUN mkdir -p /api/cidapp/static
-RUN mv  Arsha/assets /caid_static/
+RUN mkdir -p $CAID_STATIC
+RUN mv  Arsha/assets $CAID_STATIC
 
 # expose ports and run application
 WORKDIR $APP_DIR
