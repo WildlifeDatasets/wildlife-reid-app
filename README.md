@@ -13,9 +13,9 @@ export CAID_HOST="147.228..."
 ```
 
 ```bash
-wget https://bootstrapmade.com/content/templatefiles/Arsha/Arsha.zip
-unzip Arsha.zip
-mv  Arsha/assets src/api/static/
+wget https://bootstrapmade.com/content/templatefiles/NiceAdmin/NiceAdmin.zip
+unzip NiceAdmin.zip
+mv  NiceAdmin/assets src/api/static/
 ```
 
 
