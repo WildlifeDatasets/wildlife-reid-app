@@ -3,8 +3,8 @@ import os
 
 from celery import Celery
 
-RABBITMQ_URL = os.environ["RABBITMQ_URL"]
-REDIS_URL = os.environ["REDIS_URL"]
+RABBITMQ_URL = os.getenv("RABBITMQ_URL", "amqp")
+REDIS_URL = os.getenv("REDIS_URL", "redis")
 
 # set the default Django settings module for the 'celery' program
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "CarnivoreIDApp.settings")

@@ -9,6 +9,7 @@ import random
 import skimage.io
 import skimage.transform
 import os.path
+from .fs_data import make_thumbnail_from_file
 
 logger = logging.getLogger("app")
 
@@ -36,7 +37,7 @@ def predict_on_success(
         uploaded_archive.status = "Finished"
         uploaded_archive.zip_file = zip_file
         uploaded_archive.csv_file = csv_file
-        make_thumbnail(uploaded_archive)
+        make_thumbnail_for_uploaded_archive(uploaded_archive)
     else:
         uploaded_archive.status = "Failed"
     uploaded_archive.finished_at = django.utils.timezone.now()
@@ -53,19 +54,15 @@ def predict_on_error(task_id: str, *args, uploaded_archive_id: int, **kwargs):
     uploaded_archive.save()
 
 
-def make_thumbnail(uploaded_archive:UploadedArchive):
+def make_thumbnail_for_uploaded_archive(uploaded_archive:UploadedArchive):
     """
     Make small image representing the upload.
     """
     output_dir = Path(settings.MEDIA_ROOT) / uploaded_archive.outputdir
-    image = skimage.io.imread(
-        random.choice(output_dir.glob("**/*.jpg"))
-    )
-    height = 200
-    scale = height / image.shape[0]
-    image_rescaled = skimage.transform.rescale(image, 0.25, anti_aliasing=False)
     thumbnail_path = output_dir / "thumbnail.jpg"
-    skimage.io.imread(thumbnail_path, image_rescaled)
-    uploaded_archive.thumbnail = os.path(thumbnail_path, settings.MEDIA_ROOT)
+
+    make_thumbnail_from_file(output_dir, thumbnail_path)
+
+    uploaded_archive.thumbnail = os.path.relpath(thumbnail_path, settings.MEDIA_ROOT)
 
 
