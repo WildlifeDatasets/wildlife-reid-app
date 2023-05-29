@@ -17,7 +17,6 @@ RUN mkdir -p $CAID_STATIC
 WORKDIR $CAID_STATIC
 RUN apt-get update && apt-get install -y wget unzip
 
-# ADD https://bootstrapmade.com/content/templatefiles/Arsha/Arsha.zip Arsha.zip
 RUN wget https://bootstrapmade.com/content/templatefiles/NiceAdmin/NiceAdmin.zip
 RUN unzip NiceAdmin.zip
 RUN mkdir -p $CAID_STATIC
