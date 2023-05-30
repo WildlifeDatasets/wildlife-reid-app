@@ -40,7 +40,7 @@ def uploads(request):
     # .exclude(
     #    tag__in=hide_tags
     # )
-    print(uploadedarchives)
+    # print(uploadedarchives)
     context = {"uploadedarchives": uploadedarchives}
     return render(request, "cidapp/uploads.html", context)
 
