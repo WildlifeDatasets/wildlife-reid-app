@@ -15,7 +15,8 @@ export CAID_HOST="147.228..."
 ```bash
 wget https://bootstrapmade.com/content/templatefiles/NiceAdmin/NiceAdmin.zip
 unzip NiceAdmin.zip
-mv  NiceAdmin/assets src/api/static/
+mkdir -p src/api/static
+mv NiceAdmin/assets src/api/static/
 ```
 
 
