@@ -74,6 +74,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "cidapp.apps.CidappConfig",
+    'django.contrib.sites',
     "allauth",  # <--
     "allauth.account",  # <--
     "allauth.socialaccount",  # <--
