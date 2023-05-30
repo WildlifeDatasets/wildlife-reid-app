@@ -18,50 +18,21 @@
         </div><!-- End Page Title -->
         <section class="section">
             <div class="container">
-{#                <div class="card">#}
-                    {#                <div class="card-body">#}
-                    {#                    <a class="btn btn-primary" href="{% url 'cidapp:model_form_upload' %}" >Upload new archive</a>#}
-                    {#                </div>#}
-                    {#            </div>#}
                     {% if uploadedarchives %}
                         {% for uploadedarchive in uploadedarchives %}
                             <div class="card"
                                     {% if uploadedarchive.thumbnail %}
-                                        {#                        <img class="card-img-right" src="{{ uploadedarchive.thumbnail.url }}">#}
                                  style="
-                                         {#background-image: url('https://mdbcdn.b-cdn.net/img/new/fluid/nature/012.webp');#}
 
                                          background-image: linear-gradient(to left, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 1.0)), url({{ uploadedarchive.thumbnail.url }});
                                          background-repeat: no-repeat;
                                          background-position-x: right;
                                          background-position-y: center;
                                          background-size: 100% auto;
-                                         {#height: 100vh;#}
                                          "
 
                                     {% endif %}
                             >
-                                {#                  <div class="card-img" src='https://mdbcdn.b-cdn.net/img/new/fluid/nature/012.webp'>#}
-                                {#                  <div class="card-img-overlay">#}
-                                {#                  <div#}
-                                {#  class="card"#}
-                                {#  style="#}
-                                {#    background-image: url('https://mdbcdn.b-cdn.net/img/new/fluid/nature/012.webp');#}
-                                {#    height: 100vh;#}
-                                {#  "#}
-                                {#>#}
-                                {#  <div#}
-                                {#          class="mask" #}
-                                {#          style="background-color: rgba(178, 60, 253, 0.6);">#}
-                                {#    <div class="d-flex justify-content-center align-items-center h-100">#}
-                                {#      <h1 class="text-white mb-0">Page title</h1>#}
-                                {#    </div>#}
-                                {#  </div>#}
-                                {#</div>#}
-                                {#                      <div class="bg-image"#}
-                                {#                      >#}
-{#                                <div class="mask"#}
-{#                                     style="background-color: rgba(255, 255, 255, 0.6);">#}
                                 <div class="card-body"
                                 >
                                     <h5 class="card-title">{{ uploadedarchive }}</h5>
@@ -85,7 +56,6 @@
                                        onclick="return confirm('Delete file {{ uploadedarchive }}?')">
                                         <i class="bi bi-trash"></i> Delete
                                     </a>
-{#                                </div>#}
                                 </div>
                             </div>
 
@@ -93,7 +63,6 @@
                     {% else %}
                         <p>No data available.</p>
                     {% endif %}
-{#                </div>#}
             </div>
         </section>
     {% endif %}
