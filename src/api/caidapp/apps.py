@@ -1,6 +1,6 @@
 from django.apps import AppConfig
 
 
-class CidappConfig(AppConfig):
+class CaidappConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
-    name = "cidapp"
+    name = "caidapp"

@@ -2,7 +2,7 @@ import logging
 
 import django
 from celery import shared_task
-from cidapp.models import UploadedArchive
+from caidapp.models import UploadedArchive
 from pathlib import Path
 from django.conf import settings
 import random

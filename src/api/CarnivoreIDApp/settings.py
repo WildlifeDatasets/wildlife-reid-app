@@ -37,11 +37,11 @@ logger.debug(f"{SHARED_DATA_PATH=}")
 # )
 # environ.Env.read_env()
 
-# PRIVATE_DIR = Path("/data/cidapp_private")  # BASE_DIR / "../cidapp_private"
-PRIVATE_DIR = Path(os.getenv("CIDAPP_PRIVATE", "/caid_private"))   # BASE_DIR / "../cidapp_private"
+# PRIVATE_DIR = Path("/data/caidapp_private")  # BASE_DIR / "../caidapp_private"
+PRIVATE_DIR = Path(os.getenv("CAIDAPP_PRIVATE", "/caid_private"))   # BASE_DIR / "../caidapp_private"
 PRIVATE_DIR.mkdir(exist_ok=True, parents=True)
 
-WEBAPP_DATA = Path(SHARED_DATA_PATH) / "cidapp_data"  # BASE_DIR / "../cidapp_data"
+WEBAPP_DATA = Path(SHARED_DATA_PATH) / "caidapp_data"  # BASE_DIR / "../caidapp_data"
 WEBAPP_DATA.mkdir(exist_ok=True, parents=True)
 
 scpath = PRIVATE_DIR / "secretkey.txt"
@@ -73,7 +73,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    "cidapp.apps.CidappConfig",
+    "caidapp.apps.CaidappConfig",
     # 'django.contrib.sites',
     "allauth",  # <--
     "allauth.account",  # <--
@@ -177,4 +177,4 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 CREDS_JSON_FILE = Path(PRIVATE_DIR) / "piglegsurgery-creds.json"
 
-LOGIN_REDIRECT_URL = "/cidapp/uploads"
+LOGIN_REDIRECT_URL = "/caidapp/uploads"

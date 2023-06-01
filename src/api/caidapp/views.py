@@ -42,14 +42,14 @@ def uploads(request):
     # )
     # print(uploadedarchives)
     context = {"uploadedarchives": uploadedarchives}
-    return render(request, "cidapp/uploads.html", context)
+    return render(request, "caidapp/uploads.html", context)
 
 
 def logout_view(request):
     """TODO add docstring."""
     logout(request)
     # Redirect to a success page.
-    return redirect("/cidapp/login")
+    return redirect("/caidapp/login")
 
 
 def model_form_upload(request):
@@ -105,12 +105,12 @@ def model_form_upload(request):
             )
             logger.info(f"Created worker task with id '{task.task_id}'.")
 
-            return redirect("/cidapp/uploads/")
+            return redirect("/caidapp/uploads/")
     else:
         form = UploadedArchiveForm()
     return render(
         request,
-        "cidapp/model_form_upload.html",
+        "caidapp/model_form_upload.html",
         {"form": form, "headline": "Upload", "button": "Upload"},
     )
 
@@ -119,13 +119,13 @@ def delete_upload(request, uploadedarchive_id):
     """TODO add docstring."""
     uploadedarchive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
     uploadedarchive.delete()
-    return redirect("/cidapp/uploads")
+    return redirect("/caidapp/uploads")
 
 class MyLoginView(LoginView):
     redirect_authenticated_user = True
 
     def get_success_url(self):
-        return reverse_lazy('cidapp:uploads')
+        return reverse_lazy('caidapp:uploads')
 
     def form_invalid(self, form):
         messages.error(self.request, 'Invalid username or password')

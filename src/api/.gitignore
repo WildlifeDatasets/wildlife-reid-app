@@ -1,3 +1,3 @@
 static
-cidapp/migrations/*
-!cidapp/migrations/__init__.py
+caidapp/migrations/*
+!caidapp/migrations/__init__.py

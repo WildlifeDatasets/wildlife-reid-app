@@ -22,9 +22,9 @@ from django.views.generic import TemplateView  # <--
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    path("cidapp/", include("cidapp.urls")),
+    path("caidapp/", include("caidapp.urls")),
     path("accounts/", include("allauth.urls")),  # <--
-    path("", TemplateView.as_view(template_name="cidapp/login.html"), name="login"),  # <--I
+    path("", TemplateView.as_view(template_name="caidapp/login.html"), name="login"),  # <--I
 ]
 urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
 # print (static(settings.MEDIA_URL))

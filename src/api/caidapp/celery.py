@@ -11,7 +11,7 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "CarnivoreIDApp.settings")
 
 logger = logging.getLogger("app")
 
-app = Celery("cidapp", broker=RABBITMQ_URL, backend=REDIS_URL)
+app = Celery("caidapp", broker=RABBITMQ_URL, backend=REDIS_URL)
 app.config_from_object("django.conf:settings", namespace="CELERY")
 
 # update celery configuration
@@ -22,4 +22,4 @@ app.conf.task_routes = {
 app.conf.update(task_track_started=True)
 
 # load task modules
-app.autodiscover_tasks(["cidapp"])
+app.autodiscover_tasks(["caidapp"])
