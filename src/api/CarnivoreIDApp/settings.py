@@ -38,7 +38,7 @@ logger.debug(f"{SHARED_DATA_PATH=}")
 # environ.Env.read_env()
 
 # PRIVATE_DIR = Path("/data/cidapp_private")  # BASE_DIR / "../cidapp_private"
-PRIVATE_DIR = Path(os.getenv("CIDAPP_PRIVATE", "/cidapp_private"))   # BASE_DIR / "../cidapp_private"
+PRIVATE_DIR = Path(os.getenv("CIDAPP_PRIVATE", "/caid_private"))   # BASE_DIR / "../cidapp_private"
 PRIVATE_DIR.mkdir(exist_ok=True, parents=True)
 
 WEBAPP_DATA = Path(SHARED_DATA_PATH) / "cidapp_data"  # BASE_DIR / "../cidapp_data"
@@ -49,9 +49,9 @@ if scpath.exists():
     with open(scpath, "r") as f:
         SECRET_KEY = f.read().strip()
 else:
+    logger.info("Secret key not found in 'secretkey.txt' generating new one.")
     with open(scpath, "w") as f:
         from django.core.management.utils import get_random_secret_key
-
         SECRET_KEY = f.write(get_random_secret_key())
 
 # SECURITY WARNING: don't run with debug turned on in production!
@@ -60,7 +60,7 @@ if isinstance(DEBUG, str):
     DEBUG = DEBUG.lower() == "true"
 logger.info(f"Setting environment variable {DEBUG=}.")
 
-ALLOWED_HOSTS = ["127.0.0.1", os.getenv("CAID_HOST", default="*"), "*"]
+ALLOWED_HOSTS = ["127.0.0.1", os.getenv("CAID_HOST", default="localhost"), "*"]
 logger.info(f"{ALLOWED_HOSTS=}.")
 
 
@@ -74,7 +74,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "cidapp.apps.CidappConfig",
-    'django.contrib.sites',
+    # 'django.contrib.sites',
     "allauth",  # <--
     "allauth.account",  # <--
     "allauth.socialaccount",  # <--

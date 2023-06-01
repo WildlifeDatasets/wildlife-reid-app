@@ -43,6 +43,7 @@ services:
       - api-data:/data
       - shared-data:/shared_data
       - caid-static:/caid_static
+      - caid-private:/caid_private
     ports:
       - "8080:8080"
     depends_on:
@@ -115,6 +116,10 @@ volumes:
       com.piva-ai.group: "applications"
       com.piva-ai.backup: "yes"
   caid-static:
+    labels:
+      com.piva-ai.group: "applications"
+      com.piva-ai.backup: "yes"
+  caid-private:
     labels:
       com.piva-ai.group: "applications"
       com.piva-ai.backup: "yes"
