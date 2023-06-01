@@ -33,14 +33,13 @@ def media_files(request, ploadedarchive_id):
     pass
 
 
-
 def uploads(request):
     """List of uploads."""
     uploadedarchives = UploadedArchive.objects.filter(
         owner=request.user.ciduser,
     ).all()
 
-    records_per_page = 2
+    records_per_page = 12
     paginator = Paginator(uploadedarchives, per_page=records_per_page)
 
     page_number = request.GET.get("page")
