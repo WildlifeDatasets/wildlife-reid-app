@@ -89,9 +89,16 @@ class Taxon(models.Model):
         return str(self.name)
 
 
+class Location(models.Model):
+    name = models.CharField(max_length=50)
+    def __str__(self):
+        return str(self.name)
+
+
 class MediaFile(models.Model):
     parent = models.ForeignKey(UploadedArchive, on_delete=models.CASCADE)
     species = models.ForeignKey(Taxon, blank=True, null=True, on_delete=models.CASCADE)
+    location = models.ForeignKey(Location, blank=True, null=True, on_delete=models.CASCADE)
     mediafile = models.FileField(
         "Media File",
         # upload_to=upload_to_unqiue_folder,

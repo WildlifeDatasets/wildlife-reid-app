@@ -10,6 +10,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.contrib.auth.views import LoginView
 from django.urls import reverse_lazy
 from django.contrib import messages
+from django.core.paginator import Paginator
 
 from .forms import UploadedArchiveForm
 from .models import UploadedArchive
@@ -32,17 +33,19 @@ def media_files(request, ploadedarchive_id):
     pass
 
 
+
 def uploads(request):
     """TODO add docstring."""
     uploadedarchives = UploadedArchive.objects.filter(
         owner=request.user.ciduser,
     ).all()  # \
-    # .exclude(
-    #    tag__in=hide_tags
-    # )
-    # print(uploadedarchives)
-    context = {"uploadedarchives": uploadedarchives}
-    return render(request, "caidapp/uploads.html", context)
+
+    # return render(request, "caidapp/uploads.html", context)
+    paginator = Paginator(uploadedarchives, 2)  # Show 25 contacts per page.
+
+    page_number = request.GET.get("page")
+    page_obj = paginator.get_page(page_number)
+    return render(request, "caidapp/uploads.html", {"page_obj": page_obj})
 
 
 def logout_view(request):

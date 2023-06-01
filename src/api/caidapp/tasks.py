@@ -65,4 +65,9 @@ def make_thumbnail_for_uploaded_archive(uploaded_archive:UploadedArchive):
 
     uploaded_archive.thumbnail = os.path.relpath(thumbnail_path, settings.MEDIA_ROOT)
 
+def get_files_from_upload(uploaded_archive:UploadedArchive):
+    output_dir = Path(settings.MEDIA_ROOT) / uploaded_archive.outputdir
+
+
+
 
