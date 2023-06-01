@@ -35,13 +35,13 @@ def media_files(request, ploadedarchive_id):
 
 
 def uploads(request):
-    """TODO add docstring."""
+    """List of uploads."""
     uploadedarchives = UploadedArchive.objects.filter(
         owner=request.user.ciduser,
-    ).all()  # \
+    ).all()
 
-    # return render(request, "caidapp/uploads.html", context)
-    paginator = Paginator(uploadedarchives, 2)  # Show 25 contacts per page.
+    records_per_page = 2
+    paginator = Paginator(uploadedarchives, per_page=records_per_page)
 
     page_number = request.GET.get("page")
     page_obj = paginator.get_page(page_number)
@@ -49,7 +49,7 @@ def uploads(request):
 
 
 def logout_view(request):
-    """TODO add docstring."""
+    """Logout from the application."""
     logout(request)
     # Redirect to a success page.
     return redirect("/caidapp/login")

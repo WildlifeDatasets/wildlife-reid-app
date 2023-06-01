@@ -17,7 +17,7 @@
             {#      </nav>#}
         </div><!-- End Page Title -->
         <section class="section">
-            <div class="container">
+            <ul class="container">
                     {% if page_obj %}
                         {% for uploadedarchive in page_obj %}
                             <div class="card"
@@ -60,23 +60,51 @@
                             </div>
 
                         {% endfor %}
-                        <div class="pagination">
-                            <span class="step-links">
+                        <ul class="pagination">
+{#                            <span class="step-links">#}
                                 {% if page_obj.has_previous %}
-                                    <a href="?page=1">&laquo; first</a>
-                                    <a href="?page={{ page_obj.previous_page_number }}">previous</a>
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page=1">First </a>
+                                    </li>
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}">&laquo; </a>
+                                    </li>
+                                {% else %}
+                                    <li class="page-item disabled">
+                                        <a class="page-link" href="#">First</a>
+                                    </li>
+                                    <li class="page-item disabled">
+                                        <a class="page-link" href="#">&laquo; </a>
+                                    </li>
                                 {% endif %}
 
-                                <span class="current">
-                                    Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}.
-                                </span>
+                                <li class="page-item">
+{#                                <span class="current">#}
+                                    <a class="page-link" href="#">
+                                        Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}.
+                                    </a>
+{#                                </span>#}
+                                </li>
 
                                 {% if page_obj.has_next %}
-                                    <a href="?page={{ page_obj.next_page_number }}">next</a>
-                                    <a href="?page={{ page_obj.paginator.num_pages }}">last &raquo;</a>
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ page_obj.next_page_number }}">&raquo; </a>
+                                    </li>
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">Last</a>
+                                    </li>
+
+                                {% else %}
+                                    <li class="page-item disabled">
+                                        <a class="page-link" href="#">&raquo; </a>
+                                    </li>
+                                    <li class="page-item disabled">
+                                        <a class="page-link" href="#">Last</a>
+                                    </li>
                                 {% endif %}
-                            </span>
-                        </div>
+{#                            </span>#}
+                        </ul>
+
                     {% else %}
                         <p>No data available.</p>
                     {% endif %}
