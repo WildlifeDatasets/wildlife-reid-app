@@ -13,7 +13,7 @@ from django.contrib import messages
 from django.core.paginator import Paginator
 
 from .forms import UploadedArchiveForm
-from .models import UploadedArchive
+from .models import UploadedArchive, MediaFile
 from .tasks import predict_on_error, predict_on_success
 
 logger = logging.getLogger("app")
@@ -26,11 +26,21 @@ def wellcome(request):
     pass
 
 
-def media_files(request, ploadedarchive_id):
-    """TODO add docstring."""
-    # uploadedarchive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
-    # uploadedarchive
-    pass
+
+
+def media_files(request, uploadedarchive_id):
+    """List of uploads."""
+    mediafiles = MediaFile.objects.filter(
+        parent=request.uploadedarchive
+    ).all()
+
+    records_per_page = 12
+    paginator = Paginator(mediafiles, per_page=records_per_page)
+
+    page_number = request.GET.get("page")
+    page_obj = paginator.get_page(page_number)
+    return render(request, "caidapp/uploads.html", {"page_obj": page_obj})
+
 
 
 def uploads(request):

@@ -3,8 +3,8 @@ import shutil
 from pathlib import Path
 
 import pytest
-from CarnivoreIDApp.caidapp.cv import data_processing_pipeline
-from CarnivoreIDApp.caidapp.cv.dataset_tools import (  # make_tarfile,
+from src.inference_worker.utils import data_processing_pipeline
+from src.inference_worker.utils.dataset_tools import (  # make_tarfile,
     _species_czech_preprocessing,
     make_hash,
     make_zipfile,

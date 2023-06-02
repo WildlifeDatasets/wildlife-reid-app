@@ -1,9 +1,16 @@
 import pytest
-from .models import UploadedArchive
+import django
+django.setup()
 from pathlib import Path
-from .tasks import make_thumbnail_for_uploaded_archive
+import os
+import logging
+from .tasks import make_thumbnail_for_uploaded_archive, get_image_files_from_uploaded_archive
+from .models import UploadedArchive
+
+logger = logging.getLogger(__file__)
 
 ROOT_DIR = Path(__file__).parent.parent.parent.parent
+CAID_DATASET_BASEDIR = Path(os.getenv("CARNIVOREID_DATASET_BASEDIR", r"H:\biology\orig\CarnivoreID"))
 
 def test_prepare_thumbnail():
     image_dir = ROOT_DIR/"test_mini_data"
@@ -16,3 +23,19 @@ def test_prepare_thumbnail():
     uploaded_archive.save()
 
     make_thumbnail_for_uploaded_archive(uploaded_archive=uploaded_archive, )
+
+
+def test_add_mediafiles_from_csv():
+    image_dir = CAID_DATASET_BASEDIR/"test_mini_data"
+    output_dir = CAID_DATASET_BASEDIR/ "test_mini_data_output"
+    csv_file = output_dir/"metadata.csv"
+
+    uploaded_archive = UploadedArchive()
+    uploaded_archive.outputdir = output_dir
+    uploaded_archive.csv_file = csv_file
+    # uploaded_archive.save()
+
+    get_image_files_from_uploaded_archive(uploaded_archive)
+    media_files = uploaded_archive.mediafile_set.all()
+    logger.debug(media_files)
+    assert len(media_files) > 1

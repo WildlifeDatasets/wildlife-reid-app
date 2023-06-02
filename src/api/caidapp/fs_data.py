@@ -4,6 +4,7 @@ import random
 from pathlib import Path
 import logging
 import numpy as np
+import pandas as pd
 
 logger = logging.getLogger(__file__)
 
@@ -26,3 +27,7 @@ def make_thumbnail_from_file(directory:Path, thumbnail_path:Path):
     thumbnail_path.parent.mkdir(exist_ok=True, parents=True)
     skimage.io.imsave(thumbnail_path, image_rescaled)
 
+
+def get_images_from_csv(csv_file:Path) -> list:
+    df = pd.read_csv(csv_file)
+    return list(df["image_path"])

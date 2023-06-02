@@ -27,6 +27,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 SHARED_DATA_PATH = os.environ.get("SHARED_DATA_PATH", default=BASE_DIR.parent)
 logger.debug(f"{SHARED_DATA_PATH=}")
+print(f"{SHARED_DATA_PATH=}")
 
 
 # Quick-start development settings - unsuitable for production
@@ -41,7 +42,9 @@ logger.debug(f"{SHARED_DATA_PATH=}")
 PRIVATE_DIR = Path(os.getenv("CAIDAPP_PRIVATE", "/caid_private"))   # BASE_DIR / "../caidapp_private"
 PRIVATE_DIR.mkdir(exist_ok=True, parents=True)
 
+
 WEBAPP_DATA = Path(SHARED_DATA_PATH) / "caidapp_data"  # BASE_DIR / "../caidapp_data"
+print(f"{WEBAPP_DATA=}")
 WEBAPP_DATA.mkdir(exist_ok=True, parents=True)
 
 scpath = PRIVATE_DIR / "secretkey.txt"

@@ -5,3 +5,4 @@ celery[redis]==5.2.7
 PyYAML>=6.0
 Pillow>=9.1.1
 scikit-image>=0.19
+pandas

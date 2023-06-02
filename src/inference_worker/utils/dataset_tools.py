@@ -598,6 +598,8 @@ class SumavaInitialProcessing:
             # if item.suffix.lower() not in exclude
         ]
         return vanilla_paths
+    def make_metadata_csv(self, path:Path):
+        self.metadata
 
     def make_paths_and_exifs_parallel(
         self,

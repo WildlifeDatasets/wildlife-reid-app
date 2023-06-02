@@ -2,7 +2,7 @@ import logging
 
 import django
 from celery import shared_task
-from caidapp.models import UploadedArchive
+from .models import UploadedArchive, MediaFile
 from pathlib import Path
 from django.conf import settings
 import random
@@ -10,6 +10,7 @@ import skimage.io
 import skimage.transform
 import os.path
 from .fs_data import make_thumbnail_from_file
+import pandas as pd
 
 logger = logging.getLogger("app")
 
@@ -34,10 +35,11 @@ def predict_on_success(
         logger.critical(f"Unexpected error {output=} is missing 'status' field.")
         uploaded_archive.status = "Unknown"
     elif output["status"] == "DONE":
-        uploaded_archive.status = "Finished"
         uploaded_archive.zip_file = zip_file
         uploaded_archive.csv_file = csv_file
         make_thumbnail_for_uploaded_archive(uploaded_archive)
+        get_image_files_from_uploaded_archive(uploaded_archive)
+        uploaded_archive.status = "Finished"
     else:
         uploaded_archive.status = "Failed"
     uploaded_archive.finished_at = django.utils.timezone.now()
@@ -65,8 +67,24 @@ def make_thumbnail_for_uploaded_archive(uploaded_archive:UploadedArchive):
 
     uploaded_archive.thumbnail = os.path.relpath(thumbnail_path, settings.MEDIA_ROOT)
 
-def get_files_from_upload(uploaded_archive:UploadedArchive):
+
+def get_image_files_from_uploaded_archive(uploaded_archive:UploadedArchive):
+    logger.debug("getting images from uploaded archive")
     output_dir = Path(settings.MEDIA_ROOT) / uploaded_archive.outputdir
+    csv_file = Path(settings.MEDIA_ROOT) / str(uploaded_archive.csv_file)
+    logger.debug(f"{csv_file} {Path(csv_file).exists()}")
+
+    df = pd.read_csv(csv_file)
+    for fn in df["image_path"]:
+        abs_pth = output_dir / "images" / fn
+        rel_pth = os.path.relpath(abs_pth, settings.MEDIA_ROOT)
+        logger.debug(f"{abs_pth}")
+        logger.debug(f"{rel_pth}")
+        # bi = models.BitmapImage(server_datafile=serverfile, bitmap_image=pth_rel)
+        # bi.save()
+        mf = MediaFile(parent=uploaded_archive, mediafile=str(rel_pth))
+        mf.save()
+        logger.debug(f"{mf}")
 
 
 
