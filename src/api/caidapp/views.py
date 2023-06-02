@@ -45,7 +45,7 @@ def uploads(request):
     """List of uploads."""
     uploadedarchives = UploadedArchive.objects.filter(
         owner=request.user.ciduser,
-    ).all()
+    ).all().order_by("-uploaded_at")
 
     records_per_page = 12
     paginator = Paginator(uploadedarchives, per_page=records_per_page)
