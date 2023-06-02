@@ -26,20 +26,18 @@ def wellcome(request):
     pass
 
 
-
-
 def media_files(request, uploadedarchive_id):
     """List of uploads."""
-    mediafiles = MediaFile.objects.filter(
-        parent=request.uploadedarchive
-    ).all()
+
+    serverfile = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
+    mediafile_set = serverfile.mediafile_set.all()
 
     records_per_page = 12
-    paginator = Paginator(mediafiles, per_page=records_per_page)
+    paginator = Paginator(mediafile_set, per_page=records_per_page)
 
     page_number = request.GET.get("page")
     page_obj = paginator.get_page(page_number)
-    return render(request, "caidapp/uploads.html", {"page_obj": page_obj})
+    return render(request, "caidapp/media_files.html", {"page_obj": page_obj})
 
 
 

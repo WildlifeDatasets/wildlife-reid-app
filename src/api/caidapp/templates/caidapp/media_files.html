@@ -20,37 +20,13 @@
             <ul class="container">
                 {% if page_obj %}
                     {% for uploadedarchive in page_obj %}
-                        <div class="card"
-                                {% if uploadedarchive.thumbnail %}
-                             style="
-
-                                     background-image: linear-gradient(to left, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 1.0)), url({{ uploadedarchive.thumbnail.url }});
-                                     background-repeat: no-repeat;
-                                     background-position-x: right;
-                                     background-position-y: center;
-                                     background-size: 100% auto;
-                                     "
-
-                                {% endif %}
-                        >
-                            <div class="card-body"
-                            >
+                        <div class="card">
+                            laskfl laksjflasdj aseselkj
+                            <img class="card-img-top" src="{{ uploadedarchive.mediafile.url }}" alt="Cameratrap image">
+                            <div class="card-body">
                                 <h5 class="card-title">{{ uploadedarchive }}</h5>
-                                <p>Status: {{ uploadedarchive.status }} </p>
-                                <p>Uploaded at: {{ uploadedarchive.uploaded_at }} </p>
-                                {% if uploadedarchive.finished_at %}
-                                    <p>Finished at: {{ uploadedarchive.finished_at }} </p>
-                                {% endif %}
 
 
-                                {% if uploadedarchive.zip_file %}
-                                    <a class="btn btn-secondary" href="{{ uploadedarchive.zip_file.url }}"><i
-                                            class="bi bi-download"></i> Download images</a>
-                                {% endif %}
-                                {% if uploadedarchive.csv_file %}
-                                    <a class="btn btn-secondary" href="{{ uploadedarchive.csv_file.url }}"><i
-                                            class="bi bi-table"></i> Download images</a>
-                                {% endif %}
                                 <a class="btn btn-secondary"
                                    href="{% url 'caidapp:delete_upload' uploadedarchive.id %}"
                                    onclick="return confirm('Delete file {{ uploadedarchive }}?')">

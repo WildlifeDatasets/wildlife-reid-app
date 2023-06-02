@@ -10,6 +10,7 @@ urlpatterns = [
     path("login/", TemplateView.as_view(template_name="caidapp/login.html"), name="login"),  # <--I
     path("logout/", views.logout_view, name="logout_view"),
     path("uploads/", views.uploads, name="uploads"),  # <--I
+    path("media_files/<int:uploadedarchive_id>/", views.media_files, name="media_files"),  # <--I
     path("<int:uploadedarchive_id>/delete_upload/", views.delete_upload, name="delete_upload"),
     path('djangologin/', views.MyLoginView.as_view(), name='djangologin'),
 ]
