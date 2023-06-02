@@ -126,10 +126,18 @@ def model_form_upload(request):
 
 
 def delete_upload(request, uploadedarchive_id):
-    """TODO add docstring."""
+    """Delete uploaded file."""
     uploadedarchive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
     uploadedarchive.delete()
     return redirect("/caidapp/uploads")
+
+def delete_mediafile(request, mediafile_id):
+    """Delete uploaded file."""
+
+    obj = get_object_or_404(MediaFile, pk=mediafile_id)
+    parent_id = obj.parent_id
+    obj.delete()
+    return redirect("caidapp:media_files", uploadedarchive_id=parent_id)
 
 class MyLoginView(LoginView):
     redirect_authenticated_user = True

@@ -19,16 +19,16 @@
         <section class="section">
             <ul class="container">
                 {% if page_obj %}
-                    {% for uploadedarchive in page_obj %}
+                    {% for mediafile in page_obj %}
                         <div class="card">
-                            <img class="card-img-top" src="{{ uploadedarchive.mediafile.url }}" alt="Cameratrap image">
+                            <img class="card-img-top" src="{{ mediafile.mediafile.url }}" alt="Cameratrap image">
                             <div class="card-body">
-                                <h5 class="card-title">{{ uploadedarchive }}</h5>
+                                <h5 class="card-title">{{ mediafile }}</h5>
 
 
                                 <a class="btn btn-secondary"
-                                   href="{% url 'caidapp:delete_upload' uploadedarchive.id %}"
-                                   onclick="return confirm('Delete file {{ uploadedarchive }}?')">
+                                   href="{% url 'caidapp:delete_mediafile' mediafile.id %}"
+                                   onclick="return confirm('Delete file {{ mediafile }}?')">
                                     <i class="bi bi-trash"></i> Delete
                                 </a>
                             </div>
