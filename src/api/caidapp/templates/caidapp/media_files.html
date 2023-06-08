@@ -24,6 +24,7 @@
                             <img class="card-img-top" src="{{ mediafile.mediafile.url }}" alt="Cameratrap image">
                             <div class="card-body">
                                 <h5 class="card-title">{{ mediafile }}</h5>
+                                <p class="card-text"> {{ mediafile.category }}</p>
 
 
                                 <a class="btn btn-secondary"
@@ -35,6 +36,7 @@
                         </div>
 
                     {% endfor %}
+{#                    Pagination       #}
                     <ul class="pagination">
                         {#                            <span class="step-links">#}
                         {% if page_obj.has_previous %}

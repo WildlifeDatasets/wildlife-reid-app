@@ -97,7 +97,7 @@ class Location(models.Model):
 
 class MediaFile(models.Model):
     parent = models.ForeignKey(UploadedArchive, on_delete=models.CASCADE)
-    species = models.ForeignKey(Taxon, blank=True, null=True, on_delete=models.CASCADE)
+    category = models.ForeignKey(Taxon, blank=True, null=True, on_delete=models.CASCADE)
     location = models.ForeignKey(Location, blank=True, null=True, on_delete=models.CASCADE)
     mediafile = models.FileField(
         "Media File",
@@ -109,3 +109,23 @@ class MediaFile(models.Model):
 
     def __str__(self):
         return str(Path(self.mediafile.name).name)
+
+def get_taxon(name:str) -> Taxon:
+    """Return taxon according to the name, create it if necessary."""
+    objs = Taxon.objects.filter(name=name)
+    if len(objs) == 0:
+        taxon = Taxon(name=name)
+        taxon.save()
+    else:
+        taxon = objs[0]
+    return taxon
+
+def get_location(name:str) -> Location:
+    """Return location according to the name, create it if necessary."""
+    objs = Location.objects.filter(name=name)
+    if len(objs) == 0:
+        location = Location(name=name)
+        location.save()
+    else:
+        location = objs[0]
+    return location

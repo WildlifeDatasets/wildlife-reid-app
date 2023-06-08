@@ -2,7 +2,7 @@ import logging
 
 import django
 from celery import shared_task
-from .models import UploadedArchive, MediaFile
+from .models import UploadedArchive, MediaFile, get_taxon, get_location, Location
 from pathlib import Path
 from django.conf import settings
 import random
@@ -75,14 +75,18 @@ def get_image_files_from_uploaded_archive(uploaded_archive:UploadedArchive):
     logger.debug(f"{csv_file} {Path(csv_file).exists()}")
 
     df = pd.read_csv(csv_file)
-    for fn in df["image_path"]:
-        abs_pth = output_dir / "images" / fn
+    # for fn in df["image_path"]:
+    for index, row in df.iterrows():
+        abs_pth = output_dir / "images" / row["image_path"]
         rel_pth = os.path.relpath(abs_pth, settings.MEDIA_ROOT)
         logger.debug(f"{abs_pth}")
         logger.debug(f"{rel_pth}")
         # bi = models.BitmapImage(server_datafile=serverfile, bitmap_image=pth_rel)
         # bi.save()
-        mf = MediaFile(parent=uploaded_archive, mediafile=str(rel_pth))
+        taxon = get_taxon(row["predicted_category"])
+        location = get_location(row["location"])
+        mf = MediaFile(parent=uploaded_archive, mediafile=str(rel_pth),
+                       category=taxon, location=location)
         mf.save()
         logger.debug(f"{mf}")
 
