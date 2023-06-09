@@ -35,9 +35,13 @@ def media_files(request, uploadedarchive_id):
 
 def uploads(request):
     """List of uploads."""
-    uploadedarchives = UploadedArchive.objects.filter(
-        owner=request.user.ciduser,
-    ).all().order_by("-uploaded_at")
+    uploadedarchives = (
+        UploadedArchive.objects.filter(
+            owner=request.user.ciduser,
+        )
+        .all()
+        .order_by("-uploaded_at")
+    )
 
     records_per_page = 12
     paginator = Paginator(uploadedarchives, per_page=records_per_page)
@@ -137,8 +141,8 @@ class MyLoginView(LoginView):
     redirect_authenticated_user = True
 
     def get_success_url(self):
-        return reverse_lazy('caidapp:uploads')
+        return reverse_lazy("caidapp:uploads")
 
     def form_invalid(self, form):
-        messages.error(self.request, 'Invalid username or password')
+        messages.error(self.request, "Invalid username or password")
         return self.render_to_response(self.get_context_data(form=form))

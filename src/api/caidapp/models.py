@@ -19,7 +19,6 @@ from .model_tools import (
 logger = logging.getLogger("database")
 
 
-
 class CIDUser(models.Model):
     User = get_user_model()
     id = models.AutoField(primary_key=True)
@@ -92,6 +91,7 @@ class Taxon(models.Model):
 
 class Location(models.Model):
     name = models.CharField(max_length=50)
+
     def __str__(self):
         return str(self.name)
 
@@ -111,7 +111,8 @@ class MediaFile(models.Model):
     def __str__(self):
         return str(Path(self.mediafile.name).name)
 
-def get_taxon(name:str) -> Taxon:
+
+def get_taxon(name: str) -> Taxon:
     """Return taxon according to the name, create it if necessary."""
     objs = Taxon.objects.filter(name=name)
     if len(objs) == 0:
@@ -121,7 +122,8 @@ def get_taxon(name:str) -> Taxon:
         taxon = objs[0]
     return taxon
 
-def get_location(name:str) -> Location:
+
+def get_location(name: str) -> Location:
     """Return location according to the name, create it if necessary."""
     objs = Location.objects.filter(name=name)
     if len(objs) == 0:

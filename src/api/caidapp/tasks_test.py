@@ -1,5 +1,6 @@
 import pytest
 import django
+
 django.setup()
 from pathlib import Path
 import os
@@ -10,25 +11,30 @@ from .models import UploadedArchive
 logger = logging.getLogger(__file__)
 
 ROOT_DIR = Path(__file__).parent.parent.parent.parent
-CAID_DATASET_BASEDIR = Path(os.getenv("CARNIVOREID_DATASET_BASEDIR", r"H:\biology\orig\CarnivoreID"))
+CAID_DATASET_BASEDIR = Path(
+    os.getenv("CARNIVOREID_DATASET_BASEDIR", r"H:\biology\orig\CarnivoreID")
+)
+
 
 def test_prepare_thumbnail():
-    image_dir = ROOT_DIR/"test_mini_data"
+    image_dir = ROOT_DIR / "test_mini_data"
     output_dir = ROOT_DIR / "src/tests/prepare_thumbnail"
-    thumbnail_path = output_dir/"thumbnail.jpg"
+    thumbnail_path = output_dir / "thumbnail.jpg"
 
     uploaded_archive = UploadedArchive()
     uploaded_archive.outputdir = output_dir
     uploaded_archive.thumbnail = thumbnail_path
     uploaded_archive.save()
 
-    make_thumbnail_for_uploaded_archive(uploaded_archive=uploaded_archive, )
+    make_thumbnail_for_uploaded_archive(
+        uploaded_archive=uploaded_archive,
+    )
 
 
 def test_add_mediafiles_from_csv():
-    image_dir = CAID_DATASET_BASEDIR/"test_mini_data"
-    output_dir = CAID_DATASET_BASEDIR/ "test_mini_data_output"
-    csv_file = output_dir/"metadata.csv"
+    image_dir = CAID_DATASET_BASEDIR / "test_mini_data"
+    output_dir = CAID_DATASET_BASEDIR / "test_mini_data_output"
+    csv_file = output_dir / "metadata.csv"
 
     uploaded_archive = UploadedArchive()
     uploaded_archive.outputdir = output_dir

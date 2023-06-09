@@ -56,7 +56,7 @@ def predict_on_error(task_id: str, *args, uploaded_archive_id: int, **kwargs):
     uploaded_archive.save()
 
 
-def make_thumbnail_for_uploaded_archive(uploaded_archive:UploadedArchive):
+def make_thumbnail_for_uploaded_archive(uploaded_archive: UploadedArchive):
     """
     Make small image representing the upload.
     """
@@ -68,7 +68,7 @@ def make_thumbnail_for_uploaded_archive(uploaded_archive:UploadedArchive):
     uploaded_archive.thumbnail = os.path.relpath(thumbnail_path, settings.MEDIA_ROOT)
 
 
-def get_image_files_from_uploaded_archive(uploaded_archive:UploadedArchive):
+def get_image_files_from_uploaded_archive(uploaded_archive: UploadedArchive):
     logger.debug("getting images from uploaded archive")
     output_dir = Path(settings.MEDIA_ROOT) / uploaded_archive.outputdir
     csv_file = Path(settings.MEDIA_ROOT) / str(uploaded_archive.csv_file)
@@ -84,11 +84,8 @@ def get_image_files_from_uploaded_archive(uploaded_archive:UploadedArchive):
         taxon = get_taxon(row["predicted_category"])
         # location_from_dir = row["location"]
         location = get_location(str(uploaded_archive.location_at_upload))
-        mf = MediaFile(parent=uploaded_archive, mediafile=str(rel_pth),
-                       category=taxon, location=location)
+        mf = MediaFile(
+            parent=uploaded_archive, mediafile=str(rel_pth), category=taxon, location=location
+        )
         mf.save()
         logger.debug(f"{mf}")
-
-
-
-
