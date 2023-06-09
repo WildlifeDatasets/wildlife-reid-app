@@ -18,13 +18,6 @@ from .tasks import predict_on_error, predict_on_success
 
 logger = logging.getLogger("app")
 
-# Create your views here.
-
-
-def wellcome(request):
-    """TODO add docstring."""
-    pass
-
 
 def media_files(request, uploadedarchive_id):
     """List of uploads."""
@@ -38,7 +31,6 @@ def media_files(request, uploadedarchive_id):
     page_number = request.GET.get("page")
     page_obj = paginator.get_page(page_number)
     return render(request, "caidapp/media_files.html", {"page_obj": page_obj})
-
 
 
 def uploads(request):
@@ -63,7 +55,7 @@ def logout_view(request):
 
 
 def model_form_upload(request):
-    """TODO add docstring."""
+    """Process the uploaded zip file."""
     if request.method == "POST":
         form = UploadedArchiveForm(
             request.POST,
@@ -131,6 +123,7 @@ def delete_upload(request, uploadedarchive_id):
     uploadedarchive.delete()
     return redirect("/caidapp/uploads")
 
+
 def delete_mediafile(request, mediafile_id):
     """Delete uploaded file."""
 
@@ -138,6 +131,7 @@ def delete_mediafile(request, mediafile_id):
     parent_id = obj.parent_id
     obj.delete()
     return redirect("caidapp:media_files", uploadedarchive_id=parent_id)
+
 
 class MyLoginView(LoginView):
     redirect_authenticated_user = True

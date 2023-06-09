@@ -81,10 +81,9 @@ def get_image_files_from_uploaded_archive(uploaded_archive:UploadedArchive):
         rel_pth = os.path.relpath(abs_pth, settings.MEDIA_ROOT)
         logger.debug(f"{abs_pth}")
         logger.debug(f"{rel_pth}")
-        # bi = models.BitmapImage(server_datafile=serverfile, bitmap_image=pth_rel)
-        # bi.save()
         taxon = get_taxon(row["predicted_category"])
-        location = get_location(row["location"])
+        # location_from_dir = row["location"]
+        location = get_location(str(uploaded_archive.location_at_upload))
         mf = MediaFile(parent=uploaded_archive, mediafile=str(rel_pth),
                        category=taxon, location=location)
         mf.save()
