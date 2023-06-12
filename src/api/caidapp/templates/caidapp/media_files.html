@@ -7,7 +7,7 @@
 {% block body %}
     {% if user.is_authenticated %}
         <div class="pagetitle">
-            <h1>Uploads</h1>
+            <h1>{{ page_title }}</h1>
             {#      <nav>#}
             {#        <ol class="breadcrumb">#}
             {#          <li class="breadcrumb-item"><a href="index.html">Home</a></li>#}
@@ -15,11 +15,56 @@
             {#          <li class="breadcrumb-item active">Blank</li>#}
             {#        </ol>#}
             {#      </nav>#}
+{#            <div class="dropdown">#}
+{#  <button class="btn btn-secondary dropdown-toggle" type="button" id="dropdownMenuButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">#}
+{#    Dropdown button#}
+{#  </button>#}
+{#  <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">#}
+{#    <a class="dropdown-item" href="#">Action</a>#}
+{#    <a class="dropdown-item" href="#">Another action</a>#}
+{#    <a class="dropdown-item" href="#">Something else here</a>#}
+{#  </div>#}
+{#</div>#}
+{#            <div class="card">#}
+{#                <div class="card-body">#}
+{#                    <h2 class="card-title">Filtration</h2>#}
+{#                    <div class="dropdown show">#}
+{#                        <a class="btn btn-secondary dropdown-toggle" href="#" role="button" id="dropdownMenuLink" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">#}
+{#                            Category#}
+{#                        </a>#}
+{##}
+{#                        <div class="dropdown-menu" aria-labelledby="dropdownMenuLink">#}
+{#                            <a class="dropdown-item" href="#">Action</a>#}
+{#                            <a class="dropdown-item" href="#">Another action</a>#}
+{#                            <a class="dropdown-item" href="#">Something else here</a>#}
+{#                        </div>#}
+{#                    </div>#}
+{#                </div>#}
+{#            </div>#}
+{#            <div class="card">#}
+{#                <div class="card-body">#}
+{#                    <div class="accordion accordion-flush" id="accordionFlushExample">#}
+{#                        <div class="accordion-item">#}
+{#                            <h2 class="accordion-header" id="flush-headingOne">#}
+{#                                <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#flush-collapseOne" aria-expanded="true" aria-controls="flush-collapseOne">#}
+{#                                    Filtration#}
+{#                                </button>#}
+{#                            </h2>#}
+{#                            <div id="flush-collapseOne" class="accordion-collapse collapse show" aria-labelledby="flush-headingOne" data-bs-parent="#accordionFlushExample" style="">#}
+{#                                <div class="accordion-body">#}
+{#                                    bla bla#}
+{#                                </div>#}
+{#                            </div>#}
+{#                        </div>#}
+{#                    </div>#}
+{#                </div>#}
+{#            </div>#}
         </div><!-- End Page Title -->
         <section class="section">
-            <ul class="container">
+            <div class="row">
                 {% if page_obj %}
                     {% for mediafile in page_obj %}
+                        <div class="col-lg-3">
                         <div class="card">
                             <img class="card-img-top" src="{{ mediafile.mediafile.url }}" alt="Cameratrap image">
                             <div class="card-body">
@@ -34,6 +79,7 @@
                                     <i class="bi bi-trash"></i> Delete
                                 </a>
                             </div>
+                        </div>
                         </div>
 
                     {% endfor %}
@@ -98,7 +144,7 @@
                     <p>No data available.</p>
                 {% endif %}
                 </div>
-            </ul>
+            </div>
         </section>
     {% endif %}
 {% endblock %}

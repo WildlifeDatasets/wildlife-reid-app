@@ -17,9 +17,12 @@
             {#      </nav>#}
         </div><!-- End Page Title -->
         <section class="section">
-            <ul class="container">
+{#            <ul class="container">#}
+            <div class="row">
+
                     {% if page_obj %}
                         {% for uploadedarchive in page_obj %}
+                            <div class="col-lg-6">
                             <div class="card"
                                     {% if uploadedarchive.thumbnail %}
                                  style="
@@ -59,6 +62,7 @@
 
                                     <a class="btn btn-secondary" href="{% url 'caidapp:media_files' uploadedarchive.id %}">Detail</a>
                                 </div>
+                            </div>
                             </div>
 
                         {% endfor %}
@@ -122,7 +126,8 @@
                         <p>No data available.</p>
                     {% endif %}
                 </div>
-            </ul>
+{#            </ul>#}
+            </div>
         </section>
     {% endif %}
 {% endblock %}

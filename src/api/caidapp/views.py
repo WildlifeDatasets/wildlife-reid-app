@@ -22,15 +22,15 @@ logger = logging.getLogger("app")
 def media_files(request, uploadedarchive_id):
     """List of uploads."""
 
-    serverfile = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
-    mediafile_set = serverfile.mediafile_set.all()
+    uploadedarchive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
+    mediafile_set = uploadedarchive.mediafile_set.all()
 
     records_per_page = 12
     paginator = Paginator(mediafile_set, per_page=records_per_page)
 
     page_number = request.GET.get("page")
     page_obj = paginator.get_page(page_number)
-    return render(request, "caidapp/media_files.html", {"page_obj": page_obj})
+    return render(request, "caidapp/media_files.html", {"page_obj": page_obj, 'page_title': uploadedarchive})
 
 
 def uploads(request):
