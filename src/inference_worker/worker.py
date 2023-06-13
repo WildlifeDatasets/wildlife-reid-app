@@ -9,6 +9,8 @@ from utils.log import setup_logging
 
 setup_logging()
 logger = logging.getLogger("app")
+logger.debug(f"{RABBITMQ_URL=}")
+logger.debug(f"{REDIS_URL=}")
 inference_worker = Celery("inference_worker", broker=RABBITMQ_URL, backend=REDIS_URL)
 
 
