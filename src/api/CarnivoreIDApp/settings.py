@@ -39,7 +39,7 @@ print(f"{SHARED_DATA_PATH=}")
 # environ.Env.read_env()
 
 # PRIVATE_DIR = Path("/data/caidapp_private")  # BASE_DIR / "../caidapp_private"
-PRIVATE_DIR = Path(os.getenv("CAIDAPP_PRIVATE", "/caid_private"))   # BASE_DIR / "../caidapp_private"
+PRIVATE_DIR = Path(os.getenv("CAIDAPP_PRIVATE", "/caid_private"))  # BASE_DIR / "../caidapp_private"
 PRIVATE_DIR.mkdir(exist_ok=True, parents=True)
 
 
@@ -55,6 +55,7 @@ else:
     logger.info("Secret key not found in 'secretkey.txt' generating new one.")
     with open(scpath, "w") as f:
         from django.core.management.utils import get_random_secret_key
+
         SECRET_KEY = f.write(get_random_secret_key())
 
 # SECURITY WARNING: don't run with debug turned on in production!
@@ -166,7 +167,7 @@ STATIC_URL = "static/"
 MEDIA_URL = "/media/"
 MEDIA_ROOT = WEBAPP_DATA / "media"
 # use python manage.py collectstatic
-STATIC_ROOT = Path(os.getenv("CAID_STATIC", default= BASE_DIR / "static"))
+STATIC_ROOT = Path(os.getenv("CAID_STATIC", default=BASE_DIR / "static"))
 # STATIC_ROOT = "static"
 # STATICFILES_DIRS = [
 #     BASE_DIR / "static",

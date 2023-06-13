@@ -18,34 +18,30 @@ from .tasks import predict_on_error, predict_on_success
 
 logger = logging.getLogger("app")
 
-# Create your views here.
-
-
-def wellcome(request):
-    """TODO add docstring."""
-    pass
-
 
 def media_files(request, uploadedarchive_id):
     """List of uploads."""
 
-    serverfile = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
-    mediafile_set = serverfile.mediafile_set.all()
+    uploadedarchive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
+    mediafile_set = uploadedarchive.mediafile_set.all()
 
     records_per_page = 12
     paginator = Paginator(mediafile_set, per_page=records_per_page)
 
     page_number = request.GET.get("page")
     page_obj = paginator.get_page(page_number)
-    return render(request, "caidapp/media_files.html", {"page_obj": page_obj})
-
+    return render(request, "caidapp/media_files.html", {"page_obj": page_obj, 'page_title': uploadedarchive})
 
 
 def uploads(request):
     """List of uploads."""
-    uploadedarchives = UploadedArchive.objects.filter(
-        owner=request.user.ciduser,
-    ).all().order_by("-uploaded_at")
+    uploadedarchives = (
+        UploadedArchive.objects.filter(
+            owner=request.user.ciduser,
+        )
+        .all()
+        .order_by("-uploaded_at")
+    )
 
     records_per_page = 12
     paginator = Paginator(uploadedarchives, per_page=records_per_page)
@@ -63,7 +59,7 @@ def logout_view(request):
 
 
 def model_form_upload(request):
-    """TODO add docstring."""
+    """Process the uploaded zip file."""
     if request.method == "POST":
         form = UploadedArchiveForm(
             request.POST,
@@ -131,6 +127,7 @@ def delete_upload(request, uploadedarchive_id):
     uploadedarchive.delete()
     return redirect("/caidapp/uploads")
 
+
 def delete_mediafile(request, mediafile_id):
     """Delete uploaded file."""
 
@@ -139,12 +136,13 @@ def delete_mediafile(request, mediafile_id):
     obj.delete()
     return redirect("caidapp:media_files", uploadedarchive_id=parent_id)
 
+
 class MyLoginView(LoginView):
     redirect_authenticated_user = True
 
     def get_success_url(self):
-        return reverse_lazy('caidapp:uploads')
+        return reverse_lazy("caidapp:uploads")
 
     def form_invalid(self, form):
-        messages.error(self.request, 'Invalid username or password')
+        messages.error(self.request, "Invalid username or password")
         return self.render_to_response(self.get_context_data(form=form))

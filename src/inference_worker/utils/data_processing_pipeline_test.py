@@ -16,7 +16,9 @@ from src.inference_worker.utils.dataset_tools import (  # make_tarfile,
 #     import data_processing_pipeline
 
 
-CAID_DATASET_BASEDIR = Path(os.getenv("CARNIVOREID_DATASET_BASEDIR", r"H:\biology\orig\CarnivoreID"))
+CAID_DATASET_BASEDIR = Path(
+    os.getenv("CARNIVOREID_DATASET_BASEDIR", r"H:\biology\orig\CarnivoreID")
+)
 CI = os.getenv("CI", False)
 
 
