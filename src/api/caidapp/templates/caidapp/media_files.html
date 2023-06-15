@@ -19,29 +19,29 @@
                 {% if page_obj %}
                     {% for mediafile in page_obj %}
                         <div class="col-lg-3">
-                        <div class="card">
-                            <img class="card-img-top" src="{{ mediafile.mediafile.url }}" alt="Cameratrap image">
-                            <div class="card-body">
-{#                                <h5 class="card-title">{{ mediafile }}</h5>#}
-                                <p class="card-text"> Category: {{ mediafile.category }}</p>
-                                <p class="card-text"> Location: {{ mediafile.location}}</p>
+                            <div class="card">
+                                <img class="card-img-top" src="{{ mediafile.mediafile.url }}" alt="Cameratrap image">
+                                <div class="card-body">
+                                    {#                                <h5 class="card-title">{{ mediafile }}</h5>#}
+                                    <p class="card-text"> Category: {{ mediafile.category }}</p>
+                                    <p class="card-text"> Location: {{ mediafile.location }}</p>
 
 
-                                <a class="btn btn-primary"
-                                   href="{% url 'caidapp:media_file_update' mediafile.id %}">
-                                    <i class="bi bi-trash"></i> Detail
-                                </a>
-                                <a class="btn btn-secondary"
-                                   href="{% url 'caidapp:delete_mediafile' mediafile.id %}"
-                                   onclick="return confirm('Delete file {{ mediafile }}?')">
-                                    <i class="bi bi-trash"></i> Delete
-                                </a>
+                                    <a class="btn btn-primary"
+                                       href="{% url 'caidapp:media_file_update' mediafile.id %}">
+                                        <i class="bi bi-trash"></i> Detail
+                                    </a>
+                                    <a class="btn btn-secondary"
+                                       href="{% url 'caidapp:delete_mediafile' mediafile.id %}"
+                                       onclick="return confirm('Delete file {{ mediafile }}?')">
+                                        <i class="bi bi-trash"></i> Delete
+                                    </a>
+                                </div>
                             </div>
-                        </div>
                         </div>
 
                     {% endfor %}
-{#                    Pagination       #}
+                    {#                    Pagination       #}
                     <ul class="pagination">
                         {#                            <span class="step-links">#}
                         {% if page_obj.has_previous %}
@@ -101,7 +101,7 @@
                 {% else %}
                     <p>No data available.</p>
                 {% endif %}
-                </div>
+            </div>
             </div>
         </section>
     {% endif %}
