@@ -8,13 +8,11 @@
     {% if user.is_authenticated %}
         <div class="pagetitle">
             <h1>Uploads</h1>
-            {#      <nav>#}
-            {#        <ol class="breadcrumb">#}
-            {#          <li class="breadcrumb-item"><a href="index.html">Home</a></li>#}
-            {#          <li class="breadcrumb-item">Pages</li>#}
-            {#          <li class="breadcrumb-item active">Blank</li>#}
-            {#        </ol>#}
-            {#      </nav>#}
+            <nav>
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li>
+                </ol>
+            </nav>
         </div><!-- End Page Title -->
         <section class="section">
             {#            <ul class="container">#}
@@ -22,7 +20,7 @@
 
                 {% if page_obj %}
                     {% for uploadedarchive in page_obj %}
-                        <div class="col-lg-6">
+                        <div class="col-lg-4">
                             <div class="card"
                                     {% if uploadedarchive.thumbnail %}
                                  style="
@@ -50,15 +48,6 @@
                                         <i class="bi bi-images"></i> Detail
                                     </a>
 
-                                    {% if uploadedarchive.zip_file %}
-                                        <a class="btn btn-secondary" href="{{ uploadedarchive.zip_file.url }}"><i
-                                                class="bi bi-download"></i> Download images</a>
-                                    {% endif %}
-                                    {% if uploadedarchive.csv_file %}
-                                        <a class="btn btn-secondary" href="{{ uploadedarchive.csv_file.url }}"><i
-                                                class="bi bi-table"></i> Download CSV</a>
-                                    {% endif %}
-
 
                                     <div class="dropdown d-inline-block">
                                         <a class="btn btn-secondary dropdown-toggle" href="#" role="button"
@@ -67,13 +56,20 @@
                                         </a>
 
                                         <ul class="dropdown-menu">
-                                            <li><a class="dropdown-item" href="#">Action</a></li>
-                                            <li><a class="dropdown-item" href="#">Another action</a></li>
-                                            <li><a class="dropdown-item" href="#">Something else here</a></li>
+                                            {% if uploadedarchive.zip_file %}
+                                                <li><a class="dropdown-item"
+                                                       href="{{ uploadedarchive.zip_file.url }}"><i
+                                                        class="bi bi-download"></i> Download images</a></li>
+                                            {% endif %}
+                                            {% if uploadedarchive.csv_file %}
+                                                <li><a class="dropdown-item"
+                                                       href="{{ uploadedarchive.csv_file.url }}"><i
+                                                        class="bi bi-table"></i> Download CSV</a></li>
+                                            {% endif %}
                                             <li>
                                                 <hr class="dropdown-divider">
                                             </li>
-                                            <li><a class="btn text-danger"
+                                            <li><a class="dropdown-item text-danger"
                                                    href="{% url 'caidapp:delete_upload' uploadedarchive.id %}"
                                                    onclick="return confirm('Delete file {{ uploadedarchive }}?')">
                                                 <i class="bi bi-trash"></i> Delete

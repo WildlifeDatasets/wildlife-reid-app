@@ -12,7 +12,7 @@ from django.urls import reverse_lazy
 from django.contrib import messages
 from django.core.paginator import Paginator
 
-from .forms import UploadedArchiveForm
+from .forms import UploadedArchiveForm, MediaFileForm
 from .models import UploadedArchive, MediaFile
 from .tasks import predict_on_error, predict_on_success
 
@@ -57,6 +57,28 @@ def logout_view(request):
     # Redirect to a success page.
     return redirect("/caidapp/login")
 
+def media_file_update(request, media_file_id):
+    """Show and update media file."""
+    mediafile = get_object_or_404(MediaFile, pk=media_file_id)
+    if request.method == "POST":
+        form = MediaFileForm(
+            request.POST,
+            instance=mediafile
+            # request.FILES,
+            # owner=request.user
+        )
+        if form.is_valid():
+
+            # get uploaded archive
+            uploaded_archive = form.save()
+            return redirect("/caidapp/uploads/")
+    else:
+        form = MediaFileForm(instance=mediafile)
+    return render(
+        request,
+        "caidapp/media_file_update.html",
+        {"form": form, "headline": "Media File", "button": "Save", "mediafile": mediafile},
+    )
 
 def model_form_upload(request):
     """Process the uploaded zip file."""
