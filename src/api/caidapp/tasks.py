@@ -1,17 +1,17 @@
 import logging
 import os.path
-import random
+# import random
 from pathlib import Path
 
 import django
 import pandas as pd
-import skimage.io
-import skimage.transform
+# import skimage.io
+# import skimage.transform
 from celery import shared_task
 from django.conf import settings
 
 from .fs_data import make_thumbnail_from_file
-from .models import Location, MediaFile, UploadedArchive, get_location, get_taxon
+from .models import MediaFile, UploadedArchive, get_location, get_taxon
 
 logger = logging.getLogger("app")
 
@@ -58,9 +58,7 @@ def predict_on_error(task_id: str, *args, uploaded_archive_id: int, **kwargs):
 
 
 def make_thumbnail_for_uploaded_archive(uploaded_archive: UploadedArchive):
-    """
-    Make small image representing the upload.
-    """
+    """Make small image representing the upload."""
     output_dir = Path(settings.MEDIA_ROOT) / uploaded_archive.outputdir
     thumbnail_path = output_dir / "thumbnail.jpg"
 
@@ -70,6 +68,7 @@ def make_thumbnail_for_uploaded_archive(uploaded_archive: UploadedArchive):
 
 
 def get_image_files_from_uploaded_archive(uploaded_archive: UploadedArchive):
+    """Extract filenames from uploaded archive CSV and create MediaFile objects."""
     logger.debug("getting images from uploaded archive")
     output_dir = Path(settings.MEDIA_ROOT) / uploaded_archive.outputdir
     csv_file = Path(settings.MEDIA_ROOT) / str(uploaded_archive.csv_file)
