@@ -31,11 +31,35 @@
                                        href="{% url 'caidapp:media_file_update' mediafile.id %}">
                                         <i class="bi bi-trash"></i> Detail
                                     </a>
-                                    <a class="btn btn-secondary"
-                                       href="{% url 'caidapp:delete_mediafile' mediafile.id %}"
-                                       onclick="return confirm('Delete file {{ mediafile }}?')">
-                                        <i class="bi bi-trash"></i> Delete
-                                    </a>
+
+{#                                    <a class="btn btn-secondary"#}
+{#                                       href="{% url 'caidapp:delete_mediafile' mediafile.id %}"#}
+{#                                       onclick="return confirm('Delete file {{ mediafile }}?')">#}
+{#                                        <i class="bi bi-trash"></i> Delete#}
+{#                                    </a>#}
+
+
+                                    <div class="dropdown d-inline-block">
+                                        <a class="btn btn-secondary dropdown-toggle" href="#" role="button"
+                                           data-bs-toggle="dropdown" aria-expanded="false">
+                                            <i class="bi bi-three-dots"></i>
+                                        </a>
+
+                                        <ul class="dropdown-menu">
+                                            <li>
+                                                <hr class="dropdown-divider">
+                                            </li>
+                                            <li>
+                                                <a class="dropdown-item text-danger"
+                                                   href="{% url 'caidapp:delete_mediafile' mediafile.id %}"
+                                                   onclick="return confirm('Delete file {{ mediafile }}?')">
+                                                    <i class="bi bi-trash"></i> Delete
+                                                </a>
+                                            </a>
+
+                                            </li>
+                                        </ul>
+                                    </div>
                                 </div>
                             </div>
                         </div>
