@@ -8,6 +8,7 @@ class UploadedArchiveForm(forms.ModelForm):
         model = UploadedArchive
         fields = ("archivefile", "location_at_upload")
 
+
 class MediaFileForm(forms.ModelForm):
     class Meta:
         model = MediaFile

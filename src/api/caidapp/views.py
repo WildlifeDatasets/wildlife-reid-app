@@ -30,7 +30,9 @@ def media_files(request, uploadedarchive_id):
 
     page_number = request.GET.get("page")
     page_obj = paginator.get_page(page_number)
-    return render(request, "caidapp/media_files.html", {"page_obj": page_obj, 'page_title': uploadedarchive})
+    return render(
+        request, "caidapp/media_files.html", {"page_obj": page_obj, "page_title": uploadedarchive}
+    )
 
 
 def uploads(request):
@@ -57,6 +59,7 @@ def logout_view(request):
     # Redirect to a success page.
     return redirect("/caidapp/login")
 
+
 def media_file_update(request, media_file_id):
     """Show and update media file."""
     mediafile = get_object_or_404(MediaFile, pk=media_file_id)
@@ -80,6 +83,7 @@ def media_file_update(request, media_file_id):
         "caidapp/media_file_update.html",
         {"form": form, "headline": "Media File", "button": "Save", "mediafile": mediafile},
     )
+
 
 def model_form_upload(request):
     """Process the uploaded zip file."""
