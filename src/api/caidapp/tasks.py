@@ -1,10 +1,12 @@
 import logging
 import os.path
+
 # import random
 from pathlib import Path
 
 import django
 import pandas as pd
+
 # import skimage.io
 # import skimage.transform
 from celery import shared_task
