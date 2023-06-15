@@ -17,12 +17,12 @@
             {#      </nav>#}
         </div><!-- End Page Title -->
         <section class="section">
-{#            <ul class="container">#}
+            {#            <ul class="container">#}
             <div class="row">
 
-                    {% if page_obj %}
-                        {% for uploadedarchive in page_obj %}
-                            <div class="col-lg-6">
+                {% if page_obj %}
+                    {% for uploadedarchive in page_obj %}
+                        <div class="col-lg-6">
                             <div class="card"
                                     {% if uploadedarchive.thumbnail %}
                                  style="
@@ -45,7 +45,8 @@
                                         <p>Finished at: {{ uploadedarchive.finished_at }} </p>
                                     {% endif %}
 
-                                    <a class="btn btn-primary" href="{% url 'caidapp:media_files' uploadedarchive.id %}">
+                                    <a class="btn btn-primary"
+                                       href="{% url 'caidapp:media_files' uploadedarchive.id %}">
                                         <i class="bi bi-images"></i> Detail
                                     </a>
 
@@ -59,89 +60,92 @@
                                     {% endif %}
 
 
-                               <div class="dropdown d-inline-block">
-  <a class="btn btn-secondary dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-      <i class="bi bi-three-dots"></i>
-  </a>
+                                    <div class="dropdown d-inline-block">
+                                        <a class="btn btn-secondary dropdown-toggle" href="#" role="button"
+                                           data-bs-toggle="dropdown" aria-expanded="false">
+                                            <i class="bi bi-three-dots"></i>
+                                        </a>
 
-  <ul class="dropdown-menu">
-    <li><a class="dropdown-item" href="#">Action</a></li>
-    <li><a class="dropdown-item" href="#">Another action</a></li>
-    <li><a class="dropdown-item" href="#">Something else here</a></li>
-      <li><hr class="dropdown-divider"></li>
-      <li><a class="btn text-danger"
-         href="{% url 'caidapp:delete_upload' uploadedarchive.id %}"
-         onclick="return confirm('Delete file {{ uploadedarchive }}?')">
-          <i class="bi bi-trash"></i> Delete
-      </a></li>
-  </ul>
-</div>
+                                        <ul class="dropdown-menu">
+                                            <li><a class="dropdown-item" href="#">Action</a></li>
+                                            <li><a class="dropdown-item" href="#">Another action</a></li>
+                                            <li><a class="dropdown-item" href="#">Something else here</a></li>
+                                            <li>
+                                                <hr class="dropdown-divider">
+                                            </li>
+                                            <li><a class="btn text-danger"
+                                                   href="{% url 'caidapp:delete_upload' uploadedarchive.id %}"
+                                                   onclick="return confirm('Delete file {{ uploadedarchive }}?')">
+                                                <i class="bi bi-trash"></i> Delete
+                                            </a></li>
+                                        </ul>
+                                    </div>
                                 </div>
                             </div>
-                            </div>
+                        </div>
 
-                        {% endfor %}
-                        <ul class="pagination">
-{#                            <span class="step-links">#}
-                                {% if page_obj.has_previous %}
-                                    <li class="page-item">
-                                        <a class="page-link" href="?page=1">First </a>
-                                    </li>
-                                    <li class="page-item">
-                                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}">
-                                            <i class="bi-chevron-left"></i>
-                                        </a>
-                                    </li>
-                                {% else %}
-                                    <li class="page-item disabled">
-                                        <a class="page-link" href="#">First</a>
-                                    </li>
-                                    <li class="page-item disabled">
-                                        <a class="page-link" href="#">
-                                            <i class="bi-chevron-left"></i>
-                                        </a>
-                                    </li>
-                                {% endif %}
+                    {% endfor %}
+                    <ul class="pagination">
+                        {#                            <span class="step-links">#}
+                        {% if page_obj.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page=1">First </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}">
+                                    <i class="bi-chevron-left"></i>
+                                </a>
+                            </li>
+                        {% else %}
+                            <li class="page-item disabled">
+                                <a class="page-link" href="#">First</a>
+                            </li>
+                            <li class="page-item disabled">
+                                <a class="page-link" href="#">
+                                    <i class="bi-chevron-left"></i>
+                                </a>
+                            </li>
+                        {% endif %}
 
-                                <li class="page-item">
-{#                                <span class="current">#}
-                                    <a class="page-link" href="#">
-                                        Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}.
-                                    </a>
-{#                                </span>#}
-                                </li>
+                        <li class="page-item">
+                            {#                                <span class="current">#}
+                            <a class="page-link" href="#">
+                                Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}.
+                            </a>
+                            {#                                </span>#}
+                        </li>
 
-                                {% if page_obj.has_next %}
-                                    <li class="page-item">
-                                        <a class="page-link" href="?page={{ page_obj.next_page_number }}">
-                                            <i class="bi-chevron-right"></i>
-                                        </a>
-                                    </li>
-                                    <li class="page-item">
-                                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">Last</a>
-                                    </li>
+                        {% if page_obj.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.next_page_number }}">
+                                    <i class="bi-chevron-right"></i>
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">Last</a>
+                            </li>
 
-                                {% else %}
-                                    <li class="page-item disabled">
-                                        <a class="page-link" href="#">
-                                            <i class="bi-chevron-right"></i>
-                                        </a>
-                                    </li>
-                                    <li class="page-item disabled">
-                                        <a class="page-link" href="#">
-                                            Last
-{#                                            <i class="bi-chevron-bar-right"></i>#}
-                                        </a>
-                                    </li>
-                                {% endif %}
-{#                            </span>#}
-                        </ul>
+                        {% else %}
+                            <li class="page-item disabled">
+                                <a class="page-link" href="#">
+                                    <i class="bi-chevron-right"></i>
+                                </a>
+                            </li>
+                            <li class="page-item disabled">
+                                <a class="page-link" href="#">
+                                    Last
+                                    {#                                            <i class="bi-chevron-bar-right"></i>#}
+                                </a>
+                            </li>
+                        {% endif %}
+                        {#                            </span>#}
+                    </ul>
 
-                    {% else %}
-                        <p>No data available.</p>
-                    {% endif %}
-                </div>
-{#            </ul>#}
+                {% else %}
+                    <p>No data available.</p>
+                {% endif %}
+            </div>
+            {#            </ul>#}
             </div>
         </section>
     {% endif %}
