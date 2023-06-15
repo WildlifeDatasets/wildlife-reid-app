@@ -84,11 +84,13 @@ def get_image_files_from_uploaded_archive(uploaded_archive: UploadedArchive):
         logger.debug(f"{abs_pth}")
         logger.debug(f"{rel_pth}")
         taxon = get_taxon(row["predicted_category"])
-        # captured_at = row["datetime"]
+        captured_at = row["datetime"]
+        if captured_at == "":
+            captured_at = None
         # location_from_dir = row["location"]
         location = get_location(str(uploaded_archive.location_at_upload))
         mf = MediaFile(
-            parent=uploaded_archive, mediafile=str(rel_pth), category=taxon, location=location #, captured_at=captured_at
+            parent=uploaded_archive, mediafile=str(rel_pth), category=taxon, location=location, captured_at=captured_at
         )
         mf.save()
         logger.debug(f"{mf}")
