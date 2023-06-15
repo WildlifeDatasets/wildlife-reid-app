@@ -25,19 +25,13 @@
                                     {#                                <h5 class="card-title">{{ mediafile }}</h5>#}
                                     <p class="card-text"> Category: {{ mediafile.category }}</p>
                                     <p class="card-text"> Location: {{ mediafile.location }}</p>
+                                    <p class="card-text"> Captured at: {{ mediafile.captured_at }}</p>
 
 
                                     <a class="btn btn-primary"
                                        href="{% url 'caidapp:media_file_update' mediafile.id %}">
                                         <i class="bi bi-trash"></i> Detail
                                     </a>
-
-{#                                    <a class="btn btn-secondary"#}
-{#                                       href="{% url 'caidapp:delete_mediafile' mediafile.id %}"#}
-{#                                       onclick="return confirm('Delete file {{ mediafile }}?')">#}
-{#                                        <i class="bi bi-trash"></i> Delete#}
-{#                                    </a>#}
-
 
                                     <div class="dropdown d-inline-block">
                                         <a class="btn btn-secondary dropdown-toggle" href="#" role="button"
