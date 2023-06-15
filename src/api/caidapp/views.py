@@ -70,8 +70,9 @@ def media_file_update(request, media_file_id):
         if form.is_valid():
 
             # get uploaded archive
-            uploaded_archive = form.save()
-            return redirect("/caidapp/uploads/")
+            mediafile = form.save()
+            logger.info("totototo")
+            return redirect("caidapp:media_files", mediafile.parent.id)
     else:
         form = MediaFileForm(instance=mediafile)
     return render(

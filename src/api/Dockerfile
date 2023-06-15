@@ -11,7 +11,7 @@ RUN pip install --no-cache-dir --upgrade pip build && \
 
 # Get Boostrap style
 ENV CAID_STATIC='/caid_static'
-ENV CAID_STATIC='/api/static'
+#ENV CAID_STATIC='/api/static'
 RUN mkdir -p $CAID_STATIC
 WORKDIR $CAID_STATIC
 RUN apt-get update && apt-get install -y wget unzip
