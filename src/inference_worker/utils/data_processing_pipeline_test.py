@@ -3,6 +3,7 @@ import shutil
 from pathlib import Path
 
 import pytest
+
 from src.inference_worker.utils import data_processing_pipeline
 from src.inference_worker.utils.dataset_tools import (  # make_tarfile,
     _species_czech_preprocessing,

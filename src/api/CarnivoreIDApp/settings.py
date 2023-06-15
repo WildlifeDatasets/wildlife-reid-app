@@ -15,7 +15,6 @@ from pathlib import Path
 
 from .log import setup_logging
 
-
 setup_logging()
 logger = logging.getLogger("app")
 

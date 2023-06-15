@@ -1,16 +1,17 @@
 import logging
+import os.path
+import random
+from pathlib import Path
 
 import django
-from celery import shared_task
-from .models import UploadedArchive, MediaFile, get_taxon, get_location, Location
-from pathlib import Path
-from django.conf import settings
-import random
+import pandas as pd
 import skimage.io
 import skimage.transform
-import os.path
+from celery import shared_task
+from django.conf import settings
+
 from .fs_data import make_thumbnail_from_file
-import pandas as pd
+from .models import Location, MediaFile, UploadedArchive, get_location, get_taxon
 
 logger = logging.getLogger("app")
 

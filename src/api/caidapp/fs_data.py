@@ -1,10 +1,11 @@
-import skimage.transform
-import skimage.io
+import logging
 import random
 from pathlib import Path
-import logging
+
 import numpy as np
 import pandas as pd
+import skimage.io
+import skimage.transform
 
 logger = logging.getLogger(__file__)
 

@@ -1,12 +1,13 @@
-import pytest
 import django
+import pytest
 
 django.setup()
-from pathlib import Path
-import os
 import logging
-from .tasks import make_thumbnail_for_uploaded_archive, get_image_files_from_uploaded_archive
+import os
+from pathlib import Path
+
 from .models import UploadedArchive
+from .tasks import get_image_files_from_uploaded_archive, make_thumbnail_for_uploaded_archive
 
 logger = logging.getLogger(__file__)
 

@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import CIDUser, UploadedArchive, MediaFile, Taxon, Location
+from .models import CIDUser, Location, MediaFile, Taxon, UploadedArchive
 
 # Register your models here.
 admin.site.register(CIDUser)

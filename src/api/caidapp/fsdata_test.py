@@ -1,11 +1,11 @@
+import os
+from pathlib import Path
+
 import pytest
 import skimage.io
+from matplotlib import pyplot as plt
 
 from . import fs_data
-from pathlib import Path
-from matplotlib import pyplot as plt
-import skimage.io
-import os
 
 root_dir = Path(__file__).parent.parent.parent.parent
 
