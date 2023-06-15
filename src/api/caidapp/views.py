@@ -21,7 +21,6 @@ logger = logging.getLogger("app")
 
 def media_files(request, uploadedarchive_id):
     """List of uploads."""
-
     uploadedarchive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
     mediafile_set = uploadedarchive.mediafile_set.all()
 
@@ -157,7 +156,6 @@ def delete_upload(request, uploadedarchive_id):
 
 def delete_mediafile(request, mediafile_id):
     """Delete uploaded file."""
-
     obj = get_object_or_404(MediaFile, pk=mediafile_id)
     parent_id = obj.parent_id
     obj.delete()
@@ -168,8 +166,10 @@ class MyLoginView(LoginView):
     redirect_authenticated_user = True
 
     def get_success_url(self):
+        """Return url of next page."""
         return reverse_lazy("caidapp:uploads")
 
     def form_invalid(self, form):
+        """Return error message if wrong username or password is given."""
         messages.error(self.request, "Invalid username or password")
         return self.render_to_response(self.get_context_data(form=form))

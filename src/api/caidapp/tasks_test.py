@@ -1,5 +1,4 @@
 import django
-import pytest
 
 django.setup()
 import logging
@@ -18,7 +17,7 @@ CAID_DATASET_BASEDIR = Path(
 
 
 def test_prepare_thumbnail():
-    image_dir = ROOT_DIR / "test_mini_data"
+    """Check thumbnail generation."""
     output_dir = ROOT_DIR / "src/tests/prepare_thumbnail"
     thumbnail_path = output_dir / "thumbnail.jpg"
 
@@ -33,7 +32,7 @@ def test_prepare_thumbnail():
 
 
 def test_add_mediafiles_from_csv():
-    image_dir = CAID_DATASET_BASEDIR / "test_mini_data"
+    """Test mediafiles extraction from CSV."""
     output_dir = CAID_DATASET_BASEDIR / "test_mini_data_output"
     csv_file = output_dir / "metadata.csv"
 
