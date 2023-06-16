@@ -90,7 +90,11 @@ def get_image_files_from_uploaded_archive(uploaded_archive: UploadedArchive):
         # location_from_dir = row["location"]
         location = get_location(str(uploaded_archive.location_at_upload))
         mf = MediaFile(
-            parent=uploaded_archive, mediafile=str(rel_pth), category=taxon, location=location, captured_at=captured_at
+            parent=uploaded_archive,
+            mediafile=str(rel_pth),
+            category=taxon,
+            location=location,
+            captured_at=captured_at,
         )
         mf.save()
         logger.debug(f"{mf}")

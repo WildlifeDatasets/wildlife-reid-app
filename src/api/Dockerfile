@@ -2,6 +2,7 @@ FROM python:3.9.16-slim
 
 COPY ./src/api /api
 
+
 # install python dependencies
 ENV APP_DIR='/api'
 WORKDIR $APP_DIR
