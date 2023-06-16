@@ -55,11 +55,18 @@
 {#    </div>#}
     {% if user.is_authenticated %}
 <!--    <p>Welcome, {{ user.username }} !</p>-->
-    <a class="btn btn-primary" href="{% url 'cidapp:uploads' %}">Go to the application</a>
+        <p>
+            <a class="btn btn-primary" href="{% url 'caidapp:uploads' %}">Go to the application</a>
+        </p>
 
 
     {% else %}
-    <a class="btn btn-primary" href="{% provider_login_url 'google' %}?next={% url 'cidapp:uploads' %}">Login with Google</a>
+        <p>
+            <a class="btn btn-primary" href="{% provider_login_url 'google' %}?next={% url 'caidapp:uploads' %}">Login with Google</a>
+        </p>
+        <p>
+            <a class="btn btn-secondary" href="{% url 'caidapp:djangologin' %}">Login with password</a>
+        </p>
     {% endif %}
 {##}
 {#    <h2 class="pt-5">High-quality liver tissue scaffold for tissue engineering</h2>#}

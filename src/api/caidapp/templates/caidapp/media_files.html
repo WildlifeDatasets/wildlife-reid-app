@@ -1,0 +1,126 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block head %}
+    <!--refresh every 120 s-->
+    {#<meta http-equiv="refresh" content="120">#}
+{% endblock %}
+{% block body %}
+    {% if user.is_authenticated %}
+        <div class="pagetitle">
+            <h1>{{ page_title }}</h1>
+            <nav>
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li>
+                </ol>
+            </nav>
+        </div><!-- End Page Title -->
+        <section class="section">
+            <div class="row">
+                {% if page_obj %}
+                    {% for mediafile in page_obj %}
+                        <div class="col-lg-3">
+                            <div class="card">
+                                <img class="card-img-top" src="{{ mediafile.mediafile.url }}" alt="Cameratrap image">
+                                <div class="card-body">
+                                    {#                                <h5 class="card-title">{{ mediafile }}</h5>#}
+                                    <p class="card-text"> Category: {{ mediafile.category }}</p>
+                                    <p class="card-text"> Location: {{ mediafile.location }}</p>
+                                    <p class="card-text"> Captured at: {{ mediafile.captured_at }}</p>
+
+
+                                    <a class="btn btn-primary"
+                                       href="{% url 'caidapp:media_file_update' mediafile.id %}">
+                                        <i class="bi bi-trash"></i> Detail
+                                    </a>
+
+                                    <div class="dropdown d-inline-block">
+                                        <a class="btn btn-secondary dropdown-toggle" href="#" role="button"
+                                           data-bs-toggle="dropdown" aria-expanded="false">
+                                            <i class="bi bi-three-dots"></i>
+                                        </a>
+
+                                        <ul class="dropdown-menu">
+                                            <li>
+                                                <hr class="dropdown-divider">
+                                            </li>
+                                            <li>
+                                                <a class="dropdown-item text-danger"
+                                                   href="{% url 'caidapp:delete_mediafile' mediafile.id %}"
+                                                   onclick="return confirm('Delete file {{ mediafile }}?')">
+                                                    <i class="bi bi-trash"></i> Delete
+                                                </a>
+                                            </a>
+
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    {% endfor %}
+                    {#                    Pagination       #}
+                    <ul class="pagination">
+                        {#                            <span class="step-links">#}
+                        {% if page_obj.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page=1">First </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}">
+                                    <i class="bi-chevron-left"></i>
+                                </a>
+                            </li>
+                        {% else %}
+                            <li class="page-item disabled">
+                                <a class="page-link" href="#">First</a>
+                            </li>
+                            <li class="page-item disabled">
+                                <a class="page-link" href="#">
+                                    <i class="bi-chevron-left"></i>
+                                </a>
+                            </li>
+                        {% endif %}
+
+                        <li class="page-item">
+                            {#                                <span class="current">#}
+                            <a class="page-link" href="#">
+                                Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}.
+                            </a>
+                            {#                                </span>#}
+                        </li>
+
+                        {% if page_obj.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.next_page_number }}">
+                                    <i class="bi-chevron-right"></i>
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">Last</a>
+                            </li>
+
+                        {% else %}
+                            <li class="page-item disabled">
+                                <a class="page-link" href="#">
+                                    <i class="bi-chevron-right"></i>
+                                </a>
+                            </li>
+                            <li class="page-item disabled">
+                                <a class="page-link" href="#">
+                                    Last
+                                    {#                                            <i class="bi-chevron-bar-right"></i>#}
+                                </a>
+                            </li>
+                        {% endif %}
+                        {#                            </span>#}
+                    </ul>
+
+                {% else %}
+                    <p>No data available.</p>
+                {% endif %}
+            </div>
+            </div>
+        </section>
+    {% endif %}
+{% endblock %}

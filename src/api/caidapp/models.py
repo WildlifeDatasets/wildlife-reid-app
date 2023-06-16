@@ -18,10 +18,9 @@ from .model_tools import (
 # Create your models here.
 logger = logging.getLogger("database")
 
-User = get_user_model()
-
 
 class CIDUser(models.Model):
+    User = get_user_model()
     id = models.AutoField(primary_key=True)
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     # bio = models.TextField(max_length=500, blank=True)
@@ -76,6 +75,7 @@ class UploadedArchive(models.Model):
     status = models.CharField(max_length=255, blank=True, default="Created")
     started_at = models.DateTimeField("Started at", blank=True, null=True)
     finished_at = models.DateTimeField("Finished at", blank=True, null=True)
+    location_at_upload = models.CharField(max_length=255, blank=True, default="")
     owner = models.ForeignKey(CIDUser, on_delete=models.CASCADE, null=True, blank=True)
 
     def __str__(self):
@@ -89,9 +89,18 @@ class Taxon(models.Model):
         return str(self.name)
 
 
+class Location(models.Model):
+    name = models.CharField(max_length=50)
+
+    def __str__(self):
+        return str(self.name)
+
+
 class MediaFile(models.Model):
     parent = models.ForeignKey(UploadedArchive, on_delete=models.CASCADE)
-    species = models.ForeignKey(Taxon, blank=True, null=True, on_delete=models.CASCADE)
+    category = models.ForeignKey(Taxon, blank=True, null=True, on_delete=models.CASCADE)
+    location = models.ForeignKey(Location, blank=True, null=True, on_delete=models.CASCADE)
+    captured_at = models.DateTimeField("Captured at", blank=True, null=True)
     mediafile = models.FileField(
         "Media File",
         # upload_to=upload_to_unqiue_folder,
@@ -102,3 +111,25 @@ class MediaFile(models.Model):
 
     def __str__(self):
         return str(Path(self.mediafile.name).name)
+
+
+def get_taxon(name: str) -> Taxon:
+    """Return taxon according to the name, create it if necessary."""
+    objs = Taxon.objects.filter(name=name)
+    if len(objs) == 0:
+        taxon = Taxon(name=name)
+        taxon.save()
+    else:
+        taxon = objs[0]
+    return taxon
+
+
+def get_location(name: str) -> Location:
+    """Return location according to the name, create it if necessary."""
+    objs = Location.objects.filter(name=name)
+    if len(objs) == 0:
+        location = Location(name=name)
+        location.save()
+    else:
+        location = objs[0]
+    return location

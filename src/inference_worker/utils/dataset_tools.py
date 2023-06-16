@@ -507,6 +507,8 @@ class SumavaInitialProcessing:
         self.path_groups = None
         self.dataset_basedir = Path(dataset_basedir)
         self.cache = {}
+        self.filelist_df = None
+        self.metadata: pd.DataFrame = None
 
     def is_update_necessary(self):
         """Check updates in dataset based on number of subdirectories."""
@@ -599,6 +601,11 @@ class SumavaInitialProcessing:
         ]
         return vanilla_paths
 
+    def make_metadata_csv(self, path: Path):
+        """Extract information based on filelist from prev step."""
+        self.metadata = extract_information_from_dir_structure(self.filelist_df)
+        self.metadata.to_csv(path)
+
     def make_paths_and_exifs_parallel(
         self,
         mask,
@@ -629,6 +636,7 @@ class SumavaInitialProcessing:
             )
 
         df = pd.DataFrame(output_dict)
+        self.filelist_df = df
         if make_csv:
             df.to_csv(str(self.filelist_path))
 

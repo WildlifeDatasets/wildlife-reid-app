@@ -78,7 +78,7 @@ def test_make_tar_dataset():
     """Prepare dataset from tiny test subset."""
     sumava_dataset_basedir = CARNIVORE_DATASET_BASEDIR / "DATA_SUNAP_tiny_test_subset"
     output_test_dir = CARNIVORE_DATASET_BASEDIR / "tests/DATA_SUNAP_tiny_test_subset_output"
-    sumava_processing = dataset_tools.SumavaDatasetProcessing(sumava_dataset_basedir)
+    sumava_processing = dataset_tools.SumavaInitialProcessing(sumava_dataset_basedir)
     metadata_path = Path("sumava_metadata.csv")
     if not metadata_path.exists():
         sumava_processing.make_metadata_csv(metadata_path)

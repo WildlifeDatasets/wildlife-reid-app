@@ -34,12 +34,16 @@ services:
       dockerfile: ./src/api/Dockerfile
     container_name: carnivoreid-app-api
     restart: always
+    environment:
+      CAID_HOST: ${CAID_HOST:-localhost}
     env_file:
       - "src/variables.env"
       - ".env"
     volumes:
       - api-data:/data
       - shared-data:/shared_data
+      - caid-static:/caid_static
+      - caid-private:/caid_private
     ports:
       - "8080:8080"
     depends_on:
@@ -80,6 +84,14 @@ volumes:
       com.piva-ai.group: "applications"
       com.piva-ai.backup: "yes"
   shared-data:
+    labels:
+      com.piva-ai.group: "applications"
+      com.piva-ai.backup: "yes"
+  caid-static:
+    labels:
+      com.piva-ai.group: "applications"
+      com.piva-ai.backup: "yes"
+  caid-private:
     labels:
       com.piva-ai.group: "applications"
       com.piva-ai.backup: "yes"

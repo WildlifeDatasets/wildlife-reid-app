@@ -3,8 +3,9 @@ import shutil
 from pathlib import Path
 
 import pytest
-from CarnivoreIDApp.cidapp.cv import data_processing_pipeline
-from CarnivoreIDApp.cidapp.cv.dataset_tools import (  # make_tarfile,
+
+from src.inference_worker.utils import data_processing_pipeline
+from src.inference_worker.utils.dataset_tools import (  # make_tarfile,
     _species_czech_preprocessing,
     make_hash,
     make_zipfile,
@@ -16,13 +17,15 @@ from CarnivoreIDApp.cidapp.cv.dataset_tools import (  # make_tarfile,
 #     import data_processing_pipeline
 
 
-CID_DATASET_BASEDIR = Path(os.getenv("CARNIVOREID_DATASET_BASEDIR", r"H:\biology\orig\CarnivoreID"))
+CAID_DATASET_BASEDIR = Path(
+    os.getenv("CARNIVOREID_DATASET_BASEDIR", r"H:\biology\orig\CarnivoreID")
+)
 CI = os.getenv("CI", False)
 
 
 def test_make_input_tarfile():
     """Test create input tar file."""
-    dir_path = CID_DATASET_BASEDIR / "DATA_SUNAP_tiny_test_subset"
+    dir_path = CAID_DATASET_BASEDIR / "DATA_SUNAP_tiny_test_subset"
     output_tarfile = Path("images.zip")
     output_tarfile.unlink(missing_ok=True)
     make_zipfile(output_tarfile, dir_path)
@@ -52,7 +55,7 @@ def test_hash():
 @pytest.mark.parametrize("dataset", ["DATA_SUNAP_tiny_test_subset", "DUHA_tiny_test_subset"])
 def test_analyze_dir(dataset):
     """Test dataset directory analysis."""
-    dir_path = CID_DATASET_BASEDIR / dataset
+    dir_path = CAID_DATASET_BASEDIR / dataset
     metadata, duplicates = data_processing_pipeline.analyze_dataset_directory(dir_path)
 
     assert len(metadata) > 3
@@ -82,7 +85,7 @@ def test_data_preprocessing_parallel():
 def test_data_processing():
     """Try the whole processing starting from .tar.gz file."""
     # to make it faster - find just one subdir with jpg file
-    dir_path = list((CID_DATASET_BASEDIR / "DATA_SUNAP_tiny_test_subset").glob("**/*.jpg"))[
+    dir_path = list((CAID_DATASET_BASEDIR / "DATA_SUNAP_tiny_test_subset").glob("**/*.jpg"))[
         0
     ].parent
     tarfile_path = Path("few_images.zip")

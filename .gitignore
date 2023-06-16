@@ -133,5 +133,5 @@ dmypy.json
 
 # Secrets
 secretkey.txt
-/cidapp_data
-/cidapp_private
+/caidapp_data
+/caidapp_private

@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+
+{% block body %}
+    {#<div class="container">#}
+    {% if user.is_authenticated %}
+        <div class="pagetitle">
+            <h1>{{ headline }}</h1>
+            <nav>
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'caidapp:media_files' mediafile.parent.id %}"> Uploaded
+                        Archive </a></li>
+                </ol>
+            </nav>
+        </div><!-- End Page Title -->
+        <div class="section">
+            <div class="card">
+                <div class="card-header">
+                    {#                <p class="text-danger">{{ error_text }}</p>#}
+
+
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        {{ form }}
+                        {#                {{ form.as_p }}#}
+                        <button class="btn btn-primary" id="btnUpload" type="submit">
+                            {{ button }}
+                        </button>
+
+                    </form>
+                </div>
+                <img src="{{ mediafile.mediafile.url }}" class="card-img-bottom" alt="Camera trap image">
+            </div>
+        </div>
+    {% endif %}
+    {#</div>#}
+{% endblock %}

@@ -1,12 +1,12 @@
 #!/bin/bash
 
 # prepare django
-python manage.py makemigrations
-python manage.py migrate
-python manage.py collectstatic --noinput
+python manage.py makemigrations --noinput --verbosity 2
+python manage.py migrate --noinput --verbosity 2
+python manage.py collectstatic --noinput --verbosity 2
 
 # start "local" celery worker
-C_FORCE_ROOT=false celery -A cidapp.celery_app worker --pool threads --loglevel info &
+C_FORCE_ROOT=false celery -A caidapp.celery_app worker --pool threads --loglevel info &
 
 # start django
 uvicorn CarnivoreIDApp.asgi:application \
@@ -15,3 +15,6 @@ uvicorn CarnivoreIDApp.asgi:application \
     --log-config logging.yaml \
     --log-level info \
     --reload
+
+
+    # --host $CAID_HOST \

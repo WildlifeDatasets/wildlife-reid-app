@@ -15,8 +15,6 @@ from pathlib import Path
 
 from .log import setup_logging
 
-SHARED_DATA_PATH = os.environ["SHARED_DATA_PATH"]
-
 setup_logging()
 logger = logging.getLogger("app")
 
@@ -25,6 +23,10 @@ logger.info("Logger is set up.")
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+SHARED_DATA_PATH = os.environ.get("SHARED_DATA_PATH", default=BASE_DIR.parent)
+logger.debug(f"{SHARED_DATA_PATH=}")
+print(f"{SHARED_DATA_PATH=}")
 
 
 # Quick-start development settings - unsuitable for production
@@ -35,10 +37,13 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # )
 # environ.Env.read_env()
 
-PRIVATE_DIR = Path("/data/cidapp_private")  # BASE_DIR / "../cidapp_private"
+# PRIVATE_DIR = Path("/data/caidapp_private")  # BASE_DIR / "../caidapp_private"
+PRIVATE_DIR = Path(os.getenv("CAIDAPP_PRIVATE", "/caid_private"))  # BASE_DIR / "../caidapp_private"
 PRIVATE_DIR.mkdir(exist_ok=True, parents=True)
 
-WEBAPP_DATA = Path(SHARED_DATA_PATH) / "cidapp_data"  # BASE_DIR / "../cidapp_data"
+
+WEBAPP_DATA = Path(SHARED_DATA_PATH) / "caidapp_data"  # BASE_DIR / "../caidapp_data"
+print(f"{WEBAPP_DATA=}")
 WEBAPP_DATA.mkdir(exist_ok=True, parents=True)
 
 scpath = PRIVATE_DIR / "secretkey.txt"
@@ -46,6 +51,7 @@ if scpath.exists():
     with open(scpath, "r") as f:
         SECRET_KEY = f.read().strip()
 else:
+    logger.info("Secret key not found in 'secretkey.txt' generating new one.")
     with open(scpath, "w") as f:
         from django.core.management.utils import get_random_secret_key
 
@@ -57,7 +63,8 @@ if isinstance(DEBUG, str):
     DEBUG = DEBUG.lower() == "true"
 logger.info(f"Setting environment variable {DEBUG=}.")
 
-ALLOWED_HOSTS = ["127.0.0.1", "*"]
+ALLOWED_HOSTS = ["127.0.0.1", os.getenv("CAID_HOST", default="localhost")]
+logger.info(f"{ALLOWED_HOSTS=}.")
 
 
 # Application definition
@@ -69,7 +76,8 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    "cidapp.apps.CidappConfig",
+    "caidapp.apps.CaidappConfig",
+    # 'django.contrib.sites',
     "allauth",  # <--
     "allauth.account",  # <--
     "allauth.socialaccount",  # <--
@@ -144,6 +152,7 @@ LANGUAGE_CODE = "en-us"
 
 # TIME_ZONE = "UTC"
 TIME_ZONE = "Europe/Prague"
+CELERY_TIMEZONE = "Europe/Prague"
 
 USE_I18N = True
 
@@ -157,8 +166,12 @@ STATIC_URL = "static/"
 MEDIA_URL = "/media/"
 MEDIA_ROOT = WEBAPP_DATA / "media"
 # use python manage.py collectstatic
-STATIC_ROOT = BASE_DIR / "static"
+STATIC_ROOT = Path(os.getenv("CAID_STATIC", default=BASE_DIR / "static"))
 # STATIC_ROOT = "static"
+# STATICFILES_DIRS = [
+#     BASE_DIR / "static",
+#     "/api_static/",
+# ]
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
@@ -166,3 +179,7 @@ STATIC_ROOT = BASE_DIR / "static"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 CREDS_JSON_FILE = Path(PRIVATE_DIR) / "piglegsurgery-creds.json"
+
+LOGIN_REDIRECT_URL = "/caidapp/uploads"
+
+SOCIALACCOUNT_LOGIN_ON_GET = True
