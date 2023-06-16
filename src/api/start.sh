@@ -13,5 +13,4 @@ uvicorn CarnivoreIDApp.asgi:application \
     --host 0.0.0.0 \
     --port 8080 \
     --log-config logging.yaml \
-    --log-level info \
-    --reload
+    --log-level info
