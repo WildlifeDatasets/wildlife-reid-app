@@ -12,6 +12,7 @@ from django.core.paginator import Paginator
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.http import JsonResponse
+from django.views.generic import ListView
 
 from .forms import MediaFileForm, UploadedArchiveForm
 from .models import MediaFile, UploadedArchive
@@ -20,7 +21,7 @@ from .tasks import predict_on_error, predict_on_success
 logger = logging.getLogger("app")
 
 
-def media_files(request, uploadedarchive_id):
+def uploadedarchive_detail(request, uploadedarchive_id):
     """List of uploads."""
     uploadedarchive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
     mediafile_set = uploadedarchive.mediafile_set.all()
@@ -74,7 +75,7 @@ def media_file_update(request, media_file_id):
 
             # get uploaded archive
             mediafile = form.save()
-            return redirect("caidapp:media_files", mediafile.parent.id)
+            return redirect("caidapp:uploadedarchive_detail", mediafile.parent.id)
     else:
         form = MediaFileForm(instance=mediafile)
     return render(
@@ -164,7 +165,7 @@ def delete_mediafile(request, mediafile_id):
     obj = get_object_or_404(MediaFile, pk=mediafile_id)
     parent_id = obj.parent_id
     obj.delete()
-    return redirect("caidapp:media_files", uploadedarchive_id=parent_id)
+    return redirect("caidapp:uploadedarchive_detail", uploadedarchive_id=parent_id)
 
 
 class MyLoginView(LoginView):
