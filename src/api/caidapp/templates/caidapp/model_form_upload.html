@@ -72,10 +72,11 @@
                     xhr.upload.addEventListener('progress', e=>{
                         if(e.lengthComputable){
                             const percentProgress = (e.loaded/e.total)*100;
+                            const percentProgressInt = Math.round(percentProgress);
                             console.log(percentProgress);
                             progress_bar.innerHTML = `<div class="progress-bar progress-bar-striped bg-success"
                     role="progressbar" style="width: ${percentProgress}%" aria-valuenow="${percentProgress}" aria-valuemin="0"
-                    aria-valuemax="100"></div>`
+                    aria-valuemax="100">${percentProgressInt}%</div>`
                         }
                     });
                     return xhr
