@@ -16,5 +16,4 @@ uvicorn CarnivoreIDApp.asgi:application \
     --log-level info \
     --reload
 
-
     # --host $CAID_HOST \

@@ -11,6 +11,7 @@ from django.contrib.auth.views import LoginView
 from django.core.paginator import Paginator
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
+from django.http import JsonResponse
 
 from .forms import MediaFileForm, UploadedArchiveForm
 from .models import MediaFile, UploadedArchive
@@ -73,7 +74,6 @@ def media_file_update(request, media_file_id):
 
             # get uploaded archive
             mediafile = form.save()
-            logger.info("totototo")
             return redirect("caidapp:media_files", mediafile.parent.id)
     else:
         form = MediaFileForm(instance=mediafile)
@@ -137,7 +137,12 @@ def model_form_upload(request):
             )
             logger.info(f"Created worker task with id '{task.task_id}'.")
 
-            return redirect("/caidapp/uploads/")
+            # return redirect("/caidapp/uploads/")
+
+            return JsonResponse({'data': 'Data uploaded'})
+        else:
+            return JsonResponse({'data': 'Someting went wrong'})
+
     else:
         form = UploadedArchiveForm()
     return render(
