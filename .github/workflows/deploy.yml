@@ -3,7 +3,7 @@ name: Build and Deploy
 on:
   push:
     # publish `main` as Docker `latest` image
-    branches: [ "main" ]
+    # branches: [ "main" ]
     # publish `v1.2.3` tags as releases
     tags: [ "v*" ]
 
