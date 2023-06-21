@@ -1,0 +1,155 @@
+name: Build and Deploy
+
+on:
+  push:
+    # publish `main` as Docker `latest` image
+    branches: [ "main" ]
+    # publish `v1.2.3` tags as releases
+    tags: [ "v*" ]
+
+env:
+  API_IMAGE: 'ghcr.io/${{ github.repository_owner }}/api'
+  INFERENCE_WORKER_IMAGE: 'ghcr.io/${{ github.repository_owner }}/inference_worker'
+  CAID_HOST: '${{ vars.CAID_HOST }}'
+
+
+jobs:
+  # build docker images and push them to GitHub Container Registry.
+  build:
+    name: Build Docker Images
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: read
+    steps:
+    - uses: actions/checkout@v3
+    - name: Create .env
+      run: echo "WANDB_API_KEY=${{ secrets.WANDB_API_KEY }}" > .env
+    - name: Log in to registry
+      run: docker login -u $ -p "${{ secrets.GITHUB_TOKEN }}" ghcr.io
+    - name: Build and Push Docker Images
+      run: |
+        # specify the tag
+        # strip git ref prefix from version
+        tag=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
+        # strip "v" prefix from tag name
+        [[ "${{ github.ref }}" == "refs/tags/"* ]] && tag=$(echo tag | sed -e 's/^v//')
+        # use Docker `latest` tag convention
+        [ "$tag" == "main" ] && tag=latest
+        # include colon
+        tag=":$tag"
+
+        # build and push docker images
+        TAG=$tag docker compose build --pull
+        TAG=$tag docker compose push
+
+  deploy:
+    name: Deploy to Server
+    if: github.ref_type == 'tag'
+    needs: [build]
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+      contents: read
+    env:
+      SSH_HOST: ${{ vars.SSH_HOST }}
+      SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: Create .env
+        run: echo "WANDB_API_KEY=${{ secrets.WANDB_API_KEY }}" > .env
+      - name: Run Docker Containers through SSH
+        # all steps are put into a single step because ssh-add adds private key only in current step
+        # running any ssh command in other steps without ssh-add would result in "invalid password" error
+        # alternative approach would be to create private.key file and specify it in ~/.ssh/config file
+        run: |
+          # install ssh-agent if not already installed, it is required by Docker.
+          command -v ssh-agent >/dev/null || ( apt-get update -y && apt-get install openssh-client -y )
+          # run ssh-agent (inside the build environment)
+          eval $(ssh-agent -s)
+          # add the SSH key stored in SSH_PRIVATE_KEY variable to the agent store
+          # use tr to fix line endings which makes ed25519 keys work without extra base64 encoding
+          echo "$SSH_PRIVATE_KEY" | base64 -d | tr -d '\r' | ssh-add -
+          # create the SSH directory and give it the right permissions
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+
+          # run ssh command with option StrictHostKeyChecking=no to create ~/.ssh/known_hosts without asking for confirmation
+          ssh -o StrictHostKeyChecking=no $SSH_HOST "echo Connected to $SSH_HOST using SSH."
+          # log in to registry through SSH
+          DOCKER_HOST="ssh://$SSH_HOST" docker login -u $ -p "${{ secrets.GITHUB_TOKEN }}" ghcr.io
+
+          # specify the tag
+          # strip git ref prefix from version
+          tag=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
+          # strip "v" prefix from tag name
+          [[ "${{ github.ref }}" == "refs/tags/"* ]] && tag=$(echo tag | sed -e 's/^v//')
+          # use Docker `latest` tag convention
+          [ "$tag" == "main" ] && tag=latest
+          # include colon
+          tag=":$tag"
+
+          # run docker compose up
+          TAG=$TAG API_IMAGE=$API_IMAGE INFERENCE_WORKER_IMAGE=$INFERENCE_WORKER_IMAGE CAID_HOST=$CAID_HOST DOCKER_HOST="ssh://$SSH_HOST" docker-compose pull
+          TAG=$TAG API_IMAGE=$API_IMAGE INFERENCE_WORKER_IMAGE=$INFERENCE_WORKER_IMAGE CAID_HOST=$CAID_HOST DOCKER_HOST="ssh://$SSH_HOST" docker-compose up -d
+
+  changelog:
+    name: Generate Changelog
+    if: github.ref_type == 'tag'
+    needs: [build]
+    runs-on: ubuntu-latest
+    permissions: read-all
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Generate Release Changelog
+        uses: heinrichreimer/github-changelog-generator-action@v2.3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          onlyLastTag: true
+          headerLabel: "# 📑 Changelog"
+          breakingLabel: '### 💥 Breaking'
+          enhancementLabel: '### 🚀 Enhancements'
+          bugsLabel: '### 🐛 Bug fixes'
+          deprecatedLabel: '### ⚠️ Deprecations'
+          removedLabel: '### 🔥 Removals'
+          securityLabel: '### 🛡️ Security'
+          issuesLabel: '### 📁 Other issues'
+          prLabel: '### 📁 Other pull requests'
+          addSections: '{"documentation":{"prefix":"### 📖 Documentation","labels":["documentation"]},"tests":{"prefix":"### ✅ Testing","labels":["tests"]}}'
+          issues: true
+          issuesWoLabels: true
+          pullRequests: true
+          prWoLabels: true
+          author: true
+          unreleased: true
+          compareLink: true
+          stripGeneratorNotice: true
+          verbose: true
+      - name: Print Changelog
+        run: cat CHANGELOG.md
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: changelog
+          path: CHANGELOG.md
+
+  release:
+    name: Create Release
+    if: github.ref_type == 'tag'
+    needs: [build, changelog]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download Artifacts
+        uses: actions/download-artifact@v3
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: Release ${{ github.ref_name }}
+          files: |
+            changelog/CHANGELOG.md
+          body_path: changelog/CHANGELOG.md
+          generate_release_notes: true
+          draft: false

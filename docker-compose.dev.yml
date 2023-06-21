@@ -19,7 +19,7 @@ services:
       - ./src/api:/api
 
   inference_worker:
-    image: carnivoreid-app/inference-worker:dev
+    image: carnivoreid-app/inference_worker:dev
     build:
       context: .
       dockerfile: src/inference_worker/Dockerfile_dev

@@ -52,7 +52,8 @@ services:
       com.piva-ai.group: "applications"
 
   inference_worker:
-    image: ${API_IMAGE:-inference-worker}${TAG:-:latest}
+    platform: linux/amd64
+    image: ${INFERENCE_WORKER_IMAGE:-inference_worker}${TAG:-:latest}
     build:
       context: .
       dockerfile: src/inference_worker/Dockerfile
