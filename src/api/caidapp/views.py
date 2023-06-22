@@ -21,6 +21,19 @@ from .tasks import predict_on_error, predict_on_success
 logger = logging.getLogger("app")
 
 
+def media_files(request):
+    """List of uploads."""
+    mediafiles = MediaFile.objects.filter(parent__owner=request.user.ciduser).all().order_by("-parent__uploaded_at")
+
+    records_per_page = 10000
+    paginator = Paginator(mediafiles, per_page=records_per_page)
+
+    page_number = request.GET.get("page")
+    page_obj = paginator.get_page(page_number)
+    return render(
+        request, "caidapp/media_files.html", {"page_obj": page_obj, "page_title": "Media files"}
+    )
+
 def uploadedarchive_detail(request, uploadedarchive_id):
     """List of uploads."""
     uploadedarchive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
@@ -32,7 +45,7 @@ def uploadedarchive_detail(request, uploadedarchive_id):
     page_number = request.GET.get("page")
     page_obj = paginator.get_page(page_number)
     return render(
-        request, "caidapp/media_files.html", {"page_obj": page_obj, "page_title": uploadedarchive}
+        request, "caidapp/uploadedarchive_detail.html", {"page_obj": page_obj, "page_title": uploadedarchive}
     )
 
 
