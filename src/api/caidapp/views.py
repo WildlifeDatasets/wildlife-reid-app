@@ -17,6 +17,7 @@ from django.views.generic import ListView
 from .forms import MediaFileForm, UploadedArchiveForm
 from .models import MediaFile, UploadedArchive
 from .tasks import predict_on_error, predict_on_success
+import json
 
 logger = logging.getLogger("app")
 
@@ -30,8 +31,14 @@ def media_files(request):
 
     page_number = request.GET.get("page")
     page_obj = paginator.get_page(page_number)
+    qs_data = {}
+    for e in mediafiles:
+        qs_data[e.id] = str(e.category)
+        # qs_data.append(e.id)
+    logger.debug(qs_data)
+    qs_json = json.dumps(qs_data)
     return render(
-        request, "caidapp/media_files.html", {"page_obj": page_obj, "page_title": "Media files"}
+        request, "caidapp/media_files.html", {"page_obj": page_obj, "page_title": "Media files", "qs_json": qs_json}
     )
 
 def uploadedarchive_detail(request, uploadedarchive_id):
