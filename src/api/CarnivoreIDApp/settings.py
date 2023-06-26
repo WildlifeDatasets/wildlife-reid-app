@@ -183,3 +183,4 @@ CREDS_JSON_FILE = Path(PRIVATE_DIR) / "piglegsurgery-creds.json"
 LOGIN_REDIRECT_URL = "/caidapp/uploads"
 
 SOCIALACCOUNT_LOGIN_ON_GET = True
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
