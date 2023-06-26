@@ -128,18 +128,15 @@
     {% endif %}
     <script>
     const data = '{{qs_json}}'
-    {#console.log(data)#}
 
     const rdata = JSON.parse(data.replace(/&quot;/g, '"'))
-    console.log("rdata=")
-    console.log(rdata)
-    console.log("rdata ------")
+    console.log("rdata=");
+    console.log(rdata);
+    console.log("rdata ------");
 
-    const input = document.getElementById('search_here')
-    console.log("input=")
-    console.log(input)
-    {#const row_of_cards = document.getElementById('row-of-cards')#}
-    {#const row_of_cards = document.getElementsByClassName('row-of-cards').children()#}
+    const input = document.getElementById('search_here');
+    console.log("input=");
+    console.log(input);
 
     let filteredArr = []
 
@@ -150,26 +147,13 @@
             if (rdata[element_id].includes(e.target.value)){
                 console.log("je tam  " + element_id);
                 const el = document.getElementById("card" + element_id);
-                el.classList.remove("d-none")
-                {#el.removeClass('d-none');#}
+                el.classList.remove("d-none");
             } else {
                 console.log("neni tam  " + element_id);
                 document.getElementById("card" + element_id).classList.add('d-none');
 
             }
         }
-        {#box.innerHTML = ""#}
-        {#console.log("info=")#}
-        {#console.log(info)#}
-
-        {#for (const [key, value] of rdata) {#}
-        {#    console.log(key, value);#}
-        {#    if (value.includes(e.target.value)){#}
-        {#        document.getElementById(key).removeClass('d-none');#}
-        {#    } else {#}
-        {#        document.getElementById(key).addClass('d-none');#}
-        {#    }#}
-
     })
 
 </script>
