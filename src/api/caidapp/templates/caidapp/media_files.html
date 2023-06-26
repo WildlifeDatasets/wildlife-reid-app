@@ -22,7 +22,9 @@
                         <div class="col-lg-3" id="card{{ mediafile.id }}">
                             <div class="card">
                                 {% if mediafile.mediafile %}
+                                    <a href="{% url 'caidapp:media_file_update' mediafile.id %}">
                                 <img class="card-img-top" src="{{ mediafile.mediafile.url }}" alt="Cameratrap image">
+                                    </a>
                                 {% endif %}
                                 <div class="card-body">
                                     {#                                <h5 class="card-title">{{ mediafile }}</h5>#}

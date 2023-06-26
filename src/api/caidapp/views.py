@@ -33,7 +33,7 @@ def media_files(request):
     page_obj = paginator.get_page(page_number)
     qs_data = {}
     for e in mediafiles:
-        qs_data[e.id] = str(e.category)
+        qs_data[e.id] = str(e.category) + " " + str(e.location)
         # qs_data.append(e.id)
     logger.debug(qs_data)
     qs_json = json.dumps(qs_data)
