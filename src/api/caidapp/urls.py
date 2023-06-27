@@ -10,7 +10,11 @@ urlpatterns = [
     path("login/", TemplateView.as_view(template_name="caidapp/login.html"), name="login"),
     path("logout/", views.logout_view, name="logout_view"),
     path("uploads/", views.uploads, name="uploads"),
-    path("uploadedarchive_detail/<int:uploadedarchive_id>/", views.uploadedarchive_detail, name="uploadedarchive_detail"),
+    path(
+        "uploadedarchive_detail/<int:uploadedarchive_id>/",
+        views.uploadedarchive_detail,
+        name="uploadedarchive_detail",
+    ),
     path("media_files/", views.media_files, name="media_files"),
     path("delete_mediafile/<int:mediafile_id>/", views.delete_mediafile, name="delete_mediafile"),
     path("<int:uploadedarchive_id>/delete_upload/", views.delete_upload, name="delete_upload"),
