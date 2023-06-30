@@ -13,14 +13,19 @@
                     <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li>
                 </ol>
             </nav>
+            <input id="search_here" class="form-control mb-3" placeholder="type here to search.." />
         </div><!-- End Page Title -->
         <section class="section">
-            <div class="row">
+            <div class="row" id="row-of-cards">
                 {% if page_obj %}
                     {% for mediafile in page_obj %}
-                        <div class="col-lg-3">
+                        <div class="col-lg-3" id="card{{ mediafile.id }}">
                             <div class="card">
+                                {% if mediafile.mediafile %}
+                                    <a href="{% url 'caidapp:media_file_update' mediafile.id %}">
                                 <img class="card-img-top" src="{{ mediafile.mediafile.url }}" alt="Cameratrap image">
+                                    </a>
+                                {% endif %}
                                 <div class="card-body">
                                     {#                                <h5 class="card-title">{{ mediafile }}</h5>#}
                                     <p class="card-text"> Category: {{ mediafile.category }}</p>
@@ -123,4 +128,26 @@
             </div>
         </section>
     {% endif %}
+    <script>
+    const data = '{{qs_json}}'
+
+    const rdata = JSON.parse(data.replace(/&quot;/g, '"'))
+
+    const input = document.getElementById('search_here');
+
+    let filteredArr = []
+
+    input.addEventListener('keyup', (e)=>{
+        for (const element_id in rdata){
+            if (rdata[element_id].includes(e.target.value)){
+                const el = document.getElementById("card" + element_id);
+                el.classList.remove("d-none");
+            } else {
+                document.getElementById("card" + element_id).classList.add('d-none');
+
+            }
+        }
+    })
+
+</script>
 {% endblock %}

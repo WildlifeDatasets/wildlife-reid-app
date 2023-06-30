@@ -1,6 +1,21 @@
 {% extends 'base.html' %}
 
+{% block head %}
+<!-- Latest compiled and minified JavaScript -->
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"
+        integrity="sha384-9/reFTGAW83EW2RDu2S0VKaIzap3H66lZH81PoYlFhbGU+6BZp6G7niu735Sk7lN"
+        crossorigin="anonymous"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"
+        integrity="sha384-B4gt1jrGC7Jh4AgTPSdUtOBvfO8shuf57BaghqFfPlYxofvL8/KUEfYiJOMMV+rV"
+        crossorigin="anonymous"></script>
+{% endblock %}
 {% block body %}
+    <style>
+        .not-visible{
+            display: none;
+        }
+    </style>
     {#<div class="container">#}
     {% if user.is_authenticated %}
         <div class="pagetitle">
@@ -14,17 +29,68 @@
         <div class="section">
             <p class="text-danger">{{ error_text }}</p>
 
-            <form method="post" enctype="multipart/form-data">
+            <form method="post" enctype="multipart/form-data" id="upload_form">
                 {% csrf_token %}
                 {{ form.as_p }}
-                <button class="btn btn-primary has-spinner" id="btnUpload" type="submit">
+                <p><div class="progress not-visible" id="progress"></div></p>
+                <button class="btn btn-primary" id="btnUpload" type="submit">
                     <span class="spinner"><i class="fa fa-refresh fa-spin"></i></span>
                     {{ button }}
                 </button>
-                <a class="btn btn-secondary" href="{% url 'caidapp:uploads' %}">Cancel</a>
+{#                <a class="btn btn-secondary" href="{% url 'caidapp:uploads' %}">Cancel</a>#}
 
             </form>
         </div>
     {% endif %}
     {#</div>#}
+
+    <script>
+        const uploadForm = document.getElementById('upload_form');
+        const input_file = document.getElementById('id_archivefile');
+        const progress_bar = document.getElementById('progress');
+
+        $("#upload_form").submit(function(e){
+            e.preventDefault();
+            $form = $(this)
+            var formData = new FormData(this);
+            const media_data = input_file.files[0];
+            if(media_data != null){
+                progress_bar.classList.remove("not-visible");
+            }
+
+            $.ajax({
+                type: 'POST',
+                url:'{% url 'caidapp:model_form_upload' %}',
+                data: formData,
+                dataType: 'json',
+                beforeSend: function(){
+
+                },
+                xhr:function(){
+                    const xhr = new window.XMLHttpRequest();
+                    xhr.upload.addEventListener('progress', e=>{
+                        if(e.lengthComputable){
+                            const percentProgress = (e.loaded/e.total)*100;
+                            const percentProgressInt = Math.round(percentProgress);
+                            progress_bar.innerHTML = `<div class="progress-bar progress-bar-striped bg-success"
+                    role="progressbar" style="width: ${percentProgress}%" aria-valuenow="${percentProgress}" aria-valuemin="0"
+                    aria-valuemax="100">${percentProgressInt}%</div>`
+                        }
+                    });
+                    return xhr
+                },
+                success: function(response){
+                    uploadForm.reset()
+                    progress_bar.classList.add('not-visible')
+                },
+                error: function(err){
+                    console.log(err);
+                },
+                cache: false,
+                contentType: false,
+                processData: false,
+            });
+        });
+
+    </script>
 {% endblock %}

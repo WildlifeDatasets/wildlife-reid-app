@@ -7,7 +7,7 @@
 {% block body %}
     {% if user.is_authenticated %}
         <div class="pagetitle">
-            <h1>Uploads</h1>
+            <h1>{{ page_title }}</h1>
             <nav>
                 <ol class="breadcrumb">
                     <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li>
@@ -15,39 +15,23 @@
             </nav>
         </div><!-- End Page Title -->
         <section class="section">
-            {#            <ul class="container">#}
             <div class="row">
-
                 {% if page_obj %}
-                    {% for uploadedarchive in page_obj %}
-                        <div class="col-lg-4">
-                            <div class="card"
-                                    {% if uploadedarchive.thumbnail %}
-                                 style="
+                    {% for mediafile in page_obj %}
+                        <div class="col-lg-3">
+                            <div class="card">
+                                <img class="card-img-top" src="{{ mediafile.mediafile.url }}" alt="Cameratrap image">
+                                <div class="card-body">
+                                    {#                                <h5 class="card-title">{{ mediafile }}</h5>#}
+                                    <p class="card-text"> Category: {{ mediafile.category }}</p>
+                                    <p class="card-text"> Location: {{ mediafile.location }}</p>
+                                    <p class="card-text"> Captured at: {{ mediafile.captured_at }}</p>
 
-                                         background-image: linear-gradient(to left, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 1.0)), url({{ uploadedarchive.thumbnail.url }});
-                                         background-repeat: no-repeat;
-                                         background-position-x: right;
-                                         background-position-y: center;
-                                         background-size: 100% auto;
-                                         "
-
-                                    {% endif %}
-                            >
-                                <div class="card-body"
-                                >
-                                    <h5 class="card-title">{{ uploadedarchive }}</h5>
-                                    <p>Status: {{ uploadedarchive.status }} </p>
-                                    <p>Uploaded at: {{ uploadedarchive.uploaded_at }} </p>
-                                    {% if uploadedarchive.finished_at %}
-                                        <p>Finished at: {{ uploadedarchive.finished_at }} </p>
-                                    {% endif %}
 
                                     <a class="btn btn-primary"
-                                       href="{% url 'caidapp:uploadedarchive_detail' uploadedarchive.id %}">
-                                        <i class="bi bi-images"></i> Detail
+                                       href="{% url 'caidapp:media_file_update' mediafile.id %}">
+                                        <i class="bi bi-trash"></i> Detail
                                     </a>
-
 
                                     <div class="dropdown d-inline-block">
                                         <a class="btn btn-secondary dropdown-toggle" href="#" role="button"
@@ -56,24 +40,18 @@
                                         </a>
 
                                         <ul class="dropdown-menu">
-                                            {% if uploadedarchive.zip_file %}
-                                                <li><a class="dropdown-item"
-                                                       href="{{ uploadedarchive.zip_file.url }}"><i
-                                                        class="bi bi-download"></i> Download images</a></li>
-                                            {% endif %}
-                                            {% if uploadedarchive.csv_file %}
-                                                <li><a class="dropdown-item"
-                                                       href="{{ uploadedarchive.csv_file.url }}"><i
-                                                        class="bi bi-table"></i> Download CSV</a></li>
-                                            {% endif %}
                                             <li>
                                                 <hr class="dropdown-divider">
                                             </li>
-                                            <li><a class="dropdown-item text-danger"
-                                                   href="{% url 'caidapp:delete_upload' uploadedarchive.id %}"
-                                                   onclick="return confirm('Delete file {{ uploadedarchive }}?')">
-                                                <i class="bi bi-trash"></i> Delete
-                                            </a></li>
+                                            <li>
+                                                <a class="dropdown-item text-danger"
+                                                   href="{% url 'caidapp:delete_mediafile' mediafile.id %}"
+                                                   onclick="return confirm('Delete file {{ mediafile }}?')">
+                                                    <i class="bi bi-trash"></i> Delete
+                                                </a>
+                                            </a>
+
+                                            </li>
                                         </ul>
                                     </div>
                                 </div>
@@ -81,6 +59,7 @@
                         </div>
 
                     {% endfor %}
+                    {#                    Pagination       #}
                     <ul class="pagination">
                         {#                            <span class="step-links">#}
                         {% if page_obj.has_previous %}
@@ -141,7 +120,6 @@
                     <p>No data available.</p>
                 {% endif %}
             </div>
-            {#            </ul>#}
             </div>
         </section>
     {% endif %}

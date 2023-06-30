@@ -36,6 +36,7 @@ services:
     restart: always
     environment:
       CAID_HOST: ${CAID_HOST:-localhost}
+      DEBUG: true
     env_file:
       - "src/variables.env"
       - ".env"

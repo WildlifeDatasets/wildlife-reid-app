@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 from pathlib import Path
@@ -9,6 +10,7 @@ from django.contrib import messages
 from django.contrib.auth import logout
 from django.contrib.auth.views import LoginView
 from django.core.paginator import Paginator
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 
@@ -19,7 +21,33 @@ from .tasks import predict_on_error, predict_on_success
 logger = logging.getLogger("app")
 
 
-def media_files(request, uploadedarchive_id):
+def media_files(request):
+    """List of uploads."""
+    mediafiles = (
+        MediaFile.objects.filter(parent__owner=request.user.ciduser)
+        .all()
+        .order_by("-parent__uploaded_at")
+    )
+
+    records_per_page = 10000
+    paginator = Paginator(mediafiles, per_page=records_per_page)
+
+    page_number = request.GET.get("page")
+    page_obj = paginator.get_page(page_number)
+    qs_data = {}
+    for e in mediafiles:
+        qs_data[e.id] = str(e.category) + " " + str(e.location)
+        # qs_data.append(e.id)
+    logger.debug(qs_data)
+    qs_json = json.dumps(qs_data)
+    return render(
+        request,
+        "caidapp/media_files.html",
+        {"page_obj": page_obj, "page_title": "Media files", "qs_json": qs_json},
+    )
+
+
+def uploadedarchive_detail(request, uploadedarchive_id):
     """List of uploads."""
     uploadedarchive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
     mediafile_set = uploadedarchive.mediafile_set.all()
@@ -30,7 +58,9 @@ def media_files(request, uploadedarchive_id):
     page_number = request.GET.get("page")
     page_obj = paginator.get_page(page_number)
     return render(
-        request, "caidapp/media_files.html", {"page_obj": page_obj, "page_title": uploadedarchive}
+        request,
+        "caidapp/uploadedarchive_detail.html",
+        {"page_obj": page_obj, "page_title": uploadedarchive},
     )
 
 
@@ -73,8 +103,7 @@ def media_file_update(request, media_file_id):
 
             # get uploaded archive
             mediafile = form.save()
-            logger.info("totototo")
-            return redirect("caidapp:media_files", mediafile.parent.id)
+            return redirect("caidapp:uploadedarchive_detail", mediafile.parent.id)
     else:
         form = MediaFileForm(instance=mediafile)
     return render(
@@ -137,7 +166,12 @@ def model_form_upload(request):
             )
             logger.info(f"Created worker task with id '{task.task_id}'.")
 
-            return redirect("/caidapp/uploads/")
+            # return redirect("/caidapp/uploads/")
+
+            return JsonResponse({"data": "Data uploaded"})
+        else:
+            return JsonResponse({"data": "Someting went wrong"})
+
     else:
         form = UploadedArchiveForm()
     return render(
@@ -159,7 +193,7 @@ def delete_mediafile(request, mediafile_id):
     obj = get_object_or_404(MediaFile, pk=mediafile_id)
     parent_id = obj.parent_id
     obj.delete()
-    return redirect("caidapp:media_files", uploadedarchive_id=parent_id)
+    return redirect("caidapp:uploadedarchive_detail", uploadedarchive_id=parent_id)
 
 
 class MyLoginView(LoginView):
