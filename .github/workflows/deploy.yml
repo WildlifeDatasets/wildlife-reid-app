@@ -33,7 +33,7 @@ jobs:
         # strip git ref prefix from version
         tag=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
         # strip "v" prefix from tag name
-        [[ "${{ github.ref }}" == "refs/tags/"* ]] && tag=$(echo tag | sed -e 's/^v//')
+        [[ "${{ github.ref }}" == "refs/tags/"* ]] && tag=$(echo $tag | sed -e 's/^v//')
         # use Docker `latest` tag convention
         [ "$tag" == "main" ] && tag=latest
         # include colon
