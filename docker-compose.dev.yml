@@ -14,7 +14,7 @@ services:
       dockerfile: ./src/api/Dockerfile_dev
     restart: "no"
     environment:
-      - DEBUG=true
+      DEBUG: "True"
     volumes:
       - ./src/api:/api
 
