@@ -132,26 +132,17 @@
     const data = '{{qs_json}}'
 
     const rdata = JSON.parse(data.replace(/&quot;/g, '"'))
-    console.log("rdata=");
-    console.log(rdata);
-    console.log("rdata ------");
 
     const input = document.getElementById('search_here');
-    console.log("input=");
-    console.log(input);
 
     let filteredArr = []
 
     input.addEventListener('keyup', (e)=>{
-        console.log(e.target.value);
         for (const element_id in rdata){
-            console.log("asd " + element_id);
             if (rdata[element_id].includes(e.target.value)){
-                console.log("je tam  " + element_id);
                 const el = document.getElementById("card" + element_id);
                 el.classList.remove("d-none");
             } else {
-                console.log("neni tam  " + element_id);
                 document.getElementById("card" + element_id).classList.add('d-none');
 
             }
