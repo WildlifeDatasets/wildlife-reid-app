@@ -46,7 +46,7 @@ services:
       - caid-static:/caid_static
       - caid-private:/caid_private
     ports:
-      - "8080:8080"
+      - "8080:8080"     # this should be accessible through inner nginx
     depends_on:
       - inference_worker
     labels:
@@ -81,7 +81,7 @@ services:
       - shared-data:/shared_data
       - caid-static:/caid_static
     ports:
-            - "8081:8081"
+            - "8080:8080"    # this should be input point from the outer nginx. Inner nginx will redirect static files
 #            - "443:443"
 #    networks:
 #            - app-network

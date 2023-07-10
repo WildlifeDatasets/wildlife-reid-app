@@ -63,7 +63,7 @@ if isinstance(DEBUG, str):
     DEBUG = DEBUG.lower() == "true"
 logger.info(f"Setting environment variable {DEBUG=}.")
 
-ALLOWED_HOSTS = ["127.0.0.1", os.getenv("CAID_HOST", default="localhost")]
+ALLOWED_HOSTS = ["127.0.0.1", "api", os.getenv("CAID_HOST", default="localhost")]
 logger.info(f"{ALLOWED_HOSTS=}.")
 
 
