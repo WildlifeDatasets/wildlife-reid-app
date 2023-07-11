@@ -17,7 +17,7 @@ RUN pip install --no-cache-dir --upgrade pip build && \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/* /tmp/* /var/tmp/*
 
 # Get Boostrap style
-ENV STATIC_DIR='/static_data/static'
+ENV STATIC_DIR='/shared_data/static'
 WORKDIR $STATIC_DIR
 RUN wget https://bootstrapmade.com/content/templatefiles/NiceAdmin/NiceAdmin.zip && \
     unzip NiceAdmin.zip && \

@@ -1,7 +1,6 @@
 FROM python:3.9.16-slim
 
 COPY ./src/api/requirements.txt /api/requirements.txt
-COPY ./src/api/start_dev.sh /api/start_dev.sh
 
 # install system dependencies
 RUN apt-get update --yes &&  \
@@ -18,13 +17,14 @@ RUN pip install --no-cache-dir --upgrade pip build && \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/* /tmp/* /var/tmp/*
 
 # Get Boostrap style
-# use STATIC_DATA_PATH from variables.env
-ENV STATIC_DIR='/static_data/static'
+ENV STATIC_DIR='/shared_data/static'
 WORKDIR $STATIC_DIR
 RUN wget https://bootstrapmade.com/content/templatefiles/NiceAdmin/NiceAdmin.zip && \
     unzip NiceAdmin.zip && \
     rm NiceAdmin.zip && \
     mv NiceAdmin/assets .
+
+COPY ./src/api/start_dev.sh /api/start_dev.sh
 
 # expose ports and run application
 WORKDIR $APP_DIR

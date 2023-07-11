@@ -16,7 +16,6 @@ from pathlib import Path
 from .log import setup_logging
 
 SHARED_DATA_PATH = os.environ["SHARED_DATA_PATH"]
-STATIC_DATA_PATH = os.environ["STATIC_DATA_PATH"]
 PRIVATE_DATA_PATH = os.environ["PRIVATE_DATA_PATH"]
 
 setup_logging()
@@ -34,8 +33,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # )
 # environ.Env.read_env()
 
-WEBAPP_DATA = Path(SHARED_DATA_PATH) / "caidapp_data"  # BASE_DIR / "../caidapp_data"
-WEBAPP_DATA.mkdir(exist_ok=True, parents=True)
+# WEBAPP_DATA = Path(SHARED_DATA_PATH) / "caidapp_data"  # BASE_DIR / "../caidapp_data"
+# WEBAPP_DATA.mkdir(exist_ok=True, parents=True)
 
 scpath = Path(PRIVATE_DATA_PATH) / "secretkey.txt"
 if scpath.exists():
@@ -160,9 +159,9 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 MEDIA_URL = "/media/"
-MEDIA_ROOT = Path(STATIC_DATA_PATH) / "media"
+MEDIA_ROOT = Path(SHARED_DATA_PATH) / "media"
 # use python manage.py collectstatic
-STATIC_ROOT = Path(STATIC_DATA_PATH) / "static"
+STATIC_ROOT = Path(SHARED_DATA_PATH) / "static"
 # STATICFILES_DIRS = [
 #     BASE_DIR / "static",
 #     "/api_static/",
