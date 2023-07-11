@@ -1,7 +1,6 @@
 FROM python:3.9.16-slim
 
-COPY ./src/api /api
-
+COPY ./src/api/requirements.txt /api/requirements.txt
 
 # install python dependencies
 ENV APP_DIR='/api'
@@ -20,6 +19,8 @@ RUN wget https://bootstrapmade.com/content/templatefiles/NiceAdmin/NiceAdmin.zip
 RUN unzip NiceAdmin.zip
 RUN mkdir -p $CAID_STATIC
 RUN mv  NiceAdmin/assets $CAID_STATIC
+
+COPY ./src/api /api
 
 # expose ports and run application
 WORKDIR $APP_DIR
