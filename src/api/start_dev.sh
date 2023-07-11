@@ -1,5 +1,14 @@
 #!/bin/bash
 
+# get Boostrap style
+STATIC_DIR="$SHARED_DATA_PATH/static"
+if [ ! -d "$STATIC_DIR/assets" ]; then
+  echo 'Loading NiceAdmin bootstrap assets.'
+  wget https://bootstrapmade.com/content/templatefiles/NiceAdmin/NiceAdmin.zip -P $STATIC_DIR && \
+    unzip "$STATIC_DIR/NiceAdmin.zip" -d "$STATIC_DIR" && \
+    mv "$STATIC_DIR/NiceAdmin/assets" "$STATIC_DIR"
+fi
+
 # prepare django
 python manage.py makemigrations --noinput --verbosity 2
 python manage.py migrate --noinput --verbosity 2
@@ -15,5 +24,3 @@ uvicorn CarnivoreIDApp.asgi:application \
     --log-config logging.yaml \
     --log-level info \
     --reload
-
-    # --host $CAID_HOST \

@@ -26,3 +26,6 @@ services:
     restart: "no"
     volumes:
       - ./src/inference_worker:/inference_worker
+
+  nginx:
+    restart: "no"

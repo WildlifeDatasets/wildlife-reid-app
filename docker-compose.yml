@@ -36,17 +36,15 @@ services:
     restart: always
     environment:
       CAID_HOST: ${CAID_HOST:-localhost}
-      DEBUG: "True"
     env_file:
       - "src/variables.env"
       - ".env"
     volumes:
-      - api-data:/data
-      - shared-data:/shared_data
-      - caid-static:/caid_static
-      - caid-private:/caid_private
-    ports:
-      - "8080:8080"
+      - api-data:/data  # data used only by API
+      - shared-data:/shared_data  # shared data with API, Workers, and Nginx
+      - private-data:/private_data  # private keys that should not be automatically backed up
+    expose:
+      - 8080  # this should be accessible through inner nginx
     depends_on:
       - inference_worker
     labels:
@@ -64,13 +62,24 @@ services:
       - "src/variables.env"
       - ".env"
     volumes:
-      - inference-worker-data:/data
-      - shared-data:/shared_data
+      - inference-worker-data:/data  # data used only by Worker
+      - shared-data:/shared_data  # shared data with API, Workers, and Nginx
     depends_on:
       - broker
       - redis
     labels:
       com.piva-ai.group: "applications"
+
+  nginx:
+    image: nginx:latest
+    container_name: carnivoreid-app-nginx
+    volumes:
+      - ./src/nginx/nginx.conf:/etc/nginx/nginx.conf
+      - shared-data:/shared_data  # shared data with API, Workers, and Nginx
+    depends_on:
+      - api
+    ports:
+      - "13580:8080"  # this should be input point from the outer nginx. Inner nginx will redirect static files
 
 volumes:
   redis-data:
@@ -89,11 +98,7 @@ volumes:
     labels:
       com.piva-ai.group: "applications"
       com.piva-ai.backup: "yes"
-  caid-static:
-    labels:
-      com.piva-ai.group: "applications"
-      com.piva-ai.backup: "yes"
-  caid-private:
+  private-data:
     labels:
       com.piva-ai.group: "applications"
       com.piva-ai.backup: "yes"

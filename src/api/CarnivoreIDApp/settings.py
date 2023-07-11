@@ -15,19 +15,15 @@ from pathlib import Path
 
 from .log import setup_logging
 
+SHARED_DATA_PATH = os.environ["SHARED_DATA_PATH"]
+PRIVATE_DATA_PATH = os.environ["PRIVATE_DATA_PATH"]
+
 setup_logging()
 logger = logging.getLogger("app")
-
 logger.info("Logger is set up.")
-
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-
-SHARED_DATA_PATH = os.environ.get("SHARED_DATA_PATH", default=BASE_DIR.parent)
-logger.debug(f"{SHARED_DATA_PATH=}")
-print(f"{SHARED_DATA_PATH=}")
-
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
@@ -37,16 +33,10 @@ print(f"{SHARED_DATA_PATH=}")
 # )
 # environ.Env.read_env()
 
-# PRIVATE_DIR = Path("/data/caidapp_private")  # BASE_DIR / "../caidapp_private"
-PRIVATE_DIR = Path(os.getenv("CAIDAPP_PRIVATE", "/caid_private"))  # BASE_DIR / "../caidapp_private"
-PRIVATE_DIR.mkdir(exist_ok=True, parents=True)
+# WEBAPP_DATA = Path(SHARED_DATA_PATH) / "caidapp_data"  # BASE_DIR / "../caidapp_data"
+# WEBAPP_DATA.mkdir(exist_ok=True, parents=True)
 
-
-WEBAPP_DATA = Path(SHARED_DATA_PATH) / "caidapp_data"  # BASE_DIR / "../caidapp_data"
-print(f"{WEBAPP_DATA=}")
-WEBAPP_DATA.mkdir(exist_ok=True, parents=True)
-
-scpath = PRIVATE_DIR / "secretkey.txt"
+scpath = Path(PRIVATE_DATA_PATH) / "secretkey.txt"
 if scpath.exists():
     with open(scpath, "r") as f:
         SECRET_KEY = f.read().strip()
@@ -63,9 +53,14 @@ if isinstance(DEBUG, str):
     DEBUG = DEBUG.lower() == "true"
 logger.info(f"Setting environment variable {DEBUG=}.")
 
-ALLOWED_HOSTS = ["127.0.0.1", os.getenv("CAID_HOST", default="localhost")]
-logger.info(f"{ALLOWED_HOSTS=}.")
-
+# A list of strings representing the host/domain names that this Django site can serve
+CAID_HOST = os.getenv("CAID_HOST", default="localhost")
+ALLOWED_HOSTS = [
+    "127.0.0.1",
+    ".localhost",  # '.' allows to match both 'www.localhost' and 'localhost'
+    ".caid.kky.zcu.cz",
+    CAID_HOST,
+]
 
 # Application definition
 
@@ -121,7 +116,7 @@ WSGI_APPLICATION = "CarnivoreIDApp.wsgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
-        "NAME": PRIVATE_DIR / "db.sqlite3",
+        "NAME": Path(PRIVATE_DATA_PATH) / "db.sqlite3",
     }
 }
 
@@ -164,10 +159,9 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 MEDIA_URL = "/media/"
-MEDIA_ROOT = WEBAPP_DATA / "media"
+MEDIA_ROOT = Path(SHARED_DATA_PATH) / "media"
 # use python manage.py collectstatic
-STATIC_ROOT = Path(os.getenv("CAID_STATIC", default=BASE_DIR / "static"))
-# STATIC_ROOT = "static"
+STATIC_ROOT = Path(SHARED_DATA_PATH) / "static"
 # STATICFILES_DIRS = [
 #     BASE_DIR / "static",
 #     "/api_static/",
@@ -178,7 +172,7 @@ STATIC_ROOT = Path(os.getenv("CAID_STATIC", default=BASE_DIR / "static"))
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-CREDS_JSON_FILE = Path(PRIVATE_DIR) / "piglegsurgery-creds.json"
+CREDS_JSON_FILE = Path(PRIVATE_DATA_PATH) / "piglegsurgery-creds.json"
 
 LOGIN_REDIRECT_URL = "/caidapp/uploads"
 
