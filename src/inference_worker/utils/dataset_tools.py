@@ -163,8 +163,8 @@ def replace_colon_in_exif_datetime(exif_datetime: str) -> str:
     return replaced
 
 
-def get_datetime_from_exif(filename: Path) -> str:
-    """Extract datetime from EXIF in file.
+def get_datetime_from_exif(filename: Path) -> typing.Tuple[str, str]:
+    """Extract datetime from EXIF in file and check if image is ok.
 
     Parameters
     ----------
@@ -172,26 +172,37 @@ def get_datetime_from_exif(filename: Path) -> str:
 
     Returns
     -------
-    str :
+    str1:
         String with datetime or zero length string if no EXIF is available.
 
+    str2:
+        Error type or zero length string if file is ok.
+
+
     """
-    if filename.exists() and filename.suffix.lower() in (".jpg", ".jpeg"):
+    if filename.exists() and filename.suffix.lower() in (".jpg", ".jpeg", ".png"):
         try:
             image = Image.open(filename)
-            exifdata = image.getexif()
-            tag_id = 306  # DateTimeOriginal
-            dt_str = exifdata.get(tag_id)
+            image.verify()
+            if filename.suffix.lower() in (".jpg", ".jpeg"):
+                exifdata = image.getexif()
+                tag_id = 306  # DateTimeOriginal
+                dt_str = exifdata.get(tag_id)
+            else:
+                dt_str = ""
+            read_error = ""
         except UnidentifiedImageError:
             dt_str = ""
+            read_error = "UnidentifiedImageError"
         except OSError:
             dt_str = ""
+            read_error = "OSError"
     #             logger.warning(traceback.format_exc())
     else:
         dt_str = ""
 
     dt_str = replace_colon_in_exif_datetime(dt_str)
-    return dt_str
+    return dt_str, read_error
 
 
 def get_date_from_path_structure(filename: str) -> str:
@@ -631,9 +642,12 @@ class SumavaInitialProcessing:
         output_dict["vanilla_path"] = self.get_paths_from_dir_parallel(mask, exclude)
 
         if make_exifs:
-            output_dict["datetime"] = self.add_datetime_from_exif_in_parallel(
+            datetime_list, readerror_list = self.add_datetime_from_exif_in_parallel(
                 output_dict["vanilla_path"]
             )
+
+            output_dict["datetime"] = datetime_list
+            output_dict["read_error"] = readerror_list
 
         df = pd.DataFrame(output_dict)
         self.filelist_df = df
@@ -659,7 +673,9 @@ class SumavaInitialProcessing:
                 get_datetime_from_exif(self.dataset_basedir / vanilla_path)
                 for vanilla_path in tqdm(vanilla_paths, desc="getting EXIFs")
             ]
-        return datetime_list
+
+        datetime_list, error_list = zip(*datetime_list)
+        return datetime_list, error_list
 
 
 # def extract_information_from_filename()

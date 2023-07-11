@@ -17,7 +17,7 @@ def test_thumbnail():
     thumbnail_path.unlink(missing_ok=True)
 
     assert image_dir.exists()
-    fs_data.make_thumbnail_from_file(image_dir, thumbnail_path)
+    fs_data.make_thumbnail_from_directory(image_dir, thumbnail_path)
     assert thumbnail_path.exists()
     # im = skimage.io.imread(thumbnail_path)
     # plt.imshow(im)
