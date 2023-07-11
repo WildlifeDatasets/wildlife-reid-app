@@ -23,7 +23,7 @@ from .dataset_tools import (
     get_lynx_id_in_sumava,
     make_dataset,
 )
-from .io import extract_archive
+from .inout import extract_archive
 from .prediction_dataset import PredictionDataset
 
 logger = logging.getLogger("app")
@@ -50,16 +50,9 @@ def analyze_dataset_directory(dataset_dir_path: Path, num_cores: Optional[int] =
     )
 
     df = extract_information_from_dir_structure(df0)
-    # df["mediatype"] = df["vanilla_path"].apply(
-    #     lambda path:
-    #     "video"
-    #     if Path(path).suffix.lower() in (".avi", ".m4v")
-    #     else "image"
-    #     if Path(path).suffix.lower() in (".jpg", "png")
-    #     else "unknown"
-    # )
 
     df["datetime"] = pd.to_datetime(df0.datetime, errors="coerce")
+    df["read_error"] = list(df0["read_error"])
 
     df.loc[:, "sequence_number"] = None
 
@@ -212,6 +205,7 @@ def data_processing(
     # create metadata dataframe
     metadata, _ = data_preprocessing(zip_path, media_dir_path, num_cores=num_cores)
     metadata = metadata[metadata["media_type"] == "image"].reset_index(drop=True)
+    metadata = metadata[metadata["read_error"] == ""].reset_index(drop=True)
 
     # run inference
     image_path = metadata["image_path"].apply(lambda x: os.path.join(media_dir_path, x))

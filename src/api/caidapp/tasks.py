@@ -1,11 +1,9 @@
 import logging
 import os.path
-
 from pathlib import Path
 
 import django
 import pandas as pd
-
 from celery import shared_task
 from django.conf import settings
 
@@ -66,7 +64,9 @@ def make_thumbnail_for_uploaded_archive(uploaded_archive: UploadedArchive):
     uploaded_archive.thumbnail = os.path.relpath(thumbnail_path, settings.MEDIA_ROOT)
 
 
-def get_image_files_from_uploaded_archive(uploaded_archive: UploadedArchive, thumbnail_width: int = 600):
+def get_image_files_from_uploaded_archive(
+    uploaded_archive: UploadedArchive, thumbnail_width: int = 600
+):
     """Extract filenames from uploaded archive CSV and create MediaFile objects."""
     logger.debug("getting images from uploaded archive")
     output_dir = Path(settings.MEDIA_ROOT) / uploaded_archive.outputdir
@@ -97,7 +97,7 @@ def get_image_files_from_uploaded_archive(uploaded_archive: UploadedArchive, thu
             category=taxon,
             location=location,
             captured_at=captured_at,
-            thumbnail=str(rel_pth_thumbnail)
+            thumbnail=str(rel_pth_thumbnail),
         )
         mf.save()
         logger.debug(f"{mf}")
