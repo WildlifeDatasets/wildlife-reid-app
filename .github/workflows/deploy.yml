@@ -89,6 +89,9 @@ jobs:
           # include colon
           tag=":$tag"
 
+          # temporary log
+          TAG=$TAG API_IMAGE=$API_IMAGE INFERENCE_WORKER_IMAGE=$INFERENCE_WORKER_IMAGE CAID_HOST=$CAID_HOST DOCKER_HOST="ssh://$SSH_HOST" docker-compose config
+
           # run docker compose up
           TAG=$TAG API_IMAGE=$API_IMAGE INFERENCE_WORKER_IMAGE=$INFERENCE_WORKER_IMAGE CAID_HOST=$CAID_HOST DOCKER_HOST="ssh://$SSH_HOST" docker-compose pull
           TAG=$TAG API_IMAGE=$API_IMAGE INFERENCE_WORKER_IMAGE=$INFERENCE_WORKER_IMAGE CAID_HOST=$CAID_HOST DOCKER_HOST="ssh://$SSH_HOST" docker-compose up -d
