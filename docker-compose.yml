@@ -36,7 +36,6 @@ services:
     restart: always
     environment:
       CAID_HOST: ${CAID_HOST:-localhost}
-      DEBUG: "True"
     env_file:
       - "src/variables.env"
       - ".env"
@@ -44,10 +43,9 @@ services:
       - api-data:/data
       - shared-data:/shared_data
       - caid-static:/caid_static
-      - caid-private:/caid_private
-#      - /srv/caid:/caid_private
+      - caid-private:/caid_private  # - /srv/caid:/caid_private
     expose:
-      - "8080"     # this should be accessible through inner nginx
+      - 8080  # this should be accessible through inner nginx
     depends_on:
       - inference_worker
     labels:
@@ -81,14 +79,10 @@ services:
       - api-data:/data
       - shared-data:/shared_data
       - caid-static:/caid_static
+    depends_on:
+      - api
     ports:
-            - "13581:8080"    # this should be input point from the outer nginx. Inner nginx will redirect static files
-#            - "443:443"
-#    networks:
-#            - app-network
-#    depends_on:
-#            - hello1
-#            - hello2
+      - "13580:8080"  # this should be input point from the outer nginx. Inner nginx will redirect static files
 
 volumes:
   redis-data:
