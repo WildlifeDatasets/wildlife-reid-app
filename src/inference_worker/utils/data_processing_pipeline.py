@@ -107,7 +107,6 @@ def data_preprocessing(
 
     # create metadata directory
     df, duplicates = analyze_dataset_directory(tmp_dir, num_cores=num_cores)
-    # df["image_path"] = \
     # df["vanilla_path"].map(lambda fn: dataset_tools.make_hash(fn, prefix="media_data"))
     df = make_dataset(
         df=df,
@@ -204,8 +203,11 @@ def data_processing(
     """
     # create metadata dataframe
     metadata, _ = data_preprocessing(zip_path, media_dir_path, num_cores=num_cores)
+    logger.debug(f"len(metadata)={len(metadata)}")
     metadata = metadata[metadata["media_type"] == "image"].reset_index(drop=True)
+    logger.debug(f"len(metadata)={len(metadata)}")
     metadata = metadata[metadata["read_error"] == ""].reset_index(drop=True)
+    logger.debug(f"len(metadata)={len(metadata)}")
 
     # run inference
     image_path = metadata["image_path"].apply(lambda x: os.path.join(media_dir_path, x))
