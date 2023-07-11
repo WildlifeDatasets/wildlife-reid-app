@@ -200,6 +200,7 @@ def get_datetime_from_exif(filename: Path) -> typing.Tuple[str, str]:
     #             logger.warning(traceback.format_exc())
     else:
         dt_str = ""
+        read_error = ""
 
     dt_str = replace_colon_in_exif_datetime(dt_str)
     return dt_str, read_error
@@ -412,8 +413,8 @@ def make_tarfile(output_filename, source_dir):
 
 
 def make_dataset(
-    df: pd.DataFrame,
-    dataset_name: str,
+    df: typing.Optional[pd.DataFrame],
+    dataset_name: typing.Optional[str],
     dataset_base_dir: Path,
     output_path: Path,
     hash_filename: bool = False,
@@ -642,12 +643,12 @@ class SumavaInitialProcessing:
         output_dict["vanilla_path"] = self.get_paths_from_dir_parallel(mask, exclude)
 
         if make_exifs:
-            datetime_list, readerror_list = self.add_datetime_from_exif_in_parallel(
+            datetime_list, read_error_list = self.add_datetime_from_exif_in_parallel(
                 output_dict["vanilla_path"]
             )
 
             output_dict["datetime"] = datetime_list
-            output_dict["read_error"] = readerror_list
+            output_dict["read_error"] = read_error_list
 
         df = pd.DataFrame(output_dict)
         self.filelist_df = df
@@ -724,7 +725,7 @@ def extract_information_from_dir_structure(df_filelist: pd.DataFrame) -> pd.Data
                 "video"
                 if pthir.suffix.lower() in (".avi", ".m4v")
                 else "image"
-                if pthir.suffix.lower() in (".jpg", "png")
+                if pthir.suffix.lower() in (".jpg", "png", ".jpeg")
                 else "unknown"
             )
             data["media_type"].append(media_type)

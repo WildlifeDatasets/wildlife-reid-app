@@ -1,3 +1,4 @@
+import logging
 import os
 import shutil
 from pathlib import Path
@@ -10,6 +11,8 @@ from src.inference_worker.utils.dataset_tools import (  # make_tarfile,
     make_hash,
     make_zipfile,
 )
+
+logger = logging.getLogger(__file__)
 
 # try:
 #     from . import data_processing_pipeline
@@ -25,7 +28,8 @@ CI = os.getenv("CI", False)
 
 def test_make_input_tarfile():
     """Test create input tar file."""
-    dir_path = CAID_DATASET_BASEDIR / "DATA_SUNAP_tiny_test_subset"
+    # dir_path = CAID_DATASET_BASEDIR / "DATA_SUNAP_tiny_test_subset"
+    dir_path = CAID_DATASET_BASEDIR / "test_micro_data"
     output_tarfile = Path("images.zip")
     output_tarfile.unlink(missing_ok=True)
     make_zipfile(output_tarfile, dir_path)
@@ -77,6 +81,7 @@ def test_data_preprocessing_parallel():
     metadata, duplicates = data_processing_pipeline.data_preprocessing(
         tarfile_path, media_dir_path, num_cores=1
     )
+    logger.debug(metadata)
     assert (
         len(list(media_dir_path.glob("**/*"))) > 0
     ), "There should be some files in media dir path"
@@ -88,6 +93,10 @@ def test_data_processing():
     dir_path = list((CAID_DATASET_BASEDIR / "DATA_SUNAP_tiny_test_subset").glob("**/*.jpg"))[
         0
     ].parent
+    dir_path = list((CAID_DATASET_BASEDIR / "test_micro_data"))
+    # .glob("**/*.jpg"))[
+    #     0
+    # ].parent
     tarfile_path = Path("few_images.zip")
     tarfile_path.unlink(missing_ok=True)
     make_zipfile(tarfile_path, dir_path)

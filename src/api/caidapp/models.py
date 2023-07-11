@@ -108,11 +108,7 @@ class MediaFile(models.Model):
         null=True,
         max_length=500,
     )
-    thumbnail = models.ImageField(
-        blank=True,
-        null=True,
-        max_length=500
-    )
+    thumbnail = models.ImageField(blank=True, null=True, max_length=500)
 
     def __str__(self):
         return str(Path(self.mediafile.name).name)
