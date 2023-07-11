@@ -16,14 +16,6 @@ RUN pip install --no-cache-dir --upgrade pip build && \
     pip install --no-cache-dir --compile -r requirements.txt && \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/* /tmp/* /var/tmp/*
 
-# Get Boostrap style
-ENV STATIC_DIR='/shared_data/static'
-WORKDIR $STATIC_DIR
-RUN wget https://bootstrapmade.com/content/templatefiles/NiceAdmin/NiceAdmin.zip && \
-    unzip NiceAdmin.zip && \
-    rm NiceAdmin.zip && \
-    mv NiceAdmin/assets .
-
 COPY ./src/api /api
 
 # expose ports and run application
