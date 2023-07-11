@@ -40,10 +40,10 @@ services:
       - "src/variables.env"
       - ".env"
     volumes:
-      - api-data:/data
-      - shared-data:/shared_data
-      - caid-static:/caid_static
-      - caid-private:/caid_private  # - /srv/caid:/caid_private
+      - api-data:/data  # data used only by API
+      - shared-data:/shared_data  # shared data with API and Workers
+      - static-data:/static_data  # shared static and media files with API and Nginx
+      - private-data:/private_data  # private keys that should not be automatically backed up
     expose:
       - 8080  # this should be accessible through inner nginx
     depends_on:
@@ -63,8 +63,8 @@ services:
       - "src/variables.env"
       - ".env"
     volumes:
-      - inference-worker-data:/data
-      - shared-data:/shared_data
+      - inference-worker-data:/data  # data used only by Worker
+      - shared-data:/shared_data  # shared data with API and Workers
     depends_on:
       - broker
       - redis
@@ -76,9 +76,7 @@ services:
     container_name: carnivoreid-app-nginx
     volumes:
       - ./src/nginx/nginx.conf:/etc/nginx/nginx.conf
-      - api-data:/data
-      - shared-data:/shared_data
-      - caid-static:/caid_static
+      - static-data:/static_data  # shared static and media files with API and Nginx
     depends_on:
       - api
     ports:
@@ -101,11 +99,10 @@ volumes:
     labels:
       com.piva-ai.group: "applications"
       com.piva-ai.backup: "yes"
-  caid-static:
+  static-data:
     labels:
       com.piva-ai.group: "applications"
-      com.piva-ai.backup: "yes"
-  caid-private:
+  private-data:
     labels:
       com.piva-ai.group: "applications"
       com.piva-ai.backup: "yes"

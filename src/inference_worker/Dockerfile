@@ -1,6 +1,6 @@
 FROM python:3.9.16-slim
 
-COPY ./src/inference_worker /inference_worker
+COPY ./src/inference_worker/requirements.txt /inference_worker/requirements.txt
 
 # install python dependencies
 ENV APP_DIR='/inference_worker'
@@ -8,6 +8,8 @@ WORKDIR $APP_DIR
 RUN pip install --no-cache-dir --upgrade pip build && \
     pip install --no-cache-dir --compile -r requirements.txt && \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/* /tmp/* /var/tmp/*
+
+COPY ./src/inference_worker /inference_worker
 
 # expose ports and run application
 WORKDIR $APP_DIR
