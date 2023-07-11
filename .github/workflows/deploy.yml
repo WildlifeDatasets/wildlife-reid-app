@@ -26,7 +26,7 @@ jobs:
     - name: Create .env
       run: echo "WANDB_API_KEY=${{ secrets.WANDB_API_KEY }}" > .env
     - name: Log in to registry
-      run: DOCKER_HOST="ssh://$SSH_HOST" docker login ghcr.io -u "${{ github.actor }}" -p "${{ secrets.GITHUB_TOKEN }}"
+      run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
     - name: Build and Push Docker Images
       run: |
         # specify the tag
@@ -77,7 +77,7 @@ jobs:
           # run ssh command with option StrictHostKeyChecking=no to create ~/.ssh/known_hosts without asking for confirmation
           ssh -o StrictHostKeyChecking=no $SSH_HOST "echo Connected to $SSH_HOST using SSH."
           # log in to registry through SSH
-          DOCKER_HOST="ssh://$SSH_HOST" docker login ghcr.io -u "${{ github.actor }}" -p "${{ secrets.GITHUB_TOKEN }}"
+          echo "${{ secrets.GITHUB_TOKEN }}" | DOCKER_HOST="ssh://$SSH_HOST" docker login ghcr.io -u "${{ github.actor }}" --password-stdin
 
           # specify the tag
           # strip git ref prefix from version
