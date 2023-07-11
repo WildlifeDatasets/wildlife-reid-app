@@ -65,7 +65,7 @@ def make_thumbnail_for_uploaded_archive(uploaded_archive: UploadedArchive):
 
 
 def get_image_files_from_uploaded_archive(
-    uploaded_archive: UploadedArchive, thumbnail_width: int = 600
+    uploaded_archive: UploadedArchive, thumbnail_width: int = 400
 ):
     """Extract filenames from uploaded archive CSV and create MediaFile objects."""
     logger.debug("getting images from uploaded archive")
@@ -87,7 +87,7 @@ def get_image_files_from_uploaded_archive(
         location = get_location(str(uploaded_archive.location_at_upload))
 
         abs_pth_thumbnail = output_dir / "thumbnails" / row["image_path"]
-        rel_pth_thumbnail = os.path.relpath(abs_pth, settings.MEDIA_ROOT)
+        rel_pth_thumbnail = os.path.relpath(abs_pth_thumbnail, settings.MEDIA_ROOT)
 
         make_thumbnail_from_file(abs_pth, abs_pth_thumbnail, width=thumbnail_width)
 
