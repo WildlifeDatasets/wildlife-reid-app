@@ -15,5 +15,3 @@ uvicorn CarnivoreIDApp.asgi:application \
     --log-config logging.yaml \
     --log-level info \
     --reload
-
-    # --host $CAID_HOST \

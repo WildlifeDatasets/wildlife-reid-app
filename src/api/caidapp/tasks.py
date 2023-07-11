@@ -1,18 +1,15 @@
 import logging
 import os.path
 
-# import random
 from pathlib import Path
 
 import django
 import pandas as pd
 
-# import skimage.io
-# import skimage.transform
 from celery import shared_task
 from django.conf import settings
 
-from .fs_data import make_thumbnail_from_file
+from .fs_data import make_thumbnail_from_directory, make_thumbnail_from_file
 from .models import MediaFile, UploadedArchive, get_location, get_taxon
 
 logger = logging.getLogger("app")
@@ -64,12 +61,12 @@ def make_thumbnail_for_uploaded_archive(uploaded_archive: UploadedArchive):
     output_dir = Path(settings.MEDIA_ROOT) / uploaded_archive.outputdir
     thumbnail_path = output_dir / "thumbnail.jpg"
 
-    make_thumbnail_from_file(output_dir, thumbnail_path)
+    make_thumbnail_from_directory(output_dir, thumbnail_path)
 
     uploaded_archive.thumbnail = os.path.relpath(thumbnail_path, settings.MEDIA_ROOT)
 
 
-def get_image_files_from_uploaded_archive(uploaded_archive: UploadedArchive):
+def get_image_files_from_uploaded_archive(uploaded_archive: UploadedArchive, thumbnail_width: int = 600):
     """Extract filenames from uploaded archive CSV and create MediaFile objects."""
     logger.debug("getting images from uploaded archive")
     output_dir = Path(settings.MEDIA_ROOT) / uploaded_archive.outputdir
@@ -87,14 +84,20 @@ def get_image_files_from_uploaded_archive(uploaded_archive: UploadedArchive):
         captured_at = row["datetime"]
         if captured_at == "":
             captured_at = None
-        # location_from_dir = row["location"]
         location = get_location(str(uploaded_archive.location_at_upload))
+
+        abs_pth_thumbnail = output_dir / "thumbnails" / row["image_path"]
+        rel_pth_thumbnail = os.path.relpath(abs_pth, settings.MEDIA_ROOT)
+
+        make_thumbnail_from_file(abs_pth, abs_pth_thumbnail, width=thumbnail_width)
+
         mf = MediaFile(
             parent=uploaded_archive,
             mediafile=str(rel_pth),
             category=taxon,
             location=location,
             captured_at=captured_at,
+            thumbnail=str(rel_pth_thumbnail)
         )
         mf.save()
         logger.debug(f"{mf}")

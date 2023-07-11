@@ -10,10 +10,17 @@ import skimage.transform
 logger = logging.getLogger(__file__)
 
 
-def make_thumbnail_from_file(directory: Path, thumbnail_path: Path):
-    """Create thumbnail based on random image file from the directory."""
-    image = skimage.io.imread(random.choice(list(directory.glob("**/*.jpg"))))
-    width = 800
+def make_thumbnail_from_directory(directory: Path, thumbnail_path: Path, width: int = 800):
+    """Create thumbnail based on random image file from the directory.
+    """
+    image_path = random.choice(list(directory.glob("**/*.jpg")))
+    make_thumbnail_from_file(image_path, thumbnail_path, width)
+
+
+def make_thumbnail_from_file(image_path: Path, thumbnail_path: Path, width: int = 800):
+    """Create small thumbnail image from input image."""
+
+    image = skimage.io.imread(image_path)
     scale = float(width) / image.shape[1]
     scale = [scale, scale, 1]
     logger.info(f"{scale=}")
