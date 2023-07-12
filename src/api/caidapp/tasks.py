@@ -118,6 +118,5 @@ def get_image_files_from_uploaded_archive(
             logger.debug("Using Mediafile generated before")
 
         mf.category = taxon
-        # mf.location = location
         mf.save()
         logger.debug(f"{mf}")

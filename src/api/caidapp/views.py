@@ -7,10 +7,10 @@ import django
 from celery import signature
 from django.conf import settings
 from django.contrib import messages
-from django.contrib.auth import logout
-from django.contrib.auth.views import LoginView
 from django.contrib.admin.views.decorators import staff_member_required
+from django.contrib.auth import logout
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.views import LoginView
 from django.core.paginator import Paginator
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -45,7 +45,12 @@ def media_files(request):
     return render(
         request,
         "caidapp/media_files.html",
-        {"page_obj": page_obj, "page_title": "Media files", "qs_json": qs_json, "user_is_staff": request.user.is_staff},
+        {
+            "page_obj": page_obj,
+            "page_title": "Media files",
+            "qs_json": qs_json,
+            "user_is_staff": request.user.is_staff,
+        },
     )
 
 
@@ -154,6 +159,7 @@ def run_processing(request, uploadedarchive_id):
     uploaded_archive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
     _run_processing(uploaded_archive)
     return redirect("/caidapp/uploads")
+
 
 def model_form_upload(request):
     """Process the uploaded zip file."""
