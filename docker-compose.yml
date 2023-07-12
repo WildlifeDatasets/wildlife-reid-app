@@ -71,10 +71,10 @@ services:
       com.piva-ai.group: "applications"
 
   nginx:
-    image: nginx:latest
+    image: ${NGINX_IMAGE:-custom_nginx}${TAG:-:latest}
+    build: src/nginx
     container_name: carnivoreid-app-nginx
     volumes:
-      - ./src/nginx/nginx.conf:/etc/nginx/nginx.conf
       - shared-data:/shared_data  # shared data with API, Workers, and Nginx
     depends_on:
       - api
