@@ -31,7 +31,7 @@ def predict(
         input_archive_file = Path(input_archive_file)
         # assert input_archive_file.suffix.lower() in (".tar", ".tar.gz", ".zip")
         output_dir = Path(output_dir)
-        output_dir.mkdir(parents=True, exist_ok=False)
+        output_dir.mkdir(parents=True, exist_ok=True)
         output_images_dir = output_dir / "images"
         output_archive_file = Path(output_archive_file)
         output_metadata_file = Path(output_metadata_file)

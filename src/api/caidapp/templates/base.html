@@ -287,7 +287,7 @@
 
   <!-- ======= Sidebar ======= -->
   <aside id="sidebar" class="sidebar">
-
+    {% if user.is_authenticated %}
     <ul class="sidebar-nav" id="sidebar-nav">
 
 {#      <li class="nav-item">#}
@@ -522,6 +522,7 @@
 
     </ul>
 
+    {% endif %}
   </aside><!-- End Sidebar-->
 
   <main id="main" class="main">

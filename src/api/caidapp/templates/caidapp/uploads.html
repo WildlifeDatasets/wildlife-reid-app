@@ -66,6 +66,14 @@
                                                        href="{{ uploadedarchive.csv_file.url }}"><i
                                                         class="bi bi-table"></i> Download CSV</a></li>
                                             {% endif %}
+                                            {% if request.user.is_staff %}
+                                                <li>
+                                                    <a class="dropdown-item"
+                                                       href="{% url 'caidapp:run_processing' uploadedarchive.id %}">
+                                                        <i class="bi bi-arrow-clockwise"></i> Re-run processing
+                                                    </a>
+                                                </li>
+                                            {% endif %}
                                             <li>
                                                 <hr class="dropdown-divider">
                                             </li>

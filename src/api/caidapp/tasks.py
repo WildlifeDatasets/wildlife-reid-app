@@ -29,6 +29,7 @@ def predict_on_success(
     status = output.get("status", "unknown")
     logger.info(f"Inference task finished with status '{status}'. Updating database record.")
     uploaded_archive = UploadedArchive.objects.get(id=uploaded_archive_id)
+    uploaded_archive.mediafile_set
     if "status" not in output:
         logger.critical(f"Unexpected error {output=} is missing 'status' field.")
         uploaded_archive.status = "Unknown"
@@ -72,7 +73,10 @@ def make_thumbnail_for_uploaded_archive(uploaded_archive: UploadedArchive):
 def get_image_files_from_uploaded_archive(
     uploaded_archive: UploadedArchive, thumbnail_width: int = 400
 ):
-    """Extract filenames from uploaded archive CSV and create MediaFile objects."""
+    """Extract filenames from uploaded archive CSV and create MediaFile objects.
+
+    If the processing is repeated, the former Mediafiles are used and updated.
+    """
     logger.debug("getting images from uploaded archive")
     output_dir = Path(settings.MEDIA_ROOT) / uploaded_archive.outputdir
     csv_file = Path(settings.MEDIA_ROOT) / str(uploaded_archive.csv_file)
@@ -83,29 +87,37 @@ def get_image_files_from_uploaded_archive(
     for index, row in df.iterrows():
         abs_pth = output_dir / "images" / row["image_path"]
         rel_pth = os.path.relpath(abs_pth, settings.MEDIA_ROOT)
-        logger.debug(f"{abs_pth}")
-        logger.debug(f"{rel_pth}")
+        logger.debug(f"vanilla_path={row['vanilla_path']}")
+        logger.debug(f"relative_pth={rel_pth}")
         taxon = get_taxon(row["predicted_category"])
         captured_at = row["datetime"]
         if captured_at == "":
             captured_at = None
-        location = get_location(str(uploaded_archive.location_at_upload))
 
         abs_pth_thumbnail = output_dir / "thumbnails" / row["image_path"]
         rel_pth_thumbnail = os.path.relpath(abs_pth_thumbnail, settings.MEDIA_ROOT)
 
-        if make_thumbnail_from_file(abs_pth, abs_pth_thumbnail, width=thumbnail_width):
-            thumbnail = str(rel_pth_thumbnail)
-        else:
-            thumbnail = None
+        logger.debug(f"{captured_at=} {type(captured_at)}")
+        mediafile_set = uploaded_archive.mediafile_set.filter(mediafile=str(rel_pth))
+        if len(mediafile_set) == 0:
+            location = get_location(str(uploaded_archive.location_at_upload))
+            if make_thumbnail_from_file(abs_pth, abs_pth_thumbnail, width=thumbnail_width):
+                thumbnail = str(rel_pth_thumbnail)
+            else:
+                thumbnail = None
 
-        mf = MediaFile(
-            parent=uploaded_archive,
-            mediafile=str(rel_pth),
-            category=taxon,
-            location=location,
-            captured_at=captured_at,
-            thumbnail=thumbnail,
-        )
+            mf = MediaFile(
+                parent=uploaded_archive,
+                mediafile=str(rel_pth),
+                captured_at=captured_at,
+                thumbnail=thumbnail,
+                location=location,
+            )
+        else:
+            mf = mediafile_set[0]
+            logger.debug("Using Mediafile generated before")
+
+        mf.category = taxon
+        # mf.location = location
         mf.save()
         logger.debug(f"{mf}")
