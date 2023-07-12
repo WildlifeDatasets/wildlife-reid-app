@@ -8,7 +8,7 @@ import pandas as pd
 from celery import shared_task
 from django.conf import settings
 
-from .fs_data import make_thumbnail_from_directory, make_thumbnail_from_file
+from .fs_data import make_thumbnail_from_file
 from .models import MediaFile, UploadedArchive, get_location, get_taxon
 
 logger = logging.getLogger("app")
