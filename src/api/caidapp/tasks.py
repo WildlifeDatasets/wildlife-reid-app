@@ -61,9 +61,8 @@ def make_thumbnail_for_uploaded_archive(uploaded_archive: UploadedArchive):
     abs_thumbnail_path = output_dir / "thumbnail.jpg"
     csv_file = Path(settings.MEDIA_ROOT) / str(uploaded_archive.csv_file)
     df = pd.read_csv(csv_file)
-    image_paths = list(df["image_path"])
-    if len(image_paths) > 0:
-        image_path = random.choice(image_paths)
+    if len(df["image_paths"]) > 0:
+        image_path = list(df["image_path"].sample(1))[0]
         abs_pth = output_dir / "images" / image_path
         # make_thumbnail_from_directory(output_dir, thumbnail_path)
         make_thumbnail_from_file(abs_pth, abs_thumbnail_path, width=600)
@@ -96,7 +95,10 @@ def get_image_files_from_uploaded_archive(
         abs_pth_thumbnail = output_dir / "thumbnails" / row["image_path"]
         rel_pth_thumbnail = os.path.relpath(abs_pth_thumbnail, settings.MEDIA_ROOT)
 
-        make_thumbnail_from_file(abs_pth, abs_pth_thumbnail, width=thumbnail_width)
+        if make_thumbnail_from_file(abs_pth, abs_pth_thumbnail, width=thumbnail_width):
+            thumbnail = str(rel_pth_thumbnail)
+        else:
+            thumbnail = None
 
         mf = MediaFile(
             parent=uploaded_archive,
@@ -104,7 +106,7 @@ def get_image_files_from_uploaded_archive(
             category=taxon,
             location=location,
             captured_at=captured_at,
-            thumbnail=str(rel_pth_thumbnail),
+            thumbnail=thumbnail,
         )
         mf.save()
         logger.debug(f"{mf}")
