@@ -60,7 +60,7 @@ def make_thumbnail_for_uploaded_archive(uploaded_archive: UploadedArchive):
     abs_thumbnail_path = output_dir / "thumbnail.jpg"
     csv_file = Path(settings.MEDIA_ROOT) / str(uploaded_archive.csv_file)
     df = pd.read_csv(csv_file)
-    if len(df["image_paths"]) > 0:
+    if len(df["image_path"]) > 0:
         image_path = list(df["image_path"].sample(1))[0]
         abs_pth = output_dir / "images" / image_path
         # make_thumbnail_from_directory(output_dir, thumbnail_path)

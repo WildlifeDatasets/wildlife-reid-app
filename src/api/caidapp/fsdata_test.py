@@ -12,7 +12,7 @@ CAID_DATASET_BASEDIR = Path(
 
 def test_thumbnail():
     """Test thumbnail generation."""
-    image_dir = CAID_DATASET_BASEDIR / "test_mini_data"
+    image_dir = CAID_DATASET_BASEDIR / "test_micro_data"
     thumbnail_path = root_dir / "src/tests/thumbnail.jpg"
     thumbnail_path.unlink(missing_ok=True)
 
