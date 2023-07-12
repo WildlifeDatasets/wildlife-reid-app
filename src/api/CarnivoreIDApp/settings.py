@@ -58,6 +58,7 @@ CAID_HOST = os.getenv("CAID_HOST", default="localhost")
 ALLOWED_HOSTS = [
     "127.0.0.1",
     ".localhost",  # '.' allows to match both 'www.localhost' and 'localhost'
+    "147.228.43.21",
     ".caid.kky.zcu.cz",
     CAID_HOST,
 ]
