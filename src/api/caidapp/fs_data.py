@@ -9,6 +9,7 @@ import skimage.transform
 
 logger = logging.getLogger(__file__)
 
+# def make_thumbnail_from_
 
 def make_thumbnail_from_directory(directory: Path, thumbnail_path: Path, width: int = 800):
     """Create thumbnail based on random image file from the directory."""

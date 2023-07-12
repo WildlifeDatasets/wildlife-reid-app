@@ -1,5 +1,6 @@
 import logging
 import os.path
+import random
 from pathlib import Path
 
 import django
@@ -57,11 +58,17 @@ def predict_on_error(task_id: str, *args, uploaded_archive_id: int, **kwargs):
 def make_thumbnail_for_uploaded_archive(uploaded_archive: UploadedArchive):
     """Make small image representing the upload."""
     output_dir = Path(settings.MEDIA_ROOT) / uploaded_archive.outputdir
-    thumbnail_path = output_dir / "thumbnail.jpg"
+    abs_thumbnail_path = output_dir / "thumbnail.jpg"
+    csv_file = Path(settings.MEDIA_ROOT) / str(uploaded_archive.csv_file)
+    df = pd.read_csv(csv_file)
+    image_paths = list(df["image_path"])
+    if len(image_paths) > 0:
+        image_path = random.choice(image_paths)
+        abs_pth = output_dir / "images" / image_path
+        # make_thumbnail_from_directory(output_dir, thumbnail_path)
+        make_thumbnail_from_file(abs_pth, abs_thumbnail_path, width=600)
 
-    make_thumbnail_from_directory(output_dir, thumbnail_path)
-
-    uploaded_archive.thumbnail = os.path.relpath(thumbnail_path, settings.MEDIA_ROOT)
+        uploaded_archive.thumbnail = os.path.relpath(abs_thumbnail_path, settings.MEDIA_ROOT)
 
 
 def get_image_files_from_uploaded_archive(
