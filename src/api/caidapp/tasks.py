@@ -7,7 +7,7 @@ import pandas as pd
 from celery import shared_task
 from django.conf import settings
 
-from .fs_data import make_thumbnail_from_directory, make_thumbnail_from_file
+from .fs_data import make_thumbnail_from_file
 from .models import MediaFile, UploadedArchive, get_location, get_taxon
 
 logger = logging.getLogger("app")
@@ -57,15 +57,20 @@ def predict_on_error(task_id: str, *args, uploaded_archive_id: int, **kwargs):
 def make_thumbnail_for_uploaded_archive(uploaded_archive: UploadedArchive):
     """Make small image representing the upload."""
     output_dir = Path(settings.MEDIA_ROOT) / uploaded_archive.outputdir
-    thumbnail_path = output_dir / "thumbnail.jpg"
+    abs_thumbnail_path = output_dir / "thumbnail.jpg"
+    csv_file = Path(settings.MEDIA_ROOT) / str(uploaded_archive.csv_file)
+    df = pd.read_csv(csv_file)
+    if len(df["image_paths"]) > 0:
+        image_path = list(df["image_path"].sample(1))[0]
+        abs_pth = output_dir / "images" / image_path
+        # make_thumbnail_from_directory(output_dir, thumbnail_path)
+        make_thumbnail_from_file(abs_pth, abs_thumbnail_path, width=600)
 
-    make_thumbnail_from_directory(output_dir, thumbnail_path)
-
-    uploaded_archive.thumbnail = os.path.relpath(thumbnail_path, settings.MEDIA_ROOT)
+        uploaded_archive.thumbnail = os.path.relpath(abs_thumbnail_path, settings.MEDIA_ROOT)
 
 
 def get_image_files_from_uploaded_archive(
-    uploaded_archive: UploadedArchive, thumbnail_width: int = 600
+    uploaded_archive: UploadedArchive, thumbnail_width: int = 400
 ):
     """Extract filenames from uploaded archive CSV and create MediaFile objects."""
     logger.debug("getting images from uploaded archive")
@@ -87,9 +92,12 @@ def get_image_files_from_uploaded_archive(
         location = get_location(str(uploaded_archive.location_at_upload))
 
         abs_pth_thumbnail = output_dir / "thumbnails" / row["image_path"]
-        rel_pth_thumbnail = os.path.relpath(abs_pth, settings.MEDIA_ROOT)
+        rel_pth_thumbnail = os.path.relpath(abs_pth_thumbnail, settings.MEDIA_ROOT)
 
-        make_thumbnail_from_file(abs_pth, abs_pth_thumbnail, width=thumbnail_width)
+        if make_thumbnail_from_file(abs_pth, abs_pth_thumbnail, width=thumbnail_width):
+            thumbnail = str(rel_pth_thumbnail)
+        else:
+            thumbnail = None
 
         mf = MediaFile(
             parent=uploaded_archive,
@@ -97,7 +105,7 @@ def get_image_files_from_uploaded_archive(
             category=taxon,
             location=location,
             captured_at=captured_at,
-            thumbnail=str(rel_pth_thumbnail),
+            thumbnail=thumbnail,
         )
         mf.save()
         logger.debug(f"{mf}")
