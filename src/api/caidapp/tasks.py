@@ -1,6 +1,5 @@
 import logging
 import os.path
-import random
 from pathlib import Path
 
 import django
