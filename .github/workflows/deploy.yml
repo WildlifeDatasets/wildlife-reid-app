@@ -10,6 +10,7 @@ on:
 env:
   API_IMAGE: 'ghcr.io/${{ github.repository_owner }}/api'
   INFERENCE_WORKER_IMAGE: 'ghcr.io/${{ github.repository_owner }}/inference_worker'
+  NGINX_IMAGE: 'ghcr.io/${{ github.repository_owner }}/nginx'
   CAID_HOST: '${{ vars.CAID_HOST }}'
 
 
@@ -90,8 +91,8 @@ jobs:
           tag=":$tag"
 
           # run docker compose up
-          TAG=$tag API_IMAGE=$API_IMAGE INFERENCE_WORKER_IMAGE=$INFERENCE_WORKER_IMAGE CAID_HOST=$CAID_HOST DOCKER_HOST="ssh://$SSH_HOST" docker-compose pull
-          TAG=$tag API_IMAGE=$API_IMAGE INFERENCE_WORKER_IMAGE=$INFERENCE_WORKER_IMAGE CAID_HOST=$CAID_HOST DOCKER_HOST="ssh://$SSH_HOST" docker-compose up -d
+          TAG=$tag API_IMAGE=$API_IMAGE INFERENCE_WORKER_IMAGE=$INFERENCE_WORKER_IMAGE NGINX_IMAGE=$NGINX_IMAGE CAID_HOST=$CAID_HOST DOCKER_HOST="ssh://$SSH_HOST" docker-compose pull
+          TAG=$tag API_IMAGE=$API_IMAGE INFERENCE_WORKER_IMAGE=$INFERENCE_WORKER_IMAGE NGINX_IMAGE=$NGINX_IMAGE CAID_HOST=$CAID_HOST DOCKER_HOST="ssh://$SSH_HOST" docker-compose up -d
 
   changelog:
     name: Generate Changelog
