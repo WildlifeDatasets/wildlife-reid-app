@@ -190,7 +190,7 @@ def load_model_and_predict(image_paths: list) -> Tuple[np.ndarray, Optional[dict
     ), "Artifact id2th does not contain sorted list of thresholds for every class."
 
     id2label = artifact_config.get("id2label")
-    assert np.max(id2label.keys()) == (
+    assert np.max(list(id2label.keys())) == (
         len(id2label) - 1
     ), "Some of the labels is missing in id2label."
 
