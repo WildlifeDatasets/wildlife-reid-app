@@ -96,7 +96,6 @@ def get_image_files_from_uploaded_archive(
         abs_pth_thumbnail = output_dir / "thumbnails" / row["image_path"]
         rel_pth_thumbnail = os.path.relpath(abs_pth_thumbnail, settings.MEDIA_ROOT)
 
-        logger.debug(f"{captured_at=} {type(captured_at)}")
         mediafile_set = uploaded_archive.mediafile_set.filter(mediafile=str(rel_pth))
         if len(mediafile_set) == 0:
             location = get_location(str(uploaded_archive.location_at_upload))
