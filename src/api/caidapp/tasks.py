@@ -29,7 +29,6 @@ def predict_on_success(
     status = output.get("status", "unknown")
     logger.info(f"Inference task finished with status '{status}'. Updating database record.")
     uploaded_archive = UploadedArchive.objects.get(id=uploaded_archive_id)
-    uploaded_archive.mediafile_set
     if "status" not in output:
         logger.critical(f"Unexpected error {output=} is missing 'status' field.")
         uploaded_archive.status = "Unknown"
