@@ -100,10 +100,7 @@ def media_file_update(request, media_file_id):
     """Show and update media file."""
     mediafile = get_object_or_404(MediaFile, pk=media_file_id)
     if request.method == "POST":
-        form = MediaFileForm(
-            request.POST,
-            instance=mediafile
-        )
+        form = MediaFileForm(request.POST, instance=mediafile)
         if form.is_valid():
 
             # get uploaded archive

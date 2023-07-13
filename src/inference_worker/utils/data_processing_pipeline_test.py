@@ -1,11 +1,11 @@
 import logging
 import os
 import shutil
-from scipy.special import softmax
 from pathlib import Path
-import numpy as np
 
+import numpy as np
 import pytest
+from scipy.special import softmax
 
 from src.inference_worker.utils import data_processing_pipeline
 from src.inference_worker.utils.dataset_tools import (  # make_tarfile,
@@ -16,11 +16,6 @@ from src.inference_worker.utils.dataset_tools import (  # make_tarfile,
 
 logger = logging.getLogger(__file__)
 
-# try:
-#     from . import data_processing_pipeline
-# except ImportError:
-#     import data_processing_pipeline
-
 
 CAID_DATASET_BASEDIR = Path(
     os.getenv("CARNIVOREID_DATASET_BASEDIR", r"H:\biology\orig\CarnivoreID")
@@ -30,7 +25,6 @@ CI = os.getenv("CI", False)
 
 def test_make_input_tarfile():
     """Test create input tar file."""
-    # dir_path = CAID_DATASET_BASEDIR / "DATA_SUNAP_tiny_test_subset"
     dir_path = CAID_DATASET_BASEDIR / "test_micro_data"
     output_tarfile = Path("images.zip")
     output_tarfile.unlink(missing_ok=True)
@@ -70,7 +64,6 @@ def test_analyze_dir(dataset):
 
 def test_data_preprocessing_parallel():
     """Try the whole processing starting from .tar.gz file."""
-    tarfile_path = Path("images.tar.gz")
     tarfile_path = Path("images.zip")
     media_dir_path = Path("./test_pipeline/media/")
     csv_path = Path("./test_pipeline/metadata.csv")
@@ -92,10 +85,10 @@ def test_data_preprocessing_parallel():
 def test_data_processing():
     """Try the whole processing starting from .tar.gz file."""
     # to make it faster - find just one subdir with jpg file
-    dir_path = list((CAID_DATASET_BASEDIR / "DATA_SUNAP_tiny_test_subset").glob("**/*.jpg"))[
-        0
-    ].parent
-    dir_path = (CAID_DATASET_BASEDIR / "test_micro_data")
+    # dir_path = list((CAID_DATASET_BASEDIR / "DATA_SUNAP_tiny_test_subset").glob("**/*.jpg"))[
+    #     0
+    # ].parent
+    dir_path = CAID_DATASET_BASEDIR / "test_micro_data"
     tarfile_path = Path("few_images.zip")
     tarfile_path.unlink(missing_ok=True)
     make_zipfile(tarfile_path, dir_path)
@@ -114,17 +107,20 @@ def test_data_processing():
 
     assert csv_path.exists()
 
+
 def test_confidence_thresholding():
     """Test confidence thresholding and creation of new class for unidentified samples."""
     n_classes = 4
     n_samples = 10
     n_uncertain_samples = 3
     np.random.seed(42)
-    # targs = np.array(7*[0] + 2*[1])
+
     targs = np.random.random_integers(low=0, high=n_classes - 1, size=n_samples)
     targs.sort()
 
-    uncertain_samples = np.random.random_integers(low=0, high=n_samples - 1, size=n_uncertain_samples)
+    uncertain_samples = np.random.random_integers(
+        low=0, high=n_samples - 1, size=n_uncertain_samples
+    )
     uncertain_samples[0] = 0
 
     _values = np.random.uniform(0.5, 1, size=[n_classes])
@@ -141,6 +137,4 @@ def test_confidence_thresholding():
 
     class_ids, top_probs = data_processing_pipeline.do_thresholding_on_probs(probs, id2threshold)
 
-    assert class_ids[uncertain_samples[0]] == n_classes,\
-        "The 0th prediction should be uncertain."
-
+    assert class_ids[uncertain_samples[0]] == n_classes, "The 0th prediction should be uncertain."

@@ -174,7 +174,6 @@ def load_model_and_predict(image_paths: list) -> Tuple[np.ndarray, Optional[dict
     else:
         do_confidence_thresholding = True
 
-
     logger.info("Running inference.")
     predict_output = predict(model, testloader)
     logits = predict_output.preds
@@ -184,31 +183,34 @@ def load_model_and_predict(image_paths: list) -> Tuple[np.ndarray, Optional[dict
         logger.warning("Artifact config from W&B is missing 'temperature' parameter.")
     probs = softmax(logits, 1)
 
-    thresholds = artifact_config.get("id2th")
+    id2thresholds = artifact_config.get("id2th")
 
-    assert list(thresholds.keys()) == sorted(list(thresholds.keys())), \
-        "Artifact id2th does not contain sorted list of thresholds for every class."
+    assert list(id2thresholds.keys()) == sorted(
+        list(id2thresholds.keys())
+    ), "Artifact id2th does not contain sorted list of thresholds for every class."
 
     id2label = artifact_config.get("id2label")
-    assert np.max(id2label.keys()) == (len(id2label) - 1), "Some of the labels is missing in id2label."
+    assert np.max(id2label.keys()) == (
+        len(id2label) - 1
+    ), "Some of the labels is missing in id2label."
 
     # add inference results to the metadata dataframe
     if do_confidence_thresholding:
-        class_ids, probs_top = do_thresholding_on_probs(probs)
+        class_ids, probs_top = do_thresholding_on_probs(probs, id2thresholds)
         # extend labels and add there new label "Not Classified"
         id2label[len(id2label)] = "Not Classified"
     else:
         class_ids = np.argmax(probs, 1)
         probs_top = np.max(probs, 1)
 
-
     return class_ids, probs_top, id2label
 
 
-def do_thresholding_on_probs(probs: np.array, id2threshold:dict) -> Tuple[np.array, np.array]:
+def do_thresholding_on_probs(probs: np.array, id2threshold: dict) -> Tuple[np.array, np.array]:
     """Use the thresholds to do the classification.
 
-    The images with all softmax values under the classification threshold are marked as not-classified.
+    The images with all softmax values under the classification threshold are marked
+    as not-classified.
 
     Args:
         probs (numpy.array): softmax of logits with shape = [n_samples, n_classes].
@@ -219,10 +221,12 @@ def do_thresholding_on_probs(probs: np.array, id2threshold:dict) -> Tuple[np.arr
         top_probs: Softmaxed probability. The not-classified is calculated as 1 - top_prob.
 
     """
-    assert probs.shape[1] == len(id2threshold), \
-        "There should be the same number of columns as the number of classes."
-    # probs = softmax(logits, 1)
-    thresholds_extended = np.array(list(id2threshold.values())).reshape(1, -1).repeat(repeats=probs.shape[0], axis=0)
+    assert probs.shape[1] == len(
+        id2threshold
+    ), "There should be the same number of columns as the number of classes."
+    thresholds_extended = (
+        np.array(list(id2threshold.values())).reshape(1, -1).repeat(repeats=probs.shape[0], axis=0)
+    )
 
     probs_cp = probs.copy()
     probs_cp[probs <= thresholds_extended] = 0
@@ -237,15 +241,12 @@ def do_thresholding_on_probs(probs: np.array, id2threshold:dict) -> Tuple[np.arr
     return class_ids, top_probs
 
 
-
-
 def data_processing(
     zip_path: Path,
     media_dir_path: Path,
     csv_path: Path,
     *,
     num_cores: Optional[int] = None,
-    do_confidence_thresholding: bool = True
 ):
     """Preprocessing and prediction on data in ZIP file.
 
@@ -267,7 +268,7 @@ def data_processing(
 
     # run inference
     image_path = metadata["image_path"].apply(lambda x: os.path.join(media_dir_path, x))
-    class_ids, probs, id2label = load_model_and_predict(image_path)
+    class_ids, _, id2label = load_model_and_predict(image_path)
 
     # add inference results to the metadata dataframe
     metadata["predicted_class_id"] = class_ids
