@@ -7,7 +7,9 @@ import django
 from celery import signature
 from django.conf import settings
 from django.contrib import messages
+from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth import logout
+from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView
 from django.core.paginator import Paginator
 from django.http import JsonResponse
@@ -43,7 +45,12 @@ def media_files(request):
     return render(
         request,
         "caidapp/media_files.html",
-        {"page_obj": page_obj, "page_title": "Media files", "qs_json": qs_json},
+        {
+            "page_obj": page_obj,
+            "page_title": "Media files",
+            "qs_json": qs_json,
+            "user_is_staff": request.user.is_staff,
+        },
     )
 
 
@@ -113,6 +120,47 @@ def media_file_update(request, media_file_id):
     )
 
 
+def _run_processing(uploaded_archive: UploadedArchive):
+    # update record in the database
+    output_dir = Path(settings.MEDIA_ROOT) / uploaded_archive.outputdir
+    uploaded_archive.started_at = django.utils.timezone.now()
+    output_archive_file = output_dir / "images.zip"
+    output_metadata_file = output_dir / "metadata.csv"
+    uploaded_archive.status = "Processing"
+    uploaded_archive.save()
+
+    # send celery message to the data worker
+    logger.info("Sending request to inference worker.")
+    sig = signature(
+        "predict",
+        kwargs={
+            "input_archive_file": str(
+                Path(settings.MEDIA_ROOT) / uploaded_archive.archivefile.name
+            ),
+            "output_dir": str(output_dir),
+            "output_archive_file": str(output_archive_file),
+            "output_metadata_file": str(output_metadata_file),
+        },
+    )
+    task = sig.apply_async(
+        link=predict_on_success.s(
+            uploaded_archive_id=uploaded_archive.id,
+            zip_file=os.path.relpath(str(output_archive_file), settings.MEDIA_ROOT),
+            csv_file=os.path.relpath(str(output_metadata_file), settings.MEDIA_ROOT),
+        ),
+        link_error=predict_on_error.s(uploaded_archive_id=uploaded_archive.id),
+    )
+    logger.info(f"Created worker task with id '{task.task_id}'.")
+
+
+@staff_member_required
+def run_processing(request, uploadedarchive_id):
+    """Run processing of uploaded archive."""
+    uploaded_archive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
+    _run_processing(uploaded_archive)
+    return redirect("/caidapp/uploads")
+
+
 def model_form_upload(request):
     """Process the uploaded zip file."""
     if request.method == "POST":
@@ -134,39 +182,9 @@ def model_form_upload(request):
                     f"Uploaded file with extension '{uploaded_archive_suffix}' is not an archive."
                 )
 
-            # update record in the database
-            output_dir = Path(settings.MEDIA_ROOT) / uploaded_archive.outputdir
             uploaded_archive.owner = request.user.ciduser
-            uploaded_archive.started_at = django.utils.timezone.now()
-            output_archive_file = output_dir / "images.zip"
-            output_metadata_file = output_dir / "metadata.csv"
-            uploaded_archive.status = "Processing"
             uploaded_archive.save()
-
-            # send celery message to the data worker
-            logger.info("Sending request to inference worker.")
-            sig = signature(
-                "predict",
-                kwargs={
-                    "input_archive_file": str(
-                        Path(settings.MEDIA_ROOT) / uploaded_archive.archivefile.name
-                    ),
-                    "output_dir": str(output_dir),
-                    "output_archive_file": str(output_archive_file),
-                    "output_metadata_file": str(output_metadata_file),
-                },
-            )
-            task = sig.apply_async(
-                link=predict_on_success.s(
-                    uploaded_archive_id=uploaded_archive.id,
-                    zip_file=os.path.relpath(str(output_archive_file), settings.MEDIA_ROOT),
-                    csv_file=os.path.relpath(str(output_metadata_file), settings.MEDIA_ROOT),
-                ),
-                link_error=predict_on_error.s(uploaded_archive_id=uploaded_archive.id),
-            )
-            logger.info(f"Created worker task with id '{task.task_id}'.")
-
-            # return redirect("/caidapp/uploads/")
+            _run_processing(uploaded_archive)
 
             return JsonResponse({"data": "Data uploaded"})
         else:
@@ -181,6 +199,7 @@ def model_form_upload(request):
     )
 
 
+@login_required
 def delete_upload(request, uploadedarchive_id):
     """Delete uploaded file."""
     uploadedarchive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)

@@ -187,7 +187,7 @@ def get_datetime_from_exif(filename: Path) -> typing.Tuple[str, str]:
             if filename.suffix.lower() in (".jpg", ".jpeg"):
                 exifdata = image.getexif()
                 tag_id = 306  # DateTimeOriginal
-                dt_str = exifdata.get(tag_id)
+                dt_str = str(exifdata.get(tag_id))
             else:
                 dt_str = ""
             read_error = ""
