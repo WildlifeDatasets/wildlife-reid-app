@@ -1,7 +1,9 @@
 import logging
 import os
 import shutil
+from scipy.special import softmax
 from pathlib import Path
+import numpy as np
 
 import pytest
 
@@ -93,10 +95,7 @@ def test_data_processing():
     dir_path = list((CAID_DATASET_BASEDIR / "DATA_SUNAP_tiny_test_subset").glob("**/*.jpg"))[
         0
     ].parent
-    dir_path = list((CAID_DATASET_BASEDIR / "test_micro_data"))
-    # .glob("**/*.jpg"))[
-    #     0
-    # ].parent
+    dir_path = (CAID_DATASET_BASEDIR / "test_micro_data")
     tarfile_path = Path("few_images.zip")
     tarfile_path.unlink(missing_ok=True)
     make_zipfile(tarfile_path, dir_path)
@@ -114,3 +113,34 @@ def test_data_processing():
     ), "There should be some files in media dir path"
 
     assert csv_path.exists()
+
+def test_confidence_thresholding():
+    """Test confidence thresholding and creation of new class for unidentified samples."""
+    n_classes = 4
+    n_samples = 10
+    n_uncertain_samples = 3
+    np.random.seed(42)
+    # targs = np.array(7*[0] + 2*[1])
+    targs = np.random.random_integers(low=0, high=n_classes - 1, size=n_samples)
+    targs.sort()
+
+    uncertain_samples = np.random.random_integers(low=0, high=n_samples - 1, size=n_uncertain_samples)
+    uncertain_samples[0] = 0
+
+    _values = np.random.uniform(0.5, 1, size=[n_classes])
+    _keys = list(range(0, _values.shape[0]))
+    id2threshold = dict(zip(_keys, _values))
+
+    logits = np.random.normal(0, 1.0, size=[n_samples, n_classes])
+    for i in range(n_classes):
+        logits[targs == i, i] += 1
+
+    # make values in uncertain samples smaller
+    logits[uncertain_samples, :] *= 0.1
+    probs = softmax(logits, 1)
+
+    class_ids, top_probs = data_processing_pipeline.do_thresholding_on_probs(probs, id2threshold)
+
+    assert class_ids[uncertain_samples[0]] == n_classes,\
+        "The 0th prediction should be uncertain."
+
