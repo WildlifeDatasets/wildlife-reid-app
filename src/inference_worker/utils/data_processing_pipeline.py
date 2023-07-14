@@ -168,6 +168,11 @@ def load_model_and_predict(image_paths: list) -> Tuple[np.ndarray, Optional[dict
         num_workers=0,
         dataset_cls=PredictionDataset,
     )
+    # do_confidence_thresholding: Do not label uncertain data.
+    if "do_confidence_thresholding" in artifact_config:
+        do_confidence_thresholding = artifact_config["do_confidence_thresholding"]
+    else:
+        do_confidence_thresholding = True
 
     logger.info("Running inference.")
     predict_output = predict(model, testloader)
@@ -178,7 +183,59 @@ def load_model_and_predict(image_paths: list) -> Tuple[np.ndarray, Optional[dict
         logger.warning("Artifact config from W&B is missing 'temperature' parameter.")
     probs = softmax(logits, 1)
 
-    return probs, artifact_config.get("id2label")
+    id2thresholds = artifact_config.get("id2th")
+
+    assert list(id2thresholds.keys()) == sorted(
+        list(id2thresholds.keys())
+    ), "Artifact id2th does not contain sorted list of thresholds for every class."
+
+    id2label = artifact_config.get("id2label")
+    assert np.max(list(id2label.keys())) == (
+        len(id2label) - 1
+    ), "Some of the labels is missing in id2label."
+
+    # add inference results to the metadata dataframe
+    if do_confidence_thresholding:
+        class_ids, probs_top = do_thresholding_on_probs(probs, id2thresholds)
+        # extend labels and add there new label "Not Classified"
+        id2label[len(id2label)] = "Not Classified"
+    else:
+        class_ids = np.argmax(probs, 1)
+        probs_top = np.max(probs, 1)
+
+    return class_ids, probs_top, id2label
+
+
+def do_thresholding_on_probs(probs: np.array, id2threshold: dict) -> Tuple[np.array, np.array]:
+    """Use the thresholds to do the classification.
+
+    The images with all softmax values under the classification threshold are marked
+    as not-classified.
+
+    Args:
+        probs (numpy.array): softmax of logits with shape = [n_samples, n_classes].
+        id2threshold (dict): Thresholds in dictionary. Key is the class id, value is the threshold.
+
+    Returns:
+        class_ids: Ids of classes. The highest class id represent the not classified category.
+        top_probs: Softmaxed probability. The not-classified is calculated as 1 - top_prob.
+
+    """
+    assert probs.shape[1] == len(
+        id2threshold
+    ), "There should be the same number of columns as the number of classes."
+
+    top_probs = np.max(probs, 1)
+    class_ids = np.argmax(probs, 1)
+    thresholds = np.array(list(id2threshold.values()))
+    thresholds_per_sample = thresholds[class_ids]
+
+    is_classified = top_probs > thresholds_per_sample
+    # add new label with id = maximum_id + 1
+    class_ids[~is_classified] = len(id2threshold)
+    top_probs[~is_classified] = 1 - top_probs[~is_classified]
+
+    return class_ids, top_probs
 
 
 def data_processing(
@@ -192,14 +249,11 @@ def data_processing(
 
     Files are renamed according to the hash based on input path.
 
-    Parameters
-    ----------
-    zip_path
-        Path to input zip file.
-    media_dir_path
-        Path to content of zip. The file names are hashed.
-    csv_path
-        Path to output CSV file.
+    Args:
+        zip_path: Path to input zip file.
+        media_dir_path: Path to content of zip. The file names are hashed.
+        csv_path: Path to output CSV file.
+
     """
     # create metadata dataframe
     metadata, _ = data_preprocessing(zip_path, media_dir_path, num_cores=num_cores)
@@ -211,16 +265,15 @@ def data_processing(
 
     # run inference
     image_path = metadata["image_path"].apply(lambda x: os.path.join(media_dir_path, x))
-    probs, id2label = load_model_and_predict(image_path)
+    class_ids, _, id2label = load_model_and_predict(image_path)
 
     # add inference results to the metadata dataframe
-    metadata["predicted_class_id"] = np.argmax(probs, 1)
+    metadata["predicted_class_id"] = class_ids
     metadata["predicted_category"] = np.nan
     if id2label is not None:
         metadata["predicted_category"] = metadata["predicted_class_id"].apply(
             lambda x: id2label.get(x, np.nan)
         )
-    metadata["predicted_confidence"] = np.max(probs, 1)
 
     # create category subdirectories and move images based on prediction
     new_image_paths = []
