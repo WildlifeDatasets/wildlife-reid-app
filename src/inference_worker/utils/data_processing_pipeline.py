@@ -292,4 +292,4 @@ def data_processing(
     metadata["image_path"] = new_image_paths
 
     # save metadata file
-    metadata.to_csv(csv_path)
+    metadata.to_csv(csv_path, encoding="utf-8-sig")
