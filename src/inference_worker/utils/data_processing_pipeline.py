@@ -224,19 +224,16 @@ def do_thresholding_on_probs(probs: np.array, id2threshold: dict) -> Tuple[np.ar
     assert probs.shape[1] == len(
         id2threshold
     ), "There should be the same number of columns as the number of classes."
-    thresholds_extended = (
-        np.array(list(id2threshold.values())).reshape(1, -1).repeat(repeats=probs.shape[0], axis=0)
-    )
 
-    probs_cp = probs.copy()
-    probs_cp[probs <= thresholds_extended] = 0
+    top_probs = np.max(probs, 1)
+    class_ids = np.argmax(probs, 1)
+    thresholds = np.array(list(id2threshold.values()))
+    thresholds_per_sample = thresholds[class_ids]
 
-    top_probs = np.max(probs_cp, 1)
-    class_ids = np.argmax(probs_cp, 1)
-    is_there_some_class = np.max(probs > thresholds_extended, axis=1)
+    is_classified = top_probs > thresholds_per_sample
     # add new label with id = maximum_id + 1
-    class_ids[~is_there_some_class] = len(id2threshold)
-    top_probs[~is_there_some_class] = 1 - top_probs[~is_there_some_class]
+    class_ids[~is_classified] = len(id2threshold)
+    top_probs[~is_classified] = 1 - top_probs[~is_classified]
 
     return class_ids, top_probs
 

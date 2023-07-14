@@ -109,7 +109,10 @@ def test_data_processing():
 
 
 def test_confidence_thresholding():
-    """Test confidence thresholding and creation of new class for unidentified samples."""
+    """Test confidence thresholding and creation of new class for unidentified samples.
+
+    There are generated artificial data. Few samples has low confidence.
+    """
     n_classes = 4
     n_samples = 10
     n_uncertain_samples = 3
