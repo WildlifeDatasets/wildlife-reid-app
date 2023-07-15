@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 import wandb
 import yaml
+import json
 from scipy.special import softmax
 
 from fgvc.core.training import predict
@@ -125,16 +126,28 @@ def data_preprocessing(
 def get_model_config() -> Tuple[dict, str, dict]:
     """Load model configuration from W&B including training config and fine-tuned checkpoint."""
     # get artifact and run from W&B
-    api = wandb.Api(api_key=WANDB_API_KEY)
-    artifact = api.artifact(WANDB_ARTIFACT_PATH)
-    run = artifact.logged_by()
-    config = run.config
-    artifact_files = [x.name for x in artifact.files()]
+    model_config_path = Path(RESOURCES_DIR) / "model_config.json"
+    try:
+        api = wandb.Api(api_key=WANDB_API_KEY)
+        artifact = api.artifact(WANDB_ARTIFACT_PATH)
+        run = artifact.logged_by()
+        config = run.config
+        # save model config locally for later use without internet
+        with open(model_config_path, "w") as f:
+            json.dump(config, f)
 
-    # check if all artifact files are downloaded and optionally download artifact files
-    all_files_downloaded = all([(Path(RESOURCES_DIR) / x).is_file() for x in artifact_files])
-    if not all_files_downloaded:
-        artifact.download(root=RESOURCES_DIR)
+        artifact_files = [x.name for x in artifact.files()]
+
+        # check if all artifact files are downloaded and optionally download artifact files
+        all_files_downloaded = all([(Path(RESOURCES_DIR) / x).is_file() for x in artifact_files])
+        if not all_files_downloaded:
+            artifact.download(root=RESOURCES_DIR)
+    except (wandb.CommError, ConnectionError):
+        logger.error("Connection Error. Cannot reach W&B server. Trying previous configuration.")
+        artifact_files = [fn.relative_to(RESOURCES_DIR) for fn in Path(RESOURCES_DIR).glob("*")]
+        with open(model_config_path) as f:
+            config = json.load(f)
+
 
     # get artifact contents
     assert (
