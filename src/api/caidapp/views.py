@@ -15,9 +15,10 @@ from django.core.paginator import Paginator
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
+from django.forms import formset_factory, modelformset_factory
 
 from .forms import MediaFileForm, UploadedArchiveForm
-from .models import MediaFile, UploadedArchive
+from .models import MediaFile, UploadedArchive, Location
 from .tasks import predict_on_error, predict_on_success
 
 logger = logging.getLogger("app")
@@ -53,6 +54,25 @@ def media_files(request):
         },
     )
 
+def manage_locations(request):
+
+    LocationFormSet = modelformset_factory(
+        Location, fields=("name",),
+        can_delete = False, can_order = False
+    )
+    if request.method == "POST":
+        form = LocationFormSet(request.POST)
+        form.save()
+    else:
+        form = LocationFormSet()
+
+    return render(
+        request,
+        "caidapp/manage_locations.html",
+        {
+            "page_obj": form,
+        },
+    )
 
 def uploadedarchive_detail(request, uploadedarchive_id):
     """List of uploads."""

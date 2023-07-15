@@ -23,4 +23,5 @@ urlpatterns = [
     path(
         "media_file_update/<int:media_file_id>/", views.media_file_update, name="media_file_update"
     ),
+    path("manage_locations/", views.manage_locations, name="manage_locations"),
 ]
