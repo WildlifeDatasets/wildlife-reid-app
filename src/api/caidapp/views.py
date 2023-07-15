@@ -217,7 +217,7 @@ def model_form_upload(request):
 def delete_upload(request, uploadedarchive_id):
     """Delete uploaded file."""
     uploadedarchive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
-    if uploadedarchive.owner == request.user:
+    if uploadedarchive.owner.id == request.user.id:
         uploadedarchive.delete()
     else:
         messages.error(request, "Only the owner can delete the file")
@@ -229,10 +229,10 @@ def delete_mediafile(request, mediafile_id):
     """Delete uploaded file."""
     obj = get_object_or_404(MediaFile, pk=mediafile_id)
     parent_id = obj.parent_id
-    if obj.parent.owner == request.user:
+    if obj.parent.owner.id == request.user.id:
         obj.delete()
     else:
-        messages.error(request, "Only the owner can delete the file")
+        messages.error(request, f"Only the owner can delete the file.")
     return redirect("caidapp:uploadedarchive_detail", uploadedarchive_id=parent_id)
 
 
