@@ -28,7 +28,7 @@
                                     {#                                <h5 class="card-title">{{ mediafile }}</h5>#}
                                     <p class="card-text"> Category: {{ mediafile.category }}</p>
                                     <p class="card-text"> Location: {{ mediafile.location }}</p>
-                                    <p class="card-text"> Captured at: {{ mediafile.captured_at }}</p>
+                                    <p class="card-text"> Captured at: {{ mediafile.captured_at|date:'Y-m-d H:i' }}</p>
 
 
                                     <a class="btn btn-primary"

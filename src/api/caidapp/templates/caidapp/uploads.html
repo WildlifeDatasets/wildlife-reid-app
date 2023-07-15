@@ -38,9 +38,9 @@
                                 >
                                     <h5 class="card-title">{{ uploadedarchive }}</h5>
                                     <p>Status: {{ uploadedarchive.status }} </p>
-                                    <p>Uploaded at: {{ uploadedarchive.uploaded_at }} </p>
+                                    <p>Uploaded at: {{ uploadedarchive.uploaded_at|date:'Y-m-d H:i' }} </p>
                                     {% if uploadedarchive.finished_at %}
-                                        <p>Finished at: {{ uploadedarchive.finished_at }} </p>
+                                        <p>Finished at: {{ uploadedarchive.finished_at|date:'Y-m-d H:i' }} </p>
                                     {% endif %}
 
                                     <a class="btn btn-primary"
