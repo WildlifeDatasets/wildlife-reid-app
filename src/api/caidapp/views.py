@@ -288,7 +288,7 @@ def _mediafiles_query(request, query: str):
         return mediafiles
 
 
-def media_files_update(request, records_per_page=80):
+def media_files_update(request, records_per_page=120):
     """List of mediafiles based on query with bulk update of category."""
     # create list of mediafiles
     if request.method == "POST":
