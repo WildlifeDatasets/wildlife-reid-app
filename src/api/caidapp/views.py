@@ -62,7 +62,8 @@ def manage_locations(request):
     )
     if request.method == "POST":
         form = LocationFormSet(request.POST)
-        form.save()
+        if form.is_valid():
+            form.save()
     else:
         form = LocationFormSet()
 
