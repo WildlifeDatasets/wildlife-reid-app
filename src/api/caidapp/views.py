@@ -12,13 +12,19 @@ from django.contrib.auth import logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView
 from django.core.paginator import Paginator
+from django.forms import modelformset_factory
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
-from django.forms import formset_factory, modelformset_factory
 
-from .forms import MediaFileBulkForm, UploadedArchiveForm, MediaFileSelectionForm, MediaFileSetQueryForm, MediaFileForm
-from .models import MediaFile, UploadedArchive, Location
+from .forms import (
+    MediaFileBulkForm,
+    MediaFileForm,
+    MediaFileSelectionForm,
+    MediaFileSetQueryForm,
+    UploadedArchiveForm,
+)
+from .models import Location, MediaFile, UploadedArchive
 from .tasks import predict_on_error, predict_on_success
 
 logger = logging.getLogger("app")
@@ -54,11 +60,11 @@ def media_files(request):
         },
     )
 
-def manage_locations(request):
 
+def manage_locations(request):
+    """Add new location or update names of locations."""
     LocationFormSet = modelformset_factory(
-        Location, fields=("name",),
-        can_delete = False, can_order = False
+        Location, fields=("name",), can_delete=False, can_order=False
     )
     if request.method == "POST":
         form = LocationFormSet(request.POST)
@@ -74,6 +80,7 @@ def manage_locations(request):
             "page_obj": form,
         },
     )
+
 
 def uploadedarchive_detail(request, uploadedarchive_id):
     """List of uploads."""
@@ -233,7 +240,7 @@ def delete_mediafile(request, mediafile_id):
     if obj.parent.owner.id == request.user.id:
         obj.delete()
     else:
-        messages.error(request, f"Only the owner can delete the file.")
+        messages.error(request, "Only the owner can delete the file.")
     return redirect("caidapp:uploadedarchive_detail", uploadedarchive_id=parent_id)
 
 
@@ -249,9 +256,9 @@ class MyLoginView(LoginView):
         messages.error(self.request, "Invalid username or password")
         return self.render_to_response(self.get_context_data(form=form))
 
-def _mediafiles_query(request, query:str):
-    """Prepare list of mediafiles based on query search in category and location."""
 
+def _mediafiles_query(request, query: str):
+    """Prepare list of mediafiles based on query search in category and location."""
     # from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector
     # vector = SearchVector("category", "location")
     # query = SearchQuery("Vulpes")
@@ -283,9 +290,8 @@ def _mediafiles_query(request, query:str):
 
 def media_files_update(request, records_per_page=80):
     """List of mediafiles based on query with bulk update of category."""
-
     # create list of mediafiles
-    if (request.method == "POST"):
+    if request.method == "POST":
         # and ("querySubmit" in request.POST):
         queryform = MediaFileSetQueryForm(request.POST)
         logger.debug(queryform)
@@ -305,50 +311,27 @@ def media_files_update(request, records_per_page=80):
     MediaFileFormSet = modelformset_factory(MediaFile, form=MediaFileSelectionForm, extra=0)
     if (request.method == "POST") and ("btnBulkProcessing" in request.POST):
         form_bulk_processing = MediaFileBulkForm(request.POST)
-        if form_bulk_processing.is_valid():
-            pass
-            # uu = form_bulk_processing.save()
 
-
-        # MediaFileFormSet = modelformset_factory(MediaFile, fields=("category", "location", "thumbnail"))
         form = MediaFileFormSet(request.POST)
         if form.is_valid():
             for mediafileform in form:
                 if mediafileform.is_valid():
                     if mediafileform.cleaned_data["selected"]:
                         mediafileform.cleaned_data["selected"] = False
-                        mediafileform.selected=False
+                        mediafileform.selected = False
                         instance = mediafileform.save(commit=False)
                         instance.category = form_bulk_processing.cleaned_data["category"]
                         instance.save()
                     mediafileform.save()
             form.save()
-
-
-            # get uploaded archive
-            # instances = form.save(commit=False)
-            # for instance in instances:
-                # instance = mediafile
-                # if instance.selected:
-                #     instance.category=form_bulk_processing.cleaned_data["category"]
-                #     instance.save()
-        # form = MediaFileFormSet()
         queryform = MediaFileSetQueryForm(request.POST)
         form_bulk_processing = MediaFileBulkForm()
         page_query = full_mediafiles.filter(id__in=[object.id for object in page_mediafiles])
         form = MediaFileFormSet(queryset=page_query)
-
-            # return redirect("caidapp:media_files")
     else:
         form_bulk_processing = MediaFileBulkForm()
-        # MediaFileFormSet = formset_factory(MediaFile, fields=("category", "location", "thumbnail"), extra=0)
         page_query = full_mediafiles.filter(id__in=[object.id for object in page_mediafiles])
         form = MediaFileFormSet(queryset=page_query)
-        # form = MediaFileFormSet()
-    # qs_data = {}
-    # for e in mediafiles:
-    #     qs_data[e.id] = str(e.category) + " " + str(e.location)
-    # qs_json = json.dumps(qs_data)
 
     return render(
         request,
@@ -357,9 +340,8 @@ def media_files_update(request, records_per_page=80):
             "page_obj": page_mediafiles,
             "form_objects": form,
             "page_title": "Media files",
-            # "qs_json": qs_json,
             "user_is_staff": request.user.is_staff,
             "form_bulk_processing": form_bulk_processing,
-            "form_query": queryform
+            "form_query": queryform,
         },
     )

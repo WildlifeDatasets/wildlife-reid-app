@@ -28,14 +28,6 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
-# env = environ.FileAwareEnv(
-#     DEBUG=(bool, True)
-# )
-# environ.Env.read_env()
-
-# WEBAPP_DATA = Path(SHARED_DATA_PATH) / "caidapp_data"  # BASE_DIR / "../caidapp_data"
-# WEBAPP_DATA.mkdir(exist_ok=True, parents=True)
-
 scpath = Path(PRIVATE_DATA_PATH) / "secretkey.txt"
 if scpath.exists():
     with open(scpath, "r") as f:
@@ -78,7 +70,7 @@ INSTALLED_APPS = [
     "allauth.account",  # <--
     "allauth.socialaccount",  # <--
     "allauth.socialaccount.providers.google",  # <--
-    "widget_tweaks"
+    "widget_tweaks",
 ]
 
 MIDDLEWARE = [
@@ -147,7 +139,6 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = "en-us"
 
-# TIME_ZONE = "UTC"
 TIME_ZONE = "Europe/Prague"
 CELERY_TIMEZONE = "Europe/Prague"
 
@@ -164,10 +155,6 @@ MEDIA_URL = "/media/"
 MEDIA_ROOT = Path(SHARED_DATA_PATH) / "media"
 # use python manage.py collectstatic
 STATIC_ROOT = Path(SHARED_DATA_PATH) / "static"
-# STATICFILES_DIRS = [
-#     BASE_DIR / "static",
-#     "/api_static/",
-# ]
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field

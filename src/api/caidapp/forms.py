@@ -14,17 +14,20 @@ class MediaFileForm(forms.ModelForm):
         model = MediaFile
         fields = ("category", "location")
 
+
 class MediaFileBulkForm(forms.ModelForm):
     class Meta:
         model = MediaFile
         fields = ("category",)
 
+
 class MediaFileSelectionForm(forms.ModelForm):
-    # selected = forms.BooleanField(widget=forms.HiddenInput, initial=True)
     selected = forms.BooleanField(initial=False, required=False)
+
     class Meta:
         model = MediaFile
         fields = ()
+
 
 class MediaFileSetQueryForm(forms.Form):
     query = forms.CharField(max_length=100, required=False)

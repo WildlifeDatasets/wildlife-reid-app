@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import shutil
@@ -9,7 +10,6 @@ import numpy as np
 import pandas as pd
 import wandb
 import yaml
-import json
 from scipy.special import softmax
 
 from fgvc.core.training import predict
@@ -147,7 +147,6 @@ def get_model_config() -> Tuple[dict, str, dict]:
         artifact_files = [fn.relative_to(RESOURCES_DIR) for fn in Path(RESOURCES_DIR).glob("*")]
         with open(model_config_path) as f:
             config = json.load(f)
-
 
     # get artifact contents
     assert (
