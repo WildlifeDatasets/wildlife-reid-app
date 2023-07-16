@@ -1,0 +1,191 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load widget_tweaks %}
+{% block head %}
+{% endblock %}
+{% block body %}
+    {% if user.is_authenticated %}
+        <div class="pagetitle">
+            <h1>{{ page_title }}</h1>
+            <nav>
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li>
+                </ol>
+            </nav>
+{#            <input id="search_here" class="form-control mb-3" placeholder="type here to search.."/>#}
+
+
+
+        </div>
+
+
+        <section class="section">
+
+            <form method="POST">
+            <div class="row">
+                <div class="col">
+                    {% render_field form_query.query class="form-control mb-3" placeholder="type here to search..." %}
+                </div>
+                <div class="col-auto">
+                    <button name="querySubmit" class="btn btn-primary" id="querySubmit" type="submit">
+                        Search
+                    </button>
+                </div>
+            </div>
+
+            {% if form_objects %}
+                {{ form_objects.management_form }}
+                {% csrf_token %}
+                <p>
+                    <a class="btn btn-secondary" data-bs-toggle="collapse" href="#collapseBulkProcessing" role="button"
+                       aria-expanded="false" aria-controls="collapseBulkProcessing">
+                        Bulk processing
+                    </a>
+                </p>
+                <div class="collapse" name="collapseBulkProcessing" id="collapseBulkProcessing">
+                    <div class="card">
+                        <div class="card-body mt-3">
+                            {{ form_bulk_processing }}
+                            <button class="btn btn-primary" name="btnBulkProcessing" id="btnBulkProcessing" type="submit">
+                                Update Selected
+                            </button>
+
+                        </div>
+                    </div>
+
+                </div>
+
+                <div class="row" id="row-of-cards">
+
+                    {% for mediafile in form_objects %}
+                        <div class="col-lg-3" id="card{{ mediafile.instance.id }}">
+                            <div class="card">
+                                {% for hidden in mediafile.hidden_fields %}
+                                    {{ hidden }}
+                                {% endfor %}
+                                {% if mediafile.instance.mediafile %}
+                                    <a href="{% url 'caidapp:media_file_update' mediafile.instance.id %}">
+                                        <img class="card-img-top" src="{{ mediafile.instance.thumbnail.url }}"
+                                             alt="Cameratrap image">
+                                    </a>
+                                {% endif %}
+                                <div class="card-body mt-2">
+                                    {{ mediafile.as_p }}
+                                    {#                                                                    <h5 class="card-title">{{ mediafile.instance }}</h5>#}
+                                    <p class="card-text"> Category: {{ mediafile.instance.category }}</p>
+                                    <p class="card-text"> Location: {{ mediafile.instance.location }}</p>
+                                    <p class="card-text"> Captured
+                                        at: {{ mediafile.instance.captured_at|date:'Y-m-d H:i' }}</p>
+
+
+                                    <a class="btn btn-primary"
+                                       href="{% url 'caidapp:media_file_update' mediafile.instance.id %}">
+                                        <i class="bi bi-trash"></i> Detail
+                                    </a>
+
+                                    <div class="dropdown d-inline-block">
+                                        <a class="btn btn-secondary dropdown-toggle" href="#" role="button"
+                                           data-bs-toggle="dropdown" aria-expanded="false">
+                                            <i class="bi bi-three-dots"></i>
+                                        </a>
+
+                                        <ul class="dropdown-menu">
+                                            <li>
+                                                <hr class="dropdown-divider">
+                                            </li>
+                                            <li>
+                                                <a class="dropdown-item text-danger"
+                                                   href="{% url 'caidapp:delete_mediafile' mediafile.instance.id %}"
+                                                   onclick="return confirm('Delete file {{ mediafile.instance }}?')">
+                                                    <i class="bi bi-trash"></i> Delete
+                                                </a>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    {% endfor %}
+{#                                        Pagination#}
+                                        <ul class="pagination">
+                                            {% if page_obj.has_previous %}
+                                                <li class="page-item">
+                                                    <a class="page-link" href="?page=1">First </a>
+                                                </li>
+                                                <li class="page-item">
+                                                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}">
+                                                        <i class="bi-chevron-left"></i>
+                                                    </a>
+                                                </li>
+                                            {% else %}
+                                                <li class="page-item disabled">
+                                                    <a class="page-link" href="#">First</a>
+                                                </li>
+                                                <li class="page-item disabled">
+                                                    <a class="page-link" href="#">
+                                                        <i class="bi-chevron-left"></i>
+                                                    </a>
+                                                </li>
+                                            {% endif %}
+
+                                            <li class="page-item">
+                                                <a class="page-link" href="#">
+                                                    Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}.
+                                                </a>
+                                            </li>
+
+                                            {% if page_obj.has_next %}
+                                                <li class="page-item">
+                                                    <a class="page-link" href="?page={{ page_obj.next_page_number }}">
+                                                        <i class="bi-chevron-right"></i>
+                                                    </a>
+                                                </li>
+                                                <li class="page-item">
+                                                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">Last</a>
+                                                </li>
+
+                                            {% else %}
+                                                <li class="page-item disabled">
+                                                    <a class="page-link" href="#">
+                                                        <i class="bi-chevron-right"></i>
+                                                    </a>
+                                                </li>
+                                                <li class="page-item disabled">
+                                                    <a class="page-link" href="#">
+                                                        Last
+                                                    </a>
+                                                </li>
+                                            {% endif %}
+                                        </ul>
+
+                </div>
+            {% else %}
+                <p>No data available.</p>
+            {% endif %}
+            </form>
+        </section>
+    {% endif %}
+    <script>
+        const data = '{{qs_json}}'
+
+        const rdata = JSON.parse(data.replace(/&quot;/g, '"'))
+
+        const input = document.getElementById('search_here');
+
+        let filteredArr = []
+
+        input.addEventListener('keyup', (e) => {
+            for (const element_id in rdata) {
+                if (rdata[element_id].includes(e.target.value)) {
+                    const el = document.getElementById("card" + element_id);
+                    el.classList.remove("d-none");
+                } else {
+                    document.getElementById("card" + element_id).classList.add('d-none');
+
+                }
+            }
+        })
+
+    </script>
+{% endblock %}

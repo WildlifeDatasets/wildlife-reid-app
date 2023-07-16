@@ -280,11 +280,13 @@ def _mediafiles_query(request, query:str):
         mediafiles = queryset_combination.all().order_by("-parent__uploaded_at")
         return mediafiles
 
+
 def media_files_update(request, records_per_page=80):
     """List of mediafiles based on query with bulk update of category."""
 
     # create list of mediafiles
-    if (request.method == "POST") and ("querySubmit" in request.POST):
+    if (request.method == "POST"):
+        # and ("querySubmit" in request.POST):
         queryform = MediaFileSetQueryForm(request.POST)
         logger.debug(queryform)
         query = queryform.cleaned_data["query"]
@@ -293,24 +295,14 @@ def media_files_update(request, records_per_page=80):
         query = ""
 
     logger.debug(f"{query=}")
-    mediafiles = _mediafiles_query(request, query)
+    full_mediafiles = _mediafiles_query(request, query)
 
-    paginator = Paginator(mediafiles, per_page=records_per_page)
+    paginator = Paginator(full_mediafiles, per_page=records_per_page)
 
     page_number = request.GET.get("page")
     page_mediafiles = paginator.get_page(page_number)
-    # try:
-    #     objects = paginator.page(page_number)
-    # except PageNotAnInteger:
-    #     objects = paginator.page(1)
-    # except EmptyPage:
-    #     objects = paginator.page(paginator.num_pages)
-    # page_mediafiles = mediafiles
 
     MediaFileFormSet = modelformset_factory(MediaFile, form=MediaFileSelectionForm, extra=0)
-    logger.debug("save-2-----------------------------------")
-    logger.debug(request.method)
-    logger.debug(request.POST)
     if (request.method == "POST") and ("btnBulkProcessing" in request.POST):
         form_bulk_processing = MediaFileBulkForm(request.POST)
         if form_bulk_processing.is_valid():
@@ -324,9 +316,14 @@ def media_files_update(request, records_per_page=80):
             for mediafileform in form:
                 if mediafileform.is_valid():
                     if mediafileform.cleaned_data["selected"]:
+                        mediafileform.cleaned_data["selected"] = False
+                        mediafileform.selected=False
                         instance = mediafileform.save(commit=False)
                         instance.category = form_bulk_processing.cleaned_data["category"]
                         instance.save()
+                    mediafileform.save()
+            form.save()
+
 
             # get uploaded archive
             # instances = form.save(commit=False)
@@ -335,12 +332,17 @@ def media_files_update(request, records_per_page=80):
                 # if instance.selected:
                 #     instance.category=form_bulk_processing.cleaned_data["category"]
                 #     instance.save()
+        # form = MediaFileFormSet()
+        queryform = MediaFileSetQueryForm(request.POST)
+        form_bulk_processing = MediaFileBulkForm()
+        page_query = full_mediafiles.filter(id__in=[object.id for object in page_mediafiles])
+        form = MediaFileFormSet(queryset=page_query)
 
-            return redirect("caidapp:media_files")
+            # return redirect("caidapp:media_files")
     else:
         form_bulk_processing = MediaFileBulkForm()
         # MediaFileFormSet = formset_factory(MediaFile, fields=("category", "location", "thumbnail"), extra=0)
-        page_query = mediafiles.filter(id__in=[object.id for object in page_mediafiles])
+        page_query = full_mediafiles.filter(id__in=[object.id for object in page_mediafiles])
         form = MediaFileFormSet(queryset=page_query)
         # form = MediaFileFormSet()
     # qs_data = {}
