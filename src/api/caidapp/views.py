@@ -340,13 +340,6 @@ def media_files_update(request, records_per_page=120):
 
     paginator = Paginator(full_mediafiles, per_page=records_per_page)
 
-    # page_number = request.GET.get("page")
-    # # qinstance = queryform.save()
-    # if queryform.is_valid():
-    #     page_number = queryform.cleaned_data["page"]
-    # else:
-    #     page_number = 1
-    # logger.debug(f"{page_number=}")
     page_mediafiles = paginator.get_page(page_number)
 
     MediaFileFormSet = modelformset_factory(MediaFile, form=MediaFileSelectionForm, extra=0)
