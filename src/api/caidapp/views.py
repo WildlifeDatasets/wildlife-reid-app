@@ -87,7 +87,7 @@ def uploadedarchive_detail(request, uploadedarchive_id):
     uploadedarchive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
     mediafile_set = uploadedarchive.mediafile_set.all()
 
-    records_per_page = 12
+    records_per_page = 80
     paginator = Paginator(mediafile_set, per_page=records_per_page)
 
     page_number = request.GET.get("page")
@@ -322,7 +322,7 @@ def _page_number(request, queryform):
     return queryform, page_number
 
 
-def media_files_update(request, records_per_page=120):
+def media_files_update(request, records_per_page=80):
     """List of mediafiles based on query with bulk update of category."""
     # create list of mediafiles
     if request.method == "POST":
