@@ -22,6 +22,7 @@
         <section class="section">
 
             <form method="POST">
+                {% csrf_token %}
             <div class="row">
                 <div class="col">
                     {% render_field form_query.query class="form-control mb-3" placeholder="type here to search..." %}
@@ -32,10 +33,10 @@
                     </button>
                 </div>
             </div>
+                {{ form_query.pagenumber }}
 
             {% if form_objects %}
                 {{ form_objects.management_form }}
-                {% csrf_token %}
                 <p>
                     <a class="btn btn-secondary" data-bs-toggle="collapse" href="#collapseBulkProcessing" role="button"
                        aria-expanded="false" aria-controls="collapseBulkProcessing">
@@ -111,12 +112,12 @@
                                         <ul class="pagination">
                                             {% if page_obj.has_previous %}
                                                 <li class="page-item">
-                                                    <a class="page-link" href="?page=1">First </a>
+                                                    <button type="submit" name="firstPage" class="page-link" href="?page=1">First </button>
                                                 </li>
                                                 <li class="page-item">
-                                                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}">
+                                                    <button type="submit" name="prevPage"  class="page-link" href="?page={{ page_obj.previous_page_number }}">
                                                         <i class="bi-chevron-left"></i>
-                                                    </a>
+                                                    </button>
                                                 </li>
                                             {% else %}
                                                 <li class="page-item disabled">
@@ -137,12 +138,12 @@
 
                                             {% if page_obj.has_next %}
                                                 <li class="page-item">
-                                                    <a class="page-link" href="?page={{ page_obj.next_page_number }}">
+                                                    <button type="submit" name="nextPage" class="page-link" href="?page={{ page_obj.next_page_number }}">
                                                         <i class="bi-chevron-right"></i>
-                                                    </a>
+                                                    </button>
                                                 </li>
                                                 <li class="page-item">
-                                                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">Last</a>
+                                                    <button type="submit" name="lastPage" class="page-link" href="?page={{ page_obj.paginator.num_pages }}">Last</button>
                                                 </li>
 
                                             {% else %}

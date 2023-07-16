@@ -288,16 +288,51 @@ def _mediafiles_query(request, query: str):
         return mediafiles
 
 
+def _page_number(request, queryform):
+    """Prepare page number into queryform."""
+    page_number = queryform.cleaned_data["pagenumber"]
+    logger.debug(f"{page_number=}")
+    if "nextPage" in request.POST:
+        logger.debug("nextPage")
+        if queryform.is_valid():
+            queryform.cleaned_data["pagenumber"] += 1
+            page_number = queryform.cleaned_data["pagenumber"]
+            if queryform.is_valid():
+                queryform = MediaFileSetQueryForm(initial=queryform.cleaned_data)
+    if "lastPage" in request.POST:
+        logger.debug("nextPage")
+        if queryform.is_valid():
+            queryform.cleaned_data["pagenumber"] = -1
+            page_number = queryform.cleaned_data["pagenumber"]
+            if queryform.is_valid():
+                queryform = MediaFileSetQueryForm(initial=queryform.cleaned_data)
+    if "prevPage" in request.POST:
+        logger.debug("prevPage")
+        if queryform.is_valid():
+            queryform.cleaned_data["pagenumber"] -= 1
+            page_number = queryform.cleaned_data["pagenumber"]
+            if queryform.is_valid():
+                queryform = MediaFileSetQueryForm(initial=queryform.cleaned_data)
+    if "firstPage" in request.POST:
+        if queryform.is_valid():
+            queryform.cleaned_data["pagenumber"] = 1
+            page_number = queryform.cleaned_data["pagenumber"]
+            if queryform.is_valid():
+                queryform = MediaFileSetQueryForm(initial=queryform.cleaned_data)
+    return queryform, page_number
+
+
 def media_files_update(request, records_per_page=120):
     """List of mediafiles based on query with bulk update of category."""
     # create list of mediafiles
     if request.method == "POST":
-        # and ("querySubmit" in request.POST):
         queryform = MediaFileSetQueryForm(request.POST)
         logger.debug(queryform)
         query = queryform.cleaned_data["query"]
+        queryform, page_number = _page_number(request, queryform)
     else:
         queryform = MediaFileSetQueryForm()
+        page_number = 1
         query = ""
 
     logger.debug(f"{query=}")
@@ -305,12 +340,20 @@ def media_files_update(request, records_per_page=120):
 
     paginator = Paginator(full_mediafiles, per_page=records_per_page)
 
-    page_number = request.GET.get("page")
+    # page_number = request.GET.get("page")
+    # # qinstance = queryform.save()
+    # if queryform.is_valid():
+    #     page_number = queryform.cleaned_data["page"]
+    # else:
+    #     page_number = 1
+    # logger.debug(f"{page_number=}")
     page_mediafiles = paginator.get_page(page_number)
 
     MediaFileFormSet = modelformset_factory(MediaFile, form=MediaFileSelectionForm, extra=0)
     if (request.method == "POST") and ("btnBulkProcessing" in request.POST):
         form_bulk_processing = MediaFileBulkForm(request.POST)
+        if form_bulk_processing.is_valid():
+            form_bulk_processing.save()
 
         form = MediaFileFormSet(request.POST)
         if form.is_valid():
@@ -322,9 +365,9 @@ def media_files_update(request, records_per_page=120):
                         instance = mediafileform.save(commit=False)
                         instance.category = form_bulk_processing.cleaned_data["category"]
                         instance.save()
-                    mediafileform.save()
-            form.save()
-        queryform = MediaFileSetQueryForm(request.POST)
+                    # mediafileform.save()
+            # form.save()
+        # queryform = MediaFileSetQueryForm(request.POST)
         form_bulk_processing = MediaFileBulkForm()
         page_query = full_mediafiles.filter(id__in=[object.id for object in page_mediafiles])
         form = MediaFileFormSet(queryset=page_query)

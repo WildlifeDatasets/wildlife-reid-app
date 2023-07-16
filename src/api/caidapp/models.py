@@ -97,7 +97,7 @@ class Location(models.Model):
 
 
 class MediaFile(models.Model):
-    parent = models.ForeignKey(UploadedArchive, on_delete=models.CASCADE)
+    parent = models.ForeignKey(UploadedArchive, on_delete=models.CASCADE, null=True)
     category = models.ForeignKey(Taxon, blank=True, null=True, on_delete=models.CASCADE)
     location = models.ForeignKey(Location, blank=True, null=True, on_delete=models.CASCADE)
     captured_at = models.DateTimeField("Captured at", blank=True, null=True)
