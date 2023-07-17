@@ -4,6 +4,7 @@ import shutil
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 import pytest
 from scipy.special import softmax
 
@@ -106,6 +107,8 @@ def test_data_processing():
     ), "There should be some files in media dir path"
 
     assert csv_path.exists()
+    metadata = pd.read_csv(csv_path)
+    assert metadata["sequence_number"][0] == 0
 
 
 def test_confidence_thresholding():

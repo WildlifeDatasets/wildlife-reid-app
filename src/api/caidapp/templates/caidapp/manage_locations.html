@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block head %}
+{% endblock %}
+{% block body %}
+    {% if user.is_authenticated %}
+    <div class="pagetitle">
+        <h1>Manage Locations</h1>
+    </div>
+        <section class="section">
+        <form method="POST">
+            {% csrf_token %}
+                {{ page_obj.as_p}}
+            <button class="btn btn-primary" id="btnUpload" type="submit">
+                Save
+            </button>
+
+        </form>
+        </section>
+    {% endif %}
+{%  endblock %}

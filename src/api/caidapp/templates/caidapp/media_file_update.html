@@ -9,14 +9,13 @@
                 <ol class="breadcrumb">
                     <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li>
                     <li class="breadcrumb-item"><a href="{% url 'caidapp:uploadedarchive_detail' mediafile.parent.id %}"> Uploaded
-                        Archive </a></li>
+                        Archive: {{ mediafile.parent }}</a></li>
                 </ol>
             </nav>
         </div><!-- End Page Title -->
         <div class="section">
             <div class="card">
                 <div class="card-header">
-                    {#                <p class="text-danger">{{ error_text }}</p>#}
 
 
                     <form method="post" enctype="multipart/form-data">

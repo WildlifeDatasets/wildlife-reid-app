@@ -13,3 +13,22 @@ class MediaFileForm(forms.ModelForm):
     class Meta:
         model = MediaFile
         fields = ("category", "location")
+
+
+class MediaFileBulkForm(forms.ModelForm):
+    class Meta:
+        model = MediaFile
+        fields = ("category",)
+
+
+class MediaFileSelectionForm(forms.ModelForm):
+    selected = forms.BooleanField(initial=False, required=False)
+
+    class Meta:
+        model = MediaFile
+        fields = ()
+
+
+class MediaFileSetQueryForm(forms.Form):
+    query = forms.CharField(max_length=100, required=False)
+    pagenumber = forms.IntegerField(widget=forms.HiddenInput(), initial=1)

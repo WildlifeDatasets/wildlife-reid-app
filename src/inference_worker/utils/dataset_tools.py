@@ -341,6 +341,7 @@ class DatasetEventIdManager:
         time_limit: [str, datetime]
             The minimum time between two images required to create new event ID.
         """
+        self._first_record: bool = True
         self.event_id: int = int(0)
         self.time_limit = time_limit
 
@@ -358,6 +359,9 @@ class DatasetEventIdManager:
             ID of the event based on time_delta
 
         """
+        if self._first_record:
+            self._first_record = False
+            return 0
         if pd.isnull(delta_datetime):
             return None
         if delta_datetime < pd.Timedelta(0) or delta_datetime > pd.Timedelta(self.time_limit):
@@ -705,9 +709,7 @@ def extract_information_from_dir_structure(df_filelist: pd.DataFrame) -> pd.Data
         date=[],
         path_len=[],
         czech_label=[],
-        # species=[],
         vanilla_species=[],
-        # datetime=[],
     )
     species_substitution_latin = get_species_substitution_latin()
     species_substitution_czech = list(species_substitution_latin.czech_label)
@@ -717,8 +719,6 @@ def extract_information_from_dir_structure(df_filelist: pd.DataFrame) -> pd.Data
             # list(zip(list(df_filelist["vanilla_path"]), list(df_filelist["datetime"]))),
             desc="general columns",
         ):
-            # pthi = Path(pthistr)
-            # pthir = pthi.relative_to(pth)
             pthir = Path(pthistr)
 
             media_type = (
@@ -784,11 +784,9 @@ def extract_information_from_dir_structure(df_filelist: pd.DataFrame) -> pd.Data
 
             elif not data["annotated"][-1]:
                 species = None
-                # species = "nevime"
                 vanilla_species = None
             elif len(pthir.parts) == 4:
                 species = None
-                # species = "nevime"
                 vanilla_species = None
             elif len(pthir.parts) == 5:
                 # The most dirty class. Sometimes the
@@ -801,7 +799,6 @@ def extract_information_from_dir_structure(df_filelist: pd.DataFrame) -> pd.Data
                 species = strip_accents(pthir.parents[0].name).lower()
                 vanilla_species = pthir.parents[0].name
 
-            #     species = replace_multiple(species, species_replacement)
             species = (
                 _species_czech_preprocessing[species]
                 if species in _species_czech_preprocessing

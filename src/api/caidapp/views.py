@@ -12,12 +12,19 @@ from django.contrib.auth import logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView
 from django.core.paginator import Paginator
+from django.forms import modelformset_factory
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 
-from .forms import MediaFileForm, UploadedArchiveForm
-from .models import MediaFile, UploadedArchive
+from .forms import (
+    MediaFileBulkForm,
+    MediaFileForm,
+    MediaFileSelectionForm,
+    MediaFileSetQueryForm,
+    UploadedArchiveForm,
+)
+from .models import Location, MediaFile, UploadedArchive
 from .tasks import predict_on_error, predict_on_success
 
 logger = logging.getLogger("app")
@@ -54,12 +61,33 @@ def media_files(request):
     )
 
 
+def manage_locations(request):
+    """Add new location or update names of locations."""
+    LocationFormSet = modelformset_factory(
+        Location, fields=("name",), can_delete=False, can_order=False
+    )
+    if request.method == "POST":
+        form = LocationFormSet(request.POST)
+        if form.is_valid():
+            form.save()
+    else:
+        form = LocationFormSet()
+
+    return render(
+        request,
+        "caidapp/manage_locations.html",
+        {
+            "page_obj": form,
+        },
+    )
+
+
 def uploadedarchive_detail(request, uploadedarchive_id):
     """List of uploads."""
     uploadedarchive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
     mediafile_set = uploadedarchive.mediafile_set.all()
 
-    records_per_page = 12
+    records_per_page = 80
     paginator = Paginator(mediafile_set, per_page=records_per_page)
 
     page_number = request.GET.get("page")
@@ -197,7 +225,7 @@ def model_form_upload(request):
 def delete_upload(request, uploadedarchive_id):
     """Delete uploaded file."""
     uploadedarchive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
-    if uploadedarchive.owner == request.user:
+    if uploadedarchive.owner.id == request.user.id:
         uploadedarchive.delete()
     else:
         messages.error(request, "Only the owner can delete the file")
@@ -209,10 +237,10 @@ def delete_mediafile(request, mediafile_id):
     """Delete uploaded file."""
     obj = get_object_or_404(MediaFile, pk=mediafile_id)
     parent_id = obj.parent_id
-    if obj.parent.owner == request.user:
+    if obj.parent.owner.id == request.user.id:
         obj.delete()
     else:
-        messages.error(request, "Only the owner can delete the file")
+        messages.error(request, "Only the owner can delete the file.")
     return redirect("caidapp:uploadedarchive_detail", uploadedarchive_id=parent_id)
 
 
@@ -227,3 +255,129 @@ class MyLoginView(LoginView):
         """Return error message if wrong username or password is given."""
         messages.error(self.request, "Invalid username or password")
         return self.render_to_response(self.get_context_data(form=form))
+
+
+def _mediafiles_query(request, query: str):
+    """Prepare list of mediafiles based on query search in category and location."""
+    # from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector
+    # vector = SearchVector("category", "location")
+    # query = SearchQuery("Vulpes")
+    # mediafiles = MediaFile.objects.annotate(rank=SearchRank(vector, query)).order_by("-rank")
+    mediafiles = (
+        MediaFile.objects.filter(parent__owner=request.user.ciduser)
+        .all()
+        .order_by("-parent__uploaded_at")
+    )
+
+    if len(query) == 0:
+        return mediafiles
+    else:
+        words = [query]
+
+        queryset_combination = None
+        for word in words:
+            if queryset_combination is None:
+                queryset_combination = mediafiles.filter(category__name__icontains=word).all()
+            else:
+                queryset_combination |= mediafiles.filter(category__name__icontains=word).all()
+
+            queryset_combination |= mediafiles.filter(location__name__icontains=word).all()
+
+        # queryset_combination.all().order_by("-parent_uploaded_at")
+        mediafiles = queryset_combination.all().order_by("-parent__uploaded_at")
+        return mediafiles
+
+
+def _page_number(request, queryform):
+    """Prepare page number into queryform."""
+    page_number = queryform.cleaned_data["pagenumber"]
+    logger.debug(f"{page_number=}")
+    if "nextPage" in request.POST:
+        logger.debug("nextPage")
+        if queryform.is_valid():
+            queryform.cleaned_data["pagenumber"] += 1
+            page_number = queryform.cleaned_data["pagenumber"]
+            if queryform.is_valid():
+                queryform = MediaFileSetQueryForm(initial=queryform.cleaned_data)
+    if "lastPage" in request.POST:
+        logger.debug("nextPage")
+        if queryform.is_valid():
+            queryform.cleaned_data["pagenumber"] = -1
+            page_number = queryform.cleaned_data["pagenumber"]
+            if queryform.is_valid():
+                queryform = MediaFileSetQueryForm(initial=queryform.cleaned_data)
+    if "prevPage" in request.POST:
+        logger.debug("prevPage")
+        if queryform.is_valid():
+            queryform.cleaned_data["pagenumber"] -= 1
+            page_number = queryform.cleaned_data["pagenumber"]
+            if queryform.is_valid():
+                queryform = MediaFileSetQueryForm(initial=queryform.cleaned_data)
+    if "firstPage" in request.POST:
+        if queryform.is_valid():
+            queryform.cleaned_data["pagenumber"] = 1
+            page_number = queryform.cleaned_data["pagenumber"]
+            if queryform.is_valid():
+                queryform = MediaFileSetQueryForm(initial=queryform.cleaned_data)
+    return queryform, page_number
+
+
+def media_files_update(request, records_per_page=80):
+    """List of mediafiles based on query with bulk update of category."""
+    # create list of mediafiles
+    if request.method == "POST":
+        queryform = MediaFileSetQueryForm(request.POST)
+        logger.debug(queryform)
+        query = queryform.cleaned_data["query"]
+        queryform, page_number = _page_number(request, queryform)
+    else:
+        queryform = MediaFileSetQueryForm()
+        page_number = 1
+        query = ""
+
+    logger.debug(f"{query=}")
+    full_mediafiles = _mediafiles_query(request, query)
+
+    paginator = Paginator(full_mediafiles, per_page=records_per_page)
+
+    page_mediafiles = paginator.get_page(page_number)
+
+    MediaFileFormSet = modelformset_factory(MediaFile, form=MediaFileSelectionForm, extra=0)
+    if (request.method == "POST") and ("btnBulkProcessing" in request.POST):
+        form_bulk_processing = MediaFileBulkForm(request.POST)
+        if form_bulk_processing.is_valid():
+            form_bulk_processing.save()
+
+        form = MediaFileFormSet(request.POST)
+        if form.is_valid():
+            for mediafileform in form:
+                if mediafileform.is_valid():
+                    if mediafileform.cleaned_data["selected"]:
+                        mediafileform.cleaned_data["selected"] = False
+                        mediafileform.selected = False
+                        instance = mediafileform.save(commit=False)
+                        instance.category = form_bulk_processing.cleaned_data["category"]
+                        instance.save()
+                    # mediafileform.save()
+            # form.save()
+        # queryform = MediaFileSetQueryForm(request.POST)
+        form_bulk_processing = MediaFileBulkForm()
+        page_query = full_mediafiles.filter(id__in=[object.id for object in page_mediafiles])
+        form = MediaFileFormSet(queryset=page_query)
+    else:
+        form_bulk_processing = MediaFileBulkForm()
+        page_query = full_mediafiles.filter(id__in=[object.id for object in page_mediafiles])
+        form = MediaFileFormSet(queryset=page_query)
+
+    return render(
+        request,
+        "caidapp/media_files_update.html",
+        {
+            "page_obj": page_mediafiles,
+            "form_objects": form,
+            "page_title": "Media files",
+            "user_is_staff": request.user.is_staff,
+            "form_bulk_processing": form_bulk_processing,
+            "form_query": queryform,
+        },
+    )

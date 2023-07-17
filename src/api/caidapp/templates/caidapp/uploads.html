@@ -20,7 +20,8 @@
 
                 {% if page_obj %}
                     {% for uploadedarchive in page_obj %}
-                        <div class="col-lg-4">
+                        <div class="col-xl-3">
+{#                        <div class="col" style="-ms-flex: 0 0 200; flex: 0 0 200;">#}
                             <div class="card"
                                     {% if uploadedarchive.thumbnail %}
                                  style="
@@ -29,7 +30,7 @@
                                          background-repeat: no-repeat;
                                          background-position-x: right;
                                          background-position-y: center;
-                                         background-size: 100% auto;
+                                         background-size: cover;
                                          "
 
                                     {% endif %}
@@ -38,9 +39,9 @@
                                 >
                                     <h5 class="card-title">{{ uploadedarchive }}</h5>
                                     <p>Status: {{ uploadedarchive.status }} </p>
-                                    <p>Uploaded at: {{ uploadedarchive.uploaded_at }} </p>
+                                    <p><i class="fa-light fa-calendar-image"></i>Uploaded at: {{ uploadedarchive.uploaded_at|date:'Y-m-d H:i' }} </p>
                                     {% if uploadedarchive.finished_at %}
-                                        <p>Finished at: {{ uploadedarchive.finished_at }} </p>
+                                        <p>Finished at: {{ uploadedarchive.finished_at|date:'Y-m-d H:i' }} </p>
                                     {% endif %}
 
                                     <a class="btn btn-primary"
