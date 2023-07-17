@@ -18,6 +18,12 @@ from .log import setup_logging
 SHARED_DATA_PATH = os.environ["SHARED_DATA_PATH"]
 PRIVATE_DATA_PATH = os.environ["PRIVATE_DATA_PATH"]
 
+POSTGRES_DB = os.environ["POSTGRES_DB"]
+POSTGRES_HOST = os.environ["POSTGRES_HOST"]
+POSTGRES_PORT = os.environ["POSTGRES_PORT"]
+POSTGRES_USER = os.environ["POSTGRES_USER"]
+POSTGRES_PASS = os.environ["POSTGRES_PASS"]
+
 setup_logging()
 logger = logging.getLogger("app")
 logger.info("Logger is set up.")
@@ -109,8 +115,15 @@ WSGI_APPLICATION = "CarnivoreIDApp.wsgi.application"
 
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": Path(PRIVATE_DATA_PATH) / "db.sqlite3",
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": POSTGRES_DB,
+        "USER": POSTGRES_USER,
+        "PASSWORD": POSTGRES_PASS,
+        "HOST": POSTGRES_HOST,
+        "PORT": POSTGRES_PORT,
+        # "OPTIONS": {
+        #     "service": "my_service",
+        # },
     }
 }
 

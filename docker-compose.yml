@@ -27,6 +27,23 @@ services:
     labels:
       com.piva-ai.group: "applications"
 
+  db:
+    image: postgres:14.4-alpine
+    container_name: carnivoreid-app-db
+    restart: always
+    environment:
+      TZ: Europe/Prague
+      POSTGRES_DB: main_database
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    expose:
+      - 5432
+    labels:
+      com.piva-ai.group: "applications"
+
   api:
     image: ${API_IMAGE:-api}${TAG:-:latest}
     build:
@@ -83,6 +100,10 @@ services:
 
 volumes:
   redis-data:
+    labels:
+      com.piva-ai.group: "applications"
+      com.piva-ai.backup: "yes"
+  db-data:
     labels:
       com.piva-ai.group: "applications"
       com.piva-ai.backup: "yes"
