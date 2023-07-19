@@ -64,7 +64,7 @@
                                 {% for hidden in mediafile.hidden_fields %}
                                     {{ hidden }}
                                 {% endfor %}
-                                {% if mediafile.instance.mediafile %}
+                                {% if mediafile.instance.thumbnail%}
                                     <a href="{% url 'caidapp:media_file_update' mediafile.instance.id %}">
                                         <img class="card-img-top" src="{{ mediafile.instance.thumbnail.url }}"
                                              alt="Cameratrap image">
