@@ -344,6 +344,7 @@ def media_files_update(request, records_per_page=80):
 
     MediaFileFormSet = modelformset_factory(MediaFile, form=MediaFileSelectionForm, extra=0)
     if (request.method == "POST") and ("btnBulkProcessing" in request.POST):
+        logger.debug("btnBulkProcessing")
         form_bulk_processing = MediaFileBulkForm(request.POST)
         if form_bulk_processing.is_valid():
             form_bulk_processing.save()
@@ -365,10 +366,14 @@ def media_files_update(request, records_per_page=80):
         page_query = full_mediafiles.filter(id__in=[object.id for object in page_mediafiles])
         form = MediaFileFormSet(queryset=page_query)
     else:
+        logger.debug("initial form processing")
         form_bulk_processing = MediaFileBulkForm()
         page_query = full_mediafiles.filter(id__in=[object.id for object in page_mediafiles])
         form = MediaFileFormSet(queryset=page_query)
 
+    logger.debug("ready to render page")
+    for object in page_mediafiles:
+        logger.debug(f"{object.filename=} {object.thumbnail=} {object.category=} {object.location=}")
     return render(
         request,
         "caidapp/media_files_update.html",
