@@ -373,7 +373,7 @@ def media_files_update(request, records_per_page=80):
 
     logger.debug("ready to render page")
     for object in page_mediafiles:
-        logger.debug(f"{object.filename=} {object.thumbnail=} {object.category=} {object.location=}")
+        logger.debug(f"{object.mediafile=} {object.thumbnail=} {object.category=} {object.location=}")
     return render(
         request,
         "caidapp/media_files_update.html",
