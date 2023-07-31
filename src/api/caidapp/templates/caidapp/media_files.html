@@ -19,7 +19,7 @@
                     {% for mediafile in page_obj %}
                         <div class="col-lg-3" id="card{{ mediafile.id }}">
                             <div class="card">
-                                {% if mediafile.mediafile %}
+                                {% if mediafile.thumbnail %}
                                     <a href="{% url 'caidapp:media_file_update' mediafile.id %}">
                                 <img class="card-img-top" src="{{ mediafile.thumbnail.url }}" alt="Cameratrap image">
                                     </a>
