@@ -437,7 +437,7 @@ def make_dataset(
     dataset_name : str
         Name for output '.csv' and '.tar.gz'
     dataset_base_dir : Path
-        Base dir of the dataset.
+        Base dir of the dataset. First subdirs should be "TRIDENA" and "NETRIDENA".
     output_path
         Output directory.
     hash_filename : bool:

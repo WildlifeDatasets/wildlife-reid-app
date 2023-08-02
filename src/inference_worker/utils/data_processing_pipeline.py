@@ -36,7 +36,7 @@ def analyze_dataset_directory(dataset_dir_path: Path, num_cores: Optional[int] =
     Parameters
     ----------
     dataset_dir_path
-        Input directory.
+        Input directory. First subdirs should be "TRIDENA" and "NETRIDENA", if the directory is SUMAVA dataset.
 
     Returns
     -------
