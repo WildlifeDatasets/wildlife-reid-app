@@ -300,6 +300,7 @@ def extend_df_with_sequence_id(df: pd.DataFrame, time_limit: typing.Union[str, d
     # generate sequnce_number based on datetime diff
     sort_keys = ["location", "datetime"]
     ascending = [False, True]
+    assert len(sort_keys) == len(ascending)
     if "annotated" in df:
         sort_keys.append("annotated")
         ascending.append(False)
@@ -417,7 +418,7 @@ def make_tarfile(output_filename, source_dir):
 
 
 def make_dataset(
-    df: typing.Optional[pd.DataFrame],
+    dataframe: typing.Optional[pd.DataFrame],
     dataset_name: typing.Optional[str],
     dataset_base_dir: Path,
     output_path: Path,
@@ -431,7 +432,7 @@ def make_dataset(
 
     Parameters
     ----------
-    df: DataFrame
+    dataframe: DataFrame
         Pandas DataFrame with 'vanilla_path' column.
     dataset_name : str
         Name for output '.csv' and '.tar.gz'
@@ -450,26 +451,26 @@ def make_dataset(
 
     Returns
     -------
-    df: DataFrame
-        The original input df extended by 'image_file' column.
+    dataframe: DataFrame
+        The original input dataframe extended by 'image_file' column.
     """
     assert not (copy_files and move_files), "Onle one arg 'copy_files' or 'move_files' can be True."
 
     if hash_filename:
-        df["image_path"] = df["vanilla_path"].apply(make_hash, prefix=dataset_name)
+        dataframe["image_path"] = dataframe["vanilla_path"].apply(make_hash, prefix=dataset_name)
     else:
-        df["image_path"] = df["vanilla_path"].apply(
+        dataframe["image_path"] = dataframe["vanilla_path"].apply(
             lambda filename: os.path.join(dataset_name, filename)
         )
 
     output_path.mkdir(parents=True, exist_ok=True)
     if create_csv:
-        df.to_csv(output_path / f"{dataset_name}.csv")
+        dataframe.to_csv(output_path / f"{dataset_name}.csv")
 
     if copy_files or move_files:
-        for index, row in tqdm(df.iterrows(), total=len(df), desc=f"{dataset_name}"):
-            input_file_path = dataset_base_dir / row["vanilla_path"]
-            output_file_path = output_path / Path(row["image_path"])
+        for index, row in tqdm(dataframe.iterrows(), total=len(dataframe), desc=f"{dataset_name}"):
+            input_file_path = (dataset_base_dir / row["vanilla_path"]).resolve()
+            output_file_path = (output_path / Path(row["image_path"])).resolve()
             output_file_path.parent.mkdir(parents=True, exist_ok=True)
             if input_file_path.is_file():
                 try:
@@ -485,7 +486,7 @@ def make_dataset(
         logger.info("Creating '.tar.gz' archive.")
         make_tarfile(output_path / f"{dataset_name}.tar.gz", output_path / f"media_{dataset_name}/")
 
-    return df
+    return dataframe
 
 
 class SumavaInitialProcessing:
@@ -641,7 +642,7 @@ class SumavaInitialProcessing:
 
         Returns
         -------
-        df: DataFrame may contain vanilla_path and datetime column.
+        dataframe: DataFrame may contain vanilla_path and datetime column.
         """
         output_dict = {}
         output_dict["vanilla_path"] = self.get_paths_from_dir_parallel(mask, exclude)

@@ -100,7 +100,9 @@ def data_preprocessing(
     duplicates: DataFrame - List of duplicate files
     """
     # create temporary directory
+    import tempfile
     tmp_dir = Path(f"/tmp/{str(uuid.uuid4())}")
+    tmp_dir = Path(tempfile.gettempdir()) / str(uuid.uuid4())
     tmp_dir.mkdir(exist_ok=False, parents=True)
 
     # extract files to the temporary directory
@@ -110,7 +112,7 @@ def data_preprocessing(
     df, duplicates = analyze_dataset_directory(tmp_dir, num_cores=num_cores)
     # df["vanilla_path"].map(lambda fn: dataset_tools.make_hash(fn, prefix="media_data"))
     df = make_dataset(
-        df=df,
+        dataframe=df,
         dataset_name=None,
         dataset_base_dir=tmp_dir,
         output_path=media_dir_path,
@@ -119,6 +121,7 @@ def data_preprocessing(
         move_files=True,
         create_csv=False,
     )
+    shutil.rmtree(tmp_dir, ignore_errors=True)
 
     return df, duplicates
 
@@ -277,10 +280,11 @@ def data_processing(
 
     # run inference
     image_path = metadata["image_path"].apply(lambda x: os.path.join(media_dir_path, x))
-    class_ids, _, id2label = load_model_and_predict(image_path)
+    class_ids, probs_top, id2label = load_model_and_predict(image_path)
 
     # add inference results to the metadata dataframe
     metadata["predicted_class_id"] = class_ids
+    metadata["predicted_prob"] = probs_top
     metadata["predicted_category"] = np.nan
     if id2label is not None:
         metadata["predicted_category"] = metadata["predicted_class_id"].apply(
