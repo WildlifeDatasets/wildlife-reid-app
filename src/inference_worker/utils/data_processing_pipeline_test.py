@@ -53,7 +53,7 @@ def test_hash():
     )
 
 
-@pytest.mark.parametrize("dataset", ["DATA_SUNAP_tiny_test_subset", "DUHA_tiny_test_subset"])
+@pytest.mark.parametrize("dataset", ["DATA_SUNAP_tiny_test_subset_smaller", "DUHA_tiny_test_subset_smaller"])
 def test_analyze_dir(dataset):
     """Test dataset directory analysis."""
     dir_path = CAID_DATASET_BASEDIR / dataset

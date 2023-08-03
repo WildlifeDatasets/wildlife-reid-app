@@ -103,7 +103,6 @@ def data_preprocessing(
     # create temporary directory
     import tempfile
 
-    tmp_dir = Path(f"/tmp/{str(uuid.uuid4())}")
     tmp_dir = Path(tempfile.gettempdir()) / str(uuid.uuid4())
     tmp_dir.mkdir(exist_ok=False, parents=True)
 

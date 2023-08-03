@@ -12,6 +12,8 @@ from datetime import datetime, timedelta
 from hashlib import sha256
 from pathlib import Path
 from typing import List, Optional
+import skimage.io
+import skimage.transform
 
 import numpy as np
 import pandas as pd
@@ -620,6 +622,8 @@ class SumavaInitialProcessing:
 
     def make_metadata_csv(self, path: Path):
         """Extract information based on filelist from prev step."""
+        if self.filelist_df is None:
+            raise ValueError("First, run make_paths_and_exifs_parallel()")
         self.metadata = extract_information_from_dir_structure(self.filelist_df)
         self.metadata.to_csv(path)
 
@@ -816,3 +820,51 @@ def extract_information_from_dir_structure(df_filelist: pd.DataFrame) -> pd.Data
         df = pd.DataFrame(data)
 
         return df
+
+
+def make_all_images_in_directory_smaller(dirpath:Path, output_dir:Path, image_width=400, image_quality=70) -> List[Path]:
+    """Make all images in directory smaller.
+
+    Parameters:
+    -----------
+    dirpath: Path
+        Path to directory with images.
+    output_dir: Path
+        Path to directory where to save the images.
+    image_width: int
+        Width of the image in pixels.
+    image_quality: int
+        Quality of the JPG image in percent.
+
+    Returns:
+    --------
+    filelist: List[Path]
+        List of paths to the output images.
+
+    """
+
+    filelist = []
+    for pth in tqdm(list(dirpath.glob("**/*"))):
+        filelist.append(pth)
+        if not pth.is_dir():
+            new_pth = output_dir / pth.relative_to(dirpath)
+            new_pth.parent.mkdir(exist_ok=True, parents=True)
+            if pth.suffix.lower() in (".jpg", ".jpeg"):
+                img = Image.open(pth)
+                scale = image_width/img.size[0]
+                img = img.resize((image_width, int(img.size[1]*scale)), Image.ANTIALIAS)
+                if 'exif' in img.info:
+                    img.save(new_pth, 'JPEG', exif=img.info['exif'])
+                else:
+                    img.save(new_pth, 'JPEG')
+            elif pth.suffix.lower() in (".png"):
+                img = Image.open(pth)
+                scale = image_width/img.size[0]
+                img = img.resize((image_width, int(img.size[1]*scale)), Image.ANTIALIAS)
+                img.save(new_pth, 'png')
+            else:
+                shutil.copy(pth, new_pth)
+
+    return filelist
+
+

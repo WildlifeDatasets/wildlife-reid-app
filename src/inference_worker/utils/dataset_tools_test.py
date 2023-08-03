@@ -10,8 +10,8 @@ except ImportError:
     import dataset_tools
 
 
-CARNIVORE_DATASET_BASEDIR = Path(
-    os.getenv("CARNIVOREID_DATASET_BASEDIR", r"H:\biology\orig\CarnivoreID")
+CAID_DATASET_BASEDIR = Path(
+    os.getenv("CAID_DATASET_BASEDIR", r"H:\biology\orig\CarnivoreID")
 )
 CI = os.getenv("CI", False)
 
@@ -31,7 +31,7 @@ def test_dataset_Sumava():
     metadata_path = Path("sumava_metadata")
     # sumava_processing = dataset_tools.SumavaDatasetProcessing(
     sumava_processing = dataset_tools.SumavaInitialProcessing(
-        CARNIVORE_DATASET_BASEDIR / "DATA_SUNAP_tiny_test_subset",  # file_mask="./**/*.*"
+        CAID_DATASET_BASEDIR / "DATA_SUNAP_tiny_test_subset_smaller",  # file_mask="./**/*.*"
     )
 
     if sumava_processing.filelist_path.exists():
@@ -60,11 +60,8 @@ def test_dataset_Sumava():
 
 def test_species_substitution():
     """Test czech species substitution."""
-    # Preprocessing of czech species
-    sumava_initial_processing = dataset_tools.SumavaDatasetProcessing(
-        CARNIVORE_DATASET_BASEDIR / "sumava_test"
-    )
-    species_czech_preprocessing = sumava_initial_processing.species_czech_preprocessing
+
+    species_czech_preprocessing = dataset_tools._species_czech_preprocessing
 
     assert species_czech_preprocessing[None] == "nevime"
 
@@ -76,9 +73,10 @@ def test_species_substitution():
 @pytest.mark.skipif(CI, reason="We do not have the dataset on CI server")
 def test_make_tar_dataset():
     """Prepare dataset from tiny test subset."""
-    sumava_dataset_basedir = CARNIVORE_DATASET_BASEDIR / "DATA_SUNAP_tiny_test_subset"
-    output_test_dir = CARNIVORE_DATASET_BASEDIR / "tests/DATA_SUNAP_tiny_test_subset_output"
+    sumava_dataset_basedir = CAID_DATASET_BASEDIR / "DATA_SUNAP_tiny_test_subset_smaller"
+    output_test_dir = CAID_DATASET_BASEDIR / "tests/DATA_SUNAP_tiny_test_subset_output"
     sumava_processing = dataset_tools.SumavaInitialProcessing(sumava_dataset_basedir)
+    sumava_processing.make_paths_and_exifs_parallel(mask="**/*.*", make_exifs=True, make_csv=False)
     metadata_path = Path("sumava_metadata.csv")
     if not metadata_path.exists():
         sumava_processing.make_metadata_csv(metadata_path)
@@ -97,3 +95,15 @@ def test_make_tar_dataset():
     )
     dataframe_images
     assert (output_test_dir / f"{dataset_name}.csv").exists(), "Output file does not exist"
+
+
+def test_make_dataset_smaller():
+
+    dir_path = CAID_DATASET_BASEDIR / "DATA_SUNAP_tiny_test_subset"
+    dir_path = CAID_DATASET_BASEDIR / "DUHA_tiny_test_subset"
+    output_dir_path = dir_path.parent / (dir_path.name + "_smaller")
+    output_files = dataset_tools.make_all_images_in_directory_smaller(dir_path, output_dir_path)
+    assert len(output_files) > 0
+    for output_file in output_files:
+        assert output_file.exists(), "Output file does not exist"
+
