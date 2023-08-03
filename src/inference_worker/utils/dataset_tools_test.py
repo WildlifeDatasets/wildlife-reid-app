@@ -100,7 +100,7 @@ def test_make_tar_dataset():
 def test_make_dataset_smaller():
 
     dir_path = CAID_DATASET_BASEDIR / "DATA_SUNAP_tiny_test_subset"
-    dir_path = CAID_DATASET_BASEDIR / "DUHA_tiny_test_subset"
+    # dir_path = CAID_DATASET_BASEDIR / "DUHA_tiny_test_subset"
     output_dir_path = dir_path.parent / (dir_path.name + "_smaller")
     output_files = dataset_tools.make_all_images_in_directory_smaller(dir_path, output_dir_path)
     assert len(output_files) > 0

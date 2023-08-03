@@ -854,9 +854,9 @@ def make_all_images_in_directory_smaller(dirpath:Path, output_dir:Path, image_wi
                 scale = image_width/img.size[0]
                 img = img.resize((image_width, int(img.size[1]*scale)), Image.ANTIALIAS)
                 if 'exif' in img.info:
-                    img.save(new_pth, 'JPEG', exif=img.info['exif'])
+                    img.save(new_pth, 'JPEG', quality=image_quality, exif=img.info['exif'])
                 else:
-                    img.save(new_pth, 'JPEG')
+                    img.save(new_pth, 'JPEG', quality=image_quality)
             elif pth.suffix.lower() in (".png"):
                 img = Image.open(pth)
                 scale = image_width/img.size[0]
