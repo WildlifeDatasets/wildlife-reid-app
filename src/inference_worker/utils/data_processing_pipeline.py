@@ -36,7 +36,8 @@ def analyze_dataset_directory(dataset_dir_path: Path, num_cores: Optional[int] =
     Parameters
     ----------
     dataset_dir_path
-        Input directory. First subdirs should be "TRIDENA" and "NETRIDENA", if the directory is SUMAVA dataset.
+        Input directory. First subdirs should be "TRIDENA" and "NETRIDENA", if
+        the directory is SUMAVA dataset.
 
     Returns
     -------
@@ -101,6 +102,7 @@ def data_preprocessing(
     """
     # create temporary directory
     import tempfile
+
     tmp_dir = Path(f"/tmp/{str(uuid.uuid4())}")
     tmp_dir = Path(tempfile.gettempdir()) / str(uuid.uuid4())
     tmp_dir.mkdir(exist_ok=False, parents=True)
