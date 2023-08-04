@@ -13,13 +13,14 @@ from src.inference_worker.utils.dataset_tools import (  # make_tarfile,
     _species_czech_preprocessing,
     make_hash,
     make_zipfile,
+    hash_file_content_for_list_of_files
 )
 
 logger = logging.getLogger(__file__)
 
 
 CAID_DATASET_BASEDIR = Path(
-    os.getenv("CARNIVOREID_DATASET_BASEDIR", r"H:\biology\orig\CarnivoreID")
+    os.getenv("CAID_DATASET_BASEDIR", r"H:\biology\orig\CarnivoreID")
 )
 CI = os.getenv("CI", False)
 
@@ -61,11 +62,12 @@ def test_analyze_dir(dataset):
 
     assert len(metadata) > 3
     assert len(metadata.location.unique()) > 1, "There should be some localities."
+    assert len(metadata.unique_name.unique()) > 1, "There should be some unique names."
 
 
 def test_data_preprocessing_parallel():
     """Try the whole processing starting from .tar.gz file."""
-    tarfile_path = Path("images.zip")
+    tarfile_path = CAID_DATASET_BASEDIR / "test_micro_data.zip"
     media_dir_path = Path("./test_pipeline/media/")
     csv_path = Path("./test_pipeline/metadata.csv")
 

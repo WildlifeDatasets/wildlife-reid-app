@@ -23,6 +23,7 @@ from .dataset_tools import (
     extract_information_from_dir_structure,
     get_lynx_id_in_sumava,
     make_dataset,
+    find_unique_names_between_duplicate_files
 )
 from .inout import extract_archive
 from .prediction_dataset import PredictionDataset
@@ -60,6 +61,7 @@ def analyze_dataset_directory(dataset_dir_path: Path, num_cores: Optional[int] =
 
     # Get ID of lynx from directories in basedir beside "TRIDENA" and "NETRIDENA"
     df["unique_name"] = df["vanilla_path"].apply(get_lynx_id_in_sumava)
+    df,_ = find_unique_names_between_duplicate_files(df, basedir=Path(dataset_dir_path))
 
     df = extend_df_with_sequence_id(df, time_limit="120s")
 

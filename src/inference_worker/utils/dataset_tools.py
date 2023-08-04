@@ -9,11 +9,10 @@ import traceback
 import typing
 import unicodedata
 from datetime import datetime, timedelta
+import hashlib
 from hashlib import sha256
 from pathlib import Path
 from typing import List, Optional
-import skimage.io
-import skimage.transform
 
 import numpy as np
 import pandas as pd
@@ -868,3 +867,55 @@ def make_all_images_in_directory_smaller(dirpath:Path, output_dir:Path, image_wi
     return filelist
 
 
+def hash_file_content(filename : [Path, str]) -> Optional[str]:
+    """Make hash from file."""
+
+    filename = Path(filename)
+    if filename.is_file():
+        with open(filename, "rb") as f:
+            return hashlib.sha256(f.read()).hexdigest()
+    else:
+        return ""
+
+def hash_file_content_for_list_of_files(filelist:List[Path]):
+    """Make hash from file."""
+    return [hash_file_content(f) for f in filelist]
+
+
+def find_unique_names_between_duplicate_files(metadata:pd.DataFrame, basedir:Path):
+    """Find unique_name in dataframe and extend it to all files with same hash.
+
+    Parameters:
+    -----------
+    basedir: Path
+        Path to directory with dataset.
+    metadata: pd.DataFrame
+        Metadata dataframe containing column "unique_name" and "vanilla_path".
+
+    Returns:
+    --------
+    metadata: pd.DataFrame
+        Metadata dataframe with updated "unique_name" column.
+    hashes: np.array
+        Array of hashes for each file in metadata.
+
+    """
+
+    hashes = np.array(hash_file_content_for_list_of_files(metadata.vanilla_path.apply(lambda x: str(basedir / x))))
+    # metadata["content_hash"] = hashes
+    # uns = metadata["unique_name"].unique()
+    # # remove None from unique names
+    # uns = uns[uns != None].astype("str")
+    un_hashes, counts = np.unique(hashes, return_counts=True)
+    for unh, count in zip(un_hashes, counts):
+        if count > 1:
+            unique_names_with_same_hash = metadata[hashes == unh]["unique_name"].unique()
+            # remove None from unique names
+            unique_names_with_same_hash = unique_names_with_same_hash[unique_names_with_same_hash != None].astype("str")
+            if len(unique_names_with_same_hash) == 0:
+                continue
+            # select longest name from unique names with same hash
+            longest_unique_name = sorted(unique_names_with_same_hash)[-1]
+            metadata[hashes == unh]["unique_name"] = longest_unique_name
+
+    return metadata, hashes
