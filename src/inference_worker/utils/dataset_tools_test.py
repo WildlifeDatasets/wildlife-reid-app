@@ -10,9 +10,7 @@ except ImportError:
     import dataset_tools
 
 
-CAID_DATASET_BASEDIR = Path(
-    os.getenv("CAID_DATASET_BASEDIR", r"H:\biology\orig\CarnivoreID")
-)
+CAID_DATASET_BASEDIR = Path(os.getenv("CAID_DATASET_BASEDIR", r"H:\biology\orig\CarnivoreID"))
 CI = os.getenv("CI", False)
 
 
@@ -26,7 +24,7 @@ def test_make_hash():
 
 
 @pytest.mark.skipif(CI, reason="We do not have the dataset on CI server")
-def test_dataset_Sumava():
+def test_dataset_sumava():
     """Test whole dataset preparation on small dataset."""
     metadata_path = Path("sumava_metadata")
     # sumava_processing = dataset_tools.SumavaDatasetProcessing(
@@ -54,13 +52,11 @@ def test_dataset_Sumava():
     assert sumava_processing.filelist_path.exists()
 
     sumava_processing.make_metadata_csv(metadata_path)
-    sumava_processing
     assert metadata_path.exists()
 
 
 def test_species_substitution():
     """Test czech species substitution."""
-
     species_czech_preprocessing = dataset_tools._species_czech_preprocessing
 
     assert species_czech_preprocessing[None] == "nevime"
@@ -93,12 +89,11 @@ def test_make_tar_dataset():
         make_tar=True,
         copy_files=True,
     )
-    dataframe_images
     assert (output_test_dir / f"{dataset_name}.csv").exists(), "Output file does not exist"
 
 
 def test_make_dataset_smaller():
-
+    """Test making dataset smaller by resizing images."""
     dir_path = CAID_DATASET_BASEDIR / "DATA_SUNAP_tiny_test_subset"
     # dir_path = CAID_DATASET_BASEDIR / "DUHA_tiny_test_subset"
     output_dir_path = dir_path.parent / (dir_path.name + "_smaller")
@@ -106,4 +101,3 @@ def test_make_dataset_smaller():
     assert len(output_files) > 0
     for output_file in output_files:
         assert output_file.exists(), "Output file does not exist"
-

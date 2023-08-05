@@ -21,9 +21,9 @@ from .dataset_tools import (
     SumavaInitialProcessing,
     extend_df_with_sequence_id,
     extract_information_from_dir_structure,
+    find_unique_names_between_duplicate_files,
     get_lynx_id_in_sumava,
     make_dataset,
-    find_unique_names_between_duplicate_files
 )
 from .inout import extract_archive
 from .prediction_dataset import PredictionDataset
@@ -61,23 +61,31 @@ def analyze_dataset_directory(dataset_dir_path: Path, num_cores: Optional[int] =
 
     # Get ID of lynx from directories in basedir beside "TRIDENA" and "NETRIDENA"
     df["unique_name"] = df["vanilla_path"].apply(get_lynx_id_in_sumava)
-    df,_ = find_unique_names_between_duplicate_files(df, basedir=Path(dataset_dir_path))
+    df, hashes = find_unique_names_between_duplicate_files(df, basedir=Path(dataset_dir_path))
+    df["content_hash"] = hashes
 
     df = extend_df_with_sequence_id(df, time_limit="120s")
 
+    # Turn NaN int None
+    df = df.where(pd.notnull(df), None)
+
+    # remove directory paths (by empty hash)
+    df = df[df.content_hash != ""].reset_index(drop=True)
+
     # Create list of duplicates based on the same EXIF time
-    duplicates = df[df.delta_datetime != pd.Timedelta("0s")]
-    duplicates = duplicates.copy().reset_index(drop=True)
+    # duplicates = df[df.delta_datetime == pd.Timedelta("0s")]
+    # duplicates = duplicates.copy().reset_index(drop=True)
     # duplicates.to_csv(
     #     "../../../resources/Sumava/list_of_duplicities.csv"
     # )
 
     # Remove duplicities
     # does not work if the images with unique name are also in TRIDENA or NETRIDENA
-    df = df[df.delta_datetime != pd.Timedelta("0s")].reset_index(drop=True)
-
-    # Turn NaN int None
-    metadata = df.where(pd.notnull(df), None)
+    # df = df[df.delta_datetime != pd.Timedelta("0s")].reset_index(drop=True)
+    # df = df.drop_duplicates(subset=["content_hash"], keep="first").reset_index(drop=True)
+    duplicates_bool = df.duplicated(subset=["content_hash"], keep="first")
+    duplicates = df[duplicates_bool].copy().reset_index(drop=True)
+    metadata = df[~duplicates_bool].copy().reset_index(drop=True)
 
     return metadata, duplicates
 

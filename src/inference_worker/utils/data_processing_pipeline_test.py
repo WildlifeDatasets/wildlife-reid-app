@@ -13,15 +13,12 @@ from src.inference_worker.utils.dataset_tools import (  # make_tarfile,
     _species_czech_preprocessing,
     make_hash,
     make_zipfile,
-    hash_file_content_for_list_of_files
 )
 
 logger = logging.getLogger(__file__)
 
 
-CAID_DATASET_BASEDIR = Path(
-    os.getenv("CAID_DATASET_BASEDIR", r"H:\biology\orig\CarnivoreID")
-)
+CAID_DATASET_BASEDIR = Path(os.getenv("CAID_DATASET_BASEDIR", r"H:\biology\orig\CarnivoreID"))
 CI = os.getenv("CI", False)
 
 
@@ -54,7 +51,9 @@ def test_hash():
     )
 
 
-@pytest.mark.parametrize("dataset", ["DATA_SUNAP_tiny_test_subset_smaller", "DUHA_tiny_test_subset_smaller"])
+@pytest.mark.parametrize(
+    "dataset", ["DATA_SUNAP_tiny_test_subset_smaller", "DUHA_tiny_test_subset_smaller"]
+)
 def test_analyze_dir(dataset):
     """Test dataset directory analysis."""
     dir_path = CAID_DATASET_BASEDIR / dataset

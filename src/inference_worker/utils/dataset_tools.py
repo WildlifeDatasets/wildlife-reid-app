@@ -1,3 +1,4 @@
+import hashlib
 import json
 import logging
 import multiprocessing
@@ -9,7 +10,6 @@ import traceback
 import typing
 import unicodedata
 from datetime import datetime, timedelta
-import hashlib
 from hashlib import sha256
 from pathlib import Path
 from typing import List, Optional
@@ -371,7 +371,7 @@ class DatasetEventIdManager:
         return self.event_id
 
 
-def get_lynx_id_in_sumava(relative_path: str) -> str:
+def get_lynx_id_in_sumava(relative_path: str) -> Optional[str]:
     """
     Get linx ID based on directory path in Sumava dataset.
 
@@ -725,13 +725,12 @@ def extract_information_from_dir_structure(df_filelist: pd.DataFrame) -> pd.Data
         ):
             pthir = Path(pthistr)
 
-            media_type = (
-                "video"
-                if pthir.suffix.lower() in (".avi", ".m4v")
-                else "image"
-                if pthir.suffix.lower() in (".jpg", "png", ".jpeg")
-                else "unknown"
-            )
+            if pthir.suffix.lower() in (".avi", ".m4v"):
+                media_type = "video"
+            elif pthir.suffix.lower() in (".jpg", "png", ".jpeg"):
+                media_type = "image"
+            else:
+                media_type = "unknown"
             data["media_type"].append(media_type)
             data["filename"].append(pthir.name)
             data["vanilla_path"].append(str(pthir))
@@ -795,9 +794,6 @@ def extract_information_from_dir_structure(df_filelist: pd.DataFrame) -> pd.Data
             elif len(pthir.parts) == 5:
                 # The most dirty class. Sometimes the
                 species = strip_accents(pthir.parents[0].name).lower()
-                # species = species if (
-                #     (species in ok_species) or (species in species_replacement)
-                #     ) else None
                 vanilla_species = pthir.parents[0].name
             else:
                 species = strip_accents(pthir.parents[0].name).lower()
@@ -821,7 +817,9 @@ def extract_information_from_dir_structure(df_filelist: pd.DataFrame) -> pd.Data
         return df
 
 
-def make_all_images_in_directory_smaller(dirpath:Path, output_dir:Path, image_width=400, image_quality=70) -> List[Path]:
+def make_all_images_in_directory_smaller(
+    dirpath: Path, output_dir: Path, image_width=400, image_quality=70
+) -> List[Path]:
     """Make all images in directory smaller.
 
     Parameters:
@@ -841,7 +839,6 @@ def make_all_images_in_directory_smaller(dirpath:Path, output_dir:Path, image_wi
         List of paths to the output images.
 
     """
-
     filelist = []
     for pth in tqdm(list(dirpath.glob("**/*"))):
         filelist.append(pth)
@@ -850,26 +847,25 @@ def make_all_images_in_directory_smaller(dirpath:Path, output_dir:Path, image_wi
             new_pth.parent.mkdir(exist_ok=True, parents=True)
             if pth.suffix.lower() in (".jpg", ".jpeg"):
                 img = Image.open(pth)
-                scale = image_width/img.size[0]
-                img = img.resize((image_width, int(img.size[1]*scale)), Image.ANTIALIAS)
-                if 'exif' in img.info:
-                    img.save(new_pth, 'JPEG', quality=image_quality, exif=img.info['exif'])
+                scale = image_width / img.size[0]
+                img = img.resize((image_width, int(img.size[1] * scale)), Image.ANTIALIAS)
+                if "exif" in img.info:
+                    img.save(new_pth, "JPEG", quality=image_quality, exif=img.info["exif"])
                 else:
-                    img.save(new_pth, 'JPEG', quality=image_quality)
+                    img.save(new_pth, "JPEG", quality=image_quality)
             elif pth.suffix.lower() in (".png"):
                 img = Image.open(pth)
-                scale = image_width/img.size[0]
-                img = img.resize((image_width, int(img.size[1]*scale)), Image.ANTIALIAS)
-                img.save(new_pth, 'png')
+                scale = image_width / img.size[0]
+                img = img.resize((image_width, int(img.size[1] * scale)), Image.ANTIALIAS)
+                img.save(new_pth, "png")
             else:
                 shutil.copy(pth, new_pth)
 
     return filelist
 
 
-def hash_file_content(filename : [Path, str]) -> Optional[str]:
+def hash_file_content(filename: [Path, str]) -> Optional[str]:
     """Make hash from file."""
-
     filename = Path(filename)
     if filename.is_file():
         with open(filename, "rb") as f:
@@ -877,12 +873,13 @@ def hash_file_content(filename : [Path, str]) -> Optional[str]:
     else:
         return ""
 
-def hash_file_content_for_list_of_files(filelist:List[Path]):
+
+def hash_file_content_for_list_of_files(filelist: List[Path]):
     """Make hash from file."""
     return [hash_file_content(f) for f in filelist]
 
 
-def find_unique_names_between_duplicate_files(metadata:pd.DataFrame, basedir:Path):
+def find_unique_names_between_duplicate_files(metadata: pd.DataFrame, basedir: Path):
     """Find unique_name in dataframe and extend it to all files with same hash.
 
     Parameters:
@@ -900,8 +897,9 @@ def find_unique_names_between_duplicate_files(metadata:pd.DataFrame, basedir:Pat
         Array of hashes for each file in metadata.
 
     """
-
-    hashes = np.array(hash_file_content_for_list_of_files(metadata.vanilla_path.apply(lambda x: str(basedir / x))))
+    hashes = np.array(
+        hash_file_content_for_list_of_files(metadata.vanilla_path.apply(lambda x: str(basedir / x)))
+    )
     # metadata["content_hash"] = hashes
     # uns = metadata["unique_name"].unique()
     # # remove None from unique names
@@ -911,7 +909,9 @@ def find_unique_names_between_duplicate_files(metadata:pd.DataFrame, basedir:Pat
         if count > 1:
             unique_names_with_same_hash = metadata[hashes == unh]["unique_name"].unique()
             # remove None from unique names
-            unique_names_with_same_hash = unique_names_with_same_hash[unique_names_with_same_hash != None].astype("str")
+            unique_names_with_same_hash = unique_names_with_same_hash[
+                unique_names_with_same_hash != None  # noqa 'not None' does not work for numpy array
+            ].astype("str")
             if len(unique_names_with_same_hash) == 0:
                 continue
             # select longest name from unique names with same hash
