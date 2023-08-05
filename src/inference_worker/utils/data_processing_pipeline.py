@@ -147,6 +147,7 @@ def get_model_config() -> Tuple[dict, str, dict]:
         run = artifact.logged_by()
         config = run.config
         # save model config locally for later use without internet
+        model_config_path.parent.mkdir(exist_ok=True, parents=True)
         with open(model_config_path, "w") as f:
             json.dump(config, f)
 
