@@ -474,7 +474,7 @@ def make_dataset(
 
     output_path.mkdir(parents=True, exist_ok=True)
     if create_csv:
-        dataframe.to_csv(output_path / f"{dataset_name}.csv")
+        dataframe.to_csv(output_path / f"{dataset_name}.csv",  encoding="utf-8-sig")
 
     if copy_files or move_files:
         for index, row in tqdm(dataframe.iterrows(), total=len(dataframe), desc=f"{dataset_name}"):
