@@ -80,7 +80,9 @@ _species_czech_preprocessing = {
 }
 
 
-def get_species_substitution_latin():
+def get_species_substitution_latin(
+    latin_to_taxonomy_csv_path: Optional[Path] = None,
+) -> pd.DataFrame:
     """Load transcription table from czech species to scientific with taxonomy.
 
     Returns
@@ -89,9 +91,12 @@ def get_species_substitution_latin():
 
     """
     dir_with_this_file = Path(__file__).parent
-    species_substitution_path = (
-        dir_with_this_file.parent.parent.parent / "resources/Sumava/species_substitution.csv"
-    )
+    if latin_to_taxonomy_csv_path is None:
+        species_substitution_path = (
+            dir_with_this_file.parent.parent.parent / "resources/Sumava/species_substitution.csv"
+        )
+    else:
+        species_substitution_path = latin_to_taxonomy_csv_path
     if species_substitution_path.exists():
         species_substitution_latin = pd.read_csv(species_substitution_path)
     else:
@@ -530,6 +535,7 @@ class SumavaInitialProcessing:
         self.cache = {}
         self.filelist_df = None
         self.metadata: pd.DataFrame = None
+        self.latin_to_taxonomy_csv_path: Optional[Path] = None
 
     def is_update_necessary(self):
         """Check updates in dataset based on number of subdirectories."""
@@ -626,7 +632,9 @@ class SumavaInitialProcessing:
         """Extract information based on filelist from prev step."""
         if self.filelist_df is None:
             raise ValueError("First, run make_paths_and_exifs_parallel()")
-        self.metadata = extract_information_from_dir_structure(self.filelist_df)
+        self.metadata = extract_information_from_dir_structure(
+            self.filelist_df, latin_to_taxonomy_csv_path=self.latin_to_taxonomy_csv_path
+        )
         self.metadata.to_csv(path)
 
     def make_paths_and_exifs_parallel(
@@ -691,7 +699,9 @@ class SumavaInitialProcessing:
 
 
 # def extract_information_from_filename()
-def extract_information_from_dir_structure(df_filelist: pd.DataFrame) -> pd.DataFrame:
+def extract_information_from_dir_structure(
+    df_filelist: pd.DataFrame, latin_to_taxonomy_csv_path: Optional[Path] = None
+) -> pd.DataFrame:
     """Get the information from path structure in files in input dataframe.
 
     Parameters
@@ -718,7 +728,9 @@ def extract_information_from_dir_structure(df_filelist: pd.DataFrame) -> pd.Data
         czech_label=[],
         vanilla_species=[],
     )
-    species_substitution_latin = get_species_substitution_latin()
+    species_substitution_latin = get_species_substitution_latin(
+        latin_to_taxonomy_csv_path=latin_to_taxonomy_csv_path
+    )
     species_substitution_czech = list(species_substitution_latin.czech_label)
     with logging_redirect_tqdm():
         for pthistr in tqdm(
@@ -924,7 +936,11 @@ def find_unique_names_between_duplicate_files(metadata: pd.DataFrame, basedir: P
     return metadata, hashes
 
 
-def analyze_dataset_directory(dataset_dir_path: Path, num_cores: Optional[int] = None):
+def analyze_dataset_directory(
+    dataset_dir_path: Path,
+    num_cores: Optional[int] = None,
+    latin_to_taxonomy_csv_path: Optional[Path] = None,
+):
     """Get species, locality, datetime and sequence_id from directory with media files.
 
     Parameters
@@ -945,7 +961,9 @@ def analyze_dataset_directory(dataset_dir_path: Path, num_cores: Optional[int] =
         mask="**/*.*", make_exifs=True, make_csv=False
     )
 
-    df = extract_information_from_dir_structure(df0)
+    df = extract_information_from_dir_structure(
+        df0, latin_to_taxonomy_csv_path=latin_to_taxonomy_csv_path
+    )
 
     df["datetime"] = pd.to_datetime(df0.datetime, errors="coerce")
     df["read_error"] = list(df0["read_error"])
