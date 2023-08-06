@@ -259,10 +259,6 @@ class MyLoginView(LoginView):
 
 def _mediafiles_query(request, query: str):
     """Prepare list of mediafiles based on query search in category and location."""
-    # from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector
-    # vector = SearchVector("category", "location")
-    # query = SearchQuery("Vulpes")
-    # mediafiles = MediaFile.objects.annotate(rank=SearchRank(vector, query)).order_by("-rank")
     mediafiles = (
         MediaFile.objects.filter(parent__owner=request.user.ciduser)
         .all()
@@ -272,19 +268,24 @@ def _mediafiles_query(request, query: str):
     if len(query) == 0:
         return mediafiles
     else:
-        words = [query]
-
-        queryset_combination = None
-        for word in words:
-            if queryset_combination is None:
-                queryset_combination = mediafiles.filter(category__name__icontains=word).all()
-            else:
-                queryset_combination |= mediafiles.filter(category__name__icontains=word).all()
-
-            queryset_combination |= mediafiles.filter(location__name__icontains=word).all()
-
-        # queryset_combination.all().order_by("-parent_uploaded_at")
-        mediafiles = queryset_combination.all().order_by("-parent__uploaded_at")
+        from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector
+        vector = SearchVector("category__name", "location__name")
+        query = SearchQuery(query)
+        logger.debug(str(query))
+        mediafiles = MediaFile.objects.filter(parent__owner=request.user.ciduser).annotate(rank=SearchRank(vector, query)).filter(rank__gt=0).order_by("-rank")
+        # words = [query]
+        #
+        # queryset_combination = None
+        # for word in words:
+        #     if queryset_combination is None:
+        #         queryset_combination = mediafiles.filter(category__name__icontains=word).all()
+        #     else:
+        #         queryset_combination |= mediafiles.filter(category__name__icontains=word).all()
+        #
+        #     queryset_combination |= mediafiles.filter(location__name__icontains=word).all()
+        #
+        # # queryset_combination.all().order_by("-parent_uploaded_at")
+        # mediafiles = queryset_combination.all().order_by("-parent__uploaded_at")
         return mediafiles
 
 
