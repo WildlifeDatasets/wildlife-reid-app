@@ -9,11 +9,11 @@ import tarfile
 import traceback
 import typing
 import unicodedata
+import uuid
 from datetime import datetime, timedelta
 from hashlib import sha256
 from pathlib import Path
 from typing import List, Optional, Tuple
-import uuid
 
 import numpy as np
 import pandas as pd
@@ -21,6 +21,7 @@ from joblib import Parallel, delayed
 from PIL import Image, UnidentifiedImageError
 from tqdm import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
+
 from .inout import extract_archive
 
 logger = logging.getLogger("app")
@@ -983,7 +984,7 @@ def analyze_dataset_directory(dataset_dir_path: Path, num_cores: Optional[int] =
 
 
 def data_preprocessing(
-        zip_path: Path, media_dir_path: Path, num_cores: Optional[int] = None
+    zip_path: Path, media_dir_path: Path, num_cores: Optional[int] = None
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """Preprocessing of data in zip file.
 

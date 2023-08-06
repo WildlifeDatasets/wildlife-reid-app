@@ -1,11 +1,10 @@
+import logging
 import os
-from pathlib import Path
 import shutil
+from pathlib import Path
 
 import pandas as pd
 import pytest
-import logging
-
 
 try:
     from . import dataset_tools
@@ -106,12 +105,17 @@ def test_make_dataset_smaller():
     for output_file in output_files:
         assert output_file.exists(), "Output file does not exist"
 
+
 def test_species_preprocessing():
     """Test transcription table for preprocessing of czech typos."""
     assert dataset_tools._species_czech_preprocessing[None] == "nevime"
 
     txt = "jelen"
-    replaced_str = dataset_tools._species_czech_preprocessing[txt] if txt in dataset_tools._species_czech_preprocessing else txt
+    replaced_str = (
+        dataset_tools._species_czech_preprocessing[txt]
+        if txt in dataset_tools._species_czech_preprocessing
+        else txt
+    )
     assert replaced_str == "jelen evropsky"
 
 
@@ -153,5 +157,16 @@ def test_data_preprocessing_parallel():
     )
     logger.debug(metadata)
     assert (
-            len(list(media_dir_path.glob("**/*"))) > 0
+        len(list(media_dir_path.glob("**/*"))) > 0
     ), "There should be some files in media dir path"
+
+
+def test_make_input_tarfile():
+    """Test create input tar file."""
+    dir_path = CAID_DATASET_BASEDIR / "test_micro_data"
+    output_tarfile = Path("images.zip")
+    output_tarfile.unlink(missing_ok=True)
+    dataset_tools.make_zipfile(output_tarfile, dir_path)
+    # shutil.make_archive(output_tarfile.parent / output_tarfile.stem, "zip", root_dir=dir_path)
+    # make_tarfile(output_tarfile, dir_path)
+    assert output_tarfile.exists()

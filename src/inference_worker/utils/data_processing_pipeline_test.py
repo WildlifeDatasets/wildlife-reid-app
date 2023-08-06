@@ -5,34 +5,16 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import pytest
 from scipy.special import softmax
 
 from src.inference_worker.utils import data_processing_pipeline
-from src.inference_worker.utils.dataset_tools import (  # make_tarfile,
-    _species_czech_preprocessing,
-    make_hash,
-    make_zipfile,
-)
+from src.inference_worker.utils.dataset_tools import make_zipfile  # make_tarfile,
 
 logger = logging.getLogger(__file__)
 
 
 CAID_DATASET_BASEDIR = Path(os.getenv("CAID_DATASET_BASEDIR", r"H:\biology\orig\CarnivoreID"))
 CI = os.getenv("CI", False)
-
-
-def test_make_input_tarfile():
-    """Test create input tar file."""
-    dir_path = CAID_DATASET_BASEDIR / "test_micro_data"
-    output_tarfile = Path("images.zip")
-    output_tarfile.unlink(missing_ok=True)
-    make_zipfile(output_tarfile, dir_path)
-    # shutil.make_archive(output_tarfile.parent / output_tarfile.stem, "zip", root_dir=dir_path)
-    # make_tarfile(output_tarfile, dir_path)
-    assert output_tarfile.exists()
-
-
 
 
 def test_data_processing():

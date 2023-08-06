@@ -269,10 +269,16 @@ def _mediafiles_query(request, query: str):
         return mediafiles
     else:
         from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector
+
         vector = SearchVector("category__name", "location__name")
         query = SearchQuery(query)
         logger.debug(str(query))
-        mediafiles = MediaFile.objects.filter(parent__owner=request.user.ciduser).annotate(rank=SearchRank(vector, query)).filter(rank__gt=0).order_by("-rank")
+        mediafiles = (
+            MediaFile.objects.filter(parent__owner=request.user.ciduser)
+            .annotate(rank=SearchRank(vector, query))
+            .filter(rank__gt=0)
+            .order_by("-rank")
+        )
         # words = [query]
         #
         # queryset_combination = None

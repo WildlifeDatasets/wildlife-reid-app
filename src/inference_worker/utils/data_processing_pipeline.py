@@ -16,14 +16,10 @@ from fgvc.datasets import get_dataloaders
 from fgvc.utils.experiment import load_model
 
 from .config import RESOURCES_DIR, WANDB_API_KEY, WANDB_ARTIFACT_PATH
-from .dataset_tools import (
-    data_preprocessing
-)
+from .dataset_tools import data_preprocessing
 from .prediction_dataset import PredictionDataset
 
 logger = logging.getLogger("app")
-
-
 
 
 def get_model_config() -> Tuple[dict, str, dict]:
