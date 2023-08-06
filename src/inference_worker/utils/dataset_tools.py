@@ -12,7 +12,8 @@ import unicodedata
 from datetime import datetime, timedelta
 from hashlib import sha256
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Tuple
+import uuid
 
 import numpy as np
 import pandas as pd
@@ -20,6 +21,7 @@ from joblib import Parallel, delayed
 from PIL import Image, UnidentifiedImageError
 from tqdm import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
+from .inout import extract_archive
 
 logger = logging.getLogger("app")
 
@@ -919,3 +921,109 @@ def find_unique_names_between_duplicate_files(metadata: pd.DataFrame, basedir: P
             metadata[hashes == unh]["unique_name"] = longest_unique_name
 
     return metadata, hashes
+
+
+def analyze_dataset_directory(dataset_dir_path: Path, num_cores: Optional[int] = None):
+    """Get species, locality, datetime and sequence_id from directory with media files.
+
+    Parameters
+    ----------
+    dataset_dir_path
+        Input directory. First subdirs should be "TRIDENA" and "NETRIDENA", if
+        the directory is SUMAVA dataset.
+
+    Returns
+    -------
+    metadata: DataFrame
+        Image and video metadata.
+    duplicates: DataFrame
+        List of duplicit files.
+    """
+    init_processing = SumavaInitialProcessing(dataset_dir_path, num_cores=num_cores)
+    df0 = init_processing.make_paths_and_exifs_parallel(
+        mask="**/*.*", make_exifs=True, make_csv=False
+    )
+
+    df = extract_information_from_dir_structure(df0)
+
+    df["datetime"] = pd.to_datetime(df0.datetime, errors="coerce")
+    df["read_error"] = list(df0["read_error"])
+
+    df.loc[:, "sequence_number"] = None
+
+    # Get ID of lynx from directories in basedir beside "TRIDENA" and "NETRIDENA"
+    df["unique_name"] = df["vanilla_path"].apply(get_lynx_id_in_sumava)
+    df, hashes = find_unique_names_between_duplicate_files(df, basedir=Path(dataset_dir_path))
+    df["content_hash"] = hashes
+
+    df = extend_df_with_sequence_id(df, time_limit="120s")
+
+    # Turn NaN int None
+    df = df.where(pd.notnull(df), None)
+
+    # remove directory paths (by empty hash)
+    df = df[df.content_hash != ""].reset_index(drop=True)
+
+    # Create list of duplicates based on the same EXIF time
+    # duplicates = df[df.delta_datetime == pd.Timedelta("0s")]
+    # duplicates = duplicates.copy().reset_index(drop=True)
+    # duplicates.to_csv(
+    #     "../../../resources/Sumava/list_of_duplicities.csv"
+    # )
+
+    # Remove duplicities
+    # does not work if the images with unique name are also in TRIDENA or NETRIDENA
+    # df = df[df.delta_datetime != pd.Timedelta("0s")].reset_index(drop=True)
+    # df = df.drop_duplicates(subset=["content_hash"], keep="first").reset_index(drop=True)
+    duplicates_bool = df.duplicated(subset=["content_hash"], keep="first")
+    duplicates = df[duplicates_bool].copy().reset_index(drop=True)
+    metadata = df[~duplicates_bool].copy().reset_index(drop=True)
+
+    return metadata, duplicates
+
+
+def data_preprocessing(
+        zip_path: Path, media_dir_path: Path, num_cores: Optional[int] = None
+) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    """Preprocessing of data in zip file.
+
+    If the Sumava data dir structure is present, the additional information is extracted.
+    Sumava data dir structure: "TRIDENA/SEASON/LOCATION/DATE/SPECIES"
+
+    Parameters
+    ----------
+    zip_path: file with zipped images
+    media_dir_path: output dir for media files with hashed names
+    csv_path: Path to csv file
+
+    Returns
+    -------
+    metadata: DataFrame - Image and video metadata
+
+    duplicates: DataFrame - List of duplicate files
+    """
+    # create temporary directory
+    import tempfile
+
+    tmp_dir = Path(tempfile.gettempdir()) / str(uuid.uuid4())
+    tmp_dir.mkdir(exist_ok=False, parents=True)
+
+    # extract files to the temporary directory
+    extract_archive(zip_path, output_dir=tmp_dir)
+
+    # create metadata directory
+    df, duplicates = analyze_dataset_directory(tmp_dir, num_cores=num_cores)
+    # df["vanilla_path"].map(lambda fn: dataset_tools.make_hash(fn, prefix="media_data"))
+    df = make_dataset(
+        dataframe=df,
+        dataset_name=None,
+        dataset_base_dir=tmp_dir,
+        output_path=media_dir_path,
+        hash_filename=True,
+        make_tar=False,
+        move_files=True,
+        create_csv=False,
+    )
+    shutil.rmtree(tmp_dir, ignore_errors=True)
+
+    return df, duplicates

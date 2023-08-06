@@ -33,55 +33,6 @@ def test_make_input_tarfile():
     assert output_tarfile.exists()
 
 
-def test_species_preprocessing():
-    """Test transcription table for preprocessing of czech typos."""
-    assert _species_czech_preprocessing[None] == "nevime"
-
-    txt = "jelen"
-    replaced_str = _species_czech_preprocessing[txt] if txt in _species_czech_preprocessing else txt
-    assert replaced_str == "jelen evropsky"
-
-
-def test_hash():
-    """Test filename to hash function."""
-    assert (
-        make_hash("myfilenameverylongtohide.myextension")
-        .replace("\\", "/")
-        .startswith("media_data/e86ec")
-    )
-
-
-@pytest.mark.parametrize(
-    "dataset", ["DATA_SUNAP_tiny_test_subset_smaller", "DUHA_tiny_test_subset_smaller"]
-)
-def test_analyze_dir(dataset):
-    """Test dataset directory analysis."""
-    dir_path = CAID_DATASET_BASEDIR / dataset
-    metadata, duplicates = data_processing_pipeline.analyze_dataset_directory(dir_path)
-
-    assert len(metadata) > 3
-    assert len(metadata.location.unique()) > 1, "There should be some localities."
-    assert len(metadata.unique_name.unique()) > 1, "There should be some unique names."
-
-
-def test_data_preprocessing_parallel():
-    """Try the whole processing starting from .tar.gz file."""
-    tarfile_path = CAID_DATASET_BASEDIR / "test_micro_data.zip"
-    media_dir_path = Path("./test_pipeline/media/")
-    csv_path = Path("./test_pipeline/metadata.csv")
-
-    # if media_dir_path.exists():
-    shutil.rmtree(media_dir_path, ignore_errors=True)
-    csv_path.unlink(missing_ok=True)
-    assert not media_dir_path.exists()
-
-    metadata, duplicates = data_processing_pipeline.data_preprocessing(
-        tarfile_path, media_dir_path, num_cores=1
-    )
-    logger.debug(metadata)
-    assert (
-        len(list(media_dir_path.glob("**/*"))) > 0
-    ), "There should be some files in media dir path"
 
 
 def test_data_processing():

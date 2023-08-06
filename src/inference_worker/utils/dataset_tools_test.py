@@ -1,14 +1,18 @@
 import os
 from pathlib import Path
+import shutil
 
 import pandas as pd
 import pytest
+import logging
+
 
 try:
     from . import dataset_tools
 except ImportError:
     import dataset_tools
 
+logger = logging.getLogger(__file__)
 
 CAID_DATASET_BASEDIR = Path(os.getenv("CAID_DATASET_BASEDIR", r"H:\biology\orig\CarnivoreID"))
 CI = os.getenv("CI", False)
@@ -101,3 +105,53 @@ def test_make_dataset_smaller():
     assert len(output_files) > 0
     for output_file in output_files:
         assert output_file.exists(), "Output file does not exist"
+
+def test_species_preprocessing():
+    """Test transcription table for preprocessing of czech typos."""
+    assert dataset_tools._species_czech_preprocessing[None] == "nevime"
+
+    txt = "jelen"
+    replaced_str = dataset_tools._species_czech_preprocessing[txt] if txt in dataset_tools._species_czech_preprocessing else txt
+    assert replaced_str == "jelen evropsky"
+
+
+def test_hash():
+    """Test filename to hash function."""
+    assert (
+        dataset_tools.make_hash("myfilenameverylongtohide.myextension")
+        .replace("\\", "/")
+        .startswith("media_data/e86ec")
+    )
+
+
+@pytest.mark.parametrize(
+    "dataset", ["DATA_SUNAP_tiny_test_subset_smaller", "DUHA_tiny_test_subset_smaller"]
+)
+def test_analyze_dir(dataset):
+    """Test dataset directory analysis."""
+    dir_path = CAID_DATASET_BASEDIR / dataset
+    metadata, duplicates = dataset_tools.analyze_dataset_directory(dir_path)
+
+    assert len(metadata) > 3
+    assert len(metadata.location.unique()) > 1, "There should be some localities."
+    assert len(metadata.unique_name.unique()) > 1, "There should be some unique names."
+
+
+def test_data_preprocessing_parallel():
+    """Try the whole processing starting from .tar.gz file."""
+    tarfile_path = CAID_DATASET_BASEDIR / "test_micro_data.zip"
+    media_dir_path = Path("./test_pipeline/media/")
+    csv_path = Path("./test_pipeline/metadata.csv")
+
+    # if media_dir_path.exists():
+    shutil.rmtree(media_dir_path, ignore_errors=True)
+    csv_path.unlink(missing_ok=True)
+    assert not media_dir_path.exists()
+
+    metadata, duplicates = dataset_tools.data_preprocessing(
+        tarfile_path, media_dir_path, num_cores=1
+    )
+    logger.debug(metadata)
+    assert (
+            len(list(media_dir_path.glob("**/*"))) > 0
+    ), "There should be some files in media dir path"
