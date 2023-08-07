@@ -994,6 +994,8 @@ def analyze_dataset_directory(
     # does not work if the images with unique name are also in TRIDENA or NETRIDENA
     # df = df[df.delta_datetime != pd.Timedelta("0s")].reset_index(drop=True)
     # df = df.drop_duplicates(subset=["content_hash"], keep="first").reset_index(drop=True)
+
+    df = df.sort_values(by=["annotated", "location", "datetime"], ascending=[False, False, True]).reset_index(drop=True)
     duplicates_bool = df.duplicated(subset=["content_hash"], keep="first")
     duplicates = df[duplicates_bool].copy().reset_index(drop=True)
     metadata = df[~duplicates_bool].copy().reset_index(drop=True)

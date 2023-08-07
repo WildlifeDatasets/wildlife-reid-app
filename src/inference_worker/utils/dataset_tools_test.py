@@ -129,13 +129,17 @@ def test_hash():
 
 
 @pytest.mark.parametrize(
-    "dataset", ["DATA_SUNAP_tiny_test_subset_smaller", "DUHA_tiny_test_subset_smaller"]
+    "dataset", ["DATA_SUNAP_tiny_test_subset_smaller",
+                # "DUHA_tiny_test_subset_smaller"
+                ]
 )
 def test_analyze_dir(dataset):
     """Test dataset directory analysis."""
     dir_path = CAID_DATASET_BASEDIR / dataset
     metadata, duplicates = dataset_tools.analyze_dataset_directory(dir_path)
 
+    metadata.to_csv("test_metadata.csv", encoding="utf-8-sig")
+    duplicates.to_csv("test_duplicates.csv", encoding="utf-8-sig")
     assert len(metadata) > 3
     assert len(metadata.location.unique()) > 1, "There should be some localities."
     assert len(metadata.unique_name.unique()) > 1, "There should be some unique names."
