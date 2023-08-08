@@ -3,6 +3,7 @@ import os
 import shutil
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -127,23 +128,40 @@ def test_hash():
         .startswith("media_data/e86ec")
     )
 
+@pytest.mark.parametrize(
+    "dataset", ["DATA_SUNAP_tiny_test_subset_smaller",
+                "DUHA_tiny_test_subset_smaller"
+                ]
+)
+def test_analyze_dir(dataset):
+    """Test dataset directory analysis."""
+    dir_path = CAID_DATASET_BASEDIR / dataset
+    metadata, duplicates = dataset_tools.analyze_dataset_directory(dir_path, num_cores=2)
+
+    metadata.to_csv("test_metadata.csv", encoding="utf-8-sig")
+    duplicates.to_csv("test_duplicates.csv", encoding="utf-8-sig")
+    assert len(metadata) > 3
+    assert len(metadata.location.unique()) > 1, "There should be some localities."
 
 @pytest.mark.parametrize(
     "dataset", ["DATA_SUNAP_tiny_test_subset_smaller",
                 # "DUHA_tiny_test_subset_smaller"
                 ]
 )
-def test_analyze_dir(dataset):
+def test_analyze_dir_sumava_unique_names(dataset):
     """Test dataset directory analysis."""
     dir_path = CAID_DATASET_BASEDIR / dataset
-    metadata, duplicates = dataset_tools.analyze_dataset_directory(dir_path)
+    metadata, duplicates = dataset_tools.analyze_dataset_directory(dir_path, num_cores=2)
 
     metadata.to_csv("test_metadata.csv", encoding="utf-8-sig")
     duplicates.to_csv("test_duplicates.csv", encoding="utf-8-sig")
     assert len(metadata) > 3
     assert len(metadata.location.unique()) > 1, "There should be some localities."
     assert len(metadata.unique_name.unique()) > 1, "There should be some unique names."
-
+    assert len(duplicates) > 0
+    rows_with_duplicate = metadata[metadata.content_hash == duplicates.content_hash[0]]
+    assert len(rows_with_duplicate) > 0
+    assert rows_with_duplicate.annotated[0] == True
 
 def test_data_preprocessing_parallel():
     """Try the whole processing starting from .tar.gz file."""

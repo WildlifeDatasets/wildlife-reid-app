@@ -889,12 +889,19 @@ def hash_file_content(filename: [Path, str]) -> Optional[str]:
         return ""
 
 
-def hash_file_content_for_list_of_files(filelist: List[Path]):
+def hash_file_content_for_list_of_files(basedir: Path, filelist: List[Path], num_cores: int=1):
     """Make hash from file."""
-    return [hash_file_content(f) for f in filelist]
+    if num_cores > 1:
+        hashes = Parallel(n_jobs=num_cores)(
+            delayed(hash_file_content)(basedir / f)
+            for f in tqdm(filelist, desc="hashing file content parallel")
+        )
+    else:
+        hashes = [hash_file_content(basedir / f) for f in tqdm(filelist, desc="hashing file content single core")]
+    return hashes
 
 
-def find_unique_names_between_duplicate_files(metadata: pd.DataFrame, basedir: Path):
+def find_unique_names_between_duplicate_files(metadata: pd.DataFrame, basedir: Path, num_cores: int=1):
     """Find unique_name in dataframe and extend it to all files with same hash.
 
     Parameters:
@@ -903,6 +910,8 @@ def find_unique_names_between_duplicate_files(metadata: pd.DataFrame, basedir: P
         Path to directory with dataset.
     metadata: pd.DataFrame
         Metadata dataframe containing column "unique_name" and "vanilla_path".
+    num_cores: int
+        Number of cores to use.
 
     Returns:
     --------
@@ -912,15 +921,14 @@ def find_unique_names_between_duplicate_files(metadata: pd.DataFrame, basedir: P
         Array of hashes for each file in metadata.
 
     """
-    hashes = np.array(
-        hash_file_content_for_list_of_files(metadata.vanilla_path.apply(lambda x: str(basedir / x)))
-    )
+    hashes = hash_file_content_for_list_of_files(basedir, metadata.vanilla_path, num_cores=num_cores)
+    hashes = np.array(hashes)
     # metadata["content_hash"] = hashes
     # uns = metadata["unique_name"].unique()
     # # remove None from unique names
     # uns = uns[uns != None].astype("str")
     un_hashes, counts = np.unique(hashes, return_counts=True)
-    for unh, count in zip(un_hashes, counts):
+    for unh, count in tqdm(list(zip(un_hashes, counts)), desc="finding duplicates"):
         if count > 1:
             unique_names_with_same_hash = metadata[hashes == unh]["unique_name"].unique()
             # remove None from unique names
