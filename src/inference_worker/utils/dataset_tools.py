@@ -987,7 +987,7 @@ def analyze_dataset_directory(
 
     # Get ID of lynx from directories in basedir beside "TRIDENA" and "NETRIDENA"
     df["unique_name"] = df["vanilla_path"].apply(get_lynx_id_in_sumava)
-    df, hashes = find_unique_names_between_duplicate_files(df, basedir=Path(dataset_dir_path))
+    df, hashes = find_unique_names_between_duplicate_files(df, basedir=Path(dataset_dir_path), num_cores=num_cores)
     df["content_hash"] = hashes
 
     df = extend_df_with_sequence_id(df, time_limit="120s")
