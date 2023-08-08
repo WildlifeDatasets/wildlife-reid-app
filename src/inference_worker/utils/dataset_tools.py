@@ -474,7 +474,7 @@ def make_dataset(
 
     output_path.mkdir(parents=True, exist_ok=True)
     if create_csv:
-        dataframe.to_csv(output_path / f"{dataset_name}.csv",  encoding="utf-8-sig")
+        dataframe.to_csv(output_path / f"{dataset_name}.csv", encoding="utf-8-sig")
 
     if copy_files or move_files:
         for index, row in tqdm(dataframe.iterrows(), total=len(dataframe), desc=f"{dataset_name}"):
@@ -889,7 +889,7 @@ def hash_file_content(filename: [Path, str]) -> Optional[str]:
         return ""
 
 
-def hash_file_content_for_list_of_files(basedir: Path, filelist: List[Path], num_cores: int=1):
+def hash_file_content_for_list_of_files(basedir: Path, filelist: List[Path], num_cores: int = 1):
     """Make hash from file."""
     if num_cores > 1:
         hashes = Parallel(n_jobs=num_cores)(
@@ -897,11 +897,16 @@ def hash_file_content_for_list_of_files(basedir: Path, filelist: List[Path], num
             for f in tqdm(filelist, desc="hashing file content parallel")
         )
     else:
-        hashes = [hash_file_content(basedir / f) for f in tqdm(filelist, desc="hashing file content single core")]
+        hashes = [
+            hash_file_content(basedir / f)
+            for f in tqdm(filelist, desc="hashing file content single core")
+        ]
     return hashes
 
 
-def find_unique_names_between_duplicate_files(metadata: pd.DataFrame, basedir: Path, num_cores: int=1):
+def find_unique_names_between_duplicate_files(
+    metadata: pd.DataFrame, basedir: Path, num_cores: int = 1
+):
     """Find unique_name in dataframe and extend it to all files with same hash.
 
     Parameters:
@@ -921,7 +926,9 @@ def find_unique_names_between_duplicate_files(metadata: pd.DataFrame, basedir: P
         Array of hashes for each file in metadata.
 
     """
-    hashes = hash_file_content_for_list_of_files(basedir, metadata.vanilla_path, num_cores=num_cores)
+    hashes = hash_file_content_for_list_of_files(
+        basedir, metadata.vanilla_path, num_cores=num_cores
+    )
     hashes = np.array(hashes)
     # metadata["content_hash"] = hashes
     # uns = metadata["unique_name"].unique()
@@ -1003,7 +1010,9 @@ def analyze_dataset_directory(
     # df = df[df.delta_datetime != pd.Timedelta("0s")].reset_index(drop=True)
     # df = df.drop_duplicates(subset=["content_hash"], keep="first").reset_index(drop=True)
 
-    df = df.sort_values(by=["annotated", "location", "datetime"], ascending=[False, False, True]).reset_index(drop=True)
+    df = df.sort_values(
+        by=["annotated", "location", "datetime"], ascending=[False, False, True]
+    ).reset_index(drop=True)
     duplicates_bool = df.duplicated(subset=["content_hash"], keep="first")
     duplicates = df[duplicates_bool].copy().reset_index(drop=True)
     metadata = df[~duplicates_bool].copy().reset_index(drop=True)
