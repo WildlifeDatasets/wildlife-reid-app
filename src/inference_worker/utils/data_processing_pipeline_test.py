@@ -7,8 +7,12 @@ import numpy as np
 import pandas as pd
 from scipy.special import softmax
 
-from src.inference_worker.utils import data_processing_pipeline
-from src.inference_worker.utils.dataset_tools import make_zipfile  # make_tarfile,
+try:
+    from src.inference_worker.utils import data_processing_pipeline
+    from src.inference_worker.utils.dataset_tools import make_zipfile  # make_tarfile,
+except ModuleNotFoundError:
+    from jupyter_notebooks.datasets.sumava import data_processing_pipeline
+    from jupyter_notebooks.datasets.sumava.dataset_tools import make_zipfile
 
 logger = logging.getLogger(__file__)
 

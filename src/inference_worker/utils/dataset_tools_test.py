@@ -7,9 +7,9 @@ import pandas as pd
 import pytest
 
 try:
-    from . import dataset_tools
-except ImportError:
-    import dataset_tools
+    from src.inference_worker.utils import dataset_tools
+except ModuleNotFoundError:
+    from jupyter_notebooks.datasets.sumava import dataset_tools
 
 logger = logging.getLogger(__file__)
 
