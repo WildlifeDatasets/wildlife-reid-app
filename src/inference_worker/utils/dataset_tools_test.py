@@ -162,7 +162,7 @@ def test_analyze_dir_sumava_unique_names(dataset):
     assert len(duplicates) > 0
     rows_with_duplicate = metadata[metadata.content_hash == duplicates.content_hash[0]]
     assert len(rows_with_duplicate) > 0
-    assert rows_with_duplicate.annotated[0] == True  # noqa
+    assert rows_with_duplicate.annotated.iat[0] == True  # noqa
 
 
 def test_data_preprocessing_parallel():

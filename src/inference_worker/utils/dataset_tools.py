@@ -971,6 +971,8 @@ def analyze_dataset_directory(
     duplicates: DataFrame
         List of duplicit files.
     """
+    if num_cores is None:
+        num_cores = multiprocessing.cpu_count()
     init_processing = SumavaInitialProcessing(dataset_dir_path, num_cores=num_cores)
     df0 = init_processing.make_paths_and_exifs_parallel(
         mask="**/*.*", make_exifs=True, make_csv=False
