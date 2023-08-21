@@ -113,6 +113,36 @@ class MediaFile(models.Model):
     def __str__(self):
         return str(Path(self.mediafile.name).name)
 
+class Album(models.Model):
+    name = models.CharField(max_length=50)
+    description = models.CharField(max_length=255, blank=True, default="")
+    owner = models.ForeignKey(CIDUser, on_delete=models.CASCADE, null=True, blank=True)
+    mediafiles = models.ManyToManyField(MediaFile, blank=True)
+    created_at = models.DateTimeField("Created at", default=datetime.now)
+    hash = models.CharField(max_length=255, blank=True, default=_hash)
+
+    def __str__(self):
+        return str(self.name)
+
+    def get_absolute_url(self):
+        return "/album/%i/" % str(self.hash)
+
+
+class AlbumShareRoleType(models.Model):
+    name = models.CharField(max_length=50)
+
+    def __str__(self):
+        return str(self.name)
+
+
+class AlbumShareRole(models.Model):
+    album = models.ForeignKey(Album, on_delete=models.CASCADE, null=True, blank=True)
+    user = models.ForeignKey(CIDUser, on_delete=models.CASCADE, null=True, blank=True)
+    role = models.ForeignKey(AlbumShareRoleType, on_delete=models.CASCADE, null=True, blank=True)
+
+    def __str__(self):
+        return str(self.album.name) + " " + str(self.user.user.username)
+
 
 def get_taxon(name: str) -> Taxon:
     """Return taxon according to the name, create it if necessary."""
