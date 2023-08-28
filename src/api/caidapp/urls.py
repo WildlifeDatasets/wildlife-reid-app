@@ -11,7 +11,7 @@ urlpatterns = [
     path("logout/", views.logout_view, name="logout_view"),
     path("uploads/", views.uploads, name="uploads"),
     path(
-        "uploadedarchive_detail/<int:uploadedarchive_id>/",
+        "uploadedarchive_detail/<int:uploadedarchive_id>",
         views.uploadedarchive_detail,
         name="uploadedarchive_detail",
     ),
@@ -25,4 +25,8 @@ urlpatterns = [
         "media_file_update/<int:media_file_id>/", views.media_file_update, name="media_file_update"
     ),
     path("manage_locations/", views.manage_locations, name="manage_locations"),
+    path("albums/", views.albums, name="albums"),
+    path("album/<str:album_hash>", views.media_files_update, name="album"),
+    path("album_update/<str:album_hash>/", views.album_update, name="album_update"),
+    path("new_album/", views.new_album, name="new_album"),
 ]

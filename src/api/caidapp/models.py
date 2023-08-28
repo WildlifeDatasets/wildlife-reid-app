@@ -120,6 +120,8 @@ class Album(models.Model):
     mediafiles = models.ManyToManyField(MediaFile, blank=True)
     created_at = models.DateTimeField("Created at", default=datetime.now)
     hash = models.CharField(max_length=255, blank=True, default=_hash)
+    public_hash = models.CharField(max_length=255, blank=True, default=_hash)
+    cover = models.ForeignKey(MediaFile, on_delete=models.DO_NOTHING, null=True, blank=True, related_name="cover")
 
     def __str__(self):
         return str(self.name)

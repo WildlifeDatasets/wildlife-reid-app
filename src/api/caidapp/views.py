@@ -16,6 +16,7 @@ from django.forms import modelformset_factory
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
+from django.db.models import Q
 
 from .forms import (
     MediaFileBulkForm,
@@ -23,8 +24,9 @@ from .forms import (
     MediaFileSelectionForm,
     MediaFileSetQueryForm,
     UploadedArchiveForm,
+    AlbumForm,
 )
-from .models import Location, MediaFile, UploadedArchive
+from .models import Location, MediaFile, UploadedArchive, Album
 from .tasks import predict_on_error, predict_on_success
 
 logger = logging.getLogger("app")
@@ -143,6 +145,25 @@ def media_file_update(request, media_file_id):
     )
 
 
+def album_update(request, album_hash):
+    """Show and update media file."""
+    album = get_object_or_404(Album, hash=album_hash)
+    if request.method == "POST":
+        form = AlbumForm(request.POST, instance=album)
+        if form.is_valid():
+
+            # get uploaded archive
+            album = form.save()
+            return redirect("caidapp:albums")
+    else:
+        form = AlbumForm(instance=album)
+    return render(
+        request,
+        "caidapp/album_update.html",
+        {"form": form, "headline": "Album", "button": "Save", "mediafile": album},
+    )
+
+
 def _run_processing(uploaded_archive: UploadedArchive):
     # update record in the database
     output_dir = Path(settings.MEDIA_ROOT) / uploaded_archive.outputdir
@@ -183,6 +204,39 @@ def run_processing(request, uploadedarchive_id):
     _run_processing(uploaded_archive)
     return redirect("/caidapp/uploads")
 
+
+def new_album(request):
+    """Create new album."""
+    if request.method == "POST":
+        form = AlbumForm(request.POST)
+        if form.is_valid():
+            album = form.save(commit=False)
+            album.owner = request.user.ciduser
+            album.save()
+            return redirect("caidapp:album_detail", album.id)
+    else:
+        form = AlbumForm()
+    return render(
+        request,
+        "caidapp/model_form_upload.html",
+        {"form": form, "headline": "New Album", "button": "Create"},
+    )
+
+def album_update2(request, album_hash):
+    """Show album detail."""
+    album = get_object_or_404(Album, hash=album_hash)
+    mediafile_set = album.mediafile_set.all()
+
+    records_per_page = 80
+    paginator = Paginator(mediafile_set, per_page=records_per_page)
+
+    page_number = request.GET.get("page")
+    page_obj = paginator.get_page(page_number)
+    return render(
+        request,
+        "caidapp/album_detail.html",
+        {"page_obj": page_obj, "page_title": album},
+    )
 
 def model_form_upload(request):
     """Process the uploaded zip file."""
@@ -243,6 +297,11 @@ def delete_mediafile(request, mediafile_id):
         messages.error(request, "Only the owner can delete the file.")
     return redirect("caidapp:uploadedarchive_detail", uploadedarchive_id=parent_id)
 
+@login_required
+def albums(request):
+    """Show all albums."""
+    albums = Album.objects.filter(Q(albumsharerole__user=request.user.ciduser) | Q(owner=request.user.ciduser)).distinct().all().order_by("created_at")
+    return render(request, "caidapp/albums.html", {"albums": albums})
 
 class MyLoginView(LoginView):
     redirect_authenticated_user = True
@@ -257,17 +316,27 @@ class MyLoginView(LoginView):
         return self.render_to_response(self.get_context_data(form=form))
 
 
-def _mediafiles_query(request, query: str):
+def _mediafiles_query(request, query: str, album_hash=None):
     """Prepare list of mediafiles based on query search in category and location."""
     # from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector
     # vector = SearchVector("category", "location")
     # query = SearchQuery("Vulpes")
     # mediafiles = MediaFile.objects.annotate(rank=SearchRank(vector, query)).order_by("-rank")
+    # mediafiles = (
+    #     MediaFile.objects.filter(parent__owner=request.user.ciduser)
+    #     .all()
+    #     .order_by("-parent__uploaded_at")
+    # )
+
     mediafiles = (
-        MediaFile.objects.filter(parent__owner=request.user.ciduser)
-        .all()
+        MediaFile.objects.filter(Q(album__albumsharerole__user=request.user.ciduser) | Q(parent__owner=request.user.ciduser))
+        .distinct()
         .order_by("-parent__uploaded_at")
     )
+    if album_hash is not None:
+        album = get_object_or_404(Album, hash=album_hash)
+        mediafiles = mediafiles.filter(album=album).all().distinct().order_by("-parent__uploaded_at")
+
 
     if len(query) == 0:
         return mediafiles
@@ -322,7 +391,7 @@ def _page_number(request, queryform):
     return queryform, page_number
 
 
-def media_files_update(request, records_per_page=80):
+def media_files_update(request, records_per_page=80, album_hash=None):
     """List of mediafiles based on query with bulk update of category."""
     # create list of mediafiles
     if request.method == "POST":
@@ -334,38 +403,79 @@ def media_files_update(request, records_per_page=80):
         queryform = MediaFileSetQueryForm()
         page_number = 1
         query = ""
+    albums_available=Album.objects.filter(Q(albumsharerole__user=request.user.ciduser) | Q(owner=request.user.ciduser)).distinct().order_by("created_at")
+    logger.debug(f"{albums_available=}")
 
     logger.debug(f"{query=}")
-    full_mediafiles = _mediafiles_query(request, query)
+    full_mediafiles = _mediafiles_query(request, query, album_hash=album_hash)
 
     paginator = Paginator(full_mediafiles, per_page=records_per_page)
 
     page_mediafiles = paginator.get_page(page_number)
 
     MediaFileFormSet = modelformset_factory(MediaFile, form=MediaFileSelectionForm, extra=0)
-    if (request.method == "POST") and ("btnBulkProcessing" in request.POST):
+    if (request.method == "POST") and (
+            ("btnBulkProcessing" in request.POST) or
+            ("btnBulkProcessingAlbum" in request.POST)
+    ):
         logger.debug("btnBulkProcessing")
         form_bulk_processing = MediaFileBulkForm(request.POST)
         if form_bulk_processing.is_valid():
             form_bulk_processing.save()
 
         form = MediaFileFormSet(request.POST)
+        logger.debug("form")
+        logger.debug(request.POST)
         if form.is_valid():
+            logger.debug("form is valid")
+            # if 'newsletter_sub' in .data:
+            #     # do subscribe
+            #     elif 'newsletter_unsub' in self.data:
+            selected_album_hash = form.data["selectAlbum"]
             for mediafileform in form:
                 if mediafileform.is_valid():
                     if mediafileform.cleaned_data["selected"]:
+                        logger.debug("mediafileform is valid")
+                        # reset selected field for refreshed view
                         mediafileform.cleaned_data["selected"] = False
                         mediafileform.selected = False
-                        instance = mediafileform.save(commit=False)
-                        instance.category = form_bulk_processing.cleaned_data["category"]
-                        instance.save()
+                        if "btnBulkProcessingAlbum" in form.data:
+                            logger.debug("Select Album :" + form.data["selectAlbum"])
+                            if selected_album_hash == "new":
+                                logger.debug("Creating new album")
+                                instance:MediaFile = mediafileform.save(commit=False)
+                                album = create_new_album(request)
+                                album.cover = instance
+                                album.save()
+                                instance.album_set.add(album)
+                                instance.save()
+                                selected_album_hash = album.hash
+                            else:
+                                logger.debug("selectAlbum")
+                                instance = mediafileform.save(commit=False)
+                                logger.debug(f"{selected_album_hash=}")
+                                album = get_object_or_404(Album, hash=selected_album_hash)
+
+                                # check if file is not already in album
+                                if instance.album_set.filter(pk=album.pk).count() == 0:
+                                    # add file to album
+                                    instance.album_set.add(album)
+                                    instance.save()
+                        elif "btnBulkProcessing" in form.data:
+                            instance = mediafileform.save(commit=False)
+                            instance.category = form_bulk_processing.cleaned_data["category"]
+                            instance.save()
                     # mediafileform.save()
             # form.save()
+        else:
+            logger.debug("form is not valid")
+            logger.debug(form.errors)
         # queryform = MediaFileSetQueryForm(request.POST)
         form_bulk_processing = MediaFileBulkForm()
         page_query = full_mediafiles.filter(id__in=[object.id for object in page_mediafiles])
         form = MediaFileFormSet(queryset=page_query)
     else:
+
         logger.debug("initial form processing")
         form_bulk_processing = MediaFileBulkForm()
         page_query = full_mediafiles.filter(id__in=[object.id for object in page_mediafiles])
@@ -382,5 +492,14 @@ def media_files_update(request, records_per_page=80):
             "user_is_staff": request.user.is_staff,
             "form_bulk_processing": form_bulk_processing,
             "form_query": queryform,
+            "albums_available": albums_available,
         },
     )
+
+def create_new_album(request, name="New Album"):
+    """Create new album."""
+    album = Album()
+    album.name = name
+    album.owner = request.user.ciduser
+    album.save()
+    return album
