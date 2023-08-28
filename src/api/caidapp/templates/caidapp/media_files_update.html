@@ -50,6 +50,18 @@
                             <button class="btn btn-primary" name="btnBulkProcessing" id="btnBulkProcessing" type="submit">
                                 Update Selected
                             </button>
+                            <label for="cars">Album:</label>
+
+                            <select name="selectAlbum" id="selectAlbum">
+                                    <option value selected>-----</option>
+                                    <option value="new" selected>create "New Album"<option>
+                                {% for album in albums_available %}
+                                    <option value={{ album.hash }}>{{ album.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <button class="btn btn-primary" name="btnBulkProcessingAlbum" id="btnBulkProcessingAlbum" type="submit">
+                                Add to Album
+                            </button>
 
                         </div>
                     </div>
