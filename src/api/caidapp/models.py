@@ -96,6 +96,13 @@ class Location(models.Model):
         return str(self.name)
 
 
+class IndividualIdentity(models.Model):
+    name = models.CharField(max_length=50)
+    # mediafiles = models.ForeignKey(MediaFile, on_delete=models.CASCADE, null=True, blank=True)
+
+
+
+
 class MediaFile(models.Model):
     parent = models.ForeignKey(UploadedArchive, on_delete=models.CASCADE, null=True)
     category = models.ForeignKey(Taxon, blank=True, null=True, on_delete=models.CASCADE)
@@ -109,9 +116,26 @@ class MediaFile(models.Model):
         max_length=500,
     )
     thumbnail = models.ImageField(blank=True, null=True, max_length=500)
+    indentity = models.ForeignKey(IndividualIdentity, blank=True, null=True, on_delete=models.CASCADE)
 
     def __str__(self):
         return str(Path(self.mediafile.name).name)
+
+
+class MediafilesForIdentification(models.Model):
+    mediafile = models.ForeignKey(MediaFile, on_delete=models.CASCADE, null=True, blank=True)
+
+    top1mediafile = models.ForeignKey(MediaFile, related_name="top1", on_delete=models.CASCADE, null=True, blank=True)
+    top2mediafile = models.ForeignKey(MediaFile, related_name="top2", on_delete=models.CASCADE, null=True, blank=True)
+    top3mediafile = models.ForeignKey(MediaFile, related_name="top3", on_delete=models.CASCADE, null=True, blank=True)
+    # top2mediafile = models.ForeignKey(MediaFile, on_delete=models.CASCADE, null=True, blank=True)
+    # top3mediafile = models.ForeignKey(MediaFile, on_delete=models.CASCADE, null=True, blank=True)
+    top1score = models.FloatField(null=True, blank=True)
+    top2score = models.FloatField(null=True, blank=True)
+    top3score = models.FloatField(null=True, blank=True)
+    top1name = models.CharField(max_length=255, blank=True, default="")
+    top2name = models.CharField(max_length=255, blank=True, default="")
+    top3name = models.CharField(max_length=255, blank=True, default="")
 
 class Album(models.Model):
     name = models.CharField(max_length=50)
@@ -121,7 +145,7 @@ class Album(models.Model):
     created_at = models.DateTimeField("Created at", default=datetime.now)
     hash = models.CharField(max_length=255, blank=True, default=_hash)
     public_hash = models.CharField(max_length=255, blank=True, default=_hash)
-    cover = models.ForeignKey(MediaFile, on_delete=models.DO_NOTHING, null=True, blank=True, related_name="cover")
+    cover = models.ForeignKey(MediaFile, on_delete=models.SET_NULL, null=True, blank=True, related_name="cover")
 
     def __str__(self):
         return str(self.name)
@@ -135,6 +159,9 @@ class AlbumShareRoleType(models.Model):
 
     def __str__(self):
         return str(self.name)
+
+
+
 
 
 class AlbumShareRole(models.Model):

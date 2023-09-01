@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+
+{% block body %}
+    {#<div class="container">#}
+    {% if user.is_authenticated %}
+        <div class="pagetitle">
+            <h1>{{ headline }}</h1>
+            <nav>
+                <ol class="breadcrumb">
+                    {#                    <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li>#}
+                    {#                    <li class="breadcrumb-item"><a href="{% url 'caidapp:uploadedarchive_detail' mediafile.parent.id %}"> Uploaded#}
+                    {#                        Archive: {{ mediafile.parent }}</a></li>#}
+                </ol>
+            </nav>
+        </div><!-- End Page Title -->
+        <div class="section">
+            <div class="row" id="row-of-cards">
+                <div class="col-lg-3" id="card{{ mediafile.id }}">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">
+                                Unknown
+                            </div>
+                            <p class="card-text">
+                            </p>
+                        </div>
+                        <img class="card-img-bottom" src="{{ foridentification.mediafile.mediafile.url }}"
+                             class="card-img-bottom" alt="Camera trap image">
+                    </div>
+                </div>
+            </div>
+            <div class="row" id="row-of-cards">
+                <div class="col-lg-3" id="card{{ mediafile.id }}">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">
+                                {{ foridentification.top1name }}
+                            </div>
+                            <p class="card-text">
+                                {{ foridentification.top1score }}
+                                <a href="{% url 'caidapp:get_individual_identity' %}" class="stretched-link"> </a>
+                            </p>
+                        </div>
+                        <img class="card-img-bottom" src="{{ foridentification.top1mediafile.mediafile.url }}"
+                             class="card-img-bottom" alt="Camera trap image">
+
+                    </div>
+                </div>
+                <div class="col-lg-3" id="card{{ mediafile.id }}">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">
+                                {{ foridentification.top2name }}
+                            </div>
+                            <p class="card-text">
+                                {{ foridentification.top2score }}
+                                <a href="{% url 'caidapp:get_individual_identity' %}" class="stretched-link"> </a>
+                            </p>
+                        </div>
+                        <img class="card-img-bottom" src="{{ foridentification.top2mediafile.mediafile.url }}"
+                             class="card-img-bottom" alt="Camera trap image">
+                    </div>
+                </div>
+                <div class="col-lg-3" id="card{{ mediafile.id }}">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">
+                                {{ foridentification.top3name }}
+                            </div>
+                            <p class="card-text">
+                                {{ foridentification.top3score }}
+                                <a href="{% url 'caidapp:get_individual_identity' %}" class="stretched-link"> </a>
+                            </p>
+                        </div>
+                        <img class="card-img-bottom" src="{{ foridentification.top3mediafile.mediafile.url }}"
+                             class="card-img-bottom" alt="Camera trap image">
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+    {#</div>#}
+{% endblock %}

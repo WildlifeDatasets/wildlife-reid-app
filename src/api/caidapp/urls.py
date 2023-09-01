@@ -29,4 +29,5 @@ urlpatterns = [
     path("album/<str:album_hash>", views.media_files_update, name="album"),
     path("album_update/<str:album_hash>/", views.album_update, name="album_update"),
     path("new_album/", views.new_album, name="new_album"),
+    path("get_individual_identity/", views.get_individual_identity, name="get_individual_identity"),
 ]
