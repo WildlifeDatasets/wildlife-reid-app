@@ -1,12 +1,13 @@
 from django.contrib import admin
 
-from .models import CIDUser, Location, MediaFile, Taxon, UploadedArchive, Album, AlbumShareRoleType
-
+from . import models
 # Register your models here.
-admin.site.register(CIDUser)
-admin.site.register(UploadedArchive)
-admin.site.register(MediaFile)
-admin.site.register(Taxon)
-admin.site.register(Location)
-admin.site.register(Album)
-admin.site.register(AlbumShareRoleType)
+admin.site.register(models.CIDUser)
+admin.site.register(models.UploadedArchive)
+admin.site.register(models.MediaFile)
+admin.site.register(models.Taxon)
+admin.site.register(models.Location)
+admin.site.register(models.Album)
+admin.site.register(models.AlbumShareRoleType)
+admin.site.register(models.IndividualIdentity)
+admin.site.register(models.MediafilesForIdentification)

@@ -26,7 +26,7 @@ from .forms import (
     UploadedArchiveForm,
     AlbumForm,
 )
-from .models import Location, MediaFile, UploadedArchive, Album
+from .models import Location, MediaFile, UploadedArchive, Album, MediafilesForIdentification, IndividualIdentity
 from .tasks import predict_on_error, predict_on_success
 
 logger = logging.getLogger("app")
@@ -144,6 +144,10 @@ def media_file_update(request, media_file_id):
         {"form": form, "headline": "Media File", "button": "Save", "mediafile": mediafile},
     )
 
+
+def get_individual_identity(request ):
+    foridentification = MediafilesForIdentification.objects.order_by("?").first()
+    return render(request, "caidapp/individual_identity.html", {"foridentification": foridentification})
 
 def album_update(request, album_hash):
     """Show and update media file."""
