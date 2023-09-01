@@ -2,7 +2,6 @@ import json
 import logging
 import os
 import shutil
-import uuid
 from pathlib import Path
 from typing import Optional, Tuple
 
@@ -17,110 +16,10 @@ from fgvc.datasets import get_dataloaders
 from fgvc.utils.experiment import load_model
 
 from .config import RESOURCES_DIR, WANDB_API_KEY, WANDB_ARTIFACT_PATH
-from .dataset_tools import (
-    SumavaInitialProcessing,
-    extend_df_with_sequence_id,
-    extract_information_from_dir_structure,
-    get_lynx_id_in_sumava,
-    make_dataset,
-)
-from .inout import extract_archive
+from .dataset_tools import data_preprocessing
 from .prediction_dataset import PredictionDataset
 
 logger = logging.getLogger("app")
-
-
-def analyze_dataset_directory(dataset_dir_path: Path, num_cores: Optional[int] = None):
-    """Get species, locality, datetime and sequence_id from directory with media files.
-
-    Parameters
-    ----------
-    dataset_dir_path
-        Input directory.
-
-    Returns
-    -------
-    metadata: DataFrame
-        Image and video metadata.
-    duplicates: DataFrame
-        List of duplicit files.
-    """
-    init_processing = SumavaInitialProcessing(dataset_dir_path, num_cores=num_cores)
-    df0 = init_processing.make_paths_and_exifs_parallel(
-        mask="**/*.*", make_exifs=True, make_csv=False
-    )
-
-    df = extract_information_from_dir_structure(df0)
-
-    df["datetime"] = pd.to_datetime(df0.datetime, errors="coerce")
-    df["read_error"] = list(df0["read_error"])
-
-    df.loc[:, "sequence_number"] = None
-
-    # Get ID of lynx from directories in basedir beside "TRIDENA" and "NETRIDENA"
-    df["unique_name"] = df["vanilla_path"].apply(get_lynx_id_in_sumava)
-
-    df = extend_df_with_sequence_id(df, time_limit="120s")
-
-    # Create list of duplicates based on the same EXIF time
-    duplicates = df[df.delta_datetime != pd.Timedelta("0s")]
-    duplicates = duplicates.copy().reset_index(drop=True)
-    # duplicates.to_csv(
-    #     "../../../resources/Sumava/list_of_duplicities.csv"
-    # )
-
-    # Remove duplicities
-    # does not work if the images with unique name are also in TRIDENA or NETRIDENA
-    df = df[df.delta_datetime != pd.Timedelta("0s")].reset_index(drop=True)
-
-    # Turn NaN int None
-    metadata = df.where(pd.notnull(df), None)
-
-    return metadata, duplicates
-
-
-def data_preprocessing(
-    zip_path: Path, media_dir_path: Path, num_cores: Optional[int] = None
-) -> Tuple[pd.DataFrame, pd.DataFrame]:
-    """Preprocessing of data in zip file.
-
-    If the Sumava data dir structure is present, the additional information is extracted.
-    Sumava data dir structure: "TRIDENA/SEASON/LOCATION/DATE/SPECIES"
-
-    Parameters
-    ----------
-    zip_path: file with zipped images
-    media_dir_path: output dir for media files with hashed names
-    csv_path: Path to csv file
-
-    Returns
-    -------
-    metadata: DataFrame - Image and video metadata
-
-    duplicates: DataFrame - List of duplicate files
-    """
-    # create temporary directory
-    tmp_dir = Path(f"/tmp/{str(uuid.uuid4())}")
-    tmp_dir.mkdir(exist_ok=False, parents=True)
-
-    # extract files to the temporary directory
-    extract_archive(zip_path, output_dir=tmp_dir)
-
-    # create metadata directory
-    df, duplicates = analyze_dataset_directory(tmp_dir, num_cores=num_cores)
-    # df["vanilla_path"].map(lambda fn: dataset_tools.make_hash(fn, prefix="media_data"))
-    df = make_dataset(
-        df=df,
-        dataset_name=None,
-        dataset_base_dir=tmp_dir,
-        output_path=media_dir_path,
-        hash_filename=True,
-        make_tar=False,
-        move_files=True,
-        create_csv=False,
-    )
-
-    return df, duplicates
 
 
 def get_model_config() -> Tuple[dict, str, dict]:
@@ -133,6 +32,7 @@ def get_model_config() -> Tuple[dict, str, dict]:
         run = artifact.logged_by()
         config = run.config
         # save model config locally for later use without internet
+        model_config_path.parent.mkdir(exist_ok=True, parents=True)
         with open(model_config_path, "w") as f:
             json.dump(config, f)
 
@@ -277,10 +177,11 @@ def data_processing(
 
     # run inference
     image_path = metadata["image_path"].apply(lambda x: os.path.join(media_dir_path, x))
-    class_ids, _, id2label = load_model_and_predict(image_path)
+    class_ids, probs_top, id2label = load_model_and_predict(image_path)
 
     # add inference results to the metadata dataframe
     metadata["predicted_class_id"] = class_ids
+    metadata["predicted_prob"] = probs_top
     metadata["predicted_category"] = np.nan
     if id2label is not None:
         metadata["predicted_category"] = metadata["predicted_class_id"].apply(

@@ -1,3 +1,4 @@
+import hashlib
 import json
 import logging
 import multiprocessing
@@ -8,10 +9,11 @@ import tarfile
 import traceback
 import typing
 import unicodedata
+import uuid
 from datetime import datetime, timedelta
 from hashlib import sha256
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -19,6 +21,8 @@ from joblib import Parallel, delayed
 from PIL import Image, UnidentifiedImageError
 from tqdm import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
+
+from .inout import extract_archive
 
 logger = logging.getLogger("app")
 
@@ -76,7 +80,9 @@ _species_czech_preprocessing = {
 }
 
 
-def get_species_substitution_latin():
+def get_species_substitution_latin(
+    latin_to_taxonomy_csv_path: Optional[Path] = None,
+) -> pd.DataFrame:
     """Load transcription table from czech species to scientific with taxonomy.
 
     Returns
@@ -85,9 +91,12 @@ def get_species_substitution_latin():
 
     """
     dir_with_this_file = Path(__file__).parent
-    species_substitution_path = (
-        dir_with_this_file.parent.parent.parent / "resources/Sumava/species_substitution.csv"
-    )
+    if latin_to_taxonomy_csv_path is None:
+        species_substitution_path = (
+            dir_with_this_file.parent.parent.parent / "resources/Sumava/species_substitution.csv"
+        )
+    else:
+        species_substitution_path = latin_to_taxonomy_csv_path
     if species_substitution_path.exists():
         species_substitution_latin = pd.read_csv(species_substitution_path)
     else:
@@ -300,6 +309,7 @@ def extend_df_with_sequence_id(df: pd.DataFrame, time_limit: typing.Union[str, d
     # generate sequnce_number based on datetime diff
     sort_keys = ["location", "datetime"]
     ascending = [False, True]
+    assert len(sort_keys) == len(ascending)
     if "annotated" in df:
         sort_keys.append("annotated")
         ascending.append(False)
@@ -369,7 +379,7 @@ class DatasetEventIdManager:
         return self.event_id
 
 
-def get_lynx_id_in_sumava(relative_path: str) -> str:
+def get_lynx_id_in_sumava(relative_path: str) -> Optional[str]:
     """
     Get linx ID based on directory path in Sumava dataset.
 
@@ -417,7 +427,7 @@ def make_tarfile(output_filename, source_dir):
 
 
 def make_dataset(
-    df: typing.Optional[pd.DataFrame],
+    dataframe: typing.Optional[pd.DataFrame],
     dataset_name: typing.Optional[str],
     dataset_base_dir: Path,
     output_path: Path,
@@ -431,12 +441,12 @@ def make_dataset(
 
     Parameters
     ----------
-    df: DataFrame
+    dataframe: DataFrame
         Pandas DataFrame with 'vanilla_path' column.
     dataset_name : str
         Name for output '.csv' and '.tar.gz'
     dataset_base_dir : Path
-        Base dir of the dataset.
+        Base dir of the dataset. First subdirs should be "TRIDENA" and "NETRIDENA".
     output_path
         Output directory.
     hash_filename : bool:
@@ -450,26 +460,26 @@ def make_dataset(
 
     Returns
     -------
-    df: DataFrame
-        The original input df extended by 'image_file' column.
+    dataframe: DataFrame
+        The original input dataframe extended by 'image_file' column.
     """
     assert not (copy_files and move_files), "Onle one arg 'copy_files' or 'move_files' can be True."
 
     if hash_filename:
-        df["image_path"] = df["vanilla_path"].apply(make_hash, prefix=dataset_name)
+        dataframe["image_path"] = dataframe["vanilla_path"].apply(make_hash, prefix=dataset_name)
     else:
-        df["image_path"] = df["vanilla_path"].apply(
+        dataframe["image_path"] = dataframe["vanilla_path"].apply(
             lambda filename: os.path.join(dataset_name, filename)
         )
 
     output_path.mkdir(parents=True, exist_ok=True)
     if create_csv:
-        df.to_csv(output_path / f"{dataset_name}.csv")
+        dataframe.to_csv(output_path / f"{dataset_name}.csv", encoding="utf-8-sig")
 
     if copy_files or move_files:
-        for index, row in tqdm(df.iterrows(), total=len(df), desc=f"{dataset_name}"):
-            input_file_path = dataset_base_dir / row["vanilla_path"]
-            output_file_path = output_path / Path(row["image_path"])
+        for index, row in tqdm(dataframe.iterrows(), total=len(dataframe), desc=f"{dataset_name}"):
+            input_file_path = (dataset_base_dir / row["vanilla_path"]).resolve()
+            output_file_path = (output_path / Path(row["image_path"])).resolve()
             output_file_path.parent.mkdir(parents=True, exist_ok=True)
             if input_file_path.is_file():
                 try:
@@ -485,7 +495,7 @@ def make_dataset(
         logger.info("Creating '.tar.gz' archive.")
         make_tarfile(output_path / f"{dataset_name}.tar.gz", output_path / f"media_{dataset_name}/")
 
-    return df
+    return dataframe
 
 
 class SumavaInitialProcessing:
@@ -525,6 +535,7 @@ class SumavaInitialProcessing:
         self.cache = {}
         self.filelist_df = None
         self.metadata: pd.DataFrame = None
+        self.latin_to_taxonomy_csv_path: Optional[Path] = None
 
     def is_update_necessary(self):
         """Check updates in dataset based on number of subdirectories."""
@@ -619,7 +630,11 @@ class SumavaInitialProcessing:
 
     def make_metadata_csv(self, path: Path):
         """Extract information based on filelist from prev step."""
-        self.metadata = extract_information_from_dir_structure(self.filelist_df)
+        if self.filelist_df is None:
+            raise ValueError("First, run make_paths_and_exifs_parallel()")
+        self.metadata = extract_information_from_dir_structure(
+            self.filelist_df, latin_to_taxonomy_csv_path=self.latin_to_taxonomy_csv_path
+        )
         self.metadata.to_csv(path)
 
     def make_paths_and_exifs_parallel(
@@ -641,7 +656,7 @@ class SumavaInitialProcessing:
 
         Returns
         -------
-        df: DataFrame may contain vanilla_path and datetime column.
+        dataframe: DataFrame may contain vanilla_path and datetime column.
         """
         output_dict = {}
         output_dict["vanilla_path"] = self.get_paths_from_dir_parallel(mask, exclude)
@@ -684,7 +699,9 @@ class SumavaInitialProcessing:
 
 
 # def extract_information_from_filename()
-def extract_information_from_dir_structure(df_filelist: pd.DataFrame) -> pd.DataFrame:
+def extract_information_from_dir_structure(
+    df_filelist: pd.DataFrame, latin_to_taxonomy_csv_path: Optional[Path] = None
+) -> pd.DataFrame:
     """Get the information from path structure in files in input dataframe.
 
     Parameters
@@ -711,7 +728,9 @@ def extract_information_from_dir_structure(df_filelist: pd.DataFrame) -> pd.Data
         czech_label=[],
         vanilla_species=[],
     )
-    species_substitution_latin = get_species_substitution_latin()
+    species_substitution_latin = get_species_substitution_latin(
+        latin_to_taxonomy_csv_path=latin_to_taxonomy_csv_path
+    )
     species_substitution_czech = list(species_substitution_latin.czech_label)
     with logging_redirect_tqdm():
         for pthistr in tqdm(
@@ -721,13 +740,12 @@ def extract_information_from_dir_structure(df_filelist: pd.DataFrame) -> pd.Data
         ):
             pthir = Path(pthistr)
 
-            media_type = (
-                "video"
-                if pthir.suffix.lower() in (".avi", ".m4v")
-                else "image"
-                if pthir.suffix.lower() in (".jpg", "png", ".jpeg")
-                else "unknown"
-            )
+            if pthir.suffix.lower() in (".avi", ".m4v"):
+                media_type = "video"
+            elif pthir.suffix.lower() in (".jpg", "png", ".jpeg"):
+                media_type = "image"
+            else:
+                media_type = "unknown"
             data["media_type"].append(media_type)
             data["filename"].append(pthir.name)
             data["vanilla_path"].append(str(pthir))
@@ -791,9 +809,6 @@ def extract_information_from_dir_structure(df_filelist: pd.DataFrame) -> pd.Data
             elif len(pthir.parts) == 5:
                 # The most dirty class. Sometimes the
                 species = strip_accents(pthir.parents[0].name).lower()
-                # species = species if (
-                #     (species in ok_species) or (species in species_replacement)
-                #     ) else None
                 vanilla_species = pthir.parents[0].name
             else:
                 species = strip_accents(pthir.parents[0].name).lower()
@@ -815,3 +830,242 @@ def extract_information_from_dir_structure(df_filelist: pd.DataFrame) -> pd.Data
         df = pd.DataFrame(data)
 
         return df
+
+
+def make_all_images_in_directory_smaller(
+    dirpath: Path, output_dir: Path, image_width=400, image_quality=70
+) -> List[Path]:
+    """Make all images in directory smaller.
+
+    Parameters:
+    -----------
+    dirpath: Path
+        Path to directory with images.
+    output_dir: Path
+        Path to directory where to save the images.
+    image_width: int
+        Width of the image in pixels.
+    image_quality: int
+        Quality of the JPG image in percent.
+
+    Returns:
+    --------
+    filelist: List[Path]
+        List of paths to the output images.
+
+    """
+    filelist = []
+    for pth in tqdm(list(dirpath.glob("**/*"))):
+        filelist.append(pth)
+        if not pth.is_dir():
+            new_pth = output_dir / pth.relative_to(dirpath)
+            new_pth.parent.mkdir(exist_ok=True, parents=True)
+            if pth.suffix.lower() in (".jpg", ".jpeg"):
+                img = Image.open(pth)
+                scale = image_width / img.size[0]
+                img = img.resize((image_width, int(img.size[1] * scale)), Image.ANTIALIAS)
+                if "exif" in img.info:
+                    img.save(new_pth, "JPEG", quality=image_quality, exif=img.info["exif"])
+                else:
+                    img.save(new_pth, "JPEG", quality=image_quality)
+            elif pth.suffix.lower() in (".png"):
+                img = Image.open(pth)
+                scale = image_width / img.size[0]
+                img = img.resize((image_width, int(img.size[1] * scale)), Image.ANTIALIAS)
+                img.save(new_pth, "png")
+            else:
+                shutil.copy(pth, new_pth)
+
+    return filelist
+
+
+def hash_file_content(filename: [Path, str]) -> Optional[str]:
+    """Make hash from file."""
+    filename = Path(filename)
+    if filename.is_file():
+        with open(filename, "rb") as f:
+            return hashlib.sha256(f.read()).hexdigest()
+    else:
+        return ""
+
+
+def hash_file_content_for_list_of_files(basedir: Path, filelist: List[Path], num_cores: int = 1):
+    """Make hash from file."""
+    if num_cores > 1:
+        hashes = Parallel(n_jobs=num_cores)(
+            delayed(hash_file_content)(basedir / f)
+            for f in tqdm(filelist, desc="hashing file content parallel")
+        )
+    else:
+        hashes = [
+            hash_file_content(basedir / f)
+            for f in tqdm(filelist, desc="hashing file content single core")
+        ]
+    return hashes
+
+
+def find_unique_names_between_duplicate_files(
+    metadata: pd.DataFrame, basedir: Path, num_cores: int = 1
+):
+    """Find unique_name in dataframe and extend it to all files with same hash.
+
+    Parameters:
+    -----------
+    basedir: Path
+        Path to directory with dataset.
+    metadata: pd.DataFrame
+        Metadata dataframe containing column "unique_name" and "vanilla_path".
+    num_cores: int
+        Number of cores to use.
+
+    Returns:
+    --------
+    metadata: pd.DataFrame
+        Metadata dataframe with updated "unique_name" column.
+    hashes: np.array
+        Array of hashes for each file in metadata.
+
+    """
+    hashes = hash_file_content_for_list_of_files(
+        basedir, metadata.vanilla_path, num_cores=num_cores
+    )
+    hashes = np.array(hashes)
+    # metadata["content_hash"] = hashes
+    # uns = metadata["unique_name"].unique()
+    # # remove None from unique names
+    # uns = uns[uns != None].astype("str")
+    un_hashes, counts = np.unique(hashes, return_counts=True)
+    for unh, count in tqdm(list(zip(un_hashes, counts)), desc="finding duplicates"):
+        if count > 1:
+            unique_names_with_same_hash = metadata[hashes == unh]["unique_name"].unique()
+            # remove None from unique names
+            unique_names_with_same_hash = unique_names_with_same_hash[
+                unique_names_with_same_hash != None  # noqa 'not None' does not work for numpy array
+            ].astype("str")
+            if len(unique_names_with_same_hash) == 0:
+                continue
+            # select longest name from unique names with same hash
+            longest_unique_name = sorted(unique_names_with_same_hash)[-1]
+            metadata[hashes == unh]["unique_name"] = longest_unique_name
+
+    return metadata, hashes
+
+
+def analyze_dataset_directory(
+    dataset_dir_path: Path,
+    num_cores: Optional[int] = None,
+    latin_to_taxonomy_csv_path: Optional[Path] = None,
+):
+    """Get species, locality, datetime and sequence_id from directory with media files.
+
+    Parameters
+    ----------
+    dataset_dir_path
+        Input directory. First subdirs should be "TRIDENA" and "NETRIDENA", if
+        the directory is SUMAVA dataset.
+
+    Returns
+    -------
+    metadata: DataFrame
+        Image and video metadata.
+    duplicates: DataFrame
+        List of duplicit files.
+    """
+    if num_cores is None:
+        num_cores = multiprocessing.cpu_count()
+    init_processing = SumavaInitialProcessing(dataset_dir_path, num_cores=num_cores)
+    df0 = init_processing.make_paths_and_exifs_parallel(
+        mask="**/*.*", make_exifs=True, make_csv=False
+    )
+
+    df = extract_information_from_dir_structure(
+        df0, latin_to_taxonomy_csv_path=latin_to_taxonomy_csv_path
+    )
+
+    df["datetime"] = pd.to_datetime(df0.datetime, errors="coerce")
+    df["read_error"] = list(df0["read_error"])
+
+    df.loc[:, "sequence_number"] = None
+
+    # Get ID of lynx from directories in basedir beside "TRIDENA" and "NETRIDENA"
+    df["unique_name"] = df["vanilla_path"].apply(get_lynx_id_in_sumava)
+    df, hashes = find_unique_names_between_duplicate_files(
+        df, basedir=Path(dataset_dir_path), num_cores=num_cores
+    )
+    df["content_hash"] = hashes
+
+    df = extend_df_with_sequence_id(df, time_limit="120s")
+
+    # Turn NaN int None
+    df = df.where(pd.notnull(df), None)
+
+    # remove directory paths (by empty hash)
+    df = df[df.content_hash != ""].reset_index(drop=True)
+
+    # Create list of duplicates based on the same EXIF time
+    # duplicates = df[df.delta_datetime == pd.Timedelta("0s")]
+    # duplicates = duplicates.copy().reset_index(drop=True)
+    # duplicates.to_csv(
+    #     "../../../resources/Sumava/list_of_duplicities.csv"
+    # )
+
+    # Remove duplicities
+    # does not work if the images with unique name are also in TRIDENA or NETRIDENA
+    # df = df[df.delta_datetime != pd.Timedelta("0s")].reset_index(drop=True)
+    # df = df.drop_duplicates(subset=["content_hash"], keep="first").reset_index(drop=True)
+
+    df = df.sort_values(
+        by=["annotated", "location", "datetime"], ascending=[False, False, True]
+    ).reset_index(drop=True)
+    duplicates_bool = df.duplicated(subset=["content_hash"], keep="first")
+    duplicates = df[duplicates_bool].copy().reset_index(drop=True)
+    metadata = df[~duplicates_bool].copy().reset_index(drop=True)
+
+    return metadata, duplicates
+
+
+def data_preprocessing(
+    zip_path: Path, media_dir_path: Path, num_cores: Optional[int] = None
+) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    """Preprocessing of data in zip file.
+
+    If the Sumava data dir structure is present, the additional information is extracted.
+    Sumava data dir structure: "TRIDENA/SEASON/LOCATION/DATE/SPECIES"
+
+    Parameters
+    ----------
+    zip_path: file with zipped images
+    media_dir_path: output dir for media files with hashed names
+    csv_path: Path to csv file
+
+    Returns
+    -------
+    metadata: DataFrame - Image and video metadata
+
+    duplicates: DataFrame - List of duplicate files
+    """
+    # create temporary directory
+    import tempfile
+
+    tmp_dir = Path(tempfile.gettempdir()) / str(uuid.uuid4())
+    tmp_dir.mkdir(exist_ok=False, parents=True)
+
+    # extract files to the temporary directory
+    extract_archive(zip_path, output_dir=tmp_dir)
+
+    # create metadata directory
+    df, duplicates = analyze_dataset_directory(tmp_dir, num_cores=num_cores)
+    # df["vanilla_path"].map(lambda fn: dataset_tools.make_hash(fn, prefix="media_data"))
+    df = make_dataset(
+        dataframe=df,
+        dataset_name=None,
+        dataset_base_dir=tmp_dir,
+        output_path=media_dir_path,
+        hash_filename=True,
+        make_tar=False,
+        move_files=True,
+        create_csv=False,
+    )
+    shutil.rmtree(tmp_dir, ignore_errors=True)
+
+    return df, duplicates
