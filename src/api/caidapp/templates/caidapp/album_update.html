@@ -25,6 +25,11 @@
                         <button class="btn btn-primary" id="btnUpload" type="submit">
                             {{ button }}
                         </button>
+{#                        link with style of button with confirmation popup #}
+
+                        <a class="btn btn-danger" href="{% url 'caidapp:delete_album' mediafile.hash %}"
+                           onclick="return confirm('Delete album {{ mediafile }}?')"
+                        ><i class="bi-trash"></i> Delete</a>
 
                     </form>
                 </div>
