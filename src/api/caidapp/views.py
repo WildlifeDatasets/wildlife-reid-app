@@ -149,23 +149,6 @@ def get_individual_identity(request ):
     foridentification = MediafilesForIdentification.objects.order_by("?").first()
     return render(request, "caidapp/individual_identity.html", {"foridentification": foridentification})
 
-def album_update(request, album_hash):
-    """Show and update media file."""
-    album = get_object_or_404(Album, hash=album_hash)
-    if request.method == "POST":
-        form = AlbumForm(request.POST, instance=album)
-        if form.is_valid():
-
-            # get uploaded archive
-            album = form.save()
-            return redirect("caidapp:albums")
-    else:
-        form = AlbumForm(instance=album)
-    return render(
-        request,
-        "caidapp/album_update.html",
-        {"form": form, "headline": "Album", "button": "Save", "mediafile": album},
-    )
 
 
 def _run_processing(uploaded_archive: UploadedArchive):
@@ -226,21 +209,50 @@ def new_album(request):
         {"form": form, "headline": "New Album", "button": "Create"},
     )
 
-def album_update2(request, album_hash):
-    """Show album detail."""
+
+def album_update(request, album_hash):
+    """Show and update media file."""
     album = get_object_or_404(Album, hash=album_hash)
-    mediafile_set = album.mediafile_set.all()
+    if request.method == "POST":
+        form = AlbumForm(request.POST, instance=album)
+        if form.is_valid():
 
-    records_per_page = 80
-    paginator = Paginator(mediafile_set, per_page=records_per_page)
-
-    page_number = request.GET.get("page")
-    page_obj = paginator.get_page(page_number)
+            # get uploaded archive
+            album = form.save()
+            return redirect("caidapp:albums")
+    else:
+        form = AlbumForm(instance=album)
     return render(
         request,
-        "caidapp/album_detail.html",
-        {"page_obj": page_obj, "page_title": album},
+        "caidapp/album_update.html",
+        {"form": form, "headline": "Album", "button": "Save", "mediafile": album},
     )
+
+
+def delete_album(request, album_hash):
+    """Delete album if it belongs to the user."""
+    album = get_object_or_404(Album, hash=album_hash)
+    if album.owner == request.user.ciduser:
+        album.delete()
+    return redirect("caidapp:albums")
+
+
+# def album_update2(request, album_hash):
+#     """Show album detail."""
+#     album = get_object_or_404(Album, hash=album_hash)
+#     mediafile_set = album.mediafile_set.all()
+#
+#     records_per_page = 80
+#     paginator = Paginator(mediafile_set, per_page=records_per_page)
+#
+#     page_number = request.GET.get("page")
+#     page_obj = paginator.get_page(page_number)
+#     return render(
+#         request,
+#         "caidapp/album_detail.html",
+#         {"page_obj": page_obj, "page_title": album},
+#     )
+
 
 def model_form_upload(request):
     """Process the uploaded zip file."""
@@ -323,7 +335,11 @@ class MyLoginView(LoginView):
 def _mediafiles_query(request, query: str, album_hash=None):
     """Prepare list of mediafiles based on query search in category and location."""
     mediafiles = (
-        MediaFile.objects.filter(Q(album__albumsharerole__user=request.user.ciduser) | Q(parent__owner=request.user.ciduser))
+        MediaFile.objects.filter(
+            Q(album__albumsharerole__user=request.user.ciduser)
+            | Q(parent__owner=request.user.ciduser)
+            | Q(parent__owner__workgroup=request.user.ciduser.workgroup)
+            )
         .distinct()
         .order_by("-parent__uploaded_at")
     )
@@ -413,6 +429,7 @@ def media_files_update(request, records_per_page=80, album_hash=None):
 
     logger.debug(f"{query=}")
     full_mediafiles = _mediafiles_query(request, query, album_hash=album_hash)
+    number_of_mediafiles = len(full_mediafiles)
 
     paginator = Paginator(full_mediafiles, per_page=records_per_page)
 
@@ -498,6 +515,7 @@ def media_files_update(request, records_per_page=80, album_hash=None):
             "form_bulk_processing": form_bulk_processing,
             "form_query": queryform,
             "albums_available": albums_available,
+            "number_of_mediafiles": number_of_mediafiles,
         },
     )
 

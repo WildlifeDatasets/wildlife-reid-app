@@ -19,6 +19,12 @@ from .model_tools import (
 logger = logging.getLogger("database")
 
 
+class WorkGroup(models.Model):
+    name = models.CharField(max_length=50)
+    def __str__(self):
+        return str(self.name)
+
+
 class CIDUser(models.Model):
     User = get_user_model()
     id = models.AutoField(primary_key=True)
@@ -27,16 +33,18 @@ class CIDUser(models.Model):
     # location = models.CharField(max_length=30, blank=True)
     # birth_date = models.DateField(null=True, blank=True)
     hash = models.CharField(max_length=50, default=randomString12)
+    workgroup = models.ForeignKey(WorkGroup, on_delete=models.CASCADE, null=True, blank=True)
+    workgroup_admin = models.BooleanField(default=False)
 
     @receiver(post_save, sender=User)
     def create_user_profile(sender, instance, created, **kwargs):
-        """TODO add docstring."""
+        """Create object when django user is created."""
         if created:
             CIDUser.objects.create(user=instance)
 
     @receiver(post_save, sender=User)
     def save_user_profile(sender, instance, **kwargs):
-        """TODO add docstring."""
+        """Save object when django user is saved."""
         logger.debug(sender)
         logger.debug(instance)
         logger.debug(kwargs)
