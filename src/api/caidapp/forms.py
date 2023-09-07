@@ -1,13 +1,13 @@
 from django import forms
 
 from .models import MediaFile, UploadedArchive, Album
-from django.db.models import Q
 
 
 class AlbumForm(forms.ModelForm):
     class Meta:
         model = Album
         fields = ("name", "description")
+
 
 class UploadedArchiveForm(forms.ModelForm):
     class Meta:

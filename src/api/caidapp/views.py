@@ -26,7 +26,13 @@ from .forms import (
     UploadedArchiveForm,
     AlbumForm,
 )
-from .models import Location, MediaFile, UploadedArchive, Album, MediafilesForIdentification, IndividualIdentity
+from .models import (
+    Location,
+    MediaFile,
+    UploadedArchive,
+    Album,
+    MediafilesForIdentification,
+)
 from .tasks import predict_on_error, predict_on_success
 
 logger = logging.getLogger("app")
@@ -145,10 +151,12 @@ def media_file_update(request, media_file_id):
     )
 
 
-def get_individual_identity(request ):
+def get_individual_identity(request):
+    """Show and update media file."""
     foridentification = MediafilesForIdentification.objects.order_by("?").first()
-    return render(request, "caidapp/individual_identity.html", {"foridentification": foridentification})
-
+    return render(
+        request, "caidapp/individual_identity.html", {"foridentification": foridentification}
+    )
 
 
 def _run_processing(uploaded_archive: UploadedArchive):
@@ -313,11 +321,20 @@ def delete_mediafile(request, mediafile_id):
         messages.error(request, "Only the owner can delete the file.")
     return redirect("caidapp:uploadedarchive_detail", uploadedarchive_id=parent_id)
 
+
 @login_required
 def albums(request):
     """Show all albums."""
-    albums = Album.objects.filter(Q(albumsharerole__user=request.user.ciduser) | Q(owner=request.user.ciduser)).distinct().all().order_by("created_at")
+    albums = (
+        Album.objects.filter(
+            Q(albumsharerole__user=request.user.ciduser) | Q(owner=request.user.ciduser)
+        )
+        .distinct()
+        .all()
+        .order_by("created_at")
+    )
     return render(request, "caidapp/albums.html", {"albums": albums})
+
 
 class MyLoginView(LoginView):
     redirect_authenticated_user = True
@@ -349,14 +366,15 @@ def _mediafiles_query(request, query: str, album_hash=None):
             Q(album__albumsharerole__user=request.user.ciduser)
             | Q(parent__owner=request.user.ciduser)
             | Q(parent__owner__workgroup=request.user.ciduser.workgroup)
-            )
+        )
         .distinct()
         .order_by("-parent__uploaded_at")
     )
     if album_hash is not None:
         album = get_object_or_404(Album, hash=album_hash)
-        mediafiles = mediafiles.filter(album=album).all().distinct().order_by("-parent__uploaded_at")
-
+        mediafiles = (
+            mediafiles.filter(album=album).all().distinct().order_by("-parent__uploaded_at")
+        )
 
     if len(query) == 0:
         return mediafiles
@@ -423,7 +441,13 @@ def media_files_update(request, records_per_page=80, album_hash=None):
         queryform = MediaFileSetQueryForm()
         page_number = 1
         query = ""
-    albums_available=Album.objects.filter(Q(albumsharerole__user=request.user.ciduser) | Q(owner=request.user.ciduser)).distinct().order_by("created_at")
+    albums_available = (
+        Album.objects.filter(
+            Q(albumsharerole__user=request.user.ciduser) | Q(owner=request.user.ciduser)
+        )
+        .distinct()
+        .order_by("created_at")
+    )
     logger.debug(f"{albums_available=}")
 
     logger.debug(f"{query=}")
@@ -436,8 +460,7 @@ def media_files_update(request, records_per_page=80, album_hash=None):
 
     MediaFileFormSet = modelformset_factory(MediaFile, form=MediaFileSelectionForm, extra=0)
     if (request.method == "POST") and (
-            ("btnBulkProcessing" in request.POST) or
-            ("btnBulkProcessingAlbum" in request.POST)
+        ("btnBulkProcessing" in request.POST) or ("btnBulkProcessingAlbum" in request.POST)
     ):
         logger.debug("btnBulkProcessing")
         form_bulk_processing = MediaFileBulkForm(request.POST)
@@ -464,7 +487,7 @@ def media_files_update(request, records_per_page=80, album_hash=None):
                             logger.debug("Select Album :" + form.data["selectAlbum"])
                             if selected_album_hash == "new":
                                 logger.debug("Creating new album")
-                                instance:MediaFile = mediafileform.save(commit=False)
+                                instance: MediaFile = mediafileform.save(commit=False)
                                 album = create_new_album(request)
                                 album.cover = instance
                                 album.save()
@@ -517,6 +540,7 @@ def media_files_update(request, records_per_page=80, album_hash=None):
             "number_of_mediafiles": number_of_mediafiles,
         },
     )
+
 
 def create_new_album(request, name="New Album"):
     """Create new album."""
