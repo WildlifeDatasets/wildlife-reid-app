@@ -1,6 +1,6 @@
 from django import forms
 
-from .models import MediaFile, UploadedArchive, Album
+from .models import Album, MediaFile, UploadedArchive
 
 
 class AlbumForm(forms.ModelForm):
