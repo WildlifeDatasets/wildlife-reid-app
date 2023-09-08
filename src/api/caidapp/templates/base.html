@@ -529,6 +529,14 @@
                     <span>Individual Identity</span>
                 </a>
             </li>
+            {% if user.ciduser.workgroup_admin %}
+            <li class="nav-item">
+                <a class="nav-link collapsed" href="{% url 'caidapp:workgroup_update' user.ciduser.workgroup.hash %}">
+                    <i class="bi bi-gear"></i>
+                    <span>Workgroup Admin</span>
+                </a>
+            </li>
+            {% endif %}
             <!-- End Contact Page Nav -->
 
             <!-- End Contact Page Nav -->

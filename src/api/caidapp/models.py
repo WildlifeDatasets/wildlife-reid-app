@@ -21,6 +21,7 @@ logger = logging.getLogger("database")
 
 class WorkGroup(models.Model):
     name = models.CharField(max_length=50)
+    hash = models.CharField(max_length=50, default=randomString12)
 
     def __str__(self):
         return str(self.name)
@@ -57,6 +58,8 @@ class CIDUser(models.Model):
         # UserProfile.objects.get_or_create(user=request.user)
         instance.ciduser.save()
 
+    def __str__(self):
+        return str(self.user)
 
 def _hash():
     dt = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")

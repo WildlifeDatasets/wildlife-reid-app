@@ -25,8 +25,9 @@ from .forms import (
     MediaFileSelectionForm,
     MediaFileSetQueryForm,
     UploadedArchiveForm,
+    WorkgroupUsersForm,
 )
-from .models import Album, Location, MediaFile, MediafilesForIdentification, UploadedArchive
+from .models import Album, Location, MediaFile, MediafilesForIdentification, UploadedArchive, WorkGroup
 from .tasks import predict_on_error, predict_on_success
 
 logger = logging.getLogger("app")
@@ -544,3 +545,42 @@ def create_new_album(request, name="New Album"):
     album.owner = request.user.ciduser
     album.save()
     return album
+
+def workgroup_update(request, workgroup_hash:str):
+    """Update workgroup."""
+    workgroup = get_object_or_404(WorkGroup, hash=workgroup_hash)
+    if request.method == "POST":
+        form = WorkgroupUsersForm(request.POST)
+        logger.debug(request.POST)
+        logger.debug(form)
+        if form.is_valid():
+            logger.debug(form.cleaned_data)
+            workgroup_users_all = workgroup.ciduser_set.all()
+            logger.debug(f"Former all users {workgroup_users_all}")
+            workgroup.ciduser_set.set(form.cleaned_data['workgroup_users'])
+
+            pass
+            # logger
+            # form.save()
+            # return redirect("workgroup_list")
+    else:
+
+        workgroup_users = workgroup.ciduser_set.all()
+        data = {
+            # 'id': dog_request_id,
+            # 'color': dog_color,
+            'workgroup_users': workgroup_users,
+        }
+        form = WorkgroupUsersForm(data)
+        # form = WorkgroupUsersForm(instance=workgroup.)
+    return render(
+        request,
+        "caidapp/update_form.html",
+        {
+            "form": form,
+            "headline": "Update workgroup",
+            "button": "Save",
+            # "user_is_staff": request.user.is_staff,
+        },
+    )
+    return render(request, "caidapp/update_form.html", {"form": workgroup_hash})
