@@ -5,9 +5,9 @@ from . import views
 
 app_name = "caidapp"
 urlpatterns = [
-    # path('', views.index, name='index'),
+    path('', views.login, name='index'),
     path("upload/", views.model_form_upload, name="model_form_upload"),
-    path("login/", TemplateView.as_view(template_name="caidapp/login.html"), name="login"),
+    # path("login/", TemplateView.as_view(template_name="caidapp/login.html"), name="login"),
     path("logout/", views.logout_view, name="logout_view"),
     path("uploads/", views.uploads, name="uploads"),
     path(
