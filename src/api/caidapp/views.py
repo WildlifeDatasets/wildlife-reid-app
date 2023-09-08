@@ -33,6 +33,11 @@ from .tasks import predict_on_error, predict_on_success
 logger = logging.getLogger("app")
 
 
+def login(request):
+    if request.user.is_authenticated:
+        return redirect("caidapp:uploads")
+    else:
+        return render(request, "caidapp/login.html",)
 def media_files(request):
     """List of uploads."""
     mediafiles = (
