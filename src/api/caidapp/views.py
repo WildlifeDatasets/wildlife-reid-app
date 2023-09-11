@@ -412,6 +412,19 @@ class MyLoginView(LoginView):
 
 def _mediafiles_query(request, query: str, album_hash=None):
     """Prepare list of mediafiles based on query search in category and location."""
+<<<<<<< HEAD
+=======
+    # from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector
+    # vector = SearchVector("category", "location")
+    # query = SearchQuery("Vulpes")
+    # mediafiles = MediaFile.objects.annotate(rank=SearchRank(vector, query)).order_by("-rank")
+    # mediafiles = (
+    #     MediaFile.objects.filter(parent__owner=request.user.ciduser)
+    #     .all()
+    #     .order_by("-parent__uploaded_at")
+    # )
+
+>>>>>>> 47a370e9a7a457298ead8b763722c363b9e74ef8
     mediafiles = (
         MediaFile.objects.filter(
             Q(album__albumsharerole__user=request.user.ciduser)
