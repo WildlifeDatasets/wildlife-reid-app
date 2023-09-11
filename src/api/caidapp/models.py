@@ -61,6 +61,7 @@ class CIDUser(models.Model):
     def __str__(self):
         return str(self.user)
 
+
 def _hash():
     dt = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
     hash = generate_sha1(dt, salt=randomString())

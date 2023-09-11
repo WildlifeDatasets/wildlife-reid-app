@@ -1,11 +1,10 @@
 from django.urls import path
-from django.views.generic import TemplateView
 
 from . import views
 
 app_name = "caidapp"
 urlpatterns = [
-    path('', views.login, name='index'),
+    path("", views.login, name="index"),
     path("upload/", views.model_form_upload, name="model_form_upload"),
     # path("login/", TemplateView.as_view(template_name="caidapp/login.html"), name="login"),
     path("logout/", views.logout_view, name="logout_view"),
@@ -31,5 +30,5 @@ urlpatterns = [
     path("delete_album/<str:album_hash>/", views.delete_album, name="delete_album"),
     path("new_album/", views.new_album, name="new_album"),
     path("get_individual_identity/", views.get_individual_identity, name="get_individual_identity"),
-    path("workgroup_update/<str:workgroup_hash>/", views.workgroup_update, name="workgroup_update")
+    path("workgroup_update/<str:workgroup_hash>/", views.workgroup_update, name="workgroup_update"),
 ]
