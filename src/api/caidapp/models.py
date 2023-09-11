@@ -113,6 +113,8 @@ class IndividualIdentity(models.Model):
     name = models.CharField(max_length=50)
     id_worker = models.IntegerField(null=True, blank=True)
     owner_workgroup = models.ForeignKey(WorkGroup, on_delete=models.CASCADE, null=True, blank=True)
+    def __str__(self):
+        return str(self.name)
 
 
 class MediaFile(models.Model):

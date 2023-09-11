@@ -12,8 +12,7 @@
                     <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li>
                 </ol>
             </nav>
-{#            <input id="search_here" class="form-control mb-3" placeholder="type here to search.."/>#}
-
+            {#            <input id="search_here" class="form-control mb-3" placeholder="type here to search.."/>#}
 
 
         </div>
@@ -23,114 +22,119 @@
 
             <form method="POST">
                 {% csrf_token %}
-            <div class="row">
-                <div class="col">
-                    {% render_field form_query.query class="form-control mb-3" placeholder="type here to search..." %}
-                </div>
-                <div class="col-auto">
-                    <button name="querySubmit" class="btn btn-primary" id="querySubmit" type="submit">
-                        Search
-                    </button>
-                </div>
-
-            </div>
-            <p>
-                Found {{ page_obj.paginator.count }} mediafiles.
-            </p>
-                {{ form_query.pagenumber }}
-
-            {% if form_objects %}
-                {{ form_objects.management_form }}
-                <p>
-                    <a class="btn btn-secondary" data-bs-toggle="collapse" href="#collapseBulkProcessing" role="button"
-                       aria-expanded="false" aria-controls="collapseBulkProcessing">
-                        Bulk processing
-                    </a>
-                </p>
-                <div class="collapse" name="collapseBulkProcessing" id="collapseBulkProcessing">
-                    <div class="card">
-                        <div class="card-body mt-3">
-                            {{ form_bulk_processing }}
-                            <button class="btn btn-primary" name="btnBulkProcessing" id="btnBulkProcessing" type="submit">
-                                Update Selected
-                            </button>
-                            <label for="cars">Album:</label>
-
-                            <select name="selectAlbum" id="selectAlbum">
-                                    <option value selected>-----</option>
-                                    <option value="new" selected>create "New Album"<option>
-                                {% for album in albums_available %}
-                                    <option value={{ album.hash }}>{{ album.name }}</option>
-                                {% endfor %}
-                            </select>
-                            <button class="btn btn-primary" name="btnBulkProcessingAlbum" id="btnBulkProcessingAlbum" type="submit">
-                                Add to Album
-                            </button>
-
-                        </div>
+                <div class="row">
+                    <div class="col">
+                        {% render_field form_query.query class="form-control mb-3" placeholder="type here to search..." %}
+                    </div>
+                    <div class="col-auto">
+                        <button name="querySubmit" class="btn btn-primary" id="querySubmit" type="submit">
+                            Search
+                        </button>
                     </div>
 
                 </div>
+{#                Do not remove the fallowing line with pagenumber. It is invisible. but importatn for the form. #}
+                {{ form_query.pagenumber }}
+                <p>
+                    Found {{ page_obj.paginator.count }} mediafiles.
+                </p>
 
-                {% include "caidapp/pagination.html" %}
-                <div class="row" id="row-of-cards">
+                {% if form_objects %}
+                    {{ form_objects.management_form }}
+                    <p>
+                        <a class="btn btn-secondary" data-bs-toggle="collapse" href="#collapseBulkProcessing"
+                           role="button"
+                           aria-expanded="false" aria-controls="collapseBulkProcessing">
+                            Bulk processing
+                        </a>
+                    </p>
+                    <div class="collapse" name="collapseBulkProcessing" id="collapseBulkProcessing">
+                        <div class="card">
+                            <div class="card-body mt-3">
+                                {{ form_bulk_processing }}
+                                <button class="btn btn-primary" name="btnBulkProcessing" id="btnBulkProcessing"
+                                        type="submit">
+                                    Update Selected
+                                </button>
+                                <label for="cars">Album:</label>
 
-                    {% for mediafile in form_objects %}
-                        <div class="col-lg-3" id="card{{ mediafile.instance.id }}">
-                            <div class="card">
-                                {% for hidden in mediafile.hidden_fields %}
-                                    {{ hidden }}
-                                {% endfor %}
-                                {% if mediafile.instance.thumbnail%}
-                                    <a href="{% url 'caidapp:media_file_update' mediafile.instance.id %}">
-                                        <img class="card-img-top" src="{{ mediafile.instance.thumbnail.url }}"
-                                             alt="Cameratrap image">
-                                    </a>
-                                {% endif %}
-                                <div class="card-body mt-2">
-                                    {{ mediafile.as_p }}
-                                    {#                                                                    <h5 class="card-title">{{ mediafile.instance }}</h5>#}
-                                    <p class="card-text"> Category: {{ mediafile.instance.category }}</p>
-                                    <p class="card-text"> Location: {{ mediafile.instance.location }}</p>
-                                    <p class="card-text"> Captured
-                                        at: {{ mediafile.instance.captured_at|date:'Y-m-d H:i' }}</p>
+                                <select name="selectAlbum" id="selectAlbum">
+                                    <option value selected>-----</option>
+                                    <option value="new" selected>create "New Album"
+                                    <option>
+                                        {% for album in albums_available %}
+                                            <option value={{ album.hash }}>{{ album.name }}</option>
+                                        {% endfor %}
+                                </select>
+                                <button class="btn btn-primary" name="btnBulkProcessingAlbum"
+                                        id="btnBulkProcessingAlbum" type="submit">
+                                    Add to Album
+                                </button>
 
-
-                                    <a class="btn btn-primary"
-                                       href="{% url 'caidapp:media_file_update' mediafile.instance.id %}">
-                                        <i class="bi bi-trash"></i> Detail
-                                    </a>
-
-                                    <div class="dropdown d-inline-block">
-                                        <a class="btn btn-secondary dropdown-toggle" href="#" role="button"
-                                           data-bs-toggle="dropdown" aria-expanded="false">
-                                            <i class="bi bi-three-dots"></i>
-                                        </a>
-
-                                        <ul class="dropdown-menu">
-                                            <li>
-                                                <hr class="dropdown-divider">
-                                            </li>
-                                            <li>
-                                                <a class="dropdown-item text-danger"
-                                                   href="{% url 'caidapp:delete_mediafile' mediafile.instance.id %}"
-                                                   onclick="return confirm('Delete file {{ mediafile.instance }}?')">
-                                                    <i class="bi bi-trash"></i> Delete
-                                                </a>
-                                            </li>
-                                        </ul>
-                                    </div>
-                                </div>
                             </div>
                         </div>
 
-                    {% endfor %}
-                {% include "caidapp/pagination.html" %}
+                    </div>
 
-                </div>
-            {% else %}
-                <p>No data available.</p>
-            {% endif %}
+                    {% include "caidapp/pagination_submit.html" %}
+                    <div class="row" id="row-of-cards">
+
+                        {% for mediafile in form_objects %}
+                            <div class="col-lg-3" id="card{{ mediafile.instance.id }}">
+                                <div class="card">
+                                    {% for hidden in mediafile.hidden_fields %}
+                                        {{ hidden }}
+                                    {% endfor %}
+                                    {% if mediafile.instance.thumbnail %}
+                                        <a href="{% url 'caidapp:media_file_update' mediafile.instance.id %}">
+                                            <img class="card-img-top" src="{{ mediafile.instance.thumbnail.url }}"
+                                                 alt="Cameratrap image">
+                                        </a>
+                                    {% endif %}
+                                    <div class="card-body mt-2">
+                                        {{ mediafile.as_p }}
+                                        {#                                                                    <h5 class="card-title">{{ mediafile.instance }}</h5>#}
+                                        <p class="card-text"> Category: {{ mediafile.instance.category }}</p>
+                                        <p class="card-text"> Location: {{ mediafile.instance.location }}</p>
+                                        <p class="card-text"> Captured
+                                            at: {{ mediafile.instance.captured_at|date:'Y-m-d H:i' }}</p>
+
+
+                                        <a class="btn btn-primary"
+                                           href="{% url 'caidapp:media_file_update' mediafile.instance.id %}">
+                                            <i class="bi bi-trash"></i> Detail
+                                        </a>
+
+                                        <div class="dropdown d-inline-block">
+                                            <a class="btn btn-secondary dropdown-toggle" href="#" role="button"
+                                               data-bs-toggle="dropdown" aria-expanded="false">
+                                                <i class="bi bi-three-dots"></i>
+                                            </a>
+
+                                            <ul class="dropdown-menu">
+                                                <li>
+                                                    <hr class="dropdown-divider">
+                                                </li>
+                                                <li>
+                                                    <a class="dropdown-item text-danger"
+                                                       href="{% url 'caidapp:delete_mediafile' mediafile.instance.id %}"
+                                                       onclick="return confirm('Delete file {{ mediafile.instance }}?')">
+                                                        <i class="bi bi-trash"></i> Delete
+                                                    </a>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                        {% endfor %}
+                        {% include "caidapp/pagination_submit.html" %}
+
+                    </div>
+                {% else %}
+                    <p>No data available.</p>
+                {% endif %}
             </form>
         </section>
     {% endif %}
