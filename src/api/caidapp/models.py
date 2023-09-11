@@ -110,7 +110,8 @@ class Location(models.Model):
 
 class IndividualIdentity(models.Model):
     name = models.CharField(max_length=50)
-    # mediafiles = models.ForeignKey(MediaFile, on_delete=models.CASCADE, null=True, blank=True)
+    id_worker = models.IntegerField(null=True, blank=True)
+    owner_workgroup = models.ForeignKey(WorkGroup, on_delete=models.CASCADE, null=True, blank=True)
 
 
 class MediaFile(models.Model):
@@ -129,6 +130,7 @@ class MediaFile(models.Model):
     indentity = models.ForeignKey(
         IndividualIdentity, blank=True, null=True, on_delete=models.CASCADE
     )
+    identity_is_representative = models.BooleanField(default=False)
 
     def __str__(self):
         return str(Path(self.mediafile.name).name)

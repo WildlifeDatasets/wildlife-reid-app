@@ -26,8 +26,10 @@ from .forms import (
     MediaFileSetQueryForm,
     UploadedArchiveForm,
     WorkgroupUsersForm,
+    IndividualIdentityForm,
 )
-from .models import Album, Location, MediaFile, MediafilesForIdentification, UploadedArchive, WorkGroup
+from .models import Album, Location, MediaFile, MediafilesForIdentification, UploadedArchive, WorkGroup, \
+    IndividualIdentity
 from .tasks import predict_on_error, predict_on_success
 
 logger = logging.getLogger("app")
@@ -150,6 +152,43 @@ def media_file_update(request, media_file_id):
         {"form": form, "headline": "Media File", "button": "Save", "mediafile": mediafile},
     )
 
+
+def individual_identities(request):
+    """List of individual identities."""
+    individual_identities = (
+        IndividualIdentity.objects.filter(
+            owner_workgroup=request.user.ciduser.workgroup,
+        )
+        .all()
+        .order_by("-uploaded_at")
+    )
+
+    records_per_page = 24
+    paginator = Paginator(individual_identities, per_page=records_per_page)
+
+    page_number = request.GET.get("page")
+    page_obj = paginator.get_page(page_number)
+    return render(request, "caidapp/individual_identities.html", {
+        "page_obj": page_obj
+    })
+
+def update_individual_identity(request, individual_identity_id):
+    """Show and update media file."""
+    individual_identity = get_object_or_404(IndividualIdentity, pk=individual_identity_id, owner_workgroup=request.user.ciduser.workgroup)
+    if request.method == "POST":
+        form = IndividualIdentityForm(request.POST, instance=individual_identity)
+        if form.is_valid():
+
+            # get uploaded archive
+            individual_identity = form.save()
+            return redirect("caidapp:individual_identities")
+    else:
+        form = IndividualIdentityForm(instance=individual_identity)
+    return render(
+        request,
+        "caidapp/individual_identity_update.html",
+        {"form": form, "headline": "Individual Identity", "button": "Save", "individual_identity": individual_identity},
+    )
 
 def get_individual_identity(request):
     """Show and update media file."""
@@ -405,28 +444,32 @@ def _page_number(request, queryform):
             queryform.cleaned_data["pagenumber"] += 1
             page_number = queryform.cleaned_data["pagenumber"]
             if queryform.is_valid():
-                queryform = MediaFileSetQueryForm(initial=queryform.cleaned_data)
+                pass
+                # queryform = MediaFileSetQueryForm(initial=queryform.cleaned_data)
     if "lastPage" in request.POST:
         logger.debug("nextPage")
         if queryform.is_valid():
             queryform.cleaned_data["pagenumber"] = -1
             page_number = queryform.cleaned_data["pagenumber"]
             if queryform.is_valid():
-                queryform = MediaFileSetQueryForm(initial=queryform.cleaned_data)
+                pass
+                # queryform = MediaFileSetQueryForm(initial=queryform.cleaned_data)
     if "prevPage" in request.POST:
         logger.debug("prevPage")
         if queryform.is_valid():
             queryform.cleaned_data["pagenumber"] -= 1
             page_number = queryform.cleaned_data["pagenumber"]
             if queryform.is_valid():
-                queryform = MediaFileSetQueryForm(initial=queryform.cleaned_data)
+                pass
+                # queryform = MediaFileSetQueryForm(initial=queryform.cleaned_data)
     if "firstPage" in request.POST:
         if queryform.is_valid():
             queryform.cleaned_data["pagenumber"] = 1
             page_number = queryform.cleaned_data["pagenumber"]
             if queryform.is_valid():
-                queryform = MediaFileSetQueryForm(initial=queryform.cleaned_data)
-    return queryform, page_number
+                pass
+                # queryform = MediaFileSetQueryForm(initial=queryform.cleaned_data)
+    return queryform.cleaned_data, page_number
 
 
 def media_files_update(request, records_per_page=80, album_hash=None):
@@ -436,7 +479,8 @@ def media_files_update(request, records_per_page=80, album_hash=None):
         queryform = MediaFileSetQueryForm(request.POST)
         logger.debug(queryform)
         query = queryform.cleaned_data["query"]
-        queryform, page_number = _page_number(request, queryform)
+        queryform_cleaned_data, page_number = _page_number(request, queryform)
+        queryform = MediaFileSetQueryForm(initial=queryform_cleaned_data)
     else:
         queryform = MediaFileSetQueryForm()
         page_number = 1

@@ -32,8 +32,12 @@
                         Search
                     </button>
                 </div>
+
             </div>
-                {{ form_query.pagenumber }}
+            <p>
+                Found {{ page_obj.paginator.count }} mediafiles.
+            </p>
+{#                {{ form_query.pagenumber }}#}
 
             {% if form_objects %}
                 {{ form_objects.management_form }}
@@ -68,6 +72,7 @@
 
                 </div>
 
+                {% include "caidapp/pagination.html" %}
                 <div class="row" id="row-of-cards">
 
                     {% for mediafile in form_objects %}
@@ -120,57 +125,7 @@
                         </div>
 
                     {% endfor %}
-{#                                        Pagination#}
-                                        <ul class="pagination">
-                                            {% if page_obj.has_previous %}
-                                                <li class="page-item">
-                                                    <button type="submit" name="firstPage" class="page-link" href="?page=1">First </button>
-                                                </li>
-                                                <li class="page-item">
-                                                    <button type="submit" name="prevPage"  class="page-link" href="?page={{ page_obj.previous_page_number }}">
-                                                        <i class="bi-chevron-left"></i>
-                                                    </button>
-                                                </li>
-                                            {% else %}
-                                                <li class="page-item disabled">
-                                                    <a class="page-link" href="#">First</a>
-                                                </li>
-                                                <li class="page-item disabled">
-                                                    <a class="page-link" href="#">
-                                                        <i class="bi-chevron-left"></i>
-                                                    </a>
-                                                </li>
-                                            {% endif %}
-
-                                            <li class="page-item">
-                                                <a class="page-link" href="#">
-                                                    Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}.
-                                                </a>
-                                            </li>
-
-                                            {% if page_obj.has_next %}
-                                                <li class="page-item">
-                                                    <button type="submit" name="nextPage" class="page-link" href="?page={{ page_obj.next_page_number }}">
-                                                        <i class="bi-chevron-right"></i>
-                                                    </button>
-                                                </li>
-                                                <li class="page-item">
-                                                    <button type="submit" name="lastPage" class="page-link" href="?page={{ page_obj.paginator.num_pages }}">Last</button>
-                                                </li>
-
-                                            {% else %}
-                                                <li class="page-item disabled">
-                                                    <a class="page-link" href="#">
-                                                        <i class="bi-chevron-right"></i>
-                                                    </a>
-                                                </li>
-                                                <li class="page-item disabled">
-                                                    <a class="page-link" href="#">
-                                                        Last
-                                                    </a>
-                                                </li>
-                                            {% endif %}
-                                        </ul>
+                {% include "caidapp/pagination.html" %}
 
                 </div>
             {% else %}

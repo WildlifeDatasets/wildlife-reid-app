@@ -1,6 +1,6 @@
 from django import forms
 
-from .models import Album, MediaFile, UploadedArchive, CIDUser
+from .models import Album, MediaFile, UploadedArchive, CIDUser, IndividualIdentity
 
 class WorkgroupUsersForm(forms.Form):
     workgroup_users = forms.ModelMultipleChoiceField(queryset=CIDUser.objects.all(), required=False)
@@ -10,6 +10,12 @@ class AlbumForm(forms.ModelForm):
     class Meta:
         model = Album
         fields = ("name", "description")
+
+
+class IndividualIdentityForm(forms.ModelForm):
+    class Meta:
+        model = IndividualIdentity
+        fields = ("name",)
 
 
 class UploadedArchiveForm(forms.ModelForm):
