@@ -374,7 +374,7 @@ def delete_upload(request, uploadedarchive_id):
 @login_required
 def delete_mediafile(request, mediafile_id):
     """Delete uploaded file."""
-    obj = get_object_or_404(MediaFile, pk=mediafile_id)
+    obj = get_object_or_404(MediaFile, pk=mediafile_id, parent__owner__workgroup=request.user.ciduser.workgroup)
     parent_id = obj.parent_id
     if obj.parent.owner.id == request.user.id:
         obj.delete()
@@ -457,8 +457,9 @@ def _mediafiles_query(request, query: str, album_hash=None):
         return mediafiles
 
 
-def _page_number(request, queryform):
+def _page_number(request, queryform:MediaFileSetQueryForm):
     """Prepare page number into queryform."""
+    # logger.debug("getting page number")
     page_number = queryform.cleaned_data["pagenumber"]
     logger.debug(f"{page_number=}")
     if "nextPage" in request.POST:
@@ -467,32 +468,34 @@ def _page_number(request, queryform):
             queryform.cleaned_data["pagenumber"] += 1
             page_number = queryform.cleaned_data["pagenumber"]
             if queryform.is_valid():
-                pass
-                # queryform = MediaFileSetQueryForm(initial=queryform.cleaned_data)
+                # return queryform.cleaned_data, page_number
+                queryform = MediaFileSetQueryForm(initial=queryform.cleaned_data)
     if "lastPage" in request.POST:
         logger.debug("nextPage")
         if queryform.is_valid():
             queryform.cleaned_data["pagenumber"] = -1
             page_number = queryform.cleaned_data["pagenumber"]
             if queryform.is_valid():
-                pass
-                # queryform = MediaFileSetQueryForm(initial=queryform.cleaned_data)
+                # return queryform.cleaned_data, page_number
+                queryform = MediaFileSetQueryForm(initial=queryform.cleaned_data)
     if "prevPage" in request.POST:
         logger.debug("prevPage")
         if queryform.is_valid():
             queryform.cleaned_data["pagenumber"] -= 1
             page_number = queryform.cleaned_data["pagenumber"]
             if queryform.is_valid():
-                pass
+                return queryform.cleaned_data, page_number
                 # queryform = MediaFileSetQueryForm(initial=queryform.cleaned_data)
+                queryform = MediaFileSetQueryForm(initial=queryform.cleaned_data)
     if "firstPage" in request.POST:
         if queryform.is_valid():
             queryform.cleaned_data["pagenumber"] = 1
             page_number = queryform.cleaned_data["pagenumber"]
             if queryform.is_valid():
-                pass
+                return queryform.cleaned_data, page_number
                 # queryform = MediaFileSetQueryForm(initial=queryform.cleaned_data)
-    return queryform.cleaned_data, page_number
+                queryform = MediaFileSetQueryForm(initial=queryform.cleaned_data)
+    return queryform, page_number
 
 
 def media_files_update(request, records_per_page=80, album_hash=None):
@@ -500,10 +503,14 @@ def media_files_update(request, records_per_page=80, album_hash=None):
     # create list of mediafiles
     if request.method == "POST":
         queryform = MediaFileSetQueryForm(request.POST)
-        logger.debug(queryform)
+        # logger.debug(f"queryform={queryform}")
+        # logger.debug(f"queryform.cleaned_data={queryform.cleaned_data}")
+        # logger.debug(f"queryform.hidden_fields={queryform.hidden_fields}")
         query = queryform.cleaned_data["query"]
         queryform_cleaned_data, page_number = _page_number(request, queryform)
-        queryform = MediaFileSetQueryForm(initial=queryform_cleaned_data)
+        # page_number = request.GET.get("page")
+        # queryform = MediaFileSetQueryForm(initial=queryform_cleaned_data)
+        queryform = queryform_cleaned_data
     else:
         queryform = MediaFileSetQueryForm()
         page_number = 1
