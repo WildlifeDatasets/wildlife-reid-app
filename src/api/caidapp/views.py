@@ -20,26 +20,39 @@ from django.urls import reverse_lazy
 
 from .forms import (
     AlbumForm,
+    IndividualIdentityForm,
     MediaFileBulkForm,
     MediaFileForm,
     MediaFileSelectionForm,
     MediaFileSetQueryForm,
     UploadedArchiveForm,
     WorkgroupUsersForm,
-    IndividualIdentityForm,
 )
-from .models import Album, Location, MediaFile, MediafilesForIdentification, UploadedArchive, WorkGroup, \
-    IndividualIdentity
+from .models import (
+    Album,
+    IndividualIdentity,
+    Location,
+    MediaFile,
+    MediafilesForIdentification,
+    UploadedArchive,
+    WorkGroup,
+)
 from .tasks import predict_on_error, predict_on_success
 
 logger = logging.getLogger("app")
 
 
 def login(request):
+    """Login page."""
     if request.user.is_authenticated:
         return redirect("caidapp:uploads")
     else:
-        return render(request, "caidapp/login.html",)
+        return render(
+            request,
+            "caidapp/login.html",
+        )
+
+
 def media_files(request):
     """List of uploads."""
     mediafiles = (
@@ -168,13 +181,16 @@ def individual_identities(request):
 
     page_number = request.GET.get("page")
     page_obj = paginator.get_page(page_number)
-    return render(request, "caidapp/individual_identities.html", {
-        "page_obj": page_obj
-    })
+    return render(request, "caidapp/individual_identities.html", {"page_obj": page_obj})
+
 
 def update_individual_identity(request, individual_identity_id):
     """Show and update media file."""
-    individual_identity = get_object_or_404(IndividualIdentity, pk=individual_identity_id, owner_workgroup=request.user.ciduser.workgroup)
+    individual_identity = get_object_or_404(
+        IndividualIdentity,
+        pk=individual_identity_id,
+        owner_workgroup=request.user.ciduser.workgroup,
+    )
     if request.method == "POST":
         form = IndividualIdentityForm(request.POST, instance=individual_identity)
         if form.is_valid():
@@ -187,8 +203,14 @@ def update_individual_identity(request, individual_identity_id):
     return render(
         request,
         "caidapp/individual_identity_update.html",
-        {"form": form, "headline": "Individual Identity", "button": "Save", "individual_identity": individual_identity},
+        {
+            "form": form,
+            "headline": "Individual Identity",
+            "button": "Save",
+            "individual_identity": individual_identity,
+        },
     )
+
 
 def get_individual_identity(request):
     """Show and update media file."""
@@ -594,7 +616,8 @@ def create_new_album(request, name="New Album"):
     album.save()
     return album
 
-def workgroup_update(request, workgroup_hash:str):
+
+def workgroup_update(request, workgroup_hash: str):
     """Update workgroup."""
     workgroup = get_object_or_404(WorkGroup, hash=workgroup_hash)
     if request.method == "POST":
@@ -605,7 +628,7 @@ def workgroup_update(request, workgroup_hash:str):
             logger.debug(form.cleaned_data)
             workgroup_users_all = workgroup.ciduser_set.all()
             logger.debug(f"Former all users {workgroup_users_all}")
-            workgroup.ciduser_set.set(form.cleaned_data['workgroup_users'])
+            workgroup.ciduser_set.set(form.cleaned_data["workgroup_users"])
 
             pass
             # logger
@@ -617,7 +640,7 @@ def workgroup_update(request, workgroup_hash:str):
         data = {
             # 'id': dog_request_id,
             # 'color': dog_color,
-            'workgroup_users': workgroup_users,
+            "workgroup_users": workgroup_users,
         }
         form = WorkgroupUsersForm(data)
         # form = WorkgroupUsersForm(instance=workgroup.)

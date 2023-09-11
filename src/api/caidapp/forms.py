@@ -1,6 +1,7 @@
 from django import forms
 
-from .models import Album, MediaFile, UploadedArchive, CIDUser, IndividualIdentity
+from .models import Album, CIDUser, IndividualIdentity, MediaFile, UploadedArchive
+
 
 class WorkgroupUsersForm(forms.Form):
     workgroup_users = forms.ModelMultipleChoiceField(queryset=CIDUser.objects.all(), required=False)
