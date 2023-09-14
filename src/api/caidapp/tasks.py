@@ -114,6 +114,13 @@ def get_image_files_from_uploaded_archive(
         else:
             mf = mediafile_set[0]
             logger.debug("Using Mediafile generated before")
+            # generate thumbnail if necessary
+            if mf.thumbnail is None:
+                if make_thumbnail_from_file(abs_pth, abs_pth_thumbnail, width=thumbnail_width):
+                    mf.thumbnail = str(rel_pth_thumbnail)
+                    mf.save()
+                else:
+                    logger.warning(f"Cannot generate thumbnail for {abs_pth}")
 
         mf.category = taxon
         mf.save()
