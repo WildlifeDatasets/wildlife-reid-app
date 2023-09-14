@@ -1,0 +1,64 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block head %}
+{% endblock %}
+{% block body %}
+    {% if user.is_authenticated %}
+
+        <div class="pagetitle">
+            <h1>Identities</h1>
+{#            <nav>#}
+{#                <ol class="breadcrumb">#}
+{#                    <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li>#}
+{#                </ol>#}
+{#            </nav>#}
+        </div><!-- End Page Title -->
+        <section class="section">
+        <div class="row" id="row-of-cards">
+
+        {% if page_obj %}
+            {% for individual_identity in page_obj %}
+                <div class="col-xl-3">
+                {#                        <div class="col" style="-ms-flex: 0 0 200; flex: 0 0 200;">#}
+                <div class="card"
+                        {% if individual_identity.cover %}
+                     style="
+
+                             background-image: linear-gradient(to left, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 1.0)), url({{ individual_identity.cover.thumbnail.url }});
+                             background-repeat: no-repeat;
+                             background-position-x: right;
+                             background-position-y: center;
+                             background-size: cover;
+                             "
+
+                        {% endif %}
+                >
+                    <div class="card-body"
+                    >
+                        <h5 class="card-title">{{ individual_identity }}</h5>
+                        {#                        <p>Status: {{ album.mediafiles.0.thumbnail.url }} </p>#}
+                        <p>Created At: {{ individual_identity.created_at|date:'Y-m-d H:i' }} </p>
+                        <p>{{ individual_identity.description }} </p>
+
+                        {#                    <p><i class="fa-light fa-calendar-image"></i>Uploaded at: {{ uploadedarchive.uploaded_at|date:'Y-m-d H:i' }} </p>#}
+                        {#                    {% if uploadedarchive.finished_at %}#}
+                        {#                        <p>Finished at: {{ uploadedarchive.finished_at|date:'Y-m-d H:i' }} </p>#}
+                        {#                    {% endif %}#}
+                        {##}
+                        <a class="btn btn-primary"
+                           href="{% url 'caidapp:album' individual_identity.hash %}">
+                            <i class="bi bi-images"></i> Detail
+                        </a>
+                        <a class="btn btn-secondary"
+                           href="{% url 'caidapp:album_update' individual_identity.hash %}">
+                            <i class="bi bi-images"></i> Edit
+                        </a>
+                    </div>
+                </div>
+                </div>
+            {% endfor %}
+        {% endif %}
+    </div>
+
+    {% endif %}
+{% endblock %}

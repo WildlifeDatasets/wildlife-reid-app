@@ -19,6 +19,14 @@ from .model_tools import (
 logger = logging.getLogger("database")
 
 
+class WorkGroup(models.Model):
+    name = models.CharField(max_length=50)
+    hash = models.CharField(max_length=50, default=randomString12)
+
+    def __str__(self):
+        return str(self.name)
+
+
 class CIDUser(models.Model):
     User = get_user_model()
     id = models.AutoField(primary_key=True)
@@ -27,16 +35,18 @@ class CIDUser(models.Model):
     # location = models.CharField(max_length=30, blank=True)
     # birth_date = models.DateField(null=True, blank=True)
     hash = models.CharField(max_length=50, default=randomString12)
+    workgroup = models.ForeignKey(WorkGroup, on_delete=models.CASCADE, null=True, blank=True)
+    workgroup_admin = models.BooleanField(default=False)
 
     @receiver(post_save, sender=User)
     def create_user_profile(sender, instance, created, **kwargs):
-        """TODO add docstring."""
+        """Create object when django user is created."""
         if created:
             CIDUser.objects.create(user=instance)
 
     @receiver(post_save, sender=User)
     def save_user_profile(sender, instance, **kwargs):
-        """TODO add docstring."""
+        """Save object when django user is saved."""
         logger.debug(sender)
         logger.debug(instance)
         logger.debug(kwargs)
@@ -47,6 +57,9 @@ class CIDUser(models.Model):
             instance.ciduser = profile
         # UserProfile.objects.get_or_create(user=request.user)
         instance.ciduser.save()
+
+    def __str__(self):
+        return str(self.user)
 
 
 def _hash():
@@ -96,6 +109,15 @@ class Location(models.Model):
         return str(self.name)
 
 
+class IndividualIdentity(models.Model):
+    name = models.CharField(max_length=50)
+    id_worker = models.IntegerField(null=True, blank=True)
+    owner_workgroup = models.ForeignKey(WorkGroup, on_delete=models.CASCADE, null=True, blank=True)
+
+    def __str__(self):
+        return str(self.name)
+
+
 class MediaFile(models.Model):
     parent = models.ForeignKey(UploadedArchive, on_delete=models.CASCADE, null=True)
     category = models.ForeignKey(Taxon, blank=True, null=True, on_delete=models.CASCADE)
@@ -109,9 +131,71 @@ class MediaFile(models.Model):
         max_length=500,
     )
     thumbnail = models.ImageField(blank=True, null=True, max_length=500)
+    indentity = models.ForeignKey(
+        IndividualIdentity, blank=True, null=True, on_delete=models.CASCADE
+    )
+    identity_is_representative = models.BooleanField(default=False)
 
     def __str__(self):
         return str(Path(self.mediafile.name).name)
+
+
+class MediafilesForIdentification(models.Model):
+    mediafile = models.ForeignKey(MediaFile, on_delete=models.CASCADE, null=True, blank=True)
+
+    top1mediafile = models.ForeignKey(
+        MediaFile, related_name="top1", on_delete=models.CASCADE, null=True, blank=True
+    )
+    top2mediafile = models.ForeignKey(
+        MediaFile, related_name="top2", on_delete=models.CASCADE, null=True, blank=True
+    )
+    top3mediafile = models.ForeignKey(
+        MediaFile, related_name="top3", on_delete=models.CASCADE, null=True, blank=True
+    )
+    # top2mediafile = models.ForeignKey(MediaFile, on_delete=models.CASCADE, null=True, blank=True)
+    # top3mediafile = models.ForeignKey(MediaFile, on_delete=models.CASCADE, null=True, blank=True)
+    top1score = models.FloatField(null=True, blank=True)
+    top2score = models.FloatField(null=True, blank=True)
+    top3score = models.FloatField(null=True, blank=True)
+    top1name = models.CharField(max_length=255, blank=True, default="")
+    top2name = models.CharField(max_length=255, blank=True, default="")
+    top3name = models.CharField(max_length=255, blank=True, default="")
+
+
+class Album(models.Model):
+    name = models.CharField(max_length=50)
+    description = models.CharField(max_length=255, blank=True, default="")
+    owner = models.ForeignKey(CIDUser, on_delete=models.CASCADE, null=True, blank=True)
+    mediafiles = models.ManyToManyField(MediaFile, blank=True)
+    created_at = models.DateTimeField("Created at", default=datetime.now)
+    hash = models.CharField(max_length=255, blank=True, default=_hash)
+    public_hash = models.CharField(max_length=255, blank=True, default=_hash)
+    cover = models.ForeignKey(
+        MediaFile, on_delete=models.SET_NULL, null=True, blank=True, related_name="cover"
+    )
+
+    def __str__(self):
+        return str(self.name)
+
+    def get_absolute_url(self):
+        """Return absolute url."""
+        return "/album/%i/" % str(self.hash)
+
+
+class AlbumShareRoleType(models.Model):
+    name = models.CharField(max_length=50)
+
+    def __str__(self):
+        return str(self.name)
+
+
+class AlbumShareRole(models.Model):
+    album = models.ForeignKey(Album, on_delete=models.CASCADE, null=True, blank=True)
+    user = models.ForeignKey(CIDUser, on_delete=models.CASCADE, null=True, blank=True)
+    role = models.ForeignKey(AlbumShareRoleType, on_delete=models.CASCADE, null=True, blank=True)
+
+    def __str__(self):
+        return str(self.album.name) + " " + str(self.user.user.username)
 
 
 def get_taxon(name: str) -> Taxon:

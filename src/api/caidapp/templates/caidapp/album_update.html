@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+
+{% block body %}
+    {#<div class="container">#}
+    {% if user.is_authenticated %}
+        <div class="pagetitle">
+            <h1>{{ headline }}</h1>
+            <nav>
+                <ol class="breadcrumb">
+{#                    <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li>#}
+{#                    <li class="breadcrumb-item"><a href="{% url 'caidapp:uploadedarchive_detail' mediafile.parent.id %}"> Uploaded#}
+{#                        Archive: {{ mediafile.parent }}</a></li>#}
+                </ol>
+            </nav>
+        </div><!-- End Page Title -->
+        <div class="section">
+            <div class="card">
+                <div class="card-header">
+
+
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        {{ form }}
+                        {#                {{ form.as_p }}#}
+                        <button class="btn btn-primary" id="btnUpload" type="submit">
+                            {{ button }}
+                        </button>
+{#                        link with style of button with confirmation popup #}
+
+                        <a class="btn btn-danger" href="{% url 'caidapp:delete_album' mediafile.hash %}"
+                           onclick="return confirm('Delete album {{ mediafile }}?')"
+                        ><i class="bi-trash"></i> Delete</a>
+
+                    </form>
+                </div>
+                <img class="card-img-bottom w-25" src="{{ mediafile.cover.thumbnail.url }}" class="card-img-bottom" alt="Camera trap image">
+            </div>
+        </div>
+    {% endif %}
+    {#</div>#}
+{% endblock %}
