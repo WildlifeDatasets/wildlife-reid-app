@@ -14,7 +14,7 @@ from django.contrib.auth.views import LoginView
 from django.core.paginator import Paginator
 from django.db.models import Q
 from django.forms import modelformset_factory
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponseNotAllowed
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 
@@ -149,7 +149,14 @@ def logout_view(request):
 
 def media_file_update(request, media_file_id):
     """Show and update media file."""
+
+    # | Q(parent__owner=request.user.ciduser)
+    # | Q(parent__owner__workgroup=request.user.ciduser.workgroup)
     mediafile = get_object_or_404(MediaFile, pk=media_file_id)
+    if (mediafile.parent.owner.id != request.user.id) and (mediafile.parent.owner.workgroup != request.user.ciduser.workgroup):
+        return HttpResponseNotAllowed("Not allowed to see this media file.")
+
+
     if request.method == "POST":
         form = MediaFileForm(request.POST, instance=mediafile)
         if form.is_valid():
@@ -438,7 +445,12 @@ def _mediafiles_query(request, query: str, album_hash=None):
         query = SearchQuery(query)
         logger.debug(str(query))
         mediafiles = (
-            MediaFile.objects.filter(parent__owner=request.user.ciduser)
+            MediaFile.objects.filter(
+                Q(album__albumsharerole__user=request.user.ciduser)
+                | Q(parent__owner=request.user.ciduser)
+                | Q(parent__owner__workgroup=request.user.ciduser.workgroup)
+                # parent__owner=request.user.ciduser
+        )
             .annotate(rank=SearchRank(vector, query))
             .filter(rank__gt=0)
             .order_by("-rank")
