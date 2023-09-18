@@ -191,25 +191,49 @@ def individual_identities(request):
     return render(request, "caidapp/individual_identities.html", {"page_obj": page_obj})
 
 
+def new_individual_identity(request):
+    """Create new individual_identity."""
+    if request.method == "POST":
+        form = IndividualIdentityForm(request.POST)
+        if form.is_valid():
+            individual_identity = form.save(commit=False)
+            individual_identity.owner_workgroup = request.user.ciduser.workgroup
+            individual_identity.updated_by = request.user.ciduser
+            individual_identity.save()
+            return redirect("caidapp:individual_identities")
+    else:
+        form = IndividualIdentityForm()
+    return render(
+        request,
+        "caidapp/update_form.html",
+        {"form": form, "headline": "New Individual Identity", "button": "Create"},
+    )
+
+
+
 def update_individual_identity(request, individual_identity_id):
     """Show and update media file."""
+
     individual_identity = get_object_or_404(
         IndividualIdentity,
         pk=individual_identity_id,
         owner_workgroup=request.user.ciduser.workgroup,
     )
+
     if request.method == "POST":
         form = IndividualIdentityForm(request.POST, instance=individual_identity)
         if form.is_valid():
 
             # get uploaded archive
             individual_identity = form.save()
+            individual_identity.updated_by = request.user.ciduser
+            individual_identity.save()
             return redirect("caidapp:individual_identities")
     else:
         form = IndividualIdentityForm(instance=individual_identity)
     return render(
         request,
-        "caidapp/individual_identity_update.html",
+        "caidapp/update_form.html",
         {
             "form": form,
             "headline": "Individual Identity",
@@ -223,7 +247,7 @@ def get_individual_identity(request):
     """Show and update media file."""
     foridentification = MediafilesForIdentification.objects.order_by("?").first()
     return render(
-        request, "caidapp/individual_identity.html", {"foridentification": foridentification}
+        request, "caidapp/get_individual_identity.html", {"foridentification": foridentification}
     )
 
 

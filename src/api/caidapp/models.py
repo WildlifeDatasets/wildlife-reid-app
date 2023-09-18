@@ -90,6 +90,7 @@ class UploadedArchive(models.Model):
     finished_at = models.DateTimeField("Finished at", blank=True, null=True)
     location_at_upload = models.CharField(max_length=255, blank=True, default="")
     owner = models.ForeignKey(CIDUser, on_delete=models.CASCADE, null=True, blank=True)
+    contains_identities = models.BooleanField(default=False)
 
     def __str__(self):
         return str(Path(self.archivefile.name).name)
@@ -113,6 +114,7 @@ class IndividualIdentity(models.Model):
     name = models.CharField(max_length=50)
     id_worker = models.IntegerField(null=True, blank=True)
     owner_workgroup = models.ForeignKey(WorkGroup, on_delete=models.CASCADE, null=True, blank=True)
+    updated_by = models.ForeignKey(CIDUser, on_delete=models.CASCADE, null=True, blank=True)
 
     def __str__(self):
         return str(self.name)
@@ -135,6 +137,7 @@ class MediaFile(models.Model):
         IndividualIdentity, blank=True, null=True, on_delete=models.CASCADE
     )
     identity_is_representative = models.BooleanField(default=False)
+    updated_by = models.ForeignKey(CIDUser, on_delete=models.CASCADE, null=True, blank=True)
 
     def __str__(self):
         return str(Path(self.mediafile.name).name)

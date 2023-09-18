@@ -45,12 +45,12 @@
                         {#                        <p>Finished at: {{ uploadedarchive.finished_at|date:'Y-m-d H:i' }} </p>#}
                         {#                    {% endif %}#}
                         {##}
-                        <a class="btn btn-primary"
-                           href="{% url 'caidapp:album' individual_identity.hash %}">
-                            <i class="bi bi-images"></i> Detail
-                        </a>
+{#                        <a class="btn btn-primary"#}
+{#                           href="{% url 'caidapp:update_individual_identity' individual_identity.hash %}">#}
+{#                            <i class="bi bi-images"></i> Detail#}
+{#                        </a>#}
                         <a class="btn btn-secondary"
-                           href="{% url 'caidapp:album_update' individual_identity.hash %}">
+                           href="{% url 'caidapp:update_individual_identity' individual_identity.id %}">
                             <i class="bi bi-images"></i> Edit
                         </a>
                     </div>
