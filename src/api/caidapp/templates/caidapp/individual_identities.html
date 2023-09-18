@@ -12,6 +12,13 @@
 {#                    <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li>#}
 {#                </ol>#}
 {#            </nav>#}
+            <nav>
+{#                <ol class="breadcrumb">#}
+{#                    <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li>#}
+{#                </ol>#}
+                <a class="btn btn-primary" href="{% url 'caidapp:get_individual_identity' %}"><i class="bi bi-question-circle"></i> Annotate unknown identities</a>
+                <a class="btn btn-primary" href="{% url 'caidapp:new_individual_identity' %}"><i class="bi bi-plus-circle"></i> Add new identity</a>
+            </nav>
         </div><!-- End Page Title -->
         <section class="section">
         <div class="row" id="row-of-cards">

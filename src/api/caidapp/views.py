@@ -239,8 +239,20 @@ def update_individual_identity(request, individual_identity_id):
             "headline": "Individual Identity",
             "button": "Save",
             "individual_identity": individual_identity,
+            "delete_button_url": reverse_lazy("caidapp:delete_individual_identity", kwargs={"individual_identity_id": individual_identity_id}),
         },
     )
+
+
+def delete_individual_identity(request, individual_identity_id):
+    """Delete individual identity if it belongs to the user."""
+    individual_identity = get_object_or_404(
+        IndividualIdentity,
+        pk=individual_identity_id,
+        owner_workgroup=request.user.ciduser.workgroup,
+    )
+    individual_identity.delete()
+    return redirect("caidapp:individual_identities")
 
 
 def get_individual_identity(request):

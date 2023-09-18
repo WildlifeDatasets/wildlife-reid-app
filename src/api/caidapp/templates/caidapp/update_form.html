@@ -25,6 +25,14 @@
                         <button class="btn btn-primary" id="btnUpload" type="submit">
                             {{ button }}
                         </button>
+                        {% if delete_button_url %}
+                            <a class="btn btn-danger"
+                               href="{{ delete_button_url }}"
+{#                               href="{% url 'caidapp:delete_upload' uploadedarchive.id %}"#}
+                               onclick="return confirm('Delete {{ form.instance }}?')">
+                                <i class="bi bi-trash"></i> Delete
+                            </a>
+                        {% endif %}
 
                     </form>
                 </div>

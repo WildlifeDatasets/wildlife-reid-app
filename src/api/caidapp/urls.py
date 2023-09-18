@@ -31,6 +31,7 @@ urlpatterns = [
     path("new_album/", views.new_album, name="new_album"),
     path("new_individual_identity/", views.new_individual_identity, name="new_individual_identity"),
     path("update_individual_identity/<int:individual_identity_id>", views.update_individual_identity, name="update_individual_identity"),
+    path("delete_individual_identity/<int:individual_identity_id>", views.delete_individual_identity, name="delete_individual_identity"),
     path("individual_identities/", views.individual_identities, name="individual_identities"),
     path("get_individual_identity/", views.get_individual_identity, name="get_individual_identity"),
     path("workgroup_update/<str:workgroup_hash>/", views.workgroup_update, name="workgroup_update"),
