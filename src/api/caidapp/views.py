@@ -562,7 +562,9 @@ def media_files_update(request, records_per_page=80, album_hash=None):
 
     MediaFileFormSet = modelformset_factory(MediaFile, form=MediaFileSelectionForm, extra=0)
     if (request.method == "POST") and (
-        ("btnBulkProcessing" in request.POST) or ("btnBulkProcessingAlbum" in request.POST)
+        any([(type(key) == str) and (key.startswith("btnBulkProcessing")) for key in request.POST])
+
+        # ("btnBulkProcessing" in request.POST) or ("btnBulkProcessingAlbum" in request.POST)
     ):
         logger.debug("btnBulkProcessing")
         form_bulk_processing = MediaFileBulkForm(request.POST)
@@ -607,10 +609,19 @@ def media_files_update(request, records_per_page=80, album_hash=None):
                                     # add file to album
                                     instance.album_set.add(album)
                                     instance.save()
-                        elif "btnBulkProcessing" in form.data:
+                        elif "btnBulkProcessing_id_category" in form.data:
                             instance = mediafileform.save(commit=False)
                             instance.category = form_bulk_processing.cleaned_data["category"]
                             instance.save()
+                        elif "btnBulkProcessing_id_identity" in form.data:
+                            instance = mediafileform.save(commit=False)
+                            instance.identity = form_bulk_processing.cleaned_data[
+                                "identity"
+                            ]
+                            instance.save()
+                        elif "btnBulkProcessingDelete" in form.data:
+                            instance = mediafileform.save(commit=False)
+                            instance.delete()
                     # mediafileform.save()
             # form.save()
         else:
