@@ -139,6 +139,9 @@ class MediaFile(models.Model):
     identity_is_representative = models.BooleanField(default=False)
     updated_by = models.ForeignKey(CIDUser, on_delete=models.CASCADE, null=True, blank=True)
 
+    class Meta:
+        ordering = ['-identity_is_representative', 'captured_at']
+
     def __str__(self):
         return str(Path(self.mediafile.name).name)
 

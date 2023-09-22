@@ -37,7 +37,9 @@ class MediaFileBulkForm(forms.ModelForm):
         model = MediaFile
         fields = (
             "category",
-            "identity", )
+            "identity",
+            "identity_is_representative",
+        )
 
     def __init__(self, *args, **kwargs):
         super(MediaFileBulkForm, self).__init__(*args, **kwargs)

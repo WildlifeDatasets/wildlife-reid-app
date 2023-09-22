@@ -116,7 +116,12 @@
                                         {#                                                                    <h5 class="card-title">{{ mediafile.instance }}</h5>#}
                                         <p class="card-text"> Category: {{ mediafile.instance.category }}</p>
                                         <p class="card-text"> Location: {{ mediafile.instance.location }}</p>
-                                        <p class="card-text"> Identity: {{ mediafile.instance.identity }}</p>
+                                        <p class="card-text"> Identity: {{ mediafile.instance.identity }}
+                                            {% if mediafile.instance.identity_is_representative %}
+                                                <i class="bi bi-check-circle"></i>
+                                            {% endif %}
+
+                                        </p>
                                         <p class="card-text"> Captured
                                             at: {{ mediafile.instance.captured_at|date:'Y-m-d H:i' }}</p>
 
