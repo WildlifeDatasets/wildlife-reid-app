@@ -26,6 +26,7 @@ urlpatterns = [
     path("manage_locations/", views.manage_locations, name="manage_locations"),
     path("albums/", views.albums, name="albums"),
     path("album/<str:album_hash>", views.media_files_update, name="album"),
+    path("individual_identity_mediafiles/<int:individual_identity_id>", views.media_files_update, name="individual_identity_mediafiles"),
     path("album_update/<str:album_hash>/", views.album_update, name="album_update"),
     path("delete_album/<str:album_hash>/", views.delete_album, name="delete_album"),
     path("new_album/", views.new_album, name="new_album"),

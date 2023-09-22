@@ -40,12 +40,15 @@
 
                         {% endif %}
                 >
+                    <img class="card-img-top" src="{{ individual_identity.mediafile_set.first.thumbnail.url }}"
+                         alt="Camera trap image">
                     <div class="card-body"
                     >
                         <h5 class="card-title">{{ individual_identity }}</h5>
                         {#                        <p>Status: {{ album.mediafiles.0.thumbnail.url }} </p>#}
-                        <p>Created At: {{ individual_identity.created_at|date:'Y-m-d H:i' }} </p>
-                        <p>{{ individual_identity.description }} </p>
+{#                        <p>Created At: {{ individual_identity.created_at|date:'Y-m-d H:i' }} </p>#}
+                        <p> Last update by: {{ individual_identity.updated_by }} </p>
+{#                        <p>{{ individual_identity.mediafile_set.0.mediafile.url }}</p>#}
 
                         {#                    <p><i class="fa-light fa-calendar-image"></i>Uploaded at: {{ uploadedarchive.uploaded_at|date:'Y-m-d H:i' }} </p>#}
                         {#                    {% if uploadedarchive.finished_at %}#}
@@ -59,6 +62,11 @@
                         <a class="btn btn-secondary"
                            href="{% url 'caidapp:update_individual_identity' individual_identity.id %}">
                             <i class="bi bi-images"></i> Edit
+                        </a>
+
+                        <a class="btn btn-secondary"
+                           href="{% url 'caidapp:individual_identity_mediafiles' individual_identity.id %}">
+                            <i class="bi bi-images"></i> Show
                         </a>
                     </div>
                 </div>

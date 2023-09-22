@@ -455,7 +455,7 @@ class MyLoginView(LoginView):
         return self.render_to_response(self.get_context_data(form=form))
 
 
-def _mediafiles_query(request, query: str, album_hash=None):
+def _mediafiles_query(request, query: str, album_hash=None, individual_identity_id=None):
     """Prepare list of mediafiles based on query search in category and location."""
     mediafiles = (
         MediaFile.objects.filter(
@@ -470,6 +470,11 @@ def _mediafiles_query(request, query: str, album_hash=None):
         album = get_object_or_404(Album, hash=album_hash)
         mediafiles = (
             mediafiles.filter(album=album).all().distinct().order_by("-parent__uploaded_at")
+        )
+    if individual_identity_id is not None:
+        individual_identity = get_object_or_404(IndividualIdentity, pk=individual_identity_id)
+        mediafiles = (
+            mediafiles.filter(identity=individual_identity).all().distinct().order_by("-parent__uploaded_at")
         )
 
     if len(query) == 0:
@@ -520,7 +525,7 @@ def _page_number(request, page_number: int) -> int:
     return page_number
 
 
-def media_files_update(request, records_per_page=80, album_hash=None):
+def media_files_update(request, records_per_page=80, album_hash=None, individual_identity_id=None):
     """List of mediafiles based on query with bulk update of category."""
     # create list of mediafiles
     if request.method == "POST":
@@ -553,7 +558,7 @@ def media_files_update(request, records_per_page=80, album_hash=None):
     logger.debug(f"{albums_available=}")
     logger.debug(f"{query=}")
     logger.debug(f"{queryform}")
-    full_mediafiles = _mediafiles_query(request, query, album_hash=album_hash)
+    full_mediafiles = _mediafiles_query(request, query, album_hash=album_hash, individual_identity_id=individual_identity_id)
     number_of_mediafiles = len(full_mediafiles)
 
     paginator = Paginator(full_mediafiles, per_page=records_per_page)
