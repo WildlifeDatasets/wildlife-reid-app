@@ -2,7 +2,6 @@ import json
 import logging
 import os
 from pathlib import Path
-from typing import Optional
 
 import django
 from celery import signature
@@ -15,7 +14,7 @@ from django.contrib.auth.views import LoginView
 from django.core.paginator import Paginator
 from django.db.models import Q
 from django.forms import modelformset_factory
-from django.http import JsonResponse, HttpResponseNotAllowed
+from django.http import HttpResponseNotAllowed, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 
@@ -150,13 +149,13 @@ def logout_view(request):
 
 def media_file_update(request, media_file_id):
     """Show and update media file."""
-
     # | Q(parent__owner=request.user.ciduser)
     # | Q(parent__owner__workgroup=request.user.ciduser.workgroup)
     mediafile = get_object_or_404(MediaFile, pk=media_file_id)
-    if (mediafile.parent.owner.id != request.user.id) and (mediafile.parent.owner.workgroup != request.user.ciduser.workgroup):
+    if (mediafile.parent.owner.id != request.user.id) and (
+        mediafile.parent.owner.workgroup != request.user.ciduser.workgroup
+    ):
         return HttpResponseNotAllowed("Not allowed to see this media file.")
-
 
     if request.method == "POST":
         form = MediaFileForm(request.POST, instance=mediafile)
@@ -211,7 +210,6 @@ def new_individual_identity(request):
     )
 
 
-
 def update_individual_identity(request, individual_identity_id):
     """Show and update media file."""
 
@@ -240,7 +238,10 @@ def update_individual_identity(request, individual_identity_id):
             "headline": "Individual Identity",
             "button": "Save",
             "individual_identity": individual_identity,
-            "delete_button_url": reverse_lazy("caidapp:delete_individual_identity", kwargs={"individual_identity_id": individual_identity_id}),
+            "delete_button_url": reverse_lazy(
+                "caidapp:delete_individual_identity",
+                kwargs={"individual_identity_id": individual_identity_id},
+            ),
         },
     )
 
@@ -418,14 +419,15 @@ def delete_upload(request, uploadedarchive_id):
 @login_required
 def delete_mediafile(request, mediafile_id):
     """Delete uploaded file."""
-    obj = get_object_or_404(
-        MediaFile, pk=mediafile_id, parent__owner__workgroup=request.user.ciduser.workgroup
+    mediafile = get_object_or_404(
+        MediaFile, pk=mediafile_id
     )
-    parent_id = obj.parent_id
-    if obj.parent.owner.id == request.user.id:
-        obj.delete()
-    else:
-        messages.error(request, "Only the owner can delete the file.")
+    if (mediafile.parent.owner.id != request.user.id) and (
+            mediafile.parent.owner.workgroup != request.user.ciduser.workgroup
+    ):
+        return HttpResponseNotAllowed("Not allowed to see this media file.")
+    parent_id = mediafile.parent_id
+    mediafile.delete()
     return redirect("caidapp:uploadedarchive_detail", uploadedarchive_id=parent_id)
 
 
@@ -475,7 +477,10 @@ def _mediafiles_query(request, query: str, album_hash=None, individual_identity_
     if individual_identity_id is not None:
         individual_identity = get_object_or_404(IndividualIdentity, pk=individual_identity_id)
         mediafiles = (
-            mediafiles.filter(identity=individual_identity).all().distinct().order_by("-parent__uploaded_at")
+            mediafiles.filter(identity=individual_identity)
+            .all()
+            .distinct()
+            .order_by("-parent__uploaded_at")
         )
 
     if len(query) == 0:
@@ -492,7 +497,7 @@ def _mediafiles_query(request, query: str, album_hash=None, individual_identity_
                 | Q(parent__owner=request.user.ciduser)
                 | Q(parent__owner__workgroup=request.user.ciduser.workgroup)
                 # parent__owner=request.user.ciduser
-        )
+            )
             .annotate(rank=SearchRank(vector, query))
             .filter(rank__gt=0)
             .order_by("-rank")
@@ -525,17 +530,17 @@ def _page_number(request, page_number: int) -> int:
         page_number = 1
     return page_number
 
+
 def update_mediafile_is_representative(request, mediafile_hash: str, is_representative: bool):
     """Update mediafile is_representative."""
     mediafile = get_object_or_404(MediaFile, hash=mediafile_hash)
-    if (mediafile.parent.owner.id != request.user.id) | (mediafile.parent.owner.workgroup != request.user.ciduser.workgroup):
+    if (mediafile.parent.owner.id != request.user.id) | (
+        mediafile.parent.owner.workgroup != request.user.ciduser.workgroup
+    ):
         return HttpResponseNotAllowed("Not allowed to work with this media file.")
     mediafile.is_representative = is_representative
     mediafile.save()
     return JsonResponse({"data": "Data uploaded"})
-
-
-
 
 
 def media_files_update(request, records_per_page=80, album_hash=None, individual_identity_id=None):
@@ -571,7 +576,9 @@ def media_files_update(request, records_per_page=80, album_hash=None, individual
     logger.debug(f"{albums_available=}")
     logger.debug(f"{query=}")
     logger.debug(f"{queryform}")
-    full_mediafiles = _mediafiles_query(request, query, album_hash=album_hash, individual_identity_id=individual_identity_id)
+    full_mediafiles = _mediafiles_query(
+        request, query, album_hash=album_hash, individual_identity_id=individual_identity_id
+    )
     number_of_mediafiles = len(full_mediafiles)
 
     paginator = Paginator(full_mediafiles, per_page=records_per_page)
@@ -581,7 +588,6 @@ def media_files_update(request, records_per_page=80, album_hash=None, individual
     MediaFileFormSet = modelformset_factory(MediaFile, form=MediaFileSelectionForm, extra=0)
     if (request.method == "POST") and (
         any([(type(key) == str) and (key.startswith("btnBulkProcessing")) for key in request.POST])
-
         # ("btnBulkProcessing" in request.POST) or ("btnBulkProcessingAlbum" in request.POST)
     ):
         logger.debug("btnBulkProcessing")
@@ -634,9 +640,7 @@ def media_files_update(request, records_per_page=80, album_hash=None, individual
                             instance.save()
                         elif "btnBulkProcessing_id_identity" in form.data:
                             instance = mediafileform.save(commit=False)
-                            instance.identity = form_bulk_processing.cleaned_data[
-                                "identity"
-                            ]
+                            instance.identity = form_bulk_processing.cleaned_data["identity"]
                             instance.identity_is_representative = False
                             instance.updated_by = request.user.ciduser
                             instance.save()
