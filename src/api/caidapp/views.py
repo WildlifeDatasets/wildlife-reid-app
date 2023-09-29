@@ -212,7 +212,6 @@ def new_individual_identity(request):
 
 def update_individual_identity(request, individual_identity_id):
     """Show and update media file."""
-
     individual_identity = get_object_or_404(
         IndividualIdentity,
         pk=individual_identity_id,

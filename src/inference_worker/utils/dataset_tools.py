@@ -161,7 +161,7 @@ def replace_colon_in_exif_datetime(exif_datetime: str) -> str:
 
     """
     replaced = exif_datetime
-    if type(exif_datetime) == str:
+    if isinstance(exif_datetime, str):
         exif_ex = re.findall(
             r"([0-9]{4}):([0-9]{2}):([0-9]{2}) ([0-9]{2}:[0-9]{2}:[0-9]{2})", exif_datetime
         )
@@ -315,7 +315,6 @@ def extend_df_with_sequence_id(df: pd.DataFrame, time_limit: typing.Union[str, d
         ascending.append(False)
     df = df.sort_values(sort_keys, ascending=ascending).reset_index(drop=True)
     df["delta_datetime"] = pd.NaT
-    # df[df.media_type=='image'].delta_datetime=df[df.media_type=='image'].datetime.diff()
     df.loc[~df.datetime.isna(), "delta_datetime"] = df[~df.datetime.isna()].datetime.diff()
     tqdm.pandas(desc="sequence_number")
     event_id_manager = DatasetEventIdManager(time_limit=time_limit)
@@ -586,15 +585,14 @@ class SumavaInitialProcessing:
         """
         if exclude is None:
             exclude = []
-        elif type(exclude) == str:
+        elif isinstance(exclude, str):
             exclude = [exclude]
         exclude = [suffix.lower() for suffix in exclude]
 
         gmask = "./*"
         list_of_files = set()
         if self.path_groups is None:
-            # self.path_groups = list(self.dataset_basedir.glob(self.group_mask))
-            for i in range(0, 10):
+            for _ in range(0, 10):
                 group_of_dirs = list(self.dataset_basedir.glob(gmask))
                 list_of_files = list_of_files.union(group_of_dirs)
                 if len(group_of_dirs) > self.num_cores:
@@ -1078,8 +1076,9 @@ def make_zipfile_with_categories(
 ) -> Tuple[pd.DataFrame]:
     """Put mediafiles into zip according to their category and create updated metadata file.
 
-    The category is based on the predicted category or class_id and it is used for the directory name.
-    The metadata file contains updated image paths. Metadata and media files are saved into zip file.
+    The predicted category or 'class_id' is used for the directory name.
+    The metadata file contains updated image paths.
+    Metadata and media files are saved into zip file.
 
     Parameters
     ----------
@@ -1087,7 +1086,6 @@ def make_zipfile_with_categories(
     media_dir_path: dir containing media files with hashed names
     metadata: DataFrame - Image and video metadata with predicted category or class_id
     """
-
     import tempfile
 
     tmp_dir = Path(tempfile.gettempdir()) / str(uuid.uuid4())
