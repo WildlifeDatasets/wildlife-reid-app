@@ -378,6 +378,15 @@ class DatasetEventIdManager:
         return self.event_id
 
 
+def get_lynx_id_as_parent_name(relative_path: str) -> Optional[str]:
+    """Lynx ID is generated from the directory name."""
+    path = Path(relative_path)
+    if len(path.parts) > 1:
+        return path.parent.name
+    else:
+        return None
+
+
 def get_lynx_id_in_sumava(relative_path: str) -> Optional[str]:
     """
     Get linx ID based on directory path in Sumava dataset.
@@ -696,7 +705,17 @@ class SumavaInitialProcessing:
         return datetime_list, error_list
 
 
-# def extract_information_from_filename()
+def add_column_with_lynx_id(df: pd.DataFrame, contain_identities: bool=False) -> pd.DataFrame:
+    """Create column with lynx id based on directory structure."""
+    if contain_identities:
+        df["unique_name"] = df["vanilla_path"].apply(get_lynx_id_as_parent_name)
+    else:
+        # If we don't know about identity, we can check if the structure is similar to SUMAVA
+        # Get ID of lynx from directories in basedir beside "TRIDENA" and "NETRIDENA"
+        df["unique_name"] = df["vanilla_path"].apply(get_lynx_id_in_sumava)
+    return df
+
+
 def extract_information_from_dir_structure(
     df_filelist: pd.DataFrame, latin_to_taxonomy_csv_path: Optional[Path] = None
 ) -> pd.DataFrame:
@@ -953,6 +972,7 @@ def analyze_dataset_directory(
     dataset_dir_path: Path,
     num_cores: Optional[int] = None,
     latin_to_taxonomy_csv_path: Optional[Path] = None,
+    contain_identities: bool = False,
 ):
     """Get species, locality, datetime and sequence_id from directory with media files.
 
@@ -985,8 +1005,7 @@ def analyze_dataset_directory(
 
     df.loc[:, "sequence_number"] = None
 
-    # Get ID of lynx from directories in basedir beside "TRIDENA" and "NETRIDENA"
-    df["unique_name"] = df["vanilla_path"].apply(get_lynx_id_in_sumava)
+    df = add_column_with_lynx_id(df, contain_identities=contain_identities)
     df, hashes = find_unique_names_between_duplicate_files(
         df, basedir=Path(dataset_dir_path), num_cores=num_cores
     )
@@ -1023,7 +1042,7 @@ def analyze_dataset_directory(
 
 
 def data_preprocessing(
-    zip_path: Path, media_dir_path: Path, num_cores: Optional[int] = None
+    zip_path: Path, media_dir_path: Path, num_cores: Optional[int] = None, contain_identities: bool = False
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """Preprocessing of data in zip file.
 
@@ -1052,7 +1071,7 @@ def data_preprocessing(
     extract_archive(zip_path, output_dir=tmp_dir)
 
     # create metadata directory
-    df, duplicates = analyze_dataset_directory(tmp_dir, num_cores=num_cores)
+    df, duplicates = analyze_dataset_directory(tmp_dir, num_cores=num_cores, contain_identities=contain_identities)
     # df["vanilla_path"].map(lambda fn: dataset_tools.make_hash(fn, prefix="media_data"))
     df = make_dataset(
         dataframe=df,

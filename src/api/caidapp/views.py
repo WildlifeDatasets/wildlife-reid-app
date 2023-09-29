@@ -284,6 +284,7 @@ def _run_processing(uploaded_archive: UploadedArchive):
             "output_dir": str(output_dir),
             "output_archive_file": str(output_archive_file),
             "output_metadata_file": str(output_metadata_file),
+            "contains_identities": uploaded_archive.contains_identities,
         },
     )
     task = sig.apply_async(
