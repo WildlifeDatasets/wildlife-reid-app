@@ -14,7 +14,9 @@ except ModuleNotFoundError:
 logger = logging.getLogger(__file__)
 
 CAID_DATASET_BASEDIR = Path(os.getenv("CAID_DATASET_BASEDIR", r"H:\biology\orig\CarnivoreID"))
-CAID_DATASET_BASEDIR = Path(os.getenv("CAID_DATASET_BASEDIR", r"C:\Users\Jirik\my_bc_data\data\biology\orig\CarnivoreID"))
+CAID_DATASET_BASEDIR = Path(
+    os.getenv("CAID_DATASET_BASEDIR", r"C:\Users\Jirik\my_bc_data\data\biology\orig\CarnivoreID")
+)
 CI = os.getenv("CI", False)
 
 
@@ -148,14 +150,14 @@ def test_analyze_dir_unique_names_as_parent_name():
     """Test dataset directory analysis."""
     dir_path = CAID_DATASET_BASEDIR / "lynx_ids_FeCuMa_smaller"
     metadata, duplicates = dataset_tools.analyze_dataset_directory(
-        dir_path, num_cores=2,
-        contain_identities=True
+        dir_path, num_cores=2, contain_identities=True
     )
 
     metadata.to_csv("test_metadata.csv", encoding="utf-8-sig")
     duplicates.to_csv("test_duplicates.csv", encoding="utf-8-sig")
     assert len(metadata) > 3
     assert len(metadata.unique_name.unique()) > 1, "There should be some unique names."
+
 
 @pytest.mark.parametrize(
     "dataset",

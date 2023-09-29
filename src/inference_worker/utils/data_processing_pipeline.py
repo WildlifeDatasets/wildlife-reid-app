@@ -169,8 +169,9 @@ def data_processing(
 
     """
     # create metadata dataframe
-    metadata, _ = data_preprocessing(zip_path, media_dir_path, num_cores=num_cores,
-                                     contain_identities=contain_identities)
+    metadata, _ = data_preprocessing(
+        zip_path, media_dir_path, num_cores=num_cores, contain_identities=contain_identities
+    )
     logger.debug(f"len(metadata)={len(metadata)}")
     metadata = metadata[metadata["media_type"] == "image"].reset_index(drop=True)
     logger.debug(f"len(metadata)={len(metadata)}")

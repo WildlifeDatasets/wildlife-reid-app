@@ -419,11 +419,9 @@ def delete_upload(request, uploadedarchive_id):
 @login_required
 def delete_mediafile(request, mediafile_id):
     """Delete uploaded file."""
-    mediafile = get_object_or_404(
-        MediaFile, pk=mediafile_id
-    )
+    mediafile = get_object_or_404(MediaFile, pk=mediafile_id)
     if (mediafile.parent.owner.id != request.user.id) and (
-            mediafile.parent.owner.workgroup != request.user.ciduser.workgroup
+        mediafile.parent.owner.workgroup != request.user.ciduser.workgroup
     ):
         return HttpResponseNotAllowed("Not allowed to see this media file.")
     parent_id = mediafile.parent_id

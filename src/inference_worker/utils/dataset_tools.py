@@ -705,7 +705,7 @@ class SumavaInitialProcessing:
         return datetime_list, error_list
 
 
-def add_column_with_lynx_id(df: pd.DataFrame, contain_identities: bool=False) -> pd.DataFrame:
+def add_column_with_lynx_id(df: pd.DataFrame, contain_identities: bool = False) -> pd.DataFrame:
     """Create column with lynx id based on directory structure."""
     if contain_identities:
         df["unique_name"] = df["vanilla_path"].apply(get_lynx_id_as_parent_name)
@@ -1042,7 +1042,10 @@ def analyze_dataset_directory(
 
 
 def data_preprocessing(
-    zip_path: Path, media_dir_path: Path, num_cores: Optional[int] = None, contain_identities: bool = False
+    zip_path: Path,
+    media_dir_path: Path,
+    num_cores: Optional[int] = None,
+    contain_identities: bool = False,
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """Preprocessing of data in zip file.
 
@@ -1071,7 +1074,9 @@ def data_preprocessing(
     extract_archive(zip_path, output_dir=tmp_dir)
 
     # create metadata directory
-    df, duplicates = analyze_dataset_directory(tmp_dir, num_cores=num_cores, contain_identities=contain_identities)
+    df, duplicates = analyze_dataset_directory(
+        tmp_dir, num_cores=num_cores, contain_identities=contain_identities
+    )
     # df["vanilla_path"].map(lambda fn: dataset_tools.make_hash(fn, prefix="media_data"))
     df = make_dataset(
         dataframe=df,
