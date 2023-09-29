@@ -1069,3 +1069,47 @@ def data_preprocessing(
     shutil.rmtree(tmp_dir, ignore_errors=True)
 
     return df, duplicates
+
+
+def make_zipfile_with_categories(zip_path: Path, media_dir_path: Path, metadata: pd.DataFrame, ) -> Tuple[pd.DataFrame]:
+    """Put mediafiles into zip according to their category and create updated metadata file.
+
+    The category is based on the predicted category or class_id and it is used for the directory name.
+    The metadata file contains updated image paths. Metadata and media files are saved into zip file.
+
+    Parameters
+    ----------
+    zip_path: output file with zipped images
+    media_dir_path: dir containing media files with hashed names
+    metadata: DataFrame - Image and video metadata with predicted category or class_id
+    """
+
+    import tempfile
+
+    tmp_dir = Path(tempfile.gettempdir()) / str(uuid.uuid4())
+    tmp_dir.mkdir(exist_ok=False, parents=True)
+    metadata = metadata.copy(deep=True)
+
+    # create category subdirectories and move images based on prediction
+    new_image_paths = []
+    for i, row in metadata.iterrows():
+        if pd.notnull(row["predicted_category"]):
+            predicted_category = row["predicted_category"]
+        else:
+            predicted_category = f"class_{row['predicted_class_id']}"
+
+        image_path = Path(media_dir_path) / row["image_path"]
+        target_dir = Path(tmp_dir, predicted_category)
+        target_dir.mkdir(parents=True, exist_ok=True)
+        target_image_path = target_dir / row["image_path"]
+        shutil.move(image_path, target_image_path)
+        new_image_paths.append(os.path.join(predicted_category, row["image_path"]))
+    metadata["image_path"] = new_image_paths
+
+    # save metadata file
+    metadata.to_csv(tmp_dir / "metadata.csv", encoding="utf-8-sig")
+
+    make_zipfile(zip_path, tmp_dir)
+    shutil.rmtree(tmp_dir, ignore_errors=True)
+    return metadata
+

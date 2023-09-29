@@ -156,7 +156,8 @@ def data_processing(
     csv_path: Path,
     *,
     num_cores: Optional[int] = None,
-):
+    category_as_dir: bool = False,
+) -> pd.DataFrame:
     """Preprocessing and prediction on data in ZIP file.
 
     Files are renamed according to the hash based on input path.
@@ -189,6 +190,7 @@ def data_processing(
         )
 
     # create category subdirectories and move images based on prediction
+
     new_image_paths = []
     for i, row in metadata.iterrows():
         if pd.notnull(row["predicted_category"]):
@@ -197,12 +199,20 @@ def data_processing(
             predicted_category = f"class_{row['predicted_class_id']}"
 
         image_path = Path(media_dir_path) / row["image_path"]
-        target_dir = Path(media_dir_path, predicted_category)
+        if category_as_dir:
+            target_dir = Path(media_dir_path, predicted_category)
+        else:
+            target_dir = Path(media_dir_path)
         target_dir.mkdir(parents=True, exist_ok=True)
         target_image_path = target_dir / row["image_path"]
         shutil.move(image_path, target_image_path)
-        new_image_paths.append(os.path.join(predicted_category, row["image_path"]))
+        if category_as_dir:
+            new_image_paths.append(os.path.join(predicted_category, row["image_path"]))
+        else:
+            new_image_paths.append(str(row["image_path"]))
     metadata["image_path"] = new_image_paths
 
     # save metadata file
     metadata.to_csv(csv_path, encoding="utf-8-sig")
+    return metadata
+

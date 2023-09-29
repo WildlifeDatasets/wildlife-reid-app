@@ -37,13 +37,15 @@ def predict(
         output_metadata_file = Path(output_metadata_file)
 
         # process data
-        data_processing_pipeline.data_processing(
+        metadata = data_processing_pipeline.data_processing(
             input_archive_file,
             output_images_dir,
             output_metadata_file,
             num_cores=1,
         )
-        dataset_tools.make_zipfile(output_archive_file, output_images_dir)
+        logger.debug("")
+        dataset_tools.make_zipfile_with_categories(output_archive_file, output_images_dir, metadata)
+        # dataset_tools.make_zipfile(output_archive_file, output_images_dir)
 
         logger.info("Finished processing.")
         out = {"status": "DONE"}
