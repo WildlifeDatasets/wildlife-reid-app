@@ -1102,13 +1102,14 @@ def make_zipfile_with_categories(zip_path: Path, media_dir_path: Path, metadata:
         target_dir = Path(tmp_dir, predicted_category)
         target_dir.mkdir(parents=True, exist_ok=True)
         target_image_path = target_dir / row["image_path"]
-        shutil.move(image_path, target_image_path)
+        shutil.copy(image_path, target_image_path)
         new_image_paths.append(os.path.join(predicted_category, row["image_path"]))
     metadata["image_path"] = new_image_paths
 
     # save metadata file
     metadata.to_csv(tmp_dir / "metadata.csv", encoding="utf-8-sig")
 
+    zip_path.unlink(missing_ok=True)
     make_zipfile(zip_path, tmp_dir)
     shutil.rmtree(tmp_dir, ignore_errors=True)
     return metadata

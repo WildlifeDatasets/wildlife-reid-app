@@ -2,6 +2,7 @@ import json
 import logging
 import os
 from pathlib import Path
+from typing import Optional
 
 import django
 from celery import signature
@@ -524,6 +525,18 @@ def _page_number(request, page_number: int) -> int:
         page_number = 1
     return page_number
 
+def update_mediafile_is_representative(request, mediafile_hash: str, is_representative: bool):
+    """Update mediafile is_representative."""
+    mediafile = get_object_or_404(MediaFile, hash=mediafile_hash)
+    if (mediafile.parent.owner.id != request.user.id) | (mediafile.parent.owner.workgroup != request.user.ciduser.workgroup):
+        return HttpResponseNotAllowed("Not allowed to work with this media file.")
+    mediafile.is_representative = is_representative
+    mediafile.save()
+    return JsonResponse({"data": "Data uploaded"})
+
+
+
+
 
 def media_files_update(request, records_per_page=80, album_hash=None, individual_identity_id=None):
     """List of mediafiles based on query with bulk update of category."""
@@ -617,12 +630,22 @@ def media_files_update(request, records_per_page=80, album_hash=None, individual
                         elif "btnBulkProcessing_id_category" in form.data:
                             instance = mediafileform.save(commit=False)
                             instance.category = form_bulk_processing.cleaned_data["category"]
+                            instance.updated_by = request.user.ciduser
                             instance.save()
                         elif "btnBulkProcessing_id_identity" in form.data:
                             instance = mediafileform.save(commit=False)
                             instance.identity = form_bulk_processing.cleaned_data[
                                 "identity"
                             ]
+                            instance.identity_is_representative = False
+                            instance.updated_by = request.user.ciduser
+                            instance.save()
+                        elif "btnBulkProcessing_id_identity_is_representative" in form.data:
+                            instance = mediafileform.save(commit=False)
+                            instance.identity_is_representative = form_bulk_processing.cleaned_data[
+                                "identity_is_representative"
+                            ]
+                            instance.updated_by = request.user.ciduser
                             instance.save()
                         elif "btnBulkProcessingDelete" in form.data:
                             instance = mediafileform.save(commit=False)

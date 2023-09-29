@@ -199,17 +199,11 @@ def data_processing(
             predicted_category = f"class_{row['predicted_class_id']}"
 
         image_path = Path(media_dir_path) / row["image_path"]
-        if category_as_dir:
-            target_dir = Path(media_dir_path, predicted_category)
-        else:
-            target_dir = Path(media_dir_path)
+        target_dir = Path(media_dir_path)
         target_dir.mkdir(parents=True, exist_ok=True)
         target_image_path = target_dir / row["image_path"]
         shutil.move(image_path, target_image_path)
-        if category_as_dir:
-            new_image_paths.append(os.path.join(predicted_category, row["image_path"]))
-        else:
-            new_image_paths.append(str(row["image_path"]))
+        new_image_paths.append(str(row["image_path"]))
     metadata["image_path"] = new_image_paths
 
     # save metadata file

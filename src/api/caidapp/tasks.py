@@ -56,6 +56,7 @@ def predict_on_error(task_id: str, *args, uploaded_archive_id: int, **kwargs):
 
 def make_thumbnail_for_uploaded_archive(uploaded_archive: UploadedArchive):
     """Make small image representing the upload."""
+    logger.debug("making thumbnail for uploaded archive")
     output_dir = Path(settings.MEDIA_ROOT) / uploaded_archive.outputdir
     abs_thumbnail_path = output_dir / "thumbnail.jpg"
     csv_file = Path(settings.MEDIA_ROOT) / str(uploaded_archive.csv_file)
@@ -99,6 +100,7 @@ def get_image_files_from_uploaded_archive(
         mediafile_set = uploaded_archive.mediafile_set.filter(mediafile=str(rel_pth))
         if len(mediafile_set) == 0:
             location = get_location(str(uploaded_archive.location_at_upload))
+            logger.debug(f"Creating thumbnail for {rel_pth}")
             if make_thumbnail_from_file(abs_pth, abs_pth_thumbnail, width=thumbnail_width):
                 thumbnail = str(rel_pth_thumbnail)
             else:
@@ -115,7 +117,7 @@ def get_image_files_from_uploaded_archive(
             mf = mediafile_set[0]
             logger.debug("Using Mediafile generated before")
             # generate thumbnail if necessary
-            if mf.thumbnail is None:
+            if (mf.thumbnail is None) or (not abs_pth_thumbnail.exists()):
                 if make_thumbnail_from_file(abs_pth, abs_pth_thumbnail, width=thumbnail_width):
                     mf.thumbnail = str(rel_pth_thumbnail)
                     mf.save()

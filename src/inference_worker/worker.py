@@ -43,7 +43,7 @@ def predict(
             output_metadata_file,
             num_cores=1,
         )
-        logger.debug("")
+        logger.debug("Preparing output archive.")
         dataset_tools.make_zipfile_with_categories(output_archive_file, output_images_dir, metadata)
         # dataset_tools.make_zipfile(output_archive_file, output_images_dir)
 
