@@ -118,7 +118,8 @@
                                         <p class="card-text"> Location: {{ mediafile.instance.location }}</p>
                                         <p class="card-text"> Identity: {{ mediafile.instance.identity }}
                                             {% if mediafile.instance.identity_is_representative %}
-                                                <i class="bi bi-check-circle"></i>
+{#                                                <i class="bi bi-check-circle"></i>#}
+                                                <i class="bi bi-bookmark" data-toggle="tooltip" data-placement="top" title="Mediafile selected as a representative for the automatic identification."></i>
                                             {% endif %}
 
                                         </p>
@@ -164,6 +165,12 @@
             </form>
         </section>
     {% endif %}
+    <script>
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+  return new bootstrap.Tooltip(tooltipTriggerEl)
+})
+    </script>
     <script>
         const data = '{{qs_json}}'
 

@@ -1071,7 +1071,11 @@ def data_preprocessing(
     return df, duplicates
 
 
-def make_zipfile_with_categories(zip_path: Path, media_dir_path: Path, metadata: pd.DataFrame, ) -> Tuple[pd.DataFrame]:
+def make_zipfile_with_categories(
+    zip_path: Path,
+    media_dir_path: Path,
+    metadata: pd.DataFrame,
+) -> Tuple[pd.DataFrame]:
     """Put mediafiles into zip according to their category and create updated metadata file.
 
     The category is based on the predicted category or class_id and it is used for the directory name.
@@ -1113,4 +1117,3 @@ def make_zipfile_with_categories(zip_path: Path, media_dir_path: Path, metadata:
     make_zipfile(zip_path, tmp_dir)
     shutil.rmtree(tmp_dir, ignore_errors=True)
     return metadata
-

@@ -43,7 +43,7 @@ class MediaFileBulkForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super(MediaFileBulkForm, self).__init__(*args, **kwargs)
-        self.fields['category'].queryset = models.Taxon.objects.order_by('name')
+        self.fields["category"].queryset = models.Taxon.objects.order_by("name")
 
 
 class MediaFileSelectionForm(forms.ModelForm):

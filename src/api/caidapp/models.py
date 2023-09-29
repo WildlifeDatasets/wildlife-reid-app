@@ -140,7 +140,7 @@ class MediaFile(models.Model):
     updated_by = models.ForeignKey(CIDUser, on_delete=models.CASCADE, null=True, blank=True)
 
     class Meta:
-        ordering = ['-identity_is_representative', 'captured_at']
+        ordering = ["-identity_is_representative", "captured_at"]
 
     def __str__(self):
         return str(Path(self.mediafile.name).name)
