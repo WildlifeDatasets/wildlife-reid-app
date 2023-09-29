@@ -105,6 +105,7 @@ class Taxon(models.Model):
 
 class Location(models.Model):
     name = models.CharField(max_length=50)
+    # owner = models.ForeignKey(CIDUser, on_delete=models.CASCADE, null=True, blank=True)
 
     def __str__(self):
         return str(self.name)
@@ -202,6 +203,19 @@ class AlbumShareRole(models.Model):
 
     def __str__(self):
         return str(self.album.name) + " " + str(self.user.user.username)
+
+
+def get_unique_name(name: str, workgroup: WorkGroup) -> IndividualIdentity:
+    """Return taxon according to the name, create it if necessary."""
+    if (name is None) or (name == ""):
+        return None
+    objs = IndividualIdentity.objects.filter(name=name, owner_workgroup=workgroup)
+    if len(objs) == 0:
+        identity = IndividualIdentity(name=name)
+        identity.save()
+    else:
+        identity = objs[0]
+    return identity
 
 
 def get_taxon(name: str) -> Taxon:

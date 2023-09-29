@@ -8,7 +8,7 @@ from celery import shared_task
 from django.conf import settings
 
 from .fs_data import make_thumbnail_from_file
-from .models import MediaFile, UploadedArchive, get_location, get_taxon
+from .models import MediaFile, UploadedArchive, get_location, get_taxon, get_unique_name
 
 logger = logging.getLogger("app")
 
@@ -125,5 +125,10 @@ def get_image_files_from_uploaded_archive(
                     logger.warning(f"Cannot generate thumbnail for {abs_pth}")
 
         mf.category = taxon
+        if mf.identity is None:
+            # update only if the identity is not set
+            identity = get_unique_name(row["identity"], workgroup=uploaded_archive.owner.workgroup)
+            logger.debug(f"indentity={identity}")
+            mf.identity = identity
         mf.save()
         logger.debug(f"{mf}")

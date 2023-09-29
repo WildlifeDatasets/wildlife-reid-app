@@ -150,7 +150,7 @@ def test_analyze_dir_unique_names_as_parent_name():
     """Test dataset directory analysis."""
     dir_path = CAID_DATASET_BASEDIR / "lynx_ids_FeCuMa_smaller"
     metadata, duplicates = dataset_tools.analyze_dataset_directory(
-        dir_path, num_cores=2, contain_identities=True
+        dir_path, num_cores=2, contains_identities=True
     )
 
     metadata.to_csv("test_metadata.csv", encoding="utf-8-sig")

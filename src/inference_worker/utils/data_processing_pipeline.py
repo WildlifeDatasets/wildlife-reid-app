@@ -156,7 +156,7 @@ def data_processing(
     csv_path: Path,
     *,
     num_cores: Optional[int] = None,
-    contain_identities: bool = False,
+    contains_identities: bool = False,
 ) -> pd.DataFrame:
     """Preprocessing and prediction on data in ZIP file.
 
@@ -170,7 +170,7 @@ def data_processing(
     """
     # create metadata dataframe
     metadata, _ = data_preprocessing(
-        zip_path, media_dir_path, num_cores=num_cores, contain_identities=contain_identities
+        zip_path, media_dir_path, num_cores=num_cores, contains_identities=contains_identities
     )
     logger.debug(f"len(metadata)={len(metadata)}")
     metadata = metadata[metadata["media_type"] == "image"].reset_index(drop=True)

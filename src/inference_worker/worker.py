@@ -21,7 +21,7 @@ def predict(
     output_dir: str,
     output_archive_file: str,
     output_metadata_file: str,
-    contain_identities: bool = False,
+    contains_identities: bool = False,
     **kwargs,
 ):
     """Main method called by Celery broker."""
@@ -43,7 +43,7 @@ def predict(
             output_images_dir,
             output_metadata_file,
             num_cores=1,
-            contain_identities=contain_identities,
+            contains_identities=contains_identities,
         )
         logger.debug("Preparing output archive.")
         dataset_tools.make_zipfile_with_categories(output_archive_file, output_images_dir, metadata)

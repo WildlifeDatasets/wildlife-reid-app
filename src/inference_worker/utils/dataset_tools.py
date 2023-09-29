@@ -972,7 +972,7 @@ def analyze_dataset_directory(
     dataset_dir_path: Path,
     num_cores: Optional[int] = None,
     latin_to_taxonomy_csv_path: Optional[Path] = None,
-    contain_identities: bool = False,
+    contains_identities: bool = False,
 ):
     """Get species, locality, datetime and sequence_id from directory with media files.
 
@@ -1005,7 +1005,7 @@ def analyze_dataset_directory(
 
     df.loc[:, "sequence_number"] = None
 
-    df = add_column_with_lynx_id(df, contain_identities=contain_identities)
+    df = add_column_with_lynx_id(df, contain_identities=contains_identities)
     df, hashes = find_unique_names_between_duplicate_files(
         df, basedir=Path(dataset_dir_path), num_cores=num_cores
     )
@@ -1045,7 +1045,7 @@ def data_preprocessing(
     zip_path: Path,
     media_dir_path: Path,
     num_cores: Optional[int] = None,
-    contain_identities: bool = False,
+    contains_identities: bool = False,
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """Preprocessing of data in zip file.
 
@@ -1075,7 +1075,7 @@ def data_preprocessing(
 
     # create metadata directory
     df, duplicates = analyze_dataset_directory(
-        tmp_dir, num_cores=num_cores, contain_identities=contain_identities
+        tmp_dir, num_cores=num_cores, contains_identities=contains_identities
     )
     # df["vanilla_path"].map(lambda fn: dataset_tools.make_hash(fn, prefix="media_data"))
     df = make_dataset(
