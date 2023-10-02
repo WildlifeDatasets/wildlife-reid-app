@@ -211,7 +211,7 @@ def get_unique_name(name: str, workgroup: WorkGroup) -> IndividualIdentity:
         return None
     objs = IndividualIdentity.objects.filter(name=name, owner_workgroup=workgroup)
     if len(objs) == 0:
-        identity = IndividualIdentity(name=name)
+        identity = IndividualIdentity(name=name, owner_workgroup=workgroup)
         identity.save()
     else:
         identity = objs[0]

@@ -127,8 +127,8 @@ def get_image_files_from_uploaded_archive(
         mf.category = taxon
         if mf.identity is None:
             # update only if the identity is not set
-            identity = get_unique_name(row["identity"], workgroup=uploaded_archive.owner.workgroup)
-            logger.debug(f"indentity={identity}")
+            identity = get_unique_name(row["unique_name"], workgroup=uploaded_archive.owner.workgroup)
+            logger.debug(f"identity={identity}")
             mf.identity = identity
         mf.save()
         logger.debug(f"{mf}")
