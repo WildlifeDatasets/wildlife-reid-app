@@ -9,10 +9,10 @@ SQLAlchemy~=1.4.44
 torch==1.13.1+cpu
 torchvision==0.14.1+cpu
 
-timm==0.6.13
+timm==0.9.7
 
 # FGVC library
 --index-url https://pypi.piva-ai.com/simple/
-fgvc==1.3.3.dev
+fgvc==1.5.1.dev
 
 wandb

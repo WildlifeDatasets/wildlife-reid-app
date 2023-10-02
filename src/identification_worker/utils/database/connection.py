@@ -3,10 +3,9 @@ import logging
 from sqlalchemy import create_engine
 from sqlalchemy.exc import OperationalError
 
-from commonlib.error_handling import retry
-
-from .model.base import Base
-
+from ..error_handling import retry
+from .model import Base
+from .services import ReferenceImageService
 
 logger = logging.getLogger("database")
 
@@ -17,13 +16,7 @@ class DbConnection:
         self.engine = self._connect(db_url)
 
         # create services with methods for reading/writing from the db
-        self.image = ImageService(self.engine)
-        self.metadata = MetadataService(self.engine)
-        self.observation = ObservationService(self.engine)
-        self.body_part = BodyPartService(self.engine)
-        self.species = SpeciesService(self.engine)
-        self.user = UserService(self.engine)
-        self.admin = AdminService(self.engine)
+        self.reference_image = ReferenceImageService(self.engine)
 
     @retry(
         num_retries=5,
