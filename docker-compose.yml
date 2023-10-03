@@ -122,6 +122,7 @@ services:
     depends_on:
       - broker
       - redis
+      - identification_worker_db
     networks:
       - backend
       - identification-worker
@@ -130,7 +131,7 @@ services:
 
   identification_worker_db:
     image: postgres:14.4-alpine
-    container_name: carnivoreid-identification-worker-db
+    container_name: carnivoreid-app-identification-worker-db
     restart: always
     environment:
       TZ: Europe/Prague
@@ -139,11 +140,9 @@ services:
       POSTGRES_PASSWORD: password
       PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
-      - db-data:/var/lib/postgresql/data
+      - identification-worker-db-data:/var/lib/postgresql/data
     expose:
       - 5432
-    depends_on:
-      - identification_worker
     networks:
       - identification-worker
     labels:
@@ -182,6 +181,10 @@ volumes:
       com.piva-ai.group: "applications"
       com.piva-ai.backup: "yes"
   identification-worker-data:
+    labels:
+      com.piva-ai.group: "applications"
+      com.piva-ai.backup: "yes"
+  identification-worker-db-data:
     labels:
       com.piva-ai.group: "applications"
       com.piva-ai.backup: "yes"

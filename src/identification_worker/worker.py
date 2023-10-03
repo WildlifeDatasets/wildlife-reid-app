@@ -45,6 +45,7 @@ def init(
         metadata["embedding"] = features.tolist()
 
         # save embeddings and class ids into the database
+        logger.info("Storing feature vectors into the database.")
         db_connection = get_db_connection()
         db_connection.reference_image.create_reference_images(organization_id, metadata)
 
@@ -71,20 +72,20 @@ def predict(
         # read metadata file
         metadata = pd.read_csv(input_metadata_file)
         assert "image_path" in metadata
-        assert "class_id" in metadata
-        assert "label" in metadata
 
         # generate embeddings
         features = encode_images(image_paths=metadata["image_path"])
 
         # fetch embeddings of reference samples from the database
+        logger.info("Loading reference feature vectors from the database.")
         db_connection = get_db_connection()
         reference_images = db_connection.reference_image.get_reference_images(organization_id)
-        reference_features = np.array(reference_images["embeddings"].tolist())
+        reference_features = np.array(reference_images["embedding"].tolist())
         reference_class_ids = reference_images["class_id"]
         id2label = dict(zip(reference_images["class_id"], reference_images["label"]))
 
         # make predictions by comparing the embeddings using k-NN
+        logger.info("Making predictions using .")
         pred_class_ids, scores = identify(features, reference_features, reference_class_ids)
         pred_labels = [id2label[x] for x in pred_class_ids]
         output_data = dict(pred_class_ids=pred_class_ids, pred_labels=pred_labels, scores=scores)

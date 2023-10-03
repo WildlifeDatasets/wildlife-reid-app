@@ -38,7 +38,11 @@ class ModelWrapper(nn.Module):
 def encode_images(image_paths: list) -> np.ndarray:
     """Create feature vectors from given images."""
     logger.info("Creating model and loading fine-tuned checkpoint.")
-    model = get_model("hf-hub:BVRA/wildlife-mega-L-384", pretrained=True)
+    model = get_model(
+        "hf-hub:BVRA/wildlife-mega-L-384",
+        pretrained=True,
+        # checkpoint_path="/identification_worker/resources/wildlife-mega-L-384.pth",
+    )
     model = ModelWrapper(model)
     model_mean = tuple(model.default_cfg["mean"])
     model_std = tuple(model.default_cfg["std"])
@@ -51,8 +55,8 @@ def encode_images(image_paths: list) -> np.ndarray:
         image_size=(384, 384),
         model_mean=model_mean,
         model_std=model_std,
-        batch_size=8,
-        num_workers=8,
+        batch_size=4,
+        num_workers=4,
         dataset_cls=PredictionDataset,
     )
 
@@ -71,8 +75,8 @@ def identify(
     """Compare input feature vectors with the reference feature vectors and make predictions."""
     assert len(reference_features) == len(reference_class_ids)
     distance = 1 - torch.matmul(
-        F.normalize(torch.tensor(features)),
-        F.normalize(torch.tensor(reference_features)).T,
+        F.normalize(torch.tensor(features, dtype=torch.float32)),
+        F.normalize(torch.tensor(reference_features, dtype=torch.float32)).T,
     )
     scores, idx = torch.tensor(distance).topk(k=1, largest=False)
     scores, idx = scores.reshape(-1).numpy(), idx.reshape(-1).numpy()
