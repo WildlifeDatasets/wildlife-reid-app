@@ -1,9 +1,15 @@
 [tool.black]
 line-length = 100
+extend-exclude = '''
+(
+  \.tox
+)
+'''
 
 [tool.isort]
 line_length = 100
 profile = "black"
 # known_third_party = []
 known_first_party = ["fgvc"]
-# known_local_folder = []
+known_local_folder = ["api", "utils"]
+extend_skip = [".tox"]

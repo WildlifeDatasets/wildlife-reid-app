@@ -10,6 +10,8 @@ services:
       RABBITMQ_DEFAULT_PASS: 22pmDB%c
     expose:
       - 15672  # management tool
+    networks:
+      - backend
     labels:
       com.piva-ai.group: "applications"
 
@@ -17,13 +19,15 @@ services:
     image: redis:7.0.11-alpine
     container_name: carnivoreid-app-redis
     restart: always
-    expose:
-      - 6379
     command: >
       --loglevel warning
       --requirepass password
     volumes:
       - redis-data:/data:Z
+    expose:
+      - 6379
+    networks:
+      - backend
     labels:
       com.piva-ai.group: "applications"
 
@@ -41,6 +45,8 @@ services:
       - db-data:/var/lib/postgresql/data
     expose:
       - 5432
+    networks:
+      - backend
     labels:
       com.piva-ai.group: "applications"
 
@@ -64,6 +70,10 @@ services:
       - 8080  # this should be accessible through inner nginx
     depends_on:
       - inference_worker
+      - identification_worker
+    networks:
+      - frontend
+      - backend
     labels:
       com.piva-ai.group: "applications"
 
@@ -84,6 +94,57 @@ services:
     depends_on:
       - broker
       - redis
+    networks:
+      - backend
+    labels:
+      com.piva-ai.group: "applications"
+
+  identification_worker:
+    platform: linux/amd64
+    image: ${IDENTIFICATION_WORKER_IMAGE:-identification_worker}${TAG:-:latest}
+    build:
+      context: .
+      dockerfile: src/identification_worker/Dockerfile
+    container_name: carnivoreid-app-identification-worker
+    restart: always
+    environment:
+      POSTGRES_DB: identification_worker
+      POSTGRES_HOST: identification_worker_db
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: user
+      POSTGRES_PASS: password
+    env_file:
+      - "src/variables.env"
+      - ".env"
+    volumes:
+      - identification-worker-data:/data  # data used only by Worker
+      - shared-data:/shared_data  # shared data with API, Workers, and Nginx
+    depends_on:
+      - broker
+      - redis
+      - identification_worker_db
+    networks:
+      - backend
+      - identification-worker
+    labels:
+      com.piva-ai.group: "applications"
+
+  identification_worker_db:
+    image: postgres:14.4-alpine
+    container_name: carnivoreid-app-identification-worker-db
+    restart: always
+    environment:
+      TZ: Europe/Prague
+      POSTGRES_DB: identification_worker
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - identification-worker-db-data:/var/lib/postgresql/data
+    expose:
+      - 5432
+    networks:
+      - identification-worker
     labels:
       com.piva-ai.group: "applications"
 
@@ -97,6 +158,10 @@ services:
       - api
     ports:
       - "13580:8080"  # this should be input point from the outer nginx. Inner nginx will redirect static files
+    networks:
+      - frontend
+    labels:
+      com.piva-ai.group: "applications"
 
 volumes:
   redis-data:
@@ -115,6 +180,14 @@ volumes:
     labels:
       com.piva-ai.group: "applications"
       com.piva-ai.backup: "yes"
+  identification-worker-data:
+    labels:
+      com.piva-ai.group: "applications"
+      com.piva-ai.backup: "yes"
+  identification-worker-db-data:
+    labels:
+      com.piva-ai.group: "applications"
+      com.piva-ai.backup: "yes"
   shared-data:
     labels:
       com.piva-ai.group: "applications"
@@ -123,3 +196,8 @@ volumes:
     labels:
       com.piva-ai.group: "applications"
       com.piva-ai.backup: "yes"
+
+networks:
+  frontend:
+  backend:
+  identification-worker:

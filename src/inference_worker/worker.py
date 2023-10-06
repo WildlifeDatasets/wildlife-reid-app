@@ -3,6 +3,7 @@ import traceback
 from pathlib import Path
 
 from celery import Celery
+
 from utils import data_processing_pipeline, dataset_tools
 from utils.config import RABBITMQ_URL, REDIS_URL
 from utils.log import setup_logging

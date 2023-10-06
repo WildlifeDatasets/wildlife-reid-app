@@ -32,5 +32,19 @@ services:
     volumes:
       - ./src/inference_worker:/inference_worker
 
+  identification_worker:
+    image: carnivoreid-app/identification_worker:dev
+    build:
+      context: .
+      dockerfile: src/identification_worker/Dockerfile_dev
+    restart: "no"
+    volumes:
+      - ./src/identification_worker:/identification_worker
+
+  identification_worker_db:
+    restart: "no"
+    ports:
+      - "5433:5432"
+
   nginx:
     restart: "no"

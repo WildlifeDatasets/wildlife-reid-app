@@ -16,8 +16,11 @@ app.config_from_object("django.conf:settings", namespace="CELERY")
 
 # update celery configuration
 app.conf.task_routes = {
-    # "upload": {"queue": "data_worker"},
+    # recognition workflow
     "predict": {"queue": "inference_worker"},
+    # identification workflow
+    "init_identification": {"queue": "identification_worker"},
+    "identify": {"queue": "identification_worker"},
 }
 app.conf.update(task_track_started=True)
 
