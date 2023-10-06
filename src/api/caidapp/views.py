@@ -38,7 +38,9 @@ from .models import (
     UploadedArchive,
     WorkGroup,
 )
-from .tasks import (  # init_identification_on_error,; init_identification_on_success,
+from .tasks import (
+    init_identification_on_error,
+    init_identification_on_success,
     predict_on_error,
     predict_on_success,
 )
@@ -314,49 +316,61 @@ def run_processing(request, uploadedarchive_id):
 #     return redirect("/caidapp/uploads")
 
 
-def init_identification(request, taxon_str: str = "Lynx Lynx"):
+def init_identification(request, taxon_str: str = "Lynx lynx"):
     """Run processing of uploaded archive."""
+    # check if user is workgroup admin
+    if not request.user.ciduser.workgroup_admin:
+        return HttpResponseNotAllowed("Identification init is for workgroup admins only.")
     mediafiles = MediaFile.objects.filter(
-        # parent__workgroup=request.user.ciduser.workgroup,
-        category__name=taxon_str
+        category__name=taxon_str,
+        identity__isnull=False,
+        parent__owner__workgroup=request.user.ciduser.workgroup,
     ).all()
 
     logger.debug("Generating CSV for init_identification...")
-    csv_data = {"image_path": [], "class_id": [], "label": []}
+    csv_len = len(mediafiles)
+    csv_data = {
+        "image_path": [None] * csv_len,
+        "class_id": [None]*csv_len,
+        "label": [None]* csv_len
+    }
 
+    media_root = Path(settings.MEDIA_ROOT)
     output_dir = Path(settings.MEDIA_ROOT) / request.user.ciduser.workgroup.name
     output_dir.mkdir(exist_ok=True, parents=True)
 
-    for mediafile in mediafiles:
+    logger.debug(f"number of records={len(mediafiles)}")
+    for i, mediafile in enumerate(mediafiles):
 
-        if mediafile.identity is not None:
-            csv_data["image_path"] = str(output_dir / mediafile.mediafile.name)
-            csv_data["class_id"] = int(mediafile.identity.id)
-            csv_data["label"] = str(mediafile.identity.name)
+        # if mediafile.identity is not None:
+            csv_data["image_path"][i] = str(media_root / mediafile.mediafile.name)
+            csv_data["class_id"] [i] = int(mediafile.identity.id)
+            csv_data["label"][i] = str(mediafile.identity.name)
+
 
     identity_metadata_file = output_dir / "init_identification.csv"
     pd.DataFrame(csv_data).to_csv(identity_metadata_file, index=False)
 
     logger.debug("Calling init_identification...")
-    # sig = signature(
-    #     "init_identification",
-    #     kwargs={
-    #         ## csv file should contain image_path, class_id, label
-    #         "input_metadata_file": identity_metadata_file,
-    #         "organization_id": 111,
-    #     },
-    # )
-    # task = sig.apply_async(
-    #     link=init_identification_on_success.s(
-    #         # uploaded_archive_id=uploaded_archive.id,
-    #         # zip_file=os.path.relpath(str(output_archive_file), settings.MEDIA_ROOT),
-    #         # csv_file=os.path.relpath(str(output_metadata_file), settings.MEDIA_ROOT),
-    #     ),
-    #     link_error=predict_on_error.s(
-    #         # uploaded_archive_id=uploaded_archive.id
-    #     ),
-    # )
-    return redirect("/caidapp/uploads")
+    sig = signature(
+        "init_identification",
+        kwargs={
+            ## csv file should contain image_path, class_id, label
+            "input_metadata_file": str(identity_metadata_file),
+            "organization_id": request.user.ciduser.workgroup.id,
+        },
+    )
+    task = sig.apply_async(
+        link=init_identification_on_success.s(
+            # uploaded_archive_id=uploaded_archive.id,
+            # zip_file=os.path.relpath(str(output_archive_file), settings.MEDIA_ROOT),
+            # csv_file=os.path.relpath(str(output_metadata_file), settings.MEDIA_ROOT),
+        ),
+        link_error=init_identification_on_error.s(
+            # uploaded_archive_id=uploaded_archive.id
+        ),
+    )
+    return redirect("caidapp:individual_identities")
 
 
 def run_identification(request, uploadedarchive_id):

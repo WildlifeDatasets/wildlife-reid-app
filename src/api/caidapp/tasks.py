@@ -136,11 +136,13 @@ def get_image_files_from_uploaded_archive(
         logger.debug(f"{mf}")
 
 
+@shared_task
 def init_identification_on_success(*args, **kwargs):
     """Callback invoked after running init_identification function in inference worker."""
     logger.debug("init_identificaion done.")
 
 
+@shared_task
 def init_identification_on_error(*args, **kwargs):
     """Callback invoked after failing init_identification function in inference worker."""
     logger.error("init_identificaion done with error.")
