@@ -47,7 +47,11 @@ urlpatterns = [
     ),
     path("individual_identities/", views.individual_identities, name="individual_identities"),
     path("init_identification/", views.init_identification, name="init_identification"),
-    path("run_identification/<int:uploadedarchive_id>/", views.run_identification, name="run_identification"),
+    path(
+        "run_identification/<int:uploadedarchive_id>/",
+        views.run_identification,
+        name="run_identification",
+    ),
     path("get_individual_identity/", views.get_individual_identity, name="get_individual_identity"),
     path("workgroup_update/<str:workgroup_hash>/", views.workgroup_update, name="workgroup_update"),
 ]

@@ -8,7 +8,7 @@ from celery import shared_task
 from django.conf import settings
 
 from .fs_data import make_thumbnail_from_file
-from .models import MediaFile, UploadedArchive, get_location, get_taxon, get_unique_name, WorkGroup
+from .models import MediaFile, UploadedArchive, get_location, get_taxon, get_unique_name
 
 logger = logging.getLogger("app")
 
@@ -127,17 +127,20 @@ def get_image_files_from_uploaded_archive(
         mf.category = taxon
         if mf.identity is None:
             # update only if the identity is not set
-            identity = get_unique_name(row["unique_name"], workgroup=uploaded_archive.owner.workgroup)
+            identity = get_unique_name(
+                row["unique_name"], workgroup=uploaded_archive.owner.workgroup
+            )
             logger.debug(f"identity={identity}")
             mf.identity = identity
         mf.save()
         logger.debug(f"{mf}")
 
+
 def init_identification_on_success(*args, **kwargs):
+    """Callback invoked after running init_identification function in inference worker."""
     logger.debug("init_identificaion done.")
 
+
 def init_identification_on_error(*args, **kwargs):
+    """Callback invoked after failing init_identification function in inference worker."""
     logger.error("init_identificaion done with error.")
-
-
-
