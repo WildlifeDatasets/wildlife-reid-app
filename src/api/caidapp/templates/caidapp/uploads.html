@@ -75,6 +75,12 @@
                                                         <i class="bi bi-arrow-clockwise"></i> Re-run processing
                                                     </a>
                                                 </li>
+                                                <li>
+                                                    <a class="dropdown-item"
+                                                       href="{% url 'caidapp:run_identification' uploadedarchive.id %}">
+                                                        <i class="bi bi-fingerprint"></i> Run identification
+                                                    </a>
+                                                </li>
                                             {% endif %}
                                             <li>
                                                 <hr class="dropdown-divider">

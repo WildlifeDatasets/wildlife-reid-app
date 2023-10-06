@@ -2,6 +2,7 @@ import json
 import logging
 import os
 from pathlib import Path
+import pandas as pd
 
 import django
 from celery import signature
@@ -37,7 +38,7 @@ from .models import (
     UploadedArchive,
     WorkGroup,
 )
-from .tasks import predict_on_error, predict_on_success
+from .tasks import predict_on_error, predict_on_success, init_identification_on_success, init_identification_on_error
 
 logger = logging.getLogger("app")
 
@@ -304,6 +305,81 @@ def run_processing(request, uploadedarchive_id):
     uploaded_archive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
     _run_processing(uploaded_archive)
     return redirect("/caidapp/uploads")
+
+# def init_identification(request, taxon_str:str="Lynx Lynx"):
+#     return redirect("/caidapp/uploads")
+
+def init_identification(request, taxon_str:str="Lynx Lynx"):
+    """Run processing of uploaded archive."""
+    mediafiles = MediaFile.objects.filter(
+        # parent__workgroup=request.user.ciduser.workgroup,
+        category__name=taxon_str
+    ).all()
+
+    logger.debug("Generating CSV for init_identification...")
+    csv_data = {
+        "image_path": [],
+        "class_id": [],
+        "label": []
+        }
+
+    output_dir = Path(settings.MEDIA_ROOT) / request.user.ciduser.workgroup.name
+    output_dir.mkdir(exist_ok=True, parents=True)
+
+    for mediafile in mediafiles:
+
+        if mediafile.identity is not None:
+            csv_data["image_path"] = str(output_dir / mediafile.mediafile.name)
+            csv_data["class_id"] = int(mediafile.identity.id)
+            csv_data["label"] = str(mediafile.identity.name)
+
+    identity_metadata_file = output_dir / "init_identification.csv"
+    pd.DataFrame(csv_data).to_csv(identity_metadata_file, index=False)
+
+    logger.debug("Calling init_identification...")
+    # sig = signature(
+    #     "init_identification",
+    #     kwargs={
+    #         "input_metadata_file": identity_metadata_file,  # csv file should contain image_path, class_id, label
+    #         "organization_id": 111,
+    #     },
+    # )
+    # task = sig.apply_async(
+    #     link=init_identification_on_success.s(
+    #         # uploaded_archive_id=uploaded_archive.id,
+    #         # zip_file=os.path.relpath(str(output_archive_file), settings.MEDIA_ROOT),
+    #         # csv_file=os.path.relpath(str(output_metadata_file), settings.MEDIA_ROOT),
+    #     ),
+    #     link_error=predict_on_error.s(
+    #         # uploaded_archive_id=uploaded_archive.id
+    #     ),
+    # )
+    return redirect("/caidapp/uploads")
+
+def run_identification(request, uploadedarchive_id):
+    uploaded_archive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
+    _run_identification(uploaded_archive)
+    return redirect("/caidapp/uploads")
+
+def _run_identification(uploadedarchive:UploadedArchive):
+    logger.debug("Generating CSV for init_identification...")
+    # csv_data = {
+    #     "image_path": [],
+    #     "class_id": [],
+    #     "label": []
+    # }
+    #
+    # output_dir = Path(settings.MEDIA_ROOT) / request.user.ciduser.workgroup.name
+    # output_dir.mkdir(exist_ok=True, parents=True)
+    #
+    # for mediafile in mediafiles:
+    #
+    #     csv_data["image_path"] = output_dir / mediafile.name
+    #     csv_data["class_id"] = mediafile.identity.id
+    #     csv_data["label"] = mediafile.identity.name
+    #
+    # identity_metadata_file = output_dir / "init_identification.csv"
+
 
 
 def new_album(request):
