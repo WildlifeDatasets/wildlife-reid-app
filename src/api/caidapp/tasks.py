@@ -6,9 +6,10 @@ import django
 import pandas as pd
 from celery import shared_task
 from django.conf import settings
+from typing import List
 
 from .fs_data import make_thumbnail_from_file
-from .models import MediaFile, UploadedArchive, get_location, get_taxon, get_unique_name
+from .models import MediaFile, UploadedArchive, get_location, get_taxon, get_unique_name, IndividualIdentity
 
 logger = logging.getLogger("app")
 
@@ -140,6 +141,28 @@ def get_image_files_from_uploaded_archive(
 def init_identification_on_success(*args, **kwargs):
     """Callback invoked after running init_identification function in inference worker."""
     logger.debug("init_identificaion done.")
+
+
+@shared_task
+def identify_on_error(*args, **kwargs):
+    """Callback invoked after failing init_identification function in inference worker."""
+    logger.error("identify done with error.")
+
+@shared_task
+def identify_on_success(
+        self, output: dict, *args, uploaded_archive_id: int, mediafile_ids:List[int], **kwargs
+):
+    """Callback invoked after running init_identification function in inference worker."""
+    for i, mediafile_id in enumerate(mediafile_ids):
+        mediafile = MediaFile.objects.get(id=mediafile_id)
+        identity_id = output["pred_class_ids"][i]
+        mediafile.identity = IndividualIdentity.objects.get(id=identity_id)
+        if mediafile.identity.name != output["pred_labels"][i]:
+            logger.warning(f"Identity name mismatch: {mediafile.identity.name} != {output['pred_labels'][i]}")
+
+        mediafile.save()
+
+    logger.debug("identify done.")
 
 
 @shared_task
