@@ -9,6 +9,7 @@ from utils import config
 from utils.database import get_db_connection, init_db_connection
 from utils.inference import encode_images, identify
 from utils.log import setup_logging
+from pathlib import Path
 
 setup_logging()
 logger = logging.getLogger("app")
@@ -72,6 +73,8 @@ def predict(
         # read metadata file
         metadata = pd.read_csv(input_metadata_file)
         assert "image_path" in metadata
+        assert Path(metadata["image_path"][0]).exists(), f"File '{metadata['image_path'][0]}' does not exist."
+        logger.debug(f"first image = {metadata['image_path'][0]}, {Path(metadata['image_path'][0]).exists()}")
 
         # generate embeddings
         features = encode_images(image_paths=metadata["image_path"])
@@ -88,7 +91,9 @@ def predict(
         logger.info("Making predictions using .")
         pred_class_ids, scores = identify(features, reference_features, reference_class_ids)
         pred_labels = [id2label[x] for x in pred_class_ids]
-        output_data = dict(pred_class_ids=pred_class_ids, pred_labels=pred_labels, scores=scores)
+        output_data = dict(pred_class_ids=pred_class_ids.tolist(),
+                           pred_labels=pred_labels,
+                           scores=np.asarray(scores).tolist())
 
         logger.info("Finished processing.")
         out = {"status": "DONE", "data": output_data}
