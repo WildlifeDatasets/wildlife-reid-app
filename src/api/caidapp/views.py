@@ -730,9 +730,9 @@ def media_files_update(request, records_per_page=80, album_hash=None, individual
         .distinct()
         .order_by("created_at")
     )
-    logger.debug(f"{albums_available=}")
-    logger.debug(f"{query=}")
-    logger.debug(f"{queryform}")
+    # logger.debug(f"{albums_available=}")
+    # logger.debug(f"{query=}")
+    # logger.debug(f"{queryform}")
     full_mediafiles = _mediafiles_query(
         request, query, album_hash=album_hash, individual_identity_id=individual_identity_id
     )
