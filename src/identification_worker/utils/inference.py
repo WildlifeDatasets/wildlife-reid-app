@@ -13,6 +13,7 @@ from fgvc.utils.utils import set_cuda_device
 
 logger = logging.getLogger("app")
 device = set_cuda_device("0" if torch.cuda.is_available() else "cpu")
+logger.info(f"Using device: {device}")
 
 
 class ModelWrapper(nn.Module):
@@ -56,7 +57,7 @@ def encode_images(image_paths: list) -> np.ndarray:
         model_mean=model_mean,
         model_std=model_std,
         batch_size=4,
-        num_workers=4,
+        num_workers=1,
         dataset_cls=PredictionDataset,
     )
 
