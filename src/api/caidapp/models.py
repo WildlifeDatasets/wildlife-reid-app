@@ -136,7 +136,7 @@ class MediaFile(models.Model):
     )
     thumbnail = models.ImageField(blank=True, null=True, max_length=500)
     identity = models.ForeignKey(
-        IndividualIdentity, blank=True, null=True, on_delete=models.SET_DEFAULT
+        IndividualIdentity, blank=True, null=True, on_delete=models.SET_NULL
     )
     identity_is_representative = models.BooleanField(default=False)
     updated_by = models.ForeignKey(CIDUser, on_delete=models.CASCADE, null=True, blank=True)
