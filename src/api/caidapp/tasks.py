@@ -1,6 +1,7 @@
 import logging
 import os.path
 from pathlib import Path
+from typing import List
 
 import django
 import pandas as pd
@@ -8,7 +9,14 @@ from celery import shared_task
 from django.conf import settings
 
 from .fs_data import make_thumbnail_from_file
-from .models import MediaFile, UploadedArchive, get_location, get_taxon
+from .models import (
+    IndividualIdentity,
+    MediaFile,
+    UploadedArchive,
+    get_location,
+    get_taxon,
+    get_unique_name,
+)
 
 logger = logging.getLogger("app")
 
@@ -56,6 +64,7 @@ def predict_on_error(task_id: str, *args, uploaded_archive_id: int, **kwargs):
 
 def make_thumbnail_for_uploaded_archive(uploaded_archive: UploadedArchive):
     """Make small image representing the upload."""
+    logger.debug("making thumbnail for uploaded archive")
     output_dir = Path(settings.MEDIA_ROOT) / uploaded_archive.outputdir
     abs_thumbnail_path = output_dir / "thumbnail.jpg"
     csv_file = Path(settings.MEDIA_ROOT) / str(uploaded_archive.csv_file)
@@ -99,6 +108,7 @@ def get_image_files_from_uploaded_archive(
         mediafile_set = uploaded_archive.mediafile_set.filter(mediafile=str(rel_pth))
         if len(mediafile_set) == 0:
             location = get_location(str(uploaded_archive.location_at_upload))
+            logger.debug(f"Creating thumbnail for {rel_pth}")
             if make_thumbnail_from_file(abs_pth, abs_pth_thumbnail, width=thumbnail_width):
                 thumbnail = str(rel_pth_thumbnail)
             else:
@@ -114,7 +124,76 @@ def get_image_files_from_uploaded_archive(
         else:
             mf = mediafile_set[0]
             logger.debug("Using Mediafile generated before")
+            # generate thumbnail if necessary
+            if (mf.thumbnail is None) or (not abs_pth_thumbnail.exists()):
+                if make_thumbnail_from_file(abs_pth, abs_pth_thumbnail, width=thumbnail_width):
+                    mf.thumbnail = str(rel_pth_thumbnail)
+                    mf.save()
+                else:
+                    logger.warning(f"Cannot generate thumbnail for {abs_pth}")
 
         mf.category = taxon
+        if mf.identity is None:
+            # update only if the identity is not set
+            identity = get_unique_name(
+                row["unique_name"], workgroup=uploaded_archive.owner.workgroup
+            )
+            logger.debug(f"identity={identity}")
+            mf.identity = identity
         mf.save()
         logger.debug(f"{mf}")
+
+
+@shared_task
+def init_identification_on_success(*args, **kwargs):
+    """Callback invoked after running init_identification function in inference worker."""
+    logger.debug("init_identificaion done.")
+
+
+@shared_task
+def init_identification_on_error(*args, **kwargs):
+    """Callback invoked after failing init_identification function in inference worker."""
+    logger.error("init_identificaion done with error.")
+
+
+# @shared_task
+@shared_task(bind=True)
+def identify_on_error(self, uuid, *args, **kwargs):
+    """Callback invoked after failing init_identification function in inference worker."""
+    logger.error("identify done with error.")
+    result = self.AsyncResult(uuid)
+    error_message = result.result if result.failed() else "No error message available"
+    logger.error(f"identify done with error: {error_message}")
+
+    # logger.debug(f"args={args}")
+    # logger.debug(f"kwargs={kwargs}")
+    # logger.debug(f"self={self}")
+    # logger.debug(f"dir(self)={dir(self)}")
+
+
+@shared_task(bind=True)
+def identify_on_success(
+    self, output: dict, *args, uploaded_archive_id: int, mediafile_ids: List[int], **kwargs
+):
+    """Callback invoked after running init_identification function in inference worker."""
+    logger.debug(f"identify_on_success with {len(mediafile_ids)}")
+    logger.debug(f"self={self}")
+    # logger.debug(f"uuid={uuid}")
+    logger.debug(f"output={output}")
+    logger.debug(f"args={args}")
+    logger.debug(f"uploaded_archive_id={uploaded_archive_id}")
+    logger.debug(f"mediafile_ids={mediafile_ids}")
+    logger.debug(f"kwargs={kwargs}")
+    data = output["data"]
+    for i, mediafile_id in enumerate(mediafile_ids):
+        mediafile = MediaFile.objects.get(id=mediafile_id)
+        identity_id = data["pred_class_ids"][i]
+        mediafile.identity = IndividualIdentity.objects.get(id=identity_id)
+        if mediafile.identity.name != data["pred_labels"][i]:
+            logger.warning(
+                f"Identity name mismatch: {mediafile.identity.name} != {data['pred_labels'][i]}"
+            )
+
+        mediafile.save()
+
+    logger.debug("identify done.")

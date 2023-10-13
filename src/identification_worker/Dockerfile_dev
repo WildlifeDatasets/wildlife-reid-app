@@ -1,0 +1,14 @@
+FROM python:3.9.16-slim
+
+COPY ./src/identification_worker/requirements.txt /identification_worker/requirements.txt
+
+# install python dependencies
+ENV APP_DIR='/identification_worker'
+WORKDIR $APP_DIR
+RUN pip install --no-cache-dir --upgrade pip build && \
+    pip install --no-cache-dir --compile -r requirements.txt && \
+    rm -rf /var/lib/apt/lists/* /var/cache/apt/* /tmp/* /var/tmp/*
+
+# expose ports and run application
+WORKDIR $APP_DIR
+CMD C_FORCE_ROOT=false celery -A worker.identification_worker worker --pool threads --loglevel info --queues identification_worker

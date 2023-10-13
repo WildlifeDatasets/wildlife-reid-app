@@ -51,11 +51,31 @@
                     <div class="collapse" name="collapseBulkProcessing" id="collapseBulkProcessing">
                         <div class="card">
                             <div class="card-body mt-3">
-                                {{ form_bulk_processing }}
-                                <button class="btn btn-primary" name="btnBulkProcessing" id="btnBulkProcessing"
-                                        type="submit">
-                                    Update Selected
-                                </button>
+                                {{ form_bulk_processing.non_field_errors }}
+{#                                {{ form_bulk_processing.hidden_fields }}#}
+
+{#                                {% for hidden_field in form_bulk_processing.hidden_fields %}#}
+{#                                    {{ hidden_field.errors }}#}
+{#                                    {{ hidden_field }}#}
+{#                                {% endfor %}#}
+
+{#                              {{ form_bulk_processing }}#}
+                                {% for field in form_bulk_processing %}
+                                    <p>
+
+                                    {{ field.label }}:
+                                    {{ field }}
+                                    <button class="btn btn-primary" name="btnBulkProcessing_{{ field.id_for_label }}" id="btnBulkProcessing"
+                                            type="submit">
+                                        Update Selected
+                                    </button>
+                                    </p>
+
+                                {% endfor %}
+{#                                <button class="btn btn-primary" name="btnBulkProcessing" id="btnBulkProcessing"#}
+{#                                        type="submit">#}
+{#                                    Update Selected#}
+{#                                </button>#}
                                 <label for="cars">Album:</label>
 
                                 <select name="selectAlbum" id="selectAlbum">
@@ -96,6 +116,13 @@
                                         {#                                                                    <h5 class="card-title">{{ mediafile.instance }}</h5>#}
                                         <p class="card-text"> Category: {{ mediafile.instance.category }}</p>
                                         <p class="card-text"> Location: {{ mediafile.instance.location }}</p>
+                                        <p class="card-text"> Identity: {{ mediafile.instance.identity }}
+                                            {% if mediafile.instance.identity_is_representative %}
+{#                                                <i class="bi bi-check-circle"></i>#}
+                                                <i class="bi bi-bookmark" data-toggle="tooltip" data-placement="top" title="Mediafile selected as a representative for the automatic identification."></i>
+                                            {% endif %}
+
+                                        </p>
                                         <p class="card-text"> Captured
                                             at: {{ mediafile.instance.captured_at|date:'Y-m-d H:i' }}</p>
 
@@ -138,6 +165,12 @@
             </form>
         </section>
     {% endif %}
+    <script>
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+  return new bootstrap.Tooltip(tooltipTriggerEl)
+})
+    </script>
     <script>
         const data = '{{qs_json}}'
 

@@ -1,5 +1,6 @@
 from django import forms
 
+from . import models
 from .models import Album, CIDUser, IndividualIdentity, MediaFile, UploadedArchive
 
 
@@ -22,7 +23,7 @@ class IndividualIdentityForm(forms.ModelForm):
 class UploadedArchiveForm(forms.ModelForm):
     class Meta:
         model = UploadedArchive
-        fields = ("archivefile", "location_at_upload")
+        fields = ("archivefile", "location_at_upload", "contains_identities")
 
 
 class MediaFileForm(forms.ModelForm):
@@ -34,7 +35,15 @@ class MediaFileForm(forms.ModelForm):
 class MediaFileBulkForm(forms.ModelForm):
     class Meta:
         model = MediaFile
-        fields = ("category",)
+        fields = (
+            "category",
+            "identity",
+            "identity_is_representative",
+        )
+
+    def __init__(self, *args, **kwargs):
+        super(MediaFileBulkForm, self).__init__(*args, **kwargs)
+        self.fields["category"].queryset = models.Taxon.objects.order_by("name")
 
 
 class MediaFileSelectionForm(forms.ModelForm):

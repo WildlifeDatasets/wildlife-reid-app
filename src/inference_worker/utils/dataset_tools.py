@@ -161,7 +161,7 @@ def replace_colon_in_exif_datetime(exif_datetime: str) -> str:
 
     """
     replaced = exif_datetime
-    if type(exif_datetime) == str:
+    if isinstance(exif_datetime, str):
         exif_ex = re.findall(
             r"([0-9]{4}):([0-9]{2}):([0-9]{2}) ([0-9]{2}:[0-9]{2}:[0-9]{2})", exif_datetime
         )
@@ -315,7 +315,6 @@ def extend_df_with_sequence_id(df: pd.DataFrame, time_limit: typing.Union[str, d
         ascending.append(False)
     df = df.sort_values(sort_keys, ascending=ascending).reset_index(drop=True)
     df["delta_datetime"] = pd.NaT
-    # df[df.media_type=='image'].delta_datetime=df[df.media_type=='image'].datetime.diff()
     df.loc[~df.datetime.isna(), "delta_datetime"] = df[~df.datetime.isna()].datetime.diff()
     tqdm.pandas(desc="sequence_number")
     event_id_manager = DatasetEventIdManager(time_limit=time_limit)
@@ -377,6 +376,15 @@ class DatasetEventIdManager:
         if delta_datetime < pd.Timedelta(0) or delta_datetime > pd.Timedelta(self.time_limit):
             self.event_id += int(1)
         return self.event_id
+
+
+def get_lynx_id_as_parent_name(relative_path: str) -> Optional[str]:
+    """Lynx ID is generated from the directory name."""
+    path = Path(relative_path)
+    if len(path.parts) > 1:
+        return path.parent.name
+    else:
+        return None
 
 
 def get_lynx_id_in_sumava(relative_path: str) -> Optional[str]:
@@ -586,15 +594,14 @@ class SumavaInitialProcessing:
         """
         if exclude is None:
             exclude = []
-        elif type(exclude) == str:
+        elif isinstance(exclude, str):
             exclude = [exclude]
         exclude = [suffix.lower() for suffix in exclude]
 
         gmask = "./*"
         list_of_files = set()
         if self.path_groups is None:
-            # self.path_groups = list(self.dataset_basedir.glob(self.group_mask))
-            for i in range(0, 10):
+            for _ in range(0, 10):
                 group_of_dirs = list(self.dataset_basedir.glob(gmask))
                 list_of_files = list_of_files.union(group_of_dirs)
                 if len(group_of_dirs) > self.num_cores:
@@ -698,7 +705,17 @@ class SumavaInitialProcessing:
         return datetime_list, error_list
 
 
-# def extract_information_from_filename()
+def add_column_with_lynx_id(df: pd.DataFrame, contain_identities: bool = False) -> pd.DataFrame:
+    """Create column with lynx id based on directory structure."""
+    if contain_identities:
+        df["unique_name"] = df["vanilla_path"].apply(get_lynx_id_as_parent_name)
+    else:
+        # If we don't know about identity, we can check if the structure is similar to SUMAVA
+        # Get ID of lynx from directories in basedir beside "TRIDENA" and "NETRIDENA"
+        df["unique_name"] = df["vanilla_path"].apply(get_lynx_id_in_sumava)
+    return df
+
+
 def extract_information_from_dir_structure(
     df_filelist: pd.DataFrame, latin_to_taxonomy_csv_path: Optional[Path] = None
 ) -> pd.DataFrame:
@@ -955,6 +972,7 @@ def analyze_dataset_directory(
     dataset_dir_path: Path,
     num_cores: Optional[int] = None,
     latin_to_taxonomy_csv_path: Optional[Path] = None,
+    contains_identities: bool = False,
 ):
     """Get species, locality, datetime and sequence_id from directory with media files.
 
@@ -987,8 +1005,7 @@ def analyze_dataset_directory(
 
     df.loc[:, "sequence_number"] = None
 
-    # Get ID of lynx from directories in basedir beside "TRIDENA" and "NETRIDENA"
-    df["unique_name"] = df["vanilla_path"].apply(get_lynx_id_in_sumava)
+    df = add_column_with_lynx_id(df, contain_identities=contains_identities)
     df, hashes = find_unique_names_between_duplicate_files(
         df, basedir=Path(dataset_dir_path), num_cores=num_cores
     )
@@ -1025,7 +1042,10 @@ def analyze_dataset_directory(
 
 
 def data_preprocessing(
-    zip_path: Path, media_dir_path: Path, num_cores: Optional[int] = None
+    zip_path: Path,
+    media_dir_path: Path,
+    num_cores: Optional[int] = None,
+    contains_identities: bool = False,
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """Preprocessing of data in zip file.
 
@@ -1054,7 +1074,9 @@ def data_preprocessing(
     extract_archive(zip_path, output_dir=tmp_dir)
 
     # create metadata directory
-    df, duplicates = analyze_dataset_directory(tmp_dir, num_cores=num_cores)
+    df, duplicates = analyze_dataset_directory(
+        tmp_dir, num_cores=num_cores, contains_identities=contains_identities
+    )
     # df["vanilla_path"].map(lambda fn: dataset_tools.make_hash(fn, prefix="media_data"))
     df = make_dataset(
         dataframe=df,
@@ -1069,3 +1091,51 @@ def data_preprocessing(
     shutil.rmtree(tmp_dir, ignore_errors=True)
 
     return df, duplicates
+
+
+def make_zipfile_with_categories(
+    zip_path: Path,
+    media_dir_path: Path,
+    metadata: pd.DataFrame,
+) -> Tuple[pd.DataFrame]:
+    """Put mediafiles into zip according to their category and create updated metadata file.
+
+    The predicted category or 'class_id' is used for the directory name.
+    The metadata file contains updated image paths.
+    Metadata and media files are saved into zip file.
+
+    Parameters
+    ----------
+    zip_path: output file with zipped images
+    media_dir_path: dir containing media files with hashed names
+    metadata: DataFrame - Image and video metadata with predicted category or class_id
+    """
+    import tempfile
+
+    tmp_dir = Path(tempfile.gettempdir()) / str(uuid.uuid4())
+    tmp_dir.mkdir(exist_ok=False, parents=True)
+    metadata = metadata.copy(deep=True)
+
+    # create category subdirectories and move images based on prediction
+    new_image_paths = []
+    for i, row in metadata.iterrows():
+        if pd.notnull(row["predicted_category"]):
+            predicted_category = row["predicted_category"]
+        else:
+            predicted_category = f"class_{row['predicted_class_id']}"
+
+        image_path = Path(media_dir_path) / row["image_path"]
+        target_dir = Path(tmp_dir, predicted_category)
+        target_dir.mkdir(parents=True, exist_ok=True)
+        target_image_path = target_dir / row["image_path"]
+        shutil.copy(image_path, target_image_path)
+        new_image_paths.append(os.path.join(predicted_category, row["image_path"]))
+    metadata["image_path"] = new_image_paths
+
+    # save metadata file
+    metadata.to_csv(tmp_dir / "metadata.csv", encoding="utf-8-sig")
+
+    zip_path.unlink(missing_ok=True)
+    make_zipfile(zip_path, tmp_dir)
+    shutil.rmtree(tmp_dir, ignore_errors=True)
+    return metadata

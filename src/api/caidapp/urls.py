@@ -26,10 +26,32 @@ urlpatterns = [
     path("manage_locations/", views.manage_locations, name="manage_locations"),
     path("albums/", views.albums, name="albums"),
     path("album/<str:album_hash>", views.media_files_update, name="album"),
+    path(
+        "individual_identity_mediafiles/<int:individual_identity_id>",
+        views.media_files_update,
+        name="individual_identity_mediafiles",
+    ),
     path("album_update/<str:album_hash>/", views.album_update, name="album_update"),
     path("delete_album/<str:album_hash>/", views.delete_album, name="delete_album"),
     path("new_album/", views.new_album, name="new_album"),
+    path("new_individual_identity/", views.new_individual_identity, name="new_individual_identity"),
+    path(
+        "update_individual_identity/<int:individual_identity_id>",
+        views.update_individual_identity,
+        name="update_individual_identity",
+    ),
+    path(
+        "delete_individual_identity/<int:individual_identity_id>",
+        views.delete_individual_identity,
+        name="delete_individual_identity",
+    ),
     path("individual_identities/", views.individual_identities, name="individual_identities"),
+    path("init_identification/", views.init_identification, name="init_identification"),
+    path(
+        "run_identification/<int:uploadedarchive_id>/",
+        views.run_identification,
+        name="run_identification",
+    ),
     path("get_individual_identity/", views.get_individual_identity, name="get_individual_identity"),
     path("workgroup_update/<str:workgroup_hash>/", views.workgroup_update, name="workgroup_update"),
 ]

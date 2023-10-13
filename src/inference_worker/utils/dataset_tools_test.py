@@ -14,6 +14,9 @@ except ModuleNotFoundError:
 logger = logging.getLogger(__file__)
 
 CAID_DATASET_BASEDIR = Path(os.getenv("CAID_DATASET_BASEDIR", r"H:\biology\orig\CarnivoreID"))
+CAID_DATASET_BASEDIR = Path(
+    os.getenv("CAID_DATASET_BASEDIR", r"C:\Users\Jirik\my_bc_data\data\biology\orig\CarnivoreID")
+)
 CI = os.getenv("CI", False)
 
 
@@ -98,6 +101,7 @@ def test_make_tar_dataset():
 def test_make_dataset_smaller():
     """Test making dataset smaller by resizing images."""
     dir_path = CAID_DATASET_BASEDIR / "DATA_SUNAP_tiny_test_subset"
+    dir_path = CAID_DATASET_BASEDIR / "lynx_ids_small"
     # dir_path = CAID_DATASET_BASEDIR / "DUHA_tiny_test_subset"
     output_dir_path = dir_path.parent / (dir_path.name + "_smaller")
     output_files = dataset_tools.make_all_images_in_directory_smaller(dir_path, output_dir_path)
@@ -140,6 +144,19 @@ def test_analyze_dir(dataset):
     duplicates.to_csv("test_duplicates.csv", encoding="utf-8-sig")
     assert len(metadata) > 3
     assert len(metadata.location.unique()) > 1, "There should be some localities."
+
+
+def test_analyze_dir_unique_names_as_parent_name():
+    """Test dataset directory analysis."""
+    dir_path = CAID_DATASET_BASEDIR / "lynx_ids_FeCuMa_smaller"
+    metadata, duplicates = dataset_tools.analyze_dataset_directory(
+        dir_path, num_cores=2, contains_identities=True
+    )
+
+    metadata.to_csv("test_metadata.csv", encoding="utf-8-sig")
+    duplicates.to_csv("test_duplicates.csv", encoding="utf-8-sig")
+    assert len(metadata) > 3
+    assert len(metadata.unique_name.unique()) > 1, "There should be some unique names."
 
 
 @pytest.mark.parametrize(

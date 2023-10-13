@@ -12,7 +12,7 @@
                 <ol class="breadcrumb">
                     <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li>
                 </ol>
-                <a class="btn btn-primary" href="{% url 'caidapp:model_form_upload' %}"><i class="bi bi-plus-circle"></i> Upload</a>
+                <a class="btn btn-primary" href="{% url 'caidapp:model_form_upload' %}"><i class="bi bi-plus-circle"></i> New Upload </a>
             </nav>
         </div><!-- End Page Title -->
         <section class="section">
@@ -73,6 +73,12 @@
                                                     <a class="dropdown-item"
                                                        href="{% url 'caidapp:run_processing' uploadedarchive.id %}">
                                                         <i class="bi bi-arrow-clockwise"></i> Re-run processing
+                                                    </a>
+                                                </li>
+                                                <li>
+                                                    <a class="dropdown-item"
+                                                       href="{% url 'caidapp:run_identification' uploadedarchive.id %}">
+                                                        <i class="bi bi-fingerprint"></i> Run identification
                                                     </a>
                                                 </li>
                                             {% endif %}

@@ -90,6 +90,7 @@ class UploadedArchive(models.Model):
     finished_at = models.DateTimeField("Finished at", blank=True, null=True)
     location_at_upload = models.CharField(max_length=255, blank=True, default="")
     owner = models.ForeignKey(CIDUser, on_delete=models.CASCADE, null=True, blank=True)
+    contains_identities = models.BooleanField(default=False)
 
     def __str__(self):
         return str(Path(self.archivefile.name).name)
@@ -104,6 +105,7 @@ class Taxon(models.Model):
 
 class Location(models.Model):
     name = models.CharField(max_length=50)
+    # owner = models.ForeignKey(CIDUser, on_delete=models.CASCADE, null=True, blank=True)
 
     def __str__(self):
         return str(self.name)
@@ -113,6 +115,7 @@ class IndividualIdentity(models.Model):
     name = models.CharField(max_length=50)
     id_worker = models.IntegerField(null=True, blank=True)
     owner_workgroup = models.ForeignKey(WorkGroup, on_delete=models.CASCADE, null=True, blank=True)
+    updated_by = models.ForeignKey(CIDUser, on_delete=models.CASCADE, null=True, blank=True)
 
     def __str__(self):
         return str(self.name)
@@ -131,10 +134,14 @@ class MediaFile(models.Model):
         max_length=500,
     )
     thumbnail = models.ImageField(blank=True, null=True, max_length=500)
-    indentity = models.ForeignKey(
+    identity = models.ForeignKey(
         IndividualIdentity, blank=True, null=True, on_delete=models.CASCADE
     )
     identity_is_representative = models.BooleanField(default=False)
+    updated_by = models.ForeignKey(CIDUser, on_delete=models.CASCADE, null=True, blank=True)
+
+    class Meta:
+        ordering = ["-identity_is_representative", "captured_at"]
 
     def __str__(self):
         return str(Path(self.mediafile.name).name)
@@ -196,6 +203,19 @@ class AlbumShareRole(models.Model):
 
     def __str__(self):
         return str(self.album.name) + " " + str(self.user.user.username)
+
+
+def get_unique_name(name: str, workgroup: WorkGroup) -> IndividualIdentity:
+    """Return taxon according to the name, create it if necessary."""
+    if (name is None) or (name == ""):
+        return None
+    objs = IndividualIdentity.objects.filter(name=name, owner_workgroup=workgroup)
+    if len(objs) == 0:
+        identity = IndividualIdentity(name=name, owner_workgroup=workgroup)
+        identity.save()
+    else:
+        identity = objs[0]
+    return identity
 
 
 def get_taxon(name: str) -> Taxon:
