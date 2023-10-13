@@ -1,15 +1,22 @@
 import logging
 import os.path
 from pathlib import Path
+from typing import List
 
 import django
 import pandas as pd
 from celery import shared_task
 from django.conf import settings
-from typing import List
 
 from .fs_data import make_thumbnail_from_file
-from .models import MediaFile, UploadedArchive, get_location, get_taxon, get_unique_name, IndividualIdentity
+from .models import (
+    IndividualIdentity,
+    MediaFile,
+    UploadedArchive,
+    get_location,
+    get_taxon,
+    get_unique_name,
+)
 
 logger = logging.getLogger("app")
 
@@ -141,10 +148,13 @@ def get_image_files_from_uploaded_archive(
 def init_identification_on_success(*args, **kwargs):
     """Callback invoked after running init_identification function in inference worker."""
     logger.debug("init_identificaion done.")
+
+
 @shared_task
 def init_identification_on_error(*args, **kwargs):
     """Callback invoked after failing init_identification function in inference worker."""
     logger.error("init_identificaion done with error.")
+
 
 # @shared_task
 @shared_task(bind=True)
@@ -152,7 +162,7 @@ def identify_on_error(self, uuid, *args, **kwargs):
     """Callback invoked after failing init_identification function in inference worker."""
     logger.error("identify done with error.")
     result = self.AsyncResult(uuid)
-    error_message = result.result if result.failed() else 'No error message available'
+    error_message = result.result if result.failed() else "No error message available"
     logger.error(f"identify done with error: {error_message}")
 
     # logger.debug(f"args={args}")
@@ -160,14 +170,10 @@ def identify_on_error(self, uuid, *args, **kwargs):
     # logger.debug(f"self={self}")
     # logger.debug(f"dir(self)={dir(self)}")
 
+
 @shared_task(bind=True)
 def identify_on_success(
-        self,
-        output: dict,
-        *args,
-        uploaded_archive_id: int,
-        mediafile_ids:List[int],
-        **kwargs
+    self, output: dict, *args, uploaded_archive_id: int, mediafile_ids: List[int], **kwargs
 ):
     """Callback invoked after running init_identification function in inference worker."""
     logger.debug(f"identify_on_success with {len(mediafile_ids)}")
@@ -184,10 +190,10 @@ def identify_on_success(
         identity_id = data["pred_class_ids"][i]
         mediafile.identity = IndividualIdentity.objects.get(id=identity_id)
         if mediafile.identity.name != data["pred_labels"][i]:
-            logger.warning(f"Identity name mismatch: {mediafile.identity.name} != {data['pred_labels'][i]}")
+            logger.warning(
+                f"Identity name mismatch: {mediafile.identity.name} != {data['pred_labels'][i]}"
+            )
 
         mediafile.save()
 
     logger.debug("identify done.")
-
-
