@@ -1,3 +1,4 @@
+import json
 import logging
 import traceback
 from pathlib import Path
@@ -64,6 +65,8 @@ def predict(
     self,
     input_metadata_file: str,
     organization_id: int,
+    output_json_file: str,
+    top_k: int = 1,
     **kwargs,
 ):
     """Process and compare input samples with Reference Image records from the database."""
@@ -88,21 +91,29 @@ def predict(
         db_connection = get_db_connection()
         reference_images = db_connection.reference_image.get_reference_images(organization_id)
         reference_features = np.array(reference_images["embedding"].tolist())
-        reference_class_ids = reference_images["class_id"]
         id2label = dict(zip(reference_images["class_id"], reference_images["label"]))
 
         # make predictions by comparing the embeddings using k-NN
         logger.info("Making predictions using .")
-        pred_class_ids, scores = identify(features, reference_features, reference_class_ids)
-        pred_labels = [id2label[x] for x in pred_class_ids]
+        pred_image_paths, pred_class_ids, scores = identify(
+            features,
+            reference_features,
+            reference_image_paths=reference_images["image_path"],
+            reference_class_ids=reference_images["class_id"],
+            top_k=top_k,
+        )
+        pred_labels = [[id2label[x] for x in row] for row in pred_class_ids]
         output_data = dict(
+            pred_image_paths=pred_image_paths,
             pred_class_ids=pred_class_ids.tolist(),
             pred_labels=pred_labels,
-            scores=np.asarray(scores).tolist(),
+            scores=scores.tolist(),
         )
+        with open(output_json_file, "w") as f:
+            json.dump(output_data, f)
 
         logger.info("Finished processing.")
-        out = {"status": "DONE", "data": output_data}
+        out = {"status": "DONE", "output_json_file": output_json_file}
     except Exception:
         error = traceback.format_exc()
         logger.critical(f"Returning unexpected error output: '{error}'.")
