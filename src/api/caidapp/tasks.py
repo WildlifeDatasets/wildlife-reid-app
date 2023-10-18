@@ -1,7 +1,7 @@
+import json
 import logging
 import os.path
 from pathlib import Path
-from typing import List
 
 import django
 import pandas as pd
@@ -172,28 +172,48 @@ def identify_on_error(self, uuid, *args, **kwargs):
 
 
 @shared_task(bind=True)
-def identify_on_success(
-    self, output: dict, *args, uploaded_archive_id: int, mediafile_ids: List[int], **kwargs
-):
+def identify_on_success(self, output: dict, *args, **kwargs):
     """Callback invoked after running init_identification function in inference worker."""
-    logger.debug(f"identify_on_success with {len(mediafile_ids)}")
+    status = output.get("status", "unknown")
+    logger.info(f"Identification task finished with status '{status}'. Updating database record.")
+
     logger.debug(f"self={self}")
-    # logger.debug(f"uuid={uuid}")
     logger.debug(f"output={output}")
     logger.debug(f"args={args}")
-    logger.debug(f"uploaded_archive_id={uploaded_archive_id}")
-    logger.debug(f"mediafile_ids={mediafile_ids}")
     logger.debug(f"kwargs={kwargs}")
-    data = output["data"]
-    for i, mediafile_id in enumerate(mediafile_ids):
-        mediafile = MediaFile.objects.get(id=mediafile_id)
-        identity_id = data["pred_class_ids"][i]
-        mediafile.identity = IndividualIdentity.objects.get(id=identity_id)
-        if mediafile.identity.name != data["pred_labels"][i]:
-            logger.warning(
-                f"Identity name mismatch: {mediafile.identity.name} != {data['pred_labels'][i]}"
-            )
 
-        mediafile.save()
+    if "status" not in output:
+        logger.critical(f"Unexpected error {output=} is missing 'status' field.")
+        # TODO - should the app return some error response to the user?
+    elif output["status"] == "DONE":
+        # load output file
+        output_json_file = output["output_json_file"]
+        with open(output_json_file, "r") as f:
+            data = json.load(f)
+        logger.debug(f"Loaded output data: {data=}")
+        assert "mediafile_ids" in data
+        assert "pred_image_paths" in data
+        assert "pred_class_ids" in data
+        assert "pred_labels" in data
+        assert "scores" in data
+        mediafile_ids = data["mediafile_ids"]
+        for i, mediafile_id in enumerate(mediafile_ids):
+            top_k_class_ids = data["pred_class_ids"][i]
+            top_k_labels = data["pred_labels"][i]
 
-    logger.debug("identify done.")
+            mediafile = MediaFile.objects.get(id=mediafile_id)
+            identity_id = top_k_class_ids[0]  # top-1
+            mediafile.identity = IndividualIdentity.objects.get(id=identity_id)
+            if mediafile.identity.name != top_k_labels[0]:  # top-1
+                logger.warning(
+                    f"Identity name mismatch: {mediafile.identity.name} != {top_k_labels[0]}"
+                )
+
+            mediafile.save()
+
+        logger.debug("identify done.")
+    else:
+        # identification failed
+        logger.error("Identification failed.")
+        # TODO - should the app return some error response to the user?
+        pass

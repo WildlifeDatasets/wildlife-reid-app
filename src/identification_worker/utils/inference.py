@@ -71,16 +71,22 @@ def encode_images(image_paths: list) -> np.ndarray:
 
 
 def identify(
-    features: np.ndarray, reference_features: np.ndarray, reference_class_ids: list
-) -> Tuple[np.ndarray, np.ndarray]:
+    features: np.ndarray,
+    reference_features: np.ndarray,
+    reference_image_paths: list,
+    reference_class_ids: list,
+    top_k: int = 1,
+) -> Tuple[list, np.ndarray, np.ndarray]:
     """Compare input feature vectors with the reference feature vectors and make predictions."""
+    assert len(reference_features) == len(reference_image_paths)
     assert len(reference_features) == len(reference_class_ids)
     distance = 1 - torch.matmul(
         F.normalize(torch.tensor(features, dtype=torch.float32)),
         F.normalize(torch.tensor(reference_features, dtype=torch.float32)).T,
     )
-    scores, idx = torch.tensor(distance).topk(k=1, largest=False)
-    scores, idx = scores.reshape(-1).numpy(), idx.reshape(-1).numpy()
-    pred_class_ids = np.array([reference_class_ids[i] for i in idx])
+    scores, idx = distance.topk(k=top_k, largest=False)
+    scores, idx = scores.numpy(), idx.numpy()
+    pred_image_paths = [[reference_image_paths[i] for i in row] for row in idx]
+    pred_class_ids = np.array([[reference_class_ids[i] for i in row] for row in idx])
 
-    return pred_class_ids, scores
+    return pred_image_paths, pred_class_ids, scores
