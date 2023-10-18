@@ -5,7 +5,11 @@ from . import views
 app_name = "caidapp"
 urlpatterns = [
     path("", views.login, name="index"),
-    path("upload/", views.model_form_upload, name="model_form_upload"),
+    path("upload/", views.upload_archive, name="upload_archive"),
+    path("upload/contains_single_taxon/", views.upload_archive,
+         {"contains_single_taxon": True}, name="upload_archive_contains_single_taxon"),
+    path("upload/contains_identities/", views.upload_archive,
+         {"contains_identities": True}, name="upload_archive_contains_identities"),
     # path("login/", TemplateView.as_view(template_name="caidapp/login.html"), name="login"),
     path("logout/", views.logout_view, name="logout_view"),
     path("uploads/", views.uploads, name="uploads"),

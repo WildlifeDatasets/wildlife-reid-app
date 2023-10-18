@@ -28,6 +28,7 @@
         </div><!-- End Page Title -->
         <div class="section">
             <p class="text-danger">{{ error_text }}</p>
+            <p class="text"> {{ text_note }}</p>
 
             <form method="post" enctype="multipart/form-data" id="upload_form">
                 {% csrf_token %}
@@ -60,7 +61,7 @@
 
             $.ajax({
                 type: 'POST',
-                url:'{% url 'caidapp:model_form_upload' %}',
+                url:'{% url 'caidapp:upload_archive' %}',
                 data: formData,
                 dataType: 'json',
                 beforeSend: function(){
