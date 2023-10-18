@@ -526,8 +526,18 @@ def delete_album(request, album_hash):
 #     )
 
 
-def model_form_upload(request):
+def upload_archive(request,
+                   contains_single_taxon=False,
+                   contains_identities=False,
+                   ):
     """Process the uploaded zip file."""
+
+    text_note = ""
+    if contains_single_taxon:
+        text_note = "The archive contains images of a single taxon."
+    if contains_identities:
+        text_note = "The archive contains identities. Each identity is in individual folder"
+
     if request.method == "POST":
         form = UploadedArchiveForm(
             request.POST,
@@ -547,6 +557,8 @@ def model_form_upload(request):
                 )
 
             uploaded_archive.owner = request.user.ciduser
+            uploaded_archive.contains_identities = contains_identities
+            uploaded_archive.contains_single_taxon = contains_single_taxon
             uploaded_archive.save()
             _run_processing(uploaded_archive)
 
@@ -559,7 +571,8 @@ def model_form_upload(request):
     return render(
         request,
         "caidapp/model_form_upload.html",
-        {"form": form, "headline": "Upload", "button": "Upload"},
+        {"form": form, "headline": "Upload", "button": "Upload",
+         "text_note": text_note},
     )
 
 
