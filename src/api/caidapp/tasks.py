@@ -226,7 +226,7 @@ def identify_on_success(self, output: dict, *args, **kwargs):
 
 
             mediafile = MediaFile.objects.get(id=mediafile_id)
-            mfi = MediafilesForIdentification.objects.get_or_create(
+            mfi, created = MediafilesForIdentification.objects.get_or_create(
                 mediafile=mediafile,
                 top1mediafile=top1_mediafile,
                 top1score=top_k_scores[0],
