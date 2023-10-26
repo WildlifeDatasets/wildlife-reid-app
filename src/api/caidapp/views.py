@@ -521,12 +521,12 @@ def delete_album(request, album_hash):
 #     )
 
 
-def upload_archive(request,
-                   contains_single_taxon=False,
-                   contains_identities=False,
-                   ):
+def upload_archive(
+    request,
+    contains_single_taxon=False,
+    contains_identities=False,
+):
     """Process the uploaded zip file."""
-
     text_note = ""
     if contains_single_taxon:
         text_note = "The archive contains images of a single taxon."
@@ -566,8 +566,7 @@ def upload_archive(request,
     return render(
         request,
         "caidapp/model_form_upload.html",
-        {"form": form, "headline": "Upload", "button": "Upload",
-         "text_note": text_note},
+        {"form": form, "headline": "Upload", "button": "Upload", "text_note": text_note},
     )
 
 

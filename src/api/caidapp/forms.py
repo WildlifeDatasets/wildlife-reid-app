@@ -23,9 +23,11 @@ class IndividualIdentityForm(forms.ModelForm):
 class UploadedArchiveForm(forms.ModelForm):
     class Meta:
         model = UploadedArchive
-        fields = ("archivefile", "location_at_upload",
-                  # "contains_identities"
-                  )
+        fields = (
+            "archivefile",
+            "location_at_upload",
+            # "contains_identities"
+        )
 
 
 class MediaFileForm(forms.ModelForm):

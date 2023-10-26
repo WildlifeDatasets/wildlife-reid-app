@@ -12,11 +12,11 @@ from .fs_data import make_thumbnail_from_file
 from .models import (
     IndividualIdentity,
     MediaFile,
+    MediafilesForIdentification,
     UploadedArchive,
     get_location,
     get_taxon,
     get_unique_name,
-    MediafilesForIdentification
 )
 
 logger = logging.getLogger("app")
@@ -200,7 +200,6 @@ def identify_on_success(self, output: dict, *args, **kwargs):
 
         media_root = Path(settings.MEDIA_ROOT)
 
-
         mediafile_ids = data["mediafile_ids"]
         for i, mediafile_id in enumerate(mediafile_ids):
             top_k_class_ids = data["pred_class_ids"][i]
@@ -208,22 +207,20 @@ def identify_on_success(self, output: dict, *args, **kwargs):
             top_k_paths = data["pred_image_paths"][i]
             top_k_scores = data["scores"][i]
 
-
             top1_abspath = Path(top_k_paths[0])
             top1_relpath = top1_abspath.relative_to(media_root)
             top1_mediafile = MediaFile.objects.get(mediafile=str(top1_relpath))
-            top1_identity_id = top_k_class_ids[0]  # top-1
+            # top1_identity_id = top_k_class_ids[0]  # top-1
 
             top2_abspath = Path(top_k_paths[1])
             top2_relpath = top2_abspath.relative_to(media_root)
             top2_mediafile = MediaFile.objects.get(mediafile=str(top2_relpath))
-            top2_identity_id = top_k_class_ids[1]  # top-1
+            # top2_identity_id = top_k_class_ids[1]  # top-1
 
             top3_abspath = Path(top_k_paths[2])
             top3_relpath = top3_abspath.relative_to(media_root)
             top3_mediafile = MediaFile.objects.get(mediafile=str(top3_relpath))
-            top3_identity_id = top_k_class_ids[2]  # top-1
-
+            # top3_identity_id = top_k_class_ids[2]  # top-1
 
             mediafile = MediaFile.objects.get(id=mediafile_id)
             mfi, created = MediafilesForIdentification.objects.get_or_create(
@@ -231,18 +228,14 @@ def identify_on_success(self, output: dict, *args, **kwargs):
                 top1mediafile=top1_mediafile,
                 top1score=top_k_scores[0],
                 top1name=top_k_labels[0],
-
                 top2mediafile=top2_mediafile,
                 top2score=top_k_scores[1],
                 top2name=top_k_labels[1],
-
                 top3mediafile=top3_mediafile,
                 top3score=top_k_scores[2],
                 top3name=top_k_labels[2],
             )
             mfi.save()
-
-
 
             # save file
             # for i in range(0, len(top_k_class_ids)):
@@ -270,4 +263,3 @@ def _find_mediafiles_for_identification(mediafile_paths: list) -> MediafilesForI
     :param mediafile_paths: List of paths of mediafiles to identify.
     :return: MediafilesForIdentification object.
     """
-
