@@ -272,18 +272,23 @@ def get_individual_identity(request):
     )
 
 
-def set_individual_identity(request,
-                 mediafiles_for_identification_id: int,
-                 individual_identity_id: int):
+def set_individual_identity(
+    request, mediafiles_for_identification_id: int, individual_identity_id: int
+):
     """Set identity for mediafile."""
-    mediafiles_for_identification = get_object_or_404(MediafilesForIdentification, id=mediafiles_for_identification_id)
+    mediafiles_for_identification = get_object_or_404(
+        MediafilesForIdentification, id=mediafiles_for_identification_id
+    )
     individual_identity = get_object_or_404(IndividualIdentity, id=individual_identity_id)
 
     # if request.user.ciduser.workgroup != mediafile.parent.owner.workgroup:
     #     return HttpResponseNotAllowed("Not allowed to work with this media file.")
     if request.user.ciduser.workgroup != individual_identity.owner_workgroup:
         return HttpResponseNotAllowed("Not allowed to work with this media file.")
-    if request.user.ciduser.workgroup != mediafiles_for_identification.mediafile.parent.owner.workgroup:
+    if (
+        request.user.ciduser.workgroup
+        != mediafiles_for_identification.mediafile.parent.owner.workgroup
+    ):
         return HttpResponseNotAllowed("Not allowed to work with this media file.")
 
     mediafiles_for_identification.mediafile.identity = individual_identity
@@ -869,7 +874,6 @@ def media_files_update(request, records_per_page=80, album_hash=None, individual
             "number_of_mediafiles": number_of_mediafiles,
         },
     )
-
 
 
 def create_new_album(request, name="New Album"):

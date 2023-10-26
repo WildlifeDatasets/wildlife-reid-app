@@ -203,7 +203,6 @@ def identify_on_success(self, output: dict, *args, **kwargs):
         mediafile_ids = data["mediafile_ids"]
         for i, mediafile_id in enumerate(mediafile_ids):
 
-
             top_k_class_ids = data["pred_class_ids"][i]
             top_k_labels = data["pred_labels"][i]
             top_k_paths = data["pred_image_paths"][i]
@@ -215,8 +214,10 @@ def identify_on_success(self, output: dict, *args, **kwargs):
 
                 identity_id = top_k_class_ids[0]  # top-1
                 mediafile.identity = IndividualIdentity.objects.get(id=identity_id)
-                logger.debug(f"{mediafile} is {mediafile.identity.name} with score={top_k_scores[0]}. " + \
-                             "No need of manual confirmation.")
+                logger.debug(
+                    f"{mediafile} is {mediafile.identity.name} with score={top_k_scores[0]}. "
+                    + "No need of manual confirmation."
+                )
                 if mediafile.identity.name != top_k_labels[0]:  # top-1
                     logger.warning(
                         f"Identity name mismatch: {mediafile.identity.name} != {top_k_labels[0]}"
@@ -244,17 +245,16 @@ def identify_on_success(self, output: dict, *args, **kwargs):
                     mediafile=mediafile,
                 )
 
-                mfi.top1mediafile=top1_mediafile
-                mfi.top1score=top_k_scores[0]
-                mfi.top1name=top_k_labels[0]
-                mfi.top2mediafile=top2_mediafile
-                mfi.top2score=top_k_scores[1]
-                mfi.top2name=top_k_labels[1]
-                mfi.top3mediafile=top3_mediafile
-                mfi.top3score=top_k_scores[2]
-                mfi.top3name=top_k_labels[2]
+                mfi.top1mediafile = top1_mediafile
+                mfi.top1score = top_k_scores[0]
+                mfi.top1name = top_k_labels[0]
+                mfi.top2mediafile = top2_mediafile
+                mfi.top2score = top_k_scores[1]
+                mfi.top2name = top_k_labels[1]
+                mfi.top3mediafile = top3_mediafile
+                mfi.top3score = top_k_scores[2]
+                mfi.top3name = top_k_labels[2]
                 mfi.save()
-
 
         logger.debug("identify done.")
     else:
