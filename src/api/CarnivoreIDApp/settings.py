@@ -181,3 +181,6 @@ LOGIN_REDIRECT_URL = "/caidapp/uploads"
 SOCIALACCOUNT_LOGIN_ON_GET = True
 
 ACCOUNT_DEFAULT_HTTP_PROTOCOL = os.environ.get("ACCOUNT_DEFAULT_HTTP_PROTOCOL", default="https")
+
+# if the automatic identification is under the threshold, add it to the list for manual confirmation
+IDENTITY_MANUAL_CONFIRMATION_THRESHOLD = 20.0

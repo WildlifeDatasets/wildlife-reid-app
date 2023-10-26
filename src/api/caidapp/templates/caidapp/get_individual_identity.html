@@ -34,11 +34,17 @@
                     <div class="card">
                         <div class="card-header">
                             <div class="card-title">
-                                {{ foridentification.top1name }}
+                                {{ foridentification.top1name }} -
                             </div>
                             <p class="card-text">
+                                {{ foridentification.top1mediafile.identity }}
+                                {{ foridentification.top1mediafile.identity.id }}
                                 {{ foridentification.top1score }}
-                                <a href="{% url 'caidapp:get_individual_identity' %}" class="stretched-link"> </a>
+{#                                <a href="{% url 'caidapp:get_individual_identity' %}" class="stretched-link"> </a>#}
+{#                                <a href="{% url 'caidapp:set_individual_identity' foridentification.id foridentification.top1mediafile.identity.id %}" class="stretched-link"> </a>#}
+                                {% if foridentification.top1mediafile.identity %}
+                                    <a href="{% url 'caidapp:set_individual_identity' foridentification.id foridentification.top1mediafile.identity.id %}" class="stretched-link"> </a>
+                                {% endif %}
                             </p>
                         </div>
                         <img class="card-img-bottom" src="{{ foridentification.top1mediafile.mediafile.url }}"
@@ -53,8 +59,13 @@
                                 {{ foridentification.top2name }}
                             </div>
                             <p class="card-text">
+                                {{ foridentification.top2mediafile.identity }}
+                                {{ foridentification.top2mediafile.identity.id }}
                                 {{ foridentification.top2score }}
-                                <a href="{% url 'caidapp:get_individual_identity' %}" class="stretched-link"> </a>
+                                {#                                <a href="{% url 'caidapp:get_individual_identity' %}" class="stretched-link"> </a>#}
+                                {% if foridentification.top2mediafile.identity %}
+                                    <a href="{% url 'caidapp:set_individual_identity' foridentification.id foridentification.top2mediafile.identity.id %}" class="stretched-link"> </a>
+                                {% endif %}
                             </p>
                         </div>
                         <img class="card-img-bottom" src="{{ foridentification.top2mediafile.mediafile.url }}"
@@ -68,8 +79,13 @@
                                 {{ foridentification.top3name }}
                             </div>
                             <p class="card-text">
+                                {{ foridentification.top3mediafile.identity }}
+                                {{ foridentification.top3mediafile.identity.id }}
                                 {{ foridentification.top3score }}
-                                <a href="{% url 'caidapp:get_individual_identity' %}" class="stretched-link"> </a>
+{#                                <a href="{% url 'caidapp:get_individual_identity' %}" class="stretched-link"> </a>#}
+                                {% if foridentification.top3mediafile.identity %}
+                                    <a href="{% url 'caidapp:set_individual_identity' foridentification.id foridentification.top3mediafile.identity.id %}" class="stretched-link"> </a>
+                                {% endif %}
                             </p>
                         </div>
                         <img class="card-img-bottom" src="{{ foridentification.top3mediafile.mediafile.url }}"

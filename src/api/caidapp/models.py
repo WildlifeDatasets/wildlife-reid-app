@@ -149,16 +149,16 @@ class MediaFile(models.Model):
 
 
 class MediafilesForIdentification(models.Model):
-    mediafile = models.ForeignKey(MediaFile, on_delete=models.CASCADE, null=True, blank=True)
+    mediafile = models.ForeignKey(MediaFile, on_delete=models.SET_NULL, null=True, blank=True)
 
     top1mediafile = models.ForeignKey(
-        MediaFile, related_name="top1", on_delete=models.CASCADE, null=True, blank=True
+        MediaFile, related_name="top1", on_delete=models.SET_NULL, null=True, blank=True
     )
     top2mediafile = models.ForeignKey(
-        MediaFile, related_name="top2", on_delete=models.CASCADE, null=True, blank=True
+        MediaFile, related_name="top2", on_delete=models.SET_NULL, null=True, blank=True
     )
     top3mediafile = models.ForeignKey(
-        MediaFile, related_name="top3", on_delete=models.CASCADE, null=True, blank=True
+        MediaFile, related_name="top3", on_delete=models.SET_NULL, null=True, blank=True
     )
     # top2mediafile = models.ForeignKey(MediaFile, on_delete=models.CASCADE, null=True, blank=True)
     # top3mediafile = models.ForeignKey(MediaFile, on_delete=models.CASCADE, null=True, blank=True)

@@ -202,52 +202,59 @@ def identify_on_success(self, output: dict, *args, **kwargs):
 
         mediafile_ids = data["mediafile_ids"]
         for i, mediafile_id in enumerate(mediafile_ids):
+
+
             top_k_class_ids = data["pred_class_ids"][i]
             top_k_labels = data["pred_labels"][i]
             top_k_paths = data["pred_image_paths"][i]
             top_k_scores = data["scores"][i]
 
-            top1_abspath = Path(top_k_paths[0])
-            top1_relpath = top1_abspath.relative_to(media_root)
-            top1_mediafile = MediaFile.objects.get(mediafile=str(top1_relpath))
-            # top1_identity_id = top_k_class_ids[0]  # top-1
-
-            top2_abspath = Path(top_k_paths[1])
-            top2_relpath = top2_abspath.relative_to(media_root)
-            top2_mediafile = MediaFile.objects.get(mediafile=str(top2_relpath))
-            # top2_identity_id = top_k_class_ids[1]  # top-1
-
-            top3_abspath = Path(top_k_paths[2])
-            top3_relpath = top3_abspath.relative_to(media_root)
-            top3_mediafile = MediaFile.objects.get(mediafile=str(top3_relpath))
-            # top3_identity_id = top_k_class_ids[2]  # top-1
-
             mediafile = MediaFile.objects.get(id=mediafile_id)
-            mfi, created = MediafilesForIdentification.objects.get_or_create(
-                mediafile=mediafile,
-                top1mediafile=top1_mediafile,
-                top1score=top_k_scores[0],
-                top1name=top_k_labels[0],
-                top2mediafile=top2_mediafile,
-                top2score=top_k_scores[1],
-                top2name=top_k_labels[1],
-                top3mediafile=top3_mediafile,
-                top3score=top_k_scores[2],
-                top3name=top_k_labels[2],
-            )
-            mfi.save()
 
-            # save file
-            # for i in range(0, len(top_k_class_ids)):
+            if (top_k_scores[0]) > settings.IDENTITY_MANUAL_CONFIRMATION_THRESHOLD:
 
-            identity_id = top_k_class_ids[0]  # top-1
-            mediafile.identity = IndividualIdentity.objects.get(id=identity_id)
-            if mediafile.identity.name != top_k_labels[0]:  # top-1
-                logger.warning(
-                    f"Identity name mismatch: {mediafile.identity.name} != {top_k_labels[0]}"
+                identity_id = top_k_class_ids[0]  # top-1
+                mediafile.identity = IndividualIdentity.objects.get(id=identity_id)
+                logger.debug(f"{mediafile} is {mediafile.identity.name} with score={top_k_scores[0]}. " + \
+                             "No need of manual confirmation.")
+                if mediafile.identity.name != top_k_labels[0]:  # top-1
+                    logger.warning(
+                        f"Identity name mismatch: {mediafile.identity.name} != {top_k_labels[0]}"
+                    )
+
+                mediafile.save()
+
+            else:
+                top1_abspath = Path(top_k_paths[0])
+                top1_relpath = top1_abspath.relative_to(media_root)
+                top1_mediafile = MediaFile.objects.get(mediafile=str(top1_relpath))
+                # top1_identity_id = top_k_class_ids[0]  # top-1
+
+                top2_abspath = Path(top_k_paths[1])
+                top2_relpath = top2_abspath.relative_to(media_root)
+                top2_mediafile = MediaFile.objects.get(mediafile=str(top2_relpath))
+                # top2_identity_id = top_k_class_ids[1]  # top-1
+
+                top3_abspath = Path(top_k_paths[2])
+                top3_relpath = top3_abspath.relative_to(media_root)
+                top3_mediafile = MediaFile.objects.get(mediafile=str(top3_relpath))
+                # top3_identity_id = top_k_class_ids[2]  # top-1
+
+                mfi, created = MediafilesForIdentification.objects.get_or_create(
+                    mediafile=mediafile,
                 )
 
-            mediafile.save()
+                mfi.top1mediafile=top1_mediafile
+                mfi.top1score=top_k_scores[0]
+                mfi.top1name=top_k_labels[0]
+                mfi.top2mediafile=top2_mediafile
+                mfi.top2score=top_k_scores[1]
+                mfi.top2name=top_k_labels[1]
+                mfi.top3mediafile=top3_mediafile
+                mfi.top3score=top_k_scores[2]
+                mfi.top3name=top_k_labels[2]
+                mfi.save()
+
 
         logger.debug("identify done.")
     else:

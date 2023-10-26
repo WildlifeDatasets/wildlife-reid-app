@@ -65,5 +65,7 @@ urlpatterns = [
         name="run_identification",
     ),
     path("get_individual_identity/", views.get_individual_identity, name="get_individual_identity"),
+    path("set_individual_identity/<int:mediafiles_for_identification_id>/<int:individual_identity_id>",
+         views.set_individual_identity, name="set_individual_identity"),
     path("workgroup_update/<str:workgroup_hash>/", views.workgroup_update, name="workgroup_update"),
 ]
