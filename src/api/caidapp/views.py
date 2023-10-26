@@ -423,6 +423,7 @@ def _run_identification(uploaded_archive: UploadedArchive, taxon_str="Lynx lynx"
             "input_metadata_file": str(identity_metadata_file),
             "organization_id": uploaded_archive.owner.workgroup.id,
             "output_json_file": str(output_json_file),
+            "top_k": 3,
         },
     )
     # task = \
