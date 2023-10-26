@@ -257,15 +257,15 @@ def identify_on_success(self, output: dict, *args, **kwargs):
                 mfi.save()
                 if top1_mediafile.identity.name != top_k_labels[0]:
                     logger.warning(
-                        f"Identity name mismatch: {top1_mediafile.identity.name} != {top_k_labels[0]}"
+                        f"Identity mismatch: {top1_mediafile.identity.name} != {top_k_labels[0]}"
                     )
                 if top2_mediafile.identity.name != top_k_labels[1]:
                     logger.warning(
-                        f"Identity name mismatch: {top2_mediafile.identity.name} != {top_k_labels[1]}"
+                        f"Identity mismatch: {top2_mediafile.identity.name} != {top_k_labels[1]}"
                     )
                 if top3_mediafile.identity.name != top_k_labels[2]:
                     logger.warning(
-                        f"Identity name mismatch: {top3_mediafile.identity.name} != {top_k_labels[2]}"
+                        f"Identity mismatch: {top3_mediafile.identity.name} != {top_k_labels[2]}"
                     )
 
         logger.debug("identify done.")
