@@ -292,6 +292,8 @@ def set_individual_identity(
         return HttpResponseNotAllowed("Not allowed to work with this media file.")
 
     mediafiles_for_identification.mediafile.identity = individual_identity
+    mediafiles_for_identification.mediafile.identity_is_representative = True
+    mediafiles_for_identification.mediafile.updated_by = request.user.ciduser
     mediafiles_for_identification.mediafile.save()
     mediafiles_for_identification.delete()
 
