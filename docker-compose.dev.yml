@@ -46,5 +46,14 @@ services:
     ports:
       - "5433:5432"
 
+  detection_worker:
+    image: carnivoreid-app/detection_worker:dev
+    build:
+      context: .
+      dockerfile: src/detection_worker/Dockerfile_dev
+    restart: "no"
+    volumes:
+      - ./src/detection_worker:/detection_worker
+
   nginx:
     restart: "no"

@@ -5,7 +5,7 @@ from pathlib import Path
 
 import django
 import pandas as pd
-from celery import signature
+from celery import chain, signature
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
@@ -443,8 +443,16 @@ def _run_identification(uploaded_archive: UploadedArchive, taxon_str="Lynx lynx"
     pd.DataFrame(csv_data).to_csv(identity_metadata_file, index=False)
     output_json_file = media_root / uploaded_archive.outputdir / "identification_result.json"
 
+    logger.debug("Calling run_detection...")
+    detect_sig = signature(
+        "detect",
+        kwargs={
+            "input_metadata_file": str(identity_metadata_file),
+            "output_json_file": str(output_json_file),
+        },
+    )
     logger.debug("Calling run_identification...")
-    sig = signature(
+    identify_sig = signature(
         "identify",
         kwargs={
             # csv file should contain image_path, class_id, label
@@ -454,8 +462,8 @@ def _run_identification(uploaded_archive: UploadedArchive, taxon_str="Lynx lynx"
             "top_k": 3,
         },
     )
-    # task = \
-    sig.apply_async(
+    tasks = chain(detect_sig, identify_sig)
+    tasks.apply_async(
         link=identify_on_success.s(
             # uploaded_archive_id=uploaded_archive.id,
             # mediafiles=mediafiles,

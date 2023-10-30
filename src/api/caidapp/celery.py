@@ -18,6 +18,8 @@ app.config_from_object("django.conf:settings", namespace="CELERY")
 app.conf.task_routes = {
     # recognition workflow
     "predict": {"queue": "inference_worker"},
+    # detection workflow
+    "detect": {"queue": "detection_worker"},
     # identification workflow
     "init_identification": {"queue": "identification_worker"},
     "identify": {"queue": "identification_worker"},
