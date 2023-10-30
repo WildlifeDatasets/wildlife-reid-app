@@ -11,5 +11,5 @@ line_length = 100
 profile = "black"
 # known_third_party = []
 known_first_party = ["fgvc"]
-known_local_folder = ["api", "utils"]
+known_local_folder = ["api", "utils", "worker_utils"]
 extend_skip = [".tox"]

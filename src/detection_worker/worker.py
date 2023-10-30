@@ -6,6 +6,8 @@ import traceback
 import pandas as pd
 import torch
 from celery import Celery
+from tqdm import tqdm
+
 from worker_utils import config
 from worker_utils.log import setup_logging
 
@@ -44,7 +46,7 @@ def detect(
         model = torch.hub.load(
             "ultralytics/yolov5",  # repo_or_dir
             "custom",  # model
-            "MD_models/md_v5a.0.0.pt",  # args for callable model
+            "resources/md_v5a.0.0.pt",  # args for callable model
             force_reload=True,
             device=device,
         )
@@ -54,7 +56,7 @@ def detect(
         scores = []
         labels = []
         class_ids = []
-        for image_path in metadata["image_path"]:
+        for image_path in tqdm(metadata["image_path"]):
             results = model(image_path)
             id2label = results.names
             results = results.xywh[0].cpu().numpy()

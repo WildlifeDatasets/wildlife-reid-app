@@ -1,22 +1,28 @@
 FROM python:3.9.16-slim
 
-COPY ./src/detection_worker/requirements.txt /detection_worker/requirements.txt
-
 # install linux dependencies
 RUN apt-get update --yes && \
     # - apt-get upgrade is run to patch known vulnerabilities in apt-get packages as
     #   the ubuntu base image is rebuilt too seldom sometimes (less than once a month)
     apt-get upgrade --yes && \
     apt-get install --yes --no-install-recommends \
+    wget \
     ffmpeg \
     libsm6 \
     libxext6 && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
+# download weights into resources
+RUN mkdir -p /detection_worker/resources && \
+    wget http://ptak.felk.cvut.cz/plants/DanishFungiDataset/md_v5a.0.0.pt \
+    -O /detection_worker/resources/md_v5a.0.0.pt
+
+COPY ./src/detection_worker/requirements.txt /detection_worker/requirements.txt
+
 # install python dependencies
 ENV APP_DIR='/detection_worker'
 WORKDIR $APP_DIR
-RUN pip install --no-cache-dir --upgrade pip build && \
+RUN pip install --no-cache-dir --upgrade pip build setuptools && \
     pip install --no-cache-dir --compile -r requirements.txt && \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/* /tmp/* /var/tmp/*
 
