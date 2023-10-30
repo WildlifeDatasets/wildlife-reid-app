@@ -5,7 +5,19 @@ from . import views
 app_name = "caidapp"
 urlpatterns = [
     path("", views.login, name="index"),
-    path("upload/", views.model_form_upload, name="model_form_upload"),
+    path("upload/", views.upload_archive, name="upload_archive"),
+    path(
+        "upload/contains_single_taxon/",
+        views.upload_archive,
+        {"contains_single_taxon": True},
+        name="upload_archive_contains_single_taxon",
+    ),
+    path(
+        "upload/contains_identities/",
+        views.upload_archive,
+        {"contains_identities": True},
+        name="upload_archive_contains_identities",
+    ),
     # path("login/", TemplateView.as_view(template_name="caidapp/login.html"), name="login"),
     path("logout/", views.logout_view, name="logout_view"),
     path("uploads/", views.uploads, name="uploads"),
@@ -53,5 +65,11 @@ urlpatterns = [
         name="run_identification",
     ),
     path("get_individual_identity/", views.get_individual_identity, name="get_individual_identity"),
+    path(
+        "set_individual_identity/"
+        + "<int:mediafiles_for_identification_id>/<int:individual_identity_id>",
+        views.set_individual_identity,
+        name="set_individual_identity",
+    ),
     path("workgroup_update/<str:workgroup_hash>/", views.workgroup_update, name="workgroup_update"),
 ]

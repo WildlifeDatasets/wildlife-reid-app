@@ -91,6 +91,7 @@ class UploadedArchive(models.Model):
     location_at_upload = models.CharField(max_length=255, blank=True, default="")
     owner = models.ForeignKey(CIDUser, on_delete=models.CASCADE, null=True, blank=True)
     contains_identities = models.BooleanField(default=False)
+    contains_single_taxon = models.BooleanField(default=False)
 
     def __str__(self):
         return str(Path(self.archivefile.name).name)
@@ -135,7 +136,7 @@ class MediaFile(models.Model):
     )
     thumbnail = models.ImageField(blank=True, null=True, max_length=500)
     identity = models.ForeignKey(
-        IndividualIdentity, blank=True, null=True, on_delete=models.CASCADE
+        IndividualIdentity, blank=True, null=True, on_delete=models.SET_NULL
     )
     identity_is_representative = models.BooleanField(default=False)
     updated_by = models.ForeignKey(CIDUser, on_delete=models.CASCADE, null=True, blank=True)
@@ -148,16 +149,16 @@ class MediaFile(models.Model):
 
 
 class MediafilesForIdentification(models.Model):
-    mediafile = models.ForeignKey(MediaFile, on_delete=models.CASCADE, null=True, blank=True)
+    mediafile = models.ForeignKey(MediaFile, on_delete=models.SET_NULL, null=True, blank=True)
 
     top1mediafile = models.ForeignKey(
-        MediaFile, related_name="top1", on_delete=models.CASCADE, null=True, blank=True
+        MediaFile, related_name="top1", on_delete=models.SET_NULL, null=True, blank=True
     )
     top2mediafile = models.ForeignKey(
-        MediaFile, related_name="top2", on_delete=models.CASCADE, null=True, blank=True
+        MediaFile, related_name="top2", on_delete=models.SET_NULL, null=True, blank=True
     )
     top3mediafile = models.ForeignKey(
-        MediaFile, related_name="top3", on_delete=models.CASCADE, null=True, blank=True
+        MediaFile, related_name="top3", on_delete=models.SET_NULL, null=True, blank=True
     )
     # top2mediafile = models.ForeignKey(MediaFile, on_delete=models.CASCADE, null=True, blank=True)
     # top3mediafile = models.ForeignKey(MediaFile, on_delete=models.CASCADE, null=True, blank=True)

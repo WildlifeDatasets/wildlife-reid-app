@@ -15,65 +15,90 @@
         </div><!-- End Page Title -->
         <div class="section">
             <div class="row" id="row-of-cards">
-                <div class="col-lg-3" id="card{{ mediafile.id }}">
+                <div class="col-sm-3" id="card{{ mediafile.id }}">
                     <div class="card">
-                        <div class="card-header">
+                        <div class="card-body">
                             <div class="card-title">
                                 Unknown
                             </div>
-                            <p class="card-text">
-                            </p>
                         </div>
+                        <div class="card-body">
+                            {#                            <img class="card-img-bottom" src="{{ foridentification.mediafile.mediafile.url }}"#}
+                            {#                                 class="card-img-bottom" alt="Camera trap image">#}
+                            <a href="{% url 'caidapp:get_individual_identity' %}" class="btn btn-secondary">Skip this media file</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-3" id="card{{ mediafile.id }}">
+                    <div class="card-header">
+                        Unknown
+                    </div>
+                    <div class="card">
                         <img class="card-img-bottom" src="{{ foridentification.mediafile.mediafile.url }}"
                              class="card-img-bottom" alt="Camera trap image">
                     </div>
                 </div>
             </div>
             <div class="row" id="row-of-cards">
-                <div class="col-lg-3" id="card{{ mediafile.id }}">
+                <div class="col-sm-3" id="card{{ mediafile.id }}">
                     <div class="card">
-                        <div class="card-header">
+                        <img class="card-img-top" src="{{ foridentification.top1mediafile.mediafile.url }}"
+                             class="card-img-top" alt="Camera trap image">
+{#                        <div class="card-header">#}
+                         <div class="card-body">
                             <div class="card-title">
                                 {{ foridentification.top1name }}
                             </div>
                             <p class="card-text">
-                                {{ foridentification.top1score }}
-                                <a href="{% url 'caidapp:get_individual_identity' %}" class="stretched-link"> </a>
+                                {{ foridentification.top1score|floatformat:2 }}
+                                {% if foridentification.top1mediafile.identity %}
+                                    <a href="{% url 'caidapp:set_individual_identity' foridentification.id foridentification.top1mediafile.identity.id %}" class="stretched-link"> </a>
+                                {% else %}
+                                    Identity does not exist
+                                {% endif %}
                             </p>
                         </div>
-                        <img class="card-img-bottom" src="{{ foridentification.top1mediafile.mediafile.url }}"
-                             class="card-img-bottom" alt="Camera trap image">
-
                     </div>
                 </div>
-                <div class="col-lg-3" id="card{{ mediafile.id }}">
+                <div class="col-sm-3" id="card{{ mediafile.id }}">
                     <div class="card">
-                        <div class="card-header">
+{#                        <div class="card-header">#}
+                        <img class="card-img-top" src="{{ foridentification.top2mediafile.mediafile.url }}"
+                             class="card-img-top" alt="Camera trap image">
+                        <div class="card-body">
                             <div class="card-title">
                                 {{ foridentification.top2name }}
                             </div>
                             <p class="card-text">
-                                {{ foridentification.top2score }}
-                                <a href="{% url 'caidapp:get_individual_identity' %}" class="stretched-link"> </a>
+                                {{ foridentification.top2score|floatformat:2 }}
+{#                                {{ foridentification.top2mediafile.identity.id }}#}
+{#                                {{ foridentification.top2score }}#}
+                                {% if foridentification.top2mediafile.identity %}
+                                    <a href="{% url 'caidapp:set_individual_identity' foridentification.id foridentification.top2mediafile.identity.id %}" class="stretched-link"> </a>
+                                {% else %}
+                                    Identity does not exist
+                                {% endif %}
                             </p>
                         </div>
-                        <img class="card-img-bottom" src="{{ foridentification.top2mediafile.mediafile.url }}"
-                             class="card-img-bottom" alt="Camera trap image">
                     </div>
                 </div>
-                <div class="col-lg-3" id="card{{ mediafile.id }}">
+                <div class="col-sm-3" id="card{{ mediafile.id }}">
                     <div class="card">
-                        <div class="card-header">
+                        <img class="card-img-top" src="{{ foridentification.top3mediafile.mediafile.url }}"
+                             class="card-img-top" alt="Camera trap image">
+                        <div class="card-body">
                             <div class="card-title">
                                 {{ foridentification.top3name }}
                             </div>
                             <p class="card-text">
-                                {{ foridentification.top3score }}
-                                <a href="{% url 'caidapp:get_individual_identity' %}" class="stretched-link"> </a>
+                                {{ foridentification.top3score|floatformat:2 }}
+                                {% if foridentification.top3mediafile.identity %}
+                                    <a href="{% url 'caidapp:set_individual_identity' foridentification.id foridentification.top3mediafile.identity.id %}" class="stretched-link"> </a>
+                                {% else %}
+                                    Identity does not exist
+                                {% endif %}
                             </p>
                         </div>
-                        <img class="card-img-bottom" src="{{ foridentification.top3mediafile.mediafile.url }}"
-                             class="card-img-bottom" alt="Camera trap image">
                     </div>
                 </div>
             </div>

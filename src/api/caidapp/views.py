@@ -272,6 +272,34 @@ def get_individual_identity(request):
     )
 
 
+def set_individual_identity(
+    request, mediafiles_for_identification_id: int, individual_identity_id: int
+):
+    """Set identity for mediafile."""
+    mediafiles_for_identification = get_object_or_404(
+        MediafilesForIdentification, id=mediafiles_for_identification_id
+    )
+    individual_identity = get_object_or_404(IndividualIdentity, id=individual_identity_id)
+
+    # if request.user.ciduser.workgroup != mediafile.parent.owner.workgroup:
+    #     return HttpResponseNotAllowed("Not allowed to work with this media file.")
+    if request.user.ciduser.workgroup != individual_identity.owner_workgroup:
+        return HttpResponseNotAllowed("Not allowed to work with this media file.")
+    if (
+        request.user.ciduser.workgroup
+        != mediafiles_for_identification.mediafile.parent.owner.workgroup
+    ):
+        return HttpResponseNotAllowed("Not allowed to work with this media file.")
+
+    mediafiles_for_identification.mediafile.identity = individual_identity
+    mediafiles_for_identification.mediafile.identity_is_representative = True
+    mediafiles_for_identification.mediafile.updated_by = request.user.ciduser
+    mediafiles_for_identification.mediafile.save()
+    mediafiles_for_identification.delete()
+
+    return redirect("caidapp:get_individual_identity")
+
+
 def _run_processing(uploaded_archive: UploadedArchive):
     # update record in the database
     output_dir = Path(settings.MEDIA_ROOT) / uploaded_archive.outputdir
@@ -423,6 +451,7 @@ def _run_identification(uploaded_archive: UploadedArchive, taxon_str="Lynx lynx"
             "input_metadata_file": str(identity_metadata_file),
             "organization_id": uploaded_archive.owner.workgroup.id,
             "output_json_file": str(output_json_file),
+            "top_k": 3,
         },
     )
     # task = \
@@ -520,8 +549,18 @@ def delete_album(request, album_hash):
 #     )
 
 
-def model_form_upload(request):
+def upload_archive(
+    request,
+    contains_single_taxon=False,
+    contains_identities=False,
+):
     """Process the uploaded zip file."""
+    text_note = ""
+    if contains_single_taxon:
+        text_note = "The archive contains images of a single taxon."
+    if contains_identities:
+        text_note = "The archive contains identities. Each identity is in individual folder"
+
     if request.method == "POST":
         form = UploadedArchiveForm(
             request.POST,
@@ -541,6 +580,8 @@ def model_form_upload(request):
                 )
 
             uploaded_archive.owner = request.user.ciduser
+            uploaded_archive.contains_identities = contains_identities
+            uploaded_archive.contains_single_taxon = contains_single_taxon
             uploaded_archive.save()
             _run_processing(uploaded_archive)
 
@@ -553,7 +594,7 @@ def model_form_upload(request):
     return render(
         request,
         "caidapp/model_form_upload.html",
-        {"form": form, "headline": "Upload", "button": "Upload"},
+        {"form": form, "headline": "Upload", "button": "Upload", "text_note": text_note},
     )
 
 

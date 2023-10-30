@@ -119,7 +119,9 @@
                                         <p class="card-text"> Identity: {{ mediafile.instance.identity }}
                                             {% if mediafile.instance.identity_is_representative %}
 {#                                                <i class="bi bi-check-circle"></i>#}
-                                                <i class="bi bi-bookmark" data-toggle="tooltip" data-placement="top" title="Mediafile selected as a representative for the automatic identification."></i>
+                                                {#<i class="bi bi-bookmark"></i>#}
+                                                <i class="bi bi-person" data-toggle="tooltip" data-placement="top"
+                                                   title="Identity confirmed by {{ user }}."></i>
                                             {% endif %}
 
                                         </p>

@@ -12,6 +12,7 @@ from .fs_data import make_thumbnail_from_file
 from .models import (
     IndividualIdentity,
     MediaFile,
+    MediafilesForIdentification,
     UploadedArchive,
     get_location,
     get_taxon,
@@ -196,20 +197,76 @@ def identify_on_success(self, output: dict, *args, **kwargs):
         assert "pred_class_ids" in data
         assert "pred_labels" in data
         assert "scores" in data
+
+        media_root = Path(settings.MEDIA_ROOT)
+
         mediafile_ids = data["mediafile_ids"]
         for i, mediafile_id in enumerate(mediafile_ids):
+
             top_k_class_ids = data["pred_class_ids"][i]
             top_k_labels = data["pred_labels"][i]
+            top_k_paths = data["pred_image_paths"][i]
+            top_k_scores = data["scores"][i]
 
             mediafile = MediaFile.objects.get(id=mediafile_id)
-            identity_id = top_k_class_ids[0]  # top-1
-            mediafile.identity = IndividualIdentity.objects.get(id=identity_id)
-            if mediafile.identity.name != top_k_labels[0]:  # top-1
-                logger.warning(
-                    f"Identity name mismatch: {mediafile.identity.name} != {top_k_labels[0]}"
+
+            if (top_k_scores[0]) > settings.IDENTITY_MANUAL_CONFIRMATION_THRESHOLD:
+
+                identity_id = top_k_class_ids[0]  # top-1
+                mediafile.identity = IndividualIdentity.objects.get(id=identity_id)
+                logger.debug(
+                    f"{mediafile} is {mediafile.identity.name} with score={top_k_scores[0]}. "
+                    + "No need of manual confirmation."
+                )
+                if mediafile.identity.name != top_k_labels[0]:  # top-1
+                    logger.warning(
+                        f"Identity name mismatch: {mediafile.identity.name} != {top_k_labels[0]}"
+                    )
+
+                mediafile.save()
+
+            else:
+                top1_abspath = Path(top_k_paths[0])
+                top1_relpath = top1_abspath.relative_to(media_root)
+                top1_mediafile = MediaFile.objects.get(mediafile=str(top1_relpath))
+                # top1_identity_id = top_k_class_ids[0]  # top-1
+
+                top2_abspath = Path(top_k_paths[1])
+                top2_relpath = top2_abspath.relative_to(media_root)
+                top2_mediafile = MediaFile.objects.get(mediafile=str(top2_relpath))
+                # top2_identity_id = top_k_class_ids[1]  # top-1
+
+                top3_abspath = Path(top_k_paths[2])
+                top3_relpath = top3_abspath.relative_to(media_root)
+                top3_mediafile = MediaFile.objects.get(mediafile=str(top3_relpath))
+                # top3_identity_id = top_k_class_ids[2]  # top-1
+
+                mfi, created = MediafilesForIdentification.objects.get_or_create(
+                    mediafile=mediafile,
                 )
 
-            mediafile.save()
+                mfi.top1mediafile = top1_mediafile
+                mfi.top1score = top_k_scores[0]
+                mfi.top1name = top_k_labels[0]
+                mfi.top2mediafile = top2_mediafile
+                mfi.top2score = top_k_scores[1]
+                mfi.top2name = top_k_labels[1]
+                mfi.top3mediafile = top3_mediafile
+                mfi.top3score = top_k_scores[2]
+                mfi.top3name = top_k_labels[2]
+                mfi.save()
+                if top1_mediafile.identity.name != top_k_labels[0]:
+                    logger.warning(
+                        f"Identity mismatch: {top1_mediafile.identity.name} != {top_k_labels[0]}"
+                    )
+                if top2_mediafile.identity.name != top_k_labels[1]:
+                    logger.warning(
+                        f"Identity mismatch: {top2_mediafile.identity.name} != {top_k_labels[1]}"
+                    )
+                if top3_mediafile.identity.name != top_k_labels[2]:
+                    logger.warning(
+                        f"Identity mismatch: {top3_mediafile.identity.name} != {top_k_labels[2]}"
+                    )
 
         logger.debug("identify done.")
     else:
@@ -217,3 +274,11 @@ def identify_on_success(self, output: dict, *args, **kwargs):
         logger.error("Identification failed.")
         # TODO - should the app return some error response to the user?
         pass
+
+
+def _find_mediafiles_for_identification(mediafile_paths: list) -> MediafilesForIdentification:
+    """Find mediafiles for identification.
+
+    :param mediafile_paths: List of paths of mediafiles to identify.
+    :return: MediafilesForIdentification object.
+    """
