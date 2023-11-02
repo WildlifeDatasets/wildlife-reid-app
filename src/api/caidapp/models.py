@@ -243,4 +243,3 @@ def get_location(name: str) -> Location:
     else:
         location = objs[0]
     return location
-

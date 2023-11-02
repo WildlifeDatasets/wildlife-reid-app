@@ -1,3 +1,4 @@
+import datetime
 import json
 import logging
 import os
@@ -5,6 +6,7 @@ from pathlib import Path
 
 import django
 import pandas as pd
+import pytz
 from celery import signature
 from django.conf import settings
 from django.contrib import messages
@@ -16,10 +18,8 @@ from django.core.paginator import Paginator
 from django.db.models import Q
 from django.forms import modelformset_factory
 from django.http import HttpResponseNotAllowed, JsonResponse
-from django.shortcuts import get_object_or_404, redirect, render, Http404, HttpResponse
+from django.shortcuts import Http404, HttpResponse, get_object_or_404, redirect, render
 from django.urls import reverse_lazy
-import datetime
-import pytz
 
 from .forms import (
     AlbumForm,
@@ -47,7 +47,7 @@ from .tasks import (
     init_identification_on_success,
     predict_on_error,
     predict_on_success,
-    sync_mediafiles_uploaded_archive_with_csv
+    sync_mediafiles_uploaded_archive_with_csv,
 )
 
 logger = logging.getLogger("app")
@@ -901,22 +901,20 @@ def workgroup_update(request, workgroup_hash: str):
     return render(request, "caidapp/update_form.html", {"form": workgroup_hash})
 
 
-def _sync_uploadedarchive_and_csv(request, uploadedarchive_id:int):
+def _sync_uploadedarchive_and_csv(request, uploadedarchive_id: int):
     uploaded_archive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
-
-
 
     if uploaded_archive.owner.workgroup == request.user.ciduser.workgroup:
         updated_at = uploaded_archive.output_updated_at
         logger.debug(f"{updated_at=}")
         if updated_at is None:
             # set updated_at to old date
-            updated_at = datetime.datetime(2000, 1, 1, 0, 0, 0, 0,
-                                           tzinfo=pytz.timezone(settings.TIME_ZONE))
+            updated_at = datetime.datetime(
+                2000, 1, 1, 0, 0, 0, 0, tzinfo=pytz.timezone(settings.TIME_ZONE)
+            )
         # check if mediafiles are updated later than updated_at
 
-        mediafiles = MediaFile.objects.filter(
-            parent=uploaded_archive)
+        mediafiles = MediaFile.objects.filter(parent=uploaded_archive)
         logger.debug(f"  1  {mediafiles=}")
         logger.debug(f"  1  {mediafiles.first().updated_at=}")
         mediafiles = mediafiles.filter(updated_at__gt=updated_at).all()
@@ -926,15 +924,14 @@ def _sync_uploadedarchive_and_csv(request, uploadedarchive_id:int):
         # ).all()
         # logger.debug(f"{mediafiles=}")
         if len(mediafiles) > 0:
-            logger.debug(f"  sync mediafiles with csv")
-            sync_mediafiles_uploaded_archive_with_csv(uploaded_archive,
-                                                      create_missing=False )
+            logger.debug("  sync mediafiles with csv")
+            sync_mediafiles_uploaded_archive_with_csv(uploaded_archive, create_missing=False)
             return True
 
     return False
 
 
-def _generate_csv(request, uploadedarchive_id:int):
+def _generate_csv(request, uploadedarchive_id: int):
     uploaded_archive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
     output_dir = Path(settings.MEDIA_ROOT) / uploaded_archive.outputdir
     output_metadata_file = output_dir / "metadata.csv"
@@ -961,7 +958,6 @@ def _generate_csv(request, uploadedarchive_id:int):
     return output_metadata_file, output_archive_file
 
 
-
 def download_uploadedarchive_images(request, uploadedarchive_id: int):
     """Download uploaded file."""
     uploaded_archive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
@@ -971,9 +967,6 @@ def download_uploadedarchive_images(request, uploadedarchive_id: int):
         # file_path = Path(settings.MEDIA_ROOT) / uploaded_file.archivefile.name
         file_path = Path(settings.MEDIA_ROOT) / uploaded_archive.zip_file.name
         logger.debug(f"{file_path=}")
-
-
-
 
         if file_path.exists():
             with open(file_path, "rb") as fh:
@@ -1004,4 +997,3 @@ def download_uploadedarchive_csv(request, uploadedarchive_id: int):
     else:
         messages.error(request, "Only the owner can download the file")
         return redirect("/caidapp/uploads")
-

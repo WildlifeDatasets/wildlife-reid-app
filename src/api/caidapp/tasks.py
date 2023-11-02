@@ -79,8 +79,7 @@ def make_thumbnail_for_uploaded_archive(uploaded_archive: UploadedArchive):
 
 
 def sync_mediafiles_uploaded_archive_with_csv(
-    uploaded_archive: UploadedArchive, thumbnail_width: int = 400,
-    create_missing:bool = True
+    uploaded_archive: UploadedArchive, thumbnail_width: int = 400, create_missing: bool = True
 ):
     """Extract filenames from uploaded archive CSV and create MediaFile objects.
 
@@ -90,7 +89,6 @@ def sync_mediafiles_uploaded_archive_with_csv(
     output_dir = Path(settings.MEDIA_ROOT) / uploaded_archive.outputdir
     csv_file = Path(settings.MEDIA_ROOT) / str(uploaded_archive.csv_file)
     logger.debug(f"{csv_file} {Path(csv_file).exists()}")
-
 
     update_csv = False
     df = pd.read_csv(csv_file)

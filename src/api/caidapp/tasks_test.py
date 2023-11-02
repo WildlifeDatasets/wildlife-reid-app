@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 
 from .models import UploadedArchive
-from .tasks import sync_mediafiles_uploaded_archive_with_csv, make_thumbnail_for_uploaded_archive
+from .tasks import make_thumbnail_for_uploaded_archive, sync_mediafiles_uploaded_archive_with_csv
 
 logger = logging.getLogger(__file__)
 
