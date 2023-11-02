@@ -44,7 +44,7 @@ def predict_on_success(
         uploaded_archive.zip_file = zip_file
         uploaded_archive.csv_file = csv_file
         make_thumbnail_for_uploaded_archive(uploaded_archive)
-        get_image_files_from_uploaded_archive(uploaded_archive)
+        sync_mediafiles_uploaded_archive_with_csv(uploaded_archive)
         uploaded_archive.status = "Finished"
     else:
         uploaded_archive.status = "Failed"
@@ -78,8 +78,9 @@ def make_thumbnail_for_uploaded_archive(uploaded_archive: UploadedArchive):
         uploaded_archive.thumbnail = os.path.relpath(abs_thumbnail_path, settings.MEDIA_ROOT)
 
 
-def get_image_files_from_uploaded_archive(
-    uploaded_archive: UploadedArchive, thumbnail_width: int = 400
+def sync_mediafiles_uploaded_archive_with_csv(
+    uploaded_archive: UploadedArchive, thumbnail_width: int = 400,
+    create_missing:bool = True
 ):
     """Extract filenames from uploaded archive CSV and create MediaFile objects.
 
@@ -90,6 +91,8 @@ def get_image_files_from_uploaded_archive(
     csv_file = Path(settings.MEDIA_ROOT) / str(uploaded_archive.csv_file)
     logger.debug(f"{csv_file} {Path(csv_file).exists()}")
 
+
+    update_csv = False
     df = pd.read_csv(csv_file)
     # for fn in df["image_path"]:
     for index, row in df.iterrows():
@@ -107,20 +110,26 @@ def get_image_files_from_uploaded_archive(
 
         mediafile_set = uploaded_archive.mediafile_set.filter(mediafile=str(rel_pth))
         if len(mediafile_set) == 0:
-            location = get_location(str(uploaded_archive.location_at_upload))
-            logger.debug(f"Creating thumbnail for {rel_pth}")
-            if make_thumbnail_from_file(abs_pth, abs_pth_thumbnail, width=thumbnail_width):
-                thumbnail = str(rel_pth_thumbnail)
-            else:
-                thumbnail = None
+            if create_missing:
+                location = get_location(str(uploaded_archive.location_at_upload))
+                logger.debug(f"Creating thumbnail for {rel_pth}")
+                if make_thumbnail_from_file(abs_pth, abs_pth_thumbnail, width=thumbnail_width):
+                    thumbnail = str(rel_pth_thumbnail)
+                else:
+                    thumbnail = None
 
-            mf = MediaFile(
-                parent=uploaded_archive,
-                mediafile=str(rel_pth),
-                captured_at=captured_at,
-                thumbnail=thumbnail,
-                location=location,
-            )
+                mf = MediaFile(
+                    parent=uploaded_archive,
+                    mediafile=str(rel_pth),
+                    captured_at=captured_at,
+                    thumbnail=thumbnail,
+                    location=location,
+                )
+                mf.save()
+            else:
+                # row["error"] = "deleted"
+                df.loc[index, "error"] = "deleted"
+                continue
         else:
             mf = mediafile_set[0]
             logger.debug("Using Mediafile generated before")
@@ -132,7 +141,12 @@ def get_image_files_from_uploaded_archive(
                 else:
                     logger.warning(f"Cannot generate thumbnail for {abs_pth}")
 
-        mf.category = taxon
+        if mf.category is None:
+            mf.category = taxon
+        else:
+            # row["predicted_category"] = mf.category.name
+            df.loc[index, "predicted_category"] = mf.category.name
+            update_csv = True
         if mf.identity is None:
             # update only if the identity is not set
             identity = get_unique_name(
@@ -140,8 +154,20 @@ def get_image_files_from_uploaded_archive(
             )
             logger.debug(f"identity={identity}")
             mf.identity = identity
+
         mf.save()
+
+        if mf.identity is not None:
+            # row["unique_name"] = mf.identity.name
+            df.loc[index, "unique_name"] = mf.identity.name
+            update_csv = True
+
         logger.debug(f"{mf}")
+    if update_csv:
+        df.to_csv(csv_file, index=False)
+        logger.debug(f"CSV updated. path={csv_file}")
+    uploaded_archive.output_updated_at = django.utils.timezone.now()
+    uploaded_archive.save()
 
 
 @shared_task

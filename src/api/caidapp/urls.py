@@ -14,6 +14,11 @@ urlpatterns = [
         views.uploadedarchive_detail,
         name="uploadedarchive_detail",
     ),
+    path(
+        "download_uploadedarchive_csv/<int:uploadedarchive_id>",
+        views.download_uploadedarchive_csv,
+        name="download_uploadedarchive_csv",
+    ),
     # path("media_files/", views.media_files, name="media_files"),
     path("media_files/", views.media_files_update, name="media_files"),
     path("delete_mediafile/<int:mediafile_id>/", views.delete_mediafile, name="delete_mediafile"),
