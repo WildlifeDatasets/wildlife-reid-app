@@ -6,13 +6,12 @@ import traceback
 import pandas as pd
 import torch
 from celery import Celery
-from tqdm import tqdm
 from PIL import Image
+from tqdm import tqdm
 
 from worker_utils import config
-from worker_utils.log import setup_logging
-
 from worker_utils.inference import detect_animal, segment_animal
+from worker_utils.log import setup_logging
 
 setup_logging()
 logger = logging.getLogger("app")
@@ -57,8 +56,7 @@ def detect(
                 base_path = os.path.join(image_path.rsplit("/", 1)[0], "masked_images")
                 os.makedirs(base_path, exist_ok=True)
                 save_path = os.path.join(base_path, image_path.rsplit("/", 1)[0])
-                Image.fromarray(masked_image).convert('RGB').save(save_path)
-
+                Image.fromarray(masked_image).convert("RGB").save(save_path)
 
         output_data = dict(bboxes=bboxes, scores=scores, labels=labels, class_ids=class_ids)
 

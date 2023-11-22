@@ -1,20 +1,13 @@
 import logging
-from typing import Dict, Tuple, Union, Any
-import cv2
+from typing import Any, Union
 
+import cv2
 import numpy as np
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
 from numpy import ndarray
+from segment_anything import SamPredictor, sam_model_registry
 
-from segment_anything import sam_model_registry, SamPredictor
-
-from fgvc.core.models import get_model
-from fgvc.core.training import predict
-from fgvc.datasets import PredictionDataset, get_dataloaders
 from fgvc.utils.utils import set_cuda_device
-
 
 logger = logging.getLogger("app")
 device = set_cuda_device("0" if torch.cuda.is_available() else "cpu")
@@ -46,9 +39,11 @@ def detect_animal(image_path: list) -> dict[str, Union[ndarray, Any]]:
     id2label = results.names
     results = results.xyxy[0].cpu().numpy()
 
-    return {"bbox": np.array(list(int(_) for _ in results[0][:4].tolist())),
-            "confidence": results[0][4],
-            "class": id2label[results[0][5]]}
+    return {
+        "bbox": np.array(list(int(_) for _ in results[0][:4].tolist())),
+        "confidence": results[0][4],
+        "class": id2label[results[0][5]],
+    }
 
 
 def segment_animal(image_path: list, bbox: list) -> np.ndarray:
@@ -70,10 +65,4 @@ def segment_animal(image_path: list, bbox: list) -> np.ndarray:
     foregroud_image = image.copy()
     foregroud_image[masks[0] == False] = 0
 
-    return foregroud_image[int(bbox[1]) - 5:int(bbox[3]) + 5, int(bbox[0]) - 5:int(bbox[2]) + 5]
-
-
-
-
-
-
+    return foregroud_image[int(bbox[1]) - 5 : int(bbox[3]) + 5, int(bbox[0]) - 5 : int(bbox[2]) + 5]
