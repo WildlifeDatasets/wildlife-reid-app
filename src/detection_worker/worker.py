@@ -33,7 +33,7 @@ logger.info(f"Device names: {device_names}")
 def detect(
     self,
     input_metadata_file: str,
-    output_json_file: str,
+    output_metadata_file: str,
     **kwargs,
 ):
     """Process and store Reference Image records in the database."""
@@ -44,11 +44,12 @@ def detect(
         metadata = pd.read_csv(input_metadata_file)
         assert "image_path" in metadata
 
-        procesed_images = []
+        masked_images = []
 
         for image_path in tqdm(metadata["image_path"]):
             results = detect_animal(image_path)
 
+            save_path = None
             # TODO: Add confidence check
             if results["class"] == 1:
                 masked_image = segment_animal(image_path, results["bbox"])
@@ -57,15 +58,14 @@ def detect(
                 os.makedirs(base_path, exist_ok=True)
                 save_path = os.path.join(base_path, image_path.rsplit("/", 1)[0])
                 Image.fromarray(masked_image).convert("RGB").save(save_path)
+            masked_images.append(save_path)
 
-        output_data = dict(bboxes=bboxes, scores=scores, labels=labels, class_ids=class_ids)
+        metadata["masked_image_path"] = masked_images
+        metadata.to_csv(output_metadata_file, index=None)
 
-        # save output to json
-        with open(output_json_file, "w") as f:
-            json.dump(output_data, f)
+        logger.info("Finished processing. Metadata saved.")
 
-        logger.info("Finished processing.")
-        out = {"status": "DONE", "output_json_file": output_json_file}
+        out = {"status": "DONE", "output_metadata_file": output_metadata_file}
     except Exception:
         error = traceback.format_exc()
         logger.critical(f"Returning unexpected error output: '{error}'.")
