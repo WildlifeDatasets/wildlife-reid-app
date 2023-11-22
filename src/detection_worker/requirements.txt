@@ -6,6 +6,6 @@ torch==1.13.1+cpu
 torchvision==0.14.1+cpu
 
 Pillow
-ultralytics==8.0.203
+ultralytics>= 23.3.1
 
 wandb

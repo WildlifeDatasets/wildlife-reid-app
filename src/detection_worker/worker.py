@@ -7,9 +7,12 @@ import pandas as pd
 import torch
 from celery import Celery
 from tqdm import tqdm
+from PIL import Image
 
 from worker_utils import config
 from worker_utils.log import setup_logging
+
+from worker_utils.inference import detect_animal, segment_animal
 
 setup_logging()
 logger = logging.getLogger("app")
@@ -42,40 +45,21 @@ def detect(
         metadata = pd.read_csv(input_metadata_file)
         assert "image_path" in metadata
 
-        # load detector
-        model = torch.hub.load(
-            "ultralytics/yolov5",  # repo_or_dir
-            "custom",  # model
-            "resources/md_v5a.0.0.pt",  # args for callable model
-            force_reload=True,
-            device=device,
-        )
+        procesed_images = []
 
-        # run detection
-        bboxes = []
-        scores = []
-        labels = []
-        class_ids = []
         for image_path in tqdm(metadata["image_path"]):
-            results = model(image_path)
-            id2label = results.names
-            results = results.xywh[0].cpu().numpy()
-            if len(results) != 1:
-                bbox = results[0, :4].tolist()
-                score = float(results[0, 4])
-                class_id = int(results[0, 5])
-                label = id2label[class_id]
-            else:
-                bbox = None
-                score = None
-                class_id = None
-                label = None
-            bboxes.append(bbox)
-            scores.append(score)
-            labels.append(label)
-            class_ids.append(class_id)
+            results = detect_animal(image_path)
 
-        # create output dictionary
+            # TODO: Add confidence check
+            if results["class"] == 1:
+                masked_image = segment_animal(image_path, results["bbox"])
+
+                base_path = os.path.join(image_path.rsplit("/", 1)[0], "masked_images")
+                os.makedirs(base_path, exist_ok=True)
+                save_path = os.path.join(base_path, image_path.rsplit("/", 1)[0])
+                Image.fromarray(masked_image).convert('RGB').save(save_path)
+
+
         output_data = dict(bboxes=bboxes, scores=scores, labels=labels, class_ids=class_ids)
 
         # save output to json
