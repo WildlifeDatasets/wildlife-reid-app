@@ -36,17 +36,19 @@ class ModelWrapper(nn.Module):
         return {"features": features}
 
 
+logger.info("Creating model and loading fine-tuned checkpoint.")
+MODEL = get_model(
+    "hf-hub:BVRA/wildlife-mega-L-384",
+    pretrained=True,
+    # checkpoint_path="/identification_worker/resources/wildlife-mega-L-384.pth",
+)
+MODEL = ModelWrapper(MODEL)
+MODEL_MEAN = tuple(MODEL.default_cfg["mean"])
+MODEL_STD = tuple(MODEL.default_cfg["std"])
+
+
 def encode_images(image_paths: list) -> np.ndarray:
     """Create feature vectors from given images."""
-    logger.info("Creating model and loading fine-tuned checkpoint.")
-    model = get_model(
-        "hf-hub:BVRA/wildlife-mega-L-384",
-        pretrained=True,
-        # checkpoint_path="/identification_worker/resources/wildlife-mega-L-384.pth",
-    )
-    model = ModelWrapper(model)
-    model_mean = tuple(model.default_cfg["mean"])
-    model_std = tuple(model.default_cfg["std"])
 
     logger.info("Creating DataLoaders.")
     _, testloader, _, _ = get_dataloaders(
@@ -54,8 +56,8 @@ def encode_images(image_paths: list) -> np.ndarray:
         image_paths,
         augmentations="vit_heavy",
         image_size=(384, 384),
-        model_mean=model_mean,
-        model_std=model_std,
+        model_mean=MODEL_MEAN,
+        model_std=MODEL_STD,
         batch_size=4,
         num_workers=1,
         dataset_cls=PredictionDataset,
@@ -63,7 +65,7 @@ def encode_images(image_paths: list) -> np.ndarray:
 
     logger.info("Running inference.")
     predict_output = predict(
-        model, testloader, device=device, valid_scores_fn=(lambda *args, **kwargs: {})
+        MODEL, testloader, device=device, valid_scores_fn=(lambda *args, **kwargs: {})
     )
     features = predict_output.preds["features"]
 

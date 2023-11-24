@@ -12,10 +12,15 @@ RUN apt-get update --yes && \
     libxext6 && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
+RUN pip install git+https://github.com/facebookresearch/segment-anything.git
+
 # download weights into resources
 RUN mkdir -p /detection_worker/resources && \
     wget http://ptak.felk.cvut.cz/plants/DanishFungiDataset/md_v5a.0.0.pt \
     -O /detection_worker/resources/md_v5a.0.0.pt
+
+RUN wget http://ptak.felk.cvut.cz/plants/DanishFungiDataset/sam_vit_h_4b8939.pth \
+    -O /detection_worker/resources/sam_vit_h_4b8939.pth
 
 COPY ./src/detection_worker/requirements.txt /detection_worker/requirements.txt
 
