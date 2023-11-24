@@ -41,6 +41,7 @@ from .models import (
 from .tasks import (
     identify_on_error,
     identify_on_success,
+    detection_on_success,
     init_identification_on_error,
     init_identification_on_success,
     predict_on_error,
@@ -266,11 +267,20 @@ def delete_individual_identity(request, individual_identity_id):
 
 def get_individual_identity(request):
     """Show and update media file."""
-    foridentification = MediafilesForIdentification.objects.order_by("?").first()
+    foridentifications = MediafilesForIdentification.objects.filter(mediafile__parent__owner__workgroup=request.user.ciduser.workgroup).order_by("?")
+    foridentification = foridentifications.first()
     return render(
-        request, "caidapp/get_individual_identity.html", {"foridentification": foridentification}
+        request, "caidapp/get_individual_identity.html", {
+            "foridentification": foridentification,
+            "foridentifications": foridentifications
+        }
     )
 
+def remove_foridentification(request, foridentification_id:int):
+    """Remove mediafile from list for identification."""
+    foridentification = get_object_or_404(MediafilesForIdentification, id=foridentification_id, mediafile__parent__owner__workgroup=request.user.ciduser.workgroup)
+    foridentification.delete()
+    return redirect("caidapp:get_individual_identity")
 
 def set_individual_identity(
     request, mediafiles_for_identification_id: int, individual_identity_id: int
@@ -424,7 +434,7 @@ def _run_identification(uploaded_archive: UploadedArchive, taxon_str="Lynx lynx"
     #     parent__owner__workgroup=request.user.ciduser.workgroup,
     # ).all()
 
-    logger.debug("Generating CSV for init_identification...")
+    logger.debug(f"Generating CSV for init_identification with {len(mediafiles)} records...")
     csv_len = len(mediafiles)
     csv_data = {"image_path": [None] * csv_len, "mediafile_id": [None] * csv_len}
 
@@ -440,31 +450,59 @@ def _run_identification(uploaded_archive: UploadedArchive, taxon_str="Lynx lynx"
         csv_data["mediafile_id"][i] = mediafile.id
 
     identity_metadata_file = media_root / uploaded_archive.outputdir / "identification_metadata.csv"
+    cropped_identity_metadata_file = media_root / uploaded_archive.outputdir / "cropped_identification_metadata.csv"
     pd.DataFrame(csv_data).to_csv(identity_metadata_file, index=False)
     output_json_file = media_root / uploaded_archive.outputdir / "identification_result.json"
 
-    logger.debug("Calling run_detection...")
+    from celery import current_app
+    tasks = current_app.tasks.keys()
+    logger.debug(f"tasks={tasks}")
+
+    logger.debug("Calling run_detection and run_identification ...")
     detect_sig = signature(
-        "detect",
+        "detect_and_crop_mediafile",
         kwargs={
-            "input_metadata_file": str(identity_metadata_file),
-            "output_json_file": str(output_json_file),
+            "input_metadata_file_path": str(identity_metadata_file),
+            "cropped_metadata_file_path": str(cropped_identity_metadata_file),
+            # "output_json_file_path": str(output_json_file),
         },
     )
-    logger.debug("Calling run_identification...")
-    identify_sig = signature(
-        "identify",
-        kwargs={
-            # csv file should contain image_path, class_id, label
-            "input_metadata_file": str(identity_metadata_file),
-            "organization_id": uploaded_archive.owner.workgroup.id,
-            "output_json_file": str(output_json_file),
-            "top_k": 3,
-        },
+    # detect_sig = signature(
+    #     "detect",
+    #     kwargs={
+    #         "input_metadata_file_path": str(identity_metadata_file),
+    #         "output_json_file_path": str(output_json_file),
+    #     },
+    # )
+    # logger.debug("Calling run_identification...")
+    # identify_sig = signature(
+    #     "identify",
+    #     kwargs={
+    #         # csv file should contain image_path, class_id, label
+    #         "input_metadata_file": str(identity_metadata_file),
+    #         "organization_id": uploaded_archive.owner.workgroup.id,
+    #         "output_json_file": str(output_json_file),
+    #         "top_k": 3,
+    #     },
+    # )
+    # simple_log_sig = signature( "detectionsimplelog",
+    #                              kwargs={"buuu":5},
+    #                            )
+
+
+    tasks = chain(
+        detect_sig,
+        # simple_log_sig,
+        # identify_sig,
     )
-    tasks = chain(detect_sig, identify_sig)
     tasks.apply_async(
-        link=identify_on_success.s(
+        # link=identify_on_success.s(
+        link=detection_on_success.s(
+            # csv file should contain image_path, class_id, label
+            input_metadata_file_path=str(identity_metadata_file),
+            organization_id=uploaded_archive.owner.workgroup.id,
+            output_json_file_path=str(output_json_file),
+            top_k=3,
             # uploaded_archive_id=uploaded_archive.id,
             # mediafiles=mediafiles,
             # metadata_file=str(identity_metadata_file),

@@ -168,6 +168,7 @@ services:
       - redis
     networks:
       - backend
+      - identification-worker
     labels:
       com.piva-ai.group: "applications"
 

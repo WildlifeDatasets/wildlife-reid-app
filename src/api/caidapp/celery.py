@@ -20,6 +20,8 @@ app.conf.task_routes = {
     "predict": {"queue": "inference_worker"},
     # detection workflow
     "detect": {"queue": "detection_worker"},
+    "detect_and_crop_mediafile": {"queue": "detection_worker"},
+    "detectionsimplelog": {"queue": "detection_worker"},
     # identification workflow
     "init_identification": {"queue": "identification_worker"},
     "identify": {"queue": "identification_worker"},

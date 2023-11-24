@@ -6,6 +6,7 @@ from pathlib import Path
 import django
 import pandas as pd
 from celery import shared_task
+from celery import chain, signature
 from django.conf import settings
 
 from .fs_data import make_thumbnail_from_file
@@ -173,6 +174,41 @@ def identify_on_error(self, uuid, *args, **kwargs):
 
 
 @shared_task(bind=True)
+def log_output(self, output: dict, *args, **kwargs):
+    logger.debug("log_output")
+    logger.debug(f"{output=}")
+    logger.debug(f"{args=}")
+    logger.debug(f"{kwargs=}")
+
+@shared_task(bind=True)
+def detection_on_success(self, output: dict, *args, **kwargs):
+    logger.debug("detection on success")
+    logger.debug(f"{output=}")
+    logger.debug(f"{args=}")
+    logger.debug(f"{kwargs=}")
+
+    logger.debug("calling...")
+    # identify_signature = signature(
+    #     "detectionsimplelog",
+    #     kwargs = {
+    #         "pokus": 4,
+    #     },
+    # )
+    identify_signature = signature(
+        "identify",
+        kwargs = kwargs,
+    )
+    identify_task = identify_signature.apply_async(
+        link=identify_on_success.s(
+            # output=output,
+        ),
+        link_error=identify_on_error.s(),
+    )
+    logger.debug(f"{identify_task=}")
+
+
+
+@shared_task(bind=True)
 def identify_on_success(self, output: dict, *args, **kwargs):
     """Callback invoked after running init_identification function in inference worker."""
     status = output.get("status", "unknown")
@@ -269,12 +305,21 @@ def identify_on_success(self, output: dict, *args, **kwargs):
                     )
 
         logger.debug("identify done.")
+
+        # simple_log_sig = signature("iworker_simple_log")
+        # simple_log_task = simple_log_sig.apply_async()
+
     else:
         # identification failed
         logger.error("Identification failed.")
         # TODO - should the app return some error response to the user?
         pass
 
+@shared_task(bind=True)
+def simple_log(self, *args, **kwargs):
+    """Simple log task."""
+    logger.info(f"Applying simple log task with args: {args=}, {kwargs=}.")
+    return {"status": "DONE"}
 
 def _find_mediafiles_for_identification(mediafile_paths: list) -> MediafilesForIdentification:
     """Find mediafiles for identification.
