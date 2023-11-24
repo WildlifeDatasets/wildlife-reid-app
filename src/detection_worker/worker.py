@@ -4,6 +4,7 @@ import os
 import traceback
 
 import pandas as pd
+import numpy as np
 import torch
 from celery import Celery
 from PIL import Image
@@ -53,6 +54,8 @@ def detect(
             # TODO: Add confidence check
             if results["class"] == 1:
                 masked_image = segment_animal(image_path, results["bbox"])
+
+                # TODO: Crop to Bbox
 
                 base_path = os.path.join(image_path.rsplit("/", 1)[0], "masked_images")
                 os.makedirs(base_path, exist_ok=True)
