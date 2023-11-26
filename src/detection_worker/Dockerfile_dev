@@ -7,6 +7,7 @@ RUN apt-get update --yes && \
     apt-get upgrade --yes && \
     apt-get install --yes --no-install-recommends \
     wget \
+    git \
     ffmpeg \
     libsm6 \
     libxext6 && \
@@ -18,6 +19,8 @@ RUN pip install git+https://github.com/facebookresearch/segment-anything.git
 RUN mkdir -p /detection_worker/resources && \
     wget http://ptak.felk.cvut.cz/plants/DanishFungiDataset/md_v5a.0.0.pt \
     -O /detection_worker/resources/md_v5a.0.0.pt
+
+RUN ls /detection_worker/resources
 
 RUN wget http://ptak.felk.cvut.cz/plants/DanishFungiDataset/sam_vit_h_4b8939.pth \
     -O /detection_worker/resources/sam_vit_h_4b8939.pth

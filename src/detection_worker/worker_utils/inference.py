@@ -10,10 +10,11 @@ import torch
 from numpy import ndarray
 from segment_anything import SamPredictor, sam_model_registry
 
-from fgvc.utils.utils import set_cuda_device
+# from fgvc.utils.utils import set_cuda_device
 
 logger = logging.getLogger("app")
-device = set_cuda_device("0" if torch.cuda.is_available() else "cpu")
+# device = set_cuda_device("0" if torch.cuda.is_available() else "cpu")
+device = "0" if torch.cuda.is_available() else "cpu"
 logger.info(f"Using device: {device}")
 
 logger.info("Initializing MegaDetector model and loading pre-trained checkpoint.")
@@ -59,15 +60,17 @@ download_file_if_does_not_exists(model_url, model_file)
 DETECTION_MODEL = torch.hub.load(
     "ultralytics/yolov5",  # repo_or_dir
     "custom",  # model
-    "resources/md_v5a.0.0.pt",  # args for callable model
+    "/detection_worker/resources/md_v5a.0.0.pt",  # args for callable model
     force_reload=True,
     device=device,
 )
 
 logger.info("Initializing SAM model and loading pre-trained checkpoint.")
-SAM = sam_model_registry["vit_h"](checkpoint="sam_vit_h_4b8939.pth")
+_checkpoint = "/detection_worker/resources/sam_vit_h_4b8939.pth"
+SAM = sam_model_registry["vit_h"](checkpoint=_checkpoint)
 SAM.to(device=0)
 SAM_PREDICTOR = SamPredictor(SAM)
+# SAM = None
 
 
 def detect_animal(image_path: list) -> dict[str, Union[ndarray, Any]]:

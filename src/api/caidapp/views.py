@@ -460,10 +460,10 @@ def _run_identification(uploaded_archive: UploadedArchive, taxon_str="Lynx lynx"
 
     logger.debug("Calling run_detection and run_identification ...")
     detect_sig = signature(
-        "detect_and_crop_mediafile",
+        "detect",
         kwargs={
-            "input_metadata_file_path": str(identity_metadata_file),
-            "cropped_metadata_file_path": str(cropped_identity_metadata_file),
+            "input_metadata_path": str(identity_metadata_file),
+            "output_metadata_path": str(cropped_identity_metadata_file),
             # "output_json_file_path": str(output_json_file),
         },
     )
