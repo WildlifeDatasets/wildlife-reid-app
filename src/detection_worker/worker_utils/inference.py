@@ -13,9 +13,8 @@ from segment_anything import SamPredictor, sam_model_registry
 # from fgvc.utils.utils import set_cuda_device
 
 logger = logging.getLogger("app")
-# device = set_cuda_device("0" if torch.cuda.is_available() else "cpu")
-device = "0" if torch.cuda.is_available() else "cpu"
-logger.info(f"Using device: {device}")
+DEVICE = "0" if torch.cuda.is_available() else "cpu"
+logger.info(f"Using device: {DEVICE}")
 
 logger.info("Initializing MegaDetector model and loading pre-trained checkpoint.")
 
@@ -62,13 +61,13 @@ DETECTION_MODEL = torch.hub.load(
     "custom",  # model
     "/detection_worker/resources/md_v5a.0.0.pt",  # args for callable model
     force_reload=True,
-    device=device,
+    device=DEVICE,
 )
 
 logger.info("Initializing SAM model and loading pre-trained checkpoint.")
 _checkpoint = "/detection_worker/resources/sam_vit_h_4b8939.pth"
 SAM = sam_model_registry["vit_h"](checkpoint=_checkpoint)
-SAM.to(device=0)
+SAM.to(device=DEVICE)
 SAM_PREDICTOR = SamPredictor(SAM)
 # SAM = None
 
