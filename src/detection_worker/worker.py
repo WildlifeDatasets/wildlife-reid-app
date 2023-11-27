@@ -130,10 +130,10 @@ def detect(
 
         for image_path in tqdm(metadata["image_path"]):
             results = detect_animal(image_path)
+            # logger.debug(f"results={results}")
 
             save_path = None
-            # TODO: Add confidence check
-            if results["class"] == 1:
+            if results["class"] == "animal":
                 cropper_animal = segment_animal(image_path, results["bbox"])
 
                 base_path = os.path.join(image_path.rsplit("/", 1)[0], "masked_images")

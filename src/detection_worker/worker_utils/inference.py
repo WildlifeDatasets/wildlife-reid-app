@@ -65,8 +65,8 @@ DETECTION_MODEL = torch.hub.load(
 )
 
 logger.info("Initializing SAM model and loading pre-trained checkpoint.")
-_checkpoint = "/detection_worker/resources/sam_vit_h_4b8939.pth"
-SAM = sam_model_registry["vit_h"](checkpoint=_checkpoint)
+_checkpoint = "/detection_worker/resources/sam_vit_b_01ec64.pth"
+SAM = sam_model_registry["vit_b"](checkpoint=_checkpoint)
 SAM.to(device=DEVICE)
 SAM_PREDICTOR = SamPredictor(SAM)
 # SAM = None
@@ -96,8 +96,11 @@ def segment_animal(image_path: list, bbox: list, cropped=True) -> np.ndarray:
     image = cv2.imread(image_path)
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
+    logger.debug("Running segmentation inference.")
     SAM_PREDICTOR.set_image(image)
     sam_input_box = np.array([int(point) for point in bbox])
+
+    logger.debug(f"{sam_input_box=}")
 
     masks, _, _ = SAM_PREDICTOR.predict(
         point_coords=None,
@@ -105,6 +108,7 @@ def segment_animal(image_path: list, bbox: list, cropped=True) -> np.ndarray:
         box=sam_input_box[None, :],
         multimask_output=False,
     )
+    logger.debug(f"{masks=}")
 
     foregroud_image = image.copy()
     foregroud_image[masks[0] == False] = 0
