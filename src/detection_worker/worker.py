@@ -138,6 +138,7 @@ def detect(
 
                 base_path = Path(image_path).parent.parent / "masked_images"
                 save_path = base_path / Path(image_path).name
+                base_path.mkdir(exist_ok=True, parents=True)
                 Image.fromarray(cropper_animal).convert("RGB").save(save_path)
             masked_images.append(str(save_path))
 
