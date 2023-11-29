@@ -44,8 +44,8 @@ from .tasks import (
     detection_on_success,
     init_identification_on_error,
     init_identification_on_success,
-    predict_on_error,
-    predict_on_success,
+    predict_species_on_error,
+    predict_species_on_success,
 )
 
 logger = logging.getLogger("app")
@@ -310,7 +310,7 @@ def set_individual_identity(
     return redirect("caidapp:get_individual_identity")
 
 
-def _run_processing(uploaded_archive: UploadedArchive):
+def _run_species_prediction(uploaded_archive: UploadedArchive):
     # update record in the database
     output_dir = Path(settings.MEDIA_ROOT) / uploaded_archive.outputdir
     uploaded_archive.started_at = django.utils.timezone.now()
@@ -334,12 +334,12 @@ def _run_processing(uploaded_archive: UploadedArchive):
         },
     )
     task = sig.apply_async(
-        link=predict_on_success.s(
+        link=predict_species_on_success.s(
             uploaded_archive_id=uploaded_archive.id,
             zip_file=os.path.relpath(str(output_archive_file), settings.MEDIA_ROOT),
             csv_file=os.path.relpath(str(output_metadata_file), settings.MEDIA_ROOT),
         ),
-        link_error=predict_on_error.s(uploaded_archive_id=uploaded_archive.id),
+        link_error=predict_species_on_error.s(uploaded_archive_id=uploaded_archive.id),
     )
     logger.info(f"Created worker task with id '{task.task_id}'.")
 
@@ -348,7 +348,7 @@ def _run_processing(uploaded_archive: UploadedArchive):
 def run_processing(request, uploadedarchive_id):
     """Run processing of uploaded archive."""
     uploaded_archive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
-    _run_processing(uploaded_archive)
+    _run_species_prediction(uploaded_archive)
     return redirect("/caidapp/uploads")
 
 
@@ -365,6 +365,7 @@ def init_identification(request, taxon_str: str = "Lynx lynx"):
         category__name=taxon_str,
         identity__isnull=False,
         parent__owner__workgroup=request.user.ciduser.workgroup,
+        identity_is_representative=True,
     ).all()
 
     logger.debug("Generating CSV for init_identification...")
@@ -489,6 +490,9 @@ def _run_identification(uploaded_archive: UploadedArchive, taxon_str="Lynx lynx"
     #                              kwargs={"buuu":5},
     #                            )
 
+    # uploaded_archive = UploadedArchive.objects.get(id=uploaded_archive_id)
+    uploaded_archive.status = "Identification started"
+    uploaded_archive.save()
 
     tasks = chain(
         detect_sig,
@@ -503,7 +507,7 @@ def _run_identification(uploaded_archive: UploadedArchive, taxon_str="Lynx lynx"
             organization_id=uploaded_archive.owner.workgroup.id,
             output_json_file_path=str(output_json_file),
             top_k=3,
-            # uploaded_archive_id=uploaded_archive.id,
+            uploaded_archive_id=uploaded_archive.id,
             # mediafiles=mediafiles,
             # metadata_file=str(identity_metadata_file),
             # mediafile_ids=mediafile_ids
@@ -629,7 +633,7 @@ def upload_archive(
             uploaded_archive.contains_identities = contains_identities
             uploaded_archive.contains_single_taxon = contains_single_taxon
             uploaded_archive.save()
-            _run_processing(uploaded_archive)
+            _run_species_prediction(uploaded_archive)
 
             return JsonResponse({"data": "Data uploaded"})
         else:

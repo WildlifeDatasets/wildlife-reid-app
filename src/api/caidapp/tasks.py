@@ -32,7 +32,7 @@ and functions as a queue for processing worker responses.
 
 
 @shared_task(bind=True)
-def predict_on_success(
+def predict_species_on_success(
     self, output: dict, *args, uploaded_archive_id: int, zip_file: str, csv_file: str, **kwargs
 ):
     """Success callback invoked after running predict function in inference worker."""
@@ -55,7 +55,7 @@ def predict_on_success(
 
 
 @shared_task
-def predict_on_error(task_id: str, *args, uploaded_archive_id: int, **kwargs):
+def predict_species_on_error(task_id: str, *args, uploaded_archive_id: int, **kwargs):
     """Error callback invoked after running predict function in inference worker."""
     logger.critical(f"Worker task with id '{task_id}' failed due to unexpected internal error.")
     uploaded_archive = UploadedArchive.objects.get(id=uploaded_archive_id)
@@ -193,7 +193,7 @@ def log_output(self, output: dict, *args, **kwargs):
     logger.debug(f"{kwargs=}")
 
 @shared_task(bind=True)
-def detection_on_success(self, output: dict, *args, **kwargs):
+def detection_on_success(self, output: dict, *args,  **kwargs):
     logger.debug("detection on success")
     logger.debug(f"{output=}")
     logger.debug(f"{args=}")
@@ -206,6 +206,11 @@ def detection_on_success(self, output: dict, *args, **kwargs):
     #         "pokus": 4,
     #     },
     # )
+
+    uploaded_archive_id:int = kwargs.pop("uploaded_archive_id")
+    uploaded_archive = UploadedArchive.objects.get(id=uploaded_archive_id)
+    uploaded_archive.status = "...detection done"
+    uploaded_archive.save()
     identify_signature = signature(
         "identify",
         kwargs = kwargs,
@@ -213,6 +218,7 @@ def detection_on_success(self, output: dict, *args, **kwargs):
     identify_task = identify_signature.apply_async(
         link=identify_on_success.s(
             # output=output,
+            uploaded_archive_id=uploaded_archive_id,
         ),
         link_error=on_error_in_upload_processing.s(),
     )
@@ -230,6 +236,11 @@ def identify_on_success(self, output: dict, *args, **kwargs):
     logger.debug(f"output={output}")
     logger.debug(f"args={args}")
     logger.debug(f"kwargs={kwargs}")
+
+    uploaded_archive_id:int = kwargs.pop("uploaded_archive_id")
+    uploaded_archive = UploadedArchive.objects.get(id=uploaded_archive_id)
+    uploaded_archive.status = "...identification done"
+    uploaded_archive.save()
 
     if "status" not in output:
         logger.critical(f"Unexpected error {output=} is missing 'status' field.")
@@ -316,6 +327,8 @@ def identify_on_success(self, output: dict, *args, **kwargs):
                         f"Identity mismatch: {top3_mediafile.identity.name} != {top_k_labels[2]}"
                     )
 
+        uploaded_archive.status = "Identification finished"
+        uploaded_archive.save()
         logger.debug("identify done.")
 
         # simple_log_sig = signature("iworker_simple_log")
@@ -323,6 +336,8 @@ def identify_on_success(self, output: dict, *args, **kwargs):
 
     else:
         # identification failed
+        uploaded_archive.status = "Identification failed"
+        uploaded_archive.save()
         logger.error("Identification failed.")
         # TODO - should the app return some error response to the user?
         pass

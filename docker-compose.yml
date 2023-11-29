@@ -126,7 +126,7 @@ services:
       - identification_worker_db
     networks:
       - backend
-      - identification-worker
+#      - identification-worker
     labels:
       com.piva-ai.group: "applications"
 
@@ -145,7 +145,8 @@ services:
     expose:
       - 5432
     networks:
-      - identification-worker
+      - backend
+#      - identification-worker
     labels:
       com.piva-ai.group: "applications"
 
@@ -168,7 +169,7 @@ services:
       - redis
     networks:
       - backend
-      - identification-worker
+#      - identification-worker
     labels:
       com.piva-ai.group: "applications"
 
@@ -228,4 +229,4 @@ volumes:
 networks:
   frontend:
   backend:
-  identification-worker:
+#  identification-worker:
