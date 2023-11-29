@@ -39,7 +39,7 @@ from .models import (
     WorkGroup,
 )
 from .tasks import (
-    identify_on_error,
+    on_error_in_upload_processing,
     identify_on_success,
     detection_on_success,
     init_identification_on_error,
@@ -510,7 +510,7 @@ def _run_identification(uploaded_archive: UploadedArchive, taxon_str="Lynx lynx"
             # zip_file=os.path.relpath(str(output_archive_file), settings.MEDIA_ROOT),
             # csv_file=os.path.relpath(str(output_metadata_file), settings.MEDIA_ROOT),
         ),
-        link_error=identify_on_error.s(
+        link_error=on_error_in_upload_processing.s(
             # uploaded_archive_id=uploaded_archive.id
         ),
     )

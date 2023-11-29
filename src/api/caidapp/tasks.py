@@ -158,18 +158,30 @@ def init_identification_on_error(*args, **kwargs):
     logger.error("init_identificaion done with error.")
 
 
-# @shared_task
 @shared_task(bind=True)
-def identify_on_error(self, uuid, *args, **kwargs):
+def on_error(self, uuid, *args, **kwargs):
     """Callback invoked after failing init_identification function in inference worker."""
-    logger.error("identify done with error.")
+    logger.error("Process finished with error.")
     result = self.AsyncResult(uuid)
     error_message = result.result if result.failed() else "No error message available"
-    logger.error(f"identify done with error: {error_message}")
+    logger.error(f"Error message: {error_message}")
 
-    # logger.debug(f"args={args}")
-    # logger.debug(f"kwargs={kwargs}")
-    # logger.debug(f"self={self}")
+    logger.debug(f"self={self}")
+    logger.debug(f"args={args}")
+    logger.debug(f"kwargs={kwargs}")
+
+# @shared_task
+@shared_task(bind=True)
+def on_error_in_upload_processing(self, uuid, *args, **kwargs):
+    """Callback invoked after failing init_identification function in inference worker."""
+    logger.error("Process finished with error.")
+    result = self.AsyncResult(uuid)
+    error_message = result.result if result.failed() else "No error message available"
+    logger.error(f"Upload processing with error: {error_message}")
+
+    logger.debug(f"self={self}")
+    logger.debug(f"args={args}")
+    logger.debug(f"kwargs={kwargs}")
     # logger.debug(f"dir(self)={dir(self)}")
 
 
@@ -202,7 +214,7 @@ def detection_on_success(self, output: dict, *args, **kwargs):
         link=identify_on_success.s(
             # output=output,
         ),
-        link_error=identify_on_error.s(),
+        link_error=on_error_in_upload_processing.s(),
     )
     logger.debug(f"{identify_task=}")
 
