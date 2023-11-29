@@ -36,3 +36,5 @@ Create superuser:
 ```bash
 docker exec -it carnivoreid-app-api bash -ic 'python manage.py createsuperuser'
 ```
+
+In admin panel create new Workgroup and then in `ciduser` add this workgroup to user.

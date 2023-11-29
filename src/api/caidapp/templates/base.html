@@ -247,7 +247,8 @@
                             {#              <span>Web Designer</span>#}
                         </li>
                         <li>
-                            <p class="dropdown-item-text">{{ user.ciduser.workgroup }}</p>
+                            <p class="dropdown-item-text">
+                                <i class="bi bi-people"></i>{{ user.ciduser.workgroup }}</p>
                         </li>
                         <li>
                             <hr class="dropdown-divider">
@@ -282,6 +283,14 @@
                         {#            <li>#}
                         {#              <hr class="dropdown-divider">#}
                         {#            </li>#}
+                        {% if user.is_staff %}
+                            <li>
+                                <a class="dropdown-item d-flex align-items-center" href="{% url 'admin:index' %}">
+                                    <i class="bi bi-lock"></i>
+                                    <span>Admin</span>
+                                </a>
+                            </li>
+                        {% endif %}
 
                         <li>
                             <a class="dropdown-item d-flex align-items-center" href="{% url 'caidapp:logout_view' %}">
