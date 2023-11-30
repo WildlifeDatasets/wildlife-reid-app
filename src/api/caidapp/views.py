@@ -197,7 +197,7 @@ def individual_identities(request):
 
     page_number = request.GET.get("page")
     page_obj = paginator.get_page(page_number)
-    return render(request, "caidapp/individual_identities.html", {"page_obj": page_obj})
+    return render(request, "caidapp/individual_identities.html", {"page_obj": page_obj, "workgroup": request.user.ciduser.workgroup})
 
 
 def new_individual_identity(request):
@@ -403,6 +403,7 @@ def init_identification(request, taxon_str: str = "Lynx lynx"):
     # task =
     sig.apply_async(
         link=init_identification_on_success.s(
+            workgroup_id=request.user.ciduser.workgroup.id,
             # uploaded_archive_id=uploaded_archive.id,
             # zip_file=os.path.relpath(str(output_archive_file), settings.MEDIA_ROOT),
             # csv_file=os.path.relpath(str(output_metadata_file), settings.MEDIA_ROOT),

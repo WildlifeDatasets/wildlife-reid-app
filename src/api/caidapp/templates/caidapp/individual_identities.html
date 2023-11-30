@@ -7,6 +7,12 @@
 
         <div class="pagetitle">
             <h1>Identities</h1>
+            {%  if workgroup.identification_init_at %}
+                <p>Identification initiated at: {{ workgroup.identification_init_at|date:'Y-m-d H:i' }}</p>
+            {% else %}
+                Identification not initiated.
+            {% endif %}
+
 {#            <nav>#}
 {#                <ol class="breadcrumb">#}
 {#                    <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li>#}

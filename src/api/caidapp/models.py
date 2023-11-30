@@ -22,8 +22,8 @@ logger = logging.getLogger("database")
 class WorkGroup(models.Model):
     name = models.CharField(max_length=50)
     hash = models.CharField(max_length=50, default=randomString12)
-    # identification_init_at = models.DateTimeField("Identification init at", blank=True, null=True)
-    # identification_init_status = models.CharField(max_length=255, blank=True, default="Not initiated")
+    identification_init_at = models.DateTimeField("Identification init at", blank=True, null=True)
+    identification_init_status = models.CharField(max_length=255, blank=True, default="Not initiated")
 
     def __str__(self):
         return str(self.name)

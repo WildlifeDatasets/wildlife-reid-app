@@ -52,7 +52,7 @@ def init(
         db_connection.reference_image.create_reference_images(organization_id, metadata)
 
         logger.info("Finished processing.")
-        out = {"status": "DONE"}
+        out = {"status": "DONE", "message": f"Identification initiated with {len(metadata['image_path'])} images."}
     except Exception:
         error = traceback.format_exc()
         logger.critical(f"Returning unexpected error output: '{error}'.")

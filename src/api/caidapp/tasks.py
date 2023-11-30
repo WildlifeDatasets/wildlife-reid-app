@@ -18,6 +18,7 @@ from .models import (
     get_location,
     get_taxon,
     get_unique_name,
+    WorkGroup,
 )
 
 logger = logging.getLogger("app")
@@ -149,13 +150,25 @@ def get_image_files_from_uploaded_archive(
 @shared_task
 def init_identification_on_success(*args, **kwargs):
     """Callback invoked after running init_identification function in inference worker."""
-    logger.debug("init_identificaion done.")
+
+    logger.debug(f"{args=}")
+    logger.debug(f"{kwargs=}")
+    workgroup_id = kwargs.pop("workgroup_id")
+    workgroup = WorkGroup.objects.get(id=workgroup_id)
+    # workgroup.identification_init_status = args[0]["message"]
+    now = django.utils.timezone.now()
+    workgroup.identification_init_finished_at = now
+    workgroup.save()
+    logger.debug(f"{workgroup=}")
+    logger.debug(f"{workgroup.identification_init_finished_at=}")
+
+    logger.debug("init_identification done.")
 
 
 @shared_task
 def init_identification_on_error(*args, **kwargs):
     """Callback invoked after failing init_identification function in inference worker."""
-    logger.error("init_identificaion done with error.")
+    logger.error("init_identification done with error.")
 
 
 @shared_task(bind=True)
