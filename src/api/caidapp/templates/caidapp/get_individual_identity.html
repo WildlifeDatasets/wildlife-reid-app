@@ -1,6 +1,7 @@
 {% extends 'base.html' %}
 
 {% block body %}
+    {% with col_style="col-md" %}
     {#<div class="container">#}
     {% if user.is_authenticated %}
         <div class="pagetitle">
@@ -17,15 +18,19 @@
         <div class="section">
         {% if foridentifications %}
                 <div class="row" id="row-of-cards">
-                    <div class="col-sm-3" id="card{{ mediafile.id }}">
+
+{#                   Unknown image#}
+                    <div class="{{ col_style }} me-5" id="card{{ mediafile.id }}">
                         <div class="card">
+                            <img class="card-img-top" src="{{ foridentification.mediafile.mediafile.url }}"
+                                 alt="Camera trap image">
                             <div class="card-body">
                                 <div class="card-title">
                                     Unknown
                                 </div>
 
                                 <p class="card-text">
-                                {{ foridentifications|length }} media files left to identify.
+                                    {{ foridentifications|length }} media files left to identify.
                                 </p>
 
                                 {#                            <img class="card-img-bottom" src="{{ foridentification.mediafile.mediafile.url }}"#}
@@ -36,18 +41,9 @@
                             </div>
                         </div>
                     </div>
-                    <div class="col-sm-3" id="card{{ mediafile.id }}">
-                        <div class="card-header">
-                            Unknown
-                        </div>
-                        <div class="card">
-                            <img class="card-img-bottom" src="{{ foridentification.mediafile.mediafile.url }}"
-                                 class="card-img-bottom" alt="Camera trap image">
-                        </div>
-                    </div>
-                </div>
-                <div class="row" id="row-of-cards">
-                    <div class="col-sm-3" id="card{{ mediafile.id }}">
+
+{#                Top 1 #}
+                    <div class="{{ col_style }}" id="card{{ mediafile.id }}">
                         <div class="card">
                             <img class="card-img-top" src="{{ foridentification.top1mediafile.mediafile.url }}"
                                  class="card-img-top" alt="Camera trap image">
@@ -67,7 +63,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="col-sm-3" id="card{{ mediafile.id }}">
+                    <div class="{{ col_style }}" id="card{{ mediafile.id }}">
                         <div class="card">
     {#                        <div class="card-header">#}
                             <img class="card-img-top" src="{{ foridentification.top2mediafile.mediafile.url }}"
@@ -89,7 +85,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="col-sm-3" id="card{{ mediafile.id }}">
+                    <div class="{{ col_style }}" id="card{{ mediafile.id }}">
                         <div class="card">
                             <img class="card-img-top" src="{{ foridentification.top3mediafile.mediafile.url }}"
                                  class="card-img-top" alt="Camera trap image">
@@ -115,4 +111,5 @@
         </div>
     {% endif %}
     {#</div>#}
+    {% endwith %}
 {% endblock %}
