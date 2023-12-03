@@ -15,9 +15,10 @@ from django.contrib.auth.views import LoginView
 from django.core.paginator import Paginator
 from django.db.models import Q
 from django.forms import modelformset_factory
-from django.http import HttpResponseNotAllowed, JsonResponse
+from django.http import HttpResponseNotAllowed, JsonResponse, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
+from typing import Optional
 
 from .forms import (
     AlbumForm,
@@ -265,10 +266,53 @@ def delete_individual_identity(request, individual_identity_id):
     return redirect("caidapp:individual_identities")
 
 
-def get_individual_identity(request):
+def get_individual_identity_zoomed(request, foridentification_id:int, top_id:int):
     """Show and update media file."""
     foridentifications = MediafilesForIdentification.objects.filter(mediafile__parent__owner__workgroup=request.user.ciduser.workgroup).order_by("?")
-    foridentification = foridentifications.first()
+    foridentification = MediafilesForIdentification.objects.get(id=foridentification_id)
+    if foridentification.mediafile.parent.owner.workgroup != request.user.ciduser.workgroup:
+        return HttpResponseNotAllowed("Not allowed to work with this media file.")
+
+    # modulo
+    if top_id == 0:
+        top_id = 3
+    elif top_id == 4:
+        top_id = 1
+
+    if top_id == 1:
+        top_mediafile = foridentification.top1mediafile
+        top_score = foridentification.top1score
+        top_name = foridentification.top1name
+    elif top_id == 2:
+        top_mediafile = foridentification.top2mediafile
+        top_score = foridentification.top2score
+        top_name = foridentification.top2name
+    elif top_id == 3:
+        top_mediafile = foridentification.top3mediafile
+        top_score = foridentification.top3score
+        top_name = foridentification.top3name
+    else:
+        HttpResponseBadRequest("Wrong top_id.")
+    return render(
+        request, "caidapp/get_individual_identity_zoomed.html", {
+            "foridentification": foridentification,
+            "foridentifications": foridentifications,
+            "top_id": top_id,
+            "top_mediafile": top_mediafile,
+            "top_score": top_score,
+            "top_name": top_name,
+
+        }
+    )
+
+
+def get_individual_identity_from_foridentification(request, foridentification_id:Optional[int]=None):
+    """Show and update media file."""
+    foridentifications = MediafilesForIdentification.objects.filter(mediafile__parent__owner__workgroup=request.user.ciduser.workgroup).order_by("?")
+    if foridentification_id is None:
+        foridentification = foridentifications.first()
+    else:
+        foridentification = MediafilesForIdentification.objects.get(id=foridentification_id)
     return render(
         request, "caidapp/get_individual_identity.html", {
             "foridentification": foridentification,
