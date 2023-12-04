@@ -132,23 +132,36 @@ def uploadedarchive_detail(request, uploadedarchive_id):
     )
 
 
-def uploads(request):
+def uploads_identities(request):
     """List of uploads."""
-    uploadedarchives = (
-        UploadedArchive.objects.filter(
-            owner=request.user.ciduser,
-        )
-        .all()
-        .order_by("-uploaded_at")
-    )
+
+    uploadedarchives = UploadedArchive.objects.filter( owner__workgroup=request.user.ciduser.workgroup, contains_single_taxon=True, ).all().order_by("-uploaded_at")
 
     records_per_page = 12
     paginator = Paginator(uploadedarchives, per_page=records_per_page)
 
     page_number = request.GET.get("page")
     page_obj = paginator.get_page(page_number)
-    return render(request, "caidapp/uploads.html", {"page_obj": page_obj})
+    return render(request, "caidapp/uploads_identities.html", {"page_obj": page_obj})
 
+
+def uploads_species(request):
+    """List of uploads."""
+    uploadedarchives = UploadedArchive.objects.filter( owner__workgroup=request.user.ciduser.workgroup, contains_single_taxon=False, ).all().order_by("-uploaded_at")
+    # uploadedarchives = (
+    #     UploadedArchive.objects.filter(
+    #         owner=request.user.ciduser,
+    #     )
+    #     .all()
+    #     .order_by("-uploaded_at")
+    # )
+
+    records_per_page = 12
+    paginator = Paginator(uploadedarchives, per_page=records_per_page)
+
+    page_number = request.GET.get("page")
+    page_obj = paginator.get_page(page_number)
+    return render(request, "caidapp/uploads_species.html", {"page_obj": page_obj})
 
 def logout_view(request):
     """Logout from the application."""

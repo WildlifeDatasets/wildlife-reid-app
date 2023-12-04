@@ -20,7 +20,8 @@ urlpatterns = [
     ),
     # path("login/", TemplateView.as_view(template_name="caidapp/login.html"), name="login"),
     path("logout/", views.logout_view, name="logout_view"),
-    path("uploads/", views.uploads, name="uploads"),
+    path("uploads/", views.uploads_species, name="uploads"),
+    path("uploads_identities/", views.uploads_identities, name="uploads_identities"),
     path(
         "uploadedarchive_detail/<int:uploadedarchive_id>",
         views.uploadedarchive_detail,
