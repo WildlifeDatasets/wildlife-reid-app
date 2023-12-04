@@ -167,7 +167,7 @@ def logout_view(request):
     """Logout from the application."""
     logout(request)
     # Redirect to a success page.
-    return redirect("/caidapp/login")
+    return redirect("caidapp:index")
 
 
 def media_file_update(request, media_file_id):
