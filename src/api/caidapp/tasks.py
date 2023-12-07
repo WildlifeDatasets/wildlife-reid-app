@@ -5,7 +5,7 @@ from pathlib import Path
 
 import django
 import pandas as pd
-from celery import chain, shared_task, signature
+from celery import shared_task, signature
 from django.conf import settings
 
 from .fs_data import make_thumbnail_from_file
@@ -149,7 +149,6 @@ def get_image_files_from_uploaded_archive(
 @shared_task
 def init_identification_on_success(*args, **kwargs):
     """Callback invoked after running init_identification function in inference worker."""
-
     logger.debug(f"{args=}")
     logger.debug(f"{kwargs=}")
     workgroup_id = kwargs.pop("workgroup_id")
@@ -200,6 +199,7 @@ def on_error_in_upload_processing(self, uuid, *args, **kwargs):
 
 @shared_task(bind=True)
 def log_output(self, output: dict, *args, **kwargs):
+    """Callback invoked after running init_identification function in inference worker."""
     logger.debug("log_output")
     logger.debug(f"{output=}")
     logger.debug(f"{args=}")
@@ -208,6 +208,7 @@ def log_output(self, output: dict, *args, **kwargs):
 
 @shared_task(bind=True)
 def detection_on_success(self, output: dict, *args, **kwargs):
+    """Callback invoked after running init_identification function in inference worker."""
     logger.debug("detection on success")
     logger.debug(f"{output=}")
     logger.debug(f"{args=}")

@@ -49,7 +49,6 @@ MODEL_STD = tuple(MODEL.default_cfg["std"])
 
 def encode_images(image_paths: list) -> np.ndarray:
     """Create feature vectors from given images."""
-
     logger.info("Creating DataLoaders.")
     _, testloader, _, _ = get_dataloaders(
         None,

@@ -41,7 +41,6 @@ from .models import (
 )
 from .tasks import (
     detection_on_success,
-    identify_on_success,
     init_identification_on_error,
     init_identification_on_success,
     on_error_in_upload_processing,
@@ -134,7 +133,6 @@ def uploadedarchive_detail(request, uploadedarchive_id):
 
 def uploads_identities(request):
     """List of uploads."""
-
     uploadedarchives = (
         UploadedArchive.objects.filter(
             owner__workgroup=request.user.ciduser.workgroup,

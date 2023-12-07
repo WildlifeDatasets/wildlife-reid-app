@@ -72,7 +72,6 @@ SAM_PREDICTOR = SamPredictor(SAM)
 
 def detect_animal(image_path: list) -> dict[str, Union[ndarray, Any]]:
     """Detect an animal in a given image."""
-
     image = cv2.imread(image_path)
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
@@ -90,7 +89,6 @@ def detect_animal(image_path: list) -> dict[str, Union[ndarray, Any]]:
 
 def segment_animal(image_path: list, bbox: list, cropped=True) -> np.ndarray:
     """Segment an animal in a given image using SAM model."""
-
     image = cv2.imread(image_path)
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
@@ -109,6 +107,6 @@ def segment_animal(image_path: list, bbox: list, cropped=True) -> np.ndarray:
     logger.debug(f"{masks=}")
 
     foregroud_image = image.copy()
-    foregroud_image[masks[0] == False] = 0
+    foregroud_image[masks[0] == False] = 0  # noqa
 
     return foregroud_image[int(bbox[1]) - 5 : int(bbox[3]) + 5, int(bbox[0]) - 5 : int(bbox[2]) + 5]

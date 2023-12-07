@@ -1,12 +1,8 @@
-import json
 import logging
 import os
 import traceback
 from pathlib import Path
-from pprint import pformat, pprint
 
-import cv2
-import numpy as np
 import pandas as pd
 import torch
 from celery import Celery
@@ -41,7 +37,6 @@ def detect(
     **kwargs,
 ):
     """Process and store Reference Image records in the database."""
-
     try:
         logger.info(f"Applying detection task with args: {input_metadata_path=}.")
         from celery import current_app
