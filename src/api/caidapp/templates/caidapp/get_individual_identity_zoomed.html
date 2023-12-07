@@ -67,7 +67,7 @@
                                     {% endif %}
                                     <a href="{% url 'caidapp:get_individual_identity_zoomed' foridentification.id top_id|add:-1 %}" class="btn btn-secondary"> Prev </a>
                                     <a href="{% url 'caidapp:get_individual_identity_zoomed' foridentification.id top_id|add:1 %}" class="btn btn-secondary"> Next </a>
-                                    <a href="{% url 'caidapp:get_individual_identity' foridentification.id %}" class="btn btn-secondary"><i class="bi bi-search"></i><i class="fa fa-xmark"></i> Zoom out</a>
+                                    <a href="{% url 'caidapp:get_individual_identity' foridentification.id %}" class="btn btn-secondary"><i class="bi bi-zoom-out"></i></a>
                                 </p>
                             </div>
                         </div>

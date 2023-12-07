@@ -50,6 +50,7 @@
     <!-- <script src='https://kit.fontawesome.com/a076d05399.js'></script> -->
     <script type="text/javascript"> (function() { var css = document.createElement('link'); css.href = 'https://use.fontawesome.com/releases/v5.1.0/css/all.css'; css.rel = 'stylesheet'; css.type = 'text/css'; document.getElementsByTagName('head')[0].appendChild(css); })(); </script>
 
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.min.css">
 
     <!-- =======================================================
     * Template Name: NiceAdmin
@@ -315,13 +316,13 @@
 
             <li class="nav-item">
                 <a class="nav-link collapsed" href="{% url 'caidapp:uploads' %}">
-                    <i class="bi bi-cloud-upload"></i>
-                    <span>Uploads</span>
+                    <i class="fa-solid fa-hippo"></i>
+                    <span>Taxon Uploads</span>
                 </a>
             </li>
             <li class="nav-item">
                 <a class="nav-link collapsed" href="{% url 'caidapp:uploads_identities' %}">
-                    <i class="bi bi-cloud-upload"></i>
+                    <i class="fas fa-fingerprint"></i>
                     <span>Identities Uploads</span>
                 </a>
             </li>
@@ -469,6 +470,7 @@
 
 <!-- Template Main JS File -->
 <script src="{% static 'assets/js/main.js' %}"></script>
+<script src="https://kit.fontawesome.com/b3fe7a968a.js" crossorigin="anonymous"></script>
 
 
 </body>
