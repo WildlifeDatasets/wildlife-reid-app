@@ -5,8 +5,7 @@ from pathlib import Path
 
 import django
 import pandas as pd
-from celery import shared_task
-from celery import chain, signature
+from celery import chain, shared_task, signature
 from django.conf import settings
 
 from .fs_data import make_thumbnail_from_file
@@ -15,10 +14,10 @@ from .models import (
     MediaFile,
     MediafilesForIdentification,
     UploadedArchive,
+    WorkGroup,
     get_location,
     get_taxon,
     get_unique_name,
-    WorkGroup,
 )
 
 logger = logging.getLogger("app")
@@ -183,6 +182,7 @@ def on_error(self, uuid, *args, **kwargs):
     logger.debug(f"args={args}")
     logger.debug(f"kwargs={kwargs}")
 
+
 # @shared_task
 @shared_task(bind=True)
 def on_error_in_upload_processing(self, uuid, *args, **kwargs):
@@ -205,8 +205,9 @@ def log_output(self, output: dict, *args, **kwargs):
     logger.debug(f"{args=}")
     logger.debug(f"{kwargs=}")
 
+
 @shared_task(bind=True)
-def detection_on_success(self, output: dict, *args,  **kwargs):
+def detection_on_success(self, output: dict, *args, **kwargs):
     logger.debug("detection on success")
     logger.debug(f"{output=}")
     logger.debug(f"{args=}")
@@ -220,13 +221,13 @@ def detection_on_success(self, output: dict, *args,  **kwargs):
     #     },
     # )
 
-    uploaded_archive_id:int = kwargs.pop("uploaded_archive_id")
+    uploaded_archive_id: int = kwargs.pop("uploaded_archive_id")
     uploaded_archive = UploadedArchive.objects.get(id=uploaded_archive_id)
     uploaded_archive.status = "...detection done"
     uploaded_archive.save()
     identify_signature = signature(
         "identify",
-        kwargs = kwargs,
+        kwargs=kwargs,
     )
     identify_task = identify_signature.apply_async(
         link=identify_on_success.s(
@@ -236,7 +237,6 @@ def detection_on_success(self, output: dict, *args,  **kwargs):
         link_error=on_error_in_upload_processing.s(),
     )
     logger.debug(f"{identify_task=}")
-
 
 
 @shared_task(bind=True)
@@ -250,7 +250,7 @@ def identify_on_success(self, output: dict, *args, **kwargs):
     logger.debug(f"args={args}")
     logger.debug(f"kwargs={kwargs}")
 
-    uploaded_archive_id:int = kwargs.pop("uploaded_archive_id")
+    uploaded_archive_id: int = kwargs.pop("uploaded_archive_id")
     uploaded_archive = UploadedArchive.objects.get(id=uploaded_archive_id)
     uploaded_archive.status = "...identification done"
     uploaded_archive.save()
@@ -355,11 +355,13 @@ def identify_on_success(self, output: dict, *args, **kwargs):
         # TODO - should the app return some error response to the user?
         pass
 
+
 @shared_task(bind=True)
 def simple_log(self, *args, **kwargs):
     """Simple log task."""
     logger.info(f"Applying simple log task with args: {args=}, {kwargs=}.")
     return {"status": "DONE"}
+
 
 def _find_mediafiles_for_identification(mediafile_paths: list) -> MediafilesForIdentification:
     """Find mediafiles for identification.

@@ -2,6 +2,7 @@ import json
 import logging
 import os
 from pathlib import Path
+from typing import Optional
 
 import django
 import pandas as pd
@@ -15,10 +16,9 @@ from django.contrib.auth.views import LoginView
 from django.core.paginator import Paginator
 from django.db.models import Q
 from django.forms import modelformset_factory
-from django.http import HttpResponseNotAllowed, JsonResponse, HttpResponseBadRequest
+from django.http import HttpResponseBadRequest, HttpResponseNotAllowed, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
-from typing import Optional
 
 from .forms import (
     AlbumForm,
@@ -40,11 +40,11 @@ from .models import (
     WorkGroup,
 )
 from .tasks import (
-    on_error_in_upload_processing,
-    identify_on_success,
     detection_on_success,
+    identify_on_success,
     init_identification_on_error,
     init_identification_on_success,
+    on_error_in_upload_processing,
     predict_species_on_error,
     predict_species_on_success,
 )
@@ -135,7 +135,14 @@ def uploadedarchive_detail(request, uploadedarchive_id):
 def uploads_identities(request):
     """List of uploads."""
 
-    uploadedarchives = UploadedArchive.objects.filter( owner__workgroup=request.user.ciduser.workgroup, contains_single_taxon=True, ).all().order_by("-uploaded_at")
+    uploadedarchives = (
+        UploadedArchive.objects.filter(
+            owner__workgroup=request.user.ciduser.workgroup,
+            contains_single_taxon=True,
+        )
+        .all()
+        .order_by("-uploaded_at")
+    )
 
     records_per_page = 12
     paginator = Paginator(uploadedarchives, per_page=records_per_page)
@@ -147,7 +154,14 @@ def uploads_identities(request):
 
 def uploads_species(request):
     """List of uploads."""
-    uploadedarchives = UploadedArchive.objects.filter( owner__workgroup=request.user.ciduser.workgroup, contains_single_taxon=False, ).all().order_by("-uploaded_at")
+    uploadedarchives = (
+        UploadedArchive.objects.filter(
+            owner__workgroup=request.user.ciduser.workgroup,
+            contains_single_taxon=False,
+        )
+        .all()
+        .order_by("-uploaded_at")
+    )
     # uploadedarchives = (
     #     UploadedArchive.objects.filter(
     #         owner=request.user.ciduser,
@@ -162,6 +176,7 @@ def uploads_species(request):
     page_number = request.GET.get("page")
     page_obj = paginator.get_page(page_number)
     return render(request, "caidapp/uploads_species.html", {"page_obj": page_obj})
+
 
 def logout_view(request):
     """Logout from the application."""
@@ -211,7 +226,11 @@ def individual_identities(request):
 
     page_number = request.GET.get("page")
     page_obj = paginator.get_page(page_number)
-    return render(request, "caidapp/individual_identities.html", {"page_obj": page_obj, "workgroup": request.user.ciduser.workgroup})
+    return render(
+        request,
+        "caidapp/individual_identities.html",
+        {"page_obj": page_obj, "workgroup": request.user.ciduser.workgroup},
+    )
 
 
 def new_individual_identity(request):
@@ -279,9 +298,11 @@ def delete_individual_identity(request, individual_identity_id):
     return redirect("caidapp:individual_identities")
 
 
-def get_individual_identity_zoomed(request, foridentification_id:int, top_id:int):
+def get_individual_identity_zoomed(request, foridentification_id: int, top_id: int):
     """Show and update media file."""
-    foridentifications = MediafilesForIdentification.objects.filter(mediafile__parent__owner__workgroup=request.user.ciduser.workgroup).order_by("?")
+    foridentifications = MediafilesForIdentification.objects.filter(
+        mediafile__parent__owner__workgroup=request.user.ciduser.workgroup
+    ).order_by("?")
     foridentification = MediafilesForIdentification.objects.get(id=foridentification_id)
     if foridentification.mediafile.parent.owner.workgroup != request.user.ciduser.workgroup:
         return HttpResponseNotAllowed("Not allowed to work with this media file.")
@@ -307,37 +328,47 @@ def get_individual_identity_zoomed(request, foridentification_id:int, top_id:int
     else:
         HttpResponseBadRequest("Wrong top_id.")
     return render(
-        request, "caidapp/get_individual_identity_zoomed.html", {
+        request,
+        "caidapp/get_individual_identity_zoomed.html",
+        {
             "foridentification": foridentification,
             "foridentifications": foridentifications,
             "top_id": top_id,
             "top_mediafile": top_mediafile,
             "top_score": top_score,
             "top_name": top_name,
-
-        }
+        },
     )
 
 
-def get_individual_identity_from_foridentification(request, foridentification_id:Optional[int]=None):
+def get_individual_identity_from_foridentification(
+    request, foridentification_id: Optional[int] = None
+):
     """Show and update media file."""
-    foridentifications = MediafilesForIdentification.objects.filter(mediafile__parent__owner__workgroup=request.user.ciduser.workgroup).order_by("?")
+    foridentifications = MediafilesForIdentification.objects.filter(
+        mediafile__parent__owner__workgroup=request.user.ciduser.workgroup
+    ).order_by("?")
     if foridentification_id is None:
         foridentification = foridentifications.first()
     else:
         foridentification = MediafilesForIdentification.objects.get(id=foridentification_id)
     return render(
-        request, "caidapp/get_individual_identity.html", {
-            "foridentification": foridentification,
-            "foridentifications": foridentifications
-        }
+        request,
+        "caidapp/get_individual_identity.html",
+        {"foridentification": foridentification, "foridentifications": foridentifications},
     )
 
-def remove_foridentification(request, foridentification_id:int):
+
+def remove_foridentification(request, foridentification_id: int):
     """Remove mediafile from list for identification."""
-    foridentification = get_object_or_404(MediafilesForIdentification, id=foridentification_id, mediafile__parent__owner__workgroup=request.user.ciduser.workgroup)
+    foridentification = get_object_or_404(
+        MediafilesForIdentification,
+        id=foridentification_id,
+        mediafile__parent__owner__workgroup=request.user.ciduser.workgroup,
+    )
     foridentification.delete()
     return redirect("caidapp:get_individual_identity")
+
 
 def set_individual_identity(
     request, mediafiles_for_identification_id: int, individual_identity_id: int
@@ -509,11 +540,14 @@ def _run_identification(uploaded_archive: UploadedArchive, taxon_str="Lynx lynx"
         csv_data["mediafile_id"][i] = mediafile.id
 
     identity_metadata_file = media_root / uploaded_archive.outputdir / "identification_metadata.csv"
-    cropped_identity_metadata_file = media_root / uploaded_archive.outputdir / "cropped_identification_metadata.csv"
+    cropped_identity_metadata_file = (
+        media_root / uploaded_archive.outputdir / "cropped_identification_metadata.csv"
+    )
     pd.DataFrame(csv_data).to_csv(identity_metadata_file, index=False)
     output_json_file = media_root / uploaded_archive.outputdir / "identification_result.json"
 
     from celery import current_app
+
     tasks = current_app.tasks.keys()
     logger.debug(f"tasks={tasks}")
 

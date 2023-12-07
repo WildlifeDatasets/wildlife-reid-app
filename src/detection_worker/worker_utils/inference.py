@@ -1,14 +1,14 @@
 import logging
+import os
+from pathlib import Path
 from typing import Any, Union
 
 import cv2
-import os
-from pathlib import Path
-from tqdm import tqdm
 import numpy as np
 import torch
 from numpy import ndarray
 from segment_anything import SamPredictor, sam_model_registry
+from tqdm import tqdm
 
 # from fgvc.utils.utils import set_cuda_device
 
@@ -23,11 +23,9 @@ def download_file(url: str, output_file: str):
     """Download file from url."""
     import requests
 
-
     # r = requests.get(url, allow_redirects=True)
     # with open(output_file, "wb") as f:
     #     f.write(r.content)
-
     # download file from url with tqdm progressbar
     # https://stackoverflow.com/a/37573701/4419811
     # Streaming, so we can iterate over the response.
@@ -113,4 +111,4 @@ def segment_animal(image_path: list, bbox: list, cropped=True) -> np.ndarray:
     foregroud_image = image.copy()
     foregroud_image[masks[0] == False] = 0
 
-    return foregroud_image[int(bbox[1]) - 5: int(bbox[3]) + 5, int(bbox[0]) - 5: int(bbox[2]) + 5]
+    return foregroud_image[int(bbox[1]) - 5 : int(bbox[3]) + 5, int(bbox[0]) - 5 : int(bbox[2]) + 5]

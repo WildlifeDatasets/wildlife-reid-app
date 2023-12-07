@@ -27,8 +27,10 @@ def predict(
 ):
     """Main method called by Celery broker."""
     try:
-        logger.info("Applying species identification task with args: " +
-        f"{input_archive_file=}, {output_dir=}, {contains_identities=}.")
+        logger.info(
+            "Applying species identification task with args: "
+            + f"{input_archive_file=}, {output_dir=}, {contains_identities=}."
+        )
 
         # prepare input and output file names
         input_archive_file = Path(input_archive_file)

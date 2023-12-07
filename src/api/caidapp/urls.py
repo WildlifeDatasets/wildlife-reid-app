@@ -65,10 +65,26 @@ urlpatterns = [
         views.run_identification,
         name="run_identification",
     ),
-    path("get_individual_identity_zoomed/<int:foridentification_id>/<int:top_id>", views.get_individual_identity_zoomed, name="get_individual_identity_zoomed"),
-    path("get_individual_identity/", views.get_individual_identity_from_foridentification, name="get_individual_identity"),
-    path("get_individual_identity/<int:foridentification_id>", views.get_individual_identity_from_foridentification, name="get_individual_identity"),
-    path("remove_foridentification/<int:foridentification_id>", views.remove_foridentification, name="remove_foridentification"),
+    path(
+        "get_individual_identity_zoomed/<int:foridentification_id>/<int:top_id>",
+        views.get_individual_identity_zoomed,
+        name="get_individual_identity_zoomed",
+    ),
+    path(
+        "get_individual_identity/",
+        views.get_individual_identity_from_foridentification,
+        name="get_individual_identity",
+    ),
+    path(
+        "get_individual_identity/<int:foridentification_id>",
+        views.get_individual_identity_from_foridentification,
+        name="get_individual_identity",
+    ),
+    path(
+        "remove_foridentification/<int:foridentification_id>",
+        views.remove_foridentification,
+        name="remove_foridentification",
+    ),
     path(
         "set_individual_identity/"
         + "<int:mediafiles_for_identification_id>/<int:individual_identity_id>",

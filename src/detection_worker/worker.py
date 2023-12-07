@@ -2,16 +2,16 @@ import json
 import logging
 import os
 import traceback
+from pathlib import Path
+from pprint import pformat, pprint
 
-import pandas as pd
+import cv2
 import numpy as np
+import pandas as pd
 import torch
 from celery import Celery
 from PIL import Image
 from tqdm import tqdm
-from pathlib import Path
-from pprint import pprint, pformat
-import cv2
 
 from worker_utils import config
 from worker_utils.inference import detect_animal, segment_animal
@@ -35,16 +35,17 @@ logger.info(f"Device names: {device_names}")
 
 @detection_worker.task(bind=True, name="detect")
 def detect(
-        self,
-        input_metadata_path: str,
-        output_metadata_path: str,
-        **kwargs,
+    self,
+    input_metadata_path: str,
+    output_metadata_path: str,
+    **kwargs,
 ):
     """Process and store Reference Image records in the database."""
 
     try:
         logger.info(f"Applying detection task with args: {input_metadata_path=}.")
         from celery import current_app
+
         tasks = current_app.tasks.keys()
         logger.debug(f"tasks={tasks}")
 
