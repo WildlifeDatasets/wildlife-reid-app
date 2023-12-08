@@ -73,8 +73,8 @@
                                             {% endif %}
                                             {% if uploadedarchive.csv_file %}
                                                 <li><a class="dropdown-item"
-                                                       href="{{ uploadedarchive.csv_file.url }}"><i
-                                                        class="bi bi-table"></i> Download CSV</a></li>
+                                                       href="{% url 'caidapp:download_uploadedarchive_csv' uploadedarchive.id %}"><i
+                                                        class="bi bi-table"></i> Download CSV </a></li>
                                             {% endif %}
                                             {% if request.user.is_staff %}
                                                 <li>
