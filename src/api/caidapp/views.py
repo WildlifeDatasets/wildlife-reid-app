@@ -7,9 +7,8 @@ from typing import Optional
 
 import django
 import pandas as pd
-from celery import chain, signature
 import pytz
-from celery import signature
+from celery import chain, signature
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
@@ -20,8 +19,6 @@ from django.core.paginator import Paginator
 from django.db.models import Q
 from django.forms import modelformset_factory
 from django.http import HttpResponseBadRequest, HttpResponseNotAllowed, JsonResponse
-from django.shortcuts import get_object_or_404, redirect, render
-from django.http import HttpResponseNotAllowed, JsonResponse
 from django.shortcuts import Http404, HttpResponse, get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 
@@ -51,8 +48,6 @@ from .tasks import (
     on_error_in_upload_processing,
     predict_species_on_error,
     predict_species_on_success,
-    predict_on_error,
-    predict_on_success,
     sync_mediafiles_uploaded_archive_with_csv,
 )
 
