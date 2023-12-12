@@ -45,26 +45,28 @@ def download_file(url: str, output_file: str):
 
 def download_file_if_does_not_exists(url: str, output_file: str):
     """Download file from url."""
+    logger.debug("Checking if file does not exists.")
     if not os.path.exists(output_file):
+        logger.debug("File does not exists. Downloading.")
         output_file.parent.mkdir(parents=True, exist_ok=True)
         download_file(url, output_file)
 
 
 model_url = r"https://github.com/ecologize/CameraTraps/releases/download/v5.0/md_v5a.0.0.pt"
-model_file = Path("resources/md_v5a.0.0.pt")
+model_file = Path("~/resources/md_v5a.0.0.pt")
 download_file_if_does_not_exists(model_url, model_file)
 
 DETECTION_MODEL = torch.hub.load(
     "ultralytics/yolov5",  # repo_or_dir
     "custom",  # model
-    "/detection_worker/resources/md_v5a.0.0.pt",  # args for callable model
+    str(Path("~/resources/md_v5a.0.0.pt").expanduser()),  # args for callable model
     force_reload=True,
     device=DEVICE,
 )
 
 logger.info("Initializing SAM model and loading pre-trained checkpoint.")
-_checkpoint = "/detection_worker/resources/sam_vit_b_01ec64.pth"
-SAM = sam_model_registry["vit_b"](checkpoint=_checkpoint)
+_checkpoint_path = Path("~/resources/sam_vit_b_01ec64.pth").expanduser()
+SAM = sam_model_registry["vit_b"](checkpoint=str(_checkpoint_path))
 SAM.to(device=DEVICE)
 SAM_PREDICTOR = SamPredictor(SAM)
 # SAM = None

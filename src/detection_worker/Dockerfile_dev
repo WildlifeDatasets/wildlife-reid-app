@@ -16,14 +16,22 @@ RUN apt-get update --yes && \
 RUN pip install git+https://github.com/facebookresearch/segment-anything.git
 
 # download weights into resources
-RUN mkdir -p /detection_worker/resources && \
+RUN mkdir -p ~/resources && \
     wget http://ptak.felk.cvut.cz/plants/DanishFungiDataset/md_v5a.0.0.pt \
-    -O /detection_worker/resources/md_v5a.0.0.pt
+    -O /root/resources/md_v5a.0.0.pt
 
-RUN ls /detection_worker/resources
+RUN ls /root/resources
 
-RUN wget http://ptak.felk.cvut.cz/plants/DanishFungiDataset/sam_vit_h_4b8939.pth \
-    -O /detection_worker/resources/sam_vit_h_4b8939.pth
+# Default SAM (Semgent Anything Model) is sam_vit_h_4b8939.pth
+#RUN wget http://ptak.felk.cvut.cz/plants/DanishFungiDataset/sam_vit_h_4b8939.pth \
+#    -O /root/resources/sam_vit_h_4b8939.pth
+# There is just part of the file on this server
+#RUN wget http://ptak.felk.cvut.cz/plants/DanishFungiDataset/sam_vit_b_01ec64.pth \
+#    -O /root/resources/sam_vit_b_01ec64.pth
+
+
+RUN wget https://home.zcu.cz/~mjirik/lisa/CarnivoreID/sam_vit_b_01ec64.pth \
+    -O /root/resources/sam_vit_b_01ec64.pth
 
 COPY ./src/detection_worker/requirements.txt /detection_worker/requirements.txt
 
