@@ -17,6 +17,31 @@
 
         <div class="section">
         {% if foridentifications %}
+            <div class="section-title">
+                <h2> Unknown identity
+                </h2>
+            </div>
+            <div class="row">
+                <div class="col-md-4">
+                    <p>
+                        from <a href="{% url 'caidapp:uploadedarchive_detail' foridentification.mediafile.parent.id %}" class="link-secondary"> {{ foridentification.mediafile.parent }}</a>
+                    </p>
+                    <p>
+                        {{ foridentifications|length }} media files left to identify.
+                    </p>
+                </div>
+                <div class="col-md-3">
+                    <a href="{% url 'caidapp:get_individual_identity' %}" class="btn btn-secondary">Skip</a>
+                    <a href="{% url 'caidapp:remove_foridentification' foridentification.id %}" class="btn btn-danger"
+                       onclick="return confirm('Remove mediafile from list for identification?')"><i class="fa fa-trash"></i></a>
+                    </div>
+                <div class="col-md-5">
+
+                    <a href="{% url 'caidapp:get_individual_identity_zoomed' foridentification.id top_id|add:-1 %}" class="btn btn-secondary"> Prev </a>
+                    <a href="{% url 'caidapp:get_individual_identity_zoomed' foridentification.id top_id|add:1 %}" class="btn btn-secondary"> Next </a>
+                    <a href="{% url 'caidapp:get_individual_identity' foridentification.id %}" class="btn btn-secondary"><i class="bi bi-zoom-out"></i></a>
+                </div>
+            </div>
                 <div class="row" id="row-of-cards">
 
 {#                   Unknown image#}
@@ -24,25 +49,22 @@
                         <div class="card">
                             <img class="card-img-top" src="{{ foridentification.mediafile.mediafile.url }}"
                                  alt="Camera trap image">
-                            <div class="card-body">
-                                <div class="card-title">
-                                    Unknown
-                                </div>
-                                <p class="card-text">
-                                from <a href="{% url 'caidapp:uploadedarchive_detail' foridentification.mediafile.parent.id %}" class="link-secondary"> {{ foridentification.mediafile.parent }}</a>
-                                </p>
-
-                                <p class="card-text">
-                                    {{ foridentifications|length }} media files left to identify.
-                                </p>
-
+{#                            <div class="card-body">#}
+{#                                <div class="card-title">#}
+{#                                    Unknown#}
+{#                                </div>#}
+{#                                <p class="card-text">#}
+{#                                from <a href="{% url 'caidapp:uploadedarchive_detail' foridentification.mediafile.parent.id %}" class="link-secondary"> {{ foridentification.mediafile.parent }}</a>#}
+{#                                </p>#}
+{##}
+{#                                <p class="card-text">#}
+{#                                    {{ foridentifications|length }} media files left to identify.#}
+{#                                </p>#}
+{##}
 
                                 {#                            <img class="card-img-bottom" src="{{ foridentification.mediafile.mediafile.url }}"#}
                                 {#                                 class="card-img-bottom" alt="Camera trap image">#}
-                                <a href="{% url 'caidapp:get_individual_identity' %}" class="btn btn-secondary">Skip</a>
-                                <a href="{% url 'caidapp:remove_foridentification' foridentification.id %}" class="btn btn-danger"
-                                   onclick="return confirm('Remove mediafile from list for identification?')"><i class="fa fa-trash"></i></a>
-                            </div>
+{#                            </div>#}
                         </div>
                     </div>
 
@@ -65,9 +87,6 @@
                                     {% else %}
                                         Identity does not exist
                                     {% endif %}
-                                    <a href="{% url 'caidapp:get_individual_identity_zoomed' foridentification.id top_id|add:-1 %}" class="btn btn-secondary"> Prev </a>
-                                    <a href="{% url 'caidapp:get_individual_identity_zoomed' foridentification.id top_id|add:1 %}" class="btn btn-secondary"> Next </a>
-                                    <a href="{% url 'caidapp:get_individual_identity' foridentification.id %}" class="btn btn-secondary"><i class="bi bi-zoom-out"></i></a>
                                 </p>
                             </div>
                         </div>

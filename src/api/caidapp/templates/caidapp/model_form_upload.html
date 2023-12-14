@@ -35,7 +35,8 @@
                 {{ form.as_p }}
                 <p><div class="progress not-visible" id="progress"></div></p>
                 <button class="btn btn-primary" id="btnUpload" type="submit">
-                    <span class="spinner"><i class="fa fa-refresh fa-spin"></i></span>
+{#                    <span class="spinner"><i class="fa fa-refresh fa-spin"></i></span>#}
+                    <i class="fa fa-upload"></i>
                     {{ button }}
                 </button>
 {#                <a class="btn btn-secondary" href="{% url 'caidapp:uploads' %}">Cancel</a>#}
@@ -62,6 +63,7 @@
             $.ajax({
                 type: 'POST',
                 url:'{% url 'caidapp:upload_archive' %}',
+                {#url:'{% url next %}',#}
                 data: formData,
                 dataType: 'json',
                 beforeSend: function(){

@@ -702,10 +702,13 @@ def upload_archive(
 ):
     """Process the uploaded zip file."""
     text_note = ""
+    next = "caidapp:uploads"
     if contains_single_taxon:
         text_note = "The archive contains images of a single taxon."
+        next = "caidapp:upload_archive_contains_single_taxon"
     if contains_identities:
-        text_note = "The archive contains identities. Each identity is in individual folder"
+        text_note = "The archive contains identities (of single taxon). Each identity is in individual folder"
+        next= "caidapp:upload_archive_contains_identities"
 
     if request.method == "POST":
         form = UploadedArchiveForm(
@@ -726,6 +729,8 @@ def upload_archive(
                 )
 
             uploaded_archive.owner = request.user.ciduser
+            logger.debug(f"{uploaded_archive.contains_identities=}, {contains_identities=}")
+            logger.debug(f"{uploaded_archive.contains_single_taxon=}, {contains_single_taxon=}")
             uploaded_archive.contains_identities = contains_identities
             uploaded_archive.contains_single_taxon = contains_single_taxon
             uploaded_archive.save()
@@ -736,11 +741,12 @@ def upload_archive(
             return JsonResponse({"data": "Someting went wrong"})
 
     else:
-        form = UploadedArchiveForm()
+        form = UploadedArchiveForm(initial={"contains_identities": contains_identities,
+                                            "contains_single_taxon": contains_single_taxon})
     return render(
         request,
         "caidapp/model_form_upload.html",
-        {"form": form, "headline": "Upload", "button": "Upload", "text_note": text_note},
+        {"form": form, "headline": "Upload", "button": "Upload", "text_note": text_note, "next": next},
     )
 
 
