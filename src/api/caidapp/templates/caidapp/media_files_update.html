@@ -110,9 +110,13 @@
                                             <img class="card-img-top" src="{{ mediafile.instance.thumbnail.url }}"
                                                  alt="Cameratrap image">
                                         </a>
+                                        <div class="position-absolute top-0 end-0 p-2">
+                                            {{ mediafile.selected }}
+                                        </div>
                                     {% endif %}
+
                                     <div class="card-body mt-2">
-                                        {{ mediafile.as_p }}
+
                                         {#                                                                    <h5 class="card-title">{{ mediafile.instance }}</h5>#}
                                         <p class="card-text"> Category: {{ mediafile.instance.category }}</p>
                                         <p class="card-text"> Location: {{ mediafile.instance.location }}</p>
