@@ -457,8 +457,9 @@ def _run_species_prediction(uploaded_archive: UploadedArchive):
 def run_processing(request, uploadedarchive_id):
     """Run processing of uploaded archive."""
     uploaded_archive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
+    next_page = request.GET.get('next', '/caidapp/uploads')
     _run_species_prediction(uploaded_archive)
-    return redirect("/caidapp/uploads")
+    return redirect(next_page)
 
 
 # def init_identification(request, taxon_str:str="Lynx Lynx"):
@@ -531,7 +532,8 @@ def run_identification(request, uploadedarchive_id):
     if uploaded_archive.owner.workgroup != request.user.ciduser.workgroup:
         return HttpResponseNotAllowed("Identification is for workgroup members only.")
     _run_identification(uploaded_archive)
-    return redirect("/caidapp/uploads")
+    next_page = request.GET.get('next', 'caidapp:uploads_identities')
+    return redirect(next_page)
 
 
 def _run_identification(uploaded_archive: UploadedArchive, taxon_str="Lynx lynx"):
