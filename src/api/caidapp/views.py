@@ -344,6 +344,23 @@ def get_individual_identity_zoomed(request, foridentification_id: int, top_id: i
         },
     )
 
+def not_identified_mediafiles(request):
+    foridentification_set = MediafilesForIdentification.objects.filter(
+        mediafile__parent__owner__workgroup=request.user.ciduser.workgroup
+    )
+    # mediafile_set = uploadedarchive.mediafile_set.all()
+
+    records_per_page = 80
+    paginator = Paginator(foridentification_set, per_page=records_per_page)
+
+    page_number = request.GET.get("page")
+    page_obj = paginator.get_page(page_number)
+    return render(
+        request,
+        "caidapp/not_identified_mediafiles.html",
+        {"page_obj": page_obj, "page_title": "Not Identified"},
+    )
+
 
 def get_individual_identity_from_foridentification(
     request, foridentification_id: Optional[int] = None

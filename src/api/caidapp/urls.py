@@ -96,5 +96,9 @@ urlpatterns = [
         views.set_individual_identity,
         name="set_individual_identity",
     ),
+    path("not_identified_mediafiles/",
+         views.not_identified_mediafiles,
+         name="not_identified_mediafiles"
+         ),
     path("workgroup_update/<str:workgroup_hash>/", views.workgroup_update, name="workgroup_update"),
 ]
