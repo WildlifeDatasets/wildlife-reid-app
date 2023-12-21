@@ -10,7 +10,14 @@
             <h1>Uploads</h1>
             <nav>
                 <ol class="breadcrumb">
-                    <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li>
+{#                    {% if uploadedarchive.contains_single_taxon %}#}
+                        <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads_identities' %}">Identities Uploads </a></li>
+{#                    {% else %}#}
+{#                        <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li>#}
+{#                    {%  endif %}#}
+    {#                <li class="breadcrumb-item"><a href="{% url 'caidapp:uploadedarchive_detail' mediafile.parent.id %}"> Uploaded#}
+    {#                    Archive: {{ mediafile.parent }}</a></li>#}
+
                 </ol>
 {#                <a class="btn btn-primary" href="{% url 'caidapp:upload_archive' %}"><i class="bi bi-plus-circle"></i> New Upload </a>#}
                 <a class="btn btn-secondary mt-2" href="{% url 'caidapp:upload_archive_contains_identities' %}"><i class="bi bi-upload"></i> Upload identified </a>
@@ -81,14 +88,15 @@
                                             {% if request.user.is_staff %}
                                                 <li>
                                                     <a class="dropdown-item"
-                                                       href="{% url 'caidapp:run_processing' uploadedarchive.id %}">
-                                                        <i class="bi bi-arrow-clockwise"></i> Re-run processing
+                                                       href="{% url 'caidapp:run_identification' uploadedarchive.id %}">
+                                                        <i class="bi bi-fingerprint"></i> Run identification
                                                     </a>
                                                 </li>
                                                 <li>
                                                     <a class="dropdown-item"
-                                                       href="{% url 'caidapp:run_identification' uploadedarchive.id %}">
-                                                        <i class="bi bi-fingerprint"></i> Run identification
+                                                       href="{% url 'admin:caidapp_uploadedarchive_change' uploadedarchive.id %}">
+                                                        <i class="bi bi-pencil"></i>
+                                                        Edit in admin
                                                     </a>
                                                 </li>
                                             {% endif %}

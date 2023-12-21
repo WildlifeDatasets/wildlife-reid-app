@@ -10,7 +10,12 @@
             <h1>{{ page_title }}</h1>
             <nav>
                 <ol class="breadcrumb">
-                    <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li>
+
+                    {% if page_title.contains_single_taxon %}
+                        <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads_identities' %}">Identities Uploads </a></li>
+                    {% else %}
+                        <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li>
+                    {%  endif %}
                 </ol>
             </nav>
         </div><!-- End Page Title -->
@@ -41,9 +46,19 @@
                                         </a>
 
                                         <ul class="dropdown-menu">
-                                            <li>
-                                                <hr class="dropdown-divider">
-                                            </li>
+                                            {% if request.user.is_staff %}
+
+                                                <li>
+                                                    <a class="dropdown-item"
+                                                       href="{% url 'admin:caidapp_mediafile_change' mediafile.id %}">
+                                                        <i class="bi bi-lock"></i>
+                                                        Edit in admin
+                                                    </a>
+                                                </li>
+                                                <li>
+                                                    <hr class="dropdown-divider">
+                                                </li>
+                                            {% endif %}
                                             <li>
                                                 <a class="dropdown-item text-danger"
                                                    href="{% url 'caidapp:delete_mediafile' mediafile.id %}"
