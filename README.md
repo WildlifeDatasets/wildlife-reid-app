@@ -23,13 +23,13 @@ mv NiceAdmin/assets src/api/static/
 ### Development
 Run the following commands to build and start the application in the development mode.
 ```bash
-docker-compose -f docker-compose.yml -f docker-compose.dev.yml build
-docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+docker compose -f docker-compose.yml -f docker-compose.dev.yml build
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up
 ```
 
 Run the following commands to view the final development mode configuration with overrides from `docker-compose.dev.yml`. 
 ```bash
-docker-compose -f docker-compose.yml -f docker-compose.dev.yml config
+docker compose -f docker-compose.yml -f docker-compose.dev.yml config
 ```
 
 Create superuser:
