@@ -7,6 +7,7 @@ RUN apt-get update --yes && \
     apt-get upgrade --yes && \
     apt-get install --yes --no-install-recommends \
     wget \
+    git \
     ffmpeg \
     libsm6 \
     libxext6 && \
