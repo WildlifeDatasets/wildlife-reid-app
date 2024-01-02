@@ -24,6 +24,7 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("caidapp/", include("caidapp.urls")),
     path("accounts/", include("allauth.urls")),  # <--
+    path("accounts/", include("allauth.socialaccount.urls")),  # <--
     path("", RedirectView.as_view(url="/caidapp/")),  # <--I
     # path("", TemplateView.as_view(template_name="caidapp/login.html"), name="login"),  # <--I
 ]

@@ -24,6 +24,9 @@ POSTGRES_PORT = os.environ["POSTGRES_PORT"]
 POSTGRES_USER = os.environ["POSTGRES_USER"]
 POSTGRES_PASS = os.environ["POSTGRES_PASS"]
 
+ALLAUTH_GOOGLE_CLIENT_ID = os.environ["ALLAUTH_GOOGLE_CLIENT_ID"]
+ALLAUTH_GOOGLE_CLIENT_SECRET = os.environ["ALLAUTH_GOOGLE_CLIENT_SECRET"]
+
 setup_logging()
 logger = logging.getLogger("app")
 logger.info("Logger is set up.")
@@ -179,6 +182,22 @@ CREDS_JSON_FILE = Path(PRIVATE_DATA_PATH) / "piglegsurgery-creds.json"
 LOGIN_REDIRECT_URL = "/caidapp/uploads"
 
 SOCIALACCOUNT_LOGIN_ON_GET = True
+SOCIALACCOUNT_PROVIDERS = {
+    'google': {
+        'APP': {
+            'client_id': ALLAUTH_GOOGLE_CLIENT_ID,
+            'secret': ALLAUTH_GOOGLE_CLIENT_SECRET,
+            'key': ''
+        },
+        'SCOPE': [
+            'profile',
+            'email',
+        ],
+        'AUTH_PARAMS': {
+            'access_type': 'online',
+        }
+    }
+}
 
 ACCOUNT_DEFAULT_HTTP_PROTOCOL = os.environ.get("ACCOUNT_DEFAULT_HTTP_PROTOCOL", default="https")
 
