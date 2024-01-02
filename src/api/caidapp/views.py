@@ -753,6 +753,8 @@ def upload_archive(
             uploaded_archive.owner = request.user.ciduser
             logger.debug(f"{uploaded_archive.contains_identities=}, {contains_identities=}")
             logger.debug(f"{uploaded_archive.contains_single_taxon=}, {contains_single_taxon=}")
+            # log actual url
+            logger.debug(f"{request.build_absolute_uri()=}")
             uploaded_archive.contains_identities = contains_identities
             uploaded_archive.contains_single_taxon = contains_single_taxon
             uploaded_archive.save()

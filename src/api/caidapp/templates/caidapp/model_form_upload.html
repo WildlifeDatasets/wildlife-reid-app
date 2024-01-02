@@ -62,7 +62,9 @@
 
             $.ajax({
                 type: 'POST',
-                url:'{% url 'caidapp:upload_archive' %}',
+                {# get url of actual pakge #}
+                url: window.location.href,
+                {#url:'{% url 'caidapp:upload_archive' %}',#}
                 {#url:'{% url next %}',#}
                 data: formData,
                 dataType: 'json',
