@@ -8,6 +8,7 @@ Before starting the application create `.env` file with secret variables.
 echo "WANDB_API_KEY=..." >> .env
 echo "ALLAUTH_GOOGLE_CLIENT_ID=..." >> .env
 echo "ALLAUTH_GOOGLE_CLIENT_SECRET=..." >> .env
+echo "CAID_HOST=147.228..." >> .env
 ```
 
 ```bash
