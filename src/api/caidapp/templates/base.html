@@ -317,15 +317,39 @@
             <li class="nav-item">
                 <a class="nav-link collapsed" href="{% url 'caidapp:uploads' %}">
                     <i class="fa-solid fa-hippo"></i>
-                    <span>Taxon Uploads</span>
+                    <span>Taxon</span>
                 </a>
             </li>
+{#            <li class="nav-item">#}
+{#                <a class="nav-link collapsed" href="{% url 'caidapp:uploads_identities' %}">#}
+{#                    <i class="fas fa-fingerprint"></i>#}
+{#                    <span>Identities Uploads</span>#}
+{#                </a>#}
+{#            </li>#}
+
+
+            {% if user.ciduser.workgroup %}
             <li class="nav-item">
-                <a class="nav-link collapsed" href="{% url 'caidapp:uploads_identities' %}">
+                <a class="nav-link" data-bs-target="#icons-nav" data-bs-toggle="collapse" href="#" aria-expanded="true">
                     <i class="fas fa-fingerprint"></i>
-                    <span>Identities Uploads</span>
+                    </i><span>Individuality</span><i class="bi bi-chevron-down ms-auto"></i>
                 </a>
+                <ul id="icons-nav" class="nav-content collapse show" data-bs-parent="#sidebar-nav" style="">
+                    <li>
+                        <a class="nav-link collapsed" href="{% url 'caidapp:uploads_identities' %}">
+                            <i class="bi bi-circle"></i>
+                            <span>Uploads</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a class="nav-link collapsed" href="{% url 'caidapp:individual_identities' %}">
+                            <i class="bi bi-circle"></i>
+                            <span>Identities</span>
+                        </a>
+                    </li>
+                </ul>
             </li>
+            {% endif %}
             <li class="nav-item">
                 <a class="nav-link collapsed" href="{% url 'caidapp:media_files' %}">
                     <i class="bi bi-images"></i>
@@ -346,13 +370,7 @@
                 </a>
             </li>
 
-            <li class="nav-item">
-                <a class="nav-link collapsed" href="{% url 'caidapp:individual_identities' %}">
-                    <i class="fas fa-fingerprint"></i>
-                    <span>Identities</span>
-                </a>
-            </li>
-            {% if user.ciduser.workgroup_admin %}
+            {% if user.ciduser.workgroup and user.ciduser.workgroup_admin %}
             <li class="nav-item">
                 <a class="nav-link collapsed" href="{% url 'caidapp:workgroup_update' user.ciduser.workgroup.hash %}">
                     <i class="bi bi-gear"></i>

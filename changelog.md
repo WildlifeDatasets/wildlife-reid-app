@@ -8,6 +8,7 @@
 * [changed] Easier deployment by better setup of migrations and Google Auth
 * [fixed] Album thumbnail is now the first image in album
 * [fixed] Uploaded archive in now in added to the correct workflow
+* [changed] Sidebar for identities is now a dropdown
 
 ## 12-2023
 
