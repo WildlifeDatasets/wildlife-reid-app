@@ -21,10 +21,10 @@
                 <div class="col-xl-3">
                 {#                        <div class="col" style="-ms-flex: 0 0 200; flex: 0 0 200;">#}
                 <div class="card"
-                        {% if album.cover %}
+                        {% if album.mediafiles.all.0 %}
                      style="
 
-                             background-image: linear-gradient(to left, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 1.0)), url({{ album.cover.thumbnail.url }});
+                             background-image: linear-gradient(to left, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 1.0)), url({{ album.mediafiles.all.0.thumbnail.url }});
                              background-repeat: no-repeat;
                              background-position-x: right;
                              background-position-y: center;
