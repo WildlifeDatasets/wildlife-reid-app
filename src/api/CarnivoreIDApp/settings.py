@@ -183,19 +183,19 @@ LOGIN_REDIRECT_URL = "/caidapp/uploads"
 
 SOCIALACCOUNT_LOGIN_ON_GET = True
 SOCIALACCOUNT_PROVIDERS = {
-    'google': {
-        'APP': {
-            'client_id': ALLAUTH_GOOGLE_CLIENT_ID,
-            'secret': ALLAUTH_GOOGLE_CLIENT_SECRET,
-            'key': ''
+    "google": {
+        "APP": {
+            "client_id": ALLAUTH_GOOGLE_CLIENT_ID,
+            "secret": ALLAUTH_GOOGLE_CLIENT_SECRET,
+            "key": "",
         },
-        'SCOPE': [
-            'profile',
-            'email',
+        "SCOPE": [
+            "profile",
+            "email",
         ],
-        'AUTH_PARAMS': {
-            'access_type': 'online',
-        }
+        "AUTH_PARAMS": {
+            "access_type": "online",
+        },
     }
 }
 
