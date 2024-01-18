@@ -1,4 +1,7 @@
 import logging
+# from django.contrib.gis.db import models
+# from django.contrib.gis.geos import Point
+# from location_field.models.spatial import LocationField
 from datetime import datetime
 from pathlib import Path
 
@@ -114,6 +117,7 @@ class Taxon(models.Model):
 
 class Location(models.Model):
     name = models.CharField(max_length=50)
+    # location = LocationField(based_fields=['city'], zoom=7, default=Point(1.0, 1.0))
     # owner = models.ForeignKey(CIDUser, on_delete=models.CASCADE, null=True, blank=True)
 
     def __str__(self):

@@ -80,6 +80,7 @@ INSTALLED_APPS = [
     "allauth.socialaccount",  # <--
     "allauth.socialaccount.providers.google",  # <--
     "widget_tweaks",
+    # "location_field.apps.DefaultConfig",
 ]
 
 MIDDLEWARE = [
