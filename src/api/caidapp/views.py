@@ -152,6 +152,16 @@ def uploads_identities(request):
     page_obj = paginator.get_page(page_number)
     return render(request, "caidapp/uploads_identities.html", {"page_obj": page_obj})
 
+@staff_member_required
+def show_log(request):
+    """List of uploads."""
+    logfile = Path("/data/logging.log")
+    #read lines from logfile
+    with open(logfile, "r") as f:
+        log = f.readlines()
+
+    return render(request, "caidapp/show_log.html", {"log": log})
+
 
 def uploads_species(request):
     """List of uploads."""

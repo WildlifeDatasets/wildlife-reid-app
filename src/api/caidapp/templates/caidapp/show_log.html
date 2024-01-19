@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block head %}
+{% endblock %}
+{% block body %}
+    {% if user.is_authenticated %}
+
+        <div class="pagetitle">
+            <h1>Log</h1>
+{#            <nav> <ol class="breadcrumb">#}
+{#                    <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li>#}
+{#                </ol>#}
+{#            </nav>#}
+        </div><!-- End Page Title -->
+        <section class="section">
+        {% for line in log %}
+            {{line}}<br>
+        {% endfor %}
+        </section>
+    </div>
+
+    {% endif %}
+    <div id="logend"></div>
+{% endblock %}
