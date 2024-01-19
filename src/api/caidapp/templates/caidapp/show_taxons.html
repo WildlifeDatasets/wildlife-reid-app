@@ -20,14 +20,17 @@
                             {% if  taxon.mediafile_set.last  and  taxon.mediafile_set.last.thumbnail %}
                             <img class="card-img-top" src="{{ taxon.mediafile_set.last.thumbnail.url }}" alt="Cameratrap image">
                             {% else %}
-{#                            <img class="card-img-top" src="..." alt="...">#}
+                                <svg class="bd-placeholder-img card-img-top" width="100%" height="200"
+                                     xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Placeholder"
+                                     preserveAspectRatio="xMidYMid slice" focusable="false">
+                                    <title>Placeholder</title><rect width="100%" height="100%" fill="#e0e0e0"></rect></svg>
                             {% endif %}
                             </a>
                             <div class="card-body">
                                 <h5 class="card-title">{{ taxon.name }}</h5>
                                 <p class="card-text">Count: {{ taxon.mediafile_set.count}}</p>
                                 <a
-{#                                        href="{% url 'caidapp:taxon' taxon.id %}" #}
+                                        href="{% url 'caidapp:taxon' taxon.id %}"
                                         class="btn btn-primary">View</a>
                             </div>
 
