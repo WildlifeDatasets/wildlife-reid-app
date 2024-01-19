@@ -40,6 +40,7 @@ from .models import (
     MediafilesForIdentification,
     UploadedArchive,
     WorkGroup,
+    Taxon,
 )
 from .tasks import (
     detection_on_success,
@@ -162,6 +163,11 @@ def show_log(request):
 
     return render(request, "caidapp/show_log.html", {"log": log})
 
+
+def show_taxons(request):
+    """List of taxons."""
+    taxons = Taxon.objects.all().order_by("name")
+    return render(request, "caidapp/show_taxons.html", {"taxons": taxons})
 
 def uploads_species(request):
     """List of uploads."""

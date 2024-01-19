@@ -320,11 +320,31 @@
     {% if user.is_authenticated %}
         <ul class="sidebar-nav" id="sidebar-nav">
 
+{#            <li class="nav-item">#}
+{#                <a class="nav-link collapsed" href="{% url 'caidapp:uploads' %}">#}
+{#                    <i class="fa-solid fa-hippo"></i>#}
+{#                    <span>Taxon</span>#}
+{#                </a>#}
+{#            </li>#}
             <li class="nav-item">
-                <a class="nav-link collapsed" href="{% url 'caidapp:uploads' %}">
+                <a class="nav-link collapsed" data-bs-target="#icons-nav" data-bs-toggle="collapse" href="#" aria-expanded="true">
                     <i class="fa-solid fa-hippo"></i>
-                    <span>Taxon</span>
+                    </i><span>Taxon</span><i class="bi bi-chevron-down ms-auto"></i>
                 </a>
+                <ul id="icons-nav" class="nav-content collapse show" data-bs-parent="#sidebar-nav" style="">
+                    <li>
+                        <a class="nav-link collapsed" href="{% url 'caidapp:uploads' %}">
+                            <i class="bi bi-circle"></i>
+                            <span>Uploads</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a class="nav-link collapsed" href="{% url 'caidapp:show_taxons' %}">
+                            <i class="bi bi-circle"></i>
+                            <span>Taxons</span>
+                        </a>
+                    </li>
+                </ul>
             </li>
 {#            <li class="nav-item">#}
 {#                <a class="nav-link collapsed" href="{% url 'caidapp:uploads_identities' %}">#}
