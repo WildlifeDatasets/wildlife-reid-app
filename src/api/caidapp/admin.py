@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django.db.migrations.recorder import MigrationRecorder
 
 from . import models
 
@@ -13,3 +14,4 @@ admin.site.register(models.AlbumShareRoleType)
 admin.site.register(models.IndividualIdentity)
 admin.site.register(models.MediafilesForIdentification)
 admin.site.register(models.WorkGroup)
+admin.site.register(MigrationRecorder.Migration)

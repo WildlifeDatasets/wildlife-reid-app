@@ -7,6 +7,7 @@ RUN apt-get update --yes &&  \
     apt-get install --yes \
     wget \
     unzip && \
+    gdal-bin \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # install python dependencies
