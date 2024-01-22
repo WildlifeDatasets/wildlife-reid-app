@@ -123,7 +123,7 @@ class Location(models.Model):
                              # initial='-22.2876834,-49.1607606',
                              null=True, blank=True
                              )
-    # owner = models.ForeignKey(CIDUser, on_delete=models.CASCADE, null=True, blank=True)
+    owner = models.ForeignKey(CIDUser, on_delete=models.CASCADE, null=True, blank=True)
 
     def __str__(self):
         return str(self.name)
