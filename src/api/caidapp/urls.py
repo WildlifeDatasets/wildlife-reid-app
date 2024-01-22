@@ -42,6 +42,7 @@ urlpatterns = [
         "media_file_update/<int:media_file_id>/", views.media_file_update, name="media_file_update"
     ),
     path("manage_locations/", views.manage_locations, name="manage_locations"),
+    path("update_location/<int:location_id>/", views.update_location, name="update_location"),
     path("albums/", views.albums, name="albums"),
     path("album/<str:album_hash>", views.media_files_update, name="album"),
     path("taxon/<int:taxon_id>", views.media_files_update, name="taxon"),

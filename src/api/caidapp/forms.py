@@ -4,6 +4,7 @@ from . import models
 from .models import Album, CIDUser, IndividualIdentity, MediaFile, UploadedArchive
 
 
+
 class WorkgroupUsersForm(forms.Form):
     workgroup_users = forms.ModelMultipleChoiceField(queryset=CIDUser.objects.all(), required=False)
 
@@ -12,6 +13,11 @@ class AlbumForm(forms.ModelForm):
     class Meta:
         model = Album
         fields = ("name", "description")
+
+class LocationForm(forms.ModelForm):
+    class Meta:
+        model = models.Location
+        fields = ("name", "location")
 
 
 class IndividualIdentityForm(forms.ModelForm):

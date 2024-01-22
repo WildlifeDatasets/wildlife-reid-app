@@ -10,7 +10,14 @@
         <section class="section">
         <form method="POST">
             {% csrf_token %}
-                {{ page_obj.as_p}}
+{#            {{ page_obj.as_p}}#}
+            {% for one_obj in page_obj %}
+            {{ one_obj }}
+                {%  if one_obj.instance.id %}
+                <a class="btn btn-primary" href="{% url 'caidapp:update_location' one_obj.instance.id %}">Detail</a><br>
+                {% endif %}
+{#                {{ one_obj.instance.id }}#}
+            {% endfor %}
             <button class="btn btn-primary" id="btnUpload" type="submit">
                 Save
             </button>

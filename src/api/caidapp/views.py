@@ -31,6 +31,7 @@ from .forms import (
     MediaFileSetQueryForm,
     UploadedArchiveForm,
     WorkgroupUsersForm,
+    LocationForm,
 )
 from .models import (
     Album,
@@ -96,6 +97,26 @@ def media_files(request):
         },
     )
 
+def update_location(request, location_id):
+    """Show and update location."""
+    location = get_object_or_404(Location, pk=location_id)
+    if location.owner:
+        if request.user.ciduser.workgroup != location.owner__workgroup:
+            return HttpResponseNotAllowed("Not allowed to see this location.")
+    if request.method == "POST":
+        form = LocationForm(request.POST, instance=location)
+        if form.is_valid():
+
+            # get uploaded archive
+            location = form.save()
+            return redirect("caidapp:manage_locations")
+    else:
+        form = LocationForm(instance=location)
+    return render(
+        request,
+        "caidapp/update_form.html",
+        {"form": form, "headline": "Location", "button": "Save", "location": location},
+    )
 
 def manage_locations(request):
     """Add new location or update names of locations."""
