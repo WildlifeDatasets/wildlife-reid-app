@@ -1,8 +1,4 @@
 import logging
-# from django.contrib.gis.db import models
-# from django.contrib.gis.geos import Point
-# from location_field.models.spatial import LocationField
-from location_field.models.plain import PlainLocationField
 from datetime import datetime
 from pathlib import Path
 
@@ -10,6 +6,11 @@ from django.contrib.auth import get_user_model
 from django.db import models
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+
+# from django.contrib.gis.db import models
+# from django.contrib.gis.geos import Point
+# from location_field.models.spatial import LocationField
+from location_field.models.plain import PlainLocationField
 
 from .model_tools import (
     generate_sha1,
@@ -118,11 +119,14 @@ class Taxon(models.Model):
 
 class Location(models.Model):
     name = models.CharField(max_length=50)
-    location = PlainLocationField(based_fields=['city'], zoom=7,
-                             # default=Point(1.0, 1.0)
-                             # initial='-22.2876834,-49.1607606',
-                             null=True, blank=True
-                             )
+    location = PlainLocationField(
+        based_fields=["city"],
+        zoom=7,
+        # default=Point(1.0, 1.0)
+        # initial='-22.2876834,-49.1607606',
+        null=True,
+        blank=True,
+    )
     owner = models.ForeignKey(CIDUser, on_delete=models.CASCADE, null=True, blank=True)
 
     def __str__(self):

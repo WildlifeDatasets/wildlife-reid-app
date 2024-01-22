@@ -25,13 +25,13 @@ from django.urls import reverse_lazy
 from .forms import (
     AlbumForm,
     IndividualIdentityForm,
+    LocationForm,
     MediaFileBulkForm,
     MediaFileForm,
     MediaFileSelectionForm,
     MediaFileSetQueryForm,
     UploadedArchiveForm,
     WorkgroupUsersForm,
-    LocationForm,
 )
 from .models import (
     Album,
@@ -39,9 +39,9 @@ from .models import (
     Location,
     MediaFile,
     MediafilesForIdentification,
+    Taxon,
     UploadedArchive,
     WorkGroup,
-    Taxon,
 )
 from .tasks import (
     detection_on_success,
@@ -97,6 +97,7 @@ def media_files(request):
         },
     )
 
+
 def update_location(request, location_id):
     """Show and update location."""
     location = get_object_or_404(Location, pk=location_id)
@@ -117,6 +118,7 @@ def update_location(request, location_id):
         "caidapp/update_form.html",
         {"form": form, "headline": "Location", "button": "Save", "location": location},
     )
+
 
 def manage_locations(request):
     """Add new location or update names of locations."""
@@ -174,11 +176,12 @@ def uploads_identities(request):
     page_obj = paginator.get_page(page_number)
     return render(request, "caidapp/uploads_identities.html", {"page_obj": page_obj})
 
+
 @staff_member_required
 def show_log(request):
     """List of uploads."""
     logfile = Path("/data/logging.log")
-    #read lines from logfile
+    # read lines from logfile
     with open(logfile, "r") as f:
         log = f.readlines()
 
@@ -189,6 +192,7 @@ def show_taxons(request):
     """List of taxons."""
     taxons = Taxon.objects.all().order_by("name")
     return render(request, "caidapp/show_taxons.html", {"taxons": taxons})
+
 
 def uploads_species(request):
     """List of uploads."""
@@ -874,7 +878,9 @@ class MyLoginView(LoginView):
         return self.render_to_response(self.get_context_data(form=form))
 
 
-def _mediafiles_query(request, query: str, album_hash=None, individual_identity_id=None, taxon_id=None):
+def _mediafiles_query(
+    request, query: str, album_hash=None, individual_identity_id=None, taxon_id=None
+):
     """Prepare list of mediafiles based on query search in category and location."""
     mediafiles = (
         MediaFile.objects.filter(
@@ -964,7 +970,9 @@ def update_mediafile_is_representative(request, mediafile_hash: str, is_represen
     return JsonResponse({"data": "Data uploaded"})
 
 
-def media_files_update(request, records_per_page=80, album_hash=None, individual_identity_id=None, taxon_id=None):
+def media_files_update(
+    request, records_per_page=80, album_hash=None, individual_identity_id=None, taxon_id=None
+):
     """List of mediafiles based on query with bulk update of category."""
     # create list of mediafiles
     if request.method == "POST":
@@ -998,8 +1006,11 @@ def media_files_update(request, records_per_page=80, album_hash=None, individual
     # logger.debug(f"{query=}")
     # logger.debug(f"{queryform}")
     full_mediafiles = _mediafiles_query(
-        request, query, album_hash=album_hash, individual_identity_id=individual_identity_id,
-        taxon_id=taxon_id
+        request,
+        query,
+        album_hash=album_hash,
+        individual_identity_id=individual_identity_id,
+        taxon_id=taxon_id,
     )
     number_of_mediafiles = len(full_mediafiles)
 

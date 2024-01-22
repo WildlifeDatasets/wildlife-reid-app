@@ -103,9 +103,7 @@ urlpatterns = [
         views.not_identified_mediafiles,
         name="not_identified_mediafiles",
     ),
-    path(
-        "show_log/", views.show_log, name="show_log"
-    ),
+    path("show_log/", views.show_log, name="show_log"),
     path("show_taxons/", views.show_taxons, name="show_taxons"),
     path("workgroup_update/<str:workgroup_hash>/", views.workgroup_update, name="workgroup_update"),
 ]

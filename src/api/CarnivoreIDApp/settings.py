@@ -119,9 +119,9 @@ WSGI_APPLICATION = "CarnivoreIDApp.wsgi.application"
 #     'map.provider': 'google',
 # }
 LOCATION_FIELD = {
-    'map.provider': 'openstreetmap',
+    "map.provider": "openstreetmap",
     # 'search.provider': 'google',
-    'search.provider': 'nominatim',
+    "search.provider": "nominatim",
 }
 
 
