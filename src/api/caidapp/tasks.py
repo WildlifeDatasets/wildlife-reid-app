@@ -19,6 +19,7 @@ from .models import (
     get_taxon,
     get_unique_name,
 )
+import numpy as np
 
 logger = logging.getLogger("app")
 
@@ -102,7 +103,8 @@ def sync_mediafiles_uploaded_archive_with_csv(
         logger.debug(f"relative_pth={rel_pth}")
         taxon = get_taxon(row["predicted_category"])
         captured_at = row["datetime"]
-        if captured_at == "":
+        logger.debug(f"{captured_at=}, {type(captured_at)}")
+        if (captured_at == "") or (isinstance(captured_at, float) and np.isnan(captured_at)):
             captured_at = None
 
         abs_pth_thumbnail = output_dir / "thumbnails" / row["image_path"]
