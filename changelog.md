@@ -9,6 +9,8 @@
 * [fixed] Album thumbnail is now the first image in album
 * [fixed] Uploaded archive in now in added to the correct workflow
 * [changed] Sidebar for identities is now a dropdown
+* [added] Location coordinates by clicking on map
+* [fixed] Failure when mediafile datetime is NaN
 
 ## 12-2023
 
