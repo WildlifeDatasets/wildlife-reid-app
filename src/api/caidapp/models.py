@@ -266,6 +266,8 @@ def get_unique_name(name: str, workgroup: WorkGroup) -> IndividualIdentity:
 
 def get_taxon(name: str) -> Taxon:
     """Return taxon according to the name, create it if necessary."""
+    if (name is None) or (name == ""):
+        return None
     objs = Taxon.objects.filter(name=name)
     if len(objs) == 0:
         taxon = Taxon(name=name)

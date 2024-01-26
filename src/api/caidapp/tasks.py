@@ -47,7 +47,10 @@ def predict_species_on_success(
         uploaded_archive.zip_file = zip_file
         uploaded_archive.csv_file = csv_file
         make_thumbnail_for_uploaded_archive(uploaded_archive)
-        sync_mediafiles_uploaded_archive_with_csv(uploaded_archive)
+        # update_metadata_csv_by_uploaded_archive(uploaded_archive)
+        # create missing take effect only if the processing is done for the first time
+        # in other cases the file should be removed from CSV before the processing is run
+        update_uploaded_archive_by_metadata_csv(uploaded_archive, create_missing=True)
         uploaded_archive.status = "Finished"
     else:
         uploaded_archive.status = "Failed"
@@ -81,92 +84,238 @@ def make_thumbnail_for_uploaded_archive(uploaded_archive: UploadedArchive):
         uploaded_archive.thumbnail = os.path.relpath(abs_thumbnail_path, settings.MEDIA_ROOT)
 
 
-def sync_mediafiles_uploaded_archive_with_csv(
-    uploaded_archive: UploadedArchive, thumbnail_width: int = 400, create_missing: bool = True
-):
+def run_species_prediction_async(uploaded_archive: UploadedArchive):
+    # update record in the database
+    output_dir = Path(settings.MEDIA_ROOT) / uploaded_archive.outputdir
+    uploaded_archive.started_at = django.utils.timezone.now()
+    output_archive_file = output_dir / "images.zip"
+    output_metadata_file = output_dir / "metadata.csv"
+    uploaded_archive.status = "Processing"
+    uploaded_archive.save()
+
+    # if the metadata file exists, it is updated
+    update_metadata_csv_by_uploaded_archive(uploaded_archive)
+
+    # send celery message to the data worker
+    logger.info("Sending request to inference worker.")
+    sig = signature(
+        "predict",
+        kwargs={
+            "input_archive_file": str(
+                Path(settings.MEDIA_ROOT) / uploaded_archive.archivefile.name
+            ),
+            "output_dir": str(output_dir),
+            "output_archive_file": str(output_archive_file),
+            "output_metadata_file": str(output_metadata_file),
+            "contains_identities": uploaded_archive.contains_identities,
+        },
+    )
+    task = sig.apply_async(
+        link=predict_species_on_success.s(
+            uploaded_archive_id=uploaded_archive.id,
+            zip_file=os.path.relpath(str(output_archive_file), settings.MEDIA_ROOT),
+            csv_file=os.path.relpath(str(output_metadata_file), settings.MEDIA_ROOT),
+        ),
+        link_error=predict_species_on_error.s(uploaded_archive_id=uploaded_archive.id),
+    )
+    logger.info(f"Created worker task with id '{task.task_id}'.")
+
+# def update_metadata_csv_with_uploaded_archive(uploaded_archive: UploadedArchive):
+#     logger.debug("getting images from uploaded archive")
+#     output_dir = Path(settings.MEDIA_ROOT) / uploaded_archive.outputdir
+#     csv_file = Path(settings.MEDIA_ROOT) / str(uploaded_archive.csv_file)
+#     logger.debug(f"{csv_file} {Path(csv_file).exists()}")
+#
+#     update_csv = False
+#     df = pd.read_csv(csv_file)
+#     df["deleted"] = True
+#     df["category_by_webapp"] = ""
+#     df["identity_by_webapp"] = ""
+#     # for fn in df["image_path"]:
+#     for index, row in df.iterrows():
+#         abs_pth = output_dir / "images" / row["image_path"]
+#         rel_pth = os.path.relpath(abs_pth, settings.MEDIA_ROOT)
+#         logger.debug(f"vanilla_path={row['vanilla_path']}")
+#         logger.debug(f"relative_pth={rel_pth}")
+#         taxon = get_taxon(row["predicted_category"])
+#         captured_at = row["datetime"]
+#         logger.debug(f"{captured_at=}, {type(captured_at)}")
+#         if (captured_at == "") or (isinstance(captured_at, float) and np.isnan(captured_at)):
+#             captured_at = None
+#
+#         abs_pth_thumbnail = output_dir / "thumbnails" / row["image_path"]
+#         rel_pth_thumbnail = os.path.relpath(abs_pth_thumbnail, settings.MEDIA_ROOT)
+#
+#         # mediafile_set = uploaded_archive.mediafile_set.filter(mediafile=str(rel_pth))
+#         # if len(mediafile_set) == 0:
+#         #     row["deleted"] = True
+#         mediafile = uploaded_archive.mediafile_set.get(mediafile=str(rel_pth))
+#         if mediafile:
+#             if mediafile.category:
+#                 row["category_by_webapp"] = mediafile.category.name
+#             if mediafile.identity:
+#                 row["identity_by_webapp"] = mediafile.identity.name
+#         else:
+#             row["deleted"] = True
+#
+#
+#     mediafile.to_csv(csv_file, index=False)
+
+def make_thumbnail_for_mediafile_if_necessary(mediafile: MediaFile, thumbnail_width: int = 400):
+    """Make small image representing the upload."""
+    logger.debug("making thumbnail for mediafile")
+    output_dir = Path(settings.MEDIA_ROOT) / mediafile.parent.outputdir
+    abs_pth = output_dir / "thumbnails" / Path(mediafile.mediafile.name).name
+    rel_pth = os.path.relpath(abs_pth, settings.MEDIA_ROOT)
+    # make_thumbnail_from_directory(output_dir, thumbnail_path)
+    if (mediafile.thumbnail is None) or (not abs_pth.exists()):
+        logger.debug(f"Creating thumbnail for {rel_pth}")
+        if make_thumbnail_from_file(abs_pth, abs_pth, width=thumbnail_width):
+            mediafile.thumbnail = str(rel_pth)
+            mediafile.save()
+        else:
+            logger.warning(f"Cannot generate thumbnail for {abs_pth}")
+
+
+def _get_rel_and_abs_paths_based_on_csv_row(row: dict, output_dir:Path):
+    abs_pth = output_dir / "images" / row["image_path"]
+    rel_pth = os.path.relpath(abs_pth, settings.MEDIA_ROOT)
+    if "vanilla_Path" in row:
+        logger.debug(f"vanilla_path={row['vanilla_path']}")
+    logger.debug(f"relative_pth={rel_pth}")
+
+    return rel_pth, abs_pth
+
+def update_uploaded_archive_by_metadata_csv(uploaded_archive: UploadedArchive, thumbnail_width: int = 400,
+                                            create_missing:bool=True):
+
     """Extract filenames from uploaded archive CSV and create MediaFile objects.
 
     If the processing is repeated, the former Mediafiles are used and updated.
+    If the MediaFile was updated by user, the update is skipped.
+
+    Parameters
+    ----------
+    uploaded_archive
+    create_missing
+
+    Returns
+    -------
+
     """
     logger.debug("getting images from uploaded archive")
-    output_dir = Path(settings.MEDIA_ROOT) / uploaded_archive.outputdir
     csv_file = Path(settings.MEDIA_ROOT) / str(uploaded_archive.csv_file)
     logger.debug(f"{csv_file} {Path(csv_file).exists()}")
 
+    output_dir = Path(settings.MEDIA_ROOT) / uploaded_archive.outputdir
+
     update_csv = False
-    df = pd.read_csv(csv_file)
-    # for fn in df["image_path"]:
+    df = pd.read_csv(csv_file, index_col=0)
+
     for index, row in df.iterrows():
-        abs_pth = output_dir / "images" / row["image_path"]
-        rel_pth = os.path.relpath(abs_pth, settings.MEDIA_ROOT)
-        logger.debug(f"vanilla_path={row['vanilla_path']}")
-        logger.debug(f"relative_pth={rel_pth}")
-        taxon = get_taxon(row["predicted_category"])
+        rel_pth, abs_pth = _get_rel_and_abs_paths_based_on_csv_row(row, output_dir)
         captured_at = row["datetime"]
         logger.debug(f"{captured_at=}, {type(captured_at)}")
         if (captured_at == "") or (isinstance(captured_at, float) and np.isnan(captured_at)):
             captured_at = None
 
-        abs_pth_thumbnail = output_dir / "thumbnails" / row["image_path"]
-        rel_pth_thumbnail = os.path.relpath(abs_pth_thumbnail, settings.MEDIA_ROOT)
-
-        mediafile_set = uploaded_archive.mediafile_set.filter(mediafile=str(rel_pth))
-        if len(mediafile_set) == 0:
+        try:
+            mf = uploaded_archive.mediafile_set.get(mediafile=str(rel_pth))
+            logger.debug("Using Mediafile generated before")
+        except MediaFile.DoesNotExist:
             if create_missing:
                 location = get_location(str(uploaded_archive.location_at_upload))
-                logger.debug(f"Creating thumbnail for {rel_pth}")
-                if make_thumbnail_from_file(abs_pth, abs_pth_thumbnail, width=thumbnail_width):
-                    thumbnail = str(rel_pth_thumbnail)
-                else:
-                    thumbnail = None
 
                 mf = MediaFile(
                     parent=uploaded_archive,
                     mediafile=str(rel_pth),
                     captured_at=captured_at,
-                    thumbnail=thumbnail,
                     location=location,
                 )
                 mf.save()
+                logger.debug(f"Created new Mediafile {mf}")
             else:
                 # row["error"] = "deleted"
-                df.loc[index, "error"] = "deleted"
+                # df.loc[index, "error"] = "deleted"
+                df.loc[index, "deleted"] = True
+                update_csv = True
+                logger.debug(f"Mediafile {rel_pth} not found. Skipping.")
                 continue
-        else:
-            mf = mediafile_set[0]
-            logger.debug("Using Mediafile generated before")
+            # mf = mediafile_set[0]
             # generate thumbnail if necessary
-            if (mf.thumbnail is None) or (not abs_pth_thumbnail.exists()):
-                if make_thumbnail_from_file(abs_pth, abs_pth_thumbnail, width=thumbnail_width):
-                    mf.thumbnail = str(rel_pth_thumbnail)
-                    mf.save()
-                else:
-                    logger.warning(f"Cannot generate thumbnail for {abs_pth}")
+        make_thumbnail_for_mediafile_if_necessary(mf, thumbnail_width=thumbnail_width)
 
-        if mf.category is None:
-            mf.category = taxon
-        else:
+        # if the mediafile was updated by user, we believe into users input
+        if mf.updated_by is None:
+            mf.category = get_taxon(row["predicted_category"])
+            mf.identity = get_unique_name(
+                    row["unique_name"], workgroup=uploaded_archive.owner.workgroup
+                )
+            mf.save()
+            logger.debug(f"identity={mf.identity}")
+        logger.debug(f"{mf}")
+    # uploaded_archive.output_updated_at = django.utils.timezone.now()
+    uploaded_archive.save()
+
+
+def update_metadata_csv_by_uploaded_archive(
+    uploaded_archive: UploadedArchive,
+        # thumbnail_width: int = 400, create_missing: bool = True
+):
+    """Update metadata CSV file by MediaFiles in UploadedArchive.
+    """
+    logger.debug("Updating metadata by uploaded archive...")
+    output_dir = Path(settings.MEDIA_ROOT) / uploaded_archive.outputdir
+    csv_file = Path(settings.MEDIA_ROOT) / str(uploaded_archive.csv_file)
+    logger.debug(f"{csv_file} {Path(csv_file).exists()}")
+    if not Path(csv_file).exists():
+        logger.warning(f"CSV file {csv_file} does not exist. Skipping.")
+        return
+
+    update_csv = False
+    df = pd.read_csv(csv_file, index_col=0)
+    df["deleted"] = True
+    df["location name"] = ""
+    df["location coordinates"] = ""
+    # for fn in df["image_path"]:
+    for index, row in df.iterrows():
+        rel_pth, abs_pth = _get_rel_and_abs_paths_based_on_csv_row(row, output_dir)
+        # taxon = get_taxon(row["predicted_category"])
+        # captured_at = row["datetime"]
+        # logger.debug(f"{captured_at=}, {type(captured_at)}")
+        # if (captured_at == "") or (isinstance(captured_at, float) and np.isnan(captured_at)):
+        #     captured_at = None
+
+        try:
+            mf = uploaded_archive.mediafile_set.get(mediafile=str(rel_pth))
+            logger.debug("Using Mediafile generated before")
+        except MediaFile.DoesNotExist:
+            # row["error"] = "deleted"
+            # df.loc[index, "error"] = "deleted"
+            df.loc[index, "deleted"] = True
+            update_csv = True
+            logger.debug(f"Mediafile {rel_pth} not found. The row will be removed from CSV.")
+            continue
+            # mf = mediafile_set[0]
+            # generate thumbnail if necessary
+        make_thumbnail_for_mediafile_if_necessary(mf)
+
+        if mf.category:
             # row["predicted_category"] = mf.category.name
             df.loc[index, "predicted_category"] = mf.category.name
             update_csv = True
-        if mf.identity is None:
-            # update only if the identity is not set
-            identity = get_unique_name(
-                row["unique_name"], workgroup=uploaded_archive.owner.workgroup
-            )
-            logger.debug(f"identity={identity}")
-            mf.identity = identity
-
-        mf.save()
-
-        if mf.identity is not None:
-            # row["unique_name"] = mf.identity.name
+        if mf.identity:
             df.loc[index, "unique_name"] = mf.identity.name
             update_csv = True
+        if mf.location:
+            df.loc[index, "location name"] = mf.location.name
+            if mf.location.location:
+                df.loc[index, "location coordinates"] = str(mf.location.location)
 
-        logger.debug(f"{mf}")
+    # delete rows with missing mediafiles
+    df = df[df["deleted"] == False]
     if update_csv:
-        df.to_csv(csv_file, index=False)
+        df.to_csv(csv_file, encoding="utf-8-sig")
         logger.debug(f"CSV updated. path={csv_file}")
     uploaded_archive.output_updated_at = django.utils.timezone.now()
     uploaded_archive.save()

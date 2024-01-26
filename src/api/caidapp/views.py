@@ -48,9 +48,8 @@ from .tasks import (
     init_identification_on_error,
     init_identification_on_success,
     on_error_in_upload_processing,
-    predict_species_on_error,
-    predict_species_on_success,
-    sync_mediafiles_uploaded_archive_with_csv,
+    update_metadata_csv_by_uploaded_archive,
+    run_species_prediction_async,
 )
 
 logger = logging.getLogger("app")
@@ -462,38 +461,6 @@ def set_individual_identity(
     return redirect("caidapp:get_individual_identity")
 
 
-def _run_species_prediction(uploaded_archive: UploadedArchive):
-    # update record in the database
-    output_dir = Path(settings.MEDIA_ROOT) / uploaded_archive.outputdir
-    uploaded_archive.started_at = django.utils.timezone.now()
-    output_archive_file = output_dir / "images.zip"
-    output_metadata_file = output_dir / "metadata.csv"
-    uploaded_archive.status = "Processing"
-    uploaded_archive.save()
-
-    # send celery message to the data worker
-    logger.info("Sending request to inference worker.")
-    sig = signature(
-        "predict",
-        kwargs={
-            "input_archive_file": str(
-                Path(settings.MEDIA_ROOT) / uploaded_archive.archivefile.name
-            ),
-            "output_dir": str(output_dir),
-            "output_archive_file": str(output_archive_file),
-            "output_metadata_file": str(output_metadata_file),
-            "contains_identities": uploaded_archive.contains_identities,
-        },
-    )
-    task = sig.apply_async(
-        link=predict_species_on_success.s(
-            uploaded_archive_id=uploaded_archive.id,
-            zip_file=os.path.relpath(str(output_archive_file), settings.MEDIA_ROOT),
-            csv_file=os.path.relpath(str(output_metadata_file), settings.MEDIA_ROOT),
-        ),
-        link_error=predict_species_on_error.s(uploaded_archive_id=uploaded_archive.id),
-    )
-    logger.info(f"Created worker task with id '{task.task_id}'.")
 
 
 @staff_member_required
@@ -501,7 +468,7 @@ def run_processing(request, uploadedarchive_id):
     """Run processing of uploaded archive."""
     uploaded_archive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
     next_page = request.GET.get("next", "/caidapp/uploads")
-    _run_species_prediction(uploaded_archive)
+    run_species_prediction_async(uploaded_archive)
     return redirect(next_page)
 
 
@@ -801,7 +768,7 @@ def upload_archive(
             uploaded_archive.contains_identities = contains_identities
             uploaded_archive.contains_single_taxon = contains_single_taxon
             uploaded_archive.save()
-            _run_species_prediction(uploaded_archive)
+            run_species_prediction_async(uploaded_archive)
 
             return JsonResponse({"data": "Data uploaded"})
         else:
@@ -847,6 +814,10 @@ def delete_mediafile(request, mediafile_id):
     ):
         return HttpResponseNotAllowed("Not allowed to see this media file.")
     parent_id = mediafile.parent_id
+    uploaded_archive = mediafile.parent
+    uploaded_archive.output_updated_at = None
+    uploaded_archive.save()
+
     mediafile.delete()
     return redirect("caidapp:uploadedarchive_detail", uploadedarchive_id=parent_id)
 
@@ -1172,7 +1143,7 @@ def workgroup_update(request, workgroup_hash: str):
     return render(request, "caidapp/update_form.html", {"form": workgroup_hash})
 
 
-def _sync_uploadedarchive_and_csv(request, uploadedarchive_id: int):
+def _update_csv_by_uploadedarchive(request, uploadedarchive_id: int):
     uploaded_archive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
 
     if uploaded_archive.owner.workgroup == request.user.ciduser.workgroup:
@@ -1196,7 +1167,7 @@ def _sync_uploadedarchive_and_csv(request, uploadedarchive_id: int):
         # logger.debug(f"{mediafiles=}")
         if len(mediafiles) > 0:
             logger.debug("  sync mediafiles with csv")
-            sync_mediafiles_uploaded_archive_with_csv(uploaded_archive, create_missing=False)
+            update_metadata_csv_by_uploaded_archive(uploaded_archive, create_missing=False)
             return True
 
     return False
@@ -1234,7 +1205,7 @@ def download_uploadedarchive_images(request, uploadedarchive_id: int):
     uploaded_archive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
 
     if uploaded_archive.owner.workgroup == request.user.ciduser.workgroup:
-        _sync_uploadedarchive_and_csv(request, uploadedarchive_id)
+        _update_csv_by_uploadedarchive(request, uploadedarchive_id)
         # file_path = Path(settings.MEDIA_ROOT) / uploaded_file.archivefile.name
         file_path = Path(settings.MEDIA_ROOT) / uploaded_archive.zip_file.name
         logger.debug(f"{file_path=}")
@@ -1255,7 +1226,7 @@ def download_uploadedarchive_csv(request, uploadedarchive_id: int):
     uploaded_archive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
 
     if uploaded_archive.owner.workgroup == request.user.ciduser.workgroup:
-        _sync_uploadedarchive_and_csv(request, uploadedarchive_id)
+        _update_csv_by_uploadedarchive(request, uploadedarchive_id)
         # file_path = Path(settings.MEDIA_ROOT) / uploaded_file.archivefile.name
         file_path = Path(settings.MEDIA_ROOT) / uploaded_archive.csv_file.name
         logger.debug(f"{file_path=}")
