@@ -3,7 +3,7 @@ import json
 import logging
 import os
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union, List
 
 import django
 import pandas as pd
@@ -16,7 +16,7 @@ from django.contrib.auth import logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView
 from django.core.paginator import Paginator
-from django.db.models import Q
+from django.db.models import Q, QuerySet
 from django.forms import modelformset_factory
 from django.http import HttpResponseBadRequest, HttpResponseNotAllowed, JsonResponse
 from django.shortcuts import Http404, HttpResponse, get_object_or_404, redirect, render
@@ -940,10 +940,73 @@ def update_mediafile_is_representative(request, mediafile_hash: str, is_represen
     mediafile.save()
     return JsonResponse({"data": "Data uploaded"})
 
+def _create_map_from_mediafiles(mediafiles:Union[QuerySet, List[MediaFile]]):
+    """Create dataframe from mediafiles."""
+    # create dataframe
+    import pandas as pd
+    import plotly.graph_objects as go
+
+    queryset_list = list(mediafiles.values("id", "location__name", "location__location"))
+    df = pd.DataFrame.from_records(queryset_list)
+    logger.debug(f"{list(df.keys())}")
+    data = []
+    for mediafile in mediafiles:
+        row = {
+            "id": mediafile.id,
+            "category": mediafile.category.name if mediafile.category else None,
+            "category_id": mediafile.category.id if mediafile.category else None,
+            "location": mediafile.location.name if mediafile.location else None,
+            "location__location": mediafile.location.location if mediafile.location.location else None,
+
+        }
+        data.append(row)
+
+    df2 = pd.DataFrame.from_records(data)
+    df2[["lat", "lon"]] = df2["location__location"].str.split(",", expand=True)
+    df2["lat"] = df2["lat"].astype(float)
+    df2["lon"] = df2["lon"].astype(float)
+    logger.debug(f"{list(df2.keys())}")
+    logger.debug(f"{df2.sample(10).to_dict()}")
+
+    quakes = pd.read_csv('https://raw.githubusercontent.com/plotly/datasets/master/earthquakes-23k.csv')
+
+    # fig = go.Figure(go.Densitymapbox(lat=quakes.Latitude, lon=quakes.Longitude, z=quakes.Magnitude,
+    #                                  radius=10))
+
+    # Calculate the range of your data to set the zoom level
+    lat_range = df2['lat'].max() - df2['lat'].min()
+    lon_range = df2['lon'].max() - df2['lon'].min()
+
+    # Set an appropriate zoom level based on the maximum range
+    max_range = max(lat_range, lon_range)
+    zoom = 0  # Set a default zoom level
+    if max_range < 10:
+        zoom = 6
+    elif max_range < 30:
+        zoom = 5
+    elif max_range < 60:
+        zoom = 4
+    else:
+        zoom = 3  # For larger ranges, set a smaller zoom level
+
+    fig = go.Figure(go.Densitymapbox(lat=df2.lat, lon=df2.lon,
+                                     radius=10))
+    fig.update_layout(
+        mapbox_style="open-street-map",
+        mapbox_center_lon=df2.lon.unique().mean(),
+        mapbox_center_lat=df2.lat.unique().mean(),
+        mapbox_zoom=zoom
+    )
+
+    fig.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0})
+    map_html = fig.to_html()
+    return map_html
+
+
 
 def media_files_update(
     request, records_per_page=80, album_hash=None, individual_identity_id=None, taxon_id=None
-):
+) -> Union[QuerySet, List[MediaFile]]:
     """List of mediafiles based on query with bulk update of category."""
     # create list of mediafiles
     if request.method == "POST":
@@ -984,6 +1047,7 @@ def media_files_update(
         taxon_id=taxon_id,
     )
     number_of_mediafiles = len(full_mediafiles)
+    map_html = _create_map_from_mediafiles(full_mediafiles)
 
     paginator = Paginator(full_mediafiles, per_page=records_per_page)
 
@@ -1090,6 +1154,7 @@ def media_files_update(
             "form_query": queryform,
             "albums_available": albums_available,
             "number_of_mediafiles": number_of_mediafiles,
+            "map_html": map_html,
         },
     )
 
