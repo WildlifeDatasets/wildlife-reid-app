@@ -1,0 +1,47 @@
+FROM python:3.9.16-slim
+
+# install linux dependencies
+RUN apt-get update --yes && \
+    # - apt-get upgrade is run to patch known vulnerabilities in apt-get packages as
+    #   the ubuntu base image is rebuilt too seldom sometimes (less than once a month)
+    apt-get upgrade --yes && \
+    apt-get install --yes --no-install-recommends \
+    wget \
+    git \
+    ffmpeg \
+    libsm6 \
+    libxext6 && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+RUN pip install git+https://github.com/facebookresearch/segment-anything.git
+
+# download weights into resources
+RUN mkdir -p ~/resources && \
+    wget http://ptak.felk.cvut.cz/plants/DanishFungiDataset/md_v5a.0.0.pt \
+    -O /root/resources/md_v5a.0.0.pt
+
+RUN ls /root/resources
+
+# Default SAM (Semgent Anything Model) is sam_vit_h_4b8939.pth
+#RUN wget http://ptak.felk.cvut.cz/plants/DanishFungiDataset/sam_vit_h_4b8939.pth \
+#    -O /root/resources/sam_vit_h_4b8939.pth
+# There is just part of the file on this server
+#RUN wget http://ptak.felk.cvut.cz/plants/DanishFungiDataset/sam_vit_b_01ec64.pth \
+#    -O /root/resources/sam_vit_b_01ec64.pth
+
+
+RUN wget https://home.zcu.cz/~mjirik/lisa/CarnivoreID/sam_vit_b_01ec64.pth \
+    -O /root/resources/sam_vit_b_01ec64.pth
+
+COPY ./src/detection_worker/requirements.txt /detection_worker/requirements.txt
+
+# install python dependencies
+ENV APP_DIR='/detection_worker'
+WORKDIR $APP_DIR
+RUN pip install --no-cache-dir --upgrade pip build setuptools && \
+    pip install --no-cache-dir --compile -r requirements.txt && \
+    rm -rf /var/lib/apt/lists/* /var/cache/apt/* /tmp/* /var/tmp/*
+
+# expose ports and run application
+WORKDIR $APP_DIR
+CMD C_FORCE_ROOT=false celery -A worker.detection_worker worker --pool threads --loglevel info --queues detection_worker

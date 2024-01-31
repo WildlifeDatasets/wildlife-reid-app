@@ -5,7 +5,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from celery import Celery
+from celery import Celery, shared_task
 
 from utils import config
 from utils.database import get_db_connection, init_db_connection
@@ -52,7 +52,10 @@ def init(
         db_connection.reference_image.create_reference_images(organization_id, metadata)
 
         logger.info("Finished processing.")
-        out = {"status": "DONE"}
+        out = {
+            "status": "DONE",
+            "message": f"Identification initiated with {len(metadata['image_path'])} images.",
+        }
     except Exception:
         error = traceback.format_exc()
         logger.critical(f"Returning unexpected error output: '{error}'.")
@@ -60,21 +63,37 @@ def init(
     return out
 
 
+@identification_worker.task(bind=True, name="iworker_simple_log")
+def iworker_simple_log(self, *args, **kwargs):
+    """Simple log task."""
+    logger.info(f"Applying simple log task with args: {args=}, {kwargs=}.")
+    return {"status": "DONE"}
+
+
+@shared_task(bind=True, name="shared_simple_log")
+def shared_simple_log(self, *args, **kwargs):
+    """Simple log task."""
+    logger.info(f"Applying simple log task with args: {args=}, {kwargs=}.")
+    return {"status": "DONE"}
+
+
 @identification_worker.task(bind=True, name="identify")
 def predict(
     self,
-    input_metadata_file: str,
+    input_metadata_file_path: str,
     organization_id: int,
-    output_json_file: str,
+    output_json_file_path: str,
     top_k: int = 1,
     **kwargs,
 ):
     """Process and compare input samples with Reference Image records from the database."""
     try:
-        logger.info(f"Applying init task with args: {input_metadata_file=}, {organization_id=}.")
+        logger.info(
+            f"Applying init task with args: {input_metadata_file_path=}, {organization_id=}."
+        )
 
         # read metadata file
-        metadata = pd.read_csv(input_metadata_file)
+        metadata = pd.read_csv(input_metadata_file_path)
         if len(metadata) == 0:
             logger.info("Input data is empty. Finishing the job.")
             out = {"status": "ERROR", "error": "Input data is empty."}
@@ -122,11 +141,11 @@ def predict(
                 )
 
                 # save output to json
-                with open(output_json_file, "w") as f:
+                with open(output_json_file_path, "w") as f:
                     json.dump(output_data, f)
 
                 logger.info("Finished processing.")
-                out = {"status": "DONE", "output_json_file": output_json_file}
+                out = {"status": "DONE", "output_json_file": output_json_file_path}
     except Exception:
         error = traceback.format_exc()
         logger.critical(f"Returning unexpected error output: '{error}'.")

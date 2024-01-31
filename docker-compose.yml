@@ -71,6 +71,7 @@ services:
     depends_on:
       - inference_worker
       - identification_worker
+      - detection_worker
     networks:
       - frontend
       - backend
@@ -125,7 +126,7 @@ services:
       - identification_worker_db
     networks:
       - backend
-      - identification-worker
+#      - identification-worker
     labels:
       com.piva-ai.group: "applications"
 
@@ -144,7 +145,31 @@ services:
     expose:
       - 5432
     networks:
-      - identification-worker
+      - backend
+#      - identification-worker
+    labels:
+      com.piva-ai.group: "applications"
+
+  detection_worker:
+    platform: linux/amd64
+    image: ${DETECTION_WORKER_IMAGE:-detection_worker}${TAG:-:latest}
+    build:
+      context: .
+      dockerfile: src/detection_worker/Dockerfile
+    container_name: carnivoreid-app-detection-worker
+    restart: always
+    env_file:
+      - "src/variables.env"
+      - ".env"
+    volumes:
+      - detection-worker-data:/data  # data used only by Worker
+      - shared-data:/shared_data  # shared data with API, Workers, and Nginx
+    depends_on:
+      - broker
+      - redis
+    networks:
+      - backend
+#      - identification-worker
     labels:
       com.piva-ai.group: "applications"
 
@@ -188,6 +213,10 @@ volumes:
     labels:
       com.piva-ai.group: "applications"
       com.piva-ai.backup: "yes"
+  detection-worker-data:
+    labels:
+      com.piva-ai.group: "applications"
+      com.piva-ai.backup: "yes"
   shared-data:
     labels:
       com.piva-ai.group: "applications"
@@ -200,4 +229,4 @@ volumes:
 networks:
   frontend:
   backend:
-  identification-worker:
+#  identification-worker:

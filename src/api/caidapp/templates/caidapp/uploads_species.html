@@ -38,7 +38,15 @@
                             >
                                 <div class="card-body"
                                 >
-                                    <h5 class="card-title">{{ uploadedarchive }}</h5>
+                                    <h5 class="card-title">{{ uploadedarchive }}
+                                        {% if uploadedarchive.contains_identities %}
+                                            <i class="bi bi-fingerprint"></i>
+                                        {% endif %}
+                                        {% if uploadedarchive.contains_single_taxon %}
+                                            <i class="bi bi-dice-1"></i>
+                                        {% endif %}
+
+                                    </h5>
                                     <p>Status: {{ uploadedarchive.status }} </p>
                                     <p><i class="fa-light fa-calendar-image"></i>Uploaded at: {{ uploadedarchive.uploaded_at|date:'Y-m-d H:i' }} </p>
                                     {% if uploadedarchive.finished_at %}
@@ -65,8 +73,8 @@
                                             {% endif %}
                                             {% if uploadedarchive.csv_file %}
                                                 <li><a class="dropdown-item"
-                                                       href="{{ uploadedarchive.csv_file.url }}"><i
-                                                        class="bi bi-table"></i> Download CSV</a></li>
+                                                       href="{% url 'caidapp:download_uploadedarchive_csv' uploadedarchive.id %}"><i
+                                                        class="bi bi-table"></i> Download CSV </a></li>
                                             {% endif %}
                                             {% if request.user.is_staff %}
                                                 <li>

@@ -20,11 +20,17 @@ urlpatterns = [
     ),
     # path("login/", TemplateView.as_view(template_name="caidapp/login.html"), name="login"),
     path("logout/", views.logout_view, name="logout_view"),
-    path("uploads/", views.uploads, name="uploads"),
+    path("uploads/", views.uploads_species, name="uploads"),
+    path("uploads_identities/", views.uploads_identities, name="uploads_identities"),
     path(
         "uploadedarchive_detail/<int:uploadedarchive_id>",
         views.uploadedarchive_detail,
         name="uploadedarchive_detail",
+    ),
+    path(
+        "download_uploadedarchive_csv/<int:uploadedarchive_id>",
+        views.download_uploadedarchive_csv,
+        name="download_uploadedarchive_csv",
     ),
     # path("media_files/", views.media_files, name="media_files"),
     path("media_files/", views.media_files_update, name="media_files"),
@@ -64,7 +70,26 @@ urlpatterns = [
         views.run_identification,
         name="run_identification",
     ),
-    path("get_individual_identity/", views.get_individual_identity, name="get_individual_identity"),
+    path(
+        "get_individual_identity_zoomed/<int:foridentification_id>/<int:top_id>",
+        views.get_individual_identity_zoomed,
+        name="get_individual_identity_zoomed",
+    ),
+    path(
+        "get_individual_identity/",
+        views.get_individual_identity_from_foridentification,
+        name="get_individual_identity",
+    ),
+    path(
+        "get_individual_identity/<int:foridentification_id>",
+        views.get_individual_identity_from_foridentification,
+        name="get_individual_identity",
+    ),
+    path(
+        "remove_foridentification/<int:foridentification_id>",
+        views.remove_foridentification,
+        name="remove_foridentification",
+    ),
     path(
         "set_individual_identity/"
         + "<int:mediafiles_for_identification_id>/<int:individual_identity_id>",

@@ -5,7 +5,7 @@ from pathlib import Path
 
 import django
 import pandas as pd
-from celery import shared_task
+from celery import shared_task, signature
 from django.conf import settings
 
 from .fs_data import make_thumbnail_from_file
@@ -14,6 +14,7 @@ from .models import (
     MediaFile,
     MediafilesForIdentification,
     UploadedArchive,
+    WorkGroup,
     get_location,
     get_taxon,
     get_unique_name,
@@ -31,7 +32,7 @@ and functions as a queue for processing worker responses.
 
 
 @shared_task(bind=True)
-def predict_on_success(
+def predict_species_on_success(
     self, output: dict, *args, uploaded_archive_id: int, zip_file: str, csv_file: str, **kwargs
 ):
     """Success callback invoked after running predict function in inference worker."""
@@ -45,7 +46,7 @@ def predict_on_success(
         uploaded_archive.zip_file = zip_file
         uploaded_archive.csv_file = csv_file
         make_thumbnail_for_uploaded_archive(uploaded_archive)
-        get_image_files_from_uploaded_archive(uploaded_archive)
+        sync_mediafiles_uploaded_archive_with_csv(uploaded_archive)
         uploaded_archive.status = "Finished"
     else:
         uploaded_archive.status = "Failed"
@@ -54,7 +55,7 @@ def predict_on_success(
 
 
 @shared_task
-def predict_on_error(task_id: str, *args, uploaded_archive_id: int, **kwargs):
+def predict_species_on_error(task_id: str, *args, uploaded_archive_id: int, **kwargs):
     """Error callback invoked after running predict function in inference worker."""
     logger.critical(f"Worker task with id '{task_id}' failed due to unexpected internal error.")
     uploaded_archive = UploadedArchive.objects.get(id=uploaded_archive_id)
@@ -79,8 +80,8 @@ def make_thumbnail_for_uploaded_archive(uploaded_archive: UploadedArchive):
         uploaded_archive.thumbnail = os.path.relpath(abs_thumbnail_path, settings.MEDIA_ROOT)
 
 
-def get_image_files_from_uploaded_archive(
-    uploaded_archive: UploadedArchive, thumbnail_width: int = 400
+def sync_mediafiles_uploaded_archive_with_csv(
+    uploaded_archive: UploadedArchive, thumbnail_width: int = 400, create_missing: bool = True
 ):
     """Extract filenames from uploaded archive CSV and create MediaFile objects.
 
@@ -91,6 +92,7 @@ def get_image_files_from_uploaded_archive(
     csv_file = Path(settings.MEDIA_ROOT) / str(uploaded_archive.csv_file)
     logger.debug(f"{csv_file} {Path(csv_file).exists()}")
 
+    update_csv = False
     df = pd.read_csv(csv_file)
     # for fn in df["image_path"]:
     for index, row in df.iterrows():
@@ -108,20 +110,26 @@ def get_image_files_from_uploaded_archive(
 
         mediafile_set = uploaded_archive.mediafile_set.filter(mediafile=str(rel_pth))
         if len(mediafile_set) == 0:
-            location = get_location(str(uploaded_archive.location_at_upload))
-            logger.debug(f"Creating thumbnail for {rel_pth}")
-            if make_thumbnail_from_file(abs_pth, abs_pth_thumbnail, width=thumbnail_width):
-                thumbnail = str(rel_pth_thumbnail)
-            else:
-                thumbnail = None
+            if create_missing:
+                location = get_location(str(uploaded_archive.location_at_upload))
+                logger.debug(f"Creating thumbnail for {rel_pth}")
+                if make_thumbnail_from_file(abs_pth, abs_pth_thumbnail, width=thumbnail_width):
+                    thumbnail = str(rel_pth_thumbnail)
+                else:
+                    thumbnail = None
 
-            mf = MediaFile(
-                parent=uploaded_archive,
-                mediafile=str(rel_pth),
-                captured_at=captured_at,
-                thumbnail=thumbnail,
-                location=location,
-            )
+                mf = MediaFile(
+                    parent=uploaded_archive,
+                    mediafile=str(rel_pth),
+                    captured_at=captured_at,
+                    thumbnail=thumbnail,
+                    location=location,
+                )
+                mf.save()
+            else:
+                # row["error"] = "deleted"
+                df.loc[index, "error"] = "deleted"
+                continue
         else:
             mf = mediafile_set[0]
             logger.debug("Using Mediafile generated before")
@@ -133,7 +141,12 @@ def get_image_files_from_uploaded_archive(
                 else:
                     logger.warning(f"Cannot generate thumbnail for {abs_pth}")
 
-        mf.category = taxon
+        if mf.category is None:
+            mf.category = taxon
+        else:
+            # row["predicted_category"] = mf.category.name
+            df.loc[index, "predicted_category"] = mf.category.name
+            update_csv = True
         if mf.identity is None:
             # update only if the identity is not set
             identity = get_unique_name(
@@ -141,35 +154,114 @@ def get_image_files_from_uploaded_archive(
             )
             logger.debug(f"identity={identity}")
             mf.identity = identity
+
         mf.save()
+
+        if mf.identity is not None:
+            # row["unique_name"] = mf.identity.name
+            df.loc[index, "unique_name"] = mf.identity.name
+            update_csv = True
+
         logger.debug(f"{mf}")
+    if update_csv:
+        df.to_csv(csv_file, index=False)
+        logger.debug(f"CSV updated. path={csv_file}")
+    uploaded_archive.output_updated_at = django.utils.timezone.now()
+    uploaded_archive.save()
 
 
 @shared_task
 def init_identification_on_success(*args, **kwargs):
     """Callback invoked after running init_identification function in inference worker."""
-    logger.debug("init_identificaion done.")
+    logger.debug(f"{args=}")
+    logger.debug(f"{kwargs=}")
+    workgroup_id = kwargs.pop("workgroup_id")
+    workgroup = WorkGroup.objects.get(id=workgroup_id)
+    # workgroup.identification_init_status = args[0]["message"]
+    now = django.utils.timezone.now()
+    workgroup.identification_init_finished_at = now
+    workgroup.save()
+    logger.debug(f"{workgroup=}")
+    logger.debug(f"{workgroup.identification_init_finished_at=}")
+
+    logger.debug("init_identification done.")
 
 
 @shared_task
 def init_identification_on_error(*args, **kwargs):
     """Callback invoked after failing init_identification function in inference worker."""
-    logger.error("init_identificaion done with error.")
+    logger.error("init_identification done with error.")
+
+
+@shared_task(bind=True)
+def on_error(self, uuid, *args, **kwargs):
+    """Callback invoked after failing init_identification function in inference worker."""
+    logger.error("Process finished with error.")
+    result = self.AsyncResult(uuid)
+    error_message = result.result if result.failed() else "No error message available"
+    logger.error(f"Error message: {error_message}")
+
+    logger.debug(f"self={self}")
+    logger.debug(f"args={args}")
+    logger.debug(f"kwargs={kwargs}")
 
 
 # @shared_task
 @shared_task(bind=True)
-def identify_on_error(self, uuid, *args, **kwargs):
+def on_error_in_upload_processing(self, uuid, *args, **kwargs):
     """Callback invoked after failing init_identification function in inference worker."""
-    logger.error("identify done with error.")
+    logger.error("Process finished with error.")
     result = self.AsyncResult(uuid)
     error_message = result.result if result.failed() else "No error message available"
-    logger.error(f"identify done with error: {error_message}")
+    logger.error(f"Upload processing with error: {error_message}")
 
-    # logger.debug(f"args={args}")
-    # logger.debug(f"kwargs={kwargs}")
-    # logger.debug(f"self={self}")
+    logger.debug(f"self={self}")
+    logger.debug(f"args={args}")
+    logger.debug(f"kwargs={kwargs}")
     # logger.debug(f"dir(self)={dir(self)}")
+
+
+@shared_task(bind=True)
+def log_output(self, output: dict, *args, **kwargs):
+    """Callback invoked after running init_identification function in inference worker."""
+    logger.debug("log_output")
+    logger.debug(f"{output=}")
+    logger.debug(f"{args=}")
+    logger.debug(f"{kwargs=}")
+
+
+@shared_task(bind=True)
+def detection_on_success(self, output: dict, *args, **kwargs):
+    """Callback invoked after running init_identification function in inference worker."""
+    logger.debug("detection on success")
+    logger.debug(f"{output=}")
+    logger.debug(f"{args=}")
+    logger.debug(f"{kwargs=}")
+
+    logger.debug("calling...")
+    # identify_signature = signature(
+    #     "detectionsimplelog",
+    #     kwargs = {
+    #         "pokus": 4,
+    #     },
+    # )
+
+    uploaded_archive_id: int = kwargs.pop("uploaded_archive_id")
+    uploaded_archive = UploadedArchive.objects.get(id=uploaded_archive_id)
+    uploaded_archive.status = "...detection done"
+    uploaded_archive.save()
+    identify_signature = signature(
+        "identify",
+        kwargs=kwargs,
+    )
+    identify_task = identify_signature.apply_async(
+        link=identify_on_success.s(
+            # output=output,
+            uploaded_archive_id=uploaded_archive_id,
+        ),
+        link_error=on_error_in_upload_processing.s(),
+    )
+    logger.debug(f"{identify_task=}")
 
 
 @shared_task(bind=True)
@@ -182,6 +274,11 @@ def identify_on_success(self, output: dict, *args, **kwargs):
     logger.debug(f"output={output}")
     logger.debug(f"args={args}")
     logger.debug(f"kwargs={kwargs}")
+
+    uploaded_archive_id: int = kwargs.pop("uploaded_archive_id")
+    uploaded_archive = UploadedArchive.objects.get(id=uploaded_archive_id)
+    uploaded_archive.status = "...identification done"
+    uploaded_archive.save()
 
     if "status" not in output:
         logger.critical(f"Unexpected error {output=} is missing 'status' field.")
@@ -268,12 +365,27 @@ def identify_on_success(self, output: dict, *args, **kwargs):
                         f"Identity mismatch: {top3_mediafile.identity.name} != {top_k_labels[2]}"
                     )
 
+        uploaded_archive.status = "Identification finished"
+        uploaded_archive.save()
         logger.debug("identify done.")
+
+        # simple_log_sig = signature("iworker_simple_log")
+        # simple_log_task = simple_log_sig.apply_async()
+
     else:
         # identification failed
+        uploaded_archive.status = "Identification failed"
+        uploaded_archive.save()
         logger.error("Identification failed.")
         # TODO - should the app return some error response to the user?
         pass
+
+
+@shared_task(bind=True)
+def simple_log(self, *args, **kwargs):
+    """Simple log task."""
+    logger.info(f"Applying simple log task with args: {args=}, {kwargs=}.")
+    return {"status": "DONE"}
 
 
 def _find_mediafiles_for_identification(mediafile_paths: list) -> MediafilesForIdentification:

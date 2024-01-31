@@ -7,6 +7,12 @@
 
         <div class="pagetitle">
             <h1>Identities</h1>
+            {%  if workgroup.identification_init_at %}
+                <p>Identification initiated at: {{ workgroup.identification_init_at|date:'Y-m-d H:i' }}</p>
+            {% else %}
+                Identification not initiated.
+            {% endif %}
+
 {#            <nav>#}
 {#                <ol class="breadcrumb">#}
 {#                    <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li>#}
@@ -18,9 +24,7 @@
 {#                </ol>#}
                 <a class="btn btn-primary mt-2" href="{% url 'caidapp:get_individual_identity' %}"><i class="bi bi-question-circle"></i> Annotate unknown identities</a>
                 <a class="btn btn-secondary mt-2" href="{% url 'caidapp:new_individual_identity' %}"><i class="bi bi-plus-circle"></i> Add new identity</a>
-                <a class="btn btn-secondary mt-2" href="{% url 'caidapp:upload_archive_contains_identities' %}"><i class="bi bi-upload"></i> Upload identified </a>
                 <a class="btn btn-secondary mt-2" href="{% url 'caidapp:init_identification' %}"><i class="fas fa-fingerprint"></i> Init identification</a>
-                <a class="btn btn-secondary mt-2" href="{% url 'caidapp:upload_archive_contains_single_taxon' %}"><i class="bi bi-upload"></i> Upload unidentified single species</a>
             </nav>
         </div><!-- End Page Title -->
         <section class="section">

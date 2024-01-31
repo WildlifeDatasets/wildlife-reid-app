@@ -1,11 +1,14 @@
+import datetime
 import json
 import logging
 import os
 from pathlib import Path
+from typing import Optional
 
 import django
 import pandas as pd
-from celery import signature
+import pytz
+from celery import chain, signature
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
@@ -15,8 +18,8 @@ from django.contrib.auth.views import LoginView
 from django.core.paginator import Paginator
 from django.db.models import Q
 from django.forms import modelformset_factory
-from django.http import HttpResponseNotAllowed, JsonResponse
-from django.shortcuts import get_object_or_404, redirect, render
+from django.http import HttpResponseBadRequest, HttpResponseNotAllowed, JsonResponse
+from django.shortcuts import Http404, HttpResponse, get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 
 from .forms import (
@@ -39,12 +42,13 @@ from .models import (
     WorkGroup,
 )
 from .tasks import (
-    identify_on_error,
-    identify_on_success,
+    detection_on_success,
     init_identification_on_error,
     init_identification_on_success,
-    predict_on_error,
-    predict_on_success,
+    on_error_in_upload_processing,
+    predict_species_on_error,
+    predict_species_on_success,
+    sync_mediafiles_uploaded_archive_with_csv,
 )
 
 logger = logging.getLogger("app")
@@ -130,11 +134,12 @@ def uploadedarchive_detail(request, uploadedarchive_id):
     )
 
 
-def uploads(request):
+def uploads_identities(request):
     """List of uploads."""
     uploadedarchives = (
         UploadedArchive.objects.filter(
-            owner=request.user.ciduser,
+            owner__workgroup=request.user.ciduser.workgroup,
+            contains_single_taxon=True,
         )
         .all()
         .order_by("-uploaded_at")
@@ -145,14 +150,40 @@ def uploads(request):
 
     page_number = request.GET.get("page")
     page_obj = paginator.get_page(page_number)
-    return render(request, "caidapp/uploads.html", {"page_obj": page_obj})
+    return render(request, "caidapp/uploads_identities.html", {"page_obj": page_obj})
+
+
+def uploads_species(request):
+    """List of uploads."""
+    uploadedarchives = (
+        UploadedArchive.objects.filter(
+            owner__workgroup=request.user.ciduser.workgroup,
+            contains_single_taxon=False,
+        )
+        .all()
+        .order_by("-uploaded_at")
+    )
+    # uploadedarchives = (
+    #     UploadedArchive.objects.filter(
+    #         owner=request.user.ciduser,
+    #     )
+    #     .all()
+    #     .order_by("-uploaded_at")
+    # )
+
+    records_per_page = 12
+    paginator = Paginator(uploadedarchives, per_page=records_per_page)
+
+    page_number = request.GET.get("page")
+    page_obj = paginator.get_page(page_number)
+    return render(request, "caidapp/uploads_species.html", {"page_obj": page_obj})
 
 
 def logout_view(request):
     """Logout from the application."""
     logout(request)
     # Redirect to a success page.
-    return redirect("/caidapp/login")
+    return redirect("caidapp:index")
 
 
 def media_file_update(request, media_file_id):
@@ -169,8 +200,11 @@ def media_file_update(request, media_file_id):
         form = MediaFileForm(request.POST, instance=mediafile)
         if form.is_valid():
 
+            mediafile.updated_by = request.user.ciduser
+            mediafile.updated_at = django.utils.timezone.now()
             # get uploaded archive
             mediafile = form.save()
+
             return redirect("caidapp:uploadedarchive_detail", mediafile.parent.id)
     else:
         form = MediaFileForm(instance=mediafile)
@@ -196,7 +230,11 @@ def individual_identities(request):
 
     page_number = request.GET.get("page")
     page_obj = paginator.get_page(page_number)
-    return render(request, "caidapp/individual_identities.html", {"page_obj": page_obj})
+    return render(
+        request,
+        "caidapp/individual_identities.html",
+        {"page_obj": page_obj, "workgroup": request.user.ciduser.workgroup},
+    )
 
 
 def new_individual_identity(request):
@@ -264,12 +302,76 @@ def delete_individual_identity(request, individual_identity_id):
     return redirect("caidapp:individual_identities")
 
 
-def get_individual_identity(request):
+def get_individual_identity_zoomed(request, foridentification_id: int, top_id: int):
     """Show and update media file."""
-    foridentification = MediafilesForIdentification.objects.order_by("?").first()
+    foridentifications = MediafilesForIdentification.objects.filter(
+        mediafile__parent__owner__workgroup=request.user.ciduser.workgroup
+    ).order_by("?")
+    foridentification = MediafilesForIdentification.objects.get(id=foridentification_id)
+    if foridentification.mediafile.parent.owner.workgroup != request.user.ciduser.workgroup:
+        return HttpResponseNotAllowed("Not allowed to work with this media file.")
+
+    # modulo
+    if top_id == 0:
+        top_id = 3
+    elif top_id == 4:
+        top_id = 1
+
+    if top_id == 1:
+        top_mediafile = foridentification.top1mediafile
+        top_score = foridentification.top1score
+        top_name = foridentification.top1name
+    elif top_id == 2:
+        top_mediafile = foridentification.top2mediafile
+        top_score = foridentification.top2score
+        top_name = foridentification.top2name
+    elif top_id == 3:
+        top_mediafile = foridentification.top3mediafile
+        top_score = foridentification.top3score
+        top_name = foridentification.top3name
+    else:
+        HttpResponseBadRequest("Wrong top_id.")
     return render(
-        request, "caidapp/get_individual_identity.html", {"foridentification": foridentification}
+        request,
+        "caidapp/get_individual_identity_zoomed.html",
+        {
+            "foridentification": foridentification,
+            "foridentifications": foridentifications,
+            "top_id": top_id,
+            "top_mediafile": top_mediafile,
+            "top_score": top_score,
+            "top_name": top_name,
+        },
     )
+
+
+def get_individual_identity_from_foridentification(
+    request, foridentification_id: Optional[int] = None
+):
+    """Show and update media file."""
+    foridentifications = MediafilesForIdentification.objects.filter(
+        mediafile__parent__owner__workgroup=request.user.ciduser.workgroup
+    ).order_by("?")
+    if foridentification_id is None:
+        foridentification = foridentifications.first()
+    else:
+        foridentification = MediafilesForIdentification.objects.get(id=foridentification_id)
+    return render(
+        request,
+        "caidapp/get_individual_identity.html",
+        {"foridentification": foridentification, "foridentifications": foridentifications},
+    )
+
+
+def remove_foridentification(request, foridentification_id: int):
+    """Remove mediafile from list for identification."""
+    foridentification = get_object_or_404(
+        MediafilesForIdentification,
+        id=foridentification_id,
+        mediafile__parent__owner__workgroup=request.user.ciduser.workgroup,
+    )
+    foridentification.delete()
+    return redirect("caidapp:get_individual_identity")
 
 
 def set_individual_identity(
@@ -300,7 +402,7 @@ def set_individual_identity(
     return redirect("caidapp:get_individual_identity")
 
 
-def _run_processing(uploaded_archive: UploadedArchive):
+def _run_species_prediction(uploaded_archive: UploadedArchive):
     # update record in the database
     output_dir = Path(settings.MEDIA_ROOT) / uploaded_archive.outputdir
     uploaded_archive.started_at = django.utils.timezone.now()
@@ -324,12 +426,12 @@ def _run_processing(uploaded_archive: UploadedArchive):
         },
     )
     task = sig.apply_async(
-        link=predict_on_success.s(
+        link=predict_species_on_success.s(
             uploaded_archive_id=uploaded_archive.id,
             zip_file=os.path.relpath(str(output_archive_file), settings.MEDIA_ROOT),
             csv_file=os.path.relpath(str(output_metadata_file), settings.MEDIA_ROOT),
         ),
-        link_error=predict_on_error.s(uploaded_archive_id=uploaded_archive.id),
+        link_error=predict_species_on_error.s(uploaded_archive_id=uploaded_archive.id),
     )
     logger.info(f"Created worker task with id '{task.task_id}'.")
 
@@ -338,7 +440,7 @@ def _run_processing(uploaded_archive: UploadedArchive):
 def run_processing(request, uploadedarchive_id):
     """Run processing of uploaded archive."""
     uploaded_archive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
-    _run_processing(uploaded_archive)
+    _run_species_prediction(uploaded_archive)
     return redirect("/caidapp/uploads")
 
 
@@ -355,6 +457,7 @@ def init_identification(request, taxon_str: str = "Lynx lynx"):
         category__name=taxon_str,
         identity__isnull=False,
         parent__owner__workgroup=request.user.ciduser.workgroup,
+        identity_is_representative=True,
     ).all()
 
     logger.debug("Generating CSV for init_identification...")
@@ -392,6 +495,7 @@ def init_identification(request, taxon_str: str = "Lynx lynx"):
     # task =
     sig.apply_async(
         link=init_identification_on_success.s(
+            workgroup_id=request.user.ciduser.workgroup.id,
             # uploaded_archive_id=uploaded_archive.id,
             # zip_file=os.path.relpath(str(output_archive_file), settings.MEDIA_ROOT),
             # csv_file=os.path.relpath(str(output_metadata_file), settings.MEDIA_ROOT),
@@ -424,7 +528,7 @@ def _run_identification(uploaded_archive: UploadedArchive, taxon_str="Lynx lynx"
     #     parent__owner__workgroup=request.user.ciduser.workgroup,
     # ).all()
 
-    logger.debug("Generating CSV for init_identification...")
+    logger.debug(f"Generating CSV for init_identification with {len(mediafiles)} records...")
     csv_len = len(mediafiles)
     csv_data = {"image_path": [None] * csv_len, "mediafile_id": [None] * csv_len}
 
@@ -440,31 +544,73 @@ def _run_identification(uploaded_archive: UploadedArchive, taxon_str="Lynx lynx"
         csv_data["mediafile_id"][i] = mediafile.id
 
     identity_metadata_file = media_root / uploaded_archive.outputdir / "identification_metadata.csv"
+    cropped_identity_metadata_file = (
+        media_root / uploaded_archive.outputdir / "cropped_identification_metadata.csv"
+    )
     pd.DataFrame(csv_data).to_csv(identity_metadata_file, index=False)
     output_json_file = media_root / uploaded_archive.outputdir / "identification_result.json"
 
-    logger.debug("Calling run_identification...")
-    sig = signature(
-        "identify",
+    from celery import current_app
+
+    tasks = current_app.tasks.keys()
+    logger.debug(f"tasks={tasks}")
+
+    logger.debug("Calling run_detection and run_identification ...")
+    detect_sig = signature(
+        "detect",
         kwargs={
-            # csv file should contain image_path, class_id, label
-            "input_metadata_file": str(identity_metadata_file),
-            "organization_id": uploaded_archive.owner.workgroup.id,
-            "output_json_file": str(output_json_file),
-            "top_k": 3,
+            "input_metadata_path": str(identity_metadata_file),
+            "output_metadata_path": str(cropped_identity_metadata_file),
+            # "output_json_file_path": str(output_json_file),
         },
     )
-    # task = \
-    sig.apply_async(
-        link=identify_on_success.s(
-            # uploaded_archive_id=uploaded_archive.id,
+    # detect_sig = signature(
+    #     "detect",
+    #     kwargs={
+    #         "input_metadata_file_path": str(identity_metadata_file),
+    #         "output_json_file_path": str(output_json_file),
+    #     },
+    # )
+    # logger.debug("Calling run_identification...")
+    # identify_sig = signature(
+    #     "identify",
+    #     kwargs={
+    #         # csv file should contain image_path, class_id, label
+    #         "input_metadata_file": str(identity_metadata_file),
+    #         "organization_id": uploaded_archive.owner.workgroup.id,
+    #         "output_json_file": str(output_json_file),
+    #         "top_k": 3,
+    #     },
+    # )
+    # simple_log_sig = signature( "detectionsimplelog",
+    #                              kwargs={"buuu":5},
+    #                            )
+
+    # uploaded_archive = UploadedArchive.objects.get(id=uploaded_archive_id)
+    uploaded_archive.status = "Identification started"
+    uploaded_archive.save()
+
+    tasks = chain(
+        detect_sig,
+        # simple_log_sig,
+        # identify_sig,
+    )
+    tasks.apply_async(
+        # link=identify_on_success.s(
+        link=detection_on_success.s(
+            # csv file should contain image_path, class_id, label
+            input_metadata_file_path=str(identity_metadata_file),
+            organization_id=uploaded_archive.owner.workgroup.id,
+            output_json_file_path=str(output_json_file),
+            top_k=3,
+            uploaded_archive_id=uploaded_archive.id,
             # mediafiles=mediafiles,
             # metadata_file=str(identity_metadata_file),
             # mediafile_ids=mediafile_ids
             # zip_file=os.path.relpath(str(output_archive_file), settings.MEDIA_ROOT),
             # csv_file=os.path.relpath(str(output_metadata_file), settings.MEDIA_ROOT),
         ),
-        link_error=identify_on_error.s(
+        link_error=on_error_in_upload_processing.s(
             # uploaded_archive_id=uploaded_archive.id
         ),
     )
@@ -583,7 +729,7 @@ def upload_archive(
             uploaded_archive.contains_identities = contains_identities
             uploaded_archive.contains_single_taxon = contains_single_taxon
             uploaded_archive.save()
-            _run_processing(uploaded_archive)
+            _run_species_prediction(uploaded_archive)
 
             return JsonResponse({"data": "Data uploaded"})
         else:
@@ -828,12 +974,14 @@ def media_files_update(request, records_per_page=80, album_hash=None, individual
                             instance = mediafileform.save(commit=False)
                             instance.category = form_bulk_processing.cleaned_data["category"]
                             instance.updated_by = request.user.ciduser
+                            instance.updated_at = django.utils.timezone.now()
                             instance.save()
                         elif "btnBulkProcessing_id_identity" in form.data:
                             instance = mediafileform.save(commit=False)
                             instance.identity = form_bulk_processing.cleaned_data["identity"]
                             instance.identity_is_representative = False
                             instance.updated_by = request.user.ciduser
+                            instance.updated_at = django.utils.timezone.now()
                             instance.save()
                         elif "btnBulkProcessing_id_identity_is_representative" in form.data:
                             instance = mediafileform.save(commit=False)
@@ -841,6 +989,7 @@ def media_files_update(request, records_per_page=80, album_hash=None, individual
                                 "identity_is_representative"
                             ]
                             instance.updated_by = request.user.ciduser
+                            instance.updated_at = django.utils.timezone.now()
                             instance.save()
                         elif "btnBulkProcessingDelete" in form.data:
                             instance = mediafileform.save(commit=False)
@@ -925,3 +1074,101 @@ def workgroup_update(request, workgroup_hash: str):
         },
     )
     return render(request, "caidapp/update_form.html", {"form": workgroup_hash})
+
+
+def _sync_uploadedarchive_and_csv(request, uploadedarchive_id: int):
+    uploaded_archive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
+
+    if uploaded_archive.owner.workgroup == request.user.ciduser.workgroup:
+        updated_at = uploaded_archive.output_updated_at
+        logger.debug(f"{updated_at=}")
+        if updated_at is None:
+            # set updated_at to old date
+            updated_at = datetime.datetime(
+                2000, 1, 1, 0, 0, 0, 0, tzinfo=pytz.timezone(settings.TIME_ZONE)
+            )
+        # check if mediafiles are updated later than updated_at
+
+        mediafiles = MediaFile.objects.filter(parent=uploaded_archive)
+        logger.debug(f"  1  {mediafiles=}")
+        logger.debug(f"  1  {mediafiles.first().updated_at=}")
+        mediafiles = mediafiles.filter(updated_at__gt=updated_at).all()
+        logger.debug(f"  2  {mediafiles=}")
+        # mediafiles = MediaFile.objects.filter(
+        #     Q(parent=uploaded_archive) & Q(updated_at__gt=updated_at)
+        # ).all()
+        # logger.debug(f"{mediafiles=}")
+        if len(mediafiles) > 0:
+            logger.debug("  sync mediafiles with csv")
+            sync_mediafiles_uploaded_archive_with_csv(uploaded_archive, create_missing=False)
+            return True
+
+    return False
+
+
+def _generate_csv(request, uploadedarchive_id: int):
+    uploaded_archive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
+    output_dir = Path(settings.MEDIA_ROOT) / uploaded_archive.outputdir
+    output_metadata_file = output_dir / "metadata.csv"
+    output_archive_file = output_dir / "images.zip"
+    mediafiles = MediaFile.objects.filter(parent=uploaded_archive).all()
+    csv_len = len(mediafiles)
+    csv_data = {
+        "image_path": [None] * csv_len,
+        "class_id": [None] * csv_len,
+        "label": [None] * csv_len,
+    }
+
+    media_root = Path(settings.MEDIA_ROOT)
+    logger.debug(f"number of records={len(mediafiles)}")
+    for i, mediafile in enumerate(mediafiles):
+
+        # if mediafile.identity is not None:
+        csv_data["image_path"][i] = str(media_root / mediafile.mediafile.name)
+        csv_data["class_id"][i] = int(mediafile.identity.id)
+        csv_data["label"][i] = str(mediafile.identity.name)
+
+    pd.DataFrame(csv_data).to_csv(output_metadata_file, index=False)
+
+    return output_metadata_file, output_archive_file
+
+
+def download_uploadedarchive_images(request, uploadedarchive_id: int):
+    """Download uploaded file."""
+    uploaded_archive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
+
+    if uploaded_archive.owner.workgroup == request.user.ciduser.workgroup:
+        _sync_uploadedarchive_and_csv(request, uploadedarchive_id)
+        # file_path = Path(settings.MEDIA_ROOT) / uploaded_file.archivefile.name
+        file_path = Path(settings.MEDIA_ROOT) / uploaded_archive.zip_file.name
+        logger.debug(f"{file_path=}")
+
+        if file_path.exists():
+            with open(file_path, "rb") as fh:
+                response = HttpResponse(fh.read(), content_type="application/zip")
+                response["Content-Disposition"] = "inline; filename=" + os.path.basename(file_path)
+                return response
+        raise Http404
+    else:
+        messages.error(request, "Only the owner can download the file")
+        return redirect("/caidapp/uploads")
+
+
+def download_uploadedarchive_csv(request, uploadedarchive_id: int):
+    """Download uploaded file."""
+    uploaded_archive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
+
+    if uploaded_archive.owner.workgroup == request.user.ciduser.workgroup:
+        _sync_uploadedarchive_and_csv(request, uploadedarchive_id)
+        # file_path = Path(settings.MEDIA_ROOT) / uploaded_file.archivefile.name
+        file_path = Path(settings.MEDIA_ROOT) / uploaded_archive.csv_file.name
+        logger.debug(f"{file_path=}")
+        if file_path.exists():
+            with open(file_path, "rb") as fh:
+                response = HttpResponse(fh.read(), content_type="application/zip")
+                response["Content-Disposition"] = "inline; filename=" + os.path.basename(file_path)
+                return response
+        raise Http404
+    else:
+        messages.error(request, "Only the owner can download the file")
+        return redirect("/caidapp/uploads")

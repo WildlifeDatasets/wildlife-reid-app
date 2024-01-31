@@ -22,6 +22,10 @@ logger = logging.getLogger("database")
 class WorkGroup(models.Model):
     name = models.CharField(max_length=50)
     hash = models.CharField(max_length=50, default=randomString12)
+    identification_init_at = models.DateTimeField("Identification init at", blank=True, null=True)
+    identification_init_status = models.CharField(
+        max_length=255, blank=True, default="Not initiated"
+    )
 
     def __str__(self):
         return str(self.name)
@@ -84,10 +88,14 @@ class UploadedArchive(models.Model):
     thumbnail = models.ImageField(upload_to=outputdir, blank=True)
     zip_file = models.FileField(upload_to=outputdir, blank=True, null=True)
     csv_file = models.FileField(upload_to=outputdir, blank=True, null=True)
+    output_updated_at = models.DateTimeField("Output updated at", blank=True, null=True)
     hash = models.CharField(max_length=255, blank=True, default=_hash)
     status = models.CharField(max_length=255, blank=True, default="Created")
     started_at = models.DateTimeField("Started at", blank=True, null=True)
     finished_at = models.DateTimeField("Finished at", blank=True, null=True)
+    identification_status = models.CharField(max_length=255, blank=True, default="Created")
+    identification_started_at = models.DateTimeField("Started at", blank=True, null=True)
+    identification_finished_at = models.DateTimeField("Finished at", blank=True, null=True)
     location_at_upload = models.CharField(max_length=255, blank=True, default="")
     owner = models.ForeignKey(CIDUser, on_delete=models.CASCADE, null=True, blank=True)
     contains_identities = models.BooleanField(default=False)
@@ -140,6 +148,7 @@ class MediaFile(models.Model):
     )
     identity_is_representative = models.BooleanField(default=False)
     updated_by = models.ForeignKey(CIDUser, on_delete=models.CASCADE, null=True, blank=True)
+    updated_at = models.DateTimeField("Updated at", blank=True, null=True)
 
     class Meta:
         ordering = ["-identity_is_representative", "captured_at"]

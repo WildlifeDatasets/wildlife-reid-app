@@ -162,11 +162,14 @@ def data_processing(
 
     Files are renamed according to the hash based on input path.
 
-    Args:
-        zip_path: Path to input zip file.
-        media_dir_path: Path to content of zip. The file names are hashed.
-        csv_path: Path to output CSV file.
-
+    Parameters
+    ----------
+    zip_path
+        Path to input zip file.
+    media_dir_path
+        Path to content of zip. The file names are hashed.
+    csv_path
+        Path to output CSV file.
     """
     # create metadata dataframe
     metadata, _ = data_preprocessing(

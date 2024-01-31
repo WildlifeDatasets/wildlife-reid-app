@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 
 from .models import UploadedArchive
-from .tasks import get_image_files_from_uploaded_archive, make_thumbnail_for_uploaded_archive
+from .tasks import make_thumbnail_for_uploaded_archive, sync_mediafiles_uploaded_archive_with_csv
 
 logger = logging.getLogger(__file__)
 
@@ -41,7 +41,7 @@ def test_add_mediafiles_from_csv():
     uploaded_archive.csv_file = csv_file
     # uploaded_archive.save()
 
-    get_image_files_from_uploaded_archive(uploaded_archive)
+    sync_mediafiles_uploaded_archive_with_csv(uploaded_archive)
     media_files = uploaded_archive.mediafile_set.all()
     logger.debug(media_files)
     assert len(media_files) > 1

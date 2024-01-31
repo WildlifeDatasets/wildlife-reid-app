@@ -33,7 +33,7 @@ class UploadedArchiveForm(forms.ModelForm):
 class MediaFileForm(forms.ModelForm):
     class Meta:
         model = MediaFile
-        fields = ("category", "location")
+        fields = ("category", "location", "identity")
 
 
 class MediaFileBulkForm(forms.ModelForm):
