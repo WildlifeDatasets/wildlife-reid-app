@@ -10,9 +10,10 @@
 <!--  <body>-->
 <div class="container">
     <h1>Carnivore ID App</h1>
-
+<p class="lead">This is a web application for the identification of carnivores from camera trap images.</p>
+<div class="mt-3">
     {% if user.is_authenticated %}
-<!--    <p>Welcome, {{ user.username }} !</p>-->
+        <!--    <p>Welcome, {{ user.username }} !</p>-->
         <p>
             <a class="btn btn-primary" href="{% url 'caidapp:uploads' %}">Go to the application</a>
         </p>
@@ -26,6 +27,16 @@
             <a class="btn btn-secondary" href="{% url 'caidapp:djangologin' %}">Login with password</a>
         </p>
     {% endif %}
+
+</div>
+    <p>
+        The project aims to research and develop new technologies related to a deep understanding of data from camera traps. The technology will greatly increase annotation effectivity, will help to reduce reaction time to urgent situations, e.g. the occurrence of a conflict species in new areas or a harmed animal, will help to improve and simplify the identification of the individuals and to refine population estimates of endangered species, and will help to find new relations in the indexed data across time and diverse locations. The developed methods and tools will improve the monitoring of invasive species. The technologies will streamline activities of public administration, namely AOPK ČR responsible for reporting species status according to Art. 17 of Habitats Directive (92/43/EEC).
+    </p>
+    <p>
+        The project is funded by the Technology Agency of the Czech Republic (TAČR) under the project number
+        <a href="https://starfos.tacr.cz/en/projekty/SS05010008">SS05010008-V9</a>.
+    </p>
+    <p> More information about project can be found on the <a href="https://sites.google.com/view/caid-zcu/">web presentation of the project</a></p>
 </div>
 
 {% endblock %}

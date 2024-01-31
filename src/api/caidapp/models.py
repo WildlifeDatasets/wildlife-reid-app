@@ -1,11 +1,18 @@
 import logging
 from datetime import datetime
 from pathlib import Path
+import shutil
 
 from django.contrib.auth import get_user_model
 from django.db import models
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+import os.path
+
+# from django.contrib.gis.db import models
+# from django.contrib.gis.geos import Point
+# from location_field.models.spatial import LocationField
+from location_field.models.plain import PlainLocationField
 
 from .model_tools import (
     generate_sha1,
@@ -104,6 +111,18 @@ class UploadedArchive(models.Model):
     def __str__(self):
         return str(Path(self.archivefile.name).name)
 
+@receiver(models.signals.post_delete, sender=UploadedArchive)
+def auto_delete_file_on_delete(sender, instance, **kwargs):
+    """
+    Deletes file from filesystem
+    when corresponding `MediaFile` object is deleted.
+    """
+    if instance.archivefile:
+        if os.path.isfile(instance.archivefile.path):
+            os.remove(instance.archivefile.path)
+    if instance.outputdir:
+        if os.path.isdir(instance.outputdir):
+            shutil.rmtree(instance.outputdir)
 
 class Taxon(models.Model):
     name = models.CharField(max_length=50)
@@ -114,7 +133,15 @@ class Taxon(models.Model):
 
 class Location(models.Model):
     name = models.CharField(max_length=50)
-    # owner = models.ForeignKey(CIDUser, on_delete=models.CASCADE, null=True, blank=True)
+    location = PlainLocationField(
+        based_fields=["city"],
+        zoom=7,
+        # default=Point(1.0, 1.0)
+        # initial='-22.2876834,-49.1607606',
+        null=True,
+        blank=True,
+    )
+    owner = models.ForeignKey(CIDUser, on_delete=models.CASCADE, null=True, blank=True)
 
     def __str__(self):
         return str(self.name)
@@ -156,6 +183,15 @@ class MediaFile(models.Model):
     def __str__(self):
         return str(Path(self.mediafile.name).name)
 
+@receiver(models.signals.post_delete, sender=MediaFile)
+def auto_delete_file_on_delete(sender, instance, **kwargs):
+    """
+    Deletes file from filesystem
+    when corresponding `MediaFile` object is deleted.
+    """
+    if instance.mediafile:
+        if os.path.isfile(instance.mediafile.path):
+            os.remove(instance.mediafile.path)
 
 class MediafilesForIdentification(models.Model):
     mediafile = models.ForeignKey(MediaFile, on_delete=models.SET_NULL, null=True, blank=True)
@@ -230,6 +266,8 @@ def get_unique_name(name: str, workgroup: WorkGroup) -> IndividualIdentity:
 
 def get_taxon(name: str) -> Taxon:
     """Return taxon according to the name, create it if necessary."""
+    if (name is None) or (name == ""):
+        return None
     objs = Taxon.objects.filter(name=name)
     if len(objs) == 0:
         taxon = Taxon(name=name)

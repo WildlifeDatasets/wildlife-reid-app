@@ -15,7 +15,7 @@ urlpatterns = [
     path(
         "upload/contains_identities/",
         views.upload_archive,
-        {"contains_identities": True},
+        {"contains_identities": True, "contains_single_taxon": True},
         name="upload_archive_contains_identities",
     ),
     # path("login/", TemplateView.as_view(template_name="caidapp/login.html"), name="login"),
@@ -42,8 +42,10 @@ urlpatterns = [
         "media_file_update/<int:media_file_id>/", views.media_file_update, name="media_file_update"
     ),
     path("manage_locations/", views.manage_locations, name="manage_locations"),
+    path("update_location/<int:location_id>/", views.update_location, name="update_location"),
     path("albums/", views.albums, name="albums"),
     path("album/<str:album_hash>", views.media_files_update, name="album"),
+    path("taxon/<int:taxon_id>", views.media_files_update, name="taxon"),
     path(
         "individual_identity_mediafiles/<int:individual_identity_id>",
         views.media_files_update,
@@ -96,5 +98,12 @@ urlpatterns = [
         views.set_individual_identity,
         name="set_individual_identity",
     ),
+    path(
+        "not_identified_mediafiles/",
+        views.not_identified_mediafiles,
+        name="not_identified_mediafiles",
+    ),
+    path("show_log/", views.show_log, name="show_log"),
+    path("show_taxons/", views.show_taxons, name="show_taxons"),
     path("workgroup_update/<str:workgroup_hash>/", views.workgroup_update, name="workgroup_update"),
 ]

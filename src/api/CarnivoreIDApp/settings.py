@@ -24,6 +24,9 @@ POSTGRES_PORT = os.environ["POSTGRES_PORT"]
 POSTGRES_USER = os.environ["POSTGRES_USER"]
 POSTGRES_PASS = os.environ["POSTGRES_PASS"]
 
+ALLAUTH_GOOGLE_CLIENT_ID = os.getenv("ALLAUTH_GOOGLE_CLIENT_ID", default="")
+ALLAUTH_GOOGLE_CLIENT_SECRET = os.getenv("ALLAUTH_GOOGLE_CLIENT_SECRET", default="")
+
 setup_logging()
 logger = logging.getLogger("app")
 logger.info("Logger is set up.")
@@ -71,12 +74,15 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "caidapp.apps.CaidappConfig",
+    # "django.contrib.gis",
     # 'django.contrib.sites',
     "allauth",  # <--
     "allauth.account",  # <--
     "allauth.socialaccount",  # <--
     "allauth.socialaccount.providers.google",  # <--
     "widget_tweaks",
+    "location_field.apps.DefaultConfig",
+    "django.db.migrations",
 ]
 
 MIDDLEWARE = [
@@ -108,6 +114,15 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = "CarnivoreIDApp.wsgi.application"
+
+# LOCATION_FIELD = {
+#     'map.provider': 'google',
+# }
+LOCATION_FIELD = {
+    "map.provider": "openstreetmap",
+    # 'search.provider': 'google',
+    "search.provider": "nominatim",
+}
 
 
 # Database
@@ -179,6 +194,22 @@ CREDS_JSON_FILE = Path(PRIVATE_DATA_PATH) / "piglegsurgery-creds.json"
 LOGIN_REDIRECT_URL = "/caidapp/uploads"
 
 SOCIALACCOUNT_LOGIN_ON_GET = True
+SOCIALACCOUNT_PROVIDERS = {
+    "google": {
+        "APP": {
+            "client_id": ALLAUTH_GOOGLE_CLIENT_ID,
+            "secret": ALLAUTH_GOOGLE_CLIENT_SECRET,
+            "key": "",
+        },
+        "SCOPE": [
+            "profile",
+            "email",
+        ],
+        "AUTH_PARAMS": {
+            "access_type": "online",
+        },
+    }
+}
 
 ACCOUNT_DEFAULT_HTTP_PROTOCOL = os.environ.get("ACCOUNT_DEFAULT_HTTP_PROTOCOL", default="https")
 

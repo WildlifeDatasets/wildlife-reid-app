@@ -8,3 +8,6 @@ Pillow==9.1.1
 scikit-image==0.19
 pandas==2.0.3
 psycopg2-binary==2.9.6
+django-location-field==2.7.3
+plotly==5.18.0
+statsmodels

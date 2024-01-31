@@ -291,6 +291,12 @@
                                     <span>Admin</span>
                                 </a>
                             </li>
+                            <li>
+                                <a class="dropdown-item d-flex align-items-center" href="{% url 'caidapp:show_log' %}#logend">
+                                    <i class="bi bi-card-text"></i>
+                                    <span>Log</span>
+                                </a>
+                            </li>
                         {% endif %}
 
                         <li>
@@ -314,18 +320,62 @@
     {% if user.is_authenticated %}
         <ul class="sidebar-nav" id="sidebar-nav">
 
+{#            <li class="nav-item">#}
+{#                <a class="nav-link collapsed" href="{% url 'caidapp:uploads' %}">#}
+{#                    <i class="fa-solid fa-hippo"></i>#}
+{#                    <span>Taxon</span>#}
+{#                </a>#}
+{#            </li>#}
             <li class="nav-item">
-                <a class="nav-link collapsed" href="{% url 'caidapp:uploads' %}">
+                <a class="nav-link collapsed" data-bs-target="#icons-nav" data-bs-toggle="collapse" href="#" aria-expanded="true">
                     <i class="fa-solid fa-hippo"></i>
-                    <span>Taxon Uploads</span>
+                    </i><span>Taxon</span><i class="bi bi-chevron-down ms-auto"></i>
                 </a>
+                <ul id="icons-nav" class="nav-content collapse show" data-bs-parent="#sidebar-nav" style="">
+                    <li>
+                        <a class="nav-link collapsed" href="{% url 'caidapp:uploads' %}">
+                            <i class="bi bi-circle"></i>
+                            <span>Uploads</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a class="nav-link collapsed" href="{% url 'caidapp:show_taxons' %}">
+                            <i class="bi bi-circle"></i>
+                            <span>Taxons</span>
+                        </a>
+                    </li>
+                </ul>
             </li>
+{#            <li class="nav-item">#}
+{#                <a class="nav-link collapsed" href="{% url 'caidapp:uploads_identities' %}">#}
+{#                    <i class="fas fa-fingerprint"></i>#}
+{#                    <span>Identities Uploads</span>#}
+{#                </a>#}
+{#            </li>#}
+
+
+            {% if user.ciduser.workgroup %}
             <li class="nav-item">
-                <a class="nav-link collapsed" href="{% url 'caidapp:uploads_identities' %}">
+                <a class="nav-link collapsed" data-bs-target="#icons-nav" data-bs-toggle="collapse" href="#" aria-expanded="true">
                     <i class="fas fa-fingerprint"></i>
-                    <span>Identities Uploads</span>
+                    </i><span>Individuality</span><i class="bi bi-chevron-down ms-auto"></i>
                 </a>
+                <ul id="icons-nav" class="nav-content collapse show" data-bs-parent="#sidebar-nav" style="">
+                    <li>
+                        <a class="nav-link collapsed" href="{% url 'caidapp:uploads_identities' %}">
+                            <i class="bi bi-circle"></i>
+                            <span>Uploads</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a class="nav-link collapsed" href="{% url 'caidapp:individual_identities' %}">
+                            <i class="bi bi-circle"></i>
+                            <span>Identities</span>
+                        </a>
+                    </li>
+                </ul>
             </li>
+            {% endif %}
             <li class="nav-item">
                 <a class="nav-link collapsed" href="{% url 'caidapp:media_files' %}">
                     <i class="bi bi-images"></i>
@@ -346,13 +396,7 @@
                 </a>
             </li>
 
-            <li class="nav-item">
-                <a class="nav-link collapsed" href="{% url 'caidapp:individual_identities' %}">
-                    <i class="fas fa-fingerprint"></i>
-                    <span>Identities</span>
-                </a>
-            </li>
-            {% if user.ciduser.workgroup_admin %}
+            {% if user.ciduser.workgroup and user.ciduser.workgroup_admin %}
             <li class="nav-item">
                 <a class="nav-link collapsed" href="{% url 'caidapp:workgroup_update' user.ciduser.workgroup.hash %}">
                     <i class="bi bi-gear"></i>
@@ -389,7 +433,6 @@
 
 <main id="main" class="main">
 
-    <div class="pagetitle">
 
         {% if messages %}
             <div class="alert alert-warning" role="alert">
@@ -405,43 +448,18 @@
         {% endblock %}
         {% block content %}
         {% endblock %}
-        {#      <div class="row">#}
-        {#        <div class="col-lg-6">#}
-        {##}
-        {#          <div class="card">#}
-        {#            <div class="card-body">#}
-        {#              <h5 class="card-title">Example Card</h5>#}
-        {#              <p>This is an examle page with no contrnt. You can use it as a starter for your custom pages.</p>#}
-        {#            </div>#}
-        {#          </div>#}
-        {##}
-        {#        </div>#}
-        {##}
-        {#        <div class="col-lg-6">#}
-        {##}
-        {#          <div class="card">#}
-        {#            <div class="card-body">#}
-        {#              <h5 class="card-title">Example Card</h5>#}
-        {#              <p>This is an examle page with no contrnt. You can use it as a starter for your custom pages.</p>#}
-        {#            </div>#}
-        {#          </div>#}
-        {##}
-        {#        </div>#}
-    </div>
 
 </main><!-- End #main -->
 
 <!-- ======= Footer ======= -->
 <footer id="footer" class="footer">
-    <div class="copyright">
-        &copy; Copyright <strong><span>NiceAdmin</span></strong>. All Rights Reserved
-    </div>
+{#    <div class="copyright">#}
+{#        &copy; Copyright <strong><span>NiceAdmin</span></strong>. All Rights Reserved#}
+{#    </div>#}
     <div class="credits">
-        <!-- All the links in the footer should remain intact. -->
-        <!-- You can delete the links only if you purchased the pro version. -->
-        <!-- Licensing information: https://bootstrapmade.com/license/ -->
-        <!-- Purchase the pro version with working PHP/AJAX contact form: https://bootstrapmade.com/nice-admin-bootstrap-admin-html-template/ -->
-        Designed by <a href="https://bootstrapmade.com/">BootstrapMade</a>
+        <img src="{% static 'caidapp/FAV_cmyk_english.png' %}" alt="logo FAV" width="400px">
+        <img src="{% static 'caidapp/prostredi_pro_zivot_programme_red.png' %}" alt="logo TAČR" width="400px">
+
     </div>
 </footer><!-- End Footer -->
 

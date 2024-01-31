@@ -6,6 +6,9 @@ The application is orchestrated using `docker-compose` - a tool for defining and
 Before starting the application create `.env` file with secret variables.
 ```bash
 echo "WANDB_API_KEY=..." >> .env
+echo "ALLAUTH_GOOGLE_CLIENT_ID=..." >> .env
+echo "ALLAUTH_GOOGLE_CLIENT_SECRET=..." >> .env
+echo "CAID_HOST=147.228..." >> .env
 ```
 
 ```bash
@@ -23,13 +26,13 @@ mv NiceAdmin/assets src/api/static/
 ### Development
 Run the following commands to build and start the application in the development mode.
 ```bash
-docker-compose -f docker-compose.yml -f docker-compose.dev.yml build
-docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+docker compose -f docker-compose.yml -f docker-compose.dev.yml build
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up
 ```
 
 Run the following commands to view the final development mode configuration with overrides from `docker-compose.dev.yml`. 
 ```bash
-docker-compose -f docker-compose.yml -f docker-compose.dev.yml config
+docker compose -f docker-compose.yml -f docker-compose.dev.yml config
 ```
 
 Create superuser:

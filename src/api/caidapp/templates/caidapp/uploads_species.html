@@ -78,17 +78,28 @@
                                             {% endif %}
                                             {% if request.user.is_staff %}
                                                 <li>
-                                                    <a class="dropdown-item"
-                                                       href="{% url 'caidapp:run_processing' uploadedarchive.id %}">
-                                                        <i class="bi bi-arrow-clockwise"></i> Re-run processing
-                                                    </a>
+                                                    <hr class="dropdown-divider">
                                                 </li>
                                                 <li>
                                                     <a class="dropdown-item"
-                                                       href="{% url 'caidapp:run_identification' uploadedarchive.id %}">
-                                                        <i class="bi bi-fingerprint"></i> Run identification
+                                                       href="{% url 'caidapp:run_processing' uploadedarchive.id %}">
+                                                        <i class="bi bi-arrow-clockwise"></i> Run taxon identification
                                                     </a>
                                                 </li>
+
+                                                <li>
+                                                    <a class="dropdown-item"
+                                                       href="{% url 'admin:caidapp_uploadedarchive_change' uploadedarchive.id %}">
+                                                        <i class="bi bi-pencil"></i>
+                                                        Edit in admin
+                                                    </a>
+                                                </li>
+{#                                                <li>#}
+{#                                                    <a class="dropdown-item"#}
+{#                                                       href="{% url 'caidapp:run_identification' uploadedarchive.id %}">#}
+{#                                                        <i class="bi bi-fingerprint"></i> Run identification#}
+{#                                                    </a>#}
+{#                                                </li>#}
                                             {% endif %}
                                             <li>
                                                 <hr class="dropdown-divider">

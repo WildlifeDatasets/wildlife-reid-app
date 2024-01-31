@@ -3,7 +3,7 @@ import json
 import logging
 import os
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union, List
 
 import django
 import pandas as pd
@@ -16,7 +16,7 @@ from django.contrib.auth import logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView
 from django.core.paginator import Paginator
-from django.db.models import Q
+from django.db.models import Q, QuerySet
 from django.forms import modelformset_factory
 from django.http import HttpResponseBadRequest, HttpResponseNotAllowed, JsonResponse
 from django.shortcuts import Http404, HttpResponse, get_object_or_404, redirect, render
@@ -25,6 +25,7 @@ from django.urls import reverse_lazy
 from .forms import (
     AlbumForm,
     IndividualIdentityForm,
+    LocationForm,
     MediaFileBulkForm,
     MediaFileForm,
     MediaFileSelectionForm,
@@ -38,6 +39,7 @@ from .models import (
     Location,
     MediaFile,
     MediafilesForIdentification,
+    Taxon,
     UploadedArchive,
     WorkGroup,
 )
@@ -46,9 +48,8 @@ from .tasks import (
     init_identification_on_error,
     init_identification_on_success,
     on_error_in_upload_processing,
-    predict_species_on_error,
-    predict_species_on_success,
-    sync_mediafiles_uploaded_archive_with_csv,
+    update_metadata_csv_by_uploaded_archive,
+    run_species_prediction_async,
 )
 
 logger = logging.getLogger("app")
@@ -93,6 +94,28 @@ def media_files(request):
             "qs_json": qs_json,
             "user_is_staff": request.user.is_staff,
         },
+    )
+
+
+def update_location(request, location_id):
+    """Show and update location."""
+    location = get_object_or_404(Location, pk=location_id)
+    if location.owner:
+        if request.user.ciduser.workgroup != location.owner__workgroup:
+            return HttpResponseNotAllowed("Not allowed to see this location.")
+    if request.method == "POST":
+        form = LocationForm(request.POST, instance=location)
+        if form.is_valid():
+
+            # get uploaded archive
+            location = form.save()
+            return redirect("caidapp:manage_locations")
+    else:
+        form = LocationForm(instance=location)
+    return render(
+        request,
+        "caidapp/update_form.html",
+        {"form": form, "headline": "Location", "button": "Save", "location": location},
     )
 
 
@@ -151,6 +174,23 @@ def uploads_identities(request):
     page_number = request.GET.get("page")
     page_obj = paginator.get_page(page_number)
     return render(request, "caidapp/uploads_identities.html", {"page_obj": page_obj})
+
+
+@staff_member_required
+def show_log(request):
+    """List of uploads."""
+    logfile = Path("/data/logging.log")
+    # read lines from logfile
+    with open(logfile, "r") as f:
+        log = f.readlines()
+
+    return render(request, "caidapp/show_log.html", {"log": log})
+
+
+def show_taxons(request):
+    """List of taxons."""
+    taxons = Taxon.objects.all().order_by("name")
+    return render(request, "caidapp/show_taxons.html", {"taxons": taxons})
 
 
 def uploads_species(request):
@@ -345,6 +385,25 @@ def get_individual_identity_zoomed(request, foridentification_id: int, top_id: i
     )
 
 
+def not_identified_mediafiles(request):
+    """View for mediafiles with individualities that are not identified."""
+    foridentification_set = MediafilesForIdentification.objects.filter(
+        mediafile__parent__owner__workgroup=request.user.ciduser.workgroup
+    )
+    # mediafile_set = uploadedarchive.mediafile_set.all()
+
+    records_per_page = 80
+    paginator = Paginator(foridentification_set, per_page=records_per_page)
+
+    page_number = request.GET.get("page")
+    page_obj = paginator.get_page(page_number)
+    return render(
+        request,
+        "caidapp/not_identified_mediafiles.html",
+        {"page_obj": page_obj, "page_title": "Not Identified"},
+    )
+
+
 def get_individual_identity_from_foridentification(
     request, foridentification_id: Optional[int] = None
 ):
@@ -402,46 +461,15 @@ def set_individual_identity(
     return redirect("caidapp:get_individual_identity")
 
 
-def _run_species_prediction(uploaded_archive: UploadedArchive):
-    # update record in the database
-    output_dir = Path(settings.MEDIA_ROOT) / uploaded_archive.outputdir
-    uploaded_archive.started_at = django.utils.timezone.now()
-    output_archive_file = output_dir / "images.zip"
-    output_metadata_file = output_dir / "metadata.csv"
-    uploaded_archive.status = "Processing"
-    uploaded_archive.save()
-
-    # send celery message to the data worker
-    logger.info("Sending request to inference worker.")
-    sig = signature(
-        "predict",
-        kwargs={
-            "input_archive_file": str(
-                Path(settings.MEDIA_ROOT) / uploaded_archive.archivefile.name
-            ),
-            "output_dir": str(output_dir),
-            "output_archive_file": str(output_archive_file),
-            "output_metadata_file": str(output_metadata_file),
-            "contains_identities": uploaded_archive.contains_identities,
-        },
-    )
-    task = sig.apply_async(
-        link=predict_species_on_success.s(
-            uploaded_archive_id=uploaded_archive.id,
-            zip_file=os.path.relpath(str(output_archive_file), settings.MEDIA_ROOT),
-            csv_file=os.path.relpath(str(output_metadata_file), settings.MEDIA_ROOT),
-        ),
-        link_error=predict_species_on_error.s(uploaded_archive_id=uploaded_archive.id),
-    )
-    logger.info(f"Created worker task with id '{task.task_id}'.")
 
 
 @staff_member_required
 def run_processing(request, uploadedarchive_id):
     """Run processing of uploaded archive."""
     uploaded_archive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
-    _run_species_prediction(uploaded_archive)
-    return redirect("/caidapp/uploads")
+    next_page = request.GET.get("next", "/caidapp/uploads")
+    run_species_prediction_async(uploaded_archive)
+    return redirect(next_page)
 
 
 # def init_identification(request, taxon_str:str="Lynx Lynx"):
@@ -514,7 +542,8 @@ def run_identification(request, uploadedarchive_id):
     if uploaded_archive.owner.workgroup != request.user.ciduser.workgroup:
         return HttpResponseNotAllowed("Identification is for workgroup members only.")
     _run_identification(uploaded_archive)
-    return redirect("/caidapp/uploads")
+    next_page = request.GET.get("next", "caidapp:uploads_identities")
+    return redirect(next_page)
 
 
 def _run_identification(uploaded_archive: UploadedArchive, taxon_str="Lynx lynx"):
@@ -702,10 +731,16 @@ def upload_archive(
 ):
     """Process the uploaded zip file."""
     text_note = ""
+    next = "caidapp:uploads"
     if contains_single_taxon:
         text_note = "The archive contains images of a single taxon."
+        next = "caidapp:upload_archive_contains_single_taxon"
     if contains_identities:
-        text_note = "The archive contains identities. Each identity is in individual folder"
+        text_note = (
+            "The archive contains identities (of single taxon). "
+            + "Each identity is in individual folder"
+        )
+        next = "caidapp:upload_archive_contains_identities"
 
     if request.method == "POST":
         form = UploadedArchiveForm(
@@ -726,21 +761,36 @@ def upload_archive(
                 )
 
             uploaded_archive.owner = request.user.ciduser
+            logger.debug(f"{uploaded_archive.contains_identities=}, {contains_identities=}")
+            logger.debug(f"{uploaded_archive.contains_single_taxon=}, {contains_single_taxon=}")
+            # log actual url
+            logger.debug(f"{request.build_absolute_uri()=}")
             uploaded_archive.contains_identities = contains_identities
             uploaded_archive.contains_single_taxon = contains_single_taxon
             uploaded_archive.save()
-            _run_species_prediction(uploaded_archive)
+            run_species_prediction_async(uploaded_archive)
 
             return JsonResponse({"data": "Data uploaded"})
         else:
             return JsonResponse({"data": "Someting went wrong"})
 
     else:
-        form = UploadedArchiveForm()
+        form = UploadedArchiveForm(
+            initial={
+                "contains_identities": contains_identities,
+                "contains_single_taxon": contains_single_taxon,
+            }
+        )
     return render(
         request,
         "caidapp/model_form_upload.html",
-        {"form": form, "headline": "Upload", "button": "Upload", "text_note": text_note},
+        {
+            "form": form,
+            "headline": "Upload",
+            "button": "Upload",
+            "text_note": text_note,
+            "next": next,
+        },
     )
 
 
@@ -764,6 +814,10 @@ def delete_mediafile(request, mediafile_id):
     ):
         return HttpResponseNotAllowed("Not allowed to see this media file.")
     parent_id = mediafile.parent_id
+    uploaded_archive = mediafile.parent
+    uploaded_archive.output_updated_at = None
+    uploaded_archive.save()
+
     mediafile.delete()
     return redirect("caidapp:uploadedarchive_detail", uploadedarchive_id=parent_id)
 
@@ -795,7 +849,9 @@ class MyLoginView(LoginView):
         return self.render_to_response(self.get_context_data(form=form))
 
 
-def _mediafiles_query(request, query: str, album_hash=None, individual_identity_id=None):
+def _mediafiles_query(
+    request, query: str, album_hash=None, individual_identity_id=None, taxon_id=None
+):
     """Prepare list of mediafiles based on query search in category and location."""
     mediafiles = (
         MediaFile.objects.filter(
@@ -818,6 +874,11 @@ def _mediafiles_query(request, query: str, album_hash=None, individual_identity_
             .all()
             .distinct()
             .order_by("-parent__uploaded_at")
+        )
+    if taxon_id is not None:
+        taxon = get_object_or_404(Taxon, pk=taxon_id)
+        mediafiles = (
+            mediafiles.filter(category=taxon).all().distinct().order_by("-parent__uploaded_at")
         )
 
     if len(query) == 0:
@@ -879,8 +940,73 @@ def update_mediafile_is_representative(request, mediafile_hash: str, is_represen
     mediafile.save()
     return JsonResponse({"data": "Data uploaded"})
 
+def _create_map_from_mediafiles(mediafiles:Union[QuerySet, List[MediaFile]]):
+    """Create dataframe from mediafiles."""
+    # create dataframe
+    import pandas as pd
+    import plotly.graph_objects as go
 
-def media_files_update(request, records_per_page=80, album_hash=None, individual_identity_id=None):
+    queryset_list = list(mediafiles.values("id", "location__name", "location__location"))
+    df = pd.DataFrame.from_records(queryset_list)
+    logger.debug(f"{list(df.keys())}")
+    data = []
+    for mediafile in mediafiles:
+        row = {
+            "id": mediafile.id,
+            "category": mediafile.category.name if mediafile.category else None,
+            "category_id": mediafile.category.id if mediafile.category else None,
+            "location": mediafile.location.name if mediafile.location else None,
+            "location__location": mediafile.location.location if mediafile.location.location else None,
+
+        }
+        data.append(row)
+
+    df2 = pd.DataFrame.from_records(data)
+    df2[["lat", "lon"]] = df2["location__location"].str.split(",", expand=True)
+    df2["lat"] = df2["lat"].astype(float)
+    df2["lon"] = df2["lon"].astype(float)
+    logger.debug(f"{list(df2.keys())}")
+    logger.debug(f"{df2.sample(10).to_dict()}")
+
+    quakes = pd.read_csv('https://raw.githubusercontent.com/plotly/datasets/master/earthquakes-23k.csv')
+
+    # fig = go.Figure(go.Densitymapbox(lat=quakes.Latitude, lon=quakes.Longitude, z=quakes.Magnitude,
+    #                                  radius=10))
+
+    # Calculate the range of your data to set the zoom level
+    lat_range = df2['lat'].max() - df2['lat'].min()
+    lon_range = df2['lon'].max() - df2['lon'].min()
+
+    # Set an appropriate zoom level based on the maximum range
+    max_range = max(lat_range, lon_range)
+    zoom = 0  # Set a default zoom level
+    if max_range < 10:
+        zoom = 6
+    elif max_range < 30:
+        zoom = 5
+    elif max_range < 60:
+        zoom = 4
+    else:
+        zoom = 3  # For larger ranges, set a smaller zoom level
+
+    fig = go.Figure(go.Densitymapbox(lat=df2.lat, lon=df2.lon,
+                                     radius=10))
+    fig.update_layout(
+        mapbox_style="open-street-map",
+        mapbox_center_lon=df2.lon.unique().mean(),
+        mapbox_center_lat=df2.lat.unique().mean(),
+        mapbox_zoom=zoom
+    )
+
+    fig.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0})
+    map_html = fig.to_html()
+    return map_html
+
+
+
+def media_files_update(
+    request, records_per_page=80, album_hash=None, individual_identity_id=None, taxon_id=None
+) -> Union[QuerySet, List[MediaFile]]:
     """List of mediafiles based on query with bulk update of category."""
     # create list of mediafiles
     if request.method == "POST":
@@ -914,9 +1040,14 @@ def media_files_update(request, records_per_page=80, album_hash=None, individual
     # logger.debug(f"{query=}")
     # logger.debug(f"{queryform}")
     full_mediafiles = _mediafiles_query(
-        request, query, album_hash=album_hash, individual_identity_id=individual_identity_id
+        request,
+        query,
+        album_hash=album_hash,
+        individual_identity_id=individual_identity_id,
+        taxon_id=taxon_id,
     )
     number_of_mediafiles = len(full_mediafiles)
+    map_html = _create_map_from_mediafiles(full_mediafiles)
 
     paginator = Paginator(full_mediafiles, per_page=records_per_page)
 
@@ -1023,6 +1154,7 @@ def media_files_update(request, records_per_page=80, album_hash=None, individual
             "form_query": queryform,
             "albums_available": albums_available,
             "number_of_mediafiles": number_of_mediafiles,
+            "map_html": map_html,
         },
     )
 
@@ -1076,7 +1208,7 @@ def workgroup_update(request, workgroup_hash: str):
     return render(request, "caidapp/update_form.html", {"form": workgroup_hash})
 
 
-def _sync_uploadedarchive_and_csv(request, uploadedarchive_id: int):
+def _update_csv_by_uploadedarchive(request, uploadedarchive_id: int):
     uploaded_archive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
 
     if uploaded_archive.owner.workgroup == request.user.ciduser.workgroup:
@@ -1100,7 +1232,7 @@ def _sync_uploadedarchive_and_csv(request, uploadedarchive_id: int):
         # logger.debug(f"{mediafiles=}")
         if len(mediafiles) > 0:
             logger.debug("  sync mediafiles with csv")
-            sync_mediafiles_uploaded_archive_with_csv(uploaded_archive, create_missing=False)
+            update_metadata_csv_by_uploaded_archive(uploaded_archive, create_missing=False)
             return True
 
     return False
@@ -1138,7 +1270,7 @@ def download_uploadedarchive_images(request, uploadedarchive_id: int):
     uploaded_archive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
 
     if uploaded_archive.owner.workgroup == request.user.ciduser.workgroup:
-        _sync_uploadedarchive_and_csv(request, uploadedarchive_id)
+        _update_csv_by_uploadedarchive(request, uploadedarchive_id)
         # file_path = Path(settings.MEDIA_ROOT) / uploaded_file.archivefile.name
         file_path = Path(settings.MEDIA_ROOT) / uploaded_archive.zip_file.name
         logger.debug(f"{file_path=}")
@@ -1159,7 +1291,7 @@ def download_uploadedarchive_csv(request, uploadedarchive_id: int):
     uploaded_archive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
 
     if uploaded_archive.owner.workgroup == request.user.ciduser.workgroup:
-        _sync_uploadedarchive_and_csv(request, uploadedarchive_id)
+        _update_csv_by_uploadedarchive(request, uploadedarchive_id)
         # file_path = Path(settings.MEDIA_ROOT) / uploaded_file.archivefile.name
         file_path = Path(settings.MEDIA_ROOT) / uploaded_archive.csv_file.name
         logger.debug(f"{file_path=}")

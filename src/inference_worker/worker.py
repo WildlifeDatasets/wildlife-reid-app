@@ -3,6 +3,7 @@ import traceback
 from pathlib import Path
 
 from celery import Celery
+import pandas as pd
 
 from utils import data_processing_pipeline, dataset_tools
 from utils.config import RABBITMQ_URL, REDIS_URL
@@ -25,7 +26,11 @@ def predict(
     contains_identities: bool = False,
     **kwargs,
 ):
-    """Main method called by Celery broker."""
+    """Main method called by Celery broker.
+    If the output_metadata_file does not exist, the metadata is
+    created based on the content of input_archive_file and saved to output_metadata_file.
+    If the output_metadata_file exists, it is directly used as input for the inference.
+    """
     try:
         logger.info(
             "Applying species identification task with args: "
@@ -42,13 +47,16 @@ def predict(
         output_metadata_file = Path(output_metadata_file)
 
         # process data
-        metadata = data_processing_pipeline.data_processing(
-            input_archive_file,
-            output_images_dir,
-            output_metadata_file,
-            num_cores=1,
-            contains_identities=contains_identities,
-        )
+        if output_images_dir.exists():
+            metadata = pd.read_csv(output_metadata_file, index_col=0)
+        else:
+            metadata = data_processing_pipeline.data_processing(
+                input_archive_file,
+                output_images_dir,
+                output_metadata_file,
+                num_cores=1,
+                contains_identities=contains_identities,
+            )
         logger.debug("Preparing output archive.")
         dataset_tools.make_zipfile_with_categories(output_archive_file, output_images_dir, metadata)
         # dataset_tools.make_zipfile(output_archive_file, output_images_dir)

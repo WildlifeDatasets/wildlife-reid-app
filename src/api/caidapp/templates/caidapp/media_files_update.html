@@ -22,22 +22,39 @@
 
             <form method="POST">
                 {% csrf_token %}
-                <div class="row">
-                    <div class="col">
-                        {% render_field form_query.query class="form-control mb-3" placeholder="type here to search..." %}
-                    </div>
-                    <div class="col-auto">
-                        <button name="querySubmit" class="btn btn-primary" id="querySubmit" type="submit">
-                            Search
-                        </button>
-                    </div>
 
+                <div class="row">
+                    <div class="col-lg-6">
+                        <div class="row">
+                            <div class="col">
+                                {% render_field form_query.query class="form-control mb-3" placeholder="type here to search..." %}
+                            </div>
+                            <div class="col-auto">
+                                <button name="querySubmit" class="btn btn-primary" id="querySubmit" type="submit">
+                                    Search
+                                </button>
+                            </div>
+
+                        </div>
+        {#                Do not remove the fallowing line with pagenumber. It is invisible. but importatn for the form. #}
+                        {{ form_query.pagenumber }}
+                        <p>
+                            Found {{ page_obj.paginator.count }} mediafiles.
+                        </p>
+                    </div>
+                    <div class="col-lg-6">
+                        <div class="row">
+                            <div class="card">
+                                <div class="card-body">
+{#                                    render html #}
+                                    {% autoescape off %}
+                                        {{ map_html }}
+                                    {% endautoescape %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-{#                Do not remove the fallowing line with pagenumber. It is invisible. but importatn for the form. #}
-                {{ form_query.pagenumber }}
-                <p>
-                    Found {{ page_obj.paginator.count }} mediafiles.
-                </p>
 
                 {% if form_objects %}
                     {{ form_objects.management_form }}
@@ -110,9 +127,13 @@
                                             <img class="card-img-top" src="{{ mediafile.instance.thumbnail.url }}"
                                                  alt="Cameratrap image">
                                         </a>
+                                        <div class="position-absolute top-0 end-0 p-2">
+                                            {{ mediafile.selected }}
+                                        </div>
                                     {% endif %}
+
                                     <div class="card-body mt-2">
-                                        {{ mediafile.as_p }}
+
                                         {#                                                                    <h5 class="card-title">{{ mediafile.instance }}</h5>#}
                                         <p class="card-text"> Category: {{ mediafile.instance.category }}</p>
                                         <p class="card-text"> Location: {{ mediafile.instance.location }}</p>
@@ -131,7 +152,7 @@
 
                                         <a class="btn btn-primary"
                                            href="{% url 'caidapp:media_file_update' mediafile.instance.id %}">
-                                            <i class="bi bi-trash"></i> Detail
+                                            <i class="bi bi-pencil"></i> Detail
                                         </a>
 
                                         <div class="dropdown d-inline-block">
