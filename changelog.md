@@ -11,6 +11,7 @@
 * [changed] Sidebar for identities is now a dropdown
 * [added] Location coordinates by clicking on map
 * [fixed] Failure when mediafile datetime is NaN
+* [added] On removal of mediafile or archive from database, the files are also removed from the storage
 
 ## 12-2023
 

@@ -4,6 +4,7 @@ import os.path
 from pathlib import Path
 
 import django
+import numpy as np
 import pandas as pd
 from celery import shared_task, signature
 from django.conf import settings
@@ -19,7 +20,6 @@ from .models import (
     get_taxon,
     get_unique_name,
 )
-import numpy as np
 
 logger = logging.getLogger("app")
 
@@ -85,6 +85,7 @@ def make_thumbnail_for_uploaded_archive(uploaded_archive: UploadedArchive):
 
 
 def run_species_prediction_async(uploaded_archive: UploadedArchive):
+    """Run species prediction asynchronously."""
     # update record in the database
     output_dir = Path(settings.MEDIA_ROOT) / uploaded_archive.outputdir
     uploaded_archive.started_at = django.utils.timezone.now()
@@ -119,6 +120,7 @@ def run_species_prediction_async(uploaded_archive: UploadedArchive):
         link_error=predict_species_on_error.s(uploaded_archive_id=uploaded_archive.id),
     )
     logger.info(f"Created worker task with id '{task.task_id}'.")
+
 
 # def update_metadata_csv_with_uploaded_archive(uploaded_archive: UploadedArchive):
 #     logger.debug("getting images from uploaded archive")
@@ -161,6 +163,7 @@ def run_species_prediction_async(uploaded_archive: UploadedArchive):
 #
 #     mediafile.to_csv(csv_file, index=False)
 
+
 def make_thumbnail_for_mediafile_if_necessary(mediafile: MediaFile, thumbnail_width: int = 400):
     """Make small image representing the upload."""
     logger.debug("making thumbnail for mediafile")
@@ -177,7 +180,7 @@ def make_thumbnail_for_mediafile_if_necessary(mediafile: MediaFile, thumbnail_wi
             logger.warning(f"Cannot generate thumbnail for {abs_pth}")
 
 
-def _get_rel_and_abs_paths_based_on_csv_row(row: dict, output_dir:Path):
+def _get_rel_and_abs_paths_based_on_csv_row(row: dict, output_dir: Path):
     abs_pth = output_dir / "images" / row["image_path"]
     rel_pth = os.path.relpath(abs_pth, settings.MEDIA_ROOT)
     if "vanilla_Path" in row:
@@ -186,22 +189,14 @@ def _get_rel_and_abs_paths_based_on_csv_row(row: dict, output_dir:Path):
 
     return rel_pth, abs_pth
 
-def update_uploaded_archive_by_metadata_csv(uploaded_archive: UploadedArchive, thumbnail_width: int = 400,
-                                            create_missing:bool=True):
 
+def update_uploaded_archive_by_metadata_csv(
+    uploaded_archive: UploadedArchive, thumbnail_width: int = 400, create_missing: bool = True
+) -> None:
     """Extract filenames from uploaded archive CSV and create MediaFile objects.
 
     If the processing is repeated, the former Mediafiles are used and updated.
     If the MediaFile was updated by user, the update is skipped.
-
-    Parameters
-    ----------
-    uploaded_archive
-    create_missing
-
-    Returns
-    -------
-
     """
     logger.debug("getting images from uploaded archive")
     csv_file = Path(settings.MEDIA_ROOT) / str(uploaded_archive.csv_file)
@@ -209,7 +204,6 @@ def update_uploaded_archive_by_metadata_csv(uploaded_archive: UploadedArchive, t
 
     output_dir = Path(settings.MEDIA_ROOT) / uploaded_archive.outputdir
 
-    update_csv = False
     df = pd.read_csv(csv_file, index_col=0)
 
     for index, row in df.iterrows():
@@ -238,7 +232,6 @@ def update_uploaded_archive_by_metadata_csv(uploaded_archive: UploadedArchive, t
                 # row["error"] = "deleted"
                 # df.loc[index, "error"] = "deleted"
                 df.loc[index, "deleted"] = True
-                update_csv = True
                 logger.debug(f"Mediafile {rel_pth} not found. Skipping.")
                 continue
             # mf = mediafile_set[0]
@@ -249,8 +242,8 @@ def update_uploaded_archive_by_metadata_csv(uploaded_archive: UploadedArchive, t
         if mf.updated_by is None:
             mf.category = get_taxon(row["predicted_category"])
             mf.identity = get_unique_name(
-                    row["unique_name"], workgroup=uploaded_archive.owner.workgroup
-                )
+                row["unique_name"], workgroup=uploaded_archive.owner.workgroup
+            )
             mf.save()
             logger.debug(f"identity={mf.identity}")
         logger.debug(f"{mf}")
@@ -260,10 +253,9 @@ def update_uploaded_archive_by_metadata_csv(uploaded_archive: UploadedArchive, t
 
 def update_metadata_csv_by_uploaded_archive(
     uploaded_archive: UploadedArchive,
-        # thumbnail_width: int = 400, create_missing: bool = True
+    # thumbnail_width: int = 400, create_missing: bool = True
 ):
-    """Update metadata CSV file by MediaFiles in UploadedArchive.
-    """
+    """Update metadata CSV file by MediaFiles in UploadedArchive."""
     logger.debug("Updating metadata by uploaded archive...")
     output_dir = Path(settings.MEDIA_ROOT) / uploaded_archive.outputdir
     csv_file = Path(settings.MEDIA_ROOT) / str(uploaded_archive.csv_file)
@@ -313,7 +305,7 @@ def update_metadata_csv_by_uploaded_archive(
                 df.loc[index, "location coordinates"] = str(mf.location.location)
 
     # delete rows with missing mediafiles
-    df = df[df["deleted"] == False]
+    df = df[df["deleted"] == False]  # noqa: E712
     if update_csv:
         df.to_csv(csv_file, encoding="utf-8-sig")
         logger.debug(f"CSV updated. path={csv_file}")

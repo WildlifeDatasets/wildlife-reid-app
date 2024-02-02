@@ -2,8 +2,8 @@ import logging
 import traceback
 from pathlib import Path
 
-from celery import Celery
 import pandas as pd
+from celery import Celery
 
 from utils import data_processing_pipeline, dataset_tools
 from utils.config import RABBITMQ_URL, REDIS_URL
@@ -27,6 +27,7 @@ def predict(
     **kwargs,
 ):
     """Main method called by Celery broker.
+
     If the output_metadata_file does not exist, the metadata is
     created based on the content of input_archive_file and saved to output_metadata_file.
     If the output_metadata_file exists, it is directly used as input for the inference.

@@ -3,10 +3,11 @@ import json
 import logging
 import os
 from pathlib import Path
-from typing import Optional, Union, List
+from typing import List, Optional, Union
 
 import django
 import pandas as pd
+import plotly.graph_objects as go
 import pytz
 from celery import chain, signature
 from django.conf import settings
@@ -48,8 +49,8 @@ from .tasks import (
     init_identification_on_error,
     init_identification_on_success,
     on_error_in_upload_processing,
-    update_metadata_csv_by_uploaded_archive,
     run_species_prediction_async,
+    update_metadata_csv_by_uploaded_archive,
 )
 
 logger = logging.getLogger("app")
@@ -459,8 +460,6 @@ def set_individual_identity(
     mediafiles_for_identification.delete()
 
     return redirect("caidapp:get_individual_identity")
-
-
 
 
 @staff_member_required
@@ -940,42 +939,47 @@ def update_mediafile_is_representative(request, mediafile_hash: str, is_represen
     mediafile.save()
     return JsonResponse({"data": "Data uploaded"})
 
-def _create_map_from_mediafiles(mediafiles:Union[QuerySet, List[MediaFile]]):
+
+def _create_map_from_mediafiles(mediafiles: Union[QuerySet, List[MediaFile]]):
     """Create dataframe from mediafiles."""
     # create dataframe
-    import pandas as pd
-    import plotly.graph_objects as go
 
     queryset_list = list(mediafiles.values("id", "location__name", "location__location"))
     df = pd.DataFrame.from_records(queryset_list)
     logger.debug(f"{list(df.keys())}")
     data = []
     for mediafile in mediafiles:
-        row = {
-            "id": mediafile.id,
-            "category": mediafile.category.name if mediafile.category else None,
-            "category_id": mediafile.category.id if mediafile.category else None,
-            "location": mediafile.location.name if mediafile.location else None,
-            "location__location": mediafile.location.location if mediafile.location.location else None,
-
-        }
-        data.append(row)
+        if (
+            mediafile.location
+            and mediafile.location.location
+            and mediafile.location.location.count(",") == 1
+        ):
+            row = {
+                "id": mediafile.id,
+                "category": mediafile.category.name if mediafile.category else None,
+                "category_id": mediafile.category.id if mediafile.category else None,
+                "location": mediafile.location.name if mediafile.location else None,
+                "location__location": mediafile.location.location
+                if mediafile.location.location
+                else None,
+            }
+            data.append(row)
 
     df2 = pd.DataFrame.from_records(data)
+    if "location__location" not in df2.keys():
+        return None
     df2[["lat", "lon"]] = df2["location__location"].str.split(",", expand=True)
     df2["lat"] = df2["lat"].astype(float)
     df2["lon"] = df2["lon"].astype(float)
     logger.debug(f"{list(df2.keys())}")
-    logger.debug(f"{df2.sample(10).to_dict()}")
-
-    quakes = pd.read_csv('https://raw.githubusercontent.com/plotly/datasets/master/earthquakes-23k.csv')
-
-    # fig = go.Figure(go.Densitymapbox(lat=quakes.Latitude, lon=quakes.Longitude, z=quakes.Magnitude,
-    #                                  radius=10))
+    # if len(df2) > 10:
+    #     logger.debug(f"{df2.sample(10).to_dict()=}")
+    # else:
+    #     logger.debug(f"{df2.to_dict()=}")
 
     # Calculate the range of your data to set the zoom level
-    lat_range = df2['lat'].max() - df2['lat'].min()
-    lon_range = df2['lon'].max() - df2['lon'].min()
+    lat_range = df2["lat"].max() - df2["lat"].min()
+    lon_range = df2["lon"].max() - df2["lon"].min()
 
     # Set an appropriate zoom level based on the maximum range
     max_range = max(lat_range, lon_range)
@@ -989,19 +993,17 @@ def _create_map_from_mediafiles(mediafiles:Union[QuerySet, List[MediaFile]]):
     else:
         zoom = 3  # For larger ranges, set a smaller zoom level
 
-    fig = go.Figure(go.Densitymapbox(lat=df2.lat, lon=df2.lon,
-                                     radius=10))
+    fig = go.Figure(go.Densitymapbox(lat=df2.lat, lon=df2.lon, radius=10))
     fig.update_layout(
         mapbox_style="open-street-map",
         mapbox_center_lon=df2.lon.unique().mean(),
         mapbox_center_lat=df2.lat.unique().mean(),
-        mapbox_zoom=zoom
+        mapbox_zoom=zoom,
     )
 
     fig.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0})
     map_html = fig.to_html()
     return map_html
-
 
 
 def media_files_update(

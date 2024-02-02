@@ -1,13 +1,13 @@
 import logging
+import os.path
+import shutil
 from datetime import datetime
 from pathlib import Path
-import shutil
 
 from django.contrib.auth import get_user_model
 from django.db import models
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-import os.path
 
 # from django.contrib.gis.db import models
 # from django.contrib.gis.geos import Point
@@ -111,18 +111,17 @@ class UploadedArchive(models.Model):
     def __str__(self):
         return str(Path(self.archivefile.name).name)
 
+
 @receiver(models.signals.post_delete, sender=UploadedArchive)
 def auto_delete_file_on_delete(sender, instance, **kwargs):
-    """
-    Deletes file from filesystem
-    when corresponding `MediaFile` object is deleted.
-    """
+    """Deletes file from filesystem when corresponding `MediaFile` object is deleted."""
     if instance.archivefile:
         if os.path.isfile(instance.archivefile.path):
             os.remove(instance.archivefile.path)
     if instance.outputdir:
         if os.path.isdir(instance.outputdir):
             shutil.rmtree(instance.outputdir)
+
 
 class Taxon(models.Model):
     name = models.CharField(max_length=50)
@@ -183,15 +182,6 @@ class MediaFile(models.Model):
     def __str__(self):
         return str(Path(self.mediafile.name).name)
 
-@receiver(models.signals.post_delete, sender=MediaFile)
-def auto_delete_file_on_delete(sender, instance, **kwargs):
-    """
-    Deletes file from filesystem
-    when corresponding `MediaFile` object is deleted.
-    """
-    if instance.mediafile:
-        if os.path.isfile(instance.mediafile.path):
-            os.remove(instance.mediafile.path)
 
 class MediafilesForIdentification(models.Model):
     mediafile = models.ForeignKey(MediaFile, on_delete=models.SET_NULL, null=True, blank=True)
