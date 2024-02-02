@@ -3,22 +3,20 @@ import os.path
 import shutil
 from datetime import datetime
 from pathlib import Path
+from typing import Optional
 
 from django.contrib.auth import get_user_model
 from django.db import models
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
-# from django.contrib.gis.db import models
-# from django.contrib.gis.geos import Point
-# from location_field.models.spatial import LocationField
 from location_field.models.plain import PlainLocationField
 
 from .model_tools import (
     generate_sha1,
     get_output_dir,
-    randomString,
-    randomString12,
+    random_string,
+    random_string12,
     upload_to_unqiue_folder,
 )
 
@@ -28,7 +26,7 @@ logger = logging.getLogger("database")
 
 class WorkGroup(models.Model):
     name = models.CharField(max_length=50)
-    hash = models.CharField(max_length=50, default=randomString12)
+    hash = models.CharField(max_length=50, default=random_string12)
     identification_init_at = models.DateTimeField("Identification init at", blank=True, null=True)
     identification_init_status = models.CharField(
         max_length=255, blank=True, default="Not initiated"
@@ -39,24 +37,21 @@ class WorkGroup(models.Model):
 
 
 class CIDUser(models.Model):
-    User = get_user_model()
+    DjangoUser = get_user_model()
     id = models.AutoField(primary_key=True)
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
-    # bio = models.TextField(max_length=500, blank=True)
-    # location = models.CharField(max_length=30, blank=True)
-    # birth_date = models.DateField(null=True, blank=True)
-    hash = models.CharField(max_length=50, default=randomString12)
+    user = models.OneToOneField(DjangoUser, on_delete=models.CASCADE)
+    hash = models.CharField(max_length=50, default=random_string12)
     workgroup = models.ForeignKey(WorkGroup, on_delete=models.CASCADE, null=True, blank=True)
     workgroup_admin = models.BooleanField(default=False)
 
-    @receiver(post_save, sender=User)
-    def create_user_profile(sender, instance, created, **kwargs):
+    @receiver(post_save, sender=DjangoUser)
+    def create_user_profile(sender, instance, created, **kwargs):  # NOSONAR
         """Create object when django user is created."""
         if created:
             CIDUser.objects.create(user=instance)
 
-    @receiver(post_save, sender=User)
-    def save_user_profile(sender, instance, **kwargs):
+    @receiver(post_save, sender=DjangoUser)
+    def save_user_profile(sender, instance, **kwargs): # NOSONAR
         """Save object when django user is saved."""
         logger.debug(sender)
         logger.debug(instance)
@@ -64,7 +59,7 @@ class CIDUser(models.Model):
         # pdb.set_trace()
 
         if not hasattr(instance, "ciduser"):
-            profile, created = CIDUser.objects.get_or_create(user=instance)
+            profile, _ = CIDUser.objects.get_or_create(user=instance)
             instance.ciduser = profile
         # UserProfile.objects.get_or_create(user=request.user)
         instance.ciduser.save()
@@ -75,19 +70,15 @@ class CIDUser(models.Model):
 
 def _hash():
     dt = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
-    hash = generate_sha1(dt, salt=randomString())
-    return hash
+    hash_str = generate_sha1(dt, salt=random_string())
+    return hash_str
 
 
 class UploadedArchive(models.Model):
-    # email = models.EmailField(max_length=200)
-    # hash = scaffanweb_tools.randomString(12)
     uploaded_at = models.DateTimeField("Uploaded at", default=datetime.now)
     archivefile = models.FileField(
         "Archive File",
         upload_to=upload_to_unqiue_folder,
-        # blank=True,
-        # null=True,
         max_length=500,
     )
     preview = models.ImageField(blank=True, null=True)
@@ -115,11 +106,9 @@ class UploadedArchive(models.Model):
 @receiver(models.signals.post_delete, sender=UploadedArchive)
 def auto_delete_file_on_delete(sender, instance, **kwargs):
     """Deletes file from filesystem when corresponding `MediaFile` object is deleted."""
-    if instance.archivefile:
-        if os.path.isfile(instance.archivefile.path):
+    if instance.archivefile and os.path.isfile(instance.archivefile.path):
             os.remove(instance.archivefile.path)
-    if instance.outputdir:
-        if os.path.isdir(instance.outputdir):
+    if instance.outputdir and os.path.isdir(instance.outputdir):
             shutil.rmtree(instance.outputdir)
 
 
@@ -135,8 +124,6 @@ class Location(models.Model):
     location = PlainLocationField(
         based_fields=["city"],
         zoom=7,
-        # default=Point(1.0, 1.0)
-        # initial='-22.2876834,-49.1607606',
         null=True,
         blank=True,
     )
@@ -163,7 +150,6 @@ class MediaFile(models.Model):
     captured_at = models.DateTimeField("Captured at", blank=True, null=True)
     mediafile = models.FileField(
         "Media File",
-        # upload_to=upload_to_unqiue_folder,
         blank=True,
         null=True,
         max_length=500,
@@ -195,8 +181,6 @@ class MediafilesForIdentification(models.Model):
     top3mediafile = models.ForeignKey(
         MediaFile, related_name="top3", on_delete=models.SET_NULL, null=True, blank=True
     )
-    # top2mediafile = models.ForeignKey(MediaFile, on_delete=models.CASCADE, null=True, blank=True)
-    # top3mediafile = models.ForeignKey(MediaFile, on_delete=models.CASCADE, null=True, blank=True)
     top1score = models.FloatField(null=True, blank=True)
     top2score = models.FloatField(null=True, blank=True)
     top3score = models.FloatField(null=True, blank=True)
@@ -222,7 +206,7 @@ class Album(models.Model):
 
     def get_absolute_url(self):
         """Return absolute url."""
-        return "/album/%i/" % str(self.hash)
+        return f"/album/{str(self.hash)}/"
 
 
 class AlbumShareRoleType(models.Model):
@@ -241,7 +225,7 @@ class AlbumShareRole(models.Model):
         return str(self.album.name) + " " + str(self.user.user.username)
 
 
-def get_unique_name(name: str, workgroup: WorkGroup) -> IndividualIdentity:
+def get_unique_name(name: str, workgroup: WorkGroup) -> Optional[IndividualIdentity]:
     """Return taxon according to the name, create it if necessary."""
     if (name is None) or (name == ""):
         return None
@@ -254,7 +238,7 @@ def get_unique_name(name: str, workgroup: WorkGroup) -> IndividualIdentity:
     return identity
 
 
-def get_taxon(name: str) -> Taxon:
+def get_taxon(name: str) -> Optional[Taxon]:
     """Return taxon according to the name, create it if necessary."""
     if (name is None) or (name == ""):
         return None

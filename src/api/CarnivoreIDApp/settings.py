@@ -74,8 +74,6 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "caidapp.apps.CaidappConfig",
-    # "django.contrib.gis",
-    # 'django.contrib.sites',
     "allauth",  # <--
     "allauth.account",  # <--
     "allauth.socialaccount",  # <--
@@ -115,12 +113,8 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "CarnivoreIDApp.wsgi.application"
 
-# LOCATION_FIELD = {
-#     'map.provider': 'google',
-# }
 LOCATION_FIELD = {
     "map.provider": "openstreetmap",
-    # 'search.provider': 'google',
     "search.provider": "nominatim",
 }
 

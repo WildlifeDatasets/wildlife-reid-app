@@ -14,6 +14,6 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name="workgroup",
             name="hash",
-            field=models.CharField(default=caidapp.model_tools.randomString12, max_length=50),
+            field=models.CharField(default=caidapp.model_tools.random_string12, max_length=50),
         ),
     ]

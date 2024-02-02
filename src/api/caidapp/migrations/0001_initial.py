@@ -24,7 +24,7 @@ class Migration(migrations.Migration):
                 ("id", models.AutoField(primary_key=True, serialize=False)),
                 (
                     "hash",
-                    models.CharField(default=caidapp.model_tools.randomString12, max_length=50),
+                    models.CharField(default=caidapp.model_tools.random_string12, max_length=50),
                 ),
                 (
                     "user",

@@ -122,46 +122,6 @@ def run_species_prediction_async(uploaded_archive: UploadedArchive):
     logger.info(f"Created worker task with id '{task.task_id}'.")
 
 
-# def update_metadata_csv_with_uploaded_archive(uploaded_archive: UploadedArchive):
-#     logger.debug("getting images from uploaded archive")
-#     output_dir = Path(settings.MEDIA_ROOT) / uploaded_archive.outputdir
-#     csv_file = Path(settings.MEDIA_ROOT) / str(uploaded_archive.csv_file)
-#     logger.debug(f"{csv_file} {Path(csv_file).exists()}")
-#
-#     update_csv = False
-#     df = pd.read_csv(csv_file)
-#     df["deleted"] = True
-#     df["category_by_webapp"] = ""
-#     df["identity_by_webapp"] = ""
-#     # for fn in df["image_path"]:
-#     for index, row in df.iterrows():
-#         abs_pth = output_dir / "images" / row["image_path"]
-#         rel_pth = os.path.relpath(abs_pth, settings.MEDIA_ROOT)
-#         logger.debug(f"vanilla_path={row['vanilla_path']}")
-#         logger.debug(f"relative_pth={rel_pth}")
-#         taxon = get_taxon(row["predicted_category"])
-#         captured_at = row["datetime"]
-#         logger.debug(f"{captured_at=}, {type(captured_at)}")
-#         if (captured_at == "") or (isinstance(captured_at, float) and np.isnan(captured_at)):
-#             captured_at = None
-#
-#         abs_pth_thumbnail = output_dir / "thumbnails" / row["image_path"]
-#         rel_pth_thumbnail = os.path.relpath(abs_pth_thumbnail, settings.MEDIA_ROOT)
-#
-#         # mediafile_set = uploaded_archive.mediafile_set.filter(mediafile=str(rel_pth))
-#         # if len(mediafile_set) == 0:
-#         #     row["deleted"] = True
-#         mediafile = uploaded_archive.mediafile_set.get(mediafile=str(rel_pth))
-#         if mediafile:
-#             if mediafile.category:
-#                 row["category_by_webapp"] = mediafile.category.name
-#             if mediafile.identity:
-#                 row["identity_by_webapp"] = mediafile.identity.name
-#         else:
-#             row["deleted"] = True
-#
-#
-#     mediafile.to_csv(csv_file, index=False)
 
 
 def make_thumbnail_for_mediafile_if_necessary(mediafile: MediaFile, thumbnail_width: int = 400):
@@ -207,7 +167,7 @@ def update_uploaded_archive_by_metadata_csv(
     df = pd.read_csv(csv_file, index_col=0)
 
     for index, row in df.iterrows():
-        rel_pth, abs_pth = _get_rel_and_abs_paths_based_on_csv_row(row, output_dir)
+        rel_pth, _ = _get_rel_and_abs_paths_based_on_csv_row(row, output_dir)
         captured_at = row["datetime"]
         logger.debug(f"{captured_at=}, {type(captured_at)}")
         if (captured_at == "") or (isinstance(captured_at, float) and np.isnan(captured_at)):
@@ -229,12 +189,9 @@ def update_uploaded_archive_by_metadata_csv(
                 mf.save()
                 logger.debug(f"Created new Mediafile {mf}")
             else:
-                # row["error"] = "deleted"
-                # df.loc[index, "error"] = "deleted"
                 df.loc[index, "deleted"] = True
                 logger.debug(f"Mediafile {rel_pth} not found. Skipping.")
                 continue
-            # mf = mediafile_set[0]
             # generate thumbnail if necessary
         make_thumbnail_for_mediafile_if_necessary(mf, thumbnail_width=thumbnail_width)
 
@@ -247,7 +204,6 @@ def update_uploaded_archive_by_metadata_csv(
             mf.save()
             logger.debug(f"identity={mf.identity}")
         logger.debug(f"{mf}")
-    # uploaded_archive.output_updated_at = django.utils.timezone.now()
     uploaded_archive.save()
 
 
@@ -271,29 +227,20 @@ def update_metadata_csv_by_uploaded_archive(
     df["location coordinates"] = ""
     # for fn in df["image_path"]:
     for index, row in df.iterrows():
-        rel_pth, abs_pth = _get_rel_and_abs_paths_based_on_csv_row(row, output_dir)
-        # taxon = get_taxon(row["predicted_category"])
-        # captured_at = row["datetime"]
-        # logger.debug(f"{captured_at=}, {type(captured_at)}")
-        # if (captured_at == "") or (isinstance(captured_at, float) and np.isnan(captured_at)):
-        #     captured_at = None
+        rel_pth, _ = _get_rel_and_abs_paths_based_on_csv_row(row, output_dir)
 
         try:
             mf = uploaded_archive.mediafile_set.get(mediafile=str(rel_pth))
             logger.debug("Using Mediafile generated before")
         except MediaFile.DoesNotExist:
-            # row["error"] = "deleted"
-            # df.loc[index, "error"] = "deleted"
             df.loc[index, "deleted"] = True
             update_csv = True
             logger.debug(f"Mediafile {rel_pth} not found. The row will be removed from CSV.")
             continue
-            # mf = mediafile_set[0]
-            # generate thumbnail if necessary
+        # generate thumbnail if necessary
         make_thumbnail_for_mediafile_if_necessary(mf)
 
         if mf.category:
-            # row["predicted_category"] = mf.category.name
             df.loc[index, "predicted_category"] = mf.category.name
             update_csv = True
         if mf.identity:
@@ -320,7 +267,6 @@ def init_identification_on_success(*args, **kwargs):
     logger.debug(f"{kwargs=}")
     workgroup_id = kwargs.pop("workgroup_id")
     workgroup = WorkGroup.objects.get(id=workgroup_id)
-    # workgroup.identification_init_status = args[0]["message"]
     now = django.utils.timezone.now()
     workgroup.identification_init_finished_at = now
     workgroup.save()
@@ -381,14 +327,6 @@ def detection_on_success(self, output: dict, *args, **kwargs):
     logger.debug(f"{args=}")
     logger.debug(f"{kwargs=}")
 
-    logger.debug("calling...")
-    # identify_signature = signature(
-    #     "detectionsimplelog",
-    #     kwargs = {
-    #         "pokus": 4,
-    #     },
-    # )
-
     uploaded_archive_id: int = kwargs.pop("uploaded_archive_id")
     uploaded_archive = UploadedArchive.objects.get(id=uploaded_archive_id)
     uploaded_archive.status = "...detection done"
@@ -399,7 +337,6 @@ def detection_on_success(self, output: dict, *args, **kwargs):
     )
     identify_task = identify_signature.apply_async(
         link=identify_on_success.s(
-            # output=output,
             uploaded_archive_id=uploaded_archive_id,
         ),
         link_error=on_error_in_upload_processing.s(),
@@ -443,77 +380,11 @@ def identify_on_success(self, output: dict, *args, **kwargs):
         mediafile_ids = data["mediafile_ids"]
         for i, mediafile_id in enumerate(mediafile_ids):
 
-            top_k_class_ids = data["pred_class_ids"][i]
-            top_k_labels = data["pred_labels"][i]
-            top_k_paths = data["pred_image_paths"][i]
-            top_k_scores = data["scores"][i]
-
-            mediafile = MediaFile.objects.get(id=mediafile_id)
-
-            if (top_k_scores[0]) > settings.IDENTITY_MANUAL_CONFIRMATION_THRESHOLD:
-
-                identity_id = top_k_class_ids[0]  # top-1
-                mediafile.identity = IndividualIdentity.objects.get(id=identity_id)
-                logger.debug(
-                    f"{mediafile} is {mediafile.identity.name} with score={top_k_scores[0]}. "
-                    + "No need of manual confirmation."
-                )
-                if mediafile.identity.name != top_k_labels[0]:  # top-1
-                    logger.warning(
-                        f"Identity name mismatch: {mediafile.identity.name} != {top_k_labels[0]}"
-                    )
-
-                mediafile.save()
-
-            else:
-                top1_abspath = Path(top_k_paths[0])
-                top1_relpath = top1_abspath.relative_to(media_root)
-                top1_mediafile = MediaFile.objects.get(mediafile=str(top1_relpath))
-                # top1_identity_id = top_k_class_ids[0]  # top-1
-
-                top2_abspath = Path(top_k_paths[1])
-                top2_relpath = top2_abspath.relative_to(media_root)
-                top2_mediafile = MediaFile.objects.get(mediafile=str(top2_relpath))
-                # top2_identity_id = top_k_class_ids[1]  # top-1
-
-                top3_abspath = Path(top_k_paths[2])
-                top3_relpath = top3_abspath.relative_to(media_root)
-                top3_mediafile = MediaFile.objects.get(mediafile=str(top3_relpath))
-                # top3_identity_id = top_k_class_ids[2]  # top-1
-
-                mfi, created = MediafilesForIdentification.objects.get_or_create(
-                    mediafile=mediafile,
-                )
-
-                mfi.top1mediafile = top1_mediafile
-                mfi.top1score = top_k_scores[0]
-                mfi.top1name = top_k_labels[0]
-                mfi.top2mediafile = top2_mediafile
-                mfi.top2score = top_k_scores[1]
-                mfi.top2name = top_k_labels[1]
-                mfi.top3mediafile = top3_mediafile
-                mfi.top3score = top_k_scores[2]
-                mfi.top3name = top_k_labels[2]
-                mfi.save()
-                if top1_mediafile.identity.name != top_k_labels[0]:
-                    logger.warning(
-                        f"Identity mismatch: {top1_mediafile.identity.name} != {top_k_labels[0]}"
-                    )
-                if top2_mediafile.identity.name != top_k_labels[1]:
-                    logger.warning(
-                        f"Identity mismatch: {top2_mediafile.identity.name} != {top_k_labels[1]}"
-                    )
-                if top3_mediafile.identity.name != top_k_labels[2]:
-                    logger.warning(
-                        f"Identity mismatch: {top3_mediafile.identity.name} != {top_k_labels[2]}"
-                    )
+            _prepare_mediafile_for_identification(data, i, media_root, mediafile_id)
 
         uploaded_archive.status = "Identification finished"
         uploaded_archive.save()
         logger.debug("identify done.")
-
-        # simple_log_sig = signature("iworker_simple_log")
-        # simple_log_task = simple_log_sig.apply_async()
 
     else:
         # identification failed
@@ -521,7 +392,73 @@ def identify_on_success(self, output: dict, *args, **kwargs):
         uploaded_archive.save()
         logger.error("Identification failed.")
         # TODO - should the app return some error response to the user?
-        pass
+
+
+def _prepare_mediafile_for_identification(data, i, media_root, mediafile_id):
+    top_k_class_ids = data["pred_class_ids"][i]
+    top_k_labels = data["pred_labels"][i]
+    top_k_paths = data["pred_image_paths"][i]
+    top_k_scores = data["scores"][i]
+    mediafile = MediaFile.objects.get(id=mediafile_id)
+    if (top_k_scores[0]) > settings.IDENTITY_MANUAL_CONFIRMATION_THRESHOLD:
+
+        identity_id = top_k_class_ids[0]  # top-1
+        mediafile.identity = IndividualIdentity.objects.get(id=identity_id)
+        logger.debug(
+            f"{mediafile} is {mediafile.identity.name} with score={top_k_scores[0]}. "
+            + "No need of manual confirmation."
+        )
+        if mediafile.identity.name != top_k_labels[0]:  # top-1
+            logger.warning(
+                f"Identity name mismatch: {mediafile.identity.name} != {top_k_labels[0]}"
+            )
+
+        mediafile.save()
+
+    else:
+        top1_abspath = Path(top_k_paths[0])
+        top1_relpath = top1_abspath.relative_to(media_root)
+        top1_mediafile = MediaFile.objects.get(mediafile=str(top1_relpath))
+
+        top2_abspath = Path(top_k_paths[1])
+        top2_relpath = top2_abspath.relative_to(media_root)
+        top2_mediafile = MediaFile.objects.get(mediafile=str(top2_relpath))
+
+        top3_abspath = Path(top_k_paths[2])
+        top3_relpath = top3_abspath.relative_to(media_root)
+        top3_mediafile = MediaFile.objects.get(mediafile=str(top3_relpath))
+
+        mfi, _ = MediafilesForIdentification.objects.get_or_create(
+            mediafile=mediafile,
+        )
+
+        mfi.top1mediafile = top1_mediafile
+        mfi.top1score = top_k_scores[0]
+        mfi.top1name = top_k_labels[0]
+        mfi.top2mediafile = top2_mediafile
+        mfi.top2score = top_k_scores[1]
+        mfi.top2name = top_k_labels[1]
+        mfi.top3mediafile = top3_mediafile
+        mfi.top3score = top_k_scores[2]
+        mfi.top3name = top_k_labels[2]
+        mfi.save()
+        _identity_mismatch_waning(top1_mediafile, top2_mediafile, top3_mediafile, top_k_labels)
+
+
+def _identity_mismatch_waning(top1_mediafile: MediaFile, top2_mediafile: MediaFile, top3_mediafile: MediaFile, top_k_labels:list) -> None:
+    """Warn if the identity mismatch is detected."""
+    if top1_mediafile.identity.name != top_k_labels[0]:
+        logger.warning(
+            f"Identity mismatch: {top1_mediafile.identity.name} != {top_k_labels[0]}"
+        )
+    if top2_mediafile.identity.name != top_k_labels[1]:
+        logger.warning(
+            f"Identity mismatch: {top2_mediafile.identity.name} != {top_k_labels[1]}"
+        )
+    if top3_mediafile.identity.name != top_k_labels[2]:
+        logger.warning(
+            f"Identity mismatch: {top3_mediafile.identity.name} != {top_k_labels[2]}"
+        )
 
 
 @shared_task(bind=True)

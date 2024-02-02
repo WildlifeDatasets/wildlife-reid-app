@@ -19,9 +19,9 @@ def test_thumbnail():
     assert image_dir.exists()
     fs_data.make_thumbnail_from_directory(image_dir, thumbnail_path)
     assert thumbnail_path.exists()
-    # im = skimage.io.imread(thumbnail_path)
-    # plt.imshow(im)
-    # plt.show()
+    # im = skimage.io.imread(thumbnail_path)  # NOSONAR
+    # plt.imshow(im) # NOSONAR
+    # plt.show() # NOSONAR
 
 
 def test_get_filenames_csv():
@@ -29,5 +29,5 @@ def test_get_filenames_csv():
     image_dir = CAID_DATASET_BASEDIR / "test_mini_data_output/images"
     metadata_path = CAID_DATASET_BASEDIR / "test_mini_data_output/metadata.csv"
     image_paths = fs_data.get_images_from_csv(metadata_path)
-    assert type(image_paths) == list
+    assert isinstance(image_paths, list)
     assert (Path(image_dir) / image_paths[0]).exists()
