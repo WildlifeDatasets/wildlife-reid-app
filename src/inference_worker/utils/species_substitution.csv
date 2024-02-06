@@ -1,0 +1,92 @@
+species_czech,species,Genus,Family,Class,red_list
+nevime,n/a,n/a,n/a,n/a,n/a
+auto,n/a,n/a,n/a,Vehicle,n/a
+stroj,n/a,n/a,n/a,Vehicle,n/a
+nic,n/a,n/a,n/a,Nothing,n/a
+jelen evropsky,Cervus elaphus,Cervus,Cervidae,Mammalia,no
+clovek moudry,Homo sapiens,Homo,Hominidae,Mammalia,no
+prase divoke,Sus scrofa,Sus,Suidae,Mammalia,no
+srnec obecny,Capreolus capreolus,Capreolus,Cervidae,Mammalia,no
+zajic polni,Lepus europaeus,Lepus,Leporidae,Mammalia,no
+rys ostrovid,Lynx lynx,Lynx,Felidae,Mammalia,yes
+pes domaci,Canis familiaris,Canis,Canidae,Mammalia,no
+jezevec lesni,Meles meles,Meles,Mustelidae,Mammalia,no
+veverka obecna,Sciurus vulgaris,Sciurus,Sciuridae,Mammalia,no
+kuna skalni,Martes foina,Martes,Mustelidae,Mammalia,no
+kuna lesni,Martes martes,Martes,Mustelidae,Mammalia,no
+kuna,n/a,Martes,Mustelidae,Mammalia,no
+danek evropsky,Dama dama,Dama,Cervidae,Mammalia,no
+tur domaci,Bos taurus,Bos,Bovidae,Mammalia,no
+kun domaci,Equus caballus,Equus,Equidae,Mammalia,no
+holub hrivnac,Columba palumbus,Columba,Columbidae,Aves,no
+clovek,Homo sapiens,Homo,Hominidae,Mammalia,no
+liska obecna,Vulpes vulpes,Vulpes,Canidae,Mammalia,no
+clovek ve vozidle,Homo sapiens,Homo,Hominidae,Mammalia,no
+vlk obecny,Canis lupus,Canis,Canidae,Mammalia,yes
+zajic,Lepus europaeus,Lepus,Leporidae,Mammalia,no
+pes,Canis familiaris,Canis,Canidae,Mammalia,no
+veverka,Sciurus vulgaris,Sciurus,Sciuridae,Mammalia,no
+medved hnedy,Ursus arctos,Ursus,Ursidae,Mammalia,yes
+muflon,Ovis musimon,Ovis,Bovidae,Mammalia,no
+kopytnici,n/a,n/a,n/a,Mammalia,n/a
+nelze identifikovat,n/a,n/a,n/a,n/a,n/a
+neidentifikovany ptak,n/a,n/a,n/a,Aves,n/a
+sykora,n/a,Parus,Paridae,Aves,no
+vetsi savec (neidentifikovano),n/a,n/a,n/a,Mammalia,no
+mysice,n/a,Apodemus,Muridae,Mammalia,no
+mensi savec (neidentifikovano),n/a,n/a,n/a,Mammalia,no
+kane lesni,Buteo Buteo,Buteo,Accipitridae,Aves,no
+ptaci,n/a,n/a,n/a,Aves,no
+sojka obecna,Garrulus glandarius,Garrulus,Corvidae,Aves,no
+krkavec velky,Corvus corax,Corvus,Corvidae,Aves,no
+kos cerny,Turdus merula,Turdus,Turdidae,Aves,no
+orel skalni,Aquila chrysaetos,Aquila,Accipitridae,Aves,no
+kamzik horsky,Rupicapra rupicapra,Rupicapra,Bovidae,Mammalia,no
+plch velky,Glis glis,Glis,Gliridae,Mammalia,no
+psik  myvalovity,Nyctereutes procyonoides,Nyctereutes,Canidae,Mammalia,no
+datel cerny,Dryocopus martius,Dryocopus,Picidae,Aves,no
+sluka lesni,Scolopax rusticola,Scolopax,Scolopacidae,Aves,no
+cervenka obecna,Erithacus rubecula,Erithacus,Muscicapidae,Aves,no
+netopyr,n/a,n/a,n/a,Mammalia,no
+mensi selmy,n/a,n/a,n/a,Mammalia,no
+myval severni,Procyon lotor,Procyon,Procyonidae,Mammalia,no
+ovce domaci,Ovis aries,Ovis,Bovidae,Mammalia,no
+jerabek lesni,Tetrastes bonasia,Tetrao,Tetraonidae,Aves,yes
+lasice kolcava,Mustela nivalis,Mustela,Mustelidae,Mammalia,no
+jelen sika,Cervus nippon,Cervus,Cervidae,Mammalia,no
+strakapoud,n/a,Dendrocopos,Picidae,Aves,no
+cap cerny,Ciconia nigra,Ciconia,Ciconiidae,Aves,no
+kos horsky,Turdus torquatus,Turdus,Turdidae,Aves,no
+mensi savci,n/a,n/a,n/a,Mammalia,no
+pustik obecny,Strix aluco,Strix,Strigidae,Aves,no
+vydra ricni,Lutra lutra,Lutra,Mustelidae,Mammalia,no
+jezek,n/a,Erinaceus,Erinaceidae,Mammalia,no
+tetrev hlusec,Tetrao urogallus,Tetrao,Tetraonidae,Aves,yes
+zluna seda,Picus canus,Picus,Picidae,Aves,no
+oresnik kropenaty,Nucifraga caryocatactes,Nucifraga,Corvidae,Aves,no
+zluna zelena,Picus viridis,Picus,Picidae,Aves,no
+zluna,n/a,Picus,Picidae,Aves,no
+tchor tmavy,Mustela putorius,Mustela,Mustelidae,Mammalia,no
+strakapoud velky,Dendrocopos major,Dendrocopos,Picidae,Aves,no
+los evropsky,Alces alces,Alces,Cervidae,Mammalia,yes
+jerab popelavy,Grus grus,Grus,Gruidae,Aves,yes
+syc rousny,Aegolius funereus,Aegolius,Strigidae,Aves,no
+kachna,n/a,Anas,Anatidae,Aves,n/a
+vyr velky,Bubo bubo,Bubo,Strigidae,Aves,yes
+motyl,n/a,n/a,Lepidoptera,Insecta,no
+sykora konadra,Parus major,Parus,Paridae,Aves,no
+sykora parukarka,Lophophanes cristatus,Lophophanes,Paridae,Aves,no
+sykora uhelnicek,Periparus ater,Periparus,Paridae,Aves,no
+drozd zpevny,Turdus philomelos,Turdus,Turdidae,Aves,no
+cizek lesni,Spinus spinus,Spinus,Fringillidae,Aves,no
+brhlik lesni,Sitta europaea,Sitta,Sittidae,Aves,no
+kralicek ohnivy,Regulus ignicapilla,Regulus,Regulidae,Aves,no
+koza,n/a,Capra,Bovidae,Mammalia,n/a
+drozd bravnik,Turdus viscivorus,Turdus,Turdidae,Aves,no
+drozd,n/a,Turdus,Turdidae,Aves,no
+kocka,n/a,Felis,Felidae,Mammalia,yes
+kocka domaci,Felis catus,Felis,Felidae,Mammalia,no
+kocka divoka,Felis silvestris,Felis,Felidae,Mammalia,yes
+jerabek,n/a,Tetrastes,Tetraonidae,Aves,no
+mys,n/a,Mus,Muridae,Mammalia,n/a
+sojka,n/a,Garrulus,Corvidae,Aves,n/a
