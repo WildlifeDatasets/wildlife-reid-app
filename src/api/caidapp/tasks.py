@@ -91,8 +91,10 @@ def run_species_prediction_async(uploaded_archive: UploadedArchive):
     uploaded_archive.started_at = django.utils.timezone.now()
     output_archive_file = output_dir / "images.zip"
     output_metadata_file = output_dir / "metadata.csv"
+    uploaded_archive.csv_file = str(Path(uploaded_archive.outputdir) / "metadata.csv")
     uploaded_archive.status = "Processing"
     uploaded_archive.save()
+    logger.debug(f"updating uploaded archive, {uploaded_archive.csv_file=}")
 
     # if the metadata file exists, it is updated
     update_metadata_csv_by_uploaded_archive(uploaded_archive)
@@ -127,13 +129,14 @@ def run_species_prediction_async(uploaded_archive: UploadedArchive):
 def make_thumbnail_for_mediafile_if_necessary(mediafile: MediaFile, thumbnail_width: int = 400):
     """Make small image representing the upload."""
     logger.debug("making thumbnail for mediafile")
+    mediafile_path = Path(settings.MEDIA_ROOT) / mediafile.mediafile.name
     output_dir = Path(settings.MEDIA_ROOT) / mediafile.parent.outputdir
     abs_pth = output_dir / "thumbnails" / Path(mediafile.mediafile.name).name
     rel_pth = os.path.relpath(abs_pth, settings.MEDIA_ROOT)
     # make_thumbnail_from_directory(output_dir, thumbnail_path)
     if (mediafile.thumbnail is None) or (not abs_pth.exists()):
         logger.debug(f"Creating thumbnail for {rel_pth}")
-        if make_thumbnail_from_file(abs_pth, abs_pth, width=thumbnail_width):
+        if make_thumbnail_from_file(mediafile_path, abs_pth, width=thumbnail_width):
             mediafile.thumbnail = str(rel_pth)
             mediafile.save()
         else:
@@ -214,8 +217,9 @@ def update_metadata_csv_by_uploaded_archive(
     """Update metadata CSV file by MediaFiles in UploadedArchive."""
     logger.debug("Updating metadata by uploaded archive...")
     output_dir = Path(settings.MEDIA_ROOT) / uploaded_archive.outputdir
+    logger.debug(f"{uploaded_archive.csv_file=}")
     csv_file = Path(settings.MEDIA_ROOT) / str(uploaded_archive.csv_file)
-    logger.debug(f"{csv_file} {Path(csv_file).exists()}")
+    logger.debug(f"{csv_file=} {Path(csv_file).exists()}")
     if not Path(csv_file).exists():
         logger.warning(f"CSV file {csv_file} does not exist. Skipping.")
         return

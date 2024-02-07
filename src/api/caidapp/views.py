@@ -488,27 +488,17 @@ def init_identification(request, taxon_str: str = "Lynx lynx"):
     ).all()
 
     logger.debug("Generating CSV for init_identification...")
-    csv_len = len(mediafiles)
-    csv_data = {
-        "image_path": [None] * csv_len,
-        "class_id": [None] * csv_len,
-        "label": [None] * csv_len,
-    }
 
     media_root = Path(settings.MEDIA_ROOT)
     output_dir = Path(settings.MEDIA_ROOT) / request.user.ciduser.workgroup.name
     output_dir.mkdir(exist_ok=True, parents=True)
 
-    logger.debug(f"number of records={len(mediafiles)}")
-    for i, mediafile in enumerate(mediafiles):
-
-        # if mediafile.identity is not None:
-        csv_data["image_path"][i] = str(media_root / mediafile.mediafile.name)
-        csv_data["class_id"][i] = int(mediafile.identity.id)
-        csv_data["label"][i] = str(mediafile.identity.name)
+    csv_data = _prepare_dataframe_for_identification(mediafiles)
+    logger.debug(f"{len(csv_data)=}")
 
     identity_metadata_file = output_dir / "init_identification.csv"
     pd.DataFrame(csv_data).to_csv(identity_metadata_file, index=False)
+    logger.debug(f"{identity_metadata_file=}")
 
     logger.debug("Calling init_identification...")
     sig = signature(
@@ -534,6 +524,31 @@ def init_identification(request, taxon_str: str = "Lynx lynx"):
     return redirect("caidapp:individual_identities")
 
 
+def _prepare_dataframe_for_identification(mediafiles):
+    media_root = Path(settings.MEDIA_ROOT)
+    csv_len = len(mediafiles)
+    csv_data = {
+        "image_path": [None] * csv_len,
+        "mediafile_id": [None] * csv_len,
+        "class_id": [None] * csv_len,
+        "label": [None] * csv_len,
+        "location_id": [None] * csv_len,
+        "location_name": [None] * csv_len,
+        "location": [None] * csv_len,
+    }
+    logger.debug(f"number of records={len(mediafiles)}")
+    for i, mediafile in enumerate(mediafiles):
+        # if mediafile.identity is not None:
+        csv_data["image_path"][i] = str(media_root / mediafile.mediafile.name)
+        csv_data["mediafile_id"][i] = mediafile.id
+        csv_data["class_id"][i] = int(mediafile.identity.id)
+        csv_data["label"][i] = str(mediafile.identity.name)
+        csv_data["location_id"][i] = int(mediafile.location.id)
+        csv_data["location_name"][i] = str(mediafile.location.name)
+        csv_data["location"][i] = str(mediafile.location.location)
+    return csv_data
+
+
 def run_identification(request, uploadedarchive_id):
     """Run identification of uploaded archive."""
     uploaded_archive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
@@ -557,19 +572,20 @@ def _run_identification(uploaded_archive: UploadedArchive, taxon_str="Lynx lynx"
     # ).all()
 
     logger.debug(f"Generating CSV for init_identification with {len(mediafiles)} records...")
-    csv_len = len(mediafiles)
-    csv_data = {"image_path": [None] * csv_len, "mediafile_id": [None] * csv_len}
+    # csv_len = len(mediafiles)
+    # csv_data = {"image_path": [None] * csv_len, "mediafile_id": [None] * csv_len}
 
+    csv_data = _prepare_dataframe_for_identification(mediafiles)
     media_root = Path(settings.MEDIA_ROOT)
     # output_dir = Path(settings.MEDIA_ROOT) / request.user.ciduser.workgroup.name
     # output_dir.mkdir(exist_ok=True, parents=True)
 
-    logger.debug(f"number of records={len(mediafiles)}")
-
-    for i, mediafile in enumerate(mediafiles):
-        # if mediafile.identity is not None:
-        csv_data["image_path"][i] = str(media_root / mediafile.mediafile.name)
-        csv_data["mediafile_id"][i] = mediafile.id
+    # logger.debug(f"number of records={len(mediafiles)}")
+    #
+    # for i, mediafile in enumerate(mediafiles):
+    #     # if mediafile.identity is not None:
+    #     csv_data["image_path"][i] = str(media_root / mediafile.mediafile.name)
+    #     csv_data["mediafile_id"][i] = mediafile.id
 
     identity_metadata_file = media_root / uploaded_archive.outputdir / "identification_metadata.csv"
     cropped_identity_metadata_file = (
@@ -1234,6 +1250,7 @@ def _update_csv_by_uploadedarchive(request, uploadedarchive_id: int):
         # logger.debug(f"{mediafiles=}")
         if len(mediafiles) > 0:
             logger.debug("  sync mediafiles with csv")
+            logger.debug(f"  {uploaded_archive.csv_file=}")
             update_metadata_csv_by_uploaded_archive(uploaded_archive, create_missing=False)
             return True
 
