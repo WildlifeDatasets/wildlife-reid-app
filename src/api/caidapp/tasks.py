@@ -189,6 +189,8 @@ def update_uploaded_archive_by_metadata_csv(
                     captured_at=captured_at,
                     location=location,
                 )
+                if uploaded_archive.contains_identities and uploaded_archive.contains_single_taxon:
+                    mf.identity_is_representative = True
                 mf.save()
                 logger.debug(f"Created new Mediafile {mf}")
             else:
