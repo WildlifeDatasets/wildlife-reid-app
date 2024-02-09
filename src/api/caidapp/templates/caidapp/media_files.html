@@ -26,6 +26,10 @@
                                 {% endif %}
                                 <div class="card-body">
                                     {#                                <h5 class="card-title">{{ mediafile }}</h5>#}
+                                    {% if mediafile.identity_is_representative %}
+                                        <i class="bi bi-check-circle-fill"></i>
+                                    {% endif %}
+                                    <i class="bi -file-earmark-image"></i>
                                     <p class="card-text"> Category: {{ mediafile.category }}</p>
                                     <p class="card-text"> Location: {{ mediafile.location }}</p>
                                     <p class="card-text"> Captured at: {{ mediafile.captured_at|date:'Y-m-d H:i' }}</p>

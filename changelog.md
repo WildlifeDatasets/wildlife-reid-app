@@ -3,6 +3,11 @@
 
 # Changelog
 
+## 02-2024
+
+* [added] Icon showing the mediafile is representative
+* [fixed] The single species identified mediafiles are set representative
+
 ## 01-2024
 
 * [changed] Easier deployment by better setup of migrations and Google Auth

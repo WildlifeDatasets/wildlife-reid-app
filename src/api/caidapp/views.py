@@ -534,7 +534,7 @@ def _prepare_dataframe_for_identification(mediafiles):
         "label": [None] * csv_len,
         "location_id": [None] * csv_len,
         "location_name": [None] * csv_len,
-        "location": [None] * csv_len,
+        "location_coordinates": [None] * csv_len,
     }
     logger.debug(f"number of records={len(mediafiles)}")
     for i, mediafile in enumerate(mediafiles):
@@ -545,7 +545,7 @@ def _prepare_dataframe_for_identification(mediafiles):
         csv_data["label"][i] = str(mediafile.identity.name)
         csv_data["location_id"][i] = int(mediafile.location.id)
         csv_data["location_name"][i] = str(mediafile.location.name)
-        csv_data["location"][i] = str(mediafile.location.location)
+        csv_data["location_coordinates"][i] = str(mediafile.location.location) if mediafile.location.location else ""
     return csv_data
 
 
@@ -1257,31 +1257,31 @@ def _update_csv_by_uploadedarchive(request, uploadedarchive_id: int):
     return False
 
 
-def _generate_csv(request, uploadedarchive_id: int):
-    uploaded_archive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
-    output_dir = Path(settings.MEDIA_ROOT) / uploaded_archive.outputdir
-    output_metadata_file = output_dir / "metadata.csv"
-    output_archive_file = output_dir / "images.zip"
-    mediafiles = MediaFile.objects.filter(parent=uploaded_archive).all()
-    csv_len = len(mediafiles)
-    csv_data = {
-        "image_path": [None] * csv_len,
-        "class_id": [None] * csv_len,
-        "label": [None] * csv_len,
-    }
-
-    media_root = Path(settings.MEDIA_ROOT)
-    logger.debug(f"number of records={len(mediafiles)}")
-    for i, mediafile in enumerate(mediafiles):
-
-        # if mediafile.identity is not None:
-        csv_data["image_path"][i] = str(media_root / mediafile.mediafile.name)
-        csv_data["class_id"][i] = int(mediafile.identity.id)
-        csv_data["label"][i] = str(mediafile.identity.name)
-
-    pd.DataFrame(csv_data).to_csv(output_metadata_file, index=False)
-
-    return output_metadata_file, output_archive_file
+# def _generate_csv(request, uploadedarchive_id: int):
+#     uploaded_archive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
+#     output_dir = Path(settings.MEDIA_ROOT) / uploaded_archive.outputdir
+#     output_metadata_file = output_dir / "metadata.csv"
+#     output_archive_file = output_dir / "images.zip"
+#     mediafiles = MediaFile.objects.filter(parent=uploaded_archive).all()
+#     csv_len = len(mediafiles)
+#     csv_data = {
+#         "image_path": [None] * csv_len,
+#         "class_id": [None] * csv_len,
+#         "label": [None] * csv_len,
+#     }
+#
+#     media_root = Path(settings.MEDIA_ROOT)
+#     logger.debug(f"number of records={len(mediafiles)}")
+#     for i, mediafile in enumerate(mediafiles):
+#
+#         # if mediafile.identity is not None:
+#         csv_data["image_path"][i] = str(media_root / mediafile.mediafile.name)
+#         csv_data["class_id"][i] = int(mediafile.identity.id)
+#         csv_data["label"][i] = str(mediafile.identity.name)
+#
+#     pd.DataFrame(csv_data).to_csv(output_metadata_file, index=False)
+#
+#     return output_metadata_file, output_archive_file
 
 
 def download_uploadedarchive_images(request, uploadedarchive_id: int):

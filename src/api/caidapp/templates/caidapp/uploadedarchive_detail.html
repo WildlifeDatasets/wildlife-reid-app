@@ -28,6 +28,9 @@
                                 <img class="card-img-top" src="{{ mediafile.thumbnail.url }}" alt="Cameratrap image">
                                 <div class="card-body">
                                     {#                                <h5 class="card-title">{{ mediafile }}</h5>#}
+                                    {% if mediafile.identity_is_representative %}
+                                        <i class="bi bi-check-circle-fill"></i>
+                                    {% endif %}
                                     <p class="card-text"> Category: {{ mediafile.category }}</p>
                                     <p class="card-text"> Location: {{ mediafile.location }}</p>
                                     <p class="card-text"> Identity: {{ mediafile.identity}}</p>
