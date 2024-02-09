@@ -51,7 +51,7 @@ def predict_species_on_success(
         # create missing take effect only if the processing is done for the first time
         # in other cases the file should be removed from CSV before the processing is run
         update_uploaded_archive_by_metadata_csv(uploaded_archive, create_missing=True)
-        uploaded_archive.status = "Finished"
+        uploaded_archive.status = "Species Finished"
     else:
         uploaded_archive.status = "Failed"
     uploaded_archive.finished_at = django.utils.timezone.now()
@@ -189,8 +189,11 @@ def update_uploaded_archive_by_metadata_csv(
                     captured_at=captured_at,
                     location=location,
                 )
+
+                logger.debug(f"{uploaded_archive.contains_identities=}, {uploaded_archive.contains_single_taxon=}")
                 if uploaded_archive.contains_identities and uploaded_archive.contains_single_taxon:
                     mf.identity_is_representative = True
+                logger.debug(f"{mf.identity_is_representative}")
                 mf.save()
                 logger.debug(f"Created new Mediafile {mf}")
             else:
