@@ -67,14 +67,15 @@
 {#                           href="{% url 'caidapp:update_individual_identity' individual_identity.hash %}">#}
 {#                            <i class="bi bi-images"></i> Detail#}
 {#                        </a>#}
-                        <a class="btn btn-secondary"
-                           href="{% url 'caidapp:update_individual_identity' individual_identity.id %}">
-                            <i class="bi bi-images"></i> Edit
-                        </a>
 
                         <a class="btn btn-secondary"
                            href="{% url 'caidapp:individual_identity_mediafiles' individual_identity.id %}">
                             <i class="bi bi-images"></i> Show
+                        </a>
+
+                        <a class="btn btn-secondary"
+                           href="{% url 'caidapp:update_individual_identity' individual_identity.id %}">
+                            <i class="bi bi-pencil"></i> Edit
                         </a>
                     </div>
                 </div>

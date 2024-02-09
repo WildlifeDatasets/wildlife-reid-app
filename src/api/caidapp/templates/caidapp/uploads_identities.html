@@ -62,10 +62,17 @@
                                         <p>Finished at: {{ uploadedarchive.finished_at|date:'Y-m-d H:i' }} </p>
                                     {% endif %}
 
-                                    <a class="btn btn-primary"
-                                       href="{% url 'caidapp:uploadedarchive_detail' uploadedarchive.id %}">
-                                        <i class="bi bi-images"></i> Detail
-                                    </a>
+                                    {% if uploadedarchive.status == "Processing" %}
+                                        <a class="btn btn-primary disabled"
+                                           href="{% url 'caidapp:uploadedarchive_detail' uploadedarchive.id %}">
+                                            <i class="bi bi-images"></i> Detail
+                                        </a>
+                                    {% else %}
+                                        <a class="btn btn-primary"
+                                           href="{% url 'caidapp:uploadedarchive_detail' uploadedarchive.id %}">
+                                            <i class="bi bi-images"></i> Detail
+                                        </a>
+                                    {% endif %}
 
 
                                     <div class="dropdown d-inline-block">
