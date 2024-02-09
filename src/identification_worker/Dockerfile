@@ -1,4 +1,17 @@
-FROM python:3.9.16-slim
+FROM python:3.10.13-slim
+
+# install linux dependencies
+RUN apt-get update --yes && \
+    # - apt-get upgrade is run to patch known vulnerabilities in apt-get packages as
+    #   the ubuntu base image is rebuilt too seldom sometimes (less than once a month)
+    apt-get upgrade --yes && \
+    apt-get install --yes --no-install-recommends \
+    wget \
+    git \
+    ffmpeg \
+    libsm6 \
+    libxext6 && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
 COPY ./src/identification_worker/requirements.txt /identification_worker/requirements.txt
 

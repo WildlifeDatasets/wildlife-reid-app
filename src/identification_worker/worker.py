@@ -9,7 +9,7 @@ from celery import Celery, shared_task
 
 from utils import config
 from utils.database import get_db_connection, init_db_connection
-from utils.inference import encode_images, identify, encode_images_wildlife, identify_wildlife
+from utils.inference import encode_images, identify
 from utils.log import setup_logging
 
 setup_logging()
@@ -34,7 +34,6 @@ def init(
 ):
     """Process and store Reference Image records in the database."""
     try:
-        #input_metadata_file = "/identification_worker/resources/data/ident_metadata.csv"
         logger.info(f"Applying init task with args: {input_metadata_file=}, {organization_id=}.")
 
         # read metadata file
@@ -47,9 +46,7 @@ def init(
         metadata = metadata[["image_path", "class_id", "label"]]
 
         # generate embeddings
-        features = encode_images_wildlife(metadata)
-
-        # features = encode_images(image_paths=metadata["image_path"])
+        features = encode_images(metadata)
         metadata["embedding"] = features.tolist()
 
         # save embeddings and class ids into the database
@@ -100,7 +97,6 @@ def predict(
         )
 
         # read metadata file
-        #input_metadata_file_path = "/identification_worker/resources/data/unident_metadata.csv"
         metadata = pd.read_csv(input_metadata_file_path)
         if len(metadata) == 0:
             logger.info("Input data is empty. Finishing the job.")
@@ -124,8 +120,7 @@ def predict(
                 out = {"status": "ERROR", "error": "Identification worker was not initialized."}
             else:
                 # generate embeddings
-                #features = encode_images(image_paths=metadata["image_path"])
-                features = encode_images_wildlife(metadata)
+                features = encode_images(metadata)
 
                 # get reference embeddings
                 reference_features = np.array(reference_images["embedding"].tolist())
@@ -133,7 +128,7 @@ def predict(
 
                 # make predictions by comparing the embeddings using k-NN
                 logger.info("Making predictions using .")
-                pred_image_paths, pred_class_ids, scores = identify_wildlife(
+                pred_image_paths, pred_class_ids, scores = identify(
                     features,
                     reference_features,
                     reference_image_paths=reference_images["image_path"],
