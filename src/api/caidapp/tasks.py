@@ -124,8 +124,6 @@ def run_species_prediction_async(uploaded_archive: UploadedArchive):
     logger.info(f"Created worker task with id '{task.task_id}'.")
 
 
-
-
 def make_thumbnail_for_mediafile_if_necessary(mediafile: MediaFile, thumbnail_width: int = 400):
     """Make small image representing the upload."""
     logger.debug("making thumbnail for mediafile")
@@ -190,7 +188,8 @@ def update_uploaded_archive_by_metadata_csv(
                     location=location,
                 )
 
-                logger.debug(f"{uploaded_archive.contains_identities=}, {uploaded_archive.contains_single_taxon=}")
+                logger.debug(f"{uploaded_archive.contains_identities=}")
+                logger.debug(f"{uploaded_archive.contains_single_taxon=}")
                 if uploaded_archive.contains_identities and uploaded_archive.contains_single_taxon:
                     mf.identity_is_representative = True
                 logger.debug(f"{mf.identity_is_representative}")
@@ -276,13 +275,15 @@ def init_identification_on_success(*args, **kwargs):
     logger.debug(f"{kwargs=}")
     workgroup_id = kwargs.pop("workgroup_id")
     workgroup = WorkGroup.objects.get(id=workgroup_id)
-    output:dict = args[0]
+    output: dict = args[0]
     status = output["status"]
     message = output["message"]
+
     workgroup.identification_init_status = status
     now = django.utils.timezone.now()
     workgroup.identification_init_at = now
     workgroup.save()
+    logger.debug(f"{message=}")
     logger.debug(f"{workgroup=}")
     logger.debug(f"{workgroup.identification_init_at=}")
     logger.debug(f"{workgroup.hash=}")
@@ -459,20 +460,19 @@ def _prepare_mediafile_for_identification(data, i, media_root, mediafile_id):
         _identity_mismatch_waning(top1_mediafile, top2_mediafile, top3_mediafile, top_k_labels)
 
 
-def _identity_mismatch_waning(top1_mediafile: MediaFile, top2_mediafile: MediaFile, top3_mediafile: MediaFile, top_k_labels:list) -> None:
+def _identity_mismatch_waning(
+    top1_mediafile: MediaFile,
+    top2_mediafile: MediaFile,
+    top3_mediafile: MediaFile,
+    top_k_labels: list,
+) -> None:
     """Warn if the identity mismatch is detected."""
     if top1_mediafile.identity.name != top_k_labels[0]:
-        logger.warning(
-            f"Identity mismatch: {top1_mediafile.identity.name} != {top_k_labels[0]}"
-        )
+        logger.warning(f"Identity mismatch: {top1_mediafile.identity.name} != {top_k_labels[0]}")
     if top2_mediafile.identity.name != top_k_labels[1]:
-        logger.warning(
-            f"Identity mismatch: {top2_mediafile.identity.name} != {top_k_labels[1]}"
-        )
+        logger.warning(f"Identity mismatch: {top2_mediafile.identity.name} != {top_k_labels[1]}")
     if top3_mediafile.identity.name != top_k_labels[2]:
-        logger.warning(
-            f"Identity mismatch: {top3_mediafile.identity.name} != {top_k_labels[2]}"
-        )
+        logger.warning(f"Identity mismatch: {top3_mediafile.identity.name} != {top_k_labels[2]}")
 
 
 @shared_task(bind=True)

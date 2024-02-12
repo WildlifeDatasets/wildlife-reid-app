@@ -5,11 +5,12 @@ import numpy as np
 import pandas as pd
 import timm
 import torch
-from fgvc.utils.utils import set_cuda_device
 from wildlife_tools import realize
 from wildlife_tools.data import WildlifeDataset
 from wildlife_tools.features import DeepFeatures
 from wildlife_tools.similarity import CosineSimilarity
+
+from fgvc.utils.utils import set_cuda_device
 
 logger = logging.getLogger("app")
 device = set_cuda_device("0" if torch.cuda.is_available() else "cpu")
@@ -22,15 +23,17 @@ class CarnivoreDataset(WildlifeDataset):
 
     @property
     def image_paths(self):
+        """Return the image paths."""
         return self.metadata["path"].astype(str).values
 
 
 def load_model(model_name, model_checkpoint=""):
+    """Load the model from the given model name and checkpoint."""
     # load model checkpoint
     model = timm.create_model(model_name, num_classes=0, pretrained=True)
     if model_checkpoint:
         if not torch.cuda.is_available():
-            model_ckpt = torch.load(model_checkpoint, map_location=torch.device('cpu'))["model"]
+            model_ckpt = torch.load(model_checkpoint, map_location=torch.device("cpu"))["model"]
         else:
             model_ckpt = torch.load(model_checkpoint)["model"]
         model.load_state_dict(model_ckpt)
@@ -50,10 +53,10 @@ def encode_images(metadata: pd.DataFrame) -> np.ndarray:
     logger.info("Creating DataLoaders.")
 
     config = {
-        'method': 'TransformTimm',
-        'input_size': np.max(MODEL.default_cfg["input_size"][1:]),
-        'is_training': False,
-        'auto_augment': 'rand-m10-n2-mstd1',
+        "method": "TransformTimm",
+        "input_size": np.max(MODEL.default_cfg["input_size"][1:]),
+        "is_training": False,
+        "auto_augment": "rand-m10-n2-mstd1",
     }
     transform = realize(config)
 
@@ -105,20 +108,24 @@ def _get_top_predictions(similarity: np.ndarray, paths: list, identities: list, 
 
 
 def identify(
-        features: np.ndarray,
-        reference_features: np.ndarray,
-        reference_image_paths: list,
-        reference_class_ids: list,
-        top_k: int = 1,
+    features: np.ndarray,
+    reference_features: np.ndarray,
+    reference_image_paths: list,
+    reference_class_ids: list,
+    top_k: int = 1,
 ) -> Tuple[list, np.ndarray, np.ndarray]:
     """Compare input feature vectors with the reference feature vectors and make predictions."""
     assert len(reference_features) == len(reference_image_paths)
     assert len(reference_features) == len(reference_class_ids)
 
     similarity_measure = CosineSimilarity()
-    similarity = similarity_measure(features.astype(np.float32), reference_features.astype(np.float32))['cosine']
+    similarity = similarity_measure(
+        features.astype(np.float32), reference_features.astype(np.float32)
+    )["cosine"]
 
-    top_predictions = _get_top_predictions(similarity, reference_image_paths, reference_class_ids, top_k=top_k)
+    top_predictions = _get_top_predictions(
+        similarity, reference_image_paths, reference_class_ids, top_k=top_k
+    )
 
     pred_image_paths = []
     pred_class_ids = []

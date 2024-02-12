@@ -94,7 +94,8 @@ def get_species_substitution_latin(
     if latin_to_taxonomy_csv_path is None:
         species_substitution_path = (
             # dir_with_this_file.parent.parent.parent / "resources/Sumava/species_substitution.csv"
-            dir_with_this_file / "species_substitution.csv"
+            dir_with_this_file
+            / "species_substitution.csv"
         )
     else:
         species_substitution_path = latin_to_taxonomy_csv_path

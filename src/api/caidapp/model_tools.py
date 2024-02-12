@@ -73,4 +73,3 @@ def upload_to_unqiue_folder(instance, filename):
 
     # path cannot be absolute or contain "..", otherwise django will raise an error
     return f"./upload/{unique_id}/{filename}"
-

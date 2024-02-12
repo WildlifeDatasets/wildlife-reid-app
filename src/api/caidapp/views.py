@@ -175,8 +175,9 @@ def uploads_identities(request):
     page_number = request.GET.get("page")
     page_obj = paginator.get_page(page_number)
     return render(
-        request, "caidapp/uploads_identities.html",
-        context={"page_obj": page_obj, "btn_styles": _single_species_button_style(request)}
+        request,
+        "caidapp/uploads_identities.html",
+        context={"page_obj": page_obj, "btn_styles": _single_species_button_style(request)},
     )
 
 
@@ -492,7 +493,6 @@ def init_identification(request, taxon_str: str = "Lynx lynx"):
 
     logger.debug("Generating CSV for init_identification...")
 
-    media_root = Path(settings.MEDIA_ROOT)
     output_dir = Path(settings.MEDIA_ROOT) / request.user.ciduser.workgroup.name
     output_dir.mkdir(exist_ok=True, parents=True)
 
@@ -548,7 +548,9 @@ def _prepare_dataframe_for_identification(mediafiles):
         csv_data["label"][i] = str(mediafile.identity.name)
         csv_data["location_id"][i] = int(mediafile.location.id)
         csv_data["location_name"][i] = str(mediafile.location.name)
-        csv_data["location_coordinates"][i] = str(mediafile.location.location) if mediafile.location.location else ""
+        csv_data["location_coordinates"][i] = (
+            str(mediafile.location.location) if mediafile.location.location else ""
+        )
     return csv_data
 
 
@@ -556,37 +558,68 @@ def _single_species_button_style(request) -> dict:
 
     is_initiated = request.user.ciduser.workgroup.identification_init_at is not None
 
-    exists_representative = len(MediaFile.objects.filter(
-        parent__owner__workgroup=request.user.ciduser.workgroup,
-        identity_is_representative=True,
-        parent__contains_single_taxon=True,
-    )) > 0
+    exists_representative = (
+        len(
+            MediaFile.objects.filter(
+                parent__owner__workgroup=request.user.ciduser.workgroup,
+                identity_is_representative=True,
+                parent__contains_single_taxon=True,
+            )
+        )
+        > 0
+    )
 
-    exists_unidentified = len(UploadedArchive.objects.filter(
-        owner__workgroup=request.user.ciduser.workgroup,
-        contains_identities=False,
-        contains_single_taxon=True,
-        status="Species Finished",
-    )) > 0
+    exists_unidentified = (
+        len(
+            UploadedArchive.objects.filter(
+                owner__workgroup=request.user.ciduser.workgroup,
+                contains_identities=False,
+                contains_single_taxon=True,
+                status="Species Finished",
+            )
+        )
+        > 0
+    )
 
-    exists_for_confirmation = len(MediafilesForIdentification.objects.filter(
-        mediafile__parent__owner__workgroup=request.user.ciduser.workgroup
-    ))> 0
+    exists_for_confirmation = (
+        len(
+            MediafilesForIdentification.objects.filter(
+                mediafile__parent__owner__workgroup=request.user.ciduser.workgroup
+            )
+        )
+        > 0
+    )
 
     btn_styles = {}
 
-    btn_styles["upload_identified"] = "btn-primary" if (not is_initiated) and (not exists_representative) else "btn-secondary"
-    btn_styles["init_identification"] = "btn-primary" if (not is_initiated) and exists_representative else "btn-secondary"
-    btn_styles["upload_unidentified"] = "btn-primary" if is_initiated and (not exists_unidentified) and (not exists_for_confirmation) else "btn-secondary"
-    btn_styles["run_identification"] = "btn-primary" if is_initiated and exists_unidentified and (not exists_for_confirmation) else "btn-secondary"
-    btn_styles["confirm_identification"] = "btn-primary" if exists_for_confirmation else "btn-secondary"
+    btn_styles["upload_identified"] = (
+        "btn-primary" if (not is_initiated) and (not exists_representative) else "btn-secondary"
+    )
+    btn_styles["init_identification"] = (
+        "btn-primary" if (not is_initiated) and exists_representative else "btn-secondary"
+    )
+    btn_styles["upload_unidentified"] = (
+        "btn-primary"
+        if is_initiated and (not exists_unidentified) and (not exists_for_confirmation)
+        else "btn-secondary"
+    )
+    btn_styles["run_identification"] = (
+        "btn-primary"
+        if is_initiated and exists_unidentified and (not exists_for_confirmation)
+        else "btn-secondary"
+    )
+    btn_styles["confirm_identification"] = (
+        "btn-primary" if exists_for_confirmation else "btn-secondary"
+    )
 
     btn_styles["init_identification"] += " disabled" if not exists_representative else ""
     btn_styles["run_identification"] += " disabled" if not is_initiated else ""
 
-
     return btn_styles
+
+
 def run_identification_on_unidentified(request):
+    """Run identification in all uploaded archives."""
     uploaded_archives = UploadedArchive.objects.filter(
         owner__workgroup=request.user.ciduser.workgroup,
         status="Species Finished",
@@ -595,6 +628,7 @@ def run_identification_on_unidentified(request):
         _run_identification(uploaded_archive)
     next_page = request.GET.get("next", "caidapp:uploads_identities")
     return redirect(next_page)
+
 
 def run_identification(request, uploadedarchive_id):
     """Run identification of uploaded archive."""
