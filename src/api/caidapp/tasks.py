@@ -276,11 +276,16 @@ def init_identification_on_success(*args, **kwargs):
     logger.debug(f"{kwargs=}")
     workgroup_id = kwargs.pop("workgroup_id")
     workgroup = WorkGroup.objects.get(id=workgroup_id)
+    output:dict = args[0]
+    status = output["status"]
+    message = output["message"]
+    workgroup.identification_init_status = status
     now = django.utils.timezone.now()
-    workgroup.identification_init_finished_at = now
+    workgroup.identification_init_at = now
     workgroup.save()
     logger.debug(f"{workgroup=}")
-    logger.debug(f"{workgroup.identification_init_finished_at=}")
+    logger.debug(f"{workgroup.identification_init_at=}")
+    logger.debug(f"{workgroup.hash=}")
 
     logger.debug("init_identification done.")
 

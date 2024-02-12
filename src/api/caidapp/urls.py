@@ -73,6 +73,11 @@ urlpatterns = [
         name="run_identification",
     ),
     path(
+        "run_identification_on_unindentified/",
+        views.run_identification_on_unidentified,
+        name="run_identification_on_unidentified",
+    ),
+    path(
         "get_individual_identity_zoomed/<int:foridentification_id>/<int:top_id>",
         views.get_individual_identity_zoomed,
         name="get_individual_identity_zoomed",

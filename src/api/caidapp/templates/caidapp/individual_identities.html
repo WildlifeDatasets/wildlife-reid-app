@@ -7,17 +7,19 @@
 
         <div class="pagetitle">
             <h1>Identities</h1>
+            {{ workgroup.identification_init_status }}
+            {{ workgroup.identification_init_finished_at }}
+            {% if workgroup.identification_init_status %}
+                <p>Identification initiated at: {{ workgroup.identification_init_at|date:'Y-m-d H:i' }}</p>
+            {% else %}
+                Identification not initiated.
+            {% endif %}
             {%  if workgroup.identification_init_at %}
                 <p>Identification initiated at: {{ workgroup.identification_init_at|date:'Y-m-d H:i' }}</p>
             {% else %}
                 Identification not initiated.
             {% endif %}
 
-{#            <nav>#}
-{#                <ol class="breadcrumb">#}
-{#                    <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li>#}
-{#                </ol>#}
-{#            </nav>#}
             <nav>
 {#                <ol class="breadcrumb">#}
 {#                    <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li>#}
@@ -68,7 +70,7 @@
 {#                            <i class="bi bi-images"></i> Detail#}
 {#                        </a>#}
 
-                        <a class="btn btn-secondary"
+                        <a class="btn btn-primary"
                            href="{% url 'caidapp:individual_identity_mediafiles' individual_identity.id %}">
                             <i class="bi bi-images"></i> Show
                         </a>

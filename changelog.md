@@ -6,7 +6,8 @@
 ## 02-2024
 
 * [added] Icon showing the mediafile is representative
-* [fixed] The single species identified mediafiles are set representative
+* [fixed] The single species identified media files are set representative
+* [added] Buttons are now organized in workflow scheme
 
 ## 01-2024
 

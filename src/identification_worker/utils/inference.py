@@ -41,7 +41,7 @@ def load_model(model_name, model_checkpoint=""):
 
 MODEL = load_model(
     "hf-hub:BVRA/MegaDescriptor-T-224",
-    "/identification_worker/resources/MegaDescriptor-T-224-c-15-01_18-00-02.pth"
+    # model_checkpoint="/identification_worker/resources/MegaDescriptor-T-224-c-15-01_18-00-02.pth"
 )
 
 
