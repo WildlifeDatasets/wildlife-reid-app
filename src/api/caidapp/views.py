@@ -51,6 +51,7 @@ from .tasks import (
     on_error_in_upload_processing,
     run_species_prediction_async,
     update_metadata_csv_by_uploaded_archive,
+    _prepare_dataframe_for_identification,
 )
 
 logger = logging.getLogger("app")
@@ -527,32 +528,6 @@ def init_identification(request, taxon_str: str = "Lynx lynx"):
     return redirect("caidapp:individual_identities")
 
 
-def _prepare_dataframe_for_identification(mediafiles):
-    media_root = Path(settings.MEDIA_ROOT)
-    csv_len = len(mediafiles)
-    csv_data = {
-        "image_path": [None] * csv_len,
-        "mediafile_id": [None] * csv_len,
-        "class_id": [None] * csv_len,
-        "label": [None] * csv_len,
-        "location_id": [None] * csv_len,
-        "location_name": [None] * csv_len,
-        "location_coordinates": [None] * csv_len,
-    }
-    logger.debug(f"number of records={len(mediafiles)}")
-    for i, mediafile in enumerate(mediafiles):
-        # if mediafile.identity is not None:
-        csv_data["image_path"][i] = str(media_root / mediafile.mediafile.name)
-        csv_data["mediafile_id"][i] = mediafile.id
-        csv_data["class_id"][i] = int(mediafile.identity.id)
-        csv_data["label"][i] = str(mediafile.identity.name)
-        csv_data["location_id"][i] = int(mediafile.location.id)
-        csv_data["location_name"][i] = str(mediafile.location.name)
-        csv_data["location_coordinates"][i] = (
-            str(mediafile.location.location) if mediafile.location.location else ""
-        )
-    return csv_data
-
 
 def _single_species_button_style(request) -> dict:
 
@@ -644,14 +619,6 @@ def run_identification(request, uploadedarchive_id):
 def _run_identification(uploaded_archive: UploadedArchive, taxon_str="Lynx lynx"):
     logger.debug("Generating CSV for run_identification...")
     mediafiles = uploaded_archive.mediafile_set.filter(category__name=taxon_str).all()
-    # if not request.user.ciduser.workgroup_admin:
-    #     return HttpResponseNotAllowed("Identification init is for workgroup admins only.")
-    # mediafiles = MediaFile.objects.filter(
-    #     category__name=taxon_str,
-    #     identity__isnull=False,
-    #     parent__owner__workgroup=request.user.ciduser.workgroup,
-    # ).all()
-
     logger.debug(f"Generating CSV for init_identification with {len(mediafiles)} records...")
     # csv_len = len(mediafiles)
     # csv_data = {"image_path": [None] * csv_len, "mediafile_id": [None] * csv_len}
@@ -689,27 +656,6 @@ def _run_identification(uploaded_archive: UploadedArchive, taxon_str="Lynx lynx"
             # "output_json_file_path": str(output_json_file),
         },
     )
-    # detect_sig = signature(
-    #     "detect",
-    #     kwargs={
-    #         "input_metadata_file_path": str(identity_metadata_file),
-    #         "output_json_file_path": str(output_json_file),
-    #     },
-    # )
-    # logger.debug("Calling run_identification...")
-    # identify_sig = signature(
-    #     "identify",
-    #     kwargs={
-    #         # csv file should contain image_path, class_id, label
-    #         "input_metadata_file": str(identity_metadata_file),
-    #         "organization_id": uploaded_archive.owner.workgroup.id,
-    #         "output_json_file": str(output_json_file),
-    #         "top_k": 3,
-    #     },
-    # )
-    # simple_log_sig = signature( "detectionsimplelog",
-    #                              kwargs={"buuu":5},
-    #                            )
 
     # uploaded_archive = UploadedArchive.objects.get(id=uploaded_archive_id)
     uploaded_archive.status = "Identification started"

@@ -6,7 +6,7 @@ from pathlib import Path
 import django
 import numpy as np
 import pandas as pd
-from celery import shared_task, signature
+from celery import shared_task, signature, chain
 from django.conf import settings
 
 from .fs_data import make_thumbnail_from_file
@@ -51,21 +51,108 @@ def predict_species_on_success(
         # create missing take effect only if the processing is done for the first time
         # in other cases the file should be removed from CSV before the processing is run
         update_uploaded_archive_by_metadata_csv(uploaded_archive, create_missing=True)
-        uploaded_archive.status = "Species Finished"
+        uploaded_archive.status = "animal detection..."
+        uploaded_archive.save()
+        run_detection_async(uploaded_archive)
     else:
         uploaded_archive.status = "Failed"
-    uploaded_archive.finished_at = django.utils.timezone.now()
-    uploaded_archive.save()
+        uploaded_archive.finished_at = django.utils.timezone.now()
+        uploaded_archive.save()
+
+def _prepare_dataframe_for_identification(mediafiles):
+    media_root = Path(settings.MEDIA_ROOT)
+    csv_len = len(mediafiles)
+    csv_data = {
+        "image_path": [None] * csv_len,
+        "mediafile_id": [None] * csv_len,
+        "class_id": [None] * csv_len,
+        "label": [None] * csv_len,
+        "location_id": [None] * csv_len,
+        "location_name": [None] * csv_len,
+        "location_coordinates": [None] * csv_len,
+    }
+    logger.debug(f"number of records={len(mediafiles)}")
+    for i, mediafile in enumerate(mediafiles):
+        # if mediafile.identity is not None:
+        csv_data["image_path"][i] = str(media_root / mediafile.mediafile.name)
+        csv_data["mediafile_id"][i] = mediafile.id
+        csv_data["class_id"][i] = int(mediafile.identity.id)
+        csv_data["label"][i] = str(mediafile.identity.name)
+        csv_data["location_id"][i] = int(mediafile.location.id)
+        csv_data["location_name"][i] = str(mediafile.location.name)
+        csv_data["location_coordinates"][i] = (
+            str(mediafile.location.location) if mediafile.location.location else ""
+        )
+    return csv_data
 
 
-@shared_task
-def predict_species_on_error(task_id: str, *args, uploaded_archive_id: int, **kwargs):
+def run_detection_async(uploaded_archive: UploadedArchive):
+
+    logger.debug("Generating CSV for run_identification...")
+    mediafiles = uploaded_archive.mediafile_set.all()
+    logger.debug(f"Generating CSV for init_identification with {len(mediafiles)} records...")
+    # csv_len = len(mediafiles)
+    # csv_data = {"image_path": [None] * csv_len, "mediafile_id": [None] * csv_len}
+
+    csv_data = _prepare_dataframe_for_identification(mediafiles)
+    media_root = Path(settings.MEDIA_ROOT)
+    identity_metadata_file = media_root / uploaded_archive.outputdir / "identification_metadata.csv"
+    cropped_identity_metadata_file = (
+            media_root / uploaded_archive.outputdir / "cropped_identification_metadata.csv"
+    )
+    pd.DataFrame(csv_data).to_csv(identity_metadata_file, index=False)
+
+
+    # media_root = Path(settings.MEDIA_ROOT)
+    # identity_metadata_file = Path(settings.MEDIA_ROOT) / uploaded_archive.csv_file.name
+    # logger.debug("Calling run_detection and run_identification ...")
+    detect_sig = signature(
+        "detect",
+        kwargs={
+            "input_metadata_path": str(identity_metadata_file),
+            "output_metadata_path": str(cropped_identity_metadata_file),
+        },
+    )
+    tasks = chain(
+        detect_sig,
+        # simple_log_sig,
+        # identify_sig,
+    )
+    tasks.apply_async(
+        # link=identify_on_success.s(
+        link=detection_on_success_after_species_prediction.s(
+            # csv file should contain image_path, class_id, label
+            # input_metadata_file_path=str(identity_metadata_file),
+            # organization_id=uploaded_archive.owner.workgroup.id,
+            # output_json_file_path=str(output_json_file),
+            # top_k=3,
+            uploaded_archive_id=uploaded_archive.id,
+            # mediafiles=mediafiles,
+            # metadata_file=str(identity_metadata_file),
+            # mediafile_ids=mediafile_ids
+            # zip_file=os.path.relpath(str(output_archive_file), settings.MEDIA_ROOT),
+            # csv_file=os.path.relpath(str(output_metadata_file), settings.MEDIA_ROOT),
+        ),
+        link_error=on_error_with_uploaded_archive.s(
+            # uploaded_archive_id=uploaded_archive.id
+        ),
+    )
+
+
+@shared_task(bind=True)
+def on_error_with_uploaded_archive(self, task_id: str, *args, uploaded_archive_id: int, **kwargs):
     """Error callback invoked after running predict function in inference worker."""
     logger.critical(f"Worker task with id '{task_id}' failed due to unexpected internal error.")
+    logger.debug(f"self={self}")
+    logger.debug(f"args={args}")
+    logger.debug(f"kwargs={kwargs}")
     uploaded_archive = UploadedArchive.objects.get(id=uploaded_archive_id)
     uploaded_archive.status = "Failed"
     uploaded_archive.finished_at = django.utils.timezone.now()
     uploaded_archive.save()
+    result = self.AsyncResult(task_id)
+    error_message = result.result if result.failed() else "No error message available"
+    logger.error(f"Detection error message: {error_message}")
 
 
 def make_thumbnail_for_uploaded_archive(uploaded_archive: UploadedArchive):
@@ -119,7 +206,7 @@ def run_species_prediction_async(uploaded_archive: UploadedArchive):
             zip_file=os.path.relpath(str(output_archive_file), settings.MEDIA_ROOT),
             csv_file=os.path.relpath(str(output_metadata_file), settings.MEDIA_ROOT),
         ),
-        link_error=predict_species_on_error.s(uploaded_archive_id=uploaded_archive.id),
+        link_error=on_error_with_uploaded_archive.s(uploaded_archive_id=uploaded_archive.id),
     )
     logger.info(f"Created worker task with id '{task.task_id}'.")
 
@@ -332,6 +419,23 @@ def log_output(self, output: dict, *args, **kwargs):
     logger.debug(f"{output=}")
     logger.debug(f"{args=}")
     logger.debug(f"{kwargs=}")
+
+@shared_task(bind=True)
+def detection_on_success_after_species_prediction(self, output: dict, *args, **kwargs):
+    logger.debug("detection on success")
+    logger.debug(f"{output=}")
+    logger.debug(f"{args=}")
+    logger.debug(f"{kwargs=}")
+    uploaded_archive_id: int = kwargs.pop("uploaded_archive_id")
+    uploaded_archive = UploadedArchive.objects.get(id=uploaded_archive_id)
+    if "status" not in output:
+        logger.critical(f"Unexpected error {output=} is missing 'status' field.")
+        uploaded_archive.status = "Unknown"
+    elif output["status"] == "DONE":
+        uploaded_archive.status = "Species Finished"
+    else:
+        uploaded_archive.status = "Failed"
+    uploaded_archive.save()
 
 
 @shared_task(bind=True)
