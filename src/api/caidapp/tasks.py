@@ -223,7 +223,7 @@ def _estimate_time_for_taxon_classification_of_uploaded_archive(uploaded_archive
     file_count = count_files_in_archive(uploaded_archive.archivefile.path)
     # estimate time to process
     # it is time for taxon classification + detection + segmentation
-    time_to_process = datetime.timedelta(seconds=10) + (datetime.timedelta(seconds=6) * file_count)
+    time_to_process = datetime.timedelta(seconds=10) + (datetime.timedelta(seconds=22) * file_count)
     logger.debug(f"{time_to_process=}")
     return time_to_process
 
