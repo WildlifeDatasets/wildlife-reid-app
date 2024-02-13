@@ -5,7 +5,11 @@ celery[redis]==5.2.7
 torch==1.13.1+cpu
 torchvision==0.14.1+cpu
 
-timm==0.6.13
+# for old version of taxon classification model /swin_small_patch4_window7_224-CrossEntropyLoss-vit_heavy
+# timm==0.6.13
+# for new model
+timm==0.9.12
+
 
 # FGVC library
 --index-url https://pypi.piva-ai.com/simple/
