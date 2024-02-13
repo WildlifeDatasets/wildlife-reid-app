@@ -51,18 +51,22 @@ def detect(
         masked_images = []
 
         for image_path in tqdm(metadata["image_path"]):
-            results = detect_animal(image_path)
-            # logger.debug(f"results={results}")
+            try:
+                results = detect_animal(image_path)
+                # logger.debug(f"results={results}")
 
-            save_path = None
-            if results["class"] == "animal":
-                cropper_animal = segment_animal(image_path, results["bbox"])
+                save_path = None
+                if results["class"] == "animal":
+                    cropper_animal = segment_animal(image_path, results["bbox"])
 
-                base_path = Path(image_path).parent.parent / "masked_images"
-                save_path = base_path / Path(image_path).name
-                base_path.mkdir(exist_ok=True, parents=True)
-                Image.fromarray(cropper_animal).convert("RGB").save(save_path)
-            masked_images.append(str(save_path))
+                    base_path = Path(image_path).parent.parent / "masked_images"
+                    save_path = base_path / Path(image_path).name
+                    base_path.mkdir(exist_ok=True, parents=True)
+                    Image.fromarray(cropper_animal).convert("RGB").save(save_path)
+                masked_images.append(str(save_path))
+            except Exception:
+                logger.warning(f"Cannot process image '{image_path}'. Exception: {traceback.format_exc()}")
+                masked_images.append("")
 
         metadata["masked_image_path"] = masked_images
         metadata.to_csv(output_metadata_path, index=None)

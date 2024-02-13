@@ -52,6 +52,7 @@ from .tasks import (
     init_identification_on_success,
     on_error_in_upload_processing,
     run_species_prediction_async,
+    identify_on_success,
     update_metadata_csv_by_uploaded_archive,
 )
 
@@ -648,60 +649,72 @@ def _run_identification(uploaded_archive: UploadedArchive, taxon_str="Lynx lynx"
     logger.debug(f"tasks={tasks}")
 
     logger.debug("Calling run_detection and run_identification ...")
-    detect_sig = signature(
-        "detect",
-        kwargs={
-            "input_metadata_path": str(identity_metadata_file),
-            "output_metadata_path": str(cropped_identity_metadata_file),
-            # "output_json_file_path": str(output_json_file),
-        },
-    )
 
     # uploaded_archive = UploadedArchive.objects.get(id=uploaded_archive_id)
     uploaded_archive.status = "Identification started"
     uploaded_archive.save()
 
-    tasks = chain(
-        detect_sig,
-        # simple_log_sig,
-        # identify_sig,
+    identify_signature = signature(
+        "identify",
+        kwargs = dict(
+            input_metadata_file_path = str(identity_metadata_file),
+            organization_id = uploaded_archive.owner.workgroup.id,
+            output_json_file_path = str(output_json_file),
+            top_k = 3,
+            uploaded_archive_id = uploaded_archive.id
+        )
     )
-    tasks.apply_async(
-        # link=identify_on_success.s(
-        link=detection_on_success.s(
-            # csv file should contain image_path, class_id, label
-            input_metadata_file_path=str(identity_metadata_file),
-            organization_id=uploaded_archive.owner.workgroup.id,
-            output_json_file_path=str(output_json_file),
-            top_k=3,
+    identify_task = identify_signature.apply_async(
+        link=identify_on_success.s(
             uploaded_archive_id=uploaded_archive.id,
-            # mediafiles=mediafiles,
-            # metadata_file=str(identity_metadata_file),
-            # mediafile_ids=mediafile_ids
-            # zip_file=os.path.relpath(str(output_archive_file), settings.MEDIA_ROOT),
-            # csv_file=os.path.relpath(str(output_metadata_file), settings.MEDIA_ROOT),
         ),
-        link_error=on_error_in_upload_processing.s(
-            # uploaded_archive_id=uploaded_archive.id
-        ),
+        link_error=on_error_in_upload_processing.s(),
     )
+    logger.debug(f"{identify_task=}")
+
+
+
+
+
+
+    # detect_sig = signature(
+    #     "detect",
+    #     kwargs={
+    #         "input_metadata_path": str(identity_metadata_file),
+    #         "output_metadata_path": str(cropped_identity_metadata_file),
+    #         # "output_json_file_path": str(output_json_file),
+    #     },
+    # )
+
+    # uploaded_archive = UploadedArchive.objects.get(id=uploaded_archive_id)
+    # uploaded_archive.status = "Identification started"
+    # uploaded_archive.save()
+    #
+    # tasks = chain(
+    #     detect_sig,
+    #     # simple_log_sig,
+    #     # identify_sig,
+    # )
+    # tasks.apply_async(
+    #     # link=identify_on_success.s(
+    #     link=detection_on_success.s(
+    #         # csv file should contain image_path, class_id, label
+    #         input_metadata_file_path=str(identity_metadata_file),
+    #         organization_id=uploaded_archive.owner.workgroup.id,
+    #         output_json_file_path=str(output_json_file),
+    #         top_k=3,
+    #         uploaded_archive_id=uploaded_archive.id,
+    #         # mediafiles=mediafiles,
+    #         # metadata_file=str(identity_metadata_file),
+    #         # mediafile_ids=mediafile_ids
+    #         # zip_file=os.path.relpath(str(output_archive_file), settings.MEDIA_ROOT),
+    #         # csv_file=os.path.relpath(str(output_metadata_file), settings.MEDIA_ROOT),
+    #     ),
+    #     link_error=on_error_in_upload_processing.s(
+    #         # uploaded_archive_id=uploaded_archive.id
+    #     ),
+    # )
     return redirect("caidapp:individual_identities")
-    # csv_data = {
-    #     "image_path": [],
-    #     "class_id": [],
-    #     "label": []
-    # }
-    #
-    # output_dir = Path(settings.MEDIA_ROOT) / request.user.ciduser.workgroup.name
-    # output_dir.mkdir(exist_ok=True, parents=True)
-    #
-    # for mediafile in mediafiles:
-    #
-    #     csv_data["image_path"] = output_dir / mediafile.name
-    #     csv_data["class_id"] = mediafile.identity.id
-    #     csv_data["label"] = mediafile.identity.name
-    #
-    # identity_metadata_file = output_dir / "init_identification.csv"
 
 
 def new_album(request):
