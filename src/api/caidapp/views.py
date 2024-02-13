@@ -45,13 +45,13 @@ from .models import (
     WorkGroup,
 )
 from .tasks import (
+    _prepare_dataframe_for_identification,
     detection_on_success,
     init_identification_on_error,
     init_identification_on_success,
     on_error_in_upload_processing,
     run_species_prediction_async,
     update_metadata_csv_by_uploaded_archive,
-    _prepare_dataframe_for_identification,
 )
 
 logger = logging.getLogger("app")
@@ -526,7 +526,6 @@ def init_identification(request, taxon_str: str = "Lynx lynx"):
         ),
     )
     return redirect("caidapp:individual_identities")
-
 
 
 def _single_species_button_style(request) -> dict:

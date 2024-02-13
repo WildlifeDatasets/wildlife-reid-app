@@ -6,7 +6,7 @@ from pathlib import Path
 import django
 import numpy as np
 import pandas as pd
-from celery import shared_task, signature, chain
+from celery import chain, shared_task, signature
 from django.conf import settings
 
 from .fs_data import make_thumbnail_from_file
@@ -59,6 +59,7 @@ def predict_species_on_success(
         uploaded_archive.finished_at = django.utils.timezone.now()
         uploaded_archive.save()
 
+
 def _prepare_dataframe_for_identification(mediafiles):
     media_root = Path(settings.MEDIA_ROOT)
     csv_len = len(mediafiles)
@@ -87,7 +88,7 @@ def _prepare_dataframe_for_identification(mediafiles):
 
 
 def run_detection_async(uploaded_archive: UploadedArchive):
-
+    """Run detection and mask preparation on UploadedArchive."""
     logger.debug("Generating CSV for run_identification...")
     mediafiles = uploaded_archive.mediafile_set.all()
     logger.debug(f"Generating CSV for init_identification with {len(mediafiles)} records...")
@@ -98,10 +99,9 @@ def run_detection_async(uploaded_archive: UploadedArchive):
     media_root = Path(settings.MEDIA_ROOT)
     identity_metadata_file = media_root / uploaded_archive.outputdir / "identification_metadata.csv"
     cropped_identity_metadata_file = (
-            media_root / uploaded_archive.outputdir / "cropped_identification_metadata.csv"
+        media_root / uploaded_archive.outputdir / "cropped_identification_metadata.csv"
     )
     pd.DataFrame(csv_data).to_csv(identity_metadata_file, index=False)
-
 
     # media_root = Path(settings.MEDIA_ROOT)
     # identity_metadata_file = Path(settings.MEDIA_ROOT) / uploaded_archive.csv_file.name
@@ -420,8 +420,10 @@ def log_output(self, output: dict, *args, **kwargs):
     logger.debug(f"{args=}")
     logger.debug(f"{kwargs=}")
 
+
 @shared_task(bind=True)
 def detection_on_success_after_species_prediction(self, output: dict, *args, **kwargs):
+    """Finish detection and set status after species is predicted."""
     logger.debug("detection on success")
     logger.debug(f"{output=}")
     logger.debug(f"{args=}")
