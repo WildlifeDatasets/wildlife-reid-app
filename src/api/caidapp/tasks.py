@@ -8,8 +8,9 @@ import numpy as np
 import pandas as pd
 from celery import chain, shared_task, signature
 from django.conf import settings
+import datetime
 
-from .fs_data import make_thumbnail_from_file
+from .fs_data import make_thumbnail_from_file, count_files_in_archive
 from .models import (
     IndividualIdentity,
     MediaFile,
@@ -51,7 +52,7 @@ def predict_species_on_success(
         # create missing take effect only if the processing is done for the first time
         # in other cases the file should be removed from CSV before the processing is run
         update_uploaded_archive_by_metadata_csv(uploaded_archive, create_missing=True)
-        uploaded_archive.status = "animal detection..."
+        # uploaded_archive.status = "animal detection..."
         uploaded_archive.save()
         run_detection_async(uploaded_archive)
     else:
@@ -85,7 +86,6 @@ def _prepare_dataframe_for_identification(mediafiles):
             str(mediafile.location.location) if mediafile.location.location else ""
         )
     return csv_data
-
 
 def run_detection_async(uploaded_archive: UploadedArchive):
     """Run detection and mask preparation on UploadedArchive."""
@@ -173,13 +173,19 @@ def make_thumbnail_for_uploaded_archive(uploaded_archive: UploadedArchive):
 
 def run_species_prediction_async(uploaded_archive: UploadedArchive):
     """Run species prediction asynchronously."""
+
+    expected_time_message = timedelta_to_human_readable(
+        _estimate_time_for_taxon_classification_of_uploaded_archive(uploaded_archive)
+    )
+    logger.debug(f"{expected_time_message=}")
+
     # update record in the database
     output_dir = Path(settings.MEDIA_ROOT) / uploaded_archive.outputdir
     uploaded_archive.started_at = django.utils.timezone.now()
     output_archive_file = output_dir / "images.zip"
     output_metadata_file = output_dir / "metadata.csv"
     uploaded_archive.csv_file = str(Path(uploaded_archive.outputdir) / "metadata.csv")
-    uploaded_archive.status = "Processing"
+    uploaded_archive.status = "Processing will be ready " + expected_time_message
     uploaded_archive.save()
     logger.debug(f"updating uploaded archive, {uploaded_archive.csv_file=}")
 
@@ -209,6 +215,35 @@ def run_species_prediction_async(uploaded_archive: UploadedArchive):
         link_error=on_error_with_uploaded_archive.s(uploaded_archive_id=uploaded_archive.id),
     )
     logger.info(f"Created worker task with id '{task.task_id}'.")
+
+
+def _estimate_time_for_taxon_classification_of_uploaded_archive(uploaded_archive: UploadedArchive) -> datetime.timedelta:
+    """Estimate time to process archive."""
+    # count files in archive
+    file_count = count_files_in_archive(uploaded_archive.archivefile.path)
+    # estimate time to process
+    time_to_process = (datetime.timedelta(seconds=2) * file_count) + datetime.timedelta(seconds=10)
+    logger.debug(f"{time_to_process=}")
+    return time_to_process
+
+def timedelta_to_human_readable(timedelta: datetime.timedelta) -> str:
+    """Convert timedelta to human readable string."""
+    # Convert time_to_process into a human-readable format
+    total_seconds = timedelta.total_seconds()
+    if total_seconds < 60:
+        return "in a few seconds"
+    elif total_seconds < 3600:
+        minutes = int(total_seconds / 60)
+        if minutes == 1:
+            return "in a minute"
+        else:
+            return f"in {minutes} minutes"
+    else:
+        hours = int(total_seconds / 3600)
+        if hours == 1:
+            return "in an hour"
+        else:
+            return f"in {hours} hours"
 
 
 def make_thumbnail_for_mediafile_if_necessary(mediafile: MediaFile, thumbnail_width: int = 400):

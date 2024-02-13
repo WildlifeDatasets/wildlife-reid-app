@@ -6,6 +6,8 @@ import numpy as np
 import pandas as pd
 import skimage.io
 import skimage.transform
+import zipfile
+from typing import Union
 
 logger = logging.getLogger(__file__)
 
@@ -38,3 +40,12 @@ def get_images_from_csv(csv_file: Path) -> list:
     """Get list of images from CSV file."""
     df = pd.read_csv(csv_file)
     return list(df["image_path"])
+
+def count_files_in_archive(zip_path: Union[str, Path]) -> int:
+    # Open the zip file in read mode
+    with zipfile.ZipFile(zip_path, 'r') as zip:
+        # List all files and directories in the zip
+        all_files = zip.namelist()
+        # Count only the files, excluding directories
+        file_count = sum(1 for f in all_files if not f.endswith('/'))
+        return file_count

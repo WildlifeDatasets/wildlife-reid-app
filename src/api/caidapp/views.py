@@ -22,6 +22,7 @@ from django.forms import modelformset_factory
 from django.http import HttpResponseBadRequest, HttpResponseNotAllowed, JsonResponse
 from django.shortcuts import Http404, HttpResponse, get_object_or_404, redirect, render
 from django.urls import reverse_lazy
+from .fs_data import count_files_in_archive
 
 from .forms import (
     AlbumForm,
