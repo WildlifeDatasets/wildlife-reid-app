@@ -48,7 +48,8 @@
 
                                     </h5>
                                     <p>Status: {{ uploadedarchive.status }} </p>
-                                    <p><i class="fa-light fa-calendar-image"></i>Uploaded at: {{ uploadedarchive.uploaded_at|date:'Y-m-d H:i' }} </p>
+
+                                    <p><i class="bi bi-calendar" data-bs-toggle="tooltip" title="Uploaded at: {{ uploadedarchive.uploaded_at|date:'Y-m-d H:i' }}"></i></p>
                                     {% if uploadedarchive.finished_at %}
                                         <p>Finished at: {{ uploadedarchive.finished_at|date:'Y-m-d H:i' }} </p>
                                     {% endif %}

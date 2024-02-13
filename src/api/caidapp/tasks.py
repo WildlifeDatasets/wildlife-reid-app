@@ -185,7 +185,7 @@ def run_species_prediction_async(uploaded_archive: UploadedArchive):
     output_archive_file = output_dir / "images.zip"
     output_metadata_file = output_dir / "metadata.csv"
     uploaded_archive.csv_file = str(Path(uploaded_archive.outputdir) / "metadata.csv")
-    uploaded_archive.status = "Processing will be ready " + expected_time_message
+    uploaded_archive.status = "Processing will be done " + expected_time_message
     uploaded_archive.save()
     logger.debug(f"updating uploaded archive, {uploaded_archive.csv_file=}")
 
