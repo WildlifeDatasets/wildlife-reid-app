@@ -65,7 +65,9 @@ def detect(
                     Image.fromarray(cropper_animal).convert("RGB").save(save_path)
                 masked_images.append(str(save_path))
             except Exception:
-                logger.warning(f"Cannot process image '{image_path}'. Exception: {traceback.format_exc()}")
+                logger.warning(
+                    f"Cannot process image '{image_path}'. Exception: {traceback.format_exc()}"
+                )
                 masked_images.append("")
 
         metadata["masked_image_path"] = masked_images

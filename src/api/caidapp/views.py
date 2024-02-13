@@ -9,7 +9,7 @@ import django
 import pandas as pd
 import plotly.graph_objects as go
 import pytz
-from celery import chain, signature
+from celery import signature
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
@@ -22,7 +22,6 @@ from django.forms import modelformset_factory
 from django.http import HttpResponseBadRequest, HttpResponseNotAllowed, JsonResponse
 from django.shortcuts import Http404, HttpResponse, get_object_or_404, redirect, render
 from django.urls import reverse_lazy
-from .fs_data import count_files_in_archive
 
 from .forms import (
     AlbumForm,
@@ -47,12 +46,11 @@ from .models import (
 )
 from .tasks import (
     _prepare_dataframe_for_identification,
-    detection_on_success,
+    identify_on_success,
     init_identification_on_error,
     init_identification_on_success,
     on_error_in_upload_processing,
     run_species_prediction_async,
-    identify_on_success,
     update_metadata_csv_by_uploaded_archive,
 )
 
@@ -637,9 +635,9 @@ def _run_identification(uploaded_archive: UploadedArchive, taxon_str="Lynx lynx"
     #     csv_data["mediafile_id"][i] = mediafile.id
 
     identity_metadata_file = media_root / uploaded_archive.outputdir / "identification_metadata.csv"
-    cropped_identity_metadata_file = (
-        media_root / uploaded_archive.outputdir / "cropped_identification_metadata.csv"
-    )
+    # cropped_identity_metadata_file = (
+    #     media_root / uploaded_archive.outputdir / "cropped_identification_metadata.csv"
+    # )
     pd.DataFrame(csv_data).to_csv(identity_metadata_file, index=False)
     output_json_file = media_root / uploaded_archive.outputdir / "identification_result.json"
 
@@ -656,13 +654,13 @@ def _run_identification(uploaded_archive: UploadedArchive, taxon_str="Lynx lynx"
 
     identify_signature = signature(
         "identify",
-        kwargs = dict(
-            input_metadata_file_path = str(identity_metadata_file),
-            organization_id = uploaded_archive.owner.workgroup.id,
-            output_json_file_path = str(output_json_file),
-            top_k = 3,
-            uploaded_archive_id = uploaded_archive.id
-        )
+        kwargs=dict(
+            input_metadata_file_path=str(identity_metadata_file),
+            organization_id=uploaded_archive.owner.workgroup.id,
+            output_json_file_path=str(output_json_file),
+            top_k=3,
+            uploaded_archive_id=uploaded_archive.id,
+        ),
     )
     identify_task = identify_signature.apply_async(
         link=identify_on_success.s(
@@ -671,11 +669,6 @@ def _run_identification(uploaded_archive: UploadedArchive, taxon_str="Lynx lynx"
         link_error=on_error_in_upload_processing.s(),
     )
     logger.debug(f"{identify_task=}")
-
-
-
-
-
 
     # detect_sig = signature(
     #     "detect",

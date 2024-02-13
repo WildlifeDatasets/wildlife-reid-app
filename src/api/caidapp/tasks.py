@@ -1,3 +1,4 @@
+import datetime
 import json
 import logging
 import os.path
@@ -8,9 +9,8 @@ import numpy as np
 import pandas as pd
 from celery import chain, shared_task, signature
 from django.conf import settings
-import datetime
 
-from .fs_data import make_thumbnail_from_file, count_files_in_archive
+from .fs_data import count_files_in_archive, make_thumbnail_from_file
 from .models import (
     IndividualIdentity,
     MediaFile,
@@ -86,6 +86,7 @@ def _prepare_dataframe_for_identification(mediafiles):
             str(mediafile.location.location) if mediafile.location.location else ""
         )
     return csv_data
+
 
 def run_detection_async(uploaded_archive: UploadedArchive):
     """Run detection and mask preparation on UploadedArchive."""
@@ -173,7 +174,6 @@ def make_thumbnail_for_uploaded_archive(uploaded_archive: UploadedArchive):
 
 def run_species_prediction_async(uploaded_archive: UploadedArchive):
     """Run species prediction asynchronously."""
-
     expected_time_message = timedelta_to_human_readable(
         _estimate_time_for_taxon_classification_of_uploaded_archive(uploaded_archive)
     )
@@ -217,7 +217,9 @@ def run_species_prediction_async(uploaded_archive: UploadedArchive):
     logger.info(f"Created worker task with id '{task.task_id}'.")
 
 
-def _estimate_time_for_taxon_classification_of_uploaded_archive(uploaded_archive: UploadedArchive) -> datetime.timedelta:
+def _estimate_time_for_taxon_classification_of_uploaded_archive(
+    uploaded_archive: UploadedArchive,
+) -> datetime.timedelta:
     """Estimate time to process archive."""
     # count files in archive
     file_count = count_files_in_archive(uploaded_archive.archivefile.path)
@@ -226,6 +228,7 @@ def _estimate_time_for_taxon_classification_of_uploaded_archive(uploaded_archive
     time_to_process = datetime.timedelta(seconds=10) + (datetime.timedelta(seconds=22) * file_count)
     logger.debug(f"{time_to_process=}")
     return time_to_process
+
 
 def timedelta_to_human_readable(timedelta: datetime.timedelta) -> str:
     """Convert timedelta to human readable string."""
