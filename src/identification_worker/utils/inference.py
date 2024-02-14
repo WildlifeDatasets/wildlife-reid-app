@@ -1,5 +1,6 @@
 import logging
 from typing import Tuple
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -56,6 +57,15 @@ def encode_images(metadata: pd.DataFrame) -> np.ndarray:
         'auto_augment': 'rand-m10-n2-mstd1',
     }
     transform = realize(config)
+
+    new_image_paths = []
+    image_paths = metadata.image_path
+    for image_path in image_paths:
+        new_image_path = Path(image_path.replace("/images/", "/masked_images/"))
+        if not new_image_path.is_file():
+            new_image_path = image_path
+        new_image_paths.append(str(new_image_path))
+    metadata["image_path"] = new_image_paths
 
     dataset = CarnivoreDataset(
         metadata=metadata,

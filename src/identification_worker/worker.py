@@ -11,6 +11,7 @@ from utils import config
 from utils.database import get_db_connection, init_db_connection
 from utils.inference import encode_images, identify
 from utils.log import setup_logging
+from utils.sequence_identification import extend_df_with_datetime, extend_df_with_sequence_id
 
 setup_logging()
 logger = logging.getLogger("app")
@@ -88,6 +89,7 @@ def predict(
     organization_id: int,
     output_json_file_path: str,
     top_k: int = 1,
+    sequence_time: str = "480s",
     **kwargs,
 ):
     """Process and compare input samples with Reference Image records from the database."""
@@ -119,6 +121,15 @@ def predict(
                 )
                 out = {"status": "ERROR", "error": "Identification worker was not initialized."}
             else:
+
+                # estimate sequence id
+                if "location_name" in metadata:
+                    metadata["location"] = metadata["location_name"]
+                    metadata = extend_df_with_datetime(metadata)
+                    metadata = extend_df_with_sequence_id(metadata, sequence_time)
+                    metadata["sequence_number"] = np.where(metadata["location"].isna(), -1, metadata["sequence_number"])
+                    metadata.to_csv("/shared_data/media/output/20240213-095423_wt4zsfs6aj1p/20240213-095423/tst.csv")
+
                 # generate embeddings
                 features = encode_images(metadata)
 
