@@ -9,7 +9,6 @@ from django.contrib.auth import get_user_model
 from django.db import models
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-
 from location_field.models.plain import PlainLocationField
 
 from .model_tools import (
@@ -51,7 +50,7 @@ class CIDUser(models.Model):
             CIDUser.objects.create(user=instance)
 
     @receiver(post_save, sender=DjangoUser)
-    def save_user_profile(sender, instance, **kwargs): # NOSONAR
+    def save_user_profile(sender, instance, **kwargs):  # NOSONAR
         """Save object when django user is saved."""
         logger.debug(sender)
         logger.debug(instance)
@@ -107,9 +106,9 @@ class UploadedArchive(models.Model):
 def auto_delete_file_on_delete(sender, instance, **kwargs):
     """Deletes file from filesystem when corresponding `MediaFile` object is deleted."""
     if instance.archivefile and os.path.isfile(instance.archivefile.path):
-            os.remove(instance.archivefile.path)
+        os.remove(instance.archivefile.path)
     if instance.outputdir and os.path.isdir(instance.outputdir):
-            shutil.rmtree(instance.outputdir)
+        shutil.rmtree(instance.outputdir)
 
 
 class Taxon(models.Model):
