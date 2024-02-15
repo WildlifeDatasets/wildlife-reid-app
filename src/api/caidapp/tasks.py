@@ -51,6 +51,7 @@ def predict_species_on_success(
         # update_metadata_csv_by_uploaded_archive(uploaded_archive)
         # create missing take effect only if the processing is done for the first time
         # in other cases the file should be removed from CSV before the processing is run
+        logger.debug(f"{uploaded_archive.contains_identities=}")
         update_uploaded_archive_by_metadata_csv(uploaded_archive, create_missing=True)
         # uploaded_archive.status = "animal detection..."
         uploaded_archive.save()
@@ -78,9 +79,9 @@ def _prepare_dataframe_for_identification(mediafiles):
         # if mediafile.identity is not None:
         csv_data["image_path"][i] = str(media_root / mediafile.mediafile.name)
         csv_data["mediafile_id"][i] = mediafile.id
-        csv_data["class_id"][i] = int(mediafile.identity.id)
-        csv_data["label"][i] = str(mediafile.identity.name)
-        csv_data["location_id"][i] = int(mediafile.location.id)
+        csv_data["class_id"][i] = int(mediafile.identity.id) if mediafile.identity else None
+        csv_data["label"][i] = str(mediafile.identity.name) if mediafile.identity else None
+        csv_data["location_id"][i] = int(mediafile.location.id) if mediafile.location else None
         csv_data["location_name"][i] = str(mediafile.location.name)
         csv_data["location_coordinates"][i] = (
             str(mediafile.location.location) if mediafile.location.location else ""
@@ -194,6 +195,7 @@ def run_species_prediction_async(uploaded_archive: UploadedArchive):
 
     # send celery message to the data worker
     logger.info("Sending request to inference worker.")
+    logger.debug(f"{uploaded_archive.contains_identities=}")
     sig = signature(
         "predict",
         kwargs={
@@ -330,6 +332,10 @@ def update_uploaded_archive_by_metadata_csv(
 
         # if the mediafile was updated by user, we believe into users input
         if mf.updated_by is None:
+            logger.debug(f"{row.keys()=}")
+            logger.debug(f"{uploaded_archive.contains_identities=}")
+            logger.debug(f"{row['predicted_category']=}")
+
             mf.category = get_taxon(row["predicted_category"])
             mf.identity = get_unique_name(
                 row["unique_name"], workgroup=uploaded_archive.owner.workgroup

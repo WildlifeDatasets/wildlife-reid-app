@@ -602,6 +602,8 @@ def run_identification_on_unidentified(request):
     uploaded_archives = UploadedArchive.objects.filter(
         owner__workgroup=request.user.ciduser.workgroup,
         status="Species Finished",
+        contains_single_taxon=True,
+        contains_identities=False,
     ).all()
     for uploaded_archive in uploaded_archives:
         _run_identification(uploaded_archive)
