@@ -6,8 +6,8 @@ COPY ./src/api/requirements.txt /api/requirements.txt
 RUN apt-get update --yes &&  \
     apt-get install --yes \
     wget \
-    unzip && \
-    gdal-bin \
+    unzip \
+    gdal-bin && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # install python dependencies
