@@ -98,9 +98,9 @@ def run_detection_async(uploaded_archive: UploadedArchive):
 
     csv_data = _prepare_dataframe_for_identification(mediafiles)
     media_root = Path(settings.MEDIA_ROOT)
-    identity_metadata_file = media_root / uploaded_archive.outputdir / "identification_metadata.csv"
+    identity_metadata_file = media_root / uploaded_archive.outputdir / "detection_metadata.csv"
     cropped_identity_metadata_file = (
-        media_root / uploaded_archive.outputdir / "cropped_identification_metadata.csv"
+        media_root / uploaded_archive.outputdir / "detection_metadata.csv"
     )
     pd.DataFrame(csv_data).to_csv(identity_metadata_file, index=False)
 
@@ -403,9 +403,10 @@ def init_identification_on_success(*args, **kwargs):
     workgroup = WorkGroup.objects.get(id=workgroup_id)
     output: dict = args[0]
     status = output["status"]
+    status = "Finished" if status == "DONE" else status
     message = output["message"]
-
     workgroup.identification_init_status = status
+    workgroup.identification_init_message = message
     now = django.utils.timezone.now()
     workgroup.identification_init_at = now
     workgroup.save()

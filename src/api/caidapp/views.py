@@ -486,7 +486,7 @@ def init_identification(request, taxon_str: str = "Lynx lynx"):
     if not request.user.ciduser.workgroup_admin:
         return HttpResponseNotAllowed("Identification init is for workgroup admins only.")
     mediafiles = MediaFile.objects.filter(
-        category__name=taxon_str,
+        # category__name=taxon_str,
         identity__isnull=False,
         parent__owner__workgroup=request.user.ciduser.workgroup,
         identity_is_representative=True,
@@ -503,6 +503,11 @@ def init_identification(request, taxon_str: str = "Lynx lynx"):
     identity_metadata_file = output_dir / "init_identification.csv"
     pd.DataFrame(csv_data).to_csv(identity_metadata_file, index=False)
     logger.debug(f"{identity_metadata_file=}")
+    workgroup = request.user.ciduser.workgroup
+    workgroup.identification_init_at = django.utils.timezone.now()
+    workgroup.identification_init_status = "Processing"
+    workgroup.identification_init_message = f"Using {len(csv_data)} images for identification initialization."
+    workgroup.save()
 
     logger.debug("Calling init_identification...")
     sig = signature(

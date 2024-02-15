@@ -7,18 +7,17 @@
 
         <div class="pagetitle">
             <h1>Identities</h1>
-            {{ workgroup.identification_init_status }}
-            {{ workgroup.identification_init_finished_at }}
             {% if workgroup.identification_init_status %}
                 <p>Identification initiated at: {{ workgroup.identification_init_at|date:'Y-m-d H:i' }}</p>
+                <p>{{ workgroup.identification_init_message }}</p>
             {% else %}
                 Identification not initiated.
             {% endif %}
-            {%  if workgroup.identification_init_at %}
-                <p>Identification initiated at: {{ workgroup.identification_init_at|date:'Y-m-d H:i' }}</p>
-            {% else %}
-                Identification not initiated.
-            {% endif %}
+{#            {%  if workgroup.identification_init_at %}#}
+{#                <p>Identification initiated at: {{ workgroup.identification_init_at|date:'Y-m-d H:i' }}</p>#}
+{#            {% else %}#}
+{#                Identification not initiated.#}
+{#            {% endif %}#}
 
             <nav>
 {#                <ol class="breadcrumb">#}

@@ -30,6 +30,7 @@ class WorkGroup(models.Model):
     identification_init_status = models.CharField(
         max_length=255, blank=True, default="Not initiated"
     )
+    identification_init_message = models.CharField(max_length=255, blank=True, default="")
 
     def __str__(self):
         return str(self.name)
