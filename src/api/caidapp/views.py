@@ -265,7 +265,7 @@ def individual_identities(request):
     """List of individual identities."""
     individual_identities = (
         IndividualIdentity.objects.filter(
-            owner_workgroup=request.user.ciduser.workgroup,
+            Q(owner_workgroup=request.user.ciduser.workgroup) and ~Q(name="nan")
         )
         .all()
         .order_by("-name")
@@ -530,7 +530,8 @@ def init_identification(request, taxon_str: str = "Lynx lynx"):
             # uploaded_archive_id=uploaded_archive.id
         ),
     )
-    return redirect("caidapp:individual_identities")
+    # return redirect("caidapp:individual_identities")
+    return redirect("caidapp:uploads_identities")
 
 
 def _single_species_button_style(request) -> dict:
@@ -676,45 +677,7 @@ def _run_identification(uploaded_archive: UploadedArchive, taxon_str="Lynx lynx"
         link_error=on_error_in_upload_processing.s(),
     )
     logger.debug(f"{identify_task=}")
-
-    # detect_sig = signature(
-    #     "detect",
-    #     kwargs={
-    #         "input_metadata_path": str(identity_metadata_file),
-    #         "output_metadata_path": str(cropped_identity_metadata_file),
-    #         # "output_json_file_path": str(output_json_file),
-    #     },
-    # )
-
-    # uploaded_archive = UploadedArchive.objects.get(id=uploaded_archive_id)
-    # uploaded_archive.status = "Identification started"
-    # uploaded_archive.save()
-    #
-    # tasks = chain(
-    #     detect_sig,
-    #     # simple_log_sig,
-    #     # identify_sig,
-    # )
-    # tasks.apply_async(
-    #     # link=identify_on_success.s(
-    #     link=detection_on_success.s(
-    #         # csv file should contain image_path, class_id, label
-    #         input_metadata_file_path=str(identity_metadata_file),
-    #         organization_id=uploaded_archive.owner.workgroup.id,
-    #         output_json_file_path=str(output_json_file),
-    #         top_k=3,
-    #         uploaded_archive_id=uploaded_archive.id,
-    #         # mediafiles=mediafiles,
-    #         # metadata_file=str(identity_metadata_file),
-    #         # mediafile_ids=mediafile_ids
-    #         # zip_file=os.path.relpath(str(output_archive_file), settings.MEDIA_ROOT),
-    #         # csv_file=os.path.relpath(str(output_metadata_file), settings.MEDIA_ROOT),
-    #     ),
-    #     link_error=on_error_in_upload_processing.s(
-    #         # uploaded_archive_id=uploaded_archive.id
-    #     ),
-    # )
-    return redirect("caidapp:individual_identities")
+    return redirect("caidapp:uploads_identities")
 
 
 def new_album(request):
