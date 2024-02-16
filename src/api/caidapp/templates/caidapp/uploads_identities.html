@@ -21,15 +21,28 @@
                 </ol>
 {#                <a class="btn btn-primary" href="{% url 'caidapp:upload_archive' %}"><i class="bi bi-plus-circle"></i> New Upload </a>#}
 
+            {{ user.ciduser.workgroup.identification_init_status }}
                 <a class="btn {{ btn_styles.upload_identified }}" href="{% url 'caidapp:upload_archive_contains_identities' %}"><i class="bi bi-upload"></i> Upload identified </a>
                 <i class="bi bi-arrow-right-short fa-2x" style="vertical-align: middle;"></i>
-                <a class="btn {{ btn_styles.init_identification }}" href="{% url 'caidapp:init_identification' %}"><i class="fas fa-fingerprint"></i> Init identification</a>
+                <a class="btn {{ btn_styles.init_identification }}" href="{% url 'caidapp:init_identification' %}"
+                   {% if user.ciduser.workgroup.identification_init_status %}
+                data-bs-toggle="tooltip" title="Initiated at: {{ user.ciduser.workgroup.identification_init_at|date:'Y-m-d H:i' }}, {{ user.ciduser.workgroup.identification_init_status}}, {{ user.ciduser.workgroup.identification_init_message }}"
+                    {% endif %}
+                ><i class="fas fa-fingerprint"></i> Init identification</a>
                 <i class="bi bi-arrow-right-short fa-2x" style="vertical-align: middle;"></i>
                 <a class="btn {{ btn_styles.upload_unidentified }}" href="{% url 'caidapp:upload_archive_contains_single_taxon' %}"><i class="bi bi-upload"></i> Upload unidentified  single species</a>
                 <i class="bi bi-arrow-right-short fa-2x" style="vertical-align: middle;"></i>
                 <a class="btn {{ btn_styles.run_identification }}" href="{% url 'caidapp:run_identification_on_unidentified' %}"><i class="bi bi-question-circle"></i> Identify </a>
                 <i class="bi bi-arrow-right-short fa-2x" style="vertical-align: middle;"></i>
                 <a class="btn {{ btn_styles.confirm_identification }}" href="{% url 'caidapp:get_individual_identity' %}"><i class="bi bi-question-circle"></i> Confirm identification</a>
+{#                {% if workgroup.identification_init_status %}#}
+{#                    <p>Identification initiated at: {{ workgroup.identification_init_at|date:'Y-m-d H:i' }}</p>#}
+{#                    <p>{{ workgroup.identification_init_message }}</p>#}
+{#                {% else %}#}
+{#                    Identification not initiated.#}
+{#                {% endif %}#}
+{#                <p><i class="bi bi-calendar" ></i></p>#}
+{#                {{ user.ciduser.workgroup }}#}
             </nav>
         </div><!-- End Page Title -->
         <section class="section">

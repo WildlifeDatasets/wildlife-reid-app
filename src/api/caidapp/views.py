@@ -265,7 +265,7 @@ def individual_identities(request):
     """List of individual identities."""
     individual_identities = (
         IndividualIdentity.objects.filter(
-            owner_workgroup=request.user.ciduser.workgroup,
+            Q(owner_workgroup=request.user.ciduser.workgroup) and ~Q(name="nan")
         )
         .all()
         .order_by("-name")
@@ -486,7 +486,7 @@ def init_identification(request, taxon_str: str = "Lynx lynx"):
     if not request.user.ciduser.workgroup_admin:
         return HttpResponseNotAllowed("Identification init is for workgroup admins only.")
     mediafiles = MediaFile.objects.filter(
-        category__name=taxon_str,
+        # category__name=taxon_str,
         identity__isnull=False,
         parent__owner__workgroup=request.user.ciduser.workgroup,
         identity_is_representative=True,
@@ -503,6 +503,11 @@ def init_identification(request, taxon_str: str = "Lynx lynx"):
     identity_metadata_file = output_dir / "init_identification.csv"
     pd.DataFrame(csv_data).to_csv(identity_metadata_file, index=False)
     logger.debug(f"{identity_metadata_file=}")
+    workgroup = request.user.ciduser.workgroup
+    workgroup.identification_init_at = django.utils.timezone.now()
+    workgroup.identification_init_status = "Processing"
+    workgroup.identification_init_message = f"Using {len(csv_data)} images for identification initialization."
+    workgroup.save()
 
     logger.debug("Calling init_identification...")
     sig = signature(
@@ -525,7 +530,8 @@ def init_identification(request, taxon_str: str = "Lynx lynx"):
             # uploaded_archive_id=uploaded_archive.id
         ),
     )
-    return redirect("caidapp:individual_identities")
+    # return redirect("caidapp:individual_identities")
+    return redirect("caidapp:uploads_identities")
 
 
 def _single_species_button_style(request) -> dict:
@@ -597,6 +603,8 @@ def run_identification_on_unidentified(request):
     uploaded_archives = UploadedArchive.objects.filter(
         owner__workgroup=request.user.ciduser.workgroup,
         status="Species Finished",
+        contains_single_taxon=True,
+        contains_identities=False,
     ).all()
     for uploaded_archive in uploaded_archives:
         _run_identification(uploaded_archive)
@@ -669,45 +677,7 @@ def _run_identification(uploaded_archive: UploadedArchive, taxon_str="Lynx lynx"
         link_error=on_error_in_upload_processing.s(),
     )
     logger.debug(f"{identify_task=}")
-
-    # detect_sig = signature(
-    #     "detect",
-    #     kwargs={
-    #         "input_metadata_path": str(identity_metadata_file),
-    #         "output_metadata_path": str(cropped_identity_metadata_file),
-    #         # "output_json_file_path": str(output_json_file),
-    #     },
-    # )
-
-    # uploaded_archive = UploadedArchive.objects.get(id=uploaded_archive_id)
-    # uploaded_archive.status = "Identification started"
-    # uploaded_archive.save()
-    #
-    # tasks = chain(
-    #     detect_sig,
-    #     # simple_log_sig,
-    #     # identify_sig,
-    # )
-    # tasks.apply_async(
-    #     # link=identify_on_success.s(
-    #     link=detection_on_success.s(
-    #         # csv file should contain image_path, class_id, label
-    #         input_metadata_file_path=str(identity_metadata_file),
-    #         organization_id=uploaded_archive.owner.workgroup.id,
-    #         output_json_file_path=str(output_json_file),
-    #         top_k=3,
-    #         uploaded_archive_id=uploaded_archive.id,
-    #         # mediafiles=mediafiles,
-    #         # metadata_file=str(identity_metadata_file),
-    #         # mediafile_ids=mediafile_ids
-    #         # zip_file=os.path.relpath(str(output_archive_file), settings.MEDIA_ROOT),
-    #         # csv_file=os.path.relpath(str(output_metadata_file), settings.MEDIA_ROOT),
-    #     ),
-    #     link_error=on_error_in_upload_processing.s(
-    #         # uploaded_archive_id=uploaded_archive.id
-    #     ),
-    # )
-    return redirect("caidapp:individual_identities")
+    return redirect("caidapp:uploads_identities")
 
 
 def new_album(request):
