@@ -12,6 +12,7 @@ from wildlife_tools.features import DeepFeatures
 from wildlife_tools.similarity import CosineSimilarity
 
 from fgvc.utils.utils import set_cuda_device
+from .postprocessing import feature_top
 
 logger = logging.getLogger("app")
 device = set_cuda_device("0" if torch.cuda.is_available() else "cpu")
@@ -61,6 +62,7 @@ def encode_images(metadata: pd.DataFrame) -> np.ndarray:
     }
     transform = realize(config)
 
+    logger.debug(f"encode_images-metadata: {metadata}")
     new_image_paths = []
     image_paths = metadata.image_path
     for image_path in image_paths:
@@ -69,6 +71,7 @@ def encode_images(metadata: pd.DataFrame) -> np.ndarray:
             new_image_path = image_path
         new_image_paths.append(str(new_image_path))
     metadata["image_path"] = new_image_paths
+    # metadata['masked_image_path'] = np.where(metadata['masked_image_path'].isna(), metadata['image_path'], metadata['masked_image_path'])
 
     dataset = CarnivoreDataset(
         metadata=metadata,
@@ -122,6 +125,7 @@ def identify(
     reference_features: np.ndarray,
     reference_image_paths: list,
     reference_class_ids: list,
+    metadata: pd.DataFrame,
     top_k: int = 1,
 ) -> Tuple[list, np.ndarray, np.ndarray]:
     """Compare input feature vectors with the reference feature vectors and make predictions."""
@@ -132,6 +136,18 @@ def identify(
     similarity = similarity_measure(
         features.astype(np.float32), reference_features.astype(np.float32)
     )["cosine"]
+
+    # postprocessing
+    idx = metadata.index[metadata['sequence_number'] >= 0].tolist()
+    _similarity = similarity[idx, :]
+    _features = features[idx]
+    _metadata = metadata.iloc[idx]
+    if len(_metadata) > 0:
+        mew_features = feature_top(_features, _metadata, _similarity, "top_score")
+        features[idx] = mew_features
+        similarity = similarity_measure(
+            features.astype(np.float32), reference_features.astype(np.float32)
+        )["cosine"]
 
     top_predictions = _get_top_predictions(
         similarity, reference_image_paths, reference_class_ids, top_k=top_k
@@ -145,5 +161,11 @@ def identify(
         pred_class_ids.append(row[0])
         pred_image_paths.append(row[1])
         scores.append(row[2])
+
+    # return path to original image
+    _pred_image_paths = []
+    for paths in pred_image_paths:
+        _pred_image_paths.append([p.replace("/masked_images/", "/images/") for p in paths])
+    pred_image_paths = _pred_image_paths
 
     return pred_image_paths, np.array(pred_class_ids), np.array(scores)

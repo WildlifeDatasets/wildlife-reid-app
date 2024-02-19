@@ -128,7 +128,6 @@ def predict(
                     metadata = extend_df_with_datetime(metadata)
                     metadata = extend_df_with_sequence_id(metadata, sequence_time)
                     metadata["sequence_number"] = np.where(metadata["location"].isna(), -1, metadata["sequence_number"])
-                    metadata.to_csv("/shared_data/media/output/20240213-095423_wt4zsfs6aj1p/20240213-095423/tst.csv")
 
                 # generate embeddings
                 features = encode_images(metadata)
@@ -144,6 +143,7 @@ def predict(
                     reference_features,
                     reference_image_paths=reference_images["image_path"],
                     reference_class_ids=reference_images["class_id"],
+                    metadata=metadata,
                     top_k=top_k,
                 )
                 pred_labels = [[id2label[x] for x in row] for row in pred_class_ids]
