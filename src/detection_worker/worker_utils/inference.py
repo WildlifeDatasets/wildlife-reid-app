@@ -52,6 +52,37 @@ def download_file_if_does_not_exists(url: str, output_file: str):
         download_file(url, output_file)
 
 
+def pad_image(image: np.ndarray, bbox: Union[list, np.ndarray], border: float = 0.25) -> np.ndarray:
+    """Crop the image, pad to square and add a border."""
+    # get bbox and image
+    x0, y0, x1, y1 = np.round(bbox).astype(int)
+    w, h = x1 - x0, y1 - y0
+    cropped_image = image[y0:y1, x0:x1]
+
+    # add padding
+    dif = np.abs(w - h)
+    pad_value_0 = np.floor(dif / 2).astype(int)
+    pad_value_1 = dif - pad_value_0
+    pad_w = 0
+    pad_h = 0
+
+    if w > h:
+        y0 -= pad_value_0
+        y1 += pad_value_1
+        pad_h += pad_value_0
+    else:
+        x0 -= pad_value_0
+        x1 += pad_value_1
+        pad_w += pad_value_0
+
+    border = np.round((np.max([w, h]) * (border / 2)) / 2).astype(int)
+    pad_w += border
+    pad_h += border
+
+    padded_image = np.pad(cropped_image, ((pad_h, pad_h), (pad_w, pad_w), (0, 0)), mode="constant")
+    return padded_image
+
+
 model_url = r"https://github.com/ecologize/CameraTraps/releases/download/v5.0/md_v5a.0.0.pt"
 model_file = Path("~/resources/md_v5a.0.0.pt")
 download_file_if_does_not_exists(model_url, model_file)
@@ -89,7 +120,7 @@ def detect_animal(image_path: list) -> dict[str, Union[ndarray, Any]]:
     }
 
 
-def segment_animal(image_path: list, bbox: list, cropped=True) -> np.ndarray:
+def segment_animal(image_path: str, bbox: list, cropped=True) -> np.ndarray:
     """Segment an animal in a given image using SAM model."""
     image = cv2.imread(image_path)
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
@@ -111,4 +142,4 @@ def segment_animal(image_path: list, bbox: list, cropped=True) -> np.ndarray:
     foregroud_image = image.copy()
     foregroud_image[masks[0] == False] = 0  # noqa
 
-    return foregroud_image[int(bbox[1]) - 5 : int(bbox[3]) + 5, int(bbox[0]) - 5 : int(bbox[2]) + 5]
+    return pad_image(foregroud_image, bbox, border=0.25)
