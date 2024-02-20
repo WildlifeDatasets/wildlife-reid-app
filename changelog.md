@@ -10,6 +10,7 @@
 * [added] Buttons are now organized in workflow scheme
 * [added] Expected time of processing is now shown for taxon classification
 * [added] Location is stored with precision of 3 decimal places
+* [added] Access to the list of all not identified media files from identification view
 
 ## 01-2024
 
