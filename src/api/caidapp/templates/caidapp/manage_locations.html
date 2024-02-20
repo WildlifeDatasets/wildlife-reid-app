@@ -14,7 +14,7 @@
             {% for one_obj in page_obj %}
             {{ one_obj }}
                 {%  if one_obj.instance.id %}
-                <a class="btn btn-primary" href="{% url 'caidapp:update_location' one_obj.instance.id %}">Detail</a><br>
+                <a class="btn btn-primary mt-1" href="{% url 'caidapp:update_location' one_obj.instance.id %}">Detail</a><br>
                 {% endif %}
 {#                {{ one_obj.instance.id }}#}
             {% endfor %}

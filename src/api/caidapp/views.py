@@ -98,6 +98,15 @@ def media_files(request):
         },
     )
 
+def _round_location(location: Location, order:int=3):
+    """Round location."""
+
+    lat, lon = str(location.location ).split(",")
+    lat = round(float(lat), order)
+    lon = round(float(lon), order)
+    location.location = f"{lat},{lon}"
+    location.save()
+    return f"{lat},{lon}"
 
 def update_location(request, location_id):
     """Show and update location."""
@@ -111,6 +120,7 @@ def update_location(request, location_id):
 
             # get uploaded archive
             location = form.save()
+            _round_location(location, order=3)
             return redirect("caidapp:manage_locations")
     else:
         form = LocationForm(instance=location)

@@ -9,6 +9,7 @@
 * [fixed] The single species identified media files are set representative
 * [added] Buttons are now organized in workflow scheme
 * [added] Expected time of processing is now shown for taxon classification
+* [added] Location is stored with precision of 3 decimal places
 
 ## 01-2024
 
