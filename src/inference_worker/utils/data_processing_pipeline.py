@@ -14,21 +14,28 @@ from scipy.special import softmax
 from fgvc.core.training import predict
 from fgvc.datasets import get_dataloaders
 from fgvc.utils.experiment import load_model
+import torch
+import tqdm
 
-from .config import RESOURCES_DIR, WANDB_API_KEY, WANDB_ARTIFACT_PATH
+from .config import RESOURCES_DIR, WANDB_API_KEY, WANDB_ARTIFACT_PATH, WANDB_ARTIFACT_PATH_CROPPED
 from .dataset_tools import data_preprocessing
 from .prediction_dataset import PredictionDataset
 
 logger = logging.getLogger("app")
 
 
-def get_model_config() -> Tuple[dict, str, dict]:
+def get_model_config(is_cropped:bool=False) -> Tuple[dict, str, dict]:
     """Load model configuration from W&B including training config and fine-tuned checkpoint."""
     # get artifact and run from W&B
-    model_config_path = Path(RESOURCES_DIR) / "model_config.json"
+    if is_cropped:
+        wandb_artifact_path = WANDB_ARTIFACT_PATH_CROPPED
+        model_config_path = Path(RESOURCES_DIR) / "model_config_cropped.json"
+    else:
+        wandb_artifact_path = WANDB_ARTIFACT_PATH
+        model_config_path = Path(RESOURCES_DIR) / "model_config.json"
     try:
         api = wandb.Api(api_key=WANDB_API_KEY)
-        artifact = api.artifact(WANDB_ARTIFACT_PATH)
+        artifact = api.artifact(wandb_artifact_path)
         run = artifact.logged_by()
         config = run.config
         # save model config locally for later use without internet
@@ -63,6 +70,8 @@ def get_model_config() -> Tuple[dict, str, dict]:
 
 def load_model_and_predict(image_paths: list) -> Tuple[np.ndarray, Optional[dict]]:
     """Load model, create dataloaders, and run inference."""
+    from .data_preprocessing import detect_animal, pad_image, detect_animals
+    # is_detected = detect_animals(image_paths)
     config, checkpoint_path, artifact_config = get_model_config()
 
     logger.info("Creating model and loading fine-tuned checkpoint.")
