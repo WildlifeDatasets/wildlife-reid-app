@@ -11,6 +11,7 @@
 * [added] Expected time of processing is now shown for taxon classification
 * [added] Location is stored with precision of 3 decimal places
 * [added] Access to the list of all not identified media files from identification view
+* [added] Added scheme to species upload
 
 ## 01-2024
 

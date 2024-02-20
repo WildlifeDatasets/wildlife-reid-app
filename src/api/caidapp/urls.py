@@ -111,4 +111,8 @@ urlpatterns = [
     path("show_log/", views.show_log, name="show_log"),
     path("show_taxons/", views.show_taxons, name="show_taxons"),
     path("workgroup_update/<str:workgroup_hash>/", views.workgroup_update, name="workgroup_update"),
+    path("manual_taxon_classification_on_non_classified",
+         views.manual_taxon_classification_on_non_classified,
+         name="manual_taxon_classification_on_non_classified"
+         ),
 ]

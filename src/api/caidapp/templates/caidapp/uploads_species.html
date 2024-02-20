@@ -12,7 +12,11 @@
                 <ol class="breadcrumb">
                     <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li>
                 </ol>
-                <a class="btn btn-primary" href="{% url 'caidapp:upload_archive' %}"><i class="bi bi-plus-circle"></i> New Upload </a>
+                <a class="btn {{ btn_styles.upload_species }}" href="{% url 'caidapp:upload_archive' %}"><i class="bi bi-plus-circle"></i> New Upload </a>
+                <i class="bi bi-arrow-right-short fa-2x" style="vertical-align: middle;"></i>
+                <a class="btn {{ btn_styles.classify_non_classified }}" href="{% url 'caidapp:manual_taxon_classification_on_non_classified' %}"
+                   data-bs-toggle="tooltip" title="{{ btn_tooltips.classify_non_classified }}"
+                >Classify non classified</a>
             </nav>
         </div><!-- End Page Title -->
         <section class="section">

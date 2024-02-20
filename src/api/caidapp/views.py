@@ -98,6 +98,21 @@ def media_files(request):
         },
     )
 
+def manual_taxon_classification_on_non_classified(request):
+    """List of uploads."""
+    # pick random non-classified media file
+    mediafile = MediaFile.objects.filter(
+        parent__owner__workgroup=request.user.ciduser.workgroup,
+        category__name="Not Classified",
+        parent__contains_single_taxon=False).order_by("?").first()
+    if mediafile is None:
+        return HttpResponseBadRequest("No non-classified media files.")
+    return media_file_update(
+        request, mediafile.id,
+        next_text="Save", next_url=reverse_lazy("caidapp:manual_taxon_classification_on_non_classified"),
+        skip_url=reverse_lazy("caidapp:manual_taxon_classification_on_non_classified")
+    )
+
 def _round_location(location: Location, order:int=3):
     """Round location."""
 
@@ -232,8 +247,34 @@ def uploads_species(request):
 
     page_number = request.GET.get("page")
     page_obj = paginator.get_page(page_number)
-    return render(request, "caidapp/uploads_species.html", {"page_obj": page_obj})
 
+    btn_styles = _multiple_species_button_style(request)
+
+    btn_tooltips = _mutliple_species_button_tooltips(request)
+
+
+    btn_tooltips = _mutliple_species_button_tooltips(request)
+    return render(
+        request, "caidapp/uploads_species.html",
+        {"page_obj": page_obj, "btn_styles": btn_styles, "btn_tooltips": btn_tooltips})
+
+def _mutliple_species_button_tooltips(request) -> dict:
+    n_non_classified_taxons = len(MediaFile.objects.filter(
+        parent__owner__workgroup=request.user.ciduser.workgroup,
+        category__name="Not Classified",
+        parent__contains_single_taxon=False).all())
+    btn_tooltips = {
+        "classify_non_classified": f"Classify {n_non_classified_taxons} non-classified media files.",
+    }
+    return btn_tooltips
+
+
+def _multiple_species_button_style(request) -> dict:
+    return {
+        "upload_species": "btn-primary",
+        "classify_non_classified": "btn-secondary",
+    }
+    pass
 
 def logout_view(request):
     """Logout from the application."""
@@ -242,7 +283,7 @@ def logout_view(request):
     return redirect("caidapp:index")
 
 
-def media_file_update(request, media_file_id):
+def media_file_update(request, media_file_id, next_text="Save", next_url=None, skip_url=None):
     """Show and update media file."""
     # | Q(parent__owner=request.user.ciduser)
     # | Q(parent__owner__workgroup=request.user.ciduser.workgroup)
@@ -260,14 +301,16 @@ def media_file_update(request, media_file_id):
             mediafile.updated_at = django.utils.timezone.now()
             # get uploaded archive
             mediafile = form.save()
+            if next_url is None:
+                next_url = reverse_lazy("caidapp:uploadedarchive_detail", kwargs={"uploadedarchive_id": mediafile.parent.id})
+            return redirect(next_url)
 
-            return redirect("caidapp:uploadedarchive_detail", mediafile.parent.id)
     else:
         form = MediaFileForm(instance=mediafile)
     return render(
         request,
         "caidapp/media_file_update.html",
-        {"form": form, "headline": "Media File", "button": "Save", "mediafile": mediafile},
+        {"form": form, "headline": "Media File", "button": next_text, "mediafile": mediafile, skip_url:skip_url},
     )
 
 
