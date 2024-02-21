@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block head %}
+{% endblock %}
+{% block body %}
+<div class="container">
+    <h1 class="center">Sample data</h1>
+    <div class="card">
+        {% for archive in sample_data.archives %}
+        <p> {{ archive }}</p>
+        {% endfor %}
+    </div>
+</div>
+
+{% endblock %}

@@ -208,6 +208,20 @@ class Album(models.Model):
         """Return absolute url."""
         return f"/album/{str(self.hash)}/"
 
+class ArchiveCollection(models.Model):
+    name = models.CharField(max_length=50)
+    owner = models.ForeignKey(CIDUser, on_delete=models.CASCADE, null=True, blank=True)
+    archives = models.ManyToManyField(UploadedArchive, blank=True)
+    created_at = models.DateTimeField("Created at", default=datetime.now)
+    hash = models.CharField(max_length=255, blank=True, default=_hash)
+
+    def __str__(self):
+        return str(self.name)
+
+    # def get_absolute_url(self):
+    #     """Return absolute url."""
+    #     return f"/album/{str(self.hash)}/"
+
 
 class AlbumShareRoleType(models.Model):
     name = models.CharField(max_length=50)

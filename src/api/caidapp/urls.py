@@ -115,4 +115,5 @@ urlpatterns = [
          views.manual_taxon_classification_on_non_classified,
          name="manual_taxon_classification_on_non_classified"
          ),
+    path("sample_data/", views.sample_data, name="sample_data"),
 ]

@@ -43,6 +43,7 @@ from .models import (
     Taxon,
     UploadedArchive,
     WorkGroup,
+    ArchiveCollection,
 )
 from .tasks import (
     _prepare_dataframe_for_identification,
@@ -291,6 +292,11 @@ def _multiple_species_button_style(request) -> dict:
         "classify_non_classified": "btn-secondary",
     }
     pass
+
+def sample_data(request):
+    """Sample data."""
+    sample_data = get_object_or_404(ArchiveCollection, name="Sample data")
+    return render(request, "caidapp/sample_data.html", {"sample_data": sample_data})
 
 def logout_view(request):
     """Logout from the application."""
