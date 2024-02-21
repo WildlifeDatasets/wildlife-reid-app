@@ -107,11 +107,19 @@ def manual_taxon_classification_on_non_classified(request):
         category__name="Not Classified",
         parent__contains_single_taxon=False).order_by("?").first()
     if mediafile is None:
-        return HttpResponseBadRequest("No non-classified media files.")
+        return message(request, "No non-classified media files.")
     return media_file_update(
         request, mediafile.id,
         next_text="Save", next_url=reverse_lazy("caidapp:manual_taxon_classification_on_non_classified"),
         skip_url=reverse_lazy("caidapp:manual_taxon_classification_on_non_classified")
+    )
+
+def message(request, message):
+    """Show message."""
+    return render(
+        request,
+        "caidapp/message.html",
+        {"message": message},
     )
 
 def _round_location(location: Location, order:int=3):
@@ -265,17 +273,19 @@ def uploads_species(request):
     page_number = request.GET.get("page")
     page_obj = paginator.get_page(page_number)
 
-    btn_styles = _multiple_species_button_style(request)
+    # btn_styles = _multiple_species_button_style_and_tooltips(request)
+    #
+    # btn_tooltips = _mutliple_species_button_tooltips(request)
 
-    btn_tooltips = _mutliple_species_button_tooltips(request)
 
-
-    btn_tooltips = _mutliple_species_button_tooltips(request)
+    btn_styles, btn_tooltips = _multiple_species_button_style_and_tooltips(request)
     return render(
         request, "caidapp/uploads_species.html",
         {"page_obj": page_obj, "btn_styles": btn_styles, "btn_tooltips": btn_tooltips})
 
-def _mutliple_species_button_tooltips(request) -> dict:
+
+
+def _multiple_species_button_style_and_tooltips(request) -> dict:
     n_non_classified_taxons = len(MediaFile.objects.filter(
         parent__owner__workgroup=request.user.ciduser.workgroup,
         category__name="Not Classified",
@@ -283,15 +293,17 @@ def _mutliple_species_button_tooltips(request) -> dict:
     btn_tooltips = {
         "classify_non_classified": f"Classify {n_non_classified_taxons} non-classified media files.",
     }
-    return btn_tooltips
-
-
-def _multiple_species_button_style(request) -> dict:
-    return {
-        "upload_species": "btn-primary",
-        "classify_non_classified": "btn-secondary",
-    }
-    pass
+    if n_non_classified_taxons == 0:
+        btn_styles = {
+            "upload_species": "btn-primary",
+            "classify_non_classified": "btn-secondary",
+        }
+    else:
+        btn_styles = {
+            "upload_species": "btn-secondary",
+            "classify_non_classified": "btn-primary",
+        }
+    return btn_styles, btn_tooltips
 
 def sample_data(request):
     """Sample data."""
