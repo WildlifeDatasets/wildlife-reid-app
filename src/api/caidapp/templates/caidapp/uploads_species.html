@@ -179,6 +179,10 @@
 
                 {% else %}
                     <p>No data available.</p>
+                    <p><a class="dropdown-item d-flex align-items-center" href="{% url 'caidapp:sample_data' %}">
+                        <i class="fa-solid fa-vial"></i>
+                        <span>Download sample data</span>
+                    </a></p>
                 {% endif %}
             </div>
             {#            </ul>#}

@@ -295,8 +295,8 @@ def _multiple_species_button_style(request) -> dict:
 
 def sample_data(request):
     """Sample data."""
-    sample_data = get_object_or_404(ArchiveCollection, name="Sample data")
-    return render(request, "caidapp/sample_data.html", {"sample_data": sample_data})
+    sample_data_collection= get_object_or_404(ArchiveCollection, name="sample_data")
+    return render(request, "caidapp/sample_data.html", {"sample_data_collection": sample_data_collection})
 
 def logout_view(request):
     """Logout from the application."""

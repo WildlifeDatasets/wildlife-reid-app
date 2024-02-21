@@ -47,3 +47,9 @@ Make migrations and migrate, if needed:
 docker exec -it carnivoreid-app-api bash -ic 'python manage.py makemigrations'
 docker exec -it carnivoreid-app-api bash -ic 'python manage.py migrate'
 ```
+
+
+### Sample data
+
+The sample data can be added by creating `ArchiveCollection` with name `sample_data` and selection of several 
+`UploadedArchive` instances into this collection.

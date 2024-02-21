@@ -284,6 +284,12 @@
                         {#            <li>#}
                         {#              <hr class="dropdown-divider">#}
                         {#            </li>#}
+                            <li>
+                                <a class="dropdown-item d-flex align-items-center" href="{% url 'caidapp:sample_data' %}">
+                                    <i class="fa-solid fa-vial"></i>
+                                    <span>Sample data</span>
+                                </a>
+                            </li>
                         {% if user.is_staff %}
                             <li>
                                 <a class="dropdown-item d-flex align-items-center" href="{% url 'admin:index' %}">

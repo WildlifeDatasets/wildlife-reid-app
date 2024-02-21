@@ -5,11 +5,9 @@
 {% block body %}
 <div class="container">
     <h1 class="center">Sample data</h1>
-    <div class="card">
-        {% for archive in sample_data.archives %}
-        <p> {{ archive }}</p>
+        {% for archive in sample_data_collection.archives.all %}
+            <p> <a class="link-primary" href="{{ archive.archivefile.url }}">{{ archive }}</a></p>
         {% endfor %}
-    </div>
 </div>
 
 {% endblock %}
