@@ -22,6 +22,8 @@ services:
     command: >
       --loglevel warning
       --requirepass password
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
     volumes:
       - redis-data:/data:Z
     expose:
