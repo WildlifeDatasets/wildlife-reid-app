@@ -220,8 +220,24 @@ def show_log(request):
 
 def show_taxons(request):
     """List of taxons."""
-    taxons = Taxon.objects.all().order_by("name")
-    return render(request, "caidapp/show_taxons.html", {"taxons": taxons})
+    all_taxons = Taxon.objects.all().order_by("name")
+    taxons = []
+    taxons_mediafiles = []
+    if request.user.ciduser.workgroup:
+        filter_params = dict(parent__owner__workgroup=request.user.ciduser.workgroup)
+    else:
+        filter_params = dict(parent__owner=request.user.ciduser)
+
+    for taxon in all_taxons:
+        mediafiles_of_taxon = taxon.mediafile_set.filter(**filter_params).all()
+        if len(mediafiles_of_taxon) > 0:
+            taxons.append(taxon)
+            taxons_mediafiles.append(mediafiles_of_taxon)
+
+
+    return render(request, "caidapp/show_taxons.html",
+                  {"taxons": taxons, "taxons_with_mediafiles": zip(taxons, taxons_mediafiles)}
+                  )
 
 
 def uploads_species(request):
