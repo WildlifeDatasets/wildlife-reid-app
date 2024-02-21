@@ -70,7 +70,7 @@ def get_model_config(is_cropped:bool=False) -> Tuple[dict, str, dict]:
 
 def load_model_and_predict(image_paths: list) -> Tuple[np.ndarray, Optional[dict]]:
     """Load model, create dataloaders, and run inference."""
-    from .data_preprocessing import detect_animal, pad_image, detect_animals
+    # from .data_preprocessing import detect_animal, pad_image, detect_animals
     # is_detected = detect_animals(image_paths)
     config, checkpoint_path, artifact_config = get_model_config()
 
