@@ -13,6 +13,7 @@
 * [added] Access to the list of all not identified media files from identification view
 * [added] Added scheme to species upload
 * [added] Sample data support
+* [added] Added autocomplete for location at upload
 
 ## 01-2024
 

@@ -48,6 +48,7 @@ def predict(
 
         # process data
         if output_images_dir.exists():
+            # TODO turn of the following line
             metadata = pd.read_csv(output_metadata_file, index_col=0)
         else:
             metadata = data_processing_pipeline.data_processing(

@@ -27,6 +27,13 @@ class IndividualIdentityForm(forms.ModelForm):
 
 
 class UploadedArchiveForm(forms.ModelForm):
+    from django import forms
+    from .models import UploadedArchive
+
+    location_at_upload = forms.CharField(
+        widget=forms.TextInput(attrs={'class': 'autocomplete'}),
+        required=False
+    )
     class Meta:
         model = UploadedArchive
         fields = (

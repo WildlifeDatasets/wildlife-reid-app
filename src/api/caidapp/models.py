@@ -265,8 +265,13 @@ def get_taxon(name: str) -> Optional[Taxon]:
     return taxon
 
 
-def get_location(name: str) -> Location:
-    """Return location according to the name, create it if necessary."""
+def get_location(request, name: str) -> Location:
+    """Return location according to the name, create it if necessary.
+
+    Parameters
+    ----------
+    request
+    """
     objs = Location.objects.filter(name=name)
     if len(objs) == 0:
         location = Location(name=name)

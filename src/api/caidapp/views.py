@@ -160,12 +160,15 @@ def manage_locations(request):
     LocationFormSet = modelformset_factory(
         Location, fields=("name",), can_delete=False, can_order=False
     )
+    params =  _user_content_filter_params(request, "owner")
+    formset = LocationFormSet(queryset=Location.objects.filter(**params))
+
     if request.method == "POST":
         form = LocationFormSet(request.POST)
         if form.is_valid():
             form.save()
     else:
-        form = LocationFormSet()
+        form = formset
 
     return render(
         request,
@@ -232,6 +235,7 @@ def show_taxons(request):
     all_taxons = Taxon.objects.all().order_by("name")
     taxons = []
     taxons_mediafiles = []
+    # todo use here new function
     if request.user.ciduser.workgroup:
         filter_params = dict(parent__owner__workgroup=request.user.ciduser.workgroup)
     else:
@@ -886,6 +890,8 @@ def upload_archive(
                 "contains_single_taxon": contains_single_taxon,
             }
         )
+
+
     return render(
         request,
         "caidapp/model_form_upload.html",
@@ -895,8 +901,38 @@ def upload_archive(
             "button": "Upload",
             "text_note": text_note,
             "next": next,
+            "locations": _get_all_user_locations(request),
         },
     )
+
+def _user_content_filter_params(request, prefix:str) -> dict:
+    """Parameters for filtering user content based on existence of workgroup.
+
+    Parameters
+    ----------
+    request : HttpRequest
+        Request object.
+    prefix : str
+        Prefix for filtering with ciduser.
+        If the filter will be used in MediaFile, the prefix should be "parent__owner".
+        If the filter will be used in Location, the prefix should be "owner".
+    """
+    if request.user.ciduser.workgroup:
+        # filter_params = dict(parent__owner__workgroup=request.user.ciduser.workgroup)
+        filter_params = {f"{prefix}__workgroup": request.user.ciduser.workgroup}
+    else:
+        filter_params = {f"{prefix}": request.user.ciduser}
+    return filter_params
+
+
+def _get_all_user_locations(request):
+    """Get all users locations."""
+    params =  _user_content_filter_params(request, "owner")
+    logger.debug(f"{params=}")
+    locations = Location.objects.filter(
+        **params
+    ).order_by("name")
+    return locations
 
 
 @login_required

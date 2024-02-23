@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load static %}
+{% load widget_tweaks %}
 {% block head %}
 {% endblock %}
 {% block body %}
@@ -18,7 +19,7 @@
                 {% endif %}
 {#                {{ one_obj.instance.id }}#}
             {% endfor %}
-            <button class="btn btn-primary" id="btnUpload" type="submit">
+            <button class="btn btn-primary mt-1" id="btnUpload" type="submit">
                 Save
             </button>
 

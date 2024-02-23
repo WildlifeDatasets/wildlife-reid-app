@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load widget_tweaks %}
 
 {% block head %}
 <!-- Latest compiled and minified JavaScript -->
@@ -32,7 +33,16 @@
 
             <form method="post" enctype="multipart/form-data" id="upload_form">
                 {% csrf_token %}
-                {{ form.as_p }}
+{#                {{ form.as_p }}#}
+
+                {% for field in form %}
+                    <div class="form-group">
+                        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                        {{ field.errors }}
+                        {{ field|add_class:"form-control" }}
+                    </div>
+                {% endfor %}
+
                 <p><div class="progress not-visible" id="progress"></div></p>
                 <button class="btn btn-primary" id="btnUpload" type="submit">
 {#                    <span class="spinner"><i class="fa fa-refresh fa-spin"></i></span>#}
@@ -43,6 +53,9 @@
 
             </form>
         </div>
+  </form>
+</div>
+</div>
     {% endif %}
     {#</div>#}
 
@@ -98,4 +111,64 @@
         });
 
     </script>
+    <script type="module">
+  import Autocomplete from "https://cdn.jsdelivr.net/gh/lekoala/bootstrap5-autocomplete@master/autocomplete.js";
+  const opts = {
+    onSelectItem: console.log,
+  };
+  var src = [
+      {%  for location in locations %}
+      { title: "{{ location.name }}", id: "{{ location.id }}", data: { key: {{ location.id }} } },
+      {% endfor %}
+  ];
+  Autocomplete.init("input.autocomplete", {
+    items: src,
+    valueField: "id",
+    labelField: "title",
+    highlightTyped: true,
+    onSelectItem: console.log,
+  });
+  new Autocomplete(document.getElementById("id_location_at_upload"), opts);
+</script>
+<style>
+  /* highlightTyped use mark */
+  .autocomplete-menu mark {
+    text-decoration: underline;
+    background: none;
+    color: currentColor;
+    padding: 0;
+  }
+
+  /* Optional nicer scrollbars */
+  .autocomplete-menu {
+    --scroller-color: 0, 0%;
+    --scroller-color-lightness: 80%;
+    --scroller-bg-lightness: 90%;
+    --scroller-hover-factor: 0.8;
+    --scroller-thumb: hsl(var(--scroller-color), var(--scroller-color-lightness));
+    /* Replicate hover for webkit */
+    --scroller-thumb-hover: hsl(var(--scroller-color), calc(var(--scroller-color-lightness) * var(--scroller-hover-factor)));
+    --scroller-background: hsl(var(--scroller-color), calc(var(--scroller-bg-lightness)));
+    scrollbar-color: var(--scroller-thumb) var(--scroller-background);
+    scrollbar-width: thin;
+  }
+
+  .autocomplete-menu::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .autocomplete-menu::-webkit-scrollbar-track {
+    background: var(--scroller-background);
+  }
+
+  .autocomplete-menu::-webkit-scrollbar-thumb {
+    background: var(--scroller-thumb);
+  }
+
+  .autocomplete-menu::-webkit-scrollbar-thumb:hover {
+    background: var(--scroller-thumb-hover);
+  }
+</style>
+
+
 {% endblock %}
