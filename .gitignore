@@ -109,6 +109,8 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+src/detection_worker/resources/
+src/inference_worker/cache.json
 
 # Spyder project settings
 .spyderproject
@@ -135,3 +137,6 @@ dmypy.json
 secretkey.txt
 /caidapp_data
 /caidapp_private
+
+#Mac
+.DS_Store

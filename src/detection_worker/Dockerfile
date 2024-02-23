@@ -35,6 +35,9 @@ RUN pip install --no-cache-dir --upgrade pip build setuptools && \
 
 COPY ./src/detection_worker /detection_worker
 
+pip install pytz --upgrade
+pip install tzdata --upgrade
+
 # expose ports and run application
 WORKDIR $APP_DIR
 CMD C_FORCE_ROOT=false celery -A worker.detection_worker worker --pool threads --loglevel info --queues detection_worker
