@@ -2,6 +2,19 @@ FROM nvcr.io/nvidia/pytorch:23.05-py3
 
 COPY ./src/inference_worker/requirements.txt /inference_worker/requirements.txt
 
+# install linux dependencies
+RUN apt-get update --yes && \
+    # - apt-get upgrade is run to patch known vulnerabilities in apt-get packages as
+    #   the ubuntu base image is rebuilt too seldom sometimes (less than once a month)
+    # apt-get upgrade --yes && \
+    apt-get install --yes --no-install-recommends \
+    wget \
+    git \
+    ffmpeg \
+    libsm6 \
+    libxext6 && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
 # install python dependencies
 ENV APP_DIR='/inference_worker'
 WORKDIR $APP_DIR
