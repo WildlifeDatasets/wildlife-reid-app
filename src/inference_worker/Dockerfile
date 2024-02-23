@@ -1,4 +1,4 @@
-FROM python:3.9.16-slim
+FROM nvcr.io/nvidia/pytorch:23.05-py3
 
 COPY ./src/inference_worker/requirements.txt /inference_worker/requirements.txt
 

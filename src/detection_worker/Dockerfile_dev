@@ -1,4 +1,5 @@
-FROM python:3.10.13-slim
+FROM nvcr.io/nvidia/pytorch:23.05-py3
+#FROM python:3.10.13-slim
 
 # install linux dependencies
 RUN apt-get update --yes && \
