@@ -43,8 +43,8 @@ RUN pip install --no-cache-dir --upgrade pip build setuptools && \
     pip install --no-cache-dir --compile -r requirements.txt && \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/* /tmp/* /var/tmp/*
 
-pip install pytz --upgrade
-pip install tzdata --upgrade
+RUN pip install pytz --upgrade
+RUN pip install tzdata --upgrade
 
 # expose ports and run application
 WORKDIR $APP_DIR

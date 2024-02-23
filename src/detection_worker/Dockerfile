@@ -35,8 +35,8 @@ RUN pip install --no-cache-dir --upgrade pip build setuptools && \
 
 COPY ./src/detection_worker /detection_worker
 
-pip install pytz --upgrade
-pip install tzdata --upgrade
+RUN pip install pytz --upgrade
+RUN pip install tzdata --upgrade
 
 # expose ports and run application
 WORKDIR $APP_DIR
