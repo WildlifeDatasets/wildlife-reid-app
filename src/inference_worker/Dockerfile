@@ -14,6 +14,10 @@ COPY ./src/inference_worker /inference_worker
 RUN pip install pytz --upgrade
 RUN pip install tzdata --upgrade
 
+RUN pip install \
+    opencv-python==4.5.5.64 \
+    opencv-python-headless==4.5.5.64
+
 # expose ports and run application
 WORKDIR $APP_DIR
 CMD C_FORCE_ROOT=false celery -A worker.inference_worker worker --pool threads --loglevel info --queues inference_worker
