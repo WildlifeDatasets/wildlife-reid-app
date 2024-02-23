@@ -1,4 +1,4 @@
-FROM python:3.9.16-slim
+FROM python:3.10.13-slim
 
 # install linux dependencies
 RUN apt-get update --yes && \
