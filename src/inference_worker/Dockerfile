@@ -11,6 +11,9 @@ RUN pip install --no-cache-dir --upgrade pip build && \
 
 COPY ./src/inference_worker /inference_worker
 
+RUN pip install pytz --upgrade
+RUN pip install tzdata --upgrade
+
 # expose ports and run application
 WORKDIR $APP_DIR
 CMD C_FORCE_ROOT=false celery -A worker.inference_worker worker --pool threads --loglevel info --queues inference_worker

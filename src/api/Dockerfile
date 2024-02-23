@@ -19,6 +19,9 @@ RUN pip install --no-cache-dir --upgrade pip build && \
 
 COPY ./src/api /api
 
+RUN pip install pytz --upgrade
+RUN pip install tzdata --upgrade
+
 # expose ports and run application
 WORKDIR $APP_DIR
 ENV PYTHONUNBUFFERED=1
