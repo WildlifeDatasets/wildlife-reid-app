@@ -4,14 +4,10 @@ celery[redis]==5.2.7
 psycopg2-binary~=2.9.5
 SQLAlchemy~=1.4.44
 
-# PyTorch
--f https://download.pytorch.org/whl/torch_stable.html
-torch==2.0.1
-torchvision==0.15.2
 
 timm==0.9.7
 pycocotools==2.0.7
-pandas==2.1.4
+pandas==2.0.2
 kornia==0.7.1
 
 # FGVC library
@@ -22,3 +18,5 @@ fgvc==1.5.1.dev
 wildlife-tools==0.0.5
 
 wandb
+
+opencv-python==4.8.0.74
