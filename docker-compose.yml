@@ -128,7 +128,7 @@ services:
       - identification_worker_db
     networks:
       - backend
-#      - identification-worker
+    #      - identification-worker
     labels:
       com.piva-ai.group: "applications"
 
@@ -148,7 +148,7 @@ services:
       - 5432
     networks:
       - backend
-#      - identification-worker
+    #      - identification-worker
     labels:
       com.piva-ai.group: "applications"
 
@@ -158,6 +158,13 @@ services:
     build:
       context: .
       dockerfile: src/detection_worker/Dockerfile
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
     container_name: carnivoreid-app-detection-worker
     restart: always
     env_file:
@@ -171,7 +178,7 @@ services:
       - redis
     networks:
       - backend
-#      - identification-worker
+    #      - identification-worker
     labels:
       com.piva-ai.group: "applications"
 
