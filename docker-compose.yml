@@ -1,4 +1,4 @@
-version: "3.8"
+version: "3.9"
 
 services:
   broker:
@@ -163,7 +163,7 @@ services:
         reservations:
           devices:
             - driver: nvidia
-              count: 1
+              device_ids: ['0']
               capabilities: [gpu]
     container_name: carnivoreid-app-detection-worker
     restart: always

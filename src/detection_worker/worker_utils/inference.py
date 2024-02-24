@@ -11,9 +11,9 @@ from segment_anything import SamPredictor, sam_model_registry
 from tqdm import tqdm
 
 # from fgvc.utils.utils import set_cuda_device
+DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 logger = logging.getLogger("app")
-DEVICE = "0" if torch.cuda.is_available() else "cpu"
 logger.info(f"Using device: {DEVICE}")
 
 logger.info("Initializing MegaDetector model and loading pre-trained checkpoint.")
