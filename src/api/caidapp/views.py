@@ -72,7 +72,10 @@ def login(request):
 def media_files(request):
     """List of uploads."""
     mediafiles = (
-        MediaFile.objects.filter(parent__owner=request.user.ciduser)
+        MediaFile.objects.filter(
+            **_user_content_filter_params(request, "parent__owner")
+            # parent__owner=request.user.ciduser
+        )
         .all()
         .order_by("-parent__uploaded_at")
     )
@@ -103,7 +106,8 @@ def manual_taxon_classification_on_non_classified(request):
     """List of uploads."""
     # pick random non-classified media file
     mediafile = MediaFile.objects.filter(
-        parent__owner__workgroup=request.user.ciduser.workgroup,
+        **_user_content_filter_params(request, "parent__owner"),
+        # parent__owner__workgroup=request.user.ciduser.workgroup, # but this would work too
         category__name="Not Classified",
         parent__contains_single_taxon=False).order_by("?").first()
     if mediafile is None:
@@ -134,10 +138,10 @@ def _round_location(location: Location, order:int=3):
 
 def update_location(request, location_id):
     """Show and update location."""
-    location = get_object_or_404(Location, pk=location_id)
-    if location.owner:
-        if request.user.ciduser.workgroup != location.owner__workgroup:
-            return HttpResponseNotAllowed("Not allowed to see this location.")
+    location = get_object_or_404(Location, pk=location_id, **_user_content_filter_params(request, "owner"))
+    # if location.owner:
+    #     if request.user.ciduser.workgroup != location.owner__workgroup:
+    #         return HttpResponseNotAllowed("Not allowed to see this location.")
     if request.method == "POST":
         form = LocationForm(request.POST, instance=location)
         if form.is_valid():
