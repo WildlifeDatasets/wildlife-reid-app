@@ -1,4 +1,4 @@
-FROM python:3.9.16-slim
+FROM python:3.10.13-slim
 
 COPY ./src/api/requirements.txt /api/requirements.txt
 
@@ -18,6 +18,9 @@ RUN pip install --no-cache-dir --upgrade pip build && \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/* /tmp/* /var/tmp/*
 
 COPY ./src/api /api
+
+RUN pip install pytz --upgrade
+RUN pip install tzdata --upgrade
 
 # expose ports and run application
 WORKDIR $APP_DIR

@@ -1,4 +1,5 @@
-FROM python:3.9.16-slim
+FROM nvcr.io/nvidia/pytorch:23.05-py3
+#FROM python:3.10.13-slim
 
 # install linux dependencies
 RUN apt-get update --yes && \
@@ -33,6 +34,13 @@ RUN pip install --no-cache-dir --upgrade pip build setuptools && \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/* /tmp/* /var/tmp/*
 
 COPY ./src/detection_worker /detection_worker
+
+RUN pip install \
+    opencv-python==4.8.0.74 \
+    opencv-python-headless==4.8.0.74
+
+RUN pip install pytz --upgrade
+RUN pip install tzdata --upgrade
 
 # expose ports and run application
 WORKDIR $APP_DIR
