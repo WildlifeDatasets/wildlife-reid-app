@@ -34,15 +34,33 @@ urlpatterns = [
     ),
     # path("media_files/", views.media_files, name="media_files"),
     path("media_files/", views.media_files_update, name="media_files"),
-    path("delete_mediafile/<int:mediafile_id>/", views.delete_mediafile, name="delete_mediafile"),
-    path("<int:uploadedarchive_id>/delete_upload/", views.delete_upload, name="delete_upload"),
-    path("<int:uploadedarchive_id>/run_processing/", views.run_processing, name="run_processing"),
+    path(
+        "delete_mediafile/<int:mediafile_id>/",
+        views.delete_mediafile,
+        name="delete_mediafile",
+    ),
+    path(
+        "<int:uploadedarchive_id>/delete_upload/",
+        views.delete_upload,
+        name="delete_upload",
+    ),
+    path(
+        "<int:uploadedarchive_id>/run_processing/",
+        views.run_processing,
+        name="run_processing",
+    ),
     path("djangologin/", views.MyLoginView.as_view(), name="djangologin"),
     path(
-        "media_file_update/<int:media_file_id>/", views.media_file_update, name="media_file_update"
+        "media_file_update/<int:media_file_id>/",
+        views.media_file_update,
+        name="media_file_update",
     ),
     path("manage_locations/", views.manage_locations, name="manage_locations"),
-    path("update_location/<int:location_id>/", views.update_location, name="update_location"),
+    path(
+        "update_location/<int:location_id>/",
+        views.update_location,
+        name="update_location",
+    ),
     path("albums/", views.albums, name="albums"),
     path("album/<str:album_hash>", views.media_files_update, name="album"),
     path("taxon/<int:taxon_id>", views.media_files_update, name="taxon"),
@@ -54,7 +72,11 @@ urlpatterns = [
     path("album_update/<str:album_hash>/", views.album_update, name="album_update"),
     path("delete_album/<str:album_hash>/", views.delete_album, name="delete_album"),
     path("new_album/", views.new_album, name="new_album"),
-    path("new_individual_identity/", views.new_individual_identity, name="new_individual_identity"),
+    path(
+        "new_individual_identity/",
+        views.new_individual_identity,
+        name="new_individual_identity",
+    ),
     path(
         "update_individual_identity/<int:individual_identity_id>",
         views.update_individual_identity,
@@ -65,7 +87,11 @@ urlpatterns = [
         views.delete_individual_identity,
         name="delete_individual_identity",
     ),
-    path("individual_identities/", views.individual_identities, name="individual_identities"),
+    path(
+        "individual_identities/",
+        views.individual_identities,
+        name="individual_identities",
+    ),
     path("init_identification/", views.init_identification, name="init_identification"),
     path(
         "run_identification/<int:uploadedarchive_id>/",
@@ -110,10 +136,15 @@ urlpatterns = [
     ),
     path("show_log/", views.show_log, name="show_log"),
     path("show_taxons/", views.show_taxons, name="show_taxons"),
-    path("workgroup_update/<str:workgroup_hash>/", views.workgroup_update, name="workgroup_update"),
-    path("manual_taxon_classification_on_non_classified",
-         views.manual_taxon_classification_on_non_classified,
-         name="manual_taxon_classification_on_non_classified"
-         ),
+    path(
+        "workgroup_update/<str:workgroup_hash>/",
+        views.workgroup_update,
+        name="workgroup_update",
+    ),
+    path(
+        "manual_taxon_classification_on_non_classified",
+        views.manual_taxon_classification_on_non_classified,
+        name="manual_taxon_classification_on_non_classified",
+    ),
     path("sample_data/", views.sample_data, name="sample_data"),
 ]

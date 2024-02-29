@@ -35,7 +35,13 @@ and functions as a queue for processing worker responses.
 
 @shared_task(bind=True)
 def predict_species_on_success(
-    self, output: dict, *args, uploaded_archive_id: int, zip_file: str, csv_file: str, **kwargs
+    self,
+    output: dict,
+    *args,
+    uploaded_archive_id: int,
+    zip_file: str,
+    csv_file: str,
+    **kwargs,
 ):
     """Success callback invoked after running predict function in inference worker."""
     status = output.get("status", "unknown")
@@ -280,7 +286,9 @@ def _get_rel_and_abs_paths_based_on_csv_row(row: dict, output_dir: Path):
 
 
 def update_uploaded_archive_by_metadata_csv(
-    uploaded_archive: UploadedArchive, thumbnail_width: int = 400, create_missing: bool = True
+    uploaded_archive: UploadedArchive,
+    thumbnail_width: int = 400,
+    create_missing: bool = True,
 ) -> None:
     """Extract filenames from uploaded archive CSV and create MediaFile objects.
 
@@ -307,7 +315,9 @@ def update_uploaded_archive_by_metadata_csv(
             logger.debug("Using Mediafile generated before")
         except MediaFile.DoesNotExist:
             if create_missing:
-                location = get_location(uploaded_archive.owner, str(uploaded_archive.location_at_upload))
+                location = get_location(
+                    uploaded_archive.owner, str(uploaded_archive.location_at_upload)
+                )
 
                 mf = MediaFile(
                     parent=uploaded_archive,
@@ -634,7 +644,9 @@ def simple_log(self, *args, **kwargs):
     return {"status": "DONE"}
 
 
-def _find_mediafiles_for_identification(mediafile_paths: list) -> MediafilesForIdentification:
+def _find_mediafiles_for_identification(
+    mediafile_paths: list,
+) -> MediafilesForIdentification:
     """Find mediafiles for identification.
 
     :param mediafile_paths: List of paths of mediafiles to identify.

@@ -15,7 +15,10 @@ logger = logging.getLogger(__file__)
 
 CAID_DATASET_BASEDIR = Path(os.getenv("CAID_DATASET_BASEDIR", r"H:\biology\orig\CarnivoreID"))
 CAID_DATASET_BASEDIR = Path(
-    os.getenv("CAID_DATASET_BASEDIR", r"C:\Users\Jirik\my_bc_data\data\biology\orig\CarnivoreID")
+    os.getenv(
+        "CAID_DATASET_BASEDIR",
+        r"C:\Users\Jirik\my_bc_data\data\biology\orig\CarnivoreID",
+    )
 )
 CI = os.getenv("CI", False)
 

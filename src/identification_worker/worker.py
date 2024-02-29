@@ -119,7 +119,10 @@ def predict(
                     f"Identification worker was not initialized for {organization_id=}. "
                     "Finishing the job."
                 )
-                out = {"status": "ERROR", "error": "Identification worker was not initialized."}
+                out = {
+                    "status": "ERROR",
+                    "error": "Identification worker was not initialized.",
+                }
             else:
 
                 # estimate sequence id
@@ -127,7 +130,9 @@ def predict(
                     metadata["location"] = metadata["location_name"]
                     metadata = extend_df_with_datetime(metadata)
                     metadata = extend_df_with_sequence_id(metadata, sequence_time)
-                    metadata["sequence_number"] = np.where(metadata["location"].isna(), -1, metadata["sequence_number"])
+                    metadata["sequence_number"] = np.where(
+                        metadata["location"].isna(), -1, metadata["sequence_number"]
+                    )
 
                 # generate embeddings
                 features = encode_images(metadata)

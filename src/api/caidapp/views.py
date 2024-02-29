@@ -36,6 +36,8 @@ from .forms import (
 )
 from .models import (
     Album,
+    ArchiveCollection,
+    CIDUser,
     IndividualIdentity,
     Location,
     MediaFile,
@@ -43,8 +45,6 @@ from .models import (
     Taxon,
     UploadedArchive,
     WorkGroup,
-    ArchiveCollection,
-    CIDUser
 )
 from .tasks import (
     _prepare_dataframe_for_identification,
@@ -103,21 +103,30 @@ def media_files(request):
         },
     )
 
+
 def manual_taxon_classification_on_non_classified(request):
     """List of uploads."""
     # pick random non-classified media file
-    mediafile = MediaFile.objects.filter(
-        **_user_content_filter_params(request.user.ciduser, "parent__owner"),
-        # parent__owner__workgroup=request.user.ciduser.workgroup, # but this would work too
-        category__name="Not Classified",
-        parent__contains_single_taxon=False).order_by("?").first()
+    mediafile = (
+        MediaFile.objects.filter(
+            **_user_content_filter_params(request.user.ciduser, "parent__owner"),
+            # parent__owner__workgroup=request.user.ciduser.workgroup, # but this would work too
+            category__name="Not Classified",
+            parent__contains_single_taxon=False,
+        )
+        .order_by("?")
+        .first()
+    )
     if mediafile is None:
         return message(request, "No non-classified media files.")
     return media_file_update(
-        request, mediafile.id,
-        next_text="Save", next_url=reverse_lazy("caidapp:manual_taxon_classification_on_non_classified"),
-        skip_url=reverse_lazy("caidapp:manual_taxon_classification_on_non_classified")
+        request,
+        mediafile.id,
+        next_text="Save",
+        next_url=reverse_lazy("caidapp:manual_taxon_classification_on_non_classified"),
+        skip_url=reverse_lazy("caidapp:manual_taxon_classification_on_non_classified"),
     )
+
 
 def message(request, message):
     """Show message."""
@@ -127,19 +136,25 @@ def message(request, message):
         {"message": message},
     )
 
-def _round_location(location: Location, order:int=3):
+
+def _round_location(location: Location, order: int = 3):
     """Round location."""
 
-    lat, lon = str(location.location ).split(",")
+    lat, lon = str(location.location).split(",")
     lat = round(float(lat), order)
     lon = round(float(lon), order)
     location.location = f"{lat},{lon}"
     location.save()
     return f"{lat},{lon}"
 
+
 def update_location(request, location_id):
     """Show and update location."""
-    location = get_object_or_404(Location, pk=location_id, **_user_content_filter_params(request.user.ciduser, "owner"))
+    location = get_object_or_404(
+        Location,
+        pk=location_id,
+        **_user_content_filter_params(request.user.ciduser, "owner"),
+    )
     # if location.owner:
     #     if request.user.ciduser.workgroup != location.owner__workgroup:
     #         return HttpResponseNotAllowed("Not allowed to see this location.")
@@ -165,7 +180,7 @@ def manage_locations(request):
     LocationFormSet = modelformset_factory(
         Location, fields=("name",), can_delete=False, can_order=False
     )
-    params =  _user_content_filter_params(request.user.ciduser, "owner")
+    params = _user_content_filter_params(request.user.ciduser, "owner")
     formset = LocationFormSet(queryset=Location.objects.filter(**params))
 
     if request.method == "POST":
@@ -220,7 +235,10 @@ def uploads_identities(request):
     return render(
         request,
         "caidapp/uploads_identities.html",
-        context={"page_obj": page_obj, "btn_styles": _single_species_button_style(request)},
+        context={
+            "page_obj": page_obj,
+            "btn_styles": _single_species_button_style(request),
+        },
     )
 
 
@@ -252,10 +270,11 @@ def show_taxons(request):
             taxons.append(taxon)
             taxons_mediafiles.append(mediafiles_of_taxon)
 
-
-    return render(request, "caidapp/show_taxons.html",
-                  {"taxons": taxons, "taxons_with_mediafiles": zip(taxons, taxons_mediafiles)}
-                  )
+    return render(
+        request,
+        "caidapp/show_taxons.html",
+        {"taxons": taxons, "taxons_with_mediafiles": zip(taxons, taxons_mediafiles)},
+    )
 
 
 def uploads_species(request):
@@ -286,19 +305,22 @@ def uploads_species(request):
     #
     # btn_tooltips = _mutliple_species_button_tooltips(request)
 
-
     btn_styles, btn_tooltips = _multiple_species_button_style_and_tooltips(request)
     return render(
-        request, "caidapp/uploads_species.html",
-        {"page_obj": page_obj, "btn_styles": btn_styles, "btn_tooltips": btn_tooltips})
-
+        request,
+        "caidapp/uploads_species.html",
+        {"page_obj": page_obj, "btn_styles": btn_styles, "btn_tooltips": btn_tooltips},
+    )
 
 
 def _multiple_species_button_style_and_tooltips(request) -> dict:
-    n_non_classified_taxons = len(MediaFile.objects.filter(
-        parent__owner__workgroup=request.user.ciduser.workgroup,
-        category__name="Not Classified",
-        parent__contains_single_taxon=False).all())
+    n_non_classified_taxons = len(
+        MediaFile.objects.filter(
+            parent__owner__workgroup=request.user.ciduser.workgroup,
+            category__name="Not Classified",
+            parent__contains_single_taxon=False,
+        ).all()
+    )
     btn_tooltips = {
         "classify_non_classified": f"Classify {n_non_classified_taxons} non-classified media files.",
     }
@@ -314,10 +336,16 @@ def _multiple_species_button_style_and_tooltips(request) -> dict:
         }
     return btn_styles, btn_tooltips
 
+
 def sample_data(request):
     """Sample data."""
-    sample_data_collection= get_object_or_404(ArchiveCollection, name="sample_data")
-    return render(request, "caidapp/sample_data.html", {"sample_data_collection": sample_data_collection})
+    sample_data_collection = get_object_or_404(ArchiveCollection, name="sample_data")
+    return render(
+        request,
+        "caidapp/sample_data.html",
+        {"sample_data_collection": sample_data_collection},
+    )
+
 
 def logout_view(request):
     """Logout from the application."""
@@ -345,7 +373,10 @@ def media_file_update(request, media_file_id, next_text="Save", next_url=None, s
             # get uploaded archive
             mediafile = form.save()
             if next_url is None:
-                next_url = reverse_lazy("caidapp:uploadedarchive_detail", kwargs={"uploadedarchive_id": mediafile.parent.id})
+                next_url = reverse_lazy(
+                    "caidapp:uploadedarchive_detail",
+                    kwargs={"uploadedarchive_id": mediafile.parent.id},
+                )
             return redirect(next_url)
 
     else:
@@ -353,7 +384,13 @@ def media_file_update(request, media_file_id, next_text="Save", next_url=None, s
     return render(
         request,
         "caidapp/media_file_update.html",
-        {"form": form, "headline": "Media File", "button": next_text, "mediafile": mediafile, skip_url:skip_url},
+        {
+            "form": form,
+            "headline": "Media File",
+            "button": next_text,
+            "mediafile": mediafile,
+            skip_url: skip_url,
+        },
     )
 
 
@@ -520,7 +557,10 @@ def get_individual_identity_from_foridentification(
     return render(
         request,
         "caidapp/get_individual_identity.html",
-        {"foridentification": foridentification, "foridentifications": foridentifications},
+        {
+            "foridentification": foridentification,
+            "foridentifications": foridentifications,
+        },
     )
 
 
@@ -602,7 +642,9 @@ def init_identification(request, taxon_str: str = "Lynx lynx"):
     workgroup = request.user.ciduser.workgroup
     workgroup.identification_init_at = django.utils.timezone.now()
     workgroup.identification_init_status = "Processing"
-    workgroup.identification_init_message = f"Using {len(csv_data)} images for identification initialization."
+    workgroup.identification_init_message = (
+        f"Using {len(csv_data)} images for identification initialization."
+    )
     workgroup.save()
 
     logger.debug("Calling init_identification...")
@@ -896,7 +938,6 @@ def upload_archive(
             }
         )
 
-
     return render(
         request,
         "caidapp/model_form_upload.html",
@@ -910,7 +951,8 @@ def upload_archive(
         },
     )
 
-def _user_content_filter_params(ciduser:CIDUser, prefix:str) -> dict:
+
+def _user_content_filter_params(ciduser: CIDUser, prefix: str) -> dict:
     """Parameters for filtering user content based on existence of workgroup.
 
     Parameters
@@ -932,11 +974,9 @@ def _user_content_filter_params(ciduser:CIDUser, prefix:str) -> dict:
 
 def _get_all_user_locations(request):
     """Get all users locations."""
-    params =  _user_content_filter_params(request.user.ciduser, "owner")
+    params = _user_content_filter_params(request.user.ciduser, "owner")
     logger.debug(f"{params=}")
-    locations = Location.objects.filter(
-        **params
-    ).order_by("name")
+    locations = Location.objects.filter(**params).order_by("name")
     return locations
 
 
@@ -1154,7 +1194,11 @@ def _create_map_from_mediafiles(mediafiles: Union[QuerySet, List[MediaFile]]):
 
 
 def media_files_update(
-    request, records_per_page=80, album_hash=None, individual_identity_id=None, taxon_id=None
+    request,
+    records_per_page=80,
+    album_hash=None,
+    individual_identity_id=None,
+    taxon_id=None,
 ) -> Union[QuerySet, List[MediaFile]]:
     """List of mediafiles based on query with bulk update of category."""
     # create list of mediafiles

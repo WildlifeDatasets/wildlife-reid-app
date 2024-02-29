@@ -6,13 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0029_location_owner'),
+        ("caidapp", "0029_location_owner"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='workgroup',
-            name='identification_init_message',
-            field=models.CharField(blank=True, default='', max_length=255),
+            model_name="workgroup",
+            name="identification_init_message",
+            field=models.CharField(blank=True, default="", max_length=255),
         ),
     ]

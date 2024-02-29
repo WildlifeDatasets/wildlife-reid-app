@@ -7,6 +7,8 @@ from typing import Optional, Tuple
 
 import numpy as np
 import pandas as pd
+import torch
+import tqdm
 import wandb
 import yaml
 from scipy.special import softmax
@@ -14,8 +16,6 @@ from scipy.special import softmax
 from fgvc.core.training import predict
 from fgvc.datasets import get_dataloaders
 from fgvc.utils.experiment import load_model
-import torch
-import tqdm
 
 from .config import RESOURCES_DIR, WANDB_API_KEY, WANDB_ARTIFACT_PATH, WANDB_ARTIFACT_PATH_CROPPED
 from .dataset_tools import data_preprocessing
@@ -24,7 +24,7 @@ from .prediction_dataset import PredictionDataset
 logger = logging.getLogger("app")
 
 
-def get_model_config(is_cropped:bool=False) -> Tuple[dict, str, dict]:
+def get_model_config(is_cropped: bool = False) -> Tuple[dict, str, dict]:
     """Load model configuration from W&B including training config and fine-tuned checkpoint."""
     # get artifact and run from W&B
     if is_cropped:
@@ -182,7 +182,10 @@ def data_processing(
     """
     # create metadata dataframe
     metadata, _ = data_preprocessing(
-        zip_path, media_dir_path, num_cores=num_cores, contains_identities=contains_identities
+        zip_path,
+        media_dir_path,
+        num_cores=num_cores,
+        contains_identities=contains_identities,
     )
     logger.debug(f"len(metadata)={len(metadata)}")
     metadata = metadata[metadata["media_type"] == "image"].reset_index(drop=True)

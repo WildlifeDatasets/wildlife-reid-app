@@ -1,6 +1,6 @@
 import logging
-from typing import Tuple
 from pathlib import Path
+from typing import Tuple
 
 import numpy as np
 import pandas as pd
@@ -12,6 +12,7 @@ from wildlife_tools.features import DeepFeatures
 from wildlife_tools.similarity import CosineSimilarity
 
 from fgvc.utils.utils import set_cuda_device
+
 from .postprocessing import feature_top
 
 logger = logging.getLogger("app")
@@ -139,7 +140,7 @@ def identify(
     )["cosine"]
 
     # postprocessing
-    idx = metadata.index[metadata['sequence_number'] >= 0].tolist()
+    idx = metadata.index[metadata["sequence_number"] >= 0].tolist()
     _similarity = similarity[idx, :]
     _features = features[idx]
     _metadata = metadata.iloc[idx]

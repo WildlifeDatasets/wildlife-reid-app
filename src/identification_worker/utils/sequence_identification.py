@@ -2,8 +2,8 @@ import re
 import typing
 from datetime import datetime, timedelta
 from pathlib import Path
-import numpy as np
 
+import numpy as np
 import pandas as pd
 from PIL import Image, UnidentifiedImageError
 from tqdm import tqdm
@@ -82,7 +82,8 @@ def replace_colon_in_exif_datetime(exif_datetime: str) -> str:
     replaced = exif_datetime
     if type(exif_datetime) == str:
         exif_ex = re.findall(
-            r"([0-9]{4}):([0-9]{2}):([0-9]{2}) ([0-9]{2}:[0-9]{2}:[0-9]{2})", exif_datetime
+            r"([0-9]{4}):([0-9]{2}):([0-9]{2}) ([0-9]{2}:[0-9]{2}:[0-9]{2})",
+            exif_datetime,
         )
         if len(exif_ex) == 1:
             ex = exif_ex[0]
