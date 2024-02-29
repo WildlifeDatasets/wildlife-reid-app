@@ -307,7 +307,7 @@ def update_uploaded_archive_by_metadata_csv(
             logger.debug("Using Mediafile generated before")
         except MediaFile.DoesNotExist:
             if create_missing:
-                location = get_location(request, str(uploaded_archive.location_at_upload))
+                location = get_location(uploaded_archive.owner, str(uploaded_archive.location_at_upload))
 
                 mf = MediaFile(
                     parent=uploaded_archive,

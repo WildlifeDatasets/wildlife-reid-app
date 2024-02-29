@@ -265,16 +265,16 @@ def get_taxon(name: str) -> Optional[Taxon]:
     return taxon
 
 
-def get_location(request, name: str) -> Location:
+def get_location(ciduser:CIDUser, name: str) -> Location:
     """Return location according to the name, create it if necessary.
 
     Parameters
     ----------
     request
     """
-    objs = Location.objects.filter(name=name)
+    objs = Location.objects.filter(name=name, owner__workgroup=ciduser.workgroup)
     if len(objs) == 0:
-        location = Location(name=name)
+        location = Location(name=name, owner=ciduser)
         location.save()
     else:
         location = objs[0]
