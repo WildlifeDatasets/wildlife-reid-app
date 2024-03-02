@@ -44,7 +44,7 @@ def assign_feature(query_data, feature, idx):
 
 
 def group_features(representation: list, positions: list | tuple):
-    """ Takes a list of elements and groups values in the list into lists based on provided index positions. """
+    """Takes a list of elements and groups values in the list into lists based on provided index positions."""
     new_representation = []
     grouped = []
     for i, r in enumerate(representation):
@@ -69,21 +69,25 @@ def flatten(data):
 
 
 def feature_clustering(
-        features,
-        features_data,
-        similarity,
-        angle_threshold: float = 45,
-        multiplier: float = 2
+    features,
+    features_data,
+    similarity,
+    angle_threshold: float = 45,
+    multiplier: float = 2,
 ):
     new_features = copy(features)
 
     # group oid data
-    iid_to_oid = {row['mediafile_id']: row['sequence_number'] for rid, row in features_data.iterrows()}
+    iid_to_oid = {
+        row["mediafile_id"]: row["sequence_number"] for rid, row in features_data.iterrows()
+    }
     oids = set(list(iid_to_oid.values()))
     oid_score = {o: [] for o in oids}
     oid_representations = {o: [] for o in oids}
     oid_idx = {o: [] for o in oids}
-    for idx, (feature, iid, scr_row) in enumerate(zip(features, features_data['mediafile_id'], similarity)):
+    for idx, (feature, iid, scr_row) in enumerate(
+        zip(features, features_data["mediafile_id"], similarity)
+    ):
         scr = np.max(scr_row)
         oid = iid_to_oid[iid]
 
@@ -150,12 +154,14 @@ def feature_clustering(
 def feature_average(features, features_data):
     new_features = copy(features)
 
-    iid_to_oid = {row['mediafile_id']: row['sequence_number'] for rid, row in features_data.iterrows()}
+    iid_to_oid = {
+        row["mediafile_id"]: row["sequence_number"] for rid, row in features_data.iterrows()
+    }
     oids = set(list(iid_to_oid.values()))
     oid_idx = {o: [] for o in oids}
     oid_representations = {o: [] for o in oids}
 
-    for idx, (feature, iid) in enumerate(zip(new_features, features_data['mediafile_id'])):
+    for idx, (feature, iid) in enumerate(zip(new_features, features_data["mediafile_id"])):
         oid = iid_to_oid[iid]
         oid_representations[oid].append(feature)
         oid_idx[oid].append(idx)
@@ -172,13 +178,17 @@ def feature_average(features, features_data):
 def feature_top(features, features_data, similarity, method):
     new_features = copy(features)
 
-    iid_to_oid = {row['mediafile_id']: row['sequence_number'] for rid, row in features_data.iterrows()}
+    iid_to_oid = {
+        row["mediafile_id"]: row["sequence_number"] for rid, row in features_data.iterrows()
+    }
     oids = set(list(iid_to_oid.values()))
     oid_score = {o: [] for o in oids}
     oid_representations = {o: [] for o in oids}
     oid_idx = {o: [] for o in oids}
     oid_individual = {o: [] for o in oids}
-    for idx, (feature, iid, scr_row) in enumerate(zip(features, features_data['mediafile_id'], similarity)):
+    for idx, (feature, iid, scr_row) in enumerate(
+        zip(features, features_data["mediafile_id"], similarity)
+    ):
         scr = np.max(scr_row)
         individual = np.argmax(scr_row)
         oid = iid_to_oid[iid]
@@ -195,18 +205,23 @@ def feature_top(features, features_data, similarity, method):
             continue
 
         if method == "top_score":
-            """ Assign feature vector with max score to all with same observation id. """
+            """Assign feature vector with max score to all with same observation id."""
             idx = np.argmax(oid_score[oid])
             new_feature = oid_representations[oid][idx]
         elif method == "top_frequent":
-            """Get most frequent individual and assign feature vector with max/mean score to all with same 
+            """Get most frequent individual and assign feature vector with max/mean score to all with same
             observation id."""
             unique, counts = np.unique(oid_individual[oid], return_counts=True)
             idx = np.argmax(counts)
             individual_id = unique[idx]
-            individual_representations = [r for r, i in zip(oid_representations[oid], oid_individual[oid]) if
-                                          individual_id == i]
-            individual_scores = [s for s, i in zip(oid_score[oid], oid_individual[oid]) if individual_id == i]
+            individual_representations = [
+                r
+                for r, i in zip(oid_representations[oid], oid_individual[oid])
+                if individual_id == i
+            ]
+            individual_scores = [
+                s for s, i in zip(oid_score[oid], oid_individual[oid]) if individual_id == i
+            ]
             new_feature = individual_representations[np.argmax(individual_scores)]
 
         new_features = assign_feature(new_features, new_feature, oid_idx[oid])

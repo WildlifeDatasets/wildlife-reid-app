@@ -29,7 +29,8 @@ class Migration(migrations.Migration):
                 (
                     "user",
                     models.OneToOneField(
-                        on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to=settings.AUTH_USER_MODEL,
                     ),
                 ),
             ],
@@ -40,7 +41,10 @@ class Migration(migrations.Migration):
                 (
                     "id",
                     models.BigAutoField(
-                        auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
                     ),
                 ),
                 ("name", models.CharField(max_length=50)),
@@ -52,7 +56,10 @@ class Migration(migrations.Migration):
                 (
                     "id",
                     models.BigAutoField(
-                        auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
                     ),
                 ),
                 (
@@ -71,7 +78,9 @@ class Migration(migrations.Migration):
                 (
                     "outputdir",
                     models.CharField(
-                        blank=True, default=caidapp.model_tools.get_output_dir, max_length=255
+                        blank=True,
+                        default=caidapp.model_tools.get_output_dir,
+                        max_length=255,
                     ),
                 ),
                 (
@@ -79,7 +88,9 @@ class Migration(migrations.Migration):
                     models.ImageField(
                         blank=True,
                         upload_to=models.CharField(
-                            blank=True, default=caidapp.model_tools.get_output_dir, max_length=255
+                            blank=True,
+                            default=caidapp.model_tools.get_output_dir,
+                            max_length=255,
                         ),
                     ),
                 ),
@@ -89,7 +100,9 @@ class Migration(migrations.Migration):
                         blank=True,
                         null=True,
                         upload_to=models.CharField(
-                            blank=True, default=caidapp.model_tools.get_output_dir, max_length=255
+                            blank=True,
+                            default=caidapp.model_tools.get_output_dir,
+                            max_length=255,
                         ),
                     ),
                 ),
@@ -99,7 +112,9 @@ class Migration(migrations.Migration):
                         blank=True,
                         null=True,
                         upload_to=models.CharField(
-                            blank=True, default=caidapp.model_tools.get_output_dir, max_length=255
+                            blank=True,
+                            default=caidapp.model_tools.get_output_dir,
+                            max_length=255,
                         ),
                     ),
                 ),
@@ -107,7 +122,10 @@ class Migration(migrations.Migration):
                     "hash",
                     models.CharField(blank=True, default=caidapp.models._hash, max_length=255),
                 ),
-                ("status", models.CharField(blank=True, default="Created", max_length=255)),
+                (
+                    "status",
+                    models.CharField(blank=True, default="Created", max_length=255),
+                ),
                 (
                     "started_at",
                     models.DateTimeField(blank=True, null=True, verbose_name="Started at"),
@@ -133,7 +151,10 @@ class Migration(migrations.Migration):
                 (
                     "id",
                     models.BigAutoField(
-                        auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
                     ),
                 ),
                 (
@@ -149,7 +170,8 @@ class Migration(migrations.Migration):
                 (
                     "parent",
                     models.ForeignKey(
-                        on_delete=django.db.models.deletion.CASCADE, to="caidapp.uploadedarchive"
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to="caidapp.uploadedarchive",
                     ),
                 ),
                 (

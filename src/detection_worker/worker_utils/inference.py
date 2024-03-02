@@ -11,7 +11,7 @@ from segment_anything import SamPredictor, sam_model_registry
 from tqdm import tqdm
 
 # from fgvc.utils.utils import set_cuda_device
-DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 logger = logging.getLogger("app")
 logger.info(f"Using device: {DEVICE}")
@@ -87,7 +87,7 @@ model_url = r"https://github.com/ecologize/CameraTraps/releases/download/v5.0/md
 model_file = Path("/detection_worker/resources/md_v5a.0.0.pt")
 download_file_if_does_not_exists(model_url, model_file)
 
-torch.hub._validate_not_a_forked_repo=lambda a,b,c: True
+torch.hub._validate_not_a_forked_repo = lambda a, b, c: True
 DETECTION_MODEL = torch.hub.load(
     "ultralytics/yolov5",  # repo_or_dir
     "custom",  # model
@@ -97,7 +97,10 @@ DETECTION_MODEL = torch.hub.load(
 )
 
 
-download_file_if_does_not_exists("http://ptak.felk.cvut.cz/plants/DanishFungiDataset/sam_vit_h_4b8939.pth", "/detection_worker/resources/sam_vit_h_4b8939.pth")
+download_file_if_does_not_exists(
+    "http://ptak.felk.cvut.cz/plants/DanishFungiDataset/sam_vit_h_4b8939.pth",
+    "/detection_worker/resources/sam_vit_h_4b8939.pth",
+)
 
 logger.info("Initializing SAM model and loading pre-trained checkpoint.")
 _checkpoint_path = Path("/detection_worker/resources/sam_vit_h_4b8939.pth").expanduser()

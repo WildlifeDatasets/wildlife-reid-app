@@ -15,7 +15,9 @@ class Migration(migrations.Migration):
             model_name="mediafile",
             name="parent",
             field=models.ForeignKey(
-                null=True, on_delete=django.db.models.deletion.CASCADE, to="caidapp.uploadedarchive"
+                null=True,
+                on_delete=django.db.models.deletion.CASCADE,
+                to="caidapp.uploadedarchive",
             ),
         ),
     ]

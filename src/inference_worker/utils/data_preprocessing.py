@@ -1,19 +1,18 @@
-import numpy as np
 import logging
-from pathlib import Path
-from typing import Union, Any
-import torch
-from tqdm import tqdm
-import cv2
-from PIL import Image
 import os.path
+from pathlib import Path
+from typing import Any, Union
+
+import cv2
+import numpy as np
+import torch
+from PIL import Image
+from tqdm import tqdm
 
 logger = logging.getLogger("app")
 
 DEVICE = "0" if torch.cuda.is_available() else "cpu"
 logger.info(f"Using device: {DEVICE}")
-
-
 
 
 def download_file(url: str, output_file: str):
@@ -87,7 +86,6 @@ download_file_if_does_not_exists(model_url, model_file)
 DETECTION_MODEL = None
 
 
-
 def get_detection_model():
     global DETECTION_MODEL
     if DETECTION_MODEL is None:
@@ -106,8 +104,6 @@ def get_detection_model():
 def release_detection_model():
     global DETECTION_MODEL
     DETECTION_MODEL = None
-
-
 
 
 # logger.info("Initializing SAM model and loading pre-trained checkpoint.")
@@ -141,6 +137,7 @@ def detect_animal(image_path: list) -> dict[str, Union[np.ndarray, Any]]:
             "class": id2label[results[0][5]],
         }
 
+
 def detect_animals(image_paths: list[Path]) -> list[bool]:
 
     detected_animals = [False] * len(image_paths)
@@ -155,7 +152,3 @@ def detect_animals(image_paths: list[Path]) -> list[bool]:
             base_path.mkdir(exist_ok=True, parents=True)
             Image.fromarray(cropped_animal).convert("RGB").save(save_path)
             detected_animals[i] = True
-
-
-
-

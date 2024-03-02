@@ -20,11 +20,17 @@ class Migration(migrations.Migration):
                 (
                     "id",
                     models.BigAutoField(
-                        auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
                     ),
                 ),
                 ("name", models.CharField(max_length=50)),
-                ("description", models.CharField(blank=True, default="", max_length=255)),
+                (
+                    "description",
+                    models.CharField(blank=True, default="", max_length=255),
+                ),
                 (
                     "created_at",
                     models.DateTimeField(default=datetime.datetime.now, verbose_name="Created at"),
@@ -33,7 +39,10 @@ class Migration(migrations.Migration):
                     "hash",
                     models.CharField(blank=True, default=caidapp.models._hash, max_length=255),
                 ),
-                ("mediafiles", models.ManyToManyField(blank=True, to="caidapp.MediaFile")),
+                (
+                    "mediafiles",
+                    models.ManyToManyField(blank=True, to="caidapp.MediaFile"),
+                ),
                 (
                     "owner",
                     models.ForeignKey(
@@ -51,7 +60,10 @@ class Migration(migrations.Migration):
                 (
                     "id",
                     models.BigAutoField(
-                        auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
                     ),
                 ),
                 ("name", models.CharField(max_length=50)),
@@ -63,7 +75,10 @@ class Migration(migrations.Migration):
                 (
                     "id",
                     models.BigAutoField(
-                        auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
                     ),
                 ),
                 (

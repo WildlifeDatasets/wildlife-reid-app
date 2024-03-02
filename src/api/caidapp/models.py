@@ -198,7 +198,11 @@ class Album(models.Model):
     hash = models.CharField(max_length=255, blank=True, default=_hash)
     public_hash = models.CharField(max_length=255, blank=True, default=_hash)
     cover = models.ForeignKey(
-        MediaFile, on_delete=models.SET_NULL, null=True, blank=True, related_name="cover"
+        MediaFile,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="cover",
     )
 
     def __str__(self):
@@ -207,6 +211,7 @@ class Album(models.Model):
     def get_absolute_url(self):
         """Return absolute url."""
         return f"/album/{str(self.hash)}/"
+
 
 class ArchiveCollection(models.Model):
     name = models.CharField(max_length=50)
@@ -265,16 +270,16 @@ def get_taxon(name: str) -> Optional[Taxon]:
     return taxon
 
 
-def get_location(request, name: str) -> Location:
+def get_location(ciduser: CIDUser, name: str) -> Location:
     """Return location according to the name, create it if necessary.
 
     Parameters
     ----------
     request
     """
-    objs = Location.objects.filter(name=name)
+    objs = Location.objects.filter(name=name, owner__workgroup=ciduser.workgroup)
     if len(objs) == 0:
-        location = Location(name=name)
+        location = Location(name=name, owner=ciduser)
         location.save()
     else:
         location = objs[0]

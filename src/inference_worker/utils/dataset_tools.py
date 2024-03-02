@@ -165,7 +165,8 @@ def replace_colon_in_exif_datetime(exif_datetime: str) -> str:
     replaced = exif_datetime
     if isinstance(exif_datetime, str):
         exif_ex = re.findall(
-            r"([0-9]{4}):([0-9]{2}):([0-9]{2}) ([0-9]{2}:[0-9]{2}:[0-9]{2})", exif_datetime
+            r"([0-9]{4}):([0-9]{2}):([0-9]{2}) ([0-9]{2}:[0-9]{2}:[0-9]{2})",
+            exif_datetime,
         )
         if len(exif_ex) == 1:
             ex = exif_ex[0]
@@ -503,7 +504,10 @@ def make_dataset(
 
     if make_tar:
         logger.info("Creating '.tar.gz' archive.")
-        make_tarfile(output_path / f"{dataset_name}.tar.gz", output_path / f"media_{dataset_name}/")
+        make_tarfile(
+            output_path / f"{dataset_name}.tar.gz",
+            output_path / f"media_{dataset_name}/",
+        )
 
     return dataframe
 
