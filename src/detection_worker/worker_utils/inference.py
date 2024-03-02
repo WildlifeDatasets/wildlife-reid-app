@@ -93,7 +93,7 @@ DETECTION_MODEL = torch.hub.load(
     "custom",  # model
     str(Path("/detection_worker/resources/md_v5a.0.0.pt").expanduser()),  # args for callable model
     force_reload=True,
-    device=DEVICE,
+    device="cpu",
 )
 
 
