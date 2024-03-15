@@ -9,6 +9,8 @@ from inference_utils import data_processing_pipeline, dataset_tools
 from inference_utils.config import RABBITMQ_URL, REDIS_URL
 from inference_utils.log import setup_logging
 import detection_utils.inference
+import detection_utils.video_inference
+from detection_utils.video_inference import create_image_from_video
 
 setup_logging()
 logger = logging.getLogger("app")
@@ -65,7 +67,9 @@ def predict(
             metadata["full_image_path"] = metadata["image_path"].apply(
                 lambda x: str(output_images_dir / x)
             )
+            metadata["full_orig_media_path"] = [pth for pth in metadata["full_image_path"]]
 
+            metadata = create_image_from_video(metadata)
         else:
             metadata = pd.read_csv(output_metadata_file, index_col=0)
         if len(metadata["image_path"]) > 0:

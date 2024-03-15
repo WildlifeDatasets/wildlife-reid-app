@@ -163,7 +163,6 @@ def detect_animals_in_one_image(image_rgb: np.ndarray) -> List[Dict[str, Union[n
             "class": id2label[result[0][5]],
         }
 
-    del_detection_model()
     return results_list
 
 
@@ -239,3 +238,4 @@ def detect_animal_on_metadata(metadata, border=0.25, do_segmentation: bool = Tru
             detection_results.append(None)
     # metadata["masked_image_path"] = masked_images
     metadata["detection_results"] = detection_results
+    del_detection_model()
