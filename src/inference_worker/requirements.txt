@@ -13,6 +13,7 @@ timm==0.9.12
 
 # FGVC library
 --index-url https://pypi.piva-ai.com/simple/
-fgvc==1.3.3.dev
+fgvc==1.5.1.dev
+# fgvc==1.3.3.dev
 
 wandb

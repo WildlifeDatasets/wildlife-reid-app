@@ -15,6 +15,16 @@ RUN apt-get update --yes && \
     libxext6 && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
+
+RUN pip install git+https://github.com/facebookresearch/segment-anything.git
+
+# download weights into resources
+RUN mkdir -p ~/resources && \
+    wget http://ptak.felk.cvut.cz/plants/DanishFungiDataset/md_v5a.0.0.pt \
+    -O /root/resources/md_v5a.0.0.pt
+
+RUN ls /root/resources
+
 # install python dependencies
 ENV APP_DIR='/inference_worker'
 WORKDIR $APP_DIR
@@ -22,12 +32,16 @@ RUN pip install --no-cache-dir --upgrade pip build && \
     pip install --no-cache-dir --compile -r requirements.txt && \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/* /tmp/* /var/tmp/*
 
+RUN pip install \
+    opencv-python==4.8.0.74 \
+    opencv-python-headless==4.8.0.74
+
 RUN pip install pytz --upgrade
 RUN pip install tzdata --upgrade
 
-RUN pip install \
-    opencv-python==4.5.5.64 \
-    opencv-python-headless==4.5.5.64
+#RUN pip install \
+#    opencv-python==4.5.5.64 \
+#    opencv-python-headless==4.5.5.64
 
 # expose ports and run application
 WORKDIR $APP_DIR

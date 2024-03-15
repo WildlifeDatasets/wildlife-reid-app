@@ -22,10 +22,32 @@ from .dataset_tools import data_preprocessing
 from .prediction_dataset import PredictionDataset
 
 logger = logging.getLogger("app")
+MEDIA_DIR_PATH = Path("/shared_data/media")
 
 
 def get_model_config(is_cropped: bool = False) -> Tuple[dict, str, dict]:
     """Load model configuration from W&B including training config and fine-tuned checkpoint."""
+
+    # load model_meta.json and check if the artifact path is the same as the previous one
+    model_meta_path = Path(RESOURCES_DIR) / "model_meta.json"
+    reset_model = True
+    if model_meta_path.is_file():
+        with open(model_meta_path) as f:
+            model_meta = json.load(f)
+        if model_meta["WANDB_ARTIFACT_PATH"] == WANDB_ARTIFACT_PATH:
+            reset_model = False
+        else:
+            logger.debug(f"New model={WANDB_ARTIFACT_PATH}. " +
+                 f"Old model={model_meta.get('artifact_path', 'None')}.")
+    if reset_model:
+        logger.debug(f"Resetting model.")
+        shutil.rmtree(RESOURCES_DIR, ignore_errors=True)
+        model_meta = {"WANDB_ARTIFACT_PATH": WANDB_ARTIFACT_PATH}
+        model_meta_path.parent.mkdir(exist_ok=True, parents=True)
+        with open(model_meta_path, "w") as f:
+            json.dump(model_meta, f)
+
+
     # get artifact and run from W&B
     if is_cropped:
         wandb_artifact_path = WANDB_ARTIFACT_PATH_CROPPED
@@ -43,11 +65,14 @@ def get_model_config(is_cropped: bool = False) -> Tuple[dict, str, dict]:
         with open(model_config_path, "w") as f:
             json.dump(config, f)
 
+        logger.debug(f"Downloading artifact {wandb_artifact_path}.")
         artifact_files = [x.name for x in artifact.files()]
+        logger.debug(f"Artifact files: {artifact_files}")
 
         # check if all artifact files are downloaded and optionally download artifact files
         all_files_downloaded = all([(Path(RESOURCES_DIR) / x).is_file() for x in artifact_files])
         if not all_files_downloaded:
+            logger.debug(f"Downloading artifact files.")
             artifact.download(root=RESOURCES_DIR)
     except (wandb.CommError, ConnectionError):
         logger.error("Connection Error. Cannot reach W&B server. Trying previous configuration.")
@@ -76,6 +101,9 @@ def load_model_and_predict(image_paths: list) -> Tuple[np.ndarray, Optional[dict
 
     logger.info("Creating model and loading fine-tuned checkpoint.")
     model, model_mean, model_std = load_model(config, checkpoint_path)
+    logger.debug(f"model_mean={model_mean}, model_std={model_std}, " +
+                    f"checkpoint_path={checkpoint_path}, config={config}")
+    logger.debug(f"{image_paths[0]=}")
 
     logger.info("Creating DataLoaders.")
     _, testloader, _, _ = get_dataloaders(
@@ -180,6 +208,7 @@ def data_processing(
     csv_path
         Path to output CSV file.
     """
+    logger.debug(f"{media_dir_path=}, {zip_path=}, {csv_path=}")
     # create metadata dataframe
     metadata, _ = data_preprocessing(
         zip_path,
@@ -187,25 +216,19 @@ def data_processing(
         num_cores=num_cores,
         contains_identities=contains_identities,
     )
-    logger.debug(f"len(metadata)={len(metadata)}")
-    metadata = metadata[metadata["media_type"] == "image"].reset_index(drop=True)
-    logger.debug(f"len(metadata)={len(metadata)}")
-    metadata = metadata[metadata["read_error"] == ""].reset_index(drop=True)
-    logger.debug(f"len(metadata)={len(metadata)}")
+    metadata = keep_correctly_loaded_images(metadata)
 
-    # run inference
-    image_path = metadata["image_path"].apply(lambda x: os.path.join(media_dir_path, x))
-    class_ids, probs_top, id2label = load_model_and_predict(image_path)
+    run_inference(metadata)
 
-    # add inference results to the metadata dataframe
-    metadata["predicted_class_id"] = class_ids
-    metadata["predicted_prob"] = probs_top
-    metadata["predicted_category"] = np.nan
-    if id2label is not None:
-        metadata["predicted_category"] = metadata["predicted_class_id"].apply(
-            lambda x: id2label.get(x, np.nan)
-        )
+    # TODO check the fallowing line. It seems to do nothing now
+    move_files_from_temp(media_dir_path, metadata)
 
+    # save metadata file
+    metadata.to_csv(csv_path, encoding="utf-8-sig")
+    return metadata
+
+
+def move_files_from_temp(media_dir_path, metadata):
     # move files from temporary directory to media directory
     new_image_paths = []
     for i, row in metadata.iterrows():
@@ -217,6 +240,26 @@ def data_processing(
         new_image_paths.append(str(row["image_path"]))
     metadata["image_path"] = new_image_paths
 
-    # save metadata file
-    metadata.to_csv(csv_path, encoding="utf-8-sig")
+
+def run_inference(metadata):
+    # run inference
+    # image_path = metadata["image_path"].apply(lambda x: os.path.join(MEDIA_DIR_PATH, x))
+    image_path = metadata["full_image_path"]
+    class_ids, probs_top, id2label = load_model_and_predict(image_path)
+    # add inference results to the metadata dataframe
+    metadata["predicted_class_id"] = class_ids
+    metadata["predicted_prob"] = probs_top
+    metadata["predicted_category"] = np.nan
+    if id2label is not None:
+        metadata["predicted_category"] = metadata["predicted_class_id"].apply(
+            lambda x: id2label.get(x, np.nan)
+        )
+
+
+def keep_correctly_loaded_images(metadata):
+    logger.debug(f"len(metadata)={len(metadata)}")
+    metadata = metadata[metadata["media_type"] == "image"].reset_index(drop=True)
+    logger.debug(f"len(metadata)={len(metadata)}")
+    metadata = metadata[metadata["read_error"] == ""].reset_index(drop=True)
+    logger.debug(f"len(metadata)={len(metadata)}")
     return metadata

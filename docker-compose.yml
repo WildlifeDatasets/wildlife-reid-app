@@ -73,7 +73,7 @@ services:
     depends_on:
       - inference_worker
       - identification_worker
-      - detection_worker
+#      - detection_worker
     networks:
       - frontend
       - backend
@@ -91,6 +91,13 @@ services:
     env_file:
       - "src/variables.env"
       - ".env"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ['0']
+              capabilities: [gpu]
     volumes:
       - inference-worker-data:/data  # data used only by Worker
       - shared-data:/shared_data  # shared data with API, Workers, and Nginx
@@ -119,6 +126,13 @@ services:
     env_file:
       - "src/variables.env"
       - ".env"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ['0']
+              capabilities: [gpu]
     volumes:
       - identification-worker-data:/data  # data used only by Worker
       - shared-data:/shared_data  # shared data with API, Workers, and Nginx
@@ -152,35 +166,35 @@ services:
     labels:
       com.piva-ai.group: "applications"
 
-  detection_worker:
-    platform: linux/amd64
-    image: ${DETECTION_WORKER_IMAGE:-detection_worker}${TAG:-:latest}
-    build:
-      context: .
-      dockerfile: src/detection_worker/Dockerfile
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              device_ids: ['0']
-              capabilities: [gpu]
-    container_name: carnivoreid-app-detection-worker
-    restart: always
-    env_file:
-      - "src/variables.env"
-      - ".env"
-    volumes:
-      - detection-worker-data:/data  # data used only by Worker
-      - shared-data:/shared_data  # shared data with API, Workers, and Nginx
-    depends_on:
-      - broker
-      - redis
-    networks:
-      - backend
+#  detection_worker:
+#    platform: linux/amd64
+#    image: ${DETECTION_WORKER_IMAGE:-detection_worker}${TAG:-:latest}
+#    build:
+#      context: .
+#      dockerfile: src/detection_worker/Dockerfile
+#    deploy:
+#      resources:
+#        reservations:
+#          devices:
+#            - driver: nvidia
+#              device_ids: ['0']
+#              capabilities: [gpu]
+#    container_name: carnivoreid-app-detection-worker
+#    restart: always
+#    env_file:
+#      - "src/variables.env"
+#      - ".env"
+#    volumes:
+#      - detection-worker-data:/data  # data used only by Worker
+#      - shared-data:/shared_data  # shared data with API, Workers, and Nginx
+#    depends_on:
+#      - broker
+#      - redis
+#    networks:
+#      - backend
     #      - identification-worker
-    labels:
-      com.piva-ai.group: "applications"
+#    labels:
+#      com.piva-ai.group: "applications"
 
   nginx:
     image: ${NGINX_IMAGE:-custom_nginx}${TAG:-:latest}

@@ -604,7 +604,7 @@ def set_individual_identity(
 
 
 @staff_member_required
-def run_processing(request, uploadedarchive_id):
+def run_taxon_classification(request, uploadedarchive_id):
     """Run processing of uploaded archive."""
     uploaded_archive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
     next_page = request.GET.get("next", "/caidapp/uploads")

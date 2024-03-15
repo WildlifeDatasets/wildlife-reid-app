@@ -10,7 +10,7 @@ from numpy import ndarray
 from segment_anything import SamPredictor, sam_model_registry
 from tqdm import tqdm
 
-# from fgvc.utils.utils import set_cuda_device
+# from fgvc.inference_utils.inference_utils import set_cuda_device
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 logger = logging.getLogger("app")

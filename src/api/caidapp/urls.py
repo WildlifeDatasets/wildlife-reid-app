@@ -46,7 +46,7 @@ urlpatterns = [
     ),
     path(
         "<int:uploadedarchive_id>/run_processing/",
-        views.run_processing,
+        views.run_taxon_classification,
         name="run_processing",
     ),
     path("djangologin/", views.MyLoginView.as_view(), name="djangologin"),
