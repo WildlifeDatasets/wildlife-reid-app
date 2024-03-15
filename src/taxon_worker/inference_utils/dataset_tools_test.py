@@ -7,7 +7,7 @@ import pandas as pd
 import pytest
 
 try:
-    from src.inference_worker.inference_utils import dataset_tools
+    from src.taxon_worker.inference_utils import dataset_tools
 except ModuleNotFoundError:
     from jupyter_notebooks.datasets.sumava import dataset_tools
 

@@ -95,7 +95,7 @@ def get_detection_model():
     global DETECTION_MODEL
     if DETECTION_MODEL is None:
         model_url = r"https://github.com/ecologize/CameraTraps/releases/download/v5.0/md_v5a.0.0.pt"
-        model_file = Path("/inference_worker/resources/md_v5a.0.0.pt")
+        model_file = Path("/taxon_worker/resources/md_v5a.0.0.pt")
         download_file_if_does_not_exists(model_url, model_file)
 
         logger.debug(f"Loading model from file: {model_file}. {model_file.exists()=}")
@@ -121,11 +121,11 @@ def get_sam_model():
 
         download_file_if_does_not_exists(
             "http://ptak.felk.cvut.cz/plants/DanishFungiDataset/sam_vit_h_4b8939.pth",
-            "/inference_worker/resources/sam_vit_h_4b8939.pth",
+            "/taxon_worker/resources/sam_vit_h_4b8939.pth",
         )
 
         logger.info("Initializing SAM model and loading pre-trained checkpoint.")
-        _checkpoint_path = Path("/inference_worker/resources/sam_vit_h_4b8939.pth").expanduser()
+        _checkpoint_path = Path("/taxon_worker/resources/sam_vit_h_4b8939.pth").expanduser()
         SAM = sam_model_registry["vit_h"](checkpoint=str(_checkpoint_path))
         SAM.to(device=DEVICE)
         SAM_PREDICTOR = SamPredictor(SAM)

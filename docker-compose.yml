@@ -71,7 +71,7 @@ services:
     expose:
       - 8080  # this should be accessible through inner nginx
     depends_on:
-      - inference_worker
+      - taxon_worker
       - identification_worker
 #      - detection_worker
     networks:
@@ -80,12 +80,12 @@ services:
     labels:
       com.piva-ai.group: "applications"
 
-  inference_worker:
+  taxon_worker:
     platform: linux/amd64
-    image: ${INFERENCE_WORKER_IMAGE:-inference_worker}${TAG:-:latest}
+    image: ${TAXON_WORKER_IMAGE:-taxon_worker}${TAG:-:latest}
     build:
       context: .
-      dockerfile: src/inference_worker/Dockerfile
+      dockerfile: src/taxon_worker/Dockerfile
     container_name: carnivoreid-app-inference-worker
     restart: always
     env_file:

@@ -17,7 +17,7 @@ app.config_from_object("django.conf:settings", namespace="CELERY")
 # update celery configuration
 app.conf.task_routes = {
     # recognition workflow
-    "predict": {"queue": "inference_worker"},
+    "predict": {"queue": "taxon_worker"},
     # detection workflow
     "detect": {"queue": "detection_worker"},
     "detectionsimplelog": {"queue": "detection_worker"},

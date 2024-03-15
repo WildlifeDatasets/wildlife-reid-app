@@ -15,11 +15,11 @@ setup_logging()
 logger = logging.getLogger("app")
 logger.debug(f"{RABBITMQ_URL=}")
 logger.debug(f"{REDIS_URL=}")
-inference_worker = Celery("inference_worker", broker=RABBITMQ_URL, backend=REDIS_URL)
+taxon_worker = Celery("taxon_worker", broker=RABBITMQ_URL, backend=REDIS_URL)
 MEDIA_DIR_PATH = Path("/shared_data/media")
 
 
-@inference_worker.task(bind=True, name="predict")
+@taxon_worker.task(bind=True, name="predict")
 def predict(
     self,
     input_archive_file: str,

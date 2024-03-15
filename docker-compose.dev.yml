@@ -23,14 +23,14 @@ services:
     volumes:
       - ./src/api:/api
 
-  inference_worker:
-    image: carnivoreid-app/inference_worker:dev
+  taxon_worker:
+    image: carnivoreid-app/taxon_worker:dev
     build:
       context: .
-      dockerfile: src/inference_worker/Dockerfile_dev
+      dockerfile: src/taxon_worker/Dockerfile_dev
     restart: "no"
     volumes:
-      - ./src/inference_worker:/inference_worker
+      - ./src/taxon_worker:/taxon_worker
 
   identification_worker:
     image: carnivoreid-app/identification_worker:dev
