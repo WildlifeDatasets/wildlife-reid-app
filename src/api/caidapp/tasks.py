@@ -117,9 +117,6 @@ def _prepare_dataframe_for_identification(mediafiles):
 #     )
 
 
-
-
-
 def run_detection_async(uploaded_archive: UploadedArchive, link=None, link_error=None):
     """Run detection and mask preparation on UploadedArchive."""
     logger.debug("Generating CSV for run_identification...")
@@ -207,19 +204,21 @@ def make_thumbnail_for_uploaded_archive(uploaded_archive: UploadedArchive):
 def run_species_prediction_async(uploaded_archive: UploadedArchive, link=None, link_error=None):
     """Run species prediction asynchronously."""
     _run_taxon_classification_init_message(uploaded_archive, commit=False)
-    output_archive_file, output_dir, output_metadata_file = _run_taxon_classification_init(uploaded_archive, commit=True)
+    output_archive_file, output_dir, output_metadata_file = _run_taxon_classification_init(
+        uploaded_archive, commit=True
+    )
     logger.debug(f"updating uploaded archive, {uploaded_archive.csv_file=}")
 
     if link is None:
-        link=predict_species_on_success.s(
-            uploaded_archive_id=uploaded_archive.id,
-            zip_file=os.path.relpath(str(output_archive_file), settings.MEDIA_ROOT),
-            csv_file=os.path.relpath(str(output_metadata_file), settings.MEDIA_ROOT),
-        ),
+        link = (
+            predict_species_on_success.s(
+                uploaded_archive_id=uploaded_archive.id,
+                zip_file=os.path.relpath(str(output_archive_file), settings.MEDIA_ROOT),
+                csv_file=os.path.relpath(str(output_metadata_file), settings.MEDIA_ROOT),
+            ),
+        )
     if link_error is None:
-        link_error=on_error_with_uploaded_archive.s(uploaded_archive_id=uploaded_archive.id),
-
-
+        link_error = (on_error_with_uploaded_archive.s(uploaded_archive_id=uploaded_archive.id),)
 
     # if the metadata file exists, it is updated
     update_metadata_csv_by_uploaded_archive(uploaded_archive)
@@ -240,14 +239,14 @@ def run_species_prediction_async(uploaded_archive: UploadedArchive, link=None, l
         },
     )
 
-
     task = sig.apply_async(
         link=link,
         link_error=link_error,
     )
     logger.info(f"Created worker task with id '{task.task_id}'.")
 
-def _run_taxon_classification_init_message(uploaded_archive:UploadedArchive, commit:bool=False):
+
+def _run_taxon_classification_init_message(uploaded_archive: UploadedArchive, commit: bool = False):
     expected_time_message = timedelta_to_human_readable(
         _estimate_time_for_taxon_classification_of_uploaded_archive(uploaded_archive)
     )
@@ -257,8 +256,7 @@ def _run_taxon_classification_init_message(uploaded_archive:UploadedArchive, com
         uploaded_archive.save()
 
 
-
-def _run_taxon_classification_init(uploaded_archive, commit:bool=False):
+def _run_taxon_classification_init(uploaded_archive, commit: bool = False):
     # update record in the database
     output_dir = Path(settings.MEDIA_ROOT) / uploaded_archive.outputdir
     uploaded_archive.started_at = django.utils.timezone.now()

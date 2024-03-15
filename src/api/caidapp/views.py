@@ -138,8 +138,7 @@ def message(request, message):
 
 
 def _round_location(location: Location, order: int = 3):
-    """Round location."""
-
+    """Round location for anonymization."""
     lat, lon = str(location.location).split(",")
     lat = round(float(lat), order)
     lon = round(float(lon), order)
@@ -322,7 +321,8 @@ def _multiple_species_button_style_and_tooltips(request) -> dict:
         ).all()
     )
     btn_tooltips = {
-        "classify_non_classified": f"Classify {n_non_classified_taxons} non-classified media files.",
+        "classify_non_classified": f"Classify {n_non_classified_taxons} " +
+                                   "non-classified media files.",
     }
     if n_non_classified_taxons == 0:
         btn_styles = {

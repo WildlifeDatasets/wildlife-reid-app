@@ -1,14 +1,11 @@
 import json
 import logging
-import os
 import shutil
 from pathlib import Path
 from typing import Optional, Tuple
 
 import numpy as np
 import pandas as pd
-import torch
-import tqdm
 import wandb
 import yaml
 from scipy.special import softmax
@@ -27,7 +24,6 @@ MEDIA_DIR_PATH = Path("/shared_data/media")
 
 def get_model_config(is_cropped: bool = False) -> Tuple[dict, str, dict]:
     """Load model configuration from W&B including training config and fine-tuned checkpoint."""
-
     # load model_meta.json and check if the artifact path is the same as the previous one
     model_meta_path = Path(RESOURCES_DIR) / "model_meta.json"
     reset_model = True
@@ -37,16 +33,17 @@ def get_model_config(is_cropped: bool = False) -> Tuple[dict, str, dict]:
         if model_meta["WANDB_ARTIFACT_PATH"] == WANDB_ARTIFACT_PATH:
             reset_model = False
         else:
-            logger.debug(f"New model={WANDB_ARTIFACT_PATH}. " +
-                 f"Old model={model_meta.get('artifact_path', 'None')}.")
+            logger.debug(
+                f"New model={WANDB_ARTIFACT_PATH}. "
+                + f"Old model={model_meta.get('artifact_path', 'None')}."
+            )
     if reset_model:
-        logger.debug(f"Resetting model.")
+        logger.debug("Resetting model.")
         shutil.rmtree(RESOURCES_DIR, ignore_errors=True)
         model_meta = {"WANDB_ARTIFACT_PATH": WANDB_ARTIFACT_PATH}
         model_meta_path.parent.mkdir(exist_ok=True, parents=True)
         with open(model_meta_path, "w") as f:
             json.dump(model_meta, f)
-
 
     # get artifact and run from W&B
     if is_cropped:
@@ -72,7 +69,7 @@ def get_model_config(is_cropped: bool = False) -> Tuple[dict, str, dict]:
         # check if all artifact files are downloaded and optionally download artifact files
         all_files_downloaded = all([(Path(RESOURCES_DIR) / x).is_file() for x in artifact_files])
         if not all_files_downloaded:
-            logger.debug(f"Downloading artifact files.")
+            logger.debug("Downloading artifact files.")
             artifact.download(root=RESOURCES_DIR)
     except (wandb.CommError, ConnectionError):
         logger.error("Connection Error. Cannot reach W&B server. Trying previous configuration.")
@@ -101,8 +98,10 @@ def load_model_and_predict(image_paths: list) -> Tuple[np.ndarray, Optional[dict
 
     logger.info("Creating model and loading fine-tuned checkpoint.")
     model, model_mean, model_std = load_model(config, checkpoint_path)
-    logger.debug(f"model_mean={model_mean}, model_std={model_std}, " +
-                    f"checkpoint_path={checkpoint_path}, config={config}")
+    logger.debug(
+        f"model_mean={model_mean}, model_std={model_std}, "
+        + f"checkpoint_path={checkpoint_path}, config={config}"
+    )
     logger.debug(f"{image_paths[0]=}")
 
     logger.info("Creating DataLoaders.")
@@ -220,28 +219,28 @@ def data_processing(
 
     run_inference(metadata)
 
-    # TODO check the fallowing line. It seems to do nothing now
-    move_files_from_temp(media_dir_path, metadata)
+    # move_files_from_temp(media_dir_path, metadata)
 
     # save metadata file
     metadata.to_csv(csv_path, encoding="utf-8-sig")
     return metadata
 
 
-def move_files_from_temp(media_dir_path, metadata):
-    # move files from temporary directory to media directory
-    new_image_paths = []
-    for i, row in metadata.iterrows():
-        image_path = Path(media_dir_path) / row["image_path"]
-        target_dir = Path(media_dir_path)
-        target_dir.mkdir(parents=True, exist_ok=True)
-        target_image_path = target_dir / row["image_path"]
-        shutil.move(image_path, target_image_path)
-        new_image_paths.append(str(row["image_path"]))
-    metadata["image_path"] = new_image_paths
+# def move_files_from_temp(media_dir_path, metadata):
+#     """ Move files from temporary directory to media directory. """
+#     new_image_paths = []
+#     for i, row in metadata.iterrows():
+#         image_path = Path(media_dir_path) / row["image_path"]
+#         target_dir = Path(media_dir_path)
+#         target_dir.mkdir(parents=True, exist_ok=True)
+#         target_image_path = target_dir / row["image_path"]
+#         shutil.move(image_path, target_image_path)
+#         new_image_paths.append(str(row["image_path"]))
+#     metadata["image_path"] = new_image_paths
 
 
 def run_inference(metadata):
+    """Use full_image_path for taxon prediction."""
     # run inference
     # image_path = metadata["image_path"].apply(lambda x: os.path.join(MEDIA_DIR_PATH, x))
     image_path = metadata["full_image_path"]
@@ -257,6 +256,7 @@ def run_inference(metadata):
 
 
 def keep_correctly_loaded_images(metadata):
+    """Remove file from list if there is the error message."""
     logger.debug(f"len(metadata)={len(metadata)}")
     metadata = metadata[metadata["media_type"] == "image"].reset_index(drop=True)
     logger.debug(f"len(metadata)={len(metadata)}")

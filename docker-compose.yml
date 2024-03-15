@@ -86,7 +86,7 @@ services:
     build:
       context: .
       dockerfile: src/taxon_worker/Dockerfile
-    container_name: carnivoreid-app-inference-worker
+    container_name: carnivoreid-app-taxon-worker
     restart: always
     env_file:
       - "src/variables.env"
@@ -99,7 +99,7 @@ services:
               device_ids: ['0']
               capabilities: [gpu]
     volumes:
-      - inference-worker-data:/data  # data used only by Worker
+      - taxon-worker-data:/data  # data used only by Worker
       - shared-data:/shared_data  # shared data with API, Workers, and Nginx
     depends_on:
       - broker
@@ -224,7 +224,7 @@ volumes:
     labels:
       com.piva-ai.group: "applications"
       com.piva-ai.backup: "yes"
-  inference-worker-data:
+  taxon-worker-data:
     labels:
       com.piva-ai.group: "applications"
       com.piva-ai.backup: "yes"

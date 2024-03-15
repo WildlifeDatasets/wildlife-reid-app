@@ -1,5 +1,4 @@
 import logging
-import os
 import traceback
 from pathlib import Path
 
@@ -20,12 +19,12 @@ logger.debug(f"{config.REDIS_URL=}")
 
 detection_worker = Celery("detection_worker", broker=config.RABBITMQ_URL, backend=config.REDIS_URL)
 
-#device = torch.device("0" if torch.cuda.is_available() else "cpu")
-#logger.info(f"Using device: {device} ({os.environ.get('CUDA_VISIBLE_DEVICES')})")
-#device_names = "; ".join(
+# device = torch.device("0" if torch.cuda.is_available() else "cpu")
+# logger.info(f"Using device: {device} ({os.environ.get('CUDA_VISIBLE_DEVICES')})")
+# device_names = "; ".join(
 #    [f"{i}: {torch.cuda.get_device_name(i)}" for i in range(torch.cuda.device_count())]
-#)
-#logger.info(f"Device names: {device_names}")
+# )
+# logger.info(f"Device names: {device_names}")
 
 
 # @detection_worker.task(bind=True, name="preprocessing")
@@ -101,6 +100,7 @@ detection_worker = Celery("detection_worker", broker=config.RABBITMQ_URL, backen
 #         out = {"status": "ERROR", "error": error}
 #     return out
 #
+
 
 @detection_worker.task(bind=True, name="detect")
 def detect(

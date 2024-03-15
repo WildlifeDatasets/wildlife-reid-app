@@ -139,6 +139,7 @@ def detect_animal(image_path: list) -> dict[str, Union[np.ndarray, Any]]:
 
 
 def detect_animals(image_paths: list[Path]) -> list[bool]:
+    """Detect animals in a list of images."""
 
     detected_animals = [False] * len(image_paths)
     for i, image_path in enumerate(image_paths):

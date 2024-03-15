@@ -1,15 +1,14 @@
 import logging
+import shutil
 import traceback
 from pathlib import Path
 
 import pandas as pd
 from celery import Celery
-import shutil
-
+from detection_utils.inference import detect_and_segment_animal_on_metadata
 from inference_utils import data_processing_pipeline, dataset_tools
 from inference_utils.config import RABBITMQ_URL, REDIS_URL
 from inference_utils.log import setup_logging
-from detection_utils.inference import detect_and_segment_animal_on_metadata
 
 setup_logging()
 logger = logging.getLogger("app")
@@ -41,7 +40,7 @@ def predict(
             "Applying species identification task with args: "
             + f"{input_archive_file=}, {output_dir=}, {contains_identities=}."
         )
-        num_cores=1
+        num_cores = 1
 
         # prepare input and output file names
         input_archive_file = Path(input_archive_file)
@@ -51,7 +50,6 @@ def predict(
         output_archive_file = Path(output_archive_file)
         output_metadata_file = Path(output_metadata_file)
         do_init = force_init or (not output_metadata_file.exists())
-
 
         if do_init:
             shutil.rmtree(output_images_dir, ignore_errors=True)
@@ -64,15 +62,20 @@ def predict(
             )
             metadata = data_processing_pipeline.keep_correctly_loaded_images(metadata)
             # image_path is now relative to output_images_dir
-            metadata['full_image_path'] = metadata['image_path'].apply(lambda x: str(output_images_dir/ x))
+            metadata["full_image_path"] = metadata["image_path"].apply(
+                lambda x: str(output_images_dir / x)
+            )
             # metadata['image_path'] = metadata['full_image_path'].apply(lambda x: str(Path(x).relative_to(MEDIA_DIR_PATH)))
-
 
         else:
             metadata = pd.read_csv(output_metadata_file, index_col=0)
-        if len(metadata['image_path']) > 0:
-            logger.debug(f"{metadata['image_path'][0]=}, {Path(metadata['image_path'][0]).exists()=}")
-            logger.debug(f"{metadata['full_image_path'][0]=}, {Path(metadata['full_image_path'][0]).exists()=}")
+        if len(metadata["image_path"]) > 0:
+            logger.debug(
+                f"{metadata['image_path'][0]=}, {Path(metadata['image_path'][0]).exists()=}"
+            )
+            logger.debug(
+                f"{metadata['full_image_path'][0]=}, {Path(metadata['full_image_path'][0]).exists()=}"
+            )
 
         data_processing_pipeline.run_inference(metadata)
         metadata.to_csv(output_metadata_file, encoding="utf-8-sig")

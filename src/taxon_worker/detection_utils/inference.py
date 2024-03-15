@@ -1,16 +1,16 @@
 import logging
 import os
+import traceback
 from pathlib import Path
-from typing import Any, Union, List, Dict
+from typing import Any, Dict, List, Union
 
 import cv2
 import numpy as np
 import torch
 from numpy import ndarray
+from PIL import Image
 from segment_anything import SamPredictor, sam_model_registry
 from tqdm import tqdm
-from PIL import Image
-import traceback
 
 # from fgvc.inference_utils.inference_utils import set_cuda_device
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -91,6 +91,7 @@ DETECTION_MODEL = None
 SAM = None
 SAM_PREDICTOR = None
 
+
 def get_detection_model():
     global DETECTION_MODEL
     if DETECTION_MODEL is None:
@@ -110,9 +111,11 @@ def get_detection_model():
         )
     return DETECTION_MODEL
 
+
 def del_detection_model():
     global DETECTION_MODEL
     DETECTION_MODEL = None
+
 
 def get_sam_model():
     global SAM
@@ -132,13 +135,15 @@ def get_sam_model():
 
     return SAM_PREDICTOR
 
+
 def del_sam_model():
     global SAM
     global SAM_PREDICTOR
     SAM = None
     SAM_PREDICTOR = None
 
-def detect_animals(image_rgb:np.ndarray) -> List[Dict[str, Union[ndarray, Any]]]:
+
+def detect_animals(image_rgb: np.ndarray) -> List[Dict[str, Union[ndarray, Any]]]:
     """Detect an animal in a given image."""
 
     logger.info("Running detection inference.")
@@ -185,7 +190,7 @@ def segment_animal(image_path: str, bbox: list, cropped=True) -> np.ndarray:
     return pad_image(foregroud_image, bbox, border=0.25)
 
 
-def detect_and_segment_animal_on_metadata(metadata, border=0.25, do_segmentation:bool=True):
+def detect_and_segment_animal_on_metadata(metadata, border=0.25, do_segmentation: bool = True):
     assert "image_path" in metadata
     masked_images = []
     detection_results = []
@@ -203,7 +208,9 @@ def detect_and_segment_animal_on_metadata(metadata, border=0.25, do_segmentation
 
                 # if result["class"] == "animal":
                 base_path = Path(image_abs_path).parent.parent / "detection_images"
-                save_path = base_path / (Path(image_abs_path).stem + f".{ii}" + Path(image_abs_path).suffix)
+                save_path = base_path / (
+                    Path(image_abs_path).stem + f".{ii}" + Path(image_abs_path).suffix
+                )
                 base_path.mkdir(exist_ok=True, parents=True)
 
                 padded_image = pad_image(image, result["bbox"], border=border)
@@ -212,7 +219,6 @@ def detect_and_segment_animal_on_metadata(metadata, border=0.25, do_segmentation
                     # if there is at least one detection save the very first one as the main image
                     save_path = base_path / (Path(image_abs_path).name)
                     Image.fromarray(padded_image).convert("RGB").save(save_path)
-
 
                 # save_path = None
                 # if result["class"] == "animal":
