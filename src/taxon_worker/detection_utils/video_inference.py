@@ -1,9 +1,7 @@
-
 import pandas as pd
 
 
-
-def create_image_from_video(metadata:pd.DataFrame) -> pd.DataFrame:
+def create_image_from_video(metadata: pd.DataFrame) -> pd.DataFrame:
     """
     Create image from video.
 

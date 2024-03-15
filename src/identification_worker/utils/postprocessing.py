@@ -3,6 +3,7 @@ from copy import copy
 import numpy as np
 from numpy import arccos
 from numpy.linalg import norm
+from typing import Union
 
 
 def _get_angle(u, v):
@@ -43,7 +44,7 @@ def assign_feature(query_data, feature, idx):
     return query_data
 
 
-def group_features(representation: list, positions: list | tuple):
+def group_features(representation: list, positions: Union[tuple, list]):
     """Takes a list of elements and groups values in the list into lists based on provided index positions."""
     new_representation = []
     grouped = []

@@ -958,9 +958,15 @@ def _user_has_rw_access_to_mediafile(ciduser: CIDUser, mediafile: MediaFile) -> 
         mediafile.parent.owner.workgroup == ciduser.workgroup
     )
 
-def _user_has_rw_acces_to_uploadedarchive(ciduser: CIDUser, uploadedarchive: UploadedArchive) -> bool:
+
+def _user_has_rw_acces_to_uploadedarchive(
+    ciduser: CIDUser, uploadedarchive: UploadedArchive
+) -> bool:
     """Check if user has access to uploadedarchive."""
-    return (uploadedarchive.owner.id == ciduser.id) or (uploadedarchive.owner.workgroup == ciduser.workgroup)
+    return (uploadedarchive.owner.id == ciduser.id) or (
+        uploadedarchive.owner.workgroup == ciduser.workgroup
+    )
+
 
 def _user_content_filter_params(ciduser: CIDUser, prefix: str) -> dict:
     """Parameters for filtering user content based on existence of workgroup.
