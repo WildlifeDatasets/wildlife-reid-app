@@ -8,6 +8,7 @@ from celery import Celery
 from inference_utils import data_processing_pipeline, dataset_tools
 from inference_utils.config import RABBITMQ_URL, REDIS_URL
 from inference_utils.log import setup_logging
+import detection_utils.inference
 
 setup_logging()
 logger = logging.getLogger("app")
@@ -76,6 +77,7 @@ def predict(
                 f"{Path(metadata['full_image_path'][0]).exists()=}"
             )
 
+        detection_utils.inference.detect_animal_on_metadata(metadata)
         data_processing_pipeline.run_inference(metadata)
         metadata.to_csv(output_metadata_file, encoding="utf-8-sig")
 

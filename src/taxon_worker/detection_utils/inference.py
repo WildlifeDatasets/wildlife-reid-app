@@ -147,7 +147,7 @@ def del_sam_model():
     SAM_PREDICTOR = None
 
 
-def detect_animals(image_rgb: np.ndarray) -> List[Dict[str, Union[ndarray, Any]]]:
+def detect_animals_in_one_image(image_rgb: np.ndarray) -> List[Dict[str, Union[ndarray, Any]]]:
     """Detect an animal in a given image."""
     logger.info("Running detection inference.")
     detection_model = get_detection_model()
@@ -193,19 +193,17 @@ def segment_animal(image_path: str, bbox: list, cropped=True) -> np.ndarray:
     return pad_image(foregroud_image, bbox, border=0.25)
 
 
-def detect_and_segment_animal_on_metadata(metadata, border=0.25, do_segmentation: bool = True):
+def detect_animal_on_metadata(metadata, border=0.25, do_segmentation: bool = True):
     """Do the detection and segmentation on images in metadata."""
     assert "image_path" in metadata
     masked_images = []
     detection_results = []
-    for image_path in tqdm(metadata["image_path"]):
-        # TODO image path should be relative to local storage (/shared_data/media/)
-        image_abs_path = MEDIA_DIR / image_path
+    for image_abs_path in tqdm(metadata["full_image_path"]):
         try:
 
             image = cv2.imread(str(image_abs_path))
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-            results = detect_animals(image_rgb=image)
+            results = detect_animals_in_one_image(image_rgb=image)
             detection_results.append(results)
             # logger.debug(f"results={results}")
             for ii, result in enumerate(results):
@@ -240,4 +238,4 @@ def detect_and_segment_animal_on_metadata(metadata, border=0.25, do_segmentation
             # masked_images.append("")
             detection_results.append(None)
     # metadata["masked_image_path"] = masked_images
-    metadata["detection_results"] = masked_images
+    metadata["detection_results"] = detection_results
