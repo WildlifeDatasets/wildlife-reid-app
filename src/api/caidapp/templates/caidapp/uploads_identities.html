@@ -21,12 +21,12 @@
                 </ol>
 {#                <a class="btn btn-primary" href="{% url 'caidapp:upload_archive' %}"><i class="bi bi-plus-circle"></i> New Upload </a>#}
 
-            {{ user.ciduser.workgroup.identification_init_status }}
+            {{ user.caiduser.workgroup.identification_init_status }}
                 <a class="btn {{ btn_styles.upload_identified }}" href="{% url 'caidapp:upload_archive_contains_identities' %}"><i class="bi bi-upload"></i> Upload identified </a>
                 <i class="bi bi-arrow-right-short fa-2x" style="vertical-align: middle;"></i>
                 <a class="btn {{ btn_styles.init_identification }}" href="{% url 'caidapp:init_identification' %}"
-                   {% if user.ciduser.workgroup.identification_init_status %}
-                data-bs-toggle="tooltip" title="Initiated at: {{ user.ciduser.workgroup.identification_init_at|date:'Y-m-d H:i' }}, {{ user.ciduser.workgroup.identification_init_status}}, {{ user.ciduser.workgroup.identification_init_message }}"
+                   {% if user.caiduser.workgroup.identification_init_status %}
+                data-bs-toggle="tooltip" title="Initiated at: {{ user.caiduser.workgroup.identification_init_at|date:'Y-m-d H:i' }}, {{ user.caiduser.workgroup.identification_init_status}}, {{ user.caiduser.workgroup.identification_init_message }}"
                     {% endif %}
                 ><i class="fas fa-fingerprint"></i> Init identification</a>
                 <i class="bi bi-arrow-right-short fa-2x" style="vertical-align: middle;"></i>
@@ -42,7 +42,7 @@
 {#                    Identification not initiated.#}
 {#                {% endif %}#}
 {#                <p><i class="bi bi-calendar" ></i></p>#}
-{#                {{ user.ciduser.workgroup }}#}
+{#                {{ user.caiduser.workgroup }}#}
             </nav>
         </div><!-- End Page Title -->
         <section class="section">

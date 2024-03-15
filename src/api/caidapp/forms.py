@@ -1,11 +1,11 @@
 from django import forms
 
 from . import models
-from .models import Album, CIDUser, IndividualIdentity, MediaFile, UploadedArchive
+from .models import Album, CaIDUser, IndividualIdentity, MediaFile, UploadedArchive
 
 
 class WorkgroupUsersForm(forms.Form):
-    workgroup_users = forms.ModelMultipleChoiceField(queryset=CIDUser.objects.all(), required=False)
+    workgroup_users = forms.ModelMultipleChoiceField(queryset=CaIDUser.objects.all(), required=False)
 
 
 class AlbumForm(forms.ModelForm):

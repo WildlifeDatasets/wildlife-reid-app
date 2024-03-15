@@ -4,7 +4,7 @@ from django.db.migrations.recorder import MigrationRecorder
 from . import models
 
 # Register your models here.
-admin.site.register(models.CIDUser)
+admin.site.register(models.CaIDUser)
 admin.site.register(models.UploadedArchive)
 admin.site.register(models.MediaFile)
 admin.site.register(models.Taxon)
