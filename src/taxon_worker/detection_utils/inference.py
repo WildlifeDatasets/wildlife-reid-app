@@ -93,6 +93,7 @@ SAM_PREDICTOR = None
 
 
 def get_detection_model():
+    """Load the detection model if not loaded before."""
     global DETECTION_MODEL
     if DETECTION_MODEL is None:
         model_url = r"https://github.com/ecologize/CameraTraps/releases/download/v5.0/md_v5a.0.0.pt"
@@ -113,11 +114,13 @@ def get_detection_model():
 
 
 def del_detection_model():
+    """Release the detection model."""
     global DETECTION_MODEL
     DETECTION_MODEL = None
 
 
 def get_sam_model():
+    """Load the SAM model if not loaded before."""
     global SAM
     global SAM_PREDICTOR
     if SAM is None:
@@ -137,6 +140,7 @@ def get_sam_model():
 
 
 def del_sam_model():
+    """Release the SAM model."""
     global SAM
     global SAM_PREDICTOR
     SAM = None
@@ -145,7 +149,6 @@ def del_sam_model():
 
 def detect_animals(image_rgb: np.ndarray) -> List[Dict[str, Union[ndarray, Any]]]:
     """Detect an animal in a given image."""
-
     logger.info("Running detection inference.")
     detection_model = get_detection_model()
     results = detection_model(image_rgb)
@@ -191,6 +194,7 @@ def segment_animal(image_path: str, bbox: list, cropped=True) -> np.ndarray:
 
 
 def detect_and_segment_animal_on_metadata(metadata, border=0.25, do_segmentation: bool = True):
+    """Do the detection and segmentation on images in metadata."""
     assert "image_path" in metadata
     masked_images = []
     detection_results = []

@@ -73,7 +73,10 @@ def encode_images(metadata: pd.DataFrame) -> np.ndarray:
             new_image_path = image_path
         new_image_paths.append(str(new_image_path))
     metadata["image_path"] = new_image_paths
-    # metadata['masked_image_path'] = np.where(metadata['masked_image_path'].isna(), metadata['image_path'], metadata['masked_image_path'])
+    # metadata['masked_image_path'] = np.where(
+    #     metadata['masked_image_path'].isna(),
+    #     metadata['image_path'], metadata['masked_image_path']
+    # )
 
     dataset = CarnivoreDataset(
         metadata=metadata,

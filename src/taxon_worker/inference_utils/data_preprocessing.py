@@ -87,6 +87,7 @@ DETECTION_MODEL = None
 
 
 def get_detection_model():
+    """Load the detection model if not loaded before."""
     global DETECTION_MODEL
     if DETECTION_MODEL is None:
         DETECTION_MODEL = torch.hub.load(
@@ -102,6 +103,7 @@ def get_detection_model():
 
 
 def release_detection_model():
+    """Release the detection model."""
     global DETECTION_MODEL
     DETECTION_MODEL = None
 
@@ -140,7 +142,6 @@ def detect_animal(image_path: list) -> dict[str, Union[np.ndarray, Any]]:
 
 def detect_animals(image_paths: list[Path]) -> list[bool]:
     """Detect animals in a list of images."""
-
     detected_animals = [False] * len(image_paths)
     for i, image_path in enumerate(image_paths):
         image = cv2.imread(image_path)

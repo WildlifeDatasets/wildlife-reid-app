@@ -5,7 +5,6 @@ from pathlib import Path
 
 import pandas as pd
 from celery import Celery
-from detection_utils.inference import detect_and_segment_animal_on_metadata
 from inference_utils import data_processing_pipeline, dataset_tools
 from inference_utils.config import RABBITMQ_URL, REDIS_URL
 from inference_utils.log import setup_logging
@@ -65,7 +64,6 @@ def predict(
             metadata["full_image_path"] = metadata["image_path"].apply(
                 lambda x: str(output_images_dir / x)
             )
-            # metadata['image_path'] = metadata['full_image_path'].apply(lambda x: str(Path(x).relative_to(MEDIA_DIR_PATH)))
 
         else:
             metadata = pd.read_csv(output_metadata_file, index_col=0)
@@ -74,7 +72,8 @@ def predict(
                 f"{metadata['image_path'][0]=}, {Path(metadata['image_path'][0]).exists()=}"
             )
             logger.debug(
-                f"{metadata['full_image_path'][0]=}, {Path(metadata['full_image_path'][0]).exists()=}"
+                f"{metadata['full_image_path'][0]=}, "
+                f"{Path(metadata['full_image_path'][0]).exists()=}"
             )
 
         data_processing_pipeline.run_inference(metadata)

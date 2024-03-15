@@ -86,7 +86,8 @@ detection_worker = Celery("detection_worker", broker=config.RABBITMQ_URL, backen
 #             metadata = metadata[metadata["read_error"] == ""].reset_index(drop=True)
 #             logger.debug(f"len(metadata)={len(metadata)}")
 #         # logger.debug("Preparing output archive.")
-#         # dataset_tools.make_zipfile_with_categories(output_archive_file, output_images_dir, metadata)
+#         # dataset_tools.make_zipfile_with_categories(
+#         #     output_archive_file, output_images_dir, metadata)
 #         # logger.debug(f"{contains_identities=}")
 #         # logger.debug(f"{output_archive_file=}")
 #
@@ -135,6 +136,7 @@ def detect(
 
 
 def detect_and_segment_animal(metadata):
+    """Do the detection and segmentation on images in metadata."""
     assert "image_path" in metadata
     masked_images = []
     for image_path in tqdm(metadata["image_path"]):

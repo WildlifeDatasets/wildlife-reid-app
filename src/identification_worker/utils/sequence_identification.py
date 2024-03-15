@@ -136,7 +136,7 @@ def get_datetime_from_exif(filename: Path) -> typing.Tuple[str, str]:
 
 
 def extend_df_with_datetime(df: pd.DataFrame) -> pd.DataFrame:
-    """Extends dataframe with datetime based on image exif information"""
+    """Extends dataframe with datetime based on image exif information."""
     assert "image_path" in df
     dates = []
     for image_path in df.image_path:

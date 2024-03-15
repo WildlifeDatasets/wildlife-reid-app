@@ -321,8 +321,8 @@ def _multiple_species_button_style_and_tooltips(request) -> dict:
         ).all()
     )
     btn_tooltips = {
-        "classify_non_classified": f"Classify {n_non_classified_taxons} " +
-                                   "non-classified media files.",
+        "classify_non_classified": f"Classify {n_non_classified_taxons} "
+        + "non-classified media files.",
     }
     if n_non_classified_taxons == 0:
         btn_styles = {
@@ -952,6 +952,16 @@ def upload_archive(
     )
 
 
+def _user_has_rw_access_to_mediafile(ciduser: CIDUser, mediafile: MediaFile) -> bool:
+    """Check if user has access to mediafile."""
+    return (mediafile.parent.owner.id == ciduser.id) or (
+        mediafile.parent.owner.workgroup == ciduser.workgroup
+    )
+
+def _user_has_rw_acces_to_uploadedarchive(ciduser: CIDUser, uploadedarchive: UploadedArchive) -> bool:
+    """Check if user has access to uploadedarchive."""
+    return (uploadedarchive.owner.id == ciduser.id) or (uploadedarchive.owner.workgroup == ciduser.workgroup)
+
 def _user_content_filter_params(ciduser: CIDUser, prefix: str) -> dict:
     """Parameters for filtering user content based on existence of workgroup.
 
@@ -984,10 +994,11 @@ def _get_all_user_locations(request):
 def delete_upload(request, uploadedarchive_id):
     """Delete uploaded file."""
     uploadedarchive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
-    if uploadedarchive.owner.id == request.user.id:
+
+    if _user_has_rw_acces_to_uploadedarchive(request.user.ciduser, uploadedarchive):
         uploadedarchive.delete()
     else:
-        messages.error(request, "Only the owner can delete the file")
+        messages.error(request, "Not allowed to delete this uploaded archive.")
     return redirect("/caidapp/uploads")
 
 
@@ -995,17 +1006,16 @@ def delete_upload(request, uploadedarchive_id):
 def delete_mediafile(request, mediafile_id):
     """Delete uploaded file."""
     mediafile = get_object_or_404(MediaFile, pk=mediafile_id)
-    if (mediafile.parent.owner.id != request.user.id) and (
-        mediafile.parent.owner.workgroup != request.user.ciduser.workgroup
-    ):
-        return HttpResponseNotAllowed("Not allowed to see this media file.")
-    parent_id = mediafile.parent_id
-    uploaded_archive = mediafile.parent
-    uploaded_archive.output_updated_at = None
-    uploaded_archive.save()
+    if _user_has_rw_access_to_mediafile(request.user.ciduser, mediafile):
+        parent_id = mediafile.parent_id
+        uploaded_archive = mediafile.parent
+        uploaded_archive.output_updated_at = None
+        uploaded_archive.save()
 
-    mediafile.delete()
-    return redirect("caidapp:uploadedarchive_detail", uploadedarchive_id=parent_id)
+        mediafile.delete()
+        return redirect("caidapp:uploadedarchive_detail", uploadedarchive_id=parent_id)
+    else:
+        return HttpResponseNotAllowed("Not allowed to delete this media file.")
 
 
 @login_required
