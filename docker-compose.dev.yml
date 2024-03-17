@@ -46,6 +46,13 @@ services:
     ports:
       - "5433:5432"
 
+#  volume_connector:
+#    image: alpine
+#    command: tail -f /dev/null
+#    volumes:
+#      - "shared-data:/shared_data"
+#      - "./shared_data_2/:/shared_data"
+
 #  detection_worker:
 #    image: carnivoreid-app/detection_worker:dev
 #    build:
