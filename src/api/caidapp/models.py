@@ -166,7 +166,7 @@ class MediaFile(models.Model):
         IndividualIdentity, blank=True, null=True, on_delete=models.SET_NULL
     )
     identity_is_representative = models.BooleanField(default=False)
-    updated_by = models.ForeignKey(CaIDUser, on_delete=models.CASCADE, null=True, blank=True)
+    updated_by = models.ForeignKey(CaIDUser, on_delete=models.SET_NULL, null=True, blank=True)
     updated_at = models.DateTimeField("Updated at", blank=True, null=True)
     metadata_json = models.JSONField(blank=True, null=True)
 
@@ -178,8 +178,10 @@ class MediaFile(models.Model):
 
 class AnimalObservation(models.Model):
     mediafile = models.ForeignKey(MediaFile, on_delete=models.CASCADE, null=True, blank=True)
-    taxon = models.ForeignKey(Taxon, on_delete=models.CASCADE, null=True, blank=True)
+    taxon = models.ForeignKey(Taxon, on_delete=models.SET_NULL, null=True, blank=True)
     metadata_json = models.JSONField(blank=True, null=True)
+    updated_by = models.ForeignKey(CaIDUser, on_delete=models.SET_NULL, null=True, blank=True)
+    updated_at = models.DateTimeField("Updated at", blank=True, null=True)
 
 
 class MediafilesForIdentification(models.Model):
