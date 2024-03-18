@@ -73,6 +73,11 @@ def _hash():
     hash_str = generate_sha1(dt, salt=random_string())
     return hash_str
 
+class Taxon(models.Model):
+    name = models.CharField(max_length=50)
+
+    def __str__(self):
+        return str(self.name)
 
 class UploadedArchive(models.Model):
     uploaded_at = models.DateTimeField("Uploaded at", default=datetime.now)
@@ -98,6 +103,7 @@ class UploadedArchive(models.Model):
     owner = models.ForeignKey(CaIDUser, on_delete=models.CASCADE, null=True, blank=True)
     contains_identities = models.BooleanField(default=False)
     contains_single_taxon = models.BooleanField(default=False)
+    taxon_for_identification = models.ForeignKey(Taxon, on_delete=models.SET_NULL, null=True, blank=True)
 
     def __str__(self):
         return str(Path(self.archivefile.name).name)
@@ -112,11 +118,6 @@ def auto_delete_file_on_delete(sender, instance, **kwargs):
         shutil.rmtree(instance.outputdir)
 
 
-class Taxon(models.Model):
-    name = models.CharField(max_length=50)
-
-    def __str__(self):
-        return str(self.name)
 
 
 class Location(models.Model):
@@ -154,6 +155,12 @@ class MediaFile(models.Model):
         null=True,
         max_length=500,
     )
+    image_file = models.FileField(
+        "Image File",
+        blank=True,
+        null=True,
+        max_length=500,
+    )
     thumbnail = models.ImageField(blank=True, null=True, max_length=500)
     identity = models.ForeignKey(
         IndividualIdentity, blank=True, null=True, on_delete=models.SET_NULL
@@ -161,12 +168,18 @@ class MediaFile(models.Model):
     identity_is_representative = models.BooleanField(default=False)
     updated_by = models.ForeignKey(CaIDUser, on_delete=models.CASCADE, null=True, blank=True)
     updated_at = models.DateTimeField("Updated at", blank=True, null=True)
+    metadata_json = models.JSONField(blank=True, null=True)
 
     class Meta:
         ordering = ["-identity_is_representative", "captured_at"]
 
     def __str__(self):
         return str(Path(self.mediafile.name).name)
+
+class AnimalObservation(models.Model):
+    mediafile = models.ForeignKey(MediaFile, on_delete=models.CASCADE, null=True, blank=True)
+    taxon = models.ForeignKey(Taxon, on_delete=models.CASCADE, null=True, blank=True)
+    metadata_json = models.JSONField(blank=True, null=True)
 
 
 class MediafilesForIdentification(models.Model):

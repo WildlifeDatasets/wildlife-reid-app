@@ -157,7 +157,7 @@ def detect_animals_in_one_image(image_rgb: np.ndarray) -> List[Dict[str, Union[n
         result = results.xyxy[0].cpu().numpy()
 
         results_list[i] = {
-            "bbox": np.array(list(int(_) for _ in result[0][:4].tolist())),
+            "bbox": np.array(list(int(_) for _ in result[0][:4].tolist())).tolist(),
             "confidence": result[0][4],
             "class": id2label[result[0][5]],
         }
