@@ -149,7 +149,6 @@ def del_sam_model():
 
 def detect_animals_in_one_image(image_rgb: np.ndarray) -> List[Dict[str, Union[ndarray, Any]]]:
     """Detect an animal in a given image."""
-    logger.info("Running detection inference.")
     detection_model = get_detection_model()
     results = detection_model(image_rgb)
     id2label = results.names
@@ -195,6 +194,7 @@ def segment_animal(image_path: str, bbox: list, cropped=True) -> np.ndarray:
 def detect_animal_on_metadata(metadata, border=0.25, do_segmentation: bool = True):
     """Do the detection and segmentation on images in metadata."""
     assert "image_path" in metadata
+    logger.info("Running detection inference.")
     masked_images = []
     detection_results = []
     for image_abs_path in tqdm(metadata["full_image_path"]):
