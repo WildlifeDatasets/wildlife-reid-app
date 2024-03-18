@@ -142,11 +142,20 @@ secretkey.txt
 .DS_Store
 
 
-./shared_data
+shared_data/**/*.*
 ./src/taxon_worker/test_pipeline/**/*.jpg
 cache.json
-.csv
+*.csv
 
-.JPG
-.jpg
-.jpeg
+*.JPG
+*.jpg
+*.jpeg
+*.png
+*.PNG
+**/log.txt
+*.zip
+*.pth
+*.pt
+*.swp
+
+
