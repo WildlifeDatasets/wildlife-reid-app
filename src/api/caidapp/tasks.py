@@ -41,6 +41,7 @@ def predict_species_on_success(
     uploaded_archive_id: int,
     zip_file: str,
     csv_file: str,
+    extract_identites: bool = False,
     **kwargs,
 ):
     """Success callback invoked after running predict function in inference worker."""
@@ -58,7 +59,8 @@ def predict_species_on_success(
         # create missing take effect only if the processing is done for the first time
         # in other cases the file should be removed from CSV before the processing is run
         logger.debug(f"{uploaded_archive.contains_identities=}")
-        update_uploaded_archive_by_metadata_csv(uploaded_archive, create_missing=True)
+        update_uploaded_archive_by_metadata_csv(uploaded_archive,
+                                                create_missing=True, extract_identites=extract_identites)
         uploaded_archive.status = "Taxon classification finished"
         uploaded_archive.save()
         run_detection_async(uploaded_archive)
@@ -201,7 +203,8 @@ def make_thumbnail_for_uploaded_archive(uploaded_archive: UploadedArchive):
         uploaded_archive.thumbnail = os.path.relpath(abs_thumbnail_path, settings.MEDIA_ROOT)
 
 
-def run_species_prediction_async(uploaded_archive: UploadedArchive, link=None, link_error=None):
+def run_species_prediction_async(uploaded_archive: UploadedArchive, link=None,
+                                 link_error=None, extract_identites:bool=False):
     """Run species prediction asynchronously."""
     _run_taxon_classification_init_message(uploaded_archive, commit=False)
     output_archive_file, output_dir, output_metadata_file = _run_taxon_classification_init(
@@ -215,6 +218,7 @@ def run_species_prediction_async(uploaded_archive: UploadedArchive, link=None, l
                 uploaded_archive_id=uploaded_archive.id,
                 zip_file=os.path.relpath(str(output_archive_file), settings.MEDIA_ROOT),
                 csv_file=os.path.relpath(str(output_metadata_file), settings.MEDIA_ROOT),
+                extract_identites=extract_identites,
             ),
         )
     if link_error is None:
@@ -332,6 +336,7 @@ def update_uploaded_archive_by_metadata_csv(
     uploaded_archive: UploadedArchive,
     thumbnail_width: int = 400,
     create_missing: bool = True,
+    extract_identites: bool = False,
 ) -> None:
     """Extract filenames from uploaded archive CSV and create MediaFile objects.
 
@@ -389,10 +394,22 @@ def update_uploaded_archive_by_metadata_csv(
             logger.debug(f"{uploaded_archive.contains_identities=}")
             logger.debug(f"{row['predicted_category']=}")
 
-            mf.category = get_taxon(row["predicted_category"])
-            mf.identity = get_unique_name(
-                row["unique_name"], workgroup=uploaded_archive.owner.workgroup
-            )
+            mf.category = get_taxon(row["predicted_category"]) # remove this
+            if len(mf.animalobservation_set.all()) == 0:
+                mf.animalobservation_set.create(
+                    mediafile=mf,
+                    taxon=mf.category,
+                    # metadata_json=row.to_dict(),
+                )
+            else:
+                ao = mf.animalobservation_set.first()
+                # ao.metadata_json = row.to_dict()
+                ao.taxon = mf.category
+                ao.save()
+            if extract_identites:
+                mf.identity = get_unique_name(
+                    row["unique_name"], workgroup=uploaded_archive.owner.workgroup
+                )
             mf.save()
             logger.debug(f"identity={mf.identity}")
         logger.debug(f"{mf}")
