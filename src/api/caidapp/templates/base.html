@@ -249,7 +249,7 @@
                         </li>
                         <li>
                             <p class="dropdown-item-text">
-                                <i class="bi bi-people"></i> {{ user.ciduser.workgroup }}</p>
+                                <i class="bi bi-people"></i> {{ user.caiduser.workgroup }}</p>
                         </li>
                         <li>
                             <hr class="dropdown-divider">
@@ -360,7 +360,7 @@
 {#            </li>#}
 
 
-            {% if user.ciduser.workgroup %}
+            {% if user.caiduser.workgroup %}
             <li class="nav-item">
                 <a class="nav-link collapsed" data-bs-target="#icons-nav" data-bs-toggle="collapse" href="#" aria-expanded="true">
                     <i class="fas fa-fingerprint"></i>
@@ -402,9 +402,9 @@
                 </a>
             </li>
 
-            {% if user.ciduser.workgroup and user.ciduser.workgroup_admin %}
+            {% if user.caiduser.workgroup and user.caiduser.workgroup_admin %}
             <li class="nav-item">
-                <a class="nav-link collapsed" href="{% url 'caidapp:workgroup_update' user.ciduser.workgroup.hash %}">
+                <a class="nav-link collapsed" href="{% url 'caidapp:workgroup_update' user.caiduser.workgroup.hash %}">
                     <i class="bi bi-gear"></i>
                     <span>Workgroup Admin</span>
                 </a>

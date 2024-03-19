@@ -37,7 +37,7 @@ from .forms import (
 from .models import (
     Album,
     ArchiveCollection,
-    CIDUser,
+    CaIDUser,
     IndividualIdentity,
     Location,
     MediaFile,
@@ -74,8 +74,8 @@ def media_files(request):
     """List of uploads."""
     mediafiles = (
         MediaFile.objects.filter(
-            **_user_content_filter_params(request.user.ciduser, "parent__owner")
-            # parent__owner=request.user.ciduser
+            **_user_content_filter_params(request.user.caiduser, "parent__owner")
+            # parent__owner=request.user.caiduser
         )
         .all()
         .order_by("-parent__uploaded_at")
@@ -109,8 +109,8 @@ def manual_taxon_classification_on_non_classified(request):
     # pick random non-classified media file
     mediafile = (
         MediaFile.objects.filter(
-            **_user_content_filter_params(request.user.ciduser, "parent__owner"),
-            # parent__owner__workgroup=request.user.ciduser.workgroup, # but this would work too
+            **_user_content_filter_params(request.user.caiduser, "parent__owner"),
+            # parent__owner__workgroup=request.user.caiduser.workgroup, # but this would work too
             category__name="Not Classified",
             parent__contains_single_taxon=False,
         )
@@ -152,10 +152,10 @@ def update_location(request, location_id):
     location = get_object_or_404(
         Location,
         pk=location_id,
-        **_user_content_filter_params(request.user.ciduser, "owner"),
+        **_user_content_filter_params(request.user.caiduser, "owner"),
     )
     # if location.owner:
-    #     if request.user.ciduser.workgroup != location.owner__workgroup:
+    #     if request.user.caiduser.workgroup != location.owner__workgroup:
     #         return HttpResponseNotAllowed("Not allowed to see this location.")
     if request.method == "POST":
         form = LocationForm(request.POST, instance=location)
@@ -179,7 +179,7 @@ def manage_locations(request):
     LocationFormSet = modelformset_factory(
         Location, fields=("name",), can_delete=False, can_order=False
     )
-    params = _user_content_filter_params(request.user.ciduser, "owner")
+    params = _user_content_filter_params(request.user.caiduser, "owner")
     formset = LocationFormSet(queryset=Location.objects.filter(**params))
 
     if request.method == "POST":
@@ -219,7 +219,7 @@ def uploads_identities(request):
     """List of uploads."""
     uploadedarchives = (
         UploadedArchive.objects.filter(
-            owner__workgroup=request.user.ciduser.workgroup,
+            owner__workgroup=request.user.caiduser.workgroup,
             contains_single_taxon=True,
         )
         .all()
@@ -258,10 +258,10 @@ def show_taxons(request):
     taxons = []
     taxons_mediafiles = []
     # todo use here new function
-    if request.user.ciduser.workgroup:
-        filter_params = dict(parent__owner__workgroup=request.user.ciduser.workgroup)
+    if request.user.caiduser.workgroup:
+        filter_params = dict(parent__owner__workgroup=request.user.caiduser.workgroup)
     else:
-        filter_params = dict(parent__owner=request.user.ciduser)
+        filter_params = dict(parent__owner=request.user.caiduser)
 
     for taxon in all_taxons:
         mediafiles_of_taxon = taxon.mediafile_set.filter(**filter_params).all()
@@ -280,7 +280,7 @@ def uploads_species(request):
     """List of uploads."""
     uploadedarchives = (
         UploadedArchive.objects.filter(
-            owner__workgroup=request.user.ciduser.workgroup,
+            owner__workgroup=request.user.caiduser.workgroup,
             contains_single_taxon=False,
         )
         .all()
@@ -288,7 +288,7 @@ def uploads_species(request):
     )
     # uploadedarchives = (
     #     UploadedArchive.objects.filter(
-    #         owner=request.user.ciduser,
+    #         owner=request.user.caiduser,
     #     )
     #     .all()
     #     .order_by("-uploaded_at")
@@ -315,7 +315,7 @@ def uploads_species(request):
 def _multiple_species_button_style_and_tooltips(request) -> dict:
     n_non_classified_taxons = len(
         MediaFile.objects.filter(
-            parent__owner__workgroup=request.user.ciduser.workgroup,
+            parent__owner__workgroup=request.user.caiduser.workgroup,
             category__name="Not Classified",
             parent__contains_single_taxon=False,
         ).all()
@@ -356,11 +356,11 @@ def logout_view(request):
 
 def media_file_update(request, media_file_id, next_text="Save", next_url=None, skip_url=None):
     """Show and update media file."""
-    # | Q(parent__owner=request.user.ciduser)
-    # | Q(parent__owner__workgroup=request.user.ciduser.workgroup)
+    # | Q(parent__owner=request.user.caiduser)
+    # | Q(parent__owner__workgroup=request.user.caiduser.workgroup)
     mediafile = get_object_or_404(MediaFile, pk=media_file_id)
     if (mediafile.parent.owner.id != request.user.id) and (
-        mediafile.parent.owner.workgroup != request.user.ciduser.workgroup
+        mediafile.parent.owner.workgroup != request.user.caiduser.workgroup
     ):
         return HttpResponseNotAllowed("Not allowed to see this media file.")
 
@@ -368,7 +368,7 @@ def media_file_update(request, media_file_id, next_text="Save", next_url=None, s
         form = MediaFileForm(request.POST, instance=mediafile)
         if form.is_valid():
 
-            mediafile.updated_by = request.user.ciduser
+            mediafile.updated_by = request.user.caiduser
             mediafile.updated_at = django.utils.timezone.now()
             # get uploaded archive
             mediafile = form.save()
@@ -398,7 +398,7 @@ def individual_identities(request):
     """List of individual identities."""
     individual_identities = (
         IndividualIdentity.objects.filter(
-            Q(owner_workgroup=request.user.ciduser.workgroup) and ~Q(name="nan")
+            Q(owner_workgroup=request.user.caiduser.workgroup) and ~Q(name="nan")
         )
         .all()
         .order_by("-name")
@@ -412,7 +412,7 @@ def individual_identities(request):
     return render(
         request,
         "caidapp/individual_identities.html",
-        {"page_obj": page_obj, "workgroup": request.user.ciduser.workgroup},
+        {"page_obj": page_obj, "workgroup": request.user.caiduser.workgroup},
     )
 
 
@@ -422,8 +422,8 @@ def new_individual_identity(request):
         form = IndividualIdentityForm(request.POST)
         if form.is_valid():
             individual_identity = form.save(commit=False)
-            individual_identity.owner_workgroup = request.user.ciduser.workgroup
-            individual_identity.updated_by = request.user.ciduser
+            individual_identity.owner_workgroup = request.user.caiduser.workgroup
+            individual_identity.updated_by = request.user.caiduser
             individual_identity.save()
             return redirect("caidapp:individual_identities")
     else:
@@ -440,7 +440,7 @@ def update_individual_identity(request, individual_identity_id):
     individual_identity = get_object_or_404(
         IndividualIdentity,
         pk=individual_identity_id,
-        owner_workgroup=request.user.ciduser.workgroup,
+        owner_workgroup=request.user.caiduser.workgroup,
     )
 
     if request.method == "POST":
@@ -449,7 +449,7 @@ def update_individual_identity(request, individual_identity_id):
 
             # get uploaded archive
             individual_identity = form.save()
-            individual_identity.updated_by = request.user.ciduser
+            individual_identity.updated_by = request.user.caiduser
             individual_identity.save()
             return redirect("caidapp:individual_identities")
     else:
@@ -475,7 +475,7 @@ def delete_individual_identity(request, individual_identity_id):
     individual_identity = get_object_or_404(
         IndividualIdentity,
         pk=individual_identity_id,
-        owner_workgroup=request.user.ciduser.workgroup,
+        owner_workgroup=request.user.caiduser.workgroup,
     )
     individual_identity.delete()
     return redirect("caidapp:individual_identities")
@@ -484,10 +484,10 @@ def delete_individual_identity(request, individual_identity_id):
 def get_individual_identity_zoomed(request, foridentification_id: int, top_id: int):
     """Show and update media file."""
     foridentifications = MediafilesForIdentification.objects.filter(
-        mediafile__parent__owner__workgroup=request.user.ciduser.workgroup
+        mediafile__parent__owner__workgroup=request.user.caiduser.workgroup
     ).order_by("?")
     foridentification = MediafilesForIdentification.objects.get(id=foridentification_id)
-    if foridentification.mediafile.parent.owner.workgroup != request.user.ciduser.workgroup:
+    if foridentification.mediafile.parent.owner.workgroup != request.user.caiduser.workgroup:
         return HttpResponseNotAllowed("Not allowed to work with this media file.")
 
     # modulo
@@ -527,7 +527,7 @@ def get_individual_identity_zoomed(request, foridentification_id: int, top_id: i
 def not_identified_mediafiles(request):
     """View for mediafiles with individualities that are not identified."""
     foridentification_set = MediafilesForIdentification.objects.filter(
-        mediafile__parent__owner__workgroup=request.user.ciduser.workgroup
+        mediafile__parent__owner__workgroup=request.user.caiduser.workgroup
     )
     # mediafile_set = uploadedarchive.mediafile_set.all()
 
@@ -548,7 +548,7 @@ def get_individual_identity_from_foridentification(
 ):
     """Show and update media file."""
     foridentifications = MediafilesForIdentification.objects.filter(
-        mediafile__parent__owner__workgroup=request.user.ciduser.workgroup
+        mediafile__parent__owner__workgroup=request.user.caiduser.workgroup
     ).order_by("?")
     if foridentification_id is None:
         foridentification = foridentifications.first()
@@ -569,7 +569,7 @@ def remove_foridentification(request, foridentification_id: int):
     foridentification = get_object_or_404(
         MediafilesForIdentification,
         id=foridentification_id,
-        mediafile__parent__owner__workgroup=request.user.ciduser.workgroup,
+        mediafile__parent__owner__workgroup=request.user.caiduser.workgroup,
     )
     foridentification.delete()
     return redirect("caidapp:get_individual_identity")
@@ -584,19 +584,19 @@ def set_individual_identity(
     )
     individual_identity = get_object_or_404(IndividualIdentity, id=individual_identity_id)
 
-    # if request.user.ciduser.workgroup != mediafile.parent.owner.workgroup:
+    # if request.user.caiduser.workgroup != mediafile.parent.owner.workgroup:
     #     return HttpResponseNotAllowed("Not allowed to work with this media file.")
-    if request.user.ciduser.workgroup != individual_identity.owner_workgroup:
+    if request.user.caiduser.workgroup != individual_identity.owner_workgroup:
         return HttpResponseNotAllowed("Not allowed to work with this media file.")
     if (
-        request.user.ciduser.workgroup
+        request.user.caiduser.workgroup
         != mediafiles_for_identification.mediafile.parent.owner.workgroup
     ):
         return HttpResponseNotAllowed("Not allowed to work with this media file.")
 
     mediafiles_for_identification.mediafile.identity = individual_identity
     mediafiles_for_identification.mediafile.identity_is_representative = True
-    mediafiles_for_identification.mediafile.updated_by = request.user.ciduser
+    mediafiles_for_identification.mediafile.updated_by = request.user.caiduser
     mediafiles_for_identification.mediafile.save()
     mediafiles_for_identification.delete()
 
@@ -619,18 +619,18 @@ def run_taxon_classification(request, uploadedarchive_id):
 def init_identification(request, taxon_str: str = "Lynx lynx"):
     """Run processing of uploaded archive."""
     # check if user is workgroup admin
-    if not request.user.ciduser.workgroup_admin:
+    if not request.user.caiduser.workgroup_admin:
         return HttpResponseNotAllowed("Identification init is for workgroup admins only.")
     mediafiles = MediaFile.objects.filter(
         # category__name=taxon_str,
         identity__isnull=False,
-        parent__owner__workgroup=request.user.ciduser.workgroup,
+        parent__owner__workgroup=request.user.caiduser.workgroup,
         identity_is_representative=True,
     ).all()
 
     logger.debug("Generating CSV for init_identification...")
 
-    output_dir = Path(settings.MEDIA_ROOT) / request.user.ciduser.workgroup.name
+    output_dir = Path(settings.MEDIA_ROOT) / request.user.caiduser.workgroup.name
     output_dir.mkdir(exist_ok=True, parents=True)
 
     csv_data = _prepare_dataframe_for_identification(mediafiles)
@@ -639,7 +639,7 @@ def init_identification(request, taxon_str: str = "Lynx lynx"):
     identity_metadata_file = output_dir / "init_identification.csv"
     pd.DataFrame(csv_data).to_csv(identity_metadata_file, index=False)
     logger.debug(f"{identity_metadata_file=}")
-    workgroup = request.user.ciduser.workgroup
+    workgroup = request.user.caiduser.workgroup
     workgroup.identification_init_at = django.utils.timezone.now()
     workgroup.identification_init_status = "Processing"
     workgroup.identification_init_message = (
@@ -653,13 +653,13 @@ def init_identification(request, taxon_str: str = "Lynx lynx"):
         kwargs={
             # csv file should contain image_path, class_id, label
             "input_metadata_file": str(identity_metadata_file),
-            "organization_id": request.user.ciduser.workgroup.id,
+            "organization_id": request.user.caiduser.workgroup.id,
         },
     )
     # task =
     sig.apply_async(
         link=init_identification_on_success.s(
-            workgroup_id=request.user.ciduser.workgroup.id,
+            workgroup_id=request.user.caiduser.workgroup.id,
             # uploaded_archive_id=uploaded_archive.id,
             # zip_file=os.path.relpath(str(output_archive_file), settings.MEDIA_ROOT),
             # csv_file=os.path.relpath(str(output_metadata_file), settings.MEDIA_ROOT),
@@ -674,12 +674,12 @@ def init_identification(request, taxon_str: str = "Lynx lynx"):
 
 def _single_species_button_style(request) -> dict:
 
-    is_initiated = request.user.ciduser.workgroup.identification_init_at is not None
+    is_initiated = request.user.caiduser.workgroup.identification_init_at is not None
 
     exists_representative = (
         len(
             MediaFile.objects.filter(
-                parent__owner__workgroup=request.user.ciduser.workgroup,
+                parent__owner__workgroup=request.user.caiduser.workgroup,
                 identity_is_representative=True,
                 parent__contains_single_taxon=True,
             )
@@ -690,7 +690,7 @@ def _single_species_button_style(request) -> dict:
     exists_unidentified = (
         len(
             UploadedArchive.objects.filter(
-                owner__workgroup=request.user.ciduser.workgroup,
+                owner__workgroup=request.user.caiduser.workgroup,
                 contains_identities=False,
                 contains_single_taxon=True,
                 status="Species Finished",
@@ -702,7 +702,7 @@ def _single_species_button_style(request) -> dict:
     exists_for_confirmation = (
         len(
             MediafilesForIdentification.objects.filter(
-                mediafile__parent__owner__workgroup=request.user.ciduser.workgroup
+                mediafile__parent__owner__workgroup=request.user.caiduser.workgroup
             )
         )
         > 0
@@ -739,7 +739,7 @@ def _single_species_button_style(request) -> dict:
 def run_identification_on_unidentified(request):
     """Run identification in all uploaded archives."""
     uploaded_archives = UploadedArchive.objects.filter(
-        owner__workgroup=request.user.ciduser.workgroup,
+        owner__workgroup=request.user.caiduser.workgroup,
         status="Species Finished",
         contains_single_taxon=True,
         contains_identities=False,
@@ -754,7 +754,7 @@ def run_identification(request, uploadedarchive_id):
     """Run identification of uploaded archive."""
     uploaded_archive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
     # check if user is owner member of the workgroup
-    if uploaded_archive.owner.workgroup != request.user.ciduser.workgroup:
+    if uploaded_archive.owner.workgroup != request.user.caiduser.workgroup:
         return HttpResponseNotAllowed("Identification is for workgroup members only.")
     _run_identification(uploaded_archive)
     next_page = request.GET.get("next", "caidapp:uploads_identities")
@@ -770,7 +770,7 @@ def _run_identification(uploaded_archive: UploadedArchive, taxon_str="Lynx lynx"
 
     csv_data = _prepare_dataframe_for_identification(mediafiles)
     media_root = Path(settings.MEDIA_ROOT)
-    # output_dir = Path(settings.MEDIA_ROOT) / request.user.ciduser.workgroup.name
+    # output_dir = Path(settings.MEDIA_ROOT) / request.user.caiduser.workgroup.name
     # output_dir.mkdir(exist_ok=True, parents=True)
 
     # logger.debug(f"number of records={len(mediafiles)}")
@@ -824,7 +824,7 @@ def new_album(request):
         form = AlbumForm(request.POST)
         if form.is_valid():
             album = form.save(commit=False)
-            album.owner = request.user.ciduser
+            album.owner = request.user.caiduser
             album.save()
             return redirect("caidapp:album_detail", album.id)
     else:
@@ -858,7 +858,7 @@ def album_update(request, album_hash):
 def delete_album(request, album_hash):
     """Delete album if it belongs to the user."""
     album = get_object_or_404(Album, hash=album_hash)
-    if album.owner == request.user.ciduser:
+    if album.owner == request.user.caiduser:
         album.delete()
     return redirect("caidapp:albums")
 
@@ -916,7 +916,7 @@ def upload_archive(
                     f"Uploaded file with extension '{uploaded_archive_suffix}' is not an archive."
                 )
 
-            uploaded_archive.owner = request.user.ciduser
+            uploaded_archive.owner = request.user.caiduser
             logger.debug(f"{uploaded_archive.contains_identities=}, {contains_identities=}")
             logger.debug(f"{uploaded_archive.contains_single_taxon=}, {contains_single_taxon=}")
             # log actual url
@@ -952,7 +952,7 @@ def upload_archive(
     )
 
 
-def _user_has_rw_access_to_mediafile(ciduser: CIDUser, mediafile: MediaFile) -> bool:
+def _user_has_rw_access_to_mediafile(ciduser: CaIDUser, mediafile: MediaFile) -> bool:
     """Check if user has access to mediafile."""
     return (mediafile.parent.owner.id == ciduser.id) or (
         mediafile.parent.owner.workgroup == ciduser.workgroup
@@ -960,7 +960,7 @@ def _user_has_rw_access_to_mediafile(ciduser: CIDUser, mediafile: MediaFile) -> 
 
 
 def _user_has_rw_acces_to_uploadedarchive(
-    ciduser: CIDUser, uploadedarchive: UploadedArchive
+    ciduser: CaIDUser, uploadedarchive: UploadedArchive
 ) -> bool:
     """Check if user has access to uploadedarchive."""
     return (uploadedarchive.owner.id == ciduser.id) or (
@@ -968,7 +968,7 @@ def _user_has_rw_acces_to_uploadedarchive(
     )
 
 
-def _user_content_filter_params(ciduser: CIDUser, prefix: str) -> dict:
+def _user_content_filter_params(ciduser: CaIDUser, prefix: str) -> dict:
     """Parameters for filtering user content based on existence of workgroup.
 
     Parameters
@@ -981,7 +981,7 @@ def _user_content_filter_params(ciduser: CIDUser, prefix: str) -> dict:
         If the filter will be used in Location, the prefix should be "owner".
     """
     if ciduser.workgroup:
-        # filter_params = dict(parent__owner__workgroup=request.user.ciduser.workgroup)
+        # filter_params = dict(parent__owner__workgroup=request.user.caiduser.workgroup)
         filter_params = {f"{prefix}__workgroup": ciduser.workgroup}
     else:
         filter_params = {f"{prefix}": ciduser}
@@ -990,7 +990,7 @@ def _user_content_filter_params(ciduser: CIDUser, prefix: str) -> dict:
 
 def _get_all_user_locations(request):
     """Get all users locations."""
-    params = _user_content_filter_params(request.user.ciduser, "owner")
+    params = _user_content_filter_params(request.user.caiduser, "owner")
     logger.debug(f"{params=}")
     locations = Location.objects.filter(**params).order_by("name")
     return locations
@@ -1001,7 +1001,7 @@ def delete_upload(request, uploadedarchive_id):
     """Delete uploaded file."""
     uploadedarchive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
 
-    if _user_has_rw_acces_to_uploadedarchive(request.user.ciduser, uploadedarchive):
+    if _user_has_rw_acces_to_uploadedarchive(request.user.caiduser, uploadedarchive):
         uploadedarchive.delete()
     else:
         messages.error(request, "Not allowed to delete this uploaded archive.")
@@ -1012,7 +1012,7 @@ def delete_upload(request, uploadedarchive_id):
 def delete_mediafile(request, mediafile_id):
     """Delete uploaded file."""
     mediafile = get_object_or_404(MediaFile, pk=mediafile_id)
-    if _user_has_rw_access_to_mediafile(request.user.ciduser, mediafile):
+    if _user_has_rw_access_to_mediafile(request.user.caiduser, mediafile):
         parent_id = mediafile.parent_id
         uploaded_archive = mediafile.parent
         uploaded_archive.output_updated_at = None
@@ -1029,7 +1029,7 @@ def albums(request):
     """Show all albums."""
     albums = (
         Album.objects.filter(
-            Q(albumsharerole__user=request.user.ciduser) | Q(owner=request.user.ciduser)
+            Q(albumsharerole__user=request.user.caiduser) | Q(owner=request.user.caiduser)
         )
         .distinct()
         .all()
@@ -1057,9 +1057,9 @@ def _mediafiles_query(
     """Prepare list of mediafiles based on query search in category and location."""
     mediafiles = (
         MediaFile.objects.filter(
-            Q(album__albumsharerole__user=request.user.ciduser)
-            | Q(parent__owner=request.user.ciduser)
-            | Q(parent__owner__workgroup=request.user.ciduser.workgroup)
+            Q(album__albumsharerole__user=request.user.caiduser)
+            | Q(parent__owner=request.user.caiduser)
+            | Q(parent__owner__workgroup=request.user.caiduser.workgroup)
         )
         .distinct()
         .order_by("-parent__uploaded_at")
@@ -1093,10 +1093,10 @@ def _mediafiles_query(
         logger.debug(str(query))
         mediafiles = (
             MediaFile.objects.filter(
-                Q(album__albumsharerole__user=request.user.ciduser)
-                | Q(parent__owner=request.user.ciduser)
-                | Q(parent__owner__workgroup=request.user.ciduser.workgroup)
-                # parent__owner=request.user.ciduser
+                Q(album__albumsharerole__user=request.user.caiduser)
+                | Q(parent__owner=request.user.caiduser)
+                | Q(parent__owner__workgroup=request.user.caiduser.workgroup)
+                # parent__owner=request.user.caiduser
             )
             .annotate(rank=SearchRank(vector, query))
             .filter(rank__gt=0)
@@ -1135,7 +1135,7 @@ def update_mediafile_is_representative(request, mediafile_hash: str, is_represen
     """Update mediafile is_representative."""
     mediafile = get_object_or_404(MediaFile, hash=mediafile_hash)
     if (mediafile.parent.owner.id != request.user.id) | (
-        mediafile.parent.owner.workgroup != request.user.ciduser.workgroup
+        mediafile.parent.owner.workgroup != request.user.caiduser.workgroup
     ):
         return HttpResponseNotAllowed("Not allowed to work with this media file.")
     mediafile.is_representative = is_representative
@@ -1240,7 +1240,7 @@ def media_files_update(
         query = ""
     albums_available = (
         Album.objects.filter(
-            Q(albumsharerole__user=request.user.ciduser) | Q(owner=request.user.ciduser)
+            Q(albumsharerole__user=request.user.caiduser) | Q(owner=request.user.caiduser)
         )
         .distinct()
         .order_by("created_at")
@@ -1313,14 +1313,14 @@ def media_files_update(
                         elif "btnBulkProcessing_id_category" in form.data:
                             instance = mediafileform.save(commit=False)
                             instance.category = form_bulk_processing.cleaned_data["category"]
-                            instance.updated_by = request.user.ciduser
+                            instance.updated_by = request.user.caiduser
                             instance.updated_at = django.utils.timezone.now()
                             instance.save()
                         elif "btnBulkProcessing_id_identity" in form.data:
                             instance = mediafileform.save(commit=False)
                             instance.identity = form_bulk_processing.cleaned_data["identity"]
                             instance.identity_is_representative = False
-                            instance.updated_by = request.user.ciduser
+                            instance.updated_by = request.user.caiduser
                             instance.updated_at = django.utils.timezone.now()
                             instance.save()
                         elif "btnBulkProcessing_id_identity_is_representative" in form.data:
@@ -1328,7 +1328,7 @@ def media_files_update(
                             instance.identity_is_representative = form_bulk_processing.cleaned_data[
                                 "identity_is_representative"
                             ]
-                            instance.updated_by = request.user.ciduser
+                            instance.updated_by = request.user.caiduser
                             instance.updated_at = django.utils.timezone.now()
                             instance.save()
                         elif "btnBulkProcessingDelete" in form.data:
@@ -1372,7 +1372,7 @@ def create_new_album(request, name="New Album"):
     """Create new album."""
     album = Album()
     album.name = name
-    album.owner = request.user.ciduser
+    album.owner = request.user.caiduser
     album.save()
     return album
 
@@ -1420,7 +1420,7 @@ def workgroup_update(request, workgroup_hash: str):
 def _update_csv_by_uploadedarchive(request, uploadedarchive_id: int):
     uploaded_archive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
 
-    if uploaded_archive.owner.workgroup == request.user.ciduser.workgroup:
+    if uploaded_archive.owner.workgroup == request.user.caiduser.workgroup:
         updated_at = uploaded_archive.output_updated_at
         logger.debug(f"{updated_at=}")
         if updated_at is None:
@@ -1479,7 +1479,7 @@ def download_uploadedarchive_images(request, uploadedarchive_id: int):
     """Download uploaded file."""
     uploaded_archive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
 
-    if uploaded_archive.owner.workgroup == request.user.ciduser.workgroup:
+    if uploaded_archive.owner.workgroup == request.user.caiduser.workgroup:
         _update_csv_by_uploadedarchive(request, uploadedarchive_id)
         # file_path = Path(settings.MEDIA_ROOT) / uploaded_file.archivefile.name
         file_path = Path(settings.MEDIA_ROOT) / uploaded_archive.zip_file.name
@@ -1500,7 +1500,7 @@ def download_uploadedarchive_csv(request, uploadedarchive_id: int):
     """Download uploaded file."""
     uploaded_archive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
 
-    if uploaded_archive.owner.workgroup == request.user.ciduser.workgroup:
+    if uploaded_archive.owner.workgroup == request.user.caiduser.workgroup:
         _update_csv_by_uploadedarchive(request, uploadedarchive_id)
         # file_path = Path(settings.MEDIA_ROOT) / uploaded_file.archivefile.name
         file_path = Path(settings.MEDIA_ROOT) / uploaded_archive.csv_file.name

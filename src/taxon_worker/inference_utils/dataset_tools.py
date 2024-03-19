@@ -765,7 +765,7 @@ def extract_information_from_dir_structure(
 
             if pthir.suffix.lower() in (".avi", ".m4v"):
                 media_type = "video"
-            elif pthir.suffix.lower() in (".jpg", "png", ".jpeg"):
+            elif pthir.suffix.lower() in (".jpg", ".png", ".jpeg"):
                 media_type = "image"
             else:
                 media_type = "unknown"

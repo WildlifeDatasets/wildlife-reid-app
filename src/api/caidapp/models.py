@@ -36,7 +36,7 @@ class WorkGroup(models.Model):
         return str(self.name)
 
 
-class CIDUser(models.Model):
+class CaIDUser(models.Model):
     DjangoUser = get_user_model()
     id = models.AutoField(primary_key=True)
     user = models.OneToOneField(DjangoUser, on_delete=models.CASCADE)
@@ -48,7 +48,7 @@ class CIDUser(models.Model):
     def create_user_profile(sender, instance, created, **kwargs):  # NOSONAR
         """Create object when django user is created."""
         if created:
-            CIDUser.objects.create(user=instance)
+            CaIDUser.objects.create(user=instance)
 
     @receiver(post_save, sender=DjangoUser)
     def save_user_profile(sender, instance, **kwargs):  # NOSONAR
@@ -58,11 +58,11 @@ class CIDUser(models.Model):
         logger.debug(kwargs)
         # pdb.set_trace()
 
-        if not hasattr(instance, "ciduser"):
-            profile, _ = CIDUser.objects.get_or_create(user=instance)
-            instance.ciduser = profile
+        if not hasattr(instance, "caiduser"):
+            profile, _ = CaIDUser.objects.get_or_create(user=instance)
+            instance.caiduser = profile
         # UserProfile.objects.get_or_create(user=request.user)
-        instance.ciduser.save()
+        instance.caiduser.save()
 
     def __str__(self):
         return str(self.user)
@@ -73,6 +73,11 @@ def _hash():
     hash_str = generate_sha1(dt, salt=random_string())
     return hash_str
 
+class Taxon(models.Model):
+    name = models.CharField(max_length=50)
+
+    def __str__(self):
+        return str(self.name)
 
 class UploadedArchive(models.Model):
     uploaded_at = models.DateTimeField("Uploaded at", default=datetime.now)
@@ -95,9 +100,10 @@ class UploadedArchive(models.Model):
     identification_started_at = models.DateTimeField("Started at", blank=True, null=True)
     identification_finished_at = models.DateTimeField("Finished at", blank=True, null=True)
     location_at_upload = models.CharField(max_length=255, blank=True, default="")
-    owner = models.ForeignKey(CIDUser, on_delete=models.CASCADE, null=True, blank=True)
+    owner = models.ForeignKey(CaIDUser, on_delete=models.CASCADE, null=True, blank=True)
     contains_identities = models.BooleanField(default=False)
     contains_single_taxon = models.BooleanField(default=False)
+    taxon_for_identification = models.ForeignKey(Taxon, on_delete=models.SET_NULL, null=True, blank=True)
 
     def __str__(self):
         return str(Path(self.archivefile.name).name)
@@ -112,11 +118,6 @@ def auto_delete_file_on_delete(sender, instance, **kwargs):
         shutil.rmtree(instance.outputdir)
 
 
-class Taxon(models.Model):
-    name = models.CharField(max_length=50)
-
-    def __str__(self):
-        return str(self.name)
 
 
 class Location(models.Model):
@@ -127,7 +128,7 @@ class Location(models.Model):
         null=True,
         blank=True,
     )
-    owner = models.ForeignKey(CIDUser, on_delete=models.CASCADE, null=True, blank=True)
+    owner = models.ForeignKey(CaIDUser, on_delete=models.CASCADE, null=True, blank=True)
 
     def __str__(self):
         return str(self.name)
@@ -137,7 +138,7 @@ class IndividualIdentity(models.Model):
     name = models.CharField(max_length=50)
     id_worker = models.IntegerField(null=True, blank=True)
     owner_workgroup = models.ForeignKey(WorkGroup, on_delete=models.CASCADE, null=True, blank=True)
-    updated_by = models.ForeignKey(CIDUser, on_delete=models.CASCADE, null=True, blank=True)
+    updated_by = models.ForeignKey(CaIDUser, on_delete=models.CASCADE, null=True, blank=True)
 
     def __str__(self):
         return str(self.name)
@@ -154,19 +155,31 @@ class MediaFile(models.Model):
         null=True,
         max_length=500,
     )
+    image_file = models.FileField(
+        "Image File",
+        blank=True,
+        null=True,
+        max_length=500,
+    )
     thumbnail = models.ImageField(blank=True, null=True, max_length=500)
     identity = models.ForeignKey(
         IndividualIdentity, blank=True, null=True, on_delete=models.SET_NULL
     )
     identity_is_representative = models.BooleanField(default=False)
-    updated_by = models.ForeignKey(CIDUser, on_delete=models.CASCADE, null=True, blank=True)
+    updated_by = models.ForeignKey(CaIDUser, on_delete=models.CASCADE, null=True, blank=True)
     updated_at = models.DateTimeField("Updated at", blank=True, null=True)
+    metadata_json = models.JSONField(blank=True, null=True)
 
     class Meta:
         ordering = ["-identity_is_representative", "captured_at"]
 
     def __str__(self):
         return str(Path(self.mediafile.name).name)
+
+class AnimalObservation(models.Model):
+    mediafile = models.ForeignKey(MediaFile, on_delete=models.CASCADE, null=True, blank=True)
+    taxon = models.ForeignKey(Taxon, on_delete=models.CASCADE, null=True, blank=True)
+    metadata_json = models.JSONField(blank=True, null=True)
 
 
 class MediafilesForIdentification(models.Model):
@@ -192,7 +205,7 @@ class MediafilesForIdentification(models.Model):
 class Album(models.Model):
     name = models.CharField(max_length=50)
     description = models.CharField(max_length=255, blank=True, default="")
-    owner = models.ForeignKey(CIDUser, on_delete=models.CASCADE, null=True, blank=True)
+    owner = models.ForeignKey(CaIDUser, on_delete=models.CASCADE, null=True, blank=True)
     mediafiles = models.ManyToManyField(MediaFile, blank=True)
     created_at = models.DateTimeField("Created at", default=datetime.now)
     hash = models.CharField(max_length=255, blank=True, default=_hash)
@@ -215,7 +228,7 @@ class Album(models.Model):
 
 class ArchiveCollection(models.Model):
     name = models.CharField(max_length=50)
-    owner = models.ForeignKey(CIDUser, on_delete=models.CASCADE, null=True, blank=True)
+    owner = models.ForeignKey(CaIDUser, on_delete=models.CASCADE, null=True, blank=True)
     archives = models.ManyToManyField(UploadedArchive, blank=True)
     created_at = models.DateTimeField("Created at", default=datetime.now)
     hash = models.CharField(max_length=255, blank=True, default=_hash)
@@ -237,7 +250,7 @@ class AlbumShareRoleType(models.Model):
 
 class AlbumShareRole(models.Model):
     album = models.ForeignKey(Album, on_delete=models.CASCADE, null=True, blank=True)
-    user = models.ForeignKey(CIDUser, on_delete=models.CASCADE, null=True, blank=True)
+    user = models.ForeignKey(CaIDUser, on_delete=models.CASCADE, null=True, blank=True)
     role = models.ForeignKey(AlbumShareRoleType, on_delete=models.CASCADE, null=True, blank=True)
 
     def __str__(self):
@@ -270,16 +283,16 @@ def get_taxon(name: str) -> Optional[Taxon]:
     return taxon
 
 
-def get_location(ciduser: CIDUser, name: str) -> Location:
+def get_location(caiduser: CaIDUser, name: str) -> Location:
     """Return location according to the name, create it if necessary.
 
     Parameters
     ----------
     request
     """
-    objs = Location.objects.filter(name=name, owner__workgroup=ciduser.workgroup)
+    objs = Location.objects.filter(name=name, owner__workgroup=caiduser.workgroup)
     if len(objs) == 0:
-        location = Location(name=name, owner=ciduser)
+        location = Location(name=name, owner=caiduser)
         location.save()
     else:
         location = objs[0]

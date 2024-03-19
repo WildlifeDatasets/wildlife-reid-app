@@ -140,3 +140,13 @@ secretkey.txt
 
 #Mac
 .DS_Store
+
+
+./shared_data
+./src/taxon_worker/test_pipeline/**/*.jpg
+cache.json
+.csv
+
+.JPG
+.jpg
+.jpeg
