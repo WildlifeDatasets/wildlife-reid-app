@@ -2,18 +2,18 @@ import logging
 import os
 import traceback
 from pathlib import Path
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Union, Optional
 
 import cv2
 import numpy as np
 import torch
-from numpy import ndarray
+import pandas as pd
 from PIL import Image
 from segment_anything import SamPredictor, sam_model_registry
 from tqdm import tqdm
 
 # from fgvc.inference_utils.inference_utils import set_cuda_device
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 logger = logging.getLogger("app")
 logger.info(f"Using device: {DEVICE}")
@@ -108,7 +108,7 @@ def get_detection_model():
             "custom",  # model
             str(model_file.expanduser()),  # args for callable model
             force_reload=True,
-            device="cpu",
+            device=DEVICE,
         )
     return DETECTION_MODEL
 
@@ -147,20 +147,26 @@ def del_sam_model():
     SAM_PREDICTOR = None
 
 
-def detect_animals_in_one_image(image_rgb: np.ndarray) -> List[Dict[str, Union[ndarray, Any]]]:
+def detect_animals_in_one_image(image_rgb: np.ndarray) -> Optional[List[Dict[str, Any]]]:
     """Detect an animal in a given image."""
     logger.info("Running detection inference.")
     detection_model = get_detection_model()
     results = detection_model(image_rgb)
     id2label = results.names
-    results_list = [None] * len(results.xyxy)
-    for i in range(len(results.xyxy)):
-        result = results.xyxy[0].cpu().numpy()
 
+    batch_idx = 0
+    results = results.xyxy[batch_idx].cpu().numpy()
+
+    if len(results) == 0:
+        return None
+
+    results_list = [None] * len(results)
+    for i in range(len(results)):
         results_list[i] = {
-            "bbox": np.array(list(int(_) for _ in result[0][:4].tolist())),
-            "confidence": result[0][4],
-            "class": id2label[result[0][5]],
+            "bbox": np.array(list(int(_) for _ in results[i][:4].tolist())),
+            "confidence": results[i][4],
+            "class": id2label[results[i][5]],
+            "size": np.array(image_rgb.shape[:2])
         }
 
     return results_list
@@ -192,21 +198,27 @@ def segment_animal(image_path: str, bbox: list, cropped=True) -> np.ndarray:
     return pad_image(foregroud_image, bbox, border=0.25)
 
 
-def detect_animal_on_metadata(metadata, border=0.25, do_segmentation: bool = True):
+def detect_animal_on_metadata(metadata, border=0.0, do_segmentation: bool = True):
     """Do the detection and segmentation on images in metadata."""
-    assert "image_path" in metadata
-    masked_images = []
-    detection_results = []
-    for image_abs_path in tqdm(metadata["full_image_path"]):
+    assert "full_image_path" in metadata
+    for row_idx, row in tqdm(metadata.iterrows()):
+        image_abs_path = row["full_image_path"]
         try:
+            if row["media_type"] == "video" and row["full_image_path"] == row["full_orig_media_path"]:
+                # there are no detected animals in video
+                continue
 
             image = cv2.imread(str(image_abs_path))
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
             results = detect_animals_in_one_image(image_rgb=image)
-            detection_results.append(results)
-            # logger.debug(f"results={results}")
-            for ii, result in enumerate(results):
 
+            if results is None:
+                # there are no detected animals in image
+                # TODO: what to do?
+                continue
+
+            row["detection_results"] = results
+            for ii, result in enumerate(results):
                 # if result["class"] == "animal":
                 base_path = Path(image_abs_path).parent.parent / "detection_images"
                 save_path = base_path / (
@@ -229,13 +241,9 @@ def detect_animal_on_metadata(metadata, border=0.25, do_segmentation: bool = Tru
                 #     save_path = base_path / Path(image_path).name
                 #     base_path.mkdir(exist_ok=True, parents=True)
                 #     Image.fromarray(cropper_animal).convert("RGB").save(save_path)
-            # masked_images.append(str(save_path))
+            metadata.loc[row_idx] = row
         except Exception:
             logger.warning(
                 f"Cannot process image '{image_abs_path}'. Exception: {traceback.format_exc()}"
             )
-            # masked_images.append("")
-            detection_results.append(None)
-    # metadata["masked_image_path"] = masked_images
-    metadata["detection_results"] = detection_results
     del_detection_model()

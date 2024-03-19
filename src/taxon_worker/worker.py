@@ -68,7 +68,7 @@ def predict(
                 lambda x: str(output_images_dir / x)
             )
             metadata["full_orig_media_path"] = [pth for pth in metadata["full_image_path"]]
-
+            metadata["detection_results"] = [None] * len(metadata)
             metadata = create_image_from_video(metadata)
         else:
             metadata = pd.read_csv(output_metadata_file, index_col=0)
