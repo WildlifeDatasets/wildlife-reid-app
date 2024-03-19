@@ -1,9 +1,10 @@
 celery[redis]==5.2.7
 
 # PyTorch
--f https://download.pytorch.org/whl/torch_stable.html
-torch==1.13.1+cpu
-torchvision==0.14.1+cpu
+# for cpu version
+# -f https://download.pytorch.org/whl/torch_stable.html
+# torch==1.13.1+cpu
+# torchvision==0.14.1+cpu
 
 # for old version of taxon classification model /swin_small_patch4_window7_224-CrossEntropyLoss-vit_heavy
 # timm==0.6.13
@@ -17,3 +18,5 @@ fgvc==1.5.1.dev
 # fgvc==1.3.3.dev
 
 wandb
+Pillow==10.2.0
+ultralytics==8.0.232

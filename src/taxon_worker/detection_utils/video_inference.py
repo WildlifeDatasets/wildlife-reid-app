@@ -1,7 +1,96 @@
 import pandas as pd
+import cv2
+import numpy as np
+from tqdm import tqdm
+import logging
+import os
+from .inference import detect_animals_in_one_image
+from functools import partial
+from typing import Tuple
+
+logger = logging.getLogger("app")
 
 
-def create_image_from_video(metadata: pd.DataFrame) -> pd.DataFrame:
+
+def load_video(path):
+    frames = []
+
+    cap = cv2.VideoCapture(path)
+    ret = True
+    while ret:
+        ret, img = cap.read()
+        if ret:
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            frames.append(img)
+    video = np.array(frames)
+
+    return video
+
+
+def select_images(images, predictions, selection_method):
+    idxs = selection_method(predictions)
+
+    images = images[idxs]
+    predictions = np.array(predictions)
+    predictions = predictions[idxs]
+
+    return images, predictions,
+
+
+def ratio_selection(predictions, threshold):
+    idxs = []
+
+    ratios = []
+    for pred in predictions:
+        if pred is None:
+            ratios.append(0)
+            continue
+
+        x0, y0, x1, y1 = pred["bbox"]
+        w, h = x1 - x0, y1 - y0
+        ratio = w / h
+        ratios.append(ratio)
+
+    if isinstance(threshold, int):
+        sort_idxs = np.argsort(ratios)[::-1]
+        idxs = [i for i in sort_idxs if ratios[i] > 0]
+        idxs = idxs[:threshold]
+    elif isinstance(threshold, float):
+        idxs = [i for i, a in enumerate(ratios) if a > threshold]
+
+    return idxs
+
+
+def area_selection(predictions, threshold):
+    idxs = []
+
+    areas = []
+    for pred in predictions:
+        if pred is None:
+            areas.append(0)
+            continue
+
+        x0, y0, x1, y1 = pred["bbox"]
+        w, h = x1 - x0, y1 - y0
+        iw, ih = pred["size"]
+        relative_area = (w * h) / (iw * ih)
+        areas.append(relative_area)
+
+    if isinstance(threshold, int):
+        sort_idxs = np.argsort(areas)[::-1]
+        idxs = [i for i in sort_idxs if areas[i] > 0]
+        idxs = idxs[:threshold]
+    elif isinstance(threshold, float):
+        idxs = [i for i, a in enumerate(areas) if a > threshold]
+
+    return idxs
+
+
+def create_image_from_video(
+        metadata: pd.DataFrame,
+        selection_methods: Tuple[str] = ("area", "ratio"),
+        selection_thresholds: Tuple[float] = (24, 1)
+) -> pd.DataFrame:
     """
     Create image from video.
 
@@ -9,5 +98,61 @@ def create_image_from_video(metadata: pd.DataFrame) -> pd.DataFrame:
     Keep the video path in full_orig_media_path and change the full_image_path and image_path
     new image.
     """
+    for row_idx, row in tqdm(metadata.iterrows(), desc="Video to image"):
+        full_path = row["full_image_path"]
+        if row["media_type"] != "video":
+            logger.debug(f"{os.path.basename(full_path)} is image - skipping")
+            continue
+
+        images = load_video(full_path)
+        logger.debug(f"video frames: {images.shape}")
+        if len(images) == 0:
+            logger.debug(f"problem loading video: {os.path.basename(full_path)} - skipping")
+            continue
+
+        # detect
+        predictions = []
+        for frame_id, image in tqdm(enumerate(images), desc="Detection"):
+            prediction = detect_animals_in_one_image(image)
+
+            if prediction is not None:
+                # use only prediction with max confidence
+                # TODO: how to handle multiple detections in one image?
+                confidence = [p["confidence"] for p in prediction]
+                idx = np.argmax(confidence)
+                prediction = prediction[idx]
+
+                prediction["frame"] = frame_id
+            predictions.append(prediction)
+
+        # check if any detection
+        if len([1 for p in predictions if p is not None]) == 0:
+            logger.debug(f"no detection in video: {os.path.basename(full_path)} - skipping")
+            continue
+
+        # select
+        for selection_method_name, selection_threshold in zip(selection_methods, selection_thresholds):
+            if selection_method_name == "area":
+                selection_method = partial(area_selection, threshold=selection_threshold)
+            elif selection_method_name == "ratio":
+                selection_method = partial(ratio_selection, threshold=selection_threshold)
+
+            images, predictions = select_images(images, predictions, selection_method)
+        logger.debug(f"selected frames: {images.shape}")
+        image = images[0]
+
+        # save image
+        video_name = os.path.basename(full_path)
+        video_name = ".".join(video_name.split(".")[:-1])
+
+        new_full_path = os.path.join(os.path.dirname(full_path), f"{video_name}.png")
+        logger.debug(f"selected 1 image forme video, saving to: {new_full_path}")
+        cv2.imwrite(new_full_path, image[..., ::-1])
+
+        # update row
+        row["image_path"] = os.path.basename(new_full_path)
+        row["full_image_path"] = new_full_path
+        row["suffix"] = f".{new_full_path.split('.')[-1]}"
+        metadata.loc[row_idx] = row
 
     return metadata
