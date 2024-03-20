@@ -173,6 +173,7 @@ def create_image_from_video(
             continue
         all_images = np.array([resize_images(image, gif_height) for image in images.copy()])
 
+        logger.info("Running detection inference on video.")
         # detect
         predictions = []
         for frame_id, image in tqdm(enumerate(images), desc="Detection"):
