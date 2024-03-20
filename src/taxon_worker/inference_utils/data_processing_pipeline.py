@@ -259,6 +259,12 @@ def keep_correctly_loaded_images(metadata):
     """Remove file from list if there is the error message."""
     # logger.debug(f"len(metadata)={len(metadata)}")
     # metadata = metadata[metadata["media_type"] == "image"].reset_index(drop=True)
+    # keep media_type==image and media_type == video
+    metadata = metadata[
+        (metadata["media_type"] == "image") | (metadata["media_type"] == "video")
+    ].reset_index(drop=True)
+    # drop media_type== "unknown"
+    # mediadata = metadata[metadata["media_type"] != "unknown"].reset_index(drop=True)
     logger.debug(f"len(metadata)={len(metadata)}")
     metadata = metadata[metadata["read_error"] == ""].reset_index(drop=True)
     logger.debug(f"len(metadata)={len(metadata)}")
