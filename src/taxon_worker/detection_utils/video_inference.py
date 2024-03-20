@@ -216,6 +216,10 @@ def create_image_from_video(
         row["image_path"] = os.path.basename(new_full_path)
         row["full_image_path"] = new_full_path
         row["suffix"] = f".{new_full_path.split('.')[-1]}"
+        # TODO fix this
+        logger.debug(f"{row['full_image_path']=}, {os.path.exists(row['full_image_path'])=}")
         metadata.loc[row_idx] = row
+
+        metadata.loc[row_idx, "full_image_path"] = new_full_path
 
     return metadata
