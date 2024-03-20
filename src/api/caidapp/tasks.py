@@ -318,6 +318,7 @@ def make_thumbnail_for_mediafile_if_necessary(mediafile: MediaFile, thumbnail_wi
 
     gif_path = abs_pth.with_suffix(".gif")
     logger.debug(f"{gif_path=}, {gif_path.exists()=}")
+    logger.debug(f"{mediafile.thumbnail=}")
 
     if mediafile.thumbnail is None:
         gif_path = abs_pth.with_suffix(".gif")
@@ -409,7 +410,7 @@ def update_uploaded_archive_by_metadata_csv(
 
         # if the mediafile was updated by user, we believe into users input
         if mf.updated_by is None:
-            logger.debug(f"{row.keys()=}")
+            # logger.debug(f"{row.keys()=}")
             logger.debug(f"{uploaded_archive.contains_identities=}")
             logger.debug(f"{row['predicted_category']=}")
 
