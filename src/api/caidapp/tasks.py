@@ -96,7 +96,7 @@ def _prepare_dataframe_for_identification(mediafiles):
             str(mediafile.location.location) if mediafile.location.location else ""
         )
         logger.debug(f"{mediafile.metadata_json=}")
-        csv_data["detection_results"][i] = mediafile.metadata_json["detection_results"]
+        csv_data["detection_results"][i] = mediafile.metadata_json
 
     return csv_data
 
@@ -371,14 +371,14 @@ def update_uploaded_archive_by_metadata_csv(
             logger.debug("Using Mediafile generated before")
         except MediaFile.DoesNotExist:
             if create_missing:
-
+                logger.debug(f"{row['detection_results']=}")
 
                 mf = MediaFile(
                     parent=uploaded_archive,
                     mediafile=str(rel_pth),
                     captured_at=captured_at,
                     location=location,
-                    metadata_json=row.to_dict(),
+                    metadata_json=row["detection_results"],
                 )
 
                 logger.debug(f"{uploaded_archive.contains_identities=}")
@@ -421,8 +421,9 @@ def update_uploaded_archive_by_metadata_csv(
             logger.debug(f"identity={mf.identity}")
         logger.debug(f"{mf}")
     # get minimum and maximum datetime from df["datetime"]
-    starts_at = df["datetime"].min()
-    ends_at = df["datetime"].max()
+    # convert datetime as string to datetime object
+    starts_at = pd.to_datetime(df["datetime"]).min()
+    ends_at = pd.to_datetime(df["datetime"]).max()
     logger.debug(f"{starts_at=}, {ends_at=}")
     uploaded_archive.starts_at = starts_at
     uploaded_archive.ends_at = ends_at

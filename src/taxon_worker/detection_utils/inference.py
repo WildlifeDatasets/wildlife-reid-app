@@ -163,10 +163,10 @@ def detect_animals_in_one_image(image_rgb: np.ndarray) -> Optional[List[Dict[str
     results_list = [None] * len(results)
     for i in range(len(results)):
         results_list[i] = {
-            "bbox": np.array(list(int(_) for _ in results[i][:4].tolist())),
+            "bbox": list(int(_) for _ in results[i][:4].tolist()),
             "confidence": results[i][4],
             "class": id2label[results[i][5]],
-            "size": np.array(image_rgb.shape[:2])
+            "size": image_rgb.shape[:2]
         }
 
     return results_list
