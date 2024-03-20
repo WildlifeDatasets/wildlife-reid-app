@@ -325,7 +325,7 @@ def make_thumbnail_for_mediafile_if_necessary(mediafile: MediaFile, thumbnail_wi
         gif_path = abs_pth.with_suffix(".gif")
         if gif_path.exists():
             logger.debug("we are in second if")
-                abs_pth = gif_path
+            abs_pth = gif_path
             rel_pth = os.path.relpath(abs_pth, settings.MEDIA_ROOT)
             mediafile.thumbnail = str(rel_pth)
             mediafile.save()
