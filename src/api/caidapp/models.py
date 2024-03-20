@@ -10,6 +10,7 @@ from django.db import models
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from location_field.models.plain import PlainLocationField
+import codenamize
 
 from .model_tools import (
     generate_sha1,
@@ -73,6 +74,11 @@ def _hash():
     hash_str = generate_sha1(dt, salt=random_string())
     return hash_str
 
+def human_readable_hash():
+    """Return a human readable hash composed from words."""
+    number_of_words = 3
+    return codenamize.codenamize(_hash(), number_of_words - 1 , 0, " ", True)
+
 class Taxon(models.Model):
     name = models.CharField(max_length=50)
 
@@ -105,6 +111,7 @@ class UploadedArchive(models.Model):
     contains_single_taxon = models.BooleanField(default=False)
     taxon_for_identification = models.ForeignKey(Taxon, on_delete=models.SET_NULL, null=True, blank=True)
 
+
     def __str__(self):
         return str(Path(self.archivefile.name).name)
 
@@ -122,6 +129,7 @@ def auto_delete_file_on_delete(sender, instance, **kwargs):
 
 class Location(models.Model):
     name = models.CharField(max_length=50)
+    visible_name = models.CharField(max_length=255, blank=True, default=human_readable_hash)
     location = PlainLocationField(
         based_fields=["city"],
         zoom=7,
@@ -166,7 +174,7 @@ class MediaFile(models.Model):
         IndividualIdentity, blank=True, null=True, on_delete=models.SET_NULL
     )
     identity_is_representative = models.BooleanField(default=False)
-    updated_by = models.ForeignKey(CaIDUser, on_delete=models.CASCADE, null=True, blank=True)
+    updated_by = models.ForeignKey(CaIDUser, on_delete=models.SET_NULL, null=True, blank=True)
     updated_at = models.DateTimeField("Updated at", blank=True, null=True)
     metadata_json = models.JSONField(blank=True, null=True)
 
@@ -178,8 +186,10 @@ class MediaFile(models.Model):
 
 class AnimalObservation(models.Model):
     mediafile = models.ForeignKey(MediaFile, on_delete=models.CASCADE, null=True, blank=True)
-    taxon = models.ForeignKey(Taxon, on_delete=models.CASCADE, null=True, blank=True)
+    taxon = models.ForeignKey(Taxon, on_delete=models.SET_NULL, null=True, blank=True)
     metadata_json = models.JSONField(blank=True, null=True)
+    updated_by = models.ForeignKey(CaIDUser, on_delete=models.SET_NULL, null=True, blank=True)
+    updated_at = models.DateTimeField("Updated at", blank=True, null=True)
 
 
 class MediafilesForIdentification(models.Model):

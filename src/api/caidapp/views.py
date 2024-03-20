@@ -924,7 +924,7 @@ def upload_archive(
             uploaded_archive.contains_identities = contains_identities
             uploaded_archive.contains_single_taxon = contains_single_taxon
             uploaded_archive.save()
-            run_species_prediction_async(uploaded_archive)
+            run_species_prediction_async(uploaded_archive, extract_identites=contains_identities)
 
             return JsonResponse({"data": "Data uploaded"})
         else:
