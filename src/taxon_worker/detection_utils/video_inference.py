@@ -118,8 +118,9 @@ def resize_images(input_image: np.ndarray, new_height: int = 360) -> np.ndarray:
     return resized_image
 
 
-def save_gif(images, path):
+def save_gif(images, path:str):
     """Save frames as gif using PIL library."""
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
     frame_one = Image.fromarray(images[0])
     frames = [Image.fromarray(image) for image in images[1:]]
     duration = 1 / 24 * len(images)
