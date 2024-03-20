@@ -258,7 +258,7 @@ def run_inference(metadata):
 
 def keep_correctly_loaded_images(metadata):
     """Remove file from list if there is the error message."""
-    # logger.debug(f"len(metadata)={len(metadata)}")
+    logger.debug(f"len(metadata)={len(metadata)}")
     # metadata = metadata[metadata["media_type"] == "image"].reset_index(drop=True)
     # keep media_type==image and media_type == video
     metadata = metadata[
