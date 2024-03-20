@@ -7,12 +7,13 @@ import os
 from .inference import detect_animals_in_one_image
 from functools import partial
 from typing import Tuple
+from PIL import Image
 
 logger = logging.getLogger("app")
 
 
-
 def load_video(path):
+    """Load all frames from video."""
     frames = []
 
     cap = cv2.VideoCapture(path)
@@ -28,6 +29,7 @@ def load_video(path):
 
 
 def select_images(images, predictions, selection_method):
+    """Selects images and predictions using provided selection method."""
     idxs = selection_method(predictions)
 
     images = images[idxs]
@@ -38,6 +40,7 @@ def select_images(images, predictions, selection_method):
 
 
 def ratio_selection(predictions, threshold):
+    """Select images with the largest ratio between height and width."""
     idxs = []
 
     ratios = []
@@ -62,6 +65,7 @@ def ratio_selection(predictions, threshold):
 
 
 def area_selection(predictions, threshold):
+    """Select predictions with the largest area."""
     idxs = []
 
     areas = []
@@ -86,10 +90,61 @@ def area_selection(predictions, threshold):
     return idxs
 
 
+def get_gif_frames(images, center_frame_idx, num_frames):
+    """Select frames from video."""
+    if num_frames > len(images):
+        return images
+
+    start_frame = int(center_frame_idx - np.ceil(num_frames / 2))
+    end_frame = int(center_frame_idx + np.floor(num_frames / 2))
+
+    if start_frame < 0:
+        end_frame += np.abs(start_frame)
+        start_frame = 0
+
+    if end_frame > len(images) - 1:
+        start_frame += (len(images) - 1) - end_frame
+        end_frame = len(images) - 1
+
+    return images[start_frame:end_frame]
+
+
+def resize_images(input_image: np.ndarray, new_height: int = 360) -> np.ndarray:
+    """Resize image to match new height and conserve aspect ratio."""
+    org_height = input_image.shape[0]
+    new_width = int(np.round((input_image.shape[1] * new_height) / org_height))
+    resized_image = cv2.resize(input_image, (new_width, new_height))
+    return resized_image
+
+
+def save_gif(images, path):
+    """Save frames as gif using PIL library."""
+    frame_one = Image.fromarray(images[0])
+    frames = [Image.fromarray(image) for image in images[1:]]
+    duration = 1 / 24 * len(images)
+    frame_one.save(
+        path,
+        format="GIF",
+        append_images=frames,
+        save_all=True,
+        duration=duration,
+        loop=0,
+        optimize=True
+    )
+
+
+def make_gif(images: np.ndarray, path: str, center_frame_idx: int, num_frames: int = 48, height: int = 360):
+    gif_frames = get_gif_frames(images, center_frame_idx, num_frames)
+    if height > 0:
+        gif_frames = np.array([resize_images(image, height) for image in gif_frames])
+    save_gif(gif_frames, path)
+
+
 def create_image_from_video(
         metadata: pd.DataFrame,
         selection_methods: Tuple[str] = ("area", "ratio"),
-        selection_thresholds: Tuple[float] = (24, 1)
+        selection_thresholds: Tuple[float] = (24, 1),
+        gif_height: int = 240
 ) -> pd.DataFrame:
     """
     Create image from video.
@@ -100,6 +155,13 @@ def create_image_from_video(
     """
     for row_idx, row in tqdm(metadata.iterrows(), desc="Video to image"):
         full_path = row["full_image_path"]
+
+        video_name = os.path.basename(full_path)
+        video_name = ".".join(video_name.split(".")[:-1])
+
+        new_full_path = os.path.join(os.path.dirname(full_path), f"{video_name}.png")
+        gif_path = os.path.join(os.path.dirname(full_path), f"{video_name}.gif")
+
         if row["media_type"] != "video":
             logger.debug(f"{os.path.basename(full_path)} is image - skipping")
             continue
@@ -109,6 +171,7 @@ def create_image_from_video(
         if len(images) == 0:
             logger.debug(f"problem loading video: {os.path.basename(full_path)} - skipping")
             continue
+        all_images = np.array([resize_images(image, gif_height) for image in images.copy()])
 
         # detect
         predictions = []
@@ -128,6 +191,7 @@ def create_image_from_video(
         # check if any detection
         if len([1 for p in predictions if p is not None]) == 0:
             logger.debug(f"no detection in video: {os.path.basename(full_path)} - skipping")
+            make_gif(all_images, gif_path, 0, height=gif_height)
             continue
 
         # select
@@ -140,12 +204,10 @@ def create_image_from_video(
             images, predictions = select_images(images, predictions, selection_method)
         logger.debug(f"selected frames: {images.shape}")
         image = images[0]
+        prediction = predictions[0]
 
         # save image
-        video_name = os.path.basename(full_path)
-        video_name = ".".join(video_name.split(".")[:-1])
-
-        new_full_path = os.path.join(os.path.dirname(full_path), f"{video_name}.png")
+        make_gif(all_images, gif_path, prediction["frame"], height=gif_height)
         logger.debug(f"selected 1 image forme video, saving to: {new_full_path}")
         cv2.imwrite(new_full_path, image[..., ::-1])
 
