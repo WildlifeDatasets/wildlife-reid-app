@@ -311,10 +311,13 @@ def timedelta_to_human_readable(timedelta: datetime.timedelta) -> str:
 
 def make_thumbnail_for_mediafile_if_necessary(mediafile: MediaFile, thumbnail_width: int = 400):
     """Make small image representing the upload."""
-    logger.debug("making thumbnail for mediafile")
+    logger.debug("Making thumbnail for mediafile")
     mediafile_path = Path(settings.MEDIA_ROOT) / mediafile.mediafile.name
     output_dir = Path(settings.MEDIA_ROOT) / mediafile.parent.outputdir
     abs_pth = output_dir / "thumbnails" / Path(mediafile.mediafile.name).name
+
+    gif_path = abs_pth.with_suffix(".gif")
+    logger.debug(f"{gif_path=}, {gif_path.exists()=}")
 
     if mediafile.thumbnail is None:
         gif_path = abs_pth.with_suffix(".gif")
