@@ -928,7 +928,7 @@ def upload_archive(
 
             return JsonResponse({"data": "Data uploaded"})
         else:
-            return JsonResponse({"data": "Someting went wrong"})
+            return JsonResponse({"data": "Something went wrong"})
 
     else:
         form = UploadedArchiveForm(

@@ -10,7 +10,7 @@ if [ ! -d "$STATIC_DIR/assets" ]; then
 fi
 
 # prepare django
-python manage.py makemigrations --noinput --verbosity 2
+# python manage.py makemigrations --noinput --verbosity 2
 python manage.py migrate --noinput --verbosity 2
 python manage.py collectstatic --noinput --verbosity 2
 

@@ -42,7 +42,7 @@
                             >
                                 <div class="card-body"
                                 >
-                                    <h5 class="card-title">{{ uploadedarchive }}
+                                    <h5 class="card-title" >{{ uploadedarchive }}</h5>
                                         {% if uploadedarchive.contains_identities %}
                                             <i class="bi bi-fingerprint"></i>
                                         {% endif %}
@@ -51,7 +51,13 @@
                                         {% endif %}
 
                                     </h5>
+
+                                    <p>Location: <span data-bs-toggle="tooltip" title="Location: {{ uploadedarchive.location_at_upload_object.name }}">{{ uploadedarchive.location_at_upload_object.visible_name }}</span></p>
                                     <p>Status: {{ uploadedarchive.status }} </p>
+                                    <p>{{ uploadedarchive.starts_at|date:'Y-m-d' }} - {{ uploadedarchive.ends_at|date:'Y-m-d' }} </p>
+                                    {%  if uploadedarchive.animal_number %}
+                                        <p>Count: {{ uploadedarchive.animal_number }}</p>
+                                    {% endif %}
 
                                     <p><i class="bi bi-calendar" data-bs-toggle="tooltip" title="Uploaded at: {{ uploadedarchive.uploaded_at|date:'Y-m-d H:i' }}"></i></p>
                                     {% if uploadedarchive.finished_at %}

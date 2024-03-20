@@ -3,7 +3,7 @@ import os.path
 import shutil
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 
 from django.contrib.auth import get_user_model
 from django.db import models
@@ -85,6 +85,20 @@ class Taxon(models.Model):
     def __str__(self):
         return str(self.name)
 
+class Location(models.Model):
+    name = models.CharField(max_length=50)
+    visible_name = models.CharField(max_length=255, blank=True, default=human_readable_hash)
+    location = PlainLocationField(
+        based_fields=["city"],
+        zoom=7,
+        null=True,
+        blank=True,
+    )
+    owner = models.ForeignKey(CaIDUser, on_delete=models.CASCADE, null=True, blank=True)
+
+    def __str__(self):
+        return str(self.name)
+
 class UploadedArchive(models.Model):
     uploaded_at = models.DateTimeField("Uploaded at", default=datetime.now)
     archivefile = models.FileField(
@@ -106,10 +120,21 @@ class UploadedArchive(models.Model):
     identification_started_at = models.DateTimeField("Started at", blank=True, null=True)
     identification_finished_at = models.DateTimeField("Finished at", blank=True, null=True)
     location_at_upload = models.CharField(max_length=255, blank=True, default="")
+    location_at_upload_object = models.ForeignKey(Location, on_delete=models.SET_NULL, null=True, blank=True)
     owner = models.ForeignKey(CaIDUser, on_delete=models.CASCADE, null=True, blank=True)
     contains_identities = models.BooleanField(default=False)
     contains_single_taxon = models.BooleanField(default=False)
     taxon_for_identification = models.ForeignKey(Taxon, on_delete=models.SET_NULL, null=True, blank=True)
+
+
+    def update_location_in_mediafiles(self, location:Union[str, Location]):
+        if isinstance(location, str):
+            location = get_location(self.owner, location)
+        mediafiles = MediaFile.objects.filter(parent=self)
+        for mediafile in mediafiles:
+            mediafile.location = location
+        self.location_at_upload_object = location
+        self.location = location.name
 
 
     def __str__(self):
@@ -127,19 +152,6 @@ def auto_delete_file_on_delete(sender, instance, **kwargs):
 
 
 
-class Location(models.Model):
-    name = models.CharField(max_length=50)
-    visible_name = models.CharField(max_length=255, blank=True, default=human_readable_hash)
-    location = PlainLocationField(
-        based_fields=["city"],
-        zoom=7,
-        null=True,
-        blank=True,
-    )
-    owner = models.ForeignKey(CaIDUser, on_delete=models.CASCADE, null=True, blank=True)
-
-    def __str__(self):
-        return str(self.name)
 
 
 class IndividualIdentity(models.Model):
@@ -177,6 +189,7 @@ class MediaFile(models.Model):
     updated_by = models.ForeignKey(CaIDUser, on_delete=models.SET_NULL, null=True, blank=True)
     updated_at = models.DateTimeField("Updated at", blank=True, null=True)
     metadata_json = models.JSONField(blank=True, null=True)
+    animal_number = models.IntegerField(null=True, blank=True)
 
     class Meta:
         ordering = ["-identity_is_representative", "captured_at"]
@@ -242,6 +255,8 @@ class ArchiveCollection(models.Model):
     archives = models.ManyToManyField(UploadedArchive, blank=True)
     created_at = models.DateTimeField("Created at", default=datetime.now)
     hash = models.CharField(max_length=255, blank=True, default=_hash)
+    starts_at = models.DateTimeField("Starts at", blank=True, null=True)
+    ends_at = models.DateTimeField("Ends at", blank=True, null=True)
 
     def __str__(self):
         return str(self.name)

@@ -81,6 +81,7 @@ def _prepare_dataframe_for_identification(mediafiles):
         "location_id": [None] * csv_len,
         "location_name": [None] * csv_len,
         "location_coordinates": [None] * csv_len,
+        "detection_results": [None] * csv_len,
     }
     logger.debug(f"number of records={len(mediafiles)}")
     for i, mediafile in enumerate(mediafiles):
@@ -94,6 +95,9 @@ def _prepare_dataframe_for_identification(mediafiles):
         csv_data["location_coordinates"][i] = (
             str(mediafile.location.location) if mediafile.location.location else ""
         )
+        logger.debug(f"{mediafile.metadata_json=}")
+        csv_data["detection_results"][i] = mediafile.metadata_json["detection_results"]
+
     return csv_data
 
 
@@ -351,6 +355,10 @@ def update_uploaded_archive_by_metadata_csv(
 
     df = pd.read_csv(csv_file, index_col=0)
 
+    location = get_location(
+        uploaded_archive.owner, str(uploaded_archive.location_at_upload)
+    )
+
     for index, row in df.iterrows():
         rel_pth, _ = _get_rel_and_abs_paths_based_on_csv_row(row, output_dir)
         captured_at = row["datetime"]
@@ -363,15 +371,14 @@ def update_uploaded_archive_by_metadata_csv(
             logger.debug("Using Mediafile generated before")
         except MediaFile.DoesNotExist:
             if create_missing:
-                location = get_location(
-                    uploaded_archive.owner, str(uploaded_archive.location_at_upload)
-                )
+
 
                 mf = MediaFile(
                     parent=uploaded_archive,
                     mediafile=str(rel_pth),
                     captured_at=captured_at,
                     location=location,
+                    metadata_json=row.to_dict(),
                 )
 
                 logger.debug(f"{uploaded_archive.contains_identities=}")
@@ -413,6 +420,13 @@ def update_uploaded_archive_by_metadata_csv(
             mf.save()
             logger.debug(f"identity={mf.identity}")
         logger.debug(f"{mf}")
+    # get minimum and maximum datetime from df["datetime"]
+    starts_at = df["datetime"].min()
+    ends_at = df["datetime"].max()
+    logger.debug(f"{starts_at=}, {ends_at=}")
+    uploaded_archive.starts_at = starts_at
+    uploaded_archive.ends_at = ends_at
+    uploaded_archive.location_at_upload_object = location
     uploaded_archive.save()
 
 
