@@ -202,6 +202,13 @@ def create_image_from_video(
         if len([1 for p in predictions if p is not None]) == 0:
             logger.debug(f"no detection in video: {os.path.basename(full_path)} - skipping")
             make_gif(all_images, gif_path, 0, height=gif_height)
+
+            image = images[0]
+            cv2.imwrite(new_full_path, image[..., ::-1])
+            row["image_path"] = os.path.basename(new_full_path)
+            row["full_image_path"] = new_full_path
+            row["suffix"] = f".{new_full_path.split('.')[-1]}"
+            metadata.loc[row_idx] = row
             continue
 
         # select
