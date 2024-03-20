@@ -8,6 +8,7 @@ from .inference import detect_animals_in_one_image
 from functools import partial
 from typing import Tuple
 from PIL import Image
+from pathlib import Path
 
 logger = logging.getLogger("app")
 
@@ -159,8 +160,10 @@ def create_image_from_video(
         video_name = os.path.basename(full_path)
         video_name = ".".join(video_name.split(".")[:-1])
 
-        new_full_path = os.path.join(os.path.dirname(full_path), f"{video_name}.png")
-        gif_path = os.path.join(os.path.dirname(full_path), f"{video_name}.gif")
+        # new_full_path = os.path.join(os.path.dirname(full_path), f"{video_name}.png")
+        # gif_path = os.path.join(os.path.dirname(full_path), f"{video_name}.gif")
+        new_full_path = str(Path(full_path).with_suffix(".jpg"))
+        gif_path = str(Path(full_path).parent.parent / "thumbnails" / f"{video_name}.gif")
 
         if row["media_type"] != "video":
             logger.debug(f"{os.path.basename(full_path)} is image - skipping")
@@ -171,8 +174,8 @@ def create_image_from_video(
         if len(images) == 0:
             logger.debug(f"Problem loading video: {os.path.basename(full_path)} - skipping")
             row["read_error"] = "Problem loading video - skipping."
-            row["image_path"] = os.path.basename(new_full_path)
-            row["full_image_path"] = new_full_path
+            # row["image_path"] = os.path.basename(new_full_path)
+            # row["full_image_path"] = new_full_path
             row["suffix"] = f".{new_full_path.split('.')[-1]}"
             metadata.loc[row_idx] = row
             continue
@@ -217,14 +220,10 @@ def create_image_from_video(
         logger.debug(f"selected 1 image forme video, saving to: {new_full_path}")
         cv2.imwrite(new_full_path, image[..., ::-1])
 
-        # logger.debug(f"{row['full_image_path']=}, {os.path.exists(row['full_image_path'])=}")
-
         # update row
         row["image_path"] = os.path.basename(new_full_path)
         row["full_image_path"] = new_full_path
         row["suffix"] = f".{new_full_path.split('.')[-1]}"
         metadata.loc[row_idx] = row
-
-        # metadata.loc[row_idx, "full_image_path"] = new_full_path
 
     return metadata

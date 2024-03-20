@@ -190,6 +190,7 @@ class MediaFile(models.Model):
     updated_at = models.DateTimeField("Updated at", blank=True, null=True)
     metadata_json = models.JSONField(blank=True, null=True)
     animal_number = models.IntegerField(null=True, blank=True)
+    media_type = models.CharField(max_length=255, blank=True, default="image")
 
     class Meta:
         ordering = ["-identity_is_representative", "captured_at"]

@@ -315,9 +315,18 @@ def make_thumbnail_for_mediafile_if_necessary(mediafile: MediaFile, thumbnail_wi
     mediafile_path = Path(settings.MEDIA_ROOT) / mediafile.mediafile.name
     output_dir = Path(settings.MEDIA_ROOT) / mediafile.parent.outputdir
     abs_pth = output_dir / "thumbnails" / Path(mediafile.mediafile.name).name
-    rel_pth = os.path.relpath(abs_pth, settings.MEDIA_ROOT)
-    # make_thumbnail_from_directory(output_dir, thumbnail_path)
+
+    if mediafile.thumbnail is None:
+        gif_path = abs_pth.with_suffix(".gif")
+        if gif_path.exists():
+            abs_pth = gif_path
+            rel_pth = os.path.relpath(abs_pth, settings.MEDIA_ROOT)
+            mediafile.thumbnail = str(rel_pth)
+            mediafile.save()
+            logger.debug(f"Used GIF thumbnail generated before: {rel_pth}")
+
     if (mediafile.thumbnail is None) or (not abs_pth.exists()):
+        rel_pth = os.path.relpath(abs_pth, settings.MEDIA_ROOT)
         logger.debug(f"Creating thumbnail for {rel_pth}")
         if make_thumbnail_from_file(mediafile_path, abs_pth, width=thumbnail_width):
             mediafile.thumbnail = str(rel_pth)
