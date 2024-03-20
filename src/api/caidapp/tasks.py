@@ -318,9 +318,9 @@ def make_thumbnail_for_mediafile_if_necessary(mediafile: MediaFile, thumbnail_wi
 
     gif_path = abs_pth.with_suffix(".gif")
     logger.debug(f"{gif_path=}, {gif_path.exists()=}")
-    logger.debug(f"{mediafile.thumbnail=}, {mediafile.thumbnail is None=}")
+    logger.debug(f"{mediafile.thumbnail=}, {mediafile.thumbnail is None=}, {mediafile.thumbnail.name is None=}")
 
-    if mediafile.thumbnail is None:
+    if mediafile.thumbnail.name is None:
         logger.debug("we are in first if")
         gif_path = abs_pth.with_suffix(".gif")
         if gif_path.exists():
@@ -331,7 +331,7 @@ def make_thumbnail_for_mediafile_if_necessary(mediafile: MediaFile, thumbnail_wi
             mediafile.save()
             logger.debug(f"Used GIF thumbnail generated before: {rel_pth}")
 
-    if (mediafile.thumbnail is None) or (not abs_pth.exists()):
+    if (mediafile.thumbnail.name is None) or (not abs_pth.exists()):
         rel_pth = os.path.relpath(abs_pth, settings.MEDIA_ROOT)
         logger.debug(f"Creating thumbnail for {rel_pth}")
         if make_thumbnail_from_file(mediafile_path, abs_pth, width=thumbnail_width):
