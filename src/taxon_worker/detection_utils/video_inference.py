@@ -169,7 +169,12 @@ def create_image_from_video(
         images = load_video(full_path)
         logger.debug(f"video frames: {images.shape}")
         if len(images) == 0:
-            logger.debug(f"problem loading video: {os.path.basename(full_path)} - skipping")
+            logger.debug(f"Problem loading video: {os.path.basename(full_path)} - skipping")
+            row["read_error"] = "Problem loading video - skipping."
+            row["image_path"] = os.path.basename(new_full_path)
+            row["full_image_path"] = new_full_path
+            row["suffix"] = f".{new_full_path.split('.')[-1]}"
+            metadata.loc[row_idx] = row
             continue
         all_images = np.array([resize_images(image, gif_height) for image in images.copy()])
 
@@ -212,14 +217,14 @@ def create_image_from_video(
         logger.debug(f"selected 1 image forme video, saving to: {new_full_path}")
         cv2.imwrite(new_full_path, image[..., ::-1])
 
+        # logger.debug(f"{row['full_image_path']=}, {os.path.exists(row['full_image_path'])=}")
+
         # update row
         row["image_path"] = os.path.basename(new_full_path)
         row["full_image_path"] = new_full_path
         row["suffix"] = f".{new_full_path.split('.')[-1]}"
-        # TODO fix this
-        logger.debug(f"{row['full_image_path']=}, {os.path.exists(row['full_image_path'])=}")
         metadata.loc[row_idx] = row
 
-        metadata.loc[row_idx, "full_image_path"] = new_full_path
+        # metadata.loc[row_idx, "full_image_path"] = new_full_path
 
     return metadata

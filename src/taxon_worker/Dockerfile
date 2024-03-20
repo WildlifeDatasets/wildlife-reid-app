@@ -34,16 +34,12 @@ RUN pip install --no-cache-dir --upgrade pip build && \
 
 COPY ./src/taxon_worker /taxon_worker
 
-RUN pip install \
-    opencv-python==4.8.0.74 \
-    opencv-python-headless==4.8.0.74
-
 RUN pip install pytz --upgrade
 RUN pip install tzdata --upgrade
 
-#RUN pip install \
-#    opencv-python==4.5.5.64 \
-#    opencv-python-headless==4.5.5.64
+RUN pip install \
+    opencv-python==4.5.5.64 \
+    opencv-python-headless==4.5.5.64
 
 # expose ports and run application
 WORKDIR $APP_DIR
