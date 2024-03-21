@@ -997,7 +997,7 @@ def _get_all_user_locations(request):
 
 
 @login_required
-def delete_upload(request, uploadedarchive_id):
+def delete_upload(request, uploadedarchive_id, next_page="caidapp:uploads"):
     """Delete uploaded file."""
     uploadedarchive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
 
@@ -1005,7 +1005,7 @@ def delete_upload(request, uploadedarchive_id):
         uploadedarchive.delete()
     else:
         messages.error(request, "Not allowed to delete this uploaded archive.")
-    return redirect("/caidapp/uploads")
+    return redirect(next_page)
 
 
 @login_required

@@ -40,7 +40,7 @@ urlpatterns = [
         name="delete_mediafile",
     ),
     path(
-        "<int:uploadedarchive_id>/delete_upload/",
+        "<int:uploadedarchive_id>/delete_upload/<str:next_page>/",
         views.delete_upload,
         name="delete_upload",
     ),

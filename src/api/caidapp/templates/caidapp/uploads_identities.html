@@ -139,7 +139,7 @@
                                                 <hr class="dropdown-divider">
                                             </li>
                                             <li><a class="dropdown-item text-danger"
-                                                   href="{% url 'caidapp:delete_upload' uploadedarchive.id %}"
+                                                   href="{% url 'caidapp:delete_upload' uploadedarchive.id 'caidapp:uploads_identities' %}"
                                                    onclick="return confirm('Delete file {{ uploadedarchive }}?')">
                                                 <i class="bi bi-trash"></i> Delete
                                             </a></li>
