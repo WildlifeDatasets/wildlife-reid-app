@@ -97,7 +97,7 @@ class Location(models.Model):
     owner = models.ForeignKey(CaIDUser, on_delete=models.CASCADE, null=True, blank=True)
 
     def __str__(self):
-        return str(self.name)
+        return str(self.visible_name)
 
 class UploadedArchive(models.Model):
     uploaded_at = models.DateTimeField("Uploaded at", default=datetime.now)

@@ -218,9 +218,9 @@ def uploadedarchive_detail(request, uploadedarchive_id):
 def uploads_identities(request):
     """List of uploads."""
     uploadedarchives = (
-        UploadedArchive.objects.filter(
-            owner__workgroup=request.user.caiduser.workgroup,
-            contains_single_taxon=True,
+        MediaFile.objects.filter(
+            **_user_content_filter_params(request.user.caiduser, "owner")
+            # parent__owner=request.user.caiduser
         )
         .all()
         .order_by("-uploaded_at")
@@ -279,16 +279,17 @@ def show_taxons(request):
 def uploads_species(request):
     """List of uploads."""
     uploadedarchives = (
-        UploadedArchive.objects.filter(
-            owner__workgroup=request.user.caiduser.workgroup,
-            contains_single_taxon=False,
+        MediaFile.objects.filter(
+            **_user_content_filter_params(request.user.caiduser, "owner")
+            # parent__owner=request.user.caiduser
         )
         .all()
         .order_by("-uploaded_at")
     )
     # uploadedarchives = (
     #     UploadedArchive.objects.filter(
-    #         owner=request.user.caiduser,
+    #         owner__workgroup=request.user.caiduser.workgroup,
+    #         contains_single_taxon=False,
     #     )
     #     .all()
     #     .order_by("-uploaded_at")
@@ -693,7 +694,7 @@ def _single_species_button_style(request) -> dict:
                 owner__workgroup=request.user.caiduser.workgroup,
                 contains_identities=False,
                 contains_single_taxon=True,
-                status="Species Finished",
+                tatus="Species Finished",
             )
         )
         > 0
