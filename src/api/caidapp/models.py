@@ -94,7 +94,8 @@ class Location(models.Model):
         null=True,
         blank=True,
     )
-    owner = models.ForeignKey(CaIDUser, on_delete=models.CASCADE, null=True, blank=True)
+    # If the user is deleted, then we will keep the location but it does not belong to any user which is not good.
+    owner = models.ForeignKey(CaIDUser, on_delete=models.SET_NULL, null=True, blank=True)
 
     def __str__(self):
         return str(self.visible_name)

@@ -148,6 +148,14 @@ def _round_location(location: Location, order: int = 3):
     location.save()
     return f"{lat},{lon}"
 
+def delete_location(request, location_id):
+    """Delete location."""
+    get_object_or_404(
+        Location,
+        pk=location_id,
+        **_user_content_filter_params(request.user.caiduser, "owner"),
+    ).delete()
+    return redirect("caidapp:manage_locations")
 
 def update_location(request, location_id):
     """Show and update location."""
@@ -1101,7 +1109,7 @@ class MyLoginView(LoginView):
 
 
 def _mediafiles_query(
-    request, query: str, album_hash=None, individual_identity_id=None, taxon_id=None
+    request, query: str, album_hash=None, individual_identity_id=None, taxon_id=None, uploadedarchive_id=None,
 ):
     """Prepare list of mediafiles based on query search in category and location."""
     mediafiles = (
@@ -1130,6 +1138,14 @@ def _mediafiles_query(
         taxon = get_object_or_404(Taxon, pk=taxon_id)
         mediafiles = (
             mediafiles.filter(category=taxon).all().distinct().order_by("-parent__uploaded_at")
+        )
+    if uploadedarchive_id is not None:
+        uploadedarchive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
+        mediafiles = (
+            mediafiles.filter(parent=uploadedarchive)
+            .all()
+            .distinct()
+            .order_by("-parent__uploaded_at")
         )
 
     if len(query) == 0:
@@ -1264,6 +1280,7 @@ def media_files_update(
     album_hash=None,
     individual_identity_id=None,
     taxon_id=None,
+    uploadedarchive_id=None,
 ) -> Union[QuerySet, List[MediaFile]]:
     """List of mediafiles based on query with bulk update of category."""
     # create list of mediafiles
@@ -1303,6 +1320,7 @@ def media_files_update(
         album_hash=album_hash,
         individual_identity_id=individual_identity_id,
         taxon_id=taxon_id,
+        uploadedarchive_id=uploadedarchive_id,
     )
     number_of_mediafiles = len(full_mediafiles)
     map_html = _create_map_from_mediafiles(full_mediafiles)

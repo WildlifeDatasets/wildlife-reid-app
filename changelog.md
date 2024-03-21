@@ -3,6 +3,11 @@
 
 # Changelog
 
+## 03-2024
+
+* [added] Visible name for locations
+* [added] Extended edit options for locations
+
 ## 02-2024
 
 * [added] Icon showing the mediafile is representative

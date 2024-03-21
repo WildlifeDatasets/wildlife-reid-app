@@ -24,7 +24,8 @@ urlpatterns = [
     path("uploads_identities/", views.uploads_identities, name="uploads_identities"),
     path(
         "uploadedarchive_detail/<int:uploadedarchive_id>",
-        views.uploadedarchive_detail,
+        # views.uploadedarchive_detail,
+        views.media_files_update,
         name="uploadedarchive_detail",
     ),
     path(
@@ -61,6 +62,7 @@ urlpatterns = [
         name="media_file_update",
     ),
     path("manage_locations/", views.manage_locations, name="manage_locations"),
+    path("delete_location/<int:location_id>/", views.delete_location, name="delete_location"),
     path(
         "update_location/<int:location_id>/",
         views.update_location,
