@@ -16,8 +16,6 @@ RUN apt-get update --yes && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 
-RUN pip install git+https://github.com/facebookresearch/segment-anything.git
-
 # download weights into resources
 RUN mkdir -p ~/resources && \
     wget http://ptak.felk.cvut.cz/plants/DanishFungiDataset/md_v5a.0.0.pt \

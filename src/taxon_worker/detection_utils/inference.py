@@ -7,9 +7,7 @@ from typing import Any, Dict, List, Union, Optional
 import cv2
 import numpy as np
 import torch
-import pandas as pd
 from PIL import Image
-from segment_anything import SamPredictor, sam_model_registry
 from tqdm import tqdm
 
 # from fgvc.inference_utils.inference_utils import set_cuda_device
@@ -88,8 +86,6 @@ def pad_image(image: np.ndarray, bbox: Union[list, np.ndarray], border: float = 
 
 
 DETECTION_MODEL = None
-SAM = None
-SAM_PREDICTOR = None
 
 
 def get_detection_model():
@@ -119,34 +115,6 @@ def del_detection_model():
     DETECTION_MODEL = None
 
 
-def get_sam_model():
-    """Load the SAM model if not loaded before."""
-    global SAM
-    global SAM_PREDICTOR
-    if SAM is None:
-
-        download_file_if_does_not_exists(
-            "http://ptak.felk.cvut.cz/plants/DanishFungiDataset/sam_vit_h_4b8939.pth",
-            "/taxon_worker/resources/sam_vit_h_4b8939.pth",
-        )
-
-        logger.info("Initializing SAM model and loading pre-trained checkpoint.")
-        _checkpoint_path = Path("/taxon_worker/resources/sam_vit_h_4b8939.pth").expanduser()
-        SAM = sam_model_registry["vit_h"](checkpoint=str(_checkpoint_path))
-        SAM.to(device=DEVICE)
-        SAM_PREDICTOR = SamPredictor(SAM)
-
-    return SAM_PREDICTOR
-
-
-def del_sam_model():
-    """Release the SAM model."""
-    global SAM
-    global SAM_PREDICTOR
-    SAM = None
-    SAM_PREDICTOR = None
-
-
 def detect_animals_in_one_image(image_rgb: np.ndarray) -> Optional[List[Dict[str, Any]]]:
     """Detect an animal in a given image."""
     detection_model = get_detection_model()
@@ -171,43 +139,17 @@ def detect_animals_in_one_image(image_rgb: np.ndarray) -> Optional[List[Dict[str
         for i in range(len(results))
 
     ]
-        # results_list[i] = {
-        #     "bbox": list(int(_) for _ in results[i][:4].tolist()),
-        #     "confidence": results[i][4],
-        #     "class": id2label[results[i][5]],
-        #     "size": image_rgb.shape[:2]
-        # }
+    # results_list[i] = {
+    #     "bbox": list(int(_) for _ in results[i][:4].tolist()),
+    #     "confidence": results[i][4],
+    #     "class": id2label[results[i][5]],
+    #     "size": image_rgb.shape[:2]
+    # }
 
     return results_list
 
 
-def segment_animal(image_path: str, bbox: list, cropped=True) -> np.ndarray:
-    """Segment an animal in a given image using SAM model."""
-    image = cv2.imread(image_path)
-    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-
-    logger.debug("Running segmentation inference.")
-    sam_predictor = get_sam_model()
-    sam_predictor.set_image(image)
-    sam_input_box = np.array([int(point) for point in bbox])
-
-    logger.debug(f"{sam_input_box=}")
-
-    masks, _, _ = sam_predictor.predict(
-        point_coords=None,
-        point_labels=None,
-        box=sam_input_box[None, :],
-        multimask_output=False,
-    )
-    logger.debug(f"{masks=}")
-
-    foregroud_image = image.copy()
-    foregroud_image[masks[0] == False] = 0  # noqa
-
-    return pad_image(foregroud_image, bbox, border=0.25)
-
-
-def detect_animal_on_metadata(metadata, border=0.0, do_segmentation: bool = True):
+def detect_animal_on_metadata(metadata, border=0.0):
     """Do the detection and segmentation on images in metadata."""
     assert "full_image_path" in metadata
     logger.info("Running detection inference.")
@@ -234,7 +176,7 @@ def detect_animal_on_metadata(metadata, border=0.0, do_segmentation: bool = True
                 # if result["class"] == "animal":
                 base_path = Path(image_abs_path).parent.parent / "detection_images"
                 save_path = base_path / (
-                    Path(image_abs_path).stem + f".{ii}" + Path(image_abs_path).suffix
+                        Path(image_abs_path).stem + f".{ii}" + Path(image_abs_path).suffix
                 )
                 base_path.mkdir(exist_ok=True, parents=True)
 
@@ -245,14 +187,6 @@ def detect_animal_on_metadata(metadata, border=0.0, do_segmentation: bool = True
                     save_path = base_path / (Path(image_abs_path).name)
                     Image.fromarray(padded_image).convert("RGB").save(save_path)
 
-                # save_path = None
-                # if result["class"] == "animal":
-                #     cropper_animal = segment_animal(image_path, result["bbox"])
-                #
-                #     base_path = Path(image_path).parent.parent / "masked_images"
-                #     save_path = base_path / Path(image_path).name
-                #     base_path.mkdir(exist_ok=True, parents=True)
-                #     Image.fromarray(cropper_animal).convert("RGB").save(save_path)
             metadata.loc[row_idx] = row
         except Exception:
             logger.warning(

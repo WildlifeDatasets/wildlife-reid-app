@@ -19,4 +19,4 @@ wildlife-tools==0.0.5
 
 wandb
 
-opencv-python==4.8.0.74
+# opencv-python==4.8.0.74

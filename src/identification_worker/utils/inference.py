@@ -1,11 +1,17 @@
 import logging
 from pathlib import Path
-from typing import Tuple
+from typing import Tuple, Union
 
 import numpy as np
 import pandas as pd
 import timm
 import torch
+import cv2
+import os
+import ast
+from PIL import Image
+from tqdm import tqdm
+from segment_anything import SamPredictor, sam_model_registry
 from wildlife_tools import realize
 from wildlife_tools.data import WildlifeDataset
 from wildlife_tools.features import DeepFeatures
@@ -16,8 +22,12 @@ from fgvc.utils.utils import set_cuda_device
 from .postprocessing import feature_top
 
 logger = logging.getLogger("app")
-device = set_cuda_device("0" if torch.cuda.is_available() else "cpu")
-logger.info(f"Using device: {device}")
+DEVICE = set_cuda_device("cuda:0" if torch.cuda.is_available() else "cpu")
+logger.info(f"Using device: {DEVICE}")
+
+IDENTIFICATION_MODEL = None
+SAM = None
+SAM_PREDICTOR = None
 
 
 class CarnivoreDataset(WildlifeDataset):
@@ -30,53 +40,179 @@ class CarnivoreDataset(WildlifeDataset):
         return self.metadata["path"].astype(str).values
 
 
-def load_model(model_name, model_checkpoint=""):
+def download_file(url: str, output_file: str):
+    """Download file from url."""
+    import requests
+
+    # r = requests.get(url, allow_redirects=True)
+    # with open(output_file, "wb") as f:
+    #     f.write(r.content)
+    # download file from url with tqdm progressbar
+    # https://stackoverflow.com/a/37573701/4419811
+    # Streaming, so we can iterate over the response.
+    r = requests.get(url, stream=True)
+    # Total size in bytes.
+    total_size = int(r.headers.get("content-length", 0))
+    block_size = 1024  # 1 Kibibyte
+    t = tqdm(total=total_size, unit="iB", unit_scale=True)
+    with open(output_file, "wb") as f:
+        for data in r.iter_content(block_size):
+            t.update(len(data))
+            f.write(data)
+    t.close()
+    if total_size != 0 and t.n != total_size:
+        logger.error("ERROR, something went wrong")
+
+
+def download_file_if_does_not_exists(url: str, output_file: str):
+    """Download file from url."""
+    logger.debug("Checking if file does not exists.")
+    if not os.path.exists(output_file):
+        logger.debug("File does not exists. Downloading.")
+        Path(output_file).parent.mkdir(parents=True, exist_ok=True)
+        download_file(url, output_file)
+
+
+def get_identification_model(model_name, model_checkpoint=""):
     """Load the model from the given model name and checkpoint."""
-    # load model checkpoint
+    global IDENTIFICATION_MODEL
+    if IDENTIFICATION_MODEL is not None:
+        return
+
+    logger.info("Initializing identification model.")
+     # load model checkpoint
     model = timm.create_model(model_name, num_classes=0, pretrained=True)
     if model_checkpoint:
-        if not torch.cuda.is_available():
-            model_ckpt = torch.load(model_checkpoint, map_location=torch.device("cpu"))["model"]
-        else:
-            model_ckpt = torch.load(model_checkpoint)["model"]
+        model_ckpt = torch.load(model_checkpoint, map_location=torch.device("cpu"))["model"]
         model.load_state_dict(model_ckpt)
 
-    model = model.to(device).eval()
-    return model
+    IDENTIFICATION_MODEL = model.to(DEVICE).eval()
 
 
-MODEL = load_model(
-    # "hf-hub:BVRA/MegaDescriptor-T-224",
-    "hf-hub:strakajk/Lynx-MegaDescriptor-T-224"
-    # model_checkpoint="/identification_worker/resources/MegaDescriptor-T-224-c-15-01_18-00-02.pth"
-)
+def get_sam_model():
+    """Load the SAM model if not loaded before."""
+    global SAM
+    global SAM_PREDICTOR
+    if SAM is None:
+        download_file_if_does_not_exists(
+            "http://ptak.felk.cvut.cz/plants/DanishFungiDataset/sam_vit_h_4b8939.pth",
+            "/taxon_worker/resources/sam_vit_h_4b8939.pth",
+        )
+
+        logger.info("Initializing SAM model and loading pre-trained checkpoint.")
+        _checkpoint_path = Path("/taxon_worker/resources/sam_vit_h_4b8939.pth").expanduser()
+        SAM = sam_model_registry["vit_h"](checkpoint=str(_checkpoint_path))
+        SAM.to(device=DEVICE)
+        SAM_PREDICTOR = SamPredictor(SAM)
+
+
+def del_identification_model():
+    """Release the identification model."""
+    global IDENTIFICATION_MODEL
+    IDENTIFICATION_MODEL = None
+
+
+def del_sam_model():
+    """Release the SAM model."""
+    global SAM
+    global SAM_PREDICTOR
+    SAM = None
+    SAM_PREDICTOR = None
+
+
+def pad_image(image: np.ndarray, bbox: Union[list, np.ndarray], border: float = 0.25) -> np.ndarray:
+    """Crop the image, pad to square and add a border."""
+    # get bbox and image
+    x0, y0, x1, y1 = np.round(bbox).astype(int)
+    w, h = x1 - x0, y1 - y0
+    cropped_image = image[y0:y1, x0:x1]
+
+    # add padding
+    dif = np.abs(w - h)
+    pad_value_0 = np.floor(dif / 2).astype(int)
+    pad_value_1 = dif - pad_value_0
+    pad_w = 0
+    pad_h = 0
+
+    if w > h:
+        y0 -= pad_value_0
+        y1 += pad_value_1
+        pad_h += pad_value_0
+    else:
+        x0 -= pad_value_0
+        x1 += pad_value_1
+        pad_w += pad_value_0
+
+    border = np.round((np.max([w, h]) * (border / 2)) / 2).astype(int)
+    pad_w += border
+    pad_h += border
+
+    padded_image = np.pad(cropped_image, ((pad_h, pad_h), (pad_w, pad_w), (0, 0)), mode="constant")
+    return padded_image
+
+
+def segment_animal(image_path: str, bbox: list, border: float=0.25) -> np.ndarray:
+    """Segment an animal in a given image using SAM model."""
+    global SAM_PREDICTOR
+
+    image = cv2.imread(image_path)
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+    logger.debug("Running segmentation inference.")
+    SAM_PREDICTOR.set_image(image)
+    sam_input_box = np.array([int(point) for point in bbox])
+    logger.debug(f"{sam_input_box=}")
+
+    masks, _, _ = SAM_PREDICTOR.predict(
+        point_coords=None,
+        point_labels=None,
+        box=sam_input_box[None, :],
+        multimask_output=False,
+    )
+
+    foregroud_image = image.copy()
+    foregroud_image[masks[0] == False] = 0  # noqa
+
+    return pad_image(foregroud_image, bbox, border=border)
+
+
+def mask_images(metadata: pd.DataFrame) -> pd.DataFrame:
+    """Mask images using SAM model."""
+    masked_paths = []
+    get_sam_model()
+    for row_idx, row in metadata.iterrows():
+        image_path = row["image_path"]
+        detection_results = ast.literal_eval(row["detection_results"])
+        bbox = detection_results[0]["bbox"]
+
+        cropped_animal = segment_animal(image_path, bbox)
+
+        base_path = Path(image_path).parent.parent / "masked_images"
+        save_path = base_path / Path(image_path).name
+        base_path.mkdir(exist_ok=True, parents=True)
+        Image.fromarray(cropped_animal).convert("RGB").save(save_path)
+        logger.debug(f"Saving masked file: {save_path}")
+
+        masked_paths.append(str(save_path))
+
+    metadata["image_path"] = masked_paths
+    del_sam_model()
+    return metadata
 
 
 def encode_images(metadata: pd.DataFrame) -> np.ndarray:
     """Create feature vectors from given images."""
+    global IDENTIFICATION_MODEL
+    get_identification_model("hf-hub:strakajk/Lynx-MegaDescriptor-T-224")
+    metadata = mask_images(metadata)
     logger.info("Creating DataLoaders.")
-
     config = {
         "method": "TransformTimm",
-        "input_size": np.max(MODEL.default_cfg["input_size"][1:]),
+        "input_size": np.max(IDENTIFICATION_MODEL.default_cfg["input_size"][1:]),
         "is_training": False,
         "auto_augment": "rand-m10-n2-mstd1",
     }
     transform = realize(config)
-
-    logger.debug(f"encode_images-metadata: {metadata}")
-    new_image_paths = []
-    image_paths = metadata.image_path
-    for image_path in image_paths:
-        new_image_path = Path(image_path.replace("/images/", "/masked_images/"))
-        if not new_image_path.is_file():
-            new_image_path = image_path
-        new_image_paths.append(str(new_image_path))
-    metadata["image_path"] = new_image_paths
-    # metadata['masked_image_path'] = np.where(
-    #     metadata['masked_image_path'].isna(),
-    #     metadata['image_path'], metadata['masked_image_path']
-    # )
 
     dataset = CarnivoreDataset(
         metadata=metadata,
@@ -88,13 +224,15 @@ def encode_images(metadata: pd.DataFrame) -> np.ndarray:
     )
 
     logger.info("Running inference.")
-    extractor = DeepFeatures(MODEL, batch_size=4, num_workers=1, device=device)
+    extractor = DeepFeatures(IDENTIFICATION_MODEL, batch_size=4, num_workers=1, device=DEVICE)
     features = extractor(dataset)
 
+    del_identification_model()
     return features
 
 
 def _get_top_predictions(similarity: np.ndarray, paths: list, identities: list, top_k: int = 1):
+    """Get top-k predictions from similarity matrix."""
     top_results = []
     for row_idx, row in enumerate(similarity):
         top_names = []
@@ -126,21 +264,23 @@ def _get_top_predictions(similarity: np.ndarray, paths: list, identities: list, 
 
 
 def identify(
-    features: np.ndarray,
-    reference_features: np.ndarray,
-    reference_image_paths: list,
-    reference_class_ids: list,
-    metadata: pd.DataFrame,
-    top_k: int = 1,
+        features: np.ndarray,
+        reference_features: np.ndarray,
+        reference_image_paths: list,
+        reference_class_ids: list,
+        metadata: pd.DataFrame,
+        top_k: int = 1,
 ) -> Tuple[list, np.ndarray, np.ndarray]:
     """Compare input feature vectors with the reference feature vectors and make predictions."""
     assert len(reference_features) == len(reference_image_paths)
     assert len(reference_features) == len(reference_class_ids)
+    logger.info(f"Starting identification of {len(features)} images.")
 
     similarity_measure = CosineSimilarity()
     similarity = similarity_measure(
         features.astype(np.float32), reference_features.astype(np.float32)
     )["cosine"]
+    logger.debug(f"{similarity.shape=}")
 
     # postprocessing
     idx = metadata.index[metadata["sequence_number"] >= 0].tolist()
@@ -165,7 +305,7 @@ def identify(
     for row in top_predictions:
         pred_class_ids.append(row[0])
         pred_image_paths.append(row[1])
-        scores.append(row[2])
+        scores.append(np.clip(row[2], 0, 1).tolist())
 
     # return path to original image
     _pred_image_paths = []
