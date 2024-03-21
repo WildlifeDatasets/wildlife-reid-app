@@ -1095,7 +1095,6 @@ def albums(request):
     )
     return render(request, "caidapp/albums.html", {"albums": albums})
 
-
 class MyLoginView(LoginView):
     redirect_authenticated_user = True
 
@@ -1158,12 +1157,7 @@ def _mediafiles_query(
         query = SearchQuery(query)
         logger.debug(str(query))
         mediafiles = (
-            MediaFile.objects.filter(
-                Q(album__albumsharerole__user=request.user.caiduser)
-                | Q(parent__owner=request.user.caiduser)
-                | Q(parent__owner__workgroup=request.user.caiduser.workgroup)
-                # parent__owner=request.user.caiduser
-            )
+            mediafiles
             .annotate(rank=SearchRank(vector, query))
             .filter(rank__gt=0)
             .order_by("-rank")

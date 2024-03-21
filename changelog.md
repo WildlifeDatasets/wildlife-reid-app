@@ -9,6 +9,7 @@
 * [added] Extended edit options for locations
 * [added] Taxon statistics on list of mediafiles
 * [changed] Layout of the list of mediafiles
+* [fixed] Query for media files works now together with filters like taxon, filter, ...
 
 ## 02-2024
 
