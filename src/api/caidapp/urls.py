@@ -44,6 +44,11 @@ urlpatterns = [
         views.delete_upload,
         name="delete_upload",
     ),
+    path("update_uploadedarchive/<int:uploadedarchive_id>/",
+         views.update_uploadedarchive,
+         name="update_uploadedarchive"
+         ),
+
     path(
         "<int:uploadedarchive_id>/run_processing/",
         views.run_taxon_classification,

@@ -94,7 +94,9 @@ def load_model_and_predict(image_paths: list) -> Tuple[np.ndarray, np.ndarray, O
     """Load model, create dataloaders, and run inference."""
     # from .data_preprocessing import detect_animal, pad_image, detect_animals
     # is_detected = detect_animals(image_paths)
-    config, checkpoint_path, artifact_config = get_model_config()
+    config, checkpoint_path, artifact_config = get_model_config(
+        # is_cropped=False
+    )
 
     logger.info("Creating model and loading fine-tuned checkpoint.")
     model, model_mean, model_std = load_model(config, checkpoint_path)

@@ -32,6 +32,7 @@ from .forms import (
     MediaFileSelectionForm,
     MediaFileSetQueryForm,
     UploadedArchiveForm,
+    UploadedArchiveUpdateForm,
     WorkgroupUsersForm,
 )
 from .models import (
@@ -54,6 +55,7 @@ from .tasks import (
     on_error_in_upload_processing,
     run_species_prediction_async,
     update_metadata_csv_by_uploaded_archive,
+    get_location
 )
 
 logger = logging.getLogger("app")
@@ -997,6 +999,51 @@ def _get_all_user_locations(request):
     locations = Location.objects.filter(**params).order_by("name")
     return locations
 
+def _set_location_to_mediafiles_of_uploadedarchive(request, uploaded_archive: UploadedArchive, location: Location):
+    """Set location to mediafiles of uploaded archive."""
+    if not _user_has_rw_acces_to_uploadedarchive(request.user.caiduser, uploaded_archive):
+        return HttpResponseNotAllowed("Not allowed to edit this uploaded archive.")
+    mediafiles = uploaded_archive.mediafile_set.all()
+    for mediafile in mediafiles:
+        mediafile.location = location
+        mediafile.save()
+
+def update_uploadedarchive(request, uploadedarchive_id):
+    """Show and update uploaded archive."""
+    uploaded_archive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
+    if not _user_has_rw_acces_to_uploadedarchive(request.user.caiduser, uploaded_archive):
+        return HttpResponseNotAllowed("Not allowed to see this uploaded archive.")
+    uploaded_archive_location_at_upload = uploaded_archive.location_at_upload
+
+    if request.method == "POST":
+        form = UploadedArchiveUpdateForm(request.POST, instance=uploaded_archive)
+        if form.is_valid():
+            cleaned_location_at_upload = form.cleaned_data["location_at_upload"]
+            uploaded_archive = form.save()
+            logger.debug(f"{uploaded_archive.location_at_upload=}, {cleaned_location_at_upload=}")
+            if (uploaded_archive_location_at_upload != cleaned_location_at_upload):
+                logger.debug("Location has been changed.")
+                # location_str = form.cleaned_data["location_at_upload"]
+                location = get_location(request.user.caiduser, cleaned_location_at_upload)
+                _set_location_to_mediafiles_of_uploadedarchive(request, uploaded_archive, location)
+                uploaded_archive.location_at_upload_object = location
+                uploaded_archive.save()
+
+            return redirect("caidapp:uploads")
+    else:
+        form = UploadedArchiveUpdateForm(instance=uploaded_archive)
+    return render(
+        request,
+        "caidapp/update_form.html",
+        # "caidapp/update_form.html",
+        {
+            "form": form,
+            "headline": "Uploaded Archive",
+            "button": "Save",
+            "uploadedarchive": uploaded_archive,
+            "locations": _get_all_user_locations(request),
+        },
+    )
 
 @login_required
 def delete_upload(request, uploadedarchive_id, next_page="caidapp:uploads"):
