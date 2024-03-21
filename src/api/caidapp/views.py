@@ -1262,15 +1262,16 @@ def _create_map_from_mediafiles(mediafiles: Union[QuerySet, List[MediaFile]]):
     else:
         zoom = 3  # For larger ranges, set a smaller zoom level
 
-    fig = go.Figure(go.Densitymapbox(lat=df2.lat, lon=df2.lon, radius=10))
+    fig = go.Figure(go.Densitymapbox(lat=df2.lat, lon=df2.lon, radius=10, showscale=False))
     fig.update_layout(
         mapbox_style="open-street-map",
         mapbox_center_lon=df2.lon.unique().mean(),
         mapbox_center_lat=df2.lat.unique().mean(),
         mapbox_zoom=zoom,
+
     )
 
-    fig.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0})
+    fig.update_layout(margin={"r": 0, "t": 10, "l": 0, "b": 0}, height=300)
     map_html = fig.to_html()
     return map_html
 
@@ -1286,7 +1287,7 @@ def _taxon_stats_for_mediafiles(mediafiles: Union[QuerySet, List[MediaFile]]) ->
         logger.debug(f"{taxon_stats=}")
         df = pd.DataFrame.from_records(taxon_stats)
         df.rename(columns={"category__name": "Taxon", "count": "Count"}, inplace=True)
-        fig = px.bar(df, x="Taxon", y="Count")
+        fig = px.bar(df, x="Taxon", y="Count", height=300)
         taxon_stats_html = fig.to_html()
     else:
         taxon_stats_html = None
