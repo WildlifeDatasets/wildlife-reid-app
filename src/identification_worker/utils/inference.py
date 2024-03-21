@@ -83,10 +83,7 @@ def get_identification_model(model_name, model_checkpoint=""):
      # load model checkpoint
     model = timm.create_model(model_name, num_classes=0, pretrained=True)
     if model_checkpoint:
-        if not torch.cuda.is_available():
-            model_ckpt = torch.load(model_checkpoint, map_location=torch.device("cpu"))["model"]
-        else:
-            model_ckpt = torch.load(model_checkpoint)["model"]
+        model_ckpt = torch.load(model_checkpoint, map_location=torch.device("cpu"))["model"]
         model.load_state_dict(model_ckpt)
 
     IDENTIFICATION_MODEL = model.to(DEVICE).eval()
@@ -308,7 +305,7 @@ def identify(
     for row in top_predictions:
         pred_class_ids.append(row[0])
         pred_image_paths.append(row[1])
-        scores.append(row[2])
+        scores.append(np.clip(row[2], 0, 1).tolist())
 
     # return path to original image
     _pred_image_paths = []
