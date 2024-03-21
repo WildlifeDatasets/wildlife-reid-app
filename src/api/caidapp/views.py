@@ -693,7 +693,7 @@ def _single_species_button_style(request) -> dict:
                 owner__workgroup=request.user.caiduser.workgroup,
                 contains_identities=False,
                 contains_single_taxon=True,
-                tatus="Species Finished",
+                status="Species Finished",
             )
         )
         > 0
