@@ -219,8 +219,9 @@ def uploads_identities(request):
     """List of uploads."""
     uploadedarchives = (
         UploadedArchive.objects.filter(
-            **_user_content_filter_params(request.user.caiduser, "owner")
-        )
+            **_user_content_filter_params(request.user.caiduser, "owner"),
+            contains_single_taxon=True,
+    )
         .all()
         .order_by("-uploaded_at")
     )
@@ -279,7 +280,8 @@ def uploads_species(request):
     """List of uploads."""
     uploadedarchives = (
         UploadedArchive.objects.filter(
-            **_user_content_filter_params(request.user.caiduser, "owner")
+            **_user_content_filter_params(request.user.caiduser, "owner"),
+            contains_single_taxon=False,
             # parent__owner=request.user.caiduser
         )
         .all()
