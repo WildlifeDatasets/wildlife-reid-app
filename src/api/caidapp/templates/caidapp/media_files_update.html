@@ -41,7 +41,15 @@
                         <p>
                             Found {{ page_obj.paginator.count }} mediafiles.
                         </p>
+                        {% if taxon_stats_html %}
+                        <div>
+                            {% autoescape off %}
+                                {{ taxon_stats_html }}
+                            {% endautoescape %}
+                        </div>
+                        {% endif %}
                     </div>
+                    {% if map_html %}
                     <div class="col-lg-6">
                         <div class="row">
                             <div class="card">
@@ -54,6 +62,7 @@
                             </div>
                         </div>
                     </div>
+                    {% endif %}
                 </div>
 
                 {% if form_objects %}

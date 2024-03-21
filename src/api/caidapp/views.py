@@ -8,6 +8,7 @@ from typing import List, Optional, Union
 import django
 import pandas as pd
 import plotly.graph_objects as go
+import plotly.express as px
 import pytz
 from celery import signature
 from django.conf import settings
@@ -17,7 +18,7 @@ from django.contrib.auth import logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView
 from django.core.paginator import Paginator
-from django.db.models import Q, QuerySet
+from django.db.models import Q, QuerySet, Count
 from django.forms import modelformset_factory
 from django.http import HttpResponseBadRequest, HttpResponseNotAllowed, JsonResponse
 from django.shortcuts import Http404, HttpResponse, get_object_or_404, redirect, render
@@ -1273,6 +1274,24 @@ def _create_map_from_mediafiles(mediafiles: Union[QuerySet, List[MediaFile]]):
     map_html = fig.to_html()
     return map_html
 
+def _taxon_stats_for_mediafiles(mediafiles: Union[QuerySet, List[MediaFile]]) -> str:
+    """Create taxon stats for mediafiles."""
+    taxon_stats = ""
+    if len(mediafiles) > 0:
+        taxon_stats = (
+            mediafiles.values("category__name")
+            .annotate(count=Count("category__name"))
+            .order_by("-count")
+        )
+        logger.debug(f"{taxon_stats=}")
+        df = pd.DataFrame.from_records(taxon_stats)
+        df.rename(columns={"category__name": "Taxon", "count": "Count"}, inplace=True)
+        fig = px.bar(df, x="Taxon", y="Count")
+        taxon_stats_html = fig.to_html()
+    else:
+        taxon_stats_html = None
+    return taxon_stats_html
+
 
 def media_files_update(
     request,
@@ -1324,6 +1343,7 @@ def media_files_update(
     )
     number_of_mediafiles = len(full_mediafiles)
     map_html = _create_map_from_mediafiles(full_mediafiles)
+    taxon_stats_html = _taxon_stats_for_mediafiles(full_mediafiles)
 
     paginator = Paginator(full_mediafiles, per_page=records_per_page)
 
@@ -1431,6 +1451,7 @@ def media_files_update(
             "albums_available": albums_available,
             "number_of_mediafiles": number_of_mediafiles,
             "map_html": map_html,
+            "taxon_stats_html": taxon_stats_html,
         },
     )
 

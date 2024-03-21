@@ -7,6 +7,7 @@
 
 * [added] Visible name for locations
 * [added] Extended edit options for locations
+* [added] Taxon statistics on list of mediafiles
 
 ## 02-2024
 
