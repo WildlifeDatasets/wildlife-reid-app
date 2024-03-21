@@ -72,8 +72,8 @@ def predict(
             metadata = create_image_from_video(metadata)
             metadata = data_processing_pipeline.keep_correctly_loaded_images(metadata)
 
-            for row_idx, row in metadata.iterrows():
-                logger.debug(f"{row['full_image_path']=}, {Path(row['full_image_path']).exists()=}")
+            # for row_idx, row in metadata.iterrows():
+            #     logger.debug(f"{row['full_image_path']=}, {Path(row['full_image_path']).exists()=}")
         else:
             metadata = pd.read_csv(output_metadata_file, index_col=0)
         if len(metadata["image_path"]) > 0:

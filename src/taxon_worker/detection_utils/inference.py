@@ -159,14 +159,24 @@ def detect_animals_in_one_image(image_rgb: np.ndarray) -> Optional[List[Dict[str
     if len(results) == 0:
         return None
 
-    results_list = [None] * len(results)
-    for i in range(len(results)):
-        results_list[i] = {
+    # results_list = [None] * len(results)
+    # for i in range(len(results)):
+    results_list = [
+        {
             "bbox": list(int(_) for _ in results[i][:4].tolist()),
             "confidence": results[i][4],
             "class": id2label[results[i][5]],
-            "size": image_rgb.shape[:2]
+            "size": image_rgb.shape[:2],
         }
+        for i in range(len(results))
+
+    ]
+        # results_list[i] = {
+        #     "bbox": list(int(_) for _ in results[i][:4].tolist()),
+        #     "confidence": results[i][4],
+        #     "class": id2label[results[i][5]],
+        #     "size": image_rgb.shape[:2]
+        # }
 
     return results_list
 
@@ -214,7 +224,9 @@ def detect_animal_on_metadata(metadata, border=0.0, do_segmentation: bool = True
 
             if results is None:
                 # there are no detected animals in image
-                # TODO: what to do?
+                logger.debug(f"No detection in image: {image_abs_path}")
+                row["detection_results"] = []
+                metadata.loc[row_idx] = row
                 continue
 
             row["detection_results"] = results
