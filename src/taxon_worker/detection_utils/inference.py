@@ -149,7 +149,6 @@ def del_sam_model():
 
 def detect_animals_in_one_image(image_rgb: np.ndarray) -> Optional[List[Dict[str, Any]]]:
     """Detect an animal in a given image."""
-    logger.info("Running detection inference.")
     detection_model = get_detection_model()
     results = detection_model(image_rgb)
     id2label = results.names
@@ -160,14 +159,24 @@ def detect_animals_in_one_image(image_rgb: np.ndarray) -> Optional[List[Dict[str
     if len(results) == 0:
         return None
 
-    results_list = [None] * len(results)
-    for i in range(len(results)):
-        results_list[i] = {
+    # results_list = [None] * len(results)
+    # for i in range(len(results)):
+    results_list = [
+        {
             "bbox": list(int(_) for _ in results[i][:4].tolist()),
             "confidence": results[i][4],
             "class": id2label[results[i][5]],
-            "size": image_rgb.shape[:2]
+            "size": image_rgb.shape[:2],
         }
+        for i in range(len(results))
+
+    ]
+        # results_list[i] = {
+        #     "bbox": list(int(_) for _ in results[i][:4].tolist()),
+        #     "confidence": results[i][4],
+        #     "class": id2label[results[i][5]],
+        #     "size": image_rgb.shape[:2]
+        # }
 
     return results_list
 
@@ -201,6 +210,7 @@ def segment_animal(image_path: str, bbox: list, cropped=True) -> np.ndarray:
 def detect_animal_on_metadata(metadata, border=0.0, do_segmentation: bool = True):
     """Do the detection and segmentation on images in metadata."""
     assert "full_image_path" in metadata
+    logger.info("Running detection inference.")
     for row_idx, row in tqdm(metadata.iterrows()):
         image_abs_path = row["full_image_path"]
         try:
@@ -214,7 +224,9 @@ def detect_animal_on_metadata(metadata, border=0.0, do_segmentation: bool = True
 
             if results is None:
                 # there are no detected animals in image
-                # TODO: what to do?
+                logger.debug(f"No detection in image: {image_abs_path}")
+                row["detection_results"] = []
+                metadata.loc[row_idx] = row
                 continue
 
             row["detection_results"] = results

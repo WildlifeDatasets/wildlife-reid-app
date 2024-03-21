@@ -8,6 +8,7 @@ from .inference import detect_animals_in_one_image
 from functools import partial
 from typing import Tuple
 from PIL import Image
+from pathlib import Path
 
 logger = logging.getLogger("app")
 
@@ -117,8 +118,9 @@ def resize_images(input_image: np.ndarray, new_height: int = 360) -> np.ndarray:
     return resized_image
 
 
-def save_gif(images, path):
+def save_gif(images, path:str):
     """Save frames as gif using PIL library."""
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
     frame_one = Image.fromarray(images[0])
     frames = [Image.fromarray(image) for image in images[1:]]
     duration = 1 / 24 * len(images)
@@ -159,8 +161,10 @@ def create_image_from_video(
         video_name = os.path.basename(full_path)
         video_name = ".".join(video_name.split(".")[:-1])
 
-        new_full_path = os.path.join(os.path.dirname(full_path), f"{video_name}.png")
-        gif_path = os.path.join(os.path.dirname(full_path), f"{video_name}.gif")
+        # new_full_path = os.path.join(os.path.dirname(full_path), f"{video_name}.png")
+        # gif_path = os.path.join(os.path.dirname(full_path), f"{video_name}.gif")
+        new_full_path = str(Path(full_path).with_suffix(".jpg"))
+        gif_path = str(Path(full_path).parent.parent / "thumbnails" / f"{video_name}.gif")
 
         if row["media_type"] != "video":
             logger.debug(f"{os.path.basename(full_path)} is image - skipping")
@@ -169,10 +173,16 @@ def create_image_from_video(
         images = load_video(full_path)
         logger.debug(f"video frames: {images.shape}")
         if len(images) == 0:
-            logger.debug(f"problem loading video: {os.path.basename(full_path)} - skipping")
+            logger.debug(f"Problem loading video: {os.path.basename(full_path)} - skipping")
+            row["read_error"] = "Problem loading video - skipping."
+            # row["image_path"] = os.path.basename(new_full_path)
+            # row["full_image_path"] = new_full_path
+            row["suffix"] = f".{new_full_path.split('.')[-1]}"
+            metadata.loc[row_idx] = row
             continue
         all_images = np.array([resize_images(image, gif_height) for image in images.copy()])
 
+        logger.info("Running detection inference on video.")
         # detect
         predictions = []
         for frame_id, image in tqdm(enumerate(images), desc="Detection"):
@@ -192,6 +202,13 @@ def create_image_from_video(
         if len([1 for p in predictions if p is not None]) == 0:
             logger.debug(f"no detection in video: {os.path.basename(full_path)} - skipping")
             make_gif(all_images, gif_path, 0, height=gif_height)
+
+            image = images[0]
+            cv2.imwrite(new_full_path, image[..., ::-1])
+            row["image_path"] = os.path.basename(new_full_path)
+            row["full_image_path"] = new_full_path
+            row["suffix"] = f".{new_full_path.split('.')[-1]}"
+            metadata.loc[row_idx] = row
             continue
 
         # select

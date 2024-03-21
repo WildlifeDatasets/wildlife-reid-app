@@ -311,13 +311,28 @@ def timedelta_to_human_readable(timedelta: datetime.timedelta) -> str:
 
 def make_thumbnail_for_mediafile_if_necessary(mediafile: MediaFile, thumbnail_width: int = 400):
     """Make small image representing the upload."""
-    logger.debug("making thumbnail for mediafile")
+    logger.debug("Making thumbnail for mediafile")
     mediafile_path = Path(settings.MEDIA_ROOT) / mediafile.mediafile.name
     output_dir = Path(settings.MEDIA_ROOT) / mediafile.parent.outputdir
     abs_pth = output_dir / "thumbnails" / Path(mediafile.mediafile.name).name
-    rel_pth = os.path.relpath(abs_pth, settings.MEDIA_ROOT)
-    # make_thumbnail_from_directory(output_dir, thumbnail_path)
-    if (mediafile.thumbnail is None) or (not abs_pth.exists()):
+
+    gif_path = abs_pth.with_suffix(".gif")
+    logger.debug(f"{gif_path=}, {gif_path.exists()=}")
+    logger.debug(f"{mediafile.thumbnail=}, {mediafile.thumbnail is None=}, {mediafile.thumbnail.name is None=}")
+
+    if mediafile.thumbnail.name is None:
+        logger.debug("we are in first if")
+        gif_path = abs_pth.with_suffix(".gif")
+        if gif_path.exists():
+            logger.debug("we are in second if")
+            abs_pth = gif_path
+            rel_pth = os.path.relpath(abs_pth, settings.MEDIA_ROOT)
+            mediafile.thumbnail = str(rel_pth)
+            mediafile.save()
+            logger.debug(f"Used GIF thumbnail generated before: {rel_pth}")
+
+    if (mediafile.thumbnail.name is None) or (not abs_pth.exists()):
+        rel_pth = os.path.relpath(abs_pth, settings.MEDIA_ROOT)
         logger.debug(f"Creating thumbnail for {rel_pth}")
         if make_thumbnail_from_file(mediafile_path, abs_pth, width=thumbnail_width):
             mediafile.thumbnail = str(rel_pth)
@@ -397,7 +412,7 @@ def update_uploaded_archive_by_metadata_csv(
 
         # if the mediafile was updated by user, we believe into users input
         if mf.updated_by is None:
-            logger.debug(f"{row.keys()=}")
+            # logger.debug(f"{row.keys()=}")
             logger.debug(f"{uploaded_archive.contains_identities=}")
             logger.debug(f"{row['predicted_category']=}")
 

@@ -90,7 +90,7 @@ def get_model_config(is_cropped: bool = False) -> Tuple[dict, str, dict]:
     return config, checkpoint_path, artifact_config
 
 
-def load_model_and_predict(image_paths: list) -> Tuple[np.ndarray, Optional[dict]]:
+def load_model_and_predict(image_paths: list) -> Tuple[np.ndarray, np.ndarray, Optional[dict]]:
     """Load model, create dataloaders, and run inference."""
     # from .data_preprocessing import detect_animal, pad_image, detect_animals
     # is_detected = detect_animals(image_paths)
@@ -244,6 +244,7 @@ def run_inference(metadata):
     # run inference
     # image_path = metadata["image_path"].apply(lambda x: os.path.join(MEDIA_DIR_PATH, x))
     image_path = metadata["full_image_path"]
+    logger.debug(f"{image_path=}")
     class_ids, probs_top, id2label = load_model_and_predict(image_path)
     # add inference results to the metadata dataframe
     metadata["predicted_class_id"] = class_ids
@@ -257,8 +258,14 @@ def run_inference(metadata):
 
 def keep_correctly_loaded_images(metadata):
     """Remove file from list if there is the error message."""
-    # logger.debug(f"len(metadata)={len(metadata)}")
+    logger.debug(f"len(metadata)={len(metadata)}")
     # metadata = metadata[metadata["media_type"] == "image"].reset_index(drop=True)
+    # keep media_type==image and media_type == video
+    metadata = metadata[
+        (metadata["media_type"] == "image") | (metadata["media_type"] == "video")
+    ].reset_index(drop=True)
+    # drop media_type== "unknown"
+    # mediadata = metadata[metadata["media_type"] != "unknown"].reset_index(drop=True)
     logger.debug(f"len(metadata)={len(metadata)}")
     metadata = metadata[metadata["read_error"] == ""].reset_index(drop=True)
     logger.debug(f"len(metadata)={len(metadata)}")
