@@ -44,7 +44,7 @@ def init(
         assert "label" in metadata
 
         # remove all unused columns
-        metadata = metadata[["image_path", "class_id", "label"]]
+        metadata = metadata[["image_path", "class_id", "label", "detection_results"]]
 
         # generate embeddings
         features = encode_images(metadata)

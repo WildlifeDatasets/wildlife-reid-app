@@ -1,12 +1,14 @@
 from copy import copy
 
+import pandas as pd
 import numpy as np
 from numpy import arccos
 from numpy.linalg import norm
 from typing import Union
 
 
-def _get_angle(u, v):
+def _get_angle(u: Union[list, np.ndarray], v: Union[list, np.ndarray]):
+    """Calculate the angle between two vectors."""
     u = np.array(u)
     v = np.array(v)
     angle = arccos(u.dot(v) / (norm(u) * norm(v)))
@@ -14,7 +16,8 @@ def _get_angle(u, v):
     return degrees
 
 
-def get_angle(u, v):
+def get_angle(u: Union[list, np.ndarray], v: Union[list, np.ndarray]):
+    """Calculate the angle between list of vectors and return smallest."""
     if len(np.array(u).shape) == 1:
         u = [u]
     if len(np.array(v).shape) == 1:
@@ -28,7 +31,8 @@ def get_angle(u, v):
     return np.min(angles)
 
 
-def get_angle_mat(vectors):
+def get_angle_mat(vectors: list):
+    """Calculate and return angle between all vectors in list."""
     angle_mat = np.ones([len(vectors), len(vectors)]) + 360
     for i, v in enumerate(vectors):
         for j, u in enumerate(vectors):
@@ -38,7 +42,8 @@ def get_angle_mat(vectors):
     return angle_mat
 
 
-def assign_feature(query_data, feature, idx):
+def assign_feature(query_data: Union[list, np.ndarray], feature: np.ndarray, idx: list):
+    """Assign a feature to specified positions in list or array."""
     for i in idx:
         query_data[i] = feature
     return query_data
@@ -59,7 +64,8 @@ def group_features(representation: list, positions: Union[tuple, list]):
     return new_representation
 
 
-def flatten(data):
+def flatten(data: Union[list, np.ndarray]):
+    """Flatten a list of lists into one list."""
     new_data = []
     for d in data:
         if isinstance(d, list):
@@ -70,12 +76,13 @@ def flatten(data):
 
 
 def feature_clustering(
-    features,
-    features_data,
-    similarity,
-    angle_threshold: float = 45,
-    multiplier: float = 2,
+        features: np.ndarray,
+        features_data: pd.DataFrame,
+        similarity: np.ndarray,
+        angle_threshold: float = 45,
+        multiplier: float = 2,
 ):
+    """Cluster features based on similarity scores and angle between features."""
     new_features = copy(features)
 
     # group oid data
@@ -87,7 +94,7 @@ def feature_clustering(
     oid_representations = {o: [] for o in oids}
     oid_idx = {o: [] for o in oids}
     for idx, (feature, iid, scr_row) in enumerate(
-        zip(features, features_data["mediafile_id"], similarity)
+            zip(features, features_data["mediafile_id"], similarity)
     ):
         scr = np.max(scr_row)
         oid = iid_to_oid[iid]
@@ -152,7 +159,8 @@ def feature_clustering(
     return new_features
 
 
-def feature_average(features, features_data):
+def feature_average(features: np.ndarray, features_data: pd.DataFrame):
+    """Calculate average of features."""
     new_features = copy(features)
 
     iid_to_oid = {
@@ -176,7 +184,8 @@ def feature_average(features, features_data):
     return new_features
 
 
-def feature_top(features, features_data, similarity, method):
+def feature_top(features: np.ndarray, features_data: pd.DataFrame, similarity: np.ndarray, method: str):
+    """Returns feature with highiest similarity."""
     new_features = copy(features)
 
     iid_to_oid = {
@@ -188,7 +197,7 @@ def feature_top(features, features_data, similarity, method):
     oid_idx = {o: [] for o in oids}
     oid_individual = {o: [] for o in oids}
     for idx, (feature, iid, scr_row) in enumerate(
-        zip(features, features_data["mediafile_id"], similarity)
+            zip(features, features_data["mediafile_id"], similarity)
     ):
         scr = np.max(scr_row)
         individual = np.argmax(scr_row)
