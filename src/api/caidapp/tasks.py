@@ -44,7 +44,7 @@ def predict_species_on_success(
     extract_identites: bool = False,
     **kwargs,
 ):
-    """Success callback invoked after running predict function in inference worker."""
+    """Import media files after running predict function in taxon worker."""
     status = output.get("status", "unknown")
     logger.info(f"Inference task finished with status '{status}'. Updating database record.")
     uploaded_archive = UploadedArchive.objects.get(id=uploaded_archive_id)
@@ -440,8 +440,8 @@ def update_uploaded_archive_by_metadata_csv(
     starts_at = pd.to_datetime(df["datetime"]).min()
     ends_at = pd.to_datetime(df["datetime"]).max()
     logger.debug(f"{starts_at=}, {ends_at=}")
-    uploaded_archive.starts_at = starts_at
-    uploaded_archive.ends_at = ends_at
+    uploaded_archive.starts_at = str(starts_at)
+    uploaded_archive.ends_at = str(ends_at)
     uploaded_archive.location_at_upload_object = location
     uploaded_archive.save()
 
