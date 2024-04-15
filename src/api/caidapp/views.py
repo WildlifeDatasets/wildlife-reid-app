@@ -23,6 +23,7 @@ from django.forms import modelformset_factory
 from django.http import HttpResponseBadRequest, HttpResponseNotAllowed, JsonResponse
 from django.shortcuts import Http404, HttpResponse, get_object_or_404, redirect, render
 from django.urls import reverse_lazy
+from . import fs_data
 
 from .forms import (
     AlbumForm,
@@ -965,6 +966,130 @@ def upload_archive(
     )
 
 
+@login_required
+def cloud_import_preview_view(request):
+    if len(request.user.caiduser.import_dir) == 0:
+        return HttpResponseNotAllowed("No import directory specified. Ask admin to set it up.")
+
+    # get list of available localities
+
+    params = _user_content_filter_params(request.user.caiduser, "owner")
+
+    path = Path(request.user.caiduser.import_dir)
+    paths_of_location_check = path.glob("./**/????-??-??")
+    # paths_of_locality_check = path.glob("*")
+    # paths_of_locality_check = Path("/import_data").glob("*")
+    archives = UploadedArchive.objects.filter(**params)
+    archives = [str(archive) for archive in archives]
+
+    list_of_location_checks = []
+    text = str(path) + ""
+    for path_of_location_check in paths_of_location_check:
+        location = path_of_location_check.parts[-2]
+        date = path_of_location_check.parts[-1]
+        location_exists = len(Location.objects.filter(name=location, **params)) > 0
+
+        zip_name = f"{location}_{date}.zip"
+        # remove diacritics and spaces from zip_name
+        zip_name = fs_data.remove_diacritics(zip_name).replace(" ", "_")
+
+        zip_name_exists = zip_name in archives
+
+        list_of_location_checks.append(dict(
+            path=str(path_of_location_check.relative_to(path)), location=location, date=date, zip_name=zip_name,
+            location_exists=location_exists,
+            zip_name_exists=zip_name_exists
+        ))
+        # text += str(path_of_location_check.relative_to(path)) + "<br>"
+
+
+    return render(
+        request,
+        "caidapp/cloud_import_checks_preview.html",
+        {
+            "page_obj": list_of_location_checks,
+            "text": text,
+            # "form_objects": form,
+            # "page_title": "Media files",
+            # "user_is_staff": request.user.is_staff,
+            # "form_bulk_processing": form_bulk_processing,
+            # "form_query": queryform,
+            # "albums_available": albums_available,
+            # "number_of_mediafiles": number_of_mediafiles,
+            # "map_html": map_html,
+            # "taxon_stats_html": taxon_stats_html,
+        },
+    )
+
+def make_zipfile(output_filename: Path, source_dir: Path):
+    """Make archive (zip, tar.gz) from a folder.
+
+    Parameters
+    ----------
+    output_filename: Path of output file
+    source_dir: Path to input directory
+    """
+    import shutil
+    output_filename = Path(output_filename)
+    source_dir = Path(source_dir)
+    archive_type = "zip"
+
+    shutil.make_archive(
+        output_filename.parent / output_filename.stem, archive_type, root_dir=source_dir
+    )
+
+
+@login_required
+def do_cloud_import_view(request):
+    """ Bulk import from one dir and prepare zip file for every check.
+
+    Make zip file from every check. The information encoded in path is code of lynx season (i.e. LY2019),
+    locality (Prachatice), date of check (2019-07-01). In the leaf directory are media files (images and videos).
+    For every check there will be zip file. The name of the zip file will be composed of locality and date of check.
+
+    Example of path structure:
+    NETRIDENA/LY2019/PRACHATICE/2019-07-01/2019-07-01_12-00-00_0001.jpg
+
+    """
+    # path = Path(path)
+    # paths_of_locality_check = path.glob("LY*/*/20*")
+
+    if len(request.user.caiduser.import_dir) == 0:
+        return HttpResponseNotAllowed("No import directory specified. Ask admin to set it up.")
+    request.user.caiduser.dir_import_status = "Processing"
+    request.user.caiduser.save()
+
+    # get list of available localities
+
+    params = _user_content_filter_params(request.user.caiduser, "owner")
+
+    path = Path(request.user.caiduser.import_dir)
+    paths_of_location_check = path.glob("./**/????-??-??")
+    # paths_of_locality_check = path.glob("*")
+    # paths_of_locality_check = Path("/import_data").glob("*")
+    text = str(path) + ""
+    for path_of_location_check in paths_of_location_check:
+        location = path_of_location_check.parts[-2]
+        date = path_of_location_check.parts[-1]
+        location_exists = len(Location.objects.filter(name=location, **params)) > 0
+
+        # remove diacritics and spaces from zip_name
+        # zip_name = f"{location}_{date}.zip"
+        # zip_name = fs_data.remove_diacritics(zip_name).replace(" ", "_")
+        #
+        # UploadedArchive.objects.create(
+        #     owner=request.user.caiduser,
+        #     # archivefile=zip_name,
+        #     contains_single_taxon=True,
+        #     contains_identities=False,
+        #     status="Species Finished",
+        # )
+        # TODO finish import
+    request.user.caiduser.dir_import_status = "Finished"
+    request.user.caiduser.save()
+    return redirect("caidapp:cloud_import_preview")
+
+
 def _user_has_rw_access_to_mediafile(ciduser: CaIDUser, mediafile: MediaFile) -> bool:
     """Check if user has access to mediafile."""
     return (mediafile.parent.owner.id == ciduser.id) or (
@@ -1004,7 +1129,7 @@ def _user_content_filter_params(ciduser: CaIDUser, prefix: str) -> dict:
 def _get_all_user_locations(request):
     """Get all users locations."""
     params = _user_content_filter_params(request.user.caiduser, "owner")
-    logger.debug(f"{params=}")
+    # logger.debug(f"{params=}")
     locations = Location.objects.filter(**params).order_by("name")
     return locations
 

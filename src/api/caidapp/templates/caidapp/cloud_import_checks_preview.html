@@ -1,0 +1,158 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block head %}
+    <!--refresh every 120 s-->
+    {#<meta http-equiv="refresh" content="120">#}
+{% endblock %}
+{% block body %}
+    {% if user.is_authenticated %}
+        <div class="pagetitle">
+            <h1>Cloud import</h1>
+{#            <nav>#}
+{#                <ol class="breadcrumb">#}
+{#                    <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li>#}
+{#                </ol>#}
+{#                {%  if user.caiduser.import_dir|length > 0 %}#}
+{#                    <a class="btn btn-secondary" href="{% url 'caidapp:upload_archive' %}"#}
+{#                    data-bs-toggle="tooltip" title="Location: "#}
+{#                    ><i class="bi bi-cloud-arrow-up"></i> Import from cloud</a>#}
+{#                {% endif %}#}
+{##}
+{##}
+{#                <a class="btn {{ btn_styles.upload_species }}" href="{% url 'caidapp:upload_archive' %}"><i class="bi bi-plus-circle"></i> New Upload </a>#}
+{#                <i class="bi bi-arrow-right-short fa-2x" style="vertical-align: middle;"></i>#}
+{#                <a class="btn {{ btn_styles.classify_non_classified }}" href="{% url 'caidapp:manual_taxon_classification_on_non_classified' %}"#}
+{#                   data-bs-toggle="tooltip" title="{{ btn_tooltips.classify_non_classified }}"#}
+{#                >Classify non classified</a>#}
+{#            </nav>#}
+        <p>
+            {{ text }}
+        </p>
+        </div><!-- End Page Title -->
+        <section class="section">
+            {#            <ul class="container">#}
+            <div class="row">
+
+                {% if page_obj %}
+                    {% for uploadedarchive in page_obj %}
+                        <div class="col-xl-3">
+{#                        <div class="col" style="-ms-flex: 0 0 200; flex: 0 0 200;">#}
+                            <div class="card"
+{#                                    {% if uploadedarchive.thumbnail %}#}
+{#                                 style="#}
+{##}
+{#                                         background-image: linear-gradient(to left, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 1.0)), url({{ uploadedarchive.thumbnail.url }});#}
+{#                                         background-repeat: no-repeat;#}
+{#                                         background-position-x: right;#}
+{#                                         background-position-y: center;#}
+{#                                         background-size: cover;#}
+{#                                         "#}
+{##}
+{#                                    {% endif %}#}
+                            >
+                                <div class="card-body"
+                                >
+
+                                    <h5 class="card-title" >{{ uploadedarchive.location }}:
+                                         {{ uploadedarchive.date }}
+{#                                        {% if uploadedarchive.contains_identities %}#}
+{#                                            <i class="bi bi-fingerprint"></i>#}
+{#                                        {% endif %}#}
+{#                                        {% if uploadedarchive.contains_single_taxon %}#}
+{#                                            <i class="bi bi-dice-1"></i>#}
+{#                                        {% endif %}#}
+{##}
+                                    </h5>
+                                    {%  if not uploadedarchive.location_exists %}
+                                            <span class="text text-warning">New location</span>: {{ uploadedarchive.location }} <br>
+                                    {% endif %}
+                                    {%  if uploadedarchive.zip_name_exists %}
+                                        <span class="text text-warning">Already exists</span>: {{ uploadedarchive.zip_name }} <br>
+                                    {% endif %}
+{##}
+{#                                    {{ uploadedarchive.zip_name }} <br>#}
+{#                                    <p>Location: <span data-bs-toggle="tooltip" title="Location: {{ uploadedarchive.location_at_upload_object.name }}">{{ uploadedarchive.location_at_upload_object.visible_name }}</span></p>#}
+                                    {{ uploadedarchive.path }} <br>
+{#                                    <p>{{ uploadedarchive.starts_at|date:'Y-m-d' }} - {{ uploadedarchive.ends_at|date:'Y-m-d' }} </p>#}
+                                </div>
+                            </div>
+                        </div>
+
+                    {% endfor %}
+
+                    <a class="btn btn-primary {% if user.caiduser.dir_import_status == 'Processing' %} disabled {% endif %}"
+                       href="{% url 'caidapp:do_cloud_import' %}">Import all
+                    {% if user.caiduser.dir_import_status == 'Processing' %}
+                        <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                     {% endif %}
+                    </a>
+
+                    <ul class="pagination">
+                        {#                            <span class="step-links">#}
+                        {% if page_obj.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page=1">First </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}">
+                                    <i class="bi-chevron-left"></i>
+                                </a>
+                            </li>
+                        {% else %}
+                            <li class="page-item disabled">
+                                <a class="page-link" href="#">First</a>
+                            </li>
+                            <li class="page-item disabled">
+                                <a class="page-link" href="#">
+                                    <i class="bi-chevron-left"></i>
+                                </a>
+                            </li>
+                        {% endif %}
+
+                        <li class="page-item">
+                            {#                                <span class="current">#}
+                            <a class="page-link" href="#">
+                                Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}.
+                            </a>
+                            {#                                </span>#}
+                        </li>
+
+                        {% if page_obj.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.next_page_number }}">
+                                    <i class="bi-chevron-right"></i>
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">Last</a>
+                            </li>
+
+                        {% else %}
+                            <li class="page-item disabled">
+                                <a class="page-link" href="#">
+                                    <i class="bi-chevron-right"></i>
+                                </a>
+                            </li>
+                            <li class="page-item disabled">
+                                <a class="page-link" href="#">
+                                    Last
+                                    {#                                            <i class="bi-chevron-bar-right"></i>#}
+                                </a>
+                            </li>
+                        {% endif %}
+                        {#                            </span>#}
+                    </ul>
+
+                {% else %}
+                    <p>No data available.</p>
+                    <p><a class="dropdown-item d-flex align-items-center" href="{% url 'caidapp:sample_data' %}">
+                        <i class="fa-solid fa-vial"></i>
+                        <span>Download sample data</span>
+                    </a></p>
+                {% endif %}
+            </div>
+            {#            </ul>#}
+            </div>
+        </section>
+    {% endif %}
+{% endblock %}

@@ -722,6 +722,7 @@ def add_column_with_lynx_id(df: pd.DataFrame, contain_identities: bool = False) 
     return df
 
 
+
 def extract_information_from_dir_structure(
     df_filelist: pd.DataFrame, latin_to_taxonomy_csv_path: Optional[Path] = None
 ) -> pd.DataFrame:
@@ -736,6 +737,8 @@ def extract_information_from_dir_structure(
     metadata: DataFrame containing metadata extracted from path structure.
     If the Sumava directory structure is used the locality, species, and date is extracted.
 
+    Example of expected path
+    NETRIDENA/LY2019/PRACHATICE/2019-07-01/2019-07-01_12-00-00_0001.jpg
     """
     data = dict(
         filename=[],
@@ -814,6 +817,7 @@ def extract_information_from_dir_structure(
             )
             data["location"].append(cleaned_location)
             # data["datetime"].append(datetimei)
+            # TRIDENA/LY2019/PRACHATICE/2019-07-01/2019-07-01_12-00-00_0001.jpg
 
             if pthir.parts[0] not in ("TRIDENA", "NETRIDENA"):
                 # We are in lynx id dir

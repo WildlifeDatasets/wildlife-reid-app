@@ -44,6 +44,7 @@ class CaIDUser(models.Model):
     hash = models.CharField(max_length=50, default=random_string12)
     workgroup = models.ForeignKey(WorkGroup, on_delete=models.CASCADE, null=True, blank=True)
     workgroup_admin = models.BooleanField(default=False)
+    import_dir = models.CharField(max_length=255, blank=True, default="")
     dir_import_status = models.CharField(max_length=255, blank=True, default="")
     dir_import_message = models.CharField(max_length=255, blank=True, default="")
 

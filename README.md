@@ -15,6 +15,12 @@ echo "CAID_HOST=147.228..." >> .env
 export CAID_HOST="147.228..."
 ```
 
+Optianally, you can add `DATA_IMPORT_DIR` to your environment variables.
+
+```bash
+echo "DATA_IMPORT_DIR=/path/to/data" >> .env
+```
+
 ```bash
 wget https://bootstrapmade.com/content/templatefiles/NiceAdmin/NiceAdmin.zip
 unzip NiceAdmin.zip

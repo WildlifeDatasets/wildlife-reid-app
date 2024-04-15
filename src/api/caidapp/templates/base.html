@@ -350,6 +350,12 @@
                             <span>Taxons</span>
                         </a>
                     </li>
+                    {%  if user.caiduser.import_dir|length > 0 %}
+                    <li>
+                            <a class="nav-link collapsed" href="{% url 'caidapp:cloud_import_preview' %}"
+                            ><i class="bi bi-cloud-arrow-up"></i> Cloud upload </a>
+                    </li>
+                    {% endif %}
                 </ul>
             </li>
 {#            <li class="nav-item">#}

@@ -11,6 +11,22 @@ import skimage.transform
 
 logger = logging.getLogger(__file__)
 
+import unicodedata
+
+
+def remove_diacritics(input_str):
+    """
+    Removes diacritics (accents) from the given Unicode string. The function decomposes the string into its
+    combining characters, removes any diacritic characters, and then recomposes the string.
+    """
+    # Normalize the input string to NFD (Normalization Form Decomposed)
+    normalized = unicodedata.normalize('NFD', input_str)
+
+    # Filter out combining characters (those in category 'Mn')
+    filtered = ''.join(c for c in normalized if unicodedata.category(c) != 'Mn')
+
+    # Return the normalized string
+    return unicodedata.normalize('NFC', filtered)
 
 def make_thumbnail_from_file(image_path: Path, thumbnail_path: Path, width: int = 800) -> bool:
     """Create small thumbnail image from input image.
