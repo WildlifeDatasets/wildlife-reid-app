@@ -44,6 +44,8 @@ class CaIDUser(models.Model):
     hash = models.CharField(max_length=50, default=random_string12)
     workgroup = models.ForeignKey(WorkGroup, on_delete=models.CASCADE, null=True, blank=True)
     workgroup_admin = models.BooleanField(default=False)
+    dir_import_status = models.CharField(max_length=255, blank=True, default="")
+    dir_import_message = models.CharField(max_length=255, blank=True, default="")
 
     @receiver(post_save, sender=DjangoUser)
     def create_user_profile(sender, instance, created, **kwargs):  # NOSONAR
@@ -152,6 +154,15 @@ def auto_delete_file_on_delete(sender, instance, **kwargs):
 
 
 
+# class Notification(models.Model):
+#     title = models.CharField(max_length=255)
+#     message = models.CharField(max_length=255)
+#     owner = models.ForeignKey(CaIDUser, on_delete=models.CASCADE, null=True, blank=True)
+#     created_at = models.DateTimeField("Created at", default=datetime.now)
+#     read_at = models.DateTimeField("Read at", blank=True, null=True)
+#
+#     def __str__(self):
+#         return str(self.title)
 
 
 
