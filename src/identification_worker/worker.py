@@ -133,9 +133,13 @@ def predict(
                     metadata["sequence_number"] = np.where(
                         metadata["location"].isna(), -1, metadata["sequence_number"]
                     )
+                logger.debug(f"{list(metadata.image_path)}")
+                query_image_path = list(metadata.image_path)
+                query_masked_path = [p.replace("/images/", "/masked_images/") for p in query_image_path]
 
                 # generate embeddings
                 features = encode_images(metadata)
+
 
                 # get reference embeddings
                 reference_features = np.array(reference_images["embedding"].tolist())
@@ -143,7 +147,7 @@ def predict(
 
                 # make predictions by comparing the embeddings using k-NN
                 logger.info("Making predictions using .")
-                pred_image_paths, pred_class_ids, scores = identify(
+                identification_output = identify(
                     features,
                     reference_features,
                     reference_image_paths=reference_images["image_path"],
@@ -151,18 +155,15 @@ def predict(
                     metadata=metadata,
                     top_k=top_k,
                 )
-                pred_labels = [[id2label[x] for x in row] for row in pred_class_ids]
-                output_data = dict(
-                    mediafile_ids=metadata["mediafile_id"].tolist(),
-                    pred_image_paths=pred_image_paths,
-                    pred_class_ids=pred_class_ids.tolist(),
-                    pred_labels=pred_labels,
-                    scores=scores.tolist(),
-                )
+                pred_labels = [[id2label[x] for x in row] for row in identification_output["pred_class_ids"]]
+                identification_output["mediafile_ids"] = metadata["mediafile_id"].tolist()
+                identification_output["pred_labels"] = pred_labels
+                identification_output["query_image_path"] = query_image_path
+                identification_output["query_masked_path"] = query_masked_path
 
                 # save output to json
                 with open(output_json_file_path, "w") as f:
-                    json.dump(output_data, f)
+                    json.dump(identification_output, f)
 
                 logger.info("Finished processing.")
                 out = {"status": "DONE", "output_json_file": output_json_file_path}

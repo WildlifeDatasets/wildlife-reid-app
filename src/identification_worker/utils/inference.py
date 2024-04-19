@@ -270,7 +270,7 @@ def identify(
         reference_class_ids: list,
         metadata: pd.DataFrame,
         top_k: int = 1,
-) -> Tuple[list, np.ndarray, np.ndarray]:
+) -> dict:
     """Compare input feature vectors with the reference feature vectors and make predictions."""
     assert len(reference_features) == len(reference_image_paths)
     assert len(reference_features) == len(reference_class_ids)
@@ -308,9 +308,26 @@ def identify(
         scores.append(np.clip(row[2], 0, 1).tolist())
 
     # return path to original image
+    masked_image_paths = pred_image_paths
     _pred_image_paths = []
     for paths in pred_image_paths:
         _pred_image_paths.append([p.replace("/masked_images/", "/images/") for p in paths])
     pred_image_paths = _pred_image_paths
 
-    return pred_image_paths, np.array(pred_class_ids), np.array(scores)
+    keypoints = []
+    for j in range(len(features)):
+        _keypoints = []
+        for i in range(3):
+            kp0 = (np.random.rand(120, 2)*100).tolist()
+            kp1 = (np.random.rand(120, 2)*100).tolist()
+            _keypoints.append((kp0, kp1))
+        keypoints.append(_keypoints)
+
+    output = {
+        "pred_image_paths": pred_image_paths,
+        "pred_masked_paths": masked_image_paths,
+        "pred_class_ids": pred_class_ids,
+        "scores": scores,
+        "keypoints": keypoints,
+    }
+    return output
