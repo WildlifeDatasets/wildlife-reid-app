@@ -28,7 +28,8 @@ def predict(
     output_archive_file: str,
     output_metadata_file: str,
     contains_identities: bool = False,
-    force_init: bool = False,
+    # force_init: bool = False,
+    force_init: bool = True,  # TODO turn off when the fix of partial run is in place
     **kwargs,
 ):
     """Main method called by Celery broker.
