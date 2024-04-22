@@ -101,7 +101,7 @@ class Location(models.Model):
     owner = models.ForeignKey(CaIDUser, on_delete=models.SET_NULL, null=True, blank=True)
 
     def __str__(self):
-        return str(self.visible_name)
+        return str(self.name)
 
 class UploadedArchive(models.Model):
     uploaded_at = models.DateTimeField("Uploaded at", default=datetime.now)
@@ -129,6 +129,7 @@ class UploadedArchive(models.Model):
     contains_identities = models.BooleanField(default=False)
     contains_single_taxon = models.BooleanField(default=False)
     taxon_for_identification = models.ForeignKey(Taxon, on_delete=models.SET_NULL, null=True, blank=True)
+    mediafiles_imported = models.BooleanField("Media Files Imported Correctly", default=False)
 
 
     def update_location_in_mediafiles(self, location:Union[str, Location]):

@@ -3,6 +3,10 @@
 
 # Changelog
 
+## 04-2024
+
+* [added] Taxon classification by detection if necessary
+
 ## 03-2024
 
 * [added] Visible name for locations

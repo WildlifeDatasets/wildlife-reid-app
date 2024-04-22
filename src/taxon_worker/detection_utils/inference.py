@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Union, Optional
 
 import cv2
 import numpy as np
+import pandas as pd
 import torch
 from PIL import Image
 from tqdm import tqdm
@@ -116,10 +117,15 @@ def del_detection_model():
 
 
 def detect_animals_in_one_image(image_rgb: np.ndarray) -> Optional[List[Dict[str, Any]]]:
-    """Detect an animal in a given image."""
+    """Detect an animal in a given image.
+
+    Expected classes are: {0: 'animal', 1: 'person', 2: 'vehicle'}
+    """
+
     detection_model = get_detection_model()
     results = detection_model(image_rgb)
     id2label = results.names
+    logger.debug(f"{id2label=}")
 
     batch_idx = 0
     results = results.xyxy[batch_idx].cpu().numpy()
@@ -149,8 +155,12 @@ def detect_animals_in_one_image(image_rgb: np.ndarray) -> Optional[List[Dict[str
     return results_list
 
 
-def detect_animal_on_metadata(metadata, border=0.0):
-    """Do the detection and segmentation on images in metadata."""
+def detect_animal_on_metadata(metadata:pd.DataFrame, border=0.0) -> pd.DataFrame:
+    """Do the detection and segmentation on images in metadata.
+
+    Returns:
+        pd.DataFrame: metadata with added detection results.
+    """
     assert "full_image_path" in metadata
     logger.info("Running detection inference.")
     for row_idx, row in tqdm(metadata.iterrows()):
@@ -193,3 +203,4 @@ def detect_animal_on_metadata(metadata, border=0.0):
                 f"Cannot process image '{image_abs_path}'. Exception: {traceback.format_exc()}"
             )
     del_detection_model()
+    return metadata
