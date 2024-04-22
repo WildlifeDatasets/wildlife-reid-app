@@ -28,8 +28,7 @@ def predict(
     output_archive_file: str,
     output_metadata_file: str,
     contains_identities: bool = False,
-    # force_init: bool = False,
-    force_init: bool = True,  # TODO turn off when the fix of partial run is in place
+    force_init: bool = False,
     **kwargs,
 ):
     """Main method called by Celery broker.
@@ -74,6 +73,9 @@ def predict(
             metadata = data_processing_pipeline.keep_correctly_loaded_images(metadata)
         else:
             logger.debug(f"Using existing metadata file: {output_metadata_file}. {output_metadata_file.exists()=}")
+            # print size of file in bytes
+            logger.debug(f"{output_metadata_file=}, {output_metadata_file.stat().st_size=}")
+            #read file as str
             metadata = pd.read_csv(output_metadata_file, index_col=0)
             metadata["full_image_path"] = metadata["image_path"].apply(
                 lambda x: str(output_images_dir / x)
@@ -81,6 +83,7 @@ def predict(
             metadata["full_orig_media_path"] = [pth for pth in metadata["full_image_path"]]
             metadata["detection_results"] = [None] * len(metadata)
 
+        logger.debug(f"Metadata file: {output_metadata_file}. {output_metadata_file.exists()=}")
         logger.debug(f"{len(metadata['image_path'])=}")
         if len(metadata["image_path"]) > 0:
             logger.debug(
