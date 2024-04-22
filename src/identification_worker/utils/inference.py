@@ -68,7 +68,7 @@ def download_file_if_does_not_exists(url: str, output_file: str):
     """Download file from url."""
     logger.debug("Checking if file does not exists.")
     if not os.path.exists(output_file):
-        logger.debug("File does not exists. Downloading.")
+        logger.debug(f"File does not exists. Downloading. {output_file=}")
         Path(output_file).parent.mkdir(parents=True, exist_ok=True)
         download_file(url, output_file)
 
@@ -96,11 +96,11 @@ def get_sam_model():
     if SAM is None:
         download_file_if_does_not_exists(
             "http://ptak.felk.cvut.cz/plants/DanishFungiDataset/sam_vit_h_4b8939.pth",
-            "/taxon_worker/resources/sam_vit_h_4b8939.pth",
+            "/identification_worker/resources/sam_vit_h_4b8939.pth",
         )
 
         logger.info("Initializing SAM model and loading pre-trained checkpoint.")
-        _checkpoint_path = Path("/taxon_worker/resources/sam_vit_h_4b8939.pth").expanduser()
+        _checkpoint_path = Path("/identification_worker/resources/sam_vit_h_4b8939.pth").expanduser()
         SAM = sam_model_registry["vit_h"](checkpoint=str(_checkpoint_path))
         SAM.to(device=DEVICE)
         SAM_PREDICTOR = SamPredictor(SAM)

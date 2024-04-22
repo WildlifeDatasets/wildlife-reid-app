@@ -214,3 +214,18 @@ def test_make_input_tarfile():
     # shutil.make_archive(output_tarfile.parent / output_tarfile.stem, "zip", root_dir=dir_path)
     # make_tarfile(output_tarfile, dir_path)
     assert output_tarfile.exists()
+
+
+
+def test_import_dir():
+    """Test import directory."""
+    dir_path = CAID_DATASET_BASEDIR / "test_micro_data"
+    assert False
+    # metadata, duplicates = dataset_tools.import_dir(dir_path)
+    # assert len(metadata) > 3
+    # assert len(metadata.location.unique()) > 1, "There should be some localities."
+    # assert len(metadata.unique_name.unique()) > 1, "There should be some unique names."
+    # assert len(duplicates) > 0
+    # rows_with_duplicate = metadata[metadata.content_hash == duplicates.content_hash[0]]
+    # assert len(rows_with_duplicate) > 0
+    # assert rows_with_duplicate.annotated.iat[0] == True  # noqa

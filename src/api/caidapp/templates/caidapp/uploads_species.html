@@ -12,6 +12,13 @@
                 <ol class="breadcrumb">
                     <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li>
                 </ol>
+                {%  if user.caiduser.import_dir|length > 0 %}
+                    <a class="btn btn-secondary" href="{% url 'caidapp:upload_archive' %}"
+                    data-bs-toggle="tooltip" title="Location: "
+                    ><i class="bi bi-cloud-arrow-up"></i> Import from cloud</a>
+                {% endif %}
+
+
                 <a class="btn {{ btn_styles.upload_species }}" href="{% url 'caidapp:upload_archive' %}"><i class="bi bi-plus-circle"></i> New Upload </a>
                 <i class="bi bi-arrow-right-short fa-2x" style="vertical-align: middle;"></i>
                 <a class="btn {{ btn_styles.classify_non_classified }}" href="{% url 'caidapp:manual_taxon_classification_on_non_classified' %}"
