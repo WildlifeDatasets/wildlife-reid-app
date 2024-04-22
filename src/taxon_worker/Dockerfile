@@ -39,8 +39,7 @@ RUN pip install \
     opencv-python==4.5.5.64 \
     opencv-python-headless==4.5.5.64
 
-# RUN pip install timm==0.6.13
-
+RUN pip install timm==0.6.13
 
 # expose ports and run application
 WORKDIR $APP_DIR
