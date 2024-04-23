@@ -7,6 +7,7 @@
 
 * [added] Taxon classification by detection if necessary
 * [fixed] Re-run of taxon classification works again for workgroup users
+* [added] Paired points from LOFTR are now shown in the detail view
 
 ## 03-2024
 

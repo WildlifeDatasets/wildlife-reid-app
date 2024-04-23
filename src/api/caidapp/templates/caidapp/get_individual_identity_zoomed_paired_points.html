@@ -4,17 +4,25 @@
                         <div class="row" id="row-of-cards">
 
 {#                       Unknown image#}
-                            <div class="{{ col_style }} me-5" id="card{{ mediafile.id }}">
-                                <div class="card">
-                                    <img class="card-img-top" src="{{ foridentification.mediafile.mediafile.url }}"
-                                         alt="Camera trap">
-                                </div>
-                            </div>
+{#                            <div class="{{ col_style }} me-5" id="card{{ mediafile.id }}">#}
+{#                                <div class="card">#}
+{#                                    <img class="card-img-top" src="{{ foridentification.mediafile.mediafile.url }}"#}
+{#                                         alt="Camera trap">#}
+{#                                </div>#}
+{#                            </div>#}
 
 {#                    Top N #}
                             <div class="{{ col_style }}" id="card{{ mediafile.id }}">
                                 <div class="card">
-                                    <img class="card-img-top" src="{{ top_mediafile.mediafile.url }}" alt="Camera trap">
+                                    <img class="card-img-top"
+                                         src=
+                                    {% if html_img_src %}
+
+                                                    {% autoescape off %}
+                                                        {{ html_img_src }}
+                                                    {% endautoescape %}
+                                    {% endif %}
+                                    alt="Camera trap" >
                                     <div class="card-body">
                                         <div class="card-title">
                                             Top-{{ top_id }}: {{ top_name }}

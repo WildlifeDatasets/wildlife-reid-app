@@ -16,6 +16,6 @@ def test_show_pair():
     database_name = "database"
 
 
-    gui_tools.create_match_image(kp0, kp1, img0, img1, query_name, database_name)
+    gui_tools.create_match_img_src(kp0, kp1, img0, img1, query_name, database_name)
     # gui_tools.create_match_image_plotly(kp0, kp1, img0, img1, query_name, database_name)
     assert True

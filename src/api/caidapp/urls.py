@@ -116,6 +116,11 @@ urlpatterns = [
         name="get_individual_identity_zoomed",
     ),
     path(
+        "get_individual_identity_zoomed_paired_points/<int:foridentification_id>/<int:top_id>",
+        views.get_individual_identity_zoomed_paired_points,
+        name="get_individual_identity_zoomed_paired_points",
+    ),
+    path(
         "get_individual_identity/",
         views.get_individual_identity_from_foridentification,
         name="get_individual_identity",

@@ -42,7 +42,7 @@ def array_image_to_html(image: np.array, format: str = "png") -> str:
     return html_output
 
 
-def create_match_image(
+def create_match_img_src(
         kp0:list, kp1:list,
         query_image:np.array, database_image:np.array,
         query_name:str, database_name:str,
@@ -78,7 +78,8 @@ def create_match_image(
     tmpfile = BytesIO()
     fig.savefig(tmpfile, format='png')
     encoded = base64.b64encode(tmpfile.getvalue()).decode('utf-8')
-    html = f"<img src=\'data:image/png;base64,{encoded}\'>"
+    # html = f"<img src=\'data:image/png;base64,{encoded}\'>"
+    html = f"\'data:image/png;base64,{encoded}\'"
     return html
 
 

@@ -238,6 +238,7 @@ class MediafilesForIdentification(models.Model):
     top1name = models.CharField(max_length=255, blank=True, default="")
     top2name = models.CharField(max_length=255, blank=True, default="")
     top3name = models.CharField(max_length=255, blank=True, default="")
+    paired_points = models.JSONField(blank=True, null=True)
 
 
 class Album(models.Model):

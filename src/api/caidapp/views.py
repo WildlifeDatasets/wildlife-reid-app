@@ -494,8 +494,11 @@ def delete_individual_identity(request, individual_identity_id):
     individual_identity.delete()
     return redirect("caidapp:individual_identities")
 
+def get_individual_identity_zoomed_paired_points(request, foridentification_id: int, top_id: int):
+    return get_individual_identity_zoomed(request, foridentification_id, top_id, points=True)
 
-def get_individual_identity_zoomed(request, foridentification_id: int, top_id: int):
+
+def get_individual_identity_zoomed(request, foridentification_id: int, top_id: int, points=False):
     """Show and update media file."""
     foridentifications = MediafilesForIdentification.objects.filter(
         mediafile__parent__owner__workgroup=request.user.caiduser.workgroup
@@ -504,12 +507,56 @@ def get_individual_identity_zoomed(request, foridentification_id: int, top_id: i
     if foridentification.mediafile.parent.owner.workgroup != request.user.caiduser.workgroup:
         return HttpResponseNotAllowed("Not allowed to work with this media file.")
 
+    top_id, top_mediafile, top_name, top_score, paired_points = _select_pair_for_detail_identification(foridentification, top_id)
+
+    if points:
+        from . import gui_tools
+        logger.debug(f"{top_mediafile.mediafile.name}")
+        # read image with PIL
+        from PIL import Image
+        import numpy as np
+
+        img0 = np.array(Image.open(Path(settings.MEDIA_ROOT) / foridentification.mediafile.mediafile.name))
+        img1 = np.array(Image.open(Path(settings.MEDIA_ROOT) / top_mediafile.mediafile.name))
+        logger.debug(f"{foridentification.paired_points=}")
+        logger.debug(f"{paired_points=}")
+
+        # skimage.io.imwrite(top_mediafile.name)
+        html_img_src = gui_tools.create_match_img_src(paired_points[0], paired_points[1], img0, img1, top_name, top_name)
+        template = "caidapp/get_individual_identity_zoomed_paired_points.html"
+        btn_link = reverse_lazy('caidapp:get_individual_identity_zoomed', kwargs={"foridentification_id": foridentification_id, "top_id": top_id})
+        btn_icon_style = "fa fa-eye"
+        # btn_icon_style = "bi bi-zoom-out"
+    else:
+        template = "caidapp/get_individual_identity_zoomed.html"
+        html_img_src = None
+        btn_link = reverse_lazy('caidapp:get_individual_identity_zoomed_paired_points', kwargs={"foridentification_id": foridentification_id, "top_id": top_id})
+        btn_icon_style = "fa-solid fa-arrows-to-dot"
+
+    return render(
+        request,
+        template,
+        {
+            "foridentification": foridentification,
+            "foridentifications": foridentifications,
+            "top_id": top_id,
+            "top_mediafile": top_mediafile,
+            "top_score": top_score,
+            "top_name": top_name,
+            "html_img_src": html_img_src,
+            "btn_link": btn_link,
+            "btn_icon_style" : btn_icon_style,
+        },
+    )
+
+
+def _select_pair_for_detail_identification(foridentification, top_id):
+
     # modulo
     if top_id == 0:
         top_id = 3
     elif top_id == 4:
         top_id = 1
-
     if top_id == 1:
         top_mediafile = foridentification.top1mediafile
         top_score = foridentification.top1score
@@ -524,18 +571,12 @@ def get_individual_identity_zoomed(request, foridentification_id: int, top_id: i
         top_name = foridentification.top3name
     else:
         HttpResponseBadRequest("Wrong top_id.")
-    return render(
-        request,
-        "caidapp/get_individual_identity_zoomed.html",
-        {
-            "foridentification": foridentification,
-            "foridentifications": foridentifications,
-            "top_id": top_id,
-            "top_mediafile": top_mediafile,
-            "top_score": top_score,
-            "top_name": top_name,
-        },
-    )
+
+    if (top_id - 1) < len(foridentification.paired_points):
+        paired_points = foridentification.paired_points[top_id - 1]
+    else:
+        paired_points = [[],[]]
+    return top_id, top_mediafile, top_name, top_score, paired_points
 
 
 def not_identified_mediafiles(request):

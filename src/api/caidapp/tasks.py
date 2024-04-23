@@ -698,6 +698,7 @@ def identify_on_success(self, output: dict, *args, **kwargs):
         assert "pred_class_ids" in data
         assert "pred_labels" in data
         assert "scores" in data
+        assert "keypoints" in data
 
         media_root = Path(settings.MEDIA_ROOT)
 
@@ -719,6 +720,8 @@ def identify_on_success(self, output: dict, *args, **kwargs):
 
 
 def _prepare_mediafile_for_identification(data, i, media_root, mediafile_id):
+    """Prepare media files for i-th queried image."""
+
     top_k_class_ids = data["pred_class_ids"][i]
     top_k_labels = data["pred_labels"][i]
     top_k_paths = data["pred_image_paths"][i]
@@ -765,6 +768,7 @@ def _prepare_mediafile_for_identification(data, i, media_root, mediafile_id):
         mfi.top3mediafile = top3_mediafile
         mfi.top3score = top_k_scores[2]
         mfi.top3name = top_k_labels[2]
+        mfi.paired_points = data["keypoints"][i]
         mfi.save()
         _identity_mismatch_waning(top1_mediafile, top2_mediafile, top3_mediafile, top_k_labels)
 

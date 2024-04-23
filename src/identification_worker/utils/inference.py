@@ -23,7 +23,7 @@ from .postprocessing import feature_top
 from .inference_local import get_merged_predictions
 
 logger = logging.getLogger("app")
-DEVICE = set_cuda_device("cuda:0" if torch.cuda.is_available() else "cpu")
+DEVICE = set_cuda_device("cuda:1" if torch.cuda.is_available() else "cpu")
 logger.info(f"Using device: {DEVICE}")
 
 IDENTIFICATION_MODEL = None
