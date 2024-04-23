@@ -475,7 +475,7 @@ def update_metadata_csv_by_uploaded_archive(
     output_dir = Path(settings.MEDIA_ROOT) / uploaded_archive.outputdir
     logger.debug(f"{uploaded_archive.csv_file=}")
     csv_file = Path(settings.MEDIA_ROOT) / str(uploaded_archive.csv_file)
-    logger.debug(f"{csv_file=} {Path(csv_file).exists()}, {Path(csv_file).stat().st_size=}")
+    logger.debug(f"{csv_file=} {Path(csv_file).exists()}")
 
 
     if not Path(csv_file).exists():
