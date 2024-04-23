@@ -20,6 +20,7 @@ from wildlife_tools.similarity import CosineSimilarity
 from fgvc.utils.utils import set_cuda_device
 
 from .postprocessing import feature_top
+from .inference_local import get_merged_predictions
 
 logger = logging.getLogger("app")
 DEVICE = set_cuda_device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -288,24 +289,47 @@ def identify(
     _features = features[idx]
     _metadata = metadata.iloc[idx]
     if len(_metadata) > 0:
+        logger.info(f"Starting identification postprocessing.")
         mew_features = feature_top(_features, _metadata, _similarity, "top_score")
         features[idx] = mew_features
         similarity = similarity_measure(
             features.astype(np.float32), reference_features.astype(np.float32)
         )["cosine"]
 
-    top_predictions = _get_top_predictions(
-        similarity, reference_image_paths, reference_class_ids, top_k=top_k
+    query_metadata = pd.DataFrame(
+        {
+            "path": metadata["image_path"],
+            "identity": [-1] * len(metadata["image_path"]),
+            "split": ["test"] * len(metadata["image_path"])
+        })
+    database_metadata = pd.DataFrame(
+        {
+            "path": reference_image_paths,
+            "identity": reference_class_ids,
+            "split": ["train"] * len(reference_class_ids)
+        })
+
+    k_range = 50
+    logger.info(f"Starting loftr prediction with k_range: {k_range}.")
+    predicted_idx, keypoints = get_merged_predictions(
+        query_metadata,
+        database_metadata,
+        similarity,
+        k_range=k_range,
+        num_kp=10
     )
 
     pred_image_paths = []
     pred_class_ids = []
     scores = []
+    for query_idx, reference_idxs in enumerate(predicted_idx):
+        _pred_image_paths = [reference_image_paths[idx] for idx in reference_idxs]
+        _pred_class_ids = [int(reference_class_ids[idx]) for idx in reference_idxs]
+        _scores = np.clip(similarity[query_idx, reference_idxs], 0, 1).astype(float).tolist()
 
-    for row in top_predictions:
-        pred_class_ids.append(row[0])
-        pred_image_paths.append(row[1])
-        scores.append(np.clip(row[2], 0, 1).tolist())
+        pred_image_paths.append(_pred_image_paths)
+        pred_class_ids.append(_pred_class_ids)
+        scores.append(_scores)
 
     # return path to original image
     masked_image_paths = pred_image_paths
@@ -313,15 +337,6 @@ def identify(
     for paths in pred_image_paths:
         _pred_image_paths.append([p.replace("/masked_images/", "/images/") for p in paths])
     pred_image_paths = _pred_image_paths
-
-    keypoints = []
-    for j in range(len(features)):
-        _keypoints = []
-        for i in range(3):
-            kp0 = (np.random.rand(120, 2)*100).tolist()
-            kp1 = (np.random.rand(120, 2)*100).tolist()
-            _keypoints.append((kp0, kp1))
-        keypoints.append(_keypoints)
 
     output = {
         "pred_image_paths": pred_image_paths,
