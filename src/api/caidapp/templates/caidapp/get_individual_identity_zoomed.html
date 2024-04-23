@@ -57,39 +57,40 @@
                 <div class="row" id="row-of-cards">
 
                 {#                   Unknown image#}
-                <div class="{{ col_style }} me-5" id="card{{ mediafile.id }}">
-                    <div class="card">
-                        <img class="card-img-top" src="{{ foridentification.mediafile.mediafile.url }}"
-                             alt="Camera trap">
+                    <div class="{{ col_style }} me-5" id="card{{ mediafile.id }}">
+                        <div class="card">
+                            <img class="card-img-top" src="{{ foridentification.mediafile.mediafile.url }}"
+                                 alt="Camera trap">
+                        </div>
                     </div>
-                </div>
 
-                {#                Top N #}
-                <div class="{{ col_style }}" id="card{{ mediafile.id }}">
-                    <div class="card">
-                        <img class="card-img-top" src="{{ top_mediafile.mediafile.url }}" alt="Camera trap">
-                        <div class="card-body">
-                            <div class="card-title">
-                                Top-{{ top_id }}: {{ top_name }}
+                    {#                Top N #}
+                    <div class="{{ col_style }}" id="card{{ mediafile.id }}">
+                        <div class="card">
+                            <img class="card-img-top" src="{{ top_mediafile.mediafile.url }}" alt="Camera trap">
+                            <div class="card-body">
+                                <div class="card-title">
+                                    Top-{{ top_id }}: {{ top_name }}
+                                </div>
+                                <p class="card-text">
+                                    {{ top_score|floatformat:2 }}
+                                </p>
+                                <p class="card-text">
+                                    {% if top_mediafile.identity %}
+                                        <a href="{% url 'caidapp:set_individual_identity' foridentification.id top_mediafile.identity.id %}"
+                                           class="btn btn-primary">Select</a>
+                                    {% else %}
+                                        Identity does not exist
+                                    {% endif %}
+                                </p>
                             </div>
-                            <p class="card-text">
-                                {{ top_score|floatformat:2 }}
-                            </p>
-                            <p class="card-text">
-                                {% if top_mediafile.identity %}
-                                    <a href="{% url 'caidapp:set_individual_identity' foridentification.id top_mediafile.identity.id %}"
-                                       class="btn btn-primary">Select</a>
-                                {% else %}
-                                    Identity does not exist
-                                {% endif %}
-                            </p>
                         </div>
                     </div>
                 </div>
             {% else %}
                 <p>No media files left to identify.</p>
             {% endif %}
-        </div>
+            </div>  {# End section #}
         {% endif %}
         {#</div>#}
     {% endwith %}
