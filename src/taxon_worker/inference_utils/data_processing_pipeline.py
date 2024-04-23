@@ -90,7 +90,7 @@ def get_model_config(is_cropped: bool = False) -> Tuple[dict, str, dict]:
     return config, checkpoint_path, artifact_config
 
 
-def load_model_and_predict(image_paths: list) -> Tuple[np.ndarray, np.ndarray, Optional[dict]]:
+def load_model_and_predict_and_add_not_classified(image_paths: list) -> Tuple[np.ndarray, np.ndarray, dict]:
     """Load model, create dataloaders, and run inference."""
     # from .data_preprocessing import detect_animal, pad_image, detect_animals
     # is_detected = detect_animals(image_paths)
@@ -104,7 +104,7 @@ def load_model_and_predict(image_paths: list) -> Tuple[np.ndarray, np.ndarray, O
         f"model_mean={model_mean}, model_std={model_std}, "
         + f"checkpoint_path={checkpoint_path}, config={config}"
     )
-    logger.debug(f"{image_paths[0]=}")
+    # logger.debug(f"{image_paths[0]=}")
 
     logger.info("Creating DataLoaders.")
     _, testloader, _, _ = get_dataloaders(
@@ -140,6 +140,11 @@ def load_model_and_predict(image_paths: list) -> Tuple[np.ndarray, np.ndarray, O
     ), "Artifact id2th does not contain sorted list of thresholds for every class."
 
     id2label = artifact_config.get("id2label")
+    # # print all items in id2label
+    # logger.debug("id2label")
+    # for k, v in id2label.items():
+    #     logger.debug(f"{k=}, {v=}")
+
     assert np.max(list(id2label.keys())) == (
         len(id2label) - 1
     ), "Some of the labels is missing in id2label."
@@ -157,7 +162,7 @@ def load_model_and_predict(image_paths: list) -> Tuple[np.ndarray, np.ndarray, O
 
 
 def do_thresholding_on_probs(probs: np.array, id2threshold: dict) -> Tuple[np.array, np.array]:
-    """Use the thresholds to do the classification.
+    """Use the thresholds to do the classification and add class "Not Classified".
 
     The images with all softmax values under the classification threshold are marked
     as not-classified.
@@ -246,8 +251,14 @@ def run_inference(metadata):
     # run inference
     # image_path = metadata["image_path"].apply(lambda x: os.path.join(MEDIA_DIR_PATH, x))
     image_path = metadata["full_image_path"]
-    logger.debug(f"{image_path=}")
-    class_ids, probs_top, id2label = load_model_and_predict(image_path)
+    logger.debug(f"image path    {image_path=}")
+    class_ids, probs_top, id2label = load_model_and_predict_and_add_not_classified(image_path)
+
+    # Add class Animalia
+    id2label[len(id2label)] = "Animalia"
+
+    use_detector_class_if_classification_fails(id2label, metadata, class_ids, probs_top)
+
     # add inference results to the metadata dataframe
     metadata["predicted_class_id"] = class_ids
     metadata["predicted_prob"] = probs_top
@@ -256,6 +267,39 @@ def run_inference(metadata):
         metadata["predicted_category"] = metadata["predicted_class_id"].apply(
             lambda x: id2label.get(x, np.nan)
         )
+
+
+def use_detector_class_if_classification_fails(
+        id2label:dict, metadata:pd.DataFrame, class_ids:np.ndarray, probs_top:np.ndarray
+) -> Tuple[pd.DataFrame, np.array, np.array]:
+    """Use the detection results if the classification fails.
+
+    If the record is Not Classified then we use the output class of the detector.
+    """
+
+    # invert dict id2label
+    label2id = {v: k for k, v in id2label.items()}
+    id_not_classified = label2id["Not Classified"]
+    for i, predicted_class_id in enumerate(class_ids):
+        if predicted_class_id == id_not_classified:
+            detection_results = metadata["detection_results"][i]
+            if len(detection_results) > 0:
+                detection_result = detection_results[0]
+                logger.debug(f"{detection_result['class']=}")
+                logger.debug(f"{detection_result['confidence']=}")
+                if detection_result["class"] == 'person':
+                    class_ids[i] = label2id["Homo Sapience"]
+                    probs_top[i] = detection_result["confidence"]
+
+                if detection_result["class"] == 'vehicle':
+                    class_ids[i] = label2id["Vehicle"]
+                    probs_top[i] = detection_result["confidence"]
+
+                if detection_result["class"] == 'animal':
+                    class_ids[i] = label2id["Animalia"]
+                    probs_top[i] = detection_result["confidence"]
+
+    return metadata, class_ids, probs_top
 
 
 def keep_correctly_loaded_images(metadata):

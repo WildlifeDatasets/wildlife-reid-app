@@ -8,6 +8,7 @@ services:
     environment:
       RABBITMQ_DEFAULT_USER: user
       RABBITMQ_DEFAULT_PASS: 22pmDB%c
+      TZ: Europe/Prague
     expose:
       - 15672  # management tool
     networks:
@@ -32,6 +33,8 @@ services:
       - backend
     labels:
       com.piva-ai.group: "applications"
+    environment:
+      TZ: Europe/Prague
 
   db:
     image: postgres:14.4-alpine
@@ -61,6 +64,7 @@ services:
     restart: always
     environment:
       CAID_HOST: ${CAID_HOST:-localhost}
+      TZ: Europe/Prague
     env_file:
       - "src/variables.env"
       - ".env"
@@ -109,6 +113,8 @@ services:
       - backend
     labels:
       com.piva-ai.group: "applications"
+    environment:
+      TZ: Europe/Prague
 
   identification_worker:
     platform: linux/amd64
@@ -124,6 +130,7 @@ services:
       POSTGRES_PORT: 5432
       POSTGRES_USER: user
       POSTGRES_PASS: password
+      TZ: Europe/Prague
     env_file:
       - "src/variables.env"
       - ".env"
@@ -211,6 +218,8 @@ services:
       - frontend
     labels:
       com.piva-ai.group: "applications"
+    environment:
+      TZ: Europe/Prague
 
 volumes:
   redis-data:

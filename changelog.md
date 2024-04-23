@@ -3,6 +3,11 @@
 
 # Changelog
 
+## 04-2024
+
+* [added] Taxon classification by detection if necessary
+* [fixed] Re-run of taxon classification works again for workgroup users
+
 ## 03-2024
 
 * [added] Visible name for locations

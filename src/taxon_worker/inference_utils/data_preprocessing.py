@@ -116,41 +116,41 @@ def release_detection_model():
 # SAM = None
 
 
-def detect_animal(image_path: list) -> dict[str, Union[np.ndarray, Any]]:
-    """Detect an animal in a given image."""
-    image = cv2.imread(image_path)
-    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-
-    logger.info("Running detection inference.")
-    model = get_detection_model()
-    results = model(image)
-    id2label = results.names
-    results = results.xyxy[0].cpu().numpy()
-    if len(results) == 0:
-        return {
-            "bbox": np.array([0, 0, 0, 0]),
-            "confidence": 0,
-            "class": "nothing",
-        }
-    else:
-        return {
-            "bbox": np.array(list(int(_) for _ in results[0][:4].tolist())),
-            "confidence": results[0][4],
-            "class": id2label[results[0][5]],
-        }
-
-
-def detect_animals(image_paths: list[Path]) -> list[bool]:
-    """Detect animals in a list of images."""
-    detected_animals = [False] * len(image_paths)
-    for i, image_path in enumerate(image_paths):
-        image = cv2.imread(image_path)
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        result = detect_animal(image)
-        if result["class"] == "animal":
-            cropped_animal = pad_image(image, result["bbox"], border=0.25)
-            base_path = Path(image_path).parent.parent / "cropped_images"
-            save_path = base_path / Path(image_path).name
-            base_path.mkdir(exist_ok=True, parents=True)
-            Image.fromarray(cropped_animal).convert("RGB").save(save_path)
-            detected_animals[i] = True
+# def detect_animal(image_path: list) -> dict[str, Union[np.ndarray, Any]]:
+#     """Detect an animal in a given image."""
+#     image = cv2.imread(image_path)
+#     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+#
+#     logger.info("Running detection inference.")
+#     model = get_detection_model()
+#     results = model(image)
+#     id2label = results.names
+#     results = results.xyxy[0].cpu().numpy()
+#     if len(results) == 0:
+#         return {
+#             "bbox": np.array([0, 0, 0, 0]),
+#             "confidence": 0,
+#             "class": "nothing",
+#         }
+#     else:
+#         return {
+#             "bbox": np.array(list(int(_) for _ in results[0][:4].tolist())),
+#             "confidence": results[0][4],
+#             "class": id2label[results[0][5]],
+#         }
+#
+#
+# def detect_animals(image_paths: list[Path]) -> list[bool]:
+#     """Detect animals in a list of images."""
+#     detected_animals = [False] * len(image_paths)
+#     for i, image_path in enumerate(image_paths):
+#         image = cv2.imread(image_path)
+#         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+#         result = detect_animal(image)
+#         if result["class"] == "animal":
+#             cropped_animal = pad_image(image, result["bbox"], border=0.25)
+#             base_path = Path(image_path).parent.parent / "cropped_images"
+#             save_path = base_path / Path(image_path).name
+#             base_path.mkdir(exist_ok=True, parents=True)
+#             Image.fromarray(cropped_animal).convert("RGB").save(save_path)
+#             detected_animals[i] = True

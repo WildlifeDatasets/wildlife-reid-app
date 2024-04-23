@@ -46,7 +46,7 @@ def predict_species_on_success(
 ):
     """Import media files after running predict function in taxon worker."""
     status = output.get("status", "unknown")
-    logger.info(f"Inference task finished with status '{status}'. Updating database record.")
+    logger.info(f"Taxon classification finished with status '{status}'. Updating database record.")
     uploaded_archive = UploadedArchive.objects.get(id=uploaded_archive_id)
     if "status" not in output:
         logger.critical(f"Unexpected error {output=} is missing 'status' field.")
@@ -61,6 +61,7 @@ def predict_species_on_success(
         logger.debug(f"{uploaded_archive.contains_identities=}")
         update_uploaded_archive_by_metadata_csv(uploaded_archive,
                                                 create_missing=True, extract_identites=extract_identites)
+        uploaded_archive.mediafiles_imported=True
         uploaded_archive.status = "Taxon classification finished"
         uploaded_archive.save()
         run_detection_async(uploaded_archive)
@@ -209,12 +210,23 @@ def make_thumbnail_for_uploaded_archive(uploaded_archive: UploadedArchive):
 
 def run_species_prediction_async(uploaded_archive: UploadedArchive, link=None,
                                  link_error=None, extract_identites:bool=False):
-    """Run species prediction asynchronously."""
+    """Run species prediction asynchronously.
+
+    """
     _run_taxon_classification_init_message(uploaded_archive, commit=False)
     output_archive_file, output_dir, output_metadata_file = _run_taxon_classification_init(
         uploaded_archive, commit=True
     )
     logger.debug(f"updating uploaded archive, {uploaded_archive.csv_file=}")
+    # csv_file = Path(settings.MEDIA_ROOT) / str(uploaded_archive.csv_file)
+    # logger.debug(f"{csv_file} {Path(csv_file).exists()}")
+
+    # output_dir = Path(settings.MEDIA_ROOT) / uploaded_archive.outputdir
+
+    logger.debug(f"{output_metadata_file=}, {output_metadata_file.exists()=}")
+    if Path(output_metadata_file).exists():
+        df = pd.read_csv(output_metadata_file, index_col=0)
+        logger.debug(f"{len(df)=}")
 
     if link is None:
         link = (
@@ -385,6 +397,7 @@ def update_uploaded_archive_by_metadata_csv(
             mf = uploaded_archive.mediafile_set.get(mediafile=str(rel_pth))
             logger.debug("Using Mediafile generated before")
         except MediaFile.DoesNotExist:
+            # convert pandas row to json
             if create_missing:
                 logger.debug(f"{row['detection_results']=}")
 
@@ -393,7 +406,8 @@ def update_uploaded_archive_by_metadata_csv(
                     mediafile=str(rel_pth),
                     captured_at=captured_at,
                     location=location,
-                    metadata_json=row["detection_results"],
+                    # metadata_json=row["detection_results"],
+                    # metadata_json=metadata_json,
                 )
 
                 logger.debug(f"{uploaded_archive.contains_identities=}")
@@ -409,6 +423,12 @@ def update_uploaded_archive_by_metadata_csv(
                 continue
             # generate thumbnail if necessary
         make_thumbnail_for_mediafile_if_necessary(mf, thumbnail_width=thumbnail_width)
+
+        metadata_json = row.to_dict()
+        # remove None and NaN values
+        metadata_json = {k: v for k, v in metadata_json.items() if v is not None and not pd.isna(v)}
+        logger.debug(f"{metadata_json=}")
+        mf.metadata_json = metadata_json
 
         # if the mediafile was updated by user, we believe into users input
         if mf.updated_by is None:
@@ -455,13 +475,45 @@ def update_metadata_csv_by_uploaded_archive(
     output_dir = Path(settings.MEDIA_ROOT) / uploaded_archive.outputdir
     logger.debug(f"{uploaded_archive.csv_file=}")
     csv_file = Path(settings.MEDIA_ROOT) / str(uploaded_archive.csv_file)
-    logger.debug(f"{csv_file=} {Path(csv_file).exists()}")
+    logger.debug(f"{csv_file=} {Path(csv_file).exists()}, {Path(csv_file).stat().st_size=}")
+
+
     if not Path(csv_file).exists():
         logger.warning(f"CSV file {csv_file} does not exist. Skipping.")
         return
 
+    # _sync_metadata_by_checking_enlisted_mediafiles(csv_file, output_dir, uploaded_archive)
+    _sync_metadata_by_creating_from_mediafiles(csv_file, output_dir, uploaded_archive)
+
+    uploaded_archive.output_updated_at = django.utils.timezone.now()
+    uploaded_archive.save()
+
+def _sync_metadata_by_creating_from_mediafiles(csv_file, output_dir, uploaded_archive):
+    import copy
+
+    records = []
+    # go over mediafiles in set
+    for mf in uploaded_archive.mediafile_set.all():
+        metadata_row = copy.copy(mf.metadata_json)
+        # abs_pth = output_dir / "images" / row["image_path"]
+        # rel_pth = os.path.relpath(abs_pth, settings.MEDIA_ROOT)
+        if mf.category:
+            metadata_row["predicted_category"] = mf.category.name
+        if mf.identity:
+            metadata_row["unique_name"] = mf.identity.name
+        if mf.location:
+            metadata_row["location name"] = mf.location.name
+            if mf.location.location:
+                metadata_row["location coordinates"] = str(mf.location.location)
+
+        records.append(metadata_row)
+    df = pd.DataFrame.from_records(records)
+    df.to_csv(csv_file, encoding="utf-8-sig")
+
+def _sync_metadata_by_checking_enlisted_mediafiles(csv_file, output_dir, uploaded_archive):
     update_csv = False
     df = pd.read_csv(csv_file, index_col=0)
+    logger.debug(f"{len(df)=}")
     df["deleted"] = True
     df["location name"] = ""
     df["location coordinates"] = ""
@@ -471,6 +523,7 @@ def update_metadata_csv_by_uploaded_archive(
 
         try:
             mf = uploaded_archive.mediafile_set.get(mediafile=str(rel_pth))
+            df.loc[index, "deleted"] = False
             logger.debug("Using Mediafile generated before")
         except MediaFile.DoesNotExist:
             df.loc[index, "deleted"] = True
@@ -490,14 +543,13 @@ def update_metadata_csv_by_uploaded_archive(
             df.loc[index, "location name"] = mf.location.name
             if mf.location.location:
                 df.loc[index, "location coordinates"] = str(mf.location.location)
-
     # delete rows with missing mediafiles
     df = df[df["deleted"] == False]  # noqa: E712
     if update_csv:
+        logger.debug(f"{len(df)=}")
         df.to_csv(csv_file, encoding="utf-8-sig")
         logger.debug(f"CSV updated. path={csv_file}")
-    uploaded_archive.output_updated_at = django.utils.timezone.now()
-    uploaded_archive.save()
+    # return df, update_csv
 
 
 @shared_task

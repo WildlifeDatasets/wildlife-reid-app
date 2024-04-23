@@ -71,11 +71,20 @@ def predict(
             metadata["detection_results"] = [None] * len(metadata)
             metadata = create_image_from_video(metadata)
             metadata = data_processing_pipeline.keep_correctly_loaded_images(metadata)
-
-            # for row_idx, row in metadata.iterrows():
-            #     logger.debug(f"{row['full_image_path']=}, {Path(row['full_image_path']).exists()=}")
         else:
+            logger.debug(f"Using existing metadata file: {output_metadata_file}. {output_metadata_file.exists()=}")
+            # print size of file in bytes
+            logger.debug(f"{output_metadata_file=}, {output_metadata_file.stat().st_size=}")
+            #read file as str
             metadata = pd.read_csv(output_metadata_file, index_col=0)
+            metadata["full_image_path"] = metadata["image_path"].apply(
+                lambda x: str(output_images_dir / x)
+            )
+            metadata["full_orig_media_path"] = [pth for pth in metadata["full_image_path"]]
+            metadata["detection_results"] = [None] * len(metadata)
+
+        logger.debug(f"Metadata file: {output_metadata_file}. {output_metadata_file.exists()=}")
+        logger.debug(f"{len(metadata['image_path'])=}")
         if len(metadata["image_path"]) > 0:
             logger.debug(
                 f"{metadata['image_path'][0]=}, {Path(metadata['image_path'][0]).exists()=}"
@@ -85,7 +94,7 @@ def predict(
                 f"{Path(metadata['full_image_path'][0]).exists()=}"
             )
 
-        detection_utils.inference.detect_animal_on_metadata(metadata)
+        metadata = detection_utils.inference.detect_animal_on_metadata(metadata)
         data_processing_pipeline.run_inference(metadata)
         metadata.to_csv(output_metadata_file, encoding="utf-8-sig")
 
