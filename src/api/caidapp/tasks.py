@@ -562,8 +562,13 @@ def init_identification_on_success(*args, **kwargs):
     output: dict = args[0]
     status = output["status"]
     status = "Finished" if status == "DONE" else status
-    message = output["message"]
     workgroup.identification_init_status = status
+    if "message" in output:
+        message = output["message"]
+    elif "error" in output:
+        message = output["error"]
+    else:
+        message = ""
     workgroup.identification_init_message = message
     now = django.utils.timezone.now()
     workgroup.identification_init_at = now
