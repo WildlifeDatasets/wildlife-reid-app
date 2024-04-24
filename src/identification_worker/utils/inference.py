@@ -183,7 +183,12 @@ def mask_images(metadata: pd.DataFrame) -> pd.DataFrame:
     get_sam_model()
     for row_idx, row in metadata.iterrows():
         image_path = row["image_path"]
-        detection_results = ast.literal_eval(row["detection_results"])
+        detection_results = ast.literal_eval(ast.literal_eval(row["detection_results"])["detection_results"])
+        if len(detection_results) == 0:
+            logger.debug(f"No detection results for image: {image_path}")
+            masked_paths.append(str(image_path))
+            continue
+
         bbox = detection_results[0]["bbox"]
 
         cropped_animal = segment_animal(image_path, bbox)
