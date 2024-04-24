@@ -125,7 +125,6 @@ def detect_animals_in_one_image(image_rgb: np.ndarray) -> Optional[List[Dict[str
     detection_model = get_detection_model()
     results = detection_model(image_rgb)
     id2label = results.names
-    logger.debug(f"{id2label=}")
 
     batch_idx = 0
     results = results.xyxy[batch_idx].cpu().numpy()
