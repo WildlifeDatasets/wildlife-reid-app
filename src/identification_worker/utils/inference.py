@@ -90,7 +90,7 @@ def get_identification_model(model_name, model_checkpoint=""):
     IDENTIFICATION_MODEL = model.to(DEVICE).eval()
 
 
-def get_sam_model():
+def get_sam_model() -> SamPredictor:
     """Load the SAM model if not loaded before."""
     global SAM
     global SAM_PREDICTOR
@@ -105,7 +105,7 @@ def get_sam_model():
         SAM = sam_model_registry["vit_h"](checkpoint=str(_checkpoint_path))
         SAM.to(device=DEVICE)
         SAM_PREDICTOR = SamPredictor(SAM)
-
+    return SAM_PREDICTOR
 
 def del_identification_model():
     """Release the identification model."""
@@ -179,11 +179,15 @@ def segment_animal(image_path: str, bbox: list, border: float=0.25) -> np.ndarra
 
 def mask_images(metadata: pd.DataFrame) -> pd.DataFrame:
     """Mask images using SAM model."""
+    import json
     masked_paths = []
     get_sam_model()
     for row_idx, row in metadata.iterrows():
         image_path = row["image_path"]
-        detection_results = ast.literal_eval(ast.literal_eval(row["detection_results"])["detection_results"])
+        # detection_results = ast.literal_eval(ast.literal_eval(row["detection_results"])["detection_results"])
+        detection_results = ast.literal_eval(row["detection_results"])
+        # detection_results = json.loads(row["detection_results"])
+        logger.debug(f"{detection_results=}")
         if len(detection_results) == 0:
             logger.debug(f"No detection results for image: {image_path}")
             masked_paths.append(str(image_path))

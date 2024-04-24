@@ -71,7 +71,7 @@ def predict_species_on_success(
         uploaded_archive.save()
 
 
-def _prepare_dataframe_for_identification(mediafiles):
+def _prepare_dataframe_for_identification(mediafiles) -> dict:
     media_root = Path(settings.MEDIA_ROOT)
     csv_len = len(mediafiles)
     csv_data = {
@@ -97,7 +97,7 @@ def _prepare_dataframe_for_identification(mediafiles):
             str(mediafile.location.location) if mediafile.location.location else ""
         )
         logger.debug(f"{mediafile.metadata_json=}")
-        csv_data["detection_results"][i] = mediafile.metadata_json
+        csv_data["detection_results"][i] = mediafile.metadata_json["detection_results"]
 
     return csv_data
 
@@ -776,6 +776,8 @@ def _prepare_mediafile_for_identification(data, i, media_root, mediafile_id):
         mfi.top3score = top_k_scores[2]
         mfi.top3name = top_k_labels[2]
         mfi.paired_points = data["keypoints"][i]
+        # identification_output["query_image_path"] = query_image_path
+        # identification_output["query_masked_path"] = query_masked_path
         mfi.save()
         _identity_mismatch_waning(top1_mediafile, top2_mediafile, top3_mediafile, top_k_labels)
 

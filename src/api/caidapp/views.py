@@ -516,17 +516,23 @@ def get_individual_identity_zoomed(request, foridentification_id: int, top_id: i
         from PIL import Image
         import numpy as np
 
-        img0 = np.array(Image.open(Path(settings.MEDIA_ROOT) / foridentification.mediafile.mediafile.name))
-        img1 = np.array(Image.open(Path(settings.MEDIA_ROOT) / top_mediafile.mediafile.name))
+        pth0 = Path(settings.MEDIA_ROOT) / str(foridentification.mediafile.mediafile.name).replace("/images/", "/masked_images/")
+        pth1 = Path(settings.MEDIA_ROOT) / str(top_mediafile.mediafile.name).replace("/images/", "/masked_images/")
+        img0 = np.array(Image.open(pth0))
+        img1 = np.array(Image.open(pth1))
+
+        # Compensate points coordinates because points are calculated on resized images 512x512
         logger.debug(f"{foridentification.paired_points=}")
         logger.debug(f"{paired_points=}")
+        paired_pts0 = np.asarray(paired_points[0])
+        paired_pts1 = np.asarray(paired_points[1])
+        paired_pts0 = (paired_pts0 / 512.0) * img0.shape[:2]
+        paired_pts1 = (paired_pts1 / 512.0) * img1.shape[:2]
 
-        # skimage.io.imwrite(top_mediafile.name)
-        html_img_src = gui_tools.create_match_img_src(paired_points[0], paired_points[1], img0, img1, top_name, top_name)
+        html_img_src = gui_tools.create_match_img_src(paired_pts0.tolist(), paired_pts1.tolist(), img0, img1, top_name, top_name)
         template = "caidapp/get_individual_identity_zoomed_paired_points.html"
         btn_link = reverse_lazy('caidapp:get_individual_identity_zoomed', kwargs={"foridentification_id": foridentification_id, "top_id": top_id})
         btn_icon_style = "fa fa-eye"
-        # btn_icon_style = "bi bi-zoom-out"
     else:
         template = "caidapp/get_individual_identity_zoomed.html"
         html_img_src = None
@@ -689,7 +695,6 @@ def init_identification(request, taxon_str: str = "Lynx lynx"):
     output_dir.mkdir(exist_ok=True, parents=True)
 
     csv_data = _prepare_dataframe_for_identification(mediafiles)
-    logger.debug(f"{len(csv_data)=}")
 
     identity_metadata_file = output_dir / "init_identification.csv"
     pd.DataFrame(csv_data).to_csv(identity_metadata_file, index=False)
@@ -698,7 +703,7 @@ def init_identification(request, taxon_str: str = "Lynx lynx"):
     workgroup.identification_init_at = django.utils.timezone.now()
     workgroup.identification_init_status = "Processing"
     workgroup.identification_init_message = (
-        f"Using {len(csv_data)} images for identification initialization."
+        f"Using {len(csv_data['image_path'])} representative images for identification initialization."
     )
     workgroup.save()
 
@@ -1276,6 +1281,7 @@ class MyLoginView(LoginView):
 
 def _mediafiles_query(
     request, query: str, album_hash=None, individual_identity_id=None, taxon_id=None, uploadedarchive_id=None,
+        identity_is_representative=None
 ):
     """Prepare list of mediafiles based on query search in category and location."""
     mediafiles = (
@@ -1309,6 +1315,13 @@ def _mediafiles_query(
         uploadedarchive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
         mediafiles = (
             mediafiles.filter(parent=uploadedarchive)
+            .all()
+            .distinct()
+            .order_by("-parent__uploaded_at")
+        )
+    if identity_is_representative is not None:
+        mediafiles = (
+            mediafiles.filter(identity_is_representative=identity_is_representative)
             .all()
             .distinct()
             .order_by("-parent__uploaded_at")
@@ -1461,6 +1474,7 @@ def media_files_update(
     individual_identity_id=None,
     taxon_id=None,
     uploadedarchive_id=None,
+    identity_is_representative=None,
 ) -> Union[QuerySet, List[MediaFile]]:
     """List of mediafiles based on query with bulk update of category."""
     # create list of mediafiles
@@ -1501,6 +1515,7 @@ def media_files_update(
         individual_identity_id=individual_identity_id,
         taxon_id=taxon_id,
         uploadedarchive_id=uploadedarchive_id,
+        identity_is_representative=identity_is_representative,
     )
     number_of_mediafiles = len(full_mediafiles)
     map_html = _create_map_from_mediafiles(full_mediafiles)

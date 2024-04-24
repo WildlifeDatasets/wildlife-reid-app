@@ -53,7 +53,7 @@ def init(
         # save embeddings and class ids into the database
         logger.info("Storing feature vectors into the database.")
         db_connection = get_db_connection()
-        logger.debug(metadata.tail(3).to_string())
+        # logger.debug(metadata.tail(3).to_string())
         db_connection.reference_image.create_reference_images(organization_id, metadata)
 
         logger.info("Finished processing.")
