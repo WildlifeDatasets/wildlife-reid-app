@@ -146,7 +146,6 @@
 
                                         {#                                                                    <h5 class="card-title">{{ mediafile.instance }}</h5>#}
                                         <p class="card-text"> Category: {{ mediafile.instance.category }}</p>
-                                        <p class="card-text"> Location: {{ mediafile.instance.location }}</p>
                                         <p class="card-text">Location: <span data-bs-toggle="tooltip" title="Location: {{ mediafile.location.name }}">{{ mediafile.location.visible_name }}</span></p>
                                         <p class="card-text"> Identity: {{ mediafile.instance.identity }}
                                             {% if mediafile.instance.identity_is_representative %}
