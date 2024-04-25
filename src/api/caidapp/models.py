@@ -130,6 +130,8 @@ class UploadedArchive(models.Model):
     contains_single_taxon = models.BooleanField(default=False)
     taxon_for_identification = models.ForeignKey(Taxon, on_delete=models.SET_NULL, null=True, blank=True)
     mediafiles_imported = models.BooleanField("Media Files Imported Correctly", default=False)
+    earliest_captured_at = models.DateTimeField("Earliest Captured at", blank=True, null=True)
+    latest_captured_at = models.DateTimeField("Latest Captured at", blank=True, null=True)
 
 
     def update_location_in_mediafiles(self, location:Union[str, Location]):
@@ -141,6 +143,39 @@ class UploadedArchive(models.Model):
         self.location_at_upload_object = location
         self.location = location.name
 
+    def update_earliest_and_latest_captured_at(self):
+        mediafiles = MediaFile.objects.filter(parent=self)
+        earliest_captured_at = None
+        latest_captured_at = None
+        for mediafile in mediafiles:
+            if mediafile.captured_at is not None:
+                if earliest_captured_at is None or mediafile.captured_at < earliest_captured_at:
+                    earliest_captured_at = mediafile.captured_at
+                if latest_captured_at is None or mediafile.captured_at > latest_captured_at:
+                    latest_captured_at = mediafile.captured_at
+                logger.debug(f"{mediafile=}")
+        logger.debug(f"{mediafiles.count()=}")
+        logger.debug(f"{earliest_captured_at=}, {latest_captured_at=}")
+        self.earliest_captured_at = earliest_captured_at
+        self.latest_captured_at = latest_captured_at
+        self.save()
+
+    # def update_earliest_and_latest_captured_at(self):
+    #     mediafiles = MediaFile.objects.filter(parent=self)
+    #     earliest_captured_at = None
+    #     latest_captured_at = None
+    #     for mediafile in mediafiles:
+    #         if earliest_captured_at is None:
+    #             earliest_captured_at = mediafile.captured_at
+    #         if latest_captured_at is None:
+    #             latest_captured_at = mediafile.captured_at
+    #         # convert to datetime
+    #         if mediafile.captured_at < earliest_captured_at:
+    #             earliest_captured_at = mediafile.captured_at
+    #         if mediafile.captured_at > latest_captured_at:
+    #             latest_captured_at = mediafile.captured_at
+    #     self.earliest_captured_at = earliest_captured_at
+    #     self.latest_captured_at = latest_captured_at
 
     def __str__(self):
         return str(Path(self.archivefile.name).name)

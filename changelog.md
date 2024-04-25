@@ -11,6 +11,7 @@
 * [changed] gpu:1 used for SAM
 * [added] List all representative files for identification
 * [added] Download original archive
+* [added] Range of dates is visualized for every control upload
 
 ## 03-2024
 

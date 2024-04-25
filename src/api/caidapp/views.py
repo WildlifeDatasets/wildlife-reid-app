@@ -1796,3 +1796,12 @@ def download_uploadedarchive_csv(request, uploadedarchive_id: int):
     else:
         messages.error(request, "Only the owner can download the file")
         return redirect("/caidapp/uploads")
+
+
+def update_uploaded_archives(requests):
+    """Update new calculations for formerly uploaded archives."""
+
+    uploaded_archives = UploadedArchive.objects.all()
+    for uploaded_archive in uploaded_archives:
+        uploaded_archive.update_earliest_and_latest_captured_at()
+    return redirect("caidapp:uploads")

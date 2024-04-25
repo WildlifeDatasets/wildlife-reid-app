@@ -255,35 +255,6 @@
                             <hr class="dropdown-divider">
                         </li>
 
-                        {#            <li>#}
-                        {#              <a class="dropdown-item d-flex align-items-center" href="users-profile.html">#}
-                        {#                <i class="bi bi-person"></i>#}
-                        {#                <span>My Profile</span>#}
-                        {#              </a>#}
-                        {#            </li>#}
-                        {#            <li>#}
-                        {#              <hr class="dropdown-divider">#}
-                        {#            </li>#}
-                        {##}
-                        {#            <li>#}
-                        {#              <a class="dropdown-item d-flex align-items-center" href="users-profile.html">#}
-                        {#                <i class="bi bi-gear"></i>#}
-                        {#                <span>Account Settings</span>#}
-                        {#              </a>#}
-                        {#            </li>#}
-                        {#            <li>#}
-                        {#              <hr class="dropdown-divider">#}
-                        {#            </li>#}
-                        {##}
-                        {#            <li>#}
-                        {#              <a class="dropdown-item d-flex align-items-center" href="pages-faq.html">#}
-                        {#                <i class="bi bi-question-circle"></i>#}
-                        {#                <span>Need Help?</span>#}
-                        {#              </a>#}
-                        {#            </li>#}
-                        {#            <li>#}
-                        {#              <hr class="dropdown-divider">#}
-                        {#            </li>#}
                             <li>
                                 <a class="dropdown-item d-flex align-items-center" href="{% url 'caidapp:sample_data' %}">
                                     <i class="fa-solid fa-vial"></i>
@@ -291,6 +262,9 @@
                                 </a>
                             </li>
                         {% if user.is_staff %}
+                            <li>
+                                <hr class="dropdown-divider">
+                            </li>
                             <li>
                                 <a class="dropdown-item d-flex align-items-center" href="{% url 'admin:index' %}">
                                     <i class="bi bi-lock"></i>
@@ -301,6 +275,12 @@
                                 <a class="dropdown-item d-flex align-items-center" href="{% url 'caidapp:show_log' %}#logend">
                                     <i class="bi bi-card-text"></i>
                                     <span>Log</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item d-flex align-items-center" href="{% url 'caidapp:update_uploaded_archives' %}#logend">
+                                    <i class="bi bi-arrow-clockwise"></i>
+                                    <span>Update controls calculations</span>
                                 </a>
                             </li>
                         {% endif %}
@@ -341,7 +321,7 @@
                     <li>
                         <a class="nav-link collapsed" href="{% url 'caidapp:uploads' %}">
                             <i class="bi bi-circle"></i>
-                            <span>Uploads</span>
+                            <span>Control Uploads</span>
                         </a>
                     </li>
                     <li>
