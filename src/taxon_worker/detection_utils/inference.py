@@ -162,7 +162,7 @@ def detect_animal_on_metadata(metadata:pd.DataFrame, border=0.0) -> pd.DataFrame
     """
     assert "full_image_path" in metadata
     logger.info("Running detection inference.")
-    for row_idx, row in tqdm(metadata.iterrows()):
+    for row_idx, row in tqdm(metadata.iterrows(), total=len(metadata)):
         image_abs_path = row["full_image_path"]
         try:
             if row["media_type"] == "video" and row["full_image_path"] == row["full_orig_media_path"]:

@@ -288,7 +288,7 @@ def use_detector_class_if_classification_fails(
                 logger.debug(f"{detection_result['class']=}")
                 logger.debug(f"{detection_result['confidence']=}")
                 if detection_result["class"] == 'person':
-                    class_ids[i] = label2id["Homo Sapience"]
+                    class_ids[i] = label2id["Homo sapience"]
                     probs_top[i] = detection_result["confidence"]
 
                 if detection_result["class"] == 'vehicle':
