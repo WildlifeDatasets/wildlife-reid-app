@@ -189,7 +189,7 @@ class MediaFile(models.Model):
         null=True,
         max_length=500,
     )
-    image_file = models.FileField(
+    image_file = models.FileField(  # image representation of mediafile (orig file for images, single frame for videos
         "Image File",
         blank=True,
         null=True,

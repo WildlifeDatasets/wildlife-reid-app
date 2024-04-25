@@ -387,23 +387,34 @@ def update_uploaded_archive_by_metadata_csv(
     )
 
     for index, row in df.iterrows():
-        rel_pth, _ = _get_rel_and_abs_paths_based_on_csv_row(row, output_dir)
+        # rel_pth, _ = _get_rel_and_abs_paths_based_on_csv_row(row, output_dir)
+        image_abs_pth = output_dir / "images" / row["image_path"]
+        image_rel_pth = image_abs_pth.relative_to(settings.MEDIA_ROOT)
+        # rel_pth = os.path.relpath(abs_pth, settings.MEDIA_ROOT)
+        # rel_pth by patlib
+        media_abs_pth = output_dir / "images" / row["image_path"]
+
+        media_abs_pth = Path(row["full_orig_media_path"])
+        media_rel_pth = media_abs_pth.relative_to(settings.MEDIA_ROOT)
         captured_at = row["datetime"]
         logger.debug(f"{captured_at=}, {type(captured_at)}")
         if (captured_at == "") or (isinstance(captured_at, float) and np.isnan(captured_at)):
             captured_at = None
 
         try:
-            mf = uploaded_archive.mediafile_set.get(mediafile=str(rel_pth))
+            mf = uploaded_archive.mediafile_set.get(mediafile=str(image_rel_pth))
             logger.debug("Using Mediafile generated before")
         except MediaFile.DoesNotExist:
             # convert pandas row to json
             if create_missing:
                 logger.debug(f"{row['detection_results']=}")
 
+                # TODO use media_rel_pth instead of image_rel_pth
                 mf = MediaFile(
                     parent=uploaded_archive,
-                    mediafile=str(rel_pth),
+                    mediafile=str(image_rel_pth),
+                    # mediafile=str(media_rel_pth),
+                    image_file=str(image_rel_pth),
                     captured_at=captured_at,
                     location=location,
                     # metadata_json=row["detection_results"],
@@ -419,7 +430,7 @@ def update_uploaded_archive_by_metadata_csv(
                 logger.debug(f"Created new Mediafile {mf}")
             else:
                 df.loc[index, "deleted"] = True
-                logger.debug(f"Mediafile {rel_pth} not found. Skipping.")
+                logger.debug(f"Mediafile {image_rel_pth} not found. Skipping.")
                 continue
             # generate thumbnail if necessary
         make_thumbnail_for_mediafile_if_necessary(mf, thumbnail_width=thumbnail_width)
@@ -504,6 +515,7 @@ def _sync_metadata_by_creating_from_mediafiles(csv_file, output_dir, uploaded_ar
 
         # abs_pth = output_dir / "images" / row["image_path"]
         # rel_pth = os.path.relpath(abs_pth, settings.MEDIA_ROOT)
+
         if mf.category:
             metadata_row["predicted_category"] = mf.category.name
         if mf.identity:
