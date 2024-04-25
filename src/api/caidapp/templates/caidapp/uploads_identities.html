@@ -119,12 +119,23 @@
                                             {% endif %}
                                             {% if request.user.is_staff %}
                                                 <li>
-                                                    <a class="dropdown-item"
+                                                    <hr class="dropdown-divider">
+                                                </li>
+                                                {% if uploadedarchive.archivefile%}
+                                                    <li><a class="dropdown-item"
+                                                           href="{{ uploadedarchive.archivefile.url }}"><i
+                                                            class="bi bi-download"></i> Download uploaded archive</a></li>
+                                                {% endif %}
+                                                <li><a class="dropdown-item"
                                                        href="{% url 'caidapp:run_processing' uploadedarchive.id %}">
                                                         <i class="fa-solid fa-hippo"></i>
                                                         Run taxon classification
-                                                    </a>
-                                                </li>
+                                                    </a></li>
+                                                <li><a class="dropdown-item"
+                                                       href="{% url 'caidapp:run_taxon_classification_force_init' uploadedarchive.id %}">
+                                                    <i class="fa-solid fa-hippo"></i>
+                                                    Run taxon classification (force init)
+                                                </a></li>
                                                 <li>
                                                     <a class="dropdown-item"
                                                        href="{% url 'caidapp:run_identification' uploadedarchive.id %}">

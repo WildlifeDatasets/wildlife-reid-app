@@ -516,18 +516,33 @@ def get_individual_identity_zoomed(request, foridentification_id: int, top_id: i
         from PIL import Image
         import numpy as np
 
-        pth0 = Path(settings.MEDIA_ROOT) / str(foridentification.mediafile.mediafile.name).replace("/images/", "/masked_images/")
-        pth1 = Path(settings.MEDIA_ROOT) / str(top_mediafile.mediafile.name).replace("/images/", "/masked_images/")
-        img0 = np.array(Image.open(pth0))
-        img1 = np.array(Image.open(pth1))
-
-        # Compensate points coordinates because points are calculated on resized images 512x512
-        logger.debug(f"{foridentification.paired_points=}")
-        logger.debug(f"{paired_points=}")
         paired_pts0 = np.asarray(paired_points[0])
         paired_pts1 = np.asarray(paired_points[1])
-        paired_pts0 = (paired_pts0 / 512.0) * img0.shape[:2]
-        paired_pts1 = (paired_pts1 / 512.0) * img1.shape[:2]
+
+        pth0 = Path(settings.MEDIA_ROOT) / str(foridentification.mediafile.mediafile.name).replace("/images/", "/masked_images/")
+        pth1 = Path(settings.MEDIA_ROOT) / str(top_mediafile.mediafile.name).replace("/images/", "/masked_images/")
+        pil_img0 = Image.open(pth0)
+        pil_img1 = Image.open(pth1)
+        img0 = np.array(pil_img0)
+        img1 = np.array(pil_img1)
+
+
+        # Compensate points coordinates because points are calculated on resized images 512x512
+        #    We have two options resize the images, or recalculate the points coordinates
+
+        # Option 1) Resize images with PIL
+        scale0 = 512.0 / img0.shape[0]
+        scale1 = 512.0 / img1.shape[0]
+        pil_img0 = pil_img0.resize((512, int(img0.shape[1] * scale0)))
+        pil_img1 = pil_img1.resize((512, int(img1.shape[1] * scale1)))
+        img0 = np.array(pil_img0)
+        img1 = np.array(pil_img1)
+
+        # Option 2) Compensate points coordinates because points are calculated on resized images 512x512
+        # logger.debug(f"{foridentification.paired_points=}")
+        # logger.debug(f"{paired_points=}")
+        # paired_pts0 = (paired_pts0 / 512.0) * img0.shape[:2]
+        # paired_pts1 = (paired_pts1 / 512.0) * img1.shape[:2]
 
         html_img_src = gui_tools.create_match_img_src(paired_pts0.tolist(), paired_pts1.tolist(), img0, img1, top_name, top_name)
         template = "caidapp/get_individual_identity_zoomed_paired_points.html"
@@ -663,13 +678,16 @@ def set_individual_identity(
 
     return redirect("caidapp:get_individual_identity")
 
+@staff_member_required
+def run_taxon_classification_force_init(request, uploadedarchive_id):
+    return run_taxon_classification(request, uploadedarchive_id=uploadedarchive_id, force_init=True)
 
 @staff_member_required
-def run_taxon_classification(request, uploadedarchive_id):
+def run_taxon_classification(request, uploadedarchive_id, force_init=False):
     """Run processing of uploaded archive."""
     uploaded_archive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
     next_page = request.GET.get("next", "/caidapp/uploads")
-    run_species_prediction_async(uploaded_archive)
+    run_species_prediction_async(uploaded_archive, force_init=force_init)
     return redirect(next_page)
 
 
