@@ -87,7 +87,7 @@ def _prepare_dataframe_for_identification(mediafiles) -> dict:
     logger.debug(f"number of records={len(mediafiles)}")
     for i, mediafile in enumerate(mediafiles):
         # if mediafile.identity is not None:
-        csv_data["image_path"][i] = str(media_root / mediafile.mediafile.name)
+        csv_data["image_path"][i] = str(media_root / mediafile.image_file.name)
         csv_data["mediafile_id"][i] = mediafile.id
         csv_data["class_id"][i] = int(mediafile.identity.id) if mediafile.identity else None
         csv_data["label"][i] = str(mediafile.identity.name) if mediafile.identity else None
@@ -209,7 +209,7 @@ def make_thumbnail_for_uploaded_archive(uploaded_archive: UploadedArchive):
 
 
 def run_species_prediction_async(uploaded_archive: UploadedArchive, link=None,
-                                 link_error=None, extract_identites:bool=False):
+                                 link_error=None, extract_identites:bool=False, force_init:bool=False):
     """Run species prediction asynchronously.
 
     """
@@ -256,7 +256,8 @@ def run_species_prediction_async(uploaded_archive: UploadedArchive, link=None,
             "output_archive_file": str(output_archive_file),
             "output_metadata_file": str(output_metadata_file),
             "contains_identities": uploaded_archive.contains_identities,
-        },
+            "force_init": force_init,
+    },
     )
 
     task = sig.apply_async(

@@ -59,9 +59,9 @@
 
                                     </h5>
 
-                                    <p>Location: <span data-bs-toggle="tooltip" title="Location: {{ uploadedarchive.location_at_upload_object.name }}">{{ uploadedarchive.location_at_upload_object.visible_name }}</span></p>
+                                    <p><span data-bs-toggle="tooltip" title="Location: {{ uploadedarchive.location_at_upload_object.name }}">Location: {{ uploadedarchive.location_at_upload_object.name }}</span></p>
                                     <p>Status: {{ uploadedarchive.status }} </p>
-                                    <p>{{ uploadedarchive.starts_at|date:'Y-m-d' }} - {{ uploadedarchive.ends_at|date:'Y-m-d' }} </p>
+                                    <p>{{ uploadedarchive.started_at|date:'Y-m-d' }} - {{ uploadedarchive.finished_at|date:'Y-m-d' }} </p>
                                     {%  if uploadedarchive.animal_number %}
                                         <p>Count: {{ uploadedarchive.animal_number }}</p>
                                     {% endif %}
@@ -111,6 +111,13 @@
                                                     <a class="dropdown-item"
                                                        href="{% url 'caidapp:run_processing' uploadedarchive.id %}">
                                                         <i class="bi bi-arrow-clockwise"></i> Run taxon classification
+                                                    </a>
+                                                </li>
+
+                                                <li>
+                                                    <a class="dropdown-item"
+                                                       href="{% url 'caidapp:run_processing_force_init' uploadedarchive.id %}">
+                                                        <i class="bi bi-arrow-clockwise"></i> Run taxon classification (force_init)
                                                     </a>
                                                 </li>
 

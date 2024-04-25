@@ -663,13 +663,16 @@ def set_individual_identity(
 
     return redirect("caidapp:get_individual_identity")
 
+@staff_member_required
+def run_taxon_classification_force_init(request, uploadedarchive_id):
+    return run_taxon_classification(request, uploadedarchive_id=uploadedarchive_id, force_init=True)
 
 @staff_member_required
-def run_taxon_classification(request, uploadedarchive_id):
+def run_taxon_classification(request, uploadedarchive_id, force_init=False):
     """Run processing of uploaded archive."""
     uploaded_archive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
     next_page = request.GET.get("next", "/caidapp/uploads")
-    run_species_prediction_async(uploaded_archive)
+    run_species_prediction_async(uploaded_archive, force_init=force_init)
     return redirect(next_page)
 
 
