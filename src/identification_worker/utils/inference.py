@@ -279,7 +279,7 @@ def identify(
         reference_image_paths: list,
         reference_class_ids: list,
         metadata: pd.DataFrame,
-        top_k: int = 1,
+        top_k: int = 3,
 ) -> dict:
     """Compare input feature vectors with the reference feature vectors and make predictions."""
     assert len(reference_features) == len(reference_image_paths)
@@ -324,14 +324,20 @@ def identify(
         query_metadata,
         database_metadata,
         similarity,
+        top_k=top_k,
         k_range=k_range,
-        num_kp=10
+        num_kp=10,
+        identities=True
     )
 
     pred_image_paths = []
     pred_class_ids = []
     scores = []
     for query_idx, reference_idxs in enumerate(predicted_idx):
+        if len(reference_idxs) < top_k:
+            diff = top_k - len(reference_idxs)
+            reference_idxs.extend([reference_idxs[-1]] * diff)
+
         _pred_image_paths = [reference_image_paths[idx] for idx in reference_idxs]
         _pred_class_ids = [int(reference_class_ids[idx]) for idx in reference_idxs]
         _scores = np.clip(similarity[query_idx, reference_idxs], 0, 1).astype(float).tolist()
