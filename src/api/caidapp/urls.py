@@ -57,7 +57,7 @@ urlpatterns = [
     ),
     path(
         "<int:uploadedarchive_id>/run_taxon_classification_force_init/",
-        views.run_taxon_classification,
+        views.run_taxon_classification_force_init,
         name="run_taxon_classification_force_init",
     ),
     path("djangologin/", views.MyLoginView.as_view(), name="djangologin"),
