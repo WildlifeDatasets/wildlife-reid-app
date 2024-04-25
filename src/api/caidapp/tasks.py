@@ -589,7 +589,7 @@ def init_identification_on_success(*args, **kwargs):
         message = output["error"]
     else:
         message = ""
-    workgroup.identification_init_message = message
+    workgroup.identification_init_message = message if len(message) < 254 else message[:254]
     now = django.utils.timezone.now()
     workgroup.identification_init_at = now
     workgroup.save()
