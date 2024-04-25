@@ -119,9 +119,9 @@ class WildFusionClassifier():
         cosine_score, cosine_label_idx = sim_deep.topk(self.k_range)
         local_filtered = torch.gather(sim_local, 1, cosine_label_idx)
 
-        local_score, local_idx = local_filtered.float().topk(3)
+        local_score, local_idx = local_filtered.float().topk(self.k_range)
         local_label_idx = torch.gather(cosine_label_idx, 1, local_idx)
-        cosine_label_idx = cosine_label_idx[:, :3]
+        # cosine_label_idx = cosine_label_idx[:, :3]
 
         for ls, li, ci in zip(local_score, local_label_idx, cosine_label_idx):
             pred_hybrid = torch.where(ls > self.thr_range, li, ci)
@@ -209,13 +209,31 @@ def get_keypoints(query, database, merged_ids, num_kp=10, size=512):
 
     return keypoints
 
+def top_identities(predictions_ids, database_names, top_k=3):
+    new_predictions_ids = []
+    for query_pred in predictions_ids:
+        _identities = []
+        _idxs = []
+        for idx in query_pred:
+            name = database_names[idx]
+            if name not in _identities:
+                _identities.append(name)
+                _idxs.append(idx)
+
+            if len(_identities) == top_k:
+                break
+        new_predictions_ids.append(_idxs)
+    return new_predictions_ids
+
 
 def get_merged_predictions(
         query_metadata: pd.DataFrame,
         database_metadata: pd.DataFrame,
         cos_similarity: np.ndarray,
+        top_k=3,
         k_range: int = 50,
-        num_kp: int = 10
+        num_kp: int = 10,
+        identities: bool = True
 ) -> (list, list):
     extractor_local, matcher, transform_local = get_local_matcher()
 
@@ -233,6 +251,10 @@ def get_merged_predictions(
     database = get_dataset(database_metadata)
 
     merged_predictions_ids = classifier(query, database)
+    if identities:
+        merged_predictions_ids = top_identities(merged_predictions_ids, database.labels_string, top_k)
+    else:
+        merged_predictions_ids = np.array(merged_predictions_ids)[:,:top_k]
     keypoints = get_keypoints(query, database, merged_predictions_ids, num_kp)
 
     return merged_predictions_ids, keypoints
