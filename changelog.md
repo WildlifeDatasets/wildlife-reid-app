@@ -12,6 +12,7 @@
 * [added] List all representative files for identification
 * [added] Download original archive
 * [added] Range of dates is visualized for every control upload
+* [changed] Increased number of workers in webapp
 
 ## 03-2024
 
