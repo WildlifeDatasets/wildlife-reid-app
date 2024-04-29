@@ -8,9 +8,14 @@ class WorkgroupUsersForm(forms.Form):
     workgroup_users = forms.ModelMultipleChoiceField(queryset=CaIDUser.objects.all(), required=False)
 
 
-class MergeIdentityForm(forms.Form):
-    merge_with = forms.ModelForm()
-
+# class MergeIdentityForm(forms.Form):
+#     queryset = IndividualIdentity.objects.filter()
+#     models.get_content_owner_filter_params()
+#     identity = forms.ModelChoiceField(queryset=IndividualIdentity.objects.all(), required=False)
+#
+#     def __init__(self, *args, **kwargs):
+#         super(MergeIdentityForm, self).__init__(*args, **kwargs)
+#         self.fields["identity"].queryset = self.queryset
 
 
 class AlbumForm(forms.ModelForm):

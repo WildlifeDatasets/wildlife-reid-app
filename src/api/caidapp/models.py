@@ -373,3 +373,23 @@ def get_location(caiduser: CaIDUser, name: str) -> Location:
     else:
         location = objs[0]
     return location
+
+
+def get_content_owner_filter_params(ciduser: CaIDUser, prefix: str) -> dict:
+    """Parameters for filtering user content based on existence of workgroup.
+
+    Parameters
+    ----------
+    request : HttpRequest
+        Request object.
+    prefix : str
+        Prefix for filtering with ciduser.
+        If the filter will be used in MediaFile, the prefix should be "parent__owner".
+        If the filter will be used in Location, the prefix should be "owner".
+    """
+    if ciduser.workgroup:
+        # filter_params = dict(parent__owner__workgroup=request.user.caiduser.workgroup)
+        filter_params = {f"{prefix}__workgroup": ciduser.workgroup}
+    else:
+        filter_params = {f"{prefix}": ciduser}
+    return filter_params

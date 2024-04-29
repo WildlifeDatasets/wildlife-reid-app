@@ -47,7 +47,7 @@ from .models import (
     MediafilesForIdentification,
     Taxon,
     UploadedArchive,
-    WorkGroup,
+    WorkGroup, get_content_owner_filter_params,
 )
 from .tasks import (
     _prepare_dataframe_for_identification,
@@ -78,7 +78,7 @@ def media_files(request):
     """List of uploads."""
     mediafiles = (
         MediaFile.objects.filter(
-            **_user_content_filter_params(request.user.caiduser, "parent__owner")
+            **get_content_owner_filter_params(request.user.caiduser, "parent__owner")
             # parent__owner=request.user.caiduser
         )
         .all()
@@ -113,7 +113,7 @@ def manual_taxon_classification_on_non_classified(request):
     # pick random non-classified media file
     mediafile = (
         MediaFile.objects.filter(
-            **_user_content_filter_params(request.user.caiduser, "parent__owner"),
+            **get_content_owner_filter_params(request.user.caiduser, "parent__owner"),
             # parent__owner__workgroup=request.user.caiduser.workgroup, # but this would work too
             category__name="Not Classified",
             parent__contains_single_taxon=False,
@@ -155,7 +155,7 @@ def delete_location(request, location_id):
     get_object_or_404(
         Location,
         pk=location_id,
-        **_user_content_filter_params(request.user.caiduser, "owner"),
+        **get_content_owner_filter_params(request.user.caiduser, "owner"),
     ).delete()
     return redirect("caidapp:manage_locations")
 
@@ -164,7 +164,7 @@ def update_location(request, location_id):
     location = get_object_or_404(
         Location,
         pk=location_id,
-        **_user_content_filter_params(request.user.caiduser, "owner"),
+        **get_content_owner_filter_params(request.user.caiduser, "owner"),
     )
     # if location.owner:
     #     if request.user.caiduser.workgroup != location.owner__workgroup:
@@ -191,7 +191,7 @@ def manage_locations(request):
     LocationFormSet = modelformset_factory(
         Location, fields=("name",), can_delete=False, can_order=False
     )
-    params = _user_content_filter_params(request.user.caiduser, "owner")
+    params = get_content_owner_filter_params(request.user.caiduser, "owner")
     formset = LocationFormSet(queryset=Location.objects.filter(**params))
 
     if request.method == "POST":
@@ -231,7 +231,7 @@ def uploads_identities(request):
     """List of uploads."""
     uploadedarchives = (
         UploadedArchive.objects.filter(
-            **_user_content_filter_params(request.user.caiduser, "owner"),
+            **get_content_owner_filter_params(request.user.caiduser, "owner"),
             contains_single_taxon=True,
     )
         .all()
@@ -292,7 +292,7 @@ def uploads_species(request):
     """List of uploads."""
     uploadedarchives = (
         UploadedArchive.objects.filter(
-            **_user_content_filter_params(request.user.caiduser, "owner"),
+            **get_content_owner_filter_params(request.user.caiduser, "owner"),
             contains_single_taxon=False,
             # parent__owner=request.user.caiduser
         )
@@ -1037,7 +1037,7 @@ def cloud_import_preview_view(request):
 
     # get list of available localities
 
-    params = _user_content_filter_params(request.user.caiduser, "owner")
+    params = get_content_owner_filter_params(request.user.caiduser, "owner")
 
     path = Path(request.user.caiduser.import_dir)
     paths_of_location_check = path.glob("./**/????-??-??")
@@ -1125,7 +1125,7 @@ def do_cloud_import_view(request):
 
     # get list of available localities
 
-    params = _user_content_filter_params(request.user.caiduser, "owner")
+    params = get_content_owner_filter_params(request.user.caiduser, "owner")
 
     path = Path(request.user.caiduser.import_dir)
     paths_of_location_check = path.glob("./**/????-??-??")
@@ -1170,29 +1170,9 @@ def _user_has_rw_acces_to_uploadedarchive(
     )
 
 
-def _user_content_filter_params(ciduser: CaIDUser, prefix: str) -> dict:
-    """Parameters for filtering user content based on existence of workgroup.
-
-    Parameters
-    ----------
-    request : HttpRequest
-        Request object.
-    prefix : str
-        Prefix for filtering with ciduser.
-        If the filter will be used in MediaFile, the prefix should be "parent__owner".
-        If the filter will be used in Location, the prefix should be "owner".
-    """
-    if ciduser.workgroup:
-        # filter_params = dict(parent__owner__workgroup=request.user.caiduser.workgroup)
-        filter_params = {f"{prefix}__workgroup": ciduser.workgroup}
-    else:
-        filter_params = {f"{prefix}": ciduser}
-    return filter_params
-
-
 def _get_all_user_locations(request):
     """Get all users locations."""
-    params = _user_content_filter_params(request.user.caiduser, "owner")
+    params = get_content_owner_filter_params(request.user.caiduser, "owner")
     # logger.debug(f"{params=}")
     locations = Location.objects.filter(**params).order_by("name")
     return locations
