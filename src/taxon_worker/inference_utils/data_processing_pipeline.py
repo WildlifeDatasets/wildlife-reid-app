@@ -285,8 +285,8 @@ def use_detector_class_if_classification_fails(
             detection_results = metadata["detection_results"][i]
             if len(detection_results) > 0:
                 detection_result = detection_results[0]
-                logger.debug(f"{detection_result['class']=}")
-                logger.debug(f"{detection_result['confidence']=}")
+                # logger.debug(f"{detection_result['class']=}")
+                # logger.debug(f"{detection_result['confidence']=}")
                 if detection_result["class"] == 'person':
                     class_ids[i] = label2id["Homo sapiens"]
                     probs_top[i] = detection_result["confidence"]

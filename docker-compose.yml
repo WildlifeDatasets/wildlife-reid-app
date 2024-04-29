@@ -72,7 +72,7 @@ services:
       - api-data:/data  # data used only by API
       - shared-data:/shared_data  # shared data with API, Workers, and Nginx
       - private-data:/private_data  # private keys that should not be automatically backed up
-      - ${DATA_IMPORT_DIR:-./import_data}:/import_data
+      - ${DATA_IMPORT_DIR:-./caid_import}:/caid_import
     expose:
       - 8080  # this should be accessible through inner nginx
     depends_on:

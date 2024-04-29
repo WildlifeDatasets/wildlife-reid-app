@@ -14,3 +14,5 @@ statsmodels
 codenamize==1.2.3
 pytest==7.0.1
 matplotlib==3.5.1
+opencv-python-headless==4.5.5.64  # just pinned version, no specific reason for that
+tqdm==4.62.3

@@ -1042,7 +1042,7 @@ def cloud_import_preview_view(request):
     path = Path(request.user.caiduser.import_dir)
     paths_of_location_check = path.glob("./**/????-??-??")
     # paths_of_locality_check = path.glob("*")
-    # paths_of_locality_check = Path("/import_data").glob("*")
+    # paths_of_locality_check = Path("/caid_import").glob("*")
     archives = UploadedArchive.objects.filter(**params)
     archives = [str(archive) for archive in archives]
 
@@ -1130,7 +1130,7 @@ def do_cloud_import_view(request):
     path = Path(request.user.caiduser.import_dir)
     paths_of_location_check = path.glob("./**/????-??-??")
     # paths_of_locality_check = path.glob("*")
-    # paths_of_locality_check = Path("/import_data").glob("*")
+    # paths_of_locality_check = Path("/caid_import").glob("*")
     text = str(path) + ""
     for path_of_location_check in paths_of_location_check:
         location = path_of_location_check.parts[-2]

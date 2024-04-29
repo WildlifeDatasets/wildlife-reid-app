@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 import skimage.io
 import skimage.transform
+import cv2
 
 logger = logging.getLogger(__file__)
 
@@ -39,9 +40,11 @@ def make_thumbnail_from_file(image_path: Path, thumbnail_path: Path, width: int 
         image = skimage.io.imread(image_path)
         scale = float(width) / image.shape[1]
         scale = [scale, scale, 1]
-        image_rescaled = skimage.transform.rescale(image, scale=scale, anti_aliasing=True)
-        logger.info(f"{image_rescaled.shape=}")
-        image_rescaled = (image_rescaled * 255).astype(np.uint8)
+        # TODO use opencv to resize image
+        image_rescaled = cv2.resize(image, (0, 0), fx=scale[0], fy=scale[1])
+        # image_rescaled = skimage.transform.rescale(image, scale=scale, anti_aliasing=True)
+        # image_rescaled = (image_rescaled * 255).astype(np.uint8)
+        logger.info(f"{image_rescaled.shape=}, {image_rescaled.dtype=}")
         thumbnail_path.parent.mkdir(exist_ok=True, parents=True)
         skimage.io.imsave(thumbnail_path, image_rescaled)
         return True

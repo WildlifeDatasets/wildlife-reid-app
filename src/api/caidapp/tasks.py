@@ -9,6 +9,10 @@ import numpy as np
 import pandas as pd
 from celery import chain, shared_task, signature
 from django.conf import settings
+import joblib
+from joblib import Parallel, delayed
+import multiprocessing
+from tqdm import tqdm
 
 from .fs_data import count_files_in_archive, make_thumbnail_from_file
 from .models import (
@@ -64,6 +68,7 @@ def predict_species_on_success(
         uploaded_archive.mediafiles_imported=True
         uploaded_archive.status = "Taxon classification finished"
         uploaded_archive.save()
+        uploaded_archive.update_earliest_and_latest_captured_at()
         run_detection_async(uploaded_archive)
     else:
         uploaded_archive.status = "Failed"
@@ -297,7 +302,8 @@ def _estimate_time_for_taxon_classification_of_uploaded_archive(
     file_count = count_files_in_archive(uploaded_archive.archivefile.path)
     # estimate time to process
     # it is time for taxon classification + detection + segmentation
-    time_to_process = datetime.timedelta(seconds=10) + (datetime.timedelta(seconds=22) * file_count)
+    # on CPU 22s per image, 0.1s per image on GPU
+    time_to_process = datetime.timedelta(seconds=10) + (datetime.timedelta(seconds=10) * file_count)
     logger.debug(f"{time_to_process=}")
     return time_to_process
 
@@ -334,10 +340,10 @@ def make_thumbnail_for_mediafile_if_necessary(mediafile: MediaFile, thumbnail_wi
     logger.debug(f"{mediafile.thumbnail=}, {mediafile.thumbnail is None=}, {mediafile.thumbnail.name is None=}")
 
     if mediafile.thumbnail.name is None:
-        logger.debug("we are in first if")
+        # logger.debug("we are in first if")
         gif_path = abs_pth.with_suffix(".gif")
         if gif_path.exists():
-            logger.debug("we are in second if")
+            # logger.debug("we are in second if")
             abs_pth = gif_path
             rel_pth = os.path.relpath(abs_pth, settings.MEDIA_ROOT)
             mediafile.thumbnail = str(rel_pth)
@@ -388,52 +394,70 @@ def update_uploaded_archive_by_metadata_csv(
     )
 
     for index, row in df.iterrows():
-        # rel_pth, _ = _get_rel_and_abs_paths_based_on_csv_row(row, output_dir)
-        image_abs_pth = output_dir / "images" / row["image_path"]
-        image_rel_pth = image_abs_pth.relative_to(settings.MEDIA_ROOT)
-        # rel_pth = os.path.relpath(abs_pth, settings.MEDIA_ROOT)
-        # rel_pth by patlib
-        media_abs_pth = output_dir / "images" / row["image_path"]
+        _update_database_by_one_row_of_metadata(df, index, row, create_missing, extract_identites, location, output_dir,
+                                                thumbnail_width, uploaded_archive)
+    num_cores = multiprocessing.cpu_count()
+    Parallel(n_jobs=num_cores)(delayed(_update_database_by_one_row_of_metadata)(df, index, row, create_missing, extract_identites, location, output_dir, thumbnail_width, uploaded_archive) for index, row in tqdm(df.iterrows()))
+    # get minimum and maximum datetime from df["datetime"]
+    # convert datetime as string to datetime object
+    # starts_at = pd.to_datetime(df["datetime"]).min()
+    # ends_at = pd.to_datetime(df["datetime"]).max()
+    # logger.debug(f"{starts_at=}, {ends_at=}")
+    # uploaded_archive.starts_at = str(starts_at)
+    # uploaded_archive.ends_at = str(ends_at)
+    uploaded_archive.location_at_upload_object = location
+    uploaded_archive.save()
 
-        media_abs_pth = Path(row["full_orig_media_path"])
-        media_rel_pth = media_abs_pth.relative_to(settings.MEDIA_ROOT)
-        captured_at = row["datetime"]
-        logger.debug(f"{captured_at=}, {type(captured_at)}")
-        if (captured_at == "") or (isinstance(captured_at, float) and np.isnan(captured_at)):
-            captured_at = None
 
-        try:
-            mf = uploaded_archive.mediafile_set.get(mediafile=str(image_rel_pth))
-            logger.debug("Using Mediafile generated before")
-        except MediaFile.DoesNotExist:
-            # convert pandas row to json
-            if create_missing:
-                logger.debug(f"{row['detection_results']=}")
+def _update_database_by_one_row_of_metadata(df, index, row, create_missing, extract_identites, location, output_dir,
+                                            thumbnail_width, uploaded_archive):
+    # rel_pth, _ = _get_rel_and_abs_paths_based_on_csv_row(row, output_dir)
+    image_abs_pth = output_dir / "images" / row["image_path"]
+    image_rel_pth = image_abs_pth.relative_to(settings.MEDIA_ROOT)
+    # rel_pth = os.path.relpath(abs_pth, settings.MEDIA_ROOT)
+    # rel_pth by patlib
+    # media_abs_pth = output_dir / "images" / row["image_path"]
+    media_abs_pth = Path(row["full_orig_media_path"])
+    media_rel_pth = media_abs_pth.relative_to(settings.MEDIA_ROOT)
+    captured_at = row["datetime"]
+    logger.debug(f"{captured_at=}, {type(captured_at)}")
+    if (captured_at == "") or (isinstance(captured_at, float) and np.isnan(captured_at)):
+        captured_at = None
+    continue_processing = True
+    try:
+        mf = uploaded_archive.mediafile_set.get(mediafile=str(image_rel_pth))
+        logger.debug("Using Mediafile generated before")
+    except MediaFile.DoesNotExist:
+        # convert pandas row to json
+        if create_missing:
+            logger.debug(f"{row['detection_results']=}")
 
-                # TODO use media_rel_pth instead of image_rel_pth
-                mf = MediaFile(
-                    parent=uploaded_archive,
-                    mediafile=str(image_rel_pth),
-                    # mediafile=str(media_rel_pth),
-                    image_file=str(image_rel_pth),
-                    captured_at=captured_at,
-                    location=location,
-                    # metadata_json=row["detection_results"],
-                    # metadata_json=metadata_json,
-                )
+            # TODO use media_rel_pth instead of image_rel_pth
+            mf = MediaFile(
+                parent=uploaded_archive,
+                mediafile=str(image_rel_pth),
+                # mediafile=str(media_rel_pth),
+                image_file=str(image_rel_pth),
+                captured_at=captured_at,
+                location=location,
+                # metadata_json=row["detection_results"],
+                # metadata_json=metadata_json,
+            )
 
-                logger.debug(f"{uploaded_archive.contains_identities=}")
-                logger.debug(f"{uploaded_archive.contains_single_taxon=}")
-                if uploaded_archive.contains_identities and uploaded_archive.contains_single_taxon:
-                    mf.identity_is_representative = True
-                logger.debug(f"{mf.identity_is_representative}")
-                mf.save()
-                logger.debug(f"Created new Mediafile {mf}")
-            else:
-                df.loc[index, "deleted"] = True
-                logger.debug(f"Mediafile {image_rel_pth} not found. Skipping.")
-                continue
-            # generate thumbnail if necessary
+            logger.debug(f"{uploaded_archive.contains_identities=}")
+            logger.debug(f"{uploaded_archive.contains_single_taxon=}")
+            if uploaded_archive.contains_identities and uploaded_archive.contains_single_taxon:
+                mf.identity_is_representative = True
+            logger.debug(f"{mf.identity_is_representative}")
+            mf.save()
+            logger.debug(f"Created new Mediafile {mf}")
+        else:
+            df.loc[index, "deleted"] = True
+            logger.debug(f"Mediafile {image_rel_pth} not found. Skipping.")
+            # continue
+            continue_processing = False
+        # generate thumbnail if necessary
+    if continue_processing:
         make_thumbnail_for_mediafile_if_necessary(mf, thumbnail_width=thumbnail_width)
 
         metadata_json = row.to_dict()
@@ -448,7 +472,7 @@ def update_uploaded_archive_by_metadata_csv(
             logger.debug(f"{uploaded_archive.contains_identities=}")
             logger.debug(f"{row['predicted_category']=}")
 
-            mf.category = get_taxon(row["predicted_category"]) # remove this
+            mf.category = get_taxon(row["predicted_category"])  # remove this
             if len(mf.animalobservation_set.all()) == 0:
                 mf.animalobservation_set.create(
                     mediafile=mf,
@@ -466,16 +490,7 @@ def update_uploaded_archive_by_metadata_csv(
                 )
             mf.save()
             logger.debug(f"identity={mf.identity}")
-        logger.debug(f"{mf}")
-    # get minimum and maximum datetime from df["datetime"]
-    # convert datetime as string to datetime object
-    starts_at = pd.to_datetime(df["datetime"]).min()
-    ends_at = pd.to_datetime(df["datetime"]).max()
-    logger.debug(f"{starts_at=}, {ends_at=}")
-    uploaded_archive.starts_at = str(starts_at)
-    uploaded_archive.ends_at = str(ends_at)
-    uploaded_archive.location_at_upload_object = location
-    uploaded_archive.save()
+    logger.debug(f"{mf}")
 
 
 def update_metadata_csv_by_uploaded_archive(

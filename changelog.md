@@ -13,6 +13,7 @@
 * [added] Download original archive
 * [added] Range of dates is visualized for every control upload
 * [changed] Increased number of workers in webapp
+* [changed] Do the thumbnail generation in parallel
 
 ## 03-2024
 

@@ -8,6 +8,11 @@ class WorkgroupUsersForm(forms.Form):
     workgroup_users = forms.ModelMultipleChoiceField(queryset=CaIDUser.objects.all(), required=False)
 
 
+class MergeIdentityForm(forms.Form):
+    merge_with = forms.ModelForm()
+
+
+
 class AlbumForm(forms.ModelForm):
     class Meta:
         model = Album

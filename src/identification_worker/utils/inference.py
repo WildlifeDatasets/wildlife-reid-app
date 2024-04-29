@@ -198,6 +198,7 @@ def mask_images(metadata: pd.DataFrame) -> pd.DataFrame:
         cropped_animal = segment_animal(image_path, bbox)
 
         base_path = Path(image_path).parent.parent / "masked_images"
+
         save_path = base_path / Path(image_path).name
         base_path.mkdir(exist_ok=True, parents=True)
         Image.fromarray(cropped_animal).convert("RGB").save(save_path)

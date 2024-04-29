@@ -185,7 +185,7 @@ def create_image_from_video(
         logger.info("Running detection inference on video.")
         # detect
         predictions = []
-        for frame_id, image in tqdm(enumerate(images), desc="Detection"):
+        for frame_id, image in tqdm(enumerate(images), desc="Detection in video", total=len(images)):
             prediction = detect_animals_in_one_image(image)
 
             if prediction is not None:
