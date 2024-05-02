@@ -25,9 +25,6 @@
 {#                   data-bs-toggle="tooltip" title="{{ btn_tooltips.classify_non_classified }}"#}
 {#                >Classify non classified</a>#}
 {#            </nav>#}
-        <p>
-            {{ text }}
-        </p>
         </div><!-- End Page Title -->
         <section class="section">
             {#            <ul class="container">#}
@@ -80,14 +77,8 @@
 
                     {% endfor %}
 
-                    <a class="btn btn-primary {% if user.caiduser.dir_import_status == 'Processing' %} disabled {% endif %}"
-                       href="{% url 'caidapp:do_cloud_import' %}">Import all
-                    {% if user.caiduser.dir_import_status == 'Processing' %}
-                        <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                     {% endif %}
-                    </a>
 
-                    <ul class="pagination">
+                    <ul class="pagination mt-2">
                         {#                            <span class="step-links">#}
                         {% if page_obj.has_previous %}
                             <li class="page-item">
@@ -143,15 +134,32 @@
                         {#                            </span>#}
                     </ul>
 
+                    <a class="btn btn-primary m-3 {% if user.caiduser.dir_import_status == 'Processing' %} disabled {% endif %}"
+                       href="{% url 'caidapp:do_cloud_import' %}">Import all
+                        {% if user.caiduser.dir_import_status == 'Processing' %}
+                            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                        {% endif %}
+                    </a>
+
                 {% else %}
                     <p>No data available.</p>
-                    <p><a class="dropdown-item d-flex align-items-center" href="{% url 'caidapp:sample_data' %}">
-                        <i class="fa-solid fa-vial"></i>
-                        <span>Download sample data</span>
-                    </a></p>
+{#                    <p><a class="dropdown-item d-flex align-items-center" href="{% url 'caidapp:sample_data' %}">#}
+{#                        <i class="fa-solid fa-vial"></i>#}
+{#                        <span>Download sample data</span>#}
+{#                    </a></p>#}
                 {% endif %}
+
+
             </div>
             {#            </ul>#}
+            </div>
+            <div>
+                <h3>Client Setup</h3>
+                <ul>
+                    <li>Ask CaID administrator for Synology address, login and password</li>
+                    <li>Download and install <a href="https://www.synology.com/en-us/dsm/feature/drive">Synology Drive Client</a> </li>
+                    <li>Connect the Drive Client to remote dir <code>{{ text }}</code></li>
+                </ul>
             </div>
         </section>
     {% endif %}
