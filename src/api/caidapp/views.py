@@ -24,6 +24,7 @@ from django.http import HttpResponseBadRequest, HttpResponseNotAllowed, JsonResp
 from django.shortcuts import Http404, HttpResponse, get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.conf import settings
+import shutil
 from . import fs_data
 
 from .forms import (
@@ -1170,8 +1171,18 @@ def do_cloud_import_view(request):
         logger.debug("Zip file created. Ready to start processing.")
         run_species_prediction_async(uploaded_archive, extract_identites=False)
 
+        # move imported files to _imported directory
+        imported_dir = path / "_imported"
+        imported_dir.mkdir(exist_ok=True, parents=True)
+        relative_path = path_of_location_check.relative_to(path)
+        imported_path = imported_dir / relative_path
+        # move directory
+        shutil.move(path_of_location_check, imported_path)
+
+
 
     # move imported files to processed directory
+
     request.user.caiduser.dir_import_status = "Finished"
     request.user.caiduser.save()
     return redirect("caidapp:cloud_import_preview")
