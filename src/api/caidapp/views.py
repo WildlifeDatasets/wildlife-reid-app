@@ -23,6 +23,7 @@ from django.forms import modelformset_factory
 from django.http import HttpResponseBadRequest, HttpResponseNotAllowed, JsonResponse
 from django.shortcuts import Http404, HttpResponse, get_object_or_404, redirect, render
 from django.urls import reverse_lazy
+from django.conf import settings
 from . import fs_data
 
 from .forms import (
@@ -48,6 +49,7 @@ from .models import (
     Taxon,
     UploadedArchive,
     WorkGroup, get_content_owner_filter_params,
+    upload_to_unqiue_folder
 )
 from .tasks import (
     _prepare_dataframe_for_identification,
@@ -1037,32 +1039,27 @@ def cloud_import_preview_view(request):
 
     # get list of available localities
 
-    params = get_content_owner_filter_params(request.user.caiduser, "owner")
 
     path = Path(request.user.caiduser.import_dir)
     paths_of_location_check = path.glob("./**/????-??-??")
     # paths_of_locality_check = path.glob("*")
     # paths_of_locality_check = Path("/caid_import").glob("*")
-    archives = UploadedArchive.objects.filter(**params)
-    archives = [str(archive) for archive in archives]
+    caiduser = request.user.caiduser
 
     list_of_location_checks = []
     text = str(path) + ""
     for path_of_location_check in paths_of_location_check:
-        location = path_of_location_check.parts[-2]
-        date = path_of_location_check.parts[-1]
-        location_exists = len(Location.objects.filter(name=location, **params)) > 0
+        date, location, location_exists, zip_name, zip_name_exists, is_already_processed = _extract_new_control_upload_parameters(
+            path_of_location_check, caiduser)
 
-        zip_name = f"{location}_{date}.zip"
-        # remove diacritics and spaces from zip_name
-        zip_name = fs_data.remove_diacritics(zip_name).replace(" ", "_")
-
-        zip_name_exists = zip_name in archives
+        if is_already_processed:
+            continue
 
         list_of_location_checks.append(dict(
             path=str(path_of_location_check.relative_to(path)), location=location, date=date, zip_name=zip_name,
             location_exists=location_exists,
-            zip_name_exists=zip_name_exists
+            zip_name_exists=zip_name_exists,
+            # is_already_processed=is_already_processed
         ))
         # text += str(path_of_location_check.relative_to(path)) + "<br>"
 
@@ -1084,6 +1081,23 @@ def cloud_import_preview_view(request):
             # "taxon_stats_html": taxon_stats_html,
         },
     )
+
+
+def _extract_new_control_upload_parameters(path_of_location_check, caiduser):
+    params = get_content_owner_filter_params(caiduser, "owner")
+    archives = UploadedArchive.objects.filter(**params)
+    archives = [str(archive) for archive in archives]
+    location = path_of_location_check.parts[-2]
+    date = path_of_location_check.parts[-1]
+    logger.debug(f"{path_of_location_check.parts=}")
+    is_already_processed = ("_imported") in path_of_location_check.parts
+    location_exists = len(Location.objects.filter(name=location, **params)) > 0
+    zip_name = f"{location}_{date}.zip"
+    # remove diacritics and spaces from zip_name
+    zip_name = fs_data.remove_diacritics(zip_name).replace(" ", "_")
+    zip_name_exists = zip_name in archives
+    return date, location, location_exists, zip_name, zip_name_exists, is_already_processed
+
 
 def make_zipfile(output_filename: Path, source_dir: Path):
     """Make archive (zip, tar.gz) from a folder.
@@ -1125,7 +1139,8 @@ def do_cloud_import_view(request):
 
     # get list of available localities
 
-    params = get_content_owner_filter_params(request.user.caiduser, "owner")
+    # params = get_content_owner_filter_params(request.user.caiduser, "owner")
+    caiduser = request.user.caiduser
 
     path = Path(request.user.caiduser.import_dir)
     paths_of_location_check = path.glob("./**/????-??-??")
@@ -1133,22 +1148,30 @@ def do_cloud_import_view(request):
     # paths_of_locality_check = Path("/caid_import").glob("*")
     text = str(path) + ""
     for path_of_location_check in paths_of_location_check:
-        location = path_of_location_check.parts[-2]
-        date = path_of_location_check.parts[-1]
-        location_exists = len(Location.objects.filter(name=location, **params)) > 0
+        date, location, location_exists, zip_name, zip_name_exists, is_already_processed = _extract_new_control_upload_parameters(
+            path_of_location_check, caiduser)
 
-        # remove diacritics and spaces from zip_name
-        # zip_name = f"{location}_{date}.zip"
-        # zip_name = fs_data.remove_diacritics(zip_name).replace(" ", "_")
-        #
-        # UploadedArchive.objects.create(
-        #     owner=request.user.caiduser,
-        #     # archivefile=zip_name,
-        #     contains_single_taxon=True,
-        #     contains_identities=False,
-        #     status="Species Finished",
-        # )
-        # TODO finish import
+        if is_already_processed:
+            continue
+        # make zip from dir
+        uploaded_archive = UploadedArchive.objects.create(
+            owner=request.user.caiduser,
+            # archivefile=zip_name,
+            contains_single_taxon=False,
+            contains_identities=False,
+            status="Import initiated",
+            uploaded_at=django.utils.timezone.now(),
+        )
+        uploaded_archive.save()
+        zip_path = upload_to_unqiue_folder(uploaded_archive, zip_name)
+        make_zipfile(Path(settings.MEDIA_ROOT) / zip_path, path_of_location_check)
+        uploaded_archive.archivefile = zip_path
+        uploaded_archive.save()
+        logger.debug("Zip file created. Ready to start processing.")
+        run_species_prediction_async(uploaded_archive, extract_identites=False)
+
+
+    # move imported files to processed directory
     request.user.caiduser.dir_import_status = "Finished"
     request.user.caiduser.save()
     return redirect("caidapp:cloud_import_preview")

@@ -3,6 +3,10 @@
 
 # Changelog
 
+## 05-2024
+
+* [added] bulk import of media files using Synology Drive
+
 ## 04-2024
 
 * [added] Taxon classification by detection if necessary

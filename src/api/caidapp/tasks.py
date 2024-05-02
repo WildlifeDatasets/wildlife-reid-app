@@ -396,8 +396,13 @@ def update_uploaded_archive_by_metadata_csv(
     for index, row in df.iterrows():
         _update_database_by_one_row_of_metadata(df, index, row, create_missing, extract_identites, location, output_dir,
                                                 thumbnail_width, uploaded_archive)
-    num_cores = multiprocessing.cpu_count()
-    Parallel(n_jobs=num_cores)(delayed(_update_database_by_one_row_of_metadata)(df, index, row, create_missing, extract_identites, location, output_dir, thumbnail_width, uploaded_archive) for index, row in tqdm(df.iterrows()))
+    # parallel calculation have problem:
+    # joblib.externals.loky.process_executor.BrokenProcessPool:
+    # A task has failed to un-serialize. Please ensure that the arguments of the function are all picklable.
+
+    # num_cores = multiprocessing.cpu_count()
+    # Parallel(n_jobs=num_cores)(delayed(_update_database_by_one_row_of_metadata)(df, index, row, create_missing, extract_identites, location, output_dir, thumbnail_width, uploaded_archive) for index, row in tqdm(df.iterrows()))
+
     # get minimum and maximum datetime from df["datetime"]
     # convert datetime as string to datetime object
     # starts_at = pd.to_datetime(df["datetime"]).min()

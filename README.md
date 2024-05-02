@@ -18,7 +18,7 @@ export CAID_HOST="147.228..."
 Optianally, you can add `DATA_IMPORT_DIR` to your environment variables.
 
 ```bash
-echo "DATA_IMPORT_DIR=/path/to/data" >> .env
+echo "CAID_IMPORT=/mnt/caid_import" >> .env
 ```
 
 ```bash
