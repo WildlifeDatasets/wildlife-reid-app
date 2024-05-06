@@ -4,6 +4,7 @@ import logging
 import os
 from pathlib import Path
 from typing import List, Optional, Union
+from types import SimpleNamespace
 
 import django
 import pandas as pd
@@ -1042,26 +1043,20 @@ def cloud_import_preview_view(request):
 
 
     path = Path(request.user.caiduser.import_dir)
-    paths_of_location_check = path.glob("./**/????-??-??")
     # paths_of_locality_check = path.glob("*")
     # paths_of_locality_check = Path("/caid_import").glob("*")
     caiduser = request.user.caiduser
 
     list_of_location_checks = []
     text = str(path) + ""
-    for path_of_location_check in paths_of_location_check:
-        date, location, location_exists, zip_name, zip_name_exists, is_already_processed = _extract_new_control_upload_parameters(
-            path_of_location_check, caiduser)
 
-        if is_already_processed:
+    for yield_dict in _iterate_over_cameratrap_check(path, caiduser):
+
+
+        if yield_dict.is_already_processed:
             continue
 
-        list_of_location_checks.append(dict(
-            path=str(path_of_location_check.relative_to(path)), location=location, date=date, zip_name=zip_name,
-            location_exists=location_exists,
-            zip_name_exists=zip_name_exists,
-            # is_already_processed=is_already_processed
-        ))
+        list_of_location_checks.append(yield_dict.__dict__)
         # text += str(path_of_location_check.relative_to(path)) + "<br>"
 
 
@@ -1083,21 +1078,33 @@ def cloud_import_preview_view(request):
         },
     )
 
+def _iterate_over_cameratrap_check(path:Path, caiduser:CaIDUser) -> SimpleNamespace:
 
-def _extract_new_control_upload_parameters(path_of_location_check, caiduser):
+    paths_of_location_check = path.glob("./**/????-??-??")
     params = get_content_owner_filter_params(caiduser, "owner")
-    archives = UploadedArchive.objects.filter(**params)
-    archives = [str(archive) for archive in archives]
-    location = path_of_location_check.parts[-2]
-    date = path_of_location_check.parts[-1]
-    logger.debug(f"{path_of_location_check.parts=}")
-    is_already_processed = ("_imported") in path_of_location_check.parts
-    location_exists = len(Location.objects.filter(name=location, **params)) > 0
-    zip_name = f"{location}_{date}.zip"
-    # remove diacritics and spaces from zip_name
-    zip_name = fs_data.remove_diacritics(zip_name).replace(" ", "_")
-    zip_name_exists = zip_name in archives
-    return date, location, location_exists, zip_name, zip_name_exists, is_already_processed
+    archives = [str(archive) for archive in UploadedArchive.objects.filter(**params)]
+
+    for path_of_location_check in paths_of_location_check:
+        # date, location, location_exists, zip_name, zip_name_exists, is_already_processed = _extract_new_control_upload_parameters(
+        #     path_of_location_check, caiduser)
+
+        location = path_of_location_check.parts[-2]
+        date = path_of_location_check.parts[-1]
+        logger.debug(f"{path_of_location_check.parts=}")
+
+        # remove diacritics and spaces from zip_name
+        zip_name = fs_data.remove_diacritics(f"{location}_{date}.zip").replace(" ", "_")
+
+        yield_dict = SimpleNamespace(
+            date=date, location=location,
+            location_exists=len(Location.objects.filter(name=location, **params)) > 0,
+            zip_name_exists=zip_name in archives,
+            is_already_processed=("_imported") in path_of_location_check.parts,
+            path_of_location_check=path_of_location_check,
+            path=str(path_of_location_check.relative_to(path))
+        )
+
+        yield yield_dict
 
 
 def make_zipfile(output_filename: Path, source_dir: Path):
@@ -1144,16 +1151,16 @@ def do_cloud_import_view(request):
     caiduser = request.user.caiduser
 
     path = Path(request.user.caiduser.import_dir)
-    paths_of_location_check = path.glob("./**/????-??-??")
+    # paths_of_location_check = path.glob("./**/????-??-??")
     # paths_of_locality_check = path.glob("*")
     # paths_of_locality_check = Path("/caid_import").glob("*")
     text = str(path) + ""
-    for path_of_location_check in paths_of_location_check:
-        date, location, location_exists, zip_name, zip_name_exists, is_already_processed = _extract_new_control_upload_parameters(
-            path_of_location_check, caiduser)
+    for yield_dict in _iterate_over_cameratrap_check(path, caiduser):
 
-        if is_already_processed:
+
+        if yield_dict.is_already_processed:
             continue
+
         # make zip from dir
         uploaded_archive = UploadedArchive.objects.create(
             owner=request.user.caiduser,
@@ -1164,8 +1171,8 @@ def do_cloud_import_view(request):
             uploaded_at=django.utils.timezone.now(),
         )
         uploaded_archive.save()
-        zip_path = upload_to_unqiue_folder(uploaded_archive, zip_name)
-        make_zipfile(Path(settings.MEDIA_ROOT) / zip_path, path_of_location_check)
+        zip_path = upload_to_unqiue_folder(uploaded_archive, yield_dict.zip_name)
+        make_zipfile(Path(settings.MEDIA_ROOT) / zip_path, yield_dict.path_of_location_check)
         uploaded_archive.archivefile = zip_path
         uploaded_archive.save()
         logger.debug("Zip file created. Ready to start processing.")
@@ -1174,10 +1181,10 @@ def do_cloud_import_view(request):
         # move imported files to _imported directory
         imported_dir = path / "_imported"
         imported_dir.mkdir(exist_ok=True, parents=True)
-        relative_path = path_of_location_check.relative_to(path)
+        relative_path = yield_dict.path_of_location_check.relative_to(path)
         imported_path = imported_dir / relative_path
         # move directory
-        shutil.move(path_of_location_check, imported_path)
+        shutil.move(yield_dict.path_of_location_check, imported_path)
 
 
 
