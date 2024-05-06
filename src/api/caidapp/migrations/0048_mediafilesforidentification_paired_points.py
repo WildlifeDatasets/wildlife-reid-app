@@ -6,13 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0047_uploadedarchive_mediafiles_imported'),
+        ("caidapp", "0047_uploadedarchive_mediafiles_imported"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='mediafilesforidentification',
-            name='paired_points',
+            model_name="mediafilesforidentification",
+            name="paired_points",
             field=models.JSONField(blank=True, null=True),
         ),
     ]

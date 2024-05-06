@@ -1,17 +1,17 @@
+import ast
 import logging
+import os
 from pathlib import Path
 from typing import Tuple, Union
 
+import cv2
 import numpy as np
 import pandas as pd
 import timm
 import torch
-import cv2
-import os
-import ast
 from PIL import Image
-from tqdm import tqdm
 from segment_anything import SamPredictor, sam_model_registry
+from tqdm import tqdm
 from wildlife_tools import realize
 from wildlife_tools.data import WildlifeDataset
 from wildlife_tools.features import DeepFeatures
@@ -19,8 +19,8 @@ from wildlife_tools.similarity import CosineSimilarity
 
 from fgvc.utils.utils import set_cuda_device
 
-from .postprocessing import feature_top
 from .inference_local import get_merged_predictions
+from .postprocessing import feature_top
 
 logger = logging.getLogger("app")
 DEVICE = set_cuda_device("1" if torch.cuda.is_available() else "cpu")
@@ -81,7 +81,7 @@ def get_identification_model(model_name, model_checkpoint=""):
         return
 
     logger.info("Initializing identification model.")
-     # load model checkpoint
+    # load model checkpoint
     model = timm.create_model(model_name, num_classes=0, pretrained=True)
     if model_checkpoint:
         model_ckpt = torch.load(model_checkpoint, map_location=torch.device("cpu"))["model"]
@@ -101,11 +101,14 @@ def get_sam_model() -> SamPredictor:
         )
 
         logger.info("Initializing SAM model and loading pre-trained checkpoint.")
-        _checkpoint_path = Path("/identification_worker/resources/sam_vit_h_4b8939.pth").expanduser()
+        _checkpoint_path = Path(
+            "/identification_worker/resources/sam_vit_h_4b8939.pth"
+        ).expanduser()
         SAM = sam_model_registry["vit_h"](checkpoint=str(_checkpoint_path))
         SAM.to(device=DEVICE)
         SAM_PREDICTOR = SamPredictor(SAM)
     return SAM_PREDICTOR
+
 
 def del_identification_model():
     """Release the identification model."""
@@ -152,7 +155,7 @@ def pad_image(image: np.ndarray, bbox: Union[list, np.ndarray], border: float = 
     return padded_image
 
 
-def segment_animal(image_path: str, bbox: list, border: float=0.25) -> np.ndarray:
+def segment_animal(image_path: str, bbox: list, border: float = 0.25) -> np.ndarray:
     """Segment an animal in a given image using SAM model."""
     global SAM_PREDICTOR
 
@@ -180,6 +183,7 @@ def segment_animal(image_path: str, bbox: list, border: float=0.25) -> np.ndarra
 def mask_images(metadata: pd.DataFrame) -> pd.DataFrame:
     """Mask images using SAM model."""
     import json
+
     masked_paths = []
     get_sam_model()
     for row_idx, row in metadata.iterrows():
@@ -275,12 +279,12 @@ def _get_top_predictions(similarity: np.ndarray, paths: list, identities: list, 
 
 
 def identify(
-        features: np.ndarray,
-        reference_features: np.ndarray,
-        reference_image_paths: list,
-        reference_class_ids: list,
-        metadata: pd.DataFrame,
-        top_k: int = 3,
+    features: np.ndarray,
+    reference_features: np.ndarray,
+    reference_image_paths: list,
+    reference_class_ids: list,
+    metadata: pd.DataFrame,
+    top_k: int = 3,
 ) -> dict:
     """Compare input feature vectors with the reference feature vectors and make predictions."""
     assert len(reference_features) == len(reference_image_paths)
@@ -310,14 +314,16 @@ def identify(
         {
             "path": metadata["image_path"],
             "identity": [-1] * len(metadata["image_path"]),
-            "split": ["test"] * len(metadata["image_path"])
-        })
+            "split": ["test"] * len(metadata["image_path"]),
+        }
+    )
     database_metadata = pd.DataFrame(
         {
             "path": reference_image_paths,
             "identity": reference_class_ids,
-            "split": ["train"] * len(reference_class_ids)
-        })
+            "split": ["train"] * len(reference_class_ids),
+        }
+    )
 
     k_range = 50
     logger.info(f"Starting loftr prediction with k_range: {k_range}.")
@@ -328,7 +334,7 @@ def identify(
         top_k=top_k,
         k_range=k_range,
         num_kp=10,
-        identities=True
+        identities=True,
     )
 
     pred_image_paths = []

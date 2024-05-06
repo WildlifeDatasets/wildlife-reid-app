@@ -45,11 +45,11 @@ urlpatterns = [
         views.delete_upload,
         name="delete_upload",
     ),
-    path("update_uploadedarchive/<int:uploadedarchive_id>/",
-         views.update_uploadedarchive,
-         name="update_uploadedarchive"
-         ),
-
+    path(
+        "update_uploadedarchive/<int:uploadedarchive_id>/",
+        views.update_uploadedarchive,
+        name="update_uploadedarchive",
+    ),
     path(
         "<int:uploadedarchive_id>/run_processing/",
         views.run_taxon_classification,
@@ -60,7 +60,9 @@ urlpatterns = [
         views.run_taxon_classification_force_init,
         name="run_taxon_classification_force_init",
     ),
-    path("update_uploaded_archives/", views.update_uploaded_archives, name="update_uploaded_archives"),
+    path(
+        "update_uploaded_archives/", views.update_uploaded_archives, name="update_uploaded_archives"
+    ),
     path("djangologin/", views.MyLoginView.as_view(), name="djangologin"),
     path(
         "media_file_update/<int:media_file_id>/",
@@ -77,9 +79,11 @@ urlpatterns = [
     path("albums/", views.albums, name="albums"),
     path("album/<str:album_hash>", views.media_files_update, name="album"),
     path("taxon/<int:taxon_id>", views.media_files_update, name="taxon"),
-    path("representative_mediafiles/",
-         lambda request: views.media_files_update(request, identity_is_representative=True),
-         name="representative_mediafiles"),
+    path(
+        "representative_mediafiles/",
+        lambda request: views.media_files_update(request, identity_is_representative=True),
+        name="representative_mediafiles",
+    ),
     path(
         "individual_identity_mediafiles/<int:individual_identity_id>",
         views.media_files_update,

@@ -216,10 +216,9 @@ def test_make_input_tarfile():
     assert output_tarfile.exists()
 
 
-
 def test_import_dir():
     """Test import directory."""
-    dir_path = CAID_DATASET_BASEDIR / "test_micro_data"
+    # dir_path = CAID_DATASET_BASEDIR / "test_micro_data"
     assert False
     # metadata, duplicates = dataset_tools.import_dir(dir_path)
     # assert len(metadata) > 3

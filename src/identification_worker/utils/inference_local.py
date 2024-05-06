@@ -1,12 +1,14 @@
-from torchvision import transforms as T
-from .matcher_loftr import MatchLOFTR, LoFTR
-import torch
-from .loftr_utils import PairSubsetDataset
-from wildlife_tools.data.dataset import WildlifeDataset
 import logging
-import numpy as np
+
 import cv2
+import numpy as np
 import pandas as pd
+import torch
+from torchvision import transforms as T
+from wildlife_tools.data.dataset import WildlifeDataset
+
+from .loftr_utils import PairSubsetDataset
+from .matcher_loftr import LoFTR, MatchLOFTR
 
 logger = logging.getLogger("app")
 from fgvc.utils.utils import set_cuda_device
@@ -24,19 +26,19 @@ class CarnivoreDataset(WildlifeDataset):
         return self.metadata["path"].astype(str).values
 
 
-class WildFusionClassifier():
+class WildFusionClassifier:
     def __init__(
-            self,
-            matcher=None,
-            extractor_deep=None,
-            extractor_local=None,
-            transform_deep=None,
-            transform_local=None,
-            sim_deep=None,
-            sim_local=None,
-            device='cuda',
-            k_range: int = 20,
-            thr_range: float = 50,
+        self,
+        matcher=None,
+        extractor_deep=None,
+        extractor_local=None,
+        transform_deep=None,
+        transform_local=None,
+        sim_deep=None,
+        sim_local=None,
+        device="cuda",
+        k_range: int = 20,
+        thr_range: float = 50,
     ):
         if ((extractor_local and transform_local and matcher) or sim_local) is None:
             raise ValueError(
@@ -68,7 +70,7 @@ class WildFusionClassifier():
         self.k_range = np.min([self.k_range, self.sim_deep.shape[1]])
 
         if self.sim_local is None:
-            print('Calculating local similarity')
+            print("Calculating local similarity")
             query_local = self.get_features(query, self.extractor_local, self.transform_local)
             database_local = self.get_features(database, self.extractor_local, self.transform_local)
 
@@ -87,7 +89,7 @@ class WildFusionClassifier():
         return preds
 
     def get_features(self, dataset, extractor, transform):
-        """ Extract features."""
+        """Extract features."""
 
         dataset = WildlifeDataset(
             metadata=dataset.metadata,
@@ -133,18 +135,20 @@ class WildFusionClassifier():
 def get_local_matcher(size=512):
     extractor = lambda x: x
     matcher = MatchLOFTR(
-        pretrained='outdoor',
+        pretrained="outdoor",
         thresholds=(0.6,),
         batch_size=2,
         device=DEVICE,
         init_threshold=0.6,
         num_workers=2,
     )
-    transform = T.Compose([
-        T.Resize(size=(size, size)),
-        T.Grayscale(),
-        T.ToTensor(),
-    ])
+    transform = T.Compose(
+        [
+            T.Resize(size=(size, size)),
+            T.Grayscale(),
+            T.ToTensor(),
+        ]
+    )
 
     return extractor, matcher, transform
 
@@ -166,12 +170,14 @@ def load_image(path):
 
 def get_keypoints(query, database, merged_ids, num_kp=10, size=512):
     model = LoFTR(pretrained="outdoor", apply_fine=True, thr=0.05).to(DEVICE)
-    transform = T.Compose([
-        T.ToPILImage(),
-        T.Resize(size=(size, size)),
-        T.Grayscale(),
-        T.ToTensor(),
-    ])
+    transform = T.Compose(
+        [
+            T.ToPILImage(),
+            T.Resize(size=(size, size)),
+            T.Grayscale(),
+            T.ToTensor(),
+        ]
+    )
 
     keypoints = []
     for query_idx, database_idxs in enumerate(merged_ids):
@@ -209,6 +215,7 @@ def get_keypoints(query, database, merged_ids, num_kp=10, size=512):
 
     return keypoints
 
+
 def top_identities(predictions_ids, database_names, top_k=3):
     new_predictions_ids = []
     for query_pred in predictions_ids:
@@ -227,13 +234,13 @@ def top_identities(predictions_ids, database_names, top_k=3):
 
 
 def get_merged_predictions(
-        query_metadata: pd.DataFrame,
-        database_metadata: pd.DataFrame,
-        cos_similarity: np.ndarray,
-        top_k=3,
-        k_range: int = 50,
-        num_kp: int = 10,
-        identities: bool = True
+    query_metadata: pd.DataFrame,
+    database_metadata: pd.DataFrame,
+    cos_similarity: np.ndarray,
+    top_k=3,
+    k_range: int = 50,
+    num_kp: int = 10,
+    identities: bool = True,
 ) -> (list, list):
     extractor_local, matcher, transform_local = get_local_matcher()
 
@@ -244,7 +251,7 @@ def get_merged_predictions(
         transform_deep=None,
         transform_local=transform_local,
         sim_deep=cos_similarity,
-        k_range=k_range
+        k_range=k_range,
     )
 
     query = get_dataset(query_metadata)
@@ -252,9 +259,11 @@ def get_merged_predictions(
 
     merged_predictions_ids = classifier(query, database)
     if identities:
-        merged_predictions_ids = top_identities(merged_predictions_ids, database.labels_string, top_k)
+        merged_predictions_ids = top_identities(
+            merged_predictions_ids, database.labels_string, top_k
+        )
     else:
-        merged_predictions_ids = np.array(merged_predictions_ids)[:,:top_k]
+        merged_predictions_ids = np.array(merged_predictions_ids)[:, :top_k]
     keypoints = get_keypoints(query, database, merged_predictions_ids, num_kp)
 
     return merged_predictions_ids, keypoints

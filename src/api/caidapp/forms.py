@@ -5,7 +5,9 @@ from .models import Album, CaIDUser, IndividualIdentity, MediaFile, UploadedArch
 
 
 class WorkgroupUsersForm(forms.Form):
-    workgroup_users = forms.ModelMultipleChoiceField(queryset=CaIDUser.objects.all(), required=False)
+    workgroup_users = forms.ModelMultipleChoiceField(
+        queryset=CaIDUser.objects.all(), required=False
+    )
 
 
 # class MergeIdentityForm(forms.Form):
@@ -35,6 +37,7 @@ class IndividualIdentityForm(forms.ModelForm):
         model = IndividualIdentity
         fields = ("name",)
 
+
 class UploadedArchiveUpdateForm(forms.ModelForm):
     from django import forms
 
@@ -51,6 +54,7 @@ class UploadedArchiveUpdateForm(forms.ModelForm):
             "location_at_upload",
             # "contains_identities"
         )
+
 
 class UploadedArchiveForm(forms.ModelForm):
     from django import forms

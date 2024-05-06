@@ -2,7 +2,7 @@ import logging
 import os
 import traceback
 from pathlib import Path
-from typing import Any, Dict, List, Union, Optional
+from typing import Any, Dict, List, Optional, Union
 
 import cv2
 import numpy as np
@@ -121,7 +121,6 @@ def detect_animals_in_one_image(image_rgb: np.ndarray) -> Optional[List[Dict[str
 
     Expected classes are: {0: 'animal', 1: 'person', 2: 'vehicle'}
     """
-
     detection_model = get_detection_model()
     results = detection_model(image_rgb)
     id2label = results.names
@@ -142,7 +141,6 @@ def detect_animals_in_one_image(image_rgb: np.ndarray) -> Optional[List[Dict[str
             "size": image_rgb.shape[:2],
         }
         for i in range(len(results))
-
     ]
     # results_list[i] = {
     #     "bbox": list(int(_) for _ in results[i][:4].tolist()),
@@ -154,7 +152,7 @@ def detect_animals_in_one_image(image_rgb: np.ndarray) -> Optional[List[Dict[str
     return results_list
 
 
-def detect_animal_on_metadata(metadata:pd.DataFrame, border=0.0) -> pd.DataFrame:
+def detect_animal_on_metadata(metadata: pd.DataFrame, border=0.0) -> pd.DataFrame:
     """Do the detection and segmentation on images in metadata.
 
     Returns:
@@ -165,7 +163,10 @@ def detect_animal_on_metadata(metadata:pd.DataFrame, border=0.0) -> pd.DataFrame
     for row_idx, row in tqdm(metadata.iterrows(), total=len(metadata)):
         image_abs_path = row["full_image_path"]
         try:
-            if row["media_type"] == "video" and row["full_image_path"] == row["full_orig_media_path"]:
+            if (
+                row["media_type"] == "video"
+                and row["full_image_path"] == row["full_orig_media_path"]
+            ):
                 # there are no detected animals in video
                 continue
 
@@ -185,7 +186,7 @@ def detect_animal_on_metadata(metadata:pd.DataFrame, border=0.0) -> pd.DataFrame
                 # if result["class"] == "animal":
                 base_path = Path(image_abs_path).parent.parent / "detection_images"
                 save_path = base_path / (
-                        Path(image_abs_path).stem + f".{ii}" + Path(image_abs_path).suffix
+                    Path(image_abs_path).stem + f".{ii}" + Path(image_abs_path).suffix
                 )
                 base_path.mkdir(exist_ok=True, parents=True)
 

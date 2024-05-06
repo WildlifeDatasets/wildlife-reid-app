@@ -1,12 +1,12 @@
-import torch
 import numpy as np
+import torch
 
 
 class PairProductDataset(torch.utils.data.IterableDataset):
-    '''
-    Create IterableDataset as a product of two mapping style datasets. 
+    """
+    Create IterableDataset as a product of two mapping style datasets.
     Each item in dataset0 creates pair with each item in dataset1.
-    
+
     Iteration returns 4-tuple (idx0, <dataset0 data at idx0>, idx1, <dataset1 data at idx1>)
 
     Example:
@@ -16,7 +16,7 @@ class PairProductDataset(torch.utils.data.IterableDataset):
         >>> (0, 'x', 0, 'a')
         next(iterator)
         >>> (0, 'x', 1, 'b')
-    '''
+    """
 
     def __init__(self, dataset0, dataset1, load_label=False):
         super().__init__()
@@ -28,7 +28,7 @@ class PairProductDataset(torch.utils.data.IterableDataset):
         return len(self.dataset0) * len(self.dataset1)
 
     def index_shape(self):
-        '''  Describes max possible value of the idx0 and idx1 indexes.'''
+        """Describes max possible value of the idx0 and idx1 indexes."""
         return len(self.dataset0), len(self.dataset1)
 
     def __iter__(self):
@@ -46,20 +46,21 @@ class PairProductDataset(torch.utils.data.IterableDataset):
                 yield idx0, self.dataset0[idx0][0], idx1, self.dataset1[idx1][0]
 
 
-import torchvision.transforms as T
 import itertools
+
 import torch
+import torchvision.transforms as T
 
 
 class PairSubsetDataset(torch.utils.data.IterableDataset):
-    '''
-    Create IterableDataset as a product of two mapping style datasets given 
+    """
+    Create IterableDataset as a product of two mapping style datasets given
     Each item in dataset0 creates pair with subset of items in dataset1 with size defined by subset_matrix.
 
 
     Iteration returns 4-tuple (idx0, <dataset0 data at idx0>, idx1, <dataset1 data at idx1>)
 
-    '''
+    """
 
     def __init__(self, dataset0, dataset1, subset_matrix, load_label=False):
         super().__init__()
@@ -77,7 +78,7 @@ class PairSubsetDataset(torch.utils.data.IterableDataset):
             return self.subset_matrix.size
 
     def index_shape(self):
-        '''  Describes max possible value of the idx0 and idx1 indexes.'''
+        """Describes max possible value of the idx0 and idx1 indexes."""
         return len(self.dataset0), len(self.dataset1)
 
     def __iter__(self):
@@ -95,7 +96,7 @@ class PairSubsetDataset(torch.utils.data.IterableDataset):
                 yield idx0, self.dataset0[idx0][0], idx1, self.dataset1[idx1][0]
 
 
-class ResizeLonger():
+class ResizeLonger:
     """
     Resizes an image to have the longer side length equal to a given size
     Maintains aspect ratio.

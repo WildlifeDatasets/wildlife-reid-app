@@ -135,11 +135,12 @@ def predict(
                     )
                 logger.debug(f"{list(metadata.image_path)}")
                 query_image_path = list(metadata.image_path)
-                query_masked_path = [p.replace("/images/", "/masked_images/") for p in query_image_path]
+                query_masked_path = [
+                    p.replace("/images/", "/masked_images/") for p in query_image_path
+                ]
 
                 # generate embeddings
                 features = encode_images(metadata)
-
 
                 # get reference embeddings
                 reference_features = np.array(reference_images["embedding"].tolist())
@@ -155,7 +156,9 @@ def predict(
                     metadata=metadata,
                     top_k=top_k,
                 )
-                pred_labels = [[id2label[x] for x in row] for row in identification_output["pred_class_ids"]]
+                pred_labels = [
+                    [id2label[x] for x in row] for row in identification_output["pred_class_ids"]
+                ]
                 identification_output["mediafile_ids"] = metadata["mediafile_id"].tolist()
                 identification_output["pred_labels"] = pred_labels
                 identification_output["query_image_path"] = query_image_path

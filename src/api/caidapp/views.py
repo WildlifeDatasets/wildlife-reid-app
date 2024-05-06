@@ -2,14 +2,15 @@ import datetime
 import json
 import logging
 import os
+import shutil
 from pathlib import Path
-from typing import List, Optional, Union
 from types import SimpleNamespace
+from typing import List, Optional, Union
 
 import django
 import pandas as pd
-import plotly.graph_objects as go
 import plotly.express as px
+import plotly.graph_objects as go
 import pytz
 from celery import signature
 from django.conf import settings
@@ -19,15 +20,13 @@ from django.contrib.auth import logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView
 from django.core.paginator import Paginator
-from django.db.models import Q, QuerySet, Count
+from django.db.models import Count, Q, QuerySet
 from django.forms import modelformset_factory
 from django.http import HttpResponseBadRequest, HttpResponseNotAllowed, JsonResponse
 from django.shortcuts import Http404, HttpResponse, get_object_or_404, redirect, render
 from django.urls import reverse_lazy
-from django.conf import settings
-import shutil
-from . import fs_data
 
+from . import fs_data
 from .forms import (
     AlbumForm,
     IndividualIdentityForm,
@@ -50,18 +49,19 @@ from .models import (
     MediafilesForIdentification,
     Taxon,
     UploadedArchive,
-    WorkGroup, get_content_owner_filter_params,
-    _get_zip_path_in_unique_folder
+    WorkGroup,
+    _get_zip_path_in_unique_folder,
+    get_content_owner_filter_params,
 )
 from .tasks import (
     _prepare_dataframe_for_identification,
+    get_location,
     identify_on_success,
     init_identification_on_error,
     init_identification_on_success,
     on_error_in_upload_processing,
     run_species_prediction_async,
     update_metadata_csv_by_uploaded_archive,
-    get_location
 )
 
 logger = logging.getLogger("app")
@@ -156,6 +156,7 @@ def _round_location(location: Location, order: int = 3):
     location.save()
     return f"{lat},{lon}"
 
+
 def delete_location(request, location_id):
     """Delete location."""
     get_object_or_404(
@@ -164,6 +165,7 @@ def delete_location(request, location_id):
         **get_content_owner_filter_params(request.user.caiduser, "owner"),
     ).delete()
     return redirect("caidapp:manage_locations")
+
 
 def update_location(request, location_id):
     """Show and update location."""
@@ -239,7 +241,7 @@ def uploads_identities(request):
         UploadedArchive.objects.filter(
             **get_content_owner_filter_params(request.user.caiduser, "owner"),
             contains_single_taxon=True,
-    )
+        )
         .all()
         .order_by("-uploaded_at")
     )
@@ -500,7 +502,9 @@ def delete_individual_identity(request, individual_identity_id):
     individual_identity.delete()
     return redirect("caidapp:individual_identities")
 
+
 def get_individual_identity_zoomed_paired_points(request, foridentification_id: int, top_id: int):
+    """Show detail with paired points."""
     return get_individual_identity_zoomed(request, foridentification_id, top_id, points=True)
 
 
@@ -513,25 +517,35 @@ def get_individual_identity_zoomed(request, foridentification_id: int, top_id: i
     if foridentification.mediafile.parent.owner.workgroup != request.user.caiduser.workgroup:
         return HttpResponseNotAllowed("Not allowed to work with this media file.")
 
-    top_id, top_mediafile, top_name, top_score, paired_points = _select_pair_for_detail_identification(foridentification, top_id)
+    (
+        top_id,
+        top_mediafile,
+        top_name,
+        top_score,
+        paired_points,
+    ) = _select_pair_for_detail_identification(foridentification, top_id)
 
     if points:
         from . import gui_tools
+
         logger.debug(f"{top_mediafile.mediafile.name}")
         # read image with PIL
-        from PIL import Image
         import numpy as np
+        from PIL import Image
 
         paired_pts0 = np.asarray(paired_points[0])
         paired_pts1 = np.asarray(paired_points[1])
 
-        pth0 = Path(settings.MEDIA_ROOT) / str(foridentification.mediafile.mediafile.name).replace("/images/", "/masked_images/")
-        pth1 = Path(settings.MEDIA_ROOT) / str(top_mediafile.mediafile.name).replace("/images/", "/masked_images/")
+        pth0 = Path(settings.MEDIA_ROOT) / str(foridentification.mediafile.mediafile.name).replace(
+            "/images/", "/masked_images/"
+        )
+        pth1 = Path(settings.MEDIA_ROOT) / str(top_mediafile.mediafile.name).replace(
+            "/images/", "/masked_images/"
+        )
         pil_img0 = Image.open(pth0)
         pil_img1 = Image.open(pth1)
         img0 = np.array(pil_img0)
         img1 = np.array(pil_img1)
-
 
         # Compensate points coordinates because points are calculated on resized images 512x512
         #    We have two options resize the images, or recalculate the points coordinates
@@ -544,20 +558,29 @@ def get_individual_identity_zoomed(request, foridentification_id: int, top_id: i
         img0 = np.array(pil_img0)
         img1 = np.array(pil_img1)
 
-        # Option 2) Compensate points coordinates because points are calculated on resized images 512x512
+        # Option 2) Compensate points coordinates because points are calculated on resized
+        #    images 512x512
         # logger.debug(f"{foridentification.paired_points=}")
         # logger.debug(f"{paired_points=}")
         # paired_pts0 = (paired_pts0 / 512.0) * img0.shape[:2]
         # paired_pts1 = (paired_pts1 / 512.0) * img1.shape[:2]
 
-        html_img_src = gui_tools.create_match_img_src(paired_pts0.tolist(), paired_pts1.tolist(), img0, img1, top_name, top_name)
+        html_img_src = gui_tools.create_match_img_src(
+            paired_pts0.tolist(), paired_pts1.tolist(), img0, img1, top_name, top_name
+        )
         template = "caidapp/get_individual_identity_zoomed_paired_points.html"
-        btn_link = reverse_lazy('caidapp:get_individual_identity_zoomed', kwargs={"foridentification_id": foridentification_id, "top_id": top_id})
+        btn_link = reverse_lazy(
+            "caidapp:get_individual_identity_zoomed",
+            kwargs={"foridentification_id": foridentification_id, "top_id": top_id},
+        )
         btn_icon_style = "fa fa-eye"
     else:
         template = "caidapp/get_individual_identity_zoomed.html"
         html_img_src = None
-        btn_link = reverse_lazy('caidapp:get_individual_identity_zoomed_paired_points', kwargs={"foridentification_id": foridentification_id, "top_id": top_id})
+        btn_link = reverse_lazy(
+            "caidapp:get_individual_identity_zoomed_paired_points",
+            kwargs={"foridentification_id": foridentification_id, "top_id": top_id},
+        )
         btn_icon_style = "fa-solid fa-arrows-to-dot"
 
     return render(
@@ -572,7 +595,7 @@ def get_individual_identity_zoomed(request, foridentification_id: int, top_id: i
             "top_name": top_name,
             "html_img_src": html_img_src,
             "btn_link": btn_link,
-            "btn_icon_style" : btn_icon_style,
+            "btn_icon_style": btn_icon_style,
         },
     )
 
@@ -602,7 +625,7 @@ def _select_pair_for_detail_identification(foridentification, top_id):
     if (top_id - 1) < len(foridentification.paired_points):
         paired_points = foridentification.paired_points[top_id - 1]
     else:
-        paired_points = [[],[]]
+        paired_points = [[], []]
     return top_id, top_mediafile, top_name, top_score, paired_points
 
 
@@ -684,9 +707,12 @@ def set_individual_identity(
 
     return redirect("caidapp:get_individual_identity")
 
+
 @staff_member_required
 def run_taxon_classification_force_init(request, uploadedarchive_id):
+    """Run processing of uploaded archive with removal of previous outputs."""
     return run_taxon_classification(request, uploadedarchive_id=uploadedarchive_id, force_init=True)
+
 
 @staff_member_required
 def run_taxon_classification(request, uploadedarchive_id, force_init=False):
@@ -727,8 +753,8 @@ def init_identification(request, taxon_str: str = "Lynx lynx"):
     workgroup.identification_init_at = django.utils.timezone.now()
     workgroup.identification_init_status = "Processing"
     workgroup.identification_init_message = (
-        f"Using {len(csv_data['image_path'])} representative images for identification initialization."
-    )
+            f"Using {len(csv_data['image_path'])}" +
+            "representative images for identification initialization.")
     workgroup.save()
 
     logger.debug("Calling init_identification...")
@@ -1038,11 +1064,11 @@ def upload_archive(
 
 @login_required
 def cloud_import_preview_view(request):
+    """Check the content of the import directory and analyze if it is ready for import."""
     if len(request.user.caiduser.import_dir) == 0:
         return HttpResponseNotAllowed("No import directory specified. Ask admin to set it up.")
 
     # get list of available localities
-
 
     path = Path(request.user.caiduser.import_dir)
     # paths_of_locality_check = path.glob("*")
@@ -1063,7 +1089,6 @@ def cloud_import_preview_view(request):
         list_of_location_checks.append(yield_dict.__dict__)
         # text += str(path_of_location_check.relative_to(path)) + "<br>"
 
-
     return render(
         request,
         "caidapp/cloud_import_checks_preview.html",
@@ -1082,9 +1107,10 @@ def cloud_import_preview_view(request):
         },
     )
 
-def _iterate_over_location_checks(path:Path, caiduser:CaIDUser) -> SimpleNamespace:
-    from itertools import chain
+
+def _iterate_over_location_checks(path: Path, caiduser: CaIDUser) -> SimpleNamespace:
     import re
+    from itertools import chain
 
     params = get_content_owner_filter_params(caiduser, "owner")
     archives = [str(archive) for archive in UploadedArchive.objects.filter(**params)]
@@ -1100,7 +1126,8 @@ def _iterate_over_location_checks(path:Path, caiduser:CaIDUser) -> SimpleNamespa
         pth_no_suffix = path_of_location_check.with_suffix("")
         # check if name is in format {location_name}_YYYY-MM-DD
         if re.match(r".*_[0-9]{4}-[0-9]{2}-[0-9]{2}", pth_no_suffix.name):
-            # split name and date, date is in the end of the name in format YYYY-MM-DD, location is in the beginning of dir or file name separated from date by underscore
+            # split name and date, date is in the end of the name in format YYYY-MM-DD,
+            # location is in the beginning of dir or file name separated from date by underscore
             date = pth_no_suffix.parts[-1].split("_")[-1]
             # location is everything before the last underscore
             location = "_".join(pth_no_suffix.parts[-1].split("_")[:-1])
@@ -1115,16 +1142,19 @@ def _iterate_over_location_checks(path:Path, caiduser:CaIDUser) -> SimpleNamespa
         elif pth_no_suffix.parts[-1] in checked_subdirs:
             parent_dir_to_be_deleted = True
             # the parent directory which was already checked
-            error_message = None,
+            error_message = (None,)
             location = ""
             date = ""
             # continue
         else:
-            logger.debug("Name of the directory or file is not in format {location_name}_YYYY-MM-DD. Skipping.")
-            error_message = f"Name of the directory or file is not in format {{location_name}}_YYYY-MM-DD. Skipping."
+            logger.debug(
+                "Name of the directory or file is not in format {location_name}_YYYY-MM-DD." +
+                "Skipping."
+            )
+            error_message = "Name of the directory or file is not in format " +\
+                            "{location_name}_{YYYY}-{MM}-{DD}. Skipping."
             location = ""
             date = ""
-
 
         # location = path_of_location_check.parts[-2]
         # date = path_of_location_check.parts[-1]
@@ -1134,7 +1164,8 @@ def _iterate_over_location_checks(path:Path, caiduser:CaIDUser) -> SimpleNamespa
         zip_name = fs_data.remove_diacritics(f"{location}_{date}.zip").replace(" ", "_")
 
         yield_dict = SimpleNamespace(
-            date=date, location=location,
+            date=date,
+            location=location,
             location_exists=len(Location.objects.filter(name=location, **params)) > 0,
             zip_name_exists=zip_name in archives,
             is_already_processed=("_imported") in path_of_location_check.parts,
@@ -1142,7 +1173,7 @@ def _iterate_over_location_checks(path:Path, caiduser:CaIDUser) -> SimpleNamespa
             path=str(path_of_location_check.relative_to(path)),
             error_message=error_message,
             zip_name=zip_name,
-            parent_dir_to_be_deleted=parent_dir_to_be_deleted
+            parent_dir_to_be_deleted=parent_dir_to_be_deleted,
         )
 
         yield yield_dict
@@ -1157,6 +1188,7 @@ def make_zipfile(output_filename: Path, source_dir: Path):
     source_dir: Path to input directory
     """
     import shutil
+
     output_filename = Path(output_filename)
     source_dir = Path(source_dir)
     archive_type = "zip"
@@ -1168,37 +1200,27 @@ def make_zipfile(output_filename: Path, source_dir: Path):
 
 @login_required
 def do_cloud_import_view(request):
-    """ Bulk import from one dir and prepare zip file for every check.
+    """Bulk import from one dir and prepare zip file for every check.
 
-    Make zip file from every check. The information encoded in path is code of lynx season (i.e. LY2019),
-    locality (Prachatice), date of check (2019-07-01). In the leaf directory are media files (images and videos).
-    For every check there will be zip file. The name of the zip file will be composed of locality and date of check.
+    Make zip file from every check. The information encoded in path is code of lynx season (i.e.
+    LY2019), locality (Prachatice), date of check (2019-07-01). In the leaf directory are media
+    files (images and videos). For every check there will be zip file. The name of the zip file
+    will be composed of locality and date of check.
 
     Example of path structure:
     NETRIDENA/LY2019/PRACHATICE/2019-07-01/2019-07-01_12-00-00_0001.jpg
-
     """
-    # path = Path(path)
-    # paths_of_locality_check = path.glob("LY*/*/20*")
-
     if len(request.user.caiduser.import_dir) == 0:
         return HttpResponseNotAllowed("No import directory specified. Ask admin to set it up.")
     request.user.caiduser.dir_import_status = "Processing"
     request.user.caiduser.save()
 
     # get list of available localities
-
-    # params = get_content_owner_filter_params(request.user.caiduser, "owner")
     caiduser = request.user.caiduser
 
     path = Path(request.user.caiduser.import_dir)
     dirs_to_be_deleted = []
-    # paths_of_location_check = path.glob("./**/????-??-??")
-    # paths_of_locality_check = path.glob("*")
-    # paths_of_locality_check = Path("/caid_import").glob("*")
-    text = str(path) + ""
     for yield_dict in _iterate_over_location_checks(path, caiduser):
-
 
         if yield_dict.parent_dir_to_be_deleted:
             dirs_to_be_deleted.append(yield_dict)
@@ -1216,7 +1238,9 @@ def do_cloud_import_view(request):
             status="Import initiated",
             uploaded_at=django.utils.timezone.now(),
         )
-        logger.debug(f"{yield_dict.path_of_location_check=}, {yield_dict.path_of_location_check.exists()=}")
+        logger.debug(
+            f"{yield_dict.path_of_location_check=}, {yield_dict.path_of_location_check.exists()=}"
+        )
         uploaded_archive.save()
         zip_path = _get_zip_path_in_unique_folder(uploaded_archive, yield_dict.zip_name)
         zip_path_absolute = Path(settings.MEDIA_ROOT) / zip_path
@@ -1243,7 +1267,6 @@ def do_cloud_import_view(request):
         imported_path = imported_dir / relative_path
         # move directory
         shutil.move(yield_dict.path_of_location_check, imported_path)
-
 
     for dir_to_be_deleted in dirs_to_be_deleted:
         dir_to_be_deleted.path_of_location_check.rmdir()
@@ -1277,7 +1300,10 @@ def _get_all_user_locations(request):
     locations = Location.objects.filter(**params).order_by("name")
     return locations
 
-def _set_location_to_mediafiles_of_uploadedarchive(request, uploaded_archive: UploadedArchive, location: Location):
+
+def _set_location_to_mediafiles_of_uploadedarchive(
+    request, uploaded_archive: UploadedArchive, location: Location
+):
     """Set location to mediafiles of uploaded archive."""
     if not _user_has_rw_acces_to_uploadedarchive(request.user.caiduser, uploaded_archive):
         return HttpResponseNotAllowed("Not allowed to edit this uploaded archive.")
@@ -1285,6 +1311,7 @@ def _set_location_to_mediafiles_of_uploadedarchive(request, uploaded_archive: Up
     for mediafile in mediafiles:
         mediafile.location = location
         mediafile.save()
+
 
 def update_uploadedarchive(request, uploadedarchive_id):
     """Show and update uploaded archive."""
@@ -1299,7 +1326,7 @@ def update_uploadedarchive(request, uploadedarchive_id):
             cleaned_location_at_upload = form.cleaned_data["location_at_upload"]
             uploaded_archive = form.save()
             logger.debug(f"{uploaded_archive.location_at_upload=}, {cleaned_location_at_upload=}")
-            if (uploaded_archive_location_at_upload != cleaned_location_at_upload):
+            if uploaded_archive_location_at_upload != cleaned_location_at_upload:
                 logger.debug("Location has been changed.")
                 # location_str = form.cleaned_data["location_at_upload"]
                 location = get_location(request.user.caiduser, cleaned_location_at_upload)
@@ -1322,6 +1349,7 @@ def update_uploadedarchive(request, uploadedarchive_id):
             "locations": _get_all_user_locations(request),
         },
     )
+
 
 @login_required
 def delete_upload(request, uploadedarchive_id, next_page="caidapp:uploads"):
@@ -1364,6 +1392,7 @@ def albums(request):
     )
     return render(request, "caidapp/albums.html", {"albums": albums})
 
+
 class MyLoginView(LoginView):
     redirect_authenticated_user = True
 
@@ -1378,8 +1407,13 @@ class MyLoginView(LoginView):
 
 
 def _mediafiles_query(
-    request, query: str, album_hash=None, individual_identity_id=None, taxon_id=None, uploadedarchive_id=None,
-        identity_is_representative=None
+    request,
+    query: str,
+    album_hash=None,
+    individual_identity_id=None,
+    taxon_id=None,
+    uploadedarchive_id=None,
+    identity_is_representative=None,
 ):
     """Prepare list of mediafiles based on query search in category and location."""
     mediafiles = (
@@ -1434,10 +1468,7 @@ def _mediafiles_query(
         query = SearchQuery(query)
         logger.debug(str(query))
         mediafiles = (
-            mediafiles
-            .annotate(rank=SearchRank(vector, query))
-            .filter(rank__gt=0)
-            .order_by("-rank")
+            mediafiles.annotate(rank=SearchRank(vector, query)).filter(rank__gt=0).order_by("-rank")
         )
         # words = [query]
         #
@@ -1539,12 +1570,12 @@ def _create_map_from_mediafiles(mediafiles: Union[QuerySet, List[MediaFile]]):
         mapbox_center_lon=df2.lon.unique().mean(),
         mapbox_center_lat=df2.lat.unique().mean(),
         mapbox_zoom=zoom,
-
     )
 
     fig.update_layout(margin={"r": 0, "t": 10, "l": 0, "b": 0}, height=300)
     map_html = fig.to_html()
     return map_html
+
 
 def _taxon_stats_for_mediafiles(mediafiles: Union[QuerySet, List[MediaFile]]) -> str:
     """Create taxon stats for mediafiles."""
@@ -1880,7 +1911,6 @@ def download_uploadedarchive_csv(request, uploadedarchive_id: int):
 
 def update_uploaded_archives(requests):
     """Update new calculations for formerly uploaded archives."""
-
     uploaded_archives = UploadedArchive.objects.all()
     for uploaded_archive in uploaded_archives:
         uploaded_archive.update_earliest_and_latest_captured_at()

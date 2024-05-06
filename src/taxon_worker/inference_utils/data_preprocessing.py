@@ -1,12 +1,10 @@
 import logging
 import os.path
 from pathlib import Path
-from typing import Any, Union
+from typing import Union
 
-import cv2
 import numpy as np
 import torch
-from PIL import Image
 from tqdm import tqdm
 
 logger = logging.getLogger("app")

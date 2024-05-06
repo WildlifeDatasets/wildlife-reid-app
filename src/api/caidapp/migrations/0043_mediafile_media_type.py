@@ -6,13 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0042_uploadedarchive_location_at_upload_object'),
+        ("caidapp", "0042_uploadedarchive_location_at_upload_object"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='mediafile',
-            name='media_type',
-            field=models.CharField(blank=True, default='image', max_length=255),
+            model_name="mediafile",
+            name="media_type",
+            field=models.CharField(blank=True, default="image", max_length=255),
         ),
     ]

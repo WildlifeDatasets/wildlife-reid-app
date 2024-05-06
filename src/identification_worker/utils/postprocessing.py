@@ -1,10 +1,10 @@
 from copy import copy
+from typing import Union
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 from numpy import arccos
 from numpy.linalg import norm
-from typing import Union
 
 
 def _get_angle(u: Union[list, np.ndarray], v: Union[list, np.ndarray]):
@@ -76,11 +76,11 @@ def flatten(data: Union[list, np.ndarray]):
 
 
 def feature_clustering(
-        features: np.ndarray,
-        features_data: pd.DataFrame,
-        similarity: np.ndarray,
-        angle_threshold: float = 45,
-        multiplier: float = 2,
+    features: np.ndarray,
+    features_data: pd.DataFrame,
+    similarity: np.ndarray,
+    angle_threshold: float = 45,
+    multiplier: float = 2,
 ):
     """Cluster features based on similarity scores and angle between features."""
     new_features = copy(features)
@@ -94,7 +94,7 @@ def feature_clustering(
     oid_representations = {o: [] for o in oids}
     oid_idx = {o: [] for o in oids}
     for idx, (feature, iid, scr_row) in enumerate(
-            zip(features, features_data["mediafile_id"], similarity)
+        zip(features, features_data["mediafile_id"], similarity)
     ):
         scr = np.max(scr_row)
         oid = iid_to_oid[iid]
@@ -184,7 +184,9 @@ def feature_average(features: np.ndarray, features_data: pd.DataFrame):
     return new_features
 
 
-def feature_top(features: np.ndarray, features_data: pd.DataFrame, similarity: np.ndarray, method: str):
+def feature_top(
+    features: np.ndarray, features_data: pd.DataFrame, similarity: np.ndarray, method: str
+):
     """Returns feature with highiest similarity."""
     new_features = copy(features)
 
@@ -197,7 +199,7 @@ def feature_top(features: np.ndarray, features_data: pd.DataFrame, similarity: n
     oid_idx = {o: [] for o in oids}
     oid_individual = {o: [] for o in oids}
     for idx, (feature, iid, scr_row) in enumerate(
-            zip(features, features_data["mediafile_id"], similarity)
+        zip(features, features_data["mediafile_id"], similarity)
     ):
         scr = np.max(scr_row)
         individual = np.argmax(scr_row)

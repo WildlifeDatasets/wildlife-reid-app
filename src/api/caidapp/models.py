@@ -5,19 +5,19 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional, Union
 
+import codenamize
 from django.contrib.auth import get_user_model
 from django.db import models
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from location_field.models.plain import PlainLocationField
-import codenamize
 
 from .model_tools import (
+    _get_zip_path_in_unique_folder,
     generate_sha1,
     get_output_dir,
     random_string,
     random_string12,
-    _get_zip_path_in_unique_folder,
 )
 
 # Create your models here.
@@ -77,16 +77,19 @@ def _hash():
     hash_str = generate_sha1(dt, salt=random_string())
     return hash_str
 
+
 def human_readable_hash():
     """Return a human readable hash composed from words."""
     number_of_words = 3
-    return codenamize.codenamize(_hash(), number_of_words - 1 , 0, " ", True)
+    return codenamize.codenamize(_hash(), number_of_words - 1, 0, " ", True)
+
 
 class Taxon(models.Model):
     name = models.CharField(max_length=50)
 
     def __str__(self):
         return str(self.name)
+
 
 class Location(models.Model):
     name = models.CharField(max_length=50)
@@ -97,11 +100,13 @@ class Location(models.Model):
         null=True,
         blank=True,
     )
-    # If the user is deleted, then we will keep the location but it does not belong to any user which is not good.
+    # If the user is deleted, then we will keep the location but it does not
+    # belong to any user which is not good.
     owner = models.ForeignKey(CaIDUser, on_delete=models.SET_NULL, null=True, blank=True)
 
     def __str__(self):
         return str(self.name)
+
 
 class UploadedArchive(models.Model):
     uploaded_at = models.DateTimeField("Uploaded at", default=datetime.now)
@@ -124,17 +129,21 @@ class UploadedArchive(models.Model):
     identification_started_at = models.DateTimeField("Started at", blank=True, null=True)
     identification_finished_at = models.DateTimeField("Finished at", blank=True, null=True)
     location_at_upload = models.CharField(max_length=255, blank=True, default="")
-    location_at_upload_object = models.ForeignKey(Location, on_delete=models.SET_NULL, null=True, blank=True)
+    location_at_upload_object = models.ForeignKey(
+        Location, on_delete=models.SET_NULL, null=True, blank=True
+    )
     owner = models.ForeignKey(CaIDUser, on_delete=models.CASCADE, null=True, blank=True)
     contains_identities = models.BooleanField(default=False)
     contains_single_taxon = models.BooleanField(default=False)
-    taxon_for_identification = models.ForeignKey(Taxon, on_delete=models.SET_NULL, null=True, blank=True)
+    taxon_for_identification = models.ForeignKey(
+        Taxon, on_delete=models.SET_NULL, null=True, blank=True
+    )
     mediafiles_imported = models.BooleanField("Media Files Imported Correctly", default=False)
     earliest_captured_at = models.DateTimeField("Earliest Captured at", blank=True, null=True)
     latest_captured_at = models.DateTimeField("Latest Captured at", blank=True, null=True)
 
-
-    def update_location_in_mediafiles(self, location:Union[str, Location]):
+    def update_location_in_mediafiles(self, location: Union[str, Location]):
+        """Update location in mediafiles."""
         if isinstance(location, str):
             location = get_location(self.owner, location)
         mediafiles = MediaFile.objects.filter(parent=self)
@@ -144,6 +153,7 @@ class UploadedArchive(models.Model):
         self.location = location.name
 
     def update_earliest_and_latest_captured_at(self):
+        """Update the earliest and latest captured at in the archive based on mediafiles."""
         mediafiles = MediaFile.objects.filter(parent=self)
         earliest_captured_at = None
         latest_captured_at = None
@@ -190,7 +200,6 @@ def auto_delete_file_on_delete(sender, instance, **kwargs):
         shutil.rmtree(instance.outputdir)
 
 
-
 # class Notification(models.Model):
 #     title = models.CharField(max_length=255)
 #     message = models.CharField(max_length=255)
@@ -200,7 +209,6 @@ def auto_delete_file_on_delete(sender, instance, **kwargs):
 #
 #     def __str__(self):
 #         return str(self.title)
-
 
 
 class IndividualIdentity(models.Model):
@@ -224,7 +232,8 @@ class MediaFile(models.Model):
         null=True,
         max_length=500,
     )
-    image_file = models.FileField(  # image representation of mediafile (orig file for images, single frame for videos
+    # image representation of mediafile (orig file for images, single frame for videos
+    image_file = models.FileField(
         "Image File",
         blank=True,
         null=True,
@@ -246,6 +255,7 @@ class MediaFile(models.Model):
 
     def __str__(self):
         return str(Path(self.mediafile.name).name)
+
 
 class AnimalObservation(models.Model):
     mediafile = models.ForeignKey(MediaFile, on_delete=models.CASCADE, null=True, blank=True)

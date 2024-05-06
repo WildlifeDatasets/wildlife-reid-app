@@ -722,7 +722,6 @@ def add_column_with_lynx_id(df: pd.DataFrame, contain_identities: bool = False) 
     return df
 
 
-
 def extract_information_from_dir_structure(
     df_filelist: pd.DataFrame, latin_to_taxonomy_csv_path: Optional[Path] = None
 ) -> pd.DataFrame:

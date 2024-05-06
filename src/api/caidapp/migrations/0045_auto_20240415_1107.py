@@ -6,18 +6,18 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0044_alter_location_owner'),
+        ("caidapp", "0044_alter_location_owner"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='caiduser',
-            name='dir_import_message',
-            field=models.CharField(blank=True, default='', max_length=255),
+            model_name="caiduser",
+            name="dir_import_message",
+            field=models.CharField(blank=True, default="", max_length=255),
         ),
         migrations.AddField(
-            model_name='caiduser',
-            name='dir_import_status',
-            field=models.CharField(blank=True, default='', max_length=255),
+            model_name="caiduser",
+            name="dir_import_status",
+            field=models.CharField(blank=True, default="", max_length=255),
         ),
     ]

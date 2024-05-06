@@ -72,10 +72,13 @@ def predict(
             metadata = create_image_from_video(metadata)
             metadata = data_processing_pipeline.keep_correctly_loaded_images(metadata)
         else:
-            logger.debug(f"Using existing metadata file: {output_metadata_file}. {output_metadata_file.exists()=}")
+            logger.debug(
+                f"Using existing metadata file: {output_metadata_file}. "
+                + f"{output_metadata_file.exists()=}"
+            )
             # print size of file in bytes
             logger.debug(f"{output_metadata_file=}, {output_metadata_file.stat().st_size=}")
-            #read file as str
+            # read file as str
             metadata = pd.read_csv(output_metadata_file, index_col=0)
             metadata["full_image_path"] = metadata["image_path"].apply(
                 lambda x: str(output_images_dir / x)

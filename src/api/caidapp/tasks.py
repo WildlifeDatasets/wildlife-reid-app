@@ -9,10 +9,8 @@ import numpy as np
 import pandas as pd
 from celery import chain, shared_task, signature
 from django.conf import settings
-import joblib
-from joblib import Parallel, delayed
-import multiprocessing
-from tqdm import tqdm
+# from joblib import Parallel, delayed
+# from tqdm import tqdm
 
 from .fs_data import count_files_in_archive, make_thumbnail_from_file
 from .models import (
@@ -63,9 +61,10 @@ def predict_species_on_success(
         # create missing take effect only if the processing is done for the first time
         # in other cases the file should be removed from CSV before the processing is run
         logger.debug(f"{uploaded_archive.contains_identities=}")
-        update_uploaded_archive_by_metadata_csv(uploaded_archive,
-                                                create_missing=True, extract_identites=extract_identites)
-        uploaded_archive.mediafiles_imported=True
+        update_uploaded_archive_by_metadata_csv(
+            uploaded_archive, create_missing=True, extract_identites=extract_identites
+        )
+        uploaded_archive.mediafiles_imported = True
         uploaded_archive.status = "Taxon classification finished"
         uploaded_archive.save()
         uploaded_archive.update_earliest_and_latest_captured_at()
@@ -213,11 +212,14 @@ def make_thumbnail_for_uploaded_archive(uploaded_archive: UploadedArchive):
         uploaded_archive.thumbnail = os.path.relpath(abs_thumbnail_path, settings.MEDIA_ROOT)
 
 
-def run_species_prediction_async(uploaded_archive: UploadedArchive, link=None,
-                                 link_error=None, extract_identites:bool=False, force_init:bool=False):
-    """Run species prediction asynchronously.
-
-    """
+def run_species_prediction_async(
+    uploaded_archive: UploadedArchive,
+    link=None,
+    link_error=None,
+    extract_identites: bool = False,
+    force_init: bool = False,
+):
+    """Run species prediction asynchronously."""
     _run_taxon_classification_init_message(uploaded_archive, commit=False)
     output_archive_file, output_dir, output_metadata_file = _run_taxon_classification_init(
         uploaded_archive, commit=True
@@ -262,7 +264,7 @@ def run_species_prediction_async(uploaded_archive: UploadedArchive, link=None,
             "output_metadata_file": str(output_metadata_file),
             "contains_identities": uploaded_archive.contains_identities,
             "force_init": force_init,
-    },
+        },
     )
 
     task = sig.apply_async(
@@ -337,7 +339,10 @@ def make_thumbnail_for_mediafile_if_necessary(mediafile: MediaFile, thumbnail_wi
 
     gif_path = abs_pth.with_suffix(".gif")
     logger.debug(f"{gif_path=}, {gif_path.exists()=}")
-    logger.debug(f"{mediafile.thumbnail=}, {mediafile.thumbnail is None=}, {mediafile.thumbnail.name is None=}")
+    logger.debug(
+        f"{mediafile.thumbnail=}, {mediafile.thumbnail is None=}, "
+        f"{mediafile.thumbnail.name is None=}"
+    )
 
     if mediafile.thumbnail.name is None:
         # logger.debug("we are in first if")
@@ -389,19 +394,32 @@ def update_uploaded_archive_by_metadata_csv(
 
     df = pd.read_csv(csv_file, index_col=0)
 
-    location = get_location(
-        uploaded_archive.owner, str(uploaded_archive.location_at_upload)
-    )
+    location = get_location(uploaded_archive.owner, str(uploaded_archive.location_at_upload))
 
     for index, row in df.iterrows():
-        _update_database_by_one_row_of_metadata(df, index, row, create_missing, extract_identites, location, output_dir,
-                                                thumbnail_width, uploaded_archive)
+        _update_database_by_one_row_of_metadata(
+            df,
+            index,
+            row,
+            create_missing,
+            extract_identites,
+            location,
+            output_dir,
+            thumbnail_width,
+            uploaded_archive,
+        )
     # parallel calculation have problem:
     # joblib.externals.loky.process_executor.BrokenProcessPool:
-    # A task has failed to un-serialize. Please ensure that the arguments of the function are all picklable.
+    # A task has failed to un-serialize. Please ensure that the arguments of the function
+    # are all picklable.
 
     # num_cores = multiprocessing.cpu_count()
-    # Parallel(n_jobs=num_cores)(delayed(_update_database_by_one_row_of_metadata)(df, index, row, create_missing, extract_identites, location, output_dir, thumbnail_width, uploaded_archive) for index, row in tqdm(df.iterrows()))
+    # Parallel(n_jobs=num_cores)(
+    #    delayed(_update_database_by_one_row_of_metadata)
+    #    (df, index, row, create_missing, extract_identites, location,
+    #    output_dir, thumbnail_width, uploaded_archive)
+    #    for index, row in tqdm(df.iterrows())
+    # )
 
     # get minimum and maximum datetime from df["datetime"]
     # convert datetime as string to datetime object
@@ -414,16 +432,22 @@ def update_uploaded_archive_by_metadata_csv(
     uploaded_archive.save()
 
 
-def _update_database_by_one_row_of_metadata(df, index, row, create_missing, extract_identites, location, output_dir,
-                                            thumbnail_width, uploaded_archive):
+def _update_database_by_one_row_of_metadata(
+    df,
+    index,
+    row,
+    create_missing,
+    extract_identites,
+    location,
+    output_dir,
+    thumbnail_width,
+    uploaded_archive,
+):
     # rel_pth, _ = _get_rel_and_abs_paths_based_on_csv_row(row, output_dir)
     image_abs_pth = output_dir / "images" / row["image_path"]
     image_rel_pth = image_abs_pth.relative_to(settings.MEDIA_ROOT)
-    # rel_pth = os.path.relpath(abs_pth, settings.MEDIA_ROOT)
-    # rel_pth by patlib
-    # media_abs_pth = output_dir / "images" / row["image_path"]
-    media_abs_pth = Path(row["full_orig_media_path"])
-    media_rel_pth = media_abs_pth.relative_to(settings.MEDIA_ROOT)
+    # media_abs_pth = Path(row["full_orig_media_path"])
+    # media_rel_pth = media_abs_pth.relative_to(settings.MEDIA_ROOT)
     captured_at = row["datetime"]
     logger.debug(f"{captured_at=}, {type(captured_at)}")
     if (captured_at == "") or (isinstance(captured_at, float) and np.isnan(captured_at)):
@@ -509,7 +533,6 @@ def update_metadata_csv_by_uploaded_archive(
     csv_file = Path(settings.MEDIA_ROOT) / str(uploaded_archive.csv_file)
     logger.debug(f"{csv_file=} {Path(csv_file).exists()}")
 
-
     if not Path(csv_file).exists():
         logger.warning(f"CSV file {csv_file} does not exist. Skipping.")
         return
@@ -520,9 +543,9 @@ def update_metadata_csv_by_uploaded_archive(
     uploaded_archive.output_updated_at = django.utils.timezone.now()
     uploaded_archive.save()
 
+
 def _sync_metadata_by_creating_from_mediafiles(csv_file, output_dir, uploaded_archive):
     import copy
-    import json
 
     records = []
     # go over mediafiles in set
@@ -531,7 +554,10 @@ def _sync_metadata_by_creating_from_mediafiles(csv_file, output_dir, uploaded_ar
         logger.debug(f"{metadata_row=}, {type(metadata_row)=}")
         if (metadata_row is None) or ("predicted_category" not in metadata_row):
             Path(csv_file).unlink()
-            logger.debug("No enough information stored in webapp. The CSV file will be removed to be recreated.")
+            logger.debug(
+                "No enough information stored in webapp. "
+                "The CSV file will be removed to be recreated."
+            )
             return
 
         # abs_pth = output_dir / "images" / row["image_path"]
@@ -549,6 +575,7 @@ def _sync_metadata_by_creating_from_mediafiles(csv_file, output_dir, uploaded_ar
         records.append(metadata_row)
     df = pd.DataFrame.from_records(records)
     df.to_csv(csv_file, encoding="utf-8-sig")
+
 
 def _sync_metadata_by_checking_enlisted_mediafiles(csv_file, output_dir, uploaded_archive):
     update_csv = False
@@ -761,7 +788,6 @@ def identify_on_success(self, output: dict, *args, **kwargs):
 
 def _prepare_mediafile_for_identification(data, i, media_root, mediafile_id):
     """Prepare media files for i-th queried image."""
-
     top_k_class_ids = data["pred_class_ids"][i]
     top_k_labels = data["pred_labels"][i]
     top_k_paths = data["pred_image_paths"][i]

@@ -7,13 +7,15 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0038_alter_mediafile_updated_by'),
+        ("caidapp", "0038_alter_mediafile_updated_by"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='location',
-            name='visible_name',
-            field=models.CharField(blank=True, default=caidapp.models.human_readable_hash, max_length=255),
+            model_name="location",
+            name="visible_name",
+            field=models.CharField(
+                blank=True, default=caidapp.models.human_readable_hash, max_length=255
+            ),
         ),
     ]

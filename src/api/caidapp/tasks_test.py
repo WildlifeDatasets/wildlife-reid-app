@@ -45,4 +45,3 @@ def test_add_mediafiles_from_csv():
     media_files = uploaded_archive.mediafile_set.all()
     logger.debug(media_files)
     assert len(media_files) > 1
-

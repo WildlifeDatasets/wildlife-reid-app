@@ -1,14 +1,16 @@
-import pandas as pd
-import cv2
-import numpy as np
-from tqdm import tqdm
 import logging
 import os
-from .inference import detect_animals_in_one_image
 from functools import partial
-from typing import Tuple
-from PIL import Image
 from pathlib import Path
+from typing import Tuple
+
+import cv2
+import numpy as np
+import pandas as pd
+from PIL import Image
+from tqdm import tqdm
+
+from .inference import detect_animals_in_one_image
 
 logger = logging.getLogger("app")
 
@@ -37,7 +39,10 @@ def select_images(images, predictions, selection_method):
     predictions = np.array(predictions)
     predictions = predictions[idxs]
 
-    return images, predictions,
+    return (
+        images,
+        predictions,
+    )
 
 
 def ratio_selection(predictions, threshold):
@@ -118,7 +123,7 @@ def resize_images(input_image: np.ndarray, new_height: int = 360) -> np.ndarray:
     return resized_image
 
 
-def save_gif(images, path:str):
+def save_gif(images, path: str):
     """Save frames as gif using PIL library."""
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     frame_one = Image.fromarray(images[0])
@@ -131,11 +136,14 @@ def save_gif(images, path:str):
         save_all=True,
         duration=duration,
         loop=0,
-        optimize=True
+        optimize=True,
     )
 
 
-def make_gif(images: np.ndarray, path: str, center_frame_idx: int, num_frames: int = 48, height: int = 360):
+def make_gif(
+    images: np.ndarray, path: str, center_frame_idx: int, num_frames: int = 48, height: int = 360
+):
+    """Create gif from few frames of the video around center_frame_idx."""
     gif_frames = get_gif_frames(images, center_frame_idx, num_frames)
     if height > 0:
         gif_frames = np.array([resize_images(image, height) for image in gif_frames])
@@ -143,10 +151,10 @@ def make_gif(images: np.ndarray, path: str, center_frame_idx: int, num_frames: i
 
 
 def create_image_from_video(
-        metadata: pd.DataFrame,
-        selection_methods: Tuple[str] = ("area", "ratio"),
-        selection_thresholds: Tuple[float] = (24, 1),
-        gif_height: int = 240
+    metadata: pd.DataFrame,
+    selection_methods: Tuple[str] = ("area", "ratio"),
+    selection_thresholds: Tuple[float] = (24, 1),
+    gif_height: int = 240,
 ) -> pd.DataFrame:
     """
     Create image from video.
@@ -185,7 +193,9 @@ def create_image_from_video(
         logger.info("Running detection inference on video.")
         # detect
         predictions = []
-        for frame_id, image in tqdm(enumerate(images), desc="Detection in video", total=len(images)):
+        for frame_id, image in tqdm(
+            enumerate(images), desc="Detection in video", total=len(images)
+        ):
             prediction = detect_animals_in_one_image(image)
 
             if prediction is not None:
@@ -212,7 +222,9 @@ def create_image_from_video(
             continue
 
         # select
-        for selection_method_name, selection_threshold in zip(selection_methods, selection_thresholds):
+        for selection_method_name, selection_threshold in zip(
+            selection_methods, selection_thresholds
+        ):
             if selection_method_name == "area":
                 selection_method = partial(area_selection, threshold=selection_threshold)
             elif selection_method_name == "ratio":
