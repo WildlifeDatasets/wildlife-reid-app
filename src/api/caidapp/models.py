@@ -17,7 +17,7 @@ from .model_tools import (
     get_output_dir,
     random_string,
     random_string12,
-    upload_to_unqiue_folder,
+    _get_zip_path_in_unique_folder,
 )
 
 # Create your models here.
@@ -107,7 +107,7 @@ class UploadedArchive(models.Model):
     uploaded_at = models.DateTimeField("Uploaded at", default=datetime.now)
     archivefile = models.FileField(
         "Archive File",
-        upload_to=upload_to_unqiue_folder,
+        upload_to=_get_zip_path_in_unique_folder,
         max_length=500,
     )
     preview = models.ImageField(blank=True, null=True)

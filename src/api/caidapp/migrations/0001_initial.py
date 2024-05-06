@@ -70,7 +70,7 @@ class Migration(migrations.Migration):
                     "archivefile",
                     models.FileField(
                         max_length=500,
-                        upload_to=caidapp.model_tools.upload_to_unqiue_folder,
+                        upload_to=caidapp.model_tools._get_zip_path_in_unique_folder,
                         verbose_name="Archive File",
                     ),
                 ),

@@ -5,7 +5,7 @@
 
 ## 05-2024
 
-* [added] bulk import of media files using Synology Drive
+* [added] Bulk import of media files using Synology Drive
 
 ## 04-2024
 

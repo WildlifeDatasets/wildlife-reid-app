@@ -51,7 +51,7 @@ from .models import (
     Taxon,
     UploadedArchive,
     WorkGroup, get_content_owner_filter_params,
-    upload_to_unqiue_folder
+    _get_zip_path_in_unique_folder
 )
 from .tasks import (
     _prepare_dataframe_for_identification,
@@ -147,6 +147,8 @@ def message(request, message):
 
 def _round_location(location: Location, order: int = 3):
     """Round location for anonymization."""
+    if (location.location is None) or (location.location == ""):
+        return location.location
     lat, lon = str(location.location).split(",")
     lat = round(float(lat), order)
     lon = round(float(lon), order)
@@ -1050,8 +1052,10 @@ def cloud_import_preview_view(request):
     list_of_location_checks = []
     text = str(path) + ""
 
-    for yield_dict in _iterate_over_cameratrap_check(path, caiduser):
+    for yield_dict in _iterate_over_location_checks(path, caiduser):
 
+        if yield_dict.parent_dir_to_be_deleted:
+            continue
 
         if yield_dict.is_already_processed:
             continue
@@ -1078,19 +1082,53 @@ def cloud_import_preview_view(request):
         },
     )
 
-def _iterate_over_cameratrap_check(path:Path, caiduser:CaIDUser) -> SimpleNamespace:
+def _iterate_over_location_checks(path:Path, caiduser:CaIDUser) -> SimpleNamespace:
+    from itertools import chain
+    import re
 
-    paths_of_location_check = path.glob("./**/????-??-??")
     params = get_content_owner_filter_params(caiduser, "owner")
     archives = [str(archive) for archive in UploadedArchive.objects.filter(**params)]
 
-    for path_of_location_check in paths_of_location_check:
-        # date, location, location_exists, zip_name, zip_name_exists, is_already_processed = _extract_new_control_upload_parameters(
-        #     path_of_location_check, caiduser)
+    paths_of_location_check = chain(path.glob("./????-??-??/*"), path.glob("./*"))
+    # paths_of_location_check = chain(path.glob("./*_????-??-??"), path.glob("./*_????-??-??.zip"))
+    # paths_of_location_check = path.glob("./*")
 
-        location = path_of_location_check.parts[-2]
-        date = path_of_location_check.parts[-1]
-        logger.debug(f"{path_of_location_check.parts=}")
+    checked_subdirs = []
+    for path_of_location_check in paths_of_location_check:
+        parent_dir_to_be_deleted = False
+        # remove extension if any
+        pth_no_suffix = path_of_location_check.with_suffix("")
+        # check if name is in format {location_name}_YYYY-MM-DD
+        if re.match(r".*_[0-9]{4}-[0-9]{2}-[0-9]{2}", pth_no_suffix.name):
+            # split name and date, date is in the end of the name in format YYYY-MM-DD, location is in the beginning of dir or file name separated from date by underscore
+            date = pth_no_suffix.parts[-1].split("_")[-1]
+            # location is everything before the last underscore
+            location = "_".join(pth_no_suffix.parts[-1].split("_")[:-1])
+            error_message = None
+        elif re.match(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", pth_no_suffix.parts[-2]):
+            # Mediafiles are organized in directory structure,
+            # date is the parent directory and location is the leaf directory
+            date = pth_no_suffix.parts[-2]
+            location = pth_no_suffix.parts[-1]
+            error_message = None
+            checked_subdirs.append(pth_no_suffix.parts[-2])
+        elif pth_no_suffix.parts[-1] in checked_subdirs:
+            parent_dir_to_be_deleted = True
+            # the parent directory which was already checked
+            error_message = None,
+            location = ""
+            date = ""
+            # continue
+        else:
+            logger.debug("Name of the directory or file is not in format {location_name}_YYYY-MM-DD. Skipping.")
+            error_message = f"Name of the directory or file is not in format {{location_name}}_YYYY-MM-DD. Skipping."
+            location = ""
+            date = ""
+
+
+        # location = path_of_location_check.parts[-2]
+        # date = path_of_location_check.parts[-1]
+        # logger.debug(f"{path_of_location_check.parts=}")
 
         # remove diacritics and spaces from zip_name
         zip_name = fs_data.remove_diacritics(f"{location}_{date}.zip").replace(" ", "_")
@@ -1101,7 +1139,10 @@ def _iterate_over_cameratrap_check(path:Path, caiduser:CaIDUser) -> SimpleNamesp
             zip_name_exists=zip_name in archives,
             is_already_processed=("_imported") in path_of_location_check.parts,
             path_of_location_check=path_of_location_check,
-            path=str(path_of_location_check.relative_to(path))
+            path=str(path_of_location_check.relative_to(path)),
+            error_message=error_message,
+            zip_name=zip_name,
+            parent_dir_to_be_deleted=parent_dir_to_be_deleted
         )
 
         yield yield_dict
@@ -1151,12 +1192,17 @@ def do_cloud_import_view(request):
     caiduser = request.user.caiduser
 
     path = Path(request.user.caiduser.import_dir)
+    dirs_to_be_deleted = []
     # paths_of_location_check = path.glob("./**/????-??-??")
     # paths_of_locality_check = path.glob("*")
     # paths_of_locality_check = Path("/caid_import").glob("*")
     text = str(path) + ""
-    for yield_dict in _iterate_over_cameratrap_check(path, caiduser):
+    for yield_dict in _iterate_over_location_checks(path, caiduser):
 
+
+        if yield_dict.parent_dir_to_be_deleted:
+            dirs_to_be_deleted.append(yield_dict)
+            continue
 
         if yield_dict.is_already_processed:
             continue
@@ -1170,16 +1216,28 @@ def do_cloud_import_view(request):
             status="Import initiated",
             uploaded_at=django.utils.timezone.now(),
         )
+        logger.debug(f"{yield_dict.path_of_location_check=}, {yield_dict.path_of_location_check.exists()=}")
         uploaded_archive.save()
-        zip_path = upload_to_unqiue_folder(uploaded_archive, yield_dict.zip_name)
-        make_zipfile(Path(settings.MEDIA_ROOT) / zip_path, yield_dict.path_of_location_check)
+        zip_path = _get_zip_path_in_unique_folder(uploaded_archive, yield_dict.zip_name)
+        zip_path_absolute = Path(settings.MEDIA_ROOT) / zip_path
+        logger.debug(f"{zip_path=}, {zip_path_absolute=}")
+        if yield_dict.path_of_location_check.is_dir():
+            make_zipfile(zip_path_absolute, yield_dict.path_of_location_check)
+        else:
+            # if it is a file, copy it
+            zip_path_absolute.parent.mkdir(exist_ok=True, parents=True)
+            shutil.copy(yield_dict.path_of_location_check, zip_path_absolute)
+        if yield_dict.location and len(yield_dict.location) > 0:
+            location = get_location(request.user.caiduser, yield_dict.location)
+            uploaded_archive.location_at_upload_object = location
+            uploaded_archive.location_at_upload = yield_dict.location
         uploaded_archive.archivefile = zip_path
         uploaded_archive.save()
         logger.debug("Zip file created. Ready to start processing.")
         run_species_prediction_async(uploaded_archive, extract_identites=False)
 
-        # move imported files to _imported directory
-        imported_dir = path / "_imported"
+        # move imported files to _imported directory with subdirectory with "now"
+        imported_dir = path / "_imported" / datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         imported_dir.mkdir(exist_ok=True, parents=True)
         relative_path = yield_dict.path_of_location_check.relative_to(path)
         imported_path = imported_dir / relative_path
@@ -1187,7 +1245,8 @@ def do_cloud_import_view(request):
         shutil.move(yield_dict.path_of_location_check, imported_path)
 
 
-
+    for dir_to_be_deleted in dirs_to_be_deleted:
+        dir_to_be_deleted.path_of_location_check.rmdir()
     # move imported files to processed directory
 
     request.user.caiduser.dir_import_status = "Finished"

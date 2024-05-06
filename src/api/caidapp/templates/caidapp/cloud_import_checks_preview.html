@@ -34,24 +34,15 @@
                     {% for uploadedarchive in page_obj %}
                         <div class="col-xl-3">
 {#                        <div class="col" style="-ms-flex: 0 0 200; flex: 0 0 200;">#}
-                            <div class="card"
-{#                                    {% if uploadedarchive.thumbnail %}#}
-{#                                 style="#}
-{##}
-{#                                         background-image: linear-gradient(to left, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 1.0)), url({{ uploadedarchive.thumbnail.url }});#}
-{#                                         background-repeat: no-repeat;#}
-{#                                         background-position-x: right;#}
-{#                                         background-position-y: center;#}
-{#                                         background-size: cover;#}
-{#                                         "#}
-{##}
-{#                                    {% endif %}#}
+                            <div class="card {% if uploadedarchive.error_message %} bg-danger-light {% elif not uploadedarchive.location_exists  or uploadedarchive.zip_name_exists %} bg-warning-light {% endif %}"
                             >
                                 <div class="card-body"
                                 >
 
-                                    <h5 class="card-title" >{{ uploadedarchive.location }}:
-                                         {{ uploadedarchive.date }}
+                                    <h5 class="card-title" >
+                                        {{ uploadedarchive.path }}
+
+
 {#                                        {% if uploadedarchive.contains_identities %}#}
 {#                                            <i class="bi bi-fingerprint"></i>#}
 {#                                        {% endif %}#}
@@ -60,16 +51,35 @@
 {#                                        {% endif %}#}
 {##}
                                     </h5>
-                                    {%  if not uploadedarchive.location_exists %}
-                                            <span class="text text-warning">New location</span>: {{ uploadedarchive.location }} <br>
-                                    {% endif %}
-                                    {%  if uploadedarchive.zip_name_exists %}
-                                        <span class="text text-warning">Already exists</span>: {{ uploadedarchive.zip_name }} <br>
+                                    {% if uploadedarchive.error_message %}
+                                        {{ uploadedarchive.error_message }}
+                                    {% else %}
+                                        <p class="card-text">
+                                        Locality: <strong>{{ uploadedarchive.location }}</strong>
+                                        </p>
+                                        {%  if not uploadedarchive.location_exists %}
+                                            <p class="card-text">
+                                                <span class="text text-warning">New location</span>: <br>
+                                                Is this really a first use of the location or is it a typo?
+                                            </p>
+                                        {% endif %}
+
+                                        <p class="card-text">
+                                            Check date: <strong>{{ uploadedarchive.date }}</strong>
+                                        </p>
+                                        <p class="card-text mt-2">
+                                            Zip file <span class="font-monospace">{{ uploadedarchive.zip_name }}</span> is ready to be imported into application.
+                                        </p>
+
+                                        {%  if uploadedarchive.zip_name_exists %}
+                                            <span class="text text-warning"> ZIP-file already exists.</span>: You can ignore this warning.<br>
+                                        {% endif %}
+
                                     {% endif %}
 {##}
 {#                                    {{ uploadedarchive.zip_name }} <br>#}
 {#                                    <p>Location: <span data-bs-toggle="tooltip" title="Location: {{ uploadedarchive.location_at_upload_object.name }}">{{ uploadedarchive.location_at_upload_object.visible_name }}</span></p>#}
-                                    {{ uploadedarchive.path }} <br>
+{#                                    {{ uploadedarchive.path }} <br>#}
 {#                                    <p>{{ uploadedarchive.starts_at|date:'Y-m-d' }} - {{ uploadedarchive.ends_at|date:'Y-m-d' }} </p>#}
                                 </div>
                             </div>
@@ -143,10 +153,6 @@
 
                 {% else %}
                     <p>No data available.</p>
-{#                    <p><a class="dropdown-item d-flex align-items-center" href="{% url 'caidapp:sample_data' %}">#}
-{#                        <i class="fa-solid fa-vial"></i>#}
-{#                        <span>Download sample data</span>#}
-{#                    </a></p>#}
                 {% endif %}
 
 
@@ -155,11 +161,25 @@
             </div>
             <div>
                 <h3>Client Setup</h3>
-                <ul>
+                <ol>
                     <li>Ask CaID administrator for Synology address, login and password</li>
                     <li>Download and install <a href="https://www.synology.com/en-us/dsm/feature/drive">Synology Drive Client</a> </li>
                     <li>Connect the Drive Client to remote dir <code>{{ text }}</code></li>
-                </ul>
+                    <li>Your local dir might be  named like this: <code> {HOME}/caid_import </code></li>
+                </ol>
+
+                <h3> Client Workflow</h3>
+<ol>
+                    <li>In your local synchronized dir (<code>{HOME}/caid_import</code>) prepare a structure based on locality name and locality check date. There are two options:
+                        <ul>
+                            <li>Directory or zip-file in format: <code>{LOCATION NAME}_{YYYY}-{MM}-{DD}</code></li>
+                            <li>Directory named by date with one or more subdirectories named by locality: <code>{YYYY}-{MM}-{DD} / {LOCALITY NAME}</code></li>
+                        </ul>
+
+                    </li>
+                    <li>Check the status of the import on the <a href="{%  url 'caidapp:cloud_import_preview' %}">CarnivoreID website</a></li>
+                    <li>After the import is done, the dir or zip-file will be moved from the synchronized dir to <code>{HOME}/caid_import/_imported</code>. It might be deleted by you</li>
+</ol>
             </div>
         </section>
     {% endif %}

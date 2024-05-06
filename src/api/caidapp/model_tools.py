@@ -56,7 +56,8 @@ def get_output_dir():
     return filename
 
 
-def upload_to_unqiue_folder(instance, filename):
+# def _get_zip_path_in_unqiue_folder(instance, filename):
+def _get_zip_path_in_unique_folder(instance, filename):
     """Uploads a file to a unique generated Path to keep the original filename."""
     logger.debug("upload_to_unique_folder")
     logger.debug(instance)
