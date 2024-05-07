@@ -2,6 +2,9 @@ FROM python:3.10.13-slim
 
 COPY ./src/api/requirements.txt /api/requirements.txt
 
+# first add repository for gdal-bin
+RUN sudo add-apt-repository ppa:ubuntugis/ppa
+
 # install system dependencies
 RUN apt-get update --yes &&  \
     apt-get install --yes \
