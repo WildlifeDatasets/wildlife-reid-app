@@ -10,9 +10,6 @@ import pandas as pd
 from celery import chain, shared_task, signature
 from django.conf import settings
 
-# from joblib import Parallel, delayed
-# from tqdm import tqdm
-
 from .fs_data import count_files_in_archive, make_thumbnail_from_file
 from .models import (
     IndividualIdentity,
@@ -24,6 +21,10 @@ from .models import (
     get_taxon,
     get_unique_name,
 )
+
+# from joblib import Parallel, delayed
+# from tqdm import tqdm
+
 
 logger = logging.getLogger("app")
 

@@ -11,6 +11,4 @@ class Migration(migrations.Migration):
         ("caidapp", "0031_archivecollection"),
     ]
 
-    operations = [
-        migrations.RenameModel("CIDUser", "CaIDUser")
-    ]
+    operations = [migrations.RenameModel("CIDUser", "CaIDUser")]

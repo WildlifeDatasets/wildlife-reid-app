@@ -137,6 +137,7 @@ def get_local_matcher(size=512):
     # use function instead of lambda x: x
     def extractor(x):
         return x
+
     matcher = MatchLOFTR(
         pretrained="outdoor",
         thresholds=(0.6,),

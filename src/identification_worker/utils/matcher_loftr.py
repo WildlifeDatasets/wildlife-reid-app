@@ -1,27 +1,26 @@
 from collections import defaultdict
 from copy import deepcopy
+from typing import Any
 
 import numpy as np
+import torch
 
 # from kornia.feature.loftr.loftr import *
 from kornia.feature.loftr.loftr import (
     CoarseMatching,
     FineMatching,
     FinePreprocess,
-    urls,
+    LocalFeatureTransformer,
+    Module,
     PositionEncodingSine,
+    Tensor,
     build_backbone,
     default_cfg,
-    Tensor,
     resize,
-    Module,
-    LocalFeatureTransformer,
-
+    urls,
 )
 from kornia.utils.helpers import map_location_to_cpu
-import torch
 from tqdm import tqdm
-from typing import Any
 
 from .loftr_utils import PairProductDataset
 
