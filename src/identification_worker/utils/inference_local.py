@@ -67,6 +67,7 @@ class WildFusionClassifier:
         self.sim_local = sim_local
 
     def __call__(self, query, database, flatten=False):
+        """Calculate predictions for the given query and database."""
         self.k_range = np.min([self.k_range, self.sim_deep.shape[1]])
 
         if self.sim_local is None:
@@ -90,7 +91,6 @@ class WildFusionClassifier:
 
     def get_features(self, dataset, extractor, transform):
         """Extract features."""
-
         dataset = WildlifeDataset(
             metadata=dataset.metadata,
             root=dataset.root,
@@ -104,7 +104,6 @@ class WildFusionClassifier:
 
     def get_predictions(self, sim_deep, sim_local, labels):
         """Calculates combined predictions given set deep and local similarities."""
-
         if not torch.is_tensor(sim_deep):
             sim_deep = torch.tensor(sim_deep)
 
@@ -133,7 +132,11 @@ class WildFusionClassifier:
 
 
 def get_local_matcher(size=512):
-    extractor = lambda x: x
+    """Prepare local LOFTR matcher."""
+    # extractor = lambda x: x
+    # use function instead of lambda x: x
+    def extractor(x):
+        return x
     matcher = MatchLOFTR(
         pretrained="outdoor",
         thresholds=(0.6,),
@@ -154,6 +157,7 @@ def get_local_matcher(size=512):
 
 
 def get_dataset(metadata):
+    """Get the Carnivore dataset."""
     dataset = CarnivoreDataset(
         metadata=metadata,
         root="",
@@ -163,12 +167,14 @@ def get_dataset(metadata):
 
 
 def load_image(path):
+    """Load image from path with OpenCV."""
     image = cv2.imread(path)
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     return image
 
 
 def get_keypoints(query, database, merged_ids, num_kp=10, size=512):
+    """Get keypoints for each pair of images."""
     model = LoFTR(pretrained="outdoor", apply_fine=True, thr=0.05).to(DEVICE)
     transform = T.Compose(
         [
@@ -217,6 +223,7 @@ def get_keypoints(query, database, merged_ids, num_kp=10, size=512):
 
 
 def top_identities(predictions_ids, database_names, top_k=3):
+    """Find top_k identities for each query."""
     new_predictions_ids = []
     for query_pred in predictions_ids:
         _identities = []
@@ -242,6 +249,7 @@ def get_merged_predictions(
     num_kp: int = 10,
     identities: bool = True,
 ) -> (list, list):
+    """Get merged predictions and keypoints."""
     extractor_local, matcher, transform_local = get_local_matcher()
 
     classifier = WildFusionClassifier(

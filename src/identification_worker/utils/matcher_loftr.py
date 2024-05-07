@@ -2,8 +2,26 @@ from collections import defaultdict
 from copy import deepcopy
 
 import numpy as np
-from kornia.feature.loftr.loftr import *
+
+# from kornia.feature.loftr.loftr import *
+from kornia.feature.loftr.loftr import (
+    CoarseMatching,
+    FineMatching,
+    FinePreprocess,
+    urls,
+    PositionEncodingSine,
+    build_backbone,
+    default_cfg,
+    Tensor,
+    resize,
+    Module,
+    LocalFeatureTransformer,
+
+)
+from kornia.utils.helpers import map_location_to_cpu
+import torch
 from tqdm import tqdm
+from typing import Any
 
 from .loftr_utils import PairProductDataset
 
@@ -12,6 +30,7 @@ class DataToMemory:
     """Loads dataset to memory for faster access."""
 
     def __call__(self, dataset):
+        """Load dataset to memory."""
         features = []
         for batch in tqdm(dataset, mininterval=1, ncols=100):
             features.append(batch)
@@ -28,7 +47,8 @@ class LoFTR(Module):
     If the distance matrix dm is not provided, :py:func:`torch.cdist` is used.
 
     Args:
-        config: Dict with initialization parameters. Do not pass it, unless you know what you are doing`.
+        config: Dict with initialization parameters. Do not pass it, unless you know what you are
+          doing.
         pretrained: Download and set pretrained weights to the model. Options: 'outdoor', 'indoor'.
                     'outdoor' is trained on the MegaDepth dataset and 'indoor'
                     on the ScanNet.
@@ -83,7 +103,8 @@ class LoFTR(Module):
         self.eval()
 
     def forward(self, data: dict[str, Tensor]) -> dict[str, Tensor]:
-        """
+        """Do forward pass.
+
         Args:
             data: dictionary containing the input data in the following format:
 
@@ -184,9 +205,9 @@ class LoFTR(Module):
 
 
 class MatchLOFTR:
-    """
-    Calculate similarity between query and database as number of descriptors correspondences
-    after filtering with Low ratio test.
+    """Calculate similarity between query and database.
+
+    It is defined as number of descriptors correspondences after filtering with Low ratio test.
 
     Args:
         pretrained: LOFTR model used. `outdoor` or `indoor`.
@@ -228,6 +249,7 @@ class MatchLOFTR:
         self.store_type = store_type
 
     def __call__(self, dataset0=None, dataset1=None, pairs=None):
+        """Calculate similarity between query and database."""
         if pairs is None:
             pairs = PairProductDataset(dataset0, dataset1)
 

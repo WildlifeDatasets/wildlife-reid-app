@@ -2,7 +2,7 @@ import ast
 import logging
 import os
 from pathlib import Path
-from typing import Tuple, Union
+from typing import Union
 
 import cv2
 import numpy as np
@@ -182,13 +182,12 @@ def segment_animal(image_path: str, bbox: list, border: float = 0.25) -> np.ndar
 
 def mask_images(metadata: pd.DataFrame) -> pd.DataFrame:
     """Mask images using SAM model."""
-    import json
-
     masked_paths = []
     get_sam_model()
     for row_idx, row in metadata.iterrows():
         image_path = row["image_path"]
-        # detection_results = ast.literal_eval(ast.literal_eval(row["detection_results"])["detection_results"])
+        # detection_results = ast.literal_eval(
+        #    ast.literal_eval(row["detection_results"])["detection_results"])
         detection_results = ast.literal_eval(row["detection_results"])
         # detection_results = json.loads(row["detection_results"])
         logger.debug(f"{detection_results=}")
@@ -303,7 +302,7 @@ def identify(
     _features = features[idx]
     _metadata = metadata.iloc[idx]
     if len(_metadata) > 0:
-        logger.info(f"Starting identification postprocessing.")
+        logger.info("Starting identification postprocessing.")
         mew_features = feature_top(_features, _metadata, _similarity, "top_score")
         features[idx] = mew_features
         similarity = similarity_measure(

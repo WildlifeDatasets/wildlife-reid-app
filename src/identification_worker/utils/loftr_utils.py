@@ -3,8 +3,8 @@ import torch
 
 
 class PairProductDataset(torch.utils.data.IterableDataset):
-    """
-    Create IterableDataset as a product of two mapping style datasets.
+    """Create IterableDataset as a product of two mapping style datasets.
+
     Each item in dataset0 creates pair with each item in dataset1.
 
     Iteration returns 4-tuple (idx0, <dataset0 data at idx0>, idx1, <dataset1 data at idx1>)
@@ -53,13 +53,13 @@ import torchvision.transforms as T
 
 
 class PairSubsetDataset(torch.utils.data.IterableDataset):
-    """
-    Create IterableDataset as a product of two mapping style datasets given
-    Each item in dataset0 creates pair with subset of items in dataset1 with size defined by subset_matrix.
+    """Create iterable dataset as a product of two mapping styles.
 
+    Create IterableDataset as a product of two mapping style datasets given
+    Each item in dataset0 creates pair with subset of items in dataset1 with size defined
+    by subset_matrix.
 
     Iteration returns 4-tuple (idx0, <dataset0 data at idx0>, idx1, <dataset1 data at idx1>)
-
     """
 
     def __init__(self, dataset0, dataset1, subset_matrix, load_label=False):
@@ -97,8 +97,8 @@ class PairSubsetDataset(torch.utils.data.IterableDataset):
 
 
 class ResizeLonger:
-    """
-    Resizes an image to have the longer side length equal to a given size
+    """Resizes an image to have the longer side length equal to a given size.
+
     Maintains aspect ratio.
 
     Args:
@@ -110,6 +110,7 @@ class ResizeLonger:
         self.resize_kwargs = resize_kwargs
 
     def __call__(self, img):
+        """Resize the input image to have the longer side equal to the target size."""
         w, h = img.size
         if w < h:
             new_size = (int(self.size * w / h), self.size)

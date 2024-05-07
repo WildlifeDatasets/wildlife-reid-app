@@ -753,8 +753,9 @@ def init_identification(request, taxon_str: str = "Lynx lynx"):
     workgroup.identification_init_at = django.utils.timezone.now()
     workgroup.identification_init_status = "Processing"
     workgroup.identification_init_message = (
-            f"Using {len(csv_data['image_path'])}" +
-            "representative images for identification initialization.")
+        f"Using {len(csv_data['image_path'])}"
+        + "representative images for identification initialization."
+    )
     workgroup.save()
 
     logger.debug("Calling init_identification...")
@@ -1148,11 +1149,13 @@ def _iterate_over_location_checks(path: Path, caiduser: CaIDUser) -> SimpleNames
             # continue
         else:
             logger.debug(
-                "Name of the directory or file is not in format {location_name}_YYYY-MM-DD." +
-                "Skipping."
+                "Name of the directory or file is not in format {location_name}_YYYY-MM-DD."
+                + "Skipping."
             )
-            error_message = "Name of the directory or file is not in format " +\
-                            "{location_name}_{YYYY}-{MM}-{DD}. Skipping."
+            error_message = (
+                "Name of the directory or file is not in format "
+                + "{location_name}_{YYYY}-{MM}-{DD}. Skipping."
+            )
             location = ""
             date = ""
 

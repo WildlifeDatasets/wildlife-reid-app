@@ -50,7 +50,11 @@ def assign_feature(query_data: Union[list, np.ndarray], feature: np.ndarray, idx
 
 
 def group_features(representation: list, positions: Union[tuple, list]):
-    """Takes a list of elements and groups values in the list into lists based on provided index positions."""
+    """Groups values from element list into lists based on provided index positions.
+
+    Takes a list of elements and groups values in the list into lists based on provided
+    index positions.
+    """
     new_representation = []
     grouped = []
     for i, r in enumerate(representation):

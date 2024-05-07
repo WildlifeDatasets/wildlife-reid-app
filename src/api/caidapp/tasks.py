@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 from celery import chain, shared_task, signature
 from django.conf import settings
+
 # from joblib import Parallel, delayed
 # from tqdm import tqdm
 
