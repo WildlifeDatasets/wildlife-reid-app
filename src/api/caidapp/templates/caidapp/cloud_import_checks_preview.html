@@ -144,12 +144,27 @@
                         {#                            </span>#}
                     </ul>
 
-                    <a class="btn btn-primary m-3 {% if user.caiduser.dir_import_status == 'Processing' %} disabled {% endif %}"
-                       href="{% url 'caidapp:do_cloud_import' %}">Import all
-                        {% if user.caiduser.dir_import_status == 'Processing' %}
-                            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                        {% endif %}
-                    </a>
+                    <div class="container">
+                        <div class="btn-group" role="group" aria-label="Basic example">
+
+
+                            <a class="btn btn-primary mt-3 {% if user.caiduser.dir_import_status == 'Processing' %} disabled {% endif %}"
+                               href="{% url 'caidapp:do_cloud_import' %}">Import all
+                                {% if user.caiduser.dir_import_status == 'Processing' %}
+                                    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                {% endif %}
+                            </a>
+                            {% if user.caiduser.dir_import_status == 'Processing' %}
+                                <a class="btn btn-warning mt-3"
+                                   href="{% url 'caidapp:break_cloud_import' %}"><i class="bi bi-stop-fill"></i>
+
+                                </a>
+
+                            {% endif %}
+                        </div>
+
+                    </div>
+
 
                 {% else %}
                     <p>No data available.</p>
