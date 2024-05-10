@@ -6,6 +6,7 @@
 ## 05-2024
 
 * [added] Bulk import of media files using Synology Drive
+* [added] Error message as status tooltip
 
 ## 04-2024
 

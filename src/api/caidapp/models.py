@@ -123,6 +123,7 @@ class UploadedArchive(models.Model):
     output_updated_at = models.DateTimeField("Output updated at", blank=True, null=True)
     hash = models.CharField(max_length=255, blank=True, default=_hash)
     status = models.CharField(max_length=255, blank=True, default="Created")
+    status_message = models.CharField(max_length=2047, blank=True, default="")
     started_at = models.DateTimeField("Started at", blank=True, null=True)
     finished_at = models.DateTimeField("Finished at", blank=True, null=True)
     identification_status = models.CharField(max_length=255, blank=True, default="Created")
