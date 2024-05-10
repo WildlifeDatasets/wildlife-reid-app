@@ -141,6 +141,8 @@ def do_cloud_import_for_user(self, caiduser: CaIDUser):
     caiduser.dir_import_status = "Processing"
     caiduser.save()
     path = Path(caiduser.import_dir)
+    imported_dir = path / "_imported" / datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    imported_dir.mkdir(exist_ok=True, parents=True)
     dirs_to_be_deleted = []
     for yield_dict in _iterate_over_location_checks(path, caiduser):
 
@@ -183,8 +185,6 @@ def do_cloud_import_for_user(self, caiduser: CaIDUser):
         run_species_prediction_async(uploaded_archive, extract_identites=False)
 
         # move imported files to _imported directory with subdirectory with "now"
-        imported_dir = path / "_imported" / datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        imported_dir.mkdir(exist_ok=True, parents=True)
         relative_path = yield_dict.path_of_location_check.relative_to(path)
         imported_path = imported_dir / relative_path
         # move directory
