@@ -78,6 +78,9 @@ def predict_species_on_success(
     else:
         uploaded_archive.status = "Failed"
         uploaded_archive.finished_at = django.utils.timezone.now()
+        if "ERROR" in output:
+            uploaded_archive.status_message = \
+                output["ERROR"] if len(output["ERROR"]) < 2046 else output["ERROR"][:2046]
         uploaded_archive.save()
 
 
@@ -780,6 +783,10 @@ def detection_on_success_after_species_prediction(self, output: dict, *args, **k
         uploaded_archive.status = "Species Finished"
     else:
         uploaded_archive.status = "Failed"
+        if "ERROR" in output:
+            uploaded_archive.status_message = \
+                output["ERROR"] if len(output["ERROR"]) < 2046 else output["ERROR"][:2046]
+    uploaded_archive.finished_at = django.utils.timezone.now()
     uploaded_archive.save()
 
 
