@@ -174,4 +174,5 @@ urlpatterns = [
     path("sample_data/", views.sample_data, name="sample_data"),
     path("cloud_import_preview/", views.cloud_import_preview_view, name="cloud_import_preview"),
     path("do_cloud_import/", views.do_cloud_import_view, name="do_cloud_import"),
+    path("break_cloud_import/", views.break_cloud_import_view, name="break_cloud_import"),
 ]
