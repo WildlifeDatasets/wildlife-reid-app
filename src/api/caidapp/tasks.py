@@ -26,6 +26,7 @@ from .models import (
 )
 from . import views
 from . import model_tools
+from typing import Generator
 
 # from joblib import Parallel, delayed
 # from tqdm import tqdm
@@ -953,7 +954,7 @@ def _find_mediafiles_for_identification(
     """
 
 
-def _iterate_over_location_checks(path: Path, caiduser: CaIDUser) -> SimpleNamespace:
+def _iterate_over_location_checks(path: Path, caiduser: CaIDUser) -> Generator[SimpleNamespace, None, None]:
     import re
     from itertools import chain
 
@@ -1010,14 +1011,17 @@ def _iterate_over_location_checks(path: Path, caiduser: CaIDUser) -> SimpleNames
         # remove diacritics and spaces from zip_name
         zip_name = fs_data.remove_diacritics(f"{location}_{date}.zip").replace(" ", "_")
 
+        relative_path = path_of_location_check.relative_to(path)
+        is_already_processed = relative_path.parts[0] in ("_imported", "#recycle")
+
         yield_dict = SimpleNamespace(
             date=date,
             location=location,
             location_exists=len(Location.objects.filter(name=location, **params)) > 0,
             zip_name_exists=zip_name in archives,
-            is_already_processed=("_imported") in path_of_location_check.parts,
+            is_already_processed=is_already_processed,
             path_of_location_check=path_of_location_check,
-            path=str(path_of_location_check.relative_to(path)),
+            path=str(relative_path),
             error_message=error_message,
             zip_name=zip_name,
             parent_dir_to_be_deleted=parent_dir_to_be_deleted,
