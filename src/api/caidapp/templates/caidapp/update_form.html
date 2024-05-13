@@ -20,28 +20,43 @@
             </nav>
         </div><!-- End Page Title -->
         <div class="section">
-            <div class="card">
-                <div class="card-header">
+            <div class="row">
+                <div class="col-md-8">
+                    <div class="card">
+                        <div class="card-header">
 
 
-                    <form method="post" enctype="multipart/form-data">
-                        {% csrf_token %}
-                        {{ form.as_p }}
-                        {#                {{ form.as_p }}#}
-                        <button class="btn btn-primary" id="btnUpload" type="submit">
-                            {{ button }}
-                        </button>
-                        {% if delete_button_url %}
-                            <a class="btn btn-danger"
-                               href="{{ delete_button_url }}"
-{#                               href="{% url 'caidapp:delete_upload' uploadedarchive.id %}"#}
-                               onclick="return confirm('Delete {{ form.instance }}?')">
-                                <i class="bi bi-trash"></i> Delete
-                            </a>
-                        {% endif %}
+                            <form method="post" enctype="multipart/form-data">
+                                {% csrf_token %}
+                                {{ form.as_p }}
+                                {#                {{ form.as_p }}#}
+                                <button class="btn btn-primary" id="btnUpload" type="submit">
+                                    {{ button }}
+                                </button>
+                                {% if delete_button_url %}
+                                    <a class="btn btn-danger"
+                                       href="{{ delete_button_url }}"
+                                            {#                               href="{% url 'caidapp:delete_upload' uploadedarchive.id %}"#}
+                                       onclick="return confirm('Delete {{ form.instance }}?')">
+                                        <i class="bi bi-trash"></i> Delete
+                                    </a>
+                                {% endif %}
 
-                    </form>
+                            </form>
+                        </div>
+                    </div>
                 </div>
+                {% if mediafile %}
+                    <div class="col-4">
+                        <img src="{{ mediafile.thumbnail.url }}" alt="{{ mediafile.name }}" class="img-thumbnail">
+                    </div>
+{#                    <div class="card">#}
+{#                        <div class="card-body">#}
+{#                        </div>#}
+{#                    </div>#}
+
+                {% endif %}
+
             </div>
         </div>
     {% endif %}

@@ -462,6 +462,7 @@ def update_individual_identity(request, individual_identity_id):
         pk=individual_identity_id,
         owner_workgroup=request.user.caiduser.workgroup,
     )
+    media_file = MediaFile.objects.filter(identity=individual_identity, identity_is_representative=True).first()
 
     if request.method == "POST":
         form = IndividualIdentityForm(request.POST, instance=individual_identity)
@@ -482,6 +483,7 @@ def update_individual_identity(request, individual_identity_id):
             "headline": "Individual Identity",
             "button": "Save",
             "individual_identity": individual_identity,
+            "mediafile": media_file,
             "delete_button_url": reverse_lazy(
                 "caidapp:delete_individual_identity",
                 kwargs={"individual_identity_id": individual_identity_id},

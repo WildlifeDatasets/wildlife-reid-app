@@ -218,17 +218,29 @@ class IndividualIdentity(models.Model):
         ('F', 'Female'),
         ('U', 'Unknown'),
     )
+    COAT_TYPE_CHOICES = (
+        ('S', "Spots"),
+        ("M", "Marble"),
+        ("U", "Unknown"),
+    )
     name = models.CharField(max_length=50)
     id_worker = models.IntegerField(null=True, blank=True)
     owner_workgroup = models.ForeignKey(WorkGroup, on_delete=models.CASCADE, null=True, blank=True)
     updated_by = models.ForeignKey(CaIDUser, on_delete=models.CASCADE, null=True, blank=True)
     sex = models.CharField(max_length=2, choices=SEX_CHOICES, default='U')
+    coat_type = models.CharField(max_length=2, choices=COAT_TYPE_CHOICES, default='U')
+    note = models.TextField(blank=True)
 
     def __str__(self):
         return str(self.name)
 
 
 class MediaFile(models.Model):
+    ORIENTATION_CHOICES = (
+        ("L", "Left"),
+        ("R", "Right"),
+        ("N", "None"),
+    )
     parent = models.ForeignKey(UploadedArchive, on_delete=models.CASCADE, null=True)
     category = models.ForeignKey(Taxon, blank=True, null=True, on_delete=models.CASCADE)
     location = models.ForeignKey(Location, blank=True, null=True, on_delete=models.CASCADE)
@@ -256,6 +268,7 @@ class MediaFile(models.Model):
     metadata_json = models.JSONField(blank=True, null=True)
     animal_number = models.IntegerField(null=True, blank=True)
     media_type = models.CharField(max_length=255, blank=True, default="image")
+    orientation = models.CharField(max_length=2, choices=ORIENTATION_CHOICES, default="N")
 
     class Meta:
         ordering = ["-identity_is_representative", "captured_at"]

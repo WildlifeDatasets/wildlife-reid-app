@@ -7,7 +7,8 @@
 
 * [added] Bulk import of media files using Synology Drive
 * [added] Error message as status tooltip
-* [added] Sex added to the individual identity
+* [added] Sex and coat type added to the individual identity
+* [added] Orientation added to Media File
 
 ## 04-2024
 
