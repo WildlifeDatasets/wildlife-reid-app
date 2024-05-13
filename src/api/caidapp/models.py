@@ -213,10 +213,16 @@ def auto_delete_file_on_delete(sender, instance, **kwargs):
 
 
 class IndividualIdentity(models.Model):
+    SEX_CHOICES = (
+        ('M', "Male"),
+        ('F', 'Female'),
+        ('U', 'Unknown'),
+    )
     name = models.CharField(max_length=50)
     id_worker = models.IntegerField(null=True, blank=True)
     owner_workgroup = models.ForeignKey(WorkGroup, on_delete=models.CASCADE, null=True, blank=True)
     updated_by = models.ForeignKey(CaIDUser, on_delete=models.CASCADE, null=True, blank=True)
+    sex = models.CharField(max_length=2, choices=SEX_CHOICES, default='U')
 
     def __str__(self):
         return str(self.name)

@@ -35,7 +35,7 @@ class LocationForm(forms.ModelForm):
 class IndividualIdentityForm(forms.ModelForm):
     class Meta:
         model = IndividualIdentity
-        fields = ("name",)
+        fields = ("name", "sex")
 
 
 class UploadedArchiveUpdateForm(forms.ModelForm):
