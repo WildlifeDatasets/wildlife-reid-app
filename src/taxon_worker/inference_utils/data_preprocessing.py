@@ -81,29 +81,30 @@ model_url = r"https://github.com/ecologize/CameraTraps/releases/download/v5.0/md
 model_file = Path("~/resources/md_v5a.0.0.pt")
 download_file_if_does_not_exists(model_url, model_file)
 
-DETECTION_MODEL = None
-
-
-def get_detection_model():
-    """Load the detection model if not loaded before."""
-    global DETECTION_MODEL
-    if DETECTION_MODEL is None:
-        DETECTION_MODEL = torch.hub.load(
-            "ultralytics/yolov5",  # repo_or_dir
-            "custom",  # model
-            str(Path("~/resources/md_v5a.0.0.pt").expanduser()),  # args for callable model
-            force_reload=True,
-            device=DEVICE,
-        )
-        return DETECTION_MODEL
-    else:
-        return DETECTION_MODEL
-
-
-def release_detection_model():
-    """Release the detection model."""
-    global DETECTION_MODEL
-    DETECTION_MODEL = None
+# DETECTION_MODEL = None
+#
+#
+# def get_detection_model():
+#     """Load the detection model if not loaded before."""
+#     global DETECTION_MODEL
+#     if DETECTION_MODEL is None:
+#         DETECTION_MODEL = torch.hub.load(
+#             "ultralytics/yolov5",  # repo_or_dir
+#             "custom",  # model
+#             str(Path("~/resources/md_v5a.0.0.pt").expanduser()),  # args for callable model
+#             # force_reload=True,
+#             force_reload=False,
+#             device=DEVICE,
+#         )
+#         return DETECTION_MODEL
+#     else:
+#         return DETECTION_MODEL
+#
+#
+# def release_detection_model():
+#     """Release the detection model."""
+#     global DETECTION_MODEL
+#     DETECTION_MODEL = None
 
 
 # logger.info("Initializing SAM model and loading pre-trained checkpoint.")
