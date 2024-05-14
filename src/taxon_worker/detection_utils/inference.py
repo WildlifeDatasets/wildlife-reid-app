@@ -87,7 +87,7 @@ def pad_image(image: np.ndarray, bbox: Union[list, np.ndarray], border: float = 
     return padded_image
 
 
-def get_detection_model():
+def get_detection_model(force_reload: bool = False):
     """Load the detection model if not loaded before."""
     global DETECTION_MODEL
     if DETECTION_MODEL is None:
@@ -103,7 +103,7 @@ def get_detection_model():
             "custom",  # model
             str(model_file.expanduser()),  # args for callable model
             # force_reload=True,
-            force_reload=False,
+            force_reload=force_reload,
             device=DEVICE,
         )
     return DETECTION_MODEL
@@ -114,6 +114,8 @@ def del_detection_model():
     global DETECTION_MODEL
     DETECTION_MODEL = None
 
+DETECTION_MODEL = get_detection_model(force_reload=True)
+del_detection_model()
 
 def detect_animals_in_one_image(image_rgb: np.ndarray) -> Optional[List[Dict[str, Any]]]:
     """Detect an animal in a given image.
