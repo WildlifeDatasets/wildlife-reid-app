@@ -3,6 +3,7 @@ FROM python:3.10.13-slim
 COPY ./src/api/requirements.txt /api/requirements.txt
 
 # install system dependencies
+#RUN sudo add-apt-repository ppa:ubuntugis/ppa
 RUN apt-get update --yes &&  \
     apt-get install --yes \
     wget \
