@@ -38,6 +38,11 @@ class IndividualIdentityForm(forms.ModelForm):
         fields = ("name", "sex", 'coat_type', 'note')
 
 
+class UploadedArchiveSelectTaxonForIdentificationForm(forms.ModelForm):
+    class Meta:
+        model = UploadedArchive
+        fields = ("taxon_for_identification",)
+
 class UploadedArchiveUpdateForm(forms.ModelForm):
     from django import forms
 

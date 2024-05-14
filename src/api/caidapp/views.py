@@ -38,6 +38,7 @@ from .forms import (
     UploadedArchiveForm,
     UploadedArchiveUpdateForm,
     WorkgroupUsersForm,
+    UploadedArchiveSelectTaxonForIdentificationForm,
 )
 from .models import (
     Album,
@@ -1657,6 +1658,33 @@ def mediafiles_stats_view(request):
         }
     )
 
+@login_required
+def select_taxon_for_identification(request, uploadedarchive_id: int):
+    """Select taxon for identification."""
+    uploaded_archive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
+    if not _user_has_rw_acces_to_uploadedarchive(request.user.caiduser, uploaded_archive):
+        return HttpResponseNotAllowed("Not allowed to edit this uploaded archive.")
+    if request.method == "POST":
+        form = UploadedArchiveSelectTaxonForIdentificationForm(request.POST)
+        if form.is_valid():
+            taxon = form.cleaned_data["taxon_for_identification"]
+            uploaded_archive.taxon_for_identification = taxon
+            uploaded_archive.save()
+            return redirect("caidapp:uploads_identities")
+    else:
+        form = UploadedArchiveSelectTaxonForIdentificationForm()
+    return render(
+        request,
+        "caidapp/update_form.html",
+        {
+            "form": form,
+            "headline": "Select taxon",
+            "button": "Select",
+            "text_note": "Select taxon for identification",
+            "next": "caidapp:uploads_identities",
+            "mediafile": uploaded_archive.mediafile_set.all().first(),
+        },
+    )
 
 def create_new_album(request, name="New Album"):
     """Create new album."""
