@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load widget_tweaks %}
+{% block head %}
+{% endblock %}
+{% block body %}
+    {% if user.is_authenticated %}
+        <div class="pagetitle">
+            <h1>{{ page_title }}</h1>
+            <nav>
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li>
+                </ol>
+            </nav>
+            {#            <input id="search_here" class="form-control mb-3" placeholder="type here to search.."/>#}
+
+
+        </div>
+
+
+        <section class="section">
+            {% if taxon_stats_html %}
+                <div class="col-lg-4">
+                    <div class="card">
+                        <div class="card-body">
+                            {#                                    render html #}
+                            {% autoescape off %}
+                                {{ taxon_stats_html }}
+                            {% endautoescape %}
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+            {% if map_html %}
+                <div class="col-lg-3">
+                    <div class="card">
+                        <div class="card-body">
+                            {#                                    render html #}
+                            {% autoescape off %}
+                                {{ map_html }}
+                            {% endautoescape %}
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+
+        </section>
+    {% endif %}
+    <script>
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+  return new bootstrap.Tooltip(tooltipTriggerEl)
+})
+    </script>
+{% endblock %}
