@@ -74,6 +74,7 @@ def predict_species_on_success(
         )
         uploaded_archive.mediafiles_imported = True
         uploaded_archive.status = "Taxon classification finished"
+        uploaded_archive.finished_at = django.utils.timezone.now()
         uploaded_archive.save()
         uploaded_archive.update_earliest_and_latest_captured_at()
         run_detection_async(uploaded_archive)
@@ -81,6 +82,7 @@ def predict_species_on_success(
         uploaded_archive.status = "Failed"
         uploaded_archive.finished_at = django.utils.timezone.now()
         if "ERROR" in output:
+            logger.error(f"{output['ERROR']}")
             uploaded_archive.status_message = \
                 output["ERROR"] if len(output["ERROR"]) < 2046 else output["ERROR"][:2046]
         uploaded_archive.save()
@@ -805,13 +807,14 @@ def detection_on_success_after_species_prediction(self, output: dict, *args, **k
         logger.critical(f"Unexpected error {output=} is missing 'status' field.")
         uploaded_archive.status = "Unknown"
     elif output["status"] == "DONE":
-        uploaded_archive.status = "Species Finished"
+        uploaded_archive.status = "...detection"
     else:
         uploaded_archive.status = "Failed"
         if "ERROR" in output:
+            logger.error(f"{output['ERROR']=}")
             uploaded_archive.status_message = \
                 output["ERROR"] if len(output["ERROR"]) < 2046 else output["ERROR"][:2046]
-    uploaded_archive.finished_at = django.utils.timezone.now()
+        uploaded_archive.finished_at = django.utils.timezone.now()
     uploaded_archive.save()
 
 
