@@ -81,10 +81,9 @@ def predict_species_on_success(
     else:
         uploaded_archive.status = "Failed"
         uploaded_archive.finished_at = django.utils.timezone.now()
-        if "ERROR" in output:
-            logger.error(f"{output['ERROR']}")
-            uploaded_archive.status_message = \
-                output["ERROR"] if len(output["ERROR"]) < 2046 else output["ERROR"][:2046]
+        if "error" in output:
+            logger.error(f"{output['error']=}")
+            uploaded_archive.status_message = output["error"]
         uploaded_archive.save()
 
 
@@ -114,7 +113,11 @@ def _prepare_dataframe_for_identification(mediafiles) -> dict:
             str(mediafile.location.location) if mediafile.location.location else ""
         )
         logger.debug(f"{mediafile.metadata_json=}")
-        csv_data["detection_results"][i] = mediafile.metadata_json["detection_results"]
+        if "detection_results" in mediafile.metadata_json:
+            detection_results = mediafile.metadata_json["detection_results"]
+        else:
+            detection_results = None
+        csv_data["detection_results"][i] = detection_results
 
     return csv_data
 
@@ -810,10 +813,9 @@ def detection_on_success_after_species_prediction(self, output: dict, *args, **k
         uploaded_archive.status = "...detection"
     else:
         uploaded_archive.status = "Failed"
-        if "ERROR" in output:
-            logger.error(f"{output['ERROR']=}")
-            uploaded_archive.status_message = \
-                output["ERROR"] if len(output["ERROR"]) < 2046 else output["ERROR"][:2046]
+        if "error" in output:
+            logger.error(f"{output['error']=}")
+            uploaded_archive.status_message = output["error"]
         uploaded_archive.finished_at = django.utils.timezone.now()
     uploaded_archive.save()
 

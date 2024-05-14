@@ -6,6 +6,7 @@ COPY ./src/api/requirements.txt /api/requirements.txt
 RUN #sudo add-apt-repository ppa:ubuntugis/ppa
 
 # install system dependencies
+#RUN sudo add-apt-repository ppa:ubuntugis/ppa
 RUN apt-get update --yes &&  \
     apt-get install --yes \
     wget \
