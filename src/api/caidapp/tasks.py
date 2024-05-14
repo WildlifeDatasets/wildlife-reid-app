@@ -551,8 +551,8 @@ def _update_database_by_one_row_of_metadata(
                 # metadata_json=metadata_json,
             )
 
-            logger.debug(f"{uploaded_archive.contains_identities=}")
-            logger.debug(f"{uploaded_archive.contains_single_taxon=}")
+            # logger.debug(f"{uploaded_archive.contains_identities=}")
+            # logger.debug(f"{uploaded_archive.contains_single_taxon=}")
             if uploaded_archive.contains_identities and uploaded_archive.contains_single_taxon:
                 mf.identity_is_representative = True
             # logger.debug(f"{mf.identity_is_representative}")
