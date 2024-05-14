@@ -1527,8 +1527,6 @@ def media_files_update(
         identity_is_representative=identity_is_representative,
     )
     number_of_mediafiles = len(full_mediafiles)
-    map_html = _create_map_from_mediafiles(full_mediafiles)
-    taxon_stats_html = _taxon_stats_for_mediafiles(full_mediafiles)
 
     request.session['mediafile_ids'] = list(full_mediafiles.values_list('id', flat=True))
 
@@ -1637,9 +1635,26 @@ def media_files_update(
             "form_query": queryform,
             "albums_available": albums_available,
             "number_of_mediafiles": number_of_mediafiles,
+            # "map_html": map_html,
+            # "taxon_stats_html": taxon_stats_html,
+        },
+    )
+
+def mediafiles_stats_view(request):
+
+    mediafile_ids = request.session.get('mediafile_ids', [])
+    mediafiles = MediaFile.objects.filter(id__in=mediafile_ids)
+
+    map_html = _create_map_from_mediafiles(mediafiles)
+    taxon_stats_html = _taxon_stats_for_mediafiles(mediafiles)
+    return render(
+        request,
+        "caidapp/media_files_stats.html",
+        # "caidapp/media_files_update.html",
+        {
             "map_html": map_html,
             "taxon_stats_html": taxon_stats_html,
-        },
+        }
     )
 
 

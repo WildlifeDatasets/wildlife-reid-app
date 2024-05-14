@@ -555,7 +555,7 @@ def _update_database_by_one_row_of_metadata(
             logger.debug(f"{uploaded_archive.contains_single_taxon=}")
             if uploaded_archive.contains_identities and uploaded_archive.contains_single_taxon:
                 mf.identity_is_representative = True
-            logger.debug(f"{mf.identity_is_representative}")
+            # logger.debug(f"{mf.identity_is_representative}")
             mf.save()
             logger.debug(f"Created new Mediafile {mf}")
         else:
@@ -570,14 +570,14 @@ def _update_database_by_one_row_of_metadata(
         metadata_json = row.to_dict()
         # remove None and NaN values
         metadata_json = {k: v for k, v in metadata_json.items() if v is not None and not pd.isna(v)}
-        logger.debug(f"{metadata_json=}")
+        # logger.debug(f"{metadata_json=}")
         mf.metadata_json = metadata_json
 
         # if the mediafile was updated by user, we believe into users input
         if mf.updated_by is None:
             # logger.debug(f"{row.keys()=}")
-            logger.debug(f"{uploaded_archive.contains_identities=}")
-            logger.debug(f"{row['predicted_category']=}")
+            # logger.debug(f"{uploaded_archive.contains_identities=}")
+            # logger.debug(f"{row['predicted_category']=}")
 
             mf.category = get_taxon(row["predicted_category"])  # remove this
             if len(mf.animalobservation_set.all()) == 0:
@@ -596,7 +596,7 @@ def _update_database_by_one_row_of_metadata(
                     row["unique_name"], workgroup=uploaded_archive.owner.workgroup
                 )
             mf.save()
-            logger.debug(f"identity={mf.identity}")
+            # logger.debug(f"identity={mf.identity}")
     logger.debug(f"{mf}")
 
 

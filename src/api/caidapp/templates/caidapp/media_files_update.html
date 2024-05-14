@@ -41,37 +41,15 @@
                             </p>
                             <a class="btn btn-secondary" href="{% url 'caidapp:download_csv_for_mediafiles' %}">
                                 <i class="bi bi-table"></i> Download CSV </a>
+                            <a class="btn btn-secondary" href="{% url 'caidapp:mediafiles_stats' %}">
+                                <i class="bi bi-bar-chart"></i> Stats </a>
                     </div>
-                    {% if taxon_stats_html %}
-                        <div class="col-lg-4">
-                                <div class="card">
-                                    <div class="card-body">
-                                        {#                                    render html #}
-                                        {% autoescape off %}
-                                            {{ taxon_stats_html }}
-                                        {% endautoescape %}
-                                    </div>
-                                </div>
-                        </div>
-                    {% endif %}
-                    {% if map_html %}
-                    <div class="col-lg-3">
-                            <div class="card">
-                                <div class="card-body">
-{#                                    render html #}
-                                    {% autoescape off %}
-                                        {{ map_html }}
-                                    {% endautoescape %}
-                                </div>
-                            </div>
-                    </div>
-                    {% endif %}
                 </div>
 
                 {% if form_objects %}
                     {{ form_objects.management_form }}
                     <p>
-                        <a class="btn btn-secondary" data-bs-toggle="collapse" href="#collapseBulkProcessing"
+                        <a class="btn btn-secondary mt-2" data-bs-toggle="collapse" href="#collapseBulkProcessing"
                            role="button"
                            aria-expanded="false" aria-controls="collapseBulkProcessing">
                             Bulk processing
