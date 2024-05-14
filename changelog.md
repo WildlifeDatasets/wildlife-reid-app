@@ -9,6 +9,7 @@
 * [added] Error message as status tooltip
 * [added] Sex and coat type added to the individual identity
 * [added] Orientation added to Media File
+* [added] Download CSV file for every list of media files
 
 ## 04-2024
 

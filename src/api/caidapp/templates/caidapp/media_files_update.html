@@ -39,6 +39,8 @@
                             <p>
                                 Found {{ page_obj.paginator.count }} mediafiles.
                             </p>
+                            <a class="btn btn-secondary" href="{% url 'caidapp:download_csv_for_mediafiles' %}">
+                                <i class="bi bi-table"></i> Download CSV </a>
                     </div>
                     {% if taxon_stats_html %}
                         <div class="col-lg-4">

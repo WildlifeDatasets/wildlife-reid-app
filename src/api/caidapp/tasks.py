@@ -27,6 +27,7 @@ from .models import (
 from . import views
 from . import model_tools
 from typing import Generator
+import copy
 
 # from joblib import Parallel, delayed
 # from tqdm import tqdm
@@ -624,18 +625,41 @@ def update_metadata_csv_by_uploaded_archive(
 def _sync_metadata_by_creating_from_mediafiles(csv_file, output_dir, uploaded_archive):
     import copy
 
-    records = []
-    # go over mediafiles in set
-    for mf in uploaded_archive.mediafile_set.all():
+    mediafile_set = uploaded_archive.mediafile_set.all()
+    if metadata_json_are_consistent(mediafile_set):
+        df = create_dataframe_from_mediafiles(csv_file, mediafile_set)
+        df.to_csv(csv_file, encoding="utf-8-sig")
+    else:
+        csv_file.unlink()
+
+def metadata_json_are_consistent(mediafiles: Generator[MediaFile, None, None]) -> bool:
+    for mf in mediafiles:
         metadata_row = copy.copy(mf.metadata_json)
         logger.debug(f"{metadata_row=}, {type(metadata_row)=}")
         if (metadata_row is None) or ("predicted_category" not in metadata_row):
-            Path(csv_file).unlink()
             logger.debug(
                 "No enough information stored in webapp. "
                 "The CSV file will be removed to be recreated."
             )
-            return
+            return False
+    return True
+
+def create_dataframe_from_mediafiles(mediafiles: Generator[MediaFile, None, None]) -> pd.DataFrame:
+    records = []
+    # go over mediafiles in set
+    for mf in mediafiles:
+        # logger.debug(f"{mf.metadata_json=}, {type(mf.metadata_json)=}")
+        metadata_row = copy.copy(mf.metadata_json)
+        logger.debug(f"{metadata_row=}, {type(metadata_row)=}")
+        if (metadata_row is None) or ("predicted_category" not in metadata_row):
+            metadata_row = {}
+        #     Path(csv_file).unlink()
+        #     logger.debug(
+        #         "No enough information stored in webapp. "
+        #         "The CSV file will be removed to be recreated."
+        #     )
+        #     records = None
+        #     break
 
         # abs_pth = output_dir / "images" / row["image_path"]
         # rel_pth = os.path.relpath(abs_pth, settings.MEDIA_ROOT)
@@ -651,7 +675,7 @@ def _sync_metadata_by_creating_from_mediafiles(csv_file, output_dir, uploaded_ar
 
         records.append(metadata_row)
     df = pd.DataFrame.from_records(records)
-    df.to_csv(csv_file, encoding="utf-8-sig")
+    return df
 
 
 def _sync_metadata_by_checking_enlisted_mediafiles(csv_file, output_dir, uploaded_archive):

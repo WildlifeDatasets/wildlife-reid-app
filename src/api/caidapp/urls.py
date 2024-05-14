@@ -175,4 +175,5 @@ urlpatterns = [
     path("cloud_import_preview/", views.cloud_import_preview_view, name="cloud_import_preview"),
     path("do_cloud_import/", views.do_cloud_import_view, name="do_cloud_import"),
     path("break_cloud_import/", views.break_cloud_import_view, name="break_cloud_import"),
+    path("download_csv_for_mediafiles/", views.download_csv_for_mediafiles, name="download_csv_for_mediafiles"),
 ]

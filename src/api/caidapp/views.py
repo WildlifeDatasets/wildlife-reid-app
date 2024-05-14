@@ -2,6 +2,7 @@ import datetime
 import json
 import logging
 import os
+import traceback
 from pathlib import Path
 from typing import List, Optional, Union
 
@@ -1529,6 +1530,8 @@ def media_files_update(
     map_html = _create_map_from_mediafiles(full_mediafiles)
     taxon_stats_html = _taxon_stats_for_mediafiles(full_mediafiles)
 
+    request.session['mediafile_ids'] = list(full_mediafiles.values_list('id', flat=True))
+
     paginator = Paginator(full_mediafiles, per_page=records_per_page)
 
     page_mediafiles = paginator.get_page(page_number)
@@ -1786,6 +1789,22 @@ def download_uploadedarchive_csv(request, uploadedarchive_id: int):
     else:
         messages.error(request, "Only the owner can download the file")
         return redirect("/caidapp/uploads")
+
+def download_csv_for_mediafiles(request):
+    mediafile_ids = request.session.get('mediafile_ids', [])
+    mediafiles = MediaFile.objects.filter(id__in=mediafile_ids)
+
+    try:
+        df = tasks.create_dataframe_from_mediafiles(mediafiles)
+        if df.empty:
+            return HttpResponse("No data available to export.", content_type="text/plain")
+    except Exception as e:
+        logger.error(traceback.format_exc())
+        return HttpResponse("Error during export.", content_type="text/plain")
+    df = tasks.create_dataframe_from_mediafiles(mediafiles)
+    response = HttpResponse(df.to_csv(), content_type="text/csv")
+    response["Content-Disposition"] = "attachment; filename=metadata.csv"
+    return response
 
 
 def update_uploaded_archives(requests):
