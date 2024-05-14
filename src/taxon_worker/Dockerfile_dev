@@ -30,6 +30,8 @@ RUN pip install --no-cache-dir --upgrade pip build && \
     pip install --no-cache-dir --compile -r requirements.txt && \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/* /tmp/* /var/tmp/*
 
+
+
 RUN pip install pytz --upgrade
 RUN pip install tzdata --upgrade
 
@@ -39,6 +41,9 @@ RUN pip install \
 
 RUN pip install timm==0.6.13
 
+
+# call torchub to load model into cache
+RUN python -c "import torchhub; torchhub.load('ultralytics/yolov5', 'yolov5s', force_reload=True) and print('yolov5s loaded')"
 
 
 # expose ports and run application

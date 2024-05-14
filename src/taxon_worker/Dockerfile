@@ -41,6 +41,9 @@ RUN pip install \
 
 RUN pip install timm==0.6.13
 
+# call torchub to load model into cache
+RUN python -c "import torchhub; torchhub.load('ultralytics/yolov5', 'yolov5s', force_reload=True) and print('yolov5s loaded')"
+
 COPY ./src/taxon_worker /taxon_worker
 
 # expose ports and run application

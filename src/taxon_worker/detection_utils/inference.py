@@ -20,6 +20,7 @@ logger.info(f"Using device: {DEVICE}")
 logger.info("Initializing MegaDetector model and loading pre-trained checkpoint.")
 
 MEDIA_DIR = Path("/shared_data/media")
+DETECTION_MODEL = None
 
 
 def download_file(url: str, output_file: str):
@@ -86,9 +87,6 @@ def pad_image(image: np.ndarray, bbox: Union[list, np.ndarray], border: float = 
     return padded_image
 
 
-DETECTION_MODEL = None
-
-
 def get_detection_model():
     """Load the detection model if not loaded before."""
     global DETECTION_MODEL
@@ -104,7 +102,8 @@ def get_detection_model():
             "ultralytics/yolov5",  # repo_or_dir
             "custom",  # model
             str(model_file.expanduser()),  # args for callable model
-            force_reload=True,
+            # force_reload=True,
+            force_reload=False,
             device=DEVICE,
         )
     return DETECTION_MODEL

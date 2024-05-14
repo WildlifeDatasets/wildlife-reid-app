@@ -88,13 +88,15 @@ model_file = Path("/detection_worker/resources/md_v5a.0.0.pt")
 download_file_if_does_not_exists(model_url, model_file)
 
 torch.hub._validate_not_a_forked_repo = lambda a, b, c: True
-DETECTION_MODEL = torch.hub.load(
-    "ultralytics/yolov5",  # repo_or_dir
-    "custom",  # model
-    str(Path("/detection_worker/resources/md_v5a.0.0.pt").expanduser()),  # args for callable model
-    force_reload=True,
-    device="cpu",
-)
+DETECTION_MODEL = None
+# DETECTION_MODEL = torch.hub.load(
+#     "ultralytics/yolov5",  # repo_or_dir
+#     "custom",  # model
+#     str(Path("/detection_worker/resources/md_v5a.0.0.pt").expanduser()),  # args for callable model
+#     # force_reload=True,
+#     force_reload=False,
+#     device="cpu",
+# )
 
 
 download_file_if_does_not_exists(
@@ -109,6 +111,32 @@ SAM.to(device=DEVICE)
 SAM_PREDICTOR = SamPredictor(SAM)
 # SAM = None
 
+def get_detection_model():
+    """Load the detection model if not loaded before."""
+    global DETECTION_MODEL
+    if DETECTION_MODEL is None:
+        model_url = r"https://github.com/ecologize/CameraTraps/releases/download/v5.0/md_v5a.0.0.pt"
+        model_file = Path("/taxon_worker/resources/md_v5a.0.0.pt")
+        download_file_if_does_not_exists(model_url, model_file)
+
+        logger.debug(f"Loading model from file: {model_file}. {model_file.exists()=}")
+
+        torch.hub._validate_not_a_forked_repo = lambda a, b, c: True
+        DETECTION_MODEL = torch.hub.load(
+            "ultralytics/yolov5",  # repo_or_dir
+            "custom",  # model
+            str(model_file.expanduser()),  # args for callable model
+            # force_reload=True,
+            force_reload=False,
+            device=DEVICE,
+        )
+    return DETECTION_MODEL
+
+
+def del_detection_model():
+    """Release the detection model."""
+    global DETECTION_MODEL
+    DETECTION_MODEL = None
 
 def detect_animal(image_path: list) -> dict[str, Union[ndarray, Any]]:
     """Detect an animal in a given image."""
@@ -116,7 +144,8 @@ def detect_animal(image_path: list) -> dict[str, Union[ndarray, Any]]:
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
     logger.info("Running detection inference.")
-    results = DETECTION_MODEL(image)
+    model = get_detection_model()
+    results = model(image)
     id2label = results.names
     results = results.xyxy[0].cpu().numpy()
 
