@@ -92,7 +92,7 @@ def get_detection_model():
     global DETECTION_MODEL
     if DETECTION_MODEL is None:
         model_url = r"https://github.com/ecologize/CameraTraps/releases/download/v5.0/md_v5a.0.0.pt"
-        model_file = Path("/taxon_worker/resources/md_v5a.0.0.pt")
+        model_file = Path("/root/downloaded_resources/md_v5a.0.0.pt")
         download_file_if_does_not_exists(model_url, model_file)
 
         logger.debug(f"Loading model from file: {model_file}. {model_file.exists()=}")

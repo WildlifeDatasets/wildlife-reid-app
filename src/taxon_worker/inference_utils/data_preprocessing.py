@@ -77,9 +77,9 @@ def pad_image(image: np.ndarray, bbox: Union[list, np.ndarray], border: float = 
     return padded_image
 
 
-model_url = r"https://github.com/ecologize/CameraTraps/releases/download/v5.0/md_v5a.0.0.pt"
-model_file = Path("~/resources/md_v5a.0.0.pt")
-download_file_if_does_not_exists(model_url, model_file)
+# model_url = r"https://github.com/ecologize/CameraTraps/releases/download/v5.0/md_v5a.0.0.pt"
+# model_file = Path("~/resources/md_v5a.0.0.pt")
+# download_file_if_does_not_exists(model_url, model_file)
 
 # DETECTION_MODEL = None
 #
