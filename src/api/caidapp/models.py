@@ -137,6 +137,7 @@ class UploadedArchive(models.Model):
     owner = models.ForeignKey(CaIDUser, on_delete=models.CASCADE, null=True, blank=True)
     contains_identities = models.BooleanField(default=False)
     contains_single_taxon = models.BooleanField(default=False)
+    taxon_for_identification_at_upload = models.CharField(max_length=255, blank=True, default="")
     taxon_for_identification = models.ForeignKey(
         Taxon, on_delete=models.SET_NULL, null=True, blank=True
     )
