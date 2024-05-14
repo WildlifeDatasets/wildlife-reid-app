@@ -11,6 +11,7 @@
 * [added] Orientation added to Media File
 * [added] Download CSV file for every list of media files
 * [changed] Special view for statistics
+* [added] Select taxon for identification
 
 ## 04-2024
 
