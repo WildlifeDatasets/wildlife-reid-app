@@ -12,6 +12,7 @@
 * [added] Download CSV file for every list of media files
 * [changed] Special view for statistics
 * [added] Select taxon for identification
+* [changed] YOLOv5 is loaded in Docker to make the first run faster
 
 ## 04-2024
 
