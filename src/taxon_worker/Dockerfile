@@ -48,4 +48,4 @@ COPY ./src/taxon_worker /taxon_worker
 
 # expose ports and run application
 WORKDIR $APP_DIR
-CMD C_FORCE_ROOT=false celery -A worker.taxon_worker worker --pool threads --loglevel info --queues taxon_worker
+CMD C_FORCE_ROOT=false celery -A worker.taxon_worker worker --pool threads --concurrency 2 --loglevel info --queues taxon_worker
