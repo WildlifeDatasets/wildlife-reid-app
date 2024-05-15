@@ -13,6 +13,7 @@
 * [changed] Special view for statistics
 * [added] Select taxon for identification
 * [changed] YOLOv5 is loaded in Docker to make the first run faster
+* [changed] Limit number of workers in taxon_worker and identification_worker
 
 ## 04-2024
 
