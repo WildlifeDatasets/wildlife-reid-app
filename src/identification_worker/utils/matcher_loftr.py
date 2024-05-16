@@ -5,7 +5,8 @@ from typing import Any
 import numpy as np
 import torch
 
-# from kornia.feature.loftr.loftr import *
+import cv2
+
 from kornia.feature.loftr.loftr import (
     CoarseMatching,
     FineMatching,
@@ -64,11 +65,11 @@ class LoFTR(Module):
     """
 
     def __init__(
-        self,
-        pretrained: str = "outdoor",
-        config: dict[str, Any] = default_cfg,
-        apply_fine=True,
-        thr: float = 0.2,
+            self,
+            pretrained: str = "outdoor",
+            config: dict[str, Any] = default_cfg,
+            apply_fine=True,
+            thr: float = 0.2,
     ) -> None:
 
         super().__init__()
@@ -220,24 +221,15 @@ class MatchLOFTR:
     """
 
     def __init__(
-        self,
-        model=None,
-        pretrained: str = "outdoor",
-        thresholds: tuple[float] = (0.99,),
-        init_threshold: float = 0.2,
-        batch_size: int = 128,
-        num_workers: int = 0,
-        device: str | None = None,
-        silent: bool = False,
-        apply_fine: bool = False,
-        store_type="float16",
+            self,
+            model,
+            thresholds: tuple[float] = (0.99,),
+            batch_size: int = 128,
+            num_workers: int = 0,
+            device: str | None = None,
+            silent: bool = False,
+            store_type="float16",
     ):
-        if device is None:
-            device = "cuda" if torch.cuda.is_available() else "cpu"
-        if model is None:
-            model = LoFTR(pretrained=pretrained, apply_fine=apply_fine, thr=init_threshold).to(
-                device
-            )
 
         self.model = model
         self.device = device
@@ -247,7 +239,7 @@ class MatchLOFTR:
         self.tqdm_kwargs = {"mininterval": 1, "ncols": 100, "disable": silent}
         self.store_type = store_type
 
-    def __call__(self, dataset0=None, dataset1=None, pairs=None):
+    def __call__(self, dataset0=None, dataset1=None, pairs=None, remove_masked=False):
         """Calculate similarity between query and database."""
         if pairs is None:
             pairs = PairProductDataset(dataset0, dataset1)
@@ -274,11 +266,50 @@ class MatchLOFTR:
 
             batch_idx = output["batch_indexes"].cpu().numpy()
             confidence = output["confidence"].cpu().numpy()
+            keypoints0 = output["keypoints0"].cpu().numpy()
+            keypoints1 = output["keypoints1"].cpu().numpy()
 
             for b, (i, j) in enumerate(zip(idx0, idx1)):
-                for t in self.thresholds:
-                    (current_batch,) = np.where(batch_idx == b)
-                    store[t][i, j] = np.sum(confidence[current_batch] > t)
+                current_batch, = np.where(batch_idx == b)
+                _confidence = confidence[current_batch]
 
-        self.model.to("cpu")
+                if remove_masked:
+                    _keypoints0 = keypoints0[current_batch]
+                    _keypoints1 = keypoints1[current_batch]
+                    _data0 = data0[b, 0].cpu().numpy()
+                    _data1 = data1[b, 0].cpu().numpy()
+
+                    _confidence = remove_masked_keypoints(_data0, _keypoints0, _confidence)
+                    _confidence = remove_masked_keypoints(_data1, _keypoints1, _confidence)
+
+                for t in self.thresholds:
+                    store[t][i, j] = np.sum(_confidence > t)
+
         return dict(store)
+
+
+def remove_masked_keypoints(masked_image, keypoints, confidence, visualization_remove=False):
+    """Remove keypoints that are outside visible area."""
+    reduced_size = 64
+    ratio = 512 / reduced_size
+
+    if visualization_remove:
+        mask = cv2.cvtColor(masked_image, cv2.COLOR_RGB2GRAY)
+        mask = (mask > 5).astype(np.uint8)
+        masked_image_small = cv2.resize(mask, (reduced_size, reduced_size))
+        kernel = np.ones((3, 3), np.uint8)
+        masked_image_small = cv2.erode(masked_image_small, kernel, cv2.BORDER_REFLECT)
+    else:
+        masked_image_small = cv2.resize(masked_image, (reduced_size, reduced_size))
+
+    y_image, x_image = np.nonzero(masked_image_small)
+    image_area = list(zip(x_image, y_image))
+
+    keypoints = np.round(keypoints.copy() / ratio).astype(int)
+
+    for i in range(len(confidence)):
+        kp = tuple(keypoints[i])
+        if kp not in image_area:
+            confidence[i] = 0
+
+    return confidence
