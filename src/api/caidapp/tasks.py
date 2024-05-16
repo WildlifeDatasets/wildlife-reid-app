@@ -213,9 +213,8 @@ def do_cloud_import_async(caiduser:CaIDUser):
 
 def run_detection_async(uploaded_archive: UploadedArchive, link=None, link_error=None):
     """Run detection and mask preparation on UploadedArchive."""
-    logger.debug("Generating CSV for run_identification...")
     mediafiles = uploaded_archive.mediafile_set.all()
-    logger.debug(f"Generating CSV for init_identification with {len(mediafiles)} records...")
+    logger.debug(f"Running detection with {len(mediafiles)} records...")
     # csv_len = len(mediafiles)
     # csv_data = {"image_path": [None] * csv_len, "mediafile_id": [None] * csv_len}
 
