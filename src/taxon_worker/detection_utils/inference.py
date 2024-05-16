@@ -166,7 +166,7 @@ def detect_animal_on_metadata(metadata: pd.DataFrame, border=0.0) -> pd.DataFram
         try:
             if (
                 row["media_type"] == "video"
-                and row["full_image_path"] == row["full_orig_media_path"]
+                and row["full_image_path"] == row["absolute_media_path"]
             ):
                 # there are no detected animals in video
                 continue
