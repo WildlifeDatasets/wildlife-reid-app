@@ -75,8 +75,13 @@ class UploadedArchiveForm(forms.ModelForm):
         fields = (
             "archivefile",
             "location_at_upload",
-            # "contains_identities"
         )
+
+class UploadedArchiveFormWithTaxon(UploadedArchiveForm):
+    taxon_for_identification = forms.CharField()
+
+    class Meta(UploadedArchiveForm.Meta):
+        fields = UploadedArchiveForm.Meta.fields + ("taxon_for_identification",)
 
 
 class MediaFileForm(forms.ModelForm):
