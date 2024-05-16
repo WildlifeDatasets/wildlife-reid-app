@@ -81,6 +81,10 @@
                                         {% endif %}
 
                                     </h5>
+                                    <p>
+                                        Media files: {{ uploadedarchive.count_of_mediafiles }}<br>
+                                        Representative media files: {{ uploadedarchive.count_of_representative_mediafiles }}
+                                    </p>
                                     <p>Status: {{ uploadedarchive.status }} </p>
                                     <p><i class="fa-light fa-calendar-image"></i>Uploaded at: {{ uploadedarchive.uploaded_at|date:'Y-m-d H:i' }} </p>
                                     {% if uploadedarchive.finished_at %}

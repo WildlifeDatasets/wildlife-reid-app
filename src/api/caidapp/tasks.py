@@ -112,7 +112,7 @@ def _prepare_dataframe_for_identification(mediafiles) -> dict:
         csv_data["location_coordinates"][i] = (
             str(mediafile.location.location) if mediafile.location.location else ""
         )
-        logger.debug(f"{mediafile.metadata_json=}")
+        # logger.debug(f"{mediafile.metadata_json=}")
         if "detection_results" in mediafile.metadata_json:
             detection_results = mediafile.metadata_json["detection_results"]
         else:
