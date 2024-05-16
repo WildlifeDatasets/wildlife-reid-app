@@ -94,17 +94,23 @@ def get_sam_model() -> SamPredictor:
     """Load the SAM model if not loaded before."""
     global SAM
     global SAM_PREDICTOR
+    model_zoo = {
+        "vit_b": "sam_vit_b_01ec64",
+        "vit_l": "sam_vit_l_0b3195",
+        "vit_h": "sam_vit_h_4b8939"
+    }
+    model_version = os.environ['SAM_MODEL_VERSION']
     if SAM is None:
         download_file_if_does_not_exists(
-            "http://ptak.felk.cvut.cz/plants/DanishFungiDataset/sam_vit_h_4b8939.pth",
-            "/identification_worker/resources/sam_vit_h_4b8939.pth",
+            f"http://ptak.felk.cvut.cz/plants/DanishFungiDataset/{model_zoo[model_version]}.pth",
+            f"/identification_worker/resources/{model_zoo[model_version]}.pth",
         )
 
-        logger.info("Initializing SAM model and loading pre-trained checkpoint.")
+        logger.info(f"Initializing SAM model ({model_version}) and loading pre-trained checkpoint.")
         _checkpoint_path = Path(
-            "/identification_worker/resources/sam_vit_h_4b8939.pth"
+            f"/identification_worker/resources/{model_zoo[model_version]}.pth"
         ).expanduser()
-        SAM = sam_model_registry["vit_h"](checkpoint=str(_checkpoint_path))
+        SAM = sam_model_registry[model_version](checkpoint=str(_checkpoint_path))
         SAM.to(device=DEVICE)
         SAM_PREDICTOR = SamPredictor(SAM)
     return SAM_PREDICTOR
@@ -217,7 +223,7 @@ def mask_images(metadata: pd.DataFrame) -> pd.DataFrame:
 def encode_images(metadata: pd.DataFrame) -> np.ndarray:
     """Create feature vectors from given images."""
     global IDENTIFICATION_MODEL
-    get_identification_model("hf-hub:strakajk/Lynx-MegaDescriptor-T-224")
+    get_identification_model(os.environ["IDENTIFICATION_MODEL_VERSION"])
     metadata = mask_images(metadata)
     logger.info("Creating DataLoaders.")
     config = {
@@ -324,14 +330,15 @@ def identify(
         }
     )
 
-    k_range = 50
-    logger.info(f"Starting loftr prediction with k_range: {k_range}.")
+    logger.info(f"Starting loftr prediction.")
     predicted_idx, keypoints = get_merged_predictions(
         query_metadata,
         database_metadata,
         similarity,
         top_k=top_k,
-        k_range=k_range,
+        k_range=int(os.environ["LOFTR_K_RANGE"]),
+        thr_range=int(os.environ["LOFTR_THRESHOLD_RANGE"]),
+        threshold=float(os.environ["LOFTR_CONFIDENCE_THRESHOLD"]),
         num_kp=10,
         identities=True,
     )
