@@ -25,6 +25,7 @@ from django.http import HttpResponseBadRequest, HttpResponseNotAllowed, JsonResp
 from django.shortcuts import Http404, HttpResponse, get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector
+import shutil
 from . import tasks
 from . import models
 
@@ -1854,6 +1855,34 @@ def download_csv_for_mediafiles(request):
     response = HttpResponse(df.to_csv(), content_type="text/csv")
     response["Content-Disposition"] = "attachment; filename=metadata.csv"
     return response
+
+def download_zip_for_mediafiles_view(request):
+    request.user.caiduser.hash
+    mediafile_ids = request.session.get('mediafile_ids', [])
+    mediafiles = MediaFile.objects.filter(id__in=mediafile_ids)
+    # number_of_mediafiles = len(mediafiles)
+
+    abs_zip_path = Path(settings.MEDIA_ROOT) / "users" / request.user.caiduser.hash / f"mediafiles.zip"
+    abs_zip_path.parent.mkdir(parents=True, exist_ok=True)
+    # get temp dir
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        mediafiles_dir = Path(tmpdirname) / "images"
+        mediafiles_dir.mkdir()
+        for mediafile in mediafiles:
+            src = Path(settings.MEDIA_ROOT) / mediafile.mediafile.name
+            dst = mediafiles_dir / Path(mediafile.mediafile.name).name
+            logger.debug(f"{src=}, {dst=}")
+            assert src.exists()
+            shutil.copy(src, dst)
+        make_zipfile(abs_zip_path, mediafiles_dir)
+    with open(abs_zip_path, "rb") as fh:
+        response = HttpResponse(fh.read(), content_type="application/zip")
+        response["Content-Disposition"] = "inline; filename=mediafiles.zip"
+        return response
+
+    return Http404
+
 
 
 def update_uploaded_archives(requests):

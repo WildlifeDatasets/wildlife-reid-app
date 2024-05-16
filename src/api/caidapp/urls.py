@@ -176,6 +176,7 @@ urlpatterns = [
     path("do_cloud_import/", views.do_cloud_import_view, name="do_cloud_import"),
     path("break_cloud_import/", views.break_cloud_import_view, name="break_cloud_import"),
     path("download_csv_for_mediafiles/", views.download_csv_for_mediafiles, name="download_csv_for_mediafiles"),
+    path("download_zip_for_mediafiles/", views.download_zip_for_mediafiles_view, name="download_zip_for_mediafiles"),
     path("mediafiles_stats/", views.mediafiles_stats_view, name="mediafiles_stats"),
     path("select_taxon_for_identification/<int:uploadedarchive_id>/", views.select_taxon_for_identification, name="select_taxon_for_identification"),
 ]
