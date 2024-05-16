@@ -145,6 +145,12 @@ class UploadedArchive(models.Model):
     earliest_captured_at = models.DateTimeField("Earliest Captured at", blank=True, null=True)
     latest_captured_at = models.DateTimeField("Latest Captured at", blank=True, null=True)
 
+    def count_of_mediafiles(self):
+        return MediaFile.objects.filter(parent=self).count()
+
+    def count_of_representative_mediafiles(self):
+        return MediaFile.objects.filter(parent=self, identity_is_representative=True).count()
+
     def update_location_in_mediafiles(self, location: Union[str, Location]):
         """Update location in mediafiles."""
         if isinstance(location, str):
