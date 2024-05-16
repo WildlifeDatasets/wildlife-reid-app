@@ -271,6 +271,7 @@ class MediaFile(models.Model):
     animal_number = models.IntegerField(null=True, blank=True)
     media_type = models.CharField(max_length=255, blank=True, default="image")
     orientation = models.CharField(max_length=2, choices=ORIENTATION_CHOICES, default="N")
+    original_filename = models.CharField(max_length=512, blank=True, default="")
 
     class Meta:
         ordering = ["-identity_is_representative", "captured_at"]
