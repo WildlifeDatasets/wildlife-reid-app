@@ -14,6 +14,7 @@
 * [added] Select taxon for identification
 * [changed] YOLOv5 is loaded in Docker to make the first run faster
 * [changed] Limit number of workers in taxon_worker and identification_worker
+* [changed] The uploads in the identification view are now selected by taxon_for_identification is not None
 
 ## 04-2024
 

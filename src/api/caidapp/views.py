@@ -26,6 +26,7 @@ from django.shortcuts import Http404, HttpResponse, get_object_or_404, redirect,
 from django.urls import reverse_lazy
 from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector
 from . import tasks
+from . import models
 
 from .forms import (
     AlbumForm,
@@ -36,6 +37,7 @@ from .forms import (
     MediaFileSelectionForm,
     MediaFileSetQueryForm,
     UploadedArchiveForm,
+    UploadedArchiveFormWithTaxon,
     UploadedArchiveUpdateForm,
     WorkgroupUsersForm,
     UploadedArchiveSelectTaxonForIdentificationForm,
@@ -240,7 +242,8 @@ def uploads_identities(request):
     uploadedarchives = (
         UploadedArchive.objects.filter(
             **get_content_owner_filter_params(request.user.caiduser, "owner"),
-            contains_single_taxon=True,
+            # contains_single_taxon=True,
+            taxon_for_identification__isnull=False,
         )
         .all()
         .order_by("-uploaded_at")
@@ -307,24 +310,12 @@ def uploads_species(request):
         .all()
         .order_by("-uploaded_at")
     )
-    # uploadedarchives = (
-    #     UploadedArchive.objects.filter(
-    #         owner__workgroup=request.user.caiduser.workgroup,
-    #         contains_single_taxon=False,
-    #     )
-    #     .all()
-    #     .order_by("-uploaded_at")
-    # )
 
     records_per_page = 12
     paginator = Paginator(uploadedarchives, per_page=records_per_page)
 
     page_number = request.GET.get("page")
     page_obj = paginator.get_page(page_number)
-
-    # btn_styles = _multiple_species_button_style_and_tooltips(request)
-    #
-    # btn_tooltips = _mutliple_species_button_tooltips(request)
 
     btn_styles, btn_tooltips = _multiple_species_button_style_and_tooltips(request)
     return render(
@@ -794,7 +785,8 @@ def _single_species_button_style(request) -> dict:
             MediaFile.objects.filter(
                 parent__owner__workgroup=request.user.caiduser.workgroup,
                 identity_is_representative=True,
-                parent__contains_single_taxon=True,
+                # parent__contains_single_taxon=True,
+                parent__taxon_for_identification__isnull=False,
             )
         )
         > 0
@@ -805,7 +797,8 @@ def _single_species_button_style(request) -> dict:
             UploadedArchive.objects.filter(
                 owner__workgroup=request.user.caiduser.workgroup,
                 contains_identities=False,
-                contains_single_taxon=True,
+                # contains_single_taxon=True,
+                taxon_for_identification__isnull=False,
                 status="Species Finished",
             )
         )
@@ -854,7 +847,8 @@ def run_identification_on_unidentified(request):
     uploaded_archives = UploadedArchive.objects.filter(
         owner__workgroup=request.user.caiduser.workgroup,
         status="Species Finished",
-        contains_single_taxon=True,
+        # contains_single_taxon=True,
+        taxon_for_identification__isnull=False,
         contains_identities=False,
     ).all()
     for uploaded_archive in uploaded_archives:
@@ -1012,10 +1006,16 @@ def upload_archive(
         next = "caidapp:upload_archive_contains_identities"
 
     if request.method == "POST":
-        form = UploadedArchiveForm(
-            request.POST,
-            request.FILES,
-        )
+        if contains_single_taxon:
+            form = UploadedArchiveFormWithTaxon(
+                request.POST,
+                request.FILES,
+            )
+        else:
+            form = UploadedArchiveForm(
+                request.POST,
+                request.FILES,
+            )
         if form.is_valid():
 
             # get uploaded archive
@@ -1044,12 +1044,18 @@ def upload_archive(
             return JsonResponse({"data": "Something went wrong"})
 
     else:
-        form = UploadedArchiveForm(
-            initial={
-                "contains_identities": contains_identities,
-                "contains_single_taxon": contains_single_taxon,
-            }
-        )
+
+        initial_data = {
+            "contains_identities": contains_identities,
+            "contains_single_taxon": contains_single_taxon,
+            "taxon_for_identification": models.get_taxon("Lynx lynx") if contains_single_taxon else None,
+        }
+
+        if contains_single_taxon:
+            initial_data["taxon_for_identification"] = models.get_taxon("Lynx lynx")
+            form = UploadedArchiveFormWithTaxon(initial=initial_data)
+        else:
+            form = UploadedArchiveForm(initial=initial_data)
 
     return render(
         request,
@@ -1855,4 +1861,10 @@ def update_uploaded_archives(requests):
     uploaded_archives = UploadedArchive.objects.all()
     for uploaded_archive in uploaded_archives:
         uploaded_archive.update_earliest_and_latest_captured_at()
+
+        if uploaded_archive.contains_single_taxon and uploaded_archive.taxon_for_identification is None:
+            # this fixes the compatibility with the old version before 2024-05
+            uploaded_archive.taxon_for_identification = models.get_taxon("Lynx lynx")
+            uploaded_archive.save()
+
     return redirect("caidapp:uploads")
