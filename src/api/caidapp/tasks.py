@@ -560,6 +560,8 @@ def _update_database_by_one_row_of_metadata(
             # logger.debug(f"{uploaded_archive.contains_single_taxon=}")
             if uploaded_archive.contains_identities and uploaded_archive.contains_single_taxon:
                 mf.identity_is_representative = True
+            if "vanilla_path" in row:
+                mf.original_filename = row["vanilla_path"]
             # logger.debug(f"{mf.identity_is_representative}")
             mf.save()
             logger.debug(f"Created new Mediafile {mf}")
