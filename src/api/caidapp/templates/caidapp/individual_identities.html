@@ -51,7 +51,11 @@
                         <h5 class="card-title">{{ individual_identity }}</h5>
                         {#                        <p>Status: {{ album.mediafiles.0.thumbnail.url }} </p>#}
 {#                        <p>Created At: {{ individual_identity.created_at|date:'Y-m-d H:i' }} </p>#}
-                        <p> Last update by: {{ individual_identity.updated_by }} </p>
+                        <p>Media files: {{ individual_identity.count_of_mediafiles }}</p>
+                        <p>Representative media files: {{ individual_identity.count_of_representative_mediafiles }}</p>
+                        {% if individual_identity.updated_by %}
+                            <p> Last update by: {{ individual_identity.updated_by }} </p>
+                        {% endif %}
 {#                        <p>{{ individual_identity.mediafile_set.0.mediafile.url }}</p>#}
 
                         {#                    <p><i class="fa-light fa-calendar-image"></i>Uploaded at: {{ uploadedarchive.uploaded_at|date:'Y-m-d H:i' }} </p>#}

@@ -233,6 +233,12 @@ class IndividualIdentity(models.Model):
     coat_type = models.CharField(max_length=2, choices=COAT_TYPE_CHOICES, default='U')
     note = models.TextField(blank=True)
 
+    def count_of_representative_mediafiles(self):
+        return MediaFile.objects.filter(identity=self, identity_is_representative=True).count()
+
+    def count_of_mediafiles(self):
+        return MediaFile.objects.filter(identity=self).count()
+
     def __str__(self):
         return str(self.name)
 
