@@ -1007,6 +1007,7 @@ def upload_archive(
         next = "caidapp:upload_archive_contains_identities"
 
     if request.method == "POST":
+        logger.debug(f"{request.POST=}")
         if contains_single_taxon:
             form = UploadedArchiveFormWithTaxon(
                 request.POST,
@@ -1049,11 +1050,12 @@ def upload_archive(
         initial_data = {
             "contains_identities": contains_identities,
             "contains_single_taxon": contains_single_taxon,
-            "taxon_for_identification": models.get_taxon("Lynx lynx") if contains_single_taxon else None,
+            # "taxon_for_identification": models.get_taxon("Lynx lynx") if contains_single_taxon else None,
         }
 
         if contains_single_taxon:
             initial_data["taxon_for_identification"] = models.get_taxon("Lynx lynx")
+            logger.debug(f"{initial_data=}")
             form = UploadedArchiveFormWithTaxon(initial=initial_data)
         else:
             form = UploadedArchiveForm(initial=initial_data)

@@ -77,11 +77,19 @@ class UploadedArchiveForm(forms.ModelForm):
             "location_at_upload",
         )
 
-class UploadedArchiveFormWithTaxon(UploadedArchiveForm):
-    taxon_for_identification = forms.CharField()
+class UploadedArchiveFormWithTaxon(forms.ModelForm):
 
-    class Meta(UploadedArchiveForm.Meta):
-        fields = UploadedArchiveForm.Meta.fields + ("taxon_for_identification",)
+    location_at_upload = forms.CharField(
+        widget=forms.TextInput(attrs={"class": "autocomplete"}), required=False
+    )
+    class Meta:
+        model = UploadedArchive
+        fields = (
+            "archivefile",
+            "location_at_upload",
+            "taxon_for_identification"
+        )
+
 
 
 class MediaFileForm(forms.ModelForm):
