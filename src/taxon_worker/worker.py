@@ -67,7 +67,7 @@ def predict(
             metadata["full_image_path"] = metadata["image_path"].apply(
                 lambda x: str(output_images_dir / x)
             )
-            metadata["full_orig_media_path"] = [pth for pth in metadata["full_image_path"]]
+            metadata["absolute_media_path"] = [pth for pth in metadata["full_image_path"]]
             metadata["detection_results"] = [None] * len(metadata)
             metadata = create_image_from_video(metadata)
             metadata = data_processing_pipeline.keep_correctly_loaded_images(metadata)
@@ -83,7 +83,7 @@ def predict(
             metadata["full_image_path"] = metadata["image_path"].apply(
                 lambda x: str(output_images_dir / x)
             )
-            metadata["full_orig_media_path"] = [pth for pth in metadata["full_image_path"]]
+            metadata["absolute_media_path"] = [pth for pth in metadata["full_image_path"]]
             metadata["detection_results"] = [None] * len(metadata)
 
         logger.debug(f"Metadata file: {output_metadata_file}. {output_metadata_file.exists()=}")

@@ -529,7 +529,7 @@ def _update_database_by_one_row_of_metadata(
     # rel_pth, _ = _get_rel_and_abs_paths_based_on_csv_row(row, output_dir)
     image_abs_pth = output_dir / "images" / row["image_path"]
     image_rel_pth = image_abs_pth.relative_to(settings.MEDIA_ROOT)
-    # media_abs_pth = Path(row["full_orig_media_path"])
+    # media_abs_pth = Path(row["absolute_media_path"])
     # media_rel_pth = media_abs_pth.relative_to(settings.MEDIA_ROOT)
     captured_at = row["datetime"]
     logger.debug(f"{captured_at=}, {type(captured_at)}")
