@@ -35,7 +35,7 @@ class LocationForm(forms.ModelForm):
 class IndividualIdentityForm(forms.ModelForm):
     class Meta:
         model = IndividualIdentity
-        fields = ("name", "sex", 'coat_type', 'note')
+        fields = ("name", "code","juv_code", "sex", 'coat_type', 'note')
 
 
 class UploadedArchiveSelectTaxonForIdentificationForm(forms.ModelForm):
