@@ -1039,6 +1039,7 @@ def upload_archive(
             uploaded_archive.contains_identities = contains_identities
             uploaded_archive.contains_single_taxon = contains_single_taxon
             uploaded_archive.save()
+            uploaded_archive.extract_location_check_at_from_filename(commit=True)
             run_species_prediction_async(uploaded_archive, extract_identites=contains_identities)
 
             return JsonResponse({"data": "Data uploaded"})
