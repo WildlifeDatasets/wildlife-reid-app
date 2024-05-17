@@ -16,6 +16,8 @@
 * [changed] Limit number of workers in taxon_worker and identification_worker
 * [changed] The uploads in the identification view are now selected by taxon_for_identification is not None
 * [added] Number of representative media files for each identity
+* [changed] Unspotted added into the coat type
+* [added] Code and juv_code in identity
 
 ## 04-2024
 

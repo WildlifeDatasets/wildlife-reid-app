@@ -847,7 +847,7 @@ def run_identification_on_unidentified(request):
     """Run identification in all uploaded archives."""
     uploaded_archives = UploadedArchive.objects.filter(
         owner__workgroup=request.user.caiduser.workgroup,
-        status="Species Finished",
+        status="Taxon classification finished",
         # contains_single_taxon=True,
         taxon_for_identification__isnull=False,
         contains_identities=False,

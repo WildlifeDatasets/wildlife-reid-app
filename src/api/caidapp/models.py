@@ -227,8 +227,9 @@ class IndividualIdentity(models.Model):
         ('U', 'Unknown'),
     )
     COAT_TYPE_CHOICES = (
-        ('S', "Spots"),
+        ('S', "Spotted"),
         ("M", "Marble"),
+        ("N", "Unspotted"),
         ("U", "Unknown"),
     )
     name = models.CharField(max_length=50)
@@ -238,6 +239,8 @@ class IndividualIdentity(models.Model):
     sex = models.CharField(max_length=2, choices=SEX_CHOICES, default='U')
     coat_type = models.CharField(max_length=2, choices=COAT_TYPE_CHOICES, default='U')
     note = models.TextField(blank=True)
+    code = models.CharField(max_length=50, default=random_string12)
+    juv_code = models.CharField("Juv. Code", max_length=50, default=random_string12)
 
     def count_of_representative_mediafiles(self):
         return MediaFile.objects.filter(identity=self, identity_is_representative=True).count()
