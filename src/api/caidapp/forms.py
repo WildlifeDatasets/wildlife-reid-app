@@ -57,6 +57,7 @@ class UploadedArchiveUpdateForm(forms.ModelForm):
         fields = (
             # "archivefile",
             "location_at_upload",
+            'location_check_at'
             # "contains_identities"
         )
 
@@ -75,6 +76,7 @@ class UploadedArchiveForm(forms.ModelForm):
         fields = (
             "archivefile",
             "location_at_upload",
+            'location_check_at'
         )
 
 class UploadedArchiveFormWithTaxon(forms.ModelForm):

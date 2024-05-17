@@ -19,6 +19,7 @@ from .model_tools import (
     random_string,
     random_string12,
 )
+import re
 
 # Create your models here.
 logger = logging.getLogger("database")
@@ -144,6 +145,24 @@ class UploadedArchive(models.Model):
     mediafiles_imported = models.BooleanField("Media Files Imported Correctly", default=False)
     earliest_captured_at = models.DateTimeField("Earliest Captured at", blank=True, null=True)
     latest_captured_at = models.DateTimeField("Latest Captured at", blank=True, null=True)
+    location_check_at = models.DateTimeField("Location Check at", blank=True, null=True)
+
+    def extract_location_check_at_from_filename(self, commit=True):
+
+        logger.debug(f"{self.location_check_at=}")
+        if self.location_check_at is None:
+            archive_name = Path(self.archivefile.name).stem
+            logger.debug(f"{archive_name=}")
+            # find date in archive_name {YYYY-MM-DD}
+            date_match = re.search(r"\d{4}-\d{2}-\d{2}", archive_name)
+            logger.debug(f"{date_match=}")
+
+            if date_match:
+                date_match = date_match.group()
+                logger.debug(f"{date_match=}")
+                self.location_check_at = datetime.strptime(date_match, "%Y-%m-%d")
+                if commit:
+                    self.save()
 
     def count_of_mediafiles(self):
         return MediaFile.objects.filter(parent=self).count()

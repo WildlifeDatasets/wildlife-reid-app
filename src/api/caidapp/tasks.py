@@ -678,6 +678,17 @@ def create_dataframe_from_mediafiles(mediafiles: Generator[MediaFile, None, None
             metadata_row["location name"] = mf.location.name
             if mf.location.location:
                 metadata_row["location coordinates"] = str(mf.location.location)
+        if mf.original_filename:
+            metadata_row["vanilla_path"] = mf.original_filename
+        if mf.identity:
+            if mf.identity.code:
+                metadata_row["code"] = mf.code
+            if mf.identity.juv_code:
+                metadata_row["juv_code"] = mf.juv_code
+        metadata_row["uploaded_archive"] = mf.parent.name
+        if mf.parent.location_check_at:
+            metadata_row["location_check_at"] = mf.parent.location_check_at
+
 
         records.append(metadata_row)
     df = pd.DataFrame.from_records(records)
