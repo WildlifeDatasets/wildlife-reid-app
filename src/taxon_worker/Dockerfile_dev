@@ -17,14 +17,14 @@ RUN apt-get update --yes && \
 
 
 # download weights into resources
-RUN mkdir -p ~/downloaded_resources && \
+RUN mkdir -p ~/resources && \
     wget http://ptak.felk.cvut.cz/plants/DanishFungiDataset/md_v5a.0.0.pt \
-    -O /root/downloaded_resources/md_v5a.0.0.pt \
+    -O /root/resources/md_v5a.0.0.pt
 
 # call torchub to load model into cache
-RUN python -c "import torch; torch.hub.load('ultralytics/yolov5', 'custom','/root/downloaded_resources/md_v5a.0.0.pt', force_reload=True) and print('yolov5 loaded')"
+RUN python -c "import torch; torch.hub.load('ultralytics/yolov5', 'custom','/root/resources/md_v5a.0.0.pt', force_reload=True) and print('yolov5 loaded')"
 
-RUN ls /root/downloaded_resources
+RUN ls /root/resources
 
 # install python dependencies
 ENV APP_DIR='/taxon_worker'
