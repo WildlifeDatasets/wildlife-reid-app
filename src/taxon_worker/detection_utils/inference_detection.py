@@ -10,6 +10,7 @@ import pandas as pd
 import torch
 from PIL import Image
 from tqdm import tqdm
+from ..infrastructure_utils import mem
 
 # from fgvc.taxon_utils.taxon_utils import set_cuda_device
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -90,6 +91,8 @@ def pad_image(image: np.ndarray, bbox: Union[list, np.ndarray], border: float = 
 def get_detection_model(force_reload: bool = False):
     """Load the detection model if not loaded before."""
     global DETECTION_MODEL
+    logger.debug(f"{mem.get_ram()}")
+    logger.debug(f"{mem.get_vram(DEVICE)}")
     if DETECTION_MODEL is None:
         model_url = r"https://github.com/ecologize/CameraTraps/releases/download/v5.0/md_v5a.0.0.pt"
         model_file = Path("/root/resources/md_v5a.0.0.pt")
@@ -106,6 +109,8 @@ def get_detection_model(force_reload: bool = False):
             force_reload=force_reload,
             device=DEVICE,
         )
+    logger.debug(f"{mem.get_ram()}")
+    logger.debug(f"{mem.get_vram()}")
     return DETECTION_MODEL
 
 

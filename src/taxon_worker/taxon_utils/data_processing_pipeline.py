@@ -18,6 +18,8 @@ import torch.cuda
 from .config import RESOURCES_DIR, WANDB_API_KEY, WANDB_ARTIFACT_PATH, WANDB_ARTIFACT_PATH_CROPPED
 from .dataset_tools import data_preprocessing
 from .prediction_dataset import PredictionDataset
+from ..infrastructure_utils import mem
+
 
 logger = logging.getLogger("app")
 MEDIA_DIR_PATH = Path("/shared_data/media")
@@ -156,7 +158,8 @@ def load_model_and_predict_and_add_not_classified(
 
 
 def get_taxon_classification_model():
-    logger.debug(f"{torch.cuda.memory_snapshot()=}")
+    logger.debug(f"{mem.get_ram()}")
+    logger.debug(f"{mem.get_vram()}")
     config, checkpoint_path, artifact_config = get_model_config(
         # is_cropped=False
     )
@@ -166,7 +169,8 @@ def get_taxon_classification_model():
         f"model_mean={model_mean}, model_std={model_std}, "
         + f"checkpoint_path={checkpoint_path}, config={config}"
     )
-    logger.debug(f"{torch.cuda.memory_snapshot()=}")
+    logger.debug(f"{mem.get_ram()}")
+    logger.debug(f"{mem.get_vram()}")
     return artifact_config, config, model, model_mean, model_std
 
 
@@ -240,19 +244,6 @@ def data_processing(
     # save metadata file
     metadata.to_csv(csv_path, encoding="utf-8-sig")
     return metadata
-
-
-# def move_files_from_temp(media_dir_path, metadata):
-#     """ Move files from temporary directory to media directory. """
-#     new_image_paths = []
-#     for i, row in metadata.iterrows():
-#         image_path = Path(media_dir_path) / row["image_path"]
-#         target_dir = Path(media_dir_path)
-#         target_dir.mkdir(parents=True, exist_ok=True)
-#         target_image_path = target_dir / row["image_path"]
-#         shutil.move(image_path, target_image_path)
-#         new_image_paths.append(str(row["image_path"]))
-#     metadata["image_path"] = new_image_paths
 
 
 def run_inference(metadata):

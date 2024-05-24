@@ -21,6 +21,7 @@ from fgvc.utils.utils import set_cuda_device
 
 from .inference_local import get_merged_predictions
 from .postprocessing import feature_top
+from ..infrastructure_utils import mem
 
 logger = logging.getLogger("app")
 DEVICE = set_cuda_device("1" if torch.cuda.is_available() else "cpu")
@@ -77,7 +78,10 @@ def download_file_if_does_not_exists(url: str, output_file: str):
 def get_identification_model(model_name, model_checkpoint=""):
     """Load the model from the given model name and checkpoint."""
     global IDENTIFICATION_MODEL
-    logger.debug(f"{torch.cuda.memory_snapshot()=}")
+
+    logger.debug(f"{mem.get_ram()}")
+    logger.debug(f"{mem.get_vram(DEVICE)}")
+
     if IDENTIFICATION_MODEL is not None:
         return
 
@@ -87,16 +91,19 @@ def get_identification_model(model_name, model_checkpoint=""):
     if model_checkpoint:
         model_ckpt = torch.load(model_checkpoint, map_location=torch.device("cpu"))["model"]
         model.load_state_dict(model_ckpt)
-        logger.debug(f"{torch.cuda.memory_snapshot()=}")
 
     IDENTIFICATION_MODEL = model.to(DEVICE).eval()
+
+    logger.debug(f"{mem.get_ram()}")
+    logger.debug(f"{mem.get_vram(DEVICE)}")
 
 
 def get_sam_model() -> SamPredictor:
     """Load the SAM model if not loaded before."""
     global SAM
     global SAM_PREDICTOR
-    logger.debug(f"{torch.cuda.memory_snapshot()=}")
+    logger.debug(f"{mem.get_ram()}")
+    logger.debug(f"{mem.get_vram(DEVICE)}")
     model_zoo = {
         "vit_b": "sam_vit_b_01ec64",
         "vit_l": "sam_vit_l_0b3195",
@@ -116,7 +123,8 @@ def get_sam_model() -> SamPredictor:
         SAM = sam_model_registry[model_version](checkpoint=str(_checkpoint_path))
         SAM.to(device=DEVICE)
         SAM_PREDICTOR = SamPredictor(SAM)
-        logger.debug(f"{torch.cuda.memory_snapshot()=}")
+    logger.debug(f"{mem.get_ram()}")
+    logger.debug(f"{mem.get_vram(DEVICE)}")
     return SAM_PREDICTOR
 
 
