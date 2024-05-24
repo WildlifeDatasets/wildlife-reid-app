@@ -1,8 +1,5 @@
 FROM python:3.10.13-slim
 
-RUN mkdir -p /root/resources
-RUN wget https://dl.fbaipublicfiles.com/segment_anything/sam_vit_l_0b3195.pth -P /root/resources
-
 COPY ./src/api/requirements.txt /api/requirements.txt
 
 # first add repository for gdal-bin

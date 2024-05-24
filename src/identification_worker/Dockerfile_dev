@@ -2,8 +2,6 @@ FROM nvcr.io/nvidia/pytorch:23.05-py3
 
 ARG DEBIAN_FRONTEND=noninteractive
 
-RUN mkdir -p /root/resources
-RUN wget https://dl.fbaipublicfiles.com/segment_anything/sam_vit_l_0b3195.pth -P /root/resources
 
 # install linux dependencies
 RUN apt-get update --yes && \
@@ -17,6 +15,9 @@ RUN apt-get update --yes && \
     libsm6 \
     libxext6 && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
+
+RUN mkdir -p /root/resources
+RUN wget https://dl.fbaipublicfiles.com/segment_anything/sam_vit_l_0b3195.pth -P /root/resources
 
 COPY ./src/identification_worker/requirements.txt /identification_worker/requirements.txt
 
