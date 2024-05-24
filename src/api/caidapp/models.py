@@ -24,6 +24,17 @@ import re
 # Create your models here.
 logger = logging.getLogger("database")
 
+def _hash():
+    dt = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
+    hash_str = generate_sha1(dt, salt=random_string())
+    return hash_str
+
+
+def human_readable_hash():
+    """Return a human readable hash composed from words."""
+    number_of_words = 3
+    return codenamize.codenamize(_hash(), number_of_words - 1, 0, " ", True)
+
 
 class WorkGroup(models.Model):
     name = models.CharField(max_length=50)
@@ -32,7 +43,7 @@ class WorkGroup(models.Model):
     identification_init_status = models.CharField(
         max_length=255, blank=True, default="Not initiated"
     )
-    identification_init_message = models.CharField(max_length=255, blank=True, default="")
+    identification_init_message = (models.TextField(blank=True, default=""))
 
     def __str__(self):
         return str(self.name)
@@ -72,17 +83,6 @@ class CaIDUser(models.Model):
     def __str__(self):
         return str(self.user)
 
-
-def _hash():
-    dt = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
-    hash_str = generate_sha1(dt, salt=random_string())
-    return hash_str
-
-
-def human_readable_hash():
-    """Return a human readable hash composed from words."""
-    number_of_words = 3
-    return codenamize.codenamize(_hash(), number_of_words - 1, 0, " ", True)
 
 
 class Taxon(models.Model):
@@ -198,45 +198,8 @@ class UploadedArchive(models.Model):
         self.latest_captured_at = latest_captured_at
         self.save()
 
-    # def update_earliest_and_latest_captured_at(self):
-    #     mediafiles = MediaFile.objects.filter(parent=self)
-    #     earliest_captured_at = None
-    #     latest_captured_at = None
-    #     for mediafile in mediafiles:
-    #         if earliest_captured_at is None:
-    #             earliest_captured_at = mediafile.captured_at
-    #         if latest_captured_at is None:
-    #             latest_captured_at = mediafile.captured_at
-    #         # convert to datetime
-    #         if mediafile.captured_at < earliest_captured_at:
-    #             earliest_captured_at = mediafile.captured_at
-    #         if mediafile.captured_at > latest_captured_at:
-    #             latest_captured_at = mediafile.captured_at
-    #     self.earliest_captured_at = earliest_captured_at
-    #     self.latest_captured_at = latest_captured_at
-
     def __str__(self):
         return str(Path(self.archivefile.name).name)
-
-
-@receiver(models.signals.post_delete, sender=UploadedArchive)
-def auto_delete_file_on_delete(sender, instance, **kwargs):
-    """Deletes file from filesystem when corresponding `MediaFile` object is deleted."""
-    if instance.archivefile and os.path.isfile(instance.archivefile.path):
-        os.remove(instance.archivefile.path)
-    if instance.outputdir and os.path.isdir(instance.outputdir):
-        shutil.rmtree(instance.outputdir)
-
-
-# class Notification(models.Model):
-#     title = models.CharField(max_length=255)
-#     message = models.CharField(max_length=255)
-#     owner = models.ForeignKey(CaIDUser, on_delete=models.CASCADE, null=True, blank=True)
-#     created_at = models.DateTimeField("Created at", default=datetime.now)
-#     read_at = models.DateTimeField("Read at", blank=True, null=True)
-#
-#     def __str__(self):
-#         return str(self.title)
 
 
 class IndividualIdentity(models.Model):
@@ -460,3 +423,24 @@ def get_content_owner_filter_params(ciduser: CaIDUser, prefix: str) -> dict:
     else:
         filter_params = {f"{prefix}": ciduser}
     return filter_params
+
+@receiver(models.signals.post_delete, sender=UploadedArchive)
+def auto_delete_file_on_delete(sender, instance, **kwargs):
+    """Deletes file from filesystem when corresponding `MediaFile` object is deleted."""
+    if instance.archivefile and os.path.isfile(instance.archivefile.path):
+        os.remove(instance.archivefile.path)
+    if instance.outputdir and os.path.isdir(instance.outputdir):
+        shutil.rmtree(instance.outputdir)
+
+
+# class Notification(models.Model):
+#     title = models.CharField(max_length=255)
+#     message = models.CharField(max_length=255)
+#     owner = models.ForeignKey(CaIDUser, on_delete=models.CASCADE, null=True, blank=True)
+#     created_at = models.DateTimeField("Created at", default=datetime.now)
+#     read_at = models.DateTimeField("Read at", blank=True, null=True)
+#
+#     def __str__(self):
+#         return str(self.title)
+
+

@@ -179,4 +179,5 @@ urlpatterns = [
     path("download_zip_for_mediafiles/", views.download_zip_for_mediafiles_view, name="download_zip_for_mediafiles"),
     path("mediafiles_stats/", views.mediafiles_stats_view, name="mediafiles_stats"),
     path("select_taxon_for_identification/<int:uploadedarchive_id>/", views.select_taxon_for_identification, name="select_taxon_for_identification"),
+    path("locations/", views.locations_view, name="locations"),
 ]

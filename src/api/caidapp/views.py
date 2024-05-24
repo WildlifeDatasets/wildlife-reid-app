@@ -1204,6 +1204,11 @@ def _set_location_to_mediafiles_of_uploadedarchive(
         mediafile.location = location
         mediafile.save()
 
+def locations_view(request):
+    """List of locations."""
+    locations = _get_all_user_locations(request)
+    logger.debug(f"{len(locations)=}")
+    return render(request, "caidapp/locations.html", {"locations": locations})
 
 def update_uploadedarchive(request, uploadedarchive_id):
     """Show and update uploaded archive."""
