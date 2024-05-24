@@ -19,6 +19,7 @@
 * [changed] Unspotted added into the coat type
 * [added] Code and juv_code in identity
 * [added] Location check date added to Uploaded Archive
+* [added] SAM - large model used and downloaded from original url
 
 ## 04-2024
 
