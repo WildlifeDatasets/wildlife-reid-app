@@ -633,7 +633,7 @@ def _sync_metadata_by_creating_from_mediafiles(csv_file, output_dir, uploaded_ar
 
     mediafile_set = uploaded_archive.mediafile_set.all()
     if metadata_json_are_consistent(mediafile_set):
-        df = create_dataframe_from_mediafiles(csv_file, mediafile_set)
+        df = create_dataframe_from_mediafiles(mediafile_set)
         df.to_csv(csv_file, encoding="utf-8-sig")
     else:
         csv_file.unlink()
