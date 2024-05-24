@@ -112,13 +112,14 @@ def get_sam_model() -> SamPredictor:
     model_version = os.environ['SAM_MODEL_VERSION']
     if SAM is None:
         download_file_if_does_not_exists(
-            f"http://ptak.felk.cvut.cz/plants/DanishFungiDataset/{model_zoo[model_version]}.pth",
-            f"/identification_worker/resources/{model_zoo[model_version]}.pth",
+            f"https://dl.fbaipublicfiles.com/segment_anything/{model_zoo[model_version]}.pth",
+            # f"http://ptak.felk.cvut.cz/plants/DanishFungiDataset/{model_zoo[model_version]}.pth",
+            f"/root/resources/{model_zoo[model_version]}.pth",
         )
 
         logger.info(f"Initializing SAM model ({model_version}) and loading pre-trained checkpoint.")
         _checkpoint_path = Path(
-            f"/identification_worker/resources/{model_zoo[model_version]}.pth"
+            f"/root/resources/{model_zoo[model_version]}.pth"
         ).expanduser()
         SAM = sam_model_registry[model_version](checkpoint=str(_checkpoint_path))
         SAM.to(device=DEVICE)
