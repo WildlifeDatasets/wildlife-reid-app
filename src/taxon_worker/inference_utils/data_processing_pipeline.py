@@ -13,6 +13,7 @@ from scipy.special import softmax
 from fgvc.core.training import predict
 from fgvc.datasets import get_dataloaders
 from fgvc.utils.experiment import load_model
+import torch.cuda
 
 from .config import RESOURCES_DIR, WANDB_API_KEY, WANDB_ARTIFACT_PATH, WANDB_ARTIFACT_PATH_CROPPED
 from .dataset_tools import data_preprocessing
@@ -96,16 +97,7 @@ def load_model_and_predict_and_add_not_classified(
     """Load model, create dataloaders, and run inference."""
     # from .data_preprocessing import detect_animal, pad_image, detect_animals
     # is_detected = detect_animals(image_paths)
-    config, checkpoint_path, artifact_config = get_model_config(
-        # is_cropped=False
-    )
-
-    logger.info("Creating model and loading fine-tuned checkpoint.")
-    model, model_mean, model_std = load_model(config, checkpoint_path)
-    logger.debug(
-        f"model_mean={model_mean}, model_std={model_std}, "
-        + f"checkpoint_path={checkpoint_path}, config={config}"
-    )
+    artifact_config, config, model, model_mean, model_std = get_taxon_classification_model()
     # logger.debug(f"{image_paths[0]=}")
 
     logger.info("Creating DataLoaders.")
@@ -161,6 +153,21 @@ def load_model_and_predict_and_add_not_classified(
         probs_top = np.max(probs, 1)
 
     return class_ids, probs_top, id2label
+
+
+def get_taxon_classification_model():
+    logger.debug(f"{torch.cuda.memory_snapshot()=}")
+    config, checkpoint_path, artifact_config = get_model_config(
+        # is_cropped=False
+    )
+    logger.info("Creating model and loading fine-tuned checkpoint.")
+    model, model_mean, model_std = load_model(config, checkpoint_path)
+    logger.debug(
+        f"model_mean={model_mean}, model_std={model_std}, "
+        + f"checkpoint_path={checkpoint_path}, config={config}"
+    )
+    logger.debug(f"{torch.cuda.memory_snapshot()=}")
+    return artifact_config, config, model, model_mean, model_std
 
 
 def do_thresholding_on_probs(probs: np.array, id2threshold: dict) -> Tuple[np.array, np.array]:

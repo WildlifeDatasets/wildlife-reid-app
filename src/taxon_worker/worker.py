@@ -42,6 +42,7 @@ def predict(
             "Applying species identification task with args: "
             + f"{input_archive_file=}, {output_dir=}, {contains_identities=}."
         )
+        logger.debug(f"celery {self.request.id=}")
         num_cores = 1
 
         # prepare input and output file names
