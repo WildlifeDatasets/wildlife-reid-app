@@ -15,6 +15,10 @@ RUN apt-get update --yes && \
     libxext6 && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
+RUN mkdir -p /root/resources
+RUN wget https://dl.fbaipublicfiles.com/segment_anything/sam_vit_l_0b3195.pth -P /root/resources
+
+
 COPY ./src/identification_worker/requirements.txt /identification_worker/requirements.txt
 
 # install python dependencies
