@@ -77,6 +77,7 @@ def download_file_if_does_not_exists(url: str, output_file: str):
 def get_identification_model(model_name, model_checkpoint=""):
     """Load the model from the given model name and checkpoint."""
     global IDENTIFICATION_MODEL
+    logger.debug(f"{torch.cuda.memory_snapshot()=}")
     if IDENTIFICATION_MODEL is not None:
         return
 
@@ -86,6 +87,7 @@ def get_identification_model(model_name, model_checkpoint=""):
     if model_checkpoint:
         model_ckpt = torch.load(model_checkpoint, map_location=torch.device("cpu"))["model"]
         model.load_state_dict(model_ckpt)
+        logger.debug(f"{torch.cuda.memory_snapshot()=}")
 
     IDENTIFICATION_MODEL = model.to(DEVICE).eval()
 
@@ -94,6 +96,7 @@ def get_sam_model() -> SamPredictor:
     """Load the SAM model if not loaded before."""
     global SAM
     global SAM_PREDICTOR
+    logger.debug(f"{torch.cuda.memory_snapshot()=}")
     model_zoo = {
         "vit_b": "sam_vit_b_01ec64",
         "vit_l": "sam_vit_l_0b3195",
@@ -113,6 +116,7 @@ def get_sam_model() -> SamPredictor:
         SAM = sam_model_registry[model_version](checkpoint=str(_checkpoint_path))
         SAM.to(device=DEVICE)
         SAM_PREDICTOR = SamPredictor(SAM)
+        logger.debug(f"{torch.cuda.memory_snapshot()=}")
     return SAM_PREDICTOR
 
 
