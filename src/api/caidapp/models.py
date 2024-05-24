@@ -198,7 +198,7 @@ class UploadedArchive(models.Model):
         self.latest_captured_at = latest_captured_at
         self.save()
 
-    def name(self):
+    def get_name(self):
         return str(Path(self.archivefile.name).name)
 
     def __str__(self):
