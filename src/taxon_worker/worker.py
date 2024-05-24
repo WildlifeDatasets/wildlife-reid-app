@@ -3,14 +3,14 @@ import shutil
 import traceback
 from pathlib import Path
 
-import detection_utils.inference
-import detection_utils.video_inference
+import detection_utils.inference_detection
+import detection_utils.inference_video
 import pandas as pd
 from celery import Celery
-from detection_utils.video_inference import create_image_from_video
-from inference_utils import data_processing_pipeline, dataset_tools
-from inference_utils.config import RABBITMQ_URL, REDIS_URL
-from inference_utils.log import setup_logging
+from detection_utils.inference_video import create_image_from_video
+from taxon_utils import data_processing_pipeline, dataset_tools
+from taxon_utils.config import RABBITMQ_URL, REDIS_URL
+from taxon_utils.log import setup_logging
 
 setup_logging()
 logger = logging.getLogger("app")

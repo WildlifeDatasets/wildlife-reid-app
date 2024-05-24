@@ -10,7 +10,7 @@ import pandas as pd
 from PIL import Image
 from tqdm import tqdm
 
-from .inference import detect_animals_in_one_image
+from .inference_detection import detect_animals_in_one_image
 
 logger = logging.getLogger("app")
 

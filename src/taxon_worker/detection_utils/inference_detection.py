@@ -11,7 +11,7 @@ import torch
 from PIL import Image
 from tqdm import tqdm
 
-# from fgvc.inference_utils.inference_utils import set_cuda_device
+# from fgvc.taxon_utils.taxon_utils import set_cuda_device
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 logger = logging.getLogger("app")

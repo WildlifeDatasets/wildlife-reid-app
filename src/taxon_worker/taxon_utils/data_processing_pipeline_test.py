@@ -8,8 +8,8 @@ import pandas as pd
 from scipy.special import softmax
 
 try:
-    from src.taxon_worker.inference_utils import data_processing_pipeline
-    from src.taxon_worker.inference_utils.dataset_tools import make_zipfile  # make_tarfile,
+    from src.taxon_worker.taxon_utils import data_processing_pipeline
+    from src.taxon_worker.taxon_utils.dataset_tools import make_zipfile  # make_tarfile,
 except ModuleNotFoundError:
     from jupyter_notebooks.datasets.sumava import data_processing_pipeline
     from jupyter_notebooks.datasets.sumava.dataset_tools import make_zipfile

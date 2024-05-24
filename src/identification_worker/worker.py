@@ -9,7 +9,7 @@ from celery import Celery, shared_task
 
 from utils import config
 from utils.database import get_db_connection, init_db_connection
-from utils.inference import encode_images, identify
+from utils.inference_identification import encode_images, identify
 from utils.log import setup_logging
 from utils.sequence_identification import extend_df_with_datetime, extend_df_with_sequence_id
 
