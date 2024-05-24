@@ -18,7 +18,8 @@ import torch.cuda
 from .config import RESOURCES_DIR, WANDB_API_KEY, WANDB_ARTIFACT_PATH, WANDB_ARTIFACT_PATH_CROPPED
 from .dataset_tools import data_preprocessing
 from .prediction_dataset import PredictionDataset
-from ..infrastructure_utils import mem
+from taxon_worker.infrastructure_utils import mem
+# from infrastructure_utils import mem
 
 
 logger = logging.getLogger("app")
