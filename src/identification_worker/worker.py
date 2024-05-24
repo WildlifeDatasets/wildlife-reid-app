@@ -37,7 +37,7 @@ def init(
     try:
         logger.info(f"Applying init task with args: {input_metadata_file=}, {organization_id=}.")
         # log celery worker id
-        logger.debug(f"celery worker init id={self.request.id}")
+        logger.debug(f"celery {self.request.id=}")
 
         # read metadata file
         metadata = pd.read_csv(input_metadata_file)
@@ -99,6 +99,7 @@ def predict(
         logger.info(
             f"Applying init task with args: {input_metadata_file_path=}, {organization_id=}."
         )
+        logger.debug(f"celery {self.request.id=}")
 
         # read metadata file
         metadata = pd.read_csv(input_metadata_file_path)
