@@ -9,6 +9,7 @@ from wildlife_tools.data.dataset import WildlifeDataset
 
 from .loftr_utils import PairSubsetDataset
 from .matcher_loftr import LoFTR, MatchLOFTR, remove_masked_keypoints
+from ..infrastructure_utils import mem
 
 logger = logging.getLogger("app")
 from fgvc.utils.utils import set_cuda_device
@@ -29,10 +30,14 @@ class CarnivoreDataset(WildlifeDataset):
 
 def get_loftr_model():
     global LOFTR_MODEL
+    logger.debug(f"{mem.get_ram()}")
+    logger.debug(f"{mem.get_vram(DEVICE)}")
     pretrained = "outdoor"
     apply_fine = False
     init_threshold = 0.8
     LOFTR_MODEL = LoFTR(pretrained=pretrained, apply_fine=apply_fine, thr=init_threshold).to(DEVICE)
+    logger.debug(f"{mem.get_ram()}")
+    logger.debug(f"{mem.get_vram(DEVICE)}")
 
 
 def del_loftr_model():
