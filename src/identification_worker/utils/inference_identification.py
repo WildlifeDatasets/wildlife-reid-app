@@ -207,8 +207,6 @@ def mask_images(metadata: pd.DataFrame) -> pd.DataFrame:
         # detection_results = ast.literal_eval(
         #    ast.literal_eval(row["detection_results"])["detection_results"])
         detection_results = ast.literal_eval(row["detection_results"])
-        # detection_results = json.loads(row["detection_results"])
-        logger.debug(f"{detection_results=}")
         if len(detection_results) == 0:
             logger.debug(f"No detection results for image: {image_path}")
             masked_paths.append(str(image_path))
@@ -223,7 +221,6 @@ def mask_images(metadata: pd.DataFrame) -> pd.DataFrame:
         save_path = base_path / Path(image_path).name
         base_path.mkdir(exist_ok=True, parents=True)
         Image.fromarray(cropped_animal).convert("RGB").save(save_path)
-        logger.debug(f"Saving masked file: {save_path}")
 
         masked_paths.append(str(save_path))
 
