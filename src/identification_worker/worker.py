@@ -36,6 +36,8 @@ def init(
     """Process and store Reference Image records in the database."""
     try:
         logger.info(f"Applying init task with args: {input_metadata_file=}, {organization_id=}.")
+        # log celery worker id
+        logger.debug(f"celery worker init id={self.request.id}")
 
         # read metadata file
         metadata = pd.read_csv(input_metadata_file)
