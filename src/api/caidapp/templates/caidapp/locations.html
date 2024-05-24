@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block head %}
+{% endblock %}
+{% block body %}
+    {% if user.is_authenticated %}
+
+        <div class="pagetitle">
+            <h1>Localities</h1>
+
+            <nav>
+                {#                <a class="btn btn-primary mt-2" href="{% url 'caidapp:get_individual_identity' %}"><i class="bi bi-question-circle"></i> Annotate unknown identities</a>#}
+                <a class="btn btn-secondary mt-2" href="{% url 'caidapp:new_individual_identity' %}"><i
+                        class="bi bi-plus-circle"></i> Add new identity</a>
+                {#                <a class="btn btn-secondary mt-2" href="{% url 'caidapp:init_identification' %}"><i class="fas fa-fingerprint"></i> Init identification</a>#}
+                <a class="btn btn-secondary mt-2" href="{% url 'caidapp:not_identified_mediafiles' %}"><i
+                        class="fa fa-question"></i> List of not identified media files </a>
+            </nav>
+        </div><!-- End Page Title -->
+        <section class="section">
+        <div class="row" id="row-of-cards">
+
+            {% if locations %}
+                {% for location in locations %}
+                    <div class="col-xl-3">
+                        {#                        <div class="col" style="-ms-flex: 0 0 200; flex: 0 0 200;">#}
+                        <div class="card">
+                            {% if location.uploadedarchive_set.all.0 %}
+                                {% if location.uploadedarchive_set.all.0.thumbnail %}
+                                    <img
+                                            class="card-img-top"
+                                            src="{{ location.uploadedarchive_set.all.0.thumbnail.url }}"
+                                            alt="Camera trap image"
+                                    >
+                                {% endif %}
+                            {% endif %}
+                            <div class="card-body">
+                                <h5 class="card-title"> {{ location }} </h5>
+                                <p class="card-text">
+                                    Uploaded archives: {{ location.uploadedarchive_set.count }}
+                                </p>
+                            </div>
+
+{#                            {{ location.uploadedarchive_set.all.0.thumbnail.url }}#}
+                        </div>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        </div>
+        </section>
+
+    {% endif %}
+{% endblock %}
