@@ -9,12 +9,20 @@ from wildlife_tools.data.dataset import WildlifeDataset
 
 from .loftr_utils import PairSubsetDataset
 from .matcher_loftr import LoFTR, MatchLOFTR, remove_masked_keypoints
-from ..infrastructure_utils import mem
+try:
+    from ..infrastructure_utils import mem
+except ImportError:
+    from infrastructure_utils import mem
 
 logger = logging.getLogger("app")
 from fgvc.utils.utils import set_cuda_device
 
-DEVICE = set_cuda_device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+# __DEVICE__ = "cuda:0" if torch.cuda.is_available() else "cpu"
+# logger.debug(f"{__DEVICE__=}")
+# print(f"{__DEVICE__=}")
+# DEVICE = set_cuda_device(__DEVICE__)
+DEVICE = set_cuda_device("cuda:0") if torch.cuda.is_available() else "cpu"
 LOFTR_MODEL = None
 
 

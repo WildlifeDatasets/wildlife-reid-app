@@ -16,15 +16,20 @@ from wildlife_tools import realize
 from wildlife_tools.data import WildlifeDataset
 from wildlife_tools.features import DeepFeatures
 from wildlife_tools.similarity import CosineSimilarity
+import traceback
 
 from fgvc.utils.utils import set_cuda_device
 
 from .inference_local import get_merged_predictions
 from .postprocessing import feature_top
-from ..infrastructure_utils import mem
+try:
+    from ..infrastructure_utils import mem
+except ImportError:
+    print(traceback.format_exc())
+    from infrastructure_utils import mem
 
 logger = logging.getLogger("app")
-DEVICE = set_cuda_device("1" if torch.cuda.is_available() else "cpu")
+DEVICE = set_cuda_device("1") if torch.cuda.is_available() else "cpu"
 logger.info(f"Using device: {DEVICE}")
 
 IDENTIFICATION_MODEL = None
@@ -207,11 +212,16 @@ def mask_images(metadata: pd.DataFrame) -> pd.DataFrame:
         image_path = row["image_path"]
         # detection_results = ast.literal_eval(
         #    ast.literal_eval(row["detection_results"])["detection_results"])
-        detection_results = ast.literal_eval(row["detection_results"])
+        if row["detection_results"] is None:
+            logger.debug(f"No detection results for image: {image_path}, row['detection_results'] is None.")
+            masked_paths.append(str(image_path))
+            continue
         if len(detection_results) == 0:
             logger.debug(f"No detection results for image: {image_path}")
             masked_paths.append(str(image_path))
             continue
+
+        detection_results = ast.literal_eval(row["detection_results"])
 
         bbox = detection_results[0]["bbox"]
 

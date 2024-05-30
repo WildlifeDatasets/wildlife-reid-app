@@ -42,6 +42,20 @@ because it has access to the database and other django resources,
 and functions as a queue for processing worker responses.
 """
 
+class DuplicateFilter(logging.Filter):
+    def __init__(self):
+        super().__init__()
+        self.last_log = None
+
+    def filter(self, record):
+        record.lineno
+        current_log = (record.module, record.levelno, record.msg)
+        if current_log != self.last_log:
+            self.last_log = current_log
+            return True
+        return False
+
+
 
 @shared_task(bind=True)
 def predict_species_on_success(

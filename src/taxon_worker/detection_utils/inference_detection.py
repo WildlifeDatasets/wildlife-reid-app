@@ -11,10 +11,14 @@ import torch
 from PIL import Image
 from tqdm import tqdm
 
+
 try:
     from ..infrastructure_utils import mem
 except ImportError:
-    from taxon_worker.infrastructure_utils import mem
+    from infrastructure_utils import mem
+
+# import infrastructure_utils from local directory
+from infrastructure_utils import mem
 
 # from fgvc.taxon_utils.taxon_utils import set_cuda_device
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -114,7 +118,7 @@ def get_detection_model(force_reload: bool = False):
             device=DEVICE,
         )
     logger.debug(f"{mem.get_ram()}")
-    logger.debug(f"{mem.get_vram()}")
+    logger.debug(f"{mem.get_vram(DEVICE)}")
     return DETECTION_MODEL
 
 
