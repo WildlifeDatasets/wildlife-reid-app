@@ -22,7 +22,7 @@ from fgvc.utils.utils import set_cuda_device
 # logger.debug(f"{__DEVICE__=}")
 # print(f"{__DEVICE__=}")
 # DEVICE = set_cuda_device(__DEVICE__)
-DEVICE = set_cuda_device("cuda:0") if torch.cuda.is_available() else "cpu"
+DEVICE = set_cuda_device("0") if torch.cuda.is_available() else "cpu"
 LOFTR_MODEL = None
 
 
