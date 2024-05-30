@@ -216,12 +216,12 @@ def mask_images(metadata: pd.DataFrame) -> pd.DataFrame:
             logger.debug(f"No detection results for image: {image_path}, row['detection_results'] is None.")
             masked_paths.append(str(image_path))
             continue
+        detection_results = ast.literal_eval(row["detection_results"])
         if len(detection_results) == 0:
             logger.debug(f"No detection results for image: {image_path}")
             masked_paths.append(str(image_path))
             continue
 
-        detection_results = ast.literal_eval(row["detection_results"])
 
         bbox = detection_results[0]["bbox"]
 
