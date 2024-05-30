@@ -9,7 +9,7 @@ from tqdm import tqdm
 
 logger = logging.getLogger("app")
 
-DEVICE = "0" if torch.cuda.is_available() else "cpu"
+DEVICE = 0 if torch.cuda.is_available() else "cpu"
 logger.info(f"Using device: {DEVICE}")
 
 
