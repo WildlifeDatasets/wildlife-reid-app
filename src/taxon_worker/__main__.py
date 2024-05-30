@@ -5,32 +5,32 @@ from pathlib import Path
 import pandas as pd
 from celery import Celery
 
-from detection_utils import inference_detection
-from detection_utils.inference_video import create_image_from_video
-from taxon_utils import data_processing_pipeline, dataset_tools
-from taxon_utils.config import RABBITMQ_URL, REDIS_URL
-from taxon_utils.log import setup_logging
-import infrastructure_utils
+from .detection_utils import inference_detection
+from .detection_utils.inference_video import create_image_from_video
+from .taxon_utils import data_processing_pipeline, dataset_tools
+from .taxon_utils.config import RABBITMQ_URL, REDIS_URL
+from .taxon_utils.log import setup_logging
+from . import infrastructure_utils
 
 setup_logging()
 logger = logging.getLogger("app")
 logger.debug(f"{RABBITMQ_URL=}")
 logger.debug(f"{REDIS_URL=}")
-logger.debug("--------------------worker.py-------------------------------")
+logger.debug("--------------------__main__.py-------------------------------")
 taxon_worker = Celery("taxon_worker", broker=RABBITMQ_URL, backend=REDIS_URL)
 MEDIA_DIR_PATH = Path("/shared_data/media")
 
 
 @taxon_worker.task(bind=True, name="predict")
 def predict(
-    self,
-    input_archive_file: str,
-    output_dir: str,
-    output_archive_file: str,
-    output_metadata_file: str,
-    contains_identities: bool = False,
-    force_init: bool = False,
-    **kwargs,
+        self,
+        input_archive_file: str,
+        output_dir: str,
+        output_archive_file: str,
+        output_metadata_file: str,
+        contains_identities: bool = False,
+        force_init: bool = False,
+        **kwargs,
 ):
     """Main method called by Celery broker.
 
