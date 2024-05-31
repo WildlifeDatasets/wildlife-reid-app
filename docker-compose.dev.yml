@@ -40,6 +40,13 @@ services:
     restart: "no"
     volumes:
       - ./src/identification_worker:/identification_worker
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: [ '0' ]
+              capabilities: [ gpu ]
 
   identification_worker_db:
     restart: "no"
