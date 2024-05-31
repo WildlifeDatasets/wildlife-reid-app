@@ -1,7 +1,5 @@
 FROM nvcr.io/nvidia/pytorch:23.05-py3
 
-COPY ./src/taxon_worker/requirements.txt /taxon_worker/requirements.txt
-
 # install linux dependencies
 RUN apt-get update --yes && \
     # - apt-get upgrade is run to patch known vulnerabilities in apt-get packages as
@@ -23,8 +21,9 @@ RUN mkdir -p ~/resources && \
 
 # call torchub to load model into cache
 RUN python -c "import torch; torch.hub.load('ultralytics/yolov5', 'custom','/root/resources/md_v5a.0.0.pt', force_reload=True) and print('yolov5 loaded')"
-
 RUN ls /root/resources
+
+COPY ./src/taxon_worker/requirements.txt /taxon_worker/requirements.txt
 
 # install python dependencies
 ENV APP_DIR='/taxon_worker'

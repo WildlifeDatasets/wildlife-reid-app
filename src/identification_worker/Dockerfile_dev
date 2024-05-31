@@ -2,7 +2,6 @@ FROM nvcr.io/nvidia/pytorch:23.05-py3
 
 ARG DEBIAN_FRONTEND=noninteractive
 
-
 # install linux dependencies
 RUN apt-get update --yes && \
     # - apt-get upgrade is run to patch known vulnerabilities in apt-get packages as
@@ -27,6 +26,7 @@ WORKDIR $APP_DIR
 RUN pip install --no-cache-dir --upgrade pip build && \
     pip install --no-cache-dir --compile -r requirements.txt && \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/* /tmp/* /var/tmp/*
+
 
 RUN pip install git+https://github.com/facebookresearch/segment-anything.git
 RUN pip install \
