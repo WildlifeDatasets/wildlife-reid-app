@@ -23,7 +23,7 @@ from fgvc.utils.utils import set_cuda_device
 # print(f"{__DEVICE__=}")
 # DEVICE = set_cuda_device(__DEVICE__)
 # DEVICE = set_cuda_device("0") if torch.cuda.is_available() else "cpu"
-DEVICE = mem.get_torch_cuda_device_if_available(1)
+DEVICE = mem.get_torch_cuda_device_if_available(0)
 LOFTR_MODEL = None
 
 
