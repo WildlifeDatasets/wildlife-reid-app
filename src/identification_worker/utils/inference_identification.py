@@ -29,7 +29,8 @@ except ImportError:
     from infrastructure_utils import mem
 
 logger = logging.getLogger("app")
-DEVICE = set_cuda_device("1") if torch.cuda.is_available() else "cpu"
+# DEVICE = set_cuda_device("1") if torch.cuda.is_available() else "cpu"
+DEVICE = mem.get_torch_cuda_device_if_available(1)
 logger.info(f"Using device: {DEVICE}")
 
 IDENTIFICATION_MODEL = None
