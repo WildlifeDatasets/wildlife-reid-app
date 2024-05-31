@@ -18,10 +18,10 @@ except ImportError:
     from infrastructure_utils import mem
 
 # import infrastructure_utils from local directory
-from infrastructure_utils import mem
 
 # from fgvc.taxon_utils.taxon_utils import set_cuda_device
-DEVICE = torch.device(0 if torch.cuda.is_available() else "cpu")
+# DEVICE = torch.device(0 if torch.cuda.is_available() else "cpu")
+DEVICE = mem.get_torch_cuda_device_if_available(1)
 
 logger = logging.getLogger("app")
 logger.info(f"Using device: {DEVICE}")

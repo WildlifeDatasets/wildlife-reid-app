@@ -2,8 +2,23 @@ import torch
 import psutil
 import logging
 import traceback
+from typing import Union
+import traceback
 
 logger = logging.getLogger()
+
+def get_torch_cuda_device_if_available(device: Union[int, str] = 0) -> torch.device:
+    """Set device if available."""
+    logger.debug(f"requested device: {device}")
+    logger.debug(f"{traceback.format_stack()=}")
+    if isinstance(device, str):
+        device = int(device.split(":")[-1])
+    if torch.cuda.is_available():
+        new_device =  torch.device(device)
+    else:
+        new_device = torch.device("cpu")
+    logger.debug(f"new_device: {new_device}")
+    return new_device
 
 def get_ram():
     mem = psutil.virtual_memory()
