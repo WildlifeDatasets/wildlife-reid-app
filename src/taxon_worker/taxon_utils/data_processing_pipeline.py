@@ -287,7 +287,7 @@ def use_detector_class_if_classification_fails(
     for i, predicted_class_id in enumerate(class_ids):
         if predicted_class_id == id_not_classified:
             detection_results = metadata["detection_results"][i]
-            if (detection_result is not None) and (len(detection_results) > 0):
+            if (detection_results is not None) and (len(detection_results) > 0):
                 detection_result = detection_results[0]
                 # logger.debug(f"{detection_result['class']=}")
                 # logger.debug(f"{detection_result['confidence']=}")
