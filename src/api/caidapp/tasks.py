@@ -11,6 +11,8 @@ import pandas as pd
 from celery import chain, shared_task, signature
 from django.conf import settings
 import shutil
+from typing import Generator
+import copy
 
 from . import fs_data
 from .fs_data import count_files_in_archive, make_thumbnail_from_file
@@ -26,8 +28,7 @@ from .models import (
 )
 from . import views
 from . import model_tools
-from typing import Generator
-import copy
+from .log_tools import StatusCounts
 
 # from joblib import Parallel, delayed
 # from tqdm import tqdm
@@ -492,8 +493,9 @@ def update_uploaded_archive_by_metadata_csv(
 
     location = get_location(uploaded_archive.owner, str(uploaded_archive.location_at_upload))
 
+    status_counts = StatusCounts()
     for index, row in df.iterrows():
-        _update_database_by_one_row_of_metadata(
+        status = _update_database_by_one_row_of_metadata(
             df,
             index,
             row,
@@ -504,6 +506,9 @@ def update_uploaded_archive_by_metadata_csv(
             thumbnail_width,
             uploaded_archive,
         )
+        status_counts.increment(status)
+
+    logger.debug(f"{status_counts=}")
     # parallel calculation have problem:
     # joblib.externals.loky.process_executor.BrokenProcessPool:
     # A task has failed to un-serialize. Please ensure that the arguments of the function
@@ -538,7 +543,7 @@ def _update_database_by_one_row_of_metadata(
     output_dir,
     thumbnail_width,
     uploaded_archive,
-):
+) -> str:
     # rel_pth, _ = _get_rel_and_abs_paths_based_on_csv_row(row, output_dir)
     image_abs_pth = output_dir / "images" / row["image_path"]
     image_rel_pth = image_abs_pth.relative_to(settings.MEDIA_ROOT)
@@ -551,11 +556,12 @@ def _update_database_by_one_row_of_metadata(
     continue_processing = True
     try:
         mf = uploaded_archive.mediafile_set.get(mediafile=str(image_rel_pth))
-        logger.debug("Using Mediafile generated before")
+        # logger.debug("Using Mediafile generated before")
+        status = "found"
     except MediaFile.DoesNotExist:
         # convert pandas row to json
         if create_missing:
-            logger.debug(f"{row['detection_results']=}")
+            # logger.debug(f"{row['detection_results']=}")
 
             # TODO use media_rel_pth instead of image_rel_pth
             mf = MediaFile(
@@ -577,47 +583,53 @@ def _update_database_by_one_row_of_metadata(
                 mf.original_filename = row["vanilla_path"]
             # logger.debug(f"{mf.identity_is_representative}")
             mf.save()
-            logger.debug(f"Created new Mediafile {mf}")
+            # logger.debug(f"Created new Mediafile {mf}")
+            status = "created"
         else:
             df.loc[index, "deleted"] = True
             logger.debug(f"Mediafile {image_rel_pth} not found. Skipping.")
             # continue
+            status = "deleted"
             continue_processing = False
-        # generate thumbnail if necessary
-    if continue_processing:
-        make_thumbnail_for_mediafile_if_necessary(mf, thumbnail_width=thumbnail_width)
+            return status
 
-        metadata_json = row.to_dict()
-        # remove None and NaN values
-        metadata_json = {k: v for k, v in metadata_json.items() if v is not None and not pd.isna(v)}
-        # logger.debug(f"{metadata_json=}")
-        mf.metadata_json = metadata_json
+    # generate thumbnail if necessary
+    make_thumbnail_for_mediafile_if_necessary(mf, thumbnail_width=thumbnail_width)
 
-        # if the mediafile was updated by user, we believe into users input
-        if mf.updated_by is None:
-            # logger.debug(f"{row.keys()=}")
-            # logger.debug(f"{uploaded_archive.contains_identities=}")
-            # logger.debug(f"{row['predicted_category']=}")
+    metadata_json = row.to_dict()
+    # remove None and NaN values
+    metadata_json = {k: v for k, v in metadata_json.items() if v is not None and not pd.isna(v)}
+    # logger.debug(f"{metadata_json=}")
+    mf.metadata_json = metadata_json
 
-            mf.category = get_taxon(row["predicted_category"])  # remove this
-            if len(mf.animalobservation_set.all()) == 0:
-                mf.animalobservation_set.create(
-                    mediafile=mf,
-                    taxon=mf.category,
-                    # metadata_json=row.to_dict(),
-                )
-            else:
-                ao = mf.animalobservation_set.first()
-                # ao.metadata_json = row.to_dict()
-                ao.taxon = mf.category
-                ao.save()
-            if extract_identites:
-                mf.identity = get_unique_name(
-                    row["unique_name"], workgroup=uploaded_archive.owner.workgroup
-                )
-            mf.save()
-            # logger.debug(f"identity={mf.identity}")
-    logger.debug(f"{mf}")
+    # if the mediafile was updated by user, we believe into users input
+    if mf.updated_by is None:
+        status = status + " and updated by user"
+        # logger.debug(f"{row.keys()=}")
+        # logger.debug(f"{uploaded_archive.contains_identities=}")
+        # logger.debug(f"{row['predicted_category']=}")
+
+        mf.category = get_taxon(row["predicted_category"])  # remove this
+        if len(mf.animalobservation_set.all()) == 0:
+            mf.animalobservation_set.create(
+                mediafile=mf,
+                taxon=mf.category,
+                # metadata_json=row.to_dict(),
+            )
+        else:
+            ao = mf.animalobservation_set.first()
+            # ao.metadata_json = row.to_dict()
+            ao.taxon = mf.category
+            ao.save()
+        if extract_identites:
+            mf.identity = get_unique_name(
+                row["unique_name"], workgroup=uploaded_archive.owner.workgroup
+            )
+        mf.save()
+        # logger.debug(f"identity={mf.identity}")
+    return status
+
+    # logger.debug(f"{mf}")
 
 
 def update_metadata_csv_by_uploaded_archive(
