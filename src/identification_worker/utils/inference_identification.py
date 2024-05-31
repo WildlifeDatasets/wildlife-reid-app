@@ -30,7 +30,7 @@ except ImportError:
 
 logger = logging.getLogger("app")
 # DEVICE = set_cuda_device("1") if torch.cuda.is_available() else "cpu"
-DEVICE = mem.get_torch_cuda_device_if_available(1)
+DEVICE = mem.get_torch_cuda_device_if_available(0)  # TODO set device to 1
 logger.info(f"Using device: {DEVICE}")
 
 IDENTIFICATION_MODEL = None
