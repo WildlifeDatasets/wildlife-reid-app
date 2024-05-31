@@ -31,6 +31,7 @@ except ImportError:
 logger = logging.getLogger("app")
 # DEVICE = set_cuda_device("1") if torch.cuda.is_available() else "cpu"
 DEVICE = mem.get_torch_cuda_device_if_available(0)  # TODO set device to 1
+logger.setLevel(logging.DEBUG)
 logger.info(f"Using device: {DEVICE}")
 
 IDENTIFICATION_MODEL = None
@@ -85,8 +86,8 @@ def get_identification_model(model_name, model_checkpoint=""):
     """Load the model from the given model name and checkpoint."""
     global IDENTIFICATION_MODEL
 
-    logger.debug(f"{mem.get_ram()}")
-    logger.debug(f"{mem.get_vram(DEVICE)}")
+    logger.debug(f"Before identification model.")
+    logger.debug(f"{mem.get_vram(DEVICE)}     {mem.get_ram()}")
 
     if IDENTIFICATION_MODEL is not None:
         return
@@ -100,16 +101,16 @@ def get_identification_model(model_name, model_checkpoint=""):
 
     IDENTIFICATION_MODEL = model.to(DEVICE).eval()
 
-    logger.debug(f"{mem.get_ram()}")
-    logger.debug(f"{mem.get_vram(DEVICE)}")
+    logger.debug(f"After identification model.")
+    logger.debug(f"{mem.get_vram(DEVICE)}     {mem.get_ram()}")
 
 
 def get_sam_model() -> SamPredictor:
     """Load the SAM model if not loaded before."""
     global SAM
     global SAM_PREDICTOR
-    logger.debug(f"{mem.get_ram()}")
-    logger.debug(f"{mem.get_vram(DEVICE)}")
+    logger.debug(f"Before segmentation model.")
+    logger.debug(f"{mem.get_vram(DEVICE)}     {mem.get_ram()}")
     model_zoo = {
         "vit_b": "sam_vit_b_01ec64",
         "vit_l": "sam_vit_l_0b3195",
@@ -130,8 +131,8 @@ def get_sam_model() -> SamPredictor:
         SAM = sam_model_registry[model_version](checkpoint=str(_checkpoint_path))
         SAM.to(device=DEVICE)
         SAM_PREDICTOR = SamPredictor(SAM)
-    logger.debug(f"{mem.get_ram()}")
-    logger.debug(f"{mem.get_vram(DEVICE)}")
+    logger.debug(f"After segmentation model.")
+    logger.debug(f"{mem.get_vram(DEVICE)}     {mem.get_ram()}")
     return SAM_PREDICTOR
 
 
@@ -139,6 +140,7 @@ def del_identification_model():
     """Release the identification model."""
     global IDENTIFICATION_MODEL
     IDENTIFICATION_MODEL = None
+    torch.cuda.empty_cache()
 
 
 def del_sam_model():
@@ -147,6 +149,7 @@ def del_sam_model():
     global SAM_PREDICTOR
     SAM = None
     SAM_PREDICTOR = None
+    torch.cuda.empty_cache()
 
 
 def pad_image(image: np.ndarray, bbox: Union[list, np.ndarray], border: float = 0.25) -> np.ndarray:
@@ -222,7 +225,6 @@ def mask_images(metadata: pd.DataFrame) -> pd.DataFrame:
             logger.debug(f"No detection results for image: {image_path}")
             masked_paths.append(str(image_path))
             continue
-
 
         bbox = detection_results[0]["bbox"]
 
