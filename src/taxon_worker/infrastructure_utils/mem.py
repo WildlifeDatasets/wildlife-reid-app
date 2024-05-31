@@ -28,7 +28,7 @@ def get_ram():
     total = mem.total / 1024 ** 3
     total_cubes = 24
     free_cubes = int(total_cubes * free / total)
-    return f'RAM:  {total - free:.1f}/{total:.1f}GB\t RAM: [' + (total_cubes - free_cubes) * '▮' + free_cubes * '▯' + ']'
+    return f'RAM:  {total - free:.1f}/{total:.1f}GB  RAM: [' + (total_cubes - free_cubes) * '▮' + free_cubes * '▯' + ']'
 
 
 def get_vram(device=None):
@@ -40,7 +40,7 @@ def get_vram(device=None):
         total = torch.cuda.mem_get_info(device)[1] / 1024 ** 3
         total_cubes = 24
         free_cubes = int(total_cubes * free / total)
-        return f'device:{device}\nVRAM: {total - free:.1f}/{total:.1f}GB\t VRAM:[' + (
+        return f'device:{device}    VRAM: {total - free:.1f}/{total:.1f}GB  VRAM:[' + (
                 total_cubes - free_cubes) * '▮' + free_cubes * '▯' + ']'
     except ValueError:
         logger.debug(f"device: {device}, {torch.cuda.is_available()=}")

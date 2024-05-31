@@ -99,8 +99,8 @@ def pad_image(image: np.ndarray, bbox: Union[list, np.ndarray], border: float = 
 def get_detection_model(force_reload: bool = False):
     """Load the detection model if not loaded before."""
     global DETECTION_MODEL
-    logger.debug(f"{mem.get_ram()}")
-    logger.debug(f"{mem.get_vram(DEVICE)}")
+    logger.debug(f"Before detection model.")
+    logger.debug(f"{mem.get_vram(DEVICE)}     {mem.get_ram()}")
     if DETECTION_MODEL is None:
         model_url = r"https://github.com/ecologize/CameraTraps/releases/download/v5.0/md_v5a.0.0.pt"
         model_file = Path("/root/resources/md_v5a.0.0.pt")
@@ -117,8 +117,8 @@ def get_detection_model(force_reload: bool = False):
             force_reload=force_reload,
             device=DEVICE,
         )
-    logger.debug(f"{mem.get_ram()}")
-    logger.debug(f"{mem.get_vram(DEVICE)}")
+    logger.debug(f"After detection model.")
+    logger.debug(f"{mem.get_vram(DEVICE)}     {mem.get_ram()}")
     return DETECTION_MODEL
 
 
@@ -126,6 +126,7 @@ def del_detection_model():
     """Release the detection model."""
     global DETECTION_MODEL
     DETECTION_MODEL = None
+    torch.cuda.empty_cache()
 
 DETECTION_MODEL = get_detection_model(force_reload=True)
 del_detection_model()
@@ -135,8 +136,11 @@ def detect_animals_in_one_image(image_rgb: np.ndarray) -> Optional[List[Dict[str
 
     Expected classes are: {0: 'animal', 1: 'person', 2: 'vehicle'}
     """
-    detection_model = get_detection_model()
-    results = detection_model(image_rgb)
+    global DETECTION_MODEL
+
+    if DETECTION_MODEL is None:
+        DETECTION_MODEL = get_detection_model()
+    results = DETECTION_MODEL(image_rgb)
     id2label = results.names
 
     batch_idx = 0

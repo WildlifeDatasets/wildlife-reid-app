@@ -13,7 +13,6 @@ from scipy.special import softmax
 from fgvc.core.training import predict
 from fgvc.datasets import get_dataloaders
 from fgvc.utils.experiment import load_model
-import torch.cuda
 
 from .config import RESOURCES_DIR, WANDB_API_KEY, WANDB_ARTIFACT_PATH, WANDB_ARTIFACT_PATH_CROPPED
 from .dataset_tools import data_preprocessing
@@ -26,6 +25,7 @@ except ImportError:
 
 
 logger = logging.getLogger("app")
+logger.setLevel(logging.DEBUG)
 MEDIA_DIR_PATH = Path("/shared_data/media")
 
 
@@ -162,8 +162,9 @@ def load_model_and_predict_and_add_not_classified(
 
 
 def get_taxon_classification_model():
-    logger.debug(f"{mem.get_ram()}")
-    logger.debug(f"{mem.get_vram()}")
+    logger.debug(f"Before taxon classification model.")
+    logger.debug(f"{mem.get_vram()}     {mem.get_ram()}")
+
     config, checkpoint_path, artifact_config = get_model_config(
         # is_cropped=False
     )
@@ -173,8 +174,8 @@ def get_taxon_classification_model():
         f"model_mean={model_mean}, model_std={model_std}, "
         + f"checkpoint_path={checkpoint_path}, config={config}"
     )
-    logger.debug(f"{mem.get_ram()}")
-    logger.debug(f"{mem.get_vram()}")
+    logger.debug(f"After taxon classification model.")
+    logger.debug(f"{mem.get_vram()}     {mem.get_ram()}")
     return artifact_config, config, model, model_mean, model_std
 
 

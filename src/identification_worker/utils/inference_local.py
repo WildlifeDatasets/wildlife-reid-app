@@ -39,20 +39,21 @@ class CarnivoreDataset(WildlifeDataset):
 
 def get_loftr_model():
     global LOFTR_MODEL
-    logger.debug(f"{mem.get_ram()}")
-    logger.debug(f"{mem.get_vram(DEVICE)}")
+    logger.debug(f"Before LoFTR.")
+    logger.debug(f"{mem.get_vram(DEVICE)}     {mem.get_ram()}")
     pretrained = "outdoor"
     apply_fine = False
     init_threshold = 0.8
     LOFTR_MODEL = LoFTR(pretrained=pretrained, apply_fine=apply_fine, thr=init_threshold).to(DEVICE)
-    logger.debug(f"{mem.get_ram()}")
-    logger.debug(f"{mem.get_vram(DEVICE)}")
+    logger.debug(f"Before LoFTR.")
+    logger.debug(f"{mem.get_vram(DEVICE)}     {mem.get_ram()}")
 
 
 def del_loftr_model():
     """Release the LOFTR model."""
     global LOFTR_MODEL
     LOFTR_MODEL = None
+    torch.cuda.empty_cache()
 
 
 class WildFusionClassifier:
