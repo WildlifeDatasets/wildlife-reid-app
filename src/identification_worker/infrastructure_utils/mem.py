@@ -2,15 +2,14 @@ import torch
 import psutil
 import logging
 import traceback
-from typing import Union
-import traceback
+from typing import Union, Optional
 
 logger = logging.getLogger()
 
 def get_torch_cuda_device_if_available(device: Union[int, str] = 0) -> torch.device:
     """Set device if available."""
     logger.debug(f"requested device: {device}")
-    logger.debug(f"{traceback.format_stack()=}")
+    # logger.debug(f"{traceback.format_stack()=}")
     print(f"requested device: {device}")
     print(f"{traceback.format_stack()=}")
     if isinstance(device, str):
@@ -32,9 +31,9 @@ def get_ram():
     return f'RAM:  {total - free:.1f}/{total:.1f}GB  RAM: [' + (total_cubes - free_cubes) * '▮' + free_cubes * '▯' + ']'
 
 
-def get_vram(device=None):
+def get_vram(device:Optional[torch.device]=None):
     device = device if device else torch.cuda.current_device()
-    if device == "cpu":
+    if torch.device(device).type == "cpu":
         return 'No GPU available'
     try:
         free = torch.cuda.mem_get_info(device)[0] / 1024 ** 3
