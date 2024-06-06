@@ -48,7 +48,7 @@ def random_string12():
     return random_string(12)
 
 def random_string8():
-    """TODO add docstring."""
+    """Generate a random string of length 8."""
     return random_string(8)
 
 def get_output_dir():
