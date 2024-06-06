@@ -125,3 +125,7 @@ class MediaFileSelectionForm(forms.ModelForm):
 class MediaFileSetQueryForm(forms.Form):
     query = forms.CharField(max_length=100, required=False)
     pagenumber = forms.IntegerField(widget=forms.HiddenInput(), initial=1)
+
+
+class LocationImportForm(forms.Form):
+    spreadsheet_file = forms.FileField()

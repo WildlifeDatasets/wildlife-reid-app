@@ -182,4 +182,7 @@ urlpatterns = [
     path("mediafiles_stats/", views.mediafiles_stats_view, name="mediafiles_stats"),
     path("select_taxon_for_identification/<int:uploadedarchive_id>/", views.select_taxon_for_identification, name="select_taxon_for_identification"),
     path("locations/", views.locations_view, name="locations"),
+    path("locations/export/", views.export_locations_view, name="export_locations"),
+    path("locations/export_xls/", views.export_locations_view_xls, name="export_locations_xls"),
+    path("locations/import/", views.import_locations_view, name="import_locations"),
 ]

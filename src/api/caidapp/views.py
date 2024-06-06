@@ -26,8 +26,13 @@ from django.shortcuts import Http404, HttpResponse, get_object_or_404, redirect,
 from django.urls import reverse_lazy
 from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector
 import shutil
+from openpyxl import Workbook
+import pandas as pd
+from io import BytesIO
+
 from . import tasks
 from . import models
+from . import forms
 
 from .forms import (
     AlbumForm,
@@ -1915,3 +1920,77 @@ def update_uploaded_archives(requests):
             uploaded_archive.save()
 
     return redirect("caidapp:uploads")
+
+
+def export_locations_view(request):
+    """Export locations."""
+
+    locations = Location.objects.filter(
+        **get_content_owner_filter_params(request.user.caiduser, "owner")
+    )
+    df = pd.DataFrame.from_records(locations.values())[["name", "location"]]
+    response = HttpResponse(df.to_csv(encoding="utf-8"), content_type="text/csv")
+    response["Content-Disposition"] = "attachment; filename=locations.csv"
+    return response
+
+def export_locations_view_xls(request):
+    """Export locations."""
+
+    locations = Location.objects.filter(
+        **get_content_owner_filter_params(request.user.caiduser, "owner")
+    )
+    df = pd.DataFrame.from_records(locations.values())[["name", "location"]]
+
+    # Create a BytesIO buffer to save the Excel file
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Locations')
+
+    # Rewind the buffer
+    output.seek(0)
+
+    response = HttpResponse(output,
+                            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename=locations.xlsx'
+    return response
+
+def import_locations_view(request):
+    """Import locations."""
+    logger.debug(f"Importing locations, method {request.method}")
+    if request.method == "POST":
+        form = forms.LocationImportForm(request.POST, request.FILES)
+        if form.is_valid():
+            logger.debug("form is valid")
+            file = form.cleaned_data["spreadsheet_file"]
+
+            file_ext = Path(file.name).suffix.lower()
+            file_content = file.read()
+
+            if file_ext == ".xlsx":
+                df = pd.read_excel(BytesIO(file_content))
+            elif file_ext == ".csv":
+                df = pd.read_csv(BytesIO(file_content))
+            else:
+                return HttpResponse("Only .xlsx and .csv files are supported.")
+
+            for index, row in df.iterrows():
+                location = Location()
+                location.name = row["name"]
+                location.location = row["location"]
+                location.owner = request.user.caiduser
+                location.save()
+            return redirect("caidapp:locations")
+    else:
+        form = forms.LocationImportForm()
+    return render(
+        request,
+        # "caidapp/model_form_upload.html",
+        "caidapp/update_form.html",
+        {
+            "form": form,
+            "headline": "Import locations",
+            "button": "Import",
+            # "text_note": "Import locations",
+            "next": "caidapp:locations",
+        },
+    )

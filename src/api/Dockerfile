@@ -23,6 +23,8 @@ COPY ./src/api /api
 RUN pip install pytz --upgrade
 RUN pip install tzdata --upgrade
 
+RUN pip install openpyxl
+
 # expose ports and run application
 WORKDIR $APP_DIR
 ENV PYTHONUNBUFFERED=1
