@@ -3,6 +3,10 @@
 
 # Changelog
 
+## 06-2024
+
+* [added] Show media files from location
+
 ## 05-2024
 
 * [added] Bulk import of media files using Synology Drive

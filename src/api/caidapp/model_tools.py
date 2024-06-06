@@ -47,6 +47,9 @@ def random_string12():
     """TODO add docstring."""
     return random_string(12)
 
+def random_string8():
+    """TODO add docstring."""
+    return random_string(8)
 
 def get_output_dir():
     """TODO add docstring."""

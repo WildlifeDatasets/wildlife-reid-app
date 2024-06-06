@@ -1,0 +1,41 @@
+<h5 class="card-title">{{ uploadedarchive }}
+    {% if uploadedarchive.contains_identities %}
+        <i class="bi bi-fingerprint"></i>
+    {% endif %}
+    {% if uploadedarchive.contains_single_taxon %}
+        <i class="bi bi-dice-1"></i>
+    {% endif %}
+
+</h5>
+<p>
+    Media files: {{ uploadedarchive.count_of_mediafiles }}<br>
+    Representative media files: {{ uploadedarchive.count_of_representative_mediafiles }} <br>
+    <span
+        data-bs-toggle="tooltip" title="{{ uploadedarchive.status_message }}"
+    >Status: {{ uploadedarchive.status }} </span><br>
+    {% if uploadedarchive.finished_at %}
+        <p>Finished at: {{ uploadedarchive.finished_at|date:'Y-m-d H:i' }} </p>
+    {% endif %}
+
+    <span data-bs-toggle="tooltip" title="Location: {{ uploadedarchive.location_at_upload_object.name }}">
+        Location: {{ uploadedarchive.location_at_upload_object.name }}
+    </span><br>
+    {%  if uploadedarchive.animal_number %}
+        Count: {{ uploadedarchive.animal_number }}<br>
+    {% endif %}
+    {% if uploadedarchive.finished_at %}
+        Finished at: {{ uploadedarchive.finished_at|date:'Y-m-d H:i' }} <br>
+    {% endif %}
+    <i class="fa-light fa-calendar-image"></i>Uploaded at: {{ uploadedarchive.uploaded_at|date:'Y-m-d H:i' }} <br>
+</p>
+
+<p>{{ uploadedarchive.earliest_captured_at|date:'Y-m-d' }} - {{ uploadedarchive.latest_captured_at|date:'Y-m-d' }} </p>
+
+
+<span data-bs-toggle="tooltip" title="Uploaded at: {{ uploadedarchive.uploaded_at|date:'Y-m-d H:i' }}">
+    <span class="fa-stack fa-sm" style="font-size:0.63em;">
+        <i class="bi bi-calendar fa-stack-2x"></i>
+{#        <i class="fa-solid fa-calendar fa-stack-2x"></i>#}
+        <i class="fa fa-arrow-up fa-stack-1x "></i>
+    </span>
+</span><br>

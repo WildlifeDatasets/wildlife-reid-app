@@ -8,14 +8,6 @@
         <div class="pagetitle">
             <h1>Localities</h1>
 
-            <nav>
-                {#                <a class="btn btn-primary mt-2" href="{% url 'caidapp:get_individual_identity' %}"><i class="bi bi-question-circle"></i> Annotate unknown identities</a>#}
-                <a class="btn btn-secondary mt-2" href="{% url 'caidapp:new_individual_identity' %}"><i
-                        class="bi bi-plus-circle"></i> Add new identity</a>
-                {#                <a class="btn btn-secondary mt-2" href="{% url 'caidapp:init_identification' %}"><i class="fas fa-fingerprint"></i> Init identification</a>#}
-                <a class="btn btn-secondary mt-2" href="{% url 'caidapp:not_identified_mediafiles' %}"><i
-                        class="fa fa-question"></i> List of not identified media files </a>
-            </nav>
         </div><!-- End Page Title -->
         <section class="section">
         <div class="row" id="row-of-cards">
@@ -39,6 +31,14 @@
                                 <p class="card-text">
                                     Uploaded archives: {{ location.uploadedarchive_set.count }}
                                 </p>
+                            </div>
+                            <div class="card-footer">
+                                <a href="{% url 'caidapp:update_location' location.id %}" class="btn btn-primary" >
+                                    <i class="fas fa-edit"></i> Edit
+                                    </a>
+                                <a href="{% url 'caidapp:media_files_location' location.hash %}" class="btn btn-secondary" >
+                                    <i class="fas fa-images"></i> Media files
+                                </a>
                             </div>
 
 {#                            {{ location.uploadedarchive_set.all.0.thumbnail.url }}#}

@@ -193,7 +193,9 @@ def update_location(request, location_id):
     return render(
         request,
         "caidapp/update_form.html",
-        {"form": form, "headline": "Location", "button": "Save", "location": location},
+        {"form": form, "headline": "Location", "button": "Save", "location": location,
+         "delete_button_url": reverse_lazy('caidapp:delete_location', kwargs={'location_id': location_id}),
+         },
     )
 
 
@@ -1311,6 +1313,7 @@ def _mediafiles_query(
     taxon_id=None,
     uploadedarchive_id=None,
     identity_is_representative=None,
+    location_hash=None,
 ):
     """Prepare list of mediafiles based on query search in category and location."""
     mediafiles = (
@@ -1354,6 +1357,11 @@ def _mediafiles_query(
             .all()
             .distinct()
             .order_by("-parent__uploaded_at")
+        )
+    if location_hash is not None:
+        location = get_object_or_404(Location, hash=location_hash)
+        mediafiles = (
+            mediafiles.filter(location=location).all().distinct().order_by("-parent__uploaded_at")
         )
 
     if len(query) == 0:
@@ -1500,6 +1508,7 @@ def media_files_update(
     taxon_id=None,
     uploadedarchive_id=None,
     identity_is_representative=None,
+    location_hash=None,
 ) -> Union[QuerySet, List[MediaFile]]:
     """List of mediafiles based on query with bulk update of category."""
     # create list of mediafiles
@@ -1541,6 +1550,7 @@ def media_files_update(
         taxon_id=taxon_id,
         uploadedarchive_id=uploadedarchive_id,
         identity_is_representative=identity_is_representative,
+        location_hash=location_hash,
     )
     number_of_mediafiles = len(full_mediafiles)
 
@@ -1729,7 +1739,7 @@ def workgroup_update(request, workgroup_hash: str):
             # return redirect("workgroup_list")
     else:
 
-        workgroup_users = workgroup.ciduser_set.all()
+        workgroup_users = workgroup.caiduser_set.all()
         data = {
             # 'id': dog_request_id,
             # 'color': dog_color,
