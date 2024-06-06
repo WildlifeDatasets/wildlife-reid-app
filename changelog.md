@@ -8,6 +8,7 @@
 * [added] Show media files from location
 * [added] Measure GPU memory usage
 * [changed] Limit number of worker to 1 in taxon_worker and 1 in identification_worker
+* [added] Import locations by CSV or XLSX
 
 ## 05-2024
 
