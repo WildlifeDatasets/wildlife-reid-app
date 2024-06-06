@@ -18,6 +18,7 @@ from .model_tools import (
     get_output_dir,
     random_string,
     random_string12,
+    random_string8,
 )
 import re
 
@@ -29,6 +30,8 @@ def _hash():
     hash_str = generate_sha1(dt, salt=random_string())
     return hash_str
 
+def _hash8():
+    return _hash()[:8]
 
 def human_readable_hash():
     """Return a human readable hash composed from words."""
@@ -101,6 +104,7 @@ class Location(models.Model):
         null=True,
         blank=True,
     )
+    hash = models.CharField(max_length=50, default=random_string8)
     # If the user is deleted, then we will keep the location but it does not
     # belong to any user which is not good.
     owner = models.ForeignKey(CaIDUser, on_delete=models.SET_NULL, null=True, blank=True)

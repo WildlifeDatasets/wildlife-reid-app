@@ -35,6 +35,7 @@ urlpatterns = [
     ),
     # path("media_files/", views.media_files, name="media_files"),
     path("media_files/", views.media_files_update, name="media_files"),
+    path("media_files/", views.media_files_update, name="media_files"),
     path(
         "delete_mediafile/<int:mediafile_id>/",
         views.delete_mediafile,
@@ -79,6 +80,7 @@ urlpatterns = [
     path("albums/", views.albums, name="albums"),
     path("album/<str:album_hash>", views.media_files_update, name="album"),
     path("taxon/<int:taxon_id>", views.media_files_update, name="taxon"),
+    path("media_files/location/<str:location_hash>", views.media_files_update, name="media_files_location"),
     path(
         "representative_mediafiles/",
         lambda request: views.media_files_update(request, identity_is_representative=True),
