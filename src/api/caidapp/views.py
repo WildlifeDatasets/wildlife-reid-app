@@ -1907,6 +1907,10 @@ def download_zip_for_mediafiles_view(request):
     return Http404
 
 
+def _generate_new_hash_for_locations():
+    for location in Location.objects.all():
+        location.hash = models.get_hash8()
+        location.save()
 
 def update_uploaded_archives(requests):
     """Update new calculations for formerly uploaded archives."""
@@ -1919,7 +1923,10 @@ def update_uploaded_archives(requests):
             uploaded_archive.taxon_for_identification = models.get_taxon("Lynx lynx")
             uploaded_archive.save()
 
+    _generate_new_hash_for_locations()
+
     return redirect("caidapp:uploads")
+
 
 
 def export_locations_view(request):

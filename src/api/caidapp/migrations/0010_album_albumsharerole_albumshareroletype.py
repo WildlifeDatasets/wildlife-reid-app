@@ -37,7 +37,7 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "hash",
-                    models.CharField(blank=True, default=caidapp.models._hash, max_length=255),
+                    models.CharField(blank=True, default=caidapp.models.get_hash, max_length=255),
                 ),
                 (
                     "mediafiles",

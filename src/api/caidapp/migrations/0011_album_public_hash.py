@@ -14,6 +14,6 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name="album",
             name="public_hash",
-            field=models.CharField(blank=True, default=caidapp.models._hash, max_length=255),
+            field=models.CharField(blank=True, default=caidapp.models.get_hash, max_length=255),
         ),
     ]
