@@ -25,18 +25,18 @@ import re
 # Create your models here.
 logger = logging.getLogger("database")
 
-def _hash():
+def get_hash():
     dt = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
     hash_str = generate_sha1(dt, salt=random_string())
     return hash_str
 
-def _hash8():
-    return _hash()[:8]
+def get_hash8():
+    return get_hash()[:8]
 
 def human_readable_hash():
     """Return a human readable hash composed from words."""
     number_of_words = 3
-    return codenamize.codenamize(_hash(), number_of_words - 1, 0, " ", True)
+    return codenamize.codenamize(get_hash(), number_of_words - 1, 0, " ", True)
 
 
 class WorkGroup(models.Model):
@@ -104,7 +104,7 @@ class Location(models.Model):
         null=True,
         blank=True,
     )
-    hash = models.CharField(max_length=50, default=_hash8)
+    hash = models.CharField(max_length=50, default=get_hash8)
     # If the user is deleted, then we will keep the location but it does not
     # belong to any user which is not good.
     owner = models.ForeignKey(CaIDUser, on_delete=models.SET_NULL, null=True, blank=True)
@@ -126,7 +126,7 @@ class UploadedArchive(models.Model):
     zip_file = models.FileField(upload_to=outputdir, blank=True, null=True)
     csv_file = models.FileField(upload_to=outputdir, blank=True, null=True)
     output_updated_at = models.DateTimeField("Output updated at", blank=True, null=True)
-    hash = models.CharField(max_length=255, blank=True, default=_hash)
+    hash = models.CharField(max_length=255, blank=True, default=get_hash)
     status = models.CharField(max_length=255, blank=True, default="Created")
     # status_message = models.CharField(max_length=2047, blank=True, default="")
     status_message = models.TextField(blank=True)
@@ -319,8 +319,8 @@ class Album(models.Model):
     owner = models.ForeignKey(CaIDUser, on_delete=models.CASCADE, null=True, blank=True)
     mediafiles = models.ManyToManyField(MediaFile, blank=True)
     created_at = models.DateTimeField("Created at", default=datetime.now)
-    hash = models.CharField(max_length=255, blank=True, default=_hash)
-    public_hash = models.CharField(max_length=255, blank=True, default=_hash)
+    hash = models.CharField(max_length=255, blank=True, default=get_hash)
+    public_hash = models.CharField(max_length=255, blank=True, default=get_hash)
     cover = models.ForeignKey(
         MediaFile,
         on_delete=models.SET_NULL,
@@ -342,7 +342,7 @@ class ArchiveCollection(models.Model):
     owner = models.ForeignKey(CaIDUser, on_delete=models.CASCADE, null=True, blank=True)
     archives = models.ManyToManyField(UploadedArchive, blank=True)
     created_at = models.DateTimeField("Created at", default=datetime.now)
-    hash = models.CharField(max_length=255, blank=True, default=_hash)
+    hash = models.CharField(max_length=255, blank=True, default=get_hash)
     starts_at = models.DateTimeField("Starts at", blank=True, null=True)
     ends_at = models.DateTimeField("Ends at", blank=True, null=True)
 
