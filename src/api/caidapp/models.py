@@ -104,7 +104,7 @@ class Location(models.Model):
         null=True,
         blank=True,
     )
-    hash = models.CharField(max_length=50, default=random_string8)
+    hash = models.CharField(max_length=50, default=_hash8)
     # If the user is deleted, then we will keep the location but it does not
     # belong to any user which is not good.
     owner = models.ForeignKey(CaIDUser, on_delete=models.SET_NULL, null=True, blank=True)
