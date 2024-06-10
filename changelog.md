@@ -10,6 +10,7 @@
 * [changed] Limit number of worker to 1 in taxon_worker and 1 in identification_worker
 * [added] Import locations by CSV or XLSX
 * [changed] Locality view reworked
+* [added] List of camera trap checks
 
 ## 05-2024
 

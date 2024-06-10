@@ -185,4 +185,5 @@ urlpatterns = [
     path("locations/export/", views_location.export_locations_view, name="export_locations"),
     path("locations/export_xls/", views_location.export_locations_view_xls, name="export_locations_xls"),
     path("locations/import/", views_location.import_locations_view, name="import_locations"),
+    path("locations/checks/<str:location_hash>/", views_location.uploads_of_location, name="uploads_of_location"),
 ]
