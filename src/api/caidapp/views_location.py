@@ -183,3 +183,20 @@ def import_locations_view(request):
 
         },
     )
+
+
+def uploads_of_location(request, location_hash):
+    """Show all uploads of a location."""
+    location = get_object_or_404(
+        Location,
+        hash=location_hash,
+        **get_content_owner_filter_params(request.user.caiduser, "owner"),
+    )
+    uploaded_archives = location.uploadedarchive_set.all()
+    return render(
+        request,
+        "caidapp/uploads_location.html",
+        {"location": location, "page_obj": uploaded_archives},
+    )
+
+

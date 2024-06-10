@@ -51,6 +51,12 @@
                                 <a href="{% url 'caidapp:media_files_location' location.hash %}" class="btn btn-secondary" >
                                     <i class="fas fa-images"></i> Media files
                                 </a>
+                                <a href="{% url 'caidapp:uploads_of_location' location.hash %}" class="btn btn-secondary"
+                                   data-bs-toggle="tooltip" title="Camera Trap Checks"
+                                >
+{#                                    <i class="fas fa-images"></i> Media files#}
+                                    Checks
+                                </a>
                             </div>
 
 {#                            {{ location.uploadedarchive_set.all.0.thumbnail.url }}#}

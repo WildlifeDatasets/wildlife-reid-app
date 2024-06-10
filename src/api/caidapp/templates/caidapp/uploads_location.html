@@ -1,0 +1,133 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block head %}
+    <!--refresh every 120 s-->
+    {#<meta http-equiv="refresh" content="120">#}
+{% endblock %}
+{% block body %}
+    {% if user.is_authenticated %}
+        <div class="pagetitle">
+            <h1>Camera Trap Checks</h1>
+            <nav>
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li>
+                </ol>
+                {%  if user.caiduser.import_dir|length > 0 %}
+                    <a class="btn btn-secondary" href="{% url 'caidapp:cloud_import_preview' %}"
+                    data-bs-toggle="tooltip" title="Location: "
+                    ><i class="bi bi-cloud-arrow-up"></i> Import from cloud</a>
+                {% endif %}
+
+
+            </nav>
+        </div><!-- End Page Title -->
+        <section class="section">
+            {#            <ul class="container">#}
+            <div class="row">
+
+                {% if page_obj %}
+                    {% for uploadedarchive in page_obj %}
+                        <div class="col-xl-3">
+{#                        <div class="col" style="-ms-flex: 0 0 200; flex: 0 0 200;">#}
+                            <div class="card"
+                                    {% if uploadedarchive.thumbnail %}
+                                 style="
+
+                                         background-image: linear-gradient(to left, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 1.0)), url({{ uploadedarchive.thumbnail.url }});
+                                         background-repeat: no-repeat;
+                                         background-position-x: right;
+                                         background-position-y: center;
+                                         background-size: cover;
+                                         "
+
+                                    {% endif %}
+                            >
+                                <div class="card-body"
+                                >
+
+                                    {% include "caidapp/upload_card_body.html" %}
+
+                                    <a class="btn btn-primary"
+                                       href="{% url 'caidapp:uploadedarchive_detail' uploadedarchive.id %}">
+                                        <i class="bi bi-images"></i> Media files
+                                    </a>
+                                    <a class="btn btn-secondary"
+                                       href="{% url 'caidapp:update_uploadedarchive' uploadedarchive.id %}">
+                                        <i class="bi bi-pencil"></i> Edit
+                                    </a>
+
+
+                                </div>
+                            </div>
+                        </div>
+
+                    {% endfor %}
+                    <ul class="pagination">
+                        {#                            <span class="step-links">#}
+                        {% if page_obj.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page=1">First </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}">
+                                    <i class="bi-chevron-left"></i>
+                                </a>
+                            </li>
+                        {% else %}
+                            <li class="page-item disabled">
+                                <a class="page-link" href="#">First</a>
+                            </li>
+                            <li class="page-item disabled">
+                                <a class="page-link" href="#">
+                                    <i class="bi-chevron-left"></i>
+                                </a>
+                            </li>
+                        {% endif %}
+
+                        <li class="page-item">
+                            {#                                <span class="current">#}
+                            <a class="page-link" href="#">
+                                Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}.
+                            </a>
+                            {#                                </span>#}
+                        </li>
+
+                        {% if page_obj.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.next_page_number }}">
+                                    <i class="bi-chevron-right"></i>
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">Last</a>
+                            </li>
+
+                        {% else %}
+                            <li class="page-item disabled">
+                                <a class="page-link" href="#">
+                                    <i class="bi-chevron-right"></i>
+                                </a>
+                            </li>
+                            <li class="page-item disabled">
+                                <a class="page-link" href="#">
+                                    Last
+                                    {#                                            <i class="bi-chevron-bar-right"></i>#}
+                                </a>
+                            </li>
+                        {% endif %}
+                        {#                            </span>#}
+                    </ul>
+
+                {% else %}
+                    <p>No data available.</p>
+                    <p><a class="dropdown-item d-flex align-items-center" href="{% url 'caidapp:sample_data' %}">
+                        <i class="fa-solid fa-vial"></i>
+                        <span>Download sample data</span>
+                    </a></p>
+                {% endif %}
+            </div>
+            {#            </ul>#}
+            </div>
+        </section>
+    {% endif %}
+{% endblock %}
