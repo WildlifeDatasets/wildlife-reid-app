@@ -279,9 +279,11 @@
                                 </a>
                             </li>
                             <li>
-                                <a class="dropdown-item d-flex align-items-center" href="{% url 'caidapp:update_uploaded_archives' %}#logend">
+                                <a class="dropdown-item d-flex align-items-center" href="{% url 'caidapp:refresh_data' %}#logend"
+                                    title="Make old data compatible with new functionalities" data-bs-toggle="tooltip"
+                                >
                                     <i class="bi bi-arrow-clockwise"></i>
-                                    <span>Update controls calculations</span>
+                                    <span>Refresh data</span>
                                 </a>
                             </li>
                         {% endif %}
@@ -322,7 +324,7 @@
                     <li>
                         <a class="nav-link collapsed" href="{% url 'caidapp:uploads' %}">
                             <i class="bi bi-circle"></i>
-                            <span>Control Uploads</span>
+                            <span>Camera Trap Check</span>
                         </a>
                     </li>
                     <li>
