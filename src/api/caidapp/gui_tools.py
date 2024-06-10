@@ -77,7 +77,7 @@ def create_match_img_src(
             shrinkB=7,
         )
         fig.add_artist(con)
-    ax[0].set_title(query_name)
+    ax[0].set_title("")
     ax[0].set_xticks([])
     ax[0].set_yticks([])
     ax[1].set_title(database_name)

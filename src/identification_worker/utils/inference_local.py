@@ -230,6 +230,11 @@ def get_keypoints(query, database, merged_ids, num_kp=10, size=512):
         get_loftr_model()
 
     LOFTR_MODEL.apply_fine = True
+    _thr = LOFTR_MODEL.coarse_matching.thr
+    LOFTR_MODEL.coarse_matching.thr = 0.5
+
+    # model = LoFTR(pretrained="outdoor", apply_fine=True, thr=0.5).to(DEVICE)
+
     transform = T.Compose(
         [
             T.ToPILImage(),
@@ -275,11 +280,15 @@ def get_keypoints(query, database, merged_ids, num_kp=10, size=512):
 
             idxs = np.argsort(confidence)[::-1]
             idxs = idxs[:num_kp]
+            idxs = idxs[confidence[idxs] > 0]
 
             kp0 = kp0[idxs].astype(float).tolist()
             kp1 = kp1[idxs].astype(float).tolist()
             _keypoints.append((kp0, kp1))
         keypoints.append(_keypoints)
+
+    LOFTR_MODEL.apply_fine = False
+    LOFTR_MODEL.coarse_matching.thr = _thr
 
     return keypoints
 
