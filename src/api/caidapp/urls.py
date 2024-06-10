@@ -61,8 +61,7 @@ urlpatterns = [
         views.run_taxon_classification_force_init,
         name="run_taxon_classification_force_init",
     ),
-    path(
-        "update_uploaded_archives/", views.update_uploaded_archives, name="update_uploaded_archives"
+    path("refresh_data/", views.refresh_data, name="refresh_data"
     ),
     path("djangologin/", views.MyLoginView.as_view(), name="djangologin"),
     path(

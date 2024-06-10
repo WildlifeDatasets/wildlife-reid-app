@@ -24,8 +24,8 @@
         <div class="section">
             <div class="row">
                 <div class="col-md-8">
-                    <div class="card">
-                        <div class="card-body">
+{#                    <div class="card">#}
+{#                        <div class="card-body">#}
 
 
                             <form method="post" enctype="multipart/form-data">
@@ -52,9 +52,19 @@
                                 {% endif %}
 
                             </form>
+{#                        </div>#}
+{#                    </div>#}
+                </div>
+                {% if text_note %}
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-body mt-4">
+                            {{ text_note }}
                         </div>
                     </div>
+
                 </div>
+                {% endif %}
                 {% if mediafile %}
                     <div class="col-4">
                         <img src="{{ mediafile.thumbnail.url }}" alt="{{ mediafile.name }}" class="img-thumbnail">

@@ -281,7 +281,20 @@ class MediaFile(models.Model):
         ordering = ["-identity_is_representative", "captured_at"]
 
     def __str__(self):
-        return str(Path(self.mediafile.name).name)
+        return str(self.original_filename)
+        # return str(Path(self.mediafile.name).name)
+
+    def extract_original_filename(self, commit=True):
+        if self.metadata_json:
+            if "vanilla_path" in self.metadata_json:
+                self.original_filename = Path(self.metadata_json["vanilla_path"]).name
+                if commit:
+                    self.save()
+                return self.original_filename
+        self.original_filename = Path(self.mediafile.name).name
+        if commit:
+            self.save()
+        return self.original_filename
 
 
 class AnimalObservation(models.Model):
