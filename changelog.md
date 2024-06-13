@@ -14,6 +14,7 @@
 * [added] Export XLSX for media files
 * [added] Links to location in cards
 * [added] Share Identity
+* [added] Show number of media files with taxon for identification
 
 ## 05-2024
 

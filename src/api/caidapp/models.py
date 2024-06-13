@@ -174,6 +174,12 @@ class UploadedArchive(models.Model):
     def count_of_representative_mediafiles(self):
         return MediaFile.objects.filter(parent=self, identity_is_representative=True).count()
 
+    def count_of_mediafiles_with_taxon_for_identification(self):
+        if self.taxon_for_identification is None:
+            return None
+        else:
+            return MediaFile.objects.filter(parent=self, category=self.taxon_for_identification).count()
+
     def update_location_in_mediafiles(self, location: Union[str, Location]):
         """Update location in mediafiles."""
         if isinstance(location, str):

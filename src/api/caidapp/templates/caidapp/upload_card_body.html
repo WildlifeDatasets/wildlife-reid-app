@@ -26,6 +26,9 @@
     {{ uploadedarchive.earliest_captured_at|date:'Y-m-d' }} - {{ uploadedarchive.latest_captured_at|date:'Y-m-d' }}<br>
     Media files: {{ uploadedarchive.count_of_mediafiles }}<br>
     Representative media files: {{ uploadedarchive.count_of_representative_mediafiles }} <br>
+    {% if uploadedarchive.count_of_mediafiles_with_taxon_for_identification %}
+        Mediafiles with taxon {{ uploadedarchive.taxon_for_identification }}: {{ uploadedarchive.count_of_mediafiles_with_taxon_for_identification }}<br>
+    {% endif %}
     <span
         data-bs-toggle="tooltip" title="{{ uploadedarchive.status_message }}"
     >Status: {{ uploadedarchive.status }} </span><br>
