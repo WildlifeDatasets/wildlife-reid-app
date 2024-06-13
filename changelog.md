@@ -12,6 +12,7 @@
 * [changed] Locality view reworked
 * [added] List of camera trap checks
 * [added] Export XLSX for media files
+* [added] Links to location in cards
 
 ## 05-2024
 

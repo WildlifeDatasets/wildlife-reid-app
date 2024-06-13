@@ -52,84 +52,87 @@
 
                                     {% include "caidapp/upload_card_body.html" %}
 
-                                    <a class="btn btn-primary"
-                                       href="{% url 'caidapp:uploadedarchive_detail' uploadedarchive.id %}">
-                                        <i class="bi bi-images"></i> Media files
-                                    </a>
-                                    <a class="btn btn-secondary"
-                                       href="{% url 'caidapp:update_uploadedarchive' uploadedarchive.id %}">
-                                        <i class="bi bi-pencil"></i> Edit
-                                    </a>
-
-
-                                    <div class="dropdown d-inline-block">
-                                        <a class="btn btn-secondary dropdown-toggle" href="#" role="button"
-                                           data-bs-toggle="dropdown" aria-expanded="false">
-                                            <i class="bi bi-three-dots"></i>
+                                    <div class="mt-2">
+                                        <a class="btn btn-primary"
+                                           href="{% url 'caidapp:uploadedarchive_detail' uploadedarchive.id %}">
+                                            <i class="bi bi-images"></i> Media files
+                                        </a>
+                                        <a class="btn btn-secondary"
+                                           href="{% url 'caidapp:update_uploadedarchive' uploadedarchive.id %}">
+                                            <i class="bi bi-pencil"></i> Edit
                                         </a>
 
-                                        <ul class="dropdown-menu">
-                                            {% if uploadedarchive.zip_file %}
-                                                <li><a class="dropdown-item"
-                                                       href="{{ uploadedarchive.zip_file.url }}"><i
-                                                        class="bi bi-download"></i> Download images</a></li>
-                                            {% endif %}
-                                            {% if uploadedarchive.csv_file %}
-                                                <li><a class="dropdown-item"
-                                                       href="{% url 'caidapp:download_uploadedarchive_csv' uploadedarchive.id %}"><i
-                                                        class="bi bi-table"></i> Download CSV </a></li>
-                                            {% endif %}
-                                            <li>
-                                                <a class="dropdown-item"
-                                                   href="{% url 'caidapp:select_taxon_for_identification' uploadedarchive.id %}">
-                                                    <i class="fa-solid fa-hippo"></i> Select taxon for identification
-                                            </li>
-                                            {% if request.user.is_staff %}
-                                                <li>
-                                                    <hr class="dropdown-divider">
-                                                </li>
-                                                {% if uploadedarchive.archivefile%}
+
+                                        <div class="dropdown d-inline-block">
+                                            <a class="btn btn-secondary dropdown-toggle" href="#" role="button"
+                                               data-bs-toggle="dropdown" aria-expanded="false">
+                                                <i class="bi bi-three-dots"></i>
+                                            </a>
+
+                                            <ul class="dropdown-menu">
+                                                {% if uploadedarchive.zip_file %}
                                                     <li><a class="dropdown-item"
-                                                           href="{{ uploadedarchive.archivefile.url }}"><i
-                                                            class="bi bi-download"></i> Download uploaded archive</a></li>
+                                                           href="{{ uploadedarchive.zip_file.url }}"><i
+                                                            class="bi bi-download"></i> Download images</a></li>
+                                                {% endif %}
+                                                {% if uploadedarchive.csv_file %}
+                                                    <li><a class="dropdown-item"
+                                                           href="{% url 'caidapp:download_uploadedarchive_csv' uploadedarchive.id %}"><i
+                                                            class="bi bi-table"></i> Download CSV </a></li>
                                                 {% endif %}
                                                 <li>
                                                     <a class="dropdown-item"
-                                                       href="{% url 'caidapp:run_processing' uploadedarchive.id %}">
-                                                        <i class="bi bi-arrow-clockwise"></i> Run taxon classification
-                                                    </a>
+                                                       href="{% url 'caidapp:select_taxon_for_identification' uploadedarchive.id %}">
+                                                        <i class="fa-solid fa-hippo"></i> Select taxon for identification
                                                 </li>
+                                                {% if request.user.is_staff %}
+                                                    <li>
+                                                        <hr class="dropdown-divider">
+                                                    </li>
+                                                    {% if uploadedarchive.archivefile%}
+                                                        <li><a class="dropdown-item"
+                                                               href="{{ uploadedarchive.archivefile.url }}"><i
+                                                                class="bi bi-download"></i> Download uploaded archive</a></li>
+                                                    {% endif %}
+                                                    <li>
+                                                        <a class="dropdown-item"
+                                                           href="{% url 'caidapp:run_processing' uploadedarchive.id %}">
+                                                            <i class="bi bi-arrow-clockwise"></i> Run taxon classification
+                                                        </a>
+                                                    </li>
 
-                                                <li>
-                                                    <a class="dropdown-item"
-                                                       href="{% url 'caidapp:run_taxon_classification_force_init' uploadedarchive.id %}">
-                                                        <i class="bi bi-arrow-clockwise"></i> Run taxon classification (force_init)
-                                                    </a>
-                                                </li>
+                                                    <li>
+                                                        <a class="dropdown-item"
+                                                           href="{% url 'caidapp:run_taxon_classification_force_init' uploadedarchive.id %}">
+                                                            <i class="bi bi-arrow-clockwise"></i> Run taxon classification (force_init)
+                                                        </a>
+                                                    </li>
 
+                                                    <li>
+                                                        <a class="dropdown-item"
+                                                           href="{% url 'admin:caidapp_uploadedarchive_change' uploadedarchive.id %}">
+                                                            <i class="bi bi-pencil"></i>
+                                                            Edit in admin
+                                                        </a>
+                                                    </li>
+                                                    {#                                                <li>#}
+                                                    {#                                                    <a class="dropdown-item"#}
+                                                    {#                                                       href="{% url 'caidapp:run_identification' uploadedarchive.id %}">#}
+                                                    {#                                                        <i class="bi bi-fingerprint"></i> Run identification#}
+                                                    {#                                                    </a>#}
+                                                    {#                                                </li>#}
+                                                {% endif %}
                                                 <li>
-                                                    <a class="dropdown-item"
-                                                       href="{% url 'admin:caidapp_uploadedarchive_change' uploadedarchive.id %}">
-                                                        <i class="bi bi-pencil"></i>
-                                                        Edit in admin
-                                                    </a>
+                                                    <hr class="dropdown-divider">
                                                 </li>
-{#                                                <li>#}
-{#                                                    <a class="dropdown-item"#}
-{#                                                       href="{% url 'caidapp:run_identification' uploadedarchive.id %}">#}
-{#                                                        <i class="bi bi-fingerprint"></i> Run identification#}
-{#                                                    </a>#}
-{#                                                </li>#}
-                                            {% endif %}
-                                            <li>
-                                                <hr class="dropdown-divider">
-                                            </li>
-                                            <li><a class="dropdown-item text-danger"
-                                                   href="{% url 'caidapp:delete_upload' uploadedarchive.id 'caidapp:uploads' %}"
-                                                   onclick="return confirm('Delete file {{ uploadedarchive }}?')">
-                                                <i class="bi bi-trash"></i> Delete
-                                            </a></li>
-                                        </ul>
+                                                <li><a class="dropdown-item text-danger"
+                                                       href="{% url 'caidapp:delete_upload' uploadedarchive.id 'caidapp:uploads' %}"
+                                                       onclick="return confirm('Delete file {{ uploadedarchive }}?')">
+                                                    <i class="bi bi-trash"></i> Delete
+                                                </a></li>
+                                            </ul>
+                                        </div>
+
                                     </div>
                                 </div>
                             </div>
