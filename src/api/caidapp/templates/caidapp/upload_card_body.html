@@ -8,8 +8,20 @@
 
 </h5>
 <p>
+{#    <a href="{% url 'caidapp:uploads_of_location' uploadedarchive.location.hash %}">Checks</a>#}
+{#    {{ uploadedarchive.location_at_upload_object }}#}
     <span data-bs-toggle="tooltip" title="Location: {{ uploadedarchive.location_at_upload_object.name }}">
-        Location: {{ uploadedarchive.location_at_upload_object.name }}
+        Location:
+        {% if uploadedarchive.location_at_upload_object %}
+{#            {{ uploadedarchive.location_at_upload_object.name }}#}
+{#            {{ uploadedarchive.location_at_upload_object.hash }}#}
+
+            <a class="link-secondary"  href="{% url 'caidapp:uploads_of_location' uploadedarchive.location_at_upload_object.hash %}">
+                {{ uploadedarchive.location_at_upload_object.name }}
+            </a>
+        {% else %}
+            {{ uploadedarchive.location_at_upload_object.name }}
+        {% endif %}
     </span><br>
     {{ uploadedarchive.earliest_captured_at|date:'Y-m-d' }} - {{ uploadedarchive.latest_captured_at|date:'Y-m-d' }}<br>
     Media files: {{ uploadedarchive.count_of_mediafiles }}<br>
@@ -24,15 +36,16 @@
     {% if uploadedarchive.finished_at %}
         Finished at: {{ uploadedarchive.finished_at|date:'Y-m-d H:i' }} <br>
     {% endif %}
-    <i class="fa-light fa-calendar-image"></i>Uploaded at: {{ uploadedarchive.uploaded_at|date:'Y-m-d H:i' }} <br>
+{#    <i class="fa-solid fa-calendar"></i>#}
+    Uploaded at: {{ uploadedarchive.uploaded_at|date:'Y-m-d H:i' }} <br>
 </p>
 
 
 
-<span data-bs-toggle="tooltip" title="Uploaded at: {{ uploadedarchive.uploaded_at|date:'Y-m-d H:i' }}">
-    <span class="fa-stack fa-sm" style="font-size:0.63em;">
-        <i class="bi bi-calendar fa-stack-2x"></i>
+{#<span data-bs-toggle="tooltip" title="Uploaded at: {{ uploadedarchive.uploaded_at|date:'Y-m-d H:i' }}">#}
+{#    <span class="fa-stack fa-sm" style="font-size:0.63em;">#}
+{#        <i class="bi bi-calendar fa-stack-2x"></i>#}
 {#        <i class="fa-solid fa-calendar fa-stack-2x"></i>#}
-        <i class="fa fa-arrow-up fa-stack-1x "></i>
-    </span>
-</span><br>
+{#        <i class="fa fa-arrow-up fa-stack-1x "></i>#}
+{#    </span>#}
+{#</span><br>#}
