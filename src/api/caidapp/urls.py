@@ -105,6 +105,11 @@ urlpatterns = [
         name="update_individual_identity",
     ),
     path(
+        "individual_identity/share/<str:identity_hash>",
+        views.shared_individual_identity_view,
+        name="shared_individual_identity",
+    ),
+    path(
         "delete_individual_identity/<int:individual_identity_id>",
         views.delete_individual_identity,
         name="delete_individual_identity",

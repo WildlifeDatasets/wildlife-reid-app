@@ -13,6 +13,7 @@
 * [added] List of camera trap checks
 * [added] Export XLSX for media files
 * [added] Links to location in cards
+* [added] Share Identity
 
 ## 05-2024
 

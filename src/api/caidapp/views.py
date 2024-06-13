@@ -1853,4 +1853,17 @@ def _refresh_media_file_original_name(request):
         mediafile.extract_original_filename()
 
 
+def shared_individual_identity_view(request, identity_hash:str):
+    identity = get_object_or_404(IndividualIdentity, hash=identity_hash)
+    mediafiles = MediaFile.objects.filter(identity=identity, identity_is_representative=True).all()
+
+    return render(
+        request,
+        "caidapp/identity_detail_public.html",
+        {
+            "identity": identity,
+            "mediafiles": mediafiles,
+        }
+    )
+
 
