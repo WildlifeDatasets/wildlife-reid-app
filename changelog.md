@@ -11,6 +11,7 @@
 * [added] Import locations by CSV or XLSX
 * [changed] Locality view reworked
 * [added] List of camera trap checks
+* [added] Export XLSX for media files
 
 ## 05-2024
 
