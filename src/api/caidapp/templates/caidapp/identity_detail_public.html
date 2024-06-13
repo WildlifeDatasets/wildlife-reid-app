@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+{% load widget_tweaks %}
+
+{% block head %}
+{#    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>#}
+    <script>
+        function copyToClipboard() {
+            const dummy = document.createElement('input');
+            const text = window.location.href;
+
+            document.body.appendChild(dummy);
+            dummy.value = text;
+            dummy.select();
+            document.execCommand('copy');
+            document.body.removeChild(dummy);
+
+            alert('URL copied to clipboard: ' + text);
+        }
+    </script>
+    <!-- Include jQuery -->
+
+{% endblock %}
+
+{% block body %}
+    {#<div class="container">#}
+    {% if user.is_authenticated %}
+        <div class="pagetitle">
+            <h1>{{ identity.name }}</h1>
+            <nav>
+                <button  class="btn btn-primary" onclick="copyToClipboard()">
+                    <i class="fas fa-link"></i>
+                    Copy URL</button>
+{#                <ol class="breadcrumb">#}
+{#                    <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li>#}
+{#                    <li class="breadcrumb-item"><a href="{% url 'caidapp:uploadedarchive_detail' mediafile.parent.id %}"> Uploaded#}
+{#                        Archive: {{ mediafile.parent }}</a></li>#}
+{#                </ol>#}
+            </nav>
+        </div><!-- End Page Title -->
+        <div class="container">
+            <p><strong>Name:</strong> {{ identity.name }}</p>
+            <p><strong>Code:</strong> {{ identity.code }}</p>
+            <p><strong>Juvenile Code:</strong> {{ identity.juv_code }}</p>
+            <p><strong>Sex:</strong> {{ identity.get_sex_display }}</p>
+            <p><strong>Coat Type:</strong> {{ identity.get_coat_type_display }}</p>
+            <p><strong>Workgroup</strong> {{ identity.owner_workgroup }}</p>
+
+        </div>
+        <div class="section">
+            <div class="row">
+                {% for mediafile in mediafiles %}
+                <div class="col-md-6">
+                    <img src="{{ mediafile.thumbnail.url }}" alt="Image" class="img-fluid">
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    {% endif %}
+    {#</div>#}
+{% endblock %}

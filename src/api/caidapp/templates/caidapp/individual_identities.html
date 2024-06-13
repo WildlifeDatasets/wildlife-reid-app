@@ -77,6 +77,12 @@
                            href="{% url 'caidapp:update_individual_identity' individual_identity.id %}">
                             <i class="bi bi-pencil"></i> Edit
                         </a>
+                        {% if individual_identity.hash %}
+                        <a class="btn btn-secondary"
+                           href="{% url 'caidapp:shared_individual_identity' individual_identity.hash %}">
+                            <i class="bi bi-share-fill"></i> Shared identity
+                        </a>
+                        {% endif %}
                     </div>
                 </div>
                 </div>

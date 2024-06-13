@@ -230,6 +230,7 @@ class IndividualIdentity(models.Model):
     note = models.TextField(blank=True)
     code = models.CharField(max_length=50, default=random_string12)
     juv_code = models.CharField("Juv. Code", max_length=50, default=random_string12)
+    hash = models.CharField(max_length=50, blank=True)
 
     def count_of_representative_mediafiles(self):
         return MediaFile.objects.filter(identity=self, identity_is_representative=True).count()
@@ -239,6 +240,17 @@ class IndividualIdentity(models.Model):
 
     def __str__(self):
         return str(self.name)
+
+    def save(self, *args, **kwargs):
+        if not self.hash:
+            self.hash = get_hash8()
+        super().save(*args, **kwargs)
+
+    def get_sex_display(self):
+        return dict(self.SEX_CHOICES).get(self.sex, 'Unknown')
+
+    def get_coat_type_display(self):
+        return dict(self.COAT_TYPE_CHOICES).get(self.coat_type, 'Unknown')
 
 
 class MediaFile(models.Model):
