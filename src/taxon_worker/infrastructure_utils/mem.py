@@ -32,17 +32,17 @@ def get_ram():
 
 
 def get_vram(device:Optional[torch.device]=None):
-    device = device if device else torch.cuda.current_device()
-    if torch.device(device).type == "cpu":
-        return 'No GPU available'
     try:
+        device = device if device else torch.cuda.current_device()
+        if torch.device(device).type == "cpu":
+            return 'No GPU available'
         free = torch.cuda.mem_get_info(device)[0] / 1024 ** 3
         total = torch.cuda.mem_get_info(device)[1] / 1024 ** 3
         total_cubes = 24
         free_cubes = int(total_cubes * free / total)
         return f'device:{device}    VRAM: {total - free:.1f}/{total:.1f}GB  VRAM:[' + (
                 total_cubes - free_cubes) * '▮' + free_cubes * '▯' + ']'
-    except ValueError:
+    except (ValueError, RuntimeError):
         logger.debug(f"device: {device}, {torch.cuda.is_available()=}")
         logger.error(f"Error: {traceback.format_exc()}")
         return 'No GPU available'

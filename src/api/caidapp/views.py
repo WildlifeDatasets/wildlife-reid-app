@@ -1,4 +1,5 @@
 import datetime
+from io import BytesIO
 import json
 import logging
 import os
@@ -1749,7 +1750,7 @@ def download_uploadedarchive_csv(request, uploadedarchive_id: int):
         messages.error(request, "Only the owner can download the file")
         return redirect("/caidapp/uploads")
 
-def download_csv_for_mediafiles(request):
+def download_csv_for_mediafiles_view(request):
     mediafile_ids = request.session.get('mediafile_ids', [])
     mediafiles = MediaFile.objects.filter(id__in=mediafile_ids)
 
@@ -1760,9 +1761,40 @@ def download_csv_for_mediafiles(request):
     except Exception as e:
         logger.error(traceback.format_exc())
         return HttpResponse("Error during export.", content_type="text/plain")
-    df = tasks.create_dataframe_from_mediafiles(mediafiles)
+    # df = tasks.create_dataframe_from_mediafiles(mediafiles)
     response = HttpResponse(df.to_csv(), content_type="text/csv")
     response["Content-Disposition"] = "attachment; filename=metadata.csv"
+    return response
+
+
+def download_xlsx_for_mediafiles_view(request):
+    mediafile_ids = request.session.get('mediafile_ids', [])
+    mediafiles = MediaFile.objects.filter(id__in=mediafile_ids)
+
+    try:
+        df = tasks.create_dataframe_from_mediafiles(mediafiles)
+        if df.empty:
+            return HttpResponse("No data available to export.", content_type="text/plain")
+    except Exception as e:
+        logger.error(traceback.format_exc())
+        return HttpResponse("Error during export.", content_type="text/plain")
+    # df = tasks.create_dataframe_from_mediafiles(mediafiles)
+
+    # convert timezone-aware datetime to naive datetime
+    for col in df.columns:
+        if df[col].dtype == 'datetime64[ns, UTC]':
+            df[col] = df[col].dt.tz_convert(None)
+
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Locations')
+
+    # Rewind the buffer
+    output.seek(0)
+
+    response = HttpResponse(output,
+                            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename=metadata.xlsx'
     return response
 
 def download_zip_for_mediafiles_view(request):
