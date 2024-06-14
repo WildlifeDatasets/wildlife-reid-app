@@ -4,11 +4,18 @@ import string
 from datetime import datetime
 from hashlib import sha1 as sha_constructor
 from pathlib import Path
+import pandas as pd
 
 from django.conf import settings
 
 logger = logging.getLogger("database")
 
+def convert_datetime_to_naive(df:pd.DataFrame) -> pd.DataFrame:
+    # convert timezone-aware datetime to naive datetime
+    for col in df.columns:
+        if df[col].dtype == 'datetime64[ns, UTC]':
+            df[col] = df[col].dt.tz_convert(None)
+    return df
 
 def generate_sha1(string, salt=None):
     """

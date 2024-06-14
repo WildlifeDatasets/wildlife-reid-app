@@ -190,6 +190,12 @@ class UploadedArchive(models.Model):
         self.location_at_upload_object = location
         self.location = location.name
 
+    def earliest_captured_taxon(self):
+        return MediaFile.objects.filter(parent=self).order_by("captured_at").first().category
+
+    def latest_captured_taxon(self):
+        return MediaFile.objects.filter(parent=self).order_by("-captured_at").first().category
+
     def update_earliest_and_latest_captured_at(self):
         """Update the earliest and latest captured at in the archive based on mediafiles."""
         mediafiles = MediaFile.objects.filter(parent=self)

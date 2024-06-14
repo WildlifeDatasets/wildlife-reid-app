@@ -15,6 +15,7 @@
 * [added] Links to location in cards
 * [added] Share Identity
 * [added] Show number of media files with taxon for identification
+* [added] First and last captured taxon in Camera Trap Check
 
 ## 05-2024
 

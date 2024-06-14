@@ -29,7 +29,7 @@ import shutil
 import pandas as pd
 
 from . import tasks
-from . import models
+from . import models, model_tools
 
 from .forms import (
     AlbumForm,
@@ -1781,9 +1781,7 @@ def download_xlsx_for_mediafiles_view(request):
     # df = tasks.create_dataframe_from_mediafiles(mediafiles)
 
     # convert timezone-aware datetime to naive datetime
-    for col in df.columns:
-        if df[col].dtype == 'datetime64[ns, UTC]':
-            df[col] = df[col].dt.tz_convert(None)
+    df = model_tools.convert_datetime_to_naive(df)
 
     output = BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:

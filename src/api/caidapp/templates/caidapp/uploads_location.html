@@ -13,8 +13,12 @@
                     <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li>
                 </ol>
 
-
+                <a class="btn btn-secondary" href="{% url 'caidapp:download_records_from_location_csv' location.hash %}">
+                    <i class="bi bi-download"></i> Download CSV </a>
+                <a class="btn btn-secondary" href="{% url 'caidapp:download_records_from_location_xls' location.hash %}">
+                    <i class="bi bi-download"></i> Download XLSX </a>
             </nav>
+
         </div><!-- End Page Title -->
         <section class="section">
             {#            <ul class="container">#}

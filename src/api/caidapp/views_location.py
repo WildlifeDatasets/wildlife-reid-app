@@ -12,7 +12,8 @@ from django.urls import reverse_lazy
 from . import forms
 from .forms import LocationForm
 from .models import Location, get_content_owner_filter_params, UploadedArchive
-from .model_extra import _user_has_rw_acces_to_uploadedarchive
+from .model_extra import _user_has_rw_acces_to_uploadedarchive, prepare_dataframe_for_uploads_in_one_location
+from . import model_tools
 
 logger = logging.getLogger("app")
 
@@ -199,4 +200,43 @@ def uploads_of_location(request, location_hash):
         {"location": location, "page_obj": uploaded_archives},
     )
 
+
+def download_records_from_location_csv_view(request, location_hash):
+    """Download records from location."""
+
+    location = get_object_or_404(
+        Location,
+        hash=location_hash,
+        **get_content_owner_filter_params(request.user.caiduser, "owner"),
+    )
+
+    df = prepare_dataframe_for_uploads_in_one_location(location.id)
+    response = HttpResponse(df.to_csv(encoding="utf-8"), content_type="text/csv")
+    response["Content-Disposition"] = "attachment; filename=location_checks.csv"
+    return response
+
+def download_records_from_location_xls_view(request, location_hash):
+    """Download records from location."""
+
+    location = get_object_or_404(
+        Location,
+        hash=location_hash,
+        **get_content_owner_filter_params(request.user.caiduser, "owner"),
+    )
+
+    df = prepare_dataframe_for_uploads_in_one_location(location.id)
+    df = model_tools.convert_datetime_to_naive(df)
+
+    # Create a BytesIO buffer to save the Excel file
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Location Checks')
+
+    # Rewind the buffer
+    output.seek(0)
+
+    response = HttpResponse(output,
+                            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename=location_checks.xlsx'
+    return response
 
