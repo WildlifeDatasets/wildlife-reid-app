@@ -12,11 +12,6 @@
                 <ol class="breadcrumb">
                     <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li>
                 </ol>
-                {%  if user.caiduser.import_dir|length > 0 %}
-                    <a class="btn btn-secondary" href="{% url 'caidapp:cloud_import_preview' %}"
-                    data-bs-toggle="tooltip" title="Location: "
-                    ><i class="bi bi-cloud-arrow-up"></i> Import from cloud</a>
-                {% endif %}
 
 
             </nav>
