@@ -19,7 +19,7 @@ from django.contrib.auth import logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView
 from django.core.paginator import Paginator
-from django.db.models import Count, Q, QuerySet
+from django.db.models import Count, Q, QuerySet, F
 from django.forms import modelformset_factory
 from django.http import HttpResponseBadRequest, HttpResponseNotAllowed, JsonResponse
 from django.shortcuts import Http404, HttpResponse, get_object_or_404, redirect, render
@@ -169,6 +169,8 @@ def uploadedarchive_detail(request, uploadedarchive_id):
 
 def uploads_identities(request):
     """List of uploads."""
+    order_by = uploaded_archive_get_order_by(request)
+
     uploadedarchives = (
         UploadedArchive.objects.filter(
             **get_content_owner_filter_params(request.user.caiduser, "owner"),
@@ -176,7 +178,7 @@ def uploads_identities(request):
             taxon_for_identification__isnull=False,
         )
         .all()
-        .order_by("-uploaded_at")
+        .order_by(order_by)
     )
 
     records_per_page = 12
@@ -231,6 +233,7 @@ def show_taxons(request):
 
 def uploads_species(request):
     """List of uploads."""
+    order_by = uploaded_archive_get_order_by(request)
     uploadedarchives = (
         UploadedArchive.objects.filter(
             **get_content_owner_filter_params(request.user.caiduser, "owner"),
@@ -238,7 +241,7 @@ def uploads_species(request):
             # parent__owner=request.user.caiduser
         )
         .all()
-        .order_by("-uploaded_at")
+        .order_by(order_by)
     )
 
     records_per_page = 12
@@ -1865,3 +1868,15 @@ def shared_individual_identity_view(request, identity_hash:str):
     )
 
 
+def set_sort_uploaded_archives_by(request, sort_by: str):
+    """Sort uploaded archives by."""
+    request.session['sort_uploaded_archives_by'] = sort_by
+
+    # go back to previous page
+    return redirect(request.META.get('HTTP_REFERER', '/'))
+
+
+def uploaded_archive_get_order_by(request):
+    """Get order by for uploaded archives."""
+    sort_by = request.session.get('sort_uploaded_archives_by', '-uploaded_at')
+    return sort_by
