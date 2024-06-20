@@ -163,7 +163,7 @@ def do_cloud_import_for_user(self, caiduser: CaIDUser):
     caiduser.dir_import_status = "Processing"
     caiduser.save()
     path = Path(caiduser.import_dir)
-    imported_dir = path / "_imported" / datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    imported_dir = path / "_del_me" / datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     imported_dir.mkdir(exist_ok=True, parents=True)
     dirs_to_be_deleted = []
     for yield_dict in _iterate_over_location_checks(path, caiduser):
@@ -1038,12 +1038,12 @@ def _iterate_over_location_checks(path: Path, caiduser: CaIDUser) -> Generator[S
         # remove extension if any
         pth_no_suffix = path_of_location_check.with_suffix("")
         # check if name is in format {location_name}_YYYY-MM-DD
-        if re.match(r".*_[0-9]{4}-[0-9]{2}-[0-9]{2}", pth_no_suffix.name):
+        if re.match(r"[0-9]{4}-[0-9]{2}-[0-9]{2}_.*", pth_no_suffix.name):
             # split name and date, date is in the end of the name in format YYYY-MM-DD,
             # location is in the beginning of dir or file name separated from date by underscore
-            date = pth_no_suffix.parts[-1].split("_")[-1]
-            # location is everything before the last underscore
-            location = "_".join(pth_no_suffix.parts[-1].split("_")[:-1])
+            date, location = pth_no_suffix.parts[-1].split("_", 1)
+            # location is everything after the last underscore
+            # location = "_".join(pth_no_suffix.parts[-1].split("_")[:-1])
             error_message = None
         elif re.match(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", pth_no_suffix.parts[-2]):
             # Mediafiles are organized in directory structure,
@@ -1079,7 +1079,7 @@ def _iterate_over_location_checks(path: Path, caiduser: CaIDUser) -> Generator[S
         zip_name = fs_data.remove_diacritics(f"{location}_{date}.zip").replace(" ", "_")
 
         relative_path = path_of_location_check.relative_to(path)
-        is_already_processed = relative_path.parts[0] in ("_imported", "#recycle")
+        is_already_processed = relative_path.parts[0] in ("_imported", "#recycle", "_del_me")
 
         yield_dict = SimpleNamespace(
             date=date,
