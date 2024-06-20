@@ -5,6 +5,10 @@
 
 ## 06-2024
 
+* [added] Order Camera Trap Checks
+* [added] First and last captured taxon in Camera Trap Check
+* [added] Links to location in cards
+* [added] Share Identity
 * [added] Show media files from location
 * [added] Measure GPU memory usage
 * [changed] Limit number of worker to 1 in taxon_worker and 1 in identification_worker
@@ -12,10 +16,7 @@
 * [changed] Locality view reworked
 * [added] List of camera trap checks
 * [added] Export XLSX for media files
-* [added] Links to location in cards
-* [added] Share Identity
 * [added] Show number of media files with taxon for identification
-* [added] First and last captured taxon in Camera Trap Check
 
 ## 05-2024
 

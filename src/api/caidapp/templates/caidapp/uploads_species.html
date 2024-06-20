@@ -24,6 +24,11 @@
                 <a class="btn {{ btn_styles.classify_non_classified }}" href="{% url 'caidapp:manual_taxon_classification_on_non_classified' %}"
                    data-bs-toggle="tooltip" title="{{ btn_tooltips.classify_non_classified }}"
                 >Classify non classified</a>
+
+{#                insert template uploads_order_by.html #}
+                {% include "caidapp/uploads_order_by.html" %}
+
+
             </nav>
         </div><!-- End Page Title -->
         <section class="section">

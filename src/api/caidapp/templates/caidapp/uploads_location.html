@@ -17,6 +17,7 @@
                     <i class="bi bi-download"></i> Download CSV </a>
                 <a class="btn btn-secondary" href="{% url 'caidapp:download_records_from_location_xls' location.hash %}">
                     <i class="bi bi-download"></i> Download XLSX </a>
+                {% include "caidapp/uploads_order_by.html" %}
             </nav>
 
         </div><!-- End Page Title -->

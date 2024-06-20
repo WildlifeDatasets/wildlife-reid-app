@@ -194,4 +194,6 @@ urlpatterns = [
     path("locations/checks/<str:location_hash>/", views_location.uploads_of_location, name="uploads_of_location"),
     path("locations/download_records_csv/<str:location_hash>/", views_location.download_records_from_location_csv_view, name="download_records_from_location_csv"),
     path("locations/download_records_xls/<str:location_hash>/", views_location.download_records_from_location_xls_view, name="download_records_from_location_xls"),
+    path("uploaded_archives/set_sort_by/<str:sort_by>/", views.set_sort_uploaded_archives_by, name="set_sort_uploaded_archives_by"),
 ]
+
