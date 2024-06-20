@@ -163,7 +163,7 @@ def do_cloud_import_for_user(self, caiduser: CaIDUser):
     caiduser.dir_import_status = "Processing"
     caiduser.save()
     path = Path(caiduser.import_dir)
-    imported_dir = path / "_del_me" / datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    imported_dir = path / "_trash_bin" / datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     imported_dir.mkdir(exist_ok=True, parents=True)
     dirs_to_be_deleted = []
     for yield_dict in _iterate_over_location_checks(path, caiduser):
@@ -317,10 +317,18 @@ def run_species_prediction_async(
     force_init: bool = False,
 ):
     """Run species prediction asynchronously."""
-    _run_taxon_classification_init_message(uploaded_archive, commit=False)
-    output_archive_file, output_dir, output_metadata_file = _run_taxon_classification_init(
-        uploaded_archive, commit=True
-    )
+    try:
+        _run_taxon_classification_init_message(uploaded_archive, commit=False)
+        output_archive_file, output_dir, output_metadata_file = _run_taxon_classification_init(
+            uploaded_archive, commit=True
+        )
+    except Exception as e:
+        logger.error(f"Error during init: {e}")
+        import traceback
+        uploaded_archive.status = "Failed"
+        uploaded_archive.status_message = traceback.format_exc()
+        uploaded_archive.save()
+        return
     logger.debug(f"updating uploaded archive, {uploaded_archive.csv_file=}")
     # csv_file = Path(settings.MEDIA_ROOT) / str(uploaded_archive.csv_file)
     # logger.debug(f"{csv_file} {Path(csv_file).exists()}")
@@ -1079,7 +1087,7 @@ def _iterate_over_location_checks(path: Path, caiduser: CaIDUser) -> Generator[S
         zip_name = fs_data.remove_diacritics(f"{location}_{date}.zip").replace(" ", "_")
 
         relative_path = path_of_location_check.relative_to(path)
-        is_already_processed = relative_path.parts[0] in ("_imported", "#recycle", "_del_me")
+        is_already_processed = relative_path.parts[0] in ("_imported", "#recycle", "_trash_bin")
 
         yield_dict = SimpleNamespace(
             date=date,
