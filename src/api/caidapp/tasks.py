@@ -1087,7 +1087,7 @@ def _iterate_over_location_checks(path: Path, caiduser: CaIDUser) -> Generator[S
         zip_name = fs_data.remove_diacritics(f"{location}_{date}.zip").replace(" ", "_")
 
         relative_path = path_of_location_check.relative_to(path)
-        is_already_processed = relative_path.parts[0] in ("_imported", "#recycle", "_trash_bin")
+        is_already_processed = relative_path.parts[0] in ("_imported", "#recycle", "_trash_bin", "_del_me")
 
         yield_dict = SimpleNamespace(
             date=date,
