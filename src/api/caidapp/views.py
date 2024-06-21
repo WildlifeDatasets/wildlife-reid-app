@@ -644,9 +644,10 @@ def run_taxon_classification_force_init(request, uploadedarchive_id):
 def run_taxon_classification(request, uploadedarchive_id, force_init=False):
     """Run processing of uploaded archive."""
     uploaded_archive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
-    next_page = request.GET.get("next", "/caidapp/uploads")
     run_species_prediction_async(uploaded_archive, force_init=force_init)
-    return redirect(next_page)
+    # next_page = request.GET.get("next", "/caidapp/uploads")
+    # return redirect(next_page)
+    return redirect(request.META.get('HTTP_REFERER', '/'))
 
 
 # def init_identification(request, taxon_str:str="Lynx Lynx"):
@@ -786,8 +787,9 @@ def run_identification_on_unidentified(request):
     ).all()
     for uploaded_archive in uploaded_archives:
         _run_identification(uploaded_archive)
-    next_page = request.GET.get("next", "caidapp:uploads_identities")
-    return redirect(next_page)
+    # next_page = request.GET.get("next", "caidapp:uploads_identities")
+    # return redirect(next_page)
+    return redirect(request.META.get('HTTP_REFERER', '/'))
 
 
 def run_identification(request, uploadedarchive_id):
@@ -797,8 +799,9 @@ def run_identification(request, uploadedarchive_id):
     if uploaded_archive.owner.workgroup != request.user.caiduser.workgroup:
         return HttpResponseNotAllowed("Identification is for workgroup members only.")
     _run_identification(uploaded_archive)
-    next_page = request.GET.get("next", "caidapp:uploads_identities")
-    return redirect(next_page)
+    # next_page = request.GET.get("next", "caidapp:uploads_identities")
+    # return redirect(next_page)
+    return redirect(request.META.get('HTTP_REFERER', '/'))
 
 
 def _run_identification(uploaded_archive: UploadedArchive, taxon_str="Lynx lynx"):
