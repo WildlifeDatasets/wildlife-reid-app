@@ -5,6 +5,9 @@
 
 ## 06-2024
 
+* [added] Download original file for mediafile
+* [added] Show mediafile in admin on detail view
+* [changed] return back to the previous page on running taxon_worker and identification_worker
 * [added] Order Camera Trap Checks
 * [added] First and last captured taxon in Camera Trap Check
 * [added] Links to location in cards

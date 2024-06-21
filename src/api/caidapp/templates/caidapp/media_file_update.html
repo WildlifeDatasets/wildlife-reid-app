@@ -18,25 +18,74 @@
             </nav>
         </div><!-- End Page Title -->
         <div class="section">
-            <div class="card">
-{#                <div class="card-header">#}
-{#                </div>#}
-                <div class="card-body">
+{#            <div class="row">#}
+{#                <div class="col-lg-8">#}
+                    <div class="card">
+                        {#                <div class="card-header">#}
+                        {#                </div>#}
+                        <div class="card-body">
 
 
-                    <form method="post" enctype="multipart/form-data" class="mt-3">
-                        {% csrf_token %}
-                        {{ form }}
-                        {#                {{ form.as_p }}#}
-                        <button class="btn btn-primary" id="btnUpload" type="submit">
-                            {{ button }}
-                        </button>
+                            <div style="display: flex; justify-content: space-between">
+                                <form method="post" enctype="multipart/form-data" class="mt-3">
+                                    {% csrf_token %}
+                                    {{ form }}
+                                    {#                {{ form.as_p }}#}
+                                    <button class="btn btn-primary" id="btnUpload" type="submit">
+                                        {{ button }}
+                                    </button>
 
-                    </form>
-                </div>
+                                </form>
 
-{#                <img src="{{ mediafile.mediafile.url }}" class="card-img-bottom" alt="Camera trap image">#}
-            </div>
+
+
+                                <div class="dropdown mt-3">
+    {#                                <div class="dropdown d-inline-block">#}
+                                    <a class="btn btn-secondary dropdown-toggle" href="#" role="button"
+                                       data-bs-toggle="dropdown" aria-expanded="false">
+                                        <i class="bi bi-three-dots"></i>
+                                    </a>
+
+                                    <ul class="dropdown-menu">
+                                        {% if request.user.is_staff %}
+
+                                            <li>
+                                                <a class="dropdown-item"
+                                                   href="{% url 'admin:caidapp_mediafile_change' mediafile.id %}">
+                                                    <i class="bi bi-lock"></i>
+                                                    Edit in admin
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <hr class="dropdown-divider">
+                                            </li>
+                                        {% endif %}
+                                        <li>
+
+{#                                            download mediafile#}
+                                            <a class="dropdown-item"
+                                               href="{{ mediafile.mediafile.url }}" download>
+                                                <i class="bi bi-download"></i> Download mediafile
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item text-danger"
+                                               href="{% url 'caidapp:delete_mediafile' mediafile.id %}"
+                                               onclick="return confirm('Delete file {{ mediafile }}?')">
+                                                <i class="bi bi-trash"></i> Delete
+                                            </a>
+
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        {#                <img src="{{ mediafile.mediafile.url }}" class="card-img-bottom" alt="Camera trap image">#}
+{#                    </div>#}
+                    </div>
+
+{#            </div>#}
             <img src="{{ mediafile.mediafile.url }}" class="img-fluid" alt="Camera trap image">
         </div>
     {% endif %}
