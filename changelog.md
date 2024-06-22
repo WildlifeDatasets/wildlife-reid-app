@@ -5,6 +5,7 @@
 
 ## 06-2024
 
+* [added] video files are streamed in the detail view
 * [added] Download original file for mediafile
 * [added] Show mediafile in admin on detail view
 * [changed] return back to the previous page on running taxon_worker and identification_worker

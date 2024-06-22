@@ -555,8 +555,8 @@ def _update_database_by_one_row_of_metadata(
     # rel_pth, _ = _get_rel_and_abs_paths_based_on_csv_row(row, output_dir)
     image_abs_pth = output_dir / "images" / row["image_path"]
     image_rel_pth = image_abs_pth.relative_to(settings.MEDIA_ROOT)
-    # media_abs_pth = Path(row["absolute_media_path"])
-    # media_rel_pth = media_abs_pth.relative_to(settings.MEDIA_ROOT)
+    media_abs_pth = Path(row["absolute_media_path"])
+    media_rel_pth = media_abs_pth.relative_to(settings.MEDIA_ROOT)
     captured_at = row["datetime"]
     logger.debug(f"{captured_at=}, {type(captured_at)}")
     if (captured_at == "") or (isinstance(captured_at, float) and np.isnan(captured_at)):
@@ -574,11 +574,12 @@ def _update_database_by_one_row_of_metadata(
             # TODO use media_rel_pth instead of image_rel_pth
             mf = MediaFile(
                 parent=uploaded_archive,
-                mediafile=str(image_rel_pth),
-                # mediafile=str(media_rel_pth),
+                # mediafile=str(image_rel_pth),
+                mediafile=str(media_rel_pth),
                 image_file=str(image_rel_pth),
                 captured_at=captured_at,
                 location=location,
+                media_type=row["media_type"],
                 # metadata_json=row["detection_results"],
                 # metadata_json=metadata_json,
             )
@@ -589,6 +590,8 @@ def _update_database_by_one_row_of_metadata(
                 mf.identity_is_representative = True
             if "vanilla_path" in row:
                 mf.original_filename = row["vanilla_path"]
+            # if "media_type" in row:
+            #     mf.media_type = str(row["media_type"])
             # logger.debug(f"{mf.identity_is_representative}")
             mf.save()
             # logger.debug(f"Created new Mediafile {mf}")
