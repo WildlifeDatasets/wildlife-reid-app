@@ -963,7 +963,7 @@ def upload_archive(
                     f"Uploaded file with extension '{uploaded_archive_suffix}' is not an archive."
                 )
                 messages.warning(
-                    f"Uploaded file with extension '{uploaded_archive_suffix}' is not an archive."
+                    request, f"Uploaded file with extension '{uploaded_archive_suffix}' is not an archive."
                 )
 
             uploaded_archive.owner = request.user.caiduser

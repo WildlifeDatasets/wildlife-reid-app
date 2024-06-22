@@ -2,6 +2,7 @@ from django.urls import path
 
 from . import views_location
 from . import views
+from . import views_mediafile
 
 app_name = "caidapp"
 urlpatterns = [
@@ -195,5 +196,6 @@ urlpatterns = [
     path("locations/download_records_csv/<str:location_hash>/", views_location.download_records_from_location_csv_view, name="download_records_from_location_csv"),
     path("locations/download_records_xls/<str:location_hash>/", views_location.download_records_from_location_xls_view, name="download_records_from_location_xls"),
     path("uploaded_archives/set_sort_by/<str:sort_by>/", views.set_sort_uploaded_archives_by, name="set_sort_uploaded_archives_by"),
+    path("stream_video/<int:mediafile_id>/", views_mediafile.stream_video, name="stream_video"),
 ]
 
