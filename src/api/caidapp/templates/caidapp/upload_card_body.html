@@ -23,21 +23,41 @@
             {{ uploadedarchive.location_at_upload_object.name }}
         {% endif %}
     </span><br>
+    {% if uploadedarchive.earliest_captured_at %}
     {{ uploadedarchive.earliest_captured_at|date:'Y-m-d' }} - {{ uploadedarchive.latest_captured_at|date:'Y-m-d' }}<br>
-    Media files: {{ uploadedarchive.count_of_mediafiles }}<br>
-    Representative media files: {{ uploadedarchive.count_of_representative_mediafiles }} <br>
-    {% if uploadedarchive.count_of_mediafiles_with_taxon_for_identification %}
-        Mediafiles with taxon {{ uploadedarchive.taxon_for_identification }}: {{ uploadedarchive.count_of_mediafiles_with_taxon_for_identification }}<br>
     {% endif %}
     <span
-        data-bs-toggle="tooltip" title="{{ uploadedarchive.status_message }}"
+            data-bs-toggle="tooltip" title="{{ uploadedarchive.status_message }}"
     >Status: {{ uploadedarchive.status }} </span><br>
-
-    {%  if uploadedarchive.animal_number %}
-        Count: {{ uploadedarchive.animal_number }}<br>
+    {% if uploadedarchive.started_at %}
+        Started at: {{ uploadedarchive.started_at|date:'Y-m-d H:i' }} <br>
     {% endif %}
     {% if uploadedarchive.finished_at %}
         Finished at: {{ uploadedarchive.finished_at|date:'Y-m-d H:i' }} <br>
+    {% endif %}
+
+    <i class="fa-solid fa-hippo"></i>
+    {% if uploadedarchive.has_all_taxons %}
+        {% if uploadedarchive.taxons_are_overviewed %}
+            <i class="bi bi-check-all"></i>
+    {#        <i class="bi bi-check"></i>#}
+        {% else %}
+            <i class="bi bi-check"></i>
+        {% endif %}
+    {% endif %}
+    <br>
+
+    Media files: {{ uploadedarchive.count_of_mediafiles }}<br>
+    Representative media files: {{ uploadedarchive.count_of_representative_mediafiles }} <br>
+    Count of taxons: {{ uploadedarchive.count_of_taxons }}<br>
+    Media files with missing taxon: {{ uploadedarchive.count_of_mediafiles_with_missing_taxon }}<br>
+    Count of idetities: {{ uploadedarchive.count_of_identities }}<br>
+    {% if uploadedarchive.count_of_mediafiles_with_taxon_for_identification %}
+        Mediafiles with taxon {{ uploadedarchive.taxon_for_identification }}: {{ uploadedarchive.count_of_mediafiles_with_taxon_for_identification }}<br>
+    {% endif %}
+
+    {%  if uploadedarchive.animal_number %}
+        Count: {{ uploadedarchive.animal_number }}<br>
     {% endif %}
 {#    <i class="fa-solid fa-calendar"></i>#}
     Uploaded at: {{ uploadedarchive.uploaded_at|date:'Y-m-d H:i' }} <br>

@@ -1,0 +1,27 @@
+
+<div class="btn-group text-right">
+    {% if not show_overview_button %}
+    <div class="dropdown">
+        <button class="btn btn-secondary dropdown-toggle btn-sm" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+            Order By
+        </button>
+        <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="{% url 'caidapp:set_mediafiles_order_by' '-captured_at' %}">▼ Captured At</a></li>
+            <li><a class="dropdown-item" href="{% url 'caidapp:set_mediafiles_order_by' 'captured_at' %}">▲ Captured At</a></li>
+            <li><a class="dropdown-item" href="{% url 'caidapp:set_mediafiles_order_by' '-category__name' %}">▼ Taxon</a></li>
+            <li><a class="dropdown-item" href="{% url 'caidapp:set_mediafiles_order_by' 'category__name' %}">▲ Taxon</a></li>
+        </ul>
+    </div>
+    {% endif %}
+    <div class="dropdown">
+        <button class="btn btn-secondary dropdown-toggle btn-sm" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+            Items Per Page
+        </button>
+        <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="{% url 'caidapp:set_mediafiles_records_per_page' 12 %}"> 12 </a></li>
+            <li><a class="dropdown-item" href="{% url 'caidapp:set_mediafiles_records_per_page' 24 %}"> 24 </a></li>
+            <li><a class="dropdown-item" href="{% url 'caidapp:set_mediafiles_records_per_page' 48 %}"> 48 </a></li>
+            <li><a class="dropdown-item" href="{% url 'caidapp:set_mediafiles_records_per_page' 96 %}"> 96 </a></li>
+        </ul>
+    </div>
+</div>

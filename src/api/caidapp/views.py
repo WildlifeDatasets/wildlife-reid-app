@@ -19,9 +19,9 @@ from django.contrib.auth import logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView
 from django.core.paginator import Paginator
-from django.db.models import Count, Q, QuerySet, F
+from django.db.models import Count, Q, QuerySet
 from django.forms import modelformset_factory
-from django.http import HttpResponseBadRequest, HttpResponseNotAllowed, JsonResponse
+from django.http import HttpResponseBadRequest, HttpResponseNotAllowed, JsonResponse, HttpResponseRedirect
 from django.shortcuts import Http404, HttpResponse, get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector
@@ -117,30 +117,6 @@ def media_files(request):
     )
 
 
-def manual_taxon_classification_on_non_classified(request):
-    """List of uploads."""
-    # pick random non-classified media file
-    mediafile = (
-        MediaFile.objects.filter(
-            **get_content_owner_filter_params(request.user.caiduser, "parent__owner"),
-            # parent__owner__workgroup=request.user.caiduser.workgroup, # but this would work too
-            category__name="Not Classified",
-            parent__contains_single_taxon=False,
-        )
-        .order_by("?")
-        .first()
-    )
-    if mediafile is None:
-        return message(request, "No non-classified media files.")
-    return media_file_update(
-        request,
-        mediafile.id,
-        next_text="Save",
-        next_url=reverse_lazy("caidapp:manual_taxon_classification_on_non_classified"),
-        skip_url=reverse_lazy("caidapp:manual_taxon_classification_on_non_classified"),
-    )
-
-
 def message(request, message):
     """Show message."""
     return render(
@@ -181,7 +157,7 @@ def uploads_identities(request):
         .order_by(order_by)
     )
 
-    records_per_page = 12
+    records_per_page = get_item_number_uploaded_archives(request)
     paginator = Paginator(uploadedarchives, per_page=records_per_page)
 
     page_number = request.GET.get("page")
@@ -244,7 +220,7 @@ def uploads_species(request):
         .order_by(order_by)
     )
 
-    records_per_page = 12
+    records_per_page = get_item_number_uploaded_archives(request)
     paginator = Paginator(uploadedarchives, per_page=records_per_page)
 
     page_number = request.GET.get("page")
@@ -280,6 +256,7 @@ def _multiple_species_button_style_and_tooltips(request) -> dict:
             "upload_species": "btn-secondary",
             "classify_non_classified": "btn-primary",
         }
+    btn_styles["overview_taxons"] = "btn-secondary"
     return btn_styles, btn_tooltips
 
 
@@ -318,12 +295,23 @@ def media_file_update(request, media_file_id, next_text="Save", next_url=None, s
             mediafile.updated_at = django.utils.timezone.now()
             # get uploaded archive
             mediafile = form.save()
-            if next_url is None:
-                next_url = reverse_lazy(
-                    "caidapp:uploadedarchive_detail",
-                    kwargs={"uploadedarchive_id": mediafile.parent.id},
-                )
-            return redirect(next_url)
+            logger.debug(f"{mediafile.category=}")
+            if (mediafile.category is not None) and (mediafile.category.name != "Not Classified"):
+                mediafile.taxon_overviewed = True
+                mediafile.taxon_overviewed_at = django.utils.timezone.now()
+                mediafile.save()
+
+            if next_url:
+                return HttpResponseRedirect(next_url)
+            else:
+                next_url = request.GET.get('next')
+
+                if next_url is None:
+                    next_url = reverse_lazy(
+                        "caidapp:uploadedarchive_detail",
+                        kwargs={"uploadedarchive_id": mediafile.parent.id},
+                    )
+                return redirect(next_url)
 
     else:
         form = MediaFileForm(instance=mediafile)
@@ -710,6 +698,7 @@ def init_identification(request, taxon_str: str = "Lynx lynx"):
     return redirect("caidapp:uploads_identities")
 
 
+# TODO rename to identification button style
 def _single_species_button_style(request) -> dict:
 
     is_initiated = request.user.caiduser.workgroup.identification_init_at is not None
@@ -1212,8 +1201,13 @@ def _mediafiles_query(
     uploadedarchive_id=None,
     identity_is_representative=None,
     location_hash=None,
+    order_by:Optional[str]=None,
+    taxon_overviewed:Optional[bool]=None,
 ):
     """Prepare list of mediafiles based on query search in category and location."""
+
+    if order_by is None:
+        order_by = request.session.get("mediafiles_order_by", "-parent__uploaded_at")
     mediafiles = (
         MediaFile.objects.filter(
             Q(album__albumsharerole__user=request.user.caiduser)
@@ -1221,12 +1215,14 @@ def _mediafiles_query(
             | Q(parent__owner__workgroup=request.user.caiduser.workgroup)
         )
         .distinct()
-        .order_by("-parent__uploaded_at")
+        .order_by(order_by)
     )
+    if taxon_overviewed is not None:
+        mediafiles = mediafiles.filter(taxon_overviewed=taxon_overviewed).all()
     if album_hash is not None:
         album = get_object_or_404(Album, hash=album_hash)
         mediafiles = (
-            mediafiles.filter(album=album).all().distinct().order_by("-parent__uploaded_at")
+            mediafiles.filter(album=album).all().distinct().order_by(order_by)
         )
     if individual_identity_id is not None:
         individual_identity = get_object_or_404(IndividualIdentity, pk=individual_identity_id)
@@ -1234,12 +1230,12 @@ def _mediafiles_query(
             mediafiles.filter(identity=individual_identity)
             .all()
             .distinct()
-            .order_by("-parent__uploaded_at")
+            .order_by(order_by)
         )
     if taxon_id is not None:
         taxon = get_object_or_404(Taxon, pk=taxon_id)
         mediafiles = (
-            mediafiles.filter(category=taxon).all().distinct().order_by("-parent__uploaded_at")
+            mediafiles.filter(category=taxon).all().distinct().order_by(order_by)
         )
     if uploadedarchive_id is not None:
         uploadedarchive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
@@ -1247,19 +1243,19 @@ def _mediafiles_query(
             mediafiles.filter(parent=uploadedarchive)
             .all()
             .distinct()
-            .order_by("-parent__uploaded_at")
+            .order_by(order_by)
         )
     if identity_is_representative is not None:
         mediafiles = (
             mediafiles.filter(identity_is_representative=identity_is_representative)
             .all()
             .distinct()
-            .order_by("-parent__uploaded_at")
+            .order_by(order_by)
         )
     if location_hash is not None:
         location = get_object_or_404(Location, hash=location_hash)
         mediafiles = (
-            mediafiles.filter(location=location).all().distinct().order_by("-parent__uploaded_at")
+            mediafiles.filter(location=location).all().distinct().order_by(order_by)
         )
 
     if len(query) == 0:
@@ -1400,16 +1396,22 @@ def _taxon_stats_for_mediafiles(mediafiles: Union[QuerySet, List[MediaFile]]) ->
 
 def media_files_update(
     request,
-    records_per_page=80,
+    records_per_page:Optional[int]=None,
     album_hash=None,
     individual_identity_id=None,
     taxon_id=None,
     uploadedarchive_id=None,
     identity_is_representative=None,
     location_hash=None,
+    show_overview_button=False,
+    order_by=None,
+    taxon_overviewed:Optional[bool]=None,
 ) -> Union[QuerySet, List[MediaFile]]:
     """List of mediafiles based on query with bulk update of category."""
     # create list of mediafiles
+
+    if records_per_page is None:
+        records_per_page = request.session.get("mediafiles_records_per_page", 20)
     if request.method == "POST":
         queryform = MediaFileSetQueryForm(request.POST)
         if queryform.is_valid():
@@ -1449,6 +1451,8 @@ def media_files_update(
         uploadedarchive_id=uploadedarchive_id,
         identity_is_representative=identity_is_representative,
         location_hash=location_hash,
+        order_by=order_by,
+        taxon_overviewed=taxon_overviewed,
     )
     number_of_mediafiles = len(full_mediafiles)
 
@@ -1456,7 +1460,12 @@ def media_files_update(
 
     paginator = Paginator(full_mediafiles, per_page=records_per_page)
 
-    page_mediafiles = paginator.get_page(page_number)
+    page_with_mediafiles = paginator.get_page(page_number)
+    # mediafiles_of_page = list(page_with_mediafiles)
+
+    # page_ids = list(page_with_mediafiles.object_list.values_list('id', flat=True))
+    page_ids = [obj.id for obj in page_with_mediafiles.object_list]
+    request.session['mediafile_ids_page'] = page_ids
 
     MediaFileFormSet = modelformset_factory(MediaFile, form=MediaFileSelectionForm, extra=0)
     if (request.method == "POST") and (
@@ -1537,13 +1546,13 @@ def media_files_update(
             logger.debug(form.errors)
         # queryform = MediaFileSetQueryForm(request.POST)
         form_bulk_processing = MediaFileBulkForm()
-        page_query = full_mediafiles.filter(id__in=[object.id for object in page_mediafiles])
+        page_query = full_mediafiles.filter(id__in=[object.id for object in page_with_mediafiles])
         form = MediaFileFormSet(queryset=page_query)
     else:
 
         logger.debug("initial form processing")
         form_bulk_processing = MediaFileBulkForm()
-        page_query = full_mediafiles.filter(id__in=[object.id for object in page_mediafiles])
+        page_query = full_mediafiles.filter(id__in=[object.id for object in page_with_mediafiles])
         form = MediaFileFormSet(queryset=page_query)
 
     logger.debug("ready to render page")
@@ -1551,7 +1560,7 @@ def media_files_update(
         request,
         "caidapp/media_files_update.html",
         {
-            "page_obj": page_mediafiles,
+            "page_obj": page_with_mediafiles,
             "form_objects": form,
             "page_title": "Media files",
             "user_is_staff": request.user.is_staff,
@@ -1559,6 +1568,7 @@ def media_files_update(
             "form_query": queryform,
             "albums_available": albums_available,
             "number_of_mediafiles": number_of_mediafiles,
+            "show_overview_button": show_overview_button,
             # "map_html": map_html,
             # "taxon_stats_html": taxon_stats_html,
         },
@@ -1850,6 +1860,9 @@ def refresh_data(request):
 
     _refresh_media_file_original_name(request)
 
+    # get taxon (and create it if it does not exist
+    models.get_taxon("Unclassifiable")
+
     return redirect("caidapp:uploads")
 
 def _refresh_media_file_original_name(request):
@@ -1883,3 +1896,17 @@ def uploaded_archive_get_order_by(request):
     """Get order by for uploaded archives."""
     sort_by = request.session.get('sort_uploaded_archives_by', '-uploaded_at')
     return sort_by
+
+
+def set_item_number_uploaded_archives(request, item_number:int):
+    """Sort uploaded archives by."""
+    request.session['item_number_uploaded_archives'] = item_number
+
+    # go back to previous page
+    return redirect(request.META.get('HTTP_REFERER', '/'))
+
+def get_item_number_uploaded_archives(request):
+    """Get order by for uploaded archives."""
+    item_number = request.session.get('item_number_uploaded_archives', 12)
+    return item_number
+

@@ -8,9 +8,16 @@
         <div class="pagetitle">
             <h1>{{ page_title }}</h1>
             <nav>
-                <ol class="breadcrumb">
-                    <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li>
-                </ol>
+
+                <div class="d-flex justify-content-between">
+                    <div>
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li>
+                    </ol>
+                    </div>
+                    {%  include "caidapp/mediafiles_order_by.html" %}
+                </div>
+
             </nav>
             {#            <input id="search_here" class="form-control mb-3" placeholder="type here to search.."/>#}
 
@@ -107,8 +114,15 @@
                         </div>
 
                     </div>
+                        {%  if show_overview_button %}
+                            <a class="btn btn-primary mt-2" href="{% url 'caidapp:taxons_on_page_are_overviewed' %}">
+                                <i class="bi bi-check"></i> Mark all taxons on this page as overviewed
+                            </a>
+                        {% endif %}
 
-                    {% include "caidapp/pagination_submit.html" %}
+                    <div class="mt-2">
+                        {% include "caidapp/pagination_submit.html" %}
+                    </div>
                     <div class="row" id="row-of-cards">
 
                         {% for mediafile in form_objects %}
@@ -130,7 +144,12 @@
                                     <div class="card-body mt-2">
 
                                         {#                                                                    <h5 class="card-title">{{ mediafile.instance }}</h5>#}
-                                        <p class="card-text"> Category: {{ mediafile.instance.category }}</p>
+                                        <p class="card-text"> Taxon: {{ mediafile.instance.category }}
+                                            {% if mediafile.instance.taxon_overviewed %}
+                                                <i class="fa-solid fa-hippo"></i>
+                                                <i class="bi bi-check"></i>
+                                            {% endif %}
+                                        </p>
                                         <p class="card-text">Location: <span data-bs-toggle="tooltip" title="Location: {{ mediafile.location.name }}">{{ mediafile.location.visible_name }}</span></p>
                                         <p class="card-text"> Identity: {{ mediafile.instance.identity }}
                                             {% if mediafile.instance.identity_is_representative %}
@@ -145,8 +164,8 @@
                                             at: {{ mediafile.instance.captured_at|date:'Y-m-d H:i' }}</p>
 
 
-                                        <a class="btn btn-primary"
-                                           href="{% url 'caidapp:media_file_update' mediafile.instance.id %}">
+                                        <a class="btn btn-secondary"
+                                           href="{% url 'caidapp:media_file_update' mediafile.instance.id %}?next={{ request.get_full_path }}">
                                             <i class="bi bi-pencil"></i> Detail
                                         </a>
 
@@ -174,7 +193,20 @@
                             </div>
 
                         {% endfor %}
-                        {% include "caidapp/pagination_submit.html" %}
+
+
+
+                        {%  if show_overview_button %}
+                            <div class="mt-2">
+                            <a class="btn btn-primary mt-2" href="{% url 'caidapp:taxons_on_page_are_overviewed' %}">
+                                <i class="bi bi-check"></i> Mark all taxons on this page as overviewed
+                            </a>
+                            </div>
+                        {% endif %}
+
+                        <div class="mt-2">
+                            {% include "caidapp/pagination_submit.html" %}
+                        </div>
 
                     </div>
                 {% else %}

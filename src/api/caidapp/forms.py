@@ -129,3 +129,7 @@ class MediaFileSetQueryForm(forms.Form):
 
 class LocationImportForm(forms.Form):
     spreadsheet_file = forms.FileField()
+
+
+class UploadedArchiveFilterForm():
+    pass

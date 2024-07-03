@@ -86,7 +86,6 @@
                     </div>
 
 {#            </div>#}
-            {{ mediafile.media_type }}
             {% if mediafile.media_type == 'video' %}
                 <video controls width="640" height="360">
                     <source src="{% url 'caidapp:stream_video' mediafile.id %}" type="video/mp4">
@@ -94,7 +93,7 @@
                 </video>
 
             {% else %}
-                <img src="{{ mediafile.image_file.url }}" class="img-fluid" alt="Camera trap image">
+                <img src="{{ mediafile.mediafile.url }}" class="img-fluid" alt="Camera trap image">
             {% endif  %}
         </div>
     {% endif %}

@@ -176,7 +176,7 @@ urlpatterns = [
     ),
     path(
         "manual_taxon_classification_on_non_classified",
-        views.manual_taxon_classification_on_non_classified,
+        views_mediafile.manual_taxon_classification_on_non_classified,
         name="manual_taxon_classification_on_non_classified",
     ),
     path("sample_data/", views.sample_data, name="sample_data"),
@@ -196,6 +196,11 @@ urlpatterns = [
     path("locations/download_records_csv/<str:location_hash>/", views_location.download_records_from_location_csv_view, name="download_records_from_location_csv"),
     path("locations/download_records_xls/<str:location_hash>/", views_location.download_records_from_location_xls_view, name="download_records_from_location_xls"),
     path("uploaded_archives/set_sort_by/<str:sort_by>/", views.set_sort_uploaded_archives_by, name="set_sort_uploaded_archives_by"),
+    path("uploaded_archives/set_item_number/<int:item_number>/", views.set_item_number_uploaded_archives, name="set_item_number_uploaded_archives"),
     path("stream_video/<int:mediafile_id>/", views_mediafile.stream_video, name="stream_video"),
+    path("mediafiles/overview_taxons/", views_mediafile.overview_taxons, name="overview_taxons"),
+    path("mediafiles/taxons_on_page_are_overviewed/", views_mediafile.taxons_on_page_are_overviewed, name="taxons_on_page_are_overviewed"),
+    path("mediafiles/set_mediafiles_order_by/<str:order_by>/", views_mediafile.set_mediafiles_order_by, name="set_mediafiles_order_by"),
+    path("mediafiles/set_mediafiles_records_per_page/<int:records_per_page>/", views_mediafile.set_mediafiles_records_per_page, name="set_mediafiles_records_per_page"),
 ]
 

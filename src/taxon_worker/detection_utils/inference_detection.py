@@ -170,6 +170,38 @@ def detect_animals_in_one_image(image_rgb: np.ndarray) -> Optional[List[Dict[str
     return results_list
 
 
+def human_annonymization(rgb_image: np.ndarray, bboxes: List[List[int]]) -> np.ndarray:
+    """Annonymize humans in the image."""
+    # get bbox and image
+    for bbox in bboxes:
+        x0, y0, x1, y1 = bbox
+        w, h = x1 - x0, y1 - y0
+        cropped_image = rgb_image[y0:y1, x0:x1]
+
+        # add padding
+        dif = np.abs(w - h)
+        pad_value_0 = np.floor(dif / 2).astype(int)
+        pad_value_1 = dif - pad_value_0
+        pad_w = 0
+        pad_h = 0
+
+        if w > h:
+            y0 -= pad_value_0
+            y1 += pad_value_1
+            pad_h += pad_value_0
+        else:
+            x0 -= pad_value_0
+            x1 += pad_value_1
+            pad_w += pad_value_0
+
+        border = np.round((np.max([w, h]) * (0.25 / 2)) / 2).astype(int)
+        pad_w += border
+        pad_h += border
+
+        padded_image = np.pad(cropped_image, ((pad_h, pad_h), (pad_w, pad_w), (0, 0)), mode="constant")
+        rgb_image[y0:y1, x0:x1] = padded_image
+    return rgb_image
+
 def detect_animal_on_metadata(metadata: pd.DataFrame, border=0.0) -> pd.DataFrame:
     """Do the detection and segmentation on images in metadata.
 
@@ -191,6 +223,9 @@ def detect_animal_on_metadata(metadata: pd.DataFrame, border=0.0) -> pd.DataFram
             image = cv2.imread(str(image_abs_path))
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
             results = detect_animals_in_one_image(image_rgb=image)
+
+            # "bbox": list(int(_) for _ in results[i][:4].tolist()),
+
 
             if results is None:
                 # there are no detected animals in image
