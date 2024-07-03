@@ -13,11 +13,16 @@
                     <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li>
                 </ol>
 
-                <a class="btn btn-secondary" href="{% url 'caidapp:download_records_from_location_csv' location.hash %}">
-                    <i class="bi bi-download"></i> Download CSV </a>
-                <a class="btn btn-secondary" href="{% url 'caidapp:download_records_from_location_xls' location.hash %}">
-                    <i class="bi bi-download"></i> Download XLSX </a>
-                {% include "caidapp/uploads_order_by.html" %}
+                <div class="d-flex justify-content-between">
+                    <div>
+{#                    <div class="btn-group">#}
+                    <a class="btn btn-secondary" href="{% url 'caidapp:download_records_from_location_csv' location.hash %}">
+                        <i class="bi bi-download"></i> Download CSV </a>
+                    <a class="btn btn-secondary" href="{% url 'caidapp:download_records_from_location_xls' location.hash %}">
+                        <i class="bi bi-download"></i> Download XLSX </a>
+                    </div>
+                    {% include "caidapp/uploads_order_by.html" %}
+                </div>
             </nav>
 
         </div><!-- End Page Title -->

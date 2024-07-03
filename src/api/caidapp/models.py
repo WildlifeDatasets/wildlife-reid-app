@@ -8,6 +8,7 @@ from typing import Optional, Union
 import codenamize
 from django.contrib.auth import get_user_model
 from django.db import models
+from django.db.models import Q
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from location_field.models.plain import PlainLocationField
@@ -220,6 +221,36 @@ class UploadedArchive(models.Model):
     def __str__(self):
         return str(Path(self.archivefile.name).name)
 
+    def taxons_are_overviewed(self):
+        return self.mediafile_set.filter(taxon_overviewed=True).count() != 0
+
+    def mediafiles_with_missing_taxon(self):
+        not_classified_taxon = Taxon.objects.get(name="Not Classified")
+        animalia_taxon = Taxon.objects.get(name="Animalia")
+        return self.mediafile_set.filter(
+            Q(category=None) | Q(category=not_classified_taxon) |
+            (Q(category=animalia_taxon) & Q(taxon_overviewed=False))
+        )
+    def count_of_mediafiles_with_missing_taxon(self):
+        return self.mediafiles_with_missing_taxon().count()
+
+    def has_all_taxons(self):
+        return self.count_of_mediafiles_with_missing_taxon() == 0
+
+    def count_of_identities(self):
+        return self.mediafile_set.filter(
+            Q(identity__isnull=False)
+        ).values('identity').distinct().count()
+
+    def count_of_taxons(self):
+        """return number of unique taxons in the archive"""
+        not_classified_taxon = Taxon.objects.get(name="Not Classified")
+        return self.mediafile_set.filter(
+            Q(category=None) | Q(category=not_classified_taxon)
+            ).values('category').distinct().count()
+
+
+
 
 class IndividualIdentity(models.Model):
     SEX_CHOICES = (
@@ -300,6 +331,10 @@ class MediaFile(models.Model):
     media_type = models.CharField(max_length=255, blank=True, default="image")
     orientation = models.CharField(max_length=2, choices=ORIENTATION_CHOICES, default="N")
     original_filename = models.CharField(max_length=512, blank=True, default="")
+
+    taxon_overviewed = models.BooleanField("Taxon overviewed", default=False)
+    taxon_overviewed_at = models.DateTimeField("Taxon overviewed at", blank=True, null=True)
+    # taxon_overviewed_by = models.ForeignKey("Taxon overviewed by", CaIDUser, on_delete=models.SET_NULL, null=True, blank=True, related_name="taxon_overviewed_by")
 
     class Meta:
         ordering = ["-identity_is_representative", "captured_at"]

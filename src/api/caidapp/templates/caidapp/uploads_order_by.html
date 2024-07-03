@@ -1,11 +1,25 @@
-<div class="dropdown">
-    <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-        Sort By
-    </button>
-    <ul class="dropdown-menu">
-        <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_uploaded_archives_by' '-uploaded_at' %}">▼ Uploaded At</a></li>
-        <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_uploaded_archives_by' 'uploaded_at' %}">▲ Uploaded At</a></li>
-        <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_uploaded_archives_by' '-started_at' %}">▼ Started At</a></li>
-        <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_uploaded_archives_by' 'started_at' %}">▲ Started At</a></li>
-    </ul>
+
+<div class="btn-group text-right">
+    <div class="dropdown">
+        <button class="btn btn-secondary dropdown-toggle btn-sm" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+            Order By
+        </button>
+        <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_uploaded_archives_by' '-uploaded_at' %}">▼ Uploaded At</a></li>
+            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_uploaded_archives_by' 'uploaded_at' %}">▲ Uploaded At</a></li>
+            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_uploaded_archives_by' '-started_at' %}">▼ Started At</a></li>
+            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_uploaded_archives_by' 'started_at' %}">▲ Started At</a></li>
+        </ul>
+    </div>
+    <div class="dropdown">
+        <button class="btn btn-secondary dropdown-toggle btn-sm" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+            Items Per Page
+        </button>
+        <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="{% url 'caidapp:set_item_number_uploaded_archives' 12 %}"> 12 </a></li>
+            <li><a class="dropdown-item" href="{% url 'caidapp:set_item_number_uploaded_archives' 24 %}"> 24 </a></li>
+            <li><a class="dropdown-item" href="{% url 'caidapp:set_item_number_uploaded_archives' 48 %}"> 48 </a></li>
+            <li><a class="dropdown-item" href="{% url 'caidapp:set_item_number_uploaded_archives' 96 %}"> 96 </a></li>
+        </ul>
+    </div>
 </div>

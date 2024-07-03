@@ -3,6 +3,15 @@
 
 # Changelog
 
+## 07-2024
+
+* [added] Checkbox on overviewed taxon of mediafile
+* [added] Checkbox on no missing taxons in camera trap check
+* [added] Bulk overview of media files
+* [added] Double checkbox on overviewed all media files of camera trap check
+* [added] Media file sorting
+* [added] Count of media files in one view
+
 ## 06-2024
 
 * [added] video files are streamed in the detail view
