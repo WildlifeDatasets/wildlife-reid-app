@@ -29,11 +29,12 @@
                                 <img class="card-img-top" src="{{ mediafile.thumbnail.url }}" alt="Cameratrap image">
                                 <div class="card-body">
                                     {#                                <h5 class="card-title">{{ mediafile }}</h5>#}
-                                    <p class="card-text"> Category: {{ mediafile.category }}</p>
-                                    <p class="card-text"> Location: {{ mediafile.location }}</p>
-{#                                    <p class="card-text"> Identity: {{ mediafile.identity}}</p>#}
-                                    <p class="card-text"> Captured at: {{ mediafile.captured_at|date:'Y-m-d H:i' }}</p>
-
+                                    <p class="card-text">
+                                        Category: {{ mediafile.category }}<br>
+                                        Location: {{ mediafile.location }}<br>
+                                        Captured at: {{ mediafile.captured_at|date:'Y-m-d H:i' }}<br>
+                                        Camera Trap Check: <a href="{%  url 'caidapp:uploadedarchive_detail' mediafile.parent.id %}" class="link-secondary">{{ mediafile.parent }}</a><br>
+                                    </p>
 
                                     <a class="btn btn-primary"
                                        href="{% url 'caidapp:get_individual_identity' mediafileforidentification.id %}">

@@ -11,6 +11,7 @@
 * [added] Double checkbox on overviewed all media files of camera trap check
 * [added] Media file sorting
 * [added] Count of media files in one view
+* [added] Link to camera trap check from not identified media files
 
 ## 06-2024
 
