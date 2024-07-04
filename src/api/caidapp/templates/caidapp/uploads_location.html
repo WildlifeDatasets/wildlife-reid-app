@@ -69,6 +69,11 @@
                         </div>
 
                     {% endfor %}
+                    <div class="mt-2">
+                        {% include "caidapp/pagination_a.html" %}
+                    </div>
+
+                    {#                    use pagination instead #}
                     <ul class="pagination">
                         {#                            <span class="step-links">#}
                         {% if page_obj.has_previous %}

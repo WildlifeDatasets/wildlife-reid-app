@@ -12,6 +12,8 @@
 * [added] Media file sorting
 * [added] Count of media files in one view
 * [added] Link to camera trap check from not identified media files
+* [changed] Pagination of media files and camera trap checks
+* [changed] Links from media file card to location and camera trap check
 
 ## 06-2024
 

@@ -37,7 +37,6 @@ urlpatterns = [
     ),
     # path("media_files/", views.media_files, name="media_files"),
     path("media_files/", views.media_files_update, name="media_files"),
-    path("media_files/", views.media_files_update, name="media_files"),
     path(
         "delete_mediafile/<int:mediafile_id>/",
         views.delete_mediafile,

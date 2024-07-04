@@ -81,6 +81,7 @@ INSTALLED_APPS = [
     "widget_tweaks",
     "location_field.apps.DefaultConfig",
     "django.db.migrations",
+    # 'pagination',
 ]
 
 MIDDLEWARE = [
