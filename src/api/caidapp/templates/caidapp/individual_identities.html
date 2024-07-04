@@ -31,7 +31,7 @@
 
             {% if page_obj %}
                 <div class="mt-2">
-                    {% include "caidapp/pagination_submit.html" %}
+                    {% include "caidapp/pagination_a.html" %}
                 </div>
                 {% for individual_identity in page_obj %}
                     <div class="col-xl-3">
@@ -94,7 +94,7 @@
                     </div>
                 {% endfor %}
                 <div class="mt-2">
-                    {% include "caidapp/pagination_submit.html" %}
+                    {% include "caidapp/pagination_a.html" %}
                 </div>
             {% endif %}
         </div>
