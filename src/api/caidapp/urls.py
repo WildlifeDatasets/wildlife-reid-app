@@ -151,6 +151,11 @@ urlpatterns = [
         name="get_individual_identity",
     ),
     path(
+        "get_individual_identity/media_file/<int:media_file_id>",
+        views.get_individual_identity_from_foridentification,
+        name="get_individual_identity_by_media_file",
+    ),
+    path(
         "remove_foridentification/<int:foridentification_id>",
         views.remove_foridentification,
         name="remove_foridentification",
