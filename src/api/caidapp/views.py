@@ -563,16 +563,20 @@ def not_identified_mediafiles(request):
 
 
 def get_individual_identity_from_foridentification(
-    request, foridentification_id: Optional[int] = None
+    request, foridentification_id: Optional[int] = None,
+        media_file_id: Optional[int] = None
 ):
     """Show and update media file."""
     foridentifications = MediafilesForIdentification.objects.filter(
         mediafile__parent__owner__workgroup=request.user.caiduser.workgroup
     ).order_by("?")
-    if foridentification_id is None:
-        foridentification = foridentifications.first()
+    if media_file_id:
+        foridentification = foridentifications.get(mediafile__id=media_file_id)
     else:
-        foridentification = MediafilesForIdentification.objects.get(id=foridentification_id)
+        if foridentification_id is None:
+            foridentification = foridentifications.first()
+        else:
+            foridentification = MediafilesForIdentification.objects.get(id=foridentification_id)
     return render(
         request,
         "caidapp/get_individual_identity.html",

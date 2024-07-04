@@ -14,6 +14,7 @@
 * [added] Link to camera trap check from not identified media files
 * [changed] Pagination of media files and camera trap checks
 * [changed] Links from media file card to location and camera trap check
+* [added] Button to got to identity confirmation directly from list of media files
 
 ## 06-2024
 

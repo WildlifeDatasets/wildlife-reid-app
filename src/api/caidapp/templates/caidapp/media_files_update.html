@@ -195,6 +195,18 @@
 
                                             <ul class="dropdown-menu">
                                                 <li>
+                                                    here will be somethinb
+
+                                                </li>
+                                                {% if mediafile.instance.is_preidentified %}
+                                                    <li>
+                                                        <a class="dropdown-item"
+                                                           href="{% url 'caidapp:get_individual_identity_by_media_file' mediafile.instance.id %}">
+                                                            Confirm identity
+                                                        </a>
+                                                    </li>
+                                                {% endif %}
+                                                <li>
                                                     <hr class="dropdown-divider">
                                                 </li>
                                                 <li>

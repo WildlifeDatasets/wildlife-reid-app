@@ -355,6 +355,10 @@ class MediaFile(models.Model):
             self.save()
         return self.original_filename
 
+    def is_preidentified(self):
+        return MediafilesForIdentification.objects.filter(mediafile=self).exists()
+
+
 
 class AnimalObservation(models.Model):
     mediafile = models.ForeignKey(MediaFile, on_delete=models.CASCADE, null=True, blank=True)
