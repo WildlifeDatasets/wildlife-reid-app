@@ -1294,6 +1294,11 @@ def _page_number(request, page_number: int) -> int:
         page_number -= 1
     if "firstPage" in request.POST:
         page_number = 1
+    if "goToPage" in request.POST:
+        logger.debug(f"{request.POST['goToPage']=}")
+        logger.debug(f"{request.GET=}")
+        logger.debug(f"{request.POST=}")
+        page_number = int(request.POST["goToPage"])
     return page_number
 
 
@@ -1412,11 +1417,16 @@ def media_files_update(
 
     if records_per_page is None:
         records_per_page = request.session.get("mediafiles_records_per_page", 20)
+
+
     if request.method == "POST":
         queryform = MediaFileSetQueryForm(request.POST)
         if queryform.is_valid():
             query = queryform.cleaned_data["query"]
             # logger.debug(f"{queryform.cleaned_data=}")
+            # page_number = int(request.GET.get('page'))
+            # logger.debug(f"{page_number=}")
+
             page_number = _page_number(request, page_number=queryform.cleaned_data["pagenumber"])
             if "querySubmit" in request.POST:
                 logger.debug("querySubmit")

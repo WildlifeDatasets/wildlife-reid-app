@@ -1,6 +1,7 @@
 Django==3.2.18
 django-allauth==0.54.0
 django-widget-tweaks==1.4
+django-pagination==1.0.7
 uvicorn==0.22.0
 celery[redis]==5.2.7
 PyYAML==6.0
@@ -17,3 +18,4 @@ matplotlib==3.5.1
 opencv-python-headless==4.5.5.64  # just pinned version, no specific reason for that
 tqdm==4.62.3
 joblib==1.4.0
+numpy==1.26

@@ -144,14 +144,32 @@
                                     <div class="card-body mt-2">
 
                                         {#                                                                    <h5 class="card-title">{{ mediafile.instance }}</h5>#}
-                                        <p class="card-text"> Taxon: {{ mediafile.instance.category }}
+                                        <p class="card-text"> Taxon:
+                                            <a class="link-secondary" href="{% url 'caidapp:taxon' mediafile.instance.category.id %}">
+                                                {{ mediafile.instance.category }}
+                                            </a>
+
                                             {% if mediafile.instance.taxon_overviewed %}
                                                 <i class="fa-solid fa-hippo"></i>
                                                 <i class="bi bi-check"></i>
                                             {% endif %}
                                         </p>
-                                        <p class="card-text">Location: <span data-bs-toggle="tooltip" title="Location: {{ mediafile.location.name }}">{{ mediafile.location.visible_name }}</span></p>
-                                        <p class="card-text"> Identity: {{ mediafile.instance.identity }}
+                                        {% if mediafile.location %}
+                                        <p class="card-text">Location:
+
+                                            <a class="link-secondary" href="{% url 'caidapp:media_files_location' mediafile.location.hash %}">
+                                                <span data-bs-toggle="tooltip" title="Location: {{ mediafile.location.name }}">
+                                                    {{ mediafile.location.visible_name }}
+                                                </span>
+                                            </a>
+                                        </p>
+                                        {% endif %}
+
+                                        <p class="card-text"> Identity:
+                                            <a class="link-secondary" href="{% url 'caidapp:individual_identity_mediafiles' mediafile.instance.id %}">
+                                                {{ mediafile.instance.identity }}
+                                            </a>
+{#                                            {{ mediafile.instance.identity }}#}
                                             {% if mediafile.instance.identity_is_representative %}
 {#                                                <i class="bi bi-check-circle"></i>#}
                                                 {#<i class="bi bi-bookmark"></i>#}

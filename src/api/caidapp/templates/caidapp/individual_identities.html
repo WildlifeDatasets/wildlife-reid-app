@@ -7,88 +7,99 @@
 
         <div class="pagetitle">
             <h1>Identities</h1>
-{#            {% if workgroup.identification_init_status %}#}
-{#                <p>Identification initiated at: {{ workgroup.identification_init_at|date:'Y-m-d H:i' }}</p>#}
-{#                <p>{{ workgroup.identification_init_message }}</p>#}
-{#            {% else %}#}
-{#                Identification not initiated.#}
-{#            {% endif %}#}
+            {#            {% if workgroup.identification_init_status %}#}
+            {#                <p>Identification initiated at: {{ workgroup.identification_init_at|date:'Y-m-d H:i' }}</p>#}
+            {#                <p>{{ workgroup.identification_init_message }}</p>#}
+            {#            {% else %}#}
+            {#                Identification not initiated.#}
+            {#            {% endif %}#}
 
             <nav>
-{#                <ol class="breadcrumb">#}
-{#                    <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li>#}
-{#                </ol>#}
-{#                <a class="btn btn-primary mt-2" href="{% url 'caidapp:get_individual_identity' %}"><i class="bi bi-question-circle"></i> Annotate unknown identities</a>#}
-                <a class="btn btn-secondary mt-2" href="{% url 'caidapp:new_individual_identity' %}"><i class="bi bi-plus-circle"></i> Add new identity</a>
-{#                <a class="btn btn-secondary mt-2" href="{% url 'caidapp:init_identification' %}"><i class="fas fa-fingerprint"></i> Init identification</a>#}
-                <a class="btn btn-secondary mt-2" href="{% url 'caidapp:not_identified_mediafiles' %}"><i class="fa fa-question"></i> List of not identified media files </a>
+                {#                <ol class="breadcrumb">#}
+                {#                    <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li>#}
+                {#                </ol>#}
+                {#                <a class="btn btn-primary mt-2" href="{% url 'caidapp:get_individual_identity' %}"><i class="bi bi-question-circle"></i> Annotate unknown identities</a>#}
+                <a class="btn btn-secondary mt-2" href="{% url 'caidapp:new_individual_identity' %}"><i
+                        class="bi bi-plus-circle"></i> Add new identity</a>
+                {#                <a class="btn btn-secondary mt-2" href="{% url 'caidapp:init_identification' %}"><i class="fas fa-fingerprint"></i> Init identification</a>#}
+                <a class="btn btn-secondary mt-2" href="{% url 'caidapp:not_identified_mediafiles' %}"><i
+                        class="fa fa-question"></i> List of not identified media files </a>
             </nav>
         </div><!-- End Page Title -->
         <section class="section">
         <div class="row" id="row-of-cards">
 
-        {% if page_obj %}
-            {% for individual_identity in page_obj %}
-                <div class="col-xl-3">
-                {#                        <div class="col" style="-ms-flex: 0 0 200; flex: 0 0 200;">#}
-                <div class="card"
-                        {% if individual_identity.cover %}
-                     style="
+            {% if page_obj %}
+                <div class="mt-2">
+                    {% include "caidapp/pagination_submit.html" %}
+                </div>
+                {% for individual_identity in page_obj %}
+                    <div class="col-xl-3">
+                        {#                        <div class="col" style="-ms-flex: 0 0 200; flex: 0 0 200;">#}
+                        <div class="card"
+                                {% if individual_identity.cover %}
+                             style="
 
-                             background-image: linear-gradient(to left, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 1.0)), url({{ individual_identity.cover.thumbnail.url }});
-                             background-repeat: no-repeat;
-                             background-position-x: right;
-                             background-position-y: center;
-                             background-size: cover;
-                             "
+                                     background-image: linear-gradient(to left, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 1.0)), url({{ individual_identity.cover.thumbnail.url }});
+                                     background-repeat: no-repeat;
+                                     background-position-x: right;
+                                     background-position-y: center;
+                                     background-size: cover;
+                                     "
 
-                        {% endif %}
-                >
-                    <img class="card-img-top" src="{{ individual_identity.mediafile_set.first.thumbnail.url }}"
-                         alt="Camera trap image">
-                    <div class="card-body"
-                    >
-                        <h5 class="card-title">{{ individual_identity }}</h5>
-                        {#                        <p>Status: {{ album.mediafiles.0.thumbnail.url }} </p>#}
-{#                        <p>Created At: {{ individual_identity.created_at|date:'Y-m-d H:i' }} </p>#}
-                        <p>Media files: {{ individual_identity.count_of_mediafiles }}</p>
-                        <p>Representative media files: {{ individual_identity.count_of_representative_mediafiles }}</p>
-                        {% if individual_identity.updated_by %}
-                            <p> Last update by: {{ individual_identity.updated_by }} </p>
-                        {% endif %}
-{#                        <p>{{ individual_identity.mediafile_set.0.mediafile.url }}</p>#}
+                                {% endif %}
+                        >
+                            <img class="card-img-top" src="{{ individual_identity.mediafile_set.first.thumbnail.url }}"
+                                 alt="Camera trap image">
+                            <div class="card-body"
+                            >
+                                <h5 class="card-title">{{ individual_identity }}</h5>
+                                {#                        <p>Status: {{ album.mediafiles.0.thumbnail.url }} </p>#}
+                                {#                        <p>Created At: {{ individual_identity.created_at|date:'Y-m-d H:i' }} </p>#}
+                                <p>Media files: {{ individual_identity.count_of_mediafiles }}</p>
+                                <p>Representative media
+                                    files: {{ individual_identity.count_of_representative_mediafiles }}</p>
+                                {% if individual_identity.updated_by %}
+                                    <p> Last update by: {{ individual_identity.updated_by }} </p>
+                                {% endif %}
+                                {#                        <p>{{ individual_identity.mediafile_set.0.mediafile.url }}</p>#}
 
-                        {#                    <p><i class="fa-light fa-calendar-image"></i>Uploaded at: {{ uploadedarchive.uploaded_at|date:'Y-m-d H:i' }} </p>#}
-                        {#                    {% if uploadedarchive.finished_at %}#}
-                        {#                        <p>Finished at: {{ uploadedarchive.finished_at|date:'Y-m-d H:i' }} </p>#}
-                        {#                    {% endif %}#}
-                        {##}
-{#                        <a class="btn btn-primary"#}
-{#                           href="{% url 'caidapp:update_individual_identity' individual_identity.hash %}">#}
-{#                            <i class="bi bi-images"></i> Detail#}
-{#                        </a>#}
+                                {#                    <p><i class="fa-light fa-calendar-image"></i>Uploaded at: {{ uploadedarchive.uploaded_at|date:'Y-m-d H:i' }} </p>#}
+                                {#                    {% if uploadedarchive.finished_at %}#}
+                                {#                        <p>Finished at: {{ uploadedarchive.finished_at|date:'Y-m-d H:i' }} </p>#}
+                                {#                    {% endif %}#}
+                                {##}
+                                {#                        <a class="btn btn-primary"#}
+                                {#                           href="{% url 'caidapp:update_individual_identity' individual_identity.hash %}">#}
+                                {#                            <i class="bi bi-images"></i> Detail#}
+                                {#                        </a>#}
 
-                        <a class="btn btn-primary"
-                           href="{% url 'caidapp:individual_identity_mediafiles' individual_identity.id %}">
-                            <i class="bi bi-images"></i> Show
-                        </a>
+                                <a class="btn btn-primary"
+                                   href="{% url 'caidapp:individual_identity_mediafiles' individual_identity.id %}">
+                                    <i class="bi bi-images"></i> Show
+                                </a>
 
-                        <a class="btn btn-secondary"
-                           href="{% url 'caidapp:update_individual_identity' individual_identity.id %}">
-                            <i class="bi bi-pencil"></i> Edit
-                        </a>
-                        {% if individual_identity.hash %}
-                        <a class="btn btn-secondary"
-                           href="{% url 'caidapp:shared_individual_identity' individual_identity.hash %}">
-                            <i class="bi bi-share-fill"></i> Shared identity
-                        </a>
-                        {% endif %}
+                                <a class="btn btn-secondary"
+                                   href="{% url 'caidapp:update_individual_identity' individual_identity.id %}">
+                                    <i class="bi bi-pencil"></i> Edit
+                                </a>
+                                {% if individual_identity.hash %}
+                                    <a class="btn btn-secondary"
+                                       href="{% url 'caidapp:shared_individual_identity' individual_identity.hash %}">
+                                        <i class="bi bi-share-fill"></i> Shared identity
+                                    </a>
+                                {% endif %}
+                            </div>
+                        </div>
                     </div>
+                {% endfor %}
+                <div class="mt-2">
+                    {% include "caidapp/pagination_submit.html" %}
                 </div>
-                </div>
-            {% endfor %}
-        {% endif %}
-    </div>
+            {% endif %}
+        </div>
+{#        pagination #}
+        </section>
 
     {% endif %}
 {% endblock %}

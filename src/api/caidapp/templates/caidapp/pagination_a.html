@@ -62,12 +62,12 @@
     {% for pg_number in page_obj.paginator.get_elided_page_range  %} <!-- here -->
         {% if page_obj.number == pg_number %}
             <li class="active page-item">
-                <button type="submit" name="goToPage" value={{ pg_number }} class="page-link" href="?page={{ pg_number }}">{{ pg_number }}</button>
+                <a value={{ pg_number }} class="page-link" href="?page={{ pg_number }}">{{ pg_number }}</a>
             </li>
         {% else %}
             <li class="page-item">
 {#                <button type="submit" name="goToPage{{ pg_number }}" class="page-link" href="?page={{ pg_number }}">{{ pg_number }}</button>#}
-                <button type="submit" name="goToPage" value={{ pg_number }} class="page-link" href="?page={{ pg_number }}">{{ pg_number }}</button>
+                <a value={{ pg_number }} class="page-link" href="?page={{ pg_number }}">{{ pg_number }}</a>
             </li>
         {% endif %}
     {% endfor %}
