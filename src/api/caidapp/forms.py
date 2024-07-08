@@ -1,8 +1,11 @@
 from django import forms
+from django.contrib.auth import get_user_model
+
 
 from . import models
 from .models import Album, CaIDUser, IndividualIdentity, MediaFile, UploadedArchive
 
+User = get_user_model()
 
 class WorkgroupUsersForm(forms.Form):
     workgroup_users = forms.ModelMultipleChoiceField(
@@ -133,3 +136,7 @@ class LocationImportForm(forms.Form):
 
 class UploadedArchiveFilterForm():
     pass
+
+
+class UserSelectForm(forms.Form):
+    user = forms.ModelChoiceField(queryset=User.objects.all(), label="Select User")

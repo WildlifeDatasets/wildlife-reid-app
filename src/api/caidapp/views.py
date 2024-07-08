@@ -15,7 +15,7 @@ from celery import signature
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
-from django.contrib.auth import logout
+from django.contrib.auth import logout, get_user_model
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView
 from django.core.paginator import Paginator
@@ -27,6 +27,11 @@ from django.urls import reverse_lazy
 from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector
 import shutil
 import pandas as pd
+
+from django.contrib.auth import login as auth_login
+from django.contrib.auth.decorators import user_passes_test
+from django.shortcuts import redirect, render
+from .forms import UserSelectForm
 
 from . import tasks
 from . import models, model_tools
@@ -70,7 +75,44 @@ from .tasks import (
 from .views_location import _get_all_user_locations, _set_location_to_mediafiles_of_uploadedarchive
 
 logger = logging.getLogger("app")
+User = get_user_model()
 
+
+
+@user_passes_test(lambda u: u.is_superuser)
+def impersonate_user(request):
+    if request.method == 'POST':
+        form = UserSelectForm(request.POST)
+        if form.is_valid():
+            user = form.cleaned_data['user']
+            request.session['original_user_id'] = request.user.id
+            request.session['impersonate_user_id'] = user.id
+            return redirect('caidapp:uploads')
+    else:
+        form = UserSelectForm()
+
+    return render(request, 'caidapp/impersonate_user.html', {'form': form})
+
+
+# @user_passes_test(lambda u: u.is_superuser)
+# def stop_impersonation(request):
+#     logger.debug("Stopping Impersonation ...")
+#     if 'impersonate_user_id' in request.session:
+#         del request.session['impersonate_user_id']
+#         logger.debug("Impersonation stopped.")
+#
+#     logger.debug("Redirecting to uploads ...")
+#     return redirect('caidapp:uploads')
+
+@login_required
+def stop_impersonation(request):
+    if 'impersonate_user_id' in request.session:
+        del request.session['impersonate_user_id']
+    if 'original_user_id' in request.session:
+        original_user = User.objects.get(id=request.session['original_user_id'])
+        auth_login(request, original_user)
+        del request.session['original_user_id']
+    return redirect('caidapp:uploads')
 
 def login(request):
     """Login page."""
