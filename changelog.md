@@ -17,6 +17,7 @@
 * [added] Button to got to identity confirmation directly from list of media files
 
 * [added] Impersonate user in admin
+* [fixed] Error in taxon in media files view
 
 ## 06-2024
 

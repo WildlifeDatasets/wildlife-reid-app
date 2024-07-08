@@ -144,16 +144,19 @@
                                     <div class="card-body mt-2">
 
                                         {#                                                                    <h5 class="card-title">{{ mediafile.instance }}</h5>#}
-                                        <p class="card-text"> Taxon:
-                                            <a class="link-secondary" href="{% url 'caidapp:taxon' mediafile.instance.category.id %}">
-                                                {{ mediafile.instance.category }}
-                                            </a>
+                                        {% if mediafile.instance.category %}
+                                            <p class="card-text"> Taxon:
+                                                <a class="link-secondary" href="{% url 'caidapp:taxon' mediafile.instance.category.id %}">
+                                                    {{ mediafile.instance.category }}
+                                                </a>
 
-                                            {% if mediafile.instance.taxon_overviewed %}
-                                                <i class="fa-solid fa-hippo"></i>
-                                                <i class="bi bi-check"></i>
-                                            {% endif %}
-                                        </p>
+
+                                                {% if mediafile.instance.taxon_overviewed %}
+                                                    <i class="fa-solid fa-hippo"></i>
+                                                    <i class="bi bi-check"></i>
+                                                {% endif %}
+                                            </p>
+                                        {% endif %}
                                         {% if mediafile.location %}
                                         <p class="card-text">Location:
 
