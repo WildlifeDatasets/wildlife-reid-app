@@ -206,5 +206,8 @@ urlpatterns = [
     path("mediafiles/taxons_on_page_are_overviewed/", views_mediafile.taxons_on_page_are_overviewed, name="taxons_on_page_are_overviewed"),
     path("mediafiles/set_mediafiles_order_by/<str:order_by>/", views_mediafile.set_mediafiles_order_by, name="set_mediafiles_order_by"),
     path("mediafiles/set_mediafiles_records_per_page/<int:records_per_page>/", views_mediafile.set_mediafiles_records_per_page, name="set_mediafiles_records_per_page"),
+
+    path('impersonate/', views.impersonate_user, name='impersonate_user'),
+    path('stop-impersonation/', views.stop_impersonation, name='stop_impersonation'),
 ]
 

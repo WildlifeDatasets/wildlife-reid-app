@@ -16,6 +16,8 @@
 * [changed] Links from media file card to location and camera trap check
 * [added] Button to got to identity confirmation directly from list of media files
 
+* [added] Impersonate user in admin
+
 ## 06-2024
 
 * [added] video files are streamed in the detail view

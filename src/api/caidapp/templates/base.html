@@ -252,6 +252,21 @@
                             <p class="dropdown-item-text">
                                 <i class="bi bi-people"></i> {{ user.caiduser.workgroup }}</p>
                         </li>
+                        {% if request.user.is_superuser %}
+                            <li>
+                            <a class="dropdown-item d-flex align-items-center" href="{% url 'caidapp:impersonate_user' %}">
+                                <i class="bi bi-person"></i>
+                                Impersonate User</a>
+                            </li>
+                        {% endif %}
+                        {% if request.session.impersonate_user_id %}
+                            <li>
+                                <a class="dropdown-item d-flex align-items-center" href="{% url 'caidapp:stop_impersonation' %}">
+                                    <i class="bi bi-person-x"></i>
+                                    Stop Impersonation</a>
+                            </li>
+                        {% endif %}
+
                         <li>
                             <hr class="dropdown-divider">
                         </li>
