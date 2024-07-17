@@ -203,6 +203,7 @@ urlpatterns = [
     path("uploaded_archives/set_item_number/<int:item_number>/", views.set_item_number_uploaded_archives, name="set_item_number_uploaded_archives"),
     path("stream_video/<int:mediafile_id>/", views_mediafile.stream_video, name="stream_video"),
     path("mediafiles/overview_taxons/", views_mediafile.overview_taxons, name="overview_taxons"),
+    path("mediafiles/overview_taxons/uploaded_archive/<int:uploaded_archive_id>", views_mediafile.overview_taxons, name="overview_taxons"),
     path("mediafiles/taxons_on_page_are_overviewed/", views_mediafile.taxons_on_page_are_overviewed, name="taxons_on_page_are_overviewed"),
     path("mediafiles/set_mediafiles_order_by/<str:order_by>/", views_mediafile.set_mediafiles_order_by, name="set_mediafiles_order_by"),
     path("mediafiles/set_mediafiles_records_per_page/<int:records_per_page>/", views_mediafile.set_mediafiles_records_per_page, name="set_mediafiles_records_per_page"),

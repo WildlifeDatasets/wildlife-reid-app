@@ -5,6 +5,7 @@ from django.shortcuts import get_object_or_404
 from .models import MediaFile, get_content_owner_filter_params
 import os
 import random
+from typing import Optional
 
 from .views import message, media_file_update
 
@@ -67,11 +68,11 @@ def manual_taxon_classification_on_non_classified(request):
         skip_url=reverse_lazy("caidapp:manual_taxon_classification_on_non_classified"),
     )
 
-def overview_taxons(request):
+def overview_taxons(request, uploaded_archive_id:Optional[int]=None):
     from .views import media_files_update
 
     return media_files_update(
-        request, show_overview_button=True, taxon_overviewed=False,
+        request, show_overview_button=True, taxon_overviewed=False, uploadedarchive_id=uploaded_archive_id,
         order_by="category__name"
         )
     # views.
@@ -84,7 +85,10 @@ def taxons_on_page_are_overviewed(request):
         mediafile.taxon_overviewed = True
         mediafile.save()
 
-    return redirect("caidapp:overview_taxons")
+    # get next page
+    next_url = request.GET.get('next', reverse_lazy("caidapp:overview_taxons")  )
+
+    return redirect(next_url)
 
 def set_mediafiles_order_by(request, order_by:str):
     request.session["mediafiles_order_by"] = order_by
