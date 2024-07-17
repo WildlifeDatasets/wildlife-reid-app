@@ -56,22 +56,42 @@
 
 
 <ul class="pagination">
-
-
-{#{% load paginator_tags %}#}
-    {% for pg_number in page_obj.paginator.get_elided_page_range  %} <!-- here -->
-        {% if page_obj.number == pg_number %}
-            <li class="active page-item">
-                <button type="submit" name="goToPage" value={{ pg_number }} class="page-link" href="?page={{ pg_number }}">{{ pg_number }}</button>
-            </li>
+    {% for pg_number in elided_page_range %}
+        {% if pg_number != "…" %}
+            {% if pg_number == page_obj.number %}
+                <li class="active page-item">
+                    <button type="submit" name="goToPage" value="{{ pg_number }}" class="page-link">{{ pg_number }}</button>
+                </li>
+            {% else %}
+                <li class="page-item">
+                    <button type="submit" name="goToPage" value="{{ pg_number }}" class="page-link">{{ pg_number }}</button>
+                </li>
+            {% endif %}
         {% else %}
             <li class="page-item">
-{#                <button type="submit" name="goToPage{{ pg_number }}" class="page-link" href="?page={{ pg_number }}">{{ pg_number }}</button>#}
-                <button type="submit" name="goToPage" value={{ pg_number }} class="page-link" href="?page={{ pg_number }}">{{ pg_number }}</button>
+                <span class="page-link">…</span>
             </li>
         {% endif %}
     {% endfor %}
-
 </ul>
 
+
+{#<ul class="pagination">#}
+{##}
+{#{% load paginator_tags %}#}
+{#    {% for pg_number in page_obj.paginator.get_elided_page_range  %} <!-- here -->#}
+{#        {% if page_obj.number == pg_number %}#}
+{#            <li class="active page-item">#}
+{#                <button type="submit" name="goToPage" value={{ pg_number }} class="page-link" href="?page={{ pg_number }}">{{ pg_number }}</button>#}
+{#            </li>#}
+{#        {% else %}#}
+{#            <li class="page-item">#}
+{#                <button type="submit" name="goToPage{{ pg_number }}" class="page-link" href="?page={{ pg_number }}">{{ pg_number }}</button>#}
+{#                <button type="submit" name="goToPage" value={{ pg_number }} class="page-link" href="?page={{ pg_number }}">{{ pg_number }}</button>#}
+{#            </li>#}
+{#        {% endif %}#}
+{#    {% endfor %}#}
+{##}
+{#</ul>#}
+{##}
 {#            {% endif %}#}
