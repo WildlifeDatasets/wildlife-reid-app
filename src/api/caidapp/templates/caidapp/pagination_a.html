@@ -55,23 +55,41 @@
 {#</ul>#}
 
 
+
 <ul class="pagination">
-
-
-{#{% load paginator_tags %}#}
-    {% for pg_number in page_obj.paginator.get_elided_page_range  %} <!-- here -->
-        {% if page_obj.number == pg_number %}
-            <li class="active page-item">
-                <a value={{ pg_number }} class="page-link" href="?page={{ pg_number }}">{{ pg_number }}</a>
-            </li>
+    {% for pg_number in elided_page_range %}
+        {% if pg_number != "…" %}
+            {% if pg_number == page_obj.number %}
+                <li class="active page-item">
+                    <a value={{ pg_number }} class="page-link" href="?page={{ pg_number }}">{{ pg_number }}</a>
+                </li>
+            {% else %}
+                <li class="page-item">
+                    <a value={{ pg_number }} class="page-link" href="?page={{ pg_number }}">{{ pg_number }}</a>
+                </li>
+            {% endif %}
         {% else %}
             <li class="page-item">
-{#                <button type="submit" name="goToPage{{ pg_number }}" class="page-link" href="?page={{ pg_number }}">{{ pg_number }}</button>#}
-                <a value={{ pg_number }} class="page-link" href="?page={{ pg_number }}">{{ pg_number }}</a>
+                <span class="page-link">…</span>
             </li>
         {% endif %}
     {% endfor %}
-
 </ul>
 
-{#            {% endif %}#}
+
+
+{#<ul class="pagination">#}
+{#    {% for pg_number in page_obj.paginator.get_elided_page_range  %} <!-- here -->#}
+{#        {% if page_obj.number == pg_number %}#}
+{#            <li class="active page-item">#}
+{#                <a value={{ pg_number }} class="page-link" href="?page={{ pg_number }}">{{ pg_number }}</a>#}
+{#            </li>#}
+{#        {% else %}#}
+{#            <li class="page-item">#}
+{#                <a value={{ pg_number }} class="page-link" href="?page={{ pg_number }}">{{ pg_number }}</a>#}
+{#            </li>#}
+{#        {% endif %}#}
+{#    {% endfor %}#}
+{#</ul>#}
+
+

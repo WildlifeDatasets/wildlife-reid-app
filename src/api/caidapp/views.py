@@ -5,7 +5,7 @@ import logging
 import os
 import traceback
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import List, Optional, Union, Tuple
 
 import django
 import plotly.express as px
@@ -18,7 +18,7 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth import logout, get_user_model
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView
-from django.core.paginator import Paginator
+from django.core.paginator import Paginator, Page
 from django.db.models import Count, Q, QuerySet
 from django.forms import modelformset_factory
 from django.http import HttpResponseBadRequest, HttpResponseNotAllowed, JsonResponse, HttpResponseRedirect
@@ -125,38 +125,38 @@ def login(request):
         )
 
 
-def media_files(request):
-    """List of uploads."""
-    mediafiles = (
-        MediaFile.objects.filter(
-            **get_content_owner_filter_params(request.user.caiduser, "parent__owner")
-            # parent__owner=request.user.caiduser
-        )
-        .all()
-        .order_by("-parent__uploaded_at")
-    )
-
-    records_per_page = 10000
-    paginator = Paginator(mediafiles, per_page=records_per_page)
-
-    page_number = request.GET.get("page")
-    page_obj = paginator.get_page(page_number)
-    qs_data = {}
-    for e in mediafiles:
-        qs_data[e.id] = str(e.category) + " " + str(e.location)
-        # qs_data.append(e.id)
-    logger.debug(qs_data)
-    qs_json = json.dumps(qs_data)
-    return render(
-        request,
-        "caidapp/media_files.html",
-        {
-            "page_obj": page_obj,
-            "page_title": "Media files",
-            "qs_json": qs_json,
-            "user_is_staff": request.user.is_staff,
-        },
-    )
+# def media_files(request):
+#     """List of uploads."""
+#     mediafiles = (
+#         MediaFile.objects.filter(
+#             **get_content_owner_filter_params(request.user.caiduser, "parent__owner")
+#             # parent__owner=request.user.caiduser
+#         )
+#         .all()
+#         .order_by("-parent__uploaded_at")
+#     )
+#
+#     records_per_page = 10000
+#     # page_number = request.GET.get("page")
+#     paginator = Paginator(mediafiles, per_page=records_per_page)
+#     page_obj, elided_page_range, page_context = _prepare_page(paginator, request=request)
+#
+#     qs_data = {}
+#     for e in mediafiles:
+#         qs_data[e.id] = str(e.category) + " " + str(e.location)
+#         # qs_data.append(e.id)
+#     logger.debug(qs_data)
+#     qs_json = json.dumps(qs_data)
+#     return render(
+#         request,
+#         "caidapp/media_files.html",
+#         {
+#             **page_context,
+#             "page_title": "Media files",
+#             "qs_json": qs_json,
+#             "user_is_staff": request.user.is_staff,
+#         },
+#     )
 
 
 def message(request, message):
@@ -175,15 +175,30 @@ def uploadedarchive_detail(request, uploadedarchive_id):
 
     records_per_page = 80
     paginator = Paginator(mediafile_set, per_page=records_per_page)
+    _,_, page_context = _prepare_page(paginator, request=request)
 
-    page_number = request.GET.get("page")
-    page_obj = paginator.get_page(page_number)
     return render(
         request,
         "caidapp/uploadedarchive_detail.html",
-        {"page_obj": page_obj, "page_title": uploadedarchive},
+        {
+            **page_context,
+            "page_title": uploadedarchive,
+        },
     )
 
+
+def _prepare_page(paginator: Paginator, request:Optional = None, page_number: Optional[int] = None) -> Tuple[Page, List, dict]:
+    if page_number is None:
+        page_number = request.GET.get("page")
+    elided_page_range = paginator.get_elided_page_range(page_number, on_each_side=3, on_ends=2)
+    page_obj = paginator.get_page(page_number)
+
+    context = {
+        "page_obj": page_obj,
+        "elided_page_range": elided_page_range,
+    }
+
+    return page_obj, elided_page_range, context
 
 def uploads_identities(request):
     """List of uploads."""
@@ -201,14 +216,15 @@ def uploads_identities(request):
 
     records_per_page = get_item_number_uploaded_archives(request)
     paginator = Paginator(uploadedarchives, per_page=records_per_page)
+    _,_, page_context = _prepare_page(paginator, request=request)
 
-    page_number = request.GET.get("page")
-    page_obj = paginator.get_page(page_number)
     return render(
         request,
         "caidapp/uploads_identities.html",
         context={
-            "page_obj": page_obj,
+            **page_context,
+            # "page_obj": page_obj,
+            # "elided_page_range": elided_page_range,
             "btn_styles": _single_species_button_style(request),
         },
     )
@@ -264,15 +280,15 @@ def uploads_species(request):
 
     records_per_page = get_item_number_uploaded_archives(request)
     paginator = Paginator(uploadedarchives, per_page=records_per_page)
-
-    page_number = request.GET.get("page")
-    page_obj = paginator.get_page(page_number)
+    _,_, page_context = _prepare_page(paginator, request=request)
 
     btn_styles, btn_tooltips = _multiple_species_button_style_and_tooltips(request)
     return render(
         request,
         "caidapp/uploads_species.html",
-        {"page_obj": page_obj, "btn_styles": btn_styles, "btn_tooltips": btn_tooltips},
+        {
+            **page_context,
+            "btn_styles": btn_styles, "btn_tooltips": btn_tooltips},
     )
 
 
@@ -382,13 +398,15 @@ def individual_identities(request):
 
     records_per_page = 24
     paginator = Paginator(individual_identities, per_page=records_per_page)
+    _,_, page_context = _prepare_page(paginator, request=request)
 
-    page_number = request.GET.get("page")
-    page_obj = paginator.get_page(page_number)
     return render(
         request,
         "caidapp/individual_identities.html",
-        {"page_obj": page_obj, "workgroup": request.user.caiduser.workgroup},
+        {
+            **page_context,
+            "workgroup": request.user.caiduser.workgroup
+        },
     )
 
 
@@ -594,13 +612,14 @@ def not_identified_mediafiles(request):
 
     records_per_page = 80
     paginator = Paginator(foridentification_set, per_page=records_per_page)
+    _,_, page_context = _prepare_page(paginator, request=request)
 
-    page_number = request.GET.get("page")
-    page_obj = paginator.get_page(page_number)
     return render(
         request,
         "caidapp/not_identified_mediafiles.html",
-        {"page_obj": page_obj, "page_title": "Not Identified"},
+        {
+            **page_context,
+            "page_title": "Not Identified"},
     )
 
 
@@ -940,22 +959,6 @@ def delete_album(request, album_hash):
         album.delete()
     return redirect("caidapp:albums")
 
-
-# def album_update2(request, album_hash):
-#     """Show album detail."""
-#     album = get_object_or_404(Album, hash=album_hash)
-#     mediafile_set = album.mediafile_set.all()
-#
-#     records_per_page = 80
-#     paginator = Paginator(mediafile_set, per_page=records_per_page)
-#
-#     page_number = request.GET.get("page")
-#     page_obj = paginator.get_page(page_number)
-#     return render(
-#         request,
-#         "caidapp/album_detail.html",
-#         {"page_obj": page_obj, "page_title": album},
-#     )
 
 
 def upload_archive(
@@ -1461,6 +1464,7 @@ def media_files_update(
     """List of mediafiles based on query with bulk update of category."""
     # create list of mediafiles
 
+    page_number = 1
     if records_per_page is None:
         records_per_page = request.session.get("mediafiles_records_per_page", 20)
 
@@ -1513,13 +1517,9 @@ def media_files_update(
     number_of_mediafiles = len(full_mediafiles)
 
     request.session['mediafile_ids'] = list(full_mediafiles.values_list('id', flat=True))
-
     paginator = Paginator(full_mediafiles, per_page=records_per_page)
+    page_with_mediafiles, _, page_context = _prepare_page(paginator, page_number=page_number)
 
-    page_with_mediafiles = paginator.get_page(page_number)
-    # mediafiles_of_page = list(page_with_mediafiles)
-
-    # page_ids = list(page_with_mediafiles.object_list.values_list('id', flat=True))
     page_ids = [obj.id for obj in page_with_mediafiles.object_list]
     request.session['mediafile_ids_page'] = page_ids
 
@@ -1616,7 +1616,9 @@ def media_files_update(
         request,
         "caidapp/media_files_update.html",
         {
-            "page_obj": page_with_mediafiles,
+            # "page_obj": page_with_mediafiles,
+            # "elided_page_range": elided_page_range,
+            **page_context,
             "form_objects": form,
             "page_title": "Media files",
             "user_is_staff": request.user.is_staff,
