@@ -30,43 +30,80 @@
             <form method="POST">
                 {% csrf_token %}
 
+                {% if form_objects %}
+                    {{ form_objects.management_form }}
                 <div class="row">
                     <div class="col-lg-5">
+                        <div class="row g-2">
+
                             <div class="col">
                                 {% render_field form_query.query class="form-control mb-3" placeholder="type here to search..." %}
                             </div>
                             <div class="col-auto">
                                 <button name="querySubmit" class="btn btn-primary" id="querySubmit" type="submit">
-                                    Search
+                                    <i class="bi bi-search"></i>
                                 </button>
                             </div>
+                        </div>
 
             {#                Do not remove the fallowing line with pagenumber. It is invisible. but importatn for the form. #}
                             {{ form_query.pagenumber }}
-                            <p>
-                                Found {{ page_obj.paginator.count }} mediafiles.
-                            </p>
-                            <a class="btn btn-secondary" href="{% url 'caidapp:download_csv_for_mediafiles' %}">
-                                <i class="bi bi-table"></i> Download CSV </a>
-                            <a class="btn btn-secondary" href="{% url 'caidapp:download_xlsx_for_mediafiles' %}">
-                                <i class="fas fa-file-excel"></i>
-                                Download XLSX </a>
-                            <a class="btn btn-secondary" href="{% url 'caidapp:download_zip_for_mediafiles' %}">
-                                <i class="bi bi-archive"></i> Download ZIP </a>
-                            <a class="btn btn-secondary" href="{% url 'caidapp:mediafiles_stats' %}">
-                                <i class="bi bi-bar-chart"></i> Stats </a>
-                    </div>
-                </div>
+{#                            <p>#}
+{#                            </p>#}
 
-                {% if form_objects %}
-                    {{ form_objects.management_form }}
-                    <p>
-                        <a class="btn btn-secondary mt-2" data-bs-toggle="collapse" href="#collapseBulkProcessing"
+
+
+                        <div class="dropdown d-inline-block">
+                            <a class="btn btn-secondary dropdown-toggle" href="#" role="button"
+                               data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="bi bi-download"></i>
+                                Download
+                            </a>
+
+                            <ul class="dropdown-menu">
+                                <li>
+                                    <a class="dropdown-item" href="{% url 'caidapp:download_csv_for_mediafiles' %}">
+                                        <i class="bi bi-table"></i> Download CSV
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" href="{% url 'caidapp:download_xlsx_for_mediafiles' %}">
+                                        <i class="fas fa-file-excel"></i>
+                                        Download XLSX
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" href="{% url 'caidapp:download_zip_for_mediafiles' %}">
+                                        <i class="bi bi-archive"></i> Download ZIP
+                                    </a>
+
+                                </li>
+
+
+
+{#                                <li>#}
+{#                                    <hr class="dropdown-divider">#}
+{#                                </li>#}
+{#                                <li>#}
+{#                                    <a class="dropdown-item text-danger"#}
+{#                                       href="{% url 'caidapp:delete_mediafile' mediafile.instance.id %}"#}
+{#                                       onclick="return confirm('Delete file {{ mediafile.instance }}?')">#}
+{#                                        <i class="bi bi-trash"></i> Delete#}
+{#                                    </a>#}
+{#                                </li>#}
+                            </ul>
+                        </div>
+                        <a class="btn btn-secondary" href="{% url 'caidapp:mediafiles_stats' %}">
+                            <i class="bi bi-bar-chart"></i> Stats </a>
+{#                    </div>#}
+{#                </div>#}
+
+                        <a class="btn btn-secondary" data-bs-toggle="collapse" href="#collapseBulkProcessing"
                            role="button"
                            aria-expanded="false" aria-controls="collapseBulkProcessing">
+                            <i class="bi bi-ui-checks-grid"></i>
                             Bulk processing
                         </a>
-                    </p>
                     <div class="collapse" name="collapseBulkProcessing" id="collapseBulkProcessing">
                         <div class="card">
                             <div class="card-body mt-3">
@@ -116,9 +153,12 @@
                     </div>
                         {%  if show_overview_button %}
                             <a class="btn btn-primary mt-2" href="{% url 'caidapp:taxons_on_page_are_overviewed' %}">
-                                <i class="bi bi-check"></i> Mark all taxons on this page as overviewed
+                                <i class="bi bi-check-square"></i> Mark all taxons on this page as overviewed
                             </a>
                         {% endif %}
+                        Found {{ page_obj.paginator.count }} mediafiles.
+                    </div>
+                    </div>
 
                     <div class="mt-2">
                         {% include "caidapp/pagination_submit.html" %}
