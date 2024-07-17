@@ -18,6 +18,7 @@
 * [fixed] Error in taxon in media files view
 
 * [changed] Pagination of media files and camera trap checks
+* [added] Overview for single uploaded archive
 
 ## 06-2024
 
