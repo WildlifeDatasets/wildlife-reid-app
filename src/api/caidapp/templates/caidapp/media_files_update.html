@@ -11,11 +11,11 @@
 
                 <div class="d-flex justify-content-between">
                     <div>
-                    <ol class="breadcrumb">
-                        <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li>
-                    </ol>
+                        <ol class="breadcrumb">
+                            <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li>
+                        </ol>
                     </div>
-                    {%  include "caidapp/mediafiles_order_by.html" %}
+                    {% include "caidapp/mediafiles_order_by.html" %}
                 </div>
 
             </nav>
@@ -32,132 +32,109 @@
 
                 {% if form_objects %}
                     {{ form_objects.management_form }}
-                <div class="row">
-                    <div class="col-lg-5">
-                        <div class="row g-2">
+                    <div class="row">
+                        <div class="col-lg-5">
+                            <div class="row g-2">
 
-                            <div class="col">
-                                {% render_field form_query.query class="form-control mb-3" placeholder="type here to search..." %}
-                            </div>
-                            <div class="col-auto">
-                                <button name="querySubmit" class="btn btn-primary" id="querySubmit" type="submit">
-                                    <i class="bi bi-search"></i>
-                                </button>
-                            </div>
-                        </div>
-
-            {#                Do not remove the fallowing line with pagenumber. It is invisible. but importatn for the form. #}
-                            {{ form_query.pagenumber }}
-{#                            <p>#}
-{#                            </p>#}
-
-
-
-                        <div class="dropdown d-inline-block">
-                            <a class="btn btn-secondary dropdown-toggle" href="#" role="button"
-                               data-bs-toggle="dropdown" aria-expanded="false">
-                                <i class="bi bi-download"></i>
-                                Download
-                            </a>
-
-                            <ul class="dropdown-menu">
-                                <li>
-                                    <a class="dropdown-item" href="{% url 'caidapp:download_csv_for_mediafiles' %}">
-                                        <i class="bi bi-table"></i> Download CSV
-                                    </a>
-                                </li>
-                                <li>
-                                    <a class="dropdown-item" href="{% url 'caidapp:download_xlsx_for_mediafiles' %}">
-                                        <i class="fas fa-file-excel"></i>
-                                        Download XLSX
-                                    </a>
-                                </li>
-                                <li>
-                                    <a class="dropdown-item" href="{% url 'caidapp:download_zip_for_mediafiles' %}">
-                                        <i class="bi bi-archive"></i> Download ZIP
-                                    </a>
-
-                                </li>
-
-
-
-{#                                <li>#}
-{#                                    <hr class="dropdown-divider">#}
-{#                                </li>#}
-{#                                <li>#}
-{#                                    <a class="dropdown-item text-danger"#}
-{#                                       href="{% url 'caidapp:delete_mediafile' mediafile.instance.id %}"#}
-{#                                       onclick="return confirm('Delete file {{ mediafile.instance }}?')">#}
-{#                                        <i class="bi bi-trash"></i> Delete#}
-{#                                    </a>#}
-{#                                </li>#}
-                            </ul>
-                        </div>
-                        <a class="btn btn-secondary" href="{% url 'caidapp:mediafiles_stats' %}">
-                            <i class="bi bi-bar-chart"></i> Stats </a>
-{#                    </div>#}
-{#                </div>#}
-
-                        <a class="btn btn-secondary" data-bs-toggle="collapse" href="#collapseBulkProcessing"
-                           role="button"
-                           aria-expanded="false" aria-controls="collapseBulkProcessing">
-                            <i class="bi bi-ui-checks-grid"></i>
-                            Bulk processing
-                        </a>
-                    <div class="collapse" name="collapseBulkProcessing" id="collapseBulkProcessing">
-                        <div class="card">
-                            <div class="card-body mt-3">
-                                {{ form_bulk_processing.non_field_errors }}
-{#                                {{ form_bulk_processing.hidden_fields }}#}
-
-{#                                {% for hidden_field in form_bulk_processing.hidden_fields %}#}
-{#                                    {{ hidden_field.errors }}#}
-{#                                    {{ hidden_field }}#}
-{#                                {% endfor %}#}
-
-{#                              {{ form_bulk_processing }}#}
-                                {% for field in form_bulk_processing %}
-                                    <p>
-
-                                    {{ field.label }}:
-                                    {{ field }}
-                                    <button class="btn btn-primary" name="btnBulkProcessing_{{ field.id_for_label }}" id="btnBulkProcessing"
-                                            type="submit">
-                                        Update Selected
+                                <div class="col">
+                                    {% render_field form_query.query class="form-control mb-3" placeholder="type here to search..." %}
+                                </div>
+                                <div class="col-auto">
+                                    <button name="querySubmit" class="btn btn-primary" id="querySubmit" type="submit">
+                                        <i class="bi bi-search"></i>
                                     </button>
-                                    </p>
+                                </div>
+                            </div>
 
-                                {% endfor %}
-{#                                <button class="btn btn-primary" name="btnBulkProcessing" id="btnBulkProcessing"#}
-{#                                        type="submit">#}
-{#                                    Update Selected#}
-{#                                </button>#}
-                                <label for="cars">Album:</label>
+                            {#                Do not remove the fallowing line with pagenumber. It is invisible. but importatn for the form. #}
+                            {{ form_query.pagenumber }}
 
-                                <select name="selectAlbum" id="selectAlbum">
-                                    <option value selected>-----</option>
-                                    <option value="new" selected>create "New Album"
-                                    <option>
-                                        {% for album in albums_available %}
-                                            <option value={{ album.hash }}>{{ album.name }}</option>
+                            <div class="dropdown d-inline-block">
+                                <a class="btn btn-secondary dropdown-toggle" href="#" role="button"
+                                   data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="bi bi-download"></i>
+                                    Download
+                                </a>
+
+                                <ul class="dropdown-menu">
+                                    <li>
+                                        <a class="dropdown-item" href="{% url 'caidapp:download_csv_for_mediafiles' %}">
+                                            <i class="bi bi-table"></i> Download CSV
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item"
+                                           href="{% url 'caidapp:download_xlsx_for_mediafiles' %}">
+                                            <i class="fas fa-file-excel"></i>
+                                            Download XLSX
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="{% url 'caidapp:download_zip_for_mediafiles' %}">
+                                            <i class="bi bi-archive"></i> Download ZIP
+                                        </a>
+
+                                    </li>
+
+
+                                </ul>
+                            </div>
+                            <a class="btn btn-secondary" href="{% url 'caidapp:mediafiles_stats' %}">
+                                <i class="bi bi-bar-chart"></i> Stats </a>
+                            {#                    </div>#}
+                            {#                </div>#}
+
+                            <a class="btn btn-secondary" data-bs-toggle="collapse" href="#collapseBulkProcessing"
+                               role="button"
+                               aria-expanded="false" aria-controls="collapseBulkProcessing">
+                                <i class="bi bi-ui-checks-grid"></i>
+                                Bulk processing
+                            </a>
+                            <div class="collapse" name="collapseBulkProcessing" id="collapseBulkProcessing">
+                                <div class="card">
+                                    <div class="card-body mt-3">
+                                        {{ form_bulk_processing.non_field_errors }}
+                                        {% for field in form_bulk_processing %}
+                                            <p>
+
+                                                {{ field.label }}:
+                                                {{ field }}
+                                                <button class="btn btn-primary"
+                                                        name="btnBulkProcessing_{{ field.id_for_label }}"
+                                                        id="btnBulkProcessing"
+                                                        type="submit">
+                                                    Update Selected
+                                                </button>
+                                            </p>
+
                                         {% endfor %}
-                                </select>
-                                <button class="btn btn-primary" name="btnBulkProcessingAlbum"
-                                        id="btnBulkProcessingAlbum" type="submit">
-                                    Add to Album
-                                </button>
+                                        <label for="cars">Album:</label>
+
+                                        <select name="selectAlbum" id="selectAlbum">
+                                            <option value selected>-----</option>
+                                            <option value="new" selected>create "New Album"
+                                            <option>
+                                                {% for album in albums_available %}
+                                                    <option value={{ album.hash }}>{{ album.name }}</option>
+                                                {% endfor %}
+                                        </select>
+                                        <button class="btn btn-primary" name="btnBulkProcessingAlbum"
+                                                id="btnBulkProcessingAlbum" type="submit">
+                                            Add to Album
+                                        </button>
+
+                                    </div>
+                                </div>
 
                             </div>
+                            {% if show_overview_button %}
+                                <a class="btn btn-primary mt-2"
+                                   href="{% url 'caidapp:taxons_on_page_are_overviewed' %}">
+                                    <i class="bi bi-check-square"></i> Mark all taxons on this page as overviewed
+                                </a>
+                            {% endif %}
+                            Found {{ page_obj.paginator.count }} mediafiles.
                         </div>
-
-                    </div>
-                        {%  if show_overview_button %}
-                            <a class="btn btn-primary mt-2" href="{% url 'caidapp:taxons_on_page_are_overviewed' %}">
-                                <i class="bi bi-check-square"></i> Mark all taxons on this page as overviewed
-                            </a>
-                        {% endif %}
-                        Found {{ page_obj.paginator.count }} mediafiles.
-                    </div>
                     </div>
 
                     <div class="mt-2">
@@ -183,10 +160,10 @@
 
                                     <div class="card-body mt-2">
 
-                                        {#                                                                    <h5 class="card-title">{{ mediafile.instance }}</h5>#}
                                         {% if mediafile.instance.category %}
                                             <p class="card-text"> Taxon:
-                                                <a class="link-secondary" href="{% url 'caidapp:taxon' mediafile.instance.category.id %}">
+                                                <a class="link-secondary"
+                                                   href="{% url 'caidapp:taxon' mediafile.instance.category.id %}">
                                                     {{ mediafile.instance.category }}
                                                 </a>
 
@@ -198,23 +175,26 @@
                                             </p>
                                         {% endif %}
                                         {% if mediafile.location %}
-                                        <p class="card-text">Location:
+                                            <p class="card-text">Location:
 
-                                            <a class="link-secondary" href="{% url 'caidapp:media_files_location' mediafile.location.hash %}">
-                                                <span data-bs-toggle="tooltip" title="Location: {{ mediafile.location.name }}">
+                                                <a class="link-secondary"
+                                                   href="{% url 'caidapp:media_files_location' mediafile.location.hash %}">
+                                                <span data-bs-toggle="tooltip"
+                                                      title="Location: {{ mediafile.location.name }}">
                                                     {{ mediafile.location.visible_name }}
                                                 </span>
-                                            </a>
-                                        </p>
+                                                </a>
+                                            </p>
                                         {% endif %}
 
                                         <p class="card-text"> Identity:
-                                            <a class="link-secondary" href="{% url 'caidapp:individual_identity_mediafiles' mediafile.instance.id %}">
+                                            <a class="link-secondary"
+                                               href="{% url 'caidapp:individual_identity_mediafiles' mediafile.instance.id %}">
                                                 {{ mediafile.instance.identity }}
                                             </a>
-{#                                            {{ mediafile.instance.identity }}#}
+                                            {#                                            {{ mediafile.instance.identity }}#}
                                             {% if mediafile.instance.identity_is_representative %}
-{#                                                <i class="bi bi-check-circle"></i>#}
+                                                {#                                                <i class="bi bi-check-circle"></i>#}
                                                 {#<i class="bi bi-bookmark"></i>#}
                                                 <i class="bi bi-person" data-toggle="tooltip" data-placement="top"
                                                    title="Identity confirmed by {{ user }}."></i>
@@ -265,11 +245,12 @@
 
 
 
-                        {%  if show_overview_button %}
+                        {% if show_overview_button %}
                             <div class="mt-2">
-                            <a class="btn btn-primary mt-2" href="{% url 'caidapp:taxons_on_page_are_overviewed' %}?next={{ request.get_full_path }}">
-                                <i class="bi bi-check"></i> Mark all taxons on this page as overviewed
-                            </a>
+                                <a class="btn btn-primary mt-2"
+                                   href="{% url 'caidapp:taxons_on_page_are_overviewed' %}?next={{ request.get_full_path }}">
+                                    <i class="bi bi-check"></i> Mark all taxons on this page as overviewed
+                                </a>
                             </div>
                         {% endif %}
 
@@ -285,10 +266,10 @@
         </section>
     {% endif %}
     <script>
-    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
-var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-  return new bootstrap.Tooltip(tooltipTriggerEl)
-})
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl)
+        })
     </script>
     <script>
         const data = '{{qs_json}}'
