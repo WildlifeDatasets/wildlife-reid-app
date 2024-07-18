@@ -20,6 +20,7 @@
 * [changed] Pagination of media files and camera trap checks
 * [added] Overview for single uploaded archive
 * [changed] UI for media files is more compact
+* [changed] UI for uploaded archives is more compact now
 
 ## 06-2024
 
