@@ -26,7 +26,7 @@
 
             {% if locations %}
                 {% for location in locations %}
-                    <div class="col-xl-3">
+                    <div class="col-xl-2">
                         {#                        <div class="col" style="-ms-flex: 0 0 200; flex: 0 0 200;">#}
                         <div class="card">
                             {% if location.uploadedarchive_set.all.0 %}
@@ -39,13 +39,24 @@
                                 {% endif %}
                             {% endif %}
                             <div class="card-body">
-                                <h5 class="card-title"> {{ location }} </h5>
+                                <h5 class="card-title">
+                                    {%  if request.session.private_mode %}
+                                        {{ location.visible_name }}
+                                    {% else %}
+                                        {{ location.name }}
+                                    {% endif %}
+
+                                </h5>
                                 <p class="card-text">
                                     Uploaded archives: {{ location.uploadedarchive_set.count }}
                                 </p>
                             </div>
                             <div class="card-footer">
-                                <a href="{% url 'caidapp:update_location' location.id %}" class="btn btn-primary" >
+                                <a href="{% url 'caidapp:update_location' location.id %}" class="btn btn-primary"
+                                        {%  if request.session.private_mode %}
+                                            onclick="return confirm('You are in private mode. In edit view you will reveal the location. Do you want to continue?')"
+                                        {% endif %}
+                                >
                                     <i class="fas fa-edit"></i> Edit
                                     </a>
                                 <a href="{% url 'caidapp:media_files_location' location.hash %}" class="btn btn-secondary" >

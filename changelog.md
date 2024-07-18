@@ -23,6 +23,7 @@
 * [added] Overview for single uploaded archive
 * [changed] UI for media files is more compact
 * [changed] UI for uploaded archives is more compact now
+* [added] Private mode
 
 ## 06-2024
 

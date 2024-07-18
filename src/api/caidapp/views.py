@@ -1968,3 +1968,12 @@ def get_item_number_uploaded_archives(request):
     item_number = request.session.get('item_number_uploaded_archives', 12)
     return item_number
 
+
+def switch_private_mode(request):
+    """Switch private mode."""
+
+    actual_mode = request.session.get('private_mode', False)
+    request.session['private_mode'] = not actual_mode
+
+    return redirect(request.META.get('HTTP_REFERER', '/'))
+

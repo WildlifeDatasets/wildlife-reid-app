@@ -18,7 +18,11 @@
 
             <a class="link-secondary"
                href="{% url 'caidapp:uploads_of_location' uploadedarchive.location_at_upload_object.hash %}">
-                {{ uploadedarchive.location_at_upload_object.name }}
+                    {% if request.session.private_mode %}
+                        {{ uploadedarchive.location_at_upload_object.visible_name }}
+                    {% else %}
+                        {{ uploadedarchive.location_at_upload_object.name }}
+                    {% endif %}
             </a>
         {% else %}
             {{ uploadedarchive.location_at_upload_object.name }}
