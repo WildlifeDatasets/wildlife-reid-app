@@ -7,68 +7,100 @@
     {% endif %}
 
 </h5>
-<p>
-{#    <a href="{% url 'caidapp:uploads_of_location' uploadedarchive.location.hash %}">Checks</a>#}
-{#    {{ uploadedarchive.location_at_upload_object }}#}
+<div class="d-flex justify-content-between align-items-center">
+    {#    <a href="{% url 'caidapp:uploads_of_location' uploadedarchive.location.hash %}">Checks</a>#}
+    {#    {{ uploadedarchive.location_at_upload_object }}#}
     <span data-bs-toggle="tooltip" title="Location: {{ uploadedarchive.location_at_upload_object.name }}">
-        Location:
+        <i class="bi bi-geo-alt"></i>
         {% if uploadedarchive.location_at_upload_object %}
-{#            {{ uploadedarchive.location_at_upload_object.name }}#}
-{#            {{ uploadedarchive.location_at_upload_object.hash }}#}
+            {#            {{ uploadedarchive.location_at_upload_object.name }}#}
+            {#            {{ uploadedarchive.location_at_upload_object.hash }}#}
 
-            <a class="link-secondary"  href="{% url 'caidapp:uploads_of_location' uploadedarchive.location_at_upload_object.hash %}">
+            <a class="link-secondary"
+               href="{% url 'caidapp:uploads_of_location' uploadedarchive.location_at_upload_object.hash %}">
                 {{ uploadedarchive.location_at_upload_object.name }}
             </a>
         {% else %}
             {{ uploadedarchive.location_at_upload_object.name }}
         {% endif %}
-    </span><br>
-    {% if uploadedarchive.earliest_captured_at %}
-    {{ uploadedarchive.earliest_captured_at|date:'Y-m-d' }} - {{ uploadedarchive.latest_captured_at|date:'Y-m-d' }}<br>
-    {% endif %}
+    </span>
+    <span data-bs-toggle="tooltip" title="Uploaded at: {{ uploadedarchive.uploaded_at|date:'Y-m-d H:i' }}">
+        <i class="bi bi-file-earmark-zip"></i>
+{#        <span class="fa-stack fa-sm" style="font-size:0.63em;">#}
+{#            <i class="bi bi-calendar fa-stack-2x"></i>#}
+{#            <i class="fa fa-arrow-up fa-stack-1x" style="top:0.25em "></i>#}
+{#        </span>#}
+    </span>
+</div>
+{#<div class="d-flex justify-content-between align-items-center">#}
+{#    <div>#}
+{% if uploadedarchive.earliest_captured_at %}
+    <i class="bi bi-calendar"></i>
+    {{ uploadedarchive.earliest_captured_at|date:'Y-m-d' }} to {{ uploadedarchive.latest_captured_at|date:'Y-m-d' }}
+    <br>
+{% endif %}
+{#    </div>#}
+
+{#</div>#}
+<div class="d-flex justify-content-between align-items-center">
     <span
             data-bs-toggle="tooltip" title="{{ uploadedarchive.status_message }}"
-    >Status: {{ uploadedarchive.status }} </span><br>
-    {% if uploadedarchive.started_at %}
-        Started at: {{ uploadedarchive.started_at|date:'Y-m-d H:i' }} <br>
+    >
+{#        <i class="bi bi-info-circle"></i>#}
+        <i class="bi bi-activity"></i>
+        {{ uploadedarchive.status }}
+    </span>
+    {% if uploadedarchive.started_at or uploaded_archive.finished_at %}
+        <span
+                data-bs-toggle="tooltip" title="
+                {% if uploadedarchive.started_at %}
+                    Started at: {{ uploadedarchive.started_at|date:'Y-m-d H:i' }}
+                {% endif %}
+                {% if uploadedarchive.finished_at %}
+                    Finished at: {{ uploadedarchive.finished_at|date:'Y-m-d H:i' }}
+                {% endif %}"
+        >
+        <i class="bi bi-clock"></i>
+
+        </span>
     {% endif %}
-    {% if uploadedarchive.finished_at %}
-        Finished at: {{ uploadedarchive.finished_at|date:'Y-m-d H:i' }} <br>
+</div>
+<span
+        data-bs-toggle="tooltip" title="
+    Media files: {{ uploadedarchive.count_of_mediafiles }}
+    Representative media files: {{ uploadedarchive.count_of_representative_mediafiles }}
+    Count of taxons: {{ uploadedarchive.count_of_taxons }}
+    Media files with missing taxon: {{ uploadedarchive.count_of_mediafiles_with_missing_taxon }}
+    Count of idetities: {{ uploadedarchive.count_of_identities }}
+    {% if uploadedarchive.count_of_mediafiles_with_taxon_for_identification %}
+        Mediafiles with taxon {{ uploadedarchive.taxon_for_identification }}: {{ uploadedarchive.count_of_mediafiles_with_taxon_for_identification }}
     {% endif %}
 
+    {% if uploadedarchive.animal_number %}
+        Count: {{ uploadedarchive.animal_number }}
+    {% endif %}
+"
+>
+<div class="d-flex justify-content-between align-items-center">
+    <div>
+        <i class="bi bi-images"></i>
+        Media files: {{ uploadedarchive.count_of_mediafiles }}
+    </div>
+<div>
     <i class="fa-solid fa-hippo"></i>
     {% if uploadedarchive.has_all_taxons %}
         {% if uploadedarchive.taxons_are_overviewed %}
             <i class="bi bi-check-all"></i>
-    {#        <i class="bi bi-check"></i>#}
+            {#        <i class="bi bi-check"></i>#}
         {% else %}
             <i class="bi bi-check"></i>
         {% endif %}
     {% endif %}
-    <br>
+</div>
+</div>
+    </span>
 
-    Media files: {{ uploadedarchive.count_of_mediafiles }}<br>
-    Representative media files: {{ uploadedarchive.count_of_representative_mediafiles }} <br>
-    Count of taxons: {{ uploadedarchive.count_of_taxons }}<br>
-    Media files with missing taxon: {{ uploadedarchive.count_of_mediafiles_with_missing_taxon }}<br>
-    Count of idetities: {{ uploadedarchive.count_of_identities }}<br>
-    {% if uploadedarchive.count_of_mediafiles_with_taxon_for_identification %}
-        Mediafiles with taxon {{ uploadedarchive.taxon_for_identification }}: {{ uploadedarchive.count_of_mediafiles_with_taxon_for_identification }}<br>
-    {% endif %}
-
-    {%  if uploadedarchive.animal_number %}
-        Count: {{ uploadedarchive.animal_number }}<br>
-    {% endif %}
 {#    <i class="fa-solid fa-calendar"></i>#}
-    Uploaded at: {{ uploadedarchive.uploaded_at|date:'Y-m-d H:i' }} <br>
-</p>
+{#Uploaded at: {{ uploadedarchive.uploaded_at|date:'Y-m-d H:i' }} <br>#}
 
 
-
-{#<span data-bs-toggle="tooltip" title="Uploaded at: {{ uploadedarchive.uploaded_at|date:'Y-m-d H:i' }}">#}
-{#    <span class="fa-stack fa-sm" style="font-size:0.63em;">#}
-{#        <i class="bi bi-calendar fa-stack-2x"></i>#}
-{#        <i class="fa-solid fa-calendar fa-stack-2x"></i>#}
-{#        <i class="fa fa-arrow-up fa-stack-1x "></i>#}
-{#    </span>#}
-{#</span><br>#}
