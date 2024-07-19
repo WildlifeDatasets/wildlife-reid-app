@@ -2,6 +2,60 @@
 {% load static %}
 {% load widget_tweaks %}
 {% block head %}
+{#<style>#}
+{#    .card {#}
+{#        display: flex;#}
+{#        flex-direction: column;#}
+{#        height: 100%;#}
+{#    }#}
+{#    .card-img-top {#}
+{#        object-fit: cover; /* Ensures the image covers the area */#}
+{#    }#}
+{#    .card-body {#}
+{#        flex: 1;#}
+{#        display: flex;#}
+{#        flex-direction: column;#}
+{#    }#}
+{#</style>#}
+<style>
+    /* Custom breakpoint for screens larger than 1920px (you can adjust the value as needed) */
+    @media (min-width: 1920px) {
+        .col-xxxl-1 {
+            flex: 0 0 auto;
+            width: 8.33%; /* 1/12th of the width */
+        }
+        .col-xxxl-2 {
+            flex: 0 0 auto;
+            width: 16.66%; /* 2/12th of the width */
+        }
+        .col-xxxl-3 {
+            flex: 0 0 auto;
+            width: 25%; /* 3/12th of the width */
+        }
+        .col-xxxl-4 {
+            flex: 0 0 auto;
+            width: 33.33%; /* 4/12th of the width */
+        }
+        .col-xxxl-6 {
+            flex: 0 0 auto;
+            width: 50%; /* 6/12th of the width */
+        }
+    }
+
+
+
+      .card {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .card-body {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+    }
+</style>
+
 {% endblock %}
 {% block body %}
     {% if user.is_authenticated %}
@@ -140,10 +194,13 @@
                     <div class="mt-2">
                         {% include "caidapp/pagination_submit.html" %}
                     </div>
+{#                    <div class="row g-4" id="row-of-cards">#}
                     <div class="row" id="row-of-cards">
 
                         {% for mediafile in form_objects %}
-                            <div class="col-lg-3" id="card{{ mediafile.instance.id }}">
+                            <div class="col-12 col-sm-12 col-md-12 col-lg-6 col-xl-4 col-xxl-3 col-xxxl-2" id="card{{ mediafile.instance.id }}">
+{#    same-sized cards (but with a lot emtpy space on bottom of the card are done by:  card h-100 , <style> of .card  and row g-2#}
+{#                                <div class="card h-100">#}
                                 <div class="card">
                                     {% for hidden in mediafile.hidden_fields %}
                                         {{ hidden }}
@@ -158,7 +215,7 @@
                                         </div>
                                     {% endif %}
 
-                                    <div class="card-body mt-2">
+                                    <div class="card-body mt-1" >
                                         <p class="card-text">
 
                                         {% if mediafile.instance.category %}
@@ -204,43 +261,45 @@
 
                                             <br>
                                         {% endif %}
-                                            Captured
-                                            at: {{ mediafile.instance.captured_at|date:'Y-m-d H:i' }}
+                                            {{ mediafile.instance.captured_at|date:'Y-m-d H:i' }}
 
 
-                                        <a class="btn btn-secondary"
-                                           href="{% url 'caidapp:media_file_update' mediafile.instance.id %}?next={{ request.get_full_path }}">
-                                            <i class="bi bi-pencil"></i> Detail
-                                        </a>
                                         </p>
-
-
-                                        <div class="dropdown d-inline-block">
-                                            <a class="btn btn-secondary dropdown-toggle" href="#" role="button"
-                                               data-bs-toggle="dropdown" aria-expanded="false">
-                                                <i class="bi bi-three-dots"></i>
+                                        <div class="">
+                                            <a class="btn btn-secondary"
+                                               href="{% url 'caidapp:media_file_update' mediafile.instance.id %}?next={{ request.get_full_path }}">
+                                                <i class="bi bi-pencil"></i> Detail
                                             </a>
 
-                                            <ul class="dropdown-menu">
-                                                {% if mediafile.instance.is_preidentified %}
+
+                                            <div class="dropdown d-inline-block">
+                                                <a class="btn btn-secondary dropdown-toggle" href="#" role="button"
+                                                   data-bs-toggle="dropdown" aria-expanded="false">
+                                                    <i class="bi bi-three-dots"></i>
+                                                </a>
+
+                                                <ul class="dropdown-menu">
+                                                    {% if mediafile.instance.is_preidentified %}
+                                                        <li>
+                                                            <a class="dropdown-item"
+                                                               href="{% url 'caidapp:get_individual_identity_by_media_file' mediafile.instance.id %}">
+                                                                Confirm identity
+                                                            </a>
+                                                        </li>
+                                                    {% endif %}
                                                     <li>
-                                                        <a class="dropdown-item"
-                                                           href="{% url 'caidapp:get_individual_identity_by_media_file' mediafile.instance.id %}">
-                                                            Confirm identity
+                                                        <hr class="dropdown-divider">
+                                                    </li>
+                                                    <li>
+                                                        <a class="dropdown-item text-danger"
+                                                           href="{% url 'caidapp:delete_mediafile' mediafile.instance.id %}"
+                                                           onclick="return confirm('Delete file {{ mediafile.instance }}?')">
+                                                            <i class="bi bi-trash"></i> Delete
                                                         </a>
                                                     </li>
-                                                {% endif %}
-                                                <li>
-                                                    <hr class="dropdown-divider">
-                                                </li>
-                                                <li>
-                                                    <a class="dropdown-item text-danger"
-                                                       href="{% url 'caidapp:delete_mediafile' mediafile.instance.id %}"
-                                                       onclick="return confirm('Delete file {{ mediafile.instance }}?')">
-                                                        <i class="bi bi-trash"></i> Delete
-                                                    </a>
-                                                </li>
-                                            </ul>
+                                                </ul>
+                                            </div>
+
                                         </div>
                                     </div>
                                 </div>
