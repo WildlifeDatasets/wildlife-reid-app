@@ -215,6 +215,11 @@ def get_datetime_from_exif(filename: Path) -> typing.Tuple[str, str]:
         read_error = ""
 
     dt_str = replace_colon_in_exif_datetime(dt_str)
+
+    if filename.exists() and dt_str == "":
+        dtm = min(filename.stat().st_mtime, filename.stat().st_ctime, filename.stat().st_atime)
+        dt_str = datetime.fromtimestamp(dtm).strftime("%Y-%m-%d %H:%M:%S")
+
     return dt_str, read_error
 
 
