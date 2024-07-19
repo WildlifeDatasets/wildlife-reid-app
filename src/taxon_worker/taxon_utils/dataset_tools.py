@@ -185,7 +185,7 @@ def get_datetime_from_exif(filename: Path) -> typing.Tuple[str, str]:
     Returns
     -------
     str1:
-        String with datetime or zero length string if no EXIF is available.
+        String with datetime in forma YYYY-MM-DD HH:MM:SS or zero length string if no EXIF is available.
 
     str2:
         Error type or zero length string if file is ok.

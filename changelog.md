@@ -18,12 +18,14 @@
 
 * [added] Impersonate user in admin
 * [fixed] Error in taxon in media files view
-
 * [changed] Pagination of media files and camera trap checks
 * [added] Overview for single uploaded archive
 * [changed] UI for media files is more compact
 * [changed] UI for uploaded archives is more compact now
 * [added] Private mode
+
+* [added] Reading the date and time from video media files
+* [fixed] Remove media files on "Taxon classification (force init)"
 
 ## 06-2024
 

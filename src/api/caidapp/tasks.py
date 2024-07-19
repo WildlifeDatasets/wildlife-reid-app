@@ -352,8 +352,12 @@ def run_species_prediction_async(
     if link_error is None:
         link_error = (on_error_with_uploaded_archive.s(uploaded_archive_id=uploaded_archive.id),)
 
-    # if the metadata file exists, it is updated
-    update_metadata_csv_by_uploaded_archive(uploaded_archive)
+    if force_init:
+        # remove all mediafiles
+        uploaded_archive.mediafile_set.all().delete()
+    else:
+        # if the metadata file exists, it is updated
+        update_metadata_csv_by_uploaded_archive(uploaded_archive)
 
     # send celery message to the data worker
     logger.info("Sending request to inference worker.")

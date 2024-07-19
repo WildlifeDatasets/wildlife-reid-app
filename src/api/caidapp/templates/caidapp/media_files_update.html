@@ -159,9 +159,10 @@
                                     {% endif %}
 
                                     <div class="card-body mt-2">
+                                        <p class="card-text">
 
                                         {% if mediafile.instance.category %}
-                                            <p class="card-text"> Taxon:
+                                                Taxon:
                                                 <a class="link-secondary"
                                                    href="{% url 'caidapp:taxon' mediafile.instance.category.id %}">
                                                     {{ mediafile.instance.category }}
@@ -172,10 +173,10 @@
                                                     <i class="fa-solid fa-hippo"></i>
                                                     <i class="bi bi-check"></i>
                                                 {% endif %}
-                                            </p>
+                                                <br>
                                         {% endif %}
                                         {% if mediafile.location %}
-                                            <p class="card-text">Location:
+                                                Location:
 
                                                 <a class="link-secondary"
                                                    href="{% url 'caidapp:media_files_location' mediafile.location.hash %}">
@@ -184,10 +185,11 @@
                                                     {{ mediafile.location.visible_name }}
                                                 </span>
                                                 </a>
-                                            </p>
+                                                <br>
                                         {% endif %}
 
-                                        <p class="card-text"> Identity:
+                                        {% if mediafile.instance.identity %}
+                                            Identity:
                                             <a class="link-secondary"
                                                href="{% url 'caidapp:individual_identity_mediafiles' mediafile.instance.id %}">
                                                 {{ mediafile.instance.identity }}
@@ -200,15 +202,18 @@
                                                    title="Identity confirmed by {{ user }}."></i>
                                             {% endif %}
 
-                                        </p>
-                                        <p class="card-text"> Captured
-                                            at: {{ mediafile.instance.captured_at|date:'Y-m-d H:i' }}</p>
+                                            <br>
+                                        {% endif %}
+                                            Captured
+                                            at: {{ mediafile.instance.captured_at|date:'Y-m-d H:i' }}
 
 
                                         <a class="btn btn-secondary"
                                            href="{% url 'caidapp:media_file_update' mediafile.instance.id %}?next={{ request.get_full_path }}">
                                             <i class="bi bi-pencil"></i> Detail
                                         </a>
+                                        </p>
+
 
                                         <div class="dropdown d-inline-block">
                                             <a class="btn btn-secondary dropdown-toggle" href="#" role="button"
