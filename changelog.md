@@ -26,6 +26,7 @@
 * [fixed] Remove media files on "Taxon classification (force init)"
 * [added] Added support for extra wide monitor on media files view
 * [added] Date picker in upload archive view
+* [added] Date and location are automatically filled in the upload archive view
 
 ## 06-2024
 
