@@ -73,6 +73,13 @@ class UploadedArchiveForm(forms.ModelForm):
     location_at_upload = forms.CharField(
         widget=forms.TextInput(attrs={"class": "autocomplete"}), required=False
     )
+    location_check_at = forms.DateField(
+        widget=forms.DateInput(attrs={'class': 'datepicker', 'placeholder': 'yyyy-mm-dd'}, format='%Y-%m-%d'),
+        input_formats=['%Y-%m-%d'],
+
+        # widget=forms.TextInput(attrs={'class': 'datepicker'})
+    )
+
 
     class Meta:
         model = UploadedArchive

@@ -2,18 +2,24 @@
 {% load widget_tweaks %}
 
 {% block head %}
-<!-- Latest compiled and minified JavaScript -->
-<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"
-        integrity="sha384-9/reFTGAW83EW2RDu2S0VKaIzap3H66lZH81PoYlFhbGU+6BZp6G7niu735Sk7lN"
-        crossorigin="anonymous"></script>
-<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"
-        integrity="sha384-B4gt1jrGC7Jh4AgTPSdUtOBvfO8shuf57BaghqFfPlYxofvL8/KUEfYiJOMMV+rV"
-        crossorigin="anonymous"></script>
+    <!-- Bootstrap Datepicker CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.9.0/css/bootstrap-datepicker.min.css">
+
+    <!-- Latest compiled and minified JavaScript -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"
+            integrity="sha384-9/reFTGAW83EW2RDu2S0VKaIzap3H66lZH81PoYlFhbGU+6BZp6G7niu735Sk7lN"
+            crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"
+            integrity="sha384-B4gt1jrGC7Jh4AgTPSdUtOBvfO8shuf57BaghqFfPlYxofvL8/KUEfYiJOMMV+rV"
+            crossorigin="anonymous"></script>
+    <!-- Bootstrap Datepicker JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.9.0/js/bootstrap-datepicker.min.js"></script>
+
 {% endblock %}
 {% block body %}
     <style>
-        .not-visible{
+        .not-visible {
             display: none;
         }
     </style>
@@ -33,7 +39,7 @@
 
             <form method="post" enctype="multipart/form-data" id="upload_form">
                 {% csrf_token %}
-{#                {{ form.as_p }}#}
+                {#                {{ form.as_p }}#}
 
                 {% for field in form %}
                     <div class="form-group">
@@ -43,19 +49,21 @@
                     </div>
                 {% endfor %}
 
-                <p><div class="progress not-visible" id="progress"></div></p>
+                <p>
+                <div class="progress not-visible" id="progress"></div>
+                </p>
                 <button class="btn btn-primary" id="btnUpload" type="submit">
-{#                    <span class="spinner"><i class="fa fa-refresh fa-spin"></i></span>#}
+                    {#                    <span class="spinner"><i class="fa fa-refresh fa-spin"></i></span>#}
                     <i class="fa fa-upload"></i>
                     {{ button }}
                 </button>
-{#                <a class="btn btn-secondary" href="{% url 'caidapp:uploads' %}">Cancel</a>#}
+                {#                <a class="btn btn-secondary" href="{% url 'caidapp:uploads' %}">Cancel</a>#}
 
             </form>
         </div>
-  </form>
-</div>
-</div>
+        </form>
+        </div>
+        </div>
     {% endif %}
     {#</div>#}
 
@@ -64,12 +72,12 @@
         const input_file = document.getElementById('id_archivefile');
         const progress_bar = document.getElementById('progress');
 
-        $("#upload_form").submit(function(e){
+        $("#upload_form").submit(function (e) {
             e.preventDefault();
             $form = $(this)
             var formData = new FormData(this);
             const media_data = input_file.files[0];
-            if(media_data != null){
+            if (media_data != null) {
                 progress_bar.classList.remove("not-visible");
             }
 
@@ -81,14 +89,14 @@
                 {#url:'{% url next %}',#}
                 data: formData,
                 dataType: 'json',
-                beforeSend: function(){
+                beforeSend: function () {
 
                 },
-                xhr:function(){
+                xhr: function () {
                     const xhr = new window.XMLHttpRequest();
-                    xhr.upload.addEventListener('progress', e=>{
-                        if(e.lengthComputable){
-                            const percentProgress = (e.loaded/e.total)*100;
+                    xhr.upload.addEventListener('progress', e => {
+                        if (e.lengthComputable) {
+                            const percentProgress = (e.loaded / e.total) * 100;
                             const percentProgressInt = Math.round(percentProgress);
                             progress_bar.innerHTML = `<div class="progress-bar progress-bar-striped bg-success"
                     role="progressbar" style="width: ${percentProgress}%" aria-valuenow="${percentProgress}" aria-valuemin="0"
@@ -97,11 +105,11 @@
                     });
                     return xhr
                 },
-                success: function(response){
+                success: function (response) {
                     uploadForm.reset()
                     progress_bar.classList.add('not-visible')
                 },
-                error: function(err){
+                error: function (err) {
                     console.log(err);
                 },
                 cache: false,
@@ -112,63 +120,76 @@
 
     </script>
     <script type="module">
-  import Autocomplete from "https://cdn.jsdelivr.net/gh/lekoala/bootstrap5-autocomplete@master/autocomplete.js";
-  const opts = {
-    onSelectItem: console.log,
-  };
-  var src = [
-      {%  for location in locations %}
-      { title: "{{ location.name }}", id: "{{ location.id }}", data: { key: {{ location.id }} } },
-      {% endfor %}
-  ];
-  Autocomplete.init("input.autocomplete", {
-    items: src,
-    valueField: "id",
-    labelField: "title",
-    highlightTyped: true,
-    onSelectItem: console.log,
-  });
-  new Autocomplete(document.getElementById("id_location_at_upload"), opts);
-</script>
-<style>
-  /* highlightTyped use mark */
-  .autocomplete-menu mark {
-    text-decoration: underline;
-    background: none;
-    color: currentColor;
-    padding: 0;
-  }
+        import Autocomplete from "https://cdn.jsdelivr.net/gh/lekoala/bootstrap5-autocomplete@master/autocomplete.js";
 
-  /* Optional nicer scrollbars */
-  .autocomplete-menu {
-    --scroller-color: 0, 0%;
-    --scroller-color-lightness: 80%;
-    --scroller-bg-lightness: 90%;
-    --scroller-hover-factor: 0.8;
-    --scroller-thumb: hsl(var(--scroller-color), var(--scroller-color-lightness));
-    /* Replicate hover for webkit */
-    --scroller-thumb-hover: hsl(var(--scroller-color), calc(var(--scroller-color-lightness) * var(--scroller-hover-factor)));
-    --scroller-background: hsl(var(--scroller-color), calc(var(--scroller-bg-lightness)));
-    scrollbar-color: var(--scroller-thumb) var(--scroller-background);
-    scrollbar-width: thin;
-  }
+        const opts = {
+            onSelectItem: console.log,
+        };
+        var src = [
+            {%  for location in locations %}
+                {title: "{{ location.name }}", id: "{{ location.id }}", data: {key: {{ location.id }}}},
+            {% endfor %}
+        ];
+        Autocomplete.init("input.autocomplete", {
+            items: src,
+            valueField: "id",
+            labelField: "title",
+            highlightTyped: true,
+            onSelectItem: console.log,
+        });
+        new Autocomplete(document.getElementById("id_location_at_upload"), opts);
 
-  .autocomplete-menu::-webkit-scrollbar {
-    width: 8px;
-  }
 
-  .autocomplete-menu::-webkit-scrollbar-track {
-    background: var(--scroller-background);
-  }
+    </script>
+    <script>
+        $(function () {
+            $(".datepicker").datepicker({
+                format: 'yyyy-mm-dd',
+                orientation: "bottom"
+            }).on('changeDate', function(e) {
+                $(this).datepicker('hide');
+            });
+        });
+    </script>
+    <style>
+        /* highlightTyped use mark */
+        .autocomplete-menu mark {
+            text-decoration: underline;
+            background: none;
+            color: currentColor;
+            padding: 0;
+        }
 
-  .autocomplete-menu::-webkit-scrollbar-thumb {
-    background: var(--scroller-thumb);
-  }
+        /* Optional nicer scrollbars */
+        .autocomplete-menu {
+            --scroller-color: 0, 0%;
+            --scroller-color-lightness: 80%;
+            --scroller-bg-lightness: 90%;
+            --scroller-hover-factor: 0.8;
+            --scroller-thumb: hsl(var(--scroller-color), var(--scroller-color-lightness));
+            /* Replicate hover for webkit */
+            --scroller-thumb-hover: hsl(var(--scroller-color), calc(var(--scroller-color-lightness) * var(--scroller-hover-factor)));
+            --scroller-background: hsl(var(--scroller-color), calc(var(--scroller-bg-lightness)));
+            scrollbar-color: var(--scroller-thumb) var(--scroller-background);
+            scrollbar-width: thin;
+        }
 
-  .autocomplete-menu::-webkit-scrollbar-thumb:hover {
-    background: var(--scroller-thumb-hover);
-  }
-</style>
+        .autocomplete-menu::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .autocomplete-menu::-webkit-scrollbar-track {
+            background: var(--scroller-background);
+        }
+
+        .autocomplete-menu::-webkit-scrollbar-thumb {
+            background: var(--scroller-thumb);
+        }
+
+        .autocomplete-menu::-webkit-scrollbar-thumb:hover {
+            background: var(--scroller-thumb-hover);
+        }
+    </style>
 
 
 {% endblock %}
