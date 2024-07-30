@@ -29,6 +29,7 @@
 * [added] Added support for extra wide monitor on media files view
 * [added] Date picker in upload archive view
 * [added] Date and location are automatically filled in the upload archive view
+* [added] Warning when leaving the upload page before the upload is finished
 
 ## 06-2024
 
