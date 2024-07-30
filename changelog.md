@@ -27,6 +27,7 @@
 * [added] Reading the date and time from video media files
 * [fixed] Remove media files on "Taxon classification (force init)"
 * [added] Added support for extra wide monitor on media files view
+* [added] Date picker in upload archive view
 
 ## 06-2024
 
