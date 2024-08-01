@@ -30,6 +30,7 @@
 * [added] Date picker in upload archive view
 * [added] Date and location are automatically filled in the upload archive view
 * [added] Warning when leaving the upload page before the upload is finished
+* [added] Richer ordering possibilities for camera trap checks
 
 ## 06-2024
 

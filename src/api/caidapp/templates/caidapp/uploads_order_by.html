@@ -6,9 +6,17 @@
         </button>
         <ul class="dropdown-menu">
             <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_uploaded_archives_by' '-uploaded_at' %}">▼ Uploaded At</a></li>
-            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_uploaded_archives_by' 'uploaded_at' %}">▲ Uploaded At</a></li>
+            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_uploaded_archives_by'  'uploaded_at' %}">▲ Uploaded At</a></li>
             <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_uploaded_archives_by' '-started_at' %}">▼ Started At</a></li>
-            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_uploaded_archives_by' 'started_at' %}">▲ Started At</a></li>
+            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_uploaded_archives_by'  'started_at' %}">▲ Started At</a></li>
+            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_uploaded_archives_by' '-mediafile_count' %}">▼ Media file Count</a></li>
+            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_uploaded_archives_by'  'mediafile_count' %}">▲ Media file Count</a></li>
+            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_uploaded_archives_by' '-mediafile_count_with_taxon' %}">▼ Media files with Taxon</a></li>
+            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_uploaded_archives_by'  'mediafile_count_with_taxon' %}">▲ Media files with Taxon</a></li>
+            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_uploaded_archives_by' '-earliest_mediafile_captured_at' %}">▼ Earliest media file captured at</a></li>
+            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_uploaded_archives_by'  'earliest_mediafile_captured_at' %}">▲ Earliest media file captured at</a></li>
+            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_uploaded_archives_by' '-location_at_upload' %}">▼ Location </a></li>
+            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_uploaded_archives_by'  'location_at_upload' %}">▲ Location </a></li>
         </ul>
     </div>
     <div class="dropdown">
