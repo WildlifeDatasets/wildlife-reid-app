@@ -2,17 +2,34 @@ from .models import CaIDUser, MediaFile, UploadedArchive, Location
 import pandas as pd
 
 
-def _user_has_rw_access_to_mediafile(ciduser: CaIDUser, mediafile: MediaFile) -> bool:
+def _user_has_rw_access_to_mediafile(ciduser: CaIDUser, mediafile: MediaFile, accept_none: bool) -> bool:
     """Check if user has access to mediafile."""
+    if mediafile is None:
+        if accept_none:
+            return True
+        return False
+    if mediafile.parent is None:
+        if accept_none:
+            return True
+        return False
     return (mediafile.parent.owner.id == ciduser.id) or (
         mediafile.parent.owner.workgroup == ciduser.workgroup
     )
 
 
 def _user_has_rw_acces_to_uploadedarchive(
-    ciduser: CaIDUser, uploadedarchive: UploadedArchive
+    ciduser: CaIDUser, uploadedarchive: UploadedArchive, accept_none: bool = False
 ) -> bool:
     """Check if user has access to uploadedarchive."""
+    if uploadedarchive is None:
+        if accept_none:
+            return True
+        return False
+    if uploadedarchive.owner is None:
+        if accept_none:
+            return True
+        return False
+
     return (uploadedarchive.owner.id == ciduser.id) or (
         uploadedarchive.owner.workgroup == ciduser.workgroup
     )
