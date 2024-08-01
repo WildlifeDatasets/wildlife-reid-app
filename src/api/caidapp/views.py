@@ -19,7 +19,7 @@ from django.contrib.auth import logout, get_user_model
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView
 from django.core.paginator import Paginator, Page
-from django.db.models import Count, Q, QuerySet
+from django.db.models import Count, Q, QuerySet, Min, F
 from django.forms import modelformset_factory
 from django.http import HttpResponseBadRequest, HttpResponseNotAllowed, JsonResponse, HttpResponseRedirect
 from django.shortcuts import Http404, HttpResponse, get_object_or_404, redirect, render
@@ -200,34 +200,6 @@ def _prepare_page(paginator: Paginator, request:Optional = None, page_number: Op
 
     return page_obj, elided_page_range, context
 
-def uploads_identities(request):
-    """List of uploads."""
-    order_by = uploaded_archive_get_order_by(request)
-
-    uploadedarchives = (
-        UploadedArchive.objects.filter(
-            **get_content_owner_filter_params(request.user.caiduser, "owner"),
-            # contains_single_taxon=True,
-            taxon_for_identification__isnull=False,
-        )
-        .all()
-        .order_by(order_by)
-    )
-
-    records_per_page = get_item_number_uploaded_archives(request)
-    paginator = Paginator(uploadedarchives, per_page=records_per_page)
-    _,_, page_context = _prepare_page(paginator, request=request)
-
-    return render(
-        request,
-        "caidapp/uploads_identities.html",
-        context={
-            **page_context,
-            # "page_obj": page_obj,
-            # "elided_page_range": elided_page_range,
-            "btn_styles": _single_species_button_style(request),
-        },
-    )
 
 
 @staff_member_required
@@ -264,14 +236,52 @@ def show_taxons(request):
         {"taxons": taxons, "taxons_with_mediafiles": zip(taxons, taxons_mediafiles)},
     )
 
+def uploads_identities(request) -> HttpResponse:
+    """List of uploads."""
+    page_context = _uploads_general(request, taxon_for_identification__isnull=False)
 
-def uploads_species(request):
+    return render(
+        request,
+        "caidapp/uploads_identities.html",
+        context={
+            **page_context,
+            # "page_obj": page_obj,
+            # "elided_page_range": elided_page_range,
+            "btn_styles": _single_species_button_style(request),
+        },
+    )
+
+
+def uploads_species(request) -> HttpResponse:
+    page_context = _uploads_general(request, contains_single_taxon=True)
+
+    btn_styles, btn_tooltips = _multiple_species_button_style_and_tooltips(request)
+    return render(
+        request,
+        "caidapp/uploads_species.html",
+        {
+            **page_context,
+            "btn_styles": btn_styles, "btn_tooltips": btn_tooltips},
+    )
+
+
+def _uploads_general(request, contains_single_taxon: Optional[bool] = None, taxon_for_identification__isnull: Optional[bool] = None):
     """List of uploads."""
     order_by = uploaded_archive_get_order_by(request)
+    uploadedarchives = UploadedArchive.objects.all()
+
+    if contains_single_taxon is not None:
+        filter_params = dict(contains_single_taxon=contains_single_taxon)
+    elif taxon_for_identification__isnull is not None:
+        filter_params = dict(taxon_for_identification__isnull=taxon_for_identification__isnull)
+
     uploadedarchives = (
-        UploadedArchive.objects.filter(
+        uploadedarchives.filter(
             **get_content_owner_filter_params(request.user.caiduser, "owner"),
-            contains_single_taxon=False,
+            **filter_params
+            # contains_single_taxon=contains_single_taxon,
+            # taxon_for_identification__isnull=taxon_for_identification__isnull,
+
             # parent__owner=request.user.caiduser
         )
         .all()
@@ -282,14 +292,7 @@ def uploads_species(request):
     paginator = Paginator(uploadedarchives, per_page=records_per_page)
     _,_, page_context = _prepare_page(paginator, request=request)
 
-    btn_styles, btn_tooltips = _multiple_species_button_style_and_tooltips(request)
-    return render(
-        request,
-        "caidapp/uploads_species.html",
-        {
-            **page_context,
-            "btn_styles": btn_styles, "btn_tooltips": btn_tooltips},
-    )
+    return page_context
 
 
 def _multiple_species_button_style_and_tooltips(request) -> dict:
