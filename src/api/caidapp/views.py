@@ -266,10 +266,23 @@ def uploads_species(request) -> HttpResponse:
     )
 
 
+def _uploads_general_order_annotation():
+    return dict(
+        mediafile_count=Count('mediafile'),  # Count of all related MediaFiles
+        mediafile_count_with_taxon=Count(
+            'mediafile',
+            filter=Q(mediafile__category=F('taxon_for_identification'))
+        ),  # Count of MediaFiles with a specific taxon
+        earliest_mediafile_captured_at=Min('mediafile__captured_at')  # Earliest capture date
+    )
+
+
 def _uploads_general(request, contains_single_taxon: Optional[bool] = None, taxon_for_identification__isnull: Optional[bool] = None):
     """List of uploads."""
     order_by = uploaded_archive_get_order_by(request)
-    uploadedarchives = UploadedArchive.objects.all()
+    uploadedarchives = UploadedArchive.objects.annotate(
+        **_uploads_general_order_annotation()
+        )
 
     if contains_single_taxon is not None:
         filter_params = dict(contains_single_taxon=contains_single_taxon)
