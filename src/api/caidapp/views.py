@@ -1257,6 +1257,12 @@ class MyLoginView(LoginView):
         messages.error(self.request, "Invalid username or password")
         return self.render_to_response(self.get_context_data(form=form))
 
+def _mediafiles_annotate() -> dict:
+
+    return dict(
+
+    )
+
 
 def _mediafiles_query(
     request,
@@ -1274,8 +1280,12 @@ def _mediafiles_query(
 
     if order_by is None:
         order_by = request.session.get("mediafiles_order_by", "-parent__uploaded_at")
+
+    mediafiles = MediaFile.objects.annotate(
+        **_mediafiles_annotate()
+    )
     mediafiles = (
-        MediaFile.objects.filter(
+        mediafiles.filter(
             Q(album__albumsharerole__user=request.user.caiduser)
             | Q(parent__owner=request.user.caiduser)
             | Q(parent__owner__workgroup=request.user.caiduser.workgroup)
