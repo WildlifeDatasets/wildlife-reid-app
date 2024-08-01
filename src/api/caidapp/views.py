@@ -254,7 +254,7 @@ def uploads_identities(request) -> HttpResponse:
 
 
 def uploads_species(request) -> HttpResponse:
-    page_context = _uploads_general(request, contains_single_taxon=True)
+    page_context = _uploads_general(request, contains_single_taxon=False)
 
     btn_styles, btn_tooltips = _multiple_species_button_style_and_tooltips(request)
     return render(
@@ -267,13 +267,16 @@ def uploads_species(request) -> HttpResponse:
 
 
 def _uploads_general_order_annotation():
+    # for UploadedArchive.objects.annotate()
     return dict(
         mediafile_count=Count('mediafile'),  # Count of all related MediaFiles
         mediafile_count_with_taxon=Count(
             'mediafile',
             filter=Q(mediafile__category=F('taxon_for_identification'))
         ),  # Count of MediaFiles with a specific taxon
-        earliest_mediafile_captured_at=Min('mediafile__captured_at')  # Earliest capture date
+        earliest_mediafile_captured_at=Min('mediafile__captured_at'),  # Earliest capture date
+
+        name=F('get_name'),
     )
 
 
@@ -290,7 +293,7 @@ def _uploads_general(request, contains_single_taxon: Optional[bool] = None, taxo
         filter_params = dict(taxon_for_identification__isnull=taxon_for_identification__isnull)
 
     uploadedarchives = (
-        uploadedarchives.filter(
+        uploadedarchives.all().filter(
             **get_content_owner_filter_params(request.user.caiduser, "owner"),
             **filter_params
             # contains_single_taxon=contains_single_taxon,
@@ -301,6 +304,7 @@ def _uploads_general(request, contains_single_taxon: Optional[bool] = None, taxo
         .all()
         .order_by(order_by)
     )
+    logger.debug(f"{uploadedarchives.count()=}")
 
     records_per_page = get_item_number_uploaded_archives(request)
     paginator = Paginator(uploadedarchives, per_page=records_per_page)
