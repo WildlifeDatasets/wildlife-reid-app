@@ -274,8 +274,6 @@ def _uploads_general_order_annotation():
             filter=Q(mediafile__category=F('taxon_for_identification'))
         ),  # Count of MediaFiles with a specific taxon
         earliest_mediafile_captured_at=Min('mediafile__captured_at'),  # Earliest capture date
-
-        name=F('get_name'),
     )
 
 
@@ -1211,7 +1209,7 @@ def delete_upload(request, uploadedarchive_id, next_page="caidapp:uploads"):
     """Delete uploaded file."""
     uploadedarchive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
 
-    if _user_has_rw_acces_to_uploadedarchive(request.user.caiduser, uploadedarchive):
+    if _user_has_rw_acces_to_uploadedarchive(request.user.caiduser, uploadedarchive, accept_none=True):
         uploadedarchive.delete()
     else:
         messages.error(request, "Not allowed to delete this uploaded archive.")
@@ -1222,14 +1220,17 @@ def delete_upload(request, uploadedarchive_id, next_page="caidapp:uploads"):
 def delete_mediafile(request, mediafile_id):
     """Delete uploaded file."""
     mediafile = get_object_or_404(MediaFile, pk=mediafile_id)
-    if _user_has_rw_access_to_mediafile(request.user.caiduser, mediafile):
+    if _user_has_rw_access_to_mediafile(request.user.caiduser, mediafile, accept_none=True):
         parent_id = mediafile.parent_id
         uploaded_archive = mediafile.parent
-        uploaded_archive.output_updated_at = None
-        uploaded_archive.save()
-
+        if uploaded_archive is not None:
+            uploaded_archive.output_updated_at = None
+            uploaded_archive.save()
         mediafile.delete()
-        return redirect("caidapp:uploadedarchive_detail", uploadedarchive_id=parent_id)
+        if uploaded_archive is None:
+            return redirect("caidapp:uploads")
+        else:
+            return redirect("caidapp:uploadedarchive_detail", uploadedarchive_id=parent_id)
     else:
         return HttpResponseNotAllowed("Not allowed to delete this media file.")
 
