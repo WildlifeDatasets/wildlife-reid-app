@@ -3,6 +3,44 @@
 {% block head %}
     <!--refresh every 120 s-->
     {#<meta http-equiv="refresh" content="120">#}
+    <style>
+        /* Custom breakpoint for screens larger than 1920px (you can adjust the value as needed) */
+        @media (min-width: 1920px) {
+            .col-xxxl-1 {
+                flex: 0 0 auto;
+                width: 8.33%; /* 1/12th of the width */
+            }
+            .col-xxxl-2 {
+                flex: 0 0 auto;
+                width: 16.66%; /* 2/12th of the width */
+            }
+            .col-xxxl-3 {
+                flex: 0 0 auto;
+                width: 25%; /* 3/12th of the width */
+            }
+            .col-xxxl-4 {
+                flex: 0 0 auto;
+                width: 33.33%; /* 4/12th of the width */
+            }
+            .col-xxxl-6 {
+                flex: 0 0 auto;
+                width: 50%; /* 6/12th of the width */
+            }
+        }
+
+
+
+        .card {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .card-body {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+    </style>
 {% endblock %}
 {% block body %}
     {% if user.is_authenticated %}
@@ -43,7 +81,8 @@
 
                 {% if page_obj %}
                     {% for uploadedarchive in page_obj %}
-                        <div class="col-xl-3">
+{#                        <div class="col-xl-3">#}
+                        <div class="col-12 col-sm-12 col-md-12 col-lg-6 col-xl-4 col-xxl-3 col-xxxl-2" id="card{{ uploadedarchive.instance.id }}">
 {#                        <div class="col" style="-ms-flex: 0 0 200; flex: 0 0 200;">#}
                             <div class="card"
                                     {% if uploadedarchive.thumbnail %}
