@@ -18,7 +18,11 @@
 
             <a class="link-secondary"
                href="{% url 'caidapp:uploads_of_location' uploadedarchive.location_at_upload_object.hash %}">
-                {{ uploadedarchive.location_at_upload_object.name }}
+                    {% if request.session.private_mode %}
+                        {{ uploadedarchive.location_at_upload_object.visible_name }}
+                    {% else %}
+                        {{ uploadedarchive.location_at_upload_object.name }}
+                    {% endif %}
             </a>
         {% else %}
             {{ uploadedarchive.location_at_upload_object.name }}
@@ -34,11 +38,11 @@
 </div>
 {#<div class="d-flex justify-content-between align-items-center">#}
 {#    <div>#}
-        {% if uploadedarchive.earliest_captured_at %}
-            <i class="bi bi-calendar"></i>
-            {{ uploadedarchive.earliest_captured_at|date:'Y-m-d' }} to {{ uploadedarchive.latest_captured_at|date:'Y-m-d' }}
-            <br>
-        {% endif %}
+{% if uploadedarchive.earliest_captured_at %}
+    <i class="bi bi-calendar"></i>
+    {{ uploadedarchive.earliest_captured_at|date:'Y-m-d' }} to {{ uploadedarchive.latest_captured_at|date:'Y-m-d' }}
+    <br>
+{% endif %}
 {#    </div>#}
 
 {#</div>#}
@@ -65,11 +69,6 @@
         </span>
     {% endif %}
 </div>
-<div class="d-flex justify-content-between align-items-center">
-<div>
-    <i class="bi bi-images"></i>
-    Media files: {{ uploadedarchive.count_of_mediafiles }}
-</div>
 <span
         data-bs-toggle="tooltip" title="
     Media files: {{ uploadedarchive.count_of_mediafiles }}
@@ -86,6 +85,17 @@
     {% endif %}
 "
 >
+<div class="d-flex justify-content-between align-items-center">
+    <div>
+                                        <a class="link-secondary"
+                                           href="{% url 'caidapp:uploadedarchive_detail' uploadedarchive.id %}">
+                                            <i class="bi bi-images"></i> Media files
+                                        </a>
+{#        <i class="bi bi-images"></i>#}
+{#        Media files: #}
+        {{ uploadedarchive.count_of_mediafiles }}
+    </div>
+<div>
     <i class="fa-solid fa-hippo"></i>
     {% if uploadedarchive.has_all_taxons %}
         {% if uploadedarchive.taxons_are_overviewed %}
@@ -95,8 +105,9 @@
             <i class="bi bi-check"></i>
         {% endif %}
     {% endif %}
-    </span>
 </div>
+</div>
+    </span>
 
 {#    <i class="fa-solid fa-calendar"></i>#}
 {#Uploaded at: {{ uploadedarchive.uploaded_at|date:'Y-m-d H:i' }} <br>#}
