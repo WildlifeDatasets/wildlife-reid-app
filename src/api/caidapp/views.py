@@ -277,6 +277,31 @@ def _uploads_general_order_annotation():
         earliest_mediafile_captured_at=Min('mediafile__captured_at'),  # Earliest capture date
     )
 
+# TODO add taxon
+# def update_taxon(request):
+#     """Update species form."""
+#     if request.method == "POST":
+#
+#         form = MediaFileBulkForm(request.POST)
+#         if form.is_valid():
+#             mediafiles = form.cleaned_data["mediafiles"]
+#             taxon = form.cleaned_data["taxon"]
+#             for mediafile in mediafiles:
+#                 mediafile.category = taxon
+#                 mediafile.save()
+#             return redirect("caidapp:uploads_species")
+#     else:
+#         form = MediaFileBulkForm()
+#     return render(
+#         request,
+#         "caidapp/update_form.html",
+#         {
+#             "form": form,
+#             "headline": "Update species",
+#             "button": "Update",
+#         },
+#     )
+
 
 def _uploads_general(request, contains_single_taxon: Optional[bool] = None, taxon_for_identification__isnull: Optional[bool] = None):
     """List of uploads."""
@@ -1030,6 +1055,7 @@ def upload_archive(
             logger.debug(f"{request.build_absolute_uri()=}")
             uploaded_archive.contains_identities = contains_identities
             uploaded_archive.contains_single_taxon = contains_single_taxon
+            uploaded_archive.name = Path(uploaded_archive.archivefile.name).stem
             uploaded_archive.save()
             uploaded_archive.extract_location_check_at_from_filename(commit=True)
             run_species_prediction_async(uploaded_archive, extract_identites=contains_identities)

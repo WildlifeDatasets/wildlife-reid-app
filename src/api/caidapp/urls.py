@@ -211,5 +211,6 @@ urlpatterns = [
     path('impersonate/', views.impersonate_user, name='impersonate_user'),
     path('stop-impersonation/', views.stop_impersonation, name='stop_impersonation'),
     path('switch_private_mode/', views.switch_private_mode, name='switch_private_mode'),
+    path('update_taxon/<int:taxon_id>/', views.update_taxon, name='update_taxon'),
 ]
 

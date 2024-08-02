@@ -88,7 +88,6 @@ class CaIDUser(models.Model):
         return str(self.user)
 
 
-
 class Taxon(models.Model):
     name = models.CharField(max_length=50)
 
@@ -115,6 +114,7 @@ class Location(models.Model):
 
 
 class UploadedArchive(models.Model):
+    name = models.CharField(max_length=50, blank=True, default="")
     uploaded_at = models.DateTimeField("Uploaded at", default=datetime.now)
     archivefile = models.FileField(
         "Archive File",
@@ -219,7 +219,13 @@ class UploadedArchive(models.Model):
         return str(Path(self.archivefile.name).name)
 
     def __str__(self):
-        return str(Path(self.archivefile.name).name)
+        if self.name:
+            return str(self.name)
+        else:
+            self.name = Path(self.archivefile.name).stem
+            return str(self.name)
+        # uploaded_archive.name = Path(uploaded_archive.archivefile.name).stem
+        # return str(Path(self.archivefile.name).name)
 
     def taxons_are_overviewed(self):
         return self.mediafile_set.filter(taxon_overviewed=True).count() != 0
