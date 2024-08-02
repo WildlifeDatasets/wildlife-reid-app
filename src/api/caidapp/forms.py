@@ -22,6 +22,13 @@ class WorkgroupUsersForm(forms.Form):
 #         super(MergeIdentityForm, self).__init__(*args, **kwargs)
 #         self.fields["identity"].queryset = self.queryset
 
+# class TaxonForm(forms.ModelForm):
+#     class Meta:
+#         model = models.Taxon
+#         fields = (
+#             "name",
+#             "parent"
+#         )
 
 class AlbumForm(forms.ModelForm):
     class Meta:
@@ -59,6 +66,7 @@ class UploadedArchiveUpdateForm(forms.ModelForm):
         model = UploadedArchive
         fields = (
             # "archivefile",
+            'name',
             "location_at_upload",
             'location_check_at'
             # "contains_identities"
@@ -70,6 +78,8 @@ class UploadedArchiveForm(forms.ModelForm):
 
     from .models import UploadedArchive
 
+    # archivefile = forms.FileField(attrs={"accept": ".zip", "placeholder": "Select a zip file (optinal format {YYYY-MM-DD}_{location}.zip)"})
+
     location_at_upload = forms.CharField(
         widget=forms.TextInput(attrs={"class": "autocomplete"}), required=False
     )
@@ -80,7 +90,6 @@ class UploadedArchiveForm(forms.ModelForm):
         # widget=forms.TextInput(attrs={'class': 'datepicker'})
     )
 
-
     class Meta:
         model = UploadedArchive
         fields = (
@@ -88,6 +97,15 @@ class UploadedArchiveForm(forms.ModelForm):
             "location_at_upload",
             'location_check_at'
         )
+        help_texts = {
+            'archivefile': "Select a zip file (optional format: YYYY-MM-DD_location.zip)",
+        }
+        labels = {
+            'archivefile': 'Upload Archive File',
+            'location_at_upload': 'Location at Upload',
+            'location_check_at': 'Location Check Date',
+        }
+
 
 class UploadedArchiveFormWithTaxon(forms.ModelForm):
 

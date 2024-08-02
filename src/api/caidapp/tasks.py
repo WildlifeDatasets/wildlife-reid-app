@@ -726,7 +726,7 @@ def create_dataframe_from_mediafiles(mediafiles: Generator[MediaFile, None, None
                 metadata_row["code"] = mf.identity.code
             if mf.identity.juv_code:
                 metadata_row["juv_code"] = mf.identity.juv_code
-        metadata_row["uploaded_archive"] = mf.parent.get_name()
+        metadata_row["uploaded_archive"] = mf.parent.name
         if mf.parent.location_check_at:
             metadata_row["location_check_at"] = mf.parent.location_check_at
 
