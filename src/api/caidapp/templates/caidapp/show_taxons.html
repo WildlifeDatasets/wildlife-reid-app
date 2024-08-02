@@ -69,9 +69,28 @@
                                 <h5 class="card-title">{{ taxon.name }}</h5>
 {#                                <p class="card-text">Count: {{ taxon.mediafile_set.count}}</p>#}
                                 <p class="card-text">Count: {{ mediafiles.count }}</p>
-                                <a
-                                        href="{% url 'caidapp:taxon' taxon.id %}"
-                                        class="btn btn-primary">View</a>
+                                <div class="mt-2">
+                                    <a
+                                            class="btn btn-primary"
+                                            href="{% url 'caidapp:taxon' taxon.id %}"
+                                    >View</a>
+                                    <div class="dropdown d-inline-block">
+                                        <a class="btn btn-secondary dropdown-toggle" href="#" role="button"
+                                           data-bs-toggle="dropdown" aria-expanded="false">
+                                            <i class="bi bi-three-dots"></i>
+                                        </a>
+
+                                        <ul class="dropdown-menu">
+                                                <li>
+                                                    <a class="dropdown-item"
+                                                       href="{% url 'caidapp:update_taxon' taxon.id %}">
+                                                        <i class="bi bi-pencil"></i>
+                                                        Edit
+                                                    </a>
+                                                </li>
+                                        </ul>
+                                    </div>
+                                </div>
                             </div>
 
                         </div>

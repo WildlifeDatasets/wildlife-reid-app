@@ -35,6 +35,7 @@ from .forms import UserSelectForm
 
 from . import tasks
 from . import models, model_tools
+from . import forms
 
 from .forms import (
     AlbumForm,
@@ -277,30 +278,59 @@ def _uploads_general_order_annotation():
         earliest_mediafile_captured_at=Min('mediafile__captured_at'),  # Earliest capture date
     )
 
-# TODO add taxon
-# def update_taxon(request):
-#     """Update species form."""
-#     if request.method == "POST":
-#
-#         form = MediaFileBulkForm(request.POST)
-#         if form.is_valid():
-#             mediafiles = form.cleaned_data["mediafiles"]
-#             taxon = form.cleaned_data["taxon"]
-#             for mediafile in mediafiles:
-#                 mediafile.category = taxon
-#                 mediafile.save()
-#             return redirect("caidapp:uploads_species")
-#     else:
-#         form = MediaFileBulkForm()
-#     return render(
-#         request,
-#         "caidapp/update_form.html",
-#         {
-#             "form": form,
-#             "headline": "Update species",
-#             "button": "Update",
-#         },
-#     )
+def update_taxon(request, taxon_id:Optional[int] = None):
+    """Update species form. Create taxon if taxon_id is None."""
+
+    if taxon_id is not None:
+        taxon = get_object_or_404(Taxon, pk=taxon_id)
+        headline = "Update taxon"
+        button_text = "Update"
+    else:
+        taxon = Taxon()
+        headline = "New taxon"
+        button_text = "Create"
+
+    if request.method == "POST":
+        form = forms.TaxonForm(request.POST, instance=taxon)
+        if form.is_valid():
+            taxon = form.save(commit=False)
+            taxon.updated_by = request.user.caiduser
+            taxon.save()
+            return redirect("caidapp:show_taxons")
+    else:
+        form = forms.TaxonForm(instance=taxon)
+    return render(
+        request,
+        "caidapp/update_form.html",
+        {
+            "form": form,
+            "headline": headline,
+            "button": button_text,
+        },
+    )
+
+    # """Update species form."""
+    # if request.method == "POST":
+    #
+    #     form = MediaFileBulkForm(request.POST)
+    #     if form.is_valid():
+    #         mediafiles = form.cleaned_data["mediafiles"]
+    #         taxon = form.cleaned_data["taxon"]
+    #         for mediafile in mediafiles:
+    #             mediafile.category = taxon
+    #             mediafile.save()
+    #         return redirect("caidapp:uploads_species")
+    # else:
+    #     form = MediaFileBulkForm()
+    # return render(
+    #     request,
+    #     "caidapp/update_form.html",
+    #     {
+    #         "form": form,
+    #         "headline": "Update species",
+    #         "button": "Update",
+    #     },
+    # )
 
 
 def _uploads_general(request, contains_single_taxon: Optional[bool] = None, taxon_for_identification__isnull: Optional[bool] = None):

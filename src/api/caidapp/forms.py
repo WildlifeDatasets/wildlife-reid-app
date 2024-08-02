@@ -22,13 +22,14 @@ class WorkgroupUsersForm(forms.Form):
 #         super(MergeIdentityForm, self).__init__(*args, **kwargs)
 #         self.fields["identity"].queryset = self.queryset
 
-# class TaxonForm(forms.ModelForm):
-#     class Meta:
-#         model = models.Taxon
-#         fields = (
-#             "name",
-#             "parent"
-#         )
+
+class TaxonForm(forms.ModelForm):
+    class Meta:
+        model = models.Taxon
+        fields = (
+            "name",
+            "parent"
+        )
 
 class AlbumForm(forms.ModelForm):
     class Meta:
