@@ -214,6 +214,31 @@
                                             {{ mediafile.selected }}
                                         </div>
                                     {% endif %}
+                                    <div class="position-absolute bottom-0 end-0 p-3">
+{#                                        info in circle#}
+
+                                        <span
+                                                data-bs-toggle="tooltip"
+                                                title="
+                                                {% if mediafile.instance.category %}
+                                                    Taxon: {{ mediafile.instance.category }}
+                                                {% endif %}
+                                                {% if mediafile.instance.location %}
+                                                    {%  if request.session.private_mode %}
+                                                        Location: {{ mediafile.instance.location.visible_name }}
+                                                    {% else %}
+                                                        Location: {{ mediafile.instance.location.name }}
+                                                    {% endif %}
+                                                {% endif %}
+                                                {% if mediafile.instance.identity %}
+                                                    Identity: {{ mediafile.instance.identity }}
+                                                {% endif %}
+                                                {{ mediafile.instance.captured_at|date:'Y-m-d H:i' }}"
+                                        >
+                                            <i class="bi bi-info-circle"></i>
+                                        </span>
+
+                                    </div>
 
                                     <div class="card-body mt-1" >
                                         <p class="card-text">
@@ -290,6 +315,18 @@
                                                     <li>
                                                         <hr class="dropdown-divider">
                                                     </li>
+{#                                                if user is staff#}
+                                                    {% if request.user.is_superuser %}
+                                                    <li>
+{#                                                        see in admin #}
+                                                        <a class="dropdown-item"
+                                                           href="{% url 'admin:caidapp_mediafile_change' mediafile.instance.id %}"
+                                                           target="_blank">
+                                                            <i class="bi bi-gear"></i>
+                                                            Edit in admin
+                                                        </a>
+                                                    </li>
+                                                    {% endif %}
                                                     <li>
                                                         <a class="dropdown-item text-danger"
                                                            href="{% url 'caidapp:delete_mediafile' mediafile.instance.id %}"
