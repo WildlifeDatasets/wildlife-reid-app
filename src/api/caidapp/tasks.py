@@ -188,7 +188,7 @@ def do_cloud_import_for_user(self, caiduser: CaIDUser):
             f"{yield_dict.path_of_location_check=}, {yield_dict.path_of_location_check.exists()=}"
         )
         uploaded_archive.save()
-        zip_path = model_tools._get_zip_path_in_unique_folder(uploaded_archive, yield_dict.zip_name)
+        zip_path = model_tools.get_zip_path_in_unique_folder(uploaded_archive, yield_dict.zip_name)
         zip_path_absolute = Path(settings.MEDIA_ROOT) / zip_path
         logger.debug(f"{zip_path=}, {zip_path_absolute=}")
         if yield_dict.path_of_location_check.is_dir():
@@ -212,7 +212,9 @@ def do_cloud_import_for_user(self, caiduser: CaIDUser):
         # move directory
         shutil.move(yield_dict.path_of_location_check, imported_path)
     for dir_to_be_deleted in dirs_to_be_deleted:
-        dir_to_be_deleted.path_of_location_check.rmdir()
+        # rmdir ignore errors
+        shutil.rmtree(dir_to_be_deleted.path_of_location_check, ignore_errors=True)
+        # dir_to_be_deleted.path_of_location_check.rmdir(ignore_errors=True)
     # move imported files to processed directory
     caiduser.dir_import_status = "Finished"
     caiduser.save()
@@ -1035,6 +1037,13 @@ def _find_mediafiles_for_identification(
     :return: MediafilesForIdentification object.
     """
 
+def _ensure_date_format(date_str: str) -> str:
+    if len(date_str) == 8:  # Format YYYYMMDD
+        date = f"{date_str[:4]}-{date_str[4:6]}-{date_str[6:]}"
+    else:
+        date = date_str
+    return date
+
 
 def _iterate_over_location_checks(path: Path, caiduser: CaIDUser) -> Generator[SimpleNamespace, None, None]:
     import re
@@ -1043,28 +1052,59 @@ def _iterate_over_location_checks(path: Path, caiduser: CaIDUser) -> Generator[S
     params = get_content_owner_filter_params(caiduser, "owner")
     archives = [str(archive) for archive in UploadedArchive.objects.filter(**params)]
 
-    paths_of_location_check = chain(path.glob("./????-??-??/*"), path.glob("./*"))
+    paths_of_location_check = chain(
+        path.glob("./????????/*"),
+        path.glob("./????-??-??/*"),
+        path.glob("./*/????????"),
+        path.glob("./*/????-??-??"),
+        path.glob("./*/????????.zip"),
+        path.glob("./*/????-??-??.zip"),
+
+        path.glob("./*"))
     # paths_of_location_check = chain(path.glob("./*_????-??-??"), path.glob("./*_????-??-??.zip"))
     # paths_of_location_check = path.glob("./*")
+    base_path = path
 
     checked_subdirs = []
     for path_of_location_check in paths_of_location_check:
         parent_dir_to_be_deleted = False
+        # is this a directory inside base_path?
+        is_first_level_dir = path_of_location_check.parent == base_path
+        # is_second_level_dir = path_of_location_check.parent.parent == base_path
+
         # remove extension if any
         pth_no_suffix = path_of_location_check.with_suffix("")
         # check if name is in format {location_name}_YYYY-MM-DD
-        if re.match(r"[0-9]{4}-[0-9]{2}-[0-9]{2}_.*", pth_no_suffix.name):
+        match0 = re.match(r"([0-9]{4}-?[0-9]{2}-?[0-9]{2})_(.*)", pth_no_suffix.name)
+        match1 = re.match(r"[0-9]{4}-?[0-9]{2}-?[0-9]{2}", pth_no_suffix.parts[-2])
+        match2 = re.match(r"([0-9]{4}-?[0-9]{2}-?[0-9]{2})", pth_no_suffix.parts[-1])
+        if match0 and is_first_level_dir:
+            date_str, location = match0.groups()
+            date = _ensure_date_format(date_str)
             # split name and date, date is in the end of the name in format YYYY-MM-DD,
             # location is in the beginning of dir or file name separated from date by underscore
-            date, location = pth_no_suffix.parts[-1].split("_", 1)
+            # date, location = pth_no_suffix.parts[-1].split("_", 1)
             # location is everything after the last underscore
-            # location = "_".join(pth_no_suffix.parts[-1].split("_")[:-1])
+
+
             error_message = None
-        elif re.match(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", pth_no_suffix.parts[-2]):
-            # Mediafiles are organized in directory structure,
+        elif match1:
+            # Mediafiles are organized in directory structure DATE / LOCATION
             # date is the parent directory and location is the leaf directory
-            date = pth_no_suffix.parts[-2]
+            date_str = pth_no_suffix.parts[-2]
+            date = _ensure_date_format(date_str)
+
             location = pth_no_suffix.parts[-1]
+            error_message = None
+            checked_subdirs.append(pth_no_suffix.parts[-2])
+        elif match2 and not is_first_level_dir:
+            # Mediafiles are organized in directory structure LOCATION / DATE
+            # date is the parent directory and location is the leaf directory
+            grps = match2.groups()
+            date_str = grps[0]
+            date = _ensure_date_format(date_str)
+
+            location = pth_no_suffix.parts[-2]
             error_message = None
             checked_subdirs.append(pth_no_suffix.parts[-2])
         elif pth_no_suffix.parts[-1] in checked_subdirs:
@@ -1076,12 +1116,12 @@ def _iterate_over_location_checks(path: Path, caiduser: CaIDUser) -> Generator[S
             # continue
         else:
             logger.debug(
-                "Name of the directory or file is not in format {location_name}_YYYY-MM-DD."
+                "Name of the directory or file is not in format {YYYY-MM-DD}_{location_name}."
                 + "Skipping."
             )
             error_message = (
-                "Name of the directory or file is not in format "
-                + "{location_name}_{YYYY}-{MM}-{DD}. Skipping."
+                "Name of the directory or file is not in correct format. "
+                + "Skipping."
             )
             location = ""
             date = ""
