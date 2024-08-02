@@ -14,7 +14,7 @@ from django.dispatch import receiver
 from location_field.models.plain import PlainLocationField
 
 from .model_tools import (
-    _get_zip_path_in_unique_folder,
+    get_zip_path_in_unique_folder,
     generate_sha1,
     get_output_dir,
     random_string,
@@ -119,7 +119,7 @@ class UploadedArchive(models.Model):
     uploaded_at = models.DateTimeField("Uploaded at", default=datetime.now)
     archivefile = models.FileField(
         "Archive File",
-        upload_to=_get_zip_path_in_unique_folder,
+        upload_to=get_zip_path_in_unique_folder,
         max_length=500,
     )
     preview = models.ImageField(blank=True, null=True)

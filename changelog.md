@@ -3,6 +3,15 @@
 
 # Changelog
 
+## 08-2024
+
+* [added] Synology import now supports also "{location} / {date}" format
+* [added] Date and location are automatically filled in the upload archive view
+* [added] Warning when leaving the upload page before the upload is finished
+* [added] Richer ordering possibilities for camera trap checks
+* [added] Taxon update form
+* [added] Taxon parent
+
 ## 07-2024
 
 * [added] Checkbox on overviewed taxon of mediafile
@@ -28,9 +37,6 @@
 * [fixed] Remove media files on "Taxon classification (force init)"
 * [added] Added support for extra wide monitor on media files view
 * [added] Date picker in upload archive view
-* [added] Date and location are automatically filled in the upload archive view
-* [added] Warning when leaving the upload page before the upload is finished
-* [added] Richer ordering possibilities for camera trap checks
 
 ## 06-2024
 
