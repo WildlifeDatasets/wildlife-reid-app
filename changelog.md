@@ -5,6 +5,7 @@
 
 ## 08-2024
 
+* [added] Show message after upload
 * [added] Synology import now supports also "{location} / {date}" format
 * [added] Date and location are automatically filled in the upload archive view
 * [added] Warning when leaving the upload page before the upload is finished

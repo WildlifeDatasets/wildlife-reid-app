@@ -25,6 +25,7 @@ from django.http import HttpResponseBadRequest, HttpResponseNotAllowed, JsonResp
 from django.shortcuts import Http404, HttpResponse, get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector
+from django.template.loader import render_to_string
 import shutil
 import pandas as pd
 
@@ -1090,9 +1091,38 @@ def upload_archive(
             uploaded_archive.extract_location_check_at_from_filename(commit=True)
             run_species_prediction_async(uploaded_archive, extract_identites=contains_identities)
 
-            return JsonResponse({"data": "Data uploaded"})
+            # return JsonResponse({"data": "Data uploaded"})
+            if contains_single_taxon:
+                next_url = reverse_lazy("caidapp:uploads_identities")
+            else:
+                next_url = reverse_lazy("caidapp:uploads")
+            context = dict(
+                headline="Upload finished",
+                text=f"Imported {uploaded_archive.mediafile_set.count()} media files.",
+                # next=reverse_lazy("caidapp:uploadedarchive_detail", kwargs={"uploadedarchive_id": uploaded_archive.id}),
+
+                next=next_url,
+                next_text="Back to uploads",
+            )
+            html = render_to_string("caidapp/partial_message.html", context=context, request=request)
+            return JsonResponse({"html": html})
         else:
-            return JsonResponse({"data": "Something went wrong"})
+            # Error
+            if contains_single_taxon:
+                next_url = reverse_lazy("caidapp:uploads_identities")
+            else:
+                next_url = reverse_lazy("caidapp:uploads")
+            context = dict(
+                headline="Upload failed",
+                text=f"Upload failed. Try it again.",
+                # next=reverse_lazy("caidapp:uploadedarchive_detail", kwargs={"uploadedarchive_id": uploaded_archive.id}),
+
+                next=next_url,
+                next_text="Back to uploads",
+            )
+            html = render_to_string("caidapp/partial_message.html", context=context, request=request)
+            return JsonResponse({"html": html})
+            # return JsonResponse({"data": "Something went wrong"})
 
     else:
 

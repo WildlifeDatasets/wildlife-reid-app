@@ -1,0 +1,18 @@
+<div class="container">
+    <H2>{{ headline }} </H2>
+    <p>
+        {{ text }}
+    </p>
+    <a class="btn btn-primary" href="{{ next }}">{{next_text}}</a>
+    {% if next_secondary %}
+    <a class="btn btn-secondary" href="{{ next_secondary }}">{{next_text_secondary}}</a>
+    {% endif %}
+    {%  for key, value in key_value.items %}
+        <h3 class="mt-3">{{ key }}</h3>
+        <p>
+        {% autoescape off %}
+            {{ value }}
+        {% endautoescape %}
+        </p>
+    {% endfor %}
+</div>
