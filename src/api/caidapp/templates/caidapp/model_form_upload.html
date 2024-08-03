@@ -116,10 +116,19 @@
                     uploadForm.reset()
                     progress_bar.classList.add('not-visible')
                     isUploading = false;  // Reset uploading flag to false
+
+                    console.log("almost rendering final response");
+                    console.log(response);
+
+                    const container = document.getElementById('appbody');
+                    container.innerHTML = response.html;
                 },
-                error: function (err) {
-                    console.log(err);
+                error: function (response) {
+                    console.log(response);
                     isUploading = false;  // Reset uploading flag to false on error
+                    const container = document.getElementById('appbody');
+                    container.innerHTML = response.html;
+
                 },
                 cache: false,
                 contentType: false,
