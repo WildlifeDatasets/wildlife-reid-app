@@ -212,5 +212,6 @@ urlpatterns = [
     path('stop-impersonation/', views.stop_impersonation, name='stop_impersonation'),
     path('switch_private_mode/', views.switch_private_mode, name='switch_private_mode'),
     path('update_taxon/<int:taxon_id>/', views.update_taxon, name='update_taxon'),
+    path('confirm_prediction/<int:mediafile_id>', views_mediafile.confirm_prediction, name='confirm_prediction'),
 ]
 

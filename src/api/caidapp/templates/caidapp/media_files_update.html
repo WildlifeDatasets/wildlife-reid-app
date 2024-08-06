@@ -255,6 +255,12 @@
                                                     <i class="fa-solid fa-hippo"></i>
                                                     <i class="bi bi-check"></i>
                                                 {% endif %}
+                                                {% if mediafile.instance.category.name == "Not Classified" %}
+                                                    <br>
+                                                    <i class="bi bi-question-circle"></i>
+                                                    Is it {{ mediafile.instance.predicted_taxon  }} ({{ mediafile.instance.predicted_taxon_confidence|floatformat:4 }}) ?
+                                                    <a href="#" class="btn btn-secondary confirm-prediction" data-id="{% url 'caidapp:confirm_prediction' mediafile.instance.id %}">Confirm</a>
+                                                {% endif %}
                                                 <br>
                                         {% endif %}
                                         {% if mediafile.location %}
@@ -366,12 +372,12 @@
             </form>
         </section>
     {% endif %}
-    <script>
-        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
-        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-            return new bootstrap.Tooltip(tooltipTriggerEl)
-        })
-    </script>
+{#    <script>#}
+{#        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))#}
+{#        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {#}
+{#            return new bootstrap.Tooltip(tooltipTriggerEl)#}
+{#        })#}
+{#    </script>#}
     <script>
         const data = '{{qs_json}}'
 
@@ -394,4 +400,33 @@
         })
 
     </script>
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const buttons = document.querySelectorAll('.confirm-prediction');
+
+        buttons.forEach(button => {
+            button.addEventListener('click', function() {
+                const confirm_url = this.getAttribute('data-id');
+                console.log(confirm_url);
+
+                fetch(confirm_url
+                )
+                .then(response => response.json())
+                .then(data => {
+                    console.log(data);
+                    if (data.success) {
+                        // Update the page dynamically (e.g., hide the button or update text)
+                        button.textContent = 'Prediction Confirmed';
+                        button.disabled = true;
+                    } else {
+                        console.error(data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                });
+            });
+        });
+    });
+</script>
 {% endblock %}

@@ -1,8 +1,9 @@
 from django.shortcuts import Http404, HttpResponse, get_object_or_404, redirect, render
 from django.urls import reverse_lazy
-from django.http import StreamingHttpResponse, Http404
+from django.http import StreamingHttpResponse, Http404, JsonResponse
 from django.shortcuts import get_object_or_404
 from .models import MediaFile, get_content_owner_filter_params
+from django.utils import timezone
 import os
 import random
 from typing import Optional
@@ -99,3 +100,33 @@ def set_mediafiles_records_per_page(request, records_per_page:int):
     request.session["mediafiles_records_per_page"] = records_per_page
 
     return redirect(request.META.get("HTTP_REFERER", "/"))
+
+def confirm_prediction(request, mediafile_id:int):
+    try:
+        mediafile = get_object_or_404(MediaFile, id=mediafile_id)
+
+        # Update the MediaFile instance
+        mediafile.category = mediafile.predicted_taxon
+        mediafile.updated_at = timezone.now()
+        mediafile.updated_by = request.user.caiduser
+        mediafile.taxon_overviewed = True
+        mediafile.save()
+
+        return JsonResponse({'success': True, 'message': 'Prediction confirmed.'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': 'Invalid request.'})
+
+# def confirm_prediction(request):
+#     if request.method == 'POST':
+#         mediafile_id = request.POST.get('mediafile_id')
+#         mediafile = get_object_or_404(MediaFile, id=mediafile_id)
+#
+#         # Update the MediaFile instance
+#         mediafile.category = mediafile.predicted_taxon
+#         mediafile.updated_at = timezone.now()
+#         mediafile.updated_by = request.user.caiduser
+#         mediafile.taxon_overviewed = True
+#         mediafile.save()
+#
+#         return JsonResponse({'success': True, 'message': 'Prediction confirmed.'})
+#     return JsonResponse({'success': False, 'message': 'Invalid request.'})

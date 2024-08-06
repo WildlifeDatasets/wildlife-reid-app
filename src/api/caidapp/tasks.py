@@ -627,6 +627,9 @@ def _update_database_by_one_row_of_metadata(
         # logger.debug(f"{row['predicted_category']=}")
 
         mf.category = get_taxon(row["predicted_category"])  # remove this
+        if "predicted_category_raw" in row:
+            mf.predicted_taxon = get_taxon(row["predicted_category_raw"])
+            mf.predicted_taxon_confidence = float(row["predicted_prob_raw"])
         if len(mf.animalobservation_set.all()) == 0:
             mf.animalobservation_set.create(
                 mediafile=mf,

@@ -99,8 +99,11 @@ def get_model_config(is_cropped: bool = False) -> Tuple[dict, str, dict]:
 
 def load_model_and_predict_and_add_not_classified(
     image_paths: list,
-) -> Tuple[np.ndarray, np.ndarray, dict]:
-    """Load model, create dataloaders, and run inference."""
+) -> Tuple[np.ndarray, np.ndarray, dict, np.ndarray, np.ndarray]:
+    """Load model, create dataloaders, and run inference.
+
+    Function returns thresholded predictions and raw predictions
+    """
     # from .data_preprocessing import detect_animal, pad_image, detect_animals
     # is_detected = detect_animals(image_paths)
     artifact_config, config, model, model_mean, model_std = get_taxon_classification_model()
@@ -149,6 +152,9 @@ def load_model_and_predict_and_add_not_classified(
         len(id2label) - 1
     ), "Some of the labels is missing in id2label."
 
+    # Get values with no thresholding
+    class_ids_raw, probs_top_raw = get_top_predictions(probs)
+
     # add inference results to the metadata dataframe
     if do_confidence_thresholding:
         class_ids, probs_top = do_thresholding_on_probs(probs, id2thresholds)
@@ -158,7 +164,7 @@ def load_model_and_predict_and_add_not_classified(
         class_ids = np.argmax(probs, 1)
         probs_top = np.max(probs, 1)
 
-    return class_ids, probs_top, id2label
+    return class_ids, probs_top, id2label, class_ids_raw, probs_top_raw
 
 
 def get_taxon_classification_model():
@@ -178,6 +184,12 @@ def get_taxon_classification_model():
     logger.debug(f"{mem.get_vram()}     {mem.get_ram()}")
     return artifact_config, config, model, model_mean, model_std
 
+
+def get_top_predictions(probs: np.array) -> Tuple[np.array, np.array]:
+    """Get the top predictions from the softmaxed logits."""
+    top_probs = np.max(probs, 1)
+    class_ids = np.argmax(probs, 1)
+    return class_ids, top_probs
 
 def do_thresholding_on_probs(probs: np.array, id2threshold: dict) -> Tuple[np.array, np.array]:
     """Use the thresholds to do the classification and add class "Not Classified".
@@ -257,7 +269,7 @@ def run_inference(metadata):
     # image_path = metadata["image_path"].apply(lambda x: os.path.join(MEDIA_DIR_PATH, x))
     image_path = metadata["full_image_path"]
     logger.debug(f"image path    {image_path=}")
-    class_ids, probs_top, id2label = load_model_and_predict_and_add_not_classified(image_path)
+    class_ids, probs_top, id2label, class_ids_raw, probs_top_raw = load_model_and_predict_and_add_not_classified(image_path)
 
     # Add class Animalia
     id2label[len(id2label)] = "Animalia"
@@ -267,9 +279,15 @@ def run_inference(metadata):
     # add inference results to the metadata dataframe
     metadata["predicted_class_id"] = class_ids
     metadata["predicted_prob"] = probs_top
+    metadata["predicted_class_id_raw"] = class_ids_raw
+    metadata["predicted_prob_raw"] = probs_top_raw
     metadata["predicted_category"] = np.nan
+    metadata["predicted_category_raw"] = np.nan
     if id2label is not None:
         metadata["predicted_category"] = metadata["predicted_class_id"].apply(
+            lambda x: id2label.get(x, np.nan)
+        )
+        metadata["predicted_category_raw"] = metadata["predicted_class_id_raw"].apply(
             lambda x: id2label.get(x, np.nan)
         )
 
