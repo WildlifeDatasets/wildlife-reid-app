@@ -51,7 +51,7 @@ from .forms import (
     WorkgroupUsersForm,
     UploadedArchiveSelectTaxonForIdentificationForm,
 )
-from .model_extra import _user_has_rw_access_to_mediafile, _user_has_rw_acces_to_uploadedarchive
+from .model_extra import user_has_rw_access_to_mediafile, user_has_rw_acces_to_uploadedarchive
 from .models import (
     Album,
     ArchiveCollection,
@@ -1255,7 +1255,7 @@ def locations_view(request):
 def update_uploadedarchive(request, uploadedarchive_id):
     """Show and update uploaded archive."""
     uploaded_archive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
-    if not _user_has_rw_acces_to_uploadedarchive(request.user.caiduser, uploaded_archive):
+    if not user_has_rw_acces_to_uploadedarchive(request.user.caiduser, uploaded_archive):
         return HttpResponseNotAllowed("Not allowed to see this uploaded archive.")
     uploaded_archive_location_at_upload = uploaded_archive.location_at_upload
 
@@ -1295,7 +1295,7 @@ def delete_upload(request, uploadedarchive_id, next_page="caidapp:uploads"):
     """Delete uploaded file."""
     uploadedarchive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
 
-    if _user_has_rw_acces_to_uploadedarchive(request.user.caiduser, uploadedarchive, accept_none=True):
+    if user_has_rw_acces_to_uploadedarchive(request.user.caiduser, uploadedarchive, accept_none=True):
         uploadedarchive.delete()
     else:
         messages.error(request, "Not allowed to delete this uploaded archive.")
@@ -1306,7 +1306,7 @@ def delete_upload(request, uploadedarchive_id, next_page="caidapp:uploads"):
 def delete_mediafile(request, mediafile_id):
     """Delete uploaded file."""
     mediafile = get_object_or_404(MediaFile, pk=mediafile_id)
-    if _user_has_rw_access_to_mediafile(request.user.caiduser, mediafile, accept_none=True):
+    if user_has_rw_access_to_mediafile(request.user.caiduser, mediafile, accept_none=True):
         parent_id = mediafile.parent_id
         uploaded_archive = mediafile.parent
         if uploaded_archive is not None:
@@ -1770,7 +1770,7 @@ def mediafiles_stats_view(request):
 def select_taxon_for_identification(request, uploadedarchive_id: int):
     """Select taxon for identification."""
     uploaded_archive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
-    if not _user_has_rw_acces_to_uploadedarchive(request.user.caiduser, uploaded_archive):
+    if not user_has_rw_acces_to_uploadedarchive(request.user.caiduser, uploaded_archive):
         return HttpResponseNotAllowed("Not allowed to edit this uploaded archive.")
     if request.method == "POST":
         form = UploadedArchiveSelectTaxonForIdentificationForm(request.POST)

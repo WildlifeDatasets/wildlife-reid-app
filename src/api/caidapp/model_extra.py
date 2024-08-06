@@ -2,7 +2,7 @@ from .models import CaIDUser, MediaFile, UploadedArchive, Location
 import pandas as pd
 
 
-def _user_has_rw_access_to_mediafile(ciduser: CaIDUser, mediafile: MediaFile, accept_none: bool) -> bool:
+def user_has_rw_access_to_mediafile(ciduser: CaIDUser, mediafile: MediaFile, accept_none: bool) -> bool:
     """Check if user has access to mediafile."""
     if mediafile is None:
         if accept_none:
@@ -17,7 +17,7 @@ def _user_has_rw_access_to_mediafile(ciduser: CaIDUser, mediafile: MediaFile, ac
     )
 
 
-def _user_has_rw_acces_to_uploadedarchive(
+def user_has_rw_acces_to_uploadedarchive(
     ciduser: CaIDUser, uploadedarchive: UploadedArchive, accept_none: bool = False
 ) -> bool:
     """Check if user has access to uploadedarchive."""

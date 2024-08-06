@@ -12,7 +12,7 @@ from django.urls import reverse_lazy
 from . import forms
 from .forms import LocationForm
 from .models import Location, get_content_owner_filter_params, UploadedArchive
-from .model_extra import _user_has_rw_acces_to_uploadedarchive, prepare_dataframe_for_uploads_in_one_location
+from .model_extra import user_has_rw_acces_to_uploadedarchive, prepare_dataframe_for_uploads_in_one_location
 from . import model_tools
 
 logger = logging.getLogger("app")
@@ -101,7 +101,7 @@ def _set_location_to_mediafiles_of_uploadedarchive(
     request, uploaded_archive: UploadedArchive, location: Location
 ):
     """Set location to mediafiles of uploaded archive."""
-    if not _user_has_rw_acces_to_uploadedarchive(request.user.caiduser, uploaded_archive):
+    if not user_has_rw_acces_to_uploadedarchive(request.user.caiduser, uploaded_archive):
         return HttpResponseNotAllowed("Not allowed to edit this uploaded archive.")
     mediafiles = uploaded_archive.mediafile_set.all()
     for mediafile in mediafiles:
