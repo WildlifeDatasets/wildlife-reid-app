@@ -115,7 +115,7 @@ class Location(models.Model):
 
 
 class UploadedArchive(models.Model):
-    name = models.CharField(max_length=50, blank=True, default="")
+    name = models.CharField(max_length=255, blank=True, default="")
     uploaded_at = models.DateTimeField("Uploaded at", default=datetime.now)
     archivefile = models.FileField(
         "Archive File",
