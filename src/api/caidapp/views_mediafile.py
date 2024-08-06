@@ -3,6 +3,7 @@ from django.urls import reverse_lazy
 from django.http import StreamingHttpResponse, Http404, JsonResponse
 from django.shortcuts import get_object_or_404
 from .models import MediaFile, get_content_owner_filter_params
+import model_extra
 from django.utils import timezone
 import os
 import random
@@ -104,15 +105,17 @@ def set_mediafiles_records_per_page(request, records_per_page:int):
 def confirm_prediction(request, mediafile_id:int):
     try:
         mediafile = get_object_or_404(MediaFile, id=mediafile_id)
+        # user has rw access
+        if model_extra.user_has_rw_access_to_mediafile(request.user.caiduser, mediafile, accept_none=True):
+            # Update the MediaFile instance
+            mediafile.category = mediafile.predicted_taxon
+            mediafile.updated_at = timezone.now()
+            mediafile.updated_by = request.user.caiduser
+            mediafile.taxon_overviewed = True
+            mediafile.save()
 
-        # Update the MediaFile instance
-        mediafile.category = mediafile.predicted_taxon
-        mediafile.updated_at = timezone.now()
-        mediafile.updated_by = request.user.caiduser
-        mediafile.taxon_overviewed = True
-        mediafile.save()
-
-        return JsonResponse({'success': True, 'message': 'Prediction confirmed.'})
+            return JsonResponse({'success': True, 'message': 'Prediction confirmed.'})
+        return JsonResponse({'success': False, 'message': 'No read/write access to the file'})
     except Exception as e:
         return JsonResponse({'success': False, 'message': 'Invalid request.'})
 
