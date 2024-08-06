@@ -5,10 +5,14 @@
             Order By
         </button>
         <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_uploaded_archives_by' '-name' %}">▼ Name</a></li>
+            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_uploaded_archives_by'  'name' %}">▲ Name</a></li>
             <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_uploaded_archives_by' '-uploaded_at' %}">▼ Uploaded At</a></li>
             <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_uploaded_archives_by'  'uploaded_at' %}">▲ Uploaded At</a></li>
+            {% if request.user.is_staff %}
             <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_uploaded_archives_by' '-started_at' %}">▼ Started At</a></li>
             <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_uploaded_archives_by'  'started_at' %}">▲ Started At</a></li>
+            {%  endif %}
             <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_uploaded_archives_by' '-mediafile_count' %}">▼ Media file Count</a></li>
             <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_uploaded_archives_by'  'mediafile_count' %}">▲ Media file Count</a></li>
             <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_uploaded_archives_by' '-mediafile_count_with_taxon' %}">▼ Media files with Taxon</a></li>
@@ -24,6 +28,7 @@
             Items Per Page
         </button>
         <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="{% url 'caidapp:set_item_number_uploaded_archives' 6 %}"> 6 </a></li>
             <li><a class="dropdown-item" href="{% url 'caidapp:set_item_number_uploaded_archives' 12 %}"> 12 </a></li>
             <li><a class="dropdown-item" href="{% url 'caidapp:set_item_number_uploaded_archives' 24 %}"> 24 </a></li>
             <li><a class="dropdown-item" href="{% url 'caidapp:set_item_number_uploaded_archives' 48 %}"> 48 </a></li>
