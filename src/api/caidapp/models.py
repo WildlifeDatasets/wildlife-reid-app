@@ -229,14 +229,14 @@ class UploadedArchive(models.Model):
         # return str(Path(self.archivefile.name).name)
 
     def taxons_are_overviewed(self):
-        return self.mediafile_set.filter(taxon_overviewed=True).count() != 0
+        return self.mediafile_set.filter(taxon_verified=True).count() != 0
 
     def mediafiles_with_missing_taxon(self):
         not_classified_taxon = Taxon.objects.get(name="Not Classified")
         animalia_taxon = Taxon.objects.get(name="Animalia")
         return self.mediafile_set.filter(
             Q(category=None) | Q(category=not_classified_taxon) |
-            (Q(category=animalia_taxon) & Q(taxon_overviewed=False))
+            (Q(category=animalia_taxon) & Q(taxon_verified=False))
         )
     def count_of_mediafiles_with_missing_taxon(self):
         return self.mediafiles_with_missing_taxon().count()
@@ -341,9 +341,9 @@ class MediaFile(models.Model):
     orientation = models.CharField(max_length=2, choices=ORIENTATION_CHOICES, default="N")
     original_filename = models.CharField(max_length=512, blank=True, default="")
 
-    taxon_overviewed = models.BooleanField("Taxon overviewed", default=False)
-    taxon_overviewed_at = models.DateTimeField("Taxon overviewed at", blank=True, null=True)
-    # taxon_overviewed_by = models.ForeignKey("Taxon overviewed by", CaIDUser, on_delete=models.SET_NULL, null=True, blank=True, related_name="taxon_overviewed_by")
+    taxon_verified = models.BooleanField("Taxon verified", default=False)
+    taxon_verified_at = models.DateTimeField("Taxon verified at", blank=True, null=True)
+    # taxon_verified_by = models.ForeignKey("Taxon overviewed by", CaIDUser, on_delete=models.SET_NULL, null=True, blank=True, related_name="taxon_verified_by")
 
     class Meta:
         ordering = ["-identity_is_representative", "captured_at"]
@@ -370,7 +370,7 @@ class MediaFile(models.Model):
     def is_for_suggestion(self):
         return (self.predicted_taxon is not None) and (
                 (self.category.name == "Not Classified") or
-                ((self.category.name == "Animalia") and (self.taxon_overviewed == False))
+                ((self.category.name == "Animalia") and (self.taxon_verified == False))
         )
 
 
