@@ -5,6 +5,9 @@
 
 ## 08-2024
 
+* [added] Overview taxons in media file view
+* [changed] In impersonation order users by name
+* [added] New view for processes with taxon classification
 * [added] Suggestions for Not Classified
 * [added] Show message after upload
 * [added] Synology import now supports also "{location} / {date}" format

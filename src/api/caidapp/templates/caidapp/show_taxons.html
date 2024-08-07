@@ -45,12 +45,15 @@
 
         <div class="pagetitle">
             <h1>Taxons</h1>
-            {#            <nav> <ol class="breadcrumb">#}
+                        <nav> <ol class="breadcrumb">
             {#                    <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li>#}
             {#                </ol>#}
-            {#            </nav>#}
+                            <li class="breadcrumb-item">
+                                    <a  href="{% url 'caidapp:add_taxon' %}">Add Taxon</a></ol>
+                        </nav>
         </div><!-- End Page Title -->
         <section class="section">
+
             <div class="row" id = "row-of-cards">
                 {% for taxon, mediafiles in taxons_with_mediafiles %}
 {#                    <div class="col-12 col-sm-12 col-md-12 col-lg-6 col-xl-4 col-xxl-3 col-xxxl-2" id="card{{ mediafile.instance.id }}">#}
@@ -83,7 +86,7 @@
                                         <ul class="dropdown-menu">
                                                 <li>
                                                     <a class="dropdown-item"
-                                                       href="{% url 'caidapp:update_taxon' taxon.id %}">
+                                                       href="{% url 'caidapp:update_taxon' taxon_id=taxon.id %}">
                                                         <i class="bi bi-pencil"></i>
                                                         Edit
                                                     </a>
