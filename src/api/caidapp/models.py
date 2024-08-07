@@ -228,8 +228,8 @@ class UploadedArchive(models.Model):
         # uploaded_archive.name = Path(uploaded_archive.archivefile.name).stem
         # return str(Path(self.archivefile.name).name)
 
-    def taxons_are_overviewed(self):
-        return self.mediafile_set.filter(taxon_verified=True).count() != 0
+    def taxons_are_verified(self):
+        return self.mediafile_set.filter(taxon_verified=False).count() == 0
 
     def mediafiles_with_missing_taxon(self):
         not_classified_taxon = Taxon.objects.get(name="Not Classified")
