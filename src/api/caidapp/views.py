@@ -1713,6 +1713,22 @@ def media_files_update(
                         elif "btnBulkProcessingDelete" in form.data:
                             instance = mediafileform.save(commit=False)
                             instance.delete()
+                        elif "btnBulkProcessing_id_taxon_overviewed" in form.data:
+                            instance = mediafileform.save(commit=False)
+                            instance.taxon_overviewed = form_bulk_processing.cleaned_data["taxon_overviewed"]
+                            instance.updated_by = request.user.caiduser
+                            instance.updated_at = django.utils.timezone.now()
+                            instance.save()
+
+
+                        elif "btnBulkProcessing_set_taxon_overviewed" in form.data:
+                            instance = mediafileform.save(commit=False)
+                            instance.taxon_overviewed = True
+                            instance.updated_by = request.user.caiduser
+                            instance.updated_at = django.utils.timezone.now()
+                            instance.save()
+
+
                     # mediafileform.save()
             # form.save()
         else:

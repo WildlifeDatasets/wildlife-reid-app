@@ -181,16 +181,31 @@
                                 </div>
 
                             </div>
-                            {% if show_overview_button %}
-                                <a class="btn btn-primary mt-2"
-                                   href="{% url 'caidapp:taxons_on_page_are_overviewed' %}">
-                                    <i class="bi bi-check-square"></i> Mark all taxons on this page as overviewed
-                                </a>
-                            {% endif %}
+{#                        TODO add overiview selected #}
                             Found {{ page_obj.paginator.count }} mediafiles.
                         </div>
                     </div>
 
+                    {% if show_overview_button %}
+
+                        <div class="d-flex mt-2">
+                            <button class="btn btn-primary mr-2"
+                                    name="btnBulkProcessing_set_taxon_overviewed"
+                                    {#                                        name="btnSetTaxonOverviewed"#}
+                                    {#                                        id="btnBulkProcessing"#}
+                                    type="submit"
+                                    style="margin-right: 10px;"
+                            >
+                                <i class="bi bi-check-square"></i>
+                                Verify taxon on selected media files
+                            </button>
+                            <a class="btn btn-primary"
+                               href="{% url 'caidapp:taxons_on_page_are_overviewed' %}">
+                                <i class="bi bi-check-all"></i>
+                                Verify taxon on all media files on this page
+                            </a>
+                        </div>
+                    {% endif %}
                     <div class="mt-2">
                         {% include "caidapp/pagination_submit.html" %}
                     </div>
@@ -255,7 +270,8 @@
                                                     <i class="fa-solid fa-hippo"></i>
                                                     <i class="bi bi-check"></i>
                                                 {% endif %}
-                                                {% if mediafile.instance.category.name == "Not Classified" %}
+{#                                                {% if mediafile.instance.category.name == "Not Classified" %} #}
+                                                {% if mediafile.instance.is_for_suggestion %}
                                                     <br>
                                                     <i class="bi bi-question-circle"></i>
                                                     Is it {{ mediafile.instance.predicted_taxon  }} ({{ mediafile.instance.predicted_taxon_confidence|floatformat:4 }}) ?

@@ -367,6 +367,11 @@ class MediaFile(models.Model):
     def is_preidentified(self):
         return MediafilesForIdentification.objects.filter(mediafile=self).exists()
 
+    def is_for_suggestion(self):
+        return (self.predicted_taxon is not None) and (
+                (self.category.name == "Not Classified") or
+                ((self.category.name == "Animalia") and (self.taxon_overviewed == False))
+        )
 
 
 class AnimalObservation(models.Model):
