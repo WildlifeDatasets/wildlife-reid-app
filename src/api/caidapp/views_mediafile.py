@@ -74,7 +74,7 @@ def overview_taxons(request, uploaded_archive_id:Optional[int]=None):
     from .views import media_files_update
 
     return media_files_update(
-        request, show_overview_button=True, taxon_overviewed=False, uploadedarchive_id=uploaded_archive_id,
+        request, show_overview_button=True, taxon_verified=False, uploadedarchive_id=uploaded_archive_id,
         order_by="category__name"
         )
     # views.
@@ -84,7 +84,7 @@ def taxons_on_page_are_overviewed(request):
     mediafile_ids = request.session.get("mediafile_ids_page", [])
     mediafiles = MediaFile.objects.filter(id__in=mediafile_ids)
     for mediafile in mediafiles:
-        mediafile.taxon_overviewed = True
+        mediafile.taxon_verified = True
         mediafile.save()
 
     # get next page
@@ -111,7 +111,7 @@ def confirm_prediction(request, mediafile_id:int):
             mediafile.category = mediafile.predicted_taxon
             mediafile.updated_at = timezone.now()
             mediafile.updated_by = request.user.caiduser
-            mediafile.taxon_overviewed = True
+            mediafile.taxon_verified = True
             mediafile.save()
 
             return JsonResponse({'success': True, 'message': 'Prediction confirmed.'})
@@ -128,7 +128,7 @@ def confirm_prediction(request, mediafile_id:int):
 #         mediafile.category = mediafile.predicted_taxon
 #         mediafile.updated_at = timezone.now()
 #         mediafile.updated_by = request.user.caiduser
-#         mediafile.taxon_overviewed = True
+#         mediafile.taxon_verified = True
 #         mediafile.save()
 #
 #         return JsonResponse({'success': True, 'message': 'Prediction confirmed.'})

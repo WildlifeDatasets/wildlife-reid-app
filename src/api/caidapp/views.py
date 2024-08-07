@@ -430,8 +430,8 @@ def media_file_update(request, media_file_id, next_text="Save", next_url=None, s
             mediafile = form.save()
             logger.debug(f"{mediafile.category=}")
             if (mediafile.category is not None) and (mediafile.category.name != "Not Classified"):
-                mediafile.taxon_overviewed = True
-                mediafile.taxon_overviewed_at = django.utils.timezone.now()
+                mediafile.taxon_verified = True
+                mediafile.taxon_verified_at = django.utils.timezone.now()
                 mediafile.save()
 
             if next_url:
@@ -1365,7 +1365,7 @@ def _mediafiles_query(
     identity_is_representative=None,
     location_hash=None,
     order_by:Optional[str]=None,
-    taxon_overviewed:Optional[bool]=None,
+    taxon_verified:Optional[bool]=None,
 ):
     """Prepare list of mediafiles based on query search in category and location."""
 
@@ -1384,8 +1384,8 @@ def _mediafiles_query(
         .distinct()
         .order_by(order_by)
     )
-    if taxon_overviewed is not None:
-        mediafiles = mediafiles.filter(taxon_overviewed=taxon_overviewed).all()
+    if taxon_verified is not None:
+        mediafiles = mediafiles.filter(taxon_verified=taxon_verified).all()
     if album_hash is not None:
         album = get_object_or_404(Album, hash=album_hash)
         mediafiles = (
@@ -1577,7 +1577,7 @@ def media_files_update(
     location_hash=None,
     show_overview_button=False,
     order_by=None,
-    taxon_overviewed:Optional[bool]=None,
+    taxon_verified:Optional[bool]=None,
 ) -> Union[QuerySet, List[MediaFile]]:
     """List of mediafiles based on query with bulk update of category."""
     # create list of mediafiles
@@ -1630,7 +1630,7 @@ def media_files_update(
         identity_is_representative=identity_is_representative,
         location_hash=location_hash,
         order_by=order_by,
-        taxon_overviewed=taxon_overviewed,
+        taxon_verified=taxon_verified,
     )
     number_of_mediafiles = len(full_mediafiles)
 
@@ -1713,17 +1713,17 @@ def media_files_update(
                         elif "btnBulkProcessingDelete" in form.data:
                             instance = mediafileform.save(commit=False)
                             instance.delete()
-                        elif "btnBulkProcessing_id_taxon_overviewed" in form.data:
+                        elif "btnBulkProcessing_id_taxon_verified" in form.data:
                             instance = mediafileform.save(commit=False)
-                            instance.taxon_overviewed = form_bulk_processing.cleaned_data["taxon_overviewed"]
+                            instance.taxon_verified = form_bulk_processing.cleaned_data["taxon_verified"]
                             instance.updated_by = request.user.caiduser
                             instance.updated_at = django.utils.timezone.now()
                             instance.save()
 
 
-                        elif "btnBulkProcessing_set_taxon_overviewed" in form.data:
+                        elif "btnBulkProcessing_set_taxon_verified" in form.data:
                             instance = mediafileform.save(commit=False)
-                            instance.taxon_overviewed = True
+                            instance.taxon_verified = True
                             instance.updated_by = request.user.caiduser
                             instance.updated_at = django.utils.timezone.now()
                             instance.save()

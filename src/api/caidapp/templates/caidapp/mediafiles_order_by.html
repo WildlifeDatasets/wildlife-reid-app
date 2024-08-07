@@ -12,10 +12,10 @@
             <li><a class="dropdown-item" href="{% url 'caidapp:set_mediafiles_order_by'  'category__name' %}">▲ Taxon</a></li>
             <li><a class="dropdown-item" href="{% url 'caidapp:set_mediafiles_order_by' '-media_type' %}">Images first </a></li>
             <li><a class="dropdown-item" href="{% url 'caidapp:set_mediafiles_order_by'  'media_type' %}">Videos first </a></li>
-            <li><a class="dropdown-item" href="{% url 'caidapp:set_mediafiles_order_by' '-taxon_overviewed' %}">▼ Taxon overviewed </a></li>
-            <li><a class="dropdown-item" href="{% url 'caidapp:set_mediafiles_order_by'  'taxon_overviewed' %}">▲ Taxon overviewed </a></li>
-            <li><a class="dropdown-item" href="{% url 'caidapp:set_mediafiles_order_by' '-taxon_overviewed_at' %}">▼ Taxon overviewed at </a></li>
-            <li><a class="dropdown-item" href="{% url 'caidapp:set_mediafiles_order_by'  'taxon_overviewed_at' %}">▲ Taxon overviewed at </a></li>
+            <li><a class="dropdown-item" href="{% url 'caidapp:set_mediafiles_order_by' '-taxon_verified' %}">▼ Taxon overviewed </a></li>
+            <li><a class="dropdown-item" href="{% url 'caidapp:set_mediafiles_order_by'  'taxon_verified' %}">▲ Taxon overviewed </a></li>
+            <li><a class="dropdown-item" href="{% url 'caidapp:set_mediafiles_order_by' '-taxon_verified_at' %}">▼ Taxon overviewed at </a></li>
+            <li><a class="dropdown-item" href="{% url 'caidapp:set_mediafiles_order_by'  'taxon_verified_at' %}">▲ Taxon overviewed at </a></li>
         </ul>
     </div>
     {% endif %}

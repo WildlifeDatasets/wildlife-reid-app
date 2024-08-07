@@ -136,7 +136,7 @@ class MediaFileBulkForm(forms.ModelForm):
             "category",
             "identity",
             "identity_is_representative",
-            "taxon_overviewed"
+            "taxon_verified"
         )
 
     def __init__(self, *args, **kwargs):

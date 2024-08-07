@@ -181,7 +181,6 @@
                                 </div>
 
                             </div>
-{#                        TODO add overiview selected #}
                             Found {{ page_obj.paginator.count }} mediafiles.
                         </div>
                     </div>
@@ -190,7 +189,7 @@
 
                         <div class="d-flex mt-2">
                             <button class="btn btn-primary mr-2"
-                                    name="btnBulkProcessing_set_taxon_overviewed"
+                                    name="btnBulkProcessing_set_taxon_verified"
                                     {#                                        name="btnSetTaxonOverviewed"#}
                                     {#                                        id="btnBulkProcessing"#}
                                     type="submit"
@@ -266,7 +265,7 @@
                                                 </a>
 
 
-                                                {% if mediafile.instance.taxon_overviewed %}
+                                                {% if mediafile.instance.taxon_verified %}
                                                     <i class="fa-solid fa-hippo"></i>
                                                     <i class="bi bi-check"></i>
                                                 {% endif %}
