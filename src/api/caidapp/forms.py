@@ -136,6 +136,7 @@ class MediaFileBulkForm(forms.ModelForm):
             "category",
             "identity",
             "identity_is_representative",
+            "taxon_overviewed"
         )
 
     def __init__(self, *args, **kwargs):
@@ -165,4 +166,4 @@ class UploadedArchiveFilterForm():
 
 
 class UserSelectForm(forms.Form):
-    user = forms.ModelChoiceField(queryset=User.objects.all(), label="Select User")
+    user = forms.ModelChoiceField(queryset=User.objects.all().order_by("username"), label="Select User")
