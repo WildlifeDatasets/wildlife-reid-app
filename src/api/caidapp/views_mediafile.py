@@ -3,7 +3,7 @@ from django.urls import reverse_lazy
 from django.http import StreamingHttpResponse, Http404, JsonResponse
 from django.shortcuts import get_object_or_404
 from .models import MediaFile, get_content_owner_filter_params
-import model_extra
+from . import model_extra
 from django.utils import timezone
 import os
 import random
