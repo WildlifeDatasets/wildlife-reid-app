@@ -322,7 +322,7 @@
                                                         <hr class="dropdown-divider">
                                                     </li>
 {#                                                if user is staff#}
-                                                    {% if request.user.is_superuser %}
+                                                    {% if request.user.is_staff or request.session.impersonate_user_id %}
                                                     <li>
 {#                                                        see in admin #}
                                                         <a class="dropdown-item"
