@@ -5,6 +5,9 @@
 
 ## 08-2024
 
+* [fixed] All download XLSX/CSV/Images are now the same
+* [added] Download XLSX for uploaded archive added
+
 * [added] Overview taxons in media file view
 * [changed] In impersonation order users by name
 * [added] New view for processes with taxon classification

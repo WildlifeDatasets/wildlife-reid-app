@@ -1938,11 +1938,17 @@ def download_uploadedarchive_images(request, uploadedarchive_id: int):
         return redirect("/caidapp/uploads")
 
 
+
 def download_uploadedarchive_csv(request, uploadedarchive_id: int):
     """Download uploaded file."""
+    # get mediaifles_ids based on uplodedarchive id
     uploaded_archive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
 
-    if uploaded_archive.owner.workgroup == request.user.caiduser.workgroup:
+    full_mediafiles = MediaFile.objects.filter(parent=uploaded_archive)
+
+    mediafile_ids = list(full_mediafiles.values_list('id', flat=True))
+
+    if uploaded_archive.ownder == request.user.caiduser or uploaded_archive.owner.workgroup == request.user.caiduser.workgroup:
         _update_csv_by_uploadedarchive(request, uploadedarchive_id)
         # file_path = Path(settings.MEDIA_ROOT) / uploaded_file.archivefile.name
         file_path = Path(settings.MEDIA_ROOT) / uploaded_archive.csv_file.name
@@ -1957,9 +1963,26 @@ def download_uploadedarchive_csv(request, uploadedarchive_id: int):
         messages.error(request, "Only the owner can download the file")
         return redirect("/caidapp/uploads")
 
-def download_csv_for_mediafiles_view(request):
-    mediafile_ids = request.session.get('mediafile_ids', [])
-    mediafiles = MediaFile.objects.filter(id__in=mediafile_ids)
+def _get_mediafiles(request, uploadedarchive_id: Optional[int]):
+    """Get mediafiles based on uploadedarchive_id or session."""
+    name_suggestion = None
+    if uploadedarchive_id is not None:
+        uploaded_archive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
+        if uploaded_archive.owner == request.user.caiduser or uploaded_archive.owner.workgroup == request.user.caiduser.workgroup:
+            mediafiles = MediaFile.objects.filter(parent=uploaded_archive)
+            name_suggestion = uploaded_archive.name
+            logger.debug(f"{name_suggestion=}")
+        else:
+            messages.error(request, "Only the owner or work group member can access the data.")
+    else:
+        mediafile_ids = request.session.get('mediafile_ids', [])
+        mediafiles = MediaFile.objects.filter(id__in=mediafile_ids)
+
+    return mediafiles, name_suggestion
+
+def download_csv_for_mediafiles_view(request, uploadedarchive_id: Optional[int] = None):
+    mediafiles, name_suggestion  = _get_mediafiles(request, uploadedarchive_id)
+    fn = ("metadata_" + name_suggestion) if name_suggestion is not None else "metadata"
 
     try:
         df = tasks.create_dataframe_from_mediafiles(mediafiles)
@@ -1970,13 +1993,13 @@ def download_csv_for_mediafiles_view(request):
         return HttpResponse("Error during export.", content_type="text/plain")
     # df = tasks.create_dataframe_from_mediafiles(mediafiles)
     response = HttpResponse(df.to_csv(), content_type="text/csv")
-    response["Content-Disposition"] = "attachment; filename=metadata.csv"
+    response["Content-Disposition"] = f"attachment; filename={fn}.csv"
     return response
 
 
-def download_xlsx_for_mediafiles_view(request):
-    mediafile_ids = request.session.get('mediafile_ids', [])
-    mediafiles = MediaFile.objects.filter(id__in=mediafile_ids)
+def download_xlsx_for_mediafiles_view(request, uploadedarchive_id: Optional[int] = None):
+    mediafiles, name_suggestion  = _get_mediafiles(request, uploadedarchive_id)
+    fn = ("metadata_" + name_suggestion) if name_suggestion is not None else "metadata"
 
     try:
         df = tasks.create_dataframe_from_mediafiles(mediafiles)
@@ -1999,13 +2022,12 @@ def download_xlsx_for_mediafiles_view(request):
 
     response = HttpResponse(output,
                             content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    response['Content-Disposition'] = 'attachment; filename=metadata.xlsx'
+    response['Content-Disposition'] = f'attachment; filename={fn}.xlsx'
     return response
 
-def download_zip_for_mediafiles_view(request):
-    request.user.caiduser.hash
-    mediafile_ids = request.session.get('mediafile_ids', [])
-    mediafiles = MediaFile.objects.filter(id__in=mediafile_ids)
+def download_zip_for_mediafiles_view(request, uploadedarchive_id: Optional[int] = None):
+    mediafiles, name_suggestion  = _get_mediafiles(request, uploadedarchive_id)
+    fn = ("mediafiles_" + name_suggestion) if name_suggestion is not None else "mediafiles"
     # number_of_mediafiles = len(mediafiles)
 
     abs_zip_path = Path(settings.MEDIA_ROOT) / "users" / request.user.caiduser.hash / f"mediafiles.zip"
@@ -2024,7 +2046,7 @@ def download_zip_for_mediafiles_view(request):
         make_zipfile(abs_zip_path, mediafiles_dir)
     with open(abs_zip_path, "rb") as fh:
         response = HttpResponse(fh.read(), content_type="application/zip")
-        response["Content-Disposition"] = "inline; filename=mediafiles.zip"
+        response["Content-Disposition"] = f"inline; filename={fn}.zip"
         return response
 
     return Http404
