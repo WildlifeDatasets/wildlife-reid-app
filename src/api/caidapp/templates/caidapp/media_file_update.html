@@ -88,7 +88,8 @@
 {#            </div>#}
             {% if mediafile.media_type == 'video' %}
                 <video controls width="640" height="360">
-                    <source src="{% url 'caidapp:stream_video' mediafile.id %}" type="video/mp4">
+{#                    <source src="{% url 'caidapp:stream_video' mediafile.id %}" type="video/mp4">#}
+                    <source src="{% url 'caidapp:stream_video' mediafile.id %}" type="video/x-m4v">
                     Your browser does not support the video tag.
                 </video>
 
