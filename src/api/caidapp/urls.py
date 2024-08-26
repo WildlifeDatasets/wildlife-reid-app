@@ -31,11 +31,6 @@ urlpatterns = [
         views.media_files_update,
         name="uploadedarchive_detail",
     ),
-    path(
-        "download_uploadedarchive_csv/<int:uploadedarchive_id>",
-        views.download_uploadedarchive_csv,
-        name="download_uploadedarchive_csv",
-    ),
     # path("media_files/", views.media_files, name="media_files"),
     path("media_files/", views.media_files_update, name="media_files"),
     path(
@@ -191,6 +186,21 @@ urlpatterns = [
     path("download_csv_for_mediafiles/", views.download_csv_for_mediafiles_view, name="download_csv_for_mediafiles"),
     path("download_zip_for_mediafiles/", views.download_zip_for_mediafiles_view, name="download_zip_for_mediafiles"),
     path("download_xlsx_for_mediafiles/", views.download_xlsx_for_mediafiles_view, name="download_xlsx_for_mediafiles"),
+    path(
+        "download_uploadedarchive_csv/<int:uploadedarchive_id>",
+        views.download_csv_for_mediafiles_view,
+        name="download_uploadedarchive_csv",
+    ),
+    path(
+        "download_uploadedarchive_xlsx/<int:uploadedarchive_id>",
+        views.download_xlsx_for_mediafiles_view,
+        name="download_uploadedarchive_xlsx",
+    ),
+    path(
+        "download_uploadedarchive_zip/<int:uploadedarchive_id>",
+        views.download_zip_for_mediafiles_view,
+        name="download_uploadedarchive_zip",
+    ),
     path("mediafiles_stats/", views.mediafiles_stats_view, name="mediafiles_stats"),
     path("select_taxon_for_identification/<int:uploadedarchive_id>/", views.select_taxon_for_identification, name="select_taxon_for_identification"),
     path("locations/", views.locations_view, name="locations"),

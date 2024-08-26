@@ -122,16 +122,22 @@
                                                         <i class="bi bi-pencil"></i> Edit
                                                     </a>
                                                 </li>
-                                                {% if uploadedarchive.zip_file %}
-                                                    <li><a class="dropdown-item"
-                                                           href="{{ uploadedarchive.zip_file.url }}"><i
-                                                            class="bi bi-download"></i> Download images</a></li>
-                                                {% endif %}
-                                                {% if uploadedarchive.csv_file %}
+{#                                                {% if uploadedarchive.zip_file %}#}
+{#                                                    <li><a class="dropdown-item"#}
+{#                                                           href="{{ uploadedarchive.zip_file.url }}"><i#}
+{#                                                            class="bi bi-download"></i> Download images</a></li>#}
+{#                                                {% endif %}#}
+{#                                                {% if uploadedarchive.csv_file %}#}
                                                     <li><a class="dropdown-item"
                                                            href="{% url 'caidapp:download_uploadedarchive_csv' uploadedarchive.id %}"><i
                                                             class="bi bi-table"></i> Download CSV </a></li>
-                                                {% endif %}
+{#                                                {% endif %}#}
+                                                <li><a class="dropdown-item"
+                                                       href="{% url 'caidapp:download_uploadedarchive_xlsx' uploadedarchive.id %}"><i
+                                                        class="fas fa-file-excel"></i> Download XLSX </a></li>
+                                                <li><a class="dropdown-item"
+                                                       href="{% url 'caidapp:download_uploadedarchive_zip' uploadedarchive.id %}"><i
+                                                        class="bi bi-archive"></i> Download images </a></li>
                                                 <li>
                                                     <a class="dropdown-item"
                                                        href="{% url 'caidapp:select_taxon_for_identification' uploadedarchive.id %}">
