@@ -29,7 +29,7 @@ def stream_video(request, mediafile_id):
                     break
                 yield chunk
 
-    # response = StreamingHttpResponse(file_iterator(video_path), content_type='video/mp4')
+    # response = StreamingHttpResponse(file_iterator(video_path), content_type='/video/mp4')
     response = StreamingHttpResponse(file_iterator(video_path), content_type='video/x-m4v')
     response['Content-Length'] = os.path.getsize(video_path)
     response['Accept-Ranges'] = 'bytes'
