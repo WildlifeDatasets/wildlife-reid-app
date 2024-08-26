@@ -1224,7 +1224,7 @@ def do_cloud_import_view(request):
 
     Make zip file from every check. The information encoded in path is code of lynx season (i.e.
     LY2019), locality (Prachatice), date of check (2019-07-01). In the leaf directory are media
-    files (images and videos). For every check there will be zip file. The name of the zip file
+    files (images and /dvideos). For every check there will be zip file. The name of the zip file
     will be composed of locality and date of check.
 
     Example of path structure:
@@ -2039,8 +2039,10 @@ def download_zip_for_mediafiles_view(request, uploadedarchive_id: Optional[int] 
         mediafiles_dir = Path(tmpdirname) / "images"
         mediafiles_dir.mkdir()
         for mediafile in mediafiles:
+            # output_name = Path(mediafile.mediafile.name).name
+            output_name = _make_output_name(mediafile)
             src = Path(settings.MEDIA_ROOT) / mediafile.mediafile.name
-            dst = mediafiles_dir / Path(mediafile.mediafile.name).name
+            dst = mediafiles_dir / output_name
             logger.debug(f"{src=}, {dst=}")
             assert src.exists()
             shutil.copy(src, dst)
@@ -2051,6 +2053,22 @@ def download_zip_for_mediafiles_view(request, uploadedarchive_id: Optional[int] 
         return response
 
     return Http404
+
+def _make_output_name(mediafile: models.MediaFile):
+    """Create output name.
+    pattern: {locality}_{date}_{original_name}_{taxon}_{identity}
+    """
+
+    locality = mediafile.location.name if mediafile.location else "no_locality"
+    date = mediafile.captured_at.strftime("%Y-%m-%d") if mediafile.captured_at else "no_date"
+    original_name = mediafile.original_filename if mediafile.original_filename else "no_original_name"
+    # remove extension
+    original_name = Path(original_name).stem
+    taxon = mediafile.category.name if mediafile.category else "no_taxon"
+    identity = mediafile.identity.name if mediafile.identity else "no_identity"
+    output_name = f"{locality}_{date}_{original_name}_{taxon}_{identity}"
+    return output_name
+
 
 
 def _generate_new_hash_for_locations():
