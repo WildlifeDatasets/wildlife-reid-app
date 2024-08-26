@@ -412,11 +412,20 @@ def _estimate_time_for_taxon_classification_of_uploaded_archive(
 ) -> datetime.timedelta:
     """Estimate time to process archive."""
     # count files in archive
-    file_count = count_files_in_archive(uploaded_archive.archivefile.path)
+    file_count_dict = count_files_in_archive(uploaded_archive.archivefile.path)
+    file_count = file_count_dict["file_count"]
+    image_count = file_count_dict["image_count"]
+    video_count = file_count_dict["video_count"]
     # estimate time to process
     # it is time for taxon classification + detection + segmentation
     # on CPU 22s per image, 0.1s per image on GPU
-    time_to_process = datetime.timedelta(seconds=10) + (datetime.timedelta(seconds=10) * file_count)
+    time_per_image = datetime.timedelta(seconds=0.1)
+    time_per_video = datetime.timedelta(seconds=60)
+
+    time_to_process = datetime.timedelta(seconds=10) + (
+        (time_per_image * image_count) +
+        (time_per_video * video_count)
+    )
     logger.debug(f"{time_to_process=}")
     return time_to_process
 
