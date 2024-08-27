@@ -1096,9 +1096,11 @@ def upload_archive(
                 next_url = reverse_lazy("caidapp:uploads_identities")
             else:
                 next_url = reverse_lazy("caidapp:uploads")
+            counts = uploaded_archive.number_of_mediafiles()
             context = dict(
                 headline="Upload finished",
-                text=f"Imported {uploaded_archive.mediafile_set.count()} media files.",
+                text=f"Imported {counts['file_count']} files (" +\
+                    "{counts['image_count']} images and {counts['video_count']} videos).",
                 # next=reverse_lazy("caidapp:uploadedarchive_detail", kwargs={"uploadedarchive_id": uploaded_archive.id}),
 
                 next=next_url,
