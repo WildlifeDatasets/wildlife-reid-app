@@ -191,7 +191,8 @@ def uploadedarchive_detail(request, uploadedarchive_id):
 
 def _prepare_page(paginator: Paginator, request:Optional = None, page_number: Optional[int] = None) -> Tuple[Page, List, dict]:
     if page_number is None:
-        page_number = request.GET.get("page")
+        page_number = request.GET.get("page", 1)
+    logger.debug(f"{page_number=}")
     elided_page_range = paginator.get_elided_page_range(page_number, on_each_side=3, on_ends=2)
     page_obj = paginator.get_page(page_number)
 
@@ -1095,7 +1096,7 @@ def upload_archive(
                 next_url = reverse_lazy("caidapp:uploads_identities")
             else:
                 next_url = reverse_lazy("caidapp:uploads")
-            counts = uploaded_archive.number_of_media_files_in_archive()
+            counts = uploaded_archive.number_of_mediafiles()
             context = dict(
                 headline="Upload finished",
                 text=f"Imported {counts['file_count']} files (" +\
