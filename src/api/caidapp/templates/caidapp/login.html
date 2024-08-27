@@ -2,6 +2,26 @@
 {% load static %}
 {% load socialaccount %}
 
+{% block head %}
+        <style>
+        body {
+            {#background-image: url("{% static 'caidapp/lynx-7346358_1280.jpg' %}");#}
+            background-image: linear-gradient(to bottom, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0.6)), url("{% static 'caidapp/lynx-7346358_1280.jpg' %}");
+            background-size: cover;
+            background-position: center center;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+        }
+
+        /* Additional styling for your page content */
+        .content {
+            color: white;
+            padding: 20px;
+            background-color: rgba(0, 0, 0, 0.9); /* Optional translucent background for better readability */
+        }
+    </style>
+{% endblock %}
+
 {% block body %}
 <!--<html>-->
 <!--  <head>-->
@@ -37,7 +57,25 @@
         <a href="https://starfos.tacr.cz/en/projekty/SS05010008">SS05010008-V9</a>.
     </p>
     <p> More information about project can be found on the <a href="https://sites.google.com/view/caid-zcu/">web presentation of the project</a></p>
+    <p class="mt-5">
+
+    <div class="credits d-flex justify-content-between align-items-center">
+        <div>
+            <img src="{% static 'caidapp/FAV_cmyk_english.png' %}" alt="logo FAV" height="100px">
+        </div>
+        <div>
+            <img src="{% static 'caidapp/logo_cvut_en.jpg' %}" alt="logo FAV" height="90px">
+        </div>
+        <div>
+            <img src="{% static 'caidapp/Mendelu_LDF_logo-ENG_rgb.png' %}" alt="logo FAV" height="100px">
+        </div>
+        <div>
+            <img src="{% static 'caidapp/prostredi_pro_zivot_programme_red.png' %}" alt="logo TAČR" height="100px">
+
+        </div>
+    </p>
 </div>
+
 
 {% endblock %}
 <!--  </body>-->

@@ -64,7 +64,12 @@
     {% endblock %}
 </head>
 
-<body>
+<body
+        {% if user.is_authenticated %}
+        {% else %}
+            class="toggle-sidebar"
+        {% endif %}
+        >
 {% load widget_tweaks %}
 
 <!-- ======= Header ======= -->
@@ -75,7 +80,9 @@
             {#        <img src="{% static 'assets/img/logo.png' %}" alt="">#}
             <span class="d-none d-lg-block">CarnivoreID</span>
         </a>
-        <i class="bi bi-list toggle-sidebar-btn"></i>
+        {% if user.is_authenticated %}
+            <i class="bi bi-list toggle-sidebar-btn"></i>
+        {% endif %}
     </div><!-- End Logo -->
 
     {#    <div class="search-bar">#}
@@ -235,6 +242,7 @@
             {##}
             {#        </li><!-- End Messages Nav -->#}
 
+            {% if user.is_authenticated %}
             <li class="nav-item dropdown pe-3">
 
                 <a class="nav-link nav-profile d-flex align-items-center pe-0" href="#" data-bs-toggle="dropdown">
@@ -242,7 +250,6 @@
                     <span class="d-none d-md-block dropdown-toggle ps-2">{{ user.username }}</span>
                 </a><!-- End Profile Iamge Icon -->
 
-                {% if user.is_authenticated %}
                     <ul class="dropdown-menu dropdown-menu-end dropdown-menu-arrow profile">
                         <li class="dropdown-header">
                             <h6>{{ user.username }}</h6>
@@ -325,17 +332,19 @@
                         </li>
 
                     </ul><!-- End Profile Dropdown Items -->
-                {% endif %}
             </li><!-- End Profile Nav -->
+                {% endif %}
 
         </ul>
     </nav><!-- End Icons Navigation -->
 
 </header><!-- End Header -->
 
+{#{% if user.is_authenticated %}{% else %}{{ collapse }}{% endif %}#}
 <!-- ======= Sidebar ======= -->
-<aside id="sidebar" class="sidebar">
-    {% if user.is_authenticated %}
+{% if user.is_authenticated %}
+<aside id="sidebar" class="sidebar
+">
         <ul class="sidebar-nav" id="sidebar-nav">
 
 {#            <li class="nav-item">#}
@@ -456,11 +465,16 @@
             {#        </a>#}
             {#      </li><!-- End Error 404 Page Nav -->#}
 
-
+            <div class="sidebar-logos ">
+                <img src="{% static 'caidapp/FAV_cmyk_english.png' %}" alt="logo FAV" height="40px">
+                <img src="{% static 'caidapp/logo_cvut_en.jpg' %}" alt="logo CVUT" height="40px"><br>
+                <img src="{% static 'caidapp/Mendelu_LDF_logo-ENG_rgb.png' %}" alt="logo Mendelu" height="40px">
+                <img src="{% static 'caidapp/prostredi_pro_zivot_programme_red.png' %}" alt="logo TAČR" height="40px"><br>
+            </div>
         </ul>
 
-    {% endif %}
 </aside><!-- End Sidebar-->
+    {% endif %}
 
 <main id="main" class="main">
     <div id="appbody">
@@ -484,18 +498,18 @@
 </main><!-- End #main -->
 
 <!-- ======= Footer ======= -->
-<footer id="footer" class="footer">
+{#<footer id="footer" class="footer">#}
 {#    <div class="copyright">#}
 {#        &copy; Copyright <strong><span>NiceAdmin</span></strong>. All Rights Reserved#}
 {#    </div>#}
-    <div class="credits">
-        <img src="{% static 'caidapp/FAV_cmyk_english.png' %}" alt="logo FAV" height="100px">
-        <img src="{% static 'caidapp/logo_cvut_en.jpg' %}" alt="logo FAV" height="100px">
-        <img src="{% static 'caidapp/Mendelu_LDF_logo-ENG_rgb.png' %}" alt="logo FAV" height="100px">
-        <img src="{% static 'caidapp/prostredi_pro_zivot_programme_red.png' %}" alt="logo TAČR" height="100px">
-
-    </div>
-</footer><!-- End Footer -->
+{#    <div class="credits">#}
+{#        <img src="{% static 'caidapp/FAV_cmyk_english.png' %}" alt="logo FAV" height="100px">#}
+{#        <img src="{% static 'caidapp/logo_cvut_en.jpg' %}" alt="logo FAV" height="100px">#}
+{#        <img src="{% static 'caidapp/Mendelu_LDF_logo-ENG_rgb.png' %}" alt="logo FAV" height="100px">#}
+{#        <img src="{% static 'caidapp/prostredi_pro_zivot_programme_red.png' %}" alt="logo TAČR" height="100px">#}
+{##}
+{#    </div>#}
+{#</footer><!-- End Footer -->#}
 
 <a href="#" class="back-to-top d-flex align-items-center justify-content-center"><i
         class="bi bi-arrow-up-short"></i></a>
@@ -523,6 +537,23 @@
 <!-- Template Main JS File -->
 <script src="{% static 'assets/js/main.js' %}"></script>
 <script src="https://kit.fontawesome.com/b3fe7a968a.js" crossorigin="anonymous"></script>
+<style>
+
+.sidebar-logos {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 10px;
+    background-color: rgba(255, 255, 255, 0.8); /* Semi-transparent background, adjust as needed */
+    text-align: center;
+}
+
+.sidebar-logos img {
+    margin: 5px;
+}
+
+</style>
 
 
 </body>
