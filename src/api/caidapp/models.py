@@ -12,6 +12,7 @@ from django.db.models import Q
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from location_field.models.plain import PlainLocationField
+from . import fs_data
 
 from .model_tools import (
     get_zip_path_in_unique_folder,
@@ -256,6 +257,9 @@ class UploadedArchive(models.Model):
             Q(category=None) | Q(category=not_classified_taxon)
             ).values('category').distinct().count()
 
+    def number_of_media_files_in_archive(self) -> dict:
+        counts = fs_data.count_files_in_archive(self.archivefile.path)
+        return counts
 
 
 

@@ -5,6 +5,7 @@
 
 ## 08-2024
 
+* [changed] Fix count of files after upload
 * [changed] Camera trap check card image is now on the top of the card
 * [changed] Login page redesigned: image added, cleared
 * [changed] Output files named by convention {locality}_{date}_{original_name}_{taxon}_{identity}
