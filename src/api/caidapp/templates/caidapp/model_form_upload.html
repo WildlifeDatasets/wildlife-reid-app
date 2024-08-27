@@ -181,6 +181,11 @@
         }).on('changeDate', function(e) {
             $(this).datepicker('hide');
         });
+
+        {#// Set today's date#}
+        {#var today = new Date();#}
+        {#datepickerInput.datepicker('setDate', today);#}
+
     });
     </script>
 

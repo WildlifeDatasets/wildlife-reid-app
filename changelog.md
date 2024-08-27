@@ -5,6 +5,7 @@
 
 ## 08-2024
 
+* [changed] Camera trap check card image is now on the top of the card
 * [changed] Login page redesigned: image added, cleared
 * [changed] Output files named by convention {locality}_{date}_{original_name}_{taxon}_{identity}
 * [fixed] All download XLSX/CSV/Images are now the same
