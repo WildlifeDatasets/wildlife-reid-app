@@ -85,18 +85,21 @@
                         <div class="col-12 col-sm-12 col-md-12 col-lg-6 col-xl-4 col-xxl-3 col-xxxl-2" id="card{{ uploadedarchive.instance.id }}">
 {#                        <div class="col" style="-ms-flex: 0 0 200; flex: 0 0 200;">#}
                             <div class="card"
-                                    {% if uploadedarchive.thumbnail %}
-                                 style="
-
-                                         background-image: linear-gradient(to left, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 1.0)), url({{ uploadedarchive.thumbnail.url }});
-                                         background-repeat: no-repeat;
-                                         background-position-x: right;
-                                         background-position-y: center;
-                                         background-size: cover;
-                                         "
-
-                                    {% endif %}
+{#                                    {% if uploadedarchive.thumbnail %}#}
+{#                                 style="#}
+{##}
+{#                                         background-image: linear-gradient(to left, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 1.0)), url({{ uploadedarchive.thumbnail.url }});#}
+{#                                         background-repeat: no-repeat;#}
+{#                                         background-position-x: right;#}
+{#                                         background-position-y: center;#}
+{#                                         background-size: cover;#}
+{#                                         "#}
+{##}
+{#                                    {% endif %}#}
                             >
+                                {% if uploadedarchive.thumbnail %}
+                                    <img class="card-img-top" src="{{ uploadedarchive.thumbnail.url }}" alt="Camera trap check representative">
+                                {% endif %}
                                 <div class="card-body"
                                 >
 

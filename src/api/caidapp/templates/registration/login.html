@@ -1,7 +1,8 @@
 {%extends 'base.html'%}
 
 {%block content%}
-            <form method="post" class="card" novalidate>
+    <div class="container">
+            <form method="post" class="m-4" novalidate>
                 {% csrf_token %}
                 <h2 class="text-center">Log in to  your account</h2>
                 {% for field in form %}
@@ -14,9 +15,12 @@
                     </div>
                 {% endfor %}
 
+            <div class="text-center">
                 <input type="submit" value="Login" class="btn btn-primary">
-                <hr>
+            </div>
+{#                <hr>#}
 {#                <p class="text-center">Forgot your password <a href="#">Reset Password</a></p>#}
 {#                <p class="text-center">Don't have a account? <a href="#">Join Now</a></p>#}
             </form>
+    </div>
 {%endblock content%}
