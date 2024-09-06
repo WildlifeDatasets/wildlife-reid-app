@@ -3,6 +3,11 @@
 
 # Changelog
 
+
+## 09-2024
+
+* [added] Dates of camera check have now a view
+
 ## 08-2024
 
 * [changed] Fix count of files after upload

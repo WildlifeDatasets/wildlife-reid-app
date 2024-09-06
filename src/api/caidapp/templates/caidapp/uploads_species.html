@@ -47,30 +47,36 @@
         <div class="pagetitle">
             <h1>Uploads</h1>
             <nav>
-                <ol class="breadcrumb">
-                    <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li>
-                </ol>
                 <div class="d-flex justify-content-between">
                     <div>
-                        {%  if user.caiduser.import_dir|length > 0 %}
-                            <a class="btn btn-secondary" href="{% url 'caidapp:cloud_import_preview' %}"
-                               data-bs-toggle="tooltip" title="Location: "
-                            ><i class="bi bi-cloud-arrow-up"></i> Import from cloud</a>
-                        {% endif %}
-                        <a class="btn {{ btn_styles.upload_species }}" href="{% url 'caidapp:upload_archive' %}"><i class="bi bi-plus-circle"></i> New Upload </a>
-                        <i class="bi bi-arrow-right-short fa-2x" style="vertical-align: middle;"></i>
-                        <a class="btn {{ btn_styles.classify_non_classified }}" href="{% url 'caidapp:manual_taxon_classification_on_non_classified' %}"
-                           data-bs-toggle="tooltip" title="{{ btn_tooltips.classify_non_classified }}"
-                        >classify non classified</a>
-                        <a class="btn {{ btn_styles.overview_taxons }}" href="{% url 'caidapp:overview_taxons' %}"
-{#                           data-bs-toggle="tooltip" title="{{ btn_tooltips.classify_non_classified }}"#}
-                        >Overview taxons</a>
-
-
-
+                        <ol class="breadcrumb">
+                            <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li>
+                        </ol>
                     </div>
+
                     {% include "caidapp/uploads_order_by.html" %}
                 </div>
+{#                <div class="d-flex justify-content-between">#}
+{#                    <div>#}
+{#                        {%  if user.caiduser.import_dir|length > 0 %}#}
+{#                            <a class="btn btn-secondary" href="{% url 'caidapp:cloud_import_preview' %}"#}
+{#                               data-bs-toggle="tooltip" title="Location: "#}
+{#                            ><i class="bi bi-cloud-arrow-up"></i> Import from cloud</a>#}
+{#                        {% endif %}#}
+{#                        <a class="btn {{ btn_styles.upload_species }}" href="{% url 'caidapp:upload_archive' %}"><i class="bi bi-plus-circle"></i> New Upload </a>#}
+{#                        <i class="bi bi-arrow-right-short fa-2x" style="vertical-align: middle;"></i>#}
+{#                        <a class="btn {{ btn_styles.classify_non_classified }}" href="{% url 'caidapp:manual_taxon_classification_on_non_classified' %}"#}
+{#                           data-bs-toggle="tooltip" title="{{ btn_tooltips.classify_non_classified }}"#}
+{#                        >classify non classified</a>#}
+{#                        <a class="btn {{ btn_styles.overview_taxons }}" href="{% url 'caidapp:overview_taxons' %}"#}
+{#                           data-bs-toggle="tooltip" title="{{ btn_tooltips.classify_non_classified }}"#}
+{#                        >Overview taxons</a>#}
+{##}
+{##}
+{##}
+{#                    </div>#}
+{#                    {% include "caidapp/uploads_order_by.html" %}#}
+{#                </div>#}
 
 
             </nav>
