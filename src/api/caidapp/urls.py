@@ -226,5 +226,9 @@ urlpatterns = [
     path('add_taxon/', views.update_taxon, name='add_taxon'),
     path('confirm_prediction/<int:mediafile_id>', views_mediafile.confirm_prediction, name='confirm_prediction'),
     path('taxon_processing',views_uploads.taxon_processing, name='taxon_processing'),
+    path('check_dates/', views_uploads.camera_trap_check_dates_view, name='check_dates'),
+    path('check_dates/<int:year>/', views_uploads.camera_trap_check_dates_view, name='check_dates_with_year'),
+    path('check_date/<str:date>/', views_uploads.camera_trap_check_date_view, name='check_date'),
+    path('check_date/', views_uploads.camera_trap_check_date_view, name='check_date_empty'),
 ]
 

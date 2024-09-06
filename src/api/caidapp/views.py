@@ -334,17 +334,19 @@ def update_taxon(request, taxon_id:Optional[int] = None):
     # )
 
 
-def _uploads_general(request, contains_single_taxon: Optional[bool] = None, taxon_for_identification__isnull: Optional[bool] = None):
+def _uploads_general(request, contains_single_taxon: Optional[bool] = None, taxon_for_identification__isnull: Optional[bool] = None, **filter_params):
     """List of uploads."""
     order_by = uploaded_archive_get_order_by(request)
     uploadedarchives = UploadedArchive.objects.annotate(
         **_uploads_general_order_annotation()
         )
+    if filter_params is None:
+        filter_params = {}
 
     if contains_single_taxon is not None:
-        filter_params = dict(contains_single_taxon=contains_single_taxon)
+        filter_params.update(dict(contains_single_taxon=contains_single_taxon))
     elif taxon_for_identification__isnull is not None:
-        filter_params = dict(taxon_for_identification__isnull=taxon_for_identification__isnull)
+        filter_params.update(dict(taxon_for_identification__isnull=taxon_for_identification__isnull))
 
     uploadedarchives = (
         uploadedarchives.all().filter(
@@ -1099,7 +1101,7 @@ def upload_archive(
             counts = uploaded_archive.number_of_mediafiles()
             context = dict(
                 headline="Upload finished",
-                text=f"Imported {counts['file_count']} files (" +\
+                text=f"Uploaded {counts['file_count']} files (" +\
                     f"{counts['image_count']} images and {counts['video_count']} videos).",
                 # next=reverse_lazy("caidapp:uploadedarchive_detail", kwargs={"uploadedarchive_id": uploaded_archive.id}),
 

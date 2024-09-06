@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block head %}
+{% endblock %}
+{% block body %}
+    <div>
+    <ul class="nav nav-tabs">
+        <li class="nav-item">
+            <a class="nav-link " aria-current="page"
+               href="{% url 'caidapp:check_date_empty' %}"
+            >No check date given</a>
+
+        </li>
+        {%  for year in years %}
+  <li class="nav-item">
+    <a class="nav-link {% if selected_year == year %} active {% endif %}" aria-current="page"
+        href="{% url 'caidapp:check_dates_with_year' year %}"
+    >{{ year }}</a>
+  </li>
+
+    {% endfor %}
+    </ul>
+    </div>
+{#        <h1 class="center">{{ headline }}</h1>#}
+{#        <p>{{ message }}</p>#}
+        {% for year, months in grouped_dates.items %}
+            <h1>{{ year }}</h1>
+            {% for month, dates in months.items %}
+                <h2>{{ month }}</h2>
+                <div class="row">
+                    {% for date in dates %}
+                        <div class="col-12 col-sm-12 col-md-12 col-lg-6 col-xl-4 col-xxl-3 col-xxxl-2">
+                                <a class="card" href="{% url "caidapp:check_date" date %}">
+
+
+                                    <div class="card-body">
+                                        <h5 class="card-title"> {{ date }}</h5>
+                                    </div>
+                                </a>
+
+                            </div>
+                    {% endfor %}
+                </div>
+            {% endfor %}
+        {% endfor %}
+
+{% endblock %}

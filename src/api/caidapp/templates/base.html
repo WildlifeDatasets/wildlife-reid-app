@@ -377,6 +377,12 @@
                             <span>Taxons</span>
                         </a>
                     </li>
+                    <li>
+                        <a class="nav-link collapsed" href="{% url 'caidapp:check_dates' %}">
+                            <i class="bi bi-calendar"></i>
+                            <span>Dates</span>
+                        </a>
+                    </li>
                     {%  if user.caiduser.import_dir|length > 0 %}
                     <li>
                             <a class="nav-link collapsed" href="{% url 'caidapp:cloud_import_preview' %}"
