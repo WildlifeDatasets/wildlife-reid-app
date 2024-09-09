@@ -246,24 +246,27 @@
 {#                                    <img class="card-img-top" src="{{ uploadedarchive.thumbnail.url }}" alt="Camera trap check representative">#}
                                 {%  else %}
 
-                                    <!-- No image is given -->
-
-                                    <!-- Badge for status -->
-                                    <span class="badge rounded-pill bg-{{ uploadedarchive.combined_status_message.status_style }}"
-                                          data-bs-toggle="tooltip" title="Date of first and last media file capture."
-                                    >{{ uploadedarchive.combined_status_message.status }}</span>
-                                    {#                                        <span class="badge rounded-pill bg-info">{{ uploadedarchive.combined_status_message.status }}</span>#}
-
-                                    {#                                      Dropdown menu #}
-                                    <div class="dropdown">
-                                        <a class="btn btn-secondary custom-dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                            <i class="bi bi-three-dots"></i>
-                                        </a>
-                                        {% include "caidapp/upload_species_card_dropdown.html" %}
-                                    </div>
                                 {% endif %}
                                 <div class="card-body"
                                 >
+                                    {% if uploadedarchive.thumbnail %}
+                                    {% else %}
+                                        <!-- No image is given -->
+
+                                        <!-- Badge for status -->
+                                        <span class="badge rounded-pill bg-{{ uploadedarchive.combined_status_message.status_style }}"
+                                              data-bs-toggle="tooltip" title="Date of first and last media file capture."
+                                        >{{ uploadedarchive.combined_status_message.status }}</span>
+                                        {#                                        <span class="badge rounded-pill bg-info">{{ uploadedarchive.combined_status_message.status }}</span>#}
+
+                                        {#                                      Dropdown menu #}
+                                        <div class="dropdown">
+                                            <a class="btn btn-secondary custom-dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                                <i class="bi bi-three-dots"></i>
+                                            </a>
+                                            {% include "caidapp/upload_species_card_dropdown.html" %}
+                                        </div>
+                                    {% endif %}
 
                                     {% include "caidapp/upload_card_body.html" %}
 

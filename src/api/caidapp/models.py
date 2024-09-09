@@ -289,6 +289,8 @@ class UploadedArchive(models.Model):
         status_style = "dark"
         if self.status == "Taxons classified":
             status_style = "secondary"
+        elif self.status == "Failed":
+            status_style = "danger"
 
         if self.percents_of_mediafiles_with_taxon() == 100:
             status = "Taxons done"
@@ -298,6 +300,7 @@ class UploadedArchive(models.Model):
             status = "Taxons verified"
             status_message = "All taxons are verified."
             status_style = "success"
+
 
         return dict(
             status=status,
