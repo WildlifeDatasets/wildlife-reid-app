@@ -415,7 +415,7 @@ def _estimate_time_for_taxon_classification_of_uploaded_archive(
     """Estimate time to process archive."""
     # count files in archive
     # file_count_dict = count_files_in_archive(uploaded_archive.archivefile.path)
-    file_count_dict = uploaded_archive.number_of_files_in_archive()
+    file_count_dict = uploaded_archive.number_of_media_files_in_archive()
     file_count = file_count_dict["file_count"]
     image_count = file_count_dict["image_count"]
     video_count = file_count_dict["video_count"]
