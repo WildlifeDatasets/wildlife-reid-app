@@ -133,4 +133,39 @@ def camera_trap_check_date_view(request, date: Optional[str] = None, contains_si
     )
 
 
+def uploadedarchive_detail(request, uploadedarchive_id: int) -> HttpResponse:
+    from .views import _uploads_general
+    uploaded_archive = UploadedArchive.objects.get(id=uploadedarchive_id)
+
+    # {% if uploadedarchive.count_of_mediafiles_with_taxon_for_identification %}
+    # Mediafiles with taxon {{ uploadedarchive.taxon_for_identification }}: {{ uploadedarchive.count_of_mediafiles_with_taxon_for_identification }}
+    # {% endif %}
+    #
+    # {% if uploadedarchive.animal_number %}
+    # Count: {{ uploadedarchive.animal_number }}
+    dictionary = {
+        "Uploaded at": uploaded_archive.uploaded_at,
+        "Location": uploaded_archive.location_at_upload_object,
+        "Location check at": uploaded_archive.location_check_at,
+        "Status": uploaded_archive.status,
+        "Status message": uploaded_archive.status_message,
+        "Identification status": uploaded_archive.identification_status,
+        "Owner": uploaded_archive.owner,
+        "Contains single taxon": uploaded_archive.contains_single_taxon,
+        "Taxon for identification": uploaded_archive.taxon_for_identification,
+        "Count of media files": uploaded_archive.count_of_mediafiles(),
+        "Count of representative media files": uploaded_archive.count_of_representative_mediafiles(),
+        "Count of media files with taxon": uploaded_archive.count_of_mediafiles_with_taxon(),
+        "Count of media files with verified taxon": uploaded_archive.count_of_mediafiles_with_verified_taxon(),
+        "Count of taxons":  uploaded_archive.count_of_taxons(),
+        "Count of identities": uploaded_archive.count_of_identities(),
+    }
+    return render(
+        request,
+        "caidapp/message.html",
+        context=dict(
+            headline=f"Uploaded Archive {uploaded_archive.location_at_upload_object} {uploaded_archive.location_check_at}",
+            dictionary=dictionary
+        )
+    )
 

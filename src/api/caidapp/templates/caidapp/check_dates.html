@@ -6,6 +6,12 @@
     <div>
     <ul class="nav nav-tabs">
         <li class="nav-item">
+            <a class="nav-link" aria-current="page"
+               href="{% url 'caidapp:uploads' %}"
+            >All Checks</a>
+
+        </li>
+        <li class="nav-item">
             <a class="nav-link " aria-current="page"
                href="{% url 'caidapp:check_date_empty' %}"
             >No check date given</a>

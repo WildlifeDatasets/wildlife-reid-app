@@ -29,6 +29,57 @@
         }
 
 
+        /* Custom breakpoint for screens larger than 2200px (adjust value as needed) */
+        @media (min-width: 2200px) {
+            .col-xxxxl-1 {
+                flex: 0 0 auto;
+                width: 8.33%; /* 1/12th of the width */
+            }
+            .col-xxxxl-2 {
+                flex: 0 0 auto;
+                width: 16.66%; /* 2/12th of the width */
+            }
+            .col-xxxxl-3 {
+                flex: 0 0 auto;
+                width: 25%; /* 3/12th of the width */
+            }
+            .col-xxxxl-4 {
+                flex: 0 0 auto;
+                width: 33.33%; /* 4/12th of the width */
+            }
+            .col-xxxxl-5 {
+                flex: 0 0 auto;
+                width: 41.66%; /* 5/12th of the width */
+            }
+            .col-xxxxl-6 {
+                flex: 0 0 auto;
+                width: 50%; /* 6/12th of the width */
+            }
+            .col-xxxxl-7 {
+                flex: 0 0 auto;
+                width: 58.33%; /* 7/12th of the width */
+            }
+            .col-xxxxl-8 {
+                flex: 0 0 auto;
+                width: 66.66%; /* 8/12th of the width */
+            }
+            .col-xxxxl-9 {
+                flex: 0 0 auto;
+                width: 75%; /* 9/12th of the width */
+            }
+            .col-xxxxl-10 {
+                flex: 0 0 auto;
+                width: 83.33%; /* 10/12th of the width */
+            }
+            .col-xxxxl-11 {
+                flex: 0 0 auto;
+                width: 91.66%; /* 11/12th of the width */
+            }
+            .col-xxxxl-12 {
+                flex: 0 0 auto;
+                width: 100%; /* Full width */
+            }
+        }
 
         .card {
             display: flex;
@@ -86,6 +137,32 @@
 {% endblock %}
 {% block body %}
     {% if user.is_authenticated %}
+        {% if years %}
+        <div>
+            <ul class="nav nav-tabs">
+                <li class="nav-item">
+                    <a class="nav-link active" aria-current="page"
+                       href="{% url 'caidapp:uploads' %}"
+                    >All Checks</a>
+
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link " aria-current="page"
+                       href="{% url 'caidapp:check_date_empty' %}"
+                    >No check date given</a>
+
+                </li>
+                {%  for year in years %}
+                    <li class="nav-item">
+                        <a class="nav-link {% if selected_year == year %} active {% endif %}" aria-current="page"
+                           href="{% url 'caidapp:check_dates_with_year' year %}"
+                        >{{ year }}</a>
+                    </li>
+
+                {% endfor %}
+            </ul>
+        </div>
+            {% endif %}
         <div class="pagetitle">
             <h1>Uploads</h1>
             <nav>
@@ -123,6 +200,9 @@
 
             </nav>
         </div><!-- End Page Title -->
+
+
+
         <section class="section">
             {#            <ul class="container">#}
             <div class="row">
@@ -130,7 +210,7 @@
                 {% if page_obj %}
                     {% for uploadedarchive in page_obj %}
 {#                        <div class="col-xl-3">#}
-                        <div class="col-12 col-sm-12 col-md-12 col-lg-6 col-xl-4 col-xxl-3 col-xxxl-2" id="card{{ uploadedarchive.instance.id }}">
+                        <div class="col-12 col-sm-12 col-md-12 col-lg-6 col-xl-4 col-xxl-3 col-xxxl-3 col-xxxxl-1" id="card{{ uploadedarchive.instance.id }}">
 {#                        <div class="col" style="-ms-flex: 0 0 200; flex: 0 0 200;">#}
                             <div class="card"
 {#                                    {% if uploadedarchive.thumbnail %}#}
@@ -168,8 +248,6 @@
                                 <div class="card-body"
                                 >
 
-                                    <span class="badge badge-pill badge-success">Success</span>
-                                    <span class="badge badge-pill badge-info">{{ uploadedarchive.combined_status_message.status }}</span>
                                     {% include "caidapp/upload_card_body.html" %}
 
 {#                                    <div class="mt-2">#}

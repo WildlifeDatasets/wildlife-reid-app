@@ -6,6 +6,11 @@
     <div class="container">
         <h1 class="center">{{ headline }}</h1>
         <p>{{ message }}</p>
+    {% if dictionary %}
+        {% for key, value in dictionary.items %}
+            <p>{{ key }}: {{ value }}</p>
+        {% endfor %}
+    {% endif %}
     </div>
 
 {% endblock %}
