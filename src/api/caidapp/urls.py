@@ -31,6 +31,12 @@ urlpatterns = [
         views.media_files_update,
         name="uploadedarchive_mediafiles",
     ),
+    path(
+        "uploadedarchive_detail/<int:uploadedarchive_id>",
+        # views.uploadedarchive_mediafiles,
+        views_uploads.uploadedarchive_detail,
+        name="uploadedarchive_detail",
+    ),
     # path("media_files/", views.media_files, name="media_files"),
     path("media_files/", views.media_files_update, name="media_files"),
     path(

@@ -36,7 +36,7 @@ from .forms import UserSelectForm
 
 from . import tasks
 from . import models, model_tools
-from . import forms
+from . import forms, views_uploads
 
 from .forms import (
     AlbumForm,
@@ -258,13 +258,23 @@ def uploads_identities(request) -> HttpResponse:
 def uploads_species(request) -> HttpResponse:
     page_context = _uploads_general(request, contains_single_taxon=False)
 
+
+    dates = views_uploads._get_check_dates(request, contains_single_taxon=False, taxon_for_identification__isnull=None)
+    sorted_grouped_dates = views_uploads._get_grouped_dates(dates)
+
+    # get list of years
+    years = list(sorted_grouped_dates.keys())
+
+
     btn_styles, btn_tooltips = _multiple_species_button_style_and_tooltips(request)
     return render(
         request,
         "caidapp/uploads_species.html",
         {
             **page_context,
-            "btn_styles": btn_styles, "btn_tooltips": btn_tooltips},
+            "btn_styles": btn_styles, "btn_tooltips": btn_tooltips,
+            "years": years,
+        },
     )
 
 

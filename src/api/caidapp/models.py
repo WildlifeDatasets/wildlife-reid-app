@@ -242,12 +242,18 @@ class UploadedArchive(models.Model):
     def count_of_mediafiles_with_missing_taxon(self):
         return self.mediafiles_with_missing_taxon().count()
 
+    def count_of_mediafiles_with_taxon(self):
+        return self.count_of_mediafiles() - self.count_of_mediafiles_with_missing_taxon()
+
     def percents_of_mediafiles_with_taxon(self) -> float:
         if self.count_of_mediafiles() == 0:
             return 0
         return 100 * (
                 self.count_of_mediafiles() - self.count_of_mediafiles_with_missing_taxon()
         ) / self.count_of_mediafiles()
+
+    def count_of_mediafiles_with_verified_taxon(self):
+        return self.mediafile_set.filter(taxon_verified=True).count()
 
     def percents_of_mediafiles_with_verified_taxon(self) -> float:
         if self.count_of_mediafiles() == 0:
