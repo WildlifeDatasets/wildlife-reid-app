@@ -242,6 +242,20 @@ class UploadedArchive(models.Model):
     def count_of_mediafiles_with_missing_taxon(self):
         return self.mediafiles_with_missing_taxon().count()
 
+    def percents_of_mediafiles_with_taxon(self) -> float:
+        if self.count_of_mediafiles() == 0:
+            return 0
+        return 100 * (
+                self.count_of_mediafiles() - self.count_of_mediafiles_with_missing_taxon()
+        ) / self.count_of_mediafiles()
+
+    def percents_of_mediafiles_with_verified_taxon(self) -> float:
+        if self.count_of_mediafiles() == 0:
+            return 0
+        return 100 * (
+                self.mediafile_set.filter(taxon_verified=True).count()
+        ) / self.count_of_mediafiles()
+
     def has_all_taxons(self):
         return self.count_of_mediafiles_with_missing_taxon() == 0
 
@@ -260,6 +274,30 @@ class UploadedArchive(models.Model):
     def number_of_media_files_in_archive(self) -> dict:
         counts = fs_data.count_files_in_archive(self.archivefile.path)
         return counts
+
+    def combined_status_message(self) -> dict:
+        """Return short status message, long message and color-style for the status."""
+
+        status = self.status
+        status_message = self.status_message
+        status_style = "dark"
+        if self.status == "Taxons classified":
+            status_style = "secondary"
+
+        if self.percents_of_mediafiles_with_taxon() == 100:
+            status = "Taxons done"
+            status_message = "All media files have taxon."
+            status_style = "primary"
+        if self.percents_of_mediafiles_with_verified_taxon() == 100:
+            status = "Taxons verified"
+            status_message = "All taxons are verified."
+            status_style = "success"
+
+        return dict(
+            status=status,
+            status_message=status_message,
+            status_style=status_style,
+        )
 
 
 

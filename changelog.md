@@ -7,6 +7,9 @@
 ## 09-2024
 
 * [added] Dates of camera check have now a view
+* [changed] Camera trap checks view is reworked
+* [added] Status badge
+* [changed] renamed uploadedarchive_detail to uploadedarchive_mediafiles
 
 ## 08-2024
 

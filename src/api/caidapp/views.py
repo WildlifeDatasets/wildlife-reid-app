@@ -170,7 +170,7 @@ def message(request, message):
     )
 
 
-def uploadedarchive_detail(request, uploadedarchive_id):
+def uploadedarchive_mediafiles(request, uploadedarchive_id):
     """List of uploads."""
     uploadedarchive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
     mediafile_set = uploadedarchive.mediafile_set.all()
@@ -181,7 +181,7 @@ def uploadedarchive_detail(request, uploadedarchive_id):
 
     return render(
         request,
-        "caidapp/uploadedarchive_detail.html",
+        "caidapp/uploadedarchive_mediafiles.html",
         {
             **page_context,
             "page_title": uploadedarchive,
@@ -443,7 +443,7 @@ def media_file_update(request, media_file_id, next_text="Save", next_url=None, s
 
                 if next_url is None:
                     next_url = reverse_lazy(
-                        "caidapp:uploadedarchive_detail",
+                        "caidapp:uploadedarchive_mediafiles",
                         kwargs={"uploadedarchive_id": mediafile.parent.id},
                     )
                 return redirect(next_url)
@@ -1103,7 +1103,7 @@ def upload_archive(
                 headline="Upload finished",
                 text=f"Uploaded {counts['file_count']} files (" +\
                     f"{counts['image_count']} images and {counts['video_count']} videos).",
-                # next=reverse_lazy("caidapp:uploadedarchive_detail", kwargs={"uploadedarchive_id": uploaded_archive.id}),
+                # next=reverse_lazy("caidapp:uploadedarchive_mediafiles", kwargs={"uploadedarchive_id": uploaded_archive.id}),
 
                 next=next_url,
                 next_text="Back to uploads",
@@ -1119,7 +1119,7 @@ def upload_archive(
             context = dict(
                 headline="Upload failed",
                 text=f"Upload failed. Try it again.",
-                # next=reverse_lazy("caidapp:uploadedarchive_detail", kwargs={"uploadedarchive_id": uploaded_archive.id}),
+                # next=reverse_lazy("caidapp:uploadedarchive_mediafiles", kwargs={"uploadedarchive_id": uploaded_archive.id}),
 
                 next=next_url,
                 next_text="Back to uploads",
@@ -1321,7 +1321,7 @@ def delete_mediafile(request, mediafile_id):
         if uploaded_archive is None:
             return redirect("caidapp:uploads")
         else:
-            return redirect("caidapp:uploadedarchive_detail", uploadedarchive_id=parent_id)
+            return redirect("caidapp:uploadedarchive_mediafiles", uploadedarchive_id=parent_id)
     else:
         return HttpResponseNotAllowed("Not allowed to delete this media file.")
 

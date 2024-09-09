@@ -15,7 +15,7 @@
 {#                    {% else %}#}
 {#                        <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li>#}
 {#                    {%  endif %}#}
-    {#                <li class="breadcrumb-item"><a href="{% url 'caidapp:uploadedarchive_detail' mediafile.parent.id %}"> Uploaded#}
+    {#                <li class="breadcrumb-item"><a href="{% url 'caidapp:uploadedarchive_mediafiles' mediafile.parent.id %}"> Uploaded#}
     {#                    Archive: {{ mediafile.parent }}</a></li>#}
 
                 </ol>
@@ -84,12 +84,12 @@
                                     <div class="mt-2">
                                         {% if uploadedarchive.status == "Processing" %}
                                             <a class="btn btn-primary disabled"
-                                               href="{% url 'caidapp:uploadedarchive_detail' uploadedarchive.id %}">
+                                               href="{% url 'caidapp:uploadedarchive_mediafiles' uploadedarchive.id %}">
                                                 <i class="bi bi-images"></i> Detail
                                             </a>
                                         {% else %}
                                             <a class="btn btn-primary"
-                                               href="{% url 'caidapp:uploadedarchive_detail' uploadedarchive.id %}">
+                                               href="{% url 'caidapp:uploadedarchive_mediafiles' uploadedarchive.id %}">
                                                 <i class="bi bi-images"></i> Detail
                                             </a>
                                         {% endif %}
