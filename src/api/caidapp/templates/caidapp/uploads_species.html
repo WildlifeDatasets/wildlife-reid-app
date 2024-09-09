@@ -231,7 +231,7 @@
 
                                         <!-- Badge for status -->
                                         <span class="badge badge-status rounded-pill bg-{{ uploadedarchive.combined_status_message.status_style }}"
-                                              data-bs-toggle="tooltip" title="Date of first and last media file capture."
+                                              data-bs-toggle="tooltip" title="{{ uploadedarchive.combined_status_message.status_message }}"
                                         >{{ uploadedarchive.combined_status_message.status }}</span>
 {#                                        <span class="badge rounded-pill bg-info">{{ uploadedarchive.combined_status_message.status }}</span>#}
 
@@ -255,7 +255,7 @@
 
                                         <!-- Badge for status -->
                                         <span class="badge rounded-pill bg-{{ uploadedarchive.combined_status_message.status_style }}"
-                                              data-bs-toggle="tooltip" title="Date of first and last media file capture."
+                                              data-bs-toggle="tooltip" title="{{ uploadedarchive.combined_status_message.status_message }}"
                                         >{{ uploadedarchive.combined_status_message.status }}</span>
                                         {#                                        <span class="badge rounded-pill bg-info">{{ uploadedarchive.combined_status_message.status }}</span>#}
 
