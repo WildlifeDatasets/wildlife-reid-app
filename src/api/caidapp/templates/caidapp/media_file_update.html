@@ -12,7 +12,7 @@
                     {% else %}
                         <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}"> Taxon Uploads</a></li>
                     {%  endif %}
-                    <li class="breadcrumb-item"><a href="{% url 'caidapp:uploadedarchive_detail' mediafile.parent.id %}"> Uploaded
+                    <li class="breadcrumb-item"><a href="{% url 'caidapp:uploadedarchive_mediafiles' mediafile.parent.id %}"> Uploaded
                         Archive: {{ mediafile.parent }}</a></li>
                 </ol>
             </nav>

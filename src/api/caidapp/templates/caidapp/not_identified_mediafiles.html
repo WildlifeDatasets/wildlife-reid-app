@@ -33,7 +33,7 @@
                                         Category: {{ mediafile.category }}<br>
                                         Location: {{ mediafile.location }}<br>
                                         Captured at: {{ mediafile.captured_at|date:'Y-m-d H:i' }}<br>
-                                        Camera Trap Check: <a href="{%  url 'caidapp:uploadedarchive_detail' mediafile.parent.id %}" class="link-secondary">{{ mediafile.parent }}</a><br>
+                                        Camera Trap Check: <a href="{%  url 'caidapp:uploadedarchive_mediafiles' mediafile.parent.id %}" class="link-secondary">{{ mediafile.parent }}</a><br>
                                     </p>
 
                                     <a class="btn btn-primary"

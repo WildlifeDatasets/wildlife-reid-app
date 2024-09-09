@@ -26,10 +26,10 @@ urlpatterns = [
     path("uploads/", views.uploads_species, name="uploads"),
     path("uploads_identities/", views.uploads_identities, name="uploads_identities"),
     path(
-        "uploadedarchive_detail/<int:uploadedarchive_id>",
-        # views.uploadedarchive_detail,
+        "uploadedarchive_mediafiles/<int:uploadedarchive_id>",
+        # views.uploadedarchive_mediafiles,
         views.media_files_update,
-        name="uploadedarchive_detail",
+        name="uploadedarchive_mediafiles",
     ),
     # path("media_files/", views.media_files, name="media_files"),
     path("media_files/", views.media_files_update, name="media_files"),

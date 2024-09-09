@@ -88,7 +88,7 @@ def predict_species_on_success(
             uploaded_archive, create_missing=True, extract_identites=extract_identites
         )
         uploaded_archive.mediafiles_imported = True
-        uploaded_archive.status = "Taxon classification finished"
+        uploaded_archive.status = "Taxons classified"
         uploaded_archive.finished_at = django.utils.timezone.now()
         uploaded_archive.save()
         uploaded_archive.update_earliest_and_latest_captured_at()
@@ -390,7 +390,9 @@ def _run_taxon_classification_init_message(uploaded_archive: UploadedArchive, co
         _estimate_time_for_taxon_classification_of_uploaded_archive(uploaded_archive)
     )
     logger.debug(f"{expected_time_message=}")
-    uploaded_archive.status = "Processing will be done " + expected_time_message
+    uploaded_archive.status = "Processing"
+    uploaded_archive.status_message = "Processing will be done " + expected_time_message
+
     if commit:
         uploaded_archive.save()
 

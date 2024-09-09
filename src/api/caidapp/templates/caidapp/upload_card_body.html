@@ -1,12 +1,67 @@
-<h5 class="card-title">{{ uploadedarchive }}
-    {% if uploadedarchive.contains_identities %}
-        <i class="bi bi-fingerprint"></i>
+{#<h5 class="card-title">{{ uploadedarchive }}#}
+{#    {% if uploadedarchive.contains_identities %}#}
+{#        <i class="bi bi-fingerprint"></i>#}
+{#    {% endif %}#}
+{#    {% if uploadedarchive.contains_single_taxon %}#}
+{#        <i class="bi bi-dice-1"></i>#}
+{#    {% endif %}#}
+{##}
+{#</h5>#}
+
+<span data-bs-toggle="tooltip" title="Location: {{ uploadedarchive.location_at_upload_object.name }}">
+        <i class="bi bi-geo-alt"></i>
+    {% if uploadedarchive.location_at_upload_object %}
+        {#            {{ uploadedarchive.location_at_upload_object.name }}#}
+        {#            {{ uploadedarchive.location_at_upload_object.hash }}#}
+
+        <a class="link-secondary"
+           href="{% url 'caidapp:uploads_of_location' uploadedarchive.location_at_upload_object.hash %}">
+                    {% if request.session.private_mode %}
+                        {{ uploadedarchive.location_at_upload_object.visible_name }}
+                    {% else %}
+                        {{ uploadedarchive.location_at_upload_object.name }}
+                    {% endif %}
+            </a>
+    {% else %}
+        {{ uploadedarchive.location_at_upload_object.name }}
     {% endif %}
-    {% if uploadedarchive.contains_single_taxon %}
-        <i class="bi bi-dice-1"></i>
+</span>
+
+    {% if uploadedarchive.earliest_captured_at %}
+        <div
+                data-bs-toggle="tooltip" title="Date of first and last media file capture."
+        >
+            <i class="bi bi-calendar-range"></i>
+            {{ uploadedarchive.earliest_captured_at|date:'Y-m-d' }} &mdash; {{ uploadedarchive.latest_captured_at|date:'Y-m-d' }}
+        </div>
+    {%  elif uploadedarchive.location_check_at %}
+        <div
+                data-bs-toggle="tooltip" title="Date of location check"
+        >
+            <i class="bi bi-calendar-event"></i>
+            {{ uploadedarchive.location_check_at|date:'Y-m-d' }}
+        </div>
+    {% else %}
+        <div
+                data-bs-toggle="tooltip" title="Date of upload"
+        >
+            <i class="bi bi-calendar"></i>
+            {{ uploadedarchive.uploaded_at|date:'Y-m-d' }}
+        </div>
     {% endif %}
 
-</h5>
+<div
+        data-bs-toggle="tooltip" title="Uploaded at: {{ uploadedarchive.uploaded_at|date:'Y-m-d H:i' }}"
+>
+    <a class="link-secondary"
+       href="{% url 'caidapp:uploadedarchive_mediafiles' uploadedarchive.id %}">
+        <i class="bi bi-images"></i> Media files
+    </a>
+    {#        <i class="bi bi-images"></i>#}
+    {#        Media files: #}
+    {{ uploadedarchive.count_of_mediafiles }}
+</div>
+
 <div class="d-flex justify-content-between align-items-center">
     {#    <a href="{% url 'caidapp:uploads_of_location' uploadedarchive.location.hash %}">Checks</a>#}
     {#    {{ uploadedarchive.location_at_upload_object }}#}
@@ -36,21 +91,13 @@
 {#        </span>#}
     </span>
 </div>
-{#<div class="d-flex justify-content-between align-items-center">#}
-{#    <div>#}
-{% if uploadedarchive.earliest_captured_at %}
-    <i class="bi bi-calendar"></i>
-    {{ uploadedarchive.earliest_captured_at|date:'Y-m-d' }} to {{ uploadedarchive.latest_captured_at|date:'Y-m-d' }}
-    <br>
-{% endif %}
-{#    </div>#}
 
-{#</div>#}
+
+
 <div class="d-flex justify-content-between align-items-center">
     <span
             data-bs-toggle="tooltip" title="{{ uploadedarchive.status_message }}"
     >
-{#        <i class="bi bi-info-circle"></i>#}
         <i class="bi bi-activity"></i>
         {{ uploadedarchive.status }}
     </span>
@@ -75,7 +122,7 @@
     Representative media files: {{ uploadedarchive.count_of_representative_mediafiles }}
     Count of taxons: {{ uploadedarchive.count_of_taxons }}
     Media files with missing taxon: {{ uploadedarchive.count_of_mediafiles_with_missing_taxon }}
-    Count of idetities: {{ uploadedarchive.count_of_identities }}
+    Count of identities: {{ uploadedarchive.count_of_identities }}
     {% if uploadedarchive.count_of_mediafiles_with_taxon_for_identification %}
         Mediafiles with taxon {{ uploadedarchive.taxon_for_identification }}: {{ uploadedarchive.count_of_mediafiles_with_taxon_for_identification }}
     {% endif %}
@@ -88,7 +135,7 @@
 <div class="d-flex justify-content-between align-items-center">
     <div>
                                         <a class="link-secondary"
-                                           href="{% url 'caidapp:uploadedarchive_detail' uploadedarchive.id %}">
+                                           href="{% url 'caidapp:uploadedarchive_mediafiles' uploadedarchive.id %}">
                                             <i class="bi bi-images"></i> Media files
                                         </a>
 {#        <i class="bi bi-images"></i>#}
@@ -108,6 +155,8 @@
 </div>
 </div>
     </span>
+
+
 
 {#    <i class="fa-solid fa-calendar"></i>#}
 {#Uploaded at: {{ uploadedarchive.uploaded_at|date:'Y-m-d H:i' }} <br>#}

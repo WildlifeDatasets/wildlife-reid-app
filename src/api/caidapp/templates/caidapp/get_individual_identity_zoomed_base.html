@@ -14,7 +14,7 @@
                 <nav>
                     <ol class="breadcrumb">
                         {#                    <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li>#}
-                        {#                    <li class="breadcrumb-item"><a href="{% url 'caidapp:uploadedarchive_detail' mediafile.parent.id %}"> Uploaded#}
+                        {#                    <li class="breadcrumb-item"><a href="{% url 'caidapp:uploadedarchive_mediafiles' mediafile.parent.id %}"> Uploaded#}
                         {#                        Archive: {{ mediafile.parent }}</a></li>#}
                     </ol>
                 </nav>
@@ -30,7 +30,7 @@
                         <div class="col-md-4">
                             <p>
                                 from <a
-                                    href="{% url 'caidapp:uploadedarchive_detail' foridentification.mediafile.parent.id %}"
+                                    href="{% url 'caidapp:uploadedarchive_mediafiles' foridentification.mediafile.parent.id %}"
                                     class="link-secondary"> {{ foridentification.mediafile.parent }}</a>
                             </p>
                             <p>
