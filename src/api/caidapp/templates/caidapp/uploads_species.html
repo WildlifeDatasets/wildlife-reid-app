@@ -100,7 +100,11 @@
             object-fit: cover; /* Ensures the image covers the area without distorting */
             width: 100%; /* Ensures the image takes up the full width of the card */
         }
-
+        .card-img-placeholder {
+            width: 100%;
+            height: 200px; /* Match the height of the card image */
+            background-color: #7f7f7f; /* Gray background */
+        }
 
 
         .card-img-wrapper {
@@ -225,9 +229,12 @@
 {##}
 {#                                    {% endif %}#}
                             >
-                                {% if uploadedarchive.thumbnail %}
                                     <div class="card-img-wrapper">
-                                        <img class="card-img-top" src="{{ uploadedarchive.thumbnail.url }}" alt="Camera trap check representative">
+                                        {% if uploadedarchive.thumbnail %}
+                                            <img class="card-img-top" src="{{ uploadedarchive.thumbnail.url }}" alt="Camera trap check representative">
+                                        {%  else %}
+                                             <div class="card-img-placeholder"></div>
+                                        {% endif %}
 
                                         <!-- Badge for status -->
                                         <span class="badge badge-status rounded-pill bg-{{ uploadedarchive.combined_status_message.status_style }}"
@@ -244,29 +251,26 @@
                                         </div>
                                     </div>
 {#                                    <img class="card-img-top" src="{{ uploadedarchive.thumbnail.url }}" alt="Camera trap check representative">#}
-                                {%  else %}
-
-                                {% endif %}
                                 <div class="card-body"
                                 >
-                                    {% if uploadedarchive.thumbnail %}
-                                    {% else %}
-                                        <!-- No image is given -->
-
-                                        <!-- Badge for status -->
-                                        <span class="badge rounded-pill bg-{{ uploadedarchive.combined_status_message.status_style }}"
-                                              data-bs-toggle="tooltip" title="{{ uploadedarchive.combined_status_message.status_message }}"
-                                        >{{ uploadedarchive.combined_status_message.status }}</span>
+{#                                    {% if uploadedarchive.thumbnail %}#}
+{#                                    {% else %}#}
+{#                                        <!-- No image is given -->#}
+{##}
+{#                                        <!-- Badge for status -->#}
+{#                                        <span class="badge rounded-pill bg-{{ uploadedarchive.combined_status_message.status_style }}"#}
+{#                                              data-bs-toggle="tooltip" title="{{ uploadedarchive.combined_status_message.status_message }}"#}
+{#                                        >{{ uploadedarchive.combined_status_message.status }}</span>#}
                                         {#                                        <span class="badge rounded-pill bg-info">{{ uploadedarchive.combined_status_message.status }}</span>#}
-
+{##}
                                         {#                                      Dropdown menu #}
-                                        <div class="dropdown">
-                                            <a class="btn btn-secondary custom-dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                                <i class="bi bi-three-dots"></i>
-                                            </a>
-                                            {% include "caidapp/upload_species_card_dropdown.html" %}
-                                        </div>
-                                    {% endif %}
+{#                                        <div class="dropdown">#}
+{#                                            <a class="btn btn-secondary custom-dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">#}
+{#                                                <i class="bi bi-three-dots"></i>#}
+{#                                            </a>#}
+{#                                            {% include "caidapp/upload_species_card_dropdown.html" %}#}
+{#                                        </div>#}
+{#                                    {% endif %}#}
 
                                     {% include "caidapp/upload_card_body.html" %}
 
