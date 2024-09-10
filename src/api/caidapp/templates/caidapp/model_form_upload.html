@@ -154,10 +154,11 @@
             const file = inputFile.files[0];
             if (file) {
                 const filename = file.name;
-                const match = filename.match(/^(\d{4}-\d{2}-\d{2})_(.+)\.zip$/);
-                if (match) {
-                    const date = match[1];
-                    const locality = match[2];
+                const match1 = filename.match(/^(\d{4}-\d{2}-\d{2})_(.+)\.zip$/);
+                const match2 = filename.match(/^(.+?)_(\d{4}-\d{2}-\d{2})\.zip$/)
+                if (match1) {
+                    const date = match1[1];
+                    const locality = match1[2];
 
                     // Set the date field value
                     dateField.value = date;
@@ -167,6 +168,20 @@
                     locationField.value = locality;
 
                     console.log(`Parsed date: ${date}, locality: ${locality}`);
+                    // Second format: locality_YYYY-MM-DD.zip
+                } else if () {
+                    const locality = match2[1];
+                    const date = match2[2];
+
+                    // Set the date field value
+                    dateField.value = date;
+                    datepickerInput.datepicker('update', date);
+
+                    // Set the location field value
+                    locationField.value = locality;
+
+                    console.log(`Parsed locality: ${locality}, date: ${date}`);
+
                 } else {
                     console.error('Filename format is incorrect');
                 }

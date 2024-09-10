@@ -1,6 +1,5 @@
 import datetime
 from io import BytesIO
-import json
 import logging
 import os
 import traceback
@@ -21,8 +20,8 @@ from django.contrib.auth.views import LoginView
 from django.core.paginator import Paginator, Page
 from django.db.models import Count, Q, QuerySet, Min, F
 from django.forms import modelformset_factory
-from django.http import HttpResponseBadRequest, HttpResponseNotAllowed, JsonResponse, HttpResponseRedirect
-from django.shortcuts import Http404, HttpResponse, get_object_or_404, redirect, render
+from django.http import HttpResponseBadRequest, HttpResponseNotAllowed, JsonResponse
+from django.shortcuts import Http404, HttpResponse, get_object_or_404
 from django.urls import reverse_lazy
 from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector
 from django.template.loader import render_to_string
@@ -42,7 +41,6 @@ from .forms import (
     AlbumForm,
     IndividualIdentityForm,
     MediaFileBulkForm,
-    MediaFileForm,
     MediaFileSelectionForm,
     MediaFileSetQueryForm,
     UploadedArchiveForm,
@@ -161,7 +159,7 @@ def login(request):
 #     )
 
 
-def message(request, message):
+def message_view(request, message):
     """Show message."""
     return render(
         request,
@@ -420,57 +418,6 @@ def logout_view(request):
     logout(request)
     # Redirect to a success page.
     return redirect("caidapp:index")
-
-
-def media_file_update(request, media_file_id, next_text="Save", next_url=None, skip_url=None):
-    """Show and update media file."""
-    # | Q(parent__owner=request.user.caiduser)
-    # | Q(parent__owner__workgroup=request.user.caiduser.workgroup)
-    mediafile = get_object_or_404(MediaFile, pk=media_file_id)
-    if (mediafile.parent.owner.id != request.user.id) and (
-        mediafile.parent.owner.workgroup != request.user.caiduser.workgroup
-    ):
-        return HttpResponseNotAllowed("Not allowed to see this media file.")
-
-    if request.method == "POST":
-        form = MediaFileForm(request.POST, instance=mediafile)
-        if form.is_valid():
-
-            mediafile.updated_by = request.user.caiduser
-            mediafile.updated_at = django.utils.timezone.now()
-            # get uploaded archive
-            mediafile = form.save()
-            logger.debug(f"{mediafile.category=}")
-            if (mediafile.category is not None) and (mediafile.category.name != "Not Classified"):
-                mediafile.taxon_verified = True
-                mediafile.taxon_verified_at = django.utils.timezone.now()
-                mediafile.save()
-
-            if next_url:
-                return HttpResponseRedirect(next_url)
-            else:
-                next_url = request.GET.get('next')
-
-                if next_url is None:
-                    next_url = reverse_lazy(
-                        "caidapp:uploadedarchive_mediafiles",
-                        kwargs={"uploadedarchive_id": mediafile.parent.id},
-                    )
-                return redirect(next_url)
-
-    else:
-        form = MediaFileForm(instance=mediafile)
-    return render(
-        request,
-        "caidapp/media_file_update.html",
-        {
-            "form": form,
-            "headline": "Media File",
-            "button": next_text,
-            "mediafile": mediafile,
-            skip_url: skip_url,
-        },
-    )
 
 
 def individual_identities(request):

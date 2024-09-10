@@ -2,6 +2,8 @@ from django.shortcuts import Http404, HttpResponse, get_object_or_404, redirect,
 from django.urls import reverse_lazy
 from django.http import StreamingHttpResponse, Http404, JsonResponse
 from django.shortcuts import get_object_or_404
+
+from .forms import MediaFileForm
 from .models import MediaFile, get_content_owner_filter_params
 from . import model_extra
 from django.utils import timezone
@@ -9,7 +11,7 @@ import os
 import random
 from typing import Optional
 
-from .views import message, media_file_update
+from .views import message_view, media_files_update, logger
 
 
 def stream_video(request, mediafile_id):
@@ -62,7 +64,7 @@ def manual_taxon_classification_on_non_classified(request):
     # .order_by("?")
     # .first()
     if mediafile is None:
-        return message(request, "No non-classified media files.")
+        return message_view(request, "No non-classified media files.")
     return media_file_update(
         request,
         mediafile.id,
@@ -72,7 +74,6 @@ def manual_taxon_classification_on_non_classified(request):
     )
 
 def overview_taxons(request, uploaded_archive_id:Optional[int]=None):
-    from .views import media_files_update
 
     return media_files_update(
         request, show_overview_button=True, taxon_verified=False, uploadedarchive_id=uploaded_archive_id,
@@ -103,7 +104,7 @@ def set_mediafiles_records_per_page(request, records_per_page:int):
 
     return redirect(request.META.get("HTTP_REFERER", "/"))
 
-def confirm_prediction(request, mediafile_id:int):
+def confirm_prediction(request, mediafile_id:int) -> JsonResponse:
     try:
         mediafile = get_object_or_404(MediaFile, id=mediafile_id)
         # user has rw access
@@ -134,3 +135,60 @@ def confirm_prediction(request, mediafile_id:int):
 #
 #         return JsonResponse({'success': True, 'message': 'Prediction confirmed.'})
 #     return JsonResponse({'success': False, 'message': 'Invalid request.'})
+def media_file_update(request, media_file_id, next_text="Save", next_url=None, skip_url=None):
+    """Show and update media file."""
+    # | Q(parent__owner=request.user.caiduser)
+    # | Q(parent__owner__workgroup=request.user.caiduser.workgroup)
+    mediafile = get_object_or_404(MediaFile, pk=media_file_id)
+    if (mediafile.parent.owner.id != request.user.id) and (
+        mediafile.parent.owner.workgroup != request.user.caiduser.workgroup
+    ):
+        return HttpResponseNotAllowed("Not allowed to see this media file.")
+
+    if request.method == "POST":
+        if next_url:
+            return HttpResponseRedirect(next_url)
+        else:
+            next_url = request.GET.get('next')
+
+            if next_url is None:
+                next_url = reverse_lazy(
+                    "caidapp:uploadedarchive_mediafiles",
+                    kwargs={"uploadedarchive_id": mediafile.parent.id},
+                )
+        if "confirmTaxonSubmit" in request.POST:
+            json_response = confirm_prediction(request, media_file_id)
+            # decode_json
+            return redirect(next_url)
+
+        form = MediaFileForm(request.POST, instance=mediafile)
+        if form.is_valid():
+
+            mediafile.updated_by = request.user.caiduser
+            mediafile.updated_at = django.utils.timezone.now()
+            # get uploaded archive
+            mediafile = form.save()
+            logger.debug(f"{mediafile.category=}")
+            if (mediafile.category is not None) and (mediafile.category.name != "Not Classified"):
+                mediafile.taxon_verified = True
+                mediafile.taxon_verified_at = django.utils.timezone.now()
+                mediafile.save()
+
+                return redirect(next_url)
+        else:
+            logger.error("Form is not valid.")
+            # messages.error(request, "Form is not valid.")
+
+    else:
+        form = MediaFileForm(instance=mediafile)
+    return render(
+        request,
+        "caidapp/media_file_update.html",
+        {
+            "form": form,
+            "headline": "Media File",
+            "button": next_text,
+            "mediafile": mediafile,
+            skip_url: skip_url,
+        },
+    )
