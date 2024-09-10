@@ -36,7 +36,7 @@
         <a class="dropdown-item"
            href="{% url 'caidapp:overview_taxons' uploadedarchive.id %}">
             <i class="bi bi-check"></i>
-            Overview taxons </a>
+            Verify taxons </a>
     </li>
     {% if request.user.is_staff or request.session.impersonate_user_id %}
         <li>

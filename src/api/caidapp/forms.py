@@ -124,12 +124,19 @@ class UploadedArchiveFormWithTaxon(forms.ModelForm):
 
 
 class MediaFileForm(forms.ModelForm):
+    # captured_at = forms.DateField(
+    #     widget=forms.DateInput(attrs={'class': 'datepicker', 'placeholder': 'yyyy-mm-dd'}, format='%Y-%m-%d'),
+    #     input_formats=['%Y-%m-%d'],
+    #
+    #     # widget=forms.TextInput(attrs={'class': 'datepicker'})
+    # )
     class Meta:
         model = MediaFile
-        fields = ("category", "location", "identity")
+        fields = ("category", "location", "identity", "captured_at", "taxon_verified")
 
 
 class MediaFileBulkForm(forms.ModelForm):
+
     class Meta:
         model = MediaFile
         fields = (
