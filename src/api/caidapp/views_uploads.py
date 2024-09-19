@@ -111,8 +111,15 @@ def camera_trap_check_date_view(request, date: Optional[str] = None, contains_si
 
     from .views import _uploads_general
 
+    # this is there only to get list o years. Maybe it is no necessary
+    dates = _get_check_dates(request, contains_single_taxon, taxon_for_identification__isnull)
+    sorted_grouped_dates = _get_grouped_dates(dates)
+    # get list of years
+    years = list(sorted_grouped_dates.keys())
+
     if date is None:
         filter = dict(location_check_at__isnull=True)
+        date = "None"
     else:
         filter = dict(location_check_at__date=date)
     page_context = _uploads_general(
@@ -126,6 +133,8 @@ def camera_trap_check_date_view(request, date: Optional[str] = None, contains_si
         "caidapp/uploads_species.html",
         context={
             **page_context,
+            "date": date,
+            "years":years,
             # "page_obj": page_obj,
             # "elided_page_range": elided_page_range,
             # "btn_styles": _single_species_button_style(request),

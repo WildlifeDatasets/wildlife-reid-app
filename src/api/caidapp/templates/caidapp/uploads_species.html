@@ -141,21 +141,31 @@
 {% endblock %}
 {% block body %}
     {% if user.is_authenticated %}
-        {% if years %}
+        {% if years or date %}
+{#            {% if not date %}#}
+{#                no date#}
+{#            {% endif %}#}
         <div>
             <ul class="nav nav-tabs">
                 <li class="nav-item">
-                    <a class="nav-link active" aria-current="page"
+                    <a class="nav-link
+                            {% if date != 'None' %} active {% endif %}"
+                    aria-current="page"
                        href="{% url 'caidapp:uploads' %}"
                     >All Checks</a>
 
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link " aria-current="page"
-                       href="{% url 'caidapp:check_date_empty' %}"
-                    >No check date given</a>
-
+                    <a class="nav-link
+                            {% if date == 'None' %} active {% endif %}"
+                       href="{% url 'caidapp:check_date_empty' %}">No check date given</a>
                 </li>
+{#                <li class="nav-item">#}
+{#                    <a class="nav-link " aria-current="page"#}
+{#                       href="{% url 'caidapp:check_date_empty' %}"#}
+{#                    >No check date given</a>#}
+{##}
+{#                </li>#}
                 {%  for year in years %}
                     <li class="nav-item">
                         <a class="nav-link {% if selected_year == year %} active {% endif %}" aria-current="page"
