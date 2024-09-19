@@ -1,7 +1,8 @@
 from django.shortcuts import Http404, HttpResponse, get_object_or_404, redirect, render
 from django.urls import reverse_lazy
-from django.http import StreamingHttpResponse, Http404, JsonResponse
+from django.http import StreamingHttpResponse, Http404, JsonResponse, HttpResponseRedirect, HttpResponseNotAllowed
 from django.shortcuts import get_object_or_404
+import django
 
 from .forms import MediaFileForm
 from .models import MediaFile, get_content_owner_filter_params
@@ -11,7 +12,9 @@ import os
 import random
 from typing import Optional
 
+
 from .views import message_view, media_files_update, logger
+from . import models
 
 
 def stream_video(request, mediafile_id):
@@ -39,12 +42,22 @@ def stream_video(request, mediafile_id):
     return response
 
 
-def manual_taxon_classification_on_non_classified(request):
+def manual_taxon_classification_on_non_classified(request, uploaded_archive_id: Optional[int] = None):
     """List of uploads."""
+    # get uploadeda archive or None
+    if uploaded_archive_id is not None:
+        uploadedarchive = get_object_or_404(models.UploadedArchive, id=uploaded_archive_id)
+    else:
+        uploadedarchive = None
+
+
+
     # pick random non-classified media file
+
     mediafiles = (
         MediaFile.objects.filter(
             **get_content_owner_filter_params(request.user.caiduser, "parent__owner"),
+            parent=uploadedarchive,
             # parent__owner__workgroup=request.user.caiduser.workgroup, # but this would work too
             category__name="Not Classified",
             parent__contains_single_taxon=False,
@@ -63,6 +76,16 @@ def manual_taxon_classification_on_non_classified(request):
 
     # .order_by("?")
     # .first()
+
+    if uploadedarchive is not None:
+        next_url = reverse_lazy("caidapp:manual_taxon_classification_on_non_classified", kwargs={"uploadedarchive_id": uploadedarchive.id})
+        skip_url = reverse_lazy("caidapp:manual_taxon_classification_on_non_classified", kwargs={"uploadedarchive_id": uploadedarchive.id})
+        cancel_url = reverse_lazy("caidapp:uploadedarchive_mediafiles", kwargs={"uploadedarchive_id": uploadedarchive.id})
+    else:
+        next_url = reverse_lazy("caidapp:manual_taxon_classification_on_non_classified")
+        skip_url = reverse_lazy("caidapp:manual_taxon_classification_on_non_classified")
+        cancel_url = reverse_lazy("caidapp:uploadedarchives")
+
     if mediafile is None:
         return message_view(request, "No non-classified media files.")
     return media_file_update(
@@ -71,6 +94,7 @@ def manual_taxon_classification_on_non_classified(request):
         next_text="Save",
         next_url=reverse_lazy("caidapp:manual_taxon_classification_on_non_classified"),
         skip_url=reverse_lazy("caidapp:manual_taxon_classification_on_non_classified"),
+        cancel_url=cancel_url,
     )
 
 def overview_taxons(request, uploaded_archive_id:Optional[int]=None):
@@ -135,7 +159,7 @@ def confirm_prediction(request, mediafile_id:int) -> JsonResponse:
 #
 #         return JsonResponse({'success': True, 'message': 'Prediction confirmed.'})
 #     return JsonResponse({'success': False, 'message': 'Invalid request.'})
-def media_file_update(request, media_file_id, next_text="Save", next_url=None, skip_url=None):
+def media_file_update(request, media_file_id, next_text="Save", next_url=None, skip_url=None, cancel_url=None):
     """Show and update media file."""
     # | Q(parent__owner=request.user.caiduser)
     # | Q(parent__owner__workgroup=request.user.caiduser.workgroup)
@@ -189,6 +213,7 @@ def media_file_update(request, media_file_id, next_text="Save", next_url=None, s
             "headline": "Media File",
             "button": next_text,
             "mediafile": mediafile,
-            skip_url: skip_url,
+            "skip_url": skip_url,
+            "cancel_url": cancel_url,
         },
     )
