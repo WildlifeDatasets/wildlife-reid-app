@@ -11,6 +11,12 @@
             <i class="bi bi-pencil"></i> Edit
         </a>
     </li>
+    <li>
+        <a class="dropdown-item"
+           href="{% url 'caidapp:manual_taxon_classification_on_non_classified_with_uploaded_archive' uploadedarchive.id %}">
+            <i class="bi bi-pencil"></i> Annotate missing taxons
+        </a>
+    </li>
     {#                                                {% if uploadedarchive.zip_file %}#}
     {#                                                    <li><a class="dropdown-item"#}
     {#                                                           href="{{ uploadedarchive.zip_file.url }}"><i#}
