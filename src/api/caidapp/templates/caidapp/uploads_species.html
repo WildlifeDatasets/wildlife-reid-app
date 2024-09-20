@@ -247,9 +247,19 @@
                                         {% endif %}
 
                                         <!-- Badge for status -->
-                                        <span class="badge badge-status rounded-pill bg-{{ uploadedarchive.combined_status_message.status_style }}"
+{#                                        <span class="badge badge-status rounded-pill bg-{{ uploadedarchive.combined_status_message.status_style }}"#}
+{#                                              data-bs-toggle="tooltip" title="{{ uploadedarchive.combined_status_message.status_message }}"#}
+{#                                        >{{ uploadedarchive.combined_status_message.status }}</span>#}
+
+                                        <a class="badge badge-status rounded-pill bg-{{ uploadedarchive.combined_status_message.status_style }}"
                                               data-bs-toggle="tooltip" title="{{ uploadedarchive.combined_status_message.status_message }}"
-                                        >{{ uploadedarchive.combined_status_message.status }}</span>
+                                           {% if uploadedarchive.combined_status_message.status == 'Taxons classified' %}
+                                                href="{% url 'caidapp:manual_taxon_classification_on_non_classified_with_uploaded_archive' uploadedarchive.id %}"
+                                           {% elif uploadedarchive.combined_status_message.status == 'Taxons done' %}
+                                                href="{% url 'caidapp:overview_taxons' uploadedarchive.id %}"
+                                           {% endif %}
+                                        >{{ uploadedarchive.combined_status_message.status }}</a>
+
 {#                                        <span class="badge rounded-pill bg-info">{{ uploadedarchive.combined_status_message.status }}</span>#}
 
 {#                                      Dropdown menu #}
