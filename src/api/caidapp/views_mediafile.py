@@ -42,7 +42,7 @@ def stream_video(request, mediafile_id):
     return response
 
 
-def manual_taxon_classification_on_non_classified(request, uploaded_archive_id: Optional[int] = None):
+def missing_taxon_annotation(request, uploaded_archive_id: Optional[int] = None):
     """List of uploads."""
     # get uploadeda archive or None
     if uploaded_archive_id is not None:
@@ -78,12 +78,12 @@ def manual_taxon_classification_on_non_classified(request, uploaded_archive_id: 
     # .first()
 
     if uploadedarchive is not None:
-        next_url = reverse_lazy("caidapp:manual_taxon_classification_on_non_classified", kwargs={"uploadedarchive_id": uploadedarchive.id})
-        skip_url = reverse_lazy("caidapp:manual_taxon_classification_on_non_classified", kwargs={"uploadedarchive_id": uploadedarchive.id})
+        next_url = reverse_lazy("caidapp:missing_taxon_annotation", kwargs={"uploadedarchive_id": uploadedarchive.id})
+        skip_url = reverse_lazy("caidapp:missing_taxon_annotation", kwargs={"uploadedarchive_id": uploadedarchive.id})
         cancel_url = reverse_lazy("caidapp:uploadedarchive_mediafiles", kwargs={"uploadedarchive_id": uploadedarchive.id})
     else:
-        next_url = reverse_lazy("caidapp:manual_taxon_classification_on_non_classified")
-        skip_url = reverse_lazy("caidapp:manual_taxon_classification_on_non_classified")
+        next_url = reverse_lazy("caidapp:missing_taxon_annotation")
+        skip_url = reverse_lazy("caidapp:missing_taxon_annotation")
         cancel_url = reverse_lazy("caidapp:uploadedarchives")
 
     if mediafile is None:
@@ -92,8 +92,8 @@ def manual_taxon_classification_on_non_classified(request, uploaded_archive_id: 
         request,
         mediafile.id,
         next_text="Save",
-        next_url=reverse_lazy("caidapp:manual_taxon_classification_on_non_classified"),
-        skip_url=reverse_lazy("caidapp:manual_taxon_classification_on_non_classified"),
+        next_url=reverse_lazy("caidapp:missing_taxon_annotation"),
+        skip_url=reverse_lazy("caidapp:missing_taxon_annotation"),
         cancel_url=cancel_url,
     )
 
