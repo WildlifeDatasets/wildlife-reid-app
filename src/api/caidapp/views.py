@@ -374,6 +374,10 @@ def _uploads_general(request, contains_single_taxon: Optional[bool] = None, taxo
     paginator = Paginator(uploadedarchives, per_page=records_per_page)
     _,_, page_context = _prepare_page(paginator, request=request)
 
+    # go over all items in the paginator
+    for uploadedarchive in page_context["page_obj"]:
+        uploadedarchive.update_status()
+
     return page_context
 
 
@@ -2048,7 +2052,7 @@ def refresh_data(request):
             uploaded_archive.taxon_for_identification = models.get_taxon("Lynx lynx")
             uploaded_archive.save()
 
-        uploaded_archive.refresh_status(request)
+        uploaded_archive.refresh_status_after_migration(request)
 
 
 

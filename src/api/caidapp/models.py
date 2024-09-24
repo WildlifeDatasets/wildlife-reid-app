@@ -38,6 +38,7 @@ UA_STATUS_CHOICES = (
     ("TV", "Taxa verified"),
     ("IAIP", "ID processing"),
     ("IAID", "ID AI done"),
+    ("U", "Unknown"),
 
 )
 UA_STATUS_CHOICES_DICT = dict(UA_STATUS_CHOICES)
@@ -170,7 +171,7 @@ class UploadedArchive(models.Model):
     latest_captured_at = models.DateTimeField("Latest Captured at", blank=True, null=True)
     location_check_at = models.DateTimeField("Location Check at", blank=True, null=True)
 
-    def refresh_status(self, request:Optional[object]=None):
+    def refresh_status_after_migration(self, request:Optional[object]=None):
         """Refresh possible old setup of object to 'migrated' one."""
         # couples [[old_status, new_status], ...]
 
@@ -202,6 +203,7 @@ class UploadedArchive(models.Model):
             logger.debug(f"Status {self.taxon_status} not found in refresh.")
             if request:
                 messages.debug(request, f"Status {self.taxon_status} not found in refresh.")
+
 
 
     def next_processing_step_structure(self) -> Optional[tuple]:
@@ -319,6 +321,9 @@ class UploadedArchive(models.Model):
     def count_of_mediafiles_with_verified_taxon(self):
         return self.mediafile_set.filter(taxon_verified=True).count()
 
+    def count_of_mediafiles_with_unverified_taxon(self):
+        return self.mediafile_set.filter(taxon_verified=False).count()
+
     def percents_of_mediafiles_with_verified_taxon(self) -> float:
         if self.count_of_mediafiles() == 0:
             return 0
@@ -345,11 +350,40 @@ class UploadedArchive(models.Model):
         counts = fs_data.count_files_in_archive(self.archivefile.path)
         return counts
 
+    def update_status(self):
+        """Update status with respect to manual annotations"""
+
+        status = self.taxon_status
+
+        if self.count_of_mediafiles_with_unverified_taxon() == 0:
+            status = "TV"
+        elif status == "TV":
+            # someone unverified a file
+            status = "TKN"  # it will be rechecked on next lines
+
+        if self.count_of_mediafiles_with_missing_taxon() == 0:
+            status = "TKN"
+        elif status == "TKN":
+            # some taxons were removed
+            status = "TAID"
+
+        if status in UA_STATUS_CHOICES_DICT:
+            pass
+        else:
+            status_message = f"Unknown status '{status}'. Prev. message: " + str(self.status_message)
+            status = "U"
+            self.status_message = status_message
+            self.taxons_status = status
+            self.save()
+
+        if status != self.taxon_status:
+            self.taxon_status = status
+            self.save()
+
     def get_status(self) -> dict:
         """Return short status message, long message and color-style for the status."""
 
         # find 'F' in self.STATUS_CHOICES[]
-
         status = self.taxon_status
         status_message = self.status_message
         status_style = "dark"
@@ -358,21 +392,16 @@ class UploadedArchive(models.Model):
         elif self.taxon_status == "F":
             status_style = "danger"
 
-        if self.percents_of_mediafiles_with_taxon() == 100:
-            # status = "Taxons done"
-            status = "TKN"
+        if status == "TKN":
             status_message = "All media files have taxon."
             status_style = "primary"
-        if self.percents_of_mediafiles_with_verified_taxon() == 100:
-            status = "TV"
+        if self.taxon_status == "TV":
             status_message = "All taxons are verified."
             status_style = "success"
-        if status in UA_STATUS_CHOICES_DICT:
-            status = UA_STATUS_CHOICES_DICT[status]
-        else:
-            status_message = f"Unknown status '{status}'"
-            status = "Unknown"
+        if self.taxon_status == "U":
+            status_style = "warning"
 
+        status = UA_STATUS_CHOICES_DICT.get(status, "Unknown")
 
         return dict(
             status=status,
