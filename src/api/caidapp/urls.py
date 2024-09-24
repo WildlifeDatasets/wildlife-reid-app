@@ -188,7 +188,7 @@ urlpatterns = [
     path(
         "manual_taxon_classification_on_non_classified/uploaded_archive/<int:uploaded_archive_id>",
         views_mediafile.manual_taxon_classification_on_non_classified,
-        name="manual_taxon_classification_on_non_classified_with_uploaded_archive",
+        name="manual_taxon_classification_on_non_classified", # TODO change this to annotate_missing_taxa
     ),
     path("sample_data/", views.sample_data, name="sample_data"),
     path("cloud_import_preview/", views.cloud_import_preview_view, name="cloud_import_preview"),

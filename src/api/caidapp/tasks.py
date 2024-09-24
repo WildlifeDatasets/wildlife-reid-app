@@ -390,7 +390,7 @@ def _run_taxon_classification_init_message(uploaded_archive: UploadedArchive, co
         _estimate_time_for_taxon_classification_of_uploaded_archive(uploaded_archive)
     )
     logger.debug(f"{expected_time_message=}")
-    uploaded_archive.status = "Processing"
+    uploaded_archive.status = "TAIP"
     uploaded_archive.status_message = "Processing will be done " + expected_time_message
 
     if commit:
