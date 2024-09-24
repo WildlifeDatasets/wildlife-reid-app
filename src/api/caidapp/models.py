@@ -298,12 +298,13 @@ class UploadedArchive(models.Model):
     def taxons_are_verified(self):
         return self.mediafile_set.filter(taxon_verified=False).count() == 0
 
-    def mediafiles_with_missing_taxon(self):
+    def mediafiles_with_missing_taxon(self, **kwargs):
         not_classified_taxon = Taxon.objects.get(name="Not Classified")
         animalia_taxon = Taxon.objects.get(name="Animalia")
         return self.mediafile_set.filter(
             Q(category=None) | Q(category=not_classified_taxon) |
-            (Q(category=animalia_taxon) & Q(taxon_verified=False))
+            (Q(category=animalia_taxon) & Q(taxon_verified=False)),
+            **kwargs
         )
     def count_of_mediafiles_with_missing_taxon(self):
         return self.mediafiles_with_missing_taxon().count()
@@ -664,7 +665,7 @@ def get_content_owner_filter_params(ciduser: CaIDUser, prefix: str) -> dict:
     prefix : str
         Prefix for filtering with ciduser.
         If the filter will be used in MediaFile, the prefix should be "parent__owner".
-        If the filter will be used in Location, the prefix should be "owner".
+        If the filter will be used in Location or UploadedArchive, the prefix should be "owner".
     """
     if ciduser.workgroup:
         # filter_params = dict(parent__owner__workgroup=request.user.caiduser.workgroup)

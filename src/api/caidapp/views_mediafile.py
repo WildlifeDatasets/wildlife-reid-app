@@ -3,6 +3,7 @@ from django.urls import reverse_lazy
 from django.http import StreamingHttpResponse, Http404, JsonResponse, HttpResponseRedirect, HttpResponseNotAllowed
 from django.shortcuts import get_object_or_404
 import django
+from django.db.models import Q
 
 from .forms import MediaFileForm
 from .models import MediaFile, get_content_owner_filter_params
@@ -46,22 +47,29 @@ def missing_taxon_annotation(request, uploaded_archive_id: Optional[int] = None)
     """List of uploads."""
     # get uploadeda archive or None
     if uploaded_archive_id is not None:
-        uploadedarchive = get_object_or_404(models.UploadedArchive, id=uploaded_archive_id)
+        uploadedarchive = get_object_or_404(
+            models.UploadedArchive,
+            id=uploaded_archive_id,
+            # **get_content_owner_filter_params(request.user.caiduser, "owner"),
+        )
     else:
         uploadedarchive = None
 
-
-
     # pick random non-classified media file
+    not_classified_taxon = models.Taxon.objects.get(name="Not Classified")
+    animalia_taxon = models.Taxon.objects.get(name="Animalia")
 
     mediafiles = (
         MediaFile.objects.filter(
+            Q(category=None) | Q(category=not_classified_taxon) |
+            (Q(category=animalia_taxon) & Q(taxon_verified=False)),
             **get_content_owner_filter_params(request.user.caiduser, "parent__owner"),
             parent=uploadedarchive,
-            # parent__owner__workgroup=request.user.caiduser.workgroup, # but this would work too
-            category__name="Not Classified",
             parent__contains_single_taxon=False,
         ))
+
+
+
     # order by parent u
     #     ploaded_at and then by mediafile captured_at, then take first 10
 
