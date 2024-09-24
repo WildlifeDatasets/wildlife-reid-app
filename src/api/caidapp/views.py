@@ -821,11 +821,12 @@ def _single_species_button_style(request) -> dict:
     exists_unidentified = (
         len(
             UploadedArchive.objects.filter(
+                # status="Species Finished",
+                Q(taxon_status="TKN") | Q(taxon_status="TV"),
                 owner__workgroup=request.user.caiduser.workgroup,
                 contains_identities=False,
                 # contains_single_taxon=True,
                 taxon_for_identification__isnull=False,
-                status="Species Finished",
             )
         )
         > 0
