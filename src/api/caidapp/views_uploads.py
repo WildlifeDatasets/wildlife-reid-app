@@ -165,9 +165,12 @@ def uploadedarchive_detail(request, uploadedarchive_id: int) -> HttpResponse:
         "Count of media files": uploaded_archive.count_of_mediafiles(),
         "Count of representative media files": uploaded_archive.count_of_representative_mediafiles(),
         "Count of media files with taxon": uploaded_archive.count_of_mediafiles_with_taxon(),
+        "Count of media files withi missing taxon": uploaded_archive.count_of_mediafiles_with_missing_taxon(),
         "Count of media files with verified taxon": uploaded_archive.count_of_mediafiles_with_verified_taxon(),
         "Count of taxons":  uploaded_archive.count_of_taxons(),
         "Count of identities": uploaded_archive.count_of_identities(),
+        "Precents of media files with taxon": uploaded_archive.percents_of_mediafiles_with_taxon(),
+
     }
     return render(
         request,
