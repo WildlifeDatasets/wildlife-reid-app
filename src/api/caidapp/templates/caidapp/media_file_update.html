@@ -66,7 +66,8 @@
         </div><!-- End Page Title -->
         <div class="section">
             <div class="row">
-                <div class="col-lg-4 col-xl-2">
+{#                <div class="col-lg-4 col-xl-2">#}
+                <div class="col-auto">
                     <div class="card">
                         {#                <div class="card-header">#}
                         {#                </div>#}
@@ -75,7 +76,24 @@
                                 <form method="post" enctype="multipart/form-data" class="mt-3">
                                     {% csrf_token %}
 {#                                    {{ form }}#}
-                                                    {{ form.as_p }}
+{#                                                    {{ form.as_p }}#}
+                                    <div class="form-group">
+        {% for field in form %}
+            <div>
+                    <label for="{{ field.id_for_label }}" class="mt-1">{{ field.label }}</label><br>  <!-- Label on its own line -->
+                        {{ field }}  <!-- Field on the next line -->
+                {% if field.help_text %}
+                    <small class="form-text text-muted">{{ field.help_text }}</small>
+                {% endif %}
+                {% for error in field.errors %}
+                    <div class="alert alert-danger">{{ error }}</div>
+                {% endfor %}
+            </div>
+        {% endfor %}
+    </div>
+
+
+
                                     <button class="btn btn-primary" id="btnUpload" type="submit">
                                         {{ button }}
                                     </button>
@@ -104,7 +122,8 @@
                         </div>
                     </div>
                 </div>
-                <div class="col-lg-8 col-xl-10">
+{#                <div class="col-lg-8 col-xl-10">#}
+                    <div class="col">
             {% if mediafile.media_type == 'video' %}
                 <video controls width="640" height="360">
 {#                    <source src="{% url 'caidapp:stream_video' mediafile.id %}" type="video/mp4">#}
