@@ -123,6 +123,13 @@
             padding: 5px 10px; /* Adjust padding */
         }
 
+        .next-step-button {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            opacity: 0.2; /* Initially hidden */
+            transition: opacity 0.3s ease; /* Smooth transition when showing */
+        }
 
         .badge-status {
             position: absolute;
@@ -135,6 +142,11 @@
             {#border-radius: 12px; /* Rounded corners */#}
             {#font-weight: bold;#}
         }
+        .card-img-wrapper:hover .next-step-button {
+            opacity: 1; /* Show the button when hovering over the card */
+
+        }
+
 
 
     </style>
@@ -254,7 +266,7 @@
                                         <a class="badge badge-status rounded-pill bg-{{ uploadedarchive.combined_status_message.status_style }}"
                                               data-bs-toggle="tooltip" title="{{ uploadedarchive.combined_status_message.status_message }}"
                                            {% if uploadedarchive.combined_status_message.status == 'Taxons classified' %}
-                                                href="{% url 'caidapp:manual_taxon_classification_on_non_classified_with_uploaded_archive' uploadedarchive.id %}"
+                                                href="{% url 'caidapp:manual_taxon_classification_on_non_classified' uploadedarchive.id %}"
                                            {% elif uploadedarchive.combined_status_message.status == 'Taxons done' %}
                                                 href="{% url 'caidapp:overview_taxons' uploadedarchive.id %}"
                                            {% endif %}
@@ -269,6 +281,22 @@
                                             </a>
                                             {% include "caidapp/upload_species_card_dropdown.html" %}
                                         </div>
+
+
+{#                                    Next step button               #}
+
+                                        {% with next_step_structure=uploadedarchive.next_processing_step_structure %}
+                                            {% if next_step_structure %}
+                                                    <a class="btn btn-primary next-step-button transparent-button"
+                                                       data-bs-toggle="tooltip" title="Next step: {{ next_step_structure.0 }}"
+                                                       href={{ next_step_structure.1 }}>
+                                                        <i class="bi bi-arrow-right"></i>
+                                                    </a>
+                                            {% endif %}
+                                        {% endwith %}
+
+
+
                                     </div>
 {#                                    <img class="card-img-top" src="{{ uploadedarchive.thumbnail.url }}" alt="Camera trap check representative">#}
                                 <div class="card-body"

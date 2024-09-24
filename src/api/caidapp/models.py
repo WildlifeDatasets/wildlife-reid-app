@@ -12,6 +12,8 @@ from django.db.models import Q
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from location_field.models.plain import PlainLocationField
+from django.urls import reverse_lazy
+from django.contrib import messages
 from . import fs_data
 
 from .model_tools import (
@@ -26,6 +28,20 @@ import re
 
 # Create your models here.
 logger = logging.getLogger("database")
+
+UA_STATUS_CHOICES = (
+    ("C", "Created"),
+    ("F", "Failed"),
+    ("TAIP", "Taxon processing"),
+    ("TAID", "Taxon AI done"),
+    ("TKN", "Taxa known"),
+    ("TV", "Taxa verified"),
+    ("IAIP", "ID processing"),
+    ("IAID", "ID AI done"),
+
+)
+UA_STATUS_CHOICES_DICT = dict(UA_STATUS_CHOICES)
+
 
 def get_hash():
     dt = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
@@ -130,7 +146,7 @@ class UploadedArchive(models.Model):
     csv_file = models.FileField(upload_to=outputdir, blank=True, null=True)
     output_updated_at = models.DateTimeField("Output updated at", blank=True, null=True)
     hash = models.CharField(max_length=255, blank=True, default=get_hash)
-    status = models.CharField(max_length=255, blank=True, default="Created")
+    status = models.CharField(max_length=255, blank=True, choices=UA_STATUS_CHOICES, default="C", )
     # status_message = models.CharField(max_length=2047, blank=True, default="")
     status_message = models.TextField(blank=True)
     started_at = models.DateTimeField("Started at", blank=True, null=True)
@@ -153,6 +169,54 @@ class UploadedArchive(models.Model):
     earliest_captured_at = models.DateTimeField("Earliest Captured at", blank=True, null=True)
     latest_captured_at = models.DateTimeField("Latest Captured at", blank=True, null=True)
     location_check_at = models.DateTimeField("Location Check at", blank=True, null=True)
+
+    def refresh_status(self, request:Optional[object]=None):
+        """Refresh possible old setup of object to 'migrated' one."""
+        # couples [[old_status, new_status], ...]
+
+        new_old_status = [
+            ["Created", "C"],
+            ["Failed", "F"],
+            ["Taxon processing", "TAIP"],
+            ["Taxon AI done", "TAID"],
+            ["Taxon classification finished", "TAID"],
+            ["TAAI", "TAID"],
+            ["Taxons classified", "TAID"],
+            ["Taxa known", "TKN"],
+            ["Taxons done", "TKN"],
+            ["Taxa verified", "TV"],
+            ["Taxons verified", "TV"],
+            ["ID processing", "IAIP"],
+            ["ID AI done", "IAID"],
+            ["Identification finished", "IAID"],
+
+         ]
+
+        applied = False
+        for old_status, new_status in new_old_status:
+            if self.status == old_status:
+                self.status = new_status
+                self.save()
+                applied = True
+        if not applied:
+            logger.debug(f"Status {self.status} not found in refresh.")
+            if request:
+                messages.debug(request, f"Status {self.status} not found in refresh.")
+
+
+    def next_processing_step_structure(self) -> Optional[tuple]:
+        if self.status == "C":
+            return None
+        elif self.status == "F":
+            return None
+        elif self.status == "TAIP":
+            return None
+        elif self.status == "TAID":
+            return "Annotate taxa", reverse_lazy("caidapp:manual_taxon_classification_on_non_classified", kwargs={"uploaded_archive_id": self.id})
+        elif self.status == "TKN":
+            return "Verify taxa", reverse_lazy("caidapp:overview_taxons", kwargs={"uploaded_archive_id": self.id})
+        else:
+            return None
 
     def extract_location_check_at_from_filename(self, commit=True):
 
@@ -284,22 +348,30 @@ class UploadedArchive(models.Model):
     def combined_status_message(self) -> dict:
         """Return short status message, long message and color-style for the status."""
 
+        # find 'F' in self.STATUS_CHOICES[]
+
         status = self.status
         status_message = self.status_message
         status_style = "dark"
-        if self.status == "Taxons classified":
+        if self.status == 'TAID':  # "Taxons classified":
             status_style = "secondary"
-        elif self.status == "Failed":
+        elif self.status == "F":
             status_style = "danger"
 
         if self.percents_of_mediafiles_with_taxon() == 100:
-            status = "Taxons done"
+            # status = "Taxons done"
+            status = "TKN"
             status_message = "All media files have taxon."
             status_style = "primary"
         if self.percents_of_mediafiles_with_verified_taxon() == 100:
-            status = "Taxons verified"
+            status = "TV"
             status_message = "All taxons are verified."
             status_style = "success"
+        if status in UA_STATUS_CHOICES_DICT:
+            status = UA_STATUS_CHOICES_DICT[status]
+        else:
+            status_message = f"Unknown status '{status}'"
+            status = "Unknown"
 
 
         return dict(

@@ -6,6 +6,7 @@
 
 ## 09-2024
 
+* [added] Next step button in uploaded archives view
 * [added] Dates of camera check have now a view
 * [changed] Camera trap checks view is reworked
 * [added] Status badge
