@@ -926,7 +926,7 @@ def _run_identification(uploaded_archive: UploadedArchive, taxon_str="Lynx lynx"
     logger.debug("Calling run_detection and run_identification ...")
 
     # uploaded_archive = UploadedArchive.objects.get(id=uploaded_archive_id)
-    uploaded_archive.status = "Identification started"
+    uploaded_archive.taxon_status = "Identification started"
     uploaded_archive.save()
 
     identify_signature = signature(

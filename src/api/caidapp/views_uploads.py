@@ -156,7 +156,7 @@ def uploadedarchive_detail(request, uploadedarchive_id: int) -> HttpResponse:
         "Uploaded at": uploaded_archive.uploaded_at,
         "Location": uploaded_archive.location_at_upload_object,
         "Location check at": uploaded_archive.location_check_at,
-        "Status": uploaded_archive.status,
+        "Status": uploaded_archive.taxon_status,
         "Status message": uploaded_archive.status_message,
         "Identification status": uploaded_archive.identification_status,
         "Owner": uploaded_archive.owner,

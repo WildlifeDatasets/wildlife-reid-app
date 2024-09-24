@@ -75,7 +75,7 @@ def predict_species_on_success(
     uploaded_archive = UploadedArchive.objects.get(id=uploaded_archive_id)
     if "status" not in output:
         logger.critical(f"Unexpected error {output=} is missing 'status' field.")
-        uploaded_archive.status = "Unknown"
+        uploaded_archive.taxon_status = "Unknown"
     elif output["status"] == "DONE":
         uploaded_archive.zip_file = zip_file
         uploaded_archive.csv_file = csv_file
@@ -88,13 +88,13 @@ def predict_species_on_success(
             uploaded_archive, create_missing=True, extract_identites=extract_identites
         )
         uploaded_archive.mediafiles_imported = True
-        uploaded_archive.status = "Taxons classified"
+        uploaded_archive.taxon_status = "Taxons classified"
         uploaded_archive.finished_at = django.utils.timezone.now()
         uploaded_archive.save()
         uploaded_archive.update_earliest_and_latest_captured_at()
         run_detection_async(uploaded_archive)
     else:
-        uploaded_archive.status = "Failed"
+        uploaded_archive.taxon_status = "Failed"
         uploaded_archive.finished_at = django.utils.timezone.now()
         if "error" in output:
             logger.error(f"{output['error']=}")
@@ -287,7 +287,7 @@ def on_error_with_uploaded_archive(self, task_id: str, *args, uploaded_archive_i
     logger.debug(f"args={args}")
     logger.debug(f"kwargs={kwargs}")
     uploaded_archive = UploadedArchive.objects.get(id=uploaded_archive_id)
-    uploaded_archive.status = "Failed"
+    uploaded_archive.taxon_status = "Failed"
     uploaded_archive.finished_at = django.utils.timezone.now()
     uploaded_archive.save()
     result = self.AsyncResult(task_id)
@@ -327,7 +327,7 @@ def run_species_prediction_async(
     except Exception as e:
         logger.error(f"Error during init: {e}")
         import traceback
-        uploaded_archive.status = "Failed"
+        uploaded_archive.taxon_status = "Failed"
         uploaded_archive.status_message = traceback.format_exc()
         uploaded_archive.save()
         return
@@ -390,7 +390,7 @@ def _run_taxon_classification_init_message(uploaded_archive: UploadedArchive, co
         _estimate_time_for_taxon_classification_of_uploaded_archive(uploaded_archive)
     )
     logger.debug(f"{expected_time_message=}")
-    uploaded_archive.status = "TAIP"
+    uploaded_archive.taxon_status = "TAIP"
     uploaded_archive.status_message = "Processing will be done " + expected_time_message
 
     if commit:
@@ -878,11 +878,11 @@ def detection_on_success_after_species_prediction(self, output: dict, *args, **k
     uploaded_archive = UploadedArchive.objects.get(id=uploaded_archive_id)
     if "status" not in output:
         logger.critical(f"Unexpected error {output=} is missing 'status' field.")
-        uploaded_archive.status = "Unknown"
+        uploaded_archive.taxon_status = "Unknown"
     elif output["status"] == "DONE":
-        uploaded_archive.status = "...detection"
+        uploaded_archive.taxon_status = "...detection"
     else:
-        uploaded_archive.status = "Failed"
+        uploaded_archive.taxon_status = "Failed"
         if "error" in output:
             logger.error(f"{output['error']=}")
             uploaded_archive.status_message = output["error"]
@@ -900,7 +900,7 @@ def detection_on_success(self, output: dict, *args, **kwargs):
 
     uploaded_archive_id: int = kwargs.pop("uploaded_archive_id")
     uploaded_archive = UploadedArchive.objects.get(id=uploaded_archive_id)
-    uploaded_archive.status = "...detection done"
+    uploaded_archive.taxon_status = "...detection done"
     uploaded_archive.save()
     identify_signature = signature(
         "identify",
@@ -928,7 +928,7 @@ def identify_on_success(self, output: dict, *args, **kwargs):
 
     uploaded_archive_id: int = kwargs.pop("uploaded_archive_id")
     uploaded_archive = UploadedArchive.objects.get(id=uploaded_archive_id)
-    uploaded_archive.status = "...identification done"
+    uploaded_archive.taxon_status = "...identification done"
     uploaded_archive.save()
 
     if "status" not in output:
@@ -954,13 +954,13 @@ def identify_on_success(self, output: dict, *args, **kwargs):
 
             _prepare_mediafile_for_identification(data, i, media_root, mediafile_id)
 
-        uploaded_archive.status = "Identification finished"
+        uploaded_archive.taxon_status = "Identification finished"
         uploaded_archive.save()
         logger.debug("identify done.")
 
     else:
         # identification failed
-        uploaded_archive.status = "Identification failed"
+        uploaded_archive.taxon_status = "Identification failed"
         uploaded_archive.save()
         logger.error("Identification failed.")
         # TODO - should the app return some error response to the user?
