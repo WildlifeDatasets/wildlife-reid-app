@@ -79,6 +79,13 @@
                                     <button class="btn btn-primary" id="btnUpload" type="submit">
                                         {{ button }}
                                     </button>
+                                    {% if  skip_url %}
+                                        <a href="{{ skip_url }}" class="btn btn-secondary mt-1 ">Skip</a>
+                                    {% endif %}
+                                    {% if  cancel_url %}
+                                        <a href="{{ cancel_url }}" class="btn btn-secondary mt-1 ">Cancel</a>
+                                    {% endif %}
+
 
                                     {% if mediafile.is_for_suggestion %}
                                         <i class="bi bi-question-circle"></i>

@@ -86,8 +86,8 @@ def missing_taxon_annotation(request, uploaded_archive_id: Optional[int] = None)
     # .first()
 
     if uploadedarchive is not None:
-        next_url = reverse_lazy("caidapp:missing_taxon_annotation", kwargs={"uploadedarchive_id": uploadedarchive.id})
-        skip_url = reverse_lazy("caidapp:missing_taxon_annotation", kwargs={"uploadedarchive_id": uploadedarchive.id})
+        next_url = reverse_lazy("caidapp:missing_taxon_annotation", kwargs={"uploaded_archive_id": uploadedarchive.id})
+        skip_url = reverse_lazy("caidapp:missing_taxon_annotation", kwargs={"uploaded_archive_id": uploadedarchive.id})
         cancel_url = reverse_lazy("caidapp:uploadedarchive_mediafiles", kwargs={"uploadedarchive_id": uploadedarchive.id})
     else:
         next_url = reverse_lazy("caidapp:missing_taxon_annotation")
@@ -100,8 +100,8 @@ def missing_taxon_annotation(request, uploaded_archive_id: Optional[int] = None)
         request,
         mediafile.id,
         next_text="Save",
-        next_url=reverse_lazy("caidapp:missing_taxon_annotation"),
-        skip_url=reverse_lazy("caidapp:missing_taxon_annotation"),
+        next_url=next_url,
+        skip_url=skip_url,
         cancel_url=cancel_url,
     )
 
