@@ -146,7 +146,7 @@ class UploadedArchive(models.Model):
     csv_file = models.FileField(upload_to=outputdir, blank=True, null=True)
     output_updated_at = models.DateTimeField("Output updated at", blank=True, null=True)
     hash = models.CharField(max_length=255, blank=True, default=get_hash)
-    status = models.CharField(max_length=255, blank=True, choices=UA_STATUS_CHOICES, default="C", )
+    taxon_status = models.CharField(max_length=255, blank=True, choices=UA_STATUS_CHOICES, default="C", )
     # status_message = models.CharField(max_length=2047, blank=True, default="")
     status_message = models.TextField(blank=True)
     started_at = models.DateTimeField("Started at", blank=True, null=True)
@@ -194,26 +194,26 @@ class UploadedArchive(models.Model):
 
         applied = False
         for old_status, new_status in new_old_status:
-            if self.status == old_status:
-                self.status = new_status
+            if self.taxon_status == old_status:
+                self.taxon_status = new_status
                 self.save()
                 applied = True
         if not applied:
-            logger.debug(f"Status {self.status} not found in refresh.")
+            logger.debug(f"Status {self.taxon_status} not found in refresh.")
             if request:
-                messages.debug(request, f"Status {self.status} not found in refresh.")
+                messages.debug(request, f"Status {self.taxon_status} not found in refresh.")
 
 
     def next_processing_step_structure(self) -> Optional[tuple]:
-        if self.status == "C":
+        if self.taxon_status == "C":
             return None
-        elif self.status == "F":
+        elif self.taxon_status == "F":
             return None
-        elif self.status == "TAIP":
+        elif self.taxon_status == "TAIP":
             return None
-        elif self.status == "TAID":
+        elif self.taxon_status == "TAID":
             return "Annotate taxa", reverse_lazy("caidapp:missing_taxon_annotation", kwargs={"uploaded_archive_id": self.id})
-        elif self.status == "TKN":
+        elif self.taxon_status == "TKN":
             return "Verify taxa", reverse_lazy("caidapp:overview_taxons", kwargs={"uploaded_archive_id": self.id})
         else:
             return None
@@ -350,12 +350,12 @@ class UploadedArchive(models.Model):
 
         # find 'F' in self.STATUS_CHOICES[]
 
-        status = self.status
+        status = self.taxon_status
         status_message = self.status_message
         status_style = "dark"
-        if self.status == 'TAID':  # "Taxons classified":
+        if self.taxon_status == 'TAID':  # "Taxons classified":
             status_style = "secondary"
-        elif self.status == "F":
+        elif self.taxon_status == "F":
             status_style = "danger"
 
         if self.percents_of_mediafiles_with_taxon() == 100:
