@@ -54,6 +54,18 @@
         display: flex;
         flex-direction: column;
     }
+
+    .card-img-top {
+        {# uncomment fallowing lines to have same sized images (but cropped) #}
+        {#height: 300px; #}
+        {#object-fit: cover; #}
+        {#width: 100%; #}
+    }
+    .card-img-placeholder {
+        width: 100%;
+        height: 300px; /* Match the height of the card image */
+        background-color: #7f7f7f; /* Gray background */
+    }
 </style>
 
 {% endblock %}
@@ -224,10 +236,12 @@
                                             <img class="card-img-top" src="{{ mediafile.instance.thumbnail.url }}"
                                                  alt="Camera trap">
                                         </a>
-                                        <div class="position-absolute top-0 end-0 p-2">
-                                            {{ mediafile.selected }}
-                                        </div>
+                                    {% else %}
+                                        <div class="card-img-placeholder"></div>
                                     {% endif %}
+                                    <div class="position-absolute top-0 end-0 p-2">
+                                        {{ mediafile.selected }}
+                                    </div>
                                     <div class="position-absolute bottom-0 end-0 p-3">
 {#                                        info in circle#}
 
