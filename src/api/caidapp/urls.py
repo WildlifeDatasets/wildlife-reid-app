@@ -181,14 +181,14 @@ urlpatterns = [
         name="workgroup_update",
     ),
     path(
-        "manual_taxon_classification_on_non_classified",
-        views_mediafile.manual_taxon_classification_on_non_classified,
-        name="manual_taxon_classification_on_non_classified",
+        "missing_taxon_annotation",
+        views_mediafile.missing_taxon_annotation,
+        name="missing_taxon_annotation",
     ),
     path(
-        "manual_taxon_classification_on_non_classified/uploaded_archive/<int:uploaded_archive_id>",
-        views_mediafile.manual_taxon_classification_on_non_classified,
-        name="manual_taxon_classification_on_non_classified", # TODO change this to annotate_missing_taxa
+        "missing_taxon_annotation/uploaded_archive/<int:uploaded_archive_id>",
+        views_mediafile.missing_taxon_annotation,
+        name="missing_taxon_annotation",
     ),
     path("sample_data/", views.sample_data, name="sample_data"),
     path("cloud_import_preview/", views.cloud_import_preview_view, name="cloud_import_preview"),

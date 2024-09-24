@@ -212,7 +212,7 @@ class UploadedArchive(models.Model):
         elif self.status == "TAIP":
             return None
         elif self.status == "TAID":
-            return "Annotate taxa", reverse_lazy("caidapp:manual_taxon_classification_on_non_classified", kwargs={"uploaded_archive_id": self.id})
+            return "Annotate taxa", reverse_lazy("caidapp:missing_taxon_annotation", kwargs={"uploaded_archive_id": self.id})
         elif self.status == "TKN":
             return "Verify taxa", reverse_lazy("caidapp:overview_taxons", kwargs={"uploaded_archive_id": self.id})
         else:
@@ -345,7 +345,7 @@ class UploadedArchive(models.Model):
         counts = fs_data.count_files_in_archive(self.archivefile.path)
         return counts
 
-    def combined_status_message(self) -> dict:
+    def get_status(self) -> dict:
         """Return short status message, long message and color-style for the status."""
 
         # find 'F' in self.STATUS_CHOICES[]

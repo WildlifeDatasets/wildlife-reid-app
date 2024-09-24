@@ -210,7 +210,7 @@
 {#                        {% endif %}#}
 {#                        <a class="btn {{ btn_styles.upload_species }}" href="{% url 'caidapp:upload_archive' %}"><i class="bi bi-plus-circle"></i> New Upload </a>#}
 {#                        <i class="bi bi-arrow-right-short fa-2x" style="vertical-align: middle;"></i>#}
-{#                        <a class="btn {{ btn_styles.classify_non_classified }}" href="{% url 'caidapp:manual_taxon_classification_on_non_classified' %}"#}
+{#                        <a class="btn {{ btn_styles.classify_non_classified }}" href="{% url 'caidapp:missing_taxon_annotation' %}"#}
 {#                           data-bs-toggle="tooltip" title="{{ btn_tooltips.classify_non_classified }}"#}
 {#                        >classify non classified</a>#}
 {#                        <a class="btn {{ btn_styles.overview_taxons }}" href="{% url 'caidapp:overview_taxons' %}"#}
@@ -259,20 +259,20 @@
                                         {% endif %}
 
                                         <!-- Badge for status -->
-{#                                        <span class="badge badge-status rounded-pill bg-{{ uploadedarchive.combined_status_message.status_style }}"#}
-{#                                              data-bs-toggle="tooltip" title="{{ uploadedarchive.combined_status_message.status_message }}"#}
-{#                                        >{{ uploadedarchive.combined_status_message.status }}</span>#}
+{#                                        <span class="badge badge-status rounded-pill bg-{{ uploadedarchive.get_status.status_style }}"#}
+{#                                              data-bs-toggle="tooltip" title="{{ uploadedarchive.get_status.status_message }}"#}
+{#                                        >{{ uploadedarchive.get_status.status }}</span>#}
 
-                                        <a class="badge badge-status rounded-pill bg-{{ uploadedarchive.combined_status_message.status_style }}"
-                                              data-bs-toggle="tooltip" title="{{ uploadedarchive.combined_status_message.status_message }}"
-                                           {% if uploadedarchive.combined_status_message.status == 'Taxons classified' %}
-                                                href="{% url 'caidapp:manual_taxon_classification_on_non_classified' uploadedarchive.id %}"
-                                           {% elif uploadedarchive.combined_status_message.status == 'Taxons done' %}
+                                        <a class="badge badge-status rounded-pill bg-{{ uploadedarchive.get_status.status_style }}"
+                                              data-bs-toggle="tooltip" title="{{ uploadedarchive.get_status.status_message }}"
+                                           {% if uploadedarchive.get_status.status == 'Taxons classified' %}
+                                                href="{% url 'caidapp:missing_taxon_annotation' uploadedarchive.id %}"
+                                           {% elif uploadedarchive.get_status.status == 'Taxons done' %}
                                                 href="{% url 'caidapp:overview_taxons' uploadedarchive.id %}"
                                            {% endif %}
-                                        >{{ uploadedarchive.combined_status_message.status }}</a>
+                                        >{{ uploadedarchive.get_status.status }}</a>
 
-{#                                        <span class="badge rounded-pill bg-info">{{ uploadedarchive.combined_status_message.status }}</span>#}
+{#                                        <span class="badge rounded-pill bg-info">{{ uploadedarchive.get_status.status }}</span>#}
 
 {#                                      Dropdown menu #}
                                         <div class="dropdown dropdown-top-right">
@@ -306,10 +306,10 @@
 {#                                        <!-- No image is given -->#}
 {##}
 {#                                        <!-- Badge for status -->#}
-{#                                        <span class="badge rounded-pill bg-{{ uploadedarchive.combined_status_message.status_style }}"#}
-{#                                              data-bs-toggle="tooltip" title="{{ uploadedarchive.combined_status_message.status_message }}"#}
-{#                                        >{{ uploadedarchive.combined_status_message.status }}</span>#}
-                                        {#                                        <span class="badge rounded-pill bg-info">{{ uploadedarchive.combined_status_message.status }}</span>#}
+{#                                        <span class="badge rounded-pill bg-{{ uploadedarchive.get_status.status_style }}"#}
+{#                                              data-bs-toggle="tooltip" title="{{ uploadedarchive.get_status.status_message }}"#}
+{#                                        >{{ uploadedarchive.get_status.status }}</span>#}
+                                        {#                                        <span class="badge rounded-pill bg-info">{{ uploadedarchive.get_status.status }}</span>#}
 {##}
                                         {#                                      Dropdown menu #}
 {#                                        <div class="dropdown">#}
