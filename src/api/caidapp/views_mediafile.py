@@ -106,7 +106,7 @@ def missing_taxon_annotation(request, uploaded_archive_id: Optional[int] = None)
         cancel_url=cancel_url,
     )
 
-def overview_taxons(request, uploaded_archive_id:Optional[int]=None):
+def verify_taxa_view(request, uploaded_archive_id:Optional[int]=None):
 
     return media_files_update(
         request, show_overview_button=True, taxon_verified=False, uploadedarchive_id=uploaded_archive_id,
@@ -123,7 +123,7 @@ def taxons_on_page_are_overviewed(request):
         mediafile.save()
 
     # get next page
-    next_url = request.GET.get('next', reverse_lazy("caidapp:overview_taxons")  )
+    next_url = request.GET.get('next', reverse_lazy("caidapp:verify_taxa")  )
 
     return redirect(next_url)
 
