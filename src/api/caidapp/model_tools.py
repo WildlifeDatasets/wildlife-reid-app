@@ -4,19 +4,21 @@ import string
 from datetime import datetime
 from hashlib import sha1 as sha_constructor
 from pathlib import Path
-import pandas as pd
 
+import pandas as pd
 from django.conf import settings
 from django.db.models import Q
 
 logger = logging.getLogger("database")
 
-def convert_datetime_to_naive(df:pd.DataFrame) -> pd.DataFrame:
+
+def convert_datetime_to_naive(df: pd.DataFrame) -> pd.DataFrame:
     # convert timezone-aware datetime to naive datetime
     for col in df.columns:
-        if df[col].dtype == 'datetime64[ns, UTC]':
+        if df[col].dtype == "datetime64[ns, UTC]":
             df[col] = df[col].dt.tz_convert(None)
     return df
+
 
 def generate_sha1(string, salt=None):
     """
@@ -55,9 +57,11 @@ def random_string12():
     """TODO add docstring."""
     return random_string(12)
 
+
 def random_string8():
     """Generate a random string of length 8."""
     return random_string(8)
+
 
 def get_output_dir():
     """TODO add docstring."""
@@ -85,6 +89,3 @@ def get_zip_path_in_unique_folder(instance, filename):
 
     # path cannot be absolute or contain "..", otherwise django will raise an error
     return f"./upload/{unique_id}/{filename}"
-
-
-

@@ -6,13 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0053_individualidentity_coat_type'),
+        ("caidapp", "0053_individualidentity_coat_type"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='individualidentity',
-            name='note',
+            model_name="individualidentity",
+            name="note",
             field=models.TextField(blank=True),
         ),
     ]

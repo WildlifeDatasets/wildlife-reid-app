@@ -6,18 +6,18 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0064_alter_individualidentity_hash'),
+        ("caidapp", "0064_alter_individualidentity_hash"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='mediafile',
-            name='taxon_overviewed',
-            field=models.BooleanField(default=False, verbose_name='Taxon overviewed'),
+            model_name="mediafile",
+            name="taxon_overviewed",
+            field=models.BooleanField(default=False, verbose_name="Taxon overviewed"),
         ),
         migrations.AddField(
-            model_name='mediafile',
-            name='taxon_overviewed_at',
-            field=models.DateTimeField(blank=True, null=True, verbose_name='Taxon overviewed at'),
+            model_name="mediafile",
+            name="taxon_overviewed_at",
+            field=models.DateTimeField(blank=True, null=True, verbose_name="Taxon overviewed at"),
         ),
     ]

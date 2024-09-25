@@ -30,7 +30,6 @@ class LogCounterFilter(logging.Filter):
         return str(self.status_counts)
 
 
-
 class DuplicateFilter(logging.Filter):
     def __init__(self):
         super().__init__()

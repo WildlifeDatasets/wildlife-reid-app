@@ -6,13 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0072_alter_mediafile_taxon_verified'),
+        ("caidapp", "0072_alter_mediafile_taxon_verified"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='mediafile',
-            name='taxon_verified_at',
-            field=models.DateTimeField(blank=True, null=True, verbose_name='Taxon verified at'),
+            model_name="mediafile",
+            name="taxon_verified_at",
+            field=models.DateTimeField(blank=True, null=True, verbose_name="Taxon verified at"),
         ),
     ]

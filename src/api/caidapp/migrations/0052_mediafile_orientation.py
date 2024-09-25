@@ -6,13 +6,15 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0051_individualidentity_sex'),
+        ("caidapp", "0051_individualidentity_sex"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='mediafile',
-            name='orientation',
-            field=models.CharField(choices=[('L', 'Left'), ('R', 'Right'), ('N', 'None')], default='N', max_length=2),
+            model_name="mediafile",
+            name="orientation",
+            field=models.CharField(
+                choices=[("L", "Left"), ("R", "Right"), ("N", "None")], default="N", max_length=2
+            ),
         ),
     ]

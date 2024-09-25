@@ -6,13 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0055_alter_uploadedarchive_status_message'),
+        ("caidapp", "0055_alter_uploadedarchive_status_message"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='uploadedarchive',
-            name='taxon_for_identification_on_upload',
-            field=models.CharField(blank=True, default='', max_length=255),
+            model_name="uploadedarchive",
+            name="taxon_for_identification_on_upload",
+            field=models.CharField(blank=True, default="", max_length=255),
         ),
     ]

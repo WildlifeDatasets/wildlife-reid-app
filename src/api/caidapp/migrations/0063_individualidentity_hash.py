@@ -7,13 +7,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0062_alter_location_hash'),
+        ("caidapp", "0062_alter_location_hash"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='individualidentity',
-            name='hash',
+            model_name="individualidentity",
+            name="hash",
             field=models.CharField(default=caidapp.models.get_hash8, max_length=50),
         ),
     ]

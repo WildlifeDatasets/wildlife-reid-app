@@ -72,6 +72,7 @@ def get_images_from_csv(csv_file: Path) -> list:
 #         file_count = sum(1 for f in all_files if not f.endswith("/"))
 #         return file_count
 
+
 def count_files_in_archive(zip_path: Union[str, Path]) -> dict:
     """Count files in the zip archive."""
     # Open the zip file in read mode
@@ -84,24 +85,26 @@ def count_files_in_archive(zip_path: Union[str, Path]) -> dict:
         file_count = sum(1 for f in all_files if not f.endswith("/"))
         for f in all_files:
             if (
-                    f.lower().endswith(".jpg") or
-                    f.lower().endswith(".jpeg") or
-                    f.lower().endswith(".tif") or
-                    f.lower().endswith(".tiff") or
-                    f.lower().endswith(".bmp") or
-                    f.lower().endswith(".png")
+                f.lower().endswith(".jpg")
+                or f.lower().endswith(".jpeg")
+                or f.lower().endswith(".tif")
+                or f.lower().endswith(".tiff")
+                or f.lower().endswith(".bmp")
+                or f.lower().endswith(".png")
             ):
                 image_count += 1
             elif (
-                    f.endswith(".mp4") or
-                    f.endswith(".avi") or
-                    f.endswith(".mov") or
-                    f.endswith(".mkv") or
-                    f.endswith(".webm") or
-                    f.endswith(".flv") or
-                    f.endswith(".wmv") or
-                    f.endswith(".m4v")
+                f.endswith(".mp4")
+                or f.endswith(".avi")
+                or f.endswith(".mov")
+                or f.endswith(".mkv")
+                or f.endswith(".webm")
+                or f.endswith(".flv")
+                or f.endswith(".wmv")
+                or f.endswith(".m4v")
             ):
                 video_coung += 1
         return {"file_count": file_count, "image_count": image_count, "video_count": video_coung}
+
+
 #%%

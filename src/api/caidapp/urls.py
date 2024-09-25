@@ -1,9 +1,6 @@
 from django.urls import path
 
-from . import views_location
-from . import views
-from . import views_mediafile
-from . import views_uploads
+from . import views, views_location, views_mediafile, views_uploads
 
 app_name = "caidapp"
 urlpatterns = [
@@ -64,8 +61,7 @@ urlpatterns = [
         views.run_taxon_classification_force_init,
         name="run_taxon_classification_force_init",
     ),
-    path("refresh_data/", views.refresh_data, name="refresh_data"
-    ),
+    path("refresh_data/", views.refresh_data, name="refresh_data"),
     path("djangologin/", views.MyLoginView.as_view(), name="djangologin"),
     path(
         "media_file_update/<int:media_file_id>/",
@@ -73,7 +69,9 @@ urlpatterns = [
         name="media_file_update",
     ),
     path("manage_locations/", views_location.manage_locations, name="manage_locations"),
-    path("delete_location/<int:location_id>/", views_location.delete_location, name="delete_location"),
+    path(
+        "delete_location/<int:location_id>/", views_location.delete_location, name="delete_location"
+    ),
     path(
         "update_location/<int:location_id>/",
         views_location.update_location,
@@ -82,7 +80,11 @@ urlpatterns = [
     path("albums/", views.albums, name="albums"),
     path("album/<str:album_hash>", views.media_files_update, name="album"),
     path("taxon/<int:taxon_id>", views.media_files_update, name="taxon"),
-    path("media_files/location/<str:location_hash>", views.media_files_update, name="media_files_location"),
+    path(
+        "media_files/location/<str:location_hash>",
+        views.media_files_update,
+        name="media_files_location",
+    ),
     path(
         "representative_mediafiles/",
         lambda request: views.media_files_update(request, identity_is_representative=True),
@@ -194,9 +196,21 @@ urlpatterns = [
     path("cloud_import_preview/", views.cloud_import_preview_view, name="cloud_import_preview"),
     path("do_cloud_import/", views.do_cloud_import_view, name="do_cloud_import"),
     path("break_cloud_import/", views.break_cloud_import_view, name="break_cloud_import"),
-    path("download_csv_for_mediafiles/", views.download_csv_for_mediafiles_view, name="download_csv_for_mediafiles"),
-    path("download_zip_for_mediafiles/", views.download_zip_for_mediafiles_view, name="download_zip_for_mediafiles"),
-    path("download_xlsx_for_mediafiles/", views.download_xlsx_for_mediafiles_view, name="download_xlsx_for_mediafiles"),
+    path(
+        "download_csv_for_mediafiles/",
+        views.download_csv_for_mediafiles_view,
+        name="download_csv_for_mediafiles",
+    ),
+    path(
+        "download_zip_for_mediafiles/",
+        views.download_zip_for_mediafiles_view,
+        name="download_zip_for_mediafiles",
+    ),
+    path(
+        "download_xlsx_for_mediafiles/",
+        views.download_xlsx_for_mediafiles_view,
+        name="download_xlsx_for_mediafiles",
+    ),
     path(
         "download_uploadedarchive_csv/<int:uploadedarchive_id>",
         views.download_csv_for_mediafiles_view,
@@ -213,33 +227,83 @@ urlpatterns = [
         name="download_uploadedarchive_zip",
     ),
     path("mediafiles_stats/", views.mediafiles_stats_view, name="mediafiles_stats"),
-    path("select_taxon_for_identification/<int:uploadedarchive_id>/", views.select_taxon_for_identification, name="select_taxon_for_identification"),
+    path(
+        "select_taxon_for_identification/<int:uploadedarchive_id>/",
+        views.select_taxon_for_identification,
+        name="select_taxon_for_identification",
+    ),
     path("locations/", views.locations_view, name="locations"),
     path("locations/export/", views_location.export_locations_view, name="export_locations"),
-    path("locations/export_xls/", views_location.export_locations_view_xls, name="export_locations_xls"),
+    path(
+        "locations/export_xls/",
+        views_location.export_locations_view_xls,
+        name="export_locations_xls",
+    ),
     path("locations/import/", views_location.import_locations_view, name="import_locations"),
-    path("locations/checks/<str:location_hash>/", views_location.uploads_of_location, name="uploads_of_location"),
-    path("locations/download_records_csv/<str:location_hash>/", views_location.download_records_from_location_csv_view, name="download_records_from_location_csv"),
-    path("locations/download_records_xls/<str:location_hash>/", views_location.download_records_from_location_xls_view, name="download_records_from_location_xls"),
-    path("uploaded_archives/set_sort_by/<str:sort_by>/", views.set_sort_uploaded_archives_by, name="set_sort_uploaded_archives_by"),
-    path("uploaded_archives/set_item_number/<int:item_number>/", views.set_item_number_uploaded_archives, name="set_item_number_uploaded_archives"),
+    path(
+        "locations/checks/<str:location_hash>/",
+        views_location.uploads_of_location,
+        name="uploads_of_location",
+    ),
+    path(
+        "locations/download_records_csv/<str:location_hash>/",
+        views_location.download_records_from_location_csv_view,
+        name="download_records_from_location_csv",
+    ),
+    path(
+        "locations/download_records_xls/<str:location_hash>/",
+        views_location.download_records_from_location_xls_view,
+        name="download_records_from_location_xls",
+    ),
+    path(
+        "uploaded_archives/set_sort_by/<str:sort_by>/",
+        views.set_sort_uploaded_archives_by,
+        name="set_sort_uploaded_archives_by",
+    ),
+    path(
+        "uploaded_archives/set_item_number/<int:item_number>/",
+        views.set_item_number_uploaded_archives,
+        name="set_item_number_uploaded_archives",
+    ),
     path("stream_video/<int:mediafile_id>/", views_mediafile.stream_video, name="stream_video"),
     path("mediafiles/verify_taxa/", views_mediafile.verify_taxa_view, name="verify_taxa"),
-    path("mediafiles/verify_taxa/uploaded_archive/<int:uploaded_archive_id>", views_mediafile.verify_taxa_view, name="verify_taxa"),
-    path("mediafiles/taxons_on_page_are_overviewed/", views_mediafile.taxons_on_page_are_overviewed, name="taxons_on_page_are_overviewed"),
-    path("mediafiles/set_mediafiles_order_by/<str:order_by>/", views_mediafile.set_mediafiles_order_by, name="set_mediafiles_order_by"),
-    path("mediafiles/set_mediafiles_records_per_page/<int:records_per_page>/", views_mediafile.set_mediafiles_records_per_page, name="set_mediafiles_records_per_page"),
-
-    path('impersonate/', views.impersonate_user, name='impersonate_user'),
-    path('stop-impersonation/', views.stop_impersonation, name='stop_impersonation'),
-    path('switch_private_mode/', views.switch_private_mode, name='switch_private_mode'),
-    path('update_taxon/<int:taxon_id>/', views.update_taxon, name='update_taxon'),
-    path('add_taxon/', views.update_taxon, name='add_taxon'),
-    path('confirm_prediction/<int:mediafile_id>', views_mediafile.confirm_prediction, name='confirm_prediction'),
-    path('taxon_processing',views_uploads.taxon_processing, name='taxon_processing'),
-    path('check_dates/', views_uploads.camera_trap_check_dates_view, name='check_dates'),
-    path('check_dates/<int:year>/', views_uploads.camera_trap_check_dates_view, name='check_dates_with_year'),
-    path('check_date/<str:date>/', views_uploads.camera_trap_check_date_view, name='check_date'),
-    path('check_date/', views_uploads.camera_trap_check_date_view, name='check_date_empty'),
+    path(
+        "mediafiles/verify_taxa/uploaded_archive/<int:uploaded_archive_id>",
+        views_mediafile.verify_taxa_view,
+        name="verify_taxa",
+    ),
+    path(
+        "mediafiles/taxons_on_page_are_overviewed/",
+        views_mediafile.taxons_on_page_are_overviewed,
+        name="taxons_on_page_are_overviewed",
+    ),
+    path(
+        "mediafiles/set_mediafiles_order_by/<str:order_by>/",
+        views_mediafile.set_mediafiles_order_by,
+        name="set_mediafiles_order_by",
+    ),
+    path(
+        "mediafiles/set_mediafiles_records_per_page/<int:records_per_page>/",
+        views_mediafile.set_mediafiles_records_per_page,
+        name="set_mediafiles_records_per_page",
+    ),
+    path("impersonate/", views.impersonate_user, name="impersonate_user"),
+    path("stop-impersonation/", views.stop_impersonation, name="stop_impersonation"),
+    path("switch_private_mode/", views.switch_private_mode, name="switch_private_mode"),
+    path("update_taxon/<int:taxon_id>/", views.update_taxon, name="update_taxon"),
+    path("add_taxon/", views.update_taxon, name="add_taxon"),
+    path(
+        "confirm_prediction/<int:mediafile_id>",
+        views_mediafile.confirm_prediction,
+        name="confirm_prediction",
+    ),
+    path("taxon_processing", views_uploads.taxon_processing, name="taxon_processing"),
+    path("check_dates/", views_uploads.camera_trap_check_dates_view, name="check_dates"),
+    path(
+        "check_dates/<int:year>/",
+        views_uploads.camera_trap_check_dates_view,
+        name="check_dates_with_year",
+    ),
+    path("check_date/<str:date>/", views_uploads.camera_trap_check_date_view, name="check_date"),
+    path("check_date/", views_uploads.camera_trap_check_date_view, name="check_date_empty"),
 ]
-

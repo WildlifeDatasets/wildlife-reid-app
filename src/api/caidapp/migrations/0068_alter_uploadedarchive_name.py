@@ -6,13 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0067_taxon_parent'),
+        ("caidapp", "0067_taxon_parent"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='uploadedarchive',
-            name='name',
-            field=models.CharField(blank=True, default='', max_length=255),
+            model_name="uploadedarchive",
+            name="name",
+            field=models.CharField(blank=True, default="", max_length=255),
         ),
     ]

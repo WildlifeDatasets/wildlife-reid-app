@@ -6,13 +6,13 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0056_uploadedarchive_taxon_for_identification_on_upload'),
+        ("caidapp", "0056_uploadedarchive_taxon_for_identification_on_upload"),
     ]
 
     operations = [
         migrations.RenameField(
-            model_name='uploadedarchive',
-            old_name='taxon_for_identification_on_upload',
-            new_name='taxon_for_identification_at_upload',
+            model_name="uploadedarchive",
+            old_name="taxon_for_identification_on_upload",
+            new_name="taxon_for_identification_at_upload",
         ),
     ]

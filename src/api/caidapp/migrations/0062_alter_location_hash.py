@@ -7,13 +7,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0061_location_hash'),
+        ("caidapp", "0061_location_hash"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='location',
-            name='hash',
+            model_name="location",
+            name="hash",
             field=models.CharField(default=caidapp.models.get_hash8, max_length=50),
         ),
     ]

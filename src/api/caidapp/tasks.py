@@ -1,34 +1,35 @@
+import copy
 import datetime
 import json
 import logging
 import os.path
+import shutil
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Generator
 
 import django
 import numpy as np
 import pandas as pd
 from celery import chain, shared_task, signature
 from django.conf import settings
-import shutil
-from typing import Generator
-import copy
 
-from . import fs_data
+from . import fs_data, model_tools, views
 from .fs_data import count_files_in_archive, make_thumbnail_from_file
+from .log_tools import StatusCounts
 from .models import (
+    CaIDUser,
     IndividualIdentity,
+    Location,
     MediaFile,
     MediafilesForIdentification,
     UploadedArchive,
     WorkGroup,
+    get_content_owner_filter_params,
     get_location,
     get_taxon,
-    get_unique_name, CaIDUser, get_content_owner_filter_params, Location,
+    get_unique_name,
 )
-from . import views
-from . import model_tools
-from .log_tools import StatusCounts
 
 # from joblib import Parallel, delayed
 # from tqdm import tqdm
@@ -43,6 +44,7 @@ because it has access to the database and other django resources,
 and functions as a queue for processing worker responses.
 """
 
+
 class DuplicateFilter(logging.Filter):
     def __init__(self):
         super().__init__()
@@ -55,7 +57,6 @@ class DuplicateFilter(logging.Filter):
             self.last_log = current_log
             return True
         return False
-
 
 
 @shared_task(bind=True)
@@ -158,6 +159,7 @@ def _prepare_dataframe_for_identification(mediafiles) -> dict:
 #         },
 #     )
 
+
 @shared_task(bind=True)
 def do_cloud_import_for_user(self, caiduser: CaIDUser):
     caiduser.dir_import_status = "Processing"
@@ -220,10 +222,8 @@ def do_cloud_import_for_user(self, caiduser: CaIDUser):
     caiduser.save()
 
 
-def do_cloud_import_async(caiduser:CaIDUser):
-    sig = do_cloud_import_for_user.s(
-        caiduser=caiduser
-    )
+def do_cloud_import_async(caiduser: CaIDUser):
+    sig = do_cloud_import_for_user.s(caiduser=caiduser)
     # run async
     sig.apply_async()
 
@@ -327,6 +327,7 @@ def run_species_prediction_async(
     except Exception as e:
         logger.error(f"Error during init: {e}")
         import traceback
+
         uploaded_archive.taxon_status = "Failed"
         uploaded_archive.status_message = traceback.format_exc()
         uploaded_archive.save()
@@ -426,8 +427,7 @@ def _estimate_time_for_taxon_classification_of_uploaded_archive(
     time_per_video = datetime.timedelta(seconds=60)
 
     time_to_process = datetime.timedelta(seconds=10) + (
-        (time_per_image * image_count) +
-        (time_per_video * video_count)
+        (time_per_image * image_count) + (time_per_video * video_count)
     )
     logger.debug(f"{time_to_process=}")
     return time_to_process
@@ -696,6 +696,7 @@ def _sync_metadata_by_creating_from_mediafiles(csv_file, output_dir, uploaded_ar
     else:
         csv_file.unlink()
 
+
 def metadata_json_are_consistent(mediafiles: Generator[MediaFile, None, None]) -> bool:
     for mf in mediafiles:
         metadata_row = copy.copy(mf.metadata_json)
@@ -707,6 +708,7 @@ def metadata_json_are_consistent(mediafiles: Generator[MediaFile, None, None]) -
             )
             return False
     return True
+
 
 def create_dataframe_from_mediafiles(mediafiles: Generator[MediaFile, None, None]) -> pd.DataFrame:
     records = []
@@ -746,7 +748,6 @@ def create_dataframe_from_mediafiles(mediafiles: Generator[MediaFile, None, None
         metadata_row["uploaded_archive"] = mf.parent.name
         if mf.parent.location_check_at:
             metadata_row["location_check_at"] = mf.parent.location_check_at
-
 
         records.append(metadata_row)
     df = pd.DataFrame.from_records(records)
@@ -1052,6 +1053,7 @@ def _find_mediafiles_for_identification(
     :return: MediafilesForIdentification object.
     """
 
+
 def _ensure_date_format(date_str: str) -> str:
     if len(date_str) == 8:  # Format YYYYMMDD
         date = f"{date_str[:4]}-{date_str[4:6]}-{date_str[6:]}"
@@ -1060,7 +1062,9 @@ def _ensure_date_format(date_str: str) -> str:
     return date
 
 
-def _iterate_over_location_checks(path: Path, caiduser: CaIDUser) -> Generator[SimpleNamespace, None, None]:
+def _iterate_over_location_checks(
+    path: Path, caiduser: CaIDUser
+) -> Generator[SimpleNamespace, None, None]:
     import re
     from itertools import chain
 
@@ -1074,8 +1078,8 @@ def _iterate_over_location_checks(path: Path, caiduser: CaIDUser) -> Generator[S
         path.glob("./*/????-??-??"),
         path.glob("./*/????????.zip"),
         path.glob("./*/????-??-??.zip"),
-
-        path.glob("./*"))
+        path.glob("./*"),
+    )
     # paths_of_location_check = chain(path.glob("./*_????-??-??"), path.glob("./*_????-??-??.zip"))
     # paths_of_location_check = path.glob("./*")
     base_path = path
@@ -1100,7 +1104,6 @@ def _iterate_over_location_checks(path: Path, caiduser: CaIDUser) -> Generator[S
             # location is in the beginning of dir or file name separated from date by underscore
             # date, location = pth_no_suffix.parts[-1].split("_", 1)
             # location is everything after the last underscore
-
 
             error_message = None
         elif match1:
@@ -1134,10 +1137,7 @@ def _iterate_over_location_checks(path: Path, caiduser: CaIDUser) -> Generator[S
                 "Name of the directory or file is not in format {YYYY-MM-DD}_{location_name}."
                 + "Skipping."
             )
-            error_message = (
-                "Name of the directory or file is not in correct format. "
-                + "Skipping."
-            )
+            error_message = "Name of the directory or file is not in correct format. " + "Skipping."
             location = ""
             date = ""
 
@@ -1149,7 +1149,12 @@ def _iterate_over_location_checks(path: Path, caiduser: CaIDUser) -> Generator[S
         zip_name = fs_data.remove_diacritics(f"{location}_{date}.zip").replace(" ", "_")
 
         relative_path = path_of_location_check.relative_to(path)
-        is_already_processed = relative_path.parts[0] in ("_imported", "#recycle", "_trash_bin", "_del_me")
+        is_already_processed = relative_path.parts[0] in (
+            "_imported",
+            "#recycle",
+            "_trash_bin",
+            "_del_me",
+        )
 
         yield_dict = SimpleNamespace(
             date=date,
