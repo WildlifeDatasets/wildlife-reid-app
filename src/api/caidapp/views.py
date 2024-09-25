@@ -387,21 +387,30 @@ def _multiple_species_button_style_and_tooltips(request) -> dict:
         models.get_mediafiles_with_missing_taxon(request.user.caiduser)
 
     )
+    n_missing_verifications = len(
+        models.get_mediafiles_with_missing_verification(request.user.caiduser)
+    )
+
+    some_missing_taxons = n_non_classified_taxons > 0
+    some_missing_verifications = n_missing_verifications > 0
+
     btn_tooltips = {
-        "classify_non_classified": f"Annotate {n_non_classified_taxons} media files "
+        "annotate_missing_taxa": f"Annotate {n_non_classified_taxons} media files "
         + "with missing taxon.",
+        "verify_taxa": f"Go to verification of {n_missing_verifications} media files."
     }
-    if n_non_classified_taxons == 0:
-        btn_styles = {
-            "upload_species": "btn-primary",
-            "classify_non_classified": "btn-secondary",
-        }
-    else:
-        btn_styles = {
-            "upload_species": "btn-secondary",
-            "classify_non_classified": "btn-primary",
-        }
-    btn_styles["overview_taxons"] = "btn-secondary"
+    btn_styles = {
+        "upload_species": "btn-secondary",
+        "annotate_missing_taxa": "btn-secondary",
+        "verify_taxa": "btn-secondary",
+    }
+    if not some_missing_taxons and not some_missing_verifications:
+        btn_styles["upload_species"] = "btn-primary"
+    elif some_missing_taxons:
+        btn_styles["annotate_missing_taxa"] = "btn-primary"
+    elif some_missing_verifications:
+        btn_styles["verify_taxa"] = "btn-primary"
+
     return btn_styles, btn_tooltips
 
 

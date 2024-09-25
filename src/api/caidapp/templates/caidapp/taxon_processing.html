@@ -73,12 +73,12 @@
                         <div class="card">
                             <div class="card-body">
                                 <h3 class="card-title">Annotate</h3>
-                                <a class="btn {{ btn_styles.classify_non_classified }} mt-2" href="{% url 'caidapp:missing_taxon_annotation' %}"
-                                   data-bs-toggle="tooltip" title="{{ btn_tooltips.classify_non_classified }}"
+                                <a class="btn {{ btn_styles.annotate_missing_taxa }} mt-2" href="{% url 'caidapp:missing_taxon_annotation' %}"
+                                   data-bs-toggle="tooltip" title="{{ btn_tooltips.annotate_missing_taxa }}"
                                 >Annotate missing taxa (one by one)</a>
-                                <a class="btn {{ btn_styles.overview_taxons }} mt-2" href="{% url 'caidapp:overview_taxons' %}"
-                                        {#                           data-bs-toggle="tooltip" title="{{ btn_tooltips.classify_non_classified }}"#}
-                                >Overview taxons</a>
+                                <a class="btn {{ btn_styles.verify_taxa }} mt-2" href="{% url 'caidapp:overview_taxons' %}"
+                                   data-bs-toggle="tooltip" title="{{ btn_tooltips.verify_taxa}}"
+                                >Verify taxa</a>
                             </div>
                         </div>
 
