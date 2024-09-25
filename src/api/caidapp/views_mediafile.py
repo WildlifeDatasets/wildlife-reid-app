@@ -56,17 +56,18 @@ def missing_taxon_annotation(request, uploaded_archive_id: Optional[int] = None)
         uploadedarchive = None
 
     # pick random non-classified media file
-    not_classified_taxon = models.Taxon.objects.get(name="Not Classified")
-    animalia_taxon = models.Taxon.objects.get(name="Animalia")
+    mediafiles = models.get_mediafiles_with_missing_taxon(request.user.caiduser, uploadedarchive=uploadedarchive)
+    # not_classified_taxon = models.Taxon.objects.get(name="Not Classified")
+    # animalia_taxon = models.Taxon.objects.get(name="Animalia")
 
-    mediafiles = (
-        MediaFile.objects.filter(
-            Q(category=None) | Q(category=not_classified_taxon) |
-            (Q(category=animalia_taxon) & Q(taxon_verified=False)),
-            **get_content_owner_filter_params(request.user.caiduser, "parent__owner"),
-            parent=uploadedarchive,
-            parent__contains_single_taxon=False,
-        ))
+    # mediafiles = (
+    #     MediaFile.objects.filter(
+    #         Q(category=None) | Q(category=not_classified_taxon) |
+    #         (Q(category=animalia_taxon) & Q(taxon_verified=False)),
+    #         **get_content_owner_filter_params(request.user.caiduser, "parent__owner"),
+    #         parent=uploadedarchive,
+    #         parent__contains_single_taxon=False,
+    #     ))
 
 
 
@@ -92,7 +93,7 @@ def missing_taxon_annotation(request, uploaded_archive_id: Optional[int] = None)
     else:
         next_url = reverse_lazy("caidapp:missing_taxon_annotation")
         skip_url = reverse_lazy("caidapp:missing_taxon_annotation")
-        cancel_url = reverse_lazy("caidapp:uploadedarchives")
+        cancel_url = reverse_lazy("caidapp:taxon_processing")
 
     if mediafile is None:
         return message_view(request, "No non-classified media files.")

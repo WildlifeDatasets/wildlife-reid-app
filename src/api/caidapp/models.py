@@ -14,6 +14,7 @@ from django.dispatch import receiver
 from location_field.models.plain import PlainLocationField
 from django.urls import reverse_lazy
 from django.contrib import messages
+from django.db.models.query import QuerySet
 from . import fs_data
 
 from .model_tools import (
@@ -299,13 +300,14 @@ class UploadedArchive(models.Model):
         return self.mediafile_set.filter(taxon_verified=False).count() == 0
 
     def mediafiles_with_missing_taxon(self, **kwargs):
-        not_classified_taxon = Taxon.objects.get(name="Not Classified")
-        animalia_taxon = Taxon.objects.get(name="Animalia")
-        return self.mediafile_set.filter(
-            Q(category=None) | Q(category=not_classified_taxon) |
-            (Q(category=animalia_taxon) & Q(taxon_verified=False)),
-            **kwargs
-        )
+        return get_mediafiles_with_missing_taxon(self.owner, uploadedarchive=self, **kwargs)
+        # not_classified_taxon = Taxon.objects.get(name="Not Classified")
+        # animalia_taxon = Taxon.objects.get(name="Animalia")
+        # return self.mediafile_set.filter(
+        #     Q(category=None) | Q(category=not_classified_taxon) |
+        #     (Q(category=animalia_taxon) & Q(taxon_verified=False)),
+        #     **kwargs
+        # )
     def count_of_mediafiles_with_missing_taxon(self):
         return self.mediafiles_with_missing_taxon().count()
 
@@ -692,5 +694,31 @@ def auto_delete_file_on_delete(sender, instance, **kwargs):
 #
 #     def __str__(self):
 #         return str(self.title)
+
+
+def get_mediafiles_with_missing_taxon(caiduser:CaIDUser, uploadedarchive:Optional[UploadedArchive]=None, **kwargs) -> QuerySet:
+
+    # pick random non-classified media file
+    not_classified_taxon = Taxon.objects.get(name="Not Classified")
+    animalia_taxon = Taxon.objects.get(name="Animalia")
+
+    kwargs_filter = get_content_owner_filter_params(caiduser, "parent__owner")
+    if uploadedarchive is not None:
+        kwargs["parent"] = uploadedarchive
+
+
+    logger.debug(f"{caiduser=}, {uploadedarchive=}, {kwargs=}, {kwargs_filter=}")
+    mediafiles = (
+        MediaFile.objects.filter(
+            Q(category=None) | Q(category=not_classified_taxon) |
+            (Q(category=animalia_taxon) & Q(taxon_verified=False)),
+            **kwargs_filter,
+            # parent=uploadedarchive,
+            parent__contains_single_taxon=False,
+            **kwargs
+            ))
+    logger.debug(f"{mediafiles.count()=}")
+    return mediafiles
+
 
 

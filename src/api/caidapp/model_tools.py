@@ -7,6 +7,7 @@ from pathlib import Path
 import pandas as pd
 
 from django.conf import settings
+from django.db.models import Q
 
 logger = logging.getLogger("database")
 
@@ -84,5 +85,6 @@ def get_zip_path_in_unique_folder(instance, filename):
 
     # path cannot be absolute or contain "..", otherwise django will raise an error
     return f"./upload/{unique_id}/{filename}"
+
 
 
