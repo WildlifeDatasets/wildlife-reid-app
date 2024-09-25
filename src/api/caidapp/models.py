@@ -293,8 +293,6 @@ class UploadedArchive(models.Model):
         else:
             self.name = Path(self.archivefile.name).stem
             return str(self.name)
-        # uploaded_archive.name = Path(uploaded_archive.archivefile.name).stem
-        # return str(Path(self.archivefile.name).name)
 
     def taxons_are_verified(self):
         return self.mediafile_set.filter(taxon_verified=False).count() == 0
@@ -698,9 +696,27 @@ def auto_delete_file_on_delete(sender, instance, **kwargs):
 
 def get_mediafiles_with_missing_taxon(caiduser:CaIDUser, uploadedarchive:Optional[UploadedArchive]=None, **kwargs) -> QuerySet:
 
-    # pick random non-classified media file
     not_classified_taxon = Taxon.objects.get(name="Not Classified")
     animalia_taxon = Taxon.objects.get(name="Animalia")
+
+    kwargs_filter = get_content_owner_filter_params(caiduser, "parent__owner")
+    if uploadedarchive is not None:
+        kwargs["parent"] = uploadedarchive
+
+
+    mediafiles = (
+        MediaFile.objects.filter(
+            Q(category=None) | Q(category=not_classified_taxon) |
+            (Q(category=animalia_taxon) & Q(taxon_verified=False)),
+            **kwargs_filter,
+            parent__contains_single_taxon=False,
+            **kwargs
+            ))
+    logger.debug(f"{mediafiles.count()=}")
+    return mediafiles
+
+
+def get_mediafiles_with_missing_verification(caiduser:CaIDUser, uploadedarchive:Optional[UploadedArchive]=None, **kwargs) -> QuerySet:
 
     kwargs_filter = get_content_owner_filter_params(caiduser, "parent__owner")
     if uploadedarchive is not None:
@@ -710,15 +726,12 @@ def get_mediafiles_with_missing_taxon(caiduser:CaIDUser, uploadedarchive:Optiona
     logger.debug(f"{caiduser=}, {uploadedarchive=}, {kwargs=}, {kwargs_filter=}")
     mediafiles = (
         MediaFile.objects.filter(
-            Q(category=None) | Q(category=not_classified_taxon) |
-            (Q(category=animalia_taxon) & Q(taxon_verified=False)),
+            taxon_verified=False,
             **kwargs_filter,
-            # parent=uploadedarchive,
             parent__contains_single_taxon=False,
             **kwargs
-            ))
+        ))
     logger.debug(f"{mediafiles.count()=}")
     return mediafiles
-
 
 
