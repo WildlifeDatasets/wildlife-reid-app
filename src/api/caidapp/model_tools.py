@@ -7,13 +7,12 @@ from pathlib import Path
 
 import pandas as pd
 from django.conf import settings
-from django.db.models import Q
 
 logger = logging.getLogger("database")
 
 
 def convert_datetime_to_naive(df: pd.DataFrame) -> pd.DataFrame:
-    # convert timezone-aware datetime to naive datetime
+    """Convert timezone-aware datetime to naive datetime."""
     for col in df.columns:
         if df[col].dtype == "datetime64[ns, UTC]":
             df[col] = df[col].dt.tz_convert(None)

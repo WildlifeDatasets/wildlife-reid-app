@@ -23,7 +23,6 @@ from .model_tools import (
     get_output_dir,
     get_zip_path_in_unique_folder,
     random_string,
-    random_string8,
     random_string12,
 )
 
@@ -45,12 +44,14 @@ UA_STATUS_CHOICES_DICT = dict(UA_STATUS_CHOICES)
 
 
 def get_hash():
+    """Return a hash composed from date and random string."""
     dt = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
     hash_str = generate_sha1(dt, salt=random_string())
     return hash_str
 
 
 def get_hash8():
+    """Return a hash composed from date and random string."""
     return get_hash()[:8]
 
 
@@ -211,6 +212,7 @@ class UploadedArchive(models.Model):
                 messages.debug(request, f"Status {self.taxon_status} not found in refresh.")
 
     def next_processing_step_structure(self) -> Optional[tuple]:
+        """Return suggestion for next processing step in structure."""
         if self.taxon_status == "C":
             return None
         elif self.taxon_status == "F":
@@ -229,7 +231,7 @@ class UploadedArchive(models.Model):
             return None
 
     def extract_location_check_at_from_filename(self, commit=True):
-
+        """Extract location check at from filename."""
         logger.debug(f"{self.location_check_at=}")
         if self.location_check_at is None:
             archive_name = Path(self.archivefile.name).stem
@@ -246,12 +248,15 @@ class UploadedArchive(models.Model):
                     self.save()
 
     def count_of_mediafiles(self):
+        """Return number of mediafiles in the archive."""
         return MediaFile.objects.filter(parent=self).count()
 
     def count_of_representative_mediafiles(self):
+        """Return number of representative mediafiles in the archive."""
         return MediaFile.objects.filter(parent=self, identity_is_representative=True).count()
 
     def count_of_mediafiles_with_taxon_for_identification(self):
+        """Return number of mediafiles with taxon for identification in the archive."""
         if self.taxon_for_identification is None:
             return None
         else:
@@ -270,13 +275,15 @@ class UploadedArchive(models.Model):
         self.location = location.name
 
     def earliest_captured_taxon(self):
+        """Return earliest captured taxon in the archive."""
         return MediaFile.objects.filter(parent=self).order_by("captured_at").first().category
 
     def latest_captured_taxon(self):
+        """Return latest captured taxon in the archive."""
         return MediaFile.objects.filter(parent=self).order_by("-captured_at").first().category
 
     def update_earliest_and_latest_captured_at(self):
-        """Update the earliest and latest captured at in the archive based on mediafiles."""
+        """Update the earliest and latest captured at in the archive based on media files."""
         mediafiles = MediaFile.objects.filter(parent=self)
         earliest_captured_at = None
         latest_captured_at = None
@@ -294,6 +301,7 @@ class UploadedArchive(models.Model):
         self.save()
 
     def get_name(self):
+        """Return name of the archive."""
         return str(Path(self.archivefile.name).name)
 
     def __str__(self):
@@ -304,9 +312,11 @@ class UploadedArchive(models.Model):
             return str(self.name)
 
     def taxons_are_verified(self):
+        """Return True if all taxons are verified."""
         return self.mediafile_set.filter(taxon_verified=False).count() == 0
 
     def mediafiles_with_missing_taxon(self, **kwargs):
+        """Return media files with missing taxon."""
         return get_mediafiles_with_missing_taxon(self.owner, uploadedarchive=self, **kwargs)
         # not_classified_taxon = Taxon.objects.get(name="Not Classified")
         # animalia_taxon = Taxon.objects.get(name="Animalia")
@@ -317,12 +327,15 @@ class UploadedArchive(models.Model):
         # )
 
     def count_of_mediafiles_with_missing_taxon(self):
+        """Return number of media files with missing taxon."""
         return self.mediafiles_with_missing_taxon().count()
 
     def count_of_mediafiles_with_taxon(self):
+        """Return number of media files with taxon."""
         return self.count_of_mediafiles() - self.count_of_mediafiles_with_missing_taxon()
 
     def percents_of_mediafiles_with_taxon(self) -> float:
+        """Return percents of media files with taxon."""
         if self.count_of_mediafiles() == 0:
             return 0
         return (
@@ -332,12 +345,15 @@ class UploadedArchive(models.Model):
         )
 
     def count_of_mediafiles_with_verified_taxon(self):
+        """Return number of media files with verified taxon."""
         return self.mediafile_set.filter(taxon_verified=True).count()
 
     def count_of_mediafiles_with_unverified_taxon(self):
+        """Return number of media files with unverified taxon."""
         return self.mediafile_set.filter(taxon_verified=False).count()
 
     def percents_of_mediafiles_with_verified_taxon(self) -> float:
+        """Return percents of media files with verified taxon."""
         if self.count_of_mediafiles() == 0:
             return 0
         return (
@@ -347,9 +363,11 @@ class UploadedArchive(models.Model):
         )
 
     def has_all_taxons(self):
+        """Return True if all media files have taxon."""
         return self.count_of_mediafiles_with_missing_taxon() == 0
 
     def count_of_identities(self):
+        """Return number of unique identities in the archive."""
         return (
             self.mediafile_set.filter(Q(identity__isnull=False))
             .values("identity")
@@ -358,7 +376,7 @@ class UploadedArchive(models.Model):
         )
 
     def count_of_taxons(self):
-        """return number of unique taxons in the archive"""
+        """Return number of unique taxons in the archive."""
         not_classified_taxon = Taxon.objects.get(name="Not Classified")
         return (
             self.mediafile_set.filter(Q(category=None) | Q(category=not_classified_taxon))
@@ -368,12 +386,12 @@ class UploadedArchive(models.Model):
         )
 
     def number_of_media_files_in_archive(self) -> dict:
+        """Return number of media files in the archive."""
         counts = fs_data.count_files_in_archive(self.archivefile.path)
         return counts
 
     def update_status(self):
-        """Update status with respect to manual annotations"""
-
+        """Update status with respect to manual annotations."""
         status = self.taxon_status
 
         if self.count_of_mediafiles_with_unverified_taxon() == 0:
@@ -405,7 +423,6 @@ class UploadedArchive(models.Model):
 
     def get_status(self) -> dict:
         """Return short status message, long message and color-style for the status."""
-
         # find 'F' in self.STATUS_CHOICES[]
         status = self.taxon_status
         status_message = self.status_message
@@ -457,23 +474,28 @@ class IndividualIdentity(models.Model):
     hash = models.CharField(max_length=50, blank=True)
 
     def count_of_representative_mediafiles(self):
+        """Return number of representative media files."""
         return MediaFile.objects.filter(identity=self, identity_is_representative=True).count()
 
     def count_of_mediafiles(self):
+        """Return number of media files."""
         return MediaFile.objects.filter(identity=self).count()
 
     def __str__(self):
         return str(self.name)
 
     def save(self, *args, **kwargs):
+        """Save object."""
         if not self.hash:
             self.hash = get_hash8()
         super().save(*args, **kwargs)
 
     def get_sex_display(self):
+        """Return human readable sex."""
         return dict(self.SEX_CHOICES).get(self.sex, "Unknown")
 
     def get_coat_type_display(self):
+        """Return human readable coat type."""
         return dict(self.COAT_TYPE_CHOICES).get(self.coat_type, "Unknown")
 
 
@@ -519,7 +541,6 @@ class MediaFile(models.Model):
 
     taxon_verified = models.BooleanField("Taxon verified", default=False)
     taxon_verified_at = models.DateTimeField("Taxon verified at", blank=True, null=True)
-    # taxon_verified_by = models.ForeignKey("Taxon overviewed by", CaIDUser, on_delete=models.SET_NULL, null=True, blank=True, related_name="taxon_verified_by")
 
     class Meta:
         ordering = ["-identity_is_representative", "captured_at"]
@@ -529,6 +550,7 @@ class MediaFile(models.Model):
         # return str(Path(self.mediafile.name).name)
 
     def extract_original_filename(self, commit=True):
+        """Extract original filename from metadata_json or mediafile."""
         if self.metadata_json:
             if "vanilla_path" in self.metadata_json:
                 self.original_filename = Path(self.metadata_json["vanilla_path"]).name
@@ -541,12 +563,14 @@ class MediaFile(models.Model):
         return self.original_filename
 
     def is_preidentified(self):
+        """Return True if mediafile is preidentified."""
         return MediafilesForIdentification.objects.filter(mediafile=self).exists()
 
     def is_for_suggestion(self):
+        """Return True if mediafile is for suggestion."""
         return (self.predicted_taxon is not None) and (
             (self.category.name == "Not Classified")
-            or ((self.category.name == "Animalia") and (self.taxon_verified == False))
+            or ((self.category.name == "Animalia") and (self.taxon_verified is False))
         )
 
 
@@ -721,7 +745,7 @@ def auto_delete_file_on_delete(sender, instance, **kwargs):
 def get_mediafiles_with_missing_taxon(
     caiduser: CaIDUser, uploadedarchive: Optional[UploadedArchive] = None, **kwargs
 ) -> QuerySet:
-
+    """Return media files with missing taxon."""
     not_classified_taxon = Taxon.objects.get(name="Not Classified")
     animalia_taxon = Taxon.objects.get(name="Animalia")
 
@@ -744,7 +768,7 @@ def get_mediafiles_with_missing_taxon(
 def get_mediafiles_with_missing_verification(
     caiduser: CaIDUser, uploadedarchive: Optional[UploadedArchive] = None, **kwargs
 ) -> QuerySet:
-
+    """Return media files with missing taxon verification."""
     kwargs_filter = get_content_owner_filter_params(caiduser, "parent__owner")
     if uploadedarchive is not None:
         kwargs["parent"] = uploadedarchive

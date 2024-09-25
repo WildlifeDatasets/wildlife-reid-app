@@ -1,9 +1,8 @@
 import logging
 from typing import Optional
 
-from django.contrib import messages
 from django.http import HttpResponse
-from django.shortcuts import redirect, render
+from django.shortcuts import render
 from django.utils import timezone
 
 from . import views
@@ -13,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 def taxon_processing(request):
-
+    """View for overall management of taxon processing."""
     btn_styles, btn_tooltips = views._multiple_species_button_style_and_tooltips(request)
     return render(
         request,
@@ -33,7 +32,6 @@ def _get_check_dates(
     taxon_for_identification__isnull: Optional[bool] = None,
 ) -> list:
     """Get the list of unique dates for the uploaded archives."""
-
     filter_params = {}
     if contains_single_taxon is not None:
         filter_params = dict(contains_single_taxon=contains_single_taxon)
@@ -82,8 +80,7 @@ def camera_trap_check_dates_view(
     taxon_for_identification__isnull: Optional[bool] = None,
     year: Optional[int] = None,
 ):
-
-    #
+    """View for checking the dates of camera trap checks."""
     dates = _get_check_dates(request, contains_single_taxon, taxon_for_identification__isnull)
     sorted_grouped_dates = _get_grouped_dates(dates)
 
@@ -112,9 +109,7 @@ def camera_trap_check_date_view(
     contains_single_taxon: Optional[bool] = None,
     taxon_for_identification__isnull: Optional[bool] = None,
 ) -> HttpResponse:
-
-    from .views import _uploads_general
-
+    """View for checking one particular date from camera checks."""
     # this is there only to get list o years. Maybe it is no necessary
     dates = _get_check_dates(request, contains_single_taxon, taxon_for_identification__isnull)
     sorted_grouped_dates = _get_grouped_dates(dates)
@@ -126,7 +121,7 @@ def camera_trap_check_date_view(
         date = "None"
     else:
         filter = dict(location_check_at__date=date)
-    page_context = _uploads_general(
+    page_context = views._uploads_general(
         request,
         contains_single_taxon=contains_single_taxon,
         taxon_for_identification__isnull=taxon_for_identification__isnull,
@@ -148,40 +143,40 @@ def camera_trap_check_date_view(
 
 
 def uploadedarchive_detail(request, uploadedarchive_id: int) -> HttpResponse:
-    from .views import _uploads_general
+    """View for the detail of the uploaded archive."""
+    uarch = UploadedArchive.objects.get(id=uploadedarchive_id)
 
-    uploaded_archive = UploadedArchive.objects.get(id=uploadedarchive_id)
-
-    # {% if uploadedarchive.count_of_mediafiles_with_taxon_for_identification %}
-    # Mediafiles with taxon {{ uploadedarchive.taxon_for_identification }}: {{ uploadedarchive.count_of_mediafiles_with_taxon_for_identification }}
-    # {% endif %}
-    #
-    # {% if uploadedarchive.animal_number %}
-    # Count: {{ uploadedarchive.animal_number }}
+    # fmt: off
     dictionary = {
-        "Uploaded at": uploaded_archive.uploaded_at,
-        "Location": uploaded_archive.location_at_upload_object,
-        "Location check at": uploaded_archive.location_check_at,
-        "Status": uploaded_archive.taxon_status,
-        "Status message": uploaded_archive.status_message,
-        "Identification status": uploaded_archive.identification_status,
-        "Owner": uploaded_archive.owner,
-        "Contains single taxon": uploaded_archive.contains_single_taxon,
-        "Taxon for identification": uploaded_archive.taxon_for_identification,
-        "Count of media files": uploaded_archive.count_of_mediafiles(),
-        "Count of representative media files": uploaded_archive.count_of_representative_mediafiles(),
-        "Count of media files with taxon": uploaded_archive.count_of_mediafiles_with_taxon(),
-        "Count of media files withi missing taxon": uploaded_archive.count_of_mediafiles_with_missing_taxon(),
-        "Count of media files with verified taxon": uploaded_archive.count_of_mediafiles_with_verified_taxon(),
-        "Count of taxons": uploaded_archive.count_of_taxons(),
-        "Count of identities": uploaded_archive.count_of_identities(),
-        "Precents of media files with taxon": uploaded_archive.percents_of_mediafiles_with_taxon(),
+        "Uploaded at": uarch.uploaded_at,
+        "Location": uarch.location_at_upload_object,
+        "Location check at": uarch.location_check_at,
+        "Status": uarch.taxon_status,
+        "Status message": uarch.status_message,
+        "Identification status": uarch.identification_status,
+        "Owner": uarch.owner,
+        "Contains single taxon": uarch.contains_single_taxon,
+        "Taxon for identification": uarch.taxon_for_identification,
+        "Count of media files": uarch.count_of_mediafiles(),
+        "Count of representative media files":
+            uarch.count_of_representative_mediafiles(),
+        "Count of media files with taxon": uarch.count_of_mediafiles_with_taxon(),
+        "Count of media files with missing taxon":
+            uarch.count_of_mediafiles_with_missing_taxon(),
+        "Count of media files with verified taxon":
+            uarch.count_of_mediafiles_with_verified_taxon(),
+        "Count of taxons": uarch.count_of_taxons(),
+        "Count of identities": uarch.count_of_identities(),
+        "Precents of media files with taxon": uarch.percents_of_mediafiles_with_taxon(),
     }
+    # fmt: on
     return render(
         request,
         "caidapp/message.html",
         context=dict(
-            headline=f"Uploaded Archive {uploaded_archive.location_at_upload_object} {uploaded_archive.location_check_at}",
+            headline="Uploaded Archive "
+            + f"{uarch.location_at_upload_object} "
+            + f"{uarch.location_check_at}",
             dictionary=dictionary,
         ),
     )

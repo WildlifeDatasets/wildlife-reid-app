@@ -3,7 +3,6 @@ import random
 from typing import Optional
 
 import django
-from django.db.models import Q
 from django.http import (
     Http404,
     HttpResponseNotAllowed,
@@ -11,17 +10,18 @@ from django.http import (
     JsonResponse,
     StreamingHttpResponse,
 )
-from django.shortcuts import Http404, HttpResponse, get_object_or_404, redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.utils import timezone
 
 from . import model_extra, models
 from .forms import MediaFileForm
-from .models import MediaFile, get_content_owner_filter_params
+from .models import MediaFile
 from .views import logger, media_files_update, message_view
 
 
 def stream_video(request, mediafile_id):
+    """Stream video file."""
     mediafile = get_object_or_404(MediaFile, id=mediafile_id)
     if mediafile.media_type != "video":
         raise Http404("Not a video file")
@@ -117,7 +117,7 @@ def missing_taxon_annotation(request, uploaded_archive_id: Optional[int] = None)
 
 
 def verify_taxa_view(request, uploaded_archive_id: Optional[int] = None):
-
+    """See media files for verification."""
     return media_files_update(
         request,
         show_overview_button=True,
@@ -129,7 +129,8 @@ def verify_taxa_view(request, uploaded_archive_id: Optional[int] = None):
     # views.
 
 
-def taxons_on_page_are_overviewed(request):
+def taxons_on_page_are_verified(request):
+    """Mark taxons on page as verified."""
     # get 'mediafiles_ids_page' from session
     mediafile_ids = request.session.get("mediafile_ids_page", [])
     mediafiles = MediaFile.objects.filter(id__in=mediafile_ids)
@@ -144,18 +145,21 @@ def taxons_on_page_are_overviewed(request):
 
 
 def set_mediafiles_order_by(request, order_by: str):
+    """Set order by for media files."""
     request.session["mediafiles_order_by"] = order_by
     # go back to the same page
     return redirect(request.META.get("HTTP_REFERER", "/"))
 
 
 def set_mediafiles_records_per_page(request, records_per_page: int):
+    """Set records per page for media files."""
     request.session["mediafiles_records_per_page"] = records_per_page
 
     return redirect(request.META.get("HTTP_REFERER", "/"))
 
 
 def confirm_prediction(request, mediafile_id: int) -> JsonResponse:
+    """Confirm prediction for media file with low confidence."""
     try:
         mediafile = get_object_or_404(MediaFile, id=mediafile_id)
         # user has rw access
@@ -171,24 +175,10 @@ def confirm_prediction(request, mediafile_id: int) -> JsonResponse:
 
             return JsonResponse({"success": True, "message": "Prediction confirmed."})
         return JsonResponse({"success": False, "message": "No read/write access to the file"})
-    except Exception as e:
+    except Exception:
         return JsonResponse({"success": False, "message": "Invalid request."})
 
 
-# def confirm_prediction(request):
-#     if request.method == 'POST':
-#         mediafile_id = request.POST.get('mediafile_id')
-#         mediafile = get_object_or_404(MediaFile, id=mediafile_id)
-#
-#         # Update the MediaFile instance
-#         mediafile.category = mediafile.predicted_taxon
-#         mediafile.updated_at = timezone.now()
-#         mediafile.updated_by = request.user.caiduser
-#         mediafile.taxon_verified = True
-#         mediafile.save()
-#
-#         return JsonResponse({'success': True, 'message': 'Prediction confirmed.'})
-#     return JsonResponse({'success': False, 'message': 'Invalid request.'})
 def media_file_update(
     request, media_file_id, next_text="Save", next_url=None, skip_url=None, cancel_url=None
 ):
@@ -213,7 +203,7 @@ def media_file_update(
                     kwargs={"uploadedarchive_id": mediafile.parent.id},
                 )
         if "confirmTaxonSubmit" in request.POST:
-            json_response = confirm_prediction(request, media_file_id)
+            confirm_prediction(request, media_file_id)
             # decode_json
             return redirect(next_url)
 

@@ -62,17 +62,6 @@ def get_images_from_csv(csv_file: Path) -> list:
     return list(df["image_path"])
 
 
-# def count_files_in_archive(zip_path: Union[str, Path]) -> int:
-#     """Count files in the zip archive."""
-#     # Open the zip file in read mode
-#     with zipfile.ZipFile(zip_path, "r") as zip:
-#         # List all files and directories in the zip
-#         all_files = zip.namelist()
-#         # Count only the files, excluding directories
-#         file_count = sum(1 for f in all_files if not f.endswith("/"))
-#         return file_count
-
-
 def count_files_in_archive(zip_path: Union[str, Path]) -> dict:
     """Count files in the zip archive."""
     # Open the zip file in read mode
@@ -105,6 +94,3 @@ def count_files_in_archive(zip_path: Union[str, Path]) -> dict:
             ):
                 video_coung += 1
         return {"file_count": file_count, "image_count": image_count, "video_count": video_coung}
-
-
-#%%

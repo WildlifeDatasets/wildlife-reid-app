@@ -76,6 +76,7 @@ User = get_user_model()
 
 @user_passes_test(lambda u: u.is_superuser)
 def impersonate_user(request):
+    """Impersonate user."""
     if request.method == "POST":
         form = UserSelectForm(request.POST)
         if form.is_valid():
@@ -102,6 +103,7 @@ def impersonate_user(request):
 
 @login_required
 def stop_impersonation(request):
+    """Stop impersonation."""
     if "impersonate_user_id" in request.session:
         del request.session["impersonate_user_id"]
     if "original_user_id" in request.session:
@@ -253,6 +255,7 @@ def uploads_identities(request) -> HttpResponse:
 
 
 def uploads_species(request) -> HttpResponse:
+    """List of uploads."""
     page_context = _uploads_general(request, contains_single_taxon=False)
 
     dates = views_uploads._get_check_dates(
@@ -289,7 +292,6 @@ def _uploads_general_order_annotation():
 
 def update_taxon(request, taxon_id: Optional[int] = None):
     """Update species form. Create taxon if taxon_id is None."""
-
     if taxon_id is not None:
         taxon = get_object_or_404(Taxon, pk=taxon_id)
         headline = "Update taxon"
@@ -1070,7 +1072,6 @@ def upload_archive(
                 headline="Upload finished",
                 text=f"Uploaded {counts['file_count']} files ("
                 + f"{counts['image_count']} images and {counts['video_count']} videos).",
-                # next=reverse_lazy("caidapp:uploadedarchive_mediafiles", kwargs={"uploadedarchive_id": uploaded_archive.id}),
                 next=next_url,
                 next_text="Back to uploads",
             )
@@ -1086,8 +1087,7 @@ def upload_archive(
                 next_url = reverse_lazy("caidapp:uploads")
             context = dict(
                 headline="Upload failed",
-                text=f"Upload failed. Try it again.",
-                # next=reverse_lazy("caidapp:uploadedarchive_mediafiles", kwargs={"uploadedarchive_id": uploaded_archive.id}),
+                text="Upload failed. Try it again.",
                 next=next_url,
                 next_text="Back to uploads",
             )
@@ -1095,14 +1095,12 @@ def upload_archive(
                 "caidapp/partial_message.html", context=context, request=request
             )
             return JsonResponse({"html": html})
-            # return JsonResponse({"data": "Something went wrong"})
 
     else:
 
         initial_data = {
             "contains_identities": contains_identities,
             "contains_single_taxon": contains_single_taxon,
-            # "taxon_for_identification": models.get_taxon("Lynx lynx") if contains_single_taxon else None,
         }
 
         if contains_single_taxon:
@@ -1215,6 +1213,7 @@ def do_cloud_import_view(request):
 
 @login_required
 def break_cloud_import_view(request):
+    """View for interrupted import from the cloud."""
     caiduser = request.user.caiduser
     caiduser.dir_import_status = "Interrupted"
     caiduser.save()
@@ -1345,7 +1344,6 @@ def _mediafiles_query(
     **filter_kwargs,
 ):
     """Prepare list of mediafiles based on query search in category and location."""
-
     if order_by is None:
         order_by = request.session.get("mediafiles_order_by", "-parent__uploaded_at")
 
@@ -1762,7 +1760,7 @@ def media_files_update(
 
 
 def mediafiles_stats_view(request):
-
+    """Show mediafiles stats."""
     mediafile_ids = request.session.get("mediafile_ids", [])
     mediafiles = MediaFile.objects.filter(id__in=mediafile_ids)
 
@@ -1941,16 +1939,13 @@ def download_uploadedarchive_csv(request, uploadedarchive_id: int):
     # get mediaifles_ids based on uplodedarchive id
     uploaded_archive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
 
-    full_mediafiles = MediaFile.objects.filter(parent=uploaded_archive)
-
-    mediafile_ids = list(full_mediafiles.values_list("id", flat=True))
-
+    # full_mediafiles = MediaFile.objects.filter(parent=uploaded_archive)
+    # mediafile_ids = list(full_mediafiles.values_list("id", flat=True))
     if (
         uploaded_archive.ownder == request.user.caiduser
         or uploaded_archive.owner.workgroup == request.user.caiduser.workgroup
     ):
         _update_csv_by_uploadedarchive(request, uploadedarchive_id)
-        # file_path = Path(settings.MEDIA_ROOT) / uploaded_file.archivefile.name
         file_path = Path(settings.MEDIA_ROOT) / uploaded_archive.csv_file.name
         logger.debug(f"{file_path=}")
         if file_path.exists():
@@ -1986,6 +1981,7 @@ def _get_mediafiles(request, uploadedarchive_id: Optional[int]):
 
 
 def download_csv_for_mediafiles_view(request, uploadedarchive_id: Optional[int] = None):
+    """Download csv for media files."""
     mediafiles, name_suggestion = _get_mediafiles(request, uploadedarchive_id)
     fn = ("metadata_" + name_suggestion) if name_suggestion is not None else "metadata"
 
@@ -1993,7 +1989,7 @@ def download_csv_for_mediafiles_view(request, uploadedarchive_id: Optional[int] 
         df = tasks.create_dataframe_from_mediafiles(mediafiles)
         if df.empty:
             return HttpResponse("No data available to export.", content_type="text/plain")
-    except Exception as e:
+    except Exception:
         logger.error(traceback.format_exc())
         return HttpResponse("Error during export.", content_type="text/plain")
     # df = tasks.create_dataframe_from_mediafiles(mediafiles)
@@ -2003,6 +1999,7 @@ def download_csv_for_mediafiles_view(request, uploadedarchive_id: Optional[int] 
 
 
 def download_xlsx_for_mediafiles_view(request, uploadedarchive_id: Optional[int] = None):
+    """Download xlsx for media files."""
     mediafiles, name_suggestion = _get_mediafiles(request, uploadedarchive_id)
     fn = ("metadata_" + name_suggestion) if name_suggestion is not None else "metadata"
 
@@ -2010,10 +2007,9 @@ def download_xlsx_for_mediafiles_view(request, uploadedarchive_id: Optional[int]
         df = tasks.create_dataframe_from_mediafiles(mediafiles)
         if df.empty:
             return HttpResponse("No data available to export.", content_type="text/plain")
-    except Exception as e:
+    except Exception:
         logger.error(traceback.format_exc())
         return HttpResponse("Error during export.", content_type="text/plain")
-    # df = tasks.create_dataframe_from_mediafiles(mediafiles)
 
     # convert timezone-aware datetime to naive datetime
     df = model_tools.convert_datetime_to_naive(df)
@@ -2033,12 +2029,13 @@ def download_xlsx_for_mediafiles_view(request, uploadedarchive_id: Optional[int]
 
 
 def download_zip_for_mediafiles_view(request, uploadedarchive_id: Optional[int] = None):
+    """Download zip for media files."""
     mediafiles, name_suggestion = _get_mediafiles(request, uploadedarchive_id)
     fn = ("mediafiles_" + name_suggestion) if name_suggestion is not None else "mediafiles"
     # number_of_mediafiles = len(mediafiles)
 
     abs_zip_path = (
-        Path(settings.MEDIA_ROOT) / "users" / request.user.caiduser.hash / f"mediafiles.zip"
+        Path(settings.MEDIA_ROOT) / "users" / request.user.caiduser.hash / "mediafiles.zip"
     )
     abs_zip_path.parent.mkdir(parents=True, exist_ok=True)
     # get temp dir
@@ -2066,9 +2063,9 @@ def download_zip_for_mediafiles_view(request, uploadedarchive_id: Optional[int] 
 
 def _make_output_name(mediafile: models.MediaFile):
     """Create output name.
+
     pattern: {locality}_{date}_{original_name}_{taxon}_{identity}
     """
-
     locality = mediafile.location.name if mediafile.location else "no_locality"
     date = mediafile.captured_at.strftime("%Y-%m-%d") if mediafile.captured_at else "no_date"
     original_name = (
@@ -2121,6 +2118,7 @@ def _refresh_media_file_original_name(request):
 
 
 def shared_individual_identity_view(request, identity_hash: str):
+    """Show shared individual identity to any user."""
     identity = get_object_or_404(IndividualIdentity, hash=identity_hash)
     mediafiles = MediaFile.objects.filter(identity=identity, identity_is_representative=True).all()
 
@@ -2164,7 +2162,6 @@ def get_item_number_uploaded_archives(request):
 
 def switch_private_mode(request):
     """Switch private mode."""
-
     actual_mode = request.session.get("private_mode", False)
     request.session["private_mode"] = not actual_mode
 

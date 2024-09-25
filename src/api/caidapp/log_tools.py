@@ -8,6 +8,7 @@ class StatusCounts:
         self.counts = {}
 
     def increment(self, status: str):
+        """Increment the count for the given status."""
         if status not in self.counts:
             self.counts[status] = 0
         self.counts[status] += 1
@@ -23,6 +24,7 @@ class LogCounterFilter(logging.Filter):
         self.status_counts = StatusCounts()
 
     def filter(self, record):
+        """Filter log messages."""
         self.status_counts.increment(record.getMessage())
         return True
 
@@ -36,6 +38,7 @@ class DuplicateFilter(logging.Filter):
         self.last_log = None
 
     def filter(self, record):
+        """Filter log messages."""
         current_log = (record.module, record.levelno, record.msg)
         if current_log != self.last_log:
             self.last_log = current_log

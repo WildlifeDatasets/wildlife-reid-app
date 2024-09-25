@@ -274,7 +274,7 @@ urlpatterns = [
     ),
     path(
         "mediafiles/taxons_on_page_are_overviewed/",
-        views_mediafile.taxons_on_page_are_overviewed,
+        views_mediafile.taxons_on_page_are_verified,
         name="taxons_on_page_are_overviewed",
     ),
     path(
