@@ -110,7 +110,8 @@ def verify_taxa_view(request, uploaded_archive_id:Optional[int]=None):
 
     return media_files_update(
         request, show_overview_button=True, taxon_verified=False, uploadedarchive_id=uploaded_archive_id,
-        order_by="category__name"
+        order_by="category__name",
+        parent__contains_single_taxon=False,
         )
     # views.
 

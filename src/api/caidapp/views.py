@@ -1339,6 +1339,7 @@ def _mediafiles_query(
     location_hash=None,
     order_by:Optional[str]=None,
     taxon_verified:Optional[bool]=None,
+    **filter_kwargs
 ):
     """Prepare list of mediafiles based on query search in category and location."""
 
@@ -1348,55 +1349,73 @@ def _mediafiles_query(
     mediafiles = MediaFile.objects.annotate(
         **_mediafiles_annotate()
     )
+    # mediafiles = (
+    #     mediafiles.filter(
+    #         Q(album__albumsharerole__user=request.user.caiduser)
+    #         | Q(parent__owner=request.user.caiduser)
+    #         | Q(parent__owner__workgroup=request.user.caiduser.workgroup)
+    #     )
+    #     .distinct()
+    #     .order_by(order_by)
+    # )
+    if taxon_verified is not None:
+        filter_kwargs.update(dict(taxon_verified=taxon_verified))
+        # mediafiles = mediafiles.filter(taxon_verified=taxon_verified).all()
+    if album_hash is not None:
+        album = get_object_or_404(Album, hash=album_hash)
+        filter_kwargs.update(dict(album=album))
+        # mediafiles = (
+        #     mediafiles.filter(album=album).all().distinct().order_by(order_by)
+        # )
+    if individual_identity_id is not None:
+        individual_identity = get_object_or_404(IndividualIdentity, pk=individual_identity_id)
+        filter_kwargs.update(dict(identity=individual_identity))
+        # mediafiles = (
+        #     mediafiles.filter(identity=individual_identity)
+        #     .all()
+        #     .distinct()
+        #     .order_by(order_by)
+        # )
+    if taxon_id is not None:
+        taxon = get_object_or_404(Taxon, pk=taxon_id)
+        filter_kwargs.update(dict(category=taxon))
+        # mediafiles = (
+        #     mediafiles.filter(category=taxon).all().distinct().order_by(order_by)
+        # )
+    if uploadedarchive_id is not None:
+        uploadedarchive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
+        filter_kwargs.update(dict(parent=uploadedarchive))
+        # mediafiles = (
+        #     mediafiles.filter(parent=uploadedarchive)
+        #     .all()
+        #     .distinct()
+        #     .order_by(order_by)
+        # )
+    if identity_is_representative is not None:
+        filter_kwargs.update(dict(identity_is_representative=identity_is_representative))
+        # mediafiles = (
+        #     mediafiles.filter(identity_is_representative=identity_is_representative)
+        #     .all()
+        #     .distinct()
+        #     .order_by(order_by)
+        # )
+    if location_hash is not None:
+        location = get_object_or_404(Location, hash=location_hash)
+        filter_kwargs.update(dict(location=location))
+        # mediafiles = (
+        #     mediafiles.filter(location=location).all().distinct().order_by(order_by)
+        # )
+    logger.debug(f"{filter_kwargs=}")
     mediafiles = (
         mediafiles.filter(
             Q(album__albumsharerole__user=request.user.caiduser)
             | Q(parent__owner=request.user.caiduser)
             | Q(parent__owner__workgroup=request.user.caiduser.workgroup)
+            , **filter_kwargs
         )
         .distinct()
         .order_by(order_by)
     )
-    if taxon_verified is not None:
-        mediafiles = mediafiles.filter(taxon_verified=taxon_verified).all()
-    if album_hash is not None:
-        album = get_object_or_404(Album, hash=album_hash)
-        mediafiles = (
-            mediafiles.filter(album=album).all().distinct().order_by(order_by)
-        )
-    if individual_identity_id is not None:
-        individual_identity = get_object_or_404(IndividualIdentity, pk=individual_identity_id)
-        mediafiles = (
-            mediafiles.filter(identity=individual_identity)
-            .all()
-            .distinct()
-            .order_by(order_by)
-        )
-    if taxon_id is not None:
-        taxon = get_object_or_404(Taxon, pk=taxon_id)
-        mediafiles = (
-            mediafiles.filter(category=taxon).all().distinct().order_by(order_by)
-        )
-    if uploadedarchive_id is not None:
-        uploadedarchive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
-        mediafiles = (
-            mediafiles.filter(parent=uploadedarchive)
-            .all()
-            .distinct()
-            .order_by(order_by)
-        )
-    if identity_is_representative is not None:
-        mediafiles = (
-            mediafiles.filter(identity_is_representative=identity_is_representative)
-            .all()
-            .distinct()
-            .order_by(order_by)
-        )
-    if location_hash is not None:
-        location = get_object_or_404(Location, hash=location_hash)
-        mediafiles = (
-            mediafiles.filter(location=location).all().distinct().order_by(order_by)
-        )
 
     if len(query) == 0:
         return mediafiles
@@ -1551,6 +1570,7 @@ def media_files_update(
     show_overview_button=False,
     order_by=None,
     taxon_verified:Optional[bool]=None,
+    **filter_kwargs
 ) -> Union[QuerySet, List[MediaFile]]:
     """List of mediafiles based on query with bulk update of category."""
     # create list of mediafiles
@@ -1558,7 +1578,6 @@ def media_files_update(
     page_number = 1
     if records_per_page is None:
         records_per_page = request.session.get("mediafiles_records_per_page", 20)
-
 
     if request.method == "POST":
         queryform = MediaFileSetQueryForm(request.POST)
@@ -1604,6 +1623,7 @@ def media_files_update(
         location_hash=location_hash,
         order_by=order_by,
         taxon_verified=taxon_verified,
+        **filter_kwargs
     )
     number_of_mediafiles = len(full_mediafiles)
 
