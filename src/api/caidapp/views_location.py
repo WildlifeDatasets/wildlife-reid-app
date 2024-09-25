@@ -1,21 +1,23 @@
+import logging
 from io import BytesIO
 from pathlib import Path
-import logging
 
 import pandas as pd
-
-from django.shortcuts import Http404, HttpResponse, get_object_or_404, redirect, render
-from django.http import HttpResponseBadRequest, HttpResponseNotAllowed, JsonResponse
 from django.forms import modelformset_factory
+from django.http import HttpResponseBadRequest, HttpResponseNotAllowed, JsonResponse
+from django.shortcuts import Http404, HttpResponse, get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 
-from . import forms
+from . import forms, model_tools
 from .forms import LocationForm
-from .models import Location, get_content_owner_filter_params, UploadedArchive
-from .model_extra import user_has_rw_acces_to_uploadedarchive, prepare_dataframe_for_uploads_in_one_location
-from . import model_tools
+from .model_extra import (
+    prepare_dataframe_for_uploads_in_one_location,
+    user_has_rw_acces_to_uploadedarchive,
+)
+from .models import Location, UploadedArchive, get_content_owner_filter_params
 
 logger = logging.getLogger("app")
+
 
 def _round_location(location: Location, order: int = 3):
     """Round location for anonymization."""
@@ -59,9 +61,15 @@ def update_location(request, location_id):
     return render(
         request,
         "caidapp/update_form.html",
-        {"form": form, "headline": "Location", "button": "Save", "location": location,
-         "delete_button_url": reverse_lazy('caidapp:delete_location', kwargs={'location_id': location_id}),
-         },
+        {
+            "form": form,
+            "headline": "Location",
+            "button": "Save",
+            "location": location,
+            "delete_button_url": reverse_lazy(
+                "caidapp:delete_location", kwargs={"location_id": location_id}
+            ),
+        },
     )
 
 
@@ -131,15 +139,16 @@ def export_locations_view_xls(request):
 
     # Create a BytesIO buffer to save the Excel file
     output = BytesIO()
-    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        df.to_excel(writer, index=False, sheet_name='Locations')
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        df.to_excel(writer, index=False, sheet_name="Locations")
 
     # Rewind the buffer
     output.seek(0)
 
-    response = HttpResponse(output,
-                            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    response['Content-Disposition'] = 'attachment; filename=locations.xlsx'
+    response = HttpResponse(
+        output, content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    response["Content-Disposition"] = "attachment; filename=locations.xlsx"
     return response
 
 
@@ -181,7 +190,6 @@ def import_locations_view(request):
             "button": "Import",
             "text_note": "Upload CSV or XLSX file. There should be columns 'name' and 'location' in the file. Location should be in format 'lat,lon'.",
             "next": "caidapp:locations",
-
         },
     )
 
@@ -215,6 +223,7 @@ def download_records_from_location_csv_view(request, location_hash):
     response["Content-Disposition"] = "attachment; filename=location_checks.csv"
     return response
 
+
 def download_records_from_location_xls_view(request, location_hash):
     """Download records from location."""
 
@@ -229,14 +238,14 @@ def download_records_from_location_xls_view(request, location_hash):
 
     # Create a BytesIO buffer to save the Excel file
     output = BytesIO()
-    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        df.to_excel(writer, index=False, sheet_name='Location Checks')
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        df.to_excel(writer, index=False, sheet_name="Location Checks")
 
     # Rewind the buffer
     output.seek(0)
 
-    response = HttpResponse(output,
-                            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    response['Content-Disposition'] = 'attachment; filename=location_checks.xlsx'
+    response = HttpResponse(
+        output, content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    response["Content-Disposition"] = "attachment; filename=location_checks.xlsx"
     return response
-

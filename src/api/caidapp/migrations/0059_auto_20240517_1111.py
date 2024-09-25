@@ -7,28 +7,34 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0058_mediafile_original_filename'),
+        ("caidapp", "0058_mediafile_original_filename"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='individualidentity',
-            name='code',
+            model_name="individualidentity",
+            name="code",
             field=models.CharField(default=caidapp.model_tools.random_string12, max_length=50),
         ),
         migrations.AddField(
-            model_name='individualidentity',
-            name='juv_code',
-            field=models.CharField(default=caidapp.model_tools.random_string12, max_length=50, verbose_name='Juv. Code'),
+            model_name="individualidentity",
+            name="juv_code",
+            field=models.CharField(
+                default=caidapp.model_tools.random_string12, max_length=50, verbose_name="Juv. Code"
+            ),
         ),
         migrations.AddField(
-            model_name='uploadedarchive',
-            name='location_check_at',
-            field=models.DateTimeField(blank=True, null=True, verbose_name='Location Check at'),
+            model_name="uploadedarchive",
+            name="location_check_at",
+            field=models.DateTimeField(blank=True, null=True, verbose_name="Location Check at"),
         ),
         migrations.AlterField(
-            model_name='individualidentity',
-            name='coat_type',
-            field=models.CharField(choices=[('S', 'Spotted'), ('M', 'Marble'), ('N', 'Unspotted'), ('U', 'Unknown')], default='U', max_length=2),
+            model_name="individualidentity",
+            name="coat_type",
+            field=models.CharField(
+                choices=[("S", "Spotted"), ("M", "Marble"), ("N", "Unspotted"), ("U", "Unknown")],
+                default="U",
+                max_length=2,
+            ),
         ),
     ]

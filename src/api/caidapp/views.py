@@ -1,12 +1,14 @@
 import datetime
-from io import BytesIO
 import logging
 import os
+import shutil
 import traceback
+from io import BytesIO
 from pathlib import Path
-from typing import List, Optional, Union, Tuple
+from typing import List, Optional, Tuple, Union
 
 import django
+import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import pytz
@@ -14,29 +16,21 @@ from celery import signature
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
-from django.contrib.auth import logout, get_user_model
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth import get_user_model
+from django.contrib.auth import login as auth_login
+from django.contrib.auth import logout
+from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.views import LoginView
-from django.core.paginator import Paginator, Page
-from django.db.models import Count, Q, QuerySet, Min, F
+from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector
+from django.core.paginator import Page, Paginator
+from django.db.models import Count, F, Min, Q, QuerySet
 from django.forms import modelformset_factory
 from django.http import HttpResponseBadRequest, HttpResponseNotAllowed, JsonResponse
-from django.shortcuts import Http404, HttpResponse, get_object_or_404
-from django.urls import reverse_lazy
-from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector
+from django.shortcuts import Http404, HttpResponse, get_object_or_404, redirect, render
 from django.template.loader import render_to_string
-import shutil
-import pandas as pd
+from django.urls import reverse_lazy
 
-from django.contrib.auth import login as auth_login
-from django.contrib.auth.decorators import user_passes_test
-from django.shortcuts import redirect, render
-from .forms import UserSelectForm
-
-from . import tasks
-from . import models, model_tools
-from . import forms, views_uploads
-
+from . import forms, model_tools, models, tasks, views_uploads
 from .forms import (
     AlbumForm,
     IndividualIdentityForm,
@@ -45,11 +39,12 @@ from .forms import (
     MediaFileSetQueryForm,
     UploadedArchiveForm,
     UploadedArchiveFormWithTaxon,
-    UploadedArchiveUpdateForm,
-    WorkgroupUsersForm,
     UploadedArchiveSelectTaxonForIdentificationForm,
+    UploadedArchiveUpdateForm,
+    UserSelectForm,
+    WorkgroupUsersForm,
 )
-from .model_extra import user_has_rw_access_to_mediafile, user_has_rw_acces_to_uploadedarchive
+from .model_extra import user_has_rw_acces_to_uploadedarchive, user_has_rw_access_to_mediafile
 from .models import (
     Album,
     ArchiveCollection,
@@ -63,6 +58,7 @@ from .models import (
     get_content_owner_filter_params,
 )
 from .tasks import (
+    _iterate_over_location_checks,
     _prepare_dataframe_for_identification,
     get_location,
     identify_on_success,
@@ -70,7 +66,7 @@ from .tasks import (
     init_identification_on_success,
     on_error_in_upload_processing,
     run_species_prediction_async,
-    update_metadata_csv_by_uploaded_archive, _iterate_over_location_checks,
+    update_metadata_csv_by_uploaded_archive,
 )
 from .views_location import _get_all_user_locations, _set_location_to_mediafiles_of_uploadedarchive
 
@@ -78,20 +74,19 @@ logger = logging.getLogger("app")
 User = get_user_model()
 
 
-
 @user_passes_test(lambda u: u.is_superuser)
 def impersonate_user(request):
-    if request.method == 'POST':
+    if request.method == "POST":
         form = UserSelectForm(request.POST)
         if form.is_valid():
-            user = form.cleaned_data['user']
-            request.session['original_user_id'] = request.user.id
-            request.session['impersonate_user_id'] = user.id
-            return redirect('caidapp:uploads')
+            user = form.cleaned_data["user"]
+            request.session["original_user_id"] = request.user.id
+            request.session["impersonate_user_id"] = user.id
+            return redirect("caidapp:uploads")
     else:
         form = UserSelectForm()
 
-    return render(request, 'caidapp/impersonate_user.html', {'form': form})
+    return render(request, "caidapp/impersonate_user.html", {"form": form})
 
 
 # @user_passes_test(lambda u: u.is_superuser)
@@ -104,15 +99,17 @@ def impersonate_user(request):
 #     logger.debug("Redirecting to uploads ...")
 #     return redirect('caidapp:uploads')
 
+
 @login_required
 def stop_impersonation(request):
-    if 'impersonate_user_id' in request.session:
-        del request.session['impersonate_user_id']
-    if 'original_user_id' in request.session:
-        original_user = User.objects.get(id=request.session['original_user_id'])
+    if "impersonate_user_id" in request.session:
+        del request.session["impersonate_user_id"]
+    if "original_user_id" in request.session:
+        original_user = User.objects.get(id=request.session["original_user_id"])
         auth_login(request, original_user)
-        del request.session['original_user_id']
-    return redirect('caidapp:uploads')
+        del request.session["original_user_id"]
+    return redirect("caidapp:uploads")
+
 
 def login(request):
     """Login page."""
@@ -175,7 +172,7 @@ def uploadedarchive_mediafiles(request, uploadedarchive_id):
 
     records_per_page = 80
     paginator = Paginator(mediafile_set, per_page=records_per_page)
-    _,_, page_context = _prepare_page(paginator, request=request)
+    _, _, page_context = _prepare_page(paginator, request=request)
 
     return render(
         request,
@@ -187,7 +184,9 @@ def uploadedarchive_mediafiles(request, uploadedarchive_id):
     )
 
 
-def _prepare_page(paginator: Paginator, request:Optional = None, page_number: Optional[int] = None) -> Tuple[Page, List, dict]:
+def _prepare_page(
+    paginator: Paginator, request: Optional = None, page_number: Optional[int] = None
+) -> Tuple[Page, List, dict]:
     if page_number is None:
         page_number = request.GET.get("page", 1)
     logger.debug(f"{page_number=}")
@@ -200,7 +199,6 @@ def _prepare_page(paginator: Paginator, request:Optional = None, page_number: Op
     }
 
     return page_obj, elided_page_range, context
-
 
 
 @staff_member_required
@@ -237,6 +235,7 @@ def show_taxons(request):
         {"taxons": taxons, "taxons_with_mediafiles": zip(taxons, taxons_mediafiles)},
     )
 
+
 def uploads_identities(request) -> HttpResponse:
     """List of uploads."""
     page_context = _uploads_general(request, taxon_for_identification__isnull=False)
@@ -256,13 +255,13 @@ def uploads_identities(request) -> HttpResponse:
 def uploads_species(request) -> HttpResponse:
     page_context = _uploads_general(request, contains_single_taxon=False)
 
-
-    dates = views_uploads._get_check_dates(request, contains_single_taxon=False, taxon_for_identification__isnull=None)
+    dates = views_uploads._get_check_dates(
+        request, contains_single_taxon=False, taxon_for_identification__isnull=None
+    )
     sorted_grouped_dates = views_uploads._get_grouped_dates(dates)
 
     # get list of years
     years = list(sorted_grouped_dates.keys())
-
 
     btn_styles, btn_tooltips = _multiple_species_button_style_and_tooltips(request)
     return render(
@@ -270,7 +269,8 @@ def uploads_species(request) -> HttpResponse:
         "caidapp/uploads_species.html",
         {
             **page_context,
-            "btn_styles": btn_styles, "btn_tooltips": btn_tooltips,
+            "btn_styles": btn_styles,
+            "btn_tooltips": btn_tooltips,
             "years": years,
         },
     )
@@ -279,15 +279,15 @@ def uploads_species(request) -> HttpResponse:
 def _uploads_general_order_annotation():
     # for UploadedArchive.objects.annotate()
     return dict(
-        mediafile_count=Count('mediafile'),  # Count of all related MediaFiles
+        mediafile_count=Count("mediafile"),  # Count of all related MediaFiles
         mediafile_count_with_taxon=Count(
-            'mediafile',
-            filter=Q(mediafile__category=F('taxon_for_identification'))
+            "mediafile", filter=Q(mediafile__category=F("taxon_for_identification"))
         ),  # Count of MediaFiles with a specific taxon
-        earliest_mediafile_captured_at=Min('mediafile__captured_at'),  # Earliest capture date
+        earliest_mediafile_captured_at=Min("mediafile__captured_at"),  # Earliest capture date
     )
 
-def update_taxon(request, taxon_id:Optional[int] = None):
+
+def update_taxon(request, taxon_id: Optional[int] = None):
     """Update species form. Create taxon if taxon_id is None."""
 
     if taxon_id is not None:
@@ -342,27 +342,32 @@ def update_taxon(request, taxon_id:Optional[int] = None):
     # )
 
 
-def _uploads_general(request, contains_single_taxon: Optional[bool] = None, taxon_for_identification__isnull: Optional[bool] = None, **filter_params):
+def _uploads_general(
+    request,
+    contains_single_taxon: Optional[bool] = None,
+    taxon_for_identification__isnull: Optional[bool] = None,
+    **filter_params,
+):
     """List of uploads."""
     order_by = uploaded_archive_get_order_by(request)
-    uploadedarchives = UploadedArchive.objects.annotate(
-        **_uploads_general_order_annotation()
-        )
+    uploadedarchives = UploadedArchive.objects.annotate(**_uploads_general_order_annotation())
     if filter_params is None:
         filter_params = {}
 
     if contains_single_taxon is not None:
         filter_params.update(dict(contains_single_taxon=contains_single_taxon))
     elif taxon_for_identification__isnull is not None:
-        filter_params.update(dict(taxon_for_identification__isnull=taxon_for_identification__isnull))
+        filter_params.update(
+            dict(taxon_for_identification__isnull=taxon_for_identification__isnull)
+        )
 
     uploadedarchives = (
-        uploadedarchives.all().filter(
+        uploadedarchives.all()
+        .filter(
             **get_content_owner_filter_params(request.user.caiduser, "owner"),
             **filter_params
             # contains_single_taxon=contains_single_taxon,
             # taxon_for_identification__isnull=taxon_for_identification__isnull,
-
             # parent__owner=request.user.caiduser
         )
         .all()
@@ -372,7 +377,7 @@ def _uploads_general(request, contains_single_taxon: Optional[bool] = None, taxo
 
     records_per_page = get_item_number_uploaded_archives(request)
     paginator = Paginator(uploadedarchives, per_page=records_per_page)
-    _,_, page_context = _prepare_page(paginator, request=request)
+    _, _, page_context = _prepare_page(paginator, request=request)
 
     # go over all items in the paginator
     for uploadedarchive in page_context["page_obj"]:
@@ -383,10 +388,7 @@ def _uploads_general(request, contains_single_taxon: Optional[bool] = None, taxo
 
 def _multiple_species_button_style_and_tooltips(request) -> dict:
     models.get_content_owner_filter_params(request.user.caiduser, "owner")
-    n_non_classified_taxons = len(
-        models.get_mediafiles_with_missing_taxon(request.user.caiduser)
-
-    )
+    n_non_classified_taxons = len(models.get_mediafiles_with_missing_taxon(request.user.caiduser))
     n_missing_verifications = len(
         models.get_mediafiles_with_missing_verification(request.user.caiduser)
     )
@@ -397,7 +399,7 @@ def _multiple_species_button_style_and_tooltips(request) -> dict:
     btn_tooltips = {
         "annotate_missing_taxa": f"Annotate {n_non_classified_taxons} media files "
         + "with missing taxon.",
-        "verify_taxa": f"Go to verification of {n_missing_verifications} media files."
+        "verify_taxa": f"Go to verification of {n_missing_verifications} media files.",
     }
     btn_styles = {
         "upload_species": "btn-secondary",
@@ -443,15 +445,12 @@ def individual_identities(request):
 
     records_per_page = 24
     paginator = Paginator(individual_identities, per_page=records_per_page)
-    _,_, page_context = _prepare_page(paginator, request=request)
+    _, _, page_context = _prepare_page(paginator, request=request)
 
     return render(
         request,
         "caidapp/individual_identities.html",
-        {
-            **page_context,
-            "workgroup": request.user.caiduser.workgroup
-        },
+        {**page_context, "workgroup": request.user.caiduser.workgroup},
     )
 
 
@@ -481,7 +480,9 @@ def update_individual_identity(request, individual_identity_id):
         pk=individual_identity_id,
         owner_workgroup=request.user.caiduser.workgroup,
     )
-    media_file = MediaFile.objects.filter(identity=individual_identity, identity_is_representative=True).first()
+    media_file = MediaFile.objects.filter(
+        identity=individual_identity, identity_is_representative=True
+    ).first()
 
     if request.method == "POST":
         form = IndividualIdentityForm(request.POST, instance=individual_identity)
@@ -657,20 +658,17 @@ def not_identified_mediafiles(request):
 
     records_per_page = 80
     paginator = Paginator(foridentification_set, per_page=records_per_page)
-    _,_, page_context = _prepare_page(paginator, request=request)
+    _, _, page_context = _prepare_page(paginator, request=request)
 
     return render(
         request,
         "caidapp/not_identified_mediafiles.html",
-        {
-            **page_context,
-            "page_title": "Not Identified"},
+        {**page_context, "page_title": "Not Identified"},
     )
 
 
 def get_individual_identity_from_foridentification(
-    request, foridentification_id: Optional[int] = None,
-        media_file_id: Optional[int] = None
+    request, foridentification_id: Optional[int] = None, media_file_id: Optional[int] = None
 ):
     """Show and update media file."""
     foridentifications = MediafilesForIdentification.objects.filter(
@@ -745,7 +743,7 @@ def run_taxon_classification(request, uploadedarchive_id, force_init=False):
     run_species_prediction_async(uploaded_archive, force_init=force_init)
     # next_page = request.GET.get("next", "/caidapp/uploads")
     # return redirect(next_page)
-    return redirect(request.META.get('HTTP_REFERER', '/'))
+    return redirect(request.META.get("HTTP_REFERER", "/"))
 
 
 # def init_identification(request, taxon_str:str="Lynx Lynx"):
@@ -889,7 +887,7 @@ def run_identification_on_unidentified(request):
         _run_identification(uploaded_archive)
     # next_page = request.GET.get("next", "caidapp:uploads_identities")
     # return redirect(next_page)
-    return redirect(request.META.get('HTTP_REFERER', '/'))
+    return redirect(request.META.get("HTTP_REFERER", "/"))
 
 
 def run_identification(request, uploadedarchive_id):
@@ -901,7 +899,7 @@ def run_identification(request, uploadedarchive_id):
     _run_identification(uploaded_archive)
     # next_page = request.GET.get("next", "caidapp:uploads_identities")
     # return redirect(next_page)
-    return redirect(request.META.get('HTTP_REFERER', '/'))
+    return redirect(request.META.get("HTTP_REFERER", "/"))
 
 
 def _run_identification(uploaded_archive: UploadedArchive, taxon_str="Lynx lynx"):
@@ -1006,7 +1004,6 @@ def delete_album(request, album_hash):
     return redirect("caidapp:albums")
 
 
-
 def upload_archive(
     request,
     contains_single_taxon=False,
@@ -1047,7 +1044,8 @@ def upload_archive(
                     f"Uploaded file with extension '{uploaded_archive_suffix}' is not an archive."
                 )
                 messages.warning(
-                    request, f"Uploaded file with extension '{uploaded_archive_suffix}' is not an archive."
+                    request,
+                    f"Uploaded file with extension '{uploaded_archive_suffix}' is not an archive.",
                 )
 
             uploaded_archive.owner = request.user.caiduser
@@ -1070,14 +1068,15 @@ def upload_archive(
             counts = uploaded_archive.number_of_media_files_in_archive()
             context = dict(
                 headline="Upload finished",
-                text=f"Uploaded {counts['file_count']} files (" +\
-                    f"{counts['image_count']} images and {counts['video_count']} videos).",
+                text=f"Uploaded {counts['file_count']} files ("
+                + f"{counts['image_count']} images and {counts['video_count']} videos).",
                 # next=reverse_lazy("caidapp:uploadedarchive_mediafiles", kwargs={"uploadedarchive_id": uploaded_archive.id}),
-
                 next=next_url,
                 next_text="Back to uploads",
             )
-            html = render_to_string("caidapp/partial_message.html", context=context, request=request)
+            html = render_to_string(
+                "caidapp/partial_message.html", context=context, request=request
+            )
             return JsonResponse({"html": html})
         else:
             # Error
@@ -1089,11 +1088,12 @@ def upload_archive(
                 headline="Upload failed",
                 text=f"Upload failed. Try it again.",
                 # next=reverse_lazy("caidapp:uploadedarchive_mediafiles", kwargs={"uploadedarchive_id": uploaded_archive.id}),
-
                 next=next_url,
                 next_text="Back to uploads",
             )
-            html = render_to_string("caidapp/partial_message.html", context=context, request=request)
+            html = render_to_string(
+                "caidapp/partial_message.html", context=context, request=request
+            )
             return JsonResponse({"html": html})
             # return JsonResponse({"data": "Something went wrong"})
 
@@ -1212,10 +1212,11 @@ def do_cloud_import_view(request):
     tasks.do_cloud_import_for_user(caiduser)
     return redirect("caidapp:cloud_import_preview")
 
+
 @login_required
 def break_cloud_import_view(request):
     caiduser = request.user.caiduser
-    caiduser.dir_import_status="Interrupted"
+    caiduser.dir_import_status = "Interrupted"
     caiduser.save()
     return redirect("caidapp:cloud_import_preview")
 
@@ -1225,6 +1226,7 @@ def locations_view(request):
     locations = _get_all_user_locations(request)
     logger.debug(f"{len(locations)=}")
     return render(request, "caidapp/locations.html", {"locations": locations})
+
 
 def update_uploadedarchive(request, uploadedarchive_id):
     """Show and update uploaded archive."""
@@ -1269,7 +1271,9 @@ def delete_upload(request, uploadedarchive_id, next_page="caidapp:uploads"):
     """Delete uploaded file."""
     uploadedarchive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
 
-    if user_has_rw_acces_to_uploadedarchive(request.user.caiduser, uploadedarchive, accept_none=True):
+    if user_has_rw_acces_to_uploadedarchive(
+        request.user.caiduser, uploadedarchive, accept_none=True
+    ):
         uploadedarchive.delete()
     else:
         messages.error(request, "Not allowed to delete this uploaded archive.")
@@ -1321,11 +1325,10 @@ class MyLoginView(LoginView):
         messages.error(self.request, "Invalid username or password")
         return self.render_to_response(self.get_context_data(form=form))
 
+
 def _mediafiles_annotate() -> dict:
 
-    return dict(
-
-    )
+    return dict()
 
 
 def _mediafiles_query(
@@ -1337,18 +1340,16 @@ def _mediafiles_query(
     uploadedarchive_id=None,
     identity_is_representative=None,
     location_hash=None,
-    order_by:Optional[str]=None,
-    taxon_verified:Optional[bool]=None,
-    **filter_kwargs
+    order_by: Optional[str] = None,
+    taxon_verified: Optional[bool] = None,
+    **filter_kwargs,
 ):
     """Prepare list of mediafiles based on query search in category and location."""
 
     if order_by is None:
         order_by = request.session.get("mediafiles_order_by", "-parent__uploaded_at")
 
-    mediafiles = MediaFile.objects.annotate(
-        **_mediafiles_annotate()
-    )
+    mediafiles = MediaFile.objects.annotate(**_mediafiles_annotate())
     # mediafiles = (
     #     mediafiles.filter(
     #         Q(album__albumsharerole__user=request.user.caiduser)
@@ -1410,8 +1411,8 @@ def _mediafiles_query(
         mediafiles.filter(
             Q(album__albumsharerole__user=request.user.caiduser)
             | Q(parent__owner=request.user.caiduser)
-            | Q(parent__owner__workgroup=request.user.caiduser.workgroup)
-            , **filter_kwargs
+            | Q(parent__owner__workgroup=request.user.caiduser.workgroup),
+            **filter_kwargs,
         )
         .distinct()
         .order_by(order_by)
@@ -1560,7 +1561,7 @@ def _taxon_stats_for_mediafiles(mediafiles: Union[QuerySet, List[MediaFile]]) ->
 
 def media_files_update(
     request,
-    records_per_page:Optional[int]=None,
+    records_per_page: Optional[int] = None,
     album_hash=None,
     individual_identity_id=None,
     taxon_id=None,
@@ -1569,8 +1570,8 @@ def media_files_update(
     location_hash=None,
     show_overview_button=False,
     order_by=None,
-    taxon_verified:Optional[bool]=None,
-    **filter_kwargs
+    taxon_verified: Optional[bool] = None,
+    **filter_kwargs,
 ) -> Union[QuerySet, List[MediaFile]]:
     """List of mediafiles based on query with bulk update of category."""
     # create list of mediafiles
@@ -1623,16 +1624,16 @@ def media_files_update(
         location_hash=location_hash,
         order_by=order_by,
         taxon_verified=taxon_verified,
-        **filter_kwargs
+        **filter_kwargs,
     )
     number_of_mediafiles = len(full_mediafiles)
 
-    request.session['mediafile_ids'] = list(full_mediafiles.values_list('id', flat=True))
+    request.session["mediafile_ids"] = list(full_mediafiles.values_list("id", flat=True))
     paginator = Paginator(full_mediafiles, per_page=records_per_page)
     page_with_mediafiles, _, page_context = _prepare_page(paginator, page_number=page_number)
 
     page_ids = [obj.id for obj in page_with_mediafiles.object_list]
-    request.session['mediafile_ids_page'] = page_ids
+    request.session["mediafile_ids_page"] = page_ids
 
     MediaFileFormSet = modelformset_factory(MediaFile, form=MediaFileSelectionForm, extra=0)
     if (request.method == "POST") and (
@@ -1708,11 +1709,12 @@ def media_files_update(
                             instance.delete()
                         elif "btnBulkProcessing_id_taxon_verified" in form.data:
                             instance = mediafileform.save(commit=False)
-                            instance.taxon_verified = form_bulk_processing.cleaned_data["taxon_verified"]
+                            instance.taxon_verified = form_bulk_processing.cleaned_data[
+                                "taxon_verified"
+                            ]
                             instance.updated_by = request.user.caiduser
                             instance.updated_at = django.utils.timezone.now()
                             instance.save()
-
 
                         elif "btnBulkProcessing_set_taxon_verified" in form.data:
                             instance = mediafileform.save(commit=False)
@@ -1720,7 +1722,6 @@ def media_files_update(
                             instance.updated_by = request.user.caiduser
                             instance.updated_at = django.utils.timezone.now()
                             instance.save()
-
 
                     # mediafileform.save()
             # form.save()
@@ -1759,9 +1760,10 @@ def media_files_update(
         },
     )
 
+
 def mediafiles_stats_view(request):
 
-    mediafile_ids = request.session.get('mediafile_ids', [])
+    mediafile_ids = request.session.get("mediafile_ids", [])
     mediafiles = MediaFile.objects.filter(id__in=mediafile_ids)
 
     map_html = _create_map_from_mediafiles(mediafiles)
@@ -1773,8 +1775,9 @@ def mediafiles_stats_view(request):
         {
             "map_html": map_html,
             "taxon_stats_html": taxon_stats_html,
-        }
+        },
     )
+
 
 @login_required
 def select_taxon_for_identification(request, uploadedarchive_id: int):
@@ -1803,6 +1806,7 @@ def select_taxon_for_identification(request, uploadedarchive_id: int):
             "mediafile": uploaded_archive.mediafile_set.all().first(),
         },
     )
+
 
 def create_new_album(request, name="New Album"):
     """Create new album."""
@@ -1932,7 +1936,6 @@ def download_uploadedarchive_images(request, uploadedarchive_id: int):
         return redirect("/caidapp/uploads")
 
 
-
 def download_uploadedarchive_csv(request, uploadedarchive_id: int):
     """Download uploaded file."""
     # get mediaifles_ids based on uplodedarchive id
@@ -1940,9 +1943,12 @@ def download_uploadedarchive_csv(request, uploadedarchive_id: int):
 
     full_mediafiles = MediaFile.objects.filter(parent=uploaded_archive)
 
-    mediafile_ids = list(full_mediafiles.values_list('id', flat=True))
+    mediafile_ids = list(full_mediafiles.values_list("id", flat=True))
 
-    if uploaded_archive.ownder == request.user.caiduser or uploaded_archive.owner.workgroup == request.user.caiduser.workgroup:
+    if (
+        uploaded_archive.ownder == request.user.caiduser
+        or uploaded_archive.owner.workgroup == request.user.caiduser.workgroup
+    ):
         _update_csv_by_uploadedarchive(request, uploadedarchive_id)
         # file_path = Path(settings.MEDIA_ROOT) / uploaded_file.archivefile.name
         file_path = Path(settings.MEDIA_ROOT) / uploaded_archive.csv_file.name
@@ -1957,25 +1963,30 @@ def download_uploadedarchive_csv(request, uploadedarchive_id: int):
         messages.error(request, "Only the owner can download the file")
         return redirect("/caidapp/uploads")
 
+
 def _get_mediafiles(request, uploadedarchive_id: Optional[int]):
     """Get mediafiles based on uploadedarchive_id or session."""
     name_suggestion = None
     if uploadedarchive_id is not None:
         uploaded_archive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
-        if uploaded_archive.owner == request.user.caiduser or uploaded_archive.owner.workgroup == request.user.caiduser.workgroup:
+        if (
+            uploaded_archive.owner == request.user.caiduser
+            or uploaded_archive.owner.workgroup == request.user.caiduser.workgroup
+        ):
             mediafiles = MediaFile.objects.filter(parent=uploaded_archive)
             name_suggestion = uploaded_archive.name
             logger.debug(f"{name_suggestion=}")
         else:
             messages.error(request, "Only the owner or work group member can access the data.")
     else:
-        mediafile_ids = request.session.get('mediafile_ids', [])
+        mediafile_ids = request.session.get("mediafile_ids", [])
         mediafiles = MediaFile.objects.filter(id__in=mediafile_ids)
 
     return mediafiles, name_suggestion
 
+
 def download_csv_for_mediafiles_view(request, uploadedarchive_id: Optional[int] = None):
-    mediafiles, name_suggestion  = _get_mediafiles(request, uploadedarchive_id)
+    mediafiles, name_suggestion = _get_mediafiles(request, uploadedarchive_id)
     fn = ("metadata_" + name_suggestion) if name_suggestion is not None else "metadata"
 
     try:
@@ -1992,7 +2003,7 @@ def download_csv_for_mediafiles_view(request, uploadedarchive_id: Optional[int] 
 
 
 def download_xlsx_for_mediafiles_view(request, uploadedarchive_id: Optional[int] = None):
-    mediafiles, name_suggestion  = _get_mediafiles(request, uploadedarchive_id)
+    mediafiles, name_suggestion = _get_mediafiles(request, uploadedarchive_id)
     fn = ("metadata_" + name_suggestion) if name_suggestion is not None else "metadata"
 
     try:
@@ -2008,26 +2019,31 @@ def download_xlsx_for_mediafiles_view(request, uploadedarchive_id: Optional[int]
     df = model_tools.convert_datetime_to_naive(df)
 
     output = BytesIO()
-    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        df.to_excel(writer, index=False, sheet_name='Locations')
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        df.to_excel(writer, index=False, sheet_name="Locations")
 
     # Rewind the buffer
     output.seek(0)
 
-    response = HttpResponse(output,
-                            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    response['Content-Disposition'] = f'attachment; filename={fn}.xlsx'
+    response = HttpResponse(
+        output, content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    response["Content-Disposition"] = f"attachment; filename={fn}.xlsx"
     return response
 
+
 def download_zip_for_mediafiles_view(request, uploadedarchive_id: Optional[int] = None):
-    mediafiles, name_suggestion  = _get_mediafiles(request, uploadedarchive_id)
+    mediafiles, name_suggestion = _get_mediafiles(request, uploadedarchive_id)
     fn = ("mediafiles_" + name_suggestion) if name_suggestion is not None else "mediafiles"
     # number_of_mediafiles = len(mediafiles)
 
-    abs_zip_path = Path(settings.MEDIA_ROOT) / "users" / request.user.caiduser.hash / f"mediafiles.zip"
+    abs_zip_path = (
+        Path(settings.MEDIA_ROOT) / "users" / request.user.caiduser.hash / f"mediafiles.zip"
+    )
     abs_zip_path.parent.mkdir(parents=True, exist_ok=True)
     # get temp dir
     import tempfile
+
     with tempfile.TemporaryDirectory() as tmpdirname:
         mediafiles_dir = Path(tmpdirname) / "images"
         mediafiles_dir.mkdir()
@@ -2047,6 +2063,7 @@ def download_zip_for_mediafiles_view(request, uploadedarchive_id: Optional[int] 
 
     return Http404
 
+
 def _make_output_name(mediafile: models.MediaFile):
     """Create output name.
     pattern: {locality}_{date}_{original_name}_{taxon}_{identity}
@@ -2054,7 +2071,9 @@ def _make_output_name(mediafile: models.MediaFile):
 
     locality = mediafile.location.name if mediafile.location else "no_locality"
     date = mediafile.captured_at.strftime("%Y-%m-%d") if mediafile.captured_at else "no_date"
-    original_name = mediafile.original_filename if mediafile.original_filename else "no_original_name"
+    original_name = (
+        mediafile.original_filename if mediafile.original_filename else "no_original_name"
+    )
     # remove extension
     original_name = Path(original_name).stem
     taxon = mediafile.category.name if mediafile.category else "no_taxon"
@@ -2063,11 +2082,11 @@ def _make_output_name(mediafile: models.MediaFile):
     return output_name
 
 
-
 def _generate_new_hash_for_locations():
     for location in Location.objects.all():
         location.hash = models.get_hash8()
         location.save()
+
 
 def refresh_data(request):
     """Update new calculations for formerly uploaded archives."""
@@ -2075,14 +2094,15 @@ def refresh_data(request):
     for uploaded_archive in uploaded_archives:
         uploaded_archive.update_earliest_and_latest_captured_at()
 
-        if uploaded_archive.contains_single_taxon and uploaded_archive.taxon_for_identification is None:
+        if (
+            uploaded_archive.contains_single_taxon
+            and uploaded_archive.taxon_for_identification is None
+        ):
             # this fixes the compatibility with the old version before 2024-05
             uploaded_archive.taxon_for_identification = models.get_taxon("Lynx lynx")
             uploaded_archive.save()
 
         uploaded_archive.refresh_status_after_migration(request)
-
-
 
     # this was used to fix same hashes generated by wrong function
     # _generate_new_hash_for_locations()
@@ -2094,12 +2114,13 @@ def refresh_data(request):
 
     return redirect("caidapp:uploads")
 
+
 def _refresh_media_file_original_name(request):
     for mediafile in MediaFile.objects.all():
         mediafile.extract_original_filename()
 
 
-def shared_individual_identity_view(request, identity_hash:str):
+def shared_individual_identity_view(request, identity_hash: str):
     identity = get_object_or_404(IndividualIdentity, hash=identity_hash)
     mediafiles = MediaFile.objects.filter(identity=identity, identity_is_representative=True).all()
 
@@ -2109,42 +2130,42 @@ def shared_individual_identity_view(request, identity_hash:str):
         {
             "identity": identity,
             "mediafiles": mediafiles,
-        }
+        },
     )
 
 
 def set_sort_uploaded_archives_by(request, sort_by: str):
     """Sort uploaded archives by."""
-    request.session['sort_uploaded_archives_by'] = sort_by
+    request.session["sort_uploaded_archives_by"] = sort_by
 
     # go back to previous page
-    return redirect(request.META.get('HTTP_REFERER', '/'))
+    return redirect(request.META.get("HTTP_REFERER", "/"))
 
 
 def uploaded_archive_get_order_by(request):
     """Get order by for uploaded archives."""
-    sort_by = request.session.get('sort_uploaded_archives_by', '-uploaded_at')
+    sort_by = request.session.get("sort_uploaded_archives_by", "-uploaded_at")
     return sort_by
 
 
-def set_item_number_uploaded_archives(request, item_number:int):
+def set_item_number_uploaded_archives(request, item_number: int):
     """Sort uploaded archives by."""
-    request.session['item_number_uploaded_archives'] = item_number
+    request.session["item_number_uploaded_archives"] = item_number
 
     # go back to previous page
-    return redirect(request.META.get('HTTP_REFERER', '/'))
+    return redirect(request.META.get("HTTP_REFERER", "/"))
+
 
 def get_item_number_uploaded_archives(request):
     """Get order by for uploaded archives."""
-    item_number = request.session.get('item_number_uploaded_archives', 12)
+    item_number = request.session.get("item_number_uploaded_archives", 12)
     return item_number
 
 
 def switch_private_mode(request):
     """Switch private mode."""
 
-    actual_mode = request.session.get('private_mode', False)
-    request.session['private_mode'] = not actual_mode
+    actual_mode = request.session.get("private_mode", False)
+    request.session["private_mode"] = not actual_mode
 
-    return redirect(request.META.get('HTTP_REFERER', '/'))
-
+    return redirect(request.META.get("HTTP_REFERER", "/"))

@@ -6,13 +6,16 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0057_rename_taxon_for_identification_on_upload_uploadedarchive_taxon_for_identification_at_upload'),
+        (
+            "caidapp",
+            "0057_rename_taxon_for_identification_on_upload_uploadedarchive_taxon_for_identification_at_upload",
+        ),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='mediafile',
-            name='original_filename',
-            field=models.CharField(blank=True, default='', max_length=512),
+            model_name="mediafile",
+            name="original_filename",
+            field=models.CharField(blank=True, default="", max_length=512),
         ),
     ]

@@ -1,11 +1,11 @@
 from django import forms
 from django.contrib.auth import get_user_model
 
-
 from . import models
 from .models import Album, CaIDUser, IndividualIdentity, MediaFile, UploadedArchive
 
 User = get_user_model()
+
 
 class WorkgroupUsersForm(forms.Form):
     workgroup_users = forms.ModelMultipleChoiceField(
@@ -26,10 +26,8 @@ class WorkgroupUsersForm(forms.Form):
 class TaxonForm(forms.ModelForm):
     class Meta:
         model = models.Taxon
-        fields = (
-            "name",
-            "parent"
-        )
+        fields = ("name", "parent")
+
 
 class AlbumForm(forms.ModelForm):
     class Meta:
@@ -46,13 +44,14 @@ class LocationForm(forms.ModelForm):
 class IndividualIdentityForm(forms.ModelForm):
     class Meta:
         model = IndividualIdentity
-        fields = ("name", "code","juv_code", "sex", 'coat_type', 'note')
+        fields = ("name", "code", "juv_code", "sex", "coat_type", "note")
 
 
 class UploadedArchiveSelectTaxonForIdentificationForm(forms.ModelForm):
     class Meta:
         model = UploadedArchive
         fields = ("taxon_for_identification",)
+
 
 class UploadedArchiveUpdateForm(forms.ModelForm):
     from django import forms
@@ -67,9 +66,9 @@ class UploadedArchiveUpdateForm(forms.ModelForm):
         model = UploadedArchive
         fields = (
             # "archivefile",
-            'name',
+            "name",
             "location_at_upload",
-            'location_check_at'
+            "location_check_at"
             # "contains_identities"
         )
 
@@ -85,26 +84,23 @@ class UploadedArchiveForm(forms.ModelForm):
         widget=forms.TextInput(attrs={"class": "autocomplete"}), required=False
     )
     location_check_at = forms.DateField(
-        widget=forms.DateInput(attrs={'class': 'datepicker', 'placeholder': 'yyyy-mm-dd'}, format='%Y-%m-%d'),
-        input_formats=['%Y-%m-%d'],
-
+        widget=forms.DateInput(
+            attrs={"class": "datepicker", "placeholder": "yyyy-mm-dd"}, format="%Y-%m-%d"
+        ),
+        input_formats=["%Y-%m-%d"],
         # widget=forms.TextInput(attrs={'class': 'datepicker'})
     )
 
     class Meta:
         model = UploadedArchive
-        fields = (
-            "archivefile",
-            "location_at_upload",
-            'location_check_at'
-        )
+        fields = ("archivefile", "location_at_upload", "location_check_at")
         help_texts = {
-            'archivefile': "Select a zip file (optional format: YYYY-MM-DD_location.zip)",
+            "archivefile": "Select a zip file (optional format: YYYY-MM-DD_location.zip)",
         }
         labels = {
-            'archivefile': 'Upload Archive File',
-            'location_at_upload': 'Location at Upload',
-            'location_check_at': 'Location Check Date',
+            "archivefile": "Upload Archive File",
+            "location_at_upload": "Location at Upload",
+            "location_check_at": "Location Check Date",
         }
 
 
@@ -113,14 +109,10 @@ class UploadedArchiveFormWithTaxon(forms.ModelForm):
     location_at_upload = forms.CharField(
         widget=forms.TextInput(attrs={"class": "autocomplete"}), required=False
     )
+
     class Meta:
         model = UploadedArchive
-        fields = (
-            "archivefile",
-            "location_at_upload",
-            "taxon_for_identification"
-        )
-
+        fields = ("archivefile", "location_at_upload", "taxon_for_identification")
 
 
 class MediaFileForm(forms.ModelForm):
@@ -136,15 +128,9 @@ class MediaFileForm(forms.ModelForm):
 
 
 class MediaFileBulkForm(forms.ModelForm):
-
     class Meta:
         model = MediaFile
-        fields = (
-            "category",
-            "identity",
-            "identity_is_representative",
-            "taxon_verified"
-        )
+        fields = ("category", "identity", "identity_is_representative", "taxon_verified")
 
     def __init__(self, *args, **kwargs):
         super(MediaFileBulkForm, self).__init__(*args, **kwargs)
@@ -168,9 +154,11 @@ class LocationImportForm(forms.Form):
     spreadsheet_file = forms.FileField()
 
 
-class UploadedArchiveFilterForm():
+class UploadedArchiveFilterForm:
     pass
 
 
 class UserSelectForm(forms.Form):
-    user = forms.ModelChoiceField(queryset=User.objects.all().order_by("username"), label="Select User")
+    user = forms.ModelChoiceField(
+        queryset=User.objects.all().order_by("username"), label="Select User"
+    )

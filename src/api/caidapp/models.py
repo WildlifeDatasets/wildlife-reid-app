@@ -1,31 +1,31 @@
 import logging
 import os.path
+import re
 import shutil
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, Union
 
 import codenamize
+from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.db import models
 from django.db.models import Q
+from django.db.models.query import QuerySet
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-from location_field.models.plain import PlainLocationField
 from django.urls import reverse_lazy
-from django.contrib import messages
-from django.db.models.query import QuerySet
-from . import fs_data
+from location_field.models.plain import PlainLocationField
 
+from . import fs_data
 from .model_tools import (
-    get_zip_path_in_unique_folder,
     generate_sha1,
     get_output_dir,
+    get_zip_path_in_unique_folder,
     random_string,
-    random_string12,
     random_string8,
+    random_string12,
 )
-import re
 
 # Create your models here.
 logger = logging.getLogger("database")
@@ -40,7 +40,6 @@ UA_STATUS_CHOICES = (
     ("IAIP", "ID processing"),
     ("IAID", "ID AI done"),
     ("U", "Unknown"),
-
 )
 UA_STATUS_CHOICES_DICT = dict(UA_STATUS_CHOICES)
 
@@ -50,8 +49,10 @@ def get_hash():
     hash_str = generate_sha1(dt, salt=random_string())
     return hash_str
 
+
 def get_hash8():
     return get_hash()[:8]
+
 
 def human_readable_hash():
     """Return a human readable hash composed from words."""
@@ -66,7 +67,7 @@ class WorkGroup(models.Model):
     identification_init_status = models.CharField(
         max_length=255, blank=True, default="Not initiated"
     )
-    identification_init_message = (models.TextField(blank=True, default=""))
+    identification_init_message = models.TextField(blank=True, default="")
 
     def __str__(self):
         return str(self.name)
@@ -148,7 +149,12 @@ class UploadedArchive(models.Model):
     csv_file = models.FileField(upload_to=outputdir, blank=True, null=True)
     output_updated_at = models.DateTimeField("Output updated at", blank=True, null=True)
     hash = models.CharField(max_length=255, blank=True, default=get_hash)
-    taxon_status = models.CharField(max_length=255, blank=True, choices=UA_STATUS_CHOICES, default="C", )
+    taxon_status = models.CharField(
+        max_length=255,
+        blank=True,
+        choices=UA_STATUS_CHOICES,
+        default="C",
+    )
     # status_message = models.CharField(max_length=2047, blank=True, default="")
     status_message = models.TextField(blank=True)
     started_at = models.DateTimeField("Started at", blank=True, null=True)
@@ -172,7 +178,7 @@ class UploadedArchive(models.Model):
     latest_captured_at = models.DateTimeField("Latest Captured at", blank=True, null=True)
     location_check_at = models.DateTimeField("Location Check at", blank=True, null=True)
 
-    def refresh_status_after_migration(self, request:Optional[object]=None):
+    def refresh_status_after_migration(self, request: Optional[object] = None):
         """Refresh possible old setup of object to 'migrated' one."""
         # couples [[old_status, new_status], ...]
 
@@ -191,8 +197,7 @@ class UploadedArchive(models.Model):
             ["ID processing", "IAIP"],
             ["ID AI done", "IAID"],
             ["Identification finished", "IAID"],
-
-         ]
+        ]
 
         applied = False
         for old_status, new_status in new_old_status:
@@ -205,8 +210,6 @@ class UploadedArchive(models.Model):
             if request:
                 messages.debug(request, f"Status {self.taxon_status} not found in refresh.")
 
-
-
     def next_processing_step_structure(self) -> Optional[tuple]:
         if self.taxon_status == "C":
             return None
@@ -215,9 +218,13 @@ class UploadedArchive(models.Model):
         elif self.taxon_status == "TAIP":
             return None
         elif self.taxon_status == "TAID":
-            return "Annotate taxa", reverse_lazy("caidapp:missing_taxon_annotation", kwargs={"uploaded_archive_id": self.id})
+            return "Annotate taxa", reverse_lazy(
+                "caidapp:missing_taxon_annotation", kwargs={"uploaded_archive_id": self.id}
+            )
         elif self.taxon_status == "TKN":
-            return "Verify taxa", reverse_lazy("caidapp:verify_taxa", kwargs={"uploaded_archive_id": self.id})
+            return "Verify taxa", reverse_lazy(
+                "caidapp:verify_taxa", kwargs={"uploaded_archive_id": self.id}
+            )
         else:
             return None
 
@@ -248,7 +255,9 @@ class UploadedArchive(models.Model):
         if self.taxon_for_identification is None:
             return None
         else:
-            return MediaFile.objects.filter(parent=self, category=self.taxon_for_identification).count()
+            return MediaFile.objects.filter(
+                parent=self, category=self.taxon_for_identification
+            ).count()
 
     def update_location_in_mediafiles(self, location: Union[str, Location]):
         """Update location in mediafiles."""
@@ -306,6 +315,7 @@ class UploadedArchive(models.Model):
         #     (Q(category=animalia_taxon) & Q(taxon_verified=False)),
         #     **kwargs
         # )
+
     def count_of_mediafiles_with_missing_taxon(self):
         return self.mediafiles_with_missing_taxon().count()
 
@@ -315,9 +325,11 @@ class UploadedArchive(models.Model):
     def percents_of_mediafiles_with_taxon(self) -> float:
         if self.count_of_mediafiles() == 0:
             return 0
-        return 100 * (
-                self.count_of_mediafiles() - self.count_of_mediafiles_with_missing_taxon()
-        ) / self.count_of_mediafiles()
+        return (
+            100
+            * (self.count_of_mediafiles() - self.count_of_mediafiles_with_missing_taxon())
+            / self.count_of_mediafiles()
+        )
 
     def count_of_mediafiles_with_verified_taxon(self):
         return self.mediafile_set.filter(taxon_verified=True).count()
@@ -328,24 +340,32 @@ class UploadedArchive(models.Model):
     def percents_of_mediafiles_with_verified_taxon(self) -> float:
         if self.count_of_mediafiles() == 0:
             return 0
-        return 100 * (
-                self.mediafile_set.filter(taxon_verified=True).count()
-        ) / self.count_of_mediafiles()
+        return (
+            100
+            * (self.mediafile_set.filter(taxon_verified=True).count())
+            / self.count_of_mediafiles()
+        )
 
     def has_all_taxons(self):
         return self.count_of_mediafiles_with_missing_taxon() == 0
 
     def count_of_identities(self):
-        return self.mediafile_set.filter(
-            Q(identity__isnull=False)
-        ).values('identity').distinct().count()
+        return (
+            self.mediafile_set.filter(Q(identity__isnull=False))
+            .values("identity")
+            .distinct()
+            .count()
+        )
 
     def count_of_taxons(self):
         """return number of unique taxons in the archive"""
         not_classified_taxon = Taxon.objects.get(name="Not Classified")
-        return self.mediafile_set.filter(
-            Q(category=None) | Q(category=not_classified_taxon)
-            ).values('category').distinct().count()
+        return (
+            self.mediafile_set.filter(Q(category=None) | Q(category=not_classified_taxon))
+            .values("category")
+            .distinct()
+            .count()
+        )
 
     def number_of_media_files_in_archive(self) -> dict:
         counts = fs_data.count_files_in_archive(self.archivefile.path)
@@ -371,7 +391,9 @@ class UploadedArchive(models.Model):
         if status in UA_STATUS_CHOICES_DICT:
             pass
         else:
-            status_message = f"Unknown status '{status}'. Prev. message: " + str(self.status_message)
+            status_message = f"Unknown status '{status}'. Prev. message: " + str(
+                self.status_message
+            )
             status = "U"
             self.status_message = status_message
             self.taxons_status = status
@@ -388,7 +410,7 @@ class UploadedArchive(models.Model):
         status = self.taxon_status
         status_message = self.status_message
         status_style = "dark"
-        if self.taxon_status == 'TAID':  # "Taxons classified":
+        if self.taxon_status == "TAID":  # "Taxons classified":
             status_style = "secondary"
         elif self.taxon_status == "F":
             status_style = "danger"
@@ -411,15 +433,14 @@ class UploadedArchive(models.Model):
         )
 
 
-
 class IndividualIdentity(models.Model):
     SEX_CHOICES = (
-        ('M', "Male"),
-        ('F', 'Female'),
-        ('U', 'Unknown'),
+        ("M", "Male"),
+        ("F", "Female"),
+        ("U", "Unknown"),
     )
     COAT_TYPE_CHOICES = (
-        ('S', "Spotted"),
+        ("S", "Spotted"),
         ("M", "Marble"),
         ("N", "Unspotted"),
         ("U", "Unknown"),
@@ -428,8 +449,8 @@ class IndividualIdentity(models.Model):
     id_worker = models.IntegerField(null=True, blank=True)
     owner_workgroup = models.ForeignKey(WorkGroup, on_delete=models.CASCADE, null=True, blank=True)
     updated_by = models.ForeignKey(CaIDUser, on_delete=models.CASCADE, null=True, blank=True)
-    sex = models.CharField(max_length=2, choices=SEX_CHOICES, default='U')
-    coat_type = models.CharField(max_length=2, choices=COAT_TYPE_CHOICES, default='U')
+    sex = models.CharField(max_length=2, choices=SEX_CHOICES, default="U")
+    coat_type = models.CharField(max_length=2, choices=COAT_TYPE_CHOICES, default="U")
     note = models.TextField(blank=True)
     code = models.CharField(max_length=50, default=random_string12)
     juv_code = models.CharField("Juv. Code", max_length=50, default=random_string12)
@@ -450,10 +471,10 @@ class IndividualIdentity(models.Model):
         super().save(*args, **kwargs)
 
     def get_sex_display(self):
-        return dict(self.SEX_CHOICES).get(self.sex, 'Unknown')
+        return dict(self.SEX_CHOICES).get(self.sex, "Unknown")
 
     def get_coat_type_display(self):
-        return dict(self.COAT_TYPE_CHOICES).get(self.coat_type, 'Unknown')
+        return dict(self.COAT_TYPE_CHOICES).get(self.coat_type, "Unknown")
 
 
 class MediaFile(models.Model):
@@ -464,7 +485,9 @@ class MediaFile(models.Model):
     )
     parent = models.ForeignKey(UploadedArchive, on_delete=models.CASCADE, null=True)
     category = models.ForeignKey(Taxon, blank=True, null=True, on_delete=models.CASCADE)
-    predicted_taxon = models.ForeignKey(Taxon, blank=True, null=True, on_delete=models.SET_NULL, related_name="predicted_taxon")
+    predicted_taxon = models.ForeignKey(
+        Taxon, blank=True, null=True, on_delete=models.SET_NULL, related_name="predicted_taxon"
+    )
     predicted_taxon_confidence = models.FloatField(null=True, blank=True)
     location = models.ForeignKey(Location, blank=True, null=True, on_delete=models.CASCADE)
     captured_at = models.DateTimeField("Captured at", blank=True, null=True)
@@ -522,8 +545,8 @@ class MediaFile(models.Model):
 
     def is_for_suggestion(self):
         return (self.predicted_taxon is not None) and (
-                (self.category.name == "Not Classified") or
-                ((self.category.name == "Animalia") and (self.taxon_verified == False))
+            (self.category.name == "Not Classified")
+            or ((self.category.name == "Animalia") and (self.taxon_verified == False))
         )
 
 
@@ -674,6 +697,7 @@ def get_content_owner_filter_params(ciduser: CaIDUser, prefix: str) -> dict:
         filter_params = {f"{prefix}": ciduser}
     return filter_params
 
+
 @receiver(models.signals.post_delete, sender=UploadedArchive)
 def auto_delete_file_on_delete(sender, instance, **kwargs):
     """Deletes file from filesystem when corresponding `MediaFile` object is deleted."""
@@ -694,7 +718,9 @@ def auto_delete_file_on_delete(sender, instance, **kwargs):
 #         return str(self.title)
 
 
-def get_mediafiles_with_missing_taxon(caiduser:CaIDUser, uploadedarchive:Optional[UploadedArchive]=None, **kwargs) -> QuerySet:
+def get_mediafiles_with_missing_taxon(
+    caiduser: CaIDUser, uploadedarchive: Optional[UploadedArchive] = None, **kwargs
+) -> QuerySet:
 
     not_classified_taxon = Taxon.objects.get(name="Not Classified")
     animalia_taxon = Taxon.objects.get(name="Animalia")
@@ -703,35 +729,29 @@ def get_mediafiles_with_missing_taxon(caiduser:CaIDUser, uploadedarchive:Optiona
     if uploadedarchive is not None:
         kwargs["parent"] = uploadedarchive
 
-
-    mediafiles = (
-        MediaFile.objects.filter(
-            Q(category=None) | Q(category=not_classified_taxon) |
-            (Q(category=animalia_taxon) & Q(taxon_verified=False)),
-            **kwargs_filter,
-            parent__contains_single_taxon=False,
-            **kwargs
-            ))
+    mediafiles = MediaFile.objects.filter(
+        Q(category=None)
+        | Q(category=not_classified_taxon)
+        | (Q(category=animalia_taxon) & Q(taxon_verified=False)),
+        **kwargs_filter,
+        parent__contains_single_taxon=False,
+        **kwargs,
+    )
     logger.debug(f"{mediafiles.count()=}")
     return mediafiles
 
 
-def get_mediafiles_with_missing_verification(caiduser:CaIDUser, uploadedarchive:Optional[UploadedArchive]=None, **kwargs) -> QuerySet:
+def get_mediafiles_with_missing_verification(
+    caiduser: CaIDUser, uploadedarchive: Optional[UploadedArchive] = None, **kwargs
+) -> QuerySet:
 
     kwargs_filter = get_content_owner_filter_params(caiduser, "parent__owner")
     if uploadedarchive is not None:
         kwargs["parent"] = uploadedarchive
 
-
     logger.debug(f"{caiduser=}, {uploadedarchive=}, {kwargs=}, {kwargs_filter=}")
-    mediafiles = (
-        MediaFile.objects.filter(
-            taxon_verified=False,
-            **kwargs_filter,
-            parent__contains_single_taxon=False,
-            **kwargs
-        ))
+    mediafiles = MediaFile.objects.filter(
+        taxon_verified=False, **kwargs_filter, parent__contains_single_taxon=False, **kwargs
+    )
     logger.debug(f"{mediafiles.count()=}")
     return mediafiles
-
-

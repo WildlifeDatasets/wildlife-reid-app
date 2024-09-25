@@ -6,13 +6,17 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0050_uploadedarchive_status_message'),
+        ("caidapp", "0050_uploadedarchive_status_message"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='individualidentity',
-            name='sex',
-            field=models.CharField(choices=[('M', 'Male'), ('F', 'Female'), ('U', 'Unknown')], default='U', max_length=2),
+            model_name="individualidentity",
+            name="sex",
+            field=models.CharField(
+                choices=[("M", "Male"), ("F", "Female"), ("U", "Unknown")],
+                default="U",
+                max_length=2,
+            ),
         ),
     ]

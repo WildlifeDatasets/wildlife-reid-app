@@ -6,13 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0065_auto_20240627_2307'),
+        ("caidapp", "0065_auto_20240627_2307"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='uploadedarchive',
-            name='name',
-            field=models.CharField(blank=True, default='', max_length=50),
+            model_name="uploadedarchive",
+            name="name",
+            field=models.CharField(blank=True, default="", max_length=50),
         ),
     ]

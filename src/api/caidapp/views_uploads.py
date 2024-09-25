@@ -1,13 +1,13 @@
-from django.shortcuts import render
-from django.contrib import messages
-from typing import Optional
-from . import views
-from .models import UploadedArchive
 import logging
-from django.shortcuts import redirect
+from typing import Optional
+
+from django.contrib import messages
 from django.http import HttpResponse
+from django.shortcuts import redirect, render
 from django.utils import timezone
 
+from . import views
+from .models import UploadedArchive
 
 logger = logging.getLogger(__name__)
 
@@ -19,8 +19,7 @@ def taxon_processing(request):
         request,
         # "caidapp/uploads_species.html",
         "caidapp/taxon_processing.html",
-        {
-            "btn_styles": btn_styles, "btn_tooltips": btn_tooltips},
+        {"btn_styles": btn_styles, "btn_tooltips": btn_tooltips},
     )
     pass
 
@@ -28,9 +27,10 @@ def taxon_processing(request):
 from collections import defaultdict
 
 
-def _get_check_dates(request, contains_single_taxon: Optional[bool] = None,
-                                 taxon_for_identification__isnull: Optional[bool] = None
-
+def _get_check_dates(
+    request,
+    contains_single_taxon: Optional[bool] = None,
+    taxon_for_identification__isnull: Optional[bool] = None,
 ) -> list:
     """Get the list of unique dates for the uploaded archives."""
 
@@ -41,8 +41,7 @@ def _get_check_dates(request, contains_single_taxon: Optional[bool] = None,
         filter_params = dict(taxon_for_identification__isnull=taxon_for_identification__isnull)
 
     uploaded_archives = UploadedArchive.objects.filter(
-        **views.get_content_owner_filter_params(request.user.caiduser, "owner"),
-        **filter_params
+        **views.get_content_owner_filter_params(request.user.caiduser, "owner"), **filter_params
     )
 
     # get the list of unique dates
@@ -64,7 +63,7 @@ def _get_grouped_dates(dates) -> dict:
     grouped_dates = defaultdict(lambda: defaultdict(list))
     for date in dates:
         year = date.year
-        month = date.strftime('%B')
+        month = date.strftime("%B")
         grouped_dates[year][month].append(date)
 
     # Sort years, months, and dates in descending order
@@ -76,10 +75,15 @@ def _get_grouped_dates(dates) -> dict:
 
     return sorted_grouped_dates
 
-def camera_trap_check_dates_view(request, contains_single_taxon: Optional[bool] = None,
-                                 taxon_for_identification__isnull: Optional[bool] = None, year: Optional[int] = None,):
 
-        #
+def camera_trap_check_dates_view(
+    request,
+    contains_single_taxon: Optional[bool] = None,
+    taxon_for_identification__isnull: Optional[bool] = None,
+    year: Optional[int] = None,
+):
+
+    #
     dates = _get_check_dates(request, contains_single_taxon, taxon_for_identification__isnull)
     sorted_grouped_dates = _get_grouped_dates(dates)
 
@@ -97,17 +101,17 @@ def camera_trap_check_dates_view(request, contains_single_taxon: Optional[bool] 
 
     return render(
         request,
-        "caidapp/check_dates.html", context={
-            "grouped_dates": sorted_grouped_dates,
-            "years": years,
-            "selected_year": year
-        }
+        "caidapp/check_dates.html",
+        context={"grouped_dates": sorted_grouped_dates, "years": years, "selected_year": year},
     )
 
 
-
-def camera_trap_check_date_view(request, date: Optional[str] = None, contains_single_taxon: Optional[bool] = None,
-                                 taxon_for_identification__isnull: Optional[bool] = None) -> HttpResponse:
+def camera_trap_check_date_view(
+    request,
+    date: Optional[str] = None,
+    contains_single_taxon: Optional[bool] = None,
+    taxon_for_identification__isnull: Optional[bool] = None,
+) -> HttpResponse:
 
     from .views import _uploads_general
 
@@ -123,7 +127,8 @@ def camera_trap_check_date_view(request, date: Optional[str] = None, contains_si
     else:
         filter = dict(location_check_at__date=date)
     page_context = _uploads_general(
-        request, contains_single_taxon=contains_single_taxon,
+        request,
+        contains_single_taxon=contains_single_taxon,
         taxon_for_identification__isnull=taxon_for_identification__isnull,
         **filter,
     )
@@ -134,7 +139,7 @@ def camera_trap_check_date_view(request, date: Optional[str] = None, contains_si
         context={
             **page_context,
             "date": date,
-            "years":years,
+            "years": years,
             # "page_obj": page_obj,
             # "elided_page_range": elided_page_range,
             # "btn_styles": _single_species_button_style(request),
@@ -144,6 +149,7 @@ def camera_trap_check_date_view(request, date: Optional[str] = None, contains_si
 
 def uploadedarchive_detail(request, uploadedarchive_id: int) -> HttpResponse:
     from .views import _uploads_general
+
     uploaded_archive = UploadedArchive.objects.get(id=uploadedarchive_id)
 
     # {% if uploadedarchive.count_of_mediafiles_with_taxon_for_identification %}
@@ -167,17 +173,15 @@ def uploadedarchive_detail(request, uploadedarchive_id: int) -> HttpResponse:
         "Count of media files with taxon": uploaded_archive.count_of_mediafiles_with_taxon(),
         "Count of media files withi missing taxon": uploaded_archive.count_of_mediafiles_with_missing_taxon(),
         "Count of media files with verified taxon": uploaded_archive.count_of_mediafiles_with_verified_taxon(),
-        "Count of taxons":  uploaded_archive.count_of_taxons(),
+        "Count of taxons": uploaded_archive.count_of_taxons(),
         "Count of identities": uploaded_archive.count_of_identities(),
         "Precents of media files with taxon": uploaded_archive.percents_of_mediafiles_with_taxon(),
-
     }
     return render(
         request,
         "caidapp/message.html",
         context=dict(
             headline=f"Uploaded Archive {uploaded_archive.location_at_upload_object} {uploaded_archive.location_check_at}",
-            dictionary=dictionary
-        )
+            dictionary=dictionary,
+        ),
     )
-

@@ -1,21 +1,24 @@
-from django.shortcuts import Http404, HttpResponse, get_object_or_404, redirect, render
-from django.urls import reverse_lazy
-from django.http import StreamingHttpResponse, Http404, JsonResponse, HttpResponseRedirect, HttpResponseNotAllowed
-from django.shortcuts import get_object_or_404
-import django
-from django.db.models import Q
-
-from .forms import MediaFileForm
-from .models import MediaFile, get_content_owner_filter_params
-from . import model_extra
-from django.utils import timezone
 import os
 import random
 from typing import Optional
 
+import django
+from django.db.models import Q
+from django.http import (
+    Http404,
+    HttpResponseNotAllowed,
+    HttpResponseRedirect,
+    JsonResponse,
+    StreamingHttpResponse,
+)
+from django.shortcuts import Http404, HttpResponse, get_object_or_404, redirect, render
+from django.urls import reverse_lazy
+from django.utils import timezone
 
-from .views import message_view, media_files_update, logger
-from . import models
+from . import model_extra, models
+from .forms import MediaFileForm
+from .models import MediaFile, get_content_owner_filter_params
+from .views import logger, media_files_update, message_view
 
 
 def stream_video(request, mediafile_id):
@@ -28,7 +31,7 @@ def stream_video(request, mediafile_id):
         raise Http404()
 
     def file_iterator(file_name, chunk_size=8192):
-        with open(file_name, 'rb') as f:
+        with open(file_name, "rb") as f:
             while True:
                 chunk = f.read(chunk_size)
                 if not chunk:
@@ -36,9 +39,9 @@ def stream_video(request, mediafile_id):
                 yield chunk
 
     # response = StreamingHttpResponse(file_iterator(video_path), content_type='/video/mp4')
-    response = StreamingHttpResponse(file_iterator(video_path), content_type='video/x-m4v')
-    response['Content-Length'] = os.path.getsize(video_path)
-    response['Accept-Ranges'] = 'bytes'
+    response = StreamingHttpResponse(file_iterator(video_path), content_type="video/x-m4v")
+    response["Content-Length"] = os.path.getsize(video_path)
+    response["Accept-Ranges"] = "bytes"
 
     return response
 
@@ -56,7 +59,9 @@ def missing_taxon_annotation(request, uploaded_archive_id: Optional[int] = None)
         uploadedarchive = None
 
     # pick random non-classified media file
-    mediafiles = models.get_mediafiles_with_missing_taxon(request.user.caiduser, uploadedarchive=uploadedarchive)
+    mediafiles = models.get_mediafiles_with_missing_taxon(
+        request.user.caiduser, uploadedarchive=uploadedarchive
+    )
     # not_classified_taxon = models.Taxon.objects.get(name="Not Classified")
     # animalia_taxon = models.Taxon.objects.get(name="Animalia")
 
@@ -68,8 +73,6 @@ def missing_taxon_annotation(request, uploaded_archive_id: Optional[int] = None)
     #         parent=uploadedarchive,
     #         parent__contains_single_taxon=False,
     #     ))
-
-
 
     # order by parent u
     #     ploaded_at and then by mediafile captured_at, then take first 10
@@ -87,9 +90,15 @@ def missing_taxon_annotation(request, uploaded_archive_id: Optional[int] = None)
     # .first()
 
     if uploadedarchive is not None:
-        next_url = reverse_lazy("caidapp:missing_taxon_annotation", kwargs={"uploaded_archive_id": uploadedarchive.id})
-        skip_url = reverse_lazy("caidapp:missing_taxon_annotation", kwargs={"uploaded_archive_id": uploadedarchive.id})
-        cancel_url = reverse_lazy("caidapp:uploadedarchive_mediafiles", kwargs={"uploadedarchive_id": uploadedarchive.id})
+        next_url = reverse_lazy(
+            "caidapp:missing_taxon_annotation", kwargs={"uploaded_archive_id": uploadedarchive.id}
+        )
+        skip_url = reverse_lazy(
+            "caidapp:missing_taxon_annotation", kwargs={"uploaded_archive_id": uploadedarchive.id}
+        )
+        cancel_url = reverse_lazy(
+            "caidapp:uploadedarchive_mediafiles", kwargs={"uploadedarchive_id": uploadedarchive.id}
+        )
     else:
         next_url = reverse_lazy("caidapp:missing_taxon_annotation")
         skip_url = reverse_lazy("caidapp:missing_taxon_annotation")
@@ -106,14 +115,19 @@ def missing_taxon_annotation(request, uploaded_archive_id: Optional[int] = None)
         cancel_url=cancel_url,
     )
 
-def verify_taxa_view(request, uploaded_archive_id:Optional[int]=None):
+
+def verify_taxa_view(request, uploaded_archive_id: Optional[int] = None):
 
     return media_files_update(
-        request, show_overview_button=True, taxon_verified=False, uploadedarchive_id=uploaded_archive_id,
+        request,
+        show_overview_button=True,
+        taxon_verified=False,
+        uploadedarchive_id=uploaded_archive_id,
         order_by="category__name",
         parent__contains_single_taxon=False,
-        )
+    )
     # views.
+
 
 def taxons_on_page_are_overviewed(request):
     # get 'mediafiles_ids_page' from session
@@ -124,25 +138,30 @@ def taxons_on_page_are_overviewed(request):
         mediafile.save()
 
     # get next page
-    next_url = request.GET.get('next', reverse_lazy("caidapp:verify_taxa")  )
+    next_url = request.GET.get("next", reverse_lazy("caidapp:verify_taxa"))
 
     return redirect(next_url)
 
-def set_mediafiles_order_by(request, order_by:str):
+
+def set_mediafiles_order_by(request, order_by: str):
     request.session["mediafiles_order_by"] = order_by
     # go back to the same page
     return redirect(request.META.get("HTTP_REFERER", "/"))
 
-def set_mediafiles_records_per_page(request, records_per_page:int):
+
+def set_mediafiles_records_per_page(request, records_per_page: int):
     request.session["mediafiles_records_per_page"] = records_per_page
 
     return redirect(request.META.get("HTTP_REFERER", "/"))
 
-def confirm_prediction(request, mediafile_id:int) -> JsonResponse:
+
+def confirm_prediction(request, mediafile_id: int) -> JsonResponse:
     try:
         mediafile = get_object_or_404(MediaFile, id=mediafile_id)
         # user has rw access
-        if model_extra.user_has_rw_access_to_mediafile(request.user.caiduser, mediafile, accept_none=True):
+        if model_extra.user_has_rw_access_to_mediafile(
+            request.user.caiduser, mediafile, accept_none=True
+        ):
             # Update the MediaFile instance
             mediafile.category = mediafile.predicted_taxon
             mediafile.updated_at = timezone.now()
@@ -150,10 +169,11 @@ def confirm_prediction(request, mediafile_id:int) -> JsonResponse:
             mediafile.taxon_verified = True
             mediafile.save()
 
-            return JsonResponse({'success': True, 'message': 'Prediction confirmed.'})
-        return JsonResponse({'success': False, 'message': 'No read/write access to the file'})
+            return JsonResponse({"success": True, "message": "Prediction confirmed."})
+        return JsonResponse({"success": False, "message": "No read/write access to the file"})
     except Exception as e:
-        return JsonResponse({'success': False, 'message': 'Invalid request.'})
+        return JsonResponse({"success": False, "message": "Invalid request."})
+
 
 # def confirm_prediction(request):
 #     if request.method == 'POST':
@@ -169,7 +189,9 @@ def confirm_prediction(request, mediafile_id:int) -> JsonResponse:
 #
 #         return JsonResponse({'success': True, 'message': 'Prediction confirmed.'})
 #     return JsonResponse({'success': False, 'message': 'Invalid request.'})
-def media_file_update(request, media_file_id, next_text="Save", next_url=None, skip_url=None, cancel_url=None):
+def media_file_update(
+    request, media_file_id, next_text="Save", next_url=None, skip_url=None, cancel_url=None
+):
     """Show and update media file."""
     # | Q(parent__owner=request.user.caiduser)
     # | Q(parent__owner__workgroup=request.user.caiduser.workgroup)
@@ -183,7 +205,7 @@ def media_file_update(request, media_file_id, next_text="Save", next_url=None, s
         if next_url:
             return HttpResponseRedirect(next_url)
         else:
-            next_url = request.GET.get('next')
+            next_url = request.GET.get("next")
 
             if next_url is None:
                 next_url = reverse_lazy(

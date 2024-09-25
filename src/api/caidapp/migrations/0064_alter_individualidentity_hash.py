@@ -6,13 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0063_individualidentity_hash'),
+        ("caidapp", "0063_individualidentity_hash"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='individualidentity',
-            name='hash',
+            model_name="individualidentity",
+            name="hash",
             field=models.CharField(blank=True, max_length=50),
         ),
     ]
