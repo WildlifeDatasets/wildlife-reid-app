@@ -17,6 +17,7 @@ User = get_user_model()
 
 class ImpersonateMiddleware(MiddlewareMixin):
     def process_request(self, request):
+        """Impersonate user."""
         if request.user.is_authenticated and request.user.is_superuser:
             impersonate_user_id = request.session.get("impersonate_user_id")
             if impersonate_user_id:

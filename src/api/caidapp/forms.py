@@ -74,11 +74,6 @@ class UploadedArchiveUpdateForm(forms.ModelForm):
 
 
 class UploadedArchiveForm(forms.ModelForm):
-    from django import forms
-
-    from .models import UploadedArchive
-
-    # archivefile = forms.FileField(attrs={"accept": ".zip", "placeholder": "Select a zip file (optinal format {YYYY-MM-DD}_{location}.zip)"})
 
     location_at_upload = forms.CharField(
         widget=forms.TextInput(attrs={"class": "autocomplete"}), required=False
@@ -116,12 +111,6 @@ class UploadedArchiveFormWithTaxon(forms.ModelForm):
 
 
 class MediaFileForm(forms.ModelForm):
-    # captured_at = forms.DateField(
-    #     widget=forms.DateInput(attrs={'class': 'datepicker', 'placeholder': 'yyyy-mm-dd'}, format='%Y-%m-%d'),
-    #     input_formats=['%Y-%m-%d'],
-    #
-    #     # widget=forms.TextInput(attrs={'class': 'datepicker'})
-    # )
     class Meta:
         model = MediaFile
         fields = ("category", "location", "identity", "captured_at", "taxon_verified")

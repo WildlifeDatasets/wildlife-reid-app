@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pandas as pd
 from django.forms import modelformset_factory
-from django.http import HttpResponseBadRequest, HttpResponseNotAllowed, JsonResponse
-from django.shortcuts import Http404, HttpResponse, get_object_or_404, redirect, render
+from django.http import HttpResponseNotAllowed
+from django.shortcuts import HttpResponse, get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 
 from . import forms, model_tools
@@ -119,7 +119,6 @@ def _set_location_to_mediafiles_of_uploadedarchive(
 
 def export_locations_view(request):
     """Export locations."""
-
     locations = Location.objects.filter(
         **get_content_owner_filter_params(request.user.caiduser, "owner")
     )
@@ -131,7 +130,6 @@ def export_locations_view(request):
 
 def export_locations_view_xls(request):
     """Export locations."""
-
     locations = Location.objects.filter(
         **get_content_owner_filter_params(request.user.caiduser, "owner")
     )
@@ -188,7 +186,9 @@ def import_locations_view(request):
             "form": form,
             "headline": "Import locations",
             "button": "Import",
-            "text_note": "Upload CSV or XLSX file. There should be columns 'name' and 'location' in the file. Location should be in format 'lat,lon'.",
+            "text_note": "Upload CSV or XLSX file. "
+            + "There should be columns 'name' and 'location' in the file. "
+            + "Location should be in format 'lat,lon'.",
             "next": "caidapp:locations",
         },
     )
@@ -211,7 +211,6 @@ def uploads_of_location(request, location_hash):
 
 def download_records_from_location_csv_view(request, location_hash):
     """Download records from location."""
-
     location = get_object_or_404(
         Location,
         hash=location_hash,
@@ -226,7 +225,6 @@ def download_records_from_location_csv_view(request, location_hash):
 
 def download_records_from_location_xls_view(request, location_hash):
     """Download records from location."""
-
     location = get_object_or_404(
         Location,
         hash=location_hash,

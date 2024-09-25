@@ -15,7 +15,7 @@ from celery import chain, shared_task, signature
 from django.conf import settings
 
 from . import fs_data, model_tools, views
-from .fs_data import count_files_in_archive, make_thumbnail_from_file
+from .fs_data import make_thumbnail_from_file
 from .log_tools import StatusCounts
 from .models import (
     CaIDUser,
@@ -51,6 +51,7 @@ class DuplicateFilter(logging.Filter):
         self.last_log = None
 
     def filter(self, record):
+        """Filter out duplicate log messages."""
         record.lineno
         current_log = (record.module, record.levelno, record.msg)
         if current_log != self.last_log:
@@ -162,6 +163,7 @@ def _prepare_dataframe_for_identification(mediafiles) -> dict:
 
 @shared_task(bind=True)
 def do_cloud_import_for_user(self, caiduser: CaIDUser):
+    """Import files from cloud storage."""
     caiduser.dir_import_status = "Processing"
     caiduser.save()
     path = Path(caiduser.import_dir)
@@ -223,6 +225,7 @@ def do_cloud_import_for_user(self, caiduser: CaIDUser):
 
 
 def do_cloud_import_async(caiduser: CaIDUser):
+    """Run cloud import asynchronously."""
     sig = do_cloud_import_for_user.s(caiduser=caiduser)
     # run async
     sig.apply_async()
@@ -232,8 +235,6 @@ def run_detection_async(uploaded_archive: UploadedArchive, link=None, link_error
     """Run detection and mask preparation on UploadedArchive."""
     mediafiles = uploaded_archive.mediafile_set.all()
     logger.debug(f"Running detection with {len(mediafiles)} records...")
-    # csv_len = len(mediafiles)
-    # csv_data = {"image_path": [None] * csv_len, "mediafile_id": [None] * csv_len}
 
     csv_data = _prepare_dataframe_for_identification(mediafiles)
     media_root = Path(settings.MEDIA_ROOT)
@@ -243,8 +244,6 @@ def run_detection_async(uploaded_archive: UploadedArchive, link=None, link_error
     )
     pd.DataFrame(csv_data).to_csv(identity_metadata_file, index=False)
 
-    # media_root = Path(settings.MEDIA_ROOT)
-    # identity_metadata_file = Path(settings.MEDIA_ROOT) / uploaded_archive.csv_file.name
     # logger.debug("Calling run_detection and run_identification ...")
     detect_sig = signature(
         "detect",
@@ -417,7 +416,7 @@ def _estimate_time_for_taxon_classification_of_uploaded_archive(
     # count files in archive
     # file_count_dict = count_files_in_archive(uploaded_archive.archivefile.path)
     file_count_dict = uploaded_archive.number_of_media_files_in_archive()
-    file_count = file_count_dict["file_count"]
+    # file_count = file_count_dict["file_count"]
     image_count = file_count_dict["image_count"]
     video_count = file_count_dict["video_count"]
     # estimate time to process
@@ -579,7 +578,6 @@ def _update_database_by_one_row_of_metadata(
     logger.debug(f"{captured_at=}, {type(captured_at)}")
     if (captured_at == "") or (isinstance(captured_at, float) and np.isnan(captured_at)):
         captured_at = None
-    continue_processing = True
     try:
         mf = uploaded_archive.mediafile_set.get(mediafile=str(image_rel_pth))
         # logger.debug("Using Mediafile generated before")
@@ -619,7 +617,6 @@ def _update_database_by_one_row_of_metadata(
             logger.debug(f"Mediafile {image_rel_pth} not found. Skipping.")
             # continue
             status = "deleted"
-            continue_processing = False
             return status
 
     # generate thumbnail if necessary
@@ -687,8 +684,6 @@ def update_metadata_csv_by_uploaded_archive(
 
 
 def _sync_metadata_by_creating_from_mediafiles(csv_file, output_dir, uploaded_archive):
-    import copy
-
     mediafile_set = uploaded_archive.mediafile_set.all()
     if metadata_json_are_consistent(mediafile_set):
         df = create_dataframe_from_mediafiles(mediafile_set)
@@ -698,6 +693,7 @@ def _sync_metadata_by_creating_from_mediafiles(csv_file, output_dir, uploaded_ar
 
 
 def metadata_json_are_consistent(mediafiles: Generator[MediaFile, None, None]) -> bool:
+    """Check if metadata JSONs are consistent."""
     for mf in mediafiles:
         metadata_row = copy.copy(mf.metadata_json)
         logger.debug(f"{metadata_row=}, {type(metadata_row)=}")
@@ -711,6 +707,7 @@ def metadata_json_are_consistent(mediafiles: Generator[MediaFile, None, None]) -
 
 
 def create_dataframe_from_mediafiles(mediafiles: Generator[MediaFile, None, None]) -> pd.DataFrame:
+    """Create DataFrame from MediaFiles."""
     records = []
     # go over mediafiles in set
     for mf in mediafiles:
