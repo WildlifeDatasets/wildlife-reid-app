@@ -382,16 +382,10 @@ def _uploads_general(request, contains_single_taxon: Optional[bool] = None, taxo
 
 
 def _multiple_species_button_style_and_tooltips(request) -> dict:
-    # todo change this
     models.get_content_owner_filter_params(request.user.caiduser, "owner")
     n_non_classified_taxons = len(
         models.get_mediafiles_with_missing_taxon(request.user.caiduser)
 
-        # MediaFile.objects.filter(
-        #     parent__owner__workgroup=request.user.caiduser.workgroup,
-        #     category__name="Not Classified",
-        #     parent__contains_single_taxon=False,
-        # ).all()
     )
     btn_tooltips = {
         "classify_non_classified": f"Annotate {n_non_classified_taxons} media files "
