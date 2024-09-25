@@ -213,7 +213,7 @@
 {#                        <a class="btn {{ btn_styles.classify_non_classified }}" href="{% url 'caidapp:missing_taxon_annotation' %}"#}
 {#                           data-bs-toggle="tooltip" title="{{ btn_tooltips.classify_non_classified }}"#}
 {#                        >classify non classified</a>#}
-{#                        <a class="btn {{ btn_styles.overview_taxons }}" href="{% url 'caidapp:overview_taxons' %}"#}
+{#                        <a class="btn {{ btn_styles.verify_taxa }}" href="{% url 'caidapp:verify_taxa' %}"#}
 {#                           data-bs-toggle="tooltip" title="{{ btn_tooltips.classify_non_classified }}"#}
 {#                        >Overview taxons</a>#}
 {##}
@@ -268,7 +268,7 @@
                                            {% if uploadedarchive.get_status.status == 'Taxons classified' %}
                                                 href="{% url 'caidapp:missing_taxon_annotation' uploadedarchive.id %}"
                                            {% elif uploadedarchive.get_status.status == 'Taxons done' %}
-                                                href="{% url 'caidapp:overview_taxons' uploadedarchive.id %}"
+                                                href="{% url 'caidapp:verify_taxa' uploadedarchive.id %}"
                                            {% endif %}
                                         >{{ uploadedarchive.get_status.status }}</a>
 

@@ -217,7 +217,7 @@ class UploadedArchive(models.Model):
         elif self.taxon_status == "TAID":
             return "Annotate taxa", reverse_lazy("caidapp:missing_taxon_annotation", kwargs={"uploaded_archive_id": self.id})
         elif self.taxon_status == "TKN":
-            return "Verify taxa", reverse_lazy("caidapp:overview_taxons", kwargs={"uploaded_archive_id": self.id})
+            return "Verify taxa", reverse_lazy("caidapp:verify_taxa", kwargs={"uploaded_archive_id": self.id})
         else:
             return None
 
