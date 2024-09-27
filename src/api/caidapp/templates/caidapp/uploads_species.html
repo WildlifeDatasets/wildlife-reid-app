@@ -235,21 +235,8 @@
 
                 {% if page_obj %}
                     {% for uploadedarchive in page_obj %}
-{#                        <div class="col-xl-3">#}
                         <div class="col-12 col-sm-12 col-md-12 col-lg-6 col-xl-4 col-xxl-3 col-xxxl-3 col-xxxxl-1" id="card{{ uploadedarchive.instance.id }}">
-{#                        <div class="col" style="-ms-flex: 0 0 200; flex: 0 0 200;">#}
                             <div class="card"
-{#                                    {% if uploadedarchive.thumbnail %}#}
-{#                                 style="#}
-{##}
-{#                                         background-image: linear-gradient(to left, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 1.0)), url({{ uploadedarchive.thumbnail.url }});#}
-{#                                         background-repeat: no-repeat;#}
-{#                                         background-position-x: right;#}
-{#                                         background-position-y: center;#}
-{#                                         background-size: cover;#}
-{#                                         "#}
-{##}
-{#                                    {% endif %}#}
                             >
                                     <div class="card-img-wrapper">
                                         {% if uploadedarchive.thumbnail %}
@@ -298,44 +285,9 @@
 {#                                    <img class="card-img-top" src="{{ uploadedarchive.thumbnail.url }}" alt="Camera trap check representative">#}
                                 <div class="card-body"
                                 >
-{#                                    {% if uploadedarchive.thumbnail %}#}
-{#                                    {% else %}#}
-{#                                        <!-- No image is given -->#}
-{##}
-{#                                        <!-- Badge for status -->#}
-{#                                        <span class="badge rounded-pill bg-{{ uploadedarchive.get_status.status_style }}"#}
-{#                                              data-bs-toggle="tooltip" title="{{ uploadedarchive.get_status.status_message }}"#}
-{#                                        >{{ uploadedarchive.get_status.status }}</span>#}
-                                        {#                                        <span class="badge rounded-pill bg-info">{{ uploadedarchive.get_status.status }}</span>#}
-{##}
-                                        {#                                      Dropdown menu #}
-{#                                        <div class="dropdown">#}
-{#                                            <a class="btn btn-secondary custom-dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">#}
-{#                                                <i class="bi bi-three-dots"></i>#}
-{#                                            </a>#}
-{#                                            {% include "caidapp/upload_species_card_dropdown.html" %}#}
-{#                                        </div>#}
-{#                                    {% endif %}#}
 
                                     {% include "caidapp/upload_card_body.html" %}
 
-{#                                    <div class="mt-2">#}
-{#                                        <a class="btn btn-secondary"#}
-{#                                           href="{% url 'caidapp:uploadedarchive_mediafiles' uploadedarchive.id %}">#}
-{#                                            <i class="bi bi-images"></i> Media files#}
-{#                                        </a>#}
-{##}
-{##}
-{#                                        <div class="dropdown d-inline-block">#}
-{#                                            <a class="btn btn-secondary custom-dropdown-toggle" href="#" role="button"#}
-{#                                               data-bs-toggle="dropdown" aria-expanded="false">#}
-{#                                                <i class="bi bi-three-dots"></i>#}
-{#                                            </a>#}
-{#                                            {% include "caidapp/upload_species_card_dropdown.html" %}#}
-{##}
-{#                                        </div>#}
-{##}
-{#                                    </div>#}
                                 </div>
                             </div>
                         </div>

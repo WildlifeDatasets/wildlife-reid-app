@@ -394,31 +394,32 @@ class UploadedArchive(models.Model):
         """Update status with respect to manual annotations."""
         status = self.taxon_status
 
-        if self.count_of_mediafiles_with_unverified_taxon() == 0:
-            status = "TV"
-        elif status == "TV":
-            # someone unverified a file
-            status = "TKN"  # it will be rechecked on next lines
+        if status in ("TV", "TKN", "TAID"):
+            if self.count_of_mediafiles_with_unverified_taxon() == 0:
+                status = "TV"
+            elif status == "TV":
+                # someone unverified a file
+                status = "TKN"  # it will be rechecked on next lines
 
-        if self.count_of_mediafiles_with_missing_taxon() == 0:
-            status = "TKN"
-        elif status == "TKN":
-            # some taxons were removed
-            status = "TAID"
+            if self.count_of_mediafiles_with_missing_taxon() == 0:
+                status = "TKN"
+            elif status == "TKN":
+                # some taxons were removed
+                status = "TAID"
 
         if status in UA_STATUS_CHOICES_DICT:
-            pass
+            if status != self.taxon_status:
+                logger.debug(f"Status of {self} is changed: {self.taxon_status} -> {status}")
+                self.taxon_status = status
+                self.save()
         else:
             status_message = f"Unknown status '{status}'. Prev. message: " + str(
                 self.status_message
             )
+            logger.warning(f"Status of {self} is unknown: {status}, status_message: {self.status_message}")
             status = "U"
             self.status_message = status_message
             self.taxons_status = status
-            self.save()
-
-        if status != self.taxon_status:
-            self.taxon_status = status
             self.save()
 
     def get_status(self) -> dict:
