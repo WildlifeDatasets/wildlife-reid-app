@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load custom_filters %}
 
 {% block body %}
     {#<div class="container">#}
@@ -78,6 +79,15 @@
 {#                                    {{ form }}#}
 {#                                                    {{ form.as_p }}#}
                                     <div class="form-group">
+                                        {% if mediafile.is_for_suggestion %}
+                                            <div>
+                                                <i class="bi bi-question-circle"></i>
+                                                Is it {{ mediafile.predicted_taxon  }} ({{ mediafile.predicted_taxon_confidence|mul:100|floor|floatformat:0 }}%) ?
+                                                <button name="confirmTaxonSubmit" class="btn btn-primary" id="confirmTaxonSubmit" type="submit">
+                                                    Confirm
+                                                </button>
+                                            </div>
+                                        {% endif %}
         {% for field in form %}
             <div>
                     <label for="{{ field.id_for_label }}" class="mt-1">{{ field.label }}</label><br>  <!-- Label on its own line -->
@@ -105,14 +115,6 @@
                                     {% endif %}
 
 
-                                    {% if mediafile.is_for_suggestion %}
-                                        <i class="bi bi-question-circle"></i>
-                                        Is it {{ mediafile.predicted_taxon  }} ({{ mediafile.predicted_taxon_confidence|floatformat:4 }}) ?
-                                        <button name="confirmTaxonSubmit" class="btn btn-primary" id="confirmTaxonSubmit" type="submit">
-                                        Confirm
-                                        </button>
-{#                                        <a href="#" class="btn btn-secondary confirm-prediction" data-id="{% url 'caidapp:confirm_prediction' mediafile.id %}">Confirm</a>#}
-                                    {% endif %}
 
                                 </form>
 
