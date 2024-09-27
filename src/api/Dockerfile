@@ -25,6 +25,8 @@ RUN pip install tzdata --upgrade
 
 RUN pip install openpyxl
 
+RUN apt-get install -y ffmpeg
+
 # expose ports and run application
 WORKDIR $APP_DIR
 ENV PYTHONUNBUFFERED=1
