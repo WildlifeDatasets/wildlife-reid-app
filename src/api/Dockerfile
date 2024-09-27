@@ -1,18 +1,16 @@
 FROM python:3.10.13-slim
 
-COPY ./src/api/requirements.txt /api/requirements.txt
-
-# first add repository for gdal-bin
-RUN #sudo add-apt-repository ppa:ubuntugis/ppa
-
 # install system dependencies
 #RUN sudo add-apt-repository ppa:ubuntugis/ppa
 RUN apt-get update --yes &&  \
     apt-get install --yes \
     wget \
     unzip \
+    ffmpeg \
     gdal-bin && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
+
+COPY ./src/api/requirements.txt /api/requirements.txt
 
 # install python dependencies
 ENV APP_DIR='/api'
@@ -21,14 +19,13 @@ RUN pip install --no-cache-dir --upgrade pip build && \
     pip install --no-cache-dir --compile -r requirements.txt && \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/* /tmp/* /var/tmp/*
 
-COPY ./src/api /api
 
 RUN pip install pytz --upgrade
 RUN pip install tzdata --upgrade
 
 RUN pip install openpyxl
 
-RUN apt-get install -y ffmpeg
+COPY ./src/api /api
 
 # expose ports and run application
 WORKDIR $APP_DIR
