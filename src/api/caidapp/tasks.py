@@ -77,7 +77,7 @@ def predict_species_on_success(
     uploaded_archive = UploadedArchive.objects.get(id=uploaded_archive_id)
     if "status" not in output:
         logger.critical(f"Unexpected error {output=} is missing 'status' field.")
-        uploaded_archive.taxon_status = "Unknown"
+        uploaded_archive.taxon_status = "U"
     elif output["status"] == "DONE":
         uploaded_archive.zip_file = zip_file
         uploaded_archive.csv_file = csv_file
@@ -90,13 +90,14 @@ def predict_species_on_success(
             uploaded_archive, create_missing=True, extract_identites=extract_identites
         )
         uploaded_archive.mediafiles_imported = True
-        uploaded_archive.taxon_status = "Taxons classified"
+        uploaded_archive.taxon_status = "TAID"
+        uploaded_archive.status_message = "Taxon classification finished."
         uploaded_archive.finished_at = django.utils.timezone.now()
         uploaded_archive.save()
         uploaded_archive.update_earliest_and_latest_captured_at()
         run_detection_async(uploaded_archive)
     else:
-        uploaded_archive.taxon_status = "Failed"
+        uploaded_archive.taxon_status = "F"
         uploaded_archive.finished_at = django.utils.timezone.now()
         if "error" in output:
             logger.error(f"{output['error']=}")
@@ -286,7 +287,7 @@ def on_error_with_uploaded_archive(self, task_id: str, *args, uploaded_archive_i
     logger.debug(f"args={args}")
     logger.debug(f"kwargs={kwargs}")
     uploaded_archive = UploadedArchive.objects.get(id=uploaded_archive_id)
-    uploaded_archive.taxon_status = "Failed"
+    uploaded_archive.taxon_status = "F"
     uploaded_archive.finished_at = django.utils.timezone.now()
     uploaded_archive.save()
     result = self.AsyncResult(task_id)
@@ -452,12 +453,16 @@ def timedelta_to_human_readable(timedelta: datetime.timedelta) -> str:
             return f"in {hours} hours"
 
 
-def make_thumbnail_for_mediafile_if_necessary(mediafile: MediaFile, thumbnail_width: int = 400):
+def make_thumbnail_for_mediafile_if_necessary(
+        mediafile: MediaFile, thumbnail_width: int = 400, preview_width: int = 1200
+):
     """Make small image representing the upload."""
     logger.debug("Making thumbnail for mediafile")
     mediafile_path = Path(settings.MEDIA_ROOT) / mediafile.mediafile.name
     output_dir = Path(settings.MEDIA_ROOT) / mediafile.parent.outputdir
     abs_pth = output_dir / "thumbnails" / Path(mediafile.mediafile.name).name
+    preview_abs_pth = output_dir / "previews" / Path(mediafile.mediafile.name).name
+
 
     gif_path = abs_pth.with_suffix(".gif")
     logger.debug(f"{gif_path=}, {gif_path.exists()=}")
@@ -486,6 +491,20 @@ def make_thumbnail_for_mediafile_if_necessary(mediafile: MediaFile, thumbnail_wi
         else:
             logger.warning(f"Cannot generate thumbnail for {abs_pth}")
 
+    if mediafile.preview.name is None:
+        preview_rel_pth = os.path.relpath(preview_abs_pth, settings.MEDIA_ROOT)
+        logger.debug(f"Creating preview for {preview_rel_pth}")
+        if make_thumbnail_from_file(mediafile_path, preview_abs_pth, width=preview_width):
+            mediafile.preview = str(preview_rel_pth)
+            mediafile.save()
+        else:
+            logger.warning(f"Cannot generate preview for {preview_abs_pth}")
+
+def refresh_thumbnails():
+    """Refresh all thumbnails."""
+    for mf in MediaFile.objects.all():
+        make_thumbnail_for_mediafile_if_necessary(mf)
+    logger.debug("Refreshed all thumbnails")
 
 def _get_rel_and_abs_paths_based_on_csv_row(row: dict, output_dir: Path):
     abs_pth = output_dir / "images" / row["image_path"]
@@ -876,11 +895,12 @@ def detection_on_success_after_species_prediction(self, output: dict, *args, **k
     uploaded_archive = UploadedArchive.objects.get(id=uploaded_archive_id)
     if "status" not in output:
         logger.critical(f"Unexpected error {output=} is missing 'status' field.")
-        uploaded_archive.taxon_status = "Unknown"
+        uploaded_archive.taxon_status = "U"
     elif output["status"] == "DONE":
-        uploaded_archive.taxon_status = "...detection"
+        uploaded_archive.taxon_status = "TAID"
+        uploaded_archive.status_message = str(uploaded_archive.status_message) + " Detection done."
     else:
-        uploaded_archive.taxon_status = "Failed"
+        uploaded_archive.taxon_status = "F"
         if "error" in output:
             logger.error(f"{output['error']=}")
             uploaded_archive.status_message = output["error"]
@@ -888,29 +908,29 @@ def detection_on_success_after_species_prediction(self, output: dict, *args, **k
     uploaded_archive.save()
 
 
-@shared_task(bind=True)
-def detection_on_success(self, output: dict, *args, **kwargs):
-    """Callback invoked after running init_identification function in inference worker."""
-    logger.debug("detection on success")
-    logger.debug(f"{output=}")
-    logger.debug(f"{args=}")
-    logger.debug(f"{kwargs=}")
-
-    uploaded_archive_id: int = kwargs.pop("uploaded_archive_id")
-    uploaded_archive = UploadedArchive.objects.get(id=uploaded_archive_id)
-    uploaded_archive.taxon_status = "...detection done"
-    uploaded_archive.save()
-    identify_signature = signature(
-        "identify",
-        kwargs=kwargs,
-    )
-    identify_task = identify_signature.apply_async(
-        link=identify_on_success.s(
-            uploaded_archive_id=uploaded_archive_id,
-        ),
-        link_error=on_error_in_upload_processing.s(),
-    )
-    logger.debug(f"{identify_task=}")
+# @shared_task(bind=True)
+# def detection_on_success(self, output: dict, *args, **kwargs):
+#     """Callback invoked after running init_identification function in inference worker."""
+#     logger.debug("detection on success")
+#     logger.debug(f"{output=}")
+#     logger.debug(f"{args=}")
+#     logger.debug(f"{kwargs=}")
+#
+#     uploaded_archive_id: int = kwargs.pop("uploaded_archive_id")
+#     uploaded_archive = UploadedArchive.objects.get(id=uploaded_archive_id)
+#     uploaded_archive.taxon_status = "...detection done"
+#     uploaded_archive.save()
+#     identify_signature = signature(
+#         "identify",
+#         kwargs=kwargs,
+#     )
+#     identify_task = identify_signature.apply_async(
+#         link=identify_on_success.s(
+#             uploaded_archive_id=uploaded_archive_id,
+#         ),
+#         link_error=on_error_in_upload_processing.s(),
+#     )
+#     logger.debug(f"{identify_task=}")
 
 
 @shared_task(bind=True)
@@ -926,11 +946,16 @@ def identify_on_success(self, output: dict, *args, **kwargs):
 
     uploaded_archive_id: int = kwargs.pop("uploaded_archive_id")
     uploaded_archive = UploadedArchive.objects.get(id=uploaded_archive_id)
-    uploaded_archive.taxon_status = "...identification done"
+    uploaded_archive.identification_status = "IAID"
     uploaded_archive.save()
 
     if "status" not in output:
-        logger.critical(f"Unexpected error {output=} is missing 'status' field.")
+        msg = f"Unexpected error {output=} is missing 'status' field."
+        logger.critical(msg)
+        uploaded_archive.identification_status = "U"
+        uploaded_archive.identification_message = msg
+        uploaded_archive.save()
+
         # TODO - should the app return some error response to the user?
     elif output["status"] == "DONE":
         # load output file
@@ -952,15 +977,16 @@ def identify_on_success(self, output: dict, *args, **kwargs):
 
             _prepare_mediafile_for_identification(data, i, media_root, mediafile_id)
 
-        uploaded_archive.taxon_status = "Identification finished"
+        uploaded_archive.identification_status = "IAID"
         uploaded_archive.save()
         logger.debug("identify done.")
 
     else:
         # identification failed
-        uploaded_archive.taxon_status = "Identification failed"
+        uploaded_archive.identification_status = "F"
         uploaded_archive.save()
         logger.error("Identification failed.")
+
         # TODO - should the app return some error response to the user?
 
 
