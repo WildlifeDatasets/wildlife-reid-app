@@ -124,39 +124,6 @@ def login(request):
         )
 
 
-# def media_files(request):
-#     """List of uploads."""
-#     mediafiles = (
-#         MediaFile.objects.filter(
-#             **get_content_owner_filter_params(request.user.caiduser, "parent__owner")
-#             # parent__owner=request.user.caiduser
-#         )
-#         .all()
-#         .order_by("-parent__uploaded_at")
-#     )
-#
-#     records_per_page = 10000
-#     # page_number = request.GET.get("page")
-#     paginator = Paginator(mediafiles, per_page=records_per_page)
-#     page_obj, elided_page_range, page_context = _prepare_page(paginator, request=request)
-#
-#     qs_data = {}
-#     for e in mediafiles:
-#         qs_data[e.id] = str(e.category) + " " + str(e.location)
-#         # qs_data.append(e.id)
-#     logger.debug(qs_data)
-#     qs_json = json.dumps(qs_data)
-#     return render(
-#         request,
-#         "caidapp/media_files.html",
-#         {
-#             **page_context,
-#             "page_title": "Media files",
-#             "qs_json": qs_json,
-#             "user_is_staff": request.user.is_staff,
-#         },
-#     )
-
 
 def message_view(request, message):
     """Show message."""
