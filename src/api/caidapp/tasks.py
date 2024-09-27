@@ -7,6 +7,8 @@ import shutil
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Generator
+import subprocess
+import os
 
 import django
 import numpy as np
@@ -465,6 +467,11 @@ def make_thumbnail_for_mediafile_if_necessary(
     output_dir = Path(settings.MEDIA_ROOT) / mediafile.parent.outputdir
     abs_pth = output_dir / "thumbnails" / Path(mediafile.mediafile.name).name
     preview_abs_pth = output_dir / "previews" / Path(mediafile.mediafile.name).name
+    if mediafile.media_type == "image":
+        preview_abs_pth = preview_abs_pth.with_suffix(".jpg")
+    elif mediafile.media_type == "video":
+        preview_abs_pth = preview_abs_pth.with_suffix(".mp4")
+
 
 
     gif_path = abs_pth.with_suffix(".gif")
@@ -494,14 +501,50 @@ def make_thumbnail_for_mediafile_if_necessary(
         else:
             logger.warning(f"Cannot generate thumbnail for {abs_pth}")
 
-    if mediafile.preview.name is None:
-        preview_rel_pth = os.path.relpath(preview_abs_pth, settings.MEDIA_ROOT)
-        logger.debug(f"Creating preview for {preview_rel_pth}")
-        if make_thumbnail_from_file(mediafile_path, preview_abs_pth, width=preview_width):
+    if mediafile.media_type == "image":
+        if mediafile.preview.name is None:
+            preview_rel_pth = os.path.relpath(preview_abs_pth, settings.MEDIA_ROOT)
+            logger.debug(f"Creating preview for {preview_rel_pth}")
+            if make_thumbnail_from_file(mediafile_path, preview_abs_pth, width=preview_width):
+                mediafile.preview = str(preview_rel_pth)
+                mediafile.save()
+            else:
+                logger.warning(f"Cannot generate preview for {preview_abs_pth}")
+    elif mediafile.media_type == "video":
+        if mediafile.preview.name is None:
+            preview_rel_pth = os.path.relpath(preview_abs_pth, settings.MEDIA_ROOT)
+            preview_abs_pth.parent.mkdir(exist_ok=True, parents=True)
+            logger.debug(f"Creating preview for {preview_rel_pth}")
+            convert_to_mp4(mediafile_path, preview_abs_pth)
             mediafile.preview = str(preview_rel_pth)
             mediafile.save()
         else:
-            logger.warning(f"Cannot generate preview for {preview_abs_pth}")
+            logger.debug(f"Preview already exists for {mediafile.preview}")
+
+
+def convert_to_mp4(input_video_path, output_video_path):
+    # Check if input file exists
+    if not os.path.exists(input_video_path):
+        raise FileNotFoundError(f"The input file '{input_video_path}' does not exist.")
+
+    # ffmpeg command to convert video to MP4 (H.264 + AAC)
+    command = [
+        'ffmpeg',
+        '-i', input_video_path,  # Input video file
+        '-c:v', 'libx264',  # Set the video codec to H.264
+        '-c:a', 'aac',  # Set the audio codec to AAC
+        '-b:a', '192k',  # Audio bitrate (you can adjust this)
+        '-strict', 'experimental',  # For using AAC
+        output_video_path  # Output video file
+    ]
+
+    try:
+        # Run the ffmpeg command
+        subprocess.run(command, check=True)
+        logger.debug(f"Conversion successful! Output saved at '{output_video_path}'")
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Error during conversion: {e}")
+
 
 def refresh_thumbnails():
     """Refresh all thumbnails."""
