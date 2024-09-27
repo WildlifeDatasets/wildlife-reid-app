@@ -6,6 +6,7 @@
 
 ## 09-2024
 
+* [added] Video conversion to mp4
 * [added] Better date and location detection in file name during upload
 * [added] Next step button in uploaded archives view
 * [added] Dates of camera check have now a view
