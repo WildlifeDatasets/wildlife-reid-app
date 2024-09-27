@@ -26,7 +26,12 @@ def stream_video(request, mediafile_id):
     if mediafile.media_type != "video":
         raise Http404("Not a video file")
 
-    video_path = mediafile.mediafile.path
+
+    if (mediafile.preview is not None) and os.path.exists(mediafile.preview.path):
+        video_path = mediafile.preview.path
+    else:
+        video_path = mediafile.mediafile.path
+        logger.warning(f"Preview does not exist for mediafile {mediafile.id=}")
     if not os.path.exists(video_path):
         raise Http404()
 
