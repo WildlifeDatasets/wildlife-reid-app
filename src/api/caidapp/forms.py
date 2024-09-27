@@ -90,7 +90,9 @@ class UploadedArchiveForm(forms.ModelForm):
         model = UploadedArchive
         fields = ("archivefile", "location_at_upload", "location_check_at")
         help_texts = {
-            "archivefile": "Select a zip file (optional format: YYYY-MM-DD_location.zip)",
+            "archivefile": "Select a zip file. Date and location should be detected automatically, "
+                           "e.g., '2023-02-21_Horni Lukavice.zip', 'Horni Lukavice 20230221.zip'",
+
         }
         labels = {
             "archivefile": "Upload Archive File",

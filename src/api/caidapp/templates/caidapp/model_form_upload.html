@@ -154,11 +154,15 @@
             const file = inputFile.files[0];
             if (file) {
                 const filename = file.name;
-                const match1 = filename.match(/^(\d{4}-\d{2}-\d{2})_(.+)\.zip$/);
-                const match2 = filename.match(/^(.+?)_(\d{4}-\d{2}-\d{2})\.zip$/)
+                const match1 = filename.match(/^(\d{4}-?\d{2}-?\d{2})[_ ](.+)\.zip$/);
+                const match2 = filename.match(/^(.+?)[_ ](\d{4}-?\d{2}-?\d{2})\.zip$/)
                 if (match1) {
-                    const date = match1[1];
                     const locality = match1[2];
+                    var date = match1[1];
+                    // if date is in format YYYYMMDD, convert to YYYY-MM-DD
+                    if (date.length === 8) {
+                        date = `${date.slice(0, 4)}-${date.slice(4, 6)}-${date.slice(6, 8)}`;
+                    }
 
                     // Set the date field value
                     dateField.value = date;
@@ -169,9 +173,12 @@
 
                     console.log(`Parsed date: ${date}, locality: ${locality}`);
                     // Second format: locality_YYYY-MM-DD.zip
-                } else if () {
+                } else if (match2) {
                     const locality = match2[1];
-                    const date = match2[2];
+                    var date = match2[2];
+                    if (date.length === 8) {
+                        date = `${date.slice(0, 4)}-${date.slice(4, 6)}-${date.slice(6, 8)}`;
+                    }
 
                     // Set the date field value
                     dateField.value = date;

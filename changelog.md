@@ -6,6 +6,7 @@
 
 ## 09-2024
 
+* [added] Better date and location detection in file name during upload
 * [added] Next step button in uploaded archives view
 * [added] Dates of camera check have now a view
 * [changed] Camera trap checks view is reworked
