@@ -459,6 +459,9 @@ def make_thumbnail_for_mediafile_if_necessary(
     """Make small image representing the upload."""
     logger.debug("Making thumbnail for mediafile")
     mediafile_path = Path(settings.MEDIA_ROOT) / mediafile.mediafile.name
+    if mediafile.parent is None:
+        logger.error(f"Mediafile {mediafile.id} has no parent.")
+        return
     output_dir = Path(settings.MEDIA_ROOT) / mediafile.parent.outputdir
     abs_pth = output_dir / "thumbnails" / Path(mediafile.mediafile.name).name
     preview_abs_pth = output_dir / "previews" / Path(mediafile.mediafile.name).name
