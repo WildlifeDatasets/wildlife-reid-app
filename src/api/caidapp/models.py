@@ -24,6 +24,7 @@ from .model_tools import (
     get_zip_path_in_unique_folder,
     random_string,
     random_string12,
+
 )
 
 # Create your models here.
@@ -36,6 +37,7 @@ UA_STATUS_CHOICES = (
     ("TAID", "Missing taxa"),
     ("TKN", "Taxa known"),
     ("TV", "Taxa verified"),
+    ("IR", "Ready for ID"),
     ("IAIP", "ID processing"),
     ("IAID", "ID AI done"),
     ("U", "Unknown"),
@@ -160,7 +162,12 @@ class UploadedArchive(models.Model):
     status_message = models.TextField(blank=True)
     started_at = models.DateTimeField("Started at", blank=True, null=True)
     finished_at = models.DateTimeField("Finished at", blank=True, null=True)
-    identification_status = models.CharField(max_length=255, blank=True, default="Created")
+    identification_status = models.CharField(
+        max_length=255,
+        blank=True,
+        choices = UA_STATUS_CHOICES,
+        default="C",
+    )
     identification_started_at = models.DateTimeField("Started at", blank=True, null=True)
     identification_finished_at = models.DateTimeField("Finished at", blank=True, null=True)
     location_at_upload = models.CharField(max_length=255, blank=True, default="")
@@ -419,7 +426,7 @@ class UploadedArchive(models.Model):
             logger.warning(f"Status of {self} is unknown: {status}, status_message: {self.status_message}")
             status = "U"
             self.status_message = status_message
-            self.taxons_status = status
+            self.taxon_status = status
             self.save()
 
     def get_status(self) -> dict:
@@ -528,6 +535,7 @@ class MediaFile(models.Model):
         max_length=500,
     )
     thumbnail = models.ImageField(blank=True, null=True, max_length=500)
+    preview = models.ImageField(blank=True, null=True, max_length=500)  # 1200 x 800 px preview
     identity = models.ForeignKey(
         IndividualIdentity, blank=True, null=True, on_delete=models.SET_NULL
     )

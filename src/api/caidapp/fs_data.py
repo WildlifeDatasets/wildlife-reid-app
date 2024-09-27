@@ -47,7 +47,11 @@ def make_thumbnail_from_file(image_path: Path, thumbnail_path: Path, width: int 
         # image_rescaled = (image_rescaled * 255).astype(np.uint8)
         logger.info(f"{image_rescaled.shape=}, {image_rescaled.dtype=}")
         thumbnail_path.parent.mkdir(exist_ok=True, parents=True)
-        skimage.io.imsave(thumbnail_path, image_rescaled)
+        if thumbnail_path.suffix.lower() in (".jpg", ".jpeg"):
+            quality = 85
+        else:
+            quality = None
+        skimage.io.imsave(thumbnail_path, image_rescaled, quality=quality)
         return True
     except Exception:
         logger.warning(
