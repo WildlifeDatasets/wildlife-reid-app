@@ -327,7 +327,7 @@ def run_species_prediction_async(
         logger.error(f"Error during init: {e}")
         import traceback
 
-        uploaded_archive.taxon_status = "Failed"
+        uploaded_archive.taxon_status = "F"
         uploaded_archive.status_message = traceback.format_exc()
         uploaded_archive.save()
         return

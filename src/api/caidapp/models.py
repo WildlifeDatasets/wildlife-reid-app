@@ -33,7 +33,7 @@ UA_STATUS_CHOICES = (
     ("C", "Created"),
     ("F", "Failed"),
     ("TAIP", "Taxon processing"),
-    ("TAID", "Taxon AI done"),
+    ("TAID", "Missing taxa"),
     ("TKN", "Taxa known"),
     ("TV", "Taxa verified"),
     ("IAIP", "ID processing"),
