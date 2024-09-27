@@ -263,14 +263,11 @@
 {#                                              data-bs-toggle="tooltip" title="{{ uploadedarchive.get_status.status_message }}"#}
 {#                                        >{{ uploadedarchive.get_status.status }}</span>#}
 
-                                        <a class="badge badge-status rounded-pill bg-{{ uploadedarchive.get_status.status_style }}"
+                                        <
+                                        <span class="badge badge-status rounded-pill bg-{{ uploadedarchive.get_status.status_style }}"
                                               data-bs-toggle="tooltip" title="{{ uploadedarchive.get_status.status_message }}"
-                                           {% if uploadedarchive.get_status.status == 'Taxons classified' %}
-                                                href="{% url 'caidapp:missing_taxon_annotation' uploadedarchive.id %}"
-                                           {% elif uploadedarchive.get_status.status == 'Taxons done' %}
-                                                href="{% url 'caidapp:verify_taxa' uploadedarchive.id %}"
                                            {% endif %}
-                                        >{{ uploadedarchive.get_status.status }}</a>
+                                        >{{ uploadedarchive.get_status.status }}</span>
 
 {#                                        <span class="badge rounded-pill bg-info">{{ uploadedarchive.get_status.status }}</span>#}
 
