@@ -78,6 +78,19 @@
         const input_file = document.getElementById('id_archivefile');
         const progress_bar = document.getElementById('progress');
 
+        var src = [
+            {%  for location in locations %}
+                {title: "{{ location.name }}", id: "{{ location.id }}", data: {key: {{ location.id }}}},
+            {% endfor %}
+        ];
+
+        const warningElement = document.getElementById("warning_msg_id_location_at_upload");
+        const locationField = document.getElementById('id_location_at_upload');
+
+        // Event listener for when the user leaves the input field (onblur)
+        locationField.addEventListener("blur", function () {
+        });
+
          input_file.addEventListener('change', function() {
             if (input_file.files.length > 0) {
                 isUploading = true;
@@ -149,7 +162,6 @@
 
         const inputFile = document.getElementById('id_archivefile');
         const dateField = document.getElementById('id_location_check_at');
-        const locationField = document.getElementById('id_location_at_upload');
         const datepickerInput = $('.datepicker');
 
         inputFile.addEventListener('change', function() {
@@ -194,6 +206,21 @@
                 } else {
                     console.error('Filename format is incorrect');
                 }
+
+                const inputValue = locationField.value;
+
+                // Check if the entered value is one of the suggested locations
+                const isValid = src.some(location => location.title === inputValue);
+
+                // Show or hide the warning message
+                if (!isValid && inputValue) {
+                    warningElement.innerHTML = "Warning: Unknown location. New location will be created.";
+                    warningElement.style.display = "block";
+                } else {
+                    warningElement.style.display = "none";
+                }
+
+
             }
         });
 
