@@ -47,6 +47,8 @@
                         <span class="text-danger">{{ field.errors }}</span>
                         {{ field|add_class:"form-control" }}
                         <span class="text-muted">{{ field.help_text}}</span>
+                        <span class="text-warning" id="warning_msg_{{ field.id_for_label }}"></span>
+                        <span class="text-secondary" id="secondary_msg_{{ field.id_for_label }}"></span>
                     </div>
                 {% endfor %}
 
@@ -195,6 +197,8 @@
             }
         });
 
+
+
         // Initialize datepicker
         datepickerInput.datepicker({
             format: 'yyyy-mm-dd',
@@ -231,6 +235,26 @@
             onSelectItem: console.log,
         });
         new Autocomplete(document.getElementById("id_location_at_upload"), opts);
+
+        {#const warningElement = document.getElementById("warning-message");#}
+        const warningElement = document.getElementById("warning_msg_id_location_at_upload");
+        const locationField = document.getElementById('id_location_at_upload');
+
+        // Event listener for when the user leaves the input field (onblur)
+        locationField.addEventListener("blur", function () {
+            const inputValue = locationField.value;
+
+            // Check if the entered value is one of the suggested locations
+            const isValid = src.some(location => location.title === inputValue);
+
+            // Show or hide the warning message
+            if (!isValid && inputValue) {
+                warningElement.innerHTML = "Warning: The entered location is not known.";
+                warningElement.style.display = "block";
+            } else {
+                warningElement.style.display = "none";
+            }
+        });
 
 
     </script>
