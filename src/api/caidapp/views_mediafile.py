@@ -198,7 +198,8 @@ def media_file_update(
 
     if request.method == "POST":
         if next_url:
-            return HttpResponseRedirect(next_url)
+            pass
+            # return HttpResponseRedirect(next_url)
         else:
             next_url = request.GET.get("next")
 
@@ -224,6 +225,7 @@ def media_file_update(
                 mediafile.taxon_verified = True
                 mediafile.taxon_verified_at = django.utils.timezone.now()
                 mediafile.save()
+                logger.debug(f"{mediafile.taxon_verified=}")
 
                 return redirect(next_url)
         else:
