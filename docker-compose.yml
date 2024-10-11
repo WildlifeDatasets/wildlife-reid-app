@@ -1,6 +1,12 @@
 version: "3.9"
 
 services:
+
+  # The service that mounts the SFTP remote folder via SSHFS
+ 
+
+
+
   broker:
     image: rabbitmq:3.8.34-management-alpine
     container_name: carnivoreid-app-message-broker
@@ -70,7 +76,9 @@ services:
       - ".env"
     volumes:
       - api-data:/data  # data used only by API
-      - shared-data:/shared_data  # shared data with API, Workers, and Nginx
+      # - shared-data:/shared_data  # shared data with API, Workers, and Nginx
+      # - shared_data_external:/shared_data_external
+      - shared_data_external:/shared_data
       - private-data:/private_data  # private keys that should not be automatically backed up
       - ${CAID_IMPORT:-./caid_import}:/caid_import
     expose:
@@ -105,7 +113,9 @@ services:
               capabilities: [gpu]
     volumes:
       - taxon-worker-data:/data  # data used only by Worker
-      - shared-data:/shared_data  # shared data with API, Workers, and Nginx
+      # - shared-data:/shared_data  # shared data with API, Workers, and Nginx
+      # - shared_data_external:/shared_data_external
+      - shared_data_external:/shared_data
     depends_on:
       - broker
       - redis
@@ -143,7 +153,8 @@ services:
               capabilities: [gpu]
     volumes:
       - identification-worker-data:/data  # data used only by Worker
-      - shared-data:/shared_data  # shared data with API, Workers, and Nginx
+      # - shared-data:/shared_data  # shared data with API, Workers, and Nginx
+      - shared_data_external:/shared_data
     depends_on:
       - broker
       - redis
@@ -174,42 +185,14 @@ services:
     labels:
       com.piva-ai.group: "applications"
 
-#  detection_worker:
-#    platform: linux/amd64
-#    image: ${DETECTION_WORKER_IMAGE:-detection_worker}${TAG:-:latest}
-#    build:
-#      context: .
-#      dockerfile: src/detection_worker/Dockerfile
-#    deploy:
-#      resources:
-#        reservations:
-#          devices:
-#            - driver: nvidia
-#              device_ids: ['0']
-#              capabilities: [gpu]
-#    container_name: carnivoreid-app-detection-worker
-#    restart: always
-#    env_file:
-#      - "src/variables.env"
-#      - ".env"
-#    volumes:
-#      - detection-worker-data:/data  # data used only by Worker
-#      - shared-data:/shared_data  # shared data with API, Workers, and Nginx
-#    depends_on:
-#      - broker
-#      - redis
-#    networks:
-#      - backend
-    #      - identification-worker
-#    labels:
-#      com.piva-ai.group: "applications"
-
   nginx:
     image: ${NGINX_IMAGE:-custom_nginx}${TAG:-:latest}
     build: src/nginx
     container_name: carnivoreid-app-nginx
     volumes:
-      - shared-data:/shared_data  # shared data with API, Workers, and Nginx
+     # - shared-data:/shared_data  # shared data with API, Workers, and Nginx
+     # - shared_data_external:/shared_data_external
+      - shared_data_external:/shared_data
     depends_on:
       - api
     ports:
@@ -258,8 +241,26 @@ volumes:
     labels:
       com.piva-ai.group: "applications"
       com.piva-ai.backup: "yes"
+  # shared_data_external:
+    # labels:
+      # com.piva-ai.group: "applications"
+      # com.piva-ai.backup: "no"
+  
+  # The SSHFS docker plugin is required on host machine
+  # docker plugin install vieux/sshfs
+  shared_data_external:
+    driver: vieux/sshfs
+    driver_opts:
+      sshcmd: "${SFTP_CMD}"  # SSH command
+      password: "${SFTP_PASSWORD}"
+      allow_other: ""
+      idmap: 'user'
+
 
 networks:
   frontend:
   backend:
 #  identification-worker:
+#
+#
+
