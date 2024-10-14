@@ -2,11 +2,6 @@ version: "3.9"
 
 services:
 
-  # The service that mounts the SFTP remote folder via SSHFS
- 
-
-
-
   broker:
     image: rabbitmq:3.8.34-management-alpine
     container_name: carnivoreid-app-message-broker
@@ -233,10 +228,6 @@ volumes:
     labels:
       com.piva-ai.group: "applications"
       com.piva-ai.backup: "yes"
-  shared-data:
-    labels:
-      com.piva-ai.group: "applications"
-      com.piva-ai.backup: "yes"
   private-data:
     labels:
       com.piva-ai.group: "applications"
@@ -245,22 +236,16 @@ volumes:
     # labels:
       # com.piva-ai.group: "applications"
       # com.piva-ai.backup: "no"
-  
-  # The SSHFS docker plugin is required on host machine
-  # docker plugin install vieux/sshfs
-  shared_data_external:
-    driver: vieux/sshfs
-    driver_opts:
-      sshcmd: "${SFTP_CMD}"  # SSH command
-      password: "${SFTP_PASSWORD}"
-      allow_other: ""
-      idmap: 'user'
+  shared-data:
+#    profiles:
+#      - dev
+    labels:
+      com.piva-ai.group: "applications"
+      com.piva-ai.backup: "yes"
+
 
 
 networks:
   frontend:
   backend:
-#  identification-worker:
-#
-#
 

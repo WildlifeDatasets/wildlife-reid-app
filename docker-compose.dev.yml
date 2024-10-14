@@ -2,17 +2,30 @@ version: "3.8"
 
 services:
   broker:
+    container_name: carnivoreid-app-dev-message-broker
     restart: "no"
+    networks:
+      - dev_backend
+  #  identification-worker:
+  #
+  #
 
   redis:
+    container_name: carnivoreid-app-dev-redis
     restart: "no"
+    networks:
+      - dev_backend
 
   db:
+    container_name: carnivoreid-app-dev-db
     restart: "no"
-    ports:
-      - "5432:5432"
+#    ports:
+#      - "5432:5432" # maybe limit to localhost
+    networks:
+      - dev_backend
 
   api:
+    container_name: carnivoreid-app-dev-api
     image: carnivoreid-app/api:dev
     build:
       context: .
@@ -22,8 +35,13 @@ services:
       DEBUG: "True"
     volumes:
       - ./src/api:/api
+      - shared-data:/shared_data
+    networks:
+      - dev_backend
+      - dev_frontend
 
   taxon_worker:
+    container_name: carnivoreid-app-dev-taxon-worker
     image: carnivoreid-app/taxon_worker:dev
     build:
       context: .
@@ -31,15 +49,20 @@ services:
     restart: "no"
     volumes:
       - ./src/taxon_worker:/taxon_worker
+      - shared-data:/shared_data
+    networks:
+      - dev_backend
 
   identification_worker:
     image: carnivoreid-app/identification_worker:dev
+    container_name: carnivoreid-app-dev-identification-worker
     build:
       context: .
       dockerfile: src/identification_worker/Dockerfile_dev
     restart: "no"
     volumes:
       - ./src/identification_worker:/identification_worker
+      - shared-data:/shared_data
     deploy:
       resources:
         reservations:
@@ -47,11 +70,16 @@ services:
             - driver: nvidia
               device_ids: [ '0' ]
               capabilities: [ gpu ]
+    networks:
+      - dev_backend
 
   identification_worker_db:
+    container_name: carnivoreid-app-dev-identification-worker-db
     restart: "no"
-    ports:
-      - "5433:5432"
+#    ports:
+#      - "5433:5432"
+    networks:
+      - dev_backend
 
 #  volume_connector:
 #    image: alpine
@@ -60,14 +88,18 @@ services:
 #      - "shared-data:/shared_data"
 #      - "./shared_data_2/:/shared_data"
 
-#  detection_worker:
-#    image: carnivoreid-app/detection_worker:dev
-#    build:
-#      context: .
-#      dockerfile: src/detection_worker/Dockerfile_dev
-#    restart: "no"
-#    volumes:
-#      - ./src/detection_worker:/detection_worker
-#
   nginx:
+    container_name: carnivoreid-app-dev-nginx
     restart: "no"
+    ports:
+      - "13680:8080"  # this should be input point from the outer nginx. Inner nginx will redirect static files
+    volumes:
+      - shared-data:/shared_data
+    networks:
+      - dev_frontend
+
+networks:
+  dev_backend:
+    driver: bridge
+  dev_frontend:
+    driver: bridge

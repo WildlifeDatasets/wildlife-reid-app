@@ -1,0 +1,26 @@
+version: "3.8"
+
+services:
+  api:
+    volumes:
+     - shared_data_external:/shared_data_external
+
+  taxon_worker:
+    volumes:
+      - shared_data_external:/shared_data_external
+  identification_worker:
+    volumes:
+      - shared_data_external:/shared_data_external
+  nginx:
+    volumes:
+      - shared_data_external:/shared_data_external
+volumes:
+  # The SSHFS docker plugin is required on host machine
+  # docker plugin install vieux/sshfs
+  shared_data_external:
+    driver: vieux/sshfs
+    driver_opts:
+      sshcmd: "${SFTP_CMD}"  # SSH command
+      password: "${SFTP_PASSWORD}"
+      allow_other: ""
+      idmap: 'user'
