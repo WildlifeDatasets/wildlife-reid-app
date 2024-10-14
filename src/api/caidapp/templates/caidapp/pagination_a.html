@@ -1,60 +1,3 @@
-{#<ul class="pagination">#}
-{#    {% if page_obj.has_previous %}#}
-{#        <li class="page-item">#}
-{#            <button type="submit" name="firstPage" class="page-link" href="?page=1">First </button>#}
-{#        </li>#}
-{#        <li class="page-item">#}
-{#            <button type="submit" name="prevPage"  class="page-link" href="?page={{ page_obj.previous_page_number }}">#}
-{#                <i class="bi-chevron-left"></i>#}
-{#            </button>#}
-{#        </li>#}
-{#    {% else %}#}
-{#        <li class="page-item disabled">#}
-{#            <a class="page-link" href="#">First</a>#}
-{#        </li>#}
-{#        <li class="page-item disabled">#}
-{#            <a class="page-link" href="#">#}
-{#                <i class="bi-chevron-left"></i>#}
-{#            </a>#}
-{#        </li>#}
-{#    {% endif %}#}
-{##}
-{#    <li class="page-item">#}
-{#        <a class="page-link" href="#">#}
-{#            Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}.#}
-{#        </a>#}
-{#    </li>#}
-{##}
-{#    {% if page_obj.has_next %}#}
-{#        <li class="page-item">#}
-{#            <button type="submit" name="nextPage" class="page-link" href="?page={{ page_obj.next_page_number }}">#}
-{#                <i class="bi-chevron-right"></i>#}
-{#            </button>#}
-{#        </li>#}
-{##}
-{#    {% else %}#}
-{#        <li class="page-item disabled">#}
-{#            <a class="page-link" href="#">#}
-{#                <i class="bi-chevron-right"></i>#}
-{#            </a>#}
-{#        </li>#}
-{#    {% endif %}#}
-{##}
-{# Go to the last#}
-{#    {% if page_obj.has_next %}#}
-{#        <li class="page-item">#}
-{#            <button type="submit" name="lastPage" class="page-link" href="?page={{ page_obj.paginator.num_pages }}">Last</button>#}
-{#        </li>#}
-{#    {% else %}#}
-{#        <li class="page-item disabled">#}
-{#            <a class="page-link" href="#">#}
-{#                Last#}
-{#            </a>#}
-{#        </li>#}
-{#    {% endif %}#}
-{#</ul>#}
-
-
 
 <ul class="pagination">
     {% for pg_number in elided_page_range %}
@@ -77,19 +20,5 @@
 </ul>
 
 
-
-{#<ul class="pagination">#}
-{#    {% for pg_number in page_obj.paginator.get_elided_page_range  %} <!-- here -->#}
-{#        {% if page_obj.number == pg_number %}#}
-{#            <li class="active page-item">#}
-{#                <a value={{ pg_number }} class="page-link" href="?page={{ pg_number }}">{{ pg_number }}</a>#}
-{#            </li>#}
-{#        {% else %}#}
-{#            <li class="page-item">#}
-{#                <a value={{ pg_number }} class="page-link" href="?page={{ pg_number }}">{{ pg_number }}</a>#}
-{#            </li>#}
-{#        {% endif %}#}
-{#    {% endfor %}#}
-{#</ul>#}
 
 
