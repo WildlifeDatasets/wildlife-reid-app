@@ -54,7 +54,6 @@ class UploadedArchiveSelectTaxonForIdentificationForm(forms.ModelForm):
 
 
 class UploadedArchiveUpdateForm(forms.ModelForm):
-    from django import forms
 
     from .models import UploadedArchive
 
