@@ -1,19 +1,48 @@
 version: "3.8"
 
 services:
+  broker:
+    networks:
+      - backend
+  redis:
+    networks:
+      - backend
+    volumes:
+      - redis-data:/data:Z
+  db:
+    networks:
+      - backend
+    volumes:
+      - db-data:/var/lib/postgresql/data
   api:
     volumes:
      - shared_data_external:/shared_data_external
+    networks:
+      - frontend
+      - backend
 
   taxon_worker:
     volumes:
       - shared_data_external:/shared_data_external
+    networks:
+      - backend
+
   identification_worker:
     volumes:
       - shared_data_external:/shared_data_external
+    networks:
+      - backend
+
+  identification_worker_db:
+    networks:
+      - backend
+
   nginx:
     volumes:
       - shared_data_external:/shared_data_external
+    networks:
+      - frontend
+
 volumes:
   # The SSHFS docker plugin is required on host machine
   # docker plugin install vieux/sshfs
@@ -24,3 +53,50 @@ volumes:
       password: "${SFTP_PASSWORD}"
       allow_other: ""
       idmap: 'user'
+
+  redis-data:
+    labels:
+      com.piva-ai.group: "applications"
+      com.piva-ai.backup: "yes"
+  db-data:
+    labels:
+      com.piva-ai.group: "applications"
+      com.piva-ai.backup: "yes"
+  api-data:
+    labels:
+      com.piva-ai.group: "applications"
+      com.piva-ai.backup: "yes"
+  taxon-worker-data:
+    labels:
+      com.piva-ai.group: "applications"
+      com.piva-ai.backup: "yes"
+  identification-worker-data:
+    labels:
+      com.piva-ai.group: "applications"
+      com.piva-ai.backup: "yes"
+  identification-worker-db-data:
+    labels:
+      com.piva-ai.group: "applications"
+      com.piva-ai.backup: "yes"
+  #  detection-worker-data:
+  #    labels:
+  #      com.piva-ai.group: "applications"
+  #      com.piva-ai.backup: "yes"
+  private-data:
+    labels:
+      com.piva-ai.group: "applications"
+      com.piva-ai.backup: "yes"
+      # shared_data_external:
+      # labels:
+      # com.piva-ai.group: "applications"
+      # com.piva-ai.backup: "no"
+  shared-data:
+    #    profiles:
+    #      - dev
+    labels:
+      com.piva-ai.group: "applications"
+      com.piva-ai.backup: "yes"
+
+networks:
+  frontend:
+  backend:

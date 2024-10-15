@@ -12,8 +12,6 @@ services:
       TZ: Europe/Prague
     expose:
       - 15672  # management tool
-    networks:
-      - backend
     labels:
       com.piva-ai.group: "applications"
 
@@ -26,12 +24,8 @@ services:
       --requirepass password
       --maxmemory 256mb
       --maxmemory-policy allkeys-lru
-    volumes:
-      - redis-data:/data:Z
     expose:
       - 6379
-    networks:
-      - backend
     labels:
       com.piva-ai.group: "applications"
     environment:
@@ -47,12 +41,8 @@ services:
       POSTGRES_USER: user
       POSTGRES_PASSWORD: password
       PGDATA: /var/lib/postgresql/data/pgdata
-    volumes:
-      - db-data:/var/lib/postgresql/data
     expose:
       - 5432
-    networks:
-      - backend
     labels:
       com.piva-ai.group: "applications"
 
@@ -82,9 +72,6 @@ services:
       - taxon_worker
       - identification_worker
 #      - detection_worker
-    networks:
-      - frontend
-      - backend
     labels:
       com.piva-ai.group: "applications"
 
@@ -114,8 +101,6 @@ services:
     depends_on:
       - broker
       - redis
-    networks:
-      - backend
     labels:
       com.piva-ai.group: "applications"
     environment:
@@ -154,8 +139,6 @@ services:
       - broker
       - redis
       - identification_worker_db
-    networks:
-      - backend
     #      - identification-worker
     labels:
       com.piva-ai.group: "applications"
@@ -199,53 +182,6 @@ services:
     environment:
       TZ: Europe/Prague
 
-volumes:
-  redis-data:
-    labels:
-      com.piva-ai.group: "applications"
-      com.piva-ai.backup: "yes"
-  db-data:
-    labels:
-      com.piva-ai.group: "applications"
-      com.piva-ai.backup: "yes"
-  api-data:
-    labels:
-      com.piva-ai.group: "applications"
-      com.piva-ai.backup: "yes"
-  taxon-worker-data:
-    labels:
-      com.piva-ai.group: "applications"
-      com.piva-ai.backup: "yes"
-  identification-worker-data:
-    labels:
-      com.piva-ai.group: "applications"
-      com.piva-ai.backup: "yes"
-  identification-worker-db-data:
-    labels:
-      com.piva-ai.group: "applications"
-      com.piva-ai.backup: "yes"
-#  detection-worker-data:
-#    labels:
-#      com.piva-ai.group: "applications"
-#      com.piva-ai.backup: "yes"
-  private-data:
-    labels:
-      com.piva-ai.group: "applications"
-      com.piva-ai.backup: "yes"
-  # shared_data_external:
-    # labels:
-      # com.piva-ai.group: "applications"
-      # com.piva-ai.backup: "no"
-  shared-data:
-#    profiles:
-#      - dev
-    labels:
-      com.piva-ai.group: "applications"
-      com.piva-ai.backup: "yes"
 
 
-
-networks:
-  frontend:
-  backend:
 
