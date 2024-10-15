@@ -173,8 +173,6 @@ services:
       - api
     ports:
       - "13580:8080"  # this should be input point from the outer nginx. Inner nginx will redirect static files
-    networks:
-      - frontend
     labels:
       com.piva-ai.group: "applications"
     environment:
