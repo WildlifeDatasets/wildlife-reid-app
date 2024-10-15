@@ -157,8 +157,6 @@ services:
       - identification-worker-db-data:/var/lib/postgresql/data
     expose:
       - 5432
-    networks:
-      - backend
     #      - identification-worker
     labels:
       com.piva-ai.group: "applications"
