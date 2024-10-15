@@ -123,6 +123,8 @@ volumes:
     driver: local
   private-data-dev:
     driver: local
+  shared-data:
+    driver: local
 
 
 
