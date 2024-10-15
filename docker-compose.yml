@@ -70,10 +70,10 @@ services:
       - "src/variables.env"
       - ".env"
     volumes:
-      - api-data:/data  # data used only by API
       # - shared-data:/shared_data  # shared data with API, Workers, and Nginx
       # - shared_data_external:/shared_data_external
       - shared_data_external:/shared_data
+      - api-data:/data  # data used only by API
       - private-data:/private_data  # private keys that should not be automatically backed up
       - ${CAID_IMPORT:-./caid_import}:/caid_import
     expose:
@@ -224,10 +224,10 @@ volumes:
     labels:
       com.piva-ai.group: "applications"
       com.piva-ai.backup: "yes"
-  detection-worker-data:
-    labels:
-      com.piva-ai.group: "applications"
-      com.piva-ai.backup: "yes"
+#  detection-worker-data:
+#    labels:
+#      com.piva-ai.group: "applications"
+#      com.piva-ai.backup: "yes"
   private-data:
     labels:
       com.piva-ai.group: "applications"

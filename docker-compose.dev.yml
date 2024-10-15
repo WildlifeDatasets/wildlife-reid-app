@@ -15,6 +15,8 @@ services:
     restart: "no"
     networks:
       - dev_backend
+    volumes:
+      - redis-data-dev:/data:Z
 
   db:
     container_name: carnivoreid-app-dev-db
@@ -23,6 +25,8 @@ services:
 #      - "5432:5432" # maybe limit to localhost
     networks:
       - dev_backend
+    volumes:
+      - db-data-dev:/var/lib/postgresql/data
 
   api:
     container_name: carnivoreid-app-dev-api
@@ -36,6 +40,8 @@ services:
     volumes:
       - ./src/api:/api
       - shared-data:/shared_data
+      - api-data-dev:/data  # data used only by API
+      - private-data-dev:/private_data  # private keys that should not be automatically backed up
     networks:
       - dev_backend
       - dev_frontend
@@ -49,6 +55,7 @@ services:
     restart: "no"
     volumes:
       - ./src/taxon_worker:/taxon_worker
+      - taxon-worker-data-dev:/data  # data used only by Worker
       - shared-data:/shared_data
     networks:
       - dev_backend
@@ -62,6 +69,7 @@ services:
     restart: "no"
     volumes:
       - ./src/identification_worker:/identification_worker
+      - identification-worker-data-dev:/data  # data used only by Worker
       - shared-data:/shared_data
     deploy:
       resources:
@@ -80,6 +88,8 @@ services:
 #      - "5433:5432"
     networks:
       - dev_backend
+    volumes:
+      - identification-worker-db-data-dev:/var/lib/postgresql/data
 
 #  volume_connector:
 #    image: alpine
@@ -97,6 +107,25 @@ services:
       - shared-data:/shared_data
     networks:
       - dev_frontend
+
+volumes:
+  redis-data-dev:
+    driver: local
+  db-data-dev:
+    driver: local
+  api-data-dev:
+    driver: local
+  taxon-worker-data-dev:
+    driver: local
+  identification-worker-data-dev:
+    driver: local
+  identification-worker-db-data-dev:
+    driver: local
+  private-data-dev:
+    driver: local
+
+
+
 
 networks:
   dev_backend:
