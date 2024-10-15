@@ -755,8 +755,8 @@ def get_mediafiles_with_missing_taxon(
     caiduser: CaIDUser, uploadedarchive: Optional[UploadedArchive] = None, **kwargs
 ) -> QuerySet:
     """Return media files with missing taxon."""
-    not_classified_taxon = Taxon.objects.get(name="Not Classified")
-    animalia_taxon = Taxon.objects.get(name="Animalia")
+    not_classified_taxon = get_taxon("Not Classified")
+    animalia_taxon = get_taxon("Animalia")
 
     kwargs_filter = get_content_owner_filter_params(caiduser, "parent__owner")
     if uploadedarchive is not None:
