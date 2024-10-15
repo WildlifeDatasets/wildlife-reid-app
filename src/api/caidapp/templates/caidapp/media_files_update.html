@@ -112,6 +112,30 @@
                                     </button>
                                 </div>
                             </div>
+                            <a class="btn btn-secondary" data-bs-toggle="collapse" href="#collapseFilterProcessing"
+                               role="button"
+                               aria-expanded="false" aria-controls="collapseBulkProcessing">
+                                <i class="bi bi-ui-checks-grid"></i>
+                                Filter
+                            </a>
+                            <div class="collapse" name="collapseFilterProcessing" id="collapseFilterProcessing">
+                                <div class="card">
+                                    <div class="card-body mt-3">
+                                        {{ form_bulk_processing.non_field_errors }}
+                                        {% for field in form_query %}
+                                            {% if field.name != "pagenumber" and field.name != "query" %}
+
+                                            <p>
+
+                                                {{ field.label }}:
+                                                {{ field }}
+                                            </p>
+                                            {% endif %}
+
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
 
                             {#                Do not remove the fallowing line with pagenumber. It is invisible. but importatn for the form. #}
                             {{ form_query.pagenumber }}

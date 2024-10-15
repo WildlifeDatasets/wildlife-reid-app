@@ -3,6 +3,11 @@
 
 # Changelog
 
+## 10-2024
+
+* [added] Filtration of media files
+* [added] Support for external synology drive
+* [added] Preparation for dev and prod environments
 
 ## 09-2024
 

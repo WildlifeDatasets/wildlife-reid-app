@@ -1308,9 +1308,16 @@ def _mediafiles_query(
     location_hash=None,
     order_by: Optional[str] = None,
     taxon_verified: Optional[bool] = None,
-    **filter_kwargs,
+    filter_kwargs: Optional[dict] = None,
+    exclude_filter_kwargs: Optional[dict] = None,
 ):
     """Prepare list of mediafiles based on query search in category and location."""
+
+    if filter_kwargs is None:
+        filter_kwargs = {}
+
+    if exclude_filter_kwargs is None:
+        exclude_filter_kwargs = {}
     if order_by is None:
         order_by = request.session.get("mediafiles_order_by", "-parent__uploaded_at")
 
@@ -1378,7 +1385,7 @@ def _mediafiles_query(
             | Q(parent__owner=request.user.caiduser)
             | Q(parent__owner__workgroup=request.user.caiduser.workgroup),
             **filter_kwargs,
-        )
+        ).exclude(**exclude_filter_kwargs)
         .distinct()
         .order_by(order_by)
     )
@@ -1524,6 +1531,29 @@ def _taxon_stats_for_mediafiles(mediafiles: Union[QuerySet, List[MediaFile]]) ->
     return taxon_stats_html
 
 
+
+def _merge_form_filter_kwargs_with_filter_kwargs(
+        filter_kwargs:dict, exclude_filter_kwargs:dict,
+        form_filter_kwargs:dict) -> (dict, dict):
+
+    # filter parameters for MediaFiles
+
+    ffk = form_filter_kwargs
+    if ffk.get("filter_show_videos", None) and ffk.get("filter_show_images", None):
+        pass
+    elif ffk.get("filter_show_videos", None):
+        filter_kwargs["media_type"] = "video"
+    elif ffk.get("filter_show_images", None):
+        filter_kwargs["media_type"] = "image"
+
+    if ffk.get("filter_show_empty", None):
+
+        # MediaFile.category.name is not "Empty"
+        exclude_filter_kwargs.update(dict(category__name="Empty"))
+
+    return filter_kwargs, exclude_filter_kwargs
+
+
 def media_files_update(
     request,
     records_per_page: Optional[int] = None,
@@ -1542,6 +1572,8 @@ def media_files_update(
     # create list of mediafiles
 
     page_number = 1
+    exclude_filter_kwargs = {}
+    form_filter_kwargs = {}
     if records_per_page is None:
         records_per_page = request.session.get("mediafiles_records_per_page", 20)
 
@@ -1552,6 +1584,11 @@ def media_files_update(
             # logger.debug(f"{queryform.cleaned_data=}")
             # page_number = int(request.GET.get('page'))
             # logger.debug(f"{page_number=}")
+            # pick all parameters from queryform with key startin with "filter_"
+            for key in queryform.cleaned_data.keys():
+                if key.startswith("filter_"):
+                    form_filter_kwargs[key] = queryform.cleaned_data[key]
+            logger.debug(f"{form_filter_kwargs=}")
 
             page_number = _page_number(request, page_number=queryform.cleaned_data["pagenumber"])
             if "querySubmit" in request.POST:
@@ -1575,6 +1612,9 @@ def media_files_update(
         .distinct()
         .order_by("created_at")
     )
+
+    filter_kwargs, exclude_filter_kwargs = _merge_form_filter_kwargs_with_filter_kwargs(
+        filter_kwargs, exclude_filter_kwargs, form_filter_kwargs)
     # logger.debug(f"{albums_available=}")
     # logger.debug(f"{query=}")
     # logger.debug(f"{queryform}")
@@ -1589,7 +1629,8 @@ def media_files_update(
         location_hash=location_hash,
         order_by=order_by,
         taxon_verified=taxon_verified,
-        **filter_kwargs,
+        filter_kwargs=filter_kwargs,
+        exclude_filter_kwargs=exclude_filter_kwargs
     )
     number_of_mediafiles = len(full_mediafiles)
 
