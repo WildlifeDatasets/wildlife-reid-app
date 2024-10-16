@@ -45,5 +45,5 @@ RUN pip install timm==0.6.13
 
 # expose ports and run application
 WORKDIR $APP_DIR
-CMD C_FORCE_ROOT=false celery -A worker.taxon_worker worker --pool threads --concurrency 1 --loglevel info --queues taxon_worker
+CMD C_FORCE_ROOT=false celery -A worker.taxon_worker worker --pool threads --concurrency 1 --loglevel debug --queues taxon_worker
 # CMD C_FORCE_ROOT=false celery -A worker worker --pool threads --concurrency 2 --loglevel info --queues taxon_worker
