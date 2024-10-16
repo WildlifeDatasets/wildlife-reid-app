@@ -227,6 +227,7 @@ urlpatterns = [
         name="download_uploadedarchive_zip",
     ),
     path("mediafiles_stats/", views.mediafiles_stats_view, name="mediafiles_stats"),
+    path("change_mediafiles_datetime", views.change_mediafiles_datetime, name="change_mediafiles_datetime"),
     path(
         "select_taxon_for_identification/<int:uploadedarchive_id>/",
         views.select_taxon_for_identification,
