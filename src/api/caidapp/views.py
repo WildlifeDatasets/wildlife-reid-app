@@ -1601,14 +1601,23 @@ def media_files_update(
             for error in queryform.non_field_errors():
                 logger.error(error)
     else:
+        # request.method == "GET"
+        # logger.debug("GET")
         page_number = 1
-        queryform = MediaFileSetQueryForm(dict(query="", pagenumber=page_number))
+        initial_data = dict(
+            query="", pagenumber=page_number,
+            filter_show_videos=True,
+            filter_show_images=True,
+            filter_hide_empty=not show_overview_button
+        )
+
+        queryform = MediaFileSetQueryForm(initial=initial_data)
         query = ""
-        for key in queryform.cleaned_data.keys():
-            if key.startswith("filter_"):
-                form_filter_kwargs[key] = queryform.cleaned_data[key]
-        logger.debug("GET")
-        logger.debug(f"{form_filter_kwargs=}")
+        # Access the initial values directly
+        # logger.debug("getting initial values")
+        # form_filter_kwargs = {key: queryform.initial.get(key) for key in queryform.fields.keys() if
+        #                       key.startswith("filter_")}
+        # logger.debug(f"{form_filter_kwargs=}")
     albums_available = (
         Album.objects.filter(
             Q(albumsharerole__user=request.user.caiduser) | Q(owner=request.user.caiduser)
