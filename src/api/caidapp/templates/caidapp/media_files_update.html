@@ -226,7 +226,7 @@
 
                                 <ul class="dropdown-menu">
                                     <li>
-                                        <a class="dropdown-item" href="{% url 'caidapp:change_mediafiles_datetime' %}">
+                                        <a class="dropdown-item" href="{% url 'caidapp:change_mediafiles_datetime' %}?next_url={{ request.path }}">
                                             <i class="bi bi-clock-history"></i> Change date and time
                                         </a>
                                     </li>

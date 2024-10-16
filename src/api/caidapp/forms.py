@@ -143,7 +143,7 @@ class MediaFileSetQueryForm(forms.Form):
     filter_hide_empty = forms.BooleanField(label="Hide empty", initial=True, required=True)
 
 
-class ChangeMediaFileTimeForm(forms.Form):
+class ChangeMediaFilesTimeForm(forms.Form):
     change_by_hours = forms.FloatField(label="Change by hours", required=False)
     change_by_days = forms.FloatField(label="Change by days", required=False)
     change_by_years = forms.FloatField(label="Change by years", required=False)

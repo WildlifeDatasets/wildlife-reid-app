@@ -1784,6 +1784,7 @@ from dateutil.relativedelta import relativedelta  # Import relativedelta
 
 def change_mediafiles_datetime(request):
     #
+    next_url = request.GET.get("next_url", None)
     mediafile_ids = request.session.get("mediafile_ids", [])
     mediafiles = MediaFile.objects.filter(id__in=mediafile_ids)
     if request.method == "POST":
@@ -1795,14 +1796,18 @@ def change_mediafiles_datetime(request):
 
             for mediafile in mediafiles:
                 mediafile.captured_at = mediafile.captured_at + relativedelta(
-                    hours=change_by_hours,
-                    days=change_by_days,
-                    years=change_by_years  # Adding years correctly using relativedelta
+                    hours=change_by_hours if change_by_hours else 0,
+                    days=change_by_days if change_by_days else 0,
+                    years=change_by_years if change_by_years else 0,
                 )
                 mediafile.save()
             # go to previous url
 
-            return redirect(request.META.get('HTTP_REFERER'))
+            logger.debug("Going back")
+            if next_url is None:
+                next_url = reverse_lazy("caidapp:uploads")
+            return redirect(next_url)
+
         else:
             return render(
                 request,
