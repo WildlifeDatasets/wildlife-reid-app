@@ -1604,6 +1604,9 @@ def media_files_update(
         page_number = 1
         queryform = MediaFileSetQueryForm(dict(query="", pagenumber=page_number))
         query = ""
+        for key in queryform.cleaned_data.keys():
+            if key.startswith("filter_"):
+                form_filter_kwargs[key] = queryform.cleaned_data[key]
     albums_available = (
         Album.objects.filter(
             Q(albumsharerole__user=request.user.caiduser) | Q(owner=request.user.caiduser)
