@@ -457,9 +457,13 @@ class UploadedArchive(models.Model):
             status_style=status_style,
         )
 
-    def get_sequence_by_id(self, sequence_id: int) -> "Sequence":
+    def get_sequence_by_id(self, sequence_id: Union[int, None]) -> "Sequence":
         """Return sequence by id or create a new one."""
-        sequence = Sequence.objects.filter(uploaded_archive=self, local_id=sequence_id).first()
+        if sequence_id is None:
+            sequence = None
+            sequence_id = self.sequence_set.count()
+        else:
+            sequence = Sequence.objects.filter(uploaded_archive=self, local_id=sequence_id).first()
         if sequence is None:
             sequence = Sequence.objects.create(uploaded_archive=self, local_id=sequence_id)
             sequence.save()
@@ -473,7 +477,10 @@ class UploadedArchive(models.Model):
         """Create sequences from media files."""
         mediafiles = MediaFile.objects.filter(parent=self)
         for mediafile in mediafiles:
-            sequence_id = mediafile.metadata_json.get("sequence_number", -1)
+            if mediafile.metadata_json is not None:
+                sequence_id = mediafile.metadata_json.get("sequence_number", None)
+            else:
+                sequence_id = None
             sequence = self.get_sequence_by_id(sequence_id)
             mediafile.sequence = sequence
             mediafile.save()
