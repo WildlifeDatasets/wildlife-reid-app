@@ -1607,6 +1607,8 @@ def media_files_update(
         for key in queryform.cleaned_data.keys():
             if key.startswith("filter_"):
                 form_filter_kwargs[key] = queryform.cleaned_data[key]
+        logger.debug("GET")
+        logger.debug(f"{form_filter_kwargs=}")
     albums_available = (
         Album.objects.filter(
             Q(albumsharerole__user=request.user.caiduser) | Q(owner=request.user.caiduser)
