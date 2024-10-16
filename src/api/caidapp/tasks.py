@@ -97,6 +97,7 @@ def predict_species_on_success(
         uploaded_archive.finished_at = django.utils.timezone.now()
         uploaded_archive.save()
         uploaded_archive.update_earliest_and_latest_captured_at()
+        uploaded_archive.make_sequences()
         run_detection_async(uploaded_archive)
     else:
         uploaded_archive.taxon_status = "F"

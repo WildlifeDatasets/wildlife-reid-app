@@ -2168,6 +2168,7 @@ def refresh_data(request):
     uploaded_archives = UploadedArchive.objects.all()
     for uploaded_archive in uploaded_archives:
         uploaded_archive.update_earliest_and_latest_captured_at()
+        uploaded_archive.make_sequences()
 
         if (
             uploaded_archive.contains_single_taxon
