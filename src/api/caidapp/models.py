@@ -467,8 +467,6 @@ class UploadedArchive(models.Model):
         if sequence is None:
             sequence = Sequence.objects.create(uploaded_archive=self, local_id=sequence_id)
             sequence.save()
-            self.sequences.add(sequence)
-            self.save()
             logger.debug("Sequence created.")
 
         return sequence
