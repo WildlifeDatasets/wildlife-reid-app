@@ -1780,6 +1780,58 @@ def media_files_update(
     )
 
 
+from dateutil.relativedelta import relativedelta  # Import relativedelta
+
+def change_mediafiles_datetime(request):
+    #
+    mediafile_ids = request.session.get("mediafile_ids", [])
+    mediafiles = MediaFile.objects.filter(id__in=mediafile_ids)
+    if request.method == "POST":
+        form = forms.ChangeMediaFilesTimeForm(request.POST)
+        if form.is_valid():
+            change_by_hours = form.cleaned_data["change_by_hours"]
+            change_by_days = form.cleaned_data["change_by_days"]
+            change_by_years = form.cleaned_data["change_by_years"]
+
+            for mediafile in mediafiles:
+                mediafile.captured_at = mediafile.captured_at + relativedelta(
+                    hours=change_by_hours,
+                    days=change_by_days,
+                    years=change_by_years  # Adding years correctly using relativedelta
+                )
+                mediafile.save()
+            # go to previous url
+
+            return redirect(request.META.get('HTTP_REFERER'))
+        else:
+            return render(
+                request,
+                "caidapp/update_form.html",
+                {
+                    "form": form,
+                    "headline": "Change time",
+                    "button": "Change",
+                    "text_note": "Change time of media files. Use negative values to subtract time.",
+                    "next": "caidapp:uploads",
+                },
+            )
+
+    else:
+        form = forms.ChangeMediaFilesTimeForm()
+
+    return render(
+        request,
+        "caidapp/update_form.html",
+        {
+            "form": form,
+            "headline": "Change time",
+            "button": "Change",
+            "text_note": "Change time of media files. Use negative values to subtract time.",
+            "next": "caidapp:uploads",
+        },
+    )
+    # TODO time form
+
 def mediafiles_stats_view(request):
     """Show mediafiles stats."""
     mediafile_ids = request.session.get("mediafile_ids", [])

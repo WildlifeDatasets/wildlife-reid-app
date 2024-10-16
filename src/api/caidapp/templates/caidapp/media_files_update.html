@@ -218,6 +218,22 @@
                                 </div>
 
                             </div>
+                            <div class="dropdown d-inline-block">
+                                <a class="btn btn-secondary dropdown-toggle" href="#" role="button"
+                                   data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="bi bi-three-dots"></i>
+                                </a>
+
+                                <ul class="dropdown-menu">
+                                    <li>
+                                        <a class="dropdown-item" href="{% url 'caidapp:change_mediafiles_datetime' %}">
+                                            <i class="bi bi-clock-history"></i> Change date and time
+                                        </a>
+                                    </li>
+
+
+                                </ul>
+                            </div>
                             Found {{ page_obj.paginator.count }} mediafiles.
                         </div>
                     </div>
