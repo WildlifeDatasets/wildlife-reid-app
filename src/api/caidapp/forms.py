@@ -138,9 +138,9 @@ class MediaFileSelectionForm(forms.ModelForm):
 class MediaFileSetQueryForm(forms.Form):
     query = forms.CharField(max_length=100, required=False)
     pagenumber = forms.IntegerField(widget=forms.HiddenInput(), initial=1)
-    filter_show_videos = forms.BooleanField(initial=True, required=False)
-    filter_show_images = forms.BooleanField(initial=True, required=False)
-    filter_show_empty = forms.BooleanField(initial=False, required=False)
+    filter_show_videos = forms.BooleanField(label="Show videos", initial=True, required=False)
+    filter_show_images = forms.BooleanField(label="Show images", initial=True, required=False)
+    filter_hide_empty = forms.BooleanField(label="Hide empty", initial=True, required=False)
 
 
 class LocationImportForm(forms.Form):

@@ -1546,10 +1546,9 @@ def _merge_form_filter_kwargs_with_filter_kwargs(
     elif ffk.get("filter_show_images", None):
         filter_kwargs["media_type"] = "image"
 
-    if ffk.get("filter_show_empty", None):
-
+    if ffk.get("filter_hide_empty", None):
         # MediaFile.category.name is not "Empty"
-        exclude_filter_kwargs.update(dict(category__name="Empty"))
+        exclude_filter_kwargs.update(dict(category__name="Nothing"))
 
     return filter_kwargs, exclude_filter_kwargs
 
