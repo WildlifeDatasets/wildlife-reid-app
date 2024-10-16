@@ -457,6 +457,28 @@ class UploadedArchive(models.Model):
             status_style=status_style,
         )
 
+    def get_sequence_by_id(self, sequence_id: int) -> "Sequence":
+        """Return sequence by id or create a new one."""
+        sequence = Sequence.objects.filter(uploaded_archive=self, local_id=sequence_id).first()
+        if sequence is None:
+            sequence = Sequence.objects.create(uploaded_archive=self, local_id=sequence_id)
+            sequence.save()
+            self.sequences.add(sequence)
+            self.save()
+            logger.debug("Sequence created.")
+
+        return sequence
+
+    def make_sequences(self):
+        """Create sequences from media files."""
+        mediafiles = MediaFile.objects.filter(parent=self)
+        for mediafile in mediafiles:
+            sequence_id = mediafile.metadata_json.get("sequence_number", -1)
+            sequence = self.get_sequence_by_id(sequence_id)
+            mediafile.sequence = sequence
+            mediafile.save()
+
+
 
 class IndividualIdentity(models.Model):
     SEX_CHOICES = (
@@ -507,6 +529,11 @@ class IndividualIdentity(models.Model):
         return dict(self.COAT_TYPE_CHOICES).get(self.coat_type, "Unknown")
 
 
+class Sequence(models.Model):
+    uploaded_archive = models.ForeignKey(UploadedArchive, on_delete=models.CASCADE, null=True)
+    local_id = models.IntegerField(null=True, blank=True)
+
+
 class MediaFile(models.Model):
     ORIENTATION_CHOICES = (
         ("L", "Left"),
@@ -550,6 +577,7 @@ class MediaFile(models.Model):
 
     taxon_verified = models.BooleanField("Taxon verified", default=False)
     taxon_verified_at = models.DateTimeField("Taxon verified at", blank=True, null=True)
+    sequence = models.ForeignKey(Sequence, on_delete=models.SET_NULL, null=True, blank=True)
 
     class Meta:
         ordering = ["-identity_is_representative", "captured_at"]

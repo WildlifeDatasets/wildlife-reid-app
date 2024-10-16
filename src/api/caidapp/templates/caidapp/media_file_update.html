@@ -65,6 +65,18 @@
                 </div>
             </div>
         </div><!-- End Page Title -->
+{#        {% if  mediafile.sequence.mediafile_set.all  > 1 %}#}
+               <div class="d-flex flex-row flex-wrap m-1" style="width:auto;">
+
+                    {% for sequence_mediafile in mediafile.sequence.mediafile_set.all %}
+                        <a href="{% url 'caidapp:media_file_update' sequence_mediafile.id %}" class="m-1">
+                            <img src="{{ sequence_mediafile.thumbnail.url }}" class="img-fluid" alt="Camera trap image" style="max-width: 100px;">
+                        </a>
+                    {% endfor %}
+
+                </div>
+
+{#        {% endif %}#}
         <div class="section">
             <div class="row">
 {#                <div class="col-lg-4 col-xl-2">#}
@@ -132,6 +144,9 @@
                     <source src="{% url 'caidapp:stream_video' mediafile.id %}" type="video/x-m4v">
                     Your browser does not support the video tag.
                 </video>
+
+                <img src="{{ mediafile.thumbnail.url }}" class="img-fluid" alt="Camera trap image">
+
 
             {% else %}
                 <img src="{{ mediafile.preview.url }}" class="img-fluid" alt="Camera trap image">
