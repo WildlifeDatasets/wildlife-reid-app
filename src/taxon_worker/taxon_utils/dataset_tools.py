@@ -210,6 +210,8 @@ def get_datetime_from_exif(filename: Path) -> typing.Tuple[str, str]:
             dt_str = ""
             read_error = "OSError"
         except Exception as e:
+            dt_str = ""
+            read_error = "OSError"
             logger.error(f"Error while reading EXIF from {filename}")
             logger.exception(traceback.format_exc())
     else:

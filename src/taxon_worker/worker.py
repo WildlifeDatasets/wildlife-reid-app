@@ -1,3 +1,5 @@
+print("-------------------worker.py----------print---------")
+
 import logging
 import shutil
 import traceback
@@ -16,7 +18,7 @@ setup_logging()
 logger = logging.getLogger("app")
 logger.debug(f"{RABBITMQ_URL=}")
 logger.debug(f"{REDIS_URL=}")
-logger.debug("--------------------worker.py-------------------------------")
+logger.debug("--------------------worker.py------------------logger.debug-------------")
 taxon_worker = Celery("taxon_worker", broker=RABBITMQ_URL, backend=REDIS_URL)
 MEDIA_DIR_PATH = Path("/shared_data/media")
 
