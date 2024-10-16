@@ -475,9 +475,11 @@ class UploadedArchive(models.Model):
         """Create sequences from media files."""
         mediafiles = MediaFile.objects.filter(parent=self)
         for mediafile in mediafiles:
-            if mediafile.metadata_json is not None:
+            try:
                 sequence_id = mediafile.metadata_json.get("sequence_number", None)
-            else:
+            except Exception as e:
+                logger.debug(f"Problem with getting sequence_number from mediafile {mediafile}.")
+                logger.debug(f"Error: {e}")
                 sequence_id = None
             sequence = self.get_sequence_by_id(sequence_id)
             mediafile.sequence = sequence
