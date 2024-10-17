@@ -2125,6 +2125,7 @@ def download_zip_for_mediafiles_view(request, uploadedarchive_id: Optional[int] 
         for mediafile in mediafiles:
             # output_name = Path(mediafile.mediafile.name).name
             output_name = _make_output_name(mediafile)
+            # get mediafile name with suffix
             src = Path(settings.MEDIA_ROOT) / mediafile.mediafile.name
             dst = mediafiles_dir / output_name
             logger.debug(f"{src=}, {dst=}")
@@ -2153,7 +2154,8 @@ def _make_output_name(mediafile: models.MediaFile):
     original_name = Path(original_name).stem
     taxon = mediafile.category.name if mediafile.category else "no_taxon"
     identity = mediafile.identity.name if mediafile.identity else "no_identity"
-    output_name = f"{locality}_{date}_{original_name}_{taxon}_{identity}"
+    suffix = Path(mediafile.mediafile.name).suffix
+    output_name = f"{locality}_{date}_{original_name}_{taxon}_{identity}.{suffix}"
     return output_name
 
 
@@ -2247,3 +2249,42 @@ def switch_private_mode(request):
     request.session["private_mode"] = not actual_mode
 
     return redirect(request.META.get("HTTP_REFERER", "/"))
+
+
+
+# views.py
+from django.views import View
+from django.shortcuts import render
+from .models import MediaFile
+import plotly.express as px
+import pandas as pd
+
+class ImageUploadGraphView(View):
+    def get(self, request):
+        # Fetch data from MediaFile model
+        mediafiles = MediaFile.objects.all().values('parent__uploaded_at', 'parent__owner__user__username')
+
+        # Convert to DataFrame
+        df = pd.DataFrame(mediafiles)
+        df['parent__uploaded_at'] = pd.to_datetime(df['parent__uploaded_at'])
+        df['date'] = df['parent__uploaded_at'].dt.date
+
+        # Group by date and user
+        # df_grouped = df.groupby(['date', 'parent__owner__username']).size().reset_index(name='count')
+
+        # Create Plotly figure
+        # fig = px.line(df_grouped, x='date', y='count', color='updated_by__user__username', title='Images Uploaded Over Time by User')
+        # Create Plotly histogram
+        fig = px.histogram(df, x='date', color='parent__owner__user__username',
+                           title='Media Files Uploaded Over Time by User',
+                           labels={'date': 'Upload Date', 'count': 'Number of Uploaded Files', 'parent__owner__user__username': 'User'})
+
+        # Customize x-axis to show dates properly
+        fig.update_xaxes(type='category', title_text="Upload Date")
+        fig.update_yaxes(title_text="Number of Uploads")
+
+
+        # Convert Plotly figure to HTML
+        graph = fig.to_html(full_html=False)
+
+        return render(request, 'caidapp/image_upload_graph.html', {'graph': graph})

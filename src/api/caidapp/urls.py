@@ -307,4 +307,6 @@ urlpatterns = [
     ),
     path("check_date/<str:date>/", views_uploads.camera_trap_check_date_view, name="check_date"),
     path("check_date/", views_uploads.camera_trap_check_date_view, name="check_date_empty"),
+    # urls.py
+    path('users_stats/', views.ImageUploadGraphView.as_view(), name='users_stats'),
 ]

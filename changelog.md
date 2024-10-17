@@ -5,6 +5,8 @@
 
 ## 10-2024
 
+* [added] Stats view
+
 * [added] GIF together with video on video detail view
 * [added] Sequences in image update
 * [added] Filtration of media files
