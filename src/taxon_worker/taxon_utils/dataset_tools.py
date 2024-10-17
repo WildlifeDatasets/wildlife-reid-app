@@ -200,9 +200,10 @@ def get_datetime_from_exif(filename: Path) -> typing.Tuple[str, str]:
                 exifdata = image.getexif()
                 tag_id = 306  # DateTimeOriginal
                 dt_str = str(exifdata.get(tag_id))
+                read_error = "EXIF"
             else:
                 dt_str = ""
-            read_error = ""
+                read_error = ""
         except UnidentifiedImageError:
             dt_str = ""
             read_error = "UnidentifiedImageError"
@@ -212,7 +213,7 @@ def get_datetime_from_exif(filename: Path) -> typing.Tuple[str, str]:
         except Exception as e:
             dt_str = ""
             read_error = "OSError"
-            logger.error(f"Error while reading EXIF from {filename}")
+            logger.warning(f"Error while reading EXIF from {filename}")
             logger.exception(traceback.format_exc())
     else:
         dt_str = ""
@@ -222,7 +223,13 @@ def get_datetime_from_exif(filename: Path) -> typing.Tuple[str, str]:
 
     if filename.exists():
         if dt_str == "":
-            dt_str, read_error = get_datetime_from_ocr(filename)
+            try:
+                dt_str, read_error = get_datetime_from_ocr(filename)
+            except Exception as e:
+                dt_str = ""
+                read_error = "OCR failed"
+                logger.warning(f"Error while reading OCR from {filename}")
+                logger.debug(traceback.format_exc())
 
         if dt_str == "":
             dtm = min(filename.stat().st_mtime, filename.stat().st_ctime, filename.stat().st_atime)
