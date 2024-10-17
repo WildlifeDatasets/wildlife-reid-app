@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block head %}
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+{% endblock %}
+{% block body %}
+    {% if user.is_authenticated %}
+
+        <div class="pagetitle">
+            <h1>Upload stats</h1>
+            <nav>
+            </nav>
+        </div>
+            <div>
+               <!-- templates/image_upload_graph.html -->
+    <h1>Images Uploaded Over Time by User</h1>
+    <div>{{ graph|safe }}</div>
+        </div><!-- End Page Title -->
+
+
+    {% endif %}
+{% endblock %}
