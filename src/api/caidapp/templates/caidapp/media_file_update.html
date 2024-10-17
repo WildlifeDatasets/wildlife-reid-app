@@ -136,22 +136,39 @@
                         </div>
                     </div>
                 </div>
-{#                <div class="col-lg-8 col-xl-10">#}
-                    <div class="col">
-            {% if mediafile.media_type == 'video' %}
-                <video controls width="640" height="360">
-{#                    <source src="{% url 'caidapp:stream_video' mediafile.id %}" type="video/mp4">#}
-                    <source src="{% url 'caidapp:stream_video' mediafile.id %}" type="video/x-m4v">
-                    Your browser does not support the video tag.
-                </video>
+<div class="d-flex flex-row align-items-start col">
+    {% if mediafile.media_type == 'video' %}
+        <video controls width="320" height="180" class="m-1">
+            <source src="{% url 'caidapp:stream_video' mediafile.id %}" type="video/x-m4v">
+            Your browser does not support the video tag.
+        </video>
 
-                <img src="{{ mediafile.thumbnail.url }}" class="img-fluid" alt="Camera trap image">
+        <!-- Thumbnail with modal trigger -->
+        <img src="{{ mediafile.thumbnail.url }}" class="img-fluid m-1" alt="Camera trap image"
+             style="max-width: 180px;" data-bs-toggle="modal" data-bs-target="#imageModal{{ mediafile.id }}">
+
+    {% else %}
+        <!-- Image with modal trigger -->
+        <img src="{{ mediafile.preview.url }}" class="img-fluid m-1" alt="Camera trap image"
+             data-bs-toggle="modal" data-bs-target="#imageModal{{ mediafile.id }}">
+    {% endif %}
+</div>
+           <!-- Bootstrap Modal for showing the larger image -->
+<div class="modal fade" id="imageModal{{ mediafile.id }}" tabindex="-1" aria-labelledby="imageModalLabel{{ mediafile.id }}" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="imageModalLabel{{ mediafile.id }}">Full Size Image</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <img src="{{ mediafile.preview.url }}" class="img-fluid" alt="Full Size Image">
+      </div>
+    </div>
+  </div>
+</div>
 
 
-            {% else %}
-                <img src="{{ mediafile.preview.url }}" class="img-fluid" alt="Camera trap image">
-            {% endif  %}
-                </div>
             </div>
         </div>
     {% endif %}
