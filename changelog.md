@@ -5,6 +5,7 @@
 
 ## 10-2024
 
+* [added] OCR for date time in media files
 * [added] Stats view
 
 * [added] GIF together with video on video detail view

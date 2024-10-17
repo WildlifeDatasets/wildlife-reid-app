@@ -220,12 +220,57 @@ def get_datetime_from_exif(filename: Path) -> typing.Tuple[str, str]:
 
     dt_str = replace_colon_in_exif_datetime(dt_str)
 
-    if filename.exists() and dt_str == "":
-        dtm = min(filename.stat().st_mtime, filename.stat().st_ctime, filename.stat().st_atime)
-        dt_str = datetime.fromtimestamp(dtm).strftime("%Y-%m-%d %H:%M:%S")
+    if filename.exists():
+        if dt_str == "":
+            dt_str, read_error = get_datetime_from_ocr(filename)
+
+        if dt_str == "":
+            dtm = min(filename.stat().st_mtime, filename.stat().st_ctime, filename.stat().st_atime)
+            dt_str = datetime.fromtimestamp(dtm).strftime("%Y-%m-%d %H:%M:%S")
+            read_error = "File system"
 
     return dt_str, read_error
 
+
+def get_datetime_from_ocr(filename: Path) -> typing.Tuple[str, str]:
+    import cv2
+    import pytesseract
+    # if it is image
+
+    if filename.suffix.lower() in (".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff"):
+        frame_bgr = cv2.imread(str(filename))
+    else:
+        # read video frame
+        cap = cv2.VideoCapture(str(filename))
+        ret, frame_bgr = cap.read()
+        cap.release()
+
+    # Preprocess the frame: Convert to grayscale and apply thresholding
+    gray_frame = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2GRAY)
+    _, processed_frame = cv2.threshold(gray_frame, 150, 255, cv2.THRESH_BINARY)
+
+    # Use Tesseract to perform OCR on the processed frame
+    ocr_result = pytesseract.image_to_string(processed_frame)
+
+    # Define a regex pattern to match date and time format:
+    # MM/DD/YYYY hh:mm AM
+    date_pattern = r"\b(\d{1,2})[-\/s.](\d{1,2})[-\/s.](\d{4}) (\d{1,2}):(\d{1,2}) ([AP]M)"
+
+    # Search for dates in the OCR result
+    dates = re.findall(date_pattern, ocr_result)
+    if len(dates) == 0:
+        return "", "OCR failed"
+
+    # fix AM and PM
+    if dates[0][5] == 'PM':
+        hour = str(int(dates[0][3]) + 12)
+    else:
+        hour = dates[0][3]
+    # turn the date into a string in format strftime("%Y-%m-%d %H:%M:%S")
+    date_str = f"{dates[0][2]}-{dates[0][0]}-{dates[0][1]} {hour}:{dates[0][4]}:00"
+    # remove non printable characters
+    ocr_result = "".join([c for c in ocr_result if c.isprintable()])
+    return date_str, f"OCR: {ocr_result}"
 
 def get_date_from_path_structure(filename: str) -> str:
     """Extract date from the directory structure of the Sumava dataset.
