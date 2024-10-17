@@ -11,7 +11,6 @@ celery[redis]==5.2.7
 # for new model
 timm==0.9.12
 
-
 # FGVC library
 --index-url https://pypi.piva-ai.com/simple/
 fgvc==1.5.1.dev
@@ -27,3 +26,6 @@ Pillow==11.0.0
 ultralytics==8.3.14
 tqdm==4.66.5
 setuptools==75.2.0
+
+# for OCR
+pytesseract==0.3
