@@ -5,6 +5,7 @@
 
 ## 10-2024
 
+* [changed] Separated dev and prod
 * [added] OCR for date time in media files
 * [added] Stats view
 
