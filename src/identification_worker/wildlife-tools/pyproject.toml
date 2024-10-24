@@ -1,0 +1,74 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wildlife-tools"
+version = "0.0.9"
+authors = [
+  { name="Vojtěch Čermák", email="cermak.vojtech@seznam.cz" },
+]
+maintainers = [
+  { name="Vojtěch Čermák", email="cermak.vojtech@seznam.cz" },
+]
+description = "Tools for using wildlife re-identification datasets."
+readme = "README.md"
+requires-python = ">=3.8"
+license = {file = "LICENSE"}
+keywords = [
+    "wildlife",
+    "re-identification",
+    "datasets",
+    "machine learning"
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies=[
+          'torch>=2.0.1',
+          'timm>=0.9.2',
+          'numpy>=1.19.4',
+          'pandas>=1.1.4',
+          'tqdm>=4.62.3',
+          'opencv-python>=4.5.5.62',
+          'Pillow>=7.1.2',
+          'scikit-learn>=1.0.1',
+          'faiss-gpu ; platform_system != "Windows"',
+          'faiss-cpu ; platform_system == "Windows"',
+          'pycocotools',
+          'tensorboard',
+          'pytorch_metric_learning',
+          'transformers>=4.30.2',
+          'wildlife-datasets>=0.3.4',
+          'kornia>=0.6.12',
+          'gluefactory @ git+https://github.com/cvg/glue-factory.git@1f56839db2242929960d70f85bfac6c19ef2821c',
+          #'roma @ git+https://github.com/Parskatt/RoMa.git',
+]
+
+[project.urls]
+"Homepage" = "https://github.com/WildlifeDatasets/wildlife-tools"
+"Documentation" = "https://wildlifedatasets.github.io/wildlife-tools/"
+"Bug Tracker" = "https://github.com/WildlifeDatasets/wildlife-tools/issues"
+
+
+[tool.setuptools]
+py-modules = [
+  "wildlife_tools",
+  "wildlife_tools.data",
+  "wildlife_tools.inference",
+  "wildlife_tools.features",
+  "wildlife_tools.similarity",
+  "wildlife_tools.train",
+]
+#[tool.setuptools]
+#packages = [
+#  "wildlife_tools",
+#  "wildlife_tools.data",
+#  "wildlife_tools.inference",
+#  "wildlife_tools.features",
+#  "wildlife_tools.similarity",
+#  "wildlife_tools.train",
+#]
+
