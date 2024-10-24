@@ -335,6 +335,8 @@ def keep_correctly_loaded_images(metadata):
     # drop media_type== "unknown"
     # mediadata = metadata[metadata["media_type"] != "unknown"].reset_index(drop=True)
     logger.debug(f"len(metadata)={len(metadata)}")
-    metadata = metadata[metadata["read_error"] == ""].reset_index(drop=True)
+
+    # TODO: decide what to do with images/videos with different read_errors
+    # metadata = metadata[metadata["read_error"] == ""].reset_index(drop=True)
     logger.debug(f"len(metadata)={len(metadata)}")
     return metadata

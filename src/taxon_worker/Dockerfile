@@ -22,6 +22,7 @@ RUN mkdir -p ~/resources && \
     -O /root/resources/md_v5a.0.0.pt
 
 # call torchub to load model into cache
+RUN pip install pillow==10.3.0 tqdm==4.66.3 ultralytics==8.2.34 opencv-python==4.6.0.66
 RUN python -c "import torch; torch.hub.load('ultralytics/yolov5', 'custom','/root/resources/md_v5a.0.0.pt', force_reload=True) and print('yolov5 loaded')"
 RUN ls /root/resources
 

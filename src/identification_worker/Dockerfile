@@ -29,12 +29,20 @@ RUN pip install --no-cache-dir --upgrade pip build && \
 
 COPY ./src/identification_worker /identification_worker
 RUN pip install git+https://github.com/facebookresearch/segment-anything.git
-RUN pip install \
-    opencv-python==4.5.5.64 \
-    opencv-python-headless==4.5.5.64
+
 
 RUN pip install pytz --upgrade
 RUN pip install tzdata --upgrade
+
+COPY ./src/identification_worker/wildlife-tools /identification_worker/wildlife-tools
+RUN pip install -e /identification_worker/wildlife-tools --no-deps
+RUN pip install transformers==4.30.2
+RUN pip install git+https://github.com/cvg/glue-factory.git@1f56839db2242929960d70f85bfac6c19ef2821c
+
+
+RUN pip install \
+    opencv-python==4.5.5.64 \
+    opencv-python-headless==4.5.5.64
 
 # expose ports and run application
 WORKDIR $APP_DIR
