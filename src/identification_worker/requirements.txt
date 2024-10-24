@@ -15,7 +15,7 @@ kornia==0.7.1
 fgvc==1.5.1.dev
 
 # Wildlife-tools library
-wildlife-tools==0.0.5
+# wildlife-tools==0.0.5
 
 wandb
 

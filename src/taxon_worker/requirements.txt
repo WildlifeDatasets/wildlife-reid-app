@@ -22,10 +22,10 @@ wandb
 # ultralytics==8.0.232
 # previous (Pollow and ultralytics) worked till 2024-10-16 -
 #   on CPU system it was failing and sometghing inside was upgrading it to this version
-Pillow==11.0.0
-ultralytics==8.3.14
-tqdm==4.66.5
+# Pillow==11.0.0
+# ultralytics==8.3.14
+# tqdm==4.66.5
 setuptools==75.2.0
 
 # for OCR
-# pytesseract==0.3
+pytesseract==0.3
