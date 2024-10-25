@@ -175,7 +175,7 @@ def replace_colon_in_exif_datetime(exif_datetime: str) -> str:
     return replaced
 
 
-def get_datetime_from_exif(filename: Path) -> typing.Tuple[str, str]:
+def get_datetime_from_exif(filename: Path) -> typing.Tuple[str, str, str]:
     """Extract datetime from EXIF in file and check if image is ok.
 
     Parameters
@@ -190,53 +190,71 @@ def get_datetime_from_exif(filename: Path) -> typing.Tuple[str, str]:
     str2:
         Error type or zero length string if file is ok.
 
-
+        The function also checks if image or video is ok for read.
     """
-    if filename.exists() and filename.suffix.lower() in (".jpg", ".jpeg", ".png"):
+    dt_source = ""
+    opened_sucessfully = False
+    opened_with_fail = False
+    if filename.exists() and filename.suffix.lower() in (".jpg", ".jpeg", ".png", ".tif", ".tiff", ".bmp"):
         try:
             image = Image.open(filename)
             image.verify()
+            opened_sucessfully = True
             if filename.suffix.lower() in (".jpg", ".jpeg"):
                 exifdata = image.getexif()
                 tag_id = 306  # DateTimeOriginal
                 dt_str = str(exifdata.get(tag_id))
-                read_error = "EXIF"
+                read_error = ""
+                dt_source = "EXIF"
+                opened_sucessfully = True
             else:
                 dt_str = ""
                 read_error = ""
         except UnidentifiedImageError:
             dt_str = ""
             read_error = "UnidentifiedImageError"
+            opened_with_fail = True
         except OSError:
             dt_str = ""
             read_error = "OSError"
+            opened_with_fail = True
         except Exception as e:
             dt_str = ""
-            read_error = "OSError"
+            read_error = str(e)
             logger.warning(f"Error while reading EXIF from {filename}")
             logger.exception(traceback.format_exc())
+            opened_with_fail = True
     else:
         dt_str = ""
         read_error = ""
 
     dt_str = replace_colon_in_exif_datetime(dt_str)
 
-    if filename.exists():
+    if filename.exists() and read_error == "":
         if dt_str == "":
             try:
-                dt_str, read_error = get_datetime_from_ocr(filename)
+                dt_str, dt_source = get_datetime_from_ocr(filename)
+                read_error = ""
+                opened_sucessfully = True
             except Exception as e:
                 dt_str = ""
                 read_error = "OCR failed"
+
                 logger.warning(f"Error while reading OCR from {filename}")
                 logger.debug(traceback.format_exc())
+                opened_with_fail = True
 
         if dt_str == "":
             dtm = min(filename.stat().st_mtime, filename.stat().st_ctime, filename.stat().st_atime)
             dt_str = datetime.fromtimestamp(dtm).strftime("%Y-%m-%d %H:%M:%S")
-            read_error = "File system"
+            read_error = ""
+            dt_source = "File system"
 
-    return dt_str, read_error
+    # this is just for debugging
+    if not opened_sucessfully and not opened_with_fail:
+        logger.error(f"File {filename} was not opened.")
+
+    return dt_str, read_error, dt_source
 
 
 def get_datetime_from_ocr(filename: Path) -> typing.Tuple[str, str]:
@@ -736,12 +754,13 @@ class SumavaInitialProcessing:
         output_dict["vanilla_path"] = self.get_paths_from_dir_parallel(mask, exclude)
 
         if make_exifs:
-            datetime_list, read_error_list = self.add_datetime_from_exif_in_parallel(
+            datetime_list, read_error_list, source_list = self.add_datetime_from_exif_in_parallel(
                 output_dict["vanilla_path"]
             )
 
             output_dict["datetime"] = datetime_list
             output_dict["read_error"] = read_error_list
+            output_dict["datetime_source"] = source_list
 
         df = pd.DataFrame(output_dict)
         self.filelist_df = df
@@ -768,8 +787,8 @@ class SumavaInitialProcessing:
                 for vanilla_path in tqdm(vanilla_paths, desc="getting EXIFs")
             ]
 
-        datetime_list, error_list = zip(*datetime_list)
-        return datetime_list, error_list
+        datetime_list, error_list, source_list = zip(*datetime_list)
+        return datetime_list, error_list, source_list
 
 
 def add_column_with_lynx_id(df: pd.DataFrame, contain_identities: bool = False) -> pd.DataFrame:
