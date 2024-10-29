@@ -88,13 +88,13 @@ def count_files_in_archive(zip_path: Union[str, Path]) -> dict:
                 image_count += 1
             elif (
                 f.lower().endswith(".mp4")
-                or f.endswith(".avi")
-                or f.endswith(".mov")
-                or f.endswith(".mkv")
-                or f.endswith(".webm")
-                or f.endswith(".flv")
-                or f.endswith(".wmv")
-                or f.endswith(".m4v")
+                or f.lower().endswith(".avi")
+                or f.lower().endswith(".mov")
+                or f.lower().endswith(".mkv")
+                or f.lower().endswith(".webm")
+                or f.lower().endswith(".flv")
+                or f.lower().endswith(".wmv")
+                or f.lower().endswith(".m4v")
             ):
                 video_coung += 1
         return {"file_count": file_count, "image_count": image_count, "video_count": video_coung}
