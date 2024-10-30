@@ -3,7 +3,7 @@ from datetime import datetime
 from enum import Enum
 from typing import List
 
-from sqlalchemy import Column, DateTime, Float, Integer, String
+from sqlalchemy import Column, DateTime, Float, Integer, String, JSON
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import declarative_base
 from sqlalchemy.sql import func
@@ -77,4 +77,5 @@ class ReferenceImage(Base):
     image_path = Column(String)
     class_id = Column(Integer)
     label = Column(String)
-    embedding = Column(ARRAY(Float))
+    #embedding = Column(ARRAY(Float))
+    embedding = Column(String)

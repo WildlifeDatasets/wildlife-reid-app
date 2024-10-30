@@ -1,7 +1,9 @@
 import json
+import math
 import logging
 import traceback
 from pathlib import Path
+from tqdm import tqdm
 
 import numpy as np
 import pandas as pd
@@ -9,7 +11,7 @@ from celery import Celery, shared_task
 
 from utils import config
 from utils.database import get_db_connection, init_db_connection
-from utils.inference_identification import encode_images, identify
+from utils.inference_identification import encode_images, identify, identify2
 from utils.log import setup_logging
 from utils.sequence_identification import extend_df_with_datetime, extend_df_with_sequence_id
 
@@ -28,10 +30,10 @@ init_db_connection(db_url=config.POSTGRES_URL)
 
 @identification_worker.task(bind=True, name="init_identification")
 def init(
-    self,
-    input_metadata_file: str,
-    organization_id: int,
-    **kwargs,
+        self,
+        input_metadata_file: str,
+        organization_id: int,
+        **kwargs,
 ):
     """Process and store Reference Image records in the database."""
     try:
@@ -49,13 +51,12 @@ def init(
         metadata = metadata[["image_path", "class_id", "label", "detection_results"]]
 
         # generate embeddings
-        features = encode_images(metadata)
-        metadata["embedding"] = features.tolist()
-
-        # save embeddings and class ids into the database
-        logger.info("Storing feature vectors into the database.")
         db_connection = get_db_connection()
-        # logger.debug(metadata.tail(3).to_string())
+        features = encode_images(metadata)
+        features = [json.dumps(e) for e in features]
+        metadata["embedding"] = features
+
+        logger.info("Storing feature vectors into the database.")
         db_connection.reference_image.create_reference_images(organization_id, metadata)
 
         logger.info("Finished processing.")
@@ -86,13 +87,13 @@ def shared_simple_log(self, *args, **kwargs):
 
 @identification_worker.task(bind=True, name="identify")
 def predict(
-    self,
-    input_metadata_file_path: str,
-    organization_id: int,
-    output_json_file_path: str,
-    top_k: int = 1,
-    sequence_time: str = "480s",
-    **kwargs,
+        self,
+        input_metadata_file_path: str,
+        organization_id: int,
+        output_json_file_path: str,
+        top_k: int = 1,
+        sequence_time: str = "480s",
+        **kwargs,
 ):
     """Process and compare input samples with Reference Image records from the database."""
     try:
@@ -136,29 +137,44 @@ def predict(
                     metadata["sequence_number"] = np.where(
                         metadata["location"].isna(), -1, metadata["sequence_number"]
                     )
-                logger.debug(f"{list(metadata.image_path)}")
                 query_image_path = list(metadata.image_path)
                 query_masked_path = [
                     p.replace("/images/", "/masked_images/") for p in query_image_path
                 ]
 
-                # generate embeddings
-                features = encode_images(metadata)
+                # get database embeddings
+                database_features = [json.loads(e) for e in tqdm(reference_images["embedding"], desc="Embedding ")]
 
-                # get reference embeddings
-                reference_features = np.array(reference_images["embedding"].tolist())
-                id2label = dict(zip(reference_images["class_id"], reference_images["label"]))
+                # generate query embeddings
+                metadata = metadata[:10]
+                query_features = encode_images(metadata)
+
+                logger.debug(f"Prepare metadata")
+                # prepare metadata for database
+                query_metadata = pd.DataFrame({
+                    "path": metadata["image_path"],
+                    "identity": [-1] * len(metadata["image_path"]),
+                    "split": ["test"] * len(metadata["image_path"]),
+                })
+                database_metadata = pd.DataFrame({
+                    "path": reference_images["image_path"],
+                    "identity": reference_images["class_id"],
+                    "split": ["train"] * len(reference_images["class_id"]),
+                })
 
                 # make predictions by comparing the embeddings using k-NN
                 logger.info("Making predictions using .")
-                identification_output = identify(
-                    features,
-                    reference_features,
-                    reference_image_paths=reference_images["image_path"],
-                    reference_class_ids=reference_images["class_id"],
-                    metadata=metadata,
+                identification_output = identify2(
+                    query_features=query_features,
+                    database_features=database_features,
+                    query_metadata=query_metadata,
+                    database_metadata=database_metadata,
                     top_k=top_k,
+                    cal_images=10,
+                    image_budget=100
                 )
+
+                id2label = dict(zip(reference_images["class_id"], reference_images["label"]))
                 pred_labels = [
                     [id2label[x] for x in row] for row in identification_output["pred_class_ids"]
                 ]
