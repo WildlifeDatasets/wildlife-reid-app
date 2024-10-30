@@ -21,7 +21,11 @@ class ReferenceImageService:
         assert "embedding" in df
         with Session(self.engine) as session:
             # remove old records
-            stmt = delete(ReferenceImage).where(ReferenceImage.organization_id == organization_id)
+            stmt = delete(ReferenceImage).where(
+                ReferenceImage.organization_id == organization_id and ReferenceImage.image_path in df["image_path"])
+
+            # stmt = delete(ReferenceImage).where(
+            #     (ReferenceImage.organization_id == organization_id) & (ReferenceImage.image_path.in_(list(df["image_path"]))))
             _ = session.execute(stmt)
 
             # add new records
