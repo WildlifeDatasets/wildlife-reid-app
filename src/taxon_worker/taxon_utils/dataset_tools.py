@@ -308,6 +308,8 @@ def get_datetime_exiftool(video_pth:Path) -> typing.Tuple[str, bool, str]:
             for k in checked_keys:
                 if k in d:
                     return d[k], True, k
+            # if no key was found log the metadata
+            logger.debug(str(d))
             # print(d)
 
     return "", False, ""
@@ -357,7 +359,7 @@ def _check_if_it_is_cuddleback1(frame_bgr: np.nan) -> Tuple[str, bool, str]:
         if len(dates) == 0:
             date_str = ""
             is_ok = False
-            return date_str, is_ok
+            return date_str, is_ok, ""
 
         # fix AM and PM
         if dates[0][5] == 'PM':
