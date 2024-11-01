@@ -351,6 +351,7 @@ def _check_if_it_is_cuddleback1(frame_bgr: np.nan) -> Tuple[str, bool, str]:
 
         # Preprocess the frame: Convert to grayscale and apply thresholding
         gray_frame = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2GRAY)
+        # maybe, the thresholding is not necessary, but it works now
         _, processed_frame = cv2.threshold(gray_frame, 150, 255, cv2.THRESH_BINARY)
 
         # Use Tesseract to perform OCR on the processed frame
@@ -388,9 +389,13 @@ def _check_if_it_is_cuddleback_corner(frame_bgr: np.array) -> Tuple[str, bool, s
         import pytesseract
 
         frame_hsv = skimage.color.rgb2hsv(frame_bgr[:, :, ::-1])
-        yellow = np.logical_and(frame_hsv[:, :, 0] > 0.1, frame_hsv[:, :, 0] < 0.2)
+        # yellow = np.logical_and(frame_hsv[:, :, 0] > 0.1, frame_hsv[:, :, 0] < 0.2)
+        yellow_prototype_hsv = skimage.color.rgb2hsv((np.array([242. , 242 , 128 ]) / 255. ).astype(float))
+        # frame_hsv = skimage.color.rgb2hsv(frame_bgr[:,:,::-1])
+        dist = np.sqrt(np.sum((frame_hsv - yellow_prototype_hsv) ** 2, axis=2))
+        dist_255 = (255 * dist / np.max(dist)).astype(np.uint8)
 
-        ocr_result = pytesseract.image_to_string(yellow.astype(np.uint8) * 255)
+        ocr_result = pytesseract.image_to_string(dist_255)
         # Define a regex pattern to match date and time format:
         # MM/DD/YYYY hh:mm AM
         date_pattern = r"\d{1,3}Sec (\d{4})/(\d{2})/(\d{2}) (\d{1,2}):(\d{1,2}):(\d{1,2})"
