@@ -21,6 +21,9 @@ from joblib import Parallel, delayed
 from PIL import Image, UnidentifiedImageError
 from tqdm import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
+import cv2
+import pytesseract
+import skimage
 
 from .inout import extract_archive
 
