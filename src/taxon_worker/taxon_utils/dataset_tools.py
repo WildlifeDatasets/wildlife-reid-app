@@ -195,29 +195,11 @@ def get_datetime_from_exif(filename: Path) -> typing.Tuple[str, str, str]:
     dt_source = ""
     opened_sucessfully = False
     opened_with_fail = False
-    if filename.exists() and filename.suffix.lower() in (".jpg", ".jpeg", ".png", ".tif", ".tiff", ".bmp"):
+    if filename.exists():
         try:
-            image = Image.open(filename)
-            image.verify()
-            opened_sucessfully = True
-            if filename.suffix.lower() in (".jpg", ".jpeg"):
-                exifdata = image.getexif()
-                tag_id = 306  # DateTimeOriginal
-                dt_str = str(exifdata.get(tag_id))
-                read_error = ""
-                dt_source = "EXIF"
-                opened_sucessfully = True
-            else:
-                dt_str = ""
-                read_error = ""
-        except UnidentifiedImageError:
-            dt_str = ""
-            read_error = "UnidentifiedImageError"
-            opened_with_fail = True
-        except OSError:
-            dt_str = ""
-            read_error = "OSError"
-            opened_with_fail = True
+            dt_str, is_ok, dt_source = get_datetime_exiftool(filename)
+            dt_str = replace_colon_in_exif_datetime(dt_str)
+            read_error = ""
         except Exception as e:
             dt_str = ""
             read_error = str(e)
@@ -225,10 +207,60 @@ def get_datetime_from_exif(filename: Path) -> typing.Tuple[str, str, str]:
             logger.exception(traceback.format_exc())
             opened_with_fail = True
     else:
-        dt_str = ""
-        read_error = ""
+        return "", "File does not exist", ""
 
-    dt_str = replace_colon_in_exif_datetime(dt_str)
+
+    # check if file is ok
+    if filename.suffix.lower() in (".jpg", ".jpeg", ".png", ".tif", ".tiff", ".bmp"):
+        try:
+            image = Image.open(filename)
+            image.verify()
+        except Exception as e:
+            return "", str(e), ""
+    elif filename.suffix.lower() in (".mp4", ".avi", ".mov", ".mkv", ".webm", ".flv", ".wmv", ".m4v"):
+        import cv2
+        try:
+            cap = cv2.VideoCapture(str(filename))
+            ret, frame = cap.read()
+            cap.release()
+        except Exception as e:
+            return "", str(e), ""
+
+    # if filename.exists() and filename.suffix.lower() in (".jpg", ".jpeg", ".png", ".tif", ".tiff", ".bmp"):
+    #
+    #     try:
+    #         image = Image.open(filename)
+    #         image.verify()
+    #         opened_sucessfully = True
+    #         if filename.suffix.lower() in (".jpg", ".jpeg"):
+    #             exifdata = image.getexif()
+    #             tag_id = 306  # DateTimeOriginal
+    #             dt_str = str(exifdata.get(tag_id))
+    #             read_error = ""
+    #             dt_source = "EXIF"
+    #             opened_sucessfully = True
+    #         else:
+    #             dt_str = ""
+    #             read_error = ""
+    #     except UnidentifiedImageError:
+    #         dt_str = ""
+    #         read_error = "UnidentifiedImageError"
+    #         opened_with_fail = True
+    #     except OSError:
+    #         dt_str = ""
+    #         read_error = "OSError"
+    #         opened_with_fail = True
+    #     except Exception as e:
+    #         dt_str = ""
+    #         read_error = str(e)
+    #         logger.warning(f"Error while reading EXIF from {filename}")
+    #         logger.exception(traceback.format_exc())
+    #         opened_with_fail = True
+    # else:
+    #     dt_str = ""
+    #     read_error = ""
+
+    # dt_str = replace_colon_in_exif_datetime(dt_str)
 
     if filename.exists() and read_error == "":
         if dt_str == "":
@@ -256,10 +288,31 @@ def get_datetime_from_exif(filename: Path) -> typing.Tuple[str, str, str]:
 
     return dt_str, read_error, dt_source
 
+def get_datetime_exiftool(video_pth:Path) -> typing.Tuple[str, bool, str]:
+    import exiftool
+
+    checked_keys = [
+        "QuickTime:MediaCreateDate",
+        "QuickTime:CreateDate",
+        "EXIF:CreateDate",
+        "EXIF:ModifyDate",
+        # "File:FileModifyDate",
+    ]
+    # files = [png", "c.tif"]
+    files = [video_pth]
+    with exiftool.ExifToolHelper() as et:
+        metadata = et.get_metadata(files)
+        for d in metadata:
+            for k in checked_keys:
+                if k in d:
+                    return d[k], True, k
+            print(d)
+
+    return "", False, ""
+
 
 def get_datetime_from_ocr(filename: Path) -> typing.Tuple[str, str]:
     import cv2
-    import pytesseract
     # if it is image
 
     if filename.suffix.lower() in (".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff"):
@@ -270,65 +323,85 @@ def get_datetime_from_ocr(filename: Path) -> typing.Tuple[str, str]:
         ret, frame_bgr = cap.read()
         cap.release()
 
-    # Preprocess the frame: Convert to grayscale and apply thresholding
-    gray_frame = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2GRAY)
-    _, processed_frame = cv2.threshold(gray_frame, 150, 255, cv2.THRESH_BINARY)
-
-    # Use Tesseract to perform OCR on the processed frame
-    ocr_result = pytesseract.image_to_string(processed_frame)
-
-    try:
-        date_str, is_cuddleback1 = _check_if_it_is_cuddleback1(ocr_result)
-        if not is_cuddleback1:
-            date_str, is_cuddleback_corner = _check_if_it_is_cuddleback_corner(ocr_result)
-            if not is_cuddleback_corner:
-                date_str = ""
-    except Exception as e:
-        date_str = ""
-        logger.warning(f"Error while processing OCR result: {ocr_result}")
-        logger.debug(traceback.format_exc())
+    date_str, is_cuddleback1, ocr_result = _check_if_it_is_cuddleback1(frame_bgr)
+    if not is_cuddleback1:
+        date_str, is_cuddleback_corner, ocr_result_corner = _check_if_it_is_cuddleback_corner(ocr_result)
+        ocr_result += "; " + ocr_result_corner
+        if not is_cuddleback_corner:
+            date_str = ""
 
     # remove non printable characters
     ocr_result = "".join([c for c in ocr_result if c.isprintable()])
     return date_str, f"OCR: {ocr_result}"
 
-def _check_if_it_is_cuddleback1(ocr_result: str) -> Tuple[str, bool]:
-    # Define a regex pattern to match date and time format:
-    # MM/DD/YYYY hh:mm AM
-    date_pattern = r"\b(\d{1,2})[-\/s.](\d{1,2})[-\/s.](\d{4}) (\d{1,2}):(\d{1,2}) ([AP]M)"
 
-    # Search for dates in the OCR result
-    dates = re.findall(date_pattern, ocr_result)
-    if len(dates) == 0:
+def _check_if_it_is_cuddleback1(frame_bgr: np.nan) -> Tuple[str, bool, str]:
+    try:
+        import cv2
+        import pytesseract
+
+        # Preprocess the frame: Convert to grayscale and apply thresholding
+        gray_frame = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2GRAY)
+        _, processed_frame = cv2.threshold(gray_frame, 150, 255, cv2.THRESH_BINARY)
+
+        # Use Tesseract to perform OCR on the processed frame
+        ocr_result = pytesseract.image_to_string(processed_frame)
+        # Define a regex pattern to match date and time format:
+        # MM/DD/YYYY hh:mm AM
+        date_pattern = r"\b(\d{1,2})[-\/s.](\d{1,2})[-\/s.](\d{4}) (\d{1,2}):(\d{1,2}) ([AP]M)"
+
+        # Search for dates in the OCR result
+        dates = re.findall(date_pattern, ocr_result)
+        if len(dates) == 0:
+            date_str = ""
+            is_ok = False
+            return date_str, is_ok
+
+        # fix AM and PM
+        if dates[0][5] == 'PM':
+            hour = str(int(dates[0][3]) + 12)
+        else:
+            hour = dates[0][3]
+        # turn the date into a string in format strftime("%Y-%m-%d %H:%M:%S")
+        date_str = f"{dates[0][2]}-{dates[0][0]}-{dates[0][1]} {hour}:{dates[0][4]}:00"
+        return date_str, True, ocr_result
+    except Exception as e:
         date_str = ""
-        is_ok = False
-        return date_str, is_ok
+        logger.warning(f"Error while processing OCR result: {ocr_result}")
+        logger.debug(traceback.format_exc())
+        return date_str, False, ""
 
-    # fix AM and PM
-    if dates[0][5] == 'PM':
-        hour = str(int(dates[0][3]) + 12)
-    else:
+
+def _check_if_it_is_cuddleback_corner(frame_bgr: np.array) -> Tuple[str, bool, str]:
+    try:
+        import skimage.color
+        import pytesseract
+
+        frame_hsv = skimage.color.rgb2hsv(frame_bgr[:, :, ::-1])
+        yellow = np.logical_and(frame_hsv[:, :, 0] > 0.1, frame_hsv[:, :, 0] < 0.2)
+
+        ocr_result = pytesseract.image_to_string(yellow.astype(np.uint8) * 255)
+        # Define a regex pattern to match date and time format:
+        # MM/DD/YYYY hh:mm AM
+        date_pattern = r"\d{1,3}Sec (\d{4})/(\d{2})/(\d{2}) (\d{1,2}):(\d{1,2}):(\d{1,2})"
+
+        # Search for dates in the OCR result
+        dates = re.findall(date_pattern, ocr_result)
+        if len(dates) == 0:
+            date_str = ""
+            is_ok = False
+            return date_str, is_ok
+
         hour = dates[0][3]
-    # turn the date into a string in format strftime("%Y-%m-%d %H:%M:%S")
-    date_str = f"{dates[0][2]}-{dates[0][0]}-{dates[0][1]} {hour}:{dates[0][4]}:00"
-    return date_str, True
-
-def _check_if_it_is_cuddleback_corner(ocr_result: str) -> Tuple[str, bool]:
-    # Define a regex pattern to match date and time format:
-    # MM/DD/YYYY hh:mm AM
-    date_pattern = r"21Sec (\d{4})/(\d{2})/(\d{2}) (\d{1,2}):(\d{1,2}):(\d{1,2})"
-
-    # Search for dates in the OCR result
-    dates = re.findall(date_pattern, ocr_result)
-    if len(dates) == 0:
+        # turn the date into a string in format strftime("%Y-%m-%d %H:%M:%S")
+        date_str = f"{dates[0][0]}-{dates[0][1]}-{dates[0][2]} {hour}:{dates[0][4]}:{dates[0][4]}"
+        return date_str, True, ocr_result
+    except Exception as e:
         date_str = ""
-        is_ok = False
-        return date_str, is_ok
+        logger.warning(f"Error while processing OCR result: {ocr_result}")
+        logger.debug(traceback.format_exc())
+        return date_str, False, ""
 
-    hour = dates[0][3]
-    # turn the date into a string in format strftime("%Y-%m-%d %H:%M:%S")
-    date_str = f"{dates[0][0]}-{dates[1][0]}-{dates[0][2]} {hour}:{dates[0][4]}:{dates[0][4]}"
-    return date_str, True
 
 def get_date_from_path_structure(filename: str) -> str:
     """Extract date from the directory structure of the Sumava dataset.
