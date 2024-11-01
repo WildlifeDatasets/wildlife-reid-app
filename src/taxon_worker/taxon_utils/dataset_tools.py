@@ -367,7 +367,7 @@ def _check_if_it_is_cuddleback1(frame_bgr: np.nan) -> Tuple[str, bool, str]:
             date_str = ""
             is_ok = False
             logger.debug(f"OCR result: {ocr_result}")
-            logger.debug(f"{scipy.stats.describe(frame_bgr)=}")
+            logger.debug(f"{scipy.stats.describe(frame_bgr.ravel())=}")
             return date_str, is_ok, ""
 
         # fix AM and PM
@@ -393,17 +393,14 @@ def _check_if_it_is_cuddleback_corner(frame_bgr: np.array) -> Tuple[str, bool, s
         import scipy.stats
 
         frame_hsv = skimage.color.rgb2hsv(frame_bgr[:, :, ::-1])
-        # yellow = np.logical_and(frame_hsv[:, :, 0] > 0.1, frame_hsv[:, :, 0] < 0.2)
-        yellow_prototype_hsv = skimage.color.rgb2hsv((np.array([242, 242, 128]) / 255. ).astype(float))
-        # frame_hsv = skimage.color.rgb2hsv(frame_bgr[:,:,::-1])
-        logger.debug(f"{scipy.stats.describe(frame_hsv)=}")
-        logger.debug(f"{scipy.stats.describe(yellow_prototype_hsv)=}")
-        dist = np.sqrt(np.sum((frame_hsv - yellow_prototype_hsv) ** 2, axis=2))
-        logger.debug(f"{scipy.stats.describe(dist)=}")
-        dist_255 = (255 * dist / np.max(dist)).astype(np.uint8)
-        logger.debug(f"{scipy.stats.describe(dist_255)=}")
 
-        ocr_result = pytesseract.image_to_string(dist_255)
+        yellow_prototype_rgb = np.array([255, 255, 0]) / 255.
+        yellow_prototype_hsv = skimage.color.rgb2hsv(yellow_prototype_rgb)
+
+        dist = np.sqrt(np.sum((frame_hsv - yellow_prototype_hsv) ** 2, axis=2))
+        thresholded_255 = ((dist < 0.1) * 255).astype(np.uint8)
+
+        ocr_result = pytesseract.image_to_string(thresholded_255)
         # Define a regex pattern to match date and time format:
         # MM/DD/YYYY hh:mm AM
         date_pattern = r"\d{1,3}Sec (\d{4})/(\d{2})/(\d{2}) (\d{1,2}):(\d{1,2}):(\d{1,2})"
@@ -413,8 +410,12 @@ def _check_if_it_is_cuddleback_corner(frame_bgr: np.array) -> Tuple[str, bool, s
         if len(dates) == 0:
             date_str = ""
             is_ok = False
+            logger.debug(f"{np.mean(frame_hsv, axis=(0,1))=}")
+            logger.debug(f"{np.mean(frame_bgr, axis=(0,1))=}")
+            logger.debug(f"{yellow_prototype_hsv=}")
             logger.debug(f"{scipy.stats.describe(frame_bgr)=}")
             logger.debug(f"OCR result: {ocr_result}")
+            logger.debug(f"{scipy.stats.describe(dist.ravel())=}")
             return date_str, is_ok, ""
 
         hour = dates[0][3]
