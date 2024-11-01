@@ -72,7 +72,7 @@ def predict(
                 num_cores=num_cores,
                 contains_identities=contains_identities,
             )
-            metadata = data_processing_pipeline.keep_correctly_loaded_images(metadata)
+            metadata, df_failing0 = data_processing_pipeline.keep_correctly_loaded_images(metadata)
             # image_path is now relative to output_images_dir
             metadata["full_image_path"] = metadata["image_path"].apply(
                 lambda x: str(output_images_dir / x)
@@ -80,7 +80,8 @@ def predict(
             metadata["absolute_media_path"] = [pth for pth in metadata["full_image_path"]]
             metadata["detection_results"] = [None] * len(metadata)
             metadata = create_image_from_video(metadata)
-            metadata = data_processing_pipeline.keep_correctly_loaded_images(metadata)
+            metadata, df_failing1 = data_processing_pipeline.keep_correctly_loaded_images(metadata)
+            pd.concat([df_failing0, df_failing1]).to_csv(output_metadata_file.with_suffix(".failed.csv"), encoding="utf-8-sig")
         else:
             logger.debug(
                 f"Using existing metadata file: {output_metadata_file}. "

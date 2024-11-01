@@ -252,7 +252,8 @@ def data_processing(
         num_cores=num_cores,
         contains_identities=contains_identities,
     )
-    metadata = keep_correctly_loaded_images(metadata)
+    metadata, df_failing = keep_correctly_loaded_images(metadata)
+    df_failing.to_csv(csv_path.with_suffix(".failed.csv"), encoding="utf-8-sig")
 
     run_inference(metadata)
 
@@ -337,7 +338,8 @@ def keep_correctly_loaded_images(metadata) -> Tuple[pd.DataFrame, pd.DataFrame]:
     logger.debug(f"len(metadata)={len(metadata)}")
 
     # TODO: decide what to do with images/videos with different read_errors
-    df_failing = metadata[metadata["read_error"] == ""].reset_index(drop=True)
+
+    df_failing = metadata[metadata["read_error"] == ""].copy().reset_index(drop=True)
     metadata = metadata[metadata["read_error"] == ""].reset_index(drop=True)
     logger.debug(f"len(metadata)={len(metadata)}")
     return metadata, df_failing

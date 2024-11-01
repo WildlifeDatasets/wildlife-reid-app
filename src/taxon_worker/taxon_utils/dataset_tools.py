@@ -215,6 +215,7 @@ def get_datetime_from_exif(filename: Path) -> typing.Tuple[str, str, str]:
         try:
             image = Image.open(filename)
             image.verify()
+            opened_sucessfully = True
         except Exception as e:
             return "", str(e), ""
     elif filename.suffix.lower() in (".mp4", ".avi", ".mov", ".mkv", ".webm", ".flv", ".wmv", ".m4v"):
@@ -223,6 +224,7 @@ def get_datetime_from_exif(filename: Path) -> typing.Tuple[str, str, str]:
             cap = cv2.VideoCapture(str(filename))
             ret, frame = cap.read()
             cap.release()
+            opened_sucessfully = True
         except Exception as e:
             return "", str(e), ""
 
@@ -306,7 +308,7 @@ def get_datetime_exiftool(video_pth:Path) -> typing.Tuple[str, bool, str]:
             for k in checked_keys:
                 if k in d:
                     return d[k], True, k
-            print(d)
+            # print(d)
 
     return "", False, ""
 
