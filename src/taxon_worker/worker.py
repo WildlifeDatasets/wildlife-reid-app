@@ -1,11 +1,10 @@
-print("-------------------worker.py----------print---------")
-
 import logging
 import shutil
 import traceback
 from pathlib import Path
 import pandas as pd
 from celery import Celery
+import cv2
 
 from detection_utils import inference_detection
 from detection_utils.inference_video import create_image_from_video
@@ -14,12 +13,19 @@ from taxon_utils.config import RABBITMQ_URL, REDIS_URL
 from taxon_utils.log import setup_logging
 import infrastructure_utils
 
+
 setup_logging()
 logger = logging.getLogger("app")
 logger.debug(f"{RABBITMQ_URL=}")
 logger.debug(f"{REDIS_URL=}")
 logger.debug("--------------------worker.py------------------logger.debug-------------")
-taxon_worker = Celery("taxon_worker", broker=RABBITMQ_URL, backend=REDIS_URL)
+try:
+    taxon_worker = Celery("taxon_worker", broker=RABBITMQ_URL, backend=REDIS_URL)
+except Exception as e:
+    import traceback
+    print(traceback.format_exc())
+    raise e
+
 MEDIA_DIR_PATH = Path("/shared_data/media")
 
 
