@@ -24,6 +24,7 @@ from tqdm.contrib.logging import logging_redirect_tqdm
 import cv2
 import pytesseract
 import skimage
+import exiftool
 
 from .inout import extract_archive
 
