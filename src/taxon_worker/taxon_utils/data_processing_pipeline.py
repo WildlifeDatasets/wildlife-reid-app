@@ -252,7 +252,8 @@ def data_processing(
         num_cores=num_cores,
         contains_identities=contains_identities,
     )
-    metadata = keep_correctly_loaded_images(metadata)
+    metadata, df_failing = keep_correctly_loaded_images(metadata)
+    df_failing.to_csv(csv_path.with_suffix(".failed.csv"), encoding="utf-8-sig")
 
     run_inference(metadata)
 
