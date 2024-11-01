@@ -340,6 +340,7 @@ def get_datetime_from_ocr(filename: Path) -> typing.Tuple[str, str]:
 
 
 def _check_if_it_is_cuddleback1(frame_bgr: np.nan) -> Tuple[str, bool, str]:
+    ocr_result = ""
     try:
         import cv2
         import pytesseract
@@ -371,12 +372,13 @@ def _check_if_it_is_cuddleback1(frame_bgr: np.nan) -> Tuple[str, bool, str]:
         return date_str, True, ocr_result
     except Exception as e:
         date_str = ""
-        logger.warning(f"Error while processing OCR result: {ocr_result}")
         logger.debug(traceback.format_exc())
+        logger.warning(f"Error while processing OCR result: {ocr_result}")
         return date_str, False, ""
 
 
 def _check_if_it_is_cuddleback_corner(frame_bgr: np.array) -> Tuple[str, bool, str]:
+    ocr_result = ""
     try:
         import skimage.color
         import pytesseract
@@ -394,7 +396,7 @@ def _check_if_it_is_cuddleback_corner(frame_bgr: np.array) -> Tuple[str, bool, s
         if len(dates) == 0:
             date_str = ""
             is_ok = False
-            return date_str, is_ok
+            return date_str, is_ok, ""
 
         hour = dates[0][3]
         # turn the date into a string in format strftime("%Y-%m-%d %H:%M:%S")
@@ -402,8 +404,8 @@ def _check_if_it_is_cuddleback_corner(frame_bgr: np.array) -> Tuple[str, bool, s
         return date_str, True, ocr_result
     except Exception as e:
         date_str = ""
-        logger.warning(f"Error while processing OCR result: {ocr_result}")
         logger.debug(traceback.format_exc())
+        logger.warning(f"Error while processing OCR result: {ocr_result}")
         return date_str, False, ""
 
 
