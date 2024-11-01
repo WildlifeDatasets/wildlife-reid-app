@@ -324,7 +324,7 @@ def use_detector_class_if_classification_fails(
     return metadata, class_ids, probs_top
 
 
-def keep_correctly_loaded_images(metadata):
+def keep_correctly_loaded_images(metadata) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """Remove file from list if there is the error message."""
     logger.debug(f"len(metadata)={len(metadata)}")
     # metadata = metadata[metadata["media_type"] == "image"].reset_index(drop=True)
@@ -337,6 +337,8 @@ def keep_correctly_loaded_images(metadata):
     logger.debug(f"len(metadata)={len(metadata)}")
 
     # TODO: decide what to do with images/videos with different read_errors
+    df_failing = metadata[metadata["read_error"] == ""].reset_index(drop=True)
     metadata = metadata[metadata["read_error"] == ""].reset_index(drop=True)
     logger.debug(f"len(metadata)={len(metadata)}")
+    return metadata, df_failing
     return metadata

@@ -12,6 +12,7 @@ RUN apt-get update --yes && \
     libsm6 \
     libxext6 \
     tesseract-ocr \
+    exiftool \
     && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
