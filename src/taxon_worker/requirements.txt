@@ -31,4 +31,4 @@ setuptools==75.2.0
 pytesseract==0.3
 
 # for exiftool
-exiftool==0.5.6
+pyexiftool==0.5.*
