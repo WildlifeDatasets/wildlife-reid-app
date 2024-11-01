@@ -222,7 +222,7 @@ def get_datetime_from_exif(filename: Path) -> typing.Tuple[str, str, str]:
         except Exception as e:
             return "", str(e), ""
     elif filename.suffix.lower() in (".mp4", ".avi", ".mov", ".mkv", ".webm", ".flv", ".wmv", ".m4v"):
-        import cv2
+        # import cv2
         try:
             cap = cv2.VideoCapture(str(filename))
             ret, frame = cap.read()
@@ -294,7 +294,7 @@ def get_datetime_from_exif(filename: Path) -> typing.Tuple[str, str, str]:
     return dt_str, read_error, dt_source
 
 def get_datetime_exiftool(video_pth:Path) -> typing.Tuple[str, bool, str]:
-    import exiftool
+    # import exiftool
 
     checked_keys = [
         "QuickTime:MediaCreateDate",
@@ -332,7 +332,7 @@ def get_datetime_from_ocr(filename: Path) -> typing.Tuple[str, str]:
 
     date_str, is_cuddleback1, ocr_result = _check_if_it_is_cuddleback1(frame_bgr)
     if not is_cuddleback1:
-        date_str, is_cuddleback_corner, ocr_result_corner = _check_if_it_is_cuddleback_corner(ocr_result)
+        date_str, is_cuddleback_corner, ocr_result_corner = _check_if_it_is_cuddleback_corner(frame_bgr)
         ocr_result += "; " + ocr_result_corner
         if not is_cuddleback_corner:
             date_str = ""
