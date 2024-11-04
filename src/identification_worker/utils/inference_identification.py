@@ -1,15 +1,16 @@
 import ast
 import logging
 import os
+import traceback
 from pathlib import Path
 from typing import Union
 
-import json
 import cv2
 import numpy as np
 import pandas as pd
 import timm
 import torch
+import torchvision.transforms as T
 from PIL import Image
 from segment_anything import SamPredictor, sam_model_registry
 from tqdm import tqdm
@@ -17,17 +18,10 @@ from wildlife_tools import realize
 from wildlife_tools.data import WildlifeDataset, FeatureDataset
 from wildlife_tools.features import DeepFeatures, AlikedExtractor
 from wildlife_tools.similarity import CosineSimilarity
-import traceback
-import torchvision.transforms as T
-
-from fgvc.utils.utils import set_cuda_device
-
-from .inference_local import get_merged_predictions
-from .postprocessing import feature_top
-from .wildfusion_utils import SimilarityPipelineExtended, WildFusionExtended
-
 from wildlife_tools.similarity.calibration import IsotonicCalibration
 from wildlife_tools.similarity.pairwise.lightglue import MatchLightGlue
+
+from .wildfusion_utils import SimilarityPipelineExtended, WildFusionExtended
 
 try:
     from ..infrastructure_utils import mem
@@ -93,11 +87,11 @@ def get_identification_model(model_name, model_checkpoint=""):
     """Load the model from the given model name and checkpoint."""
     global IDENTIFICATION_MODELS
 
-    logger.debug(f"Before identification model.")
-    logger.debug(f"{mem.get_vram(DEVICE)}     {mem.get_ram()}")
-
     if IDENTIFICATION_MODELS is not None:
         return
+
+    logger.debug(f"Before identification model.")
+    logger.debug(f"{mem.get_vram(DEVICE)}     {mem.get_ram()}")
 
     logger.info("Initializing identification model.")
     # load model checkpoint
@@ -139,6 +133,10 @@ def get_sam_model() -> SamPredictor:
     """Load the SAM model if not loaded before."""
     global SAM
     global SAM_PREDICTOR
+
+    if SAM_PREDICTOR is not None:
+        return SAM_PREDICTOR
+
     logger.debug(f"Before segmentation model.")
     logger.debug(f"{mem.get_vram(DEVICE)}     {mem.get_ram()}")
     model_zoo = {
@@ -180,6 +178,19 @@ def del_sam_model():
     SAM = None
     SAM_PREDICTOR = None
     torch.cuda.empty_cache()
+
+
+def init_models():
+    logger.debug(f"{os.environ}")
+    """Initialize identification and segmentation models"""
+    get_identification_model(os.environ["IDENTIFICATION_MODEL_VERSION"])
+    get_sam_model()
+
+
+def del_models():
+    """Remove identification and segmentation models from memory"""
+    del_identification_model()
+    del_sam_model()
 
 
 def pad_image(image: np.ndarray, bbox: Union[list, np.ndarray], border: float = 0.25) -> np.ndarray:
@@ -238,7 +249,6 @@ def segment_animal(image_path: str, bbox: list, border: float = 0.25) -> np.ndar
     return pad_image(foregroud_image, bbox, border=border)
 
 
-
 def mask_images(metadata: pd.DataFrame) -> pd.DataFrame:
     """Mask images using SAM model."""
     masked_paths = []
@@ -294,8 +304,6 @@ def encode_images(metadata: pd.DataFrame) -> list:
     features_mega = IDENTIFICATION_MODELS["mega"].get_feature_dataset(dataset)
     features_aliked = IDENTIFICATION_MODELS["aliked"].get_feature_dataset(dataset)
 
-    del_identification_model()
-
     # postprocess global features
     _features_mega = []
     for _features in features_mega.features:
@@ -350,7 +358,134 @@ def _get_top_predictions(similarity: np.ndarray, paths: list, identities: list, 
     return top_results
 
 
-def identify2(
+def prepare_feature_types(features):
+    mega_features = []
+    aliked_features = []
+    for _mega_features, _aliked_features in features:
+        mega_features.append(torch.tensor(_mega_features))
+        aliked_features.append({k: torch.tensor(v) for k, v in _aliked_features.items()})
+    mega_features = np.array(mega_features)
+    return aliked_features, mega_features
+
+
+def calibrate_models(calibrated_features: list, calibration_metadata: pd.DataFrame):
+    """Calibrate identification models"""
+    logger.debug(f"Calibrating identification models with {len(calibrated_features)} images.")
+    # prepare feature datasets
+    calibration_aliked_features, calibration_mega_features = prepare_feature_types(calibrated_features)
+    calibration_mega_features = FeatureDataset(calibration_mega_features, calibration_metadata)
+    calibration_aliked_features = FeatureDataset(calibration_aliked_features, calibration_metadata)
+
+    # calibrate models before identification
+    IDENTIFICATION_MODELS["mega"].fit_calibration(calibration_mega_features, calibration_mega_features)
+    IDENTIFICATION_MODELS["aliked"].fit_calibration(calibration_aliked_features, calibration_aliked_features)
+
+
+def compute_partial(
+        query_features: list,
+        database_features: list,
+        query_metadata: pd.DataFrame,
+        database_metadata: pd.DataFrame,
+        target: str,
+        pairs: tuple = None
+):
+
+    """Compare input feature vectors with the reference feature vectors and make predictions."""
+    assert len(query_features) == len(query_metadata)
+    assert len(database_features) == len(database_metadata)
+    valid_targets = ["priority", "scores"]
+    assert target in valid_targets, f"Invalid target: {target} for partial computation, valid targets: {valid_targets}"
+    if target == "scores":
+        assert pairs is not None, "Pairs must be provided for scores computation"
+    logger.info(f"Starting identification of {len(query_metadata)} images.")
+
+    global IDENTIFICATION_MODELS
+    get_identification_model(os.environ["IDENTIFICATION_MODEL_VERSION"])
+
+    # gather features
+    database_aliked_features, database_mega_features = prepare_feature_types(database_features)
+    query_aliked_features, query_mega_features = prepare_feature_types(query_features)
+
+    # wrap features in feature dataset
+    database_mega_features = FeatureDataset(database_mega_features, database_metadata)
+    database_aliked_features = FeatureDataset(database_aliked_features, database_metadata)
+    query_mega_features = FeatureDataset(query_mega_features, query_metadata)
+    query_aliked_features = FeatureDataset(query_aliked_features, query_metadata)
+
+    database_features = {
+        DeepFeatures: database_mega_features,
+        AlikedExtractor: database_aliked_features
+    }
+    query_features = {
+        DeepFeatures: query_mega_features,
+        AlikedExtractor: query_aliked_features
+    }
+
+    # identify individuals
+    wildfusion = WildFusionExtended(
+        calibrated_matchers=[IDENTIFICATION_MODELS["aliked"], IDENTIFICATION_MODELS["mega"]],
+        priority_matcher=IDENTIFICATION_MODELS["mega"]
+    )
+
+    if target == "priority":
+        priority = wildfusion.get_partial_priority(query_features, database_features)
+        return priority
+
+    elif target == "scores":
+        scores = wildfusion.get_partial_scores(query_features, database_features, pairs)
+        return scores
+
+
+def identify_from_similarity(
+        similarity,
+        database_metadata,
+        top_k
+):
+    # get top k predictions
+    top_predictions = _get_top_predictions(
+        similarity,
+        database_metadata["path"],
+        database_metadata["identity"],
+        top_k=top_k
+    )
+
+    # reformat results
+    pred_image_paths = []
+    pred_class_ids = []
+    scores = []
+    for row in top_predictions:
+        pred_class_ids.append(row[0])
+        pred_image_paths.append(row[1])
+        scores.append(np.clip(row[2], 0, 1).tolist())
+
+    # return path to original image
+    masked_image_paths = pred_image_paths
+    _pred_image_paths = []
+    for paths in pred_image_paths:
+        _pred_image_paths.append([p.replace("/masked_images/", "/images/") for p in paths])
+    pred_image_paths = _pred_image_paths
+
+    # create fake keypoints
+    keypoints = []
+    for j in range(len(top_predictions)):
+        _keypoints = []
+        for i in range(3):
+            kp0 = (np.random.rand(10, 2) * 100).tolist()
+            kp1 = (np.random.rand(10, 2) * 100).tolist()
+            _keypoints.append((kp0, kp1))
+        keypoints.append(_keypoints)
+
+    output = {
+        "pred_image_paths": pred_image_paths,
+        "pred_masked_paths": masked_image_paths,
+        "pred_class_ids": pred_class_ids,
+        "scores": scores,
+        "keypoints": keypoints,
+    }
+    return output
+
+
+def identify(
         query_features: list,
         database_features: list,
         query_metadata: pd.DataFrame,
@@ -368,19 +503,8 @@ def identify2(
     get_identification_model(os.environ["IDENTIFICATION_MODEL_VERSION"])
 
     # gather features
-    database_mega_features = []
-    database_aliked_features = []
-    for mega_features, aliked_features in database_features:
-        database_mega_features.append(torch.tensor(mega_features))
-        database_aliked_features.append({k: torch.tensor(v) for k, v in aliked_features.items()})
-    database_mega_features = np.array(database_mega_features)
-
-    query_mega_features = []
-    query_aliked_features = []
-    for mega_features, aliked_features in query_features:
-        query_mega_features.append(torch.tensor(mega_features))
-        query_aliked_features.append({k: torch.tensor(v) for k, v in aliked_features.items()})
-    query_mega_features = np.array(query_mega_features)
+    database_aliked_features, database_mega_features = prepare_feature_types(database_features)
+    query_aliked_features, query_mega_features = prepare_feature_types(query_features)
 
     # wrap features in feature dataset
     calibration_mega_features = FeatureDataset(database_mega_features[:cal_images], database_metadata[:cal_images])
@@ -412,138 +536,6 @@ def identify2(
     logger.debug(f"{similarity.shape=}")
     del IDENTIFICATION_MODELS
 
-    # get top k predictions
-    top_predictions = _get_top_predictions(
-        similarity,
-        database_metadata["path"],
-        database_metadata["identity"],
-        top_k=top_k
-    )
+    output = identify_from_similarity(similarity, database_metadata, top_k)
 
-    # reformat results
-    pred_image_paths = []
-    pred_class_ids = []
-    scores = []
-    for row in top_predictions:
-        pred_class_ids.append(row[0])
-        pred_image_paths.append(row[1])
-        scores.append(np.clip(row[2], 0, 1).tolist())
-
-    # return path to original image
-    masked_image_paths = pred_image_paths
-    _pred_image_paths = []
-    for paths in pred_image_paths:
-        _pred_image_paths.append([p.replace("/masked_images/", "/images/") for p in paths])
-    pred_image_paths = _pred_image_paths
-
-    # create fake keypoints
-    keypoints = []
-    for j in range(len(query_features)):
-        _keypoints = []
-        for i in range(3):
-            kp0 = (np.random.rand(10, 2) * 100).tolist()
-            kp1 = (np.random.rand(10, 2) * 100).tolist()
-            _keypoints.append((kp0, kp1))
-        keypoints.append(_keypoints)
-
-    output = {
-        "pred_image_paths": pred_image_paths,
-        "pred_masked_paths": masked_image_paths,
-        "pred_class_ids": pred_class_ids,
-        "scores": scores,
-        "keypoints": keypoints,
-    }
-    return output
-
-
-def identify(
-        features: np.ndarray,
-        reference_features: np.ndarray,
-        reference_image_paths: list,
-        reference_class_ids: list,
-        metadata: pd.DataFrame,
-        top_k: int = 3,
-) -> dict:
-    """Compare input feature vectors with the reference feature vectors and make predictions."""
-    assert len(reference_features) == len(reference_image_paths)
-    assert len(reference_features) == len(reference_class_ids)
-    logger.info(f"Starting identification of {len(features)} images.")
-
-    similarity_measure = CosineSimilarity()
-    similarity = similarity_measure(
-        features.astype(np.float32), reference_features.astype(np.float32)
-    )["cosine"]
-    logger.debug(f"{similarity.shape=}")
-
-    # postprocessing
-    idx = metadata.index[metadata["sequence_number"] >= 0].tolist()
-    _similarity = similarity[idx, :]
-    _features = features[idx]
-    _metadata = metadata.iloc[idx]
-    if len(_metadata) > 0:
-        logger.info("Starting identification postprocessing.")
-        mew_features = feature_top(_features, _metadata, _similarity, "top_score")
-        features[idx] = mew_features
-        similarity = similarity_measure(
-            features.astype(np.float32), reference_features.astype(np.float32)
-        )["cosine"]
-
-    query_metadata = pd.DataFrame(
-        {
-            "path": metadata["image_path"],
-            "identity": [-1] * len(metadata["image_path"]),
-            "split": ["test"] * len(metadata["image_path"]),
-        }
-    )
-    database_metadata = pd.DataFrame(
-        {
-            "path": reference_image_paths,
-            "identity": reference_class_ids,
-            "split": ["train"] * len(reference_class_ids),
-        }
-    )
-
-    logger.info(f"Starting loftr prediction.")
-    predicted_idx, keypoints = get_merged_predictions(
-        query_metadata,
-        database_metadata,
-        similarity,
-        top_k=top_k,
-        k_range=int(os.environ["LOFTR_K_RANGE"]),
-        thr_range=int(os.environ["LOFTR_THRESHOLD_RANGE"]),
-        threshold=float(os.environ["LOFTR_CONFIDENCE_THRESHOLD"]),
-        num_kp=10,
-        identities=True,
-    )
-
-    pred_image_paths = []
-    pred_class_ids = []
-    scores = []
-    for query_idx, reference_idxs in enumerate(predicted_idx):
-        if len(reference_idxs) < top_k:
-            diff = top_k - len(reference_idxs)
-            reference_idxs.extend([reference_idxs[-1]] * diff)
-
-        _pred_image_paths = [reference_image_paths[idx] for idx in reference_idxs]
-        _pred_class_ids = [int(reference_class_ids[idx]) for idx in reference_idxs]
-        _scores = np.clip(similarity[query_idx, reference_idxs], 0, 1).astype(float).tolist()
-
-        pred_image_paths.append(_pred_image_paths)
-        pred_class_ids.append(_pred_class_ids)
-        scores.append(_scores)
-
-    # return path to original image
-    masked_image_paths = pred_image_paths
-    _pred_image_paths = []
-    for paths in pred_image_paths:
-        _pred_image_paths.append([p.replace("/masked_images/", "/images/") for p in paths])
-    pred_image_paths = _pred_image_paths
-
-    output = {
-        "pred_image_paths": pred_image_paths,
-        "pred_masked_paths": masked_image_paths,
-        "pred_class_ids": pred_class_ids,
-        "scores": scores,
-        "keypoints": keypoints,
-    }
     return output

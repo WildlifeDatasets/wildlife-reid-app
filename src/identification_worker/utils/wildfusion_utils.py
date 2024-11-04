@@ -51,6 +51,21 @@ class WildFusionExtended(WildFusion):
             _dataset1 = self.select_dataset(dataset1, self.priority_matcher)
             self.priority_matcher.fit_calibration(_dataset0, _dataset1)
 
+    def get_partial_priority(self, dataset0, dataset1):
+        _dataset0 = self.select_dataset(dataset0, self.priority_matcher)
+        _dataset1 = self.select_dataset(dataset1, self.priority_matcher)
+        priority = self.priority_matcher(_dataset0, _dataset1)
+
+        return priority
+
+    def get_partial_scores(self, dataset0, dataset1, pairs):
+        scores = []
+        for matcher in self.calibrated_matchers:
+            _dataset0 = self.select_dataset(dataset0, matcher)
+            _dataset1 = self.select_dataset(dataset1, matcher)
+            scores.append(matcher(_dataset0, _dataset1, pairs=pairs))
+        return scores
+
     def get_priority_pairs(self, dataset0: WildlifeDataset, dataset1: WildlifeDataset, B):
         ''' Shortlisting strategy for selection of most relevant pairs.'''
 
