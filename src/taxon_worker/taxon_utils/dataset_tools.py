@@ -17,10 +17,15 @@ from typing import List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
+import scipy.stats
 from joblib import Parallel, delayed
 from PIL import Image, UnidentifiedImageError
 from tqdm import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
+import cv2
+import pytesseract
+import skimage
+import exiftool
 
 from .inout import extract_archive
 
@@ -175,7 +180,7 @@ def replace_colon_in_exif_datetime(exif_datetime: str) -> str:
     return replaced
 
 
-def get_datetime_from_exif(filename: Path) -> typing.Tuple[str, str]:
+def get_datetime_from_exif(filename: Path) -> typing.Tuple[str, str, str]:
     """Extract datetime from EXIF in file and check if image is ok.
 
     Parameters
@@ -190,58 +195,133 @@ def get_datetime_from_exif(filename: Path) -> typing.Tuple[str, str]:
     str2:
         Error type or zero length string if file is ok.
 
-
+        The function also checks if image or video is ok for read.
     """
-    if filename.exists() and filename.suffix.lower() in (".jpg", ".jpeg", ".png"):
+    dt_source = ""
+    opened_sucessfully = False
+    opened_with_fail = False
+    if filename.exists():
+        try:
+            dt_str, is_ok, dt_source = get_datetime_exiftool(filename)
+            dt_str = replace_colon_in_exif_datetime(dt_str)
+            read_error = ""
+        except Exception as e:
+            dt_str = ""
+            read_error = str(e)
+            logger.warning(f"Error while reading EXIF from {filename}")
+            logger.exception(traceback.format_exc())
+            opened_with_fail = True
+    else:
+        return "", "File does not exist", ""
+
+
+    # check if file is ok
+    if filename.suffix.lower() in (".jpg", ".jpeg", ".png", ".tif", ".tiff", ".bmp"):
         try:
             image = Image.open(filename)
             image.verify()
-            if filename.suffix.lower() in (".jpg", ".jpeg"):
-                exifdata = image.getexif()
-                tag_id = 306  # DateTimeOriginal
-                dt_str = str(exifdata.get(tag_id))
-                read_error = "EXIF"
-            else:
-                dt_str = ""
-                read_error = ""
-        except UnidentifiedImageError:
-            dt_str = ""
-            read_error = "UnidentifiedImageError"
-        except OSError:
-            dt_str = ""
-            read_error = "OSError"
+            opened_sucessfully = True
         except Exception as e:
-            dt_str = ""
-            read_error = "OSError"
-            logger.warning(f"Error while reading EXIF from {filename}")
-            logger.exception(traceback.format_exc())
-    else:
-        dt_str = ""
-        read_error = ""
+            return "", str(e), ""
+    elif filename.suffix.lower() in (".mp4", ".avi", ".mov", ".mkv", ".webm", ".flv", ".wmv", ".m4v"):
+        # import cv2
+        try:
+            cap = cv2.VideoCapture(str(filename))
+            ret, frame = cap.read()
+            cap.release()
+            opened_sucessfully = True
+        except Exception as e:
+            return "", str(e), ""
 
-    dt_str = replace_colon_in_exif_datetime(dt_str)
+    # if filename.exists() and filename.suffix.lower() in (".jpg", ".jpeg", ".png", ".tif", ".tiff", ".bmp"):
+    #
+    #     try:
+    #         image = Image.open(filename)
+    #         image.verify()
+    #         opened_sucessfully = True
+    #         if filename.suffix.lower() in (".jpg", ".jpeg"):
+    #             exifdata = image.getexif()
+    #             tag_id = 306  # DateTimeOriginal
+    #             dt_str = str(exifdata.get(tag_id))
+    #             read_error = ""
+    #             dt_source = "EXIF"
+    #             opened_sucessfully = True
+    #         else:
+    #             dt_str = ""
+    #             read_error = ""
+    #     except UnidentifiedImageError:
+    #         dt_str = ""
+    #         read_error = "UnidentifiedImageError"
+    #         opened_with_fail = True
+    #     except OSError:
+    #         dt_str = ""
+    #         read_error = "OSError"
+    #         opened_with_fail = True
+    #     except Exception as e:
+    #         dt_str = ""
+    #         read_error = str(e)
+    #         logger.warning(f"Error while reading EXIF from {filename}")
+    #         logger.exception(traceback.format_exc())
+    #         opened_with_fail = True
+    # else:
+    #     dt_str = ""
+    #     read_error = ""
 
-    if filename.exists():
+    # dt_str = replace_colon_in_exif_datetime(dt_str)
+
+    if filename.exists() and read_error == "":
         if dt_str == "":
             try:
-                dt_str, read_error = get_datetime_from_ocr(filename)
+                dt_str, dt_source = get_datetime_from_ocr(filename)
+                read_error = ""
+                opened_sucessfully = True
             except Exception as e:
                 dt_str = ""
                 read_error = "OCR failed"
+
                 logger.warning(f"Error while reading OCR from {filename}")
                 logger.debug(traceback.format_exc())
+                opened_with_fail = True
 
         if dt_str == "":
             dtm = min(filename.stat().st_mtime, filename.stat().st_ctime, filename.stat().st_atime)
             dt_str = datetime.fromtimestamp(dtm).strftime("%Y-%m-%d %H:%M:%S")
-            read_error = "File system"
+            read_error = ""
+            dt_source = "File system"
 
-    return dt_str, read_error
+    # this is just for debugging
+    if not opened_sucessfully and not opened_with_fail:
+        logger.error(f"File {filename} was not opened.")
+
+    return dt_str, read_error, dt_source
+
+def get_datetime_exiftool(video_pth:Path) -> typing.Tuple[str, bool, str]:
+    # import exiftool
+
+    checked_keys = [
+        "QuickTime:MediaCreateDate",
+        "QuickTime:CreateDate",
+        "EXIF:CreateDate",
+        "EXIF:ModifyDate",
+        # "File:FileModifyDate",
+    ]
+    # files = [png", "c.tif"]
+    files = [video_pth]
+    with exiftool.ExifToolHelper() as et:
+        metadata = et.get_metadata(files)
+        for d in metadata:
+            for k in checked_keys:
+                if k in d:
+                    return d[k], True, k
+            # if no key was found log the metadata
+            logger.debug(str(d))
+            # print(d)
+
+    return "", False, ""
 
 
 def get_datetime_from_ocr(filename: Path) -> typing.Tuple[str, str]:
     import cv2
-    import pytesseract
     # if it is image
 
     if filename.suffix.lower() in (".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff"):
@@ -252,32 +332,102 @@ def get_datetime_from_ocr(filename: Path) -> typing.Tuple[str, str]:
         ret, frame_bgr = cap.read()
         cap.release()
 
-    # Preprocess the frame: Convert to grayscale and apply thresholding
-    gray_frame = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2GRAY)
-    _, processed_frame = cv2.threshold(gray_frame, 150, 255, cv2.THRESH_BINARY)
+    date_str, is_cuddleback1, ocr_result = _check_if_it_is_cuddleback1(frame_bgr)
+    if not is_cuddleback1:
+        date_str, is_cuddleback_corner, ocr_result_corner = _check_if_it_is_cuddleback_corner(frame_bgr)
+        ocr_result += "; " + ocr_result_corner
+        if not is_cuddleback_corner:
+            date_str = ""
 
-    # Use Tesseract to perform OCR on the processed frame
-    ocr_result = pytesseract.image_to_string(processed_frame)
-
-    # Define a regex pattern to match date and time format:
-    # MM/DD/YYYY hh:mm AM
-    date_pattern = r"\b(\d{1,2})[-\/s.](\d{1,2})[-\/s.](\d{4}) (\d{1,2}):(\d{1,2}) ([AP]M)"
-
-    # Search for dates in the OCR result
-    dates = re.findall(date_pattern, ocr_result)
-    if len(dates) == 0:
-        return "", "OCR failed"
-
-    # fix AM and PM
-    if dates[0][5] == 'PM':
-        hour = str(int(dates[0][3]) + 12)
-    else:
-        hour = dates[0][3]
-    # turn the date into a string in format strftime("%Y-%m-%d %H:%M:%S")
-    date_str = f"{dates[0][2]}-{dates[0][0]}-{dates[0][1]} {hour}:{dates[0][4]}:00"
     # remove non printable characters
     ocr_result = "".join([c for c in ocr_result if c.isprintable()])
     return date_str, f"OCR: {ocr_result}"
+
+
+def _check_if_it_is_cuddleback1(frame_bgr: np.nan) -> Tuple[str, bool, str]:
+    ocr_result = ""
+    try:
+        import cv2
+        import pytesseract
+
+        # Preprocess the frame: Convert to grayscale and apply thresholding
+        gray_frame = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2GRAY)
+        # maybe, the thresholding is not necessary, but it works now
+        _, processed_frame = cv2.threshold(gray_frame, 150, 255, cv2.THRESH_BINARY)
+
+        # Use Tesseract to perform OCR on the processed frame
+        ocr_result = pytesseract.image_to_string(processed_frame)
+        # Define a regex pattern to match date and time format:
+        # MM/DD/YYYY hh:mm AM
+        date_pattern = r"\b(\d{1,2})[-\/s.](\d{1,2})[-\/s.](\d{4}) (\d{1,2}):(\d{1,2}) ([AP]M)"
+
+        # Search for dates in the OCR result
+        dates = re.findall(date_pattern, ocr_result)
+        if len(dates) == 0:
+            date_str = ""
+            is_ok = False
+            logger.debug(f"OCR result: {ocr_result}")
+            logger.debug(f"{scipy.stats.describe(frame_bgr.ravel())=}")
+            return date_str, is_ok, ""
+
+        # fix AM and PM
+        if dates[0][5] == 'PM':
+            hour = str(int(dates[0][3]) + 12)
+        else:
+            hour = dates[0][3]
+        # turn the date into a string in format strftime("%Y-%m-%d %H:%M:%S")
+        date_str = f"{dates[0][2]}-{dates[0][0]}-{dates[0][1]} {hour}:{dates[0][4]}:00"
+        return date_str, True, ocr_result
+    except Exception as e:
+        date_str = ""
+        logger.debug(traceback.format_exc())
+        logger.warning(f"Error while processing OCR result: {ocr_result}")
+        return date_str, False, ""
+
+
+def _check_if_it_is_cuddleback_corner(frame_bgr: np.array) -> Tuple[str, bool, str]:
+    ocr_result = ""
+    try:
+        import skimage.color
+        import pytesseract
+        import scipy.stats
+
+        frame_hsv = skimage.color.rgb2hsv(frame_bgr[:, :, ::-1])
+
+        yellow_prototype_rgb = np.array([255, 255, 0]) / 255.
+        yellow_prototype_hsv = skimage.color.rgb2hsv(yellow_prototype_rgb)
+
+        dist = np.sqrt(np.sum((frame_hsv - yellow_prototype_hsv) ** 2, axis=2))
+        thresholded_255 = ((dist < 0.1) * 255).astype(np.uint8)
+
+        ocr_result = pytesseract.image_to_string(thresholded_255)
+        # Define a regex pattern to match date and time format:
+        # MM/DD/YYYY hh:mm AM
+        date_pattern = r"\d{1,3}Sec (\d{4})/(\d{2})/(\d{2}) (\d{1,2}):(\d{1,2}):(\d{1,2})"
+
+        # Search for dates in the OCR result
+        dates = re.findall(date_pattern, ocr_result)
+        if len(dates) == 0:
+            date_str = ""
+            is_ok = False
+            logger.debug(f"{np.mean(frame_hsv, axis=(0,1))=}")
+            logger.debug(f"{np.mean(frame_bgr, axis=(0,1))=}")
+            logger.debug(f"{yellow_prototype_hsv=}")
+            logger.debug(f"{scipy.stats.describe(frame_bgr)=}")
+            logger.debug(f"OCR result: {ocr_result}")
+            logger.debug(f"{scipy.stats.describe(dist.ravel())=}")
+            return date_str, is_ok, ""
+
+        hour = dates[0][3]
+        # turn the date into a string in format strftime("%Y-%m-%d %H:%M:%S")
+        date_str = f"{dates[0][0]}-{dates[0][1]}-{dates[0][2]} {hour}:{dates[0][4]}:{dates[0][4]}"
+        return date_str, True, ocr_result
+    except Exception as e:
+        date_str = ""
+        logger.debug(traceback.format_exc())
+        logger.warning(f"Error while processing OCR result: {ocr_result}")
+        return date_str, False, ""
+
 
 def get_date_from_path_structure(filename: str) -> str:
     """Extract date from the directory structure of the Sumava dataset.
@@ -736,12 +886,13 @@ class SumavaInitialProcessing:
         output_dict["vanilla_path"] = self.get_paths_from_dir_parallel(mask, exclude)
 
         if make_exifs:
-            datetime_list, read_error_list = self.add_datetime_from_exif_in_parallel(
+            datetime_list, read_error_list, source_list = self.add_datetime_from_exif_in_parallel(
                 output_dict["vanilla_path"]
             )
 
             output_dict["datetime"] = datetime_list
             output_dict["read_error"] = read_error_list
+            output_dict["datetime_source"] = source_list
 
         df = pd.DataFrame(output_dict)
         self.filelist_df = df
@@ -768,8 +919,8 @@ class SumavaInitialProcessing:
                 for vanilla_path in tqdm(vanilla_paths, desc="getting EXIFs")
             ]
 
-        datetime_list, error_list = zip(*datetime_list)
-        return datetime_list, error_list
+        datetime_list, error_list, source_list = zip(*datetime_list)
+        return datetime_list, error_list, source_list
 
 
 def add_column_with_lynx_id(df: pd.DataFrame, contain_identities: bool = False) -> pd.DataFrame:
@@ -1072,6 +1223,7 @@ def analyze_dataset_directory(
 
     df["datetime"] = pd.to_datetime(df0.datetime, errors="coerce")
     df["read_error"] = list(df0["read_error"])
+    df["datetime_source"] = list(df0["datetime_source"])
 
     df.loc[:, "sequence_number"] = None
 

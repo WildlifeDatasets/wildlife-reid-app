@@ -14,6 +14,8 @@ services:
       - 15672  # management tool
     labels:
       com.piva-ai.group: "applications"
+    networks:
+      - backend
 
   redis:
     image: redis:7.0.11-alpine
@@ -30,21 +32,34 @@ services:
       com.piva-ai.group: "applications"
     environment:
       TZ: Europe/Prague
+    networks:
+      - backend
+    volumes:
+      - redis-data:/data:Z
 
   db:
     image: postgres:14.4-alpine
     container_name: carnivoreid-app-db
     restart: always
+
+
+    env_file:
+      - "src/variables.env"
+      - "src/variables.prod.env"
     environment:
-      TZ: Europe/Prague
-      POSTGRES_DB: main_database
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
+#      TZ: Europe/Prague
+#      POSTGRES_DB: main_database
+#      POSTGRES_USER: user
+#      POSTGRES_PASSWORD: password
       PGDATA: /var/lib/postgresql/data/pgdata
     expose:
       - 5432
     labels:
       com.piva-ai.group: "applications"
+    networks:
+      - backend
+    volumes:
+      - db-data:/var/lib/postgresql/data
 
   api:
     image: ${API_IMAGE:-api}${TAG:-:latest}
@@ -53,27 +68,31 @@ services:
       dockerfile: ./src/api/Dockerfile
     container_name: carnivoreid-app-api
     restart: always
-    environment:
-      CAID_HOST: ${CAID_HOST:-localhost}
-      TZ: Europe/Prague
     env_file:
       - "src/variables.env"
+      - "src/variables.prod.env"
       - ".env"
+    environment:
+
+      CAID_HOST: ${CAID_HOST:-localhost}
     volumes:
       # - shared-data:/shared_data  # shared data with API, Workers, and Nginx
       # - shared_data_external:/shared_data_external
-      - shared_data_external:/shared_data
       - api-data:/data  # data used only by API
       - private-data:/private_data  # private keys that should not be automatically backed up
       - ${CAID_IMPORT:-./caid_import}:/caid_import
+#      - shared_data_external:/shared_data_external
+      - shared_data_external:/shared_data
     expose:
       - 8080  # this should be accessible through inner nginx
     depends_on:
       - taxon_worker
       - identification_worker
-#      - detection_worker
     labels:
       com.piva-ai.group: "applications"
+    networks:
+      - frontend
+      - backend
 
   taxon_worker:
     platform: linux/amd64
@@ -85,6 +104,7 @@ services:
     restart: always
     env_file:
       - "src/variables.env"
+      - "src/variables.prod.env"
       - ".env"
     deploy:
       resources:
@@ -98,13 +118,14 @@ services:
       # - shared-data:/shared_data  # shared data with API, Workers, and Nginx
       # - shared_data_external:/shared_data_external
       - shared_data_external:/shared_data
+#      - shared_data_external:/shared_data_external
     depends_on:
       - broker
       - redis
     labels:
       com.piva-ai.group: "applications"
-    environment:
-      TZ: Europe/Prague
+    networks:
+      - backend
 
   identification_worker:
     platform: linux/amd64
@@ -155,20 +176,27 @@ services:
       PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
       - identification-worker-db-data:/var/lib/postgresql/data
+#      - shared_data_external:/shared_data_external
+      - shared_data_external:/shared_data
     expose:
       - 5432
     #      - identification-worker
     labels:
       com.piva-ai.group: "applications"
+    networks:
+      - backend
 
   nginx:
-    image: ${NGINX_IMAGE:-custom_nginx}${TAG:-:latest}
-    build: src/nginx
+    image: nginx:latest
+#    image: ${NGINX_IMAGE:-custom_nginx}${TAG:-:latest}
+#    build: src/nginx we use the original build
     container_name: carnivoreid-app-nginx
     volumes:
      # - shared-data:/shared_data  # shared data with API, Workers, and Nginx
      # - shared_data_external:/shared_data_external
+#      - shared_data_external:/shared_data_external
       - shared_data_external:/shared_data
+      - ./src/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
       - api
     ports:
@@ -177,7 +205,66 @@ services:
       com.piva-ai.group: "applications"
     environment:
       TZ: Europe/Prague
+    networks:
+      - frontend
 
 
+volumes:
+  # The SSHFS docker plugin is required on host machine
+  # docker plugin install vieux/sshfs
+  shared_data_external:
+    driver: vieux/sshfs
+    driver_opts:
+      sshcmd: "${SFTP_CMD}"  # SSH command
+      password: "${SFTP_PASSWORD}"
+      allow_other: ""
+      idmap: 'user'
+
+  redis-data:
+    labels:
+      com.piva-ai.group: "applications"
+      com.piva-ai.backup: "yes"
+  db-data:
+    labels:
+      com.piva-ai.group: "applications"
+      com.piva-ai.backup: "yes"
+  api-data:
+    labels:
+      com.piva-ai.group: "applications"
+      com.piva-ai.backup: "yes"
+  taxon-worker-data:
+    labels:
+      com.piva-ai.group: "applications"
+      com.piva-ai.backup: "yes"
+  identification-worker-data:
+    labels:
+      com.piva-ai.group: "applications"
+      com.piva-ai.backup: "yes"
+  identification-worker-db-data:
+    labels:
+      com.piva-ai.group: "applications"
+      com.piva-ai.backup: "yes"
+  #  detection-worker-data:
+  #    labels:
+  #      com.piva-ai.group: "applications"
+  #      com.piva-ai.backup: "yes"
+  private-data:
+    labels:
+      com.piva-ai.group: "applications"
+      com.piva-ai.backup: "yes"
+      # shared_data_external:
+      # labels:
+      # com.piva-ai.group: "applications"
+      # com.piva-ai.backup: "no"
+  shared-data:
+    #    profiles:
+    #      - dev
+    labels:
+      com.piva-ai.group: "applications"
+      com.piva-ai.backup: "yes"
+
+networks:
+  frontend:
+  backend:
 
 

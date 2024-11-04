@@ -4,7 +4,7 @@ services:
 
   broker_dev:
     image: rabbitmq:3.8.34-management-alpine
-    container_name: carnivoreid-app-dev-message-broker
+    container_name: caid-dev-message-broker
     restart: "no"
     environment:
       RABBITMQ_DEFAULT_USER: user
@@ -16,13 +16,10 @@ services:
       com.piva-ai.group: "applications"
     networks:
       - dev_backend
-  #  identification-worker:
-  #
-  #
 
   redis_dev:
     image: redis:7.0.11-alpine
-    container_name: carnivoreid-app-dev-redis
+    container_name: caid-dev-redis
     restart: "no"
     command: >
       --loglevel warning
@@ -40,12 +37,15 @@ services:
     volumes:
       - redis-data-dev:/data:Z
 
-  db_db:
+  django_db_dev:
     image: postgres:14.4-alpine
-    container_name: carnivoreid-app-dev-db
+    container_name: caid-dev-django_db
     restart: "no"
 #    ports:
 #      - "5432:5432" # maybe limit to localhost
+    env_file:
+        - "src/variables.env"
+        - "src/variables.dev.env"
     environment:
       TZ: Europe/Prague
       POSTGRES_DB: main_database
@@ -62,52 +62,46 @@ services:
       - db-data-dev:/var/lib/postgresql/data
 
   api_dev:
-    container_name: carnivoreid-app-dev-api
-    image: carnivoreid-app/api:dev
+    container_name: caid-dev-api
+    image: caid/api:dev
     build:
       context: .
       dockerfile: ./src/api/Dockerfile_dev
     restart: "no"
+    env_file:
+      - "src/variables.env"
+      - "src/variables.dev.env"
+      - ".env"
     environment:
       DEBUG: "True"
-      TZ: Europe/Prague
       CAID_HOST: ${CAID_HOST:-localhost}
     volumes:
       - ./src/api:/api
-      - shared-data:/shared_data
       - api-data-dev:/data  # data used only by API
       - private-data-dev:/private_data  # private keys that should not be automatically backed up
-    networks:
-      - dev_backend
-      - dev_frontend
-    env_file:
-      - "src/variables.env"
-      - ".env"
+      - shared-data:/shared_data
     expose:
       - 8080  # this should be accessible through inner nginx
     depends_on:
       - taxon_worker_dev
       - identification_worker_dev
-    #      - detection_worker
     labels:
       com.piva-ai.group: "applications"
+    networks:
+      - dev_backend
+      - dev_frontend
 
   taxon_worker_dev:
-    container_name: carnivoreid-app-dev-taxon-worker
-    image: carnivoreid-app/taxon_worker:dev
+    platform: linux/amd64
+    image: caid/taxon_worker:dev
     build:
       context: .
       dockerfile: src/taxon_worker/Dockerfile_dev
+    container_name: caid-dev-taxon-worker
     restart: "no"
-    volumes:
-      - ./src/taxon_worker:/taxon_worker
-      - taxon-worker-data-dev:/data  # data used only by Worker
-      - shared-data:/shared_data
-    networks:
-      - dev_backend
-    platform: linux/amd64
     env_file:
       - "src/variables.env"
+      - "src/variables.dev.env"
       - ".env"
     deploy:
       resources:
@@ -116,25 +110,40 @@ services:
             - driver: nvidia
               device_ids: ['0']
               capabilities: [gpu]
+    volumes:
+      - ./src/taxon_worker:/taxon_worker
+      - taxon-worker-data-dev:/data  # data used only by Worker
+      - shared-data:/shared_data
     depends_on:
       - broker_dev
       - redis_dev
     labels:
       com.piva-ai.group: "applications"
-    environment:
-      TZ: Europe/Prague
+    networks:
+      - dev_backend
 
   identification_worker_dev:
-    image: carnivoreid-app/identification_worker:dev
-    container_name: carnivoreid-app-dev-identification-worker
+    platform: linux/amd64
+    image: caid/identification_worker:dev
     build:
       context: .
       dockerfile: src/identification_worker/Dockerfile_dev
+    container_name: caid-dev-identification-worker
     restart: "no"
-    volumes:
-      - ./src/identification_worker:/identification_worker
-      - identification-worker-data-dev:/data  # data used only by Worker
-      - shared-data:/shared_data
+    environment:
+      POSTGRES_DB: identification_worker
+      POSTGRES_HOST: identification_worker_db_dev
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: user
+      POSTGRES_PASS: password
+      TZ: Europe/Prague
+      RABBITMQ_HOST: broker_dev
+      RABBITMQ_URL: "amqp://user:22pmDB%c@broker_dev:5672"
+      REDIS_HOST: redis_dev
+      REDIS_URL: "redis://:password@redis_dev:6379/0"
+    env_file:
+      - "src/variables.env"
+      - ".env"
     deploy:
       resources:
         reservations:
@@ -142,19 +151,11 @@ services:
             - driver: nvidia
               device_ids: [ '0' ]
               capabilities: [ gpu ]
-    networks:
-      - dev_backend
-    platform: linux/amd64
-    environment:
-      POSTGRES_DB: identification_worker
-      POSTGRES_HOST: identification_worker_db
-      POSTGRES_PORT: 5432
-      POSTGRES_USER: user
-      POSTGRES_PASS: password
-      TZ: Europe/Prague
-    env_file:
-      - "src/variables.env"
-      - ".env"
+    #      - "src/variables.dev.env" # this will override the POSTGRES_DB and other variables
+    volumes:
+      - ./src/identification_worker:/identification_worker
+      - identification-worker-data-dev:/data  # data used only by Worker
+      - shared-data:/shared_data
     depends_on:
       - broker_dev
       - redis_dev
@@ -162,28 +163,50 @@ services:
     #      - identification-worker
     labels:
       com.piva-ai.group: "applications"
+    networks:
+      - dev_backend
 
   identification_worker_db_dev:
-    container_name: carnivoreid-app-dev-identification-worker-db
+    image: postgres:14.4-alpine
+    container_name: caid-dev-identification-worker-db
     restart: "no"
 #    ports:
 #      - "5433:5432"
-    networks:
-      - dev_backend
-    volumes:
-      - identification-worker-db-data-dev:/var/lib/postgresql/data
-    image: postgres:14.4-alpine
     environment:
       TZ: Europe/Prague
       POSTGRES_DB: identification_worker
       POSTGRES_USER: user
       POSTGRES_PASSWORD: password
       PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - identification-worker-db-data-dev:/var/lib/postgresql/data
     expose:
       - 5432
     #      - identification-worker
     labels:
       com.piva-ai.group: "applications"
+    networks:
+      - dev_backend
+
+  nginx_dev:
+    image: nginx:latest
+    # image: ${NGINX_IMAGE:-custom_nginx}${TAG:-:latest}
+#    build: src/nginx  # we use the original build
+    container_name: caid-dev-nginx
+    volumes:
+      - shared-data:/shared_data
+      - ./src/nginx/nginx_dev.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - api_dev
+    ports:
+      - "13680:8080"  # this should be input point from the outer nginx. Inner nginx will redirect static files
+    labels:
+      com.piva-ai.group: "applications"
+    environment:
+      TZ: Europe/Prague
+    networks:
+      - dev_frontend
+    restart: "no"
 
 #  volume_connector:
 #    image: alpine
@@ -191,24 +214,6 @@ services:
 #    volumes:
 #      - "shared-data:/shared_data"
 #      - "./shared_data_2/:/shared_data"
-
-  nginx_dev:
-    image: ${NGINX_IMAGE:-custom_nginx}${TAG:-:latest}
-    container_name: carnivoreid-app-dev-nginx
-    restart: "no"
-    ports:
-      - "13680:8080"  # this should be input point from the outer nginx. Inner nginx will redirect static files
-    volumes:
-      - shared-data:/shared_data
-    networks:
-      - dev_frontend
-    build: src/nginx
-    depends_on:
-      - api_dev
-    labels:
-      com.piva-ai.group: "applications"
-    environment:
-      TZ: Europe/Prague
 
 volumes:
   redis-data-dev:
@@ -227,8 +232,6 @@ volumes:
     driver: local
   shared-data:
     driver: local
-
-
 
 
 networks:

@@ -1,11 +1,10 @@
-print("-------------------worker.py----------print---------")
-
 import logging
 import shutil
 import traceback
 from pathlib import Path
 import pandas as pd
 from celery import Celery
+import cv2
 
 from detection_utils import inference_detection
 from detection_utils.inference_video import create_image_from_video
@@ -14,12 +13,19 @@ from taxon_utils.config import RABBITMQ_URL, REDIS_URL
 from taxon_utils.log import setup_logging
 import infrastructure_utils
 
+
 setup_logging()
 logger = logging.getLogger("app")
 logger.debug(f"{RABBITMQ_URL=}")
 logger.debug(f"{REDIS_URL=}")
 logger.debug("--------------------worker.py------------------logger.debug-------------")
-taxon_worker = Celery("taxon_worker", broker=RABBITMQ_URL, backend=REDIS_URL)
+try:
+    taxon_worker = Celery("taxon_worker", broker=RABBITMQ_URL, backend=REDIS_URL)
+except Exception as e:
+    import traceback
+    print(traceback.format_exc())
+    raise e
+
 MEDIA_DIR_PATH = Path("/shared_data/media")
 
 
@@ -66,7 +72,7 @@ def predict(
                 num_cores=num_cores,
                 contains_identities=contains_identities,
             )
-            metadata = data_processing_pipeline.keep_correctly_loaded_images(metadata)
+            metadata, df_failing0 = data_processing_pipeline.keep_correctly_loaded_images(metadata)
             # image_path is now relative to output_images_dir
             metadata["full_image_path"] = metadata["image_path"].apply(
                 lambda x: str(output_images_dir / x)
@@ -74,7 +80,8 @@ def predict(
             metadata["absolute_media_path"] = [pth for pth in metadata["full_image_path"]]
             metadata["detection_results"] = [None] * len(metadata)
             metadata = create_image_from_video(metadata)
-            metadata = data_processing_pipeline.keep_correctly_loaded_images(metadata)
+            metadata, df_failing1 = data_processing_pipeline.keep_correctly_loaded_images(metadata)
+            pd.concat([df_failing0, df_failing1]).to_csv(output_metadata_file.with_suffix(".failed.csv"), encoding="utf-8-sig")
         else:
             logger.debug(
                 f"Using existing metadata file: {output_metadata_file}. "
