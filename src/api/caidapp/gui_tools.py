@@ -55,28 +55,28 @@ def create_match_img_src(
 ):
     """Create a visualization of the matches between two images."""
     fig, ax = plt.subplots(1, 2, figsize=(10, 5))
-    cmap = matplotlib.colormaps["Set3"]
+    cmap = matplotlib.colormaps["rainbow"]
     for i, (_kp0, _kp1) in enumerate(zip(kp0, kp1)):
-        color = cmap(i / num_kp)[:3]
-        kwargs = {"fill": False, "radius": 15, "color": color, "linewidth": 2}
+        color = cmap(i / len(kp0))[:3]
+        kwargs = {"fill": False, "radius": 12, "color": color, "linewidth": 2}
         patch = Circle(_kp0, **kwargs)
         ax[0].imshow(query_image)
         ax[0].add_patch(patch)
         patch = Circle(_kp1, **kwargs)
         ax[1].imshow(database_image)
         ax[1].add_patch(patch)
-        con = ConnectionPatch(
-            xyA=_kp0,
-            xyB=_kp1,
-            coordsA="data",
-            coordsB="data",
-            axesA=ax[0],
-            axesB=ax[1],
-            color=color,
-            shrinkA=7,
-            shrinkB=7,
-        )
-        fig.add_artist(con)
+        # con = ConnectionPatch(
+        #     xyA=_kp0,
+        #     xyB=_kp1,
+        #     coordsA="data",
+        #     coordsB="data",
+        #     axesA=ax[0],
+        #     axesB=ax[1],
+        #     color=color,
+        #     shrinkA=7,
+        #     shrinkB=7,
+        # )
+        # fig.add_artist(con)
     ax[0].set_title("")
     ax[0].set_xticks([])
     ax[0].set_yticks([])
