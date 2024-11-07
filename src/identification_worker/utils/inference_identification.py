@@ -20,6 +20,7 @@ from wildlife_tools.features import DeepFeatures, AlikedExtractor
 from wildlife_tools.similarity import CosineSimilarity
 from wildlife_tools.similarity.calibration import IsotonicCalibration
 from wildlife_tools.similarity.pairwise.lightglue import MatchLightGlue
+from wildlife_tools.similarity.pairwise.collectors import CollectAll
 
 from .wildfusion_utils import SimilarityPipelineExtended, WildFusionExtended
 
@@ -87,8 +88,11 @@ def get_identification_model(model_name, model_checkpoint=""):
     """Load the model from the given model name and checkpoint."""
     global IDENTIFICATION_MODELS
 
-    if IDENTIFICATION_MODELS is not None:
-        return
+    try:
+        if IDENTIFICATION_MODELS is not None:
+            return
+    except:
+        IDENTIFICATION_MODELS = None
 
     logger.debug(f"Before identification model.")
     logger.debug(f"{mem.get_vram(DEVICE)}     {mem.get_ram()}")
@@ -181,7 +185,6 @@ def del_sam_model():
 
 
 def init_models():
-    logger.debug(f"{os.environ}")
     """Initialize identification and segmentation models"""
     get_identification_model(os.environ["IDENTIFICATION_MODEL_VERSION"])
     get_sam_model()
@@ -333,6 +336,7 @@ def _get_top_predictions(similarity: np.ndarray, paths: list, identities: list, 
         top_names = []
         top_paths = []
         top_scores = []
+        top_idx = []
 
         sort_idx = np.argsort(row)[::-1]
         names_sorted = identities[sort_idx]
@@ -345,6 +349,7 @@ def _get_top_predictions(similarity: np.ndarray, paths: list, identities: list, 
             top_names.append(n)
             top_paths.append(p)
             top_scores.append(s)
+            top_idx.append(sort_idx[i])
             if len(top_names) == top_k:
                 break
 
@@ -353,7 +358,8 @@ def _get_top_predictions(similarity: np.ndarray, paths: list, identities: list, 
             top_names.extend([top_names[-1]] * diff)
             top_paths.extend([top_paths[-1]] * diff)
             top_scores.extend([top_scores[-1]] * diff)
-        top_results.append((top_names, top_paths, top_scores))
+            top_idx.extend([top_idx[-1]] * diff)
+        top_results.append((top_names, top_paths, top_scores, top_idx))
 
     return top_results
 
@@ -389,7 +395,6 @@ def compute_partial(
         target: str,
         pairs: tuple = None
 ):
-
     """Compare input feature vectors with the reference feature vectors and make predictions."""
     assert len(query_features) == len(query_metadata)
     assert len(database_features) == len(database_metadata)
@@ -441,6 +446,7 @@ def identify_from_similarity(
         database_metadata,
         top_k
 ):
+    """Get top-k predictions from similarity matrix."""
     # get top k predictions
     top_predictions = _get_top_predictions(
         similarity,
@@ -453,10 +459,12 @@ def identify_from_similarity(
     pred_image_paths = []
     pred_class_ids = []
     scores = []
-    for row in top_predictions:
+    result_idx = {}
+    for qidx, row in enumerate(top_predictions):
         pred_class_ids.append(row[0])
         pred_image_paths.append(row[1])
         scores.append(np.clip(row[2], 0, 1).tolist())
+        result_idx[qidx] = row[3]
 
     # return path to original image
     masked_image_paths = pred_image_paths
@@ -465,24 +473,35 @@ def identify_from_similarity(
         _pred_image_paths.append([p.replace("/masked_images/", "/images/") for p in paths])
     pred_image_paths = _pred_image_paths
 
-    # create fake keypoints
-    keypoints = []
-    for j in range(len(top_predictions)):
-        _keypoints = []
-        for i in range(3):
-            kp0 = (np.random.rand(10, 2) * 100).tolist()
-            kp1 = (np.random.rand(10, 2) * 100).tolist()
-            _keypoints.append((kp0, kp1))
-        keypoints.append(_keypoints)
-
     output = {
         "pred_image_paths": pred_image_paths,
         "pred_masked_paths": masked_image_paths,
         "pred_class_ids": pred_class_ids,
         "scores": scores,
-        "keypoints": keypoints,
     }
-    return output
+    return output, result_idx
+
+
+def get_keypoints(keypoint_matcher, query_features, database_features, max_kp=10):
+    """Run matcher and return top matched keypoint pairs."""
+    score_thr = 0.0
+    keypoint_output = keypoint_matcher(query_features, database_features)
+    _keypoints = []
+    for _keypoint_output in keypoint_output:
+        thr_mask = _keypoint_output['scores'] >= score_thr
+
+        scores = _keypoint_output['scores'][thr_mask]
+        kps0 = _keypoint_output['kpts0'][thr_mask]
+        kps1 = _keypoint_output['kpts1'][thr_mask]
+
+        sort_idx = np.argsort(scores)[::-1][:max_kp]
+        logger.debug(np.array(scores)[sort_idx])
+
+        kps0 = kps0[sort_idx].tolist()
+        kps1 = kps1[sort_idx].tolist()
+        _keypoints.append((kps0, kps1))
+
+    return _keypoints
 
 
 def identify(
@@ -536,6 +555,24 @@ def identify(
     logger.debug(f"{similarity.shape=}")
     del IDENTIFICATION_MODELS
 
-    output = identify_from_similarity(similarity, database_metadata, top_k)
+    output, result_idx = identify_from_similarity(similarity, database_metadata, top_k)
 
+    # calculate keypoints
+    max_kp = os.environ.get("VISUALIZATION_KEYPOINTS", 10)
+    collector = CollectAll()
+    keypoint_matcher = MatchLightGlue(features='aliked', collector=collector)
+
+    keypoints = []
+    logger.debug(result_idx)
+    for qidx, didx in result_idx.items():
+        qidx = [qidx]
+        keypoint_query_features = FeatureDataset(
+            np.array(query_aliked_features.features)[qidx], query_aliked_features.metadata.iloc[qidx])
+        keypoint_database_features = FeatureDataset(
+            np.array(database_aliked_features.features)[didx], database_aliked_features.metadata.iloc[didx])
+
+        _keypoints = get_keypoints(keypoint_matcher, keypoint_query_features, keypoint_database_features, max_kp=max_kp)
+        keypoints.append(_keypoints)
+
+    output["keypoints"] = keypoints
     return output

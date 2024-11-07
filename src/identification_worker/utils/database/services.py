@@ -20,6 +20,7 @@ class ReferenceImageService:
             # remove old records
             stmt = delete(ReferenceImage).where(ReferenceImage.organization_id == organization_id)
             _ = session.execute(stmt)
+            session.commit()
 
     def create_reference_images(self, organization_id: int, df: pd.DataFrame):
         """Create multiple Observation AI Prediction records for one observation."""
@@ -77,6 +78,10 @@ class ReferenceImageService:
             offset = start
             stmt = select(ReferenceImage).where(ReferenceImage.organization_id == organization_id).limit(limit).offset(
                 offset)
+        elif rows:
+            stmt = select(ReferenceImage).where(
+                (ReferenceImage.organization_id == organization_id) &
+                (ReferenceImage.order_idx.in_(rows)))
 
         # execute statement
         with Session(self.engine) as session:

@@ -13,9 +13,12 @@ from celery import Celery, shared_task
 from utils import config
 from utils.database import get_db_connection, init_db_connection
 from utils.inference_identification import (encode_images, identify, identify_from_similarity, del_models, init_models,
-                                            calibrate_models, compute_partial)
+                                            calibrate_models, compute_partial, prepare_feature_types, get_keypoints)
 from utils.log import setup_logging
 from utils.sequence_identification import extend_df_with_datetime, extend_df_with_sequence_id
+from wildlife_tools.similarity.pairwise.lightglue import MatchLightGlue
+from wildlife_tools.similarity.pairwise.collectors import CollectAll
+from wildlife_tools.data import FeatureDataset
 
 
 setup_logging()
@@ -55,6 +58,8 @@ def init(
 
         # generate embeddings
         db_connection = get_db_connection()
+        database_size = db_connection.reference_image.get_reference_images_count(organization_id)
+        logger.debug(f"Database size: {database_size}")
         db_connection.reference_image.del_reference_images(organization_id)
 
         init_models()
@@ -72,6 +77,9 @@ def init(
             logger.info("Storing feature vectors into the database.")
             db_connection.reference_image.create_reference_images(organization_id, _metadata)
         del_models()
+
+        database_size = db_connection.reference_image.get_reference_images_count(organization_id)
+        logger.debug(f"Database size: {database_size}")
 
         logger.info("Finished processing.")
         out = {
@@ -109,11 +117,10 @@ def load_features(db_connection, organization_id, *, start: int = -1, end: int =
             _reference_images = db_connection.reference_image.get_reference_images(organization_id, start=idx, end=idx+1)
             reference_images.append(_reference_images)
         reference_images = pd.concat(reference_images)
-        #reference_images = reference_images[reference_images.index.isin(rows)]
-
+        # reference_images = db_connection.reference_image.get_reference_images(organization_id, rows=rows)
     else:
         reference_images = db_connection.reference_image.get_reference_images(organization_id,
-                                                                              start=start, end=end, rows=rows)
+                                                                              start=start, end=end, rows=list(rows))
 
     features = [json.loads(e) for e in reference_images["embedding"]]
     logger.debug(f"Loaded features {len(reference_images)}, rows: <{start}, {end})")
@@ -180,10 +187,10 @@ def predict_batch(
         database_size: int,
         top_k: int = 1,
 ):
-    database_batch_size = 1000 #int(os.environ["DATABASE_BATCH_SIZE"])
-    encoding_batch_size = 1000 #int(os.environ["ENCODING_BATCH_SIZE"])
-    cal_images = 10 #int(os.environ["CALIBRATION_IMAGES"])
-    image_budget = 100 #int(os.environ["IMAGE_BUDGET"])
+    database_batch_size = int(os.environ["DATABASE_BATCH_SIZE"])
+    encoding_batch_size = int(os.environ["ENCODING_BATCH_SIZE"])
+    cal_images = int(os.environ["CALIBRATION_IMAGES"])
+    image_budget = int(os.environ["IMAGE_BUDGET"])
 
     # initialize and calibrate models
     init_models()
@@ -315,7 +322,33 @@ def predict_batch(
         similarity = np.where(similarity == 0, -np.inf, similarity)
 
         # calculate and merge results
-        _identification_output = identify_from_similarity(similarity, full_database_metadata, top_k)
+        _identification_output, result_idx = identify_from_similarity(similarity, full_database_metadata, top_k)
+
+        # calculate keypoints
+        collector = CollectAll()
+        keypoint_matcher = MatchLightGlue(features='aliked', collector=collector)
+
+        keypoints = []
+        for qidx, didx in result_idx.items():
+            query_aliked_features, _ = prepare_feature_types([query_features[qidx]])
+            keypoint_query_features = FeatureDataset(query_aliked_features, query_metadata.iloc[[qidx]])
+
+            database_features, reference_images = load_features(db_connection, organization_id,rows=didx)
+            database_metadata = pd.DataFrame({
+                "path": reference_images["image_path"],
+                "identity": reference_images["class_id"],
+                "split": ["train"] * len(reference_images["class_id"]),
+            })
+
+            database_aliked_features, _ = prepare_feature_types(database_features)
+            keypoint_database_features = FeatureDataset(database_aliked_features, database_metadata)
+
+            _keypoints = get_keypoints(keypoint_matcher, keypoint_query_features, keypoint_database_features, max_kp=10)
+            keypoints.append(_keypoints)
+
+        _identification_output["keypoints"] = keypoints
+
+        # merge batch outputs
         if not identification_output:
             identification_output = _identification_output
         else:
@@ -384,11 +417,11 @@ def predict(
                 query_masked_path = [
                     p.replace("/images/", "/masked_images/") for p in query_image_path
                 ]
-                logger.debug(f"{os.environ}")
-                database_batch_size = 1000 #int(os.environ["DATABASE_BATCH_SIZE"])
-                encoding_batch_size = 1000 #int(os.environ["ENCODING_BATCH_SIZE"])
 
-                if (database_batch_size <= database_size) and (encoding_batch_size <= len(metadata)):
+                database_batch_size = int(os.environ["DATABASE_BATCH_SIZE"])
+                encoding_batch_size = int(os.environ["ENCODING_BATCH_SIZE"])
+
+                if (database_batch_size >= database_size) and (encoding_batch_size >= len(metadata)):
                     logger.info("Starting full identification.")
                     identification_output, id2label = predict_full(
                         metadata,
