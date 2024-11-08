@@ -58,7 +58,7 @@ def create_match_img_src(
     cmap = matplotlib.colormaps["rainbow"]
     for i, (_kp0, _kp1) in enumerate(zip(kp0, kp1)):
         color = cmap(i / len(kp0))[:3]
-        kwargs = {"fill": False, "radius": 12, "color": color, "linewidth": 2}
+        kwargs = {"fill": False, "radius": 15, "color": color, "linewidth": 1}
         patch = Circle(_kp0, **kwargs)
         ax[0].imshow(query_image)
         ax[0].add_patch(patch)

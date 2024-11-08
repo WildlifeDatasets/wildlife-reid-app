@@ -88,6 +88,6 @@ class ReferenceImageService:
             resp = session.execute(stmt).fetchall()
             reference_images = [x[0].data() for x in resp]
             reference_images = pd.DataFrame(reference_images)
-            if len(reference_images) > 1:
+            if len(reference_images) > 3:
                 logger.info(f"Retrieved {len(reference_images)} Reference Image records.")
             return reference_images
