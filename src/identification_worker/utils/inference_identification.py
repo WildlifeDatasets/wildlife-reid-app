@@ -491,11 +491,23 @@ def get_keypoints(keypoint_matcher, query_features, database_features, max_kp=10
         scores = _keypoint_output["scores"][thr_mask]
         kps0 = _keypoint_output["kpts0"][thr_mask]
         kps1 = _keypoint_output["kpts1"][thr_mask]
+        try:
+            sort_idx = np.argsort(scores)[::-1][:max_kp]
+            kps0 = kps0[sort_idx].tolist()
+            kps1 = kps1[sort_idx].tolist()
+        except Exception as e:
+            logger.debug(traceback.format_stack())
+            logger.debug(f"{traceback.format_exc()}")
+            logger.debug(f"{scores=}")
+            logger.debug(f"{kps0=}")
+            logger.debug(f"{kps1=}")
+            logger.debug(f"{thr_mask=}")
+            logger.debug(f"{max_kp=}")
+            logger.warning(f"Error in get_keypoints: {e}")
 
-        sort_idx = np.argsort(scores)[::-1][:max_kp]
+            kps0 = []
+            kps1 = []
 
-        kps0 = kps0[sort_idx].tolist()
-        kps1 = kps1[sort_idx].tolist()
         _keypoints.append((kps0, kps1))
 
     return _keypoints
