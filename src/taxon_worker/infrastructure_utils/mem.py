@@ -75,7 +75,10 @@ def wait_for_gpu_memory(required_memory_gb: float = 1.0, device: Union[int, str]
     if device.type == "cpu":
         logger.debug("No need to wait for CPU")
         return
-    while torch.cuda.mem_get_info(device)[0] / 1024**3 > required_memory_gb:
+    used_memory_gb = torch.cuda.mem_get_info(device)[0] / 1024**3
+    available_memory_gb = torch.cuda.mem_get_info(device)[1] / 1024**3
+    free_memory_gb = available_memory_gb - used_memory_gb
+    while free_memory_gb < required_memory_gb:
         logger.debug(f"Waiting for {required_memory_gb} GB of GPU memory. " + get_vram(device))
         torch.cuda.empty_cache()
         torch.cuda.synchronize()
