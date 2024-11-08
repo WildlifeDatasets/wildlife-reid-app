@@ -13,10 +13,14 @@ def get_torch_cuda_device_if_available(device: Union[int, str] = 0) -> torch.dev
     """Set device if available."""
     logger.debug(f"requested device: {device}")
     # logger.debug(f"{traceback.format_stack()=}")
-    print(f"requested device: {device}")
-    print(f"{traceback.format_stack()=}")
     if isinstance(device, str):
-        device = int(device.split(":")[-1])
+        if device.startswith("cuda"):
+            device = int(device.split(":")[-1])
+        elif device == "cpu":
+            device = "cpu"
+        else:
+            logger.warning(f"Unknown device: {device}")
+            device = 0
     if torch.cuda.is_available():
         new_device = torch.device(device)
     else:
@@ -63,9 +67,10 @@ def get_vram(device: Optional[torch.device] = None):
         return "No GPU available"
 
 
-def wait_for_vram(required_memory_gb: float = 1.0, device: Optional[torch.device] = None):
+def wait_for_gpu_memory(required_memory_gb: float = 1.0, device: Union[int, str] = 0):
     """Wait until GPU memory is below threshold."""
-    device = device if device else torch.cuda.current_device()
+    device = get_torch_cuda_device_if_available(device)
+
     # check if device is cpu
     if device.type == "cpu":
         logger.debug("No need to wait for CPU")
