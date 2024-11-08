@@ -4,9 +4,11 @@ import pickle
 
 class Similarity:
     def __call__(self, query, database):
+        """Calculate similarity between query and database."""
         raise NotImplementedError()
 
     def run_and_save(self, query, database, save_path, query_metadata=None, database_metadata=None):
+        """Calculate similarity between query and database and save results to files."""
         similarities = self(query, database)
 
         os.makedirs(save_path, exist_ok=True)

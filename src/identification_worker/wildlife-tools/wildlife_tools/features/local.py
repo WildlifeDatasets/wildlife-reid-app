@@ -1,19 +1,18 @@
+# Fix https://github.com/cvg/glue-factory/pull/50
+import types
+
 import torch
-from tqdm import tqdm
 from gluefactory.models import get_model
 from omegaconf import OmegaConf
+from tqdm import tqdm
 from wildlife_tools.data import FeatureDataset, WildlifeDataset
 from wildlife_tools.features.base import FeatureExtractor
 
-# Fix https://github.com/cvg/glue-factory/pull/50
-import types
 from .gluefactory_fix import extract_single_image_fix
-
-import torchvision
 
 
 class GlueFactoryExtractor(FeatureExtractor):
-    """
+    """Extract keypoints and descriptors using GlueFactory models.
 
     Arguments common for all gluefactory extractors:
 
@@ -38,6 +37,7 @@ class GlueFactoryExtractor(FeatureExtractor):
         config: dict,
         device: None | str = None,
     ):
+        """Initialize GlueFactoryExtractor with config and device."""
         config = OmegaConf.create(config)
         if device is None:
             device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -45,6 +45,7 @@ class GlueFactoryExtractor(FeatureExtractor):
         self.device = device
 
     def __call__(self, dataset: WildlifeDataset):
+        """Extract keypoints and descriptors from dataset."""
         features = []
         loader = torch.utils.data.DataLoader(
             dataset,
@@ -99,8 +100,7 @@ class SuperPointExtractor(GlueFactoryExtractor):
 
 
 class DiskExtractor(GlueFactoryExtractor):
-    """
-    DISK keypoints and descriptor from
+    """DISK keypoints and descriptor.
 
     "DISK: learning local features with policy gradient"
     https://arxiv.org/abs/2006.13566

@@ -1,10 +1,9 @@
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-
-from sklearn.linear_model import LogisticRegression
-from sklearn.isotonic import IsotonicRegression
 from scipy.interpolate import PchipInterpolator
+from sklearn.isotonic import IsotonicRegression
+from sklearn.linear_model import LogisticRegression
 
 
 class LogisticCalibration:
@@ -112,7 +111,6 @@ def reliability_diagram(
     score, hits, ax=None, skip_plot=False, num_bins=10, title="Reliability Diagram"
 ):
     """Plot reliability diagram for a given set of scores and hits."""
-
     df = pd.DataFrame({"score": score, "hits": hits})
     bins = np.linspace(0, 1, num_bins + 1)
     df_bins = pd.cut(df["score"], bins)

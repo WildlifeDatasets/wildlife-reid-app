@@ -1,7 +1,7 @@
 import logging
 
 import pandas as pd
-from sqlalchemy import delete, select, func
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from .model import ReferenceImage
@@ -14,7 +14,7 @@ class ReferenceImageService:
         self.engine = engine
 
     def del_reference_images(self, organization_id: int):
-        """Delete all Reference Image records associated with a specific organization from the database."""
+        """Delete all Reference Image records associated with the organization from the database."""
         logger.info(f"Removing reference images for organization {organization_id}.")
         with Session(self.engine) as session:
             # remove old records
@@ -75,9 +75,9 @@ class ReferenceImageService:
         self, organization_id: int, start: int = -1, end: int = -1, rows: tuple = ()
     ) -> pd.DataFrame:
         """Get dataframe with Reference Image records from the database.
+
         start - inclusive, end - exclusive
         """
-
         # define select statement
         stmt = select(ReferenceImage).where(ReferenceImage.organization_id == organization_id)
         if start >= 0 and end > 0:

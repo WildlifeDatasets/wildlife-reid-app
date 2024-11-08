@@ -6,23 +6,55 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0078_alter_uploadedarchive_taxon_status'),
+        ("caidapp", "0078_alter_uploadedarchive_taxon_status"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='mediafile',
-            name='preview',
-            field=models.ImageField(blank=True, max_length=500, null=True, upload_to=''),
+            model_name="mediafile",
+            name="preview",
+            field=models.ImageField(blank=True, max_length=500, null=True, upload_to=""),
         ),
         migrations.AlterField(
-            model_name='uploadedarchive',
-            name='identification_status',
-            field=models.CharField(blank=True, choices=[('C', 'Created'), ('F', 'Failed'), ('TAIP', 'Taxon processing'), ('TAID', 'Missing taxa'), ('TKN', 'Taxa known'), ('TV', 'Taxa verified'), ('IR', 'Ready for ID'), ('IAIP', 'ID processing'), ('IAID', 'ID AI done'), ('U', 'Unknown')], default='C', max_length=255),
+            model_name="uploadedarchive",
+            name="identification_status",
+            field=models.CharField(
+                blank=True,
+                choices=[
+                    ("C", "Created"),
+                    ("F", "Failed"),
+                    ("TAIP", "Taxon processing"),
+                    ("TAID", "Missing taxa"),
+                    ("TKN", "Taxa known"),
+                    ("TV", "Taxa verified"),
+                    ("IR", "Ready for ID"),
+                    ("IAIP", "ID processing"),
+                    ("IAID", "ID AI done"),
+                    ("U", "Unknown"),
+                ],
+                default="C",
+                max_length=255,
+            ),
         ),
         migrations.AlterField(
-            model_name='uploadedarchive',
-            name='taxon_status',
-            field=models.CharField(blank=True, choices=[('C', 'Created'), ('F', 'Failed'), ('TAIP', 'Taxon processing'), ('TAID', 'Missing taxa'), ('TKN', 'Taxa known'), ('TV', 'Taxa verified'), ('IR', 'Ready for ID'), ('IAIP', 'ID processing'), ('IAID', 'ID AI done'), ('U', 'Unknown')], default='C', max_length=255),
+            model_name="uploadedarchive",
+            name="taxon_status",
+            field=models.CharField(
+                blank=True,
+                choices=[
+                    ("C", "Created"),
+                    ("F", "Failed"),
+                    ("TAIP", "Taxon processing"),
+                    ("TAID", "Missing taxa"),
+                    ("TKN", "Taxa known"),
+                    ("TV", "Taxa verified"),
+                    ("IR", "Ready for ID"),
+                    ("IAIP", "ID processing"),
+                    ("IAID", "ID AI done"),
+                    ("U", "Unknown"),
+                ],
+                default="C",
+                max_length=255,
+            ),
         ),
     ]

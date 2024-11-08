@@ -6,7 +6,6 @@ import django
 from django.http import (
     Http404,
     HttpResponseNotAllowed,
-    HttpResponseRedirect,
     JsonResponse,
     StreamingHttpResponse,
 )

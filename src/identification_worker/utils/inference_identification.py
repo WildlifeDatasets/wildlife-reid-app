@@ -15,12 +15,12 @@ from PIL import Image
 from segment_anything import SamPredictor, sam_model_registry
 from tqdm import tqdm
 from wildlife_tools import realize
-from wildlife_tools.data import WildlifeDataset, FeatureDataset
-from wildlife_tools.features import DeepFeatures, AlikedExtractor
+from wildlife_tools.data import FeatureDataset, WildlifeDataset
+from wildlife_tools.features import AlikedExtractor, DeepFeatures
 from wildlife_tools.similarity import CosineSimilarity
 from wildlife_tools.similarity.calibration import IsotonicCalibration
-from wildlife_tools.similarity.pairwise.lightglue import MatchLightGlue
 from wildlife_tools.similarity.pairwise.collectors import CollectAll
+from wildlife_tools.similarity.pairwise.lightglue import MatchLightGlue
 
 from .wildfusion_utils import SimilarityPipelineExtended, WildFusionExtended
 
@@ -88,14 +88,13 @@ def get_identification_model(model_name, model_checkpoint=""):
     """Load the model from the given model name and checkpoint."""
     global IDENTIFICATION_MODELS
 
-    try:
-        if IDENTIFICATION_MODELS is not None:
-            return
-    except:
-        IDENTIFICATION_MODELS = None
+    if IDENTIFICATION_MODELS is not None:
+        return
+    IDENTIFICATION_MODELS = None
 
-    logger.debug(f"Before identification model.")
+    logger.debug("Before identification model.")
     logger.debug(f"{mem.get_vram(DEVICE)}     {mem.get_ram()}")
+    mem.wait_for_gpu_memory(0.5)
 
     logger.info("Initializing identification model.")
     # load model checkpoint
@@ -129,7 +128,7 @@ def get_identification_model(model_name, model_checkpoint=""):
 
     IDENTIFICATION_MODELS = {"mega": matcher_mega, "aliked": matcher_aliked}
 
-    logger.debug(f"After identification model.")
+    logger.debug("After identification model.")
     logger.debug(f"{mem.get_vram(DEVICE)}     {mem.get_ram()}")
 
 
@@ -141,8 +140,7 @@ def get_sam_model() -> SamPredictor:
     if SAM_PREDICTOR is not None:
         return SAM_PREDICTOR
 
-    logger.debug(f"Before segmentation model.")
-    logger.debug(f"{mem.get_vram(DEVICE)}     {mem.get_ram()}")
+    logger.debug(f"Before segmentation model: {mem.get_vram(DEVICE)}     {mem.get_ram()}")
     model_zoo = {
         "vit_b": "sam_vit_b_01ec64",
         "vit_l": "sam_vit_l_0b3195",
@@ -156,13 +154,13 @@ def get_sam_model() -> SamPredictor:
             f"/root/resources/{model_zoo[model_version]}.pth",
         )
 
+        mem.wait_for_vram(0.5)
         logger.info(f"Initializing SAM model ({model_version}) and loading pre-trained checkpoint.")
         _checkpoint_path = Path(f"/root/resources/{model_zoo[model_version]}.pth").expanduser()
         SAM = sam_model_registry[model_version](checkpoint=str(_checkpoint_path))
         SAM.to(device=DEVICE)
         SAM_PREDICTOR = SamPredictor(SAM)
-    logger.debug(f"After segmentation model.")
-    logger.debug(f"{mem.get_vram(DEVICE)}     {mem.get_ram()}")
+    logger.debug(f"After segmentation model: {mem.get_vram(DEVICE)}     {mem.get_ram()}")
     return SAM_PREDICTOR
 
 
@@ -183,13 +181,13 @@ def del_sam_model():
 
 
 def init_models():
-    """Initialize identification and segmentation models"""
+    """Initialize identification and segmentation models."""
     get_identification_model(os.environ["IDENTIFICATION_MODEL_VERSION"])
     get_sam_model()
 
 
 def del_models():
-    """Remove identification and segmentation models from memory"""
+    """Remove identification and segmentation models from memory."""
     del_identification_model()
     del_sam_model()
 
@@ -365,6 +363,7 @@ def _get_top_predictions(similarity: np.ndarray, paths: list, identities: list, 
 
 
 def prepare_feature_types(features):
+    """Prepare feature types for identification."""
     mega_features = []
     aliked_features = []
     for _mega_features, _aliked_features in features:
@@ -375,7 +374,7 @@ def prepare_feature_types(features):
 
 
 def calibrate_models(calibrated_features: list, calibration_metadata: pd.DataFrame):
-    """Calibrate identification models"""
+    """Calibrate identification models."""
     logger.debug(f"Calibrating identification models with {len(calibrated_features)} images.")
     # prepare feature datasets
     calibration_aliked_features, calibration_mega_features = prepare_feature_types(

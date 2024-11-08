@@ -1,4 +1,6 @@
+# flake8: noqa
 from .cosine import CosineSimilarity
+
 # from .descriptors import MatchDescriptors
 # from .loftr import MatchLOFTR
-#from .lightglue import LightGlueMatcher
+# from .lightglue import LightGlueMatcher

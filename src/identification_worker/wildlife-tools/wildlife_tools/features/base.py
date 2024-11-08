@@ -1,13 +1,16 @@
 import os
 import pickle
-from wildlife_tools.data.dataset import WildlifeDataset, FeatureDataset
+
+from wildlife_tools.data.dataset import FeatureDataset, WildlifeDataset
 
 
 class FeatureExtractor:
     def __call__(self, dataset: WildlifeDataset) -> FeatureDataset:
+        """Extract features from dataset."""
         raise NotImplementedError()
 
     def run_and_save(self, dataset, save_path):
+        """Extract features from dataset and save them to file."""
         feature_dataset = self(dataset)
 
         os.makedirs(save_path, exist_ok=True)

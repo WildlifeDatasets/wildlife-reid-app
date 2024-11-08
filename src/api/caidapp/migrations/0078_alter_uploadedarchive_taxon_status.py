@@ -6,13 +6,28 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0077_rename_status_uploadedarchive_taxon_status'),
+        ("caidapp", "0077_rename_status_uploadedarchive_taxon_status"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='uploadedarchive',
-            name='taxon_status',
-            field=models.CharField(blank=True, choices=[('C', 'Created'), ('F', 'Failed'), ('TAIP', 'Taxon processing'), ('TAID', 'Missing taxa'), ('TKN', 'Taxa known'), ('TV', 'Taxa verified'), ('IAIP', 'ID processing'), ('IAID', 'ID AI done'), ('U', 'Unknown')], default='C', max_length=255),
+            model_name="uploadedarchive",
+            name="taxon_status",
+            field=models.CharField(
+                blank=True,
+                choices=[
+                    ("C", "Created"),
+                    ("F", "Failed"),
+                    ("TAIP", "Taxon processing"),
+                    ("TAID", "Missing taxa"),
+                    ("TKN", "Taxa known"),
+                    ("TV", "Taxa verified"),
+                    ("IAIP", "ID processing"),
+                    ("IAID", "ID AI done"),
+                    ("U", "Unknown"),
+                ],
+                default="C",
+                max_length=255,
+            ),
         ),
     ]

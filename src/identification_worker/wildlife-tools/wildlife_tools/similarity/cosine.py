@@ -1,14 +1,14 @@
 import numpy as np
 import torch
 import torch.nn.functional as F
-
-from wildlife_tools.similarity.base import Similarity
 from wildlife_tools.data import FeatureDataset
+from wildlife_tools.similarity.base import Similarity
 
 
 class CosineSimilarity(Similarity):
-    """
-    Calculates cosine similarity, equivalently to `sklearn.metrics.pairwise.cosine_similarity`
+    """Calculates cosine similarity.
+
+     It is equivalent to `sklearn.metrics.pairwise.cosine_similarity`.
 
     Args:
         query (FeatureDataset): Query dataset of deep features.
@@ -22,9 +22,11 @@ class CosineSimilarity(Similarity):
     def __call__(
         self, query: FeatureDataset, database: FeatureDataset, pairs: tuple | None = None
     ) -> np.ndarray:
+        """Calculate cosine similarity between query and database."""
         return self.cosine_similarity(query.features, database.features)
 
     def cosine_similarity(self, a, b):
+        """Calculate cosine similarity between two matrices."""
         a, b = torch.tensor(a), torch.tensor(b)
         similarity = torch.matmul(F.normalize(a), F.normalize(b).T)
         return similarity.numpy()

@@ -2,17 +2,14 @@ import logging
 import shutil
 import traceback
 from pathlib import Path
+
 import pandas as pd
 from celery import Celery
-import cv2
-
 from detection_utils import inference_detection
 from detection_utils.inference_video import create_image_from_video
 from taxon_utils import data_processing_pipeline, dataset_tools
 from taxon_utils.config import RABBITMQ_URL, REDIS_URL
 from taxon_utils.log import setup_logging
-import infrastructure_utils
-
 
 setup_logging()
 logger = logging.getLogger("app")
@@ -22,8 +19,6 @@ logger.debug("--------------------worker.py------------------logger.debug-------
 try:
     taxon_worker = Celery("taxon_worker", broker=RABBITMQ_URL, backend=REDIS_URL)
 except Exception as e:
-    import traceback
-
     print(traceback.format_exc())
     raise e
 
@@ -113,6 +108,7 @@ def predict(
 
         metadata = inference_detection.detect_animal_on_metadata(metadata)
         data_processing_pipeline.run_inference(metadata)
+        data_processing_pipeline.run_taxon_classification_inference(metadata)
         metadata.to_csv(output_metadata_file, encoding="utf-8-sig")
 
         # process data

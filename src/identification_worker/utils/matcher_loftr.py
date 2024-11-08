@@ -2,11 +2,9 @@ from collections import defaultdict
 from copy import deepcopy
 from typing import Any
 
+import cv2
 import numpy as np
 import torch
-
-import cv2
-
 from kornia.feature.loftr.loftr import (
     CoarseMatching,
     FineMatching,

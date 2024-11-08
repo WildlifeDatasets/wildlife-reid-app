@@ -3,8 +3,8 @@ import torchvision.transforms as T
 
 
 class TransformTimm:
-    """
-    Pytorch transform function from timm library.
+    """Pytorch transform function from timm library.
+
     Example configs in YAML file:
 
     transform:
@@ -16,12 +16,13 @@ class TransformTimm:
 
     @classmethod
     def from_config(cls, config):
+        """Create transform from config."""
         return timm.data.transforms_factory.create_transform(**config)
 
 
 class TransformTorchvision:
-    """
-    Pytorch transform function from torchvision library.
+    """Pytorch transform function from torchvision library.
+
     Example configs in YAML file:
 
     transform:
@@ -33,5 +34,6 @@ class TransformTorchvision:
 
     @classmethod
     def from_config(cls, config):
+        """Create transform from config."""
         compose = config["compose"]
         return T.Compose([eval(s, globals(), T.__dict__) for s in compose])

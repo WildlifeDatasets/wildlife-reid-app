@@ -1,34 +1,33 @@
-import os
 import json
-import math
 import logging
+import math
+import os
 import traceback
 from pathlib import Path
-import torch
 
 import numpy as np
 import pandas as pd
+import torch
 from celery import Celery, shared_task
+from wildlife_tools.data import FeatureDataset
+from wildlife_tools.similarity.pairwise.collectors import CollectAll
+from wildlife_tools.similarity.pairwise.lightglue import MatchLightGlue
 
 from utils import config
 from utils.database import get_db_connection, init_db_connection
 from utils.inference_identification import (
-    encode_images,
-    identify,
-    identify_from_similarity,
-    del_models,
-    init_models,
     calibrate_models,
     compute_partial,
-    prepare_feature_types,
+    del_models,
+    encode_images,
     get_keypoints,
+    identify,
+    identify_from_similarity,
+    init_models,
+    prepare_feature_types,
 )
 from utils.log import setup_logging
 from utils.sequence_identification import extend_df_with_datetime, extend_df_with_sequence_id
-from wildlife_tools.similarity.pairwise.lightglue import MatchLightGlue
-from wildlife_tools.similarity.pairwise.collectors import CollectAll
-from wildlife_tools.data import FeatureDataset
-
 
 setup_logging()
 logger = logging.getLogger("app")
@@ -122,7 +121,7 @@ def load_features(
     db_connection, organization_id, *, start: int = -1, end: int = -1, rows: tuple = ()
 ):
     """Loads specific or all rows from database."""
-    logger.debug(f"Started loading features from database")
+    logger.debug("Started loading features from database")
 
     if rows:
         reference_images = []
@@ -132,7 +131,8 @@ def load_features(
             )
             reference_images.append(_reference_images)
         reference_images = pd.concat(reference_images)
-        # reference_images = db_connection.reference_image.get_reference_images(organization_id, rows=rows)
+        # reference_images = db_connection.reference_image.get_reference_images(
+        #   organization_id, rows=rows)
     else:
         reference_images = db_connection.reference_image.get_reference_images(
             organization_id, start=start, end=end, rows=list(rows)
@@ -144,7 +144,10 @@ def load_features(
 
 
 def get_priority_pairs_from_parts(priority_parts: list, image_budget: int):
-    """Merge priority_parts and get pairs. Specific for local descriptors (matcher=MatchLightGlue(features='aliked'))"""
+    """Merge priority_parts and get pairs.
+
+    Specific for local descriptors (matcher=MatchLightGlue(features='aliked')).
+    """
     priority = np.concatenate(priority_parts, 1)
 
     _, idx1 = torch.topk(torch.tensor(priority), min(image_budget, priority.shape[1]))
@@ -160,6 +163,7 @@ def get_priority_pairs_from_parts(priority_parts: list, image_budget: int):
 def predict_full(
     metadata: pd.DataFrame, db_connection: object, organization_id: int, top_k: int = 1
 ):
+    """Predict identification for all samples."""
     # load features from database
     database_features, reference_images = load_features(db_connection, organization_id)
 
@@ -204,6 +208,7 @@ def predict_batch(
     database_size: int,
     top_k: int = 1,
 ):
+    """Predict identification in batches."""
     database_batch_size = int(os.environ["DATABASE_BATCH_SIZE"])
     encoding_batch_size = int(os.environ["ENCODING_BATCH_SIZE"])
     cal_images = int(os.environ["CALIBRATION_IMAGES"])
@@ -274,7 +279,7 @@ def predict_batch(
             )
 
             # accumulate priority matrix for query_features
-            logger.debug(f"Computing priority matrix")
+            logger.debug("Computing priority matrix")
             _priority_matrix = compute_partial(
                 query_features=query_features,
                 database_features=database_features,
@@ -337,7 +342,7 @@ def predict_batch(
                 }
             )
 
-            logger.debug(f"Computing score matrix")
+            logger.debug("Computing score matrix")
             _partial_scores = compute_partial(
                 query_features=query_features,
                 database_features=database_features,

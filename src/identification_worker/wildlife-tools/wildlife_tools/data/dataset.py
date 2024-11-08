@@ -2,21 +2,17 @@ import json
 import os
 import pickle
 from typing import Callable
-import itertools
 
-import torch
 import cv2
 import numpy as np
 import pandas as pd
 import pycocotools.mask as mask_coco
 from PIL import Image
-
 from wildlife_tools.tools import realize
 
 
 class WildlifeDataset:
-    """
-    PyTorch-style dataset for a wildlife datasets
+    """PyTorch-style dataset for a wildlife datasets.
 
     Args:
         metadata: A pandas dataframe containing image metadata.
@@ -28,7 +24,7 @@ class WildlifeDataset:
                       and 'crop_black'.
         col_path: Column name in the metadata containing image file paths.
         col_label: Column name in the metadata containing class labels.
-        load_label: If False, \_\_getitem\_\_ returns only image instead of (image, label) tuple.
+        load_label: If False, getitem returns only image instead of (image, label) tuple.
 
     Attributes:
         labels np.array : An integers array of ordinal encoding of labels.
@@ -48,6 +44,7 @@ class WildlifeDataset:
         col_label: str = "identity",
         load_label: bool = True,
     ):
+        """Initialize WildlifeDataset."""
         self.split = split
         if self.split:
             metadata = self.split(metadata)
@@ -63,16 +60,19 @@ class WildlifeDataset:
 
     @property
     def labels_string(self):
+        """Return the original labels."""
         return self.metadata[self.col_label].astype(str).values
 
     @property
     def num_classes(self):
+        """Return the number of unique classes in the dataset."""
         return len(self.labels_map)
 
     def __len__(self):
         return len(self.metadata)
 
     def get_image(self, path):
+        """Load image from path."""
         img = cv2.imread(path)
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         img = Image.fromarray(img)
@@ -190,6 +190,7 @@ class WildlifeDataset:
 
     @classmethod
     def from_config(cls, config):
+        """Load WildlifeDataset from config."""
         config["split"] = realize(config.get("split"))
         config["transform"] = realize(config.get("transform"))
         config["metadata"] = pd.read_csv(config["metadata"], index_col=False)
@@ -204,7 +205,7 @@ class FeatureDataset:
         col_label="identity",
         load_label=True,
     ):
-
+        """Initialize FeatureDataset."""
         if len(features) != len(metadata):
             raise ValueError("Features and metadata (lables) have different length ! ")
 
@@ -216,6 +217,7 @@ class FeatureDataset:
 
     @property
     def labels_string(self):
+        """Return the original labels."""
         return self.metadata[self.col_label].astype(str).values
 
     def __getitem__(self, idx):
@@ -229,9 +231,11 @@ class FeatureDataset:
 
     @property
     def num_classes(self):
+        """Return the number of unique classes in the dataset."""
         return len(self.labels_map)
 
     def save(self, path):
+        """Save FeatureDataset to file."""
         data = {
             "features": self.features,
             "metadata": self.metadata,
@@ -246,17 +250,19 @@ class FeatureDataset:
 
     @classmethod
     def from_file(cls, path, **config):
+        """Load FeatureDataset from file."""
         with open(path, "rb") as file:
             data = pickle.load(file)
         return cls(**data, **config)
 
     @classmethod
     def from_config(cls, config):
+        """Load FeatureDataset from config."""
         path = config.pop("path")
         return cls.load(path, **config)
 
 
 class FeatureDatabase(FeatureDataset):
-    """Alias for FeatureDataset"""
+    """Alias for FeatureDataset."""
 
     pass

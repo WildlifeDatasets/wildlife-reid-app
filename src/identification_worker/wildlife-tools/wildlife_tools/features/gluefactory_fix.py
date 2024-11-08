@@ -1,6 +1,6 @@
-"""
-Fix SIFT extractor bugs in Gluefactory.
-- Fixes forcing number of keypoints - Pending PR https://github.com/cvg/glue-factory/pull/50 
+"""Fix SIFT extractor bugs in Gluefactory.
+
+- Fixes forcing number of keypoints - Pending PR https://github.com/cvg/glue-factory/pull/50
 - Fixes situation with no keypoint and descriptors for OpenCV SIFT.
 """
 
@@ -13,11 +13,12 @@ try:
 except ImportError:
     pycolmap = None
 
-from gluefactory.models.utils.misc import pad_to_length
 from gluefactory.models.extractors.sift import filter_dog_point, run_opencv_sift
+from gluefactory.models.utils.misc import pad_to_length
 
 
 def extract_single_image_fix(self, image: torch.Tensor):
+    """Extract keypoints and descriptors from a single image."""
     image_np = image.cpu().numpy().squeeze(0)
     if self.conf.backend.startswith("pycolmap"):
         if version.parse(pycolmap.__version__) >= version.parse("0.5.0"):

@@ -1,10 +1,8 @@
 import logging
 import os.path
-from pathlib import Path
 from typing import Union
 
 import numpy as np
-import torch
 from tqdm import tqdm
 
 logger = logging.getLogger("app")
