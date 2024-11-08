@@ -521,16 +521,23 @@ def make_thumbnail_for_mediafile_if_necessary(
             logger.debug(f"Preview already exists for {mediafile.preview}")
 
 
-def convert_to_mp4(input_video_path, output_video_path):
+def convert_to_mp4(input_video_path: Path, output_video_path, force_rewrite=False) -> None:
     """Convert video to MP4 format."""
-    if not os.path.exists(input_video_path):
+    input_video_path = Path(input_video_path)
+    output_video_path = Path(output_video_path)
+
+    if not force_rewrite and output_video_path.exists():
+        logger.debug(f"Output file '{output_video_path}' already exists. Skipping conversion.")
+        return
+
+    if not input_video_path.exists():
         raise FileNotFoundError(f"The input file '{input_video_path}' does not exist.")
 
     # ffmpeg command to convert video to MP4 (H.264 + AAC)
     command = [
         "ffmpeg",
         "-i",
-        input_video_path,  # Input video file
+        str(input_video_path),  # Input video file
         "-c:v",
         "libx264",  # Set the video codec to H.264
         "-c:a",
@@ -539,13 +546,13 @@ def convert_to_mp4(input_video_path, output_video_path):
         "192k",  # Audio bitrate (you can adjust this)
         "-strict",
         "experimental",  # For using AAC
-        output_video_path,  # Output video file
+        str(output_video_path),  # Output video file
     ]
 
     try:
         # Run the ffmpeg command
         subprocess.run(command, check=True)
-        logger.debug(f"Conversion successful! Output saved at '{output_video_path}'")
+        logger.debug(f"Conversion successful! Output saved at '{str(output_video_path)}'")
     except subprocess.CalledProcessError as e:
         logger.error(f"Error during conversion: {e}")
 
