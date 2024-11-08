@@ -44,7 +44,7 @@ def get_loftr_model():
     pretrained = "outdoor"
     apply_fine = False
     init_threshold = 0.8
-    mem.wait_for_vram(1.)
+    mem.wait_for_vram(1.0)
     LOFTR_MODEL = LoFTR(pretrained=pretrained, apply_fine=apply_fine, thr=init_threshold).to(DEVICE)
     logger.debug("After LoFTR.")
     logger.debug(f"{mem.get_vram(DEVICE)}     {mem.get_ram()}")

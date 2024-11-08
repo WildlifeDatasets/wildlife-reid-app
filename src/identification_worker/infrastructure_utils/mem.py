@@ -1,10 +1,10 @@
 import logging
+import time
 import traceback
 from typing import Optional, Union
 
 import psutil
 import torch
-import time
 
 logger = logging.getLogger()
 
@@ -63,7 +63,7 @@ def get_vram(device: Optional[torch.device] = None):
         return "No GPU available"
 
 
-def wait_for_vram(required_memory_gb: float = 1., device: Optional[torch.device] = None):
+def wait_for_vram(required_memory_gb: float = 1.0, device: Optional[torch.device] = None):
     """Wait until GPU memory is below threshold."""
     device = device if device else torch.cuda.current_device()
     # check if device is cpu

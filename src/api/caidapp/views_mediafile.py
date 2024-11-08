@@ -3,12 +3,7 @@ import random
 from typing import Optional
 
 import django
-from django.http import (
-    Http404,
-    HttpResponseNotAllowed,
-    JsonResponse,
-    StreamingHttpResponse,
-)
+from django.http import Http404, HttpResponseNotAllowed, JsonResponse, StreamingHttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.utils import timezone
