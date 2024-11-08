@@ -457,7 +457,7 @@ def timedelta_to_human_readable(timedelta: datetime.timedelta) -> str:
 
 
 def make_thumbnail_for_mediafile_if_necessary(
-        mediafile: MediaFile, thumbnail_width: int = 400, preview_width: int = 1200
+    mediafile: MediaFile, thumbnail_width: int = 400, preview_width: int = 1200
 ):
     """Make small image representing the upload."""
     logger.debug("Making thumbnail for mediafile")
@@ -472,8 +472,6 @@ def make_thumbnail_for_mediafile_if_necessary(
         preview_abs_pth = preview_abs_pth.with_suffix(".jpg")
     elif mediafile.media_type == "video":
         preview_abs_pth = preview_abs_pth.with_suffix(".mp4")
-
-
 
     gif_path = abs_pth.with_suffix(".gif")
     logger.debug(f"{gif_path=}, {gif_path.exists()=}")
@@ -530,13 +528,18 @@ def convert_to_mp4(input_video_path, output_video_path):
 
     # ffmpeg command to convert video to MP4 (H.264 + AAC)
     command = [
-        'ffmpeg',
-        '-i', input_video_path,  # Input video file
-        '-c:v', 'libx264',  # Set the video codec to H.264
-        '-c:a', 'aac',  # Set the audio codec to AAC
-        '-b:a', '192k',  # Audio bitrate (you can adjust this)
-        '-strict', 'experimental',  # For using AAC
-        output_video_path  # Output video file
+        "ffmpeg",
+        "-i",
+        input_video_path,  # Input video file
+        "-c:v",
+        "libx264",  # Set the video codec to H.264
+        "-c:a",
+        "aac",  # Set the audio codec to AAC
+        "-b:a",
+        "192k",  # Audio bitrate (you can adjust this)
+        "-strict",
+        "experimental",  # For using AAC
+        output_video_path,  # Output video file
     ]
 
     try:
@@ -552,6 +555,7 @@ def refresh_thumbnails():
     for mf in MediaFile.objects.all():
         make_thumbnail_for_mediafile_if_necessary(mf)
     logger.debug("Refreshed all thumbnails")
+
 
 def _get_rel_and_abs_paths_based_on_csv_row(row: dict, output_dir: Path):
     abs_pth = output_dir / "images" / row["image_path"]

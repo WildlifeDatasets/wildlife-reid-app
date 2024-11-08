@@ -65,11 +65,11 @@ class LoFTR(Module):
     """
 
     def __init__(
-            self,
-            pretrained: str = "outdoor",
-            config: dict[str, Any] = default_cfg,
-            apply_fine=True,
-            thr: float = 0.2,
+        self,
+        pretrained: str = "outdoor",
+        config: dict[str, Any] = default_cfg,
+        apply_fine=True,
+        thr: float = 0.2,
     ) -> None:
 
         super().__init__()
@@ -221,14 +221,14 @@ class MatchLOFTR:
     """
 
     def __init__(
-            self,
-            model,
-            thresholds: tuple[float] = (0.99,),
-            batch_size: int = 128,
-            num_workers: int = 0,
-            device: str | None = None,
-            silent: bool = False,
-            store_type="float16",
+        self,
+        model,
+        thresholds: tuple[float] = (0.99,),
+        batch_size: int = 128,
+        num_workers: int = 0,
+        device: str | None = None,
+        silent: bool = False,
+        store_type="float16",
     ):
 
         self.model = model
@@ -270,7 +270,7 @@ class MatchLOFTR:
             keypoints1 = output["keypoints1"].cpu().numpy()
 
             for b, (i, j) in enumerate(zip(idx0, idx1)):
-                current_batch, = np.where(batch_idx == b)
+                (current_batch,) = np.where(batch_idx == b)
                 _confidence = confidence[current_batch]
 
                 if remove_masked:

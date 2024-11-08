@@ -3,13 +3,10 @@ import pickle
 
 
 class Similarity:
-
     def __call__(self, query, database):
         raise NotImplementedError()
 
-    def run_and_save(
-        self, query, database, save_path, query_metadata=None, database_metadata=None
-    ):
+    def run_and_save(self, query, database, save_path, query_metadata=None, database_metadata=None):
         similarities = self(query, database)
 
         os.makedirs(save_path, exist_ok=True)

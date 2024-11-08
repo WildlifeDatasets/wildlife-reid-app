@@ -18,9 +18,11 @@ class CosineSimilarity(Similarity):
         dict: dictionary with `cosine` key. Value is 2D array with cosine similarity.
 
     """
-    def __call__(self, query: FeatureDataset, database: FeatureDataset, pairs: tuple | None = None) -> np.ndarray:
-        return self.cosine_similarity(query.features, database.features)
 
+    def __call__(
+        self, query: FeatureDataset, database: FeatureDataset, pairs: tuple | None = None
+    ) -> np.ndarray:
+        return self.cosine_similarity(query.features, database.features)
 
     def cosine_similarity(self, a, b):
         a, b = torch.tensor(a), torch.tensor(b)

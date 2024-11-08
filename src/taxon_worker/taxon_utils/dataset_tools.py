@@ -214,7 +214,6 @@ def get_datetime_from_exif(filename: Path) -> typing.Tuple[str, str, str]:
     else:
         return "", "File does not exist", ""
 
-
     # check if file is ok
     if filename.suffix.lower() in (".jpg", ".jpeg", ".png", ".tif", ".tiff", ".bmp"):
         try:
@@ -223,7 +222,16 @@ def get_datetime_from_exif(filename: Path) -> typing.Tuple[str, str, str]:
             opened_sucessfully = True
         except Exception as e:
             return "", str(e), ""
-    elif filename.suffix.lower() in (".mp4", ".avi", ".mov", ".mkv", ".webm", ".flv", ".wmv", ".m4v"):
+    elif filename.suffix.lower() in (
+        ".mp4",
+        ".avi",
+        ".mov",
+        ".mkv",
+        ".webm",
+        ".flv",
+        ".wmv",
+        ".m4v",
+    ):
         # import cv2
         try:
             cap = cv2.VideoCapture(str(filename))
@@ -295,7 +303,8 @@ def get_datetime_from_exif(filename: Path) -> typing.Tuple[str, str, str]:
 
     return dt_str, read_error, dt_source
 
-def get_datetime_exiftool(video_pth:Path) -> typing.Tuple[str, bool, str]:
+
+def get_datetime_exiftool(video_pth: Path) -> typing.Tuple[str, bool, str]:
     # import exiftool
 
     checked_keys = [
@@ -322,6 +331,7 @@ def get_datetime_exiftool(video_pth:Path) -> typing.Tuple[str, bool, str]:
 
 def get_datetime_from_ocr(filename: Path) -> typing.Tuple[str, str]:
     import cv2
+
     # if it is image
 
     if filename.suffix.lower() in (".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff"):
@@ -334,7 +344,9 @@ def get_datetime_from_ocr(filename: Path) -> typing.Tuple[str, str]:
 
     date_str, is_cuddleback1, ocr_result = _check_if_it_is_cuddleback1(frame_bgr)
     if not is_cuddleback1:
-        date_str, is_cuddleback_corner, ocr_result_corner = _check_if_it_is_cuddleback_corner(frame_bgr)
+        date_str, is_cuddleback_corner, ocr_result_corner = _check_if_it_is_cuddleback_corner(
+            frame_bgr
+        )
         ocr_result += "; " + ocr_result_corner
         if not is_cuddleback_corner:
             date_str = ""
@@ -371,7 +383,7 @@ def _check_if_it_is_cuddleback1(frame_bgr: np.nan) -> Tuple[str, bool, str]:
             return date_str, is_ok, ""
 
         # fix AM and PM
-        if dates[0][5] == 'PM':
+        if dates[0][5] == "PM":
             hour = str(int(dates[0][3]) + 12)
         else:
             hour = dates[0][3]
@@ -394,7 +406,7 @@ def _check_if_it_is_cuddleback_corner(frame_bgr: np.array) -> Tuple[str, bool, s
 
         frame_hsv = skimage.color.rgb2hsv(frame_bgr[:, :, ::-1])
 
-        yellow_prototype_rgb = np.array([255, 255, 0]) / 255.
+        yellow_prototype_rgb = np.array([255, 255, 0]) / 255.0
         yellow_prototype_hsv = skimage.color.rgb2hsv(yellow_prototype_rgb)
 
         dist = np.sqrt(np.sum((frame_hsv - yellow_prototype_hsv) ** 2, axis=2))

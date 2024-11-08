@@ -40,12 +40,12 @@ class LoFTR(Module):
         pretrained: str = "outdoor",
         config: dict[str, Any] = default_cfg,
         apply_fine=True,
-        thr: float = 0.2
-        ) -> None:
+        thr: float = 0.2,
+    ) -> None:
 
         super().__init__()
         config = deepcopy(config)
-        config['match_coarse']['thr'] = thr
+        config["match_coarse"]["thr"] = thr
 
         self.apply_fine = apply_fine
         # Misc
@@ -67,7 +67,9 @@ class LoFTR(Module):
             if pretrained not in urls.keys():
                 raise ValueError(f"pretrained should be None or one of {urls.keys()}")
 
-            pretrained_dict = torch.hub.load_state_dict_from_url(urls[pretrained], map_location=map_location_to_cpu)
+            pretrained_dict = torch.hub.load_state_dict_from_url(
+                urls[pretrained], map_location=map_location_to_cpu
+            )
             self.load_state_dict(pretrained_dict["state_dict"])
         self.eval()
 
@@ -97,9 +99,13 @@ class LoFTR(Module):
 
         if _data["hw0_i"] == _data["hw1_i"]:  # faster & better BN convergence
             feats_c, feats_f = self.backbone(torch.cat([data["image0"], data["image1"]], dim=0))
-            (feat_c0, feat_c1), (feat_f0, feat_f1) = feats_c.split(_data["bs"]), feats_f.split(_data["bs"])
+            (feat_c0, feat_c1), (feat_f0, feat_f1) = feats_c.split(_data["bs"]), feats_f.split(
+                _data["bs"]
+            )
         else:  # handle different input shapes
-            (feat_c0, feat_f0), (feat_c1, feat_f1) = self.backbone(data["image0"]), self.backbone(data["image1"])
+            (feat_c0, feat_f0), (feat_c1, feat_f1) = self.backbone(data["image0"]), self.backbone(
+                data["image1"]
+            )
 
         _data.update(
             {
@@ -136,11 +142,13 @@ class LoFTR(Module):
         # Make fine-level optional
         if self.apply_fine:
             # 4. fine-level refinement
-            feat_f0_unfold, feat_f1_unfold = self.fine_preprocess(feat_f0, feat_f1, feat_c0, feat_c1, _data)
+            feat_f0_unfold, feat_f1_unfold = self.fine_preprocess(
+                feat_f0, feat_f1, feat_c0, feat_c1, _data
+            )
             if feat_f0_unfold.size(0) != 0:  # at least one coarse level predicted
                 feat_f0_unfold, feat_f1_unfold = self.loftr_fine(feat_f0_unfold, feat_f1_unfold)
 
-            #5. match fine-level
+            # 5. match fine-level
             self.fine_matching(feat_f0_unfold, feat_f1_unfold, _data)
         if self.apply_fine:
             rename_keys: dict[str, str] = {
@@ -193,12 +201,13 @@ class MatchLOFTR(MatchPairs):
         if device is None:
             device = "cuda" if torch.cuda.is_available() else "cpu"
 
-        self.model = LoFTR(pretrained=pretrained, apply_fine=apply_fine, thr=init_threshold).to(device)
+        self.model = LoFTR(pretrained=pretrained, apply_fine=apply_fine, thr=init_threshold).to(
+            device
+        )
         self.device = device
 
-
     def get_matches(self, batch):
-        ''' Process single batch of LoFTR matches'''
+        """Process single batch of LoFTR matches"""
 
         idx0, data0, idx1, data1 = batch
         data = {
@@ -215,12 +224,14 @@ class MatchLOFTR(MatchPairs):
 
         data = []
         for b, (i0, i1) in enumerate(zip(idx0, idx1)):
-            current, = np.where(batch_idx == b)
-            data.append({
-                'idx0': i0.item(),
-                'idx1': i1.item(),
-                'kpts0': kpts0[current],
-                'kpts1': kpts1[current],
-                'scores': confidence[current],
-            })
+            (current,) = np.where(batch_idx == b)
+            data.append(
+                {
+                    "idx0": i0.item(),
+                    "idx1": i1.item(),
+                    "kpts0": kpts0[current],
+                    "kpts1": kpts1[current],
+                    "scores": confidence[current],
+                }
+            )
         return data

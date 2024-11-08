@@ -23,6 +23,7 @@ try:
     taxon_worker = Celery("taxon_worker", broker=RABBITMQ_URL, backend=REDIS_URL)
 except Exception as e:
     import traceback
+
     print(traceback.format_exc())
     raise e
 
@@ -81,7 +82,9 @@ def predict(
             metadata["detection_results"] = [None] * len(metadata)
             metadata = create_image_from_video(metadata)
             metadata, df_failing1 = data_processing_pipeline.keep_correctly_loaded_images(metadata)
-            pd.concat([df_failing0, df_failing1]).to_csv(output_metadata_file.with_suffix(".failed.csv"), encoding="utf-8-sig")
+            pd.concat([df_failing0, df_failing1]).to_csv(
+                output_metadata_file.with_suffix(".failed.csv"), encoding="utf-8-sig"
+            )
         else:
             logger.debug(
                 f"Using existing metadata file: {output_metadata_file}. "

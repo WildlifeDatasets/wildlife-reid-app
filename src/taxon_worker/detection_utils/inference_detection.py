@@ -130,8 +130,10 @@ def del_detection_model():
     DETECTION_MODEL = None
     torch.cuda.empty_cache()
 
+
 DETECTION_MODEL = get_detection_model(force_reload=True)
 del_detection_model()
+
 
 def detect_animals_in_one_image(image_rgb: np.ndarray) -> Optional[List[Dict[str, Any]]]:
     """Detect an animal in a given image.
@@ -200,9 +202,12 @@ def human_annonymization(rgb_image: np.ndarray, bboxes: List[List[int]]) -> np.n
         pad_w += border
         pad_h += border
 
-        padded_image = np.pad(cropped_image, ((pad_h, pad_h), (pad_w, pad_w), (0, 0)), mode="constant")
+        padded_image = np.pad(
+            cropped_image, ((pad_h, pad_h), (pad_w, pad_w), (0, 0)), mode="constant"
+        )
         rgb_image[y0:y1, x0:x1] = padded_image
     return rgb_image
+
 
 def detect_animal_on_metadata(metadata: pd.DataFrame, border=0.0) -> pd.DataFrame:
     """Do the detection and segmentation on images in metadata.
@@ -227,7 +232,6 @@ def detect_animal_on_metadata(metadata: pd.DataFrame, border=0.0) -> pd.DataFram
             results = detect_animals_in_one_image(image_rgb=image)
 
             # "bbox": list(int(_) for _ in results[i][:4].tolist()),
-
 
             if results is None:
                 # there are no detected animals in image

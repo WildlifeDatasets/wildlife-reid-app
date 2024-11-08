@@ -30,8 +30,9 @@ class ReferenceImageService:
         assert "embedding" in df
         with Session(self.engine) as session:
             stmt = delete(ReferenceImage).where(
-                (ReferenceImage.organization_id == organization_id) &
-                (ReferenceImage.image_path.in_(list(df["image_path"]))))
+                (ReferenceImage.organization_id == organization_id)
+                & (ReferenceImage.image_path.in_(list(df["image_path"])))
+            )
             _ = session.execute(stmt)
 
             # add new records
@@ -52,12 +53,17 @@ class ReferenceImageService:
         """Get the count of Reference Image records from the database."""
         try:
             # define count statement
-            stmt = select(func.count()).select_from(ReferenceImage).where(
-                ReferenceImage.organization_id == organization_id)
+            stmt = (
+                select(func.count())
+                .select_from(ReferenceImage)
+                .where(ReferenceImage.organization_id == organization_id)
+            )
             # execute statement
             with Session(self.engine) as session:
                 count = session.execute(stmt).scalar()
-                logger.info(f"Total Reference Image records for organization {organization_id}: {count}")
+                logger.info(
+                    f"Total Reference Image records for organization {organization_id}: {count}"
+                )
             return count
         except Exception as e:
             # Handle database connection or missing database error
@@ -65,8 +71,9 @@ class ReferenceImageService:
             logger.debug(e)
             return 0
 
-    def get_reference_images(self, organization_id: int, start: int = -1, end: int = -1,
-                             rows: tuple = ()) -> pd.DataFrame:
+    def get_reference_images(
+        self, organization_id: int, start: int = -1, end: int = -1, rows: tuple = ()
+    ) -> pd.DataFrame:
         """Get dataframe with Reference Image records from the database.
         start - inclusive, end - exclusive
         """
@@ -76,12 +83,17 @@ class ReferenceImageService:
         if start >= 0 and end > 0:
             limit = end - start
             offset = start
-            stmt = select(ReferenceImage).where(ReferenceImage.organization_id == organization_id).limit(limit).offset(
-                offset)
+            stmt = (
+                select(ReferenceImage)
+                .where(ReferenceImage.organization_id == organization_id)
+                .limit(limit)
+                .offset(offset)
+            )
         elif rows:
             stmt = select(ReferenceImage).where(
-                (ReferenceImage.organization_id == organization_id) &
-                (ReferenceImage.order_idx.in_(rows)))
+                (ReferenceImage.organization_id == organization_id)
+                & (ReferenceImage.order_idx.in_(rows))
+            )
 
         # execute statement
         with Session(self.engine) as session:

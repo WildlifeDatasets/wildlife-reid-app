@@ -23,14 +23,14 @@ MEDIA_DIR_PATH = Path("/shared_data/media")
 
 @taxon_worker.task(bind=True, name="predict")
 def predict(
-        self,
-        input_archive_file: str,
-        output_dir: str,
-        output_archive_file: str,
-        output_metadata_file: str,
-        contains_identities: bool = False,
-        force_init: bool = False,
-        **kwargs,
+    self,
+    input_archive_file: str,
+    output_dir: str,
+    output_archive_file: str,
+    output_metadata_file: str,
+    contains_identities: bool = False,
+    force_init: bool = False,
+    **kwargs,
 ):
     """Main method called by Celery broker.
 

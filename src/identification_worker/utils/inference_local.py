@@ -9,6 +9,7 @@ from wildlife_tools.data.dataset import WildlifeDataset
 
 from .loftr_utils import PairSubsetDataset
 from .matcher_loftr import LoFTR, MatchLOFTR, remove_masked_keypoints
+
 try:
     from ..infrastructure_utils import mem
 except ImportError:
@@ -58,17 +59,17 @@ def del_loftr_model():
 
 class WildFusionClassifier:
     def __init__(
-            self,
-            matcher=None,
-            extractor_deep=None,
-            extractor_local=None,
-            transform_deep=None,
-            transform_local=None,
-            sim_deep=None,
-            sim_local=None,
-            device="cuda",
-            k_range: int = 5,
-            thr_range: float = 100,
+        self,
+        matcher=None,
+        extractor_deep=None,
+        extractor_local=None,
+        transform_deep=None,
+        transform_local=None,
+        sim_deep=None,
+        sim_local=None,
+        device="cuda",
+        k_range: int = 5,
+        thr_range: float = 100,
     ):
         if ((extractor_local and transform_local and matcher) or sim_local) is None:
             raise ValueError(
@@ -101,7 +102,9 @@ class WildFusionClassifier:
             query_local = self.get_features(query, self.extractor_local, self.transform_local)
             database_local = self.get_features(database, self.extractor_local, self.transform_local)
 
-            cosine_scores, cosine_idx = self.top_k_ident(torch.tensor(self.sim_deep), database.labels_string, self.k_range)
+            cosine_scores, cosine_idx = self.top_k_ident(
+                torch.tensor(self.sim_deep), database.labels_string, self.k_range
+            )
             pairs = PairSubsetDataset(query_local, database_local, subset_matrix=cosine_idx)
 
             self.sim_local = self.matcher(pairs=pairs, remove_masked=remove_masked)
@@ -312,15 +315,15 @@ def top_identities(predictions_ids, database_names, top_k=3):
 
 
 def get_merged_predictions(
-        query_metadata: pd.DataFrame,
-        database_metadata: pd.DataFrame,
-        cos_similarity: np.ndarray,
-        top_k=3,
-        k_range: int = 10,
-        thr_range: int = 100,
-        threshold: float = 0.8,
-        num_kp: int = 10,
-        identities: bool = True,
+    query_metadata: pd.DataFrame,
+    database_metadata: pd.DataFrame,
+    cos_similarity: np.ndarray,
+    top_k=3,
+    k_range: int = 10,
+    thr_range: int = 100,
+    threshold: float = 0.8,
+    num_kp: int = 10,
+    identities: bool = True,
 ) -> (list, list):
     """Get merged predictions and keypoints."""
     get_loftr_model()
@@ -334,7 +337,7 @@ def get_merged_predictions(
         transform_local=transform_local,
         sim_deep=cos_similarity,
         k_range=k_range,
-        thr_range=thr_range
+        thr_range=thr_range,
     )
 
     query = get_dataset(query_metadata)
@@ -342,7 +345,9 @@ def get_merged_predictions(
 
     merged_predictions_ids = classifier(query, database, remove_masked=True)
     if identities:
-        merged_predictions_ids = top_identities(merged_predictions_ids, database.labels_string, top_k)
+        merged_predictions_ids = top_identities(
+            merged_predictions_ids, database.labels_string, top_k
+        )
     else:
         merged_predictions_ids = np.array(merged_predictions_ids)[:, :top_k]
     keypoints = get_keypoints(query, database, merged_predictions_ids, num_kp)
