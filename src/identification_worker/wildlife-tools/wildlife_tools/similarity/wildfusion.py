@@ -1,11 +1,10 @@
 import numpy as np
 import torch
-from wildlife_tools.data import WildlifeDataset, FeatureDataset
+from wildlife_tools.data import FeatureDataset, WildlifeDataset
 
 
 def get_hits(dataset0, dataset1):
     """Return grid of label correspondences given two labeled datasets."""
-
     gt0 = dataset0.labels_string
     gt1 = dataset1.labels_string
     gt_grid0 = np.tile(gt0, (len(gt1), 1)).T
@@ -15,6 +14,7 @@ def get_hits(dataset0, dataset1):
 
 class SimilarityPipeline:
     def __init__(self, matcher, extractor=None, calibration=None, transform=None):
+        """Initialize similarity pipeline with matcher, extractor, calibration and transform."""
         self.matcher = matcher
         self.calibration = calibration
         self.calibration_done = False
@@ -22,6 +22,7 @@ class SimilarityPipeline:
         self.transform = transform
 
     def get_feature_dataset(self, dataset: WildlifeDataset) -> FeatureDataset:
+        """Return dataset with features extracted by extractor."""
         if self.transform is not None:
             dataset.transform = self.transform
         if self.extractor is not None:
@@ -30,8 +31,9 @@ class SimilarityPipeline:
             return dataset
 
     def fit_calibration(self, dataset0: WildlifeDataset, dataset1: WildlifeDataset):
-        """
-        Fit calibration using scores from given two datasets (eg. training and validation datasets)
+        """Fit calibration using scores from given two datasets.
+
+        It can be used for eg. training and validation datasets.
         Both datasets must have labels.
         """
         if self.calibration is None:
@@ -46,6 +48,7 @@ class SimilarityPipeline:
         self.calibration_done = True
 
     def __call__(self, dataset0: WildlifeDataset, dataset1: WildlifeDataset, pairs=None):
+        """Calculate similarity between two datasets using matcher."""
         if not self.calibration_done and (self.calibration is not None):
             raise ValueError("Calibration is not fitted. Use fit_calibration method.")
 
@@ -70,10 +73,12 @@ class WildFusion:
         calibrated_matchers: list[SimilarityPipeline],
         priority_matcher: SimilarityPipeline | None = None,
     ):
+        """Initialize WildFusion with multiple calibrated matchers and priority matcher."""
         self.calibrated_matchers = calibrated_matchers
         self.priority_matcher = priority_matcher
 
     def fit_calibration(self, dataset0: WildlifeDataset, dataset1: WildlifeDataset):
+        """Fit calibration for all matchers."""
         for matcher in self.calibrated_matchers:
             matcher.fit_calibration(dataset0, dataset1)
 
@@ -82,7 +87,6 @@ class WildFusion:
 
     def get_priority_pairs(self, dataset0: WildlifeDataset, dataset1: WildlifeDataset, B):
         """Shortlisting strategy for selection of most relevant pairs."""
-
         if self.priority_matcher is None:
             raise ValueError("Priority matcher is not assigned.")
 
@@ -93,6 +97,7 @@ class WildFusion:
         return grid_indices
 
     def __call__(self, dataset0, dataset1, pairs=None, B=None):
+        """Calculate similarity between two datasets using multiple matchers."""
         if B is not None:
             pairs = self.get_priority_pairs(dataset0, dataset1, B=B)
 

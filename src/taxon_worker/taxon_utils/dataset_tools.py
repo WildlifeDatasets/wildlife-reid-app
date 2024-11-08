@@ -15,17 +15,18 @@ from hashlib import sha256
 from pathlib import Path
 from typing import List, Optional, Tuple
 
+import cv2
+import exiftool
 import numpy as np
 import pandas as pd
+import pytesseract
 import scipy.stats
+import skimage
+import skimage.color
 from joblib import Parallel, delayed
-from PIL import Image, UnidentifiedImageError
+from PIL import Image
 from tqdm import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
-import cv2
-import pytesseract
-import skimage
-import exiftool
 
 from .inout import extract_archive
 
@@ -190,7 +191,8 @@ def get_datetime_from_exif(filename: Path) -> typing.Tuple[str, str, str]:
     Returns
     -------
     str1:
-        String with datetime in forma YYYY-MM-DD HH:MM:SS or zero length string if no EXIF is available.
+        String with datetime in forma YYYY-MM-DD HH:MM:SS or zero length string if no EXIF is
+        available.
 
     str2:
         Error type or zero length string if file is ok.
@@ -241,42 +243,6 @@ def get_datetime_from_exif(filename: Path) -> typing.Tuple[str, str, str]:
         except Exception as e:
             return "", str(e), ""
 
-    # if filename.exists() and filename.suffix.lower() in (".jpg", ".jpeg", ".png", ".tif", ".tiff", ".bmp"):
-    #
-    #     try:
-    #         image = Image.open(filename)
-    #         image.verify()
-    #         opened_sucessfully = True
-    #         if filename.suffix.lower() in (".jpg", ".jpeg"):
-    #             exifdata = image.getexif()
-    #             tag_id = 306  # DateTimeOriginal
-    #             dt_str = str(exifdata.get(tag_id))
-    #             read_error = ""
-    #             dt_source = "EXIF"
-    #             opened_sucessfully = True
-    #         else:
-    #             dt_str = ""
-    #             read_error = ""
-    #     except UnidentifiedImageError:
-    #         dt_str = ""
-    #         read_error = "UnidentifiedImageError"
-    #         opened_with_fail = True
-    #     except OSError:
-    #         dt_str = ""
-    #         read_error = "OSError"
-    #         opened_with_fail = True
-    #     except Exception as e:
-    #         dt_str = ""
-    #         read_error = str(e)
-    #         logger.warning(f"Error while reading EXIF from {filename}")
-    #         logger.exception(traceback.format_exc())
-    #         opened_with_fail = True
-    # else:
-    #     dt_str = ""
-    #     read_error = ""
-
-    # dt_str = replace_colon_in_exif_datetime(dt_str)
-
     if filename.exists() and read_error == "":
         if dt_str == "":
             try:
@@ -288,6 +254,7 @@ def get_datetime_from_exif(filename: Path) -> typing.Tuple[str, str, str]:
                 read_error = "OCR failed"
 
                 logger.warning(f"Error while reading OCR from {filename}")
+                logger.debug(e)
                 logger.debug(traceback.format_exc())
                 opened_with_fail = True
 
@@ -305,8 +272,7 @@ def get_datetime_from_exif(filename: Path) -> typing.Tuple[str, str, str]:
 
 
 def get_datetime_exiftool(video_pth: Path) -> typing.Tuple[str, bool, str]:
-    # import exiftool
-
+    """Get datetime from video using exiftool."""
     checked_keys = [
         "QuickTime:MediaCreateDate",
         "QuickTime:CreateDate",
@@ -330,6 +296,7 @@ def get_datetime_exiftool(video_pth: Path) -> typing.Tuple[str, bool, str]:
 
 
 def get_datetime_from_ocr(filename: Path) -> typing.Tuple[str, str]:
+    """Get datetime from image using OCR."""
     import cv2
 
     # if it is image
@@ -359,8 +326,6 @@ def get_datetime_from_ocr(filename: Path) -> typing.Tuple[str, str]:
 def _check_if_it_is_cuddleback1(frame_bgr: np.nan) -> Tuple[str, bool, str]:
     ocr_result = ""
     try:
-        import cv2
-        import pytesseract
 
         # Preprocess the frame: Convert to grayscale and apply thresholding
         gray_frame = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2GRAY)
@@ -392,6 +357,7 @@ def _check_if_it_is_cuddleback1(frame_bgr: np.nan) -> Tuple[str, bool, str]:
         return date_str, True, ocr_result
     except Exception as e:
         date_str = ""
+        logger.debug(e)
         logger.debug(traceback.format_exc())
         logger.warning(f"Error while processing OCR result: {ocr_result}")
         return date_str, False, ""
@@ -400,9 +366,6 @@ def _check_if_it_is_cuddleback1(frame_bgr: np.nan) -> Tuple[str, bool, str]:
 def _check_if_it_is_cuddleback_corner(frame_bgr: np.array) -> Tuple[str, bool, str]:
     ocr_result = ""
     try:
-        import skimage.color
-        import pytesseract
-        import scipy.stats
 
         frame_hsv = skimage.color.rgb2hsv(frame_bgr[:, :, ::-1])
 
@@ -436,6 +399,7 @@ def _check_if_it_is_cuddleback_corner(frame_bgr: np.array) -> Tuple[str, bool, s
         return date_str, True, ocr_result
     except Exception as e:
         date_str = ""
+        logger.debug(e)
         logger.debug(traceback.format_exc())
         logger.warning(f"Error while processing OCR result: {ocr_result}")
         return date_str, False, ""

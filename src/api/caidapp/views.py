@@ -29,6 +29,7 @@ from django.http import HttpResponseBadRequest, HttpResponseNotAllowed, JsonResp
 from django.shortcuts import Http404, HttpResponse, get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse_lazy
+from django.views import View
 
 from . import forms, model_tools, models, tasks, views_uploads
 from .forms import (
@@ -1311,7 +1312,6 @@ def _mediafiles_query(
     exclude_filter_kwargs: Optional[dict] = None,
 ):
     """Prepare list of mediafiles based on query search in category and location."""
-
     if filter_kwargs is None:
         filter_kwargs = {}
 
@@ -1613,11 +1613,6 @@ def media_files_update(
 
         queryform = MediaFileSetQueryForm(initial=initial_data)
         query = ""
-        # Access the initial values directly
-        # logger.debug("getting initial values")
-        # form_filter_kwargs = {key: queryform.initial.get(key) for key in queryform.fields.keys() if
-        #                       key.startswith("filter_")}
-        # logger.debug(f"{form_filter_kwargs=}")
     albums_available = (
         Album.objects.filter(
             Q(albumsharerole__user=request.user.caiduser) | Q(owner=request.user.caiduser)
@@ -1785,7 +1780,7 @@ from dateutil.relativedelta import relativedelta  # Import relativedelta
 
 
 def change_mediafiles_datetime(request):
-    #
+    """Change time of media files."""
     next_url = request.GET.get("next_url", None)
     mediafile_ids = request.session.get("mediafile_ids", [])
     mediafiles = MediaFile.objects.filter(id__in=mediafile_ids)
@@ -1818,7 +1813,8 @@ def change_mediafiles_datetime(request):
                     "form": form,
                     "headline": "Change time",
                     "button": "Change",
-                    "text_note": "Change time of media files. Use negative values to subtract time.",
+                    "text_note":
+                        "Change time of media files. Use negative values to subtract time.",
                     "next": "caidapp:uploads",
                 },
             )
@@ -1837,7 +1833,6 @@ def change_mediafiles_datetime(request):
             "next": "caidapp:uploads",
         },
     )
-    # TODO time form
 
 
 def mediafiles_stats_view(request):
@@ -2253,16 +2248,9 @@ def switch_private_mode(request):
     return redirect(request.META.get("HTTP_REFERER", "/"))
 
 
-# views.py
-from django.views import View
-from django.shortcuts import render
-from .models import MediaFile
-import plotly.express as px
-import pandas as pd
-
-
 class ImageUploadGraphView(View):
     def get(self, request):
+        """Render the image upload graph."""
         # Fetch data from MediaFile model
         mediafiles = MediaFile.objects.all().values(
             "parent__uploaded_at", "parent__owner__user__username"
@@ -2273,11 +2261,6 @@ class ImageUploadGraphView(View):
         df["parent__uploaded_at"] = pd.to_datetime(df["parent__uploaded_at"])
         df["date"] = df["parent__uploaded_at"].dt.date
 
-        # Group by date and user
-        # df_grouped = df.groupby(['date', 'parent__owner__username']).size().reset_index(name='count')
-
-        # Create Plotly figure
-        # fig = px.line(df_grouped, x='date', y='count', color='updated_by__user__username', title='Images Uploaded Over Time by User')
         # Create Plotly histogram
         fig = px.histogram(
             df,

@@ -3,7 +3,7 @@ from datetime import datetime
 from enum import Enum
 from typing import List
 
-from sqlalchemy import Column, DateTime, Float, Integer, String, JSON
+from sqlalchemy import Column, DateTime, Integer, String
 from sqlalchemy.orm import declarative_base
 from sqlalchemy.sql import func
 

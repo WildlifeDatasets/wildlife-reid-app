@@ -1,14 +1,7 @@
-import cv2
 import torch
-import numpy as np
-from tqdm import tqdm
 from gluefactory.models import get_model
 from omegaconf import OmegaConf
-from collections import defaultdict
-import torchvision.transforms as T
-import itertools
-import torch
-import numpy as np
+
 from .base import MatchPairs
 
 
@@ -40,6 +33,7 @@ class MatchLightGlue(MatchPairs):
         self.device = device
 
     def get_matches(self, batch):
+        """Process single batch of LightGlue matches."""
         idx0, data0, idx1, data1 = batch
         data = {
             "keypoints0": data0["keypoints"].to(self.device),

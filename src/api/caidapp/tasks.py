@@ -2,13 +2,13 @@ import copy
 import datetime
 import json
 import logging
+import os
 import os.path
 import shutil
+import subprocess
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Generator
-import subprocess
-import os
 
 import django
 import numpy as np
@@ -522,7 +522,7 @@ def make_thumbnail_for_mediafile_if_necessary(
 
 
 def convert_to_mp4(input_video_path, output_video_path):
-    # Check if input file exists
+    """Convert video to MP4 format."""
     if not os.path.exists(input_video_path):
         raise FileNotFoundError(f"The input file '{input_video_path}' does not exist.")
 
@@ -1013,7 +1013,7 @@ def identify_on_success(self, output: dict, *args, **kwargs):
         output_json_file = output["output_json_file"]
         with open(output_json_file, "r") as f:
             data = json.load(f)
-        logger.debug(f"Loaded output data: {data=}")
+        # logger.trace(f"Loaded output data: {data=}")
         assert "mediafile_ids" in data
         assert "pred_image_paths" in data
         assert "pred_class_ids" in data

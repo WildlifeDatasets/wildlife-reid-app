@@ -1,8 +1,10 @@
-import torch
-import psutil
 import logging
 import traceback
-from typing import Union, Optional
+from typing import Optional, Union
+
+import psutil
+import torch
+import time
 
 logger = logging.getLogger()
 
@@ -25,6 +27,7 @@ def get_torch_cuda_device_if_available(device: Union[int, str] = 0) -> torch.dev
 
 
 def get_ram():
+    """Get visualized RAM usage in GB."""
     mem = psutil.virtual_memory()
     free = mem.available / 1024**3
     total = mem.total / 1024**3
@@ -39,6 +42,7 @@ def get_ram():
 
 
 def get_vram(device: Optional[torch.device] = None):
+    """Get visualized VRAM usage in GB."""
     device = device if device else torch.cuda.current_device()
     if torch.device(device).type == "cpu":
         return "No GPU available"
@@ -57,3 +61,17 @@ def get_vram(device: Optional[torch.device] = None):
         logger.debug(f"device: {device}, {torch.cuda.is_available()=}")
         logger.error(f"Error: {traceback.format_exc()}")
         return "No GPU available"
+
+
+def wait_for_vram(required_memory_gb: float = 1., device: Optional[torch.device] = None):
+    """Wait until GPU memory is below threshold."""
+    device = device if device else torch.cuda.current_device()
+    # check if device is cpu
+    if device.type == "cpu":
+        logger.debug("No need to wait for CPU")
+        return
+    while torch.cuda.mem_get_info(device)[0] / 1024**3 > required_memory_gb:
+        logger.debug(f"Waiting for {required_memory_gb} GB of GPU memory. " + get_vram(device))
+        torch.cuda.empty_cache()
+        torch.cuda.synchronize()
+        time.sleep(5)

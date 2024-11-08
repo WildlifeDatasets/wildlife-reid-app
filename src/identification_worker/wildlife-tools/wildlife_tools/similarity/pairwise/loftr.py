@@ -1,11 +1,15 @@
+# flake8: noqa
+
 import itertools
-import kornia.feature as KF
-from kornia.feature.loftr.loftr import *
 from copy import deepcopy
+
+import kornia.feature as KF
 import numpy as np
 import pandas as pd
 import torch
+from kornia.feature.loftr.loftr import *
 from tqdm import tqdm
+
 from .base import MatchPairs
 
 

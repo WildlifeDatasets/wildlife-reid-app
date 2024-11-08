@@ -11,7 +11,6 @@ import torch
 from PIL import Image
 from tqdm import tqdm
 
-
 try:
     from ..infrastructure_utils import mem
 except ImportError:
@@ -99,7 +98,7 @@ def pad_image(image: np.ndarray, bbox: Union[list, np.ndarray], border: float = 
 def get_detection_model(force_reload: bool = False):
     """Load the detection model if not loaded before."""
     global DETECTION_MODEL
-    logger.debug(f"Before detection model.")
+    logger.debug("Before detection model.")
     logger.debug(f"{mem.get_vram(DEVICE)}     {mem.get_ram()}")
     if DETECTION_MODEL is None:
         model_url = r"https://github.com/ecologize/CameraTraps/releases/download/v5.0/md_v5a.0.0.pt"
@@ -119,7 +118,7 @@ def get_detection_model(force_reload: bool = False):
         )
         DETECTION_MODEL.conf = 0.05
 
-    logger.debug(f"After detection model.")
+    logger.debug("After detection model.")
     logger.debug(f"{mem.get_vram(DEVICE)}     {mem.get_ram()}")
     return DETECTION_MODEL
 

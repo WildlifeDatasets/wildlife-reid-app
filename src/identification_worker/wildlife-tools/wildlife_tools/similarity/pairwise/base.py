@@ -1,13 +1,16 @@
-from .collectors import CollectAll, CollectCounts, CollectCountsRansac
 import itertools
-import torch
-import numpy as np
-import matplotlib.pyplot as plt
+
 import cv2
+import matplotlib.pyplot as plt
+import numpy as np
+import torch
 from tqdm import tqdm
+
+from .collectors import CollectCounts
 
 
 def visualise_matches(img0, keypoints0, img1, keypoints1):
+    """Visualise matches between two images."""
     keypoints0 = [cv2.KeyPoint(int(x[0]), int(x[1]), 1) for x in keypoints0]
     keypoints1 = [cv2.KeyPoint(int(x[0]), int(x[1]), 1) for x in keypoints1]
 
@@ -29,8 +32,8 @@ def visualise_matches(img0, keypoints0, img1, keypoints1):
 
 
 class PairDataset(torch.utils.data.IterableDataset):
-    """
-    Create IterableDataset from two mapping style datasets.
+    """Create IterableDataset from two mapping style datasets.
+
     By default, product is used - each item in dataset0 creates pair with each item in dataset1.
     Can iterate over some specific pairs if list of those pairs is provided.
 
@@ -40,7 +43,8 @@ class PairDataset(torch.utils.data.IterableDataset):
         dataset0: Dataset for first of the pair.
         dataset1: Dataset for second of the pair.
         pairs: list of 2-tuples with indexes. If provided, iterate only over those pairs.
-        load_all: If True, all elements from datasets are used. If False, only first element is used.
+        load_all: If True, all elements from datasets are used. If False, only first
+          element is used.
 
     Example:
         dataset = PairProductDataset(['x', 'y'], ['a', 'b'])
@@ -104,10 +108,12 @@ class MatchPairs:
         self.tqdm_kwargs = {"mininterval": 1, "ncols": 100, "disable": tqdm_silent}
 
     def __call__(self, dataset0, dataset1, pairs=None):
+        """Match pairs of images."""
         dataset_pairs = PairDataset(dataset0, dataset1, pairs=pairs)
         return self.match_pairs(dataset_pairs)
 
     def match_pairs(self, dataset_pairs):
+        """Match pairs of images."""
         loader_length = int(np.ceil(len(dataset_pairs) / self.batch_size))
         loader = torch.utils.data.DataLoader(
             dataset_pairs,

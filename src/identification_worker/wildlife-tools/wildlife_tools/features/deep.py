@@ -1,13 +1,12 @@
 import torch
 from tqdm import tqdm
 from transformers import CLIPModel, CLIPProcessor
-from wildlife_tools.data import WildlifeDataset, FeatureDataset
+from wildlife_tools.data import FeatureDataset, WildlifeDataset
 from wildlife_tools.features.base import FeatureExtractor
 
 
 class DeepFeatures(FeatureExtractor):
-    """
-    Extracts features using forward pass of pytorch model.
+    """Extracts features using forward pass of pytorch model.
 
     Args:
         model: Pytorch model used for the feature extraction.
@@ -27,12 +26,14 @@ class DeepFeatures(FeatureExtractor):
         num_workers: int = 1,
         device: str = "cpu",
     ):
+        """Initialize DeepFeatures with model, batch_size, num_workers and device."""
         self.batch_size = batch_size
         self.num_workers = num_workers
         self.device = device
         self.model = model
 
     def __call__(self, dataset: WildlifeDataset) -> FeatureDataset:
+        """Extract features from dataset."""
         self.model = self.model.to(self.device)
         self.model = self.model.eval()
 
@@ -57,8 +58,9 @@ class DeepFeatures(FeatureExtractor):
 
 
 class ClipFeatures:
-    """
-    Extract features using CLIP model (https://arxiv.org/pdf/2103.00020.pdf).
+    """Extract features using CLIP model.
+
+    See original paper for details (https://arxiv.org/pdf/2103.00020.pdf).
     Uses raw images of input WildlifeDataset (i.e. dataset.transform = None)
 
     Args:
@@ -94,6 +96,7 @@ class ClipFeatures:
         self.transform = lambda x: processor(images=x, return_tensors="pt")["pixel_values"]
 
     def __call__(self, dataset: WildlifeDataset) -> FeatureDataset:
+        """Extract features from dataset."""
         self.model = self.model.to(self.device)
         self.model = self.model.eval()
 

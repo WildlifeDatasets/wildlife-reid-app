@@ -7,7 +7,7 @@ import plotly
 import plotly.graph_objects as go
 import plotly.subplots
 from matplotlib import pyplot as plt
-from matplotlib.patches import Circle, ConnectionPatch
+from matplotlib.patches import Circle
 from PIL import Image
 
 

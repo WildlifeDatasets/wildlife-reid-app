@@ -57,8 +57,7 @@ class Store:
 
 
 def realize(config, store=None, **kwargs):
-    """realize object from config given its name and method store"""
-
+    """Realize object from config given its name and method store."""
     if config is None:
         return None
 
@@ -84,10 +83,9 @@ def realize(config, store=None, **kwargs):
 
 
 def parse_yaml(yaml_string):
-    '''
-    Impute variables with in "{{ }}" with values from top level of the yaml dictionary.
-    Example:
+    '''Impute variables with in "{{ }}" with values from top level of the yaml dictionary.
 
+    Example:
     yaml_string = """
     a:
         name: test
@@ -97,7 +95,6 @@ def parse_yaml(yaml_string):
     parse_yaml(yaml_string)
     >>> {'a': {'name': 'test'}, 'b': {'uses': {'name': 'test'}}}
     '''
-
     env = Environment(
         variable_start_string="'{{",
         variable_end_string="}}'",
@@ -121,6 +118,7 @@ def parse_yaml(yaml_string):
 
 
 def set_seed(seed=0, device="cuda"):
+    """Set seed for reproducibility."""
     os.environ["PYTHONHASHSEED"] = str(seed)
     random.seed(seed)
     np.random.seed(seed)

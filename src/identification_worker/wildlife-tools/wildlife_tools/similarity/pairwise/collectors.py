@@ -1,5 +1,7 @@
-import numpy as np
+# flake8: noqa
+
 import cv2
+import numpy as np
 
 
 class CollectAll:

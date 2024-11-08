@@ -16,8 +16,6 @@ except ImportError:
     from infrastructure_utils import mem
 
 logger = logging.getLogger("app")
-from fgvc.utils.utils import set_cuda_device
-
 
 # __DEVICE__ = "cuda:0" if torch.cuda.is_available() else "cpu"
 # logger.debug(f"{__DEVICE__=}")
@@ -39,14 +37,16 @@ class CarnivoreDataset(WildlifeDataset):
 
 
 def get_loftr_model():
+    """Prepare the LOFTR model."""
     global LOFTR_MODEL
-    logger.debug(f"Before LoFTR.")
+    logger.debug("Before LoFTR.")
     logger.debug(f"{mem.get_vram(DEVICE)}     {mem.get_ram()}")
     pretrained = "outdoor"
     apply_fine = False
     init_threshold = 0.8
+    mem.wait_for_vram(1.)
     LOFTR_MODEL = LoFTR(pretrained=pretrained, apply_fine=apply_fine, thr=init_threshold).to(DEVICE)
-    logger.debug(f"Before LoFTR.")
+    logger.debug("After LoFTR.")
     logger.debug(f"{mem.get_vram(DEVICE)}     {mem.get_ram()}")
 
 
@@ -186,7 +186,6 @@ class WildFusionClassifier:
 
 def get_local_matcher(size=512, threshold=0.8):
     """Prepare local LOFTR matcher."""
-
     # extractor = lambda x: x
     # use function instead of lambda x: x
     def extractor(x):

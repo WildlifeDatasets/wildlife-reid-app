@@ -9,6 +9,9 @@ import pandas as pd
 import wandb
 import yaml
 from scipy.special import softmax
+import traceback
+import cv2
+import skimage.io
 
 from fgvc.core.training import predict
 from fgvc.datasets import get_dataloaders
@@ -178,11 +181,12 @@ def load_model_and_predict_and_add_not_classified(
 
 
 def get_taxon_classification_model():
-    logger.debug(f"Before taxon classification model.")
-    logger.debug(f"{mem.get_vram()}     {mem.get_ram()}")
+    """Load model and return the model and its configuration."""
+    logger.debug(f"Before taxon classification model: {mem.get_vram()}     {mem.get_ram()}")
     global TAXON_CLASSIFICATION_MODEL_DICT
 
     if TAXON_CLASSIFICATION_MODEL_DICT is None:
+        mem.wait_for_gpu_memory(0.5)
         config, checkpoint_path, artifact_config = get_model_config(
             # is_cropped=False
         )
@@ -201,12 +205,12 @@ def get_taxon_classification_model():
             f"model_mean={model_mean}, model_std={model_std}, "
             + f"checkpoint_path={checkpoint_path}, config={config}"
         )
-    logger.debug(f"After taxon classification model.")
-    logger.debug(f"{mem.get_vram()}     {mem.get_ram()}")
+    logger.debug(f"After taxon classification model load: {mem.get_vram()}     {mem.get_ram()}")
     return TAXON_CLASSIFICATION_MODEL_DICT
 
 
 def release_taxon_classification_model():
+    """Release the taxon classification model."""
     global TAXON_CLASSIFICATION_MODEL_DICT
     TAXON_CLASSIFICATION_MODEL_DICT = None
 
@@ -282,7 +286,7 @@ def data_processing(
     metadata, df_failing = keep_correctly_loaded_images(metadata)
     df_failing.to_csv(csv_path.with_suffix(".failed.csv"), encoding="utf-8-sig")
 
-    run_inference(metadata)
+    run_taxon_classification_inference(metadata)
 
     # move_files_from_temp(media_dir_path, metadata)
 
@@ -291,7 +295,7 @@ def data_processing(
     return metadata
 
 
-def run_inference(metadata):
+def run_taxon_classification_inference(metadata):
     """Use full_image_path for taxon prediction."""
     # run inference
     # image_path = metadata["image_path"].apply(lambda x: os.path.join(MEDIA_DIR_PATH, x))
