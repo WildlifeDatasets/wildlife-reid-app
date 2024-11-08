@@ -496,12 +496,8 @@ def get_keypoints(keypoint_matcher, query_features, database_features, max_kp=10
             kps0 = kps0[sort_idx].tolist()
             kps1 = kps1[sort_idx].tolist()
         except Exception as e:
-            logger.debug(traceback.format_stack())
             logger.debug(f"{traceback.format_exc()}")
             logger.debug(f"{scores=}")
-            logger.debug(f"{kps0=}")
-            logger.debug(f"{kps1=}")
-            logger.debug(f"{thr_mask=}")
             logger.debug(f"{max_kp=}")
             logger.warning(f"Error in get_keypoints: {e}")
 
@@ -572,7 +568,7 @@ def identify(
     output, result_idx = identify_from_similarity(similarity, database_metadata, top_k)
 
     # calculate keypoints
-    max_kp = os.environ.get("VISUALIZATION_KEYPOINTS", 10)
+    max_kp = int(os.environ.get("VISUALIZATION_KEYPOINTS", 10))
     collector = CollectAll()
     keypoint_matcher = MatchLightGlue(features="aliked", collector=collector)
 
