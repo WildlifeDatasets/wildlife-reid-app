@@ -495,7 +495,6 @@ def get_keypoints(keypoint_matcher, query_features, database_features, max_kp=10
         kps1 = _keypoint_output['kpts1'][thr_mask]
 
         sort_idx = np.argsort(scores)[::-1][:max_kp]
-        logger.debug(np.array(scores)[sort_idx])
 
         kps0 = kps0[sort_idx].tolist()
         kps1 = kps1[sort_idx].tolist()
