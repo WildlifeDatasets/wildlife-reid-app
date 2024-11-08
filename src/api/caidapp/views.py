@@ -1806,6 +1806,7 @@ def change_mediafiles_datetime(request):
             return redirect(next_url)
 
         else:
+            text_note = "Change time of media files. Use negative values to subtract time."
             return render(
                 request,
                 "caidapp/update_form.html",
@@ -1813,8 +1814,7 @@ def change_mediafiles_datetime(request):
                     "form": form,
                     "headline": "Change time",
                     "button": "Change",
-                    "text_note":
-                        "Change time of media files. Use negative values to subtract time.",
+                    "text_note": text_note,
                     "next": "caidapp:uploads",
                 },
             )
