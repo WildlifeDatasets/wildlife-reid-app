@@ -117,6 +117,8 @@ def get_detection_model(force_reload: bool = False):
             force_reload=force_reload,
             device=DEVICE,
         )
+        DETECTION_MODEL.conf = 0.05
+
     logger.debug(f"After detection model.")
     logger.debug(f"{mem.get_vram(DEVICE)}     {mem.get_ram()}")
     return DETECTION_MODEL
