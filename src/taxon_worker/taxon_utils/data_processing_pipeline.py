@@ -364,7 +364,6 @@ def use_detector_class_if_classification_fails(
 
 def keep_correctly_loaded_images(metadata) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """Remove file from list if there is the error message."""
-    logger.debug(f"len(metadata)={len(metadata)}")
     # metadata = metadata[metadata["media_type"] == "image"].reset_index(drop=True)
     # keep media_type==image and media_type == video
     metadata = metadata[
@@ -372,13 +371,9 @@ def keep_correctly_loaded_images(metadata) -> Tuple[pd.DataFrame, pd.DataFrame]:
     ].reset_index(drop=True)
     # drop media_type== "unknown"
     # mediadata = metadata[metadata["media_type"] != "unknown"].reset_index(drop=True)
-    logger.debug(f"len(metadata)={len(metadata)}")
-
-    # TODO: decide what to do with images/videos with different read_errors
 
     df_failing = metadata[metadata["read_error"] == ""].copy().reset_index(drop=True)
     metadata = metadata[metadata["read_error"] == ""].reset_index(drop=True)
-    logger.debug(f"len(metadata)={len(metadata)}")
     return metadata, df_failing
 
 
