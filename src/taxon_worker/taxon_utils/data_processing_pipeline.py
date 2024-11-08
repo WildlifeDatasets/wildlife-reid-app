@@ -17,6 +17,7 @@ from fgvc.utils.experiment import load_model
 from .config import RESOURCES_DIR, WANDB_API_KEY, WANDB_ARTIFACT_PATH, WANDB_ARTIFACT_PATH_CROPPED
 from .dataset_tools import data_preprocessing
 from .prediction_dataset import PredictionDataset
+
 # from taxon_worker.infrastructure_utils import mem
 try:
     from ..infrastructure_utils import mem
@@ -204,15 +205,18 @@ def get_taxon_classification_model():
     logger.debug(f"{mem.get_vram()}     {mem.get_ram()}")
     return TAXON_CLASSIFICATION_MODEL_DICT
 
+
 def release_taxon_classification_model():
     global TAXON_CLASSIFICATION_MODEL_DICT
     TAXON_CLASSIFICATION_MODEL_DICT = None
+
 
 def get_top_predictions(probs: np.array) -> Tuple[np.array, np.array]:
     """Get the top predictions from the softmaxed logits."""
     top_probs = np.max(probs, 1)
     class_ids = np.argmax(probs, 1)
     return class_ids, top_probs
+
 
 def do_thresholding_on_probs(probs: np.array, id2threshold: dict) -> Tuple[np.array, np.array]:
     """Use the thresholds to do the classification and add class "Not Classified".
@@ -293,7 +297,13 @@ def run_inference(metadata):
     # image_path = metadata["image_path"].apply(lambda x: os.path.join(MEDIA_DIR_PATH, x))
     image_path = metadata["full_image_path"]
     logger.debug(f"image path    {image_path=}")
-    class_ids, probs_top, id2label, class_ids_raw, probs_top_raw = load_model_and_predict_and_add_not_classified(image_path)
+    (
+        class_ids,
+        probs_top,
+        id2label,
+        class_ids_raw,
+        probs_top_raw,
+    ) = load_model_and_predict_and_add_not_classified(image_path)
 
     # Add class Animalia
     id2label[len(id2label)] = "Animalia"

@@ -15,14 +15,22 @@ def visualise_matches(img0, keypoints0, img1, keypoints1):
     matches = [cv2.DMatch(i, i, 0) for i in range(len(keypoints0))]
 
     # Draw matches
-    img_matches = cv2.drawMatches(img0, keypoints0, img1, keypoints1, matches, None, flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
+    img_matches = cv2.drawMatches(
+        img0,
+        keypoints0,
+        img1,
+        keypoints1,
+        matches,
+        None,
+        flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS,
+    )
     plt.imshow(img_matches)
     plt.show()
 
 
 class PairDataset(torch.utils.data.IterableDataset):
-    '''
-    Create IterableDataset from two mapping style datasets. 
+    """
+    Create IterableDataset from two mapping style datasets.
     By default, product is used - each item in dataset0 creates pair with each item in dataset1.
     Can iterate over some specific pairs if list of those pairs is provided.
 
@@ -41,7 +49,7 @@ class PairDataset(torch.utils.data.IterableDataset):
         >>> (0, 'x', 0, 'a')
         next(iterator)
         >>> (0, 'x', 1, 'b')
-    '''
+    """
 
     def __init__(self, dataset0, dataset1, pairs=None, load_all=False):
         super().__init__()
@@ -56,12 +64,10 @@ class PairDataset(torch.utils.data.IterableDataset):
         else:
             return len(self.pairs)
 
-
     @property
     def grid_shape(self):
-        '''  Indicates max possible value of the idx0 and idx1 indexes.'''
+        """Indicates max possible value of the idx0 and idx1 indexes."""
         return len(self.dataset0), len(self.dataset1)
-
 
     def __iter__(self):
         if self.pairs is None:
@@ -81,29 +87,25 @@ class PairDataset(torch.utils.data.IterableDataset):
                 yield idx0, self.dataset0[idx0][0], idx1, self.dataset1[idx1][0]
 
 
-
-class MatchPairs():
+class MatchPairs:
     def __init__(
         self,
         batch_size: int = 128,
         num_workers: int = 0,
         tqdm_silent: bool = False,
-        collector = None,
+        collector=None,
     ):
         if collector is None:
             collector = CollectCounts(thresholds=[0.5])
 
-
         self.collector = collector
         self.batch_size = batch_size
         self.num_workers = num_workers
-        self.tqdm_kwargs = { 'mininterval':1, 'ncols':100, 'disable': tqdm_silent}
-
+        self.tqdm_kwargs = {"mininterval": 1, "ncols": 100, "disable": tqdm_silent}
 
     def __call__(self, dataset0, dataset1, pairs=None):
         dataset_pairs = PairDataset(dataset0, dataset1, pairs=pairs)
         return self.match_pairs(dataset_pairs)
-
 
     def match_pairs(self, dataset_pairs):
         loader_length = int(np.ceil(len(dataset_pairs) / self.batch_size))
@@ -122,13 +124,11 @@ class MatchPairs():
         results = self.collector.process_results()
         return results
 
-
     def get_matches(self, batch):
-        ''' 
+        """
         Process batch and get matches of pairs.
 
         Input - batch from PairDataset
         Output - list of dictionaries with keys: i0, j0, score, kpts0, kpts1.
-        '''
+        """
         raise NotImplementedError
-

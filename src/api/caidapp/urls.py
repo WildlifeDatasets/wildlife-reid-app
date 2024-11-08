@@ -227,7 +227,11 @@ urlpatterns = [
         name="download_uploadedarchive_zip",
     ),
     path("mediafiles_stats/", views.mediafiles_stats_view, name="mediafiles_stats"),
-    path("change_mediafiles_datetime", views.change_mediafiles_datetime, name="change_mediafiles_datetime"),
+    path(
+        "change_mediafiles_datetime",
+        views.change_mediafiles_datetime,
+        name="change_mediafiles_datetime",
+    ),
     path(
         "select_taxon_for_identification/<int:uploadedarchive_id>/",
         views.select_taxon_for_identification,
@@ -308,5 +312,5 @@ urlpatterns = [
     path("check_date/<str:date>/", views_uploads.camera_trap_check_date_view, name="check_date"),
     path("check_date/", views_uploads.camera_trap_check_date_view, name="check_date_empty"),
     # urls.py
-    path('users_stats/', views.ImageUploadGraphView.as_view(), name='users_stats'),
+    path("users_stats/", views.ImageUploadGraphView.as_view(), name="users_stats"),
 ]

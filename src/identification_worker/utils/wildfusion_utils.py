@@ -6,17 +6,19 @@ import torch
 
 
 def get_hits(dataset0, dataset1):
-    '''Return grid of label correspondences given two labeled datasets.'''
+    """Return grid of label correspondences given two labeled datasets."""
 
     gt0 = dataset0.labels_string
     gt1 = dataset1.labels_string
     gt_grid0 = np.tile(gt0, (len(gt1), 1)).T
     gt_grid1 = np.tile(gt1, (len(gt0), 1))
-    return (gt_grid0 == gt_grid1)
+    return gt_grid0 == gt_grid1
 
 
 class SimilarityPipelineExtended(SimilarityPipeline):
-    def get_feature_dataset(self, dataset: Union[WildlifeDataset, dict]) -> Union[FeatureDataset, dict]:
+    def get_feature_dataset(
+        self, dataset: Union[WildlifeDataset, dict]
+    ) -> Union[FeatureDataset, dict]:
         if not isinstance(dataset, WildlifeDataset):
             return dataset
         if self.transform is not None:
@@ -26,10 +28,17 @@ class SimilarityPipelineExtended(SimilarityPipeline):
         else:
             return dataset
 
-    def fit_calibration(self, dataset0: Union[WildlifeDataset, dict], dataset1: Union[WildlifeDataset, dict]):
+    def fit_calibration(
+        self, dataset0: Union[WildlifeDataset, dict], dataset1: Union[WildlifeDataset, dict]
+    ):
         super().fit_calibration(dataset0, dataset1)
 
-    def __call__(self, dataset0: Union[WildlifeDataset, dict], dataset1: Union[WildlifeDataset, dict], pairs=None):
+    def __call__(
+        self,
+        dataset0: Union[WildlifeDataset, dict],
+        dataset1: Union[WildlifeDataset, dict],
+        pairs=None,
+    ):
         return super().__call__(dataset0, dataset1, pairs)
 
 
@@ -40,7 +49,9 @@ class WildFusionExtended(WildFusion):
             _dataset = dataset[type(matcher.extractor)]
         return _dataset
 
-    def fit_calibration(self, dataset0: Union[WildlifeDataset, dict], dataset1: Union[WildlifeDataset, dict]):
+    def fit_calibration(
+        self, dataset0: Union[WildlifeDataset, dict], dataset1: Union[WildlifeDataset, dict]
+    ):
         for matcher in self.calibrated_matchers:
             _dataset0 = self.select_dataset(dataset0, matcher)
             _dataset1 = self.select_dataset(dataset1, matcher)
@@ -67,10 +78,10 @@ class WildFusionExtended(WildFusion):
         return scores
 
     def get_priority_pairs(self, dataset0: WildlifeDataset, dataset1: WildlifeDataset, B):
-        ''' Shortlisting strategy for selection of most relevant pairs.'''
+        """Shortlisting strategy for selection of most relevant pairs."""
 
         if self.priority_matcher is None:
-            raise ValueError('Priority matcher is not assigned.')
+            raise ValueError("Priority matcher is not assigned.")
 
         priority = self.priority_matcher(dataset0, dataset1)
         _, idx1 = torch.topk(torch.tensor(priority), min(B, priority.shape[1]))

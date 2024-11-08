@@ -1,4 +1,3 @@
-
 import json
 import os
 import pickle
@@ -60,9 +59,7 @@ class WildlifeDataset:
         self.col_path = col_path
         self.col_label = col_label
         self.load_label = load_label
-        self.labels, self.labels_map = pd.factorize(
-            self.metadata[self.col_label].values
-        )
+        self.labels, self.labels_map = pd.factorize(self.metadata[self.col_label].values)
 
     @property
     def labels_string(self):
@@ -101,9 +98,12 @@ class WildlifeDataset:
                 w, h = img.size
                 rles = mask_coco.frPyObjects([segmentation], h, w)
                 segmentation = mask_coco.merge(rles)
-            if isinstance(segmentation, dict) and (isinstance(segmentation['counts'], list) or isinstance(segmentation['counts'], np.ndarray)):            
+            if isinstance(segmentation, dict) and (
+                isinstance(segmentation["counts"], list)
+                or isinstance(segmentation["counts"], np.ndarray)
+            ):
                 # Convert uncompressed RLE to compressed RLE
-                h, w = segmentation['size']
+                h, w = segmentation["size"]
                 segmentation = mask_coco.frPyObjects(segmentation, h, w)
 
         if self.img_load in ["bbox"]:
@@ -137,7 +137,7 @@ class WildlifeDataset:
 
         # Mask background using segmentation mask and crop to bounding box.
         elif self.img_load == "bbox_mask":
-            if (not np.any(pd.isnull(segmentation))):
+            if not np.any(pd.isnull(segmentation)):
                 mask = mask_coco.decode(segmentation).astype("bool")
                 img = Image.fromarray(img * mask[..., np.newaxis])
                 y_nonzero, x_nonzero, _ = np.nonzero(img)
@@ -152,7 +152,7 @@ class WildlifeDataset:
 
         # Hide object using segmentation mask and crop to bounding box.
         elif self.img_load == "bbox_hide":
-            if (not np.any(pd.isnull(segmentation))):
+            if not np.any(pd.isnull(segmentation)):
                 mask = mask_coco.decode(segmentation).astype("bool")
                 img = Image.fromarray(img * ~mask[..., np.newaxis])
                 y_nonzero, x_nonzero, _ = np.nonzero(img)
@@ -212,9 +212,7 @@ class FeatureDataset:
         self.features = features
         self.metadata = metadata.reset_index(drop=True)
         self.col_label = col_label
-        self.labels, self.labels_map = pd.factorize(
-            self.metadata[self.col_label].values
-        )
+        self.labels, self.labels_map = pd.factorize(self.metadata[self.col_label].values)
 
     @property
     def labels_string(self):

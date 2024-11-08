@@ -124,7 +124,6 @@ def login(request):
         )
 
 
-
 def message_view(request, message):
     """Show message."""
     return render(
@@ -1385,7 +1384,8 @@ def _mediafiles_query(
             | Q(parent__owner=request.user.caiduser)
             | Q(parent__owner__workgroup=request.user.caiduser.workgroup),
             **filter_kwargs,
-        ).exclude(**exclude_filter_kwargs)
+        )
+        .exclude(**exclude_filter_kwargs)
         .distinct()
         .order_by(order_by)
     )
@@ -1531,10 +1531,9 @@ def _taxon_stats_for_mediafiles(mediafiles: Union[QuerySet, List[MediaFile]]) ->
     return taxon_stats_html
 
 
-
 def _merge_form_filter_kwargs_with_filter_kwargs(
-        filter_kwargs:dict, exclude_filter_kwargs:dict,
-        form_filter_kwargs:dict) -> (dict, dict):
+    filter_kwargs: dict, exclude_filter_kwargs: dict, form_filter_kwargs: dict
+) -> (dict, dict):
 
     # filter parameters for MediaFiles
 
@@ -1605,10 +1604,11 @@ def media_files_update(
         # logger.debug("GET")
         page_number = 1
         initial_data = dict(
-            query="", pagenumber=page_number,
+            query="",
+            pagenumber=page_number,
             filter_show_videos=True,
             filter_show_images=True,
-            filter_hide_empty=not show_overview_button
+            filter_hide_empty=not show_overview_button,
         )
 
         queryform = MediaFileSetQueryForm(initial=initial_data)
@@ -1627,7 +1627,8 @@ def media_files_update(
     )
 
     filter_kwargs, exclude_filter_kwargs = _merge_form_filter_kwargs_with_filter_kwargs(
-        filter_kwargs, exclude_filter_kwargs, form_filter_kwargs)
+        filter_kwargs, exclude_filter_kwargs, form_filter_kwargs
+    )
     # logger.debug(f"{albums_available=}")
     # logger.debug(f"{query=}")
     # logger.debug(f"{queryform}")
@@ -1643,7 +1644,7 @@ def media_files_update(
         order_by=order_by,
         taxon_verified=taxon_verified,
         filter_kwargs=filter_kwargs,
-        exclude_filter_kwargs=exclude_filter_kwargs
+        exclude_filter_kwargs=exclude_filter_kwargs,
     )
     number_of_mediafiles = len(full_mediafiles)
 
@@ -1782,6 +1783,7 @@ def media_files_update(
 
 from dateutil.relativedelta import relativedelta  # Import relativedelta
 
+
 def change_mediafiles_datetime(request):
     #
     next_url = request.GET.get("next_url", None)
@@ -1836,6 +1838,7 @@ def change_mediafiles_datetime(request):
         },
     )
     # TODO time form
+
 
 def mediafiles_stats_view(request):
     """Show mediafiles stats."""
@@ -2199,7 +2202,6 @@ def _refresh_media_file_original_name(request):
         mediafile.extract_original_filename()
 
 
-
 def shared_individual_identity_view(request, identity_hash: str):
     """Show shared individual identity to any user."""
     identity = get_object_or_404(IndividualIdentity, hash=identity_hash)
@@ -2251,7 +2253,6 @@ def switch_private_mode(request):
     return redirect(request.META.get("HTTP_REFERER", "/"))
 
 
-
 # views.py
 from django.views import View
 from django.shortcuts import render
@@ -2259,15 +2260,18 @@ from .models import MediaFile
 import plotly.express as px
 import pandas as pd
 
+
 class ImageUploadGraphView(View):
     def get(self, request):
         # Fetch data from MediaFile model
-        mediafiles = MediaFile.objects.all().values('parent__uploaded_at', 'parent__owner__user__username')
+        mediafiles = MediaFile.objects.all().values(
+            "parent__uploaded_at", "parent__owner__user__username"
+        )
 
         # Convert to DataFrame
         df = pd.DataFrame(mediafiles)
-        df['parent__uploaded_at'] = pd.to_datetime(df['parent__uploaded_at'])
-        df['date'] = df['parent__uploaded_at'].dt.date
+        df["parent__uploaded_at"] = pd.to_datetime(df["parent__uploaded_at"])
+        df["date"] = df["parent__uploaded_at"].dt.date
 
         # Group by date and user
         # df_grouped = df.groupby(['date', 'parent__owner__username']).size().reset_index(name='count')
@@ -2275,16 +2279,23 @@ class ImageUploadGraphView(View):
         # Create Plotly figure
         # fig = px.line(df_grouped, x='date', y='count', color='updated_by__user__username', title='Images Uploaded Over Time by User')
         # Create Plotly histogram
-        fig = px.histogram(df, x='date', color='parent__owner__user__username',
-                           title='Media Files Uploaded Over Time by User',
-                           labels={'date': 'Upload Date', 'count': 'Number of Uploaded Files', 'parent__owner__user__username': 'User'})
+        fig = px.histogram(
+            df,
+            x="date",
+            color="parent__owner__user__username",
+            title="Media Files Uploaded Over Time by User",
+            labels={
+                "date": "Upload Date",
+                "count": "Number of Uploaded Files",
+                "parent__owner__user__username": "User",
+            },
+        )
 
         # Customize x-axis to show dates properly
-        fig.update_xaxes(type='category', title_text="Upload Date")
+        fig.update_xaxes(type="category", title_text="Upload Date")
         fig.update_yaxes(title_text="Number of Uploads")
-
 
         # Convert Plotly figure to HTML
         graph = fig.to_html(full_html=False)
 
-        return render(request, 'caidapp/image_upload_graph.html', {'graph': graph})
+        return render(request, "caidapp/image_upload_graph.html", {"graph": graph})

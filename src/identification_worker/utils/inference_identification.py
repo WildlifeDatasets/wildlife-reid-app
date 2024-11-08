@@ -114,17 +114,17 @@ def get_identification_model(model_name, model_checkpoint=""):
     }
 
     matcher_aliked = SimilarityPipelineExtended(
-        matcher=MatchLightGlue(features='aliked'),
+        matcher=MatchLightGlue(features="aliked"),
         extractor=AlikedExtractor(),
         transform=T.Compose([T.Resize([512, 512]), T.ToTensor()]),
-        calibration=IsotonicCalibration()
+        calibration=IsotonicCalibration(),
     )
 
     matcher_mega = SimilarityPipelineExtended(
         matcher=CosineSimilarity(),
         extractor=DeepFeatures(identification_model, batch_size=4, num_workers=1, device=DEVICE),
         transform=realize(config),
-        calibration=IsotonicCalibration()
+        calibration=IsotonicCalibration(),
     )
 
     IDENTIFICATION_MODELS = {"mega": matcher_mega, "aliked": matcher_aliked}
@@ -146,9 +146,9 @@ def get_sam_model() -> SamPredictor:
     model_zoo = {
         "vit_b": "sam_vit_b_01ec64",
         "vit_l": "sam_vit_l_0b3195",
-        "vit_h": "sam_vit_h_4b8939"
+        "vit_h": "sam_vit_h_4b8939",
     }
-    model_version = os.environ['SAM_MODEL_VERSION']
+    model_version = os.environ["SAM_MODEL_VERSION"]
     if SAM is None:
         download_file_if_does_not_exists(
             f"https://dl.fbaipublicfiles.com/segment_anything/{model_zoo[model_version]}.pth",
@@ -157,9 +157,7 @@ def get_sam_model() -> SamPredictor:
         )
 
         logger.info(f"Initializing SAM model ({model_version}) and loading pre-trained checkpoint.")
-        _checkpoint_path = Path(
-            f"/root/resources/{model_zoo[model_version]}.pth"
-        ).expanduser()
+        _checkpoint_path = Path(f"/root/resources/{model_zoo[model_version]}.pth").expanduser()
         SAM = sam_model_registry[model_version](checkpoint=str(_checkpoint_path))
         SAM.to(device=DEVICE)
         SAM_PREDICTOR = SamPredictor(SAM)
@@ -261,7 +259,9 @@ def mask_images(metadata: pd.DataFrame) -> pd.DataFrame:
         # detection_results = ast.literal_eval(
         #    ast.literal_eval(row["detection_results"])["detection_results"])
         if row["detection_results"] is None:
-            logger.debug(f"No detection results for image: {image_path}, row['detection_results'] is None.")
+            logger.debug(
+                f"No detection results for image: {image_path}, row['detection_results'] is None."
+            )
             masked_paths.append(str(image_path))
             continue
         detection_results = ast.literal_eval(row["detection_results"])
@@ -314,7 +314,7 @@ def encode_images(metadata: pd.DataFrame) -> list:
     features_mega = _features_mega
 
     # postprocess local features - remove unnecessary feature keys
-    keep_keys = ['keypoints', 'descriptors', 'image_size']
+    keep_keys = ["keypoints", "descriptors", "image_size"]
     _features_aliked = []
     for fidx in range(len(features_aliked.features)):
         _features = {}
@@ -378,28 +378,36 @@ def calibrate_models(calibrated_features: list, calibration_metadata: pd.DataFra
     """Calibrate identification models"""
     logger.debug(f"Calibrating identification models with {len(calibrated_features)} images.")
     # prepare feature datasets
-    calibration_aliked_features, calibration_mega_features = prepare_feature_types(calibrated_features)
+    calibration_aliked_features, calibration_mega_features = prepare_feature_types(
+        calibrated_features
+    )
     calibration_mega_features = FeatureDataset(calibration_mega_features, calibration_metadata)
     calibration_aliked_features = FeatureDataset(calibration_aliked_features, calibration_metadata)
 
     # calibrate models before identification
-    IDENTIFICATION_MODELS["mega"].fit_calibration(calibration_mega_features, calibration_mega_features)
-    IDENTIFICATION_MODELS["aliked"].fit_calibration(calibration_aliked_features, calibration_aliked_features)
+    IDENTIFICATION_MODELS["mega"].fit_calibration(
+        calibration_mega_features, calibration_mega_features
+    )
+    IDENTIFICATION_MODELS["aliked"].fit_calibration(
+        calibration_aliked_features, calibration_aliked_features
+    )
 
 
 def compute_partial(
-        query_features: list,
-        database_features: list,
-        query_metadata: pd.DataFrame,
-        database_metadata: pd.DataFrame,
-        target: str,
-        pairs: tuple = None
+    query_features: list,
+    database_features: list,
+    query_metadata: pd.DataFrame,
+    database_metadata: pd.DataFrame,
+    target: str,
+    pairs: tuple = None,
 ):
     """Compare input feature vectors with the reference feature vectors and make predictions."""
     assert len(query_features) == len(query_metadata)
     assert len(database_features) == len(database_metadata)
     valid_targets = ["priority", "scores"]
-    assert target in valid_targets, f"Invalid target: {target} for partial computation, valid targets: {valid_targets}"
+    assert (
+        target in valid_targets
+    ), f"Invalid target: {target} for partial computation, valid targets: {valid_targets}"
     if target == "scores":
         assert pairs is not None, "Pairs must be provided for scores computation"
     logger.info(f"Starting identification of {len(query_metadata)} images.")
@@ -419,17 +427,14 @@ def compute_partial(
 
     database_features = {
         DeepFeatures: database_mega_features,
-        AlikedExtractor: database_aliked_features
+        AlikedExtractor: database_aliked_features,
     }
-    query_features = {
-        DeepFeatures: query_mega_features,
-        AlikedExtractor: query_aliked_features
-    }
+    query_features = {DeepFeatures: query_mega_features, AlikedExtractor: query_aliked_features}
 
     # identify individuals
     wildfusion = WildFusionExtended(
         calibrated_matchers=[IDENTIFICATION_MODELS["aliked"], IDENTIFICATION_MODELS["mega"]],
-        priority_matcher=IDENTIFICATION_MODELS["mega"]
+        priority_matcher=IDENTIFICATION_MODELS["mega"],
     )
 
     if target == "priority":
@@ -441,18 +446,11 @@ def compute_partial(
         return scores
 
 
-def identify_from_similarity(
-        similarity,
-        database_metadata,
-        top_k
-):
+def identify_from_similarity(similarity, database_metadata, top_k):
     """Get top-k predictions from similarity matrix."""
     # get top k predictions
     top_predictions = _get_top_predictions(
-        similarity,
-        database_metadata["path"],
-        database_metadata["identity"],
-        top_k=top_k
+        similarity, database_metadata["path"], database_metadata["identity"], top_k=top_k
     )
 
     # reformat results
@@ -488,11 +486,11 @@ def get_keypoints(keypoint_matcher, query_features, database_features, max_kp=10
     keypoint_output = keypoint_matcher(query_features, database_features)
     _keypoints = []
     for _keypoint_output in keypoint_output:
-        thr_mask = _keypoint_output['scores'] >= score_thr
+        thr_mask = _keypoint_output["scores"] >= score_thr
 
-        scores = _keypoint_output['scores'][thr_mask]
-        kps0 = _keypoint_output['kpts0'][thr_mask]
-        kps1 = _keypoint_output['kpts1'][thr_mask]
+        scores = _keypoint_output["scores"][thr_mask]
+        kps0 = _keypoint_output["kpts0"][thr_mask]
+        kps1 = _keypoint_output["kpts1"][thr_mask]
 
         sort_idx = np.argsort(scores)[::-1][:max_kp]
 
@@ -504,13 +502,13 @@ def get_keypoints(keypoint_matcher, query_features, database_features, max_kp=10
 
 
 def identify(
-        query_features: list,
-        database_features: list,
-        query_metadata: pd.DataFrame,
-        database_metadata: pd.DataFrame,
-        top_k: int = 3,
-        cal_images: int = 50,
-        image_budget: int = 100
+    query_features: list,
+    database_features: list,
+    query_metadata: pd.DataFrame,
+    database_metadata: pd.DataFrame,
+    top_k: int = 3,
+    cal_images: int = 50,
+    image_budget: int = 100,
 ) -> dict:
     """Compare input feature vectors with the reference feature vectors and make predictions."""
     assert len(query_features) == len(query_metadata)
@@ -525,30 +523,35 @@ def identify(
     query_aliked_features, query_mega_features = prepare_feature_types(query_features)
 
     # wrap features in feature dataset
-    calibration_mega_features = FeatureDataset(database_mega_features[:cal_images], database_metadata[:cal_images])
-    calibration_aliked_features = FeatureDataset(database_aliked_features[:cal_images], database_metadata[:cal_images])
+    calibration_mega_features = FeatureDataset(
+        database_mega_features[:cal_images], database_metadata[:cal_images]
+    )
+    calibration_aliked_features = FeatureDataset(
+        database_aliked_features[:cal_images], database_metadata[:cal_images]
+    )
     database_mega_features = FeatureDataset(database_mega_features, database_metadata)
     database_aliked_features = FeatureDataset(database_aliked_features, database_metadata)
     query_mega_features = FeatureDataset(query_mega_features, query_metadata)
     query_aliked_features = FeatureDataset(query_aliked_features, query_metadata)
 
     # calibrate models before identification
-    IDENTIFICATION_MODELS["mega"].fit_calibration(calibration_mega_features, calibration_mega_features)
-    IDENTIFICATION_MODELS["aliked"].fit_calibration(calibration_aliked_features, calibration_aliked_features)
+    IDENTIFICATION_MODELS["mega"].fit_calibration(
+        calibration_mega_features, calibration_mega_features
+    )
+    IDENTIFICATION_MODELS["aliked"].fit_calibration(
+        calibration_aliked_features, calibration_aliked_features
+    )
 
     database_features = {
         DeepFeatures: database_mega_features,
-        AlikedExtractor: database_aliked_features
+        AlikedExtractor: database_aliked_features,
     }
-    query_features = {
-        DeepFeatures: query_mega_features,
-        AlikedExtractor: query_aliked_features
-    }
+    query_features = {DeepFeatures: query_mega_features, AlikedExtractor: query_aliked_features}
 
     # identify individuals
     wildfusion = WildFusionExtended(
         calibrated_matchers=[IDENTIFICATION_MODELS["aliked"], IDENTIFICATION_MODELS["mega"]],
-        priority_matcher=IDENTIFICATION_MODELS["mega"]
+        priority_matcher=IDENTIFICATION_MODELS["mega"],
     )
     similarity = wildfusion(query_features, database_features, B=image_budget)
     logger.debug(f"{similarity.shape=}")
@@ -559,18 +562,24 @@ def identify(
     # calculate keypoints
     max_kp = os.environ.get("VISUALIZATION_KEYPOINTS", 10)
     collector = CollectAll()
-    keypoint_matcher = MatchLightGlue(features='aliked', collector=collector)
+    keypoint_matcher = MatchLightGlue(features="aliked", collector=collector)
 
     keypoints = []
     logger.debug(result_idx)
     for qidx, didx in result_idx.items():
         qidx = [qidx]
         keypoint_query_features = FeatureDataset(
-            np.array(query_aliked_features.features)[qidx], query_aliked_features.metadata.iloc[qidx])
+            np.array(query_aliked_features.features)[qidx],
+            query_aliked_features.metadata.iloc[qidx],
+        )
         keypoint_database_features = FeatureDataset(
-            np.array(database_aliked_features.features)[didx], database_aliked_features.metadata.iloc[didx])
+            np.array(database_aliked_features.features)[didx],
+            database_aliked_features.metadata.iloc[didx],
+        )
 
-        _keypoints = get_keypoints(keypoint_matcher, keypoint_query_features, keypoint_database_features, max_kp=max_kp)
+        _keypoints = get_keypoints(
+            keypoint_matcher, keypoint_query_features, keypoint_database_features, max_kp=max_kp
+        )
         keypoints.append(_keypoints)
 
     output["keypoints"] = keypoints

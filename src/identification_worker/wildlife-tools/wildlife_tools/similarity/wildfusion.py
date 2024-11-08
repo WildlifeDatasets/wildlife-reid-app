@@ -10,11 +10,10 @@ def get_hits(dataset0, dataset1):
     gt1 = dataset1.labels_string
     gt_grid0 = np.tile(gt0, (len(gt1), 1)).T
     gt_grid1 = np.tile(gt1, (len(gt0), 1))
-    return (gt_grid0 == gt_grid1)
+    return gt_grid0 == gt_grid1
 
 
-class SimilarityPipeline():
-
+class SimilarityPipeline:
     def __init__(self, matcher, extractor=None, calibration=None, transform=None):
         self.matcher = matcher
         self.calibration = calibration
@@ -36,7 +35,7 @@ class SimilarityPipeline():
         Both datasets must have labels.
         """
         if self.calibration is None:
-            raise ValueError('Calibration method is not assigned.')
+            raise ValueError("Calibration method is not assigned.")
 
         dataset0 = self.get_feature_dataset(dataset0)
         dataset1 = self.get_feature_dataset(dataset1)
@@ -48,7 +47,7 @@ class SimilarityPipeline():
 
     def __call__(self, dataset0: WildlifeDataset, dataset1: WildlifeDataset, pairs=None):
         if not self.calibration_done and (self.calibration is not None):
-            raise ValueError('Calibration is not fitted. Use fit_calibration method.')
+            raise ValueError("Calibration is not fitted. Use fit_calibration method.")
 
         dataset0 = self.get_feature_dataset(dataset0)
         dataset1 = self.get_feature_dataset(dataset1)
@@ -67,9 +66,9 @@ class SimilarityPipeline():
 
 class WildFusion:
     def __init__(
-            self,
-            calibrated_matchers: list[SimilarityPipeline],
-            priority_matcher: SimilarityPipeline | None = None
+        self,
+        calibrated_matchers: list[SimilarityPipeline],
+        priority_matcher: SimilarityPipeline | None = None,
     ):
         self.calibrated_matchers = calibrated_matchers
         self.priority_matcher = priority_matcher
@@ -82,10 +81,10 @@ class WildFusion:
             self.priority_matcher.fit_calibration(dataset0, dataset1)
 
     def get_priority_pairs(self, dataset0: WildlifeDataset, dataset1: WildlifeDataset, B):
-        """ Shortlisting strategy for selection of most relevant pairs."""
+        """Shortlisting strategy for selection of most relevant pairs."""
 
         if self.priority_matcher is None:
-            raise ValueError('Priority matcher is not assigned.')
+            raise ValueError("Priority matcher is not assigned.")
 
         priority = self.priority_matcher(dataset0, dataset1)
         _, idx1 = torch.topk(torch.tensor(priority), min(B, priority.shape[1]))

@@ -24,7 +24,6 @@ from .model_tools import (
     get_zip_path_in_unique_folder,
     random_string,
     random_string12,
-
 )
 
 # Create your models here.
@@ -165,7 +164,7 @@ class UploadedArchive(models.Model):
     identification_status = models.CharField(
         max_length=255,
         blank=True,
-        choices = UA_STATUS_CHOICES,
+        choices=UA_STATUS_CHOICES,
         default="C",
     )
     identification_started_at = models.DateTimeField("Started at", blank=True, null=True)
@@ -423,7 +422,9 @@ class UploadedArchive(models.Model):
             status_message = f"Unknown status '{status}'. Prev. message: " + str(
                 self.status_message
             )
-            logger.warning(f"Status of {self} is unknown: {status}, status_message: {self.status_message}")
+            logger.warning(
+                f"Status of {self} is unknown: {status}, status_message: {self.status_message}"
+            )
             status = "U"
             self.status_message = status_message
             self.taxon_status = status
@@ -484,7 +485,6 @@ class UploadedArchive(models.Model):
             sequence = self.get_sequence_by_id(sequence_id)
             mediafile.sequence = sequence
             mediafile.save()
-
 
 
 class IndividualIdentity(models.Model):
