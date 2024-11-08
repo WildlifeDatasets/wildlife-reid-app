@@ -1,17 +1,17 @@
 import json
 import logging
 import shutil
+import traceback
 from pathlib import Path
 from typing import Optional, Tuple
 
+import cv2
 import numpy as np
 import pandas as pd
+import skimage.io
 import wandb
 import yaml
 from scipy.special import softmax
-import traceback
-import cv2
-import skimage.io
 
 from fgvc.core.training import predict
 from fgvc.datasets import get_dataloaders
@@ -380,4 +380,90 @@ def keep_correctly_loaded_images(metadata) -> Tuple[pd.DataFrame, pd.DataFrame]:
     metadata = metadata[metadata["read_error"] == ""].reset_index(drop=True)
     logger.debug(f"len(metadata)={len(metadata)}")
     return metadata, df_failing
+
+
+# new function
+
+
+# TODO make preview on taxon worker
+def make_previews(metadata, output_dir, preview_width=1200):
+    """Create preview image for video."""
+    output_dir = Path(output_dir)
+    for i, row in metadata.iterrows():
+        mediafile_path = Path(row["absolute_media_path"])
+        # output_dir = Path(settings.MEDIA_ROOT) / mediafile.parent.outputdir
+        # abs_pth = output_dir / "thumbnails" / Path(mediafile.mediafile.name).name
+        preview_abs_pth = output_dir / "previews" / Path(mediafile_path).name
+
+        if row["media_type"] == "image":
+            # preview_rel_pth = os.path.relpath(preview_abs_pth, settings.MEDIA_ROOT)
+            logger.debug(f"Creating preview for {mediafile_path}")
+            make_thumbnail_from_file(mediafile_path, preview_abs_pth, width=preview_width)
+        elif row["media_type"] == "video":
+            logger.debug(f"Creating preview for {mediafile_path}")
+            convert_to_mp4(mediafile_path, preview_abs_pth)
+
     return metadata
+
+
+def make_thumbnail_from_file(image_path: Path, thumbnail_path: Path, width: int = 800) -> bool:
+    """Create small thumbnail image from input image.
+
+    Returns:
+        True if the processing is ok.
+
+    """
+    try:
+        image = skimage.io.imread(image_path)
+        scale = float(width) / image.shape[1]
+        scale = [scale, scale, 1]
+        # TODO use opencv to resize image
+        image_rescaled = cv2.resize(image, (0, 0), fx=scale[0], fy=scale[1])
+        # image_rescaled = skimage.transform.rescale(image, scale=scale, anti_aliasing=True)
+        # image_rescaled = (image_rescaled * 255).astype(np.uint8)
+        logger.info(f"{image_rescaled.shape=}, {image_rescaled.dtype=}")
+        thumbnail_path.parent.mkdir(exist_ok=True, parents=True)
+        if thumbnail_path.suffix.lower() in (".jpg", ".jpeg"):
+            quality = 85
+        else:
+            quality = None
+        skimage.io.imsave(thumbnail_path, image_rescaled, quality=quality)
+        return True
+    except Exception:
+        logger.warning(
+            f"Cannot create thumbnail from file '{image_path}'. Exception: {traceback.format_exc()}"
+        )
+        return False
+
+
+def convert_to_mp4(input_video_path, output_video_path):
+    """Convert video to MP4 format using H.264 video codec and AAC audio codec."""
+    import os.path
+    import subprocess
+
+    # Check if input file exists
+    if not os.path.exists(input_video_path):
+        raise FileNotFoundError(f"The input file '{input_video_path}' does not exist.")
+
+    # ffmpeg command to convert video to MP4 (H.264 + AAC)
+    command = [
+        "ffmpeg",
+        "-i",
+        input_video_path,  # Input video file
+        "-c:v",
+        "libx264",  # Set the video codec to H.264
+        "-c:a",
+        "aac",  # Set the audio codec to AAC
+        "-b:a",
+        "192k",  # Audio bitrate (you can adjust this)
+        "-strict",
+        "experimental",  # For using AAC
+        output_video_path,  # Output video file
+    ]
+
+    try:
+        # Run the ffmpeg command
+        subprocess.run(command, check=True)
+        logger.debug(f"Conversion successful! Output saved at '{output_video_path}'")
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Error during conversion: {e}")
