@@ -107,7 +107,6 @@ def predict(
             )
 
         metadata = inference_detection.detect_animal_on_metadata(metadata)
-        data_processing_pipeline.run_inference(metadata)
         data_processing_pipeline.run_taxon_classification_inference(metadata)
         metadata.to_csv(output_metadata_file, encoding="utf-8-sig")
 
