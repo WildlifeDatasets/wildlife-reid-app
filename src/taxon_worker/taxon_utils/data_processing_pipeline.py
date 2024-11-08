@@ -27,6 +27,7 @@ except ImportError:
 logger = logging.getLogger("app")
 logger.setLevel(logging.DEBUG)
 MEDIA_DIR_PATH = Path("/shared_data/media")
+TAXON_CLASSIFICATION_MODEL_DICT = None
 
 
 def get_model_config(is_cropped: bool = False) -> Tuple[dict, str, dict]:
@@ -106,8 +107,15 @@ def load_model_and_predict_and_add_not_classified(
     """
     # from .data_preprocessing import detect_animal, pad_image, detect_animals
     # is_detected = detect_animals(image_paths)
-    artifact_config, config, model, model_mean, model_std = get_taxon_classification_model()
-    # logger.debug(f"{image_paths[0]=}")
+
+    taxon_classification_model_dict = get_taxon_classification_model()
+    artifact_config = taxon_classification_model_dict["artifact_config"]
+    config = taxon_classification_model_dict["config"]
+    model = taxon_classification_model_dict["model"]
+    model_mean = taxon_classification_model_dict["model_mean"]
+    model_std = taxon_classification_model_dict["model_std"]
+
+    # artifact_config, config, model, model_mean, model_std
 
     logger.info("Creating DataLoaders.")
     _, testloader, _, _ = get_dataloaders(
@@ -129,6 +137,7 @@ def load_model_and_predict_and_add_not_classified(
 
     logger.info("Running inference.")
     predict_output = predict(model, testloader)
+    release_taxon_classification_model()
     logits = predict_output.preds
     if "temperature" in artifact_config:
         logits = logits / artifact_config["temperature"]
@@ -170,20 +179,34 @@ def load_model_and_predict_and_add_not_classified(
 def get_taxon_classification_model():
     logger.debug(f"Before taxon classification model.")
     logger.debug(f"{mem.get_vram()}     {mem.get_ram()}")
+    global TAXON_CLASSIFICATION_MODEL_DICT
 
-    config, checkpoint_path, artifact_config = get_model_config(
-        # is_cropped=False
-    )
-    logger.info("Creating model and loading fine-tuned checkpoint.")
-    model, model_mean, model_std = load_model(config, checkpoint_path)
-    logger.debug(
-        f"model_mean={model_mean}, model_std={model_std}, "
-        + f"checkpoint_path={checkpoint_path}, config={config}"
-    )
+    if TAXON_CLASSIFICATION_MODEL_DICT is None:
+        config, checkpoint_path, artifact_config = get_model_config(
+            # is_cropped=False
+        )
+        logger.info("Creating model and loading fine-tuned checkpoint.")
+
+        model, model_mean, model_std = load_model(config, checkpoint_path)
+        TAXON_CLASSIFICATION_MODEL_DICT = {
+            "model": model,
+            "model_mean": model_mean,
+            "model_std": model_std,
+            # "checkpoint_path": checkpoint_path,
+            "artifact_config": artifact_config,
+            "config": config,
+        }
+        logger.debug(
+            f"model_mean={model_mean}, model_std={model_std}, "
+            + f"checkpoint_path={checkpoint_path}, config={config}"
+        )
     logger.debug(f"After taxon classification model.")
     logger.debug(f"{mem.get_vram()}     {mem.get_ram()}")
-    return artifact_config, config, model, model_mean, model_std
+    return TAXON_CLASSIFICATION_MODEL_DICT
 
+def release_taxon_classification_model():
+    global TAXON_CLASSIFICATION_MODEL_DICT
+    TAXON_CLASSIFICATION_MODEL_DICT = None
 
 def get_top_predictions(probs: np.array) -> Tuple[np.array, np.array]:
     """Get the top predictions from the softmaxed logits."""

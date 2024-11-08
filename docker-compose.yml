@@ -111,7 +111,7 @@ services:
         reservations:
           devices:
             - driver: nvidia
-              device_ids: ['0']
+              device_ids: ['1']
               capabilities: [gpu]
     volumes:
       - taxon-worker-data:/data  # data used only by Worker
@@ -150,7 +150,7 @@ services:
         reservations:
           devices:
             - driver: nvidia
-              device_ids: ['1']
+              device_ids: ['0']
               capabilities: [gpu]
     volumes:
       - identification-worker-data:/data  # data used only by Worker
