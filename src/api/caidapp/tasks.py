@@ -189,7 +189,7 @@ def do_cloud_import_for_user(self, caiduser: CaIDUser):
             # archivefile=zip_name,
             contains_single_taxon=False,
             contains_identities=False,
-            status="Import initiated",
+            taxon_status="C",
             uploaded_at=django.utils.timezone.now(),
         )
         logger.debug(
