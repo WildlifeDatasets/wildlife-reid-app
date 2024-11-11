@@ -167,6 +167,8 @@ services:
     #      - identification-worker
     labels:
       com.piva-ai.group: "applications"
+    networks:
+      - backend
 
   identification_worker_db:
     image: postgres:14.4-alpine
