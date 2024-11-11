@@ -142,6 +142,10 @@ services:
       POSTGRES_USER: user
       POSTGRES_PASS: password
       TZ: Europe/Prague
+      RABBITMQ_HOST: broker
+      RABBITMQ_URL: "amqp://user:22pmDB%c@broker:5672"
+      REDIS_HOST: redis
+      REDIS_URL: "redis://:password@redis:6379/0"
     env_file:
       - "src/variables.env"
       - ".env"
