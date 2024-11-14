@@ -200,12 +200,26 @@ def get_datetime_from_exif(filename: Path) -> typing.Tuple[str, str, str]:
         The function also checks if image or video is ok for read.
     """
     dt_source = ""
+    in_worst_case_dt = None
+    in_worst_case_dt_source = None
     opened_sucessfully = False
     opened_with_fail = False
     if filename.exists():
         try:
+            checked_keys = [
+                "QuickTime:MediaCreateDate",
+                "QuickTime:CreateDate",
+                "EXIF:CreateDate",
+                "EXIF:ModifyDate",
+                # "File:FileModifyDate",
+            ]
             dt_str, is_ok, dt_source = get_datetime_exiftool(filename)
             dt_str = replace_colon_in_exif_datetime(dt_str)
+            if dt_source.startswith("QuickTime"):
+                in_worst_case_dt = dt_str
+                in_worst_case_dt_source = dt_source
+                df_str = ""
+                dt_source = ""
             read_error = ""
         except Exception as e:
             dt_str = ""
@@ -258,6 +272,10 @@ def get_datetime_from_exif(filename: Path) -> typing.Tuple[str, str, str]:
                 logger.debug(traceback.format_exc())
                 opened_with_fail = True
 
+        if (dt_str == "") and (in_worst_case_dt is not None):
+            dt_str = in_worst_case_dt
+            dt_source = in_worst_case_dt_source
+
         if dt_str == "":
             dtm = min(filename.stat().st_mtime, filename.stat().st_ctime, filename.stat().st_atime)
             dt_str = datetime.fromtimestamp(dtm).strftime("%Y-%m-%d %H:%M:%S")
@@ -271,15 +289,16 @@ def get_datetime_from_exif(filename: Path) -> typing.Tuple[str, str, str]:
     return dt_str, read_error, dt_source
 
 
-def get_datetime_exiftool(video_pth: Path) -> typing.Tuple[str, bool, str]:
+def get_datetime_exiftool(video_pth: Path, checked_keys: Optional[list]=None) -> typing.Tuple[str, bool, str]:
     """Get datetime from video using exiftool."""
-    checked_keys = [
-        "QuickTime:MediaCreateDate",
-        "QuickTime:CreateDate",
-        "EXIF:CreateDate",
-        "EXIF:ModifyDate",
-        # "File:FileModifyDate",
-    ]
+    if checked_keys is None:
+        checked_keys = [
+            "QuickTime:MediaCreateDate",
+            "QuickTime:CreateDate",
+            "EXIF:CreateDate",
+            "EXIF:ModifyDate",
+            # "File:FileModifyDate",
+        ]
     # files = [png", "c.tif"]
     files = [video_pth]
     with exiftool.ExifToolHelper() as et:
