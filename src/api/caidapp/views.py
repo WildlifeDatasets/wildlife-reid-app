@@ -30,6 +30,7 @@ from django.shortcuts import Http404, HttpResponse, get_object_or_404, redirect,
 from django.template.loader import render_to_string
 from django.urls import reverse_lazy
 from django.views import View
+from django.db.models import OuterRef, Subquery
 
 from . import forms, model_tools, models, tasks, views_uploads
 from .forms import (
@@ -1378,6 +1379,13 @@ def _mediafiles_query(
         #     mediafiles.filter(location=location).all().distinct().order_by(order_by)
         # )
     logger.debug(f"{filter_kwargs=}")
+    # order by mediafile__sequence__mediafile_set order by
+    first_image_order_by = (
+        mediafiles.filter(sequence=OuterRef('sequence'))
+        .order_by(order_by)
+        .values(order_by)[:1]
+    )
+
     mediafiles = (
         mediafiles.filter(
             Q(album__albumsharerole__user=request.user.caiduser)
@@ -1387,8 +1395,11 @@ def _mediafiles_query(
         )
         .exclude(**exclude_filter_kwargs)
         .distinct()
-        .order_by(order_by)
+        .annotate(first_image_order_by=Subquery(first_image_order_by))
+        .order_by('first_image_order_by', 'sequence', 'captured_at')
+        # .order_by(order_by)
     )
+
 
     if len(query) == 0:
         return mediafiles

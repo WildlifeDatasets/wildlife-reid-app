@@ -6,6 +6,7 @@
 ## 11-2024
 
 * [added] Extend sequence of media files
+* [changed] Order media files in sequence together
 
 ## 10-2024
 
