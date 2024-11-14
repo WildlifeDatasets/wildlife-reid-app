@@ -67,6 +67,25 @@
         height: 300px; /* Match the height of the card image */
         background-color: #7f7f7f; /* Gray background */
     }
+
+
+    .toggle-sequence {
+        background-color: rgba(200, 200, 200, 0.7); /* Light semi-transparent background */
+        padding-left: 5px;
+        padding-right: 5px;
+        padding-top: 2px;
+        padding-bottom: 2px;
+        border-radius: 5px; /* Rounded corners */
+        color: black; /* Darker color inside the light background */
+    }
+
+    .toggle-sequence-active {
+        {#background-color: rgba(255, 255, 255, 0.5); /* Light semi-transparent background */#}
+        {#padding: 2px; /* Padding around the icon */#}
+        {#border-radius: 5px; /* Rounded corners */#}
+        color: white; /* Darker color inside the light background */
+    }
+
 </style>
 
 {% endblock %}
@@ -265,10 +284,19 @@
                     <div class="row" id="row-of-cards">
 
                         {% for mediafile in form_objects %}
-                            <div class="col-12 col-sm-12 col-md-12 col-lg-6 col-xl-4 col-xxl-3 col-xxxl-2" id="card{{ mediafile.instance.id }}">
+                            <div
+                                 id="card{{ mediafile.instance.id }}"
+                                {% if mediafile.instance != mediafile.instance.sequence.mediafile_set.first %}
+                                 class="col-12 col-sm-12 col-md-12 col-lg-6 col-xl-4 col-xxl-3 col-xxxl-2 d-none"
+                                 data-sequence="{{ mediafile.instance.sequence.id }}"
+                                {% else %}
+                                 class="col-12 col-sm-12 col-md-12 col-lg-6 col-xl-4 col-xxl-3 col-xxxl-2"
+                                {% endif %}
+                            >
 {#    same-sized cards (but with a lot emtpy space on bottom of the card are done by:  card h-100 , <style> of .card  and row g-2#}
 {#                                <div class="card h-100">#}
-                                <div class="card">
+                                <div class="card"
+                                >
                                     {% for hidden in mediafile.hidden_fields %}
                                         {{ hidden }}
                                     {% endfor %}
@@ -282,6 +310,21 @@
                                     {% endif %}
                                     <div class="position-absolute top-0 end-0 p-2">
                                         {{ mediafile.selected }}
+                                    </div>
+                                    <div class="position-absolute top-0 start-0 p-2"
+{#                                         style="background: rgba(255,255,255,0.8);"#}
+                                    >
+{#                                        id= {{ mediafile.instance.sequence.id }}#}
+                                        {% if mediafile.instance.sequence.mediafile_set.count > 1 %}
+                                            <i class="bi bi-images me-1 toggle-sequence" data-sequence-id="{{ mediafile.instance.sequence.id }}" style="cursor: pointer;"
+                                               data-bs-toggle="tooltip" title="Count={{ mediafile.instance.sequence.mediafile_set.count }}"
+
+                                            ></i>
+
+{#                                            {% if mediafile.instance == mediafile.instance.sequence.mediafile_set.first %}#}
+{#                                                {{ mediafile.instance.sequence.mediafile_set.count }}#}
+{#                                            {% endif %}#}
+                                        {% endif %}
                                     </div>
                                     <div class="position-absolute bottom-0 end-0 p-3">
 {#                                        info in circle#}
@@ -451,7 +494,8 @@
     <script>
         const data = '{{qs_json}}'
 
-        const rdata = JSON.parse(data.replace(/&quot;/g, '"'))
+        {#const rdata = JSON.parse(data.replace(/&quot;/g, '"'))#}
+        const rdata = data ? JSON.parse(data.replace(/&quot;/g, "")) : {};
 
         const input = document.getElementById('search_here');
 
@@ -494,6 +538,22 @@
                 })
                 .catch(error => {
                     console.error('Error:', error);
+                });
+            });
+        });
+    });
+</script>
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('.toggle-sequence').forEach(function(icon) {
+            icon.addEventListener('click', function() {
+                const sequenceId = this.getAttribute('data-sequence-id');
+                document.querySelectorAll(`[data-sequence="${sequenceId}"]`).forEach(function(card) {
+                    console.log("sequenceId", sequenceId, card.classList.id);
+                    card.classList.toggle('d-none');
+                });
+                document.querySelectorAll(`[data-sequence-id="${sequenceId}"]`).forEach(function(card) {
+                    card.classList.toggle('toggle-sequence-active');
                 });
             });
         });

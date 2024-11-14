@@ -3,6 +3,10 @@
 
 # Changelog
 
+## 11-2024
+
+* [added] Extend sequence of media files
+
 ## 10-2024
 
 * [changed] Separated dev and prod
