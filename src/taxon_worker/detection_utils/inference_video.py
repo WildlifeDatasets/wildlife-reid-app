@@ -138,6 +138,9 @@ def save_gif(images, path: str):
         loop=0,
         optimize=True,
     )
+    jpg_path = path + ".jpg"
+    frame_one = Image.fromarray(images[0])
+    frame_one.save(jpg_path)
 
 
 def make_gif(
