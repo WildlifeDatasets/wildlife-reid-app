@@ -56,14 +56,15 @@ def create_match_img_src(
     """Create a visualization of the matches between two images."""
     fig, ax = plt.subplots(1, 2, figsize=(10, 5))
     cmap = matplotlib.colormaps["rainbow"]
+    ax[0].imshow(query_image)
+    ax[1].imshow(database_image)
     for i, (_kp0, _kp1) in enumerate(zip(kp0, kp1)):
         color = cmap(i / len(kp0))[:3]
         kwargs = {"fill": False, "radius": 15, "color": color, "linewidth": 1}
         patch = Circle(_kp0, **kwargs)
-        ax[0].imshow(query_image)
         ax[0].add_patch(patch)
+
         patch = Circle(_kp1, **kwargs)
-        ax[1].imshow(database_image)
         ax[1].add_patch(patch)
         # con = ConnectionPatch(
         #     xyA=_kp0,

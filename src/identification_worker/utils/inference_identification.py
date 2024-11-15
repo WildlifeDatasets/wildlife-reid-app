@@ -154,7 +154,7 @@ def get_sam_model() -> SamPredictor:
             f"/root/resources/{model_zoo[model_version]}.pth",
         )
 
-        mem.wait_for_vram(0.5)
+        mem.wait_for_gpu_memory(0.5)
         logger.info(f"Initializing SAM model ({model_version}) and loading pre-trained checkpoint.")
         _checkpoint_path = Path(f"/root/resources/{model_zoo[model_version]}.pth").expanduser()
         SAM = sam_model_registry[model_version](checkpoint=str(_checkpoint_path))
@@ -481,7 +481,8 @@ def identify_from_similarity(similarity, database_metadata, top_k):
 
 def get_keypoints(keypoint_matcher, query_features, database_features, max_kp=10):
     """Run matcher and return top matched keypoint pairs."""
-    score_thr = 0.0
+    score_thr = 0.9
+    skip_kp = 10
     keypoint_output = keypoint_matcher(query_features, database_features)
     _keypoints = []
     for _keypoint_output in keypoint_output:
@@ -490,6 +491,9 @@ def get_keypoints(keypoint_matcher, query_features, database_features, max_kp=10
         scores = _keypoint_output["scores"][thr_mask]
         kps0 = _keypoint_output["kpts0"][thr_mask]
         kps1 = _keypoint_output["kpts1"][thr_mask]
+        if len(kps0) < skip_kp:
+            _keypoints.append(([], []))
+            continue
         try:
             sort_idx = np.argsort(scores)[::-1][:max_kp]
             kps0 = kps0[sort_idx].tolist()
