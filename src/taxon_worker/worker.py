@@ -58,6 +58,7 @@ def predict(
         output_archive_file = Path(output_archive_file)
         output_metadata_file = Path(output_metadata_file)
         do_init = force_init or (not output_metadata_file.exists())
+        post_update_csv_name: str = "mediafile.post_update.csv"
 
         if do_init:
             shutil.rmtree(output_images_dir, ignore_errors=True)
@@ -67,6 +68,7 @@ def predict(
                 output_images_dir,
                 num_cores=num_cores,
                 contains_identities=contains_identities,
+                post_update_csv_name=post_update_csv_name
             )
             metadata, df_failing0 = data_processing_pipeline.keep_correctly_loaded_images(metadata)
             # image_path is now relative to output_images_dir
@@ -108,8 +110,31 @@ def predict(
 
         metadata = inference_detection.detect_animal_on_metadata(metadata)
         data_processing_pipeline.run_taxon_classification_inference(metadata)
-        # TODO test make preview
         data_processing_pipeline.make_previews(metadata, output_dir)
+
+        # Update metadata with post_update_csv if it exists
+        # find and read zip or xlsx file in temp dir
+        post_update_csv_path = output_dir / post_update_csv_name
+        if post_update_csv_path.exists():
+            metadata_post_update = pd.read_csv(post_update_csv_path, index_col=0)
+            # join on column "original_path" if the column exists, use the column from post_update_metadata
+
+            # Perform an inner join to ensure only rows from metadata are retained
+            merged_df = metadata.merge(
+                metadata_post_update,
+                on='original_path',
+                how='left',  # Keeps all rows from `metadata`, matching only from `metadata_post_update`
+                suffixes=('', '_post_update')
+            )
+
+            # Overwrite columns from `metadata` with those from `metadata_post_update` if they exist
+            for col in metadata_post_update.columns:
+                if col != 'original_path':  # Skip the join column
+                    if col in metadata.columns:  # Only overwrite common columns
+                        merged_df[col] = merged_df[f"{col}_post_update"].combine_first(merged_df[col])
+                        merged_df.drop(columns=[f"{col}_post_update"], inplace=True)
+            metadata = merged_df
+
         metadata.to_csv(output_metadata_file, encoding="utf-8-sig")
 
         # process data

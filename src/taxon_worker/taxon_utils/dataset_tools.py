@@ -1263,6 +1263,7 @@ def data_preprocessing(
     media_dir_path: Path,
     num_cores: Optional[int] = None,
     contains_identities: bool = False,
+    post_update_csv_name: str = "mediafile.post_update.csv",
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """Preprocessing of data in zip file.
 
@@ -1274,6 +1275,7 @@ def data_preprocessing(
     zip_path: file with zipped images
     media_dir_path: output dir for media files with hashed names
     csv_path: Path to csv file
+    post_update_csv_name: str - Name of file where will be stored any CSV or XLSX file
 
     Returns
     -------
@@ -1294,6 +1296,20 @@ def data_preprocessing(
     df, duplicates = analyze_dataset_directory(
         tmp_dir, num_cores=num_cores, contains_identities=contains_identities
     )
+    # post_update CSV is used for updating the metadata after all files are processed
+
+    post_update_path = list(tmp_dir.glob("**/*.csv") + tmp_dir.glob("**/*.xlsx"))
+    post_update_path = post_update_path[0] if len(post_update_path) > 0 else None
+    if post_update_path is not None:
+        if post_update_path.suffix == ".csv":
+            df_post_update = pd.read_csv(post_update_path)
+        elif post_update_path.suffix == ".xlsx":
+            df_post_update = pd.read_excel(post_update_path)
+        else:
+            df_post_update = None
+        if df_post_update is not None:
+            pd.write_csv(media_dir_path / post_update_csv_name, encoding="utf-8-sig")
+
     # df["original_path"].map(lambda fn: dataset_tools.make_hash(fn, prefix="media_data"))
     df = make_dataset(
         dataframe=df,
@@ -1305,6 +1321,7 @@ def data_preprocessing(
         move_files=True,
         create_csv=False,
     )
+
     shutil.rmtree(tmp_dir, ignore_errors=True)
 
     return df, duplicates
