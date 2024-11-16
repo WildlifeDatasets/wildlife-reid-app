@@ -33,3 +33,5 @@ pytesseract==0.3
 # for exiftool
 pyexiftool==0.5.*
 scikit-image==0.24.*
+
+openpyxl==3.0.*

@@ -407,7 +407,7 @@ def _check_if_it_is_cuddleback_corner(frame_bgr: np.array) -> Tuple[str, bool, s
             logger.debug(f"{np.mean(frame_hsv, axis=(0,1))=}")
             logger.debug(f"{np.mean(frame_bgr, axis=(0,1))=}")
             logger.debug(f"{yellow_prototype_hsv=}")
-            logger.debug(f"{scipy.stats.describe(frame_bgr)=}")
+            logger.debug(f"{scipy.stats.describe(frame_bgr.ravel())=}")
             logger.debug(f"OCR result: {ocr_result}")
             logger.debug(f"{scipy.stats.describe(dist.ravel())=}")
             return date_str, is_ok, ""
