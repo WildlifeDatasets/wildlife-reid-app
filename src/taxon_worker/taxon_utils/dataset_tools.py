@@ -1298,7 +1298,7 @@ def data_preprocessing(
     )
     # post_update CSV is used for updating the metadata after all files are processed
 
-    post_update_path = list(tmp_dir.glob("**/*.csv") + tmp_dir.glob("**/*.xlsx"))
+    post_update_path = list(tmp_dir.glob("**/*.csv")) + list(tmp_dir.glob("**/*.xlsx"))
     post_update_path = post_update_path[0] if len(post_update_path) > 0 else None
     if post_update_path is not None:
         if post_update_path.suffix == ".csv":
