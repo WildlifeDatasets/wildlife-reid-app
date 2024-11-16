@@ -568,7 +568,7 @@ def _get_rel_and_abs_paths_based_on_csv_row(row: dict, output_dir: Path):
     abs_pth = output_dir / "images" / row["image_path"]
     rel_pth = os.path.relpath(abs_pth, settings.MEDIA_ROOT)
     if "vanilla_Path" in row:
-        logger.debug(f"vanilla_path={row['vanilla_path']}")
+        logger.debug(f"original_path={row['original_path']}")
     logger.debug(f"relative_pth={rel_pth}")
 
     return rel_pth, abs_pth
@@ -681,8 +681,8 @@ def _update_database_by_one_row_of_metadata(
             # logger.debug(f"{uploaded_archive.contains_single_taxon=}")
             if uploaded_archive.contains_identities and uploaded_archive.contains_single_taxon:
                 mf.identity_is_representative = True
-            if "vanilla_path" in row:
-                mf.original_filename = row["vanilla_path"]
+            if "original_path" in row:
+                mf.original_filename = row["original_path"]
             # if "media_type" in row:
             #     mf.media_type = str(row["media_type"])
             # logger.debug(f"{mf.identity_is_representative}")
@@ -813,7 +813,7 @@ def create_dataframe_from_mediafiles(mediafiles: Generator[MediaFile, None, None
             if mf.location.location:
                 metadata_row["location coordinates"] = str(mf.location.location)
         if mf.original_filename:
-            metadata_row["vanilla_path"] = mf.original_filename
+            metadata_row["original_path"] = mf.original_filename
         if mf.identity:
             if mf.identity.code:
                 metadata_row["code"] = mf.identity.code

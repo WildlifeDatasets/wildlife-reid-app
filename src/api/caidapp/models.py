@@ -596,8 +596,8 @@ class MediaFile(models.Model):
     def extract_original_filename(self, commit=True):
         """Extract original filename from metadata_json or mediafile."""
         if self.metadata_json:
-            if "vanilla_path" in self.metadata_json:
-                self.original_filename = Path(self.metadata_json["vanilla_path"]).name
+            if "original_path" in self.metadata_json:
+                self.original_filename = Path(self.metadata_json["original_path"]).name
                 if commit:
                     self.save()
                 return self.original_filename

@@ -466,11 +466,11 @@ def get_relative_paths_in_dir(basedir_path: Path, path_group: Path, mask: str) -
 
 
     """
-    vanilla_paths = []
+    original_paths = []
     for pthi in path_group.glob(mask):
         pthir = pthi.relative_to(basedir_path)
-        vanilla_paths.append(str(pthir))
-    return vanilla_paths
+        original_paths.append(str(pthir))
+    return original_paths
 
 
 def make_hash(filename: str, prefix: Optional[str] = "media_data") -> str:
@@ -659,7 +659,7 @@ def make_dataset(
     Parameters
     ----------
     dataframe: DataFrame
-        Pandas DataFrame with 'vanilla_path' column.
+        Pandas DataFrame with 'original_path' column.
     dataset_name : str
         Name for output '.csv' and '.tar.gz'
     dataset_base_dir : Path
@@ -683,9 +683,9 @@ def make_dataset(
     assert not (copy_files and move_files), "Onle one arg 'copy_files' or 'move_files' can be True."
 
     if hash_filename:
-        dataframe["image_path"] = dataframe["vanilla_path"].apply(make_hash, prefix=dataset_name)
+        dataframe["image_path"] = dataframe["original_path"].apply(make_hash, prefix=dataset_name)
     else:
-        dataframe["image_path"] = dataframe["vanilla_path"].apply(
+        dataframe["image_path"] = dataframe["original_path"].apply(
             lambda filename: os.path.join(dataset_name, filename)
         )
 
@@ -695,7 +695,7 @@ def make_dataset(
 
     if copy_files or move_files:
         for index, row in tqdm(dataframe.iterrows(), total=len(dataframe), desc=f"{dataset_name}"):
-            input_file_path = (dataset_base_dir / row["vanilla_path"]).resolve()
+            input_file_path = (dataset_base_dir / row["original_path"]).resolve()
             output_file_path = (output_path / Path(row["image_path"])).resolve()
             output_file_path.parent.mkdir(parents=True, exist_ok=True)
             if input_file_path.is_file():
@@ -802,7 +802,7 @@ class SumavaInitialProcessing:
 
         Returns
         -------
-        vanilla_paths: List of files in folder.
+        original_paths: List of files in folder.
         """
         if exclude is None:
             exclude = []
@@ -822,7 +822,7 @@ class SumavaInitialProcessing:
 
             self.path_groups = group_of_dirs
         if self.num_cores > 1:
-            vanilla_path_groups = Parallel(n_jobs=self.num_cores)(
+            original_path_groups = Parallel(n_jobs=self.num_cores)(
                 delayed(get_relative_paths_in_dir)(self.dataset_basedir, path_group, mask)
                 for path_group in tqdm(self.path_groups, desc="getting file list")
             )
@@ -830,7 +830,7 @@ class SumavaInitialProcessing:
             # single processor version to avoid error:
             #   Error: 'demonic processes are not allowed to have children'
             logger.debug("Using single CPU")
-            vanilla_path_groups = [
+            original_path_groups = [
                 get_relative_paths_in_dir(self.dataset_basedir, path_group, mask)
                 for path_group in tqdm(self.path_groups, desc="getting file list")
             ]
@@ -839,13 +839,13 @@ class SumavaInitialProcessing:
             for item in list_of_files
             if item.suffix not in exclude
         ]
-        vanilla_paths = list_of_files + [
+        original_paths = list_of_files + [
             item
-            for sublist in vanilla_path_groups
+            for sublist in original_path_groups
             for item in sublist
             # if item.suffix.lower() not in exclude
         ]
-        return vanilla_paths
+        return original_paths
 
     def make_metadata_csv(self, path: Path):
         """Extract information based on filelist from prev step."""
@@ -875,14 +875,14 @@ class SumavaInitialProcessing:
 
         Returns
         -------
-        dataframe: DataFrame may contain vanilla_path and datetime column.
+        dataframe: DataFrame may contain original_path and datetime column.
         """
         output_dict = {}
-        output_dict["vanilla_path"] = self.get_paths_from_dir_parallel(mask, exclude)
+        output_dict["original_path"] = self.get_paths_from_dir_parallel(mask, exclude)
 
         if make_exifs:
             datetime_list, read_error_list, source_list = self.add_datetime_from_exif_in_parallel(
-                output_dict["vanilla_path"]
+                output_dict["original_path"]
             )
 
             output_dict["datetime"] = datetime_list
@@ -901,17 +901,17 @@ class SumavaInitialProcessing:
 
         return df
 
-    def add_datetime_from_exif_in_parallel(self, vanilla_paths: list):
+    def add_datetime_from_exif_in_parallel(self, original_paths: list):
         """Get list of datetimes from EXIF."""
         if self.num_cores > 1:
             datetime_list = Parallel(n_jobs=self.num_cores)(
-                delayed(get_datetime_from_exif)(self.dataset_basedir / vanilla_path)
-                for vanilla_path in tqdm(vanilla_paths, desc="getting EXIFs")
+                delayed(get_datetime_from_exif)(self.dataset_basedir / original_path)
+                for original_path in tqdm(original_paths, desc="getting EXIFs")
             )
         else:
             datetime_list = [
-                get_datetime_from_exif(self.dataset_basedir / vanilla_path)
-                for vanilla_path in tqdm(vanilla_paths, desc="getting EXIFs")
+                get_datetime_from_exif(self.dataset_basedir / original_path)
+                for original_path in tqdm(original_paths, desc="getting EXIFs")
             ]
 
         datetime_list, error_list, source_list = zip(*datetime_list)
@@ -921,11 +921,11 @@ class SumavaInitialProcessing:
 def add_column_with_lynx_id(df: pd.DataFrame, contain_identities: bool = False) -> pd.DataFrame:
     """Create column with lynx id based on directory structure."""
     if contain_identities:
-        df["unique_name"] = df["vanilla_path"].apply(get_lynx_id_as_parent_name)
+        df["unique_name"] = df["original_path"].apply(get_lynx_id_as_parent_name)
     else:
         # If we don't know about identity, we can check if the structure is similar to SUMAVA
         # Get ID of lynx from directories in basedir beside "TRIDENA" and "NETRIDENA"
-        df["unique_name"] = df["vanilla_path"].apply(get_lynx_id_in_sumava)
+        df["unique_name"] = df["original_path"].apply(get_lynx_id_in_sumava)
     return df
 
 
@@ -936,7 +936,7 @@ def extract_information_from_dir_structure(
 
     Parameters
     ----------
-    df_filelist: DataFrame with field 'vanilla_path'
+    df_filelist: DataFrame with field 'original_path'
 
     Returns
     -------
@@ -948,7 +948,7 @@ def extract_information_from_dir_structure(
     """
     data = dict(
         filename=[],
-        vanilla_path=[],
+        original_path=[],
         suffix=[],
         media_type=[],
         annotated=[],
@@ -966,8 +966,8 @@ def extract_information_from_dir_structure(
     species_substitution_czech = list(species_substitution_latin.czech_label)
     with logging_redirect_tqdm():
         for pthistr in tqdm(
-            list(df_filelist["vanilla_path"]),
-            # list(zip(list(df_filelist["vanilla_path"]), list(df_filelist["datetime"]))),
+            list(df_filelist["original_path"]),
+            # list(zip(list(df_filelist["original_path"]), list(df_filelist["datetime"]))),
             desc="general columns",
         ):
             pthir = Path(pthistr)
@@ -980,7 +980,7 @@ def extract_information_from_dir_structure(
                 media_type = "unknown"
             data["media_type"].append(media_type)
             data["filename"].append(pthir.name)
-            data["vanilla_path"].append(str(pthir))
+            data["original_path"].append(str(pthir))
             data["suffix"].append(pthir.suffix)
 
             if len(pthir.parts) < 3:
@@ -1147,7 +1147,7 @@ def find_unique_names_between_duplicate_files(
     basedir: Path
         Path to directory with dataset.
     metadata: pd.DataFrame
-        Metadata dataframe containing column "unique_name" and "vanilla_path".
+        Metadata dataframe containing column "unique_name" and "original_path".
     num_cores: int
         Number of cores to use.
 
@@ -1160,7 +1160,7 @@ def find_unique_names_between_duplicate_files(
 
     """
     hashes = hash_file_content_for_list_of_files(
-        basedir, metadata.vanilla_path, num_cores=num_cores
+        basedir, metadata.original_path, num_cores=num_cores
     )
     hashes = np.array(hashes)
     # metadata["content_hash"] = hashes
@@ -1294,7 +1294,7 @@ def data_preprocessing(
     df, duplicates = analyze_dataset_directory(
         tmp_dir, num_cores=num_cores, contains_identities=contains_identities
     )
-    # df["vanilla_path"].map(lambda fn: dataset_tools.make_hash(fn, prefix="media_data"))
+    # df["original_path"].map(lambda fn: dataset_tools.make_hash(fn, prefix="media_data"))
     df = make_dataset(
         dataframe=df,
         dataset_name=None,
