@@ -234,7 +234,7 @@ def do_cloud_import_for_user(self, caiduser_id: int):
     caiduser.dir_import_status = "Finished"
     caiduser.save()
 
-
+@shared_task(bind=True)
 def do_cloud_import_for_user_async(caiduser: CaIDUser):
     """Run cloud import asynchronously."""
     # sig = do_cloud_import_for_user.s(caiduser=caiduser)
