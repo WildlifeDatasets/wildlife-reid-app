@@ -401,16 +401,14 @@ class UploadedArchive(models.Model):
         status = self.taxon_status
 
         if status in ("TV", "TKN", "TAID"):
-            if self.count_of_mediafiles_with_unverified_taxon() == 0:
-                status = "TV"
-            elif status == "TV":
-                # someone unverified a file
-                status = "TKN"  # it will be rechecked on next lines
-
-            if self.count_of_mediafiles_with_missing_taxon() == 0:
-                status = "TKN"
-            elif status == "TKN":
-                # some taxons were removed
+            n_missing_taxon = self.count_of_mediafiles_with_missing_taxon()
+            n_unverified_taxon = self.count_of_mediafiles_with_unverified_taxon()
+            if n_missing_taxon == 0:
+                if n_unverified_taxon == 0:
+                    status = "TV"
+                else:
+                    status = "TKN"
+            else:
                 status = "TAID"
 
         if status in UA_STATUS_CHOICES_DICT:
@@ -453,6 +451,7 @@ class UploadedArchive(models.Model):
 
         if status == "F":
             status_style = "danger"
+
         elif status == "U":
             status_style = "warning"
         elif status == "IAIP":
