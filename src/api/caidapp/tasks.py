@@ -228,7 +228,7 @@ def do_cloud_import_for_user(self, caiduser: CaIDUser):
     caiduser.save()
 
 
-def do_cloud_import_async(caiduser: CaIDUser):
+def do_cloud_import_for_user_async(caiduser: CaIDUser):
     """Run cloud import asynchronously."""
     sig = do_cloud_import_for_user.s(caiduser=caiduser)
     # run async
@@ -1175,12 +1175,16 @@ def _iterate_over_location_checks(
         # remove extension if any
         pth_no_suffix = path_of_location_check.with_suffix("")
         # check if name is in format {location_name}_YYYY-MM-DD
-        match0 = re.match(r"([0-9]{4}-?[0-9]{2}-?[0-9]{2})_(.*)", pth_no_suffix.name)
+        # match0 = re.match(r"([0-9]{4}-?[0-9]{2}-?[0-9]{2})_(.*)", pth_no_suffix.name)
         match1 = re.match(r"[0-9]{4}-?[0-9]{2}-?[0-9]{2}", pth_no_suffix.parts[-2])
         match2 = re.match(r"([0-9]{4}-?[0-9]{2}-?[0-9]{2})", pth_no_suffix.parts[-1])
-        if match0 and is_first_level_dir:
-            date_str, location = match0.groups()
-            date = _ensure_date_format(date_str)
+
+        dt, loc = fs_data.get_date_and_location_from_filename(path_of_location_check)
+        if (loc is not None) and is_first_level_dir:
+
+            # date_str, location = match0.groups()
+            date = _ensure_date_format(dt)
+            location = loc
             # split name and date, date is in the end of the name in format YYYY-MM-DD,
             # location is in the beginning of dir or file name separated from date by underscore
             # date, location = pth_no_suffix.parts[-1].split("_", 1)

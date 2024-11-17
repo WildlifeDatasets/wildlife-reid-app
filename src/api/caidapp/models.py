@@ -431,6 +431,48 @@ class UploadedArchive(models.Model):
             self.save()
 
     def get_status(self) -> dict:
+        return self.format_status(self.taxon_status, self.status_message)
+
+    def get_identification_status(self) -> dict:
+        """Return short status message, long message and color-style for the status."""
+        # find 'F' in self.STATUS_CHOICES[]
+        status = self.identification_status
+        status_message = self.status_message
+        status_style = "dark"
+        if self.taxon_status == "TAID":  # "Taxons classified":
+            status_style = "dark"
+        elif self.taxon_status == "F":
+            status_style = "danger"
+        elif self.taxon_status == "TKN":
+            status_message = "All media files have taxon."
+            status_style = "secondary"
+        if self.taxon_status == "TV":
+            status_message = "All taxons are verified."
+            status_style = "secondary"
+
+
+        if status == "F":
+            status_style = "danger"
+        elif status == "U":
+            status_style = "warning"
+        elif status == "IAIP":
+            status_style = "secondary"
+        elif status == "IAID":
+            status_style = "primary"
+        elif status == "IAID":
+            status_style = "primary"
+
+        status = UA_STATUS_CHOICES_DICT.get(status, "Unknown")
+
+        return dict(
+            status=status,
+            status_message=status_message,
+            status_style=status_style,
+        )
+        return self.format_status(self.identification_status, self.self.status_message)
+
+
+    def get_status(self) -> dict:
         """Return short status message, long message and color-style for the status."""
         # find 'F' in self.STATUS_CHOICES[]
         status = self.taxon_status

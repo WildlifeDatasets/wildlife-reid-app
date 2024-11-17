@@ -1175,7 +1175,9 @@ def do_cloud_import_view(request):
     # get list of available localities
     caiduser = request.user.caiduser
 
-    tasks.do_cloud_import_for_user(caiduser)
+    tasks.do_cloud_import_for_user_async(caiduser)
+    # tasks.do_cloud_import_for_user(caiduser)
+
     return redirect("caidapp:cloud_import_preview")
 
 
@@ -1380,10 +1382,11 @@ def _mediafiles_query(
         # )
     logger.debug(f"{filter_kwargs=}")
     # order by mediafile__sequence__mediafile_set order by
+    order_by_safe = order_by if order_by[0] != "-" else order_by[1:]
     first_image_order_by = (
         mediafiles.filter(sequence=OuterRef('sequence'))
         .order_by(order_by)
-        .values(order_by)[:1]
+        .values(order_by_safe)[:1]
     )
 
     mediafiles = (

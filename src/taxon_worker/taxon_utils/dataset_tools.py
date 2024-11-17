@@ -181,7 +181,7 @@ def replace_colon_in_exif_datetime(exif_datetime: str) -> str:
     return replaced
 
 
-def get_datetime_from_exif(filename: Path) -> typing.Tuple[str, str, str]:
+def get_datetime_from_exif_or_ocr(filename: Path) -> typing.Tuple[str, str, str]:
     """Extract datetime from EXIF in file and check if image is ok.
 
     Parameters
@@ -258,19 +258,20 @@ def get_datetime_from_exif(filename: Path) -> typing.Tuple[str, str, str]:
             return "", str(e), ""
 
     if filename.exists() and read_error == "":
-        if dt_str == "":
-            try:
-                dt_str, dt_source = get_datetime_from_ocr(filename)
-                read_error = ""
-                opened_sucessfully = True
-            except Exception as e:
-                dt_str = ""
-                read_error = "OCR failed"
-
-                logger.warning(f"Error while reading OCR from {filename}")
-                logger.debug(e)
-                logger.debug(traceback.format_exc())
-                opened_with_fail = True
+        # TODO turn the OCR back on
+        # if dt_str == "":
+        #     try:
+        #         dt_str, dt_source = get_datetime_from_ocr(filename)
+        #         read_error = ""
+        #         opened_sucessfully = True
+        #     except Exception as e:
+        #         dt_str = ""
+        #         read_error = "OCR failed"
+        #
+        #         logger.warning(f"Error while reading OCR from {filename}")
+        #         logger.debug(e)
+        #         logger.debug(traceback.format_exc())
+        #         opened_with_fail = True
 
         if (dt_str == "") and (in_worst_case_dt is not None):
             dt_str = in_worst_case_dt
@@ -297,6 +298,8 @@ def get_datetime_exiftool(video_pth: Path, checked_keys: Optional[list]=None) ->
             "QuickTime:CreateDate",
             "EXIF:CreateDate",
             "EXIF:ModifyDate",
+            "EXIF:DateTimeOriginal",
+            "EXIF:DateTimeCreated",
             # "File:FileModifyDate",
         ]
     # files = [png", "c.tif"]
@@ -905,12 +908,12 @@ class SumavaInitialProcessing:
         """Get list of datetimes from EXIF."""
         if self.num_cores > 1:
             datetime_list = Parallel(n_jobs=self.num_cores)(
-                delayed(get_datetime_from_exif)(self.dataset_basedir / original_path)
+                delayed(get_datetime_from_exif_or_ocr)(self.dataset_basedir / original_path)
                 for original_path in tqdm(original_paths, desc="getting EXIFs")
             )
         else:
             datetime_list = [
-                get_datetime_from_exif(self.dataset_basedir / original_path)
+                get_datetime_from_exif_or_ocr(self.dataset_basedir / original_path)
                 for original_path in tqdm(original_paths, desc="getting EXIFs")
             ]
 

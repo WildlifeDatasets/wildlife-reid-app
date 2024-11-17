@@ -8,6 +8,7 @@ import cv2
 import pandas as pd
 import skimage.io
 import skimage.transform
+from typing import Tuple
 
 logger = logging.getLogger(__file__)
 
@@ -98,3 +99,43 @@ def count_files_in_archive(zip_path: Union[str, Path]) -> dict:
             ):
                 video_coung += 1
         return {"file_count": file_count, "image_count": image_count, "video_count": video_coung}
+
+def is_string_date(date: str) -> bool:
+    """Check if the string is a valid date.
+
+    The date should be in the format: "YYYY-MM-DD" or "YYYYMMDD".
+    """
+    if len(date) not in (8, 10):
+        return False
+    if len(date) == 10:
+        date = date.replace("-", "")
+    try:
+        year, month, day = int(date[:4]), int(date[4:6]), int(date[6:])
+        if year < 1900 or year > 2100 or month < 1 or month > 12 or day < 1 or day > 31:
+            return False
+        return True
+    except ValueError:
+        return False
+
+
+def get_date_and_location_from_filename(filename: Union[Path, str]) -> Tuple[str, str]:
+    """Extract date and location from the filename.
+
+    The filename should be in the format: "{date}_{location}.{ext}" or "{location}_{date}.{ext}".
+    The date should be in the format: "YYYY-MM-DD" or "YYYYMMDD".
+    """
+    filename = Path(filename).stem
+    date = None
+    location = None
+    parts = filename.split("_")
+    if len(parts) >= 2:
+        if is_string_date(parts[0]):
+            date = parts[0]
+            location = "_".join(parts[1:])
+        elif is_string_date(parts[-1]):
+            date = parts[-1]
+            location = "_".join(parts[:-1])
+
+    return date, location
+
+
