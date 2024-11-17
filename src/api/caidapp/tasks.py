@@ -166,8 +166,15 @@ def _prepare_dataframe_for_identification(mediafiles) -> dict:
 
 
 @shared_task(bind=True)
-def do_cloud_import_for_user(self, caiduser: CaIDUser):
+def do_cloud_import_for_user(self, caiduser_id: int):
     """Import files from cloud storage."""
+
+
+    from .models import CaIDUser
+
+    # Retrieve the CaIDUser instance
+    caiduser = CaIDUser.objects.get(id=caiduser_id)
+
     caiduser.dir_import_status = "Processing"
     caiduser.save()
     path = Path(caiduser.import_dir)
@@ -233,7 +240,7 @@ def do_cloud_import_for_user_async(caiduser: CaIDUser):
     # sig = do_cloud_import_for_user.s(caiduser=caiduser)
     # run async
     # sig.apply_async()
-    sig = signature("do_cloud_import_for_user", kwargs={"caiduser": caiduser})
+    sig = signature("do_cloud_import_for_user", kwargs={"caiduser": caiduser.id})
     sig.apply_async()
 
 
