@@ -230,8 +230,10 @@ def do_cloud_import_for_user(self, caiduser: CaIDUser):
 
 def do_cloud_import_for_user_async(caiduser: CaIDUser):
     """Run cloud import asynchronously."""
-    sig = do_cloud_import_for_user.s(caiduser=caiduser)
+    # sig = do_cloud_import_for_user.s(caiduser=caiduser)
     # run async
+    # sig.apply_async()
+    sig = signature("do_cloud_import_for_user", kwargs={"caiduser": caiduser})
     sig.apply_async()
 
 
