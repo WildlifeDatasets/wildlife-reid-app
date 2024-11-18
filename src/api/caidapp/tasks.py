@@ -175,8 +175,6 @@ def do_cloud_import_for_user(self, caiduser_id: int):
     # Retrieve the CaIDUser instance
     caiduser = CaIDUser.objects.get(id=caiduser_id)
 
-    caiduser.dir_import_status = "Processing"
-    caiduser.save()
     path = Path(caiduser.import_dir)
     imported_dir = path / "_trash_bin" / datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     imported_dir.mkdir(exist_ok=True, parents=True)
@@ -240,6 +238,8 @@ def do_cloud_import_for_user_async(caiduser: CaIDUser):
     # sig = do_cloud_import_for_user.s(caiduser=caiduser)
     # run async
     # sig.apply_async()
+    caiduser.dir_import_status = "Processing"
+    caiduser.save()
     sig = signature("caidapp.tasks.do_cloud_import_for_user", kwargs={"caiduser_id": caiduser.id})
     sig.apply_async()
 
