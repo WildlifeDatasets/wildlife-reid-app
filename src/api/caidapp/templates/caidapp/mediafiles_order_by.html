@@ -16,6 +16,8 @@
             <li><a class="dropdown-item" href="{% url 'caidapp:set_mediafiles_order_by'  'taxon_verified' %}">▲ Taxon overviewed </a></li>
             <li><a class="dropdown-item" href="{% url 'caidapp:set_mediafiles_order_by' '-taxon_verified_at' %}">▼ Taxon overviewed at </a></li>
             <li><a class="dropdown-item" href="{% url 'caidapp:set_mediafiles_order_by'  'taxon_verified_at' %}">▲ Taxon overviewed at </a></li>
+            <li><a class="dropdown-item" href="{% url 'caidapp:set_mediafiles_order_by' '-original_filename' %}">▼ File name </a></li>
+            <li><a class="dropdown-item" href="{% url 'caidapp:set_mediafiles_order_by'  'original_filename' %}">▲ File name</a></li>
         </ul>
     </div>
     {% endif %}
