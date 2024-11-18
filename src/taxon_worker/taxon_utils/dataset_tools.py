@@ -258,20 +258,19 @@ def get_datetime_from_exif_or_ocr(filename: Path) -> typing.Tuple[str, str, str]
             return "", str(e), ""
 
     if filename.exists() and read_error == "":
-        # TODO turn the OCR back on
-        # if dt_str == "":
-        #     try:
-        #         dt_str, dt_source = get_datetime_from_ocr(filename)
-        #         read_error = ""
-        #         opened_sucessfully = True
-        #     except Exception as e:
-        #         dt_str = ""
-        #         read_error = "OCR failed"
-        #
-        #         logger.warning(f"Error while reading OCR from {filename}")
-        #         logger.debug(e)
-        #         logger.debug(traceback.format_exc())
-        #         opened_with_fail = True
+        if dt_str == "":
+            try:
+                dt_str, dt_source = get_datetime_from_ocr(filename)
+                read_error = ""
+                opened_sucessfully = True
+            except Exception as e:
+                dt_str = ""
+                read_error = "OCR failed"
+
+                logger.warning(f"Error while reading OCR from {filename}")
+                logger.debug(e)
+                logger.debug(traceback.format_exc())
+                opened_with_fail = True
 
         if (dt_str == "") and (in_worst_case_dt is not None):
             dt_str = in_worst_case_dt
