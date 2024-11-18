@@ -550,6 +550,13 @@ class IndividualIdentity(models.Model):
     code = models.CharField(max_length=50, default=random_string12)
     juv_code = models.CharField("Juv. Code", max_length=50, default=random_string12)
     hash = models.CharField(max_length=50, blank=True)
+    birth_date = models.DateField("Birth date", blank=True, null=True)
+    death_date = models.DateField("Death date", blank=True, null=True)
+
+    def last_seen(self):
+        """Return last seen date."""
+        return MediaFile.objects.filter(identity=self).order_by("-captured_at").first().captured_at
+
 
     def count_of_representative_mediafiles(self):
         """Return number of representative media files."""
@@ -626,6 +633,7 @@ class MediaFile(models.Model):
     taxon_verified = models.BooleanField("Taxon verified", default=False)
     taxon_verified_at = models.DateTimeField("Taxon verified at", blank=True, null=True)
     sequence = models.ForeignKey(Sequence, on_delete=models.SET_NULL, null=True, blank=True)
+    note = models.TextField(blank=True, default="")
 
     class Meta:
         ordering = ["-identity_is_representative", "captured_at"]

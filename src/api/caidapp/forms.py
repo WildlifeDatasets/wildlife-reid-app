@@ -113,7 +113,7 @@ class UploadedArchiveFormWithTaxon(forms.ModelForm):
 class MediaFileForm(forms.ModelForm):
     class Meta:
         model = MediaFile
-        fields = ("category", "location", "identity", "captured_at", "taxon_verified")
+        fields = ("category", "location", "identity", "captured_at", "taxon_verified", "note")
 
 
 class MediaFileBulkForm(forms.ModelForm):
