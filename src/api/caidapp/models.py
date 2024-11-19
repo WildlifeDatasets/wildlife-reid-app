@@ -666,6 +666,10 @@ class MediaFile(models.Model):
             or ((self.category.name == "Animalia") and (self.taxon_verified is False))
         )
 
+    def is_consistenti_with_uploaded_archive_taxo_for_identification(self) -> bool:
+        """Return True if mediafile is consistent with uploaded archive taxo for identification."""
+        return self.category == self.parent.taxon_for_identification
+
 
 class AnimalObservation(models.Model):
     mediafile = models.ForeignKey(MediaFile, on_delete=models.CASCADE, null=True, blank=True)

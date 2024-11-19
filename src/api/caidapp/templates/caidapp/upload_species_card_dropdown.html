@@ -42,9 +42,13 @@
     <li><a class="dropdown-item"
            href="{% url 'caidapp:download_uploadedarchive_xlsx' uploadedarchive.id %}"><i
             class="fas fa-file-excel"></i> Download XLSX </a></li>
-    <li><a class="dropdown-item"
-           href="{% url 'caidapp:download_uploadedarchive_zip' uploadedarchive.id %}"><i
-            class="bi bi-archive"></i> Download images </a></li>
+{#    <li><a class="dropdown-item"#}
+{#           href="{% url 'caidapp:download_zip_for_mediafiles' uploadedarchive.id %}"><i#}
+{#            class="bi bi-archive"></i> Download media files 1</a></li>#}
+    <li><a class="dropdown-item download-mediafiles-button"
+           data-id="{{ uploadedarchive.id }}"
+           href="#"><i
+            class="bi bi-archive"></i> Download media files</a></li>
     <li>
         <a class="dropdown-item"
            href="{% url 'caidapp:select_taxon_for_identification' uploadedarchive.id %}">

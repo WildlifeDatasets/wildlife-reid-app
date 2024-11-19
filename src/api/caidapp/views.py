@@ -31,6 +31,8 @@ from django.template.loader import render_to_string
 from django.urls import reverse_lazy
 from django.views import View
 from django.db.models import OuterRef, Subquery
+from django.http import JsonResponse
+from celery.result import AsyncResult
 
 from . import forms, model_tools, models, tasks, views_uploads
 from .forms import (
@@ -1138,23 +1140,6 @@ def cloud_import_preview_view(request):
     )
 
 
-def make_zipfile(output_filename: Path, source_dir: Path):
-    """Make archive (zip, tar.gz) from a folder.
-
-    Parameters
-    ----------
-    output_filename: Path of output file
-    source_dir: Path to input directory
-    """
-    import shutil
-
-    output_filename = Path(output_filename)
-    source_dir = Path(source_dir)
-    archive_type = "zip"
-
-    shutil.make_archive(
-        output_filename.parent / output_filename.stem, archive_type, root_dir=source_dir
-    )
 
 
 @login_required
@@ -2049,7 +2034,7 @@ def download_uploadedarchive_csv(request, uploadedarchive_id: int):
         return redirect("/caidapp/uploads")
 
 
-def _get_mediafiles(request, uploadedarchive_id: Optional[int]):
+def _get_mediafiles(request, uploadedarchive_id: Optional[int]) -> Tuple[QuerySet, Optional[str]]:
     """Get mediafiles based on uploadedarchive_id or session."""
     name_suggestion = None
     if uploadedarchive_id is not None:
@@ -2118,38 +2103,85 @@ def download_xlsx_for_mediafiles_view(request, uploadedarchive_id: Optional[int]
     return response
 
 
-def download_zip_for_mediafiles_view(request, uploadedarchive_id: Optional[int] = None):
+def download_zip_for_mediafiles_view(request, uploadedarchive_id: Optional[int] = None) -> JsonResponse:
     """Download zip for media files."""
     mediafiles, name_suggestion = _get_mediafiles(request, uploadedarchive_id)
     fn = ("mediafiles_" + name_suggestion) if name_suggestion is not None else "mediafiles"
     # number_of_mediafiles = len(mediafiles)
+    logger.debug(f"{len(mediafiles)=}")
 
+    user_hash = request.user.caiduser.hash
     abs_zip_path = (
-        Path(settings.MEDIA_ROOT) / "users" / request.user.caiduser.hash / "mediafiles.zip"
+            Path(settings.MEDIA_ROOT) / "users" / request.user.caiduser.hash / "mediafiles.zip"
     )
-    abs_zip_path.parent.mkdir(parents=True, exist_ok=True)
-    # get temp dir
-    import tempfile
 
-    with tempfile.TemporaryDirectory() as tmpdirname:
-        mediafiles_dir = Path(tmpdirname) / "images"
-        mediafiles_dir.mkdir()
-        for mediafile in mediafiles:
-            # output_name = Path(mediafile.mediafile.name).name
-            output_name = _make_output_name(mediafile)
-            # get mediafile name with suffix
-            src = Path(settings.MEDIA_ROOT) / mediafile.mediafile.name
-            dst = mediafiles_dir / output_name
-            logger.debug(f"{src=}, {dst=}")
-            assert src.exists()
-            shutil.copy(src, dst)
-        make_zipfile(abs_zip_path, mediafiles_dir)
-    with open(abs_zip_path, "rb") as fh:
-        response = HttpResponse(fh.read(), content_type="application/zip")
-        response["Content-Disposition"] = f"inline; filename={fn}.zip"
-        return response
+    # Prepare the mediafiles list for serialization (e.g., paths and output names)
+    mediafiles_data = [
+        {"path": mf.mediafile.name, "output_name": _make_output_name(mf)} for mf in mediafiles
+    ]
 
-    return Http404
+    # Start the Celery task
+    task = tasks.create_mediafiles_zip.delay(user_hash, mediafiles_data, str(abs_zip_path))
+
+    # Return the task ID so the frontend can poll for completion
+    return JsonResponse({"task_id": task.id})
+
+
+# def download_zip_for_mediafiles_view_old(request, uploadedarchive_id: Optional[int] = None):
+#     """Download zip for media files."""
+#     mediafiles, name_suggestion = _get_mediafiles(request, uploadedarchive_id)
+#     fn = ("mediafiles_" + name_suggestion) if name_suggestion is not None else "mediafiles"
+#     # number_of_mediafiles = len(mediafiles)
+#
+#     abs_zip_path = (
+#         Path(settings.MEDIA_ROOT) / "users" / request.user.caiduser.hash / "mediafiles.zip"
+#     )
+#     abs_zip_path.parent.mkdir(parents=True, exist_ok=True)
+#     # get temp dir
+#     import tempfile
+#
+#     with tempfile.TemporaryDirectory() as tmpdirname:
+#         mediafiles_dir = Path(tmpdirname) / "images"
+#         mediafiles_dir.mkdir()
+#         for mediafile in mediafiles:
+#             # output_name = Path(mediafile.mediafile.name).name
+#             output_name = _make_output_name(mediafile)
+#             # get mediafile name with suffix
+#             src = Path(settings.MEDIA_ROOT) / mediafile.mediafile.name
+#             dst = mediafiles_dir / output_name
+#             logger.debug(f"{src=}, {dst=}")
+#             assert src.exists()
+#             shutil.copy(src, dst)
+#         tasks.make_zipfile(abs_zip_path, mediafiles_dir)
+#     with open(abs_zip_path, "rb") as fh:
+#         response = HttpResponse(fh.read(), content_type="application/zip")
+#         response["Content-Disposition"] = f"inline; filename={fn}.zip"
+#         return response
+#
+#     return Http404
+
+def check_zip_status_view(request, task_id):
+    """Check the status of the zip creation task."""
+
+    # find task based on task_id
+    task = AsyncResult(task_id)
+    logger.debug(f"{task.state=}")
+    if task.state == "SUCCESS":
+        # Task is complete, return the download link
+        # download_url = f"/media/users/{request.user.caiduser.hash}/mediafiles.zip"
+        download_url = f"{settings.MEDIA_URL}users/{request.user.caiduser.hash}/mediafiles.zip"
+        logger.debug(f"{download_url=}")
+        # download_url = request.build_absolute_uri(download_url)
+        # logger.debug(f"{download_url=}")
+
+        return JsonResponse({"status": "ready", "download_url": download_url})
+
+    elif task.state == "PENDING":
+        return JsonResponse({"status": "pending"})
+    elif task.state == "FAILURE":
+        return JsonResponse({"status": "error", "message": str(task.result)})
+    return JsonResponse({"status": task.state})
+
 
 
 def _make_output_name(mediafile: models.MediaFile):

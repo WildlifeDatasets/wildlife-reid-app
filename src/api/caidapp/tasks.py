@@ -9,6 +9,7 @@ import subprocess
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Generator
+import tempfile
 
 import django
 import numpy as np
@@ -243,6 +244,39 @@ def do_cloud_import_for_user_async(caiduser: CaIDUser):
     sig = signature("caidapp.tasks.do_cloud_import_for_user", kwargs={"caiduser_id": caiduser.id})
     sig.apply_async()
 
+@shared_task
+def create_mediafiles_zip(user_hash, mediafiles, abs_zip_path):
+    """Create a zip file for media files in the background."""
+    abs_zip_path = Path(abs_zip_path)
+    abs_zip_path.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        mediafiles_dir = Path(tmpdirname) / "images"
+        mediafiles_dir.mkdir()
+        for mediafile in mediafiles:
+            src = Path(settings.MEDIA_ROOT) / mediafile["path"]
+            dst = mediafiles_dir / mediafile["output_name"]
+            shutil.copy(src, dst)
+        # Assume `make_zipfile` is your custom function to create a zip
+        make_zipfile(abs_zip_path, mediafiles_dir)
+    return str(abs_zip_path)
+
+def make_zipfile(output_filename: Path, source_dir: Path):
+    """Make archive (zip, tar.gz) from a folder.
+
+    Parameters
+    ----------
+    output_filename: Path of output file
+    source_dir: Path to input directory
+    """
+    import shutil
+
+    output_filename = Path(output_filename)
+    source_dir = Path(source_dir)
+    archive_type = "zip"
+
+    shutil.make_archive(
+        output_filename.parent / output_filename.stem, archive_type, root_dir=source_dir
+    )
 
 def run_detection_async(uploaded_archive: UploadedArchive, link=None, link_error=None):
     """Run detection and mask preparation on UploadedArchive."""

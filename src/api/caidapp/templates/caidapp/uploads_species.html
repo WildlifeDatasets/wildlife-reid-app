@@ -288,3 +288,10 @@
         </section>
     {% endif %}
 {% endblock %}
+
+{% block script %}
+
+    {#    The download of mediafiles  #}
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'caidapp/download_button.js' %}"></script>
+{% endblock %}

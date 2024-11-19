@@ -180,8 +180,11 @@
                                         </a>
                                     </li>
                                     <li>
-                                        <a class="dropdown-item" href="{% url 'caidapp:download_zip_for_mediafiles' %}">
-                                            <i class="bi bi-archive"></i> Download ZIP
+                                        <a class="dropdown-item download-mediafiles-button"
+                                             href="#"
+{#                                           href="{% url 'caidapp:download_zip_for_mediafiles' %}"#}
+                                           >
+                                            <i class="bi bi-archive"></i> Download media files
                                         </a>
 
                                     </li>
@@ -376,6 +379,15 @@
                                                     Is it {{ mediafile.instance.predicted_taxon  }} ({{ mediafile.instance.predicted_taxon_confidence|mul:100|floor|floatformat:0 }}%) ?
                                                     <a href="#" class="btn btn-secondary confirm-prediction" data-id="{% url 'caidapp:confirm_prediction' mediafile.instance.id %}">Confirm</a>
                                                 {% endif %}
+                                                {% if mediafile.instance.parent.contains_single_taxon %}
+                                                    {% if mediafile.instance.is_for_suggestion %}
+                                                        <br>
+                                                        <i class="bi bi-question-circle"></i>
+                                                        Is it really {{ mediafile.parent.taxon_for_identification }} ?
+                                                        <a href="#" class="btn btn-secondary confirm-prediction" data-id="{% url 'caidapp:confirm_prediction' mediafile.instance.id %}">Confirm</a>
+                                                    {% endif %}
+                                                {% endif %}
+
                                                 <br>
                                         {% endif %}
                                         {% if mediafile.location %}
@@ -561,4 +573,10 @@
         });
     });
 </script>
+{% endblock %}
+
+{% block script %}
+{#    The download of mediafiles  #}
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'caidapp/download_button.js' %}"></script>
 {% endblock %}

@@ -207,6 +207,11 @@ urlpatterns = [
         name="download_zip_for_mediafiles",
     ),
     path(
+        "download_zip_for_mediafiles/<int:uploadedarchive_id>/",
+        views.download_zip_for_mediafiles_view,
+        name="download_zip_for_mediafiles",
+    ),
+    path(
         "download_xlsx_for_mediafiles/",
         views.download_xlsx_for_mediafiles_view,
         name="download_xlsx_for_mediafiles",
@@ -221,11 +226,7 @@ urlpatterns = [
         views.download_xlsx_for_mediafiles_view,
         name="download_uploadedarchive_xlsx",
     ),
-    path(
-        "download_uploadedarchive_zip/<int:uploadedarchive_id>",
-        views.download_zip_for_mediafiles_view,
-        name="download_uploadedarchive_zip",
-    ),
+    path("check_zip_status/<str:task_id>/", views.check_zip_status_view, name="check_zip_status"),
     path("mediafiles_stats/", views.mediafiles_stats_view, name="mediafiles_stats"),
     path(
         "change_mediafiles_datetime",
