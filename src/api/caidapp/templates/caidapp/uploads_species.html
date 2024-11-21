@@ -218,8 +218,17 @@
                             <div class="card"
                             >
                                     <div class="card-img-wrapper">
+{##}
+{#                                        <a href="{% url 'caidapp:media_file_update' mediafile.instance.id %}">#}
+{#                                            <img class="card-img-top" src="{{ mediafile.instance.thumbnail.url }}"#}
+{#                                                 alt="Camera trap">#}
+{#                                        </a>#}
+{##}
+{##}
                                         {% if uploadedarchive.thumbnail %}
-                                            <img class="card-img-top" src="{{ uploadedarchive.thumbnail.url }}" alt="Camera trap check representative">
+                                            <a href="{% url 'caidapp:uploadedarchive_mediafiles' uploadedarchive.id %}">
+                                                <img class="card-img-top" src="{{ uploadedarchive.thumbnail.url }}" alt="Camera trap check representative">
+                                            </a>
                                         {%  else %}
                                              <div class="card-img-placeholder"></div>
                                         {% endif %}

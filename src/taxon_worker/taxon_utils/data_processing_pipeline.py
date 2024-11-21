@@ -392,10 +392,10 @@ def make_previews(metadata, output_dir, preview_width=1200):
 
         if row["media_type"] == "image":
             # preview_rel_pth = os.path.relpath(preview_abs_pth, settings.MEDIA_ROOT)
-            logger.debug(f"Creating preview for {mediafile_path}")
+            # logger.debug(f"Creating preview for {mediafile_path}")
             make_thumbnail_from_file(mediafile_path, preview_abs_pth, width=preview_width)
         elif row["media_type"] == "video":
-            logger.debug(f"Creating preview for {mediafile_path}")
+            # logger.debug(f"Creating preview for {mediafile_path}")
             convert_to_mp4(mediafile_path, preview_abs_pth)
 
     return metadata
@@ -412,11 +412,10 @@ def make_thumbnail_from_file(image_path: Path, thumbnail_path: Path, width: int 
         image = skimage.io.imread(image_path)
         scale = float(width) / image.shape[1]
         scale = [scale, scale, 1]
-        # TODO use opencv to resize image
         image_rescaled = cv2.resize(image, (0, 0), fx=scale[0], fy=scale[1])
         # image_rescaled = skimage.transform.rescale(image, scale=scale, anti_aliasing=True)
         # image_rescaled = (image_rescaled * 255).astype(np.uint8)
-        logger.info(f"{image_rescaled.shape=}, {image_rescaled.dtype=}")
+        # logger.info(f"{image_rescaled.shape=}, {image_rescaled.dtype=}")
         thumbnail_path.parent.mkdir(exist_ok=True, parents=True)
         if thumbnail_path.suffix.lower() in (".jpg", ".jpeg"):
             quality = 85
