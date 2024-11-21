@@ -1645,6 +1645,8 @@ def media_files_update(
         # datetime format YYYY-MM-DD HH:MM:SS
         if uploaded_archive.location_check_at is not None:
             location_check_at = " - " + uploaded_archive.location_check_at.strftime("%Y-%m-%d %H:%M:%S")
+        else:
+            location_check_at = ""
         page_title = f"Media files - {uploaded_archive.location_at_upload}{location_check_at}"
 
     elif album_hash is not None:
