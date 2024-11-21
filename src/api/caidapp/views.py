@@ -1668,9 +1668,12 @@ def media_files_update(
             #     # do subscribe
             #     elif 'newsletter_unsub' in self.data:
             selected_album_hash = form.data["selectAlbum"]
+
+            select_all = True if form.data.get("select_all", '') == "on" else False
+            logger.debug(f"{select_all=}")
             for mediafileform in form:
                 if mediafileform.is_valid():
-                    if mediafileform.cleaned_data["selected"]:
+                    if mediafileform.cleaned_data["selected"] or select_all:
                         logger.debug("mediafileform is valid")
                         # reset selected field for refreshed view
                         mediafileform.cleaned_data["selected"] = False

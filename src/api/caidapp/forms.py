@@ -117,6 +117,7 @@ class MediaFileForm(forms.ModelForm):
 
 
 class MediaFileBulkForm(forms.ModelForm):
+    # select_all = forms.BooleanField(required=False)
     class Meta:
         model = MediaFile
         fields = ("category", "identity", "identity_is_representative", "taxon_verified")
@@ -127,7 +128,9 @@ class MediaFileBulkForm(forms.ModelForm):
 
 
 class MediaFileSelectionForm(forms.ModelForm):
-    selected = forms.BooleanField(initial=False, required=False)
+    selected = forms.BooleanField(
+        widget=forms.CheckboxInput(attrs={"class": "select-mediafile-checkbox"}), initial=False, required=False,
+    )
 
     class Meta:
         model = MediaFile

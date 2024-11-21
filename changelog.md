@@ -7,6 +7,8 @@
 
 * [added] Extend sequence of media files
 * [changed] Order media files in sequence together
+* [added] Download media files on background
+* [added] Select all media files on the page, or in the selection
 
 ## 10-2024
 

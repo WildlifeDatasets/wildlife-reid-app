@@ -221,6 +221,12 @@
                                             </p>
 
                                         {% endfor %}
+                                        <p> Select all:
+{#                                            show alert if checkbox is selected #}
+                                            <input type="checkbox" id="select_all" name="select_all" onclick="return confirm('{{ page_obj.paginator.count }} media files selected for bulk processing.')">
+                                            Select all the page:
+                                            <input type="checkbox" id="select_all_the_page" name="select_all_the_page" >
+                                        </p>
                                         <label for="cars">Album:</label>
 
                                         <select name="selectAlbum" id="selectAlbum">
@@ -579,4 +585,11 @@
 {#    The download of mediafiles  #}
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="{% static 'caidapp/download_button.js' %}"></script>
+    <script>
+        // Select all checkboxes by clicking on the checkbox in the header
+        $(document).on("click", "#select_all_the_page", function(event) {
+            var checked = $(this).prop("checked");
+            $(".select-mediafile-checkbox").prop("checked", checked);
+        });
+    </script>
 {% endblock %}

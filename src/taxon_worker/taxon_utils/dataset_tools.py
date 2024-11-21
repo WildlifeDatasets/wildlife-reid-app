@@ -300,6 +300,7 @@ def get_datetime_exiftool(video_pth: Path, checked_keys: Optional[list]=None) ->
             "EXIF:DateTimeOriginal",
             "EXIF:DateTimeCreated",
             # "File:FileModifyDate",
+            # "File:FileCreateDate",
         ]
     # files = [png", "c.tif"]
     files = [video_pth]
