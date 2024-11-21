@@ -1640,6 +1640,28 @@ def media_files_update(
         filter_kwargs=filter_kwargs,
         exclude_filter_kwargs=exclude_filter_kwargs,
     )
+    if uploadedarchive_id is not None:
+        uploaded_archive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
+        # datetime format YYYY-MM-DD HH:MM:SS
+        if uploaded_archive.location_check_at is not None:
+            location_check_at = " - " + uploaded_archive.location_check_at.strftime("%Y-%m-%d %H:%M:%S")
+        page_title = f"Media files - {uploaded_archive.location_at_upload}{location_check_at}"
+
+    elif album_hash is not None:
+        album = get_object_or_404(Album, hash=album_hash)
+        page_title = f"Media files - {album.name}"
+    elif individual_identity_id is not None:
+        individual_identity = get_object_or_404(IndividualIdentity, pk=individual_identity_id)
+        page_title = f"Media files - {individual_identity.name}"
+    elif taxon_id is not None:
+        taxon = get_object_or_404(Taxon, pk=taxon_id)
+        page_title = f"Media files - {taxon.name}"
+    elif location_hash is not None:
+        location = get_object_or_404(Location, hash=location_hash)
+        page_title = f"Media files - {location.name}"
+    else:
+        page_title = "Media files"
+
     number_of_mediafiles = len(full_mediafiles)
 
     request.session["mediafile_ids"] = list(full_mediafiles.values_list("id", flat=True))
@@ -1765,7 +1787,7 @@ def media_files_update(
             # "elided_page_range": elided_page_range,
             **page_context,
             "form_objects": form,
-            "page_title": "Media files",
+            "page_title": page_title,
             "user_is_staff": request.user.is_staff,
             "form_bulk_processing": form_bulk_processing,
             "form_query": queryform,
