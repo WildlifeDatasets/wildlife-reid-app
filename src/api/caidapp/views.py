@@ -712,7 +712,7 @@ def run_taxon_classification_force_init(request, uploadedarchive_id):
 def run_taxon_classification(request, uploadedarchive_id, force_init=False):
     """Run processing of uploaded archive."""
     uploaded_archive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
-    run_species_prediction_async(uploaded_archive, force_init=force_init)
+    run_species_prediction_async(uploaded_archive, force_init=force_init, extract_identites=uploaded_archive.contains_identities)
     # next_page = request.GET.get("next", "/caidapp/uploads")
     # return redirect(next_page)
     return redirect(request.META.get("HTTP_REFERER", "/"))
