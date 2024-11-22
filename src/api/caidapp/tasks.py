@@ -438,6 +438,7 @@ def _run_taxon_classification_init_message(uploaded_archive: UploadedArchive, co
     )
     logger.debug(f"{expected_time_message=}")
     uploaded_archive.taxon_status = "TAIP"
+    uploaded_archive.identification_status = "TAIP"
     uploaded_archive.status_message = "Processing will be done " + expected_time_message
 
     if commit:
@@ -475,7 +476,7 @@ def _estimate_time_for_taxon_classification_of_uploaded_archive(
     time_to_process = datetime.timedelta(seconds=10) + (
         (time_per_image * image_count) + (time_per_video * video_count)
     )
-    logger.debug(f"{time_to_process=}")
+    logger.debug(f"{time_to_process=}, {file_count_dict=}")
     return time_to_process
 
 

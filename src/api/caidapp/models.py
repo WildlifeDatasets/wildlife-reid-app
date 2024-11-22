@@ -858,7 +858,7 @@ def get_mediafiles_with_missing_taxon(
         parent__contains_single_taxon=False,
         **kwargs,
     )
-    logger.debug(f"{mediafiles.count()=}")
+    # logger.debug(f"{mediafiles.count()=}")
     return mediafiles
 
 
