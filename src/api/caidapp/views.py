@@ -850,7 +850,7 @@ def run_identification_on_unidentified(request):
     """Run identification in all uploaded archives."""
     uploaded_archives = UploadedArchive.objects.filter(
         owner__workgroup=request.user.caiduser.workgroup,
-        status="Taxon classification finished",
+        identification_status="IR",  # Ready for identification
         # contains_single_taxon=True,
         taxon_for_identification__isnull=False,
         contains_identities=False,
@@ -880,6 +880,7 @@ def _run_identification(uploaded_archive: UploadedArchive, taxon_str="Lynx lynx"
     logger.debug(f"Generating CSV for init_identification with {len(mediafiles)} records...")
     # csv_len = len(mediafiles)
     # csv_data = {"image_path": [None] * csv_len, "mediafile_id": [None] * csv_len}
+    uploaded_archive.identification_status = "IAIP"
 
     csv_data = _prepare_dataframe_for_identification(mediafiles)
     media_root = Path(settings.MEDIA_ROOT)
@@ -1890,6 +1891,7 @@ def select_taxon_for_identification(request, uploadedarchive_id: int):
         if form.is_valid():
             taxon = form.cleaned_data["taxon_for_identification"]
             uploaded_archive.taxon_for_identification = taxon
+            uploaded_archive.identification_status = "IR"  # Ready for identification
             uploaded_archive.save()
             return redirect("caidapp:uploads_identities")
     else:

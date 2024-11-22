@@ -70,6 +70,11 @@ class WorkGroup(models.Model):
         max_length=255, blank=True, default="Not initiated"
     )
     identification_init_message = models.TextField(blank=True, default="")
+    identification_reid_at = models.DateTimeField("Identification reid at", blank=True, null=True)
+    identification_reid_status = models.CharField(
+        max_length=255, blank=True, default="Not initiated"
+    )
+    identification_reid_message = models.TextField(blank=True, default="")
 
     def __str__(self):
         return str(self.name)

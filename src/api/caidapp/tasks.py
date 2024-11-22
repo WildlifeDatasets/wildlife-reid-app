@@ -10,6 +10,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Generator
 import tempfile
+import traceback
 
 import django
 import numpy as np
@@ -82,6 +83,7 @@ def predict_species_on_success(
     if "status" not in output:
         logger.critical(f"Unexpected error {output=} is missing 'status' field.")
         uploaded_archive.taxon_status = "U"
+        uploaded_archive.identification = "U"
     elif output["status"] == "DONE":
         uploaded_archive.zip_file = zip_file
         uploaded_archive.csv_file = csv_file
@@ -95,6 +97,7 @@ def predict_species_on_success(
         )
         uploaded_archive.mediafiles_imported = True
         uploaded_archive.taxon_status = "TAID"
+        uploaded_archive.identification_status = "IR"  # Ready for identification
         uploaded_archive.status_message = "Taxon classification finished."
         uploaded_archive.finished_at = django.utils.timezone.now()
         uploaded_archive.save()
@@ -103,6 +106,7 @@ def predict_species_on_success(
         run_detection_async(uploaded_archive)
     else:
         uploaded_archive.taxon_status = "F"
+        uploaded_archive.identification_status = "F"
         uploaded_archive.finished_at = django.utils.timezone.now()
         if "error" in output:
             logger.error(f"{output['error']=}")
@@ -1049,48 +1053,59 @@ def identify_on_success(self, output: dict, *args, **kwargs):
 
     uploaded_archive_id: int = kwargs.pop("uploaded_archive_id")
     uploaded_archive = UploadedArchive.objects.get(id=uploaded_archive_id)
-    uploaded_archive.identification_status = "IAID"
+    # uploaded_archive.identification_status = "IAID"
     uploaded_archive.save()
 
-    if "status" not in output:
-        msg = f"Unexpected error {output=} is missing 'status' field."
-        logger.critical(msg)
-        uploaded_archive.identification_status = "U"
-        uploaded_archive.identification_message = msg
-        uploaded_archive.save()
+    try:
+        if "status" not in output:
+            msg = f"Unexpected error {output=} is missing 'status' field."
+            logger.critical(msg)
+            uploaded_archive.identification_status = "U"
+            uploaded_archive.identification_message = msg
+            uploaded_archive.save()
 
-        # TODO - should the app return some error response to the user?
-    elif output["status"] == "DONE":
-        # load output file
-        output_json_file = output["output_json_file"]
-        with open(output_json_file, "r") as f:
-            data = json.load(f)
-        # logger.trace(f"Loaded output data: {data=}")
-        assert "mediafile_ids" in data
-        assert "pred_image_paths" in data
-        assert "pred_class_ids" in data
-        assert "pred_labels" in data
-        assert "scores" in data
-        assert "keypoints" in data
+            # TODO - should the app return some error response to the user?
+        elif output["status"] == "DONE":
+            # load output file
+            output_json_file = output["output_json_file"]
+            with open(output_json_file, "r") as f:
+                data = json.load(f)
+            # logger.trace(f"Loaded output data: {data=}")
+            assert "mediafile_ids" in data
+            assert "pred_image_paths" in data
+            assert "pred_class_ids" in data
+            assert "pred_labels" in data
+            assert "scores" in data
+            assert "keypoints" in data
 
-        media_root = Path(settings.MEDIA_ROOT)
+            media_root = Path(settings.MEDIA_ROOT)
 
-        mediafile_ids = data["mediafile_ids"]
-        len_mediafile_ids = len(mediafile_ids)
-        for i, mediafile_id in enumerate(mediafile_ids):
+            mediafile_ids = data["mediafile_ids"]
+            len_mediafile_ids = len(mediafile_ids)
+            for i, mediafile_id in enumerate(mediafile_ids):
 
-            _prepare_mediafile_for_identification(data, i, media_root, mediafile_id)
+                _prepare_mediafile_for_identification(data, i, media_root, mediafile_id)
 
-        uploaded_archive.identification_status = "IAID"
-        uploaded_archive.status_message = f"Identification suggestions ready for {len_mediafile_ids} media files."
-        uploaded_archive.save()
-        logger.debug("Identication suggestions done.")
+            uploaded_archive.identification_status = "IAID"
+            uploaded_archive.status_message = f"Identification suggestions ready for {len_mediafile_ids} media files."
+            uploaded_archive.save()
+            logger.debug("Identication suggestions done.")
 
-    else:
-        # identification failed
+        else:
+            # identification failed
+            uploaded_archive.identification_status = "F"
+            uploaded_archive.status_message = "Identification failed."
+            uploaded_archive.save()
+            logger.debug(f"{output=}")
+            logger.error("Identification failed.")
+
+    except Exception as e:
         uploaded_archive.identification_status = "F"
+        uploaded_archive.status_message = f"Error during identification. {str(e)}"
         uploaded_archive.save()
-        logger.error("Identification failed.")
+        logger.error(f"Error during identification: {e}")
+        logger.error(traceback.format_exc())
+
 
         # TODO - should the app return some error response to the user?
 
@@ -1161,7 +1176,7 @@ def _prepare_mediafile_for_identification(data, i, media_root, mediafile_id):
 
         # new processing
         # delete mediafile suggestions related to mediafile for identification - mfi
-        models.MediafileIdentificationSuggestions.objects.filter(mediafile_for_identification=mfi).delete()
+        models.MediafileIdentificationSuggestion.objects.filter(for_identification=mfi).delete()
 
         # top_k_class_ids = data["pred_class_ids"][i]
         # top_k_labels = data["pred_labels"][i]
@@ -1184,7 +1199,7 @@ def _prepare_mediafile_for_identification(data, i, media_root, mediafile_id):
                     f"Identity name mismatch: {identity.name} != {top_name} for {unknown_mediafile=}"
                 )
 
-            mfi_suggestion = models.MediafileIdentificationSuggestions(
+            mfi_suggestion = models.MediafileIdentificationSuggestion(
                 for_identification=mfi,
                 mediafile=top_mediafile,
                 identity=identity,
@@ -1229,6 +1244,7 @@ def _find_mediafiles_for_identification(
     :param mediafile_paths: List of paths of mediafiles to identify.
     :return: MediafilesForIdentification object.
     """
+    pass
 
 
 def _ensure_date_format(date_str: str) -> str:
