@@ -461,7 +461,7 @@ def predict(
             else:
                 logger.debug(f"Starting identification with: {len(metadata)} query files.")
                 # estimate sequence id
-                if "location_name" in metadata:
+                if ("sequence_number" not in metadata) and ("location_name" in metadata):
                     metadata["location"] = metadata["location_name"]
                     metadata = extend_df_with_datetime(metadata)
                     metadata = extend_df_with_sequence_id(metadata, sequence_time)

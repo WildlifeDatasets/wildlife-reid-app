@@ -8,6 +8,7 @@ import torch
 
 logger = logging.getLogger()
 
+
 def get_torch_cuda_device_if_available(device: Union[int, str] = 0) -> torch.device:
     """Set device if available."""
     logger.debug(f"requested device: {device}")
@@ -46,6 +47,7 @@ def get_ram():
 
 def get_vram(device: Optional[torch.device] = None):
     """Get visualized VRAM usage in GB."""
+    device = get_torch_cuda_device_if_available(device)
     device = device if device else torch.cuda.current_device()
     if torch.device(device).type == "cpu":
         return "No GPU available"
@@ -74,8 +76,11 @@ def wait_for_gpu_memory(required_memory_gb: float = 1.0, device: Union[int, str]
     if device.type == "cpu":
         logger.debug("No need to wait for CPU")
         return
-    while torch.cuda.mem_get_info(device)[0] / 1024**3 < required_memory_gb:
-        logger.info(f"Waiting for {required_memory_gb} GB of GPU memory. " + get_vram(device))
+    used_memory_gb = torch.cuda.mem_get_info(device)[0] / 1024**3
+    available_memory_gb = torch.cuda.mem_get_info(device)[1] / 1024**3
+    free_memory_gb = available_memory_gb - used_memory_gb
+    while free_memory_gb < required_memory_gb:
+        logger.debug(f"Waiting for {required_memory_gb} GB of GPU memory. " + get_vram(device))
         torch.cuda.empty_cache()
         torch.cuda.synchronize()
         time.sleep(5)

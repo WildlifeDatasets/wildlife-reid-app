@@ -20,6 +20,7 @@ from django.conf import settings
 from . import fs_data, model_tools, views
 from .fs_data import make_thumbnail_from_file
 from .log_tools import StatusCounts
+from . import models
 from .models import (
     CaIDUser,
     IndividualIdentity,
@@ -1075,13 +1076,15 @@ def identify_on_success(self, output: dict, *args, **kwargs):
         media_root = Path(settings.MEDIA_ROOT)
 
         mediafile_ids = data["mediafile_ids"]
+        len_mediafile_ids = len(mediafile_ids)
         for i, mediafile_id in enumerate(mediafile_ids):
 
             _prepare_mediafile_for_identification(data, i, media_root, mediafile_id)
 
         uploaded_archive.identification_status = "IAID"
+        uploaded_archive.status_message = f"Identification suggestions ready for {len_mediafile_ids} media files."
         uploaded_archive.save()
-        logger.debug("identify done.")
+        logger.debug("Identication suggestions done.")
 
     else:
         # identification failed
@@ -1094,72 +1097,121 @@ def identify_on_success(self, output: dict, *args, **kwargs):
 
 def _prepare_mediafile_for_identification(data, i, media_root, mediafile_id):
     """Prepare media files for i-th queried image."""
-    top_k_class_ids = data["pred_class_ids"][i]
-    top_k_labels = data["pred_labels"][i]
-    top_k_paths = data["pred_image_paths"][i]
-    top_k_scores = data["scores"][i]
-    mediafile = MediaFile.objects.get(id=mediafile_id)
-    if (top_k_scores[0]) > settings.IDENTITY_MANUAL_CONFIRMATION_THRESHOLD:
+    reid_top_k_class_ids = data["pred_class_ids"][i]
+    reid_top_k_labels = data["pred_labels"][i]
+    reid_top_k_image_paths = data["pred_image_paths"][i]
+    reid_top_k_scores = data["scores"][i]
+    unknown_mediafile = MediaFile.objects.get(id=mediafile_id)
 
-        identity_id = top_k_class_ids[0]  # top-1
-        mediafile.identity = IndividualIdentity.objects.get(id=identity_id)
+    # update mediafile.metadata_json (model.JsonField) with the new data
+    metadata_json = unknown_mediafile.metadata_json
+    metadata_json["reid_top_k_class_ids"] = reid_top_k_class_ids
+    metadata_json["reid_top_k_labels"] = reid_top_k_labels
+    metadata_json["reid_top_k_image_paths"] = reid_top_k_image_paths
+    metadata_json["reid_top_k_scores"] = reid_top_k_scores
+    unknown_mediafile.metadata_json = metadata_json
+    unknown_mediafile.save()
+
+    # old processing
+    if (reid_top_k_scores[0]) > settings.IDENTITY_MANUAL_CONFIRMATION_THRESHOLD:
+
+        identity_id = reid_top_k_class_ids[0]  # top-1
+        unknown_mediafile.identity = IndividualIdentity.objects.get(id=identity_id)
         logger.debug(
-            f"{mediafile} is {mediafile.identity.name} with score={top_k_scores[0]}. "
+            f"{unknown_mediafile} is {unknown_mediafile.identity.name} with score={reid_top_k_scores[0]}. "
             + "No need of manual confirmation."
         )
-        if mediafile.identity.name != top_k_labels[0]:  # top-1
+        if unknown_mediafile.identity.name != reid_top_k_labels[0]:  # top-1
             logger.warning(
-                f"Identity name mismatch: {mediafile.identity.name} != {top_k_labels[0]}"
+                f"Identity name mismatch: {unknown_mediafile.identity.name} != {reid_top_k_labels[0]}"
             )
 
-        mediafile.save()
+        unknown_mediafile.save()
 
     else:
-        top1_abspath = Path(top_k_paths[0])
+        top1_abspath = Path(reid_top_k_image_paths[0])
         top1_relpath = top1_abspath.relative_to(media_root)
         top1_mediafile = MediaFile.objects.get(mediafile=str(top1_relpath))
 
-        top2_abspath = Path(top_k_paths[1])
+        top2_abspath = Path(reid_top_k_image_paths[1])
         top2_relpath = top2_abspath.relative_to(media_root)
         top2_mediafile = MediaFile.objects.get(mediafile=str(top2_relpath))
 
-        top3_abspath = Path(top_k_paths[2])
+        top3_abspath = Path(reid_top_k_image_paths[2])
         top3_relpath = top3_abspath.relative_to(media_root)
         top3_mediafile = MediaFile.objects.get(mediafile=str(top3_relpath))
 
         mfi, _ = MediafilesForIdentification.objects.get_or_create(
-            mediafile=mediafile,
+            mediafile=unknown_mediafile,
         )
 
+
         mfi.top1mediafile = top1_mediafile
-        mfi.top1score = top_k_scores[0]
-        mfi.top1name = top_k_labels[0]
+        mfi.top1score = reid_top_k_scores[0]
+        mfi.top1name = reid_top_k_labels[0]
         mfi.top2mediafile = top2_mediafile
-        mfi.top2score = top_k_scores[1]
-        mfi.top2name = top_k_labels[1]
+        mfi.top2score = reid_top_k_scores[1]
+        mfi.top2name = reid_top_k_labels[1]
         mfi.top3mediafile = top3_mediafile
-        mfi.top3score = top_k_scores[2]
-        mfi.top3name = top_k_labels[2]
+        mfi.top3score = reid_top_k_scores[2]
+        mfi.top3name = reid_top_k_labels[2]
         mfi.paired_points = data["keypoints"][i]
         # identification_output["query_image_path"] = query_image_path
         # identification_output["query_masked_path"] = query_masked_path
+
+        # new processing
+        # delete mediafile suggestions related to mediafile for identification - mfi
+        models.MediafileIdentificationSuggestions.objects.filter(mediafile_for_identification=mfi).delete()
+
+        # top_k_class_ids = data["pred_class_ids"][i]
+        # top_k_labels = data["pred_labels"][i]
+        # top_k_paths = data["pred_image_paths"][i]
+        # top_k_scores = data["scores"][i]
+        #
+        paired_points_for_k_images = data["keypoints"][i]
+
+        for identity_id, top_score, top_name, top_path, top_paired_points in zip(
+                reid_top_k_class_ids, reid_top_k_scores, reid_top_k_labels, reid_top_k_image_paths, paired_points_for_k_images
+        ):
+            top_abspath = Path(top_path)
+            top_relpath = top_abspath.relative_to(media_root)
+            top_mediafile = MediaFile.objects.get(mediafile=str(top_relpath))
+
+
+            identity = IndividualIdentity.objects.get(id=identity_id)
+            if identity.name != top_name:
+                logger.warning(
+                    f"Identity name mismatch: {identity.name} != {top_name} for {unknown_mediafile=}"
+                )
+
+            mfi_suggestion = models.MediafileIdentificationSuggestions(
+                for_identification=mfi,
+                mediafile=top_mediafile,
+                identity=identity,
+                score=top_score,
+                paired_points=top_paired_points,
+                name=top_name,
+            )
+
+            mfi_suggestion.save()
+
         mfi.save()
-        _identity_mismatch_waning(top1_mediafile, top2_mediafile, top3_mediafile, top_k_labels)
+        # _identity_mismatch_waning(top1_mediafile, top2_mediafile, top3_mediafile, top_k_labels)
 
 
-def _identity_mismatch_waning(
-    top1_mediafile: MediaFile,
-    top2_mediafile: MediaFile,
-    top3_mediafile: MediaFile,
-    top_k_labels: list,
-) -> None:
-    """Warn if the identity mismatch is detected."""
-    if top1_mediafile.identity.name != top_k_labels[0]:
-        logger.warning(f"Identity mismatch: {top1_mediafile.identity.name} != {top_k_labels[0]}")
-    if top2_mediafile.identity.name != top_k_labels[1]:
-        logger.warning(f"Identity mismatch: {top2_mediafile.identity.name} != {top_k_labels[1]}")
-    if top3_mediafile.identity.name != top_k_labels[2]:
-        logger.warning(f"Identity mismatch: {top3_mediafile.identity.name} != {top_k_labels[2]}")
+# def _identity_mismatch_waning(
+#     top1_mediafile: MediaFile,
+#     top2_mediafile: MediaFile,
+#     top3_mediafile: MediaFile,
+#     top_k_labels: list,
+# ) -> None:
+#     """Warn if the identity mismatch is detected."""
+#     if top1_mediafile.identity.name != top_k_labels[0]:
+#         logger.warning(f"Identity mismatch: {top1_mediafile.identity.name} != {top_k_labels[0]}")
+#     if top2_mediafile.identity.name != top_k_labels[1]:
+#         logger.warning(f"Identity mismatch: {top2_mediafile.identity.name} != {top_k_labels[1]}")
+#     if top3_mediafile.identity.name != top_k_labels[2]:
+#         logger.warning(f"Identity mismatch: {top3_mediafile.identity.name} != {top_k_labels[2]}")
 
 
 @shared_task(bind=True)

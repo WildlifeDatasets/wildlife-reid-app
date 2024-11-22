@@ -700,6 +700,33 @@ class MediafilesForIdentification(models.Model):
     paired_points = models.JSONField(blank=True, null=True)
 
 
+class MediafileIdentificationSuggestion(models.Model):
+    for_identification = models.ForeignKey(
+        MediafilesForIdentification,
+        related_name="top_mediafiles",
+        on_delete=models.CASCADE
+    )
+    mediafile = models.ForeignKey(
+        MediaFile,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True
+    )
+    video_sequence_frame_super_id = models.IntegerField(default=0)
+    score = models.FloatField(null=True, blank=True)
+    name = models.CharField(max_length=255, blank=True, default="")
+    paired_points = models.JSONField(blank=True, null=True)
+    identity = models.ForeignKey(
+        IndividualIdentity,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True
+    )
+
+    class Meta:
+        ordering = ["-score"]  # Order by score descending by default
+
+
 class Album(models.Model):
     name = models.CharField(max_length=50)
     description = models.CharField(max_length=255, blank=True, default="")

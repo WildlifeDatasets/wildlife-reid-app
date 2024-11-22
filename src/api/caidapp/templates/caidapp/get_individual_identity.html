@@ -71,6 +71,10 @@
                                 </div>
                             </div>
                         </div>
+                        {% for reid_suggestion in foridentification.mediafile_identification_suggestion_set %}
+                            {{ reid_suggestion.name }}
+                            {{ reid_suggestion.score }}
+                        {% endfor %}
 
                         {#                Top 1 #}
                         <div class="{{ col_style }}" id="card{{ mediafile.id }}">

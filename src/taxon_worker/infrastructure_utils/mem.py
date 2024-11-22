@@ -47,6 +47,7 @@ def get_ram():
 
 def get_vram(device: Optional[torch.device] = None):
     """Get visualized VRAM usage in GB."""
+    device = get_torch_cuda_device_if_available(device)
     device = device if device else torch.cuda.current_device()
     if torch.device(device).type == "cpu":
         return "No GPU available"

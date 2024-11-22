@@ -18,7 +18,7 @@ WORKDIR $APP_DIR
 RUN pip install --no-cache-dir --upgrade pip build && \
     pip install --no-cache-dir --compile -r requirements.txt && \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/* /tmp/* /var/tmp/*
-
+RUN pip install https://github.com/BohemianVRA/FGVC/releases/download/v1.5.4-dev/fgvc-1.5.4.dev0-py3-none-any.whl
 
 
 RUN pip install pytz --upgrade
@@ -27,6 +27,7 @@ RUN pip install tzdata --upgrade
 RUN pip install openpyxl
 
 COPY ./src/api /api
+
 
 # expose ports and run application
 WORKDIR $APP_DIR

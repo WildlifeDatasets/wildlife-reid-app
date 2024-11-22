@@ -5,14 +5,16 @@ psycopg2-binary~=2.9.5
 SQLAlchemy~=1.4.44
 
 
-timm==0.9.7
+# timm==0.9.7  # works fine, just in taxonworker is 0.9.12
+timm==0.9.12
 pycocotools==2.0.7
 pandas==2.0.2
 kornia==0.7.1
 
 # FGVC library
---index-url https://pypi.piva-ai.com/simple/
-fgvc==1.5.1.dev
+# removed till the piva-ai.com is down
+# --index-url https://pypi.piva-ai.com/simple/
+# fgvc==1.5.1.dev
 
 # Wildlife-tools library
 # wildlife-tools==0.0.5
@@ -20,3 +22,10 @@ fgvc==1.5.1.dev
 wandb
 
 # opencv-python==4.8.0.74
+
+# for OCR
+pytesseract==0.3
+
+# for exiftool
+pyexiftool==0.5.*
+scikit-image==0.24.*
