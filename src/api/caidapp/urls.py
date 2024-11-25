@@ -135,12 +135,17 @@ urlpatterns = [
         name="run_identification_on_unidentified",
     ),
     path(
-        "get_individual_identity_zoomed/<int:foridentification_id>/<int:top_id>",
+        "get_individual_identity_zoomed/<int:foridentification_id>/<int:reid_suggestion_id>",
         views.get_individual_identity_zoomed,
         name="get_individual_identity_zoomed",
     ),
     path(
-        "get_individual_identity_zoomed_paired_points/<int:foridentification_id>/<int:top_id>",
+        "get_individual_identity_zoomed_by_identity/<int:foridentification_id>/<int:identity_id>",
+        views.get_individual_identity_zoomed_by_identity,
+        name="get_individual_identity_zoomed_by_identity",
+    ),
+    path(
+        "get_individual_identity_zoomed_paired_points/<int:foridentification_id>/<int:reid_suggestion_id>",
         views.get_individual_identity_zoomed_paired_points,
         name="get_individual_identity_zoomed_paired_points",
     ),

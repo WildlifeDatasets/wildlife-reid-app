@@ -1,6 +1,54 @@
 {% extends 'base.html' %}
 {% load custom_filters %}
 
+{% block head %}
+    <style>
+
+   .carousel-control-prev,
+.carousel-control-next {
+  top: 50%;
+  transform: translateY(-50%);
+  width: 5%; /* Adjust width as needed */
+}
+
+.carousel-control-prev {
+  left: -5%; /* Position to the left outside the image */
+}
+
+.carousel-control-next {
+  right: -5%; /* Position to the right outside the image */
+}
+
+
+.carousel-control-prev-icon,
+.carousel-control-next-icon {
+  background-color: rgba(0, 0, 0, 0.5); /* Semi-transparent background */
+  border-radius: 10px; /* Circular shape */
+  {#width: 50px; /* Adjust size */#}
+  height: 100%; /* Adjust size */
+}
+
+.carousel-control-prev,
+.carousel-control-next {
+  opacity: 1; /* Ensure controls are fully visible */
+}
+
+.carousel-control-prev:hover .carousel-control-prev-icon,
+.carousel-control-next:hover .carousel-control-next-icon {
+  background-color: rgba(0, 0, 0, 0.7); /* Darker on hover */
+}
+
+.carousel-container {
+  position: relative;
+  {#width: 80%; /* Adjust as needed */#}
+  {#margin: auto;#}
+    margin-left: 40px;
+    margin-right: 40px;
+}
+
+        </style>
+{% endblock %}
+
 {% block body %}
     {% with col_style="col-md" %}
         {#<div class="container">#}
@@ -94,7 +142,7 @@
                                                 {#                                        <a href="{% url 'caidapp:set_individual_identity' foridentification.id foridentification.top1mediafile.identity.id %}" class="stretched-link"> </a>#}
                                                 <a href="{% url 'caidapp:set_individual_identity' foridentification.id reid_suggestion.mediafile.identity.id %}"
                                                    class="btn btn-primary">Select</a>
-                                                <a href="{% url 'caidapp:get_individual_identity_zoomed' foridentification.id forloop.counter0 %}"
+                                                <a href="{% url 'caidapp:get_individual_identity_zoomed' foridentification.id reid_suggestion.id %}"
                                                    class="btn btn-secondary"><i class="bi bi-search"></i></a>
                                             {% else %}
                                                 Identity does not exist
@@ -194,11 +242,8 @@
 
 
 
-
-
-
-
-            <div id="imageCarousel" class="carousel slide" data-bs-ride="carousel">
+<div class="carousel-container">
+<div id="carouselExample" class="carousel slide" data-bs-ride="carousel">
   <div class="carousel-inner">
     <div class="carousel-item active">
       <div class="row">
@@ -221,10 +266,9 @@
                       </p>
                       <p class="card-text">
                           {% if reid_suggestion.mediafile.identity %}
-                              {#                                        <a href="{% url 'caidapp:set_individual_identity' foridentification.id foridentification.top1mediafile.identity.id %}" class="stretched-link"> </a>#}
                               <a href="{% url 'caidapp:set_individual_identity' foridentification.id reid_suggestion.mediafile.identity.id %}"
                                  class="btn btn-primary">Select</a>
-                              <a href="{% url 'caidapp:get_individual_identity_zoomed' foridentification.id forloop.counter0 %}"
+                              <a href="{% url 'caidapp:get_individual_identity_zoomed' foridentification.id reid_suggestion.id %}"
                                  class="btn btn-secondary"><i class="bi bi-search"></i></a>
                           {% else %}
                               Identity does not exist
@@ -239,24 +283,58 @@
 {#        <div class="col-4"><img src="image3.jpg" class="d-block w-100" alt="Image 3"></div>#}
       </div>
     </div>
+
+
     <div class="carousel-item">
       <div class="row">
-        <div class="col-4"><img src="image4.jpg" class="d-block w-100" alt="Image 4"></div>
-        <div class="col-4"><img src="image5.jpg" class="d-block w-100" alt="Image 5"></div>
-        <div class="col-4"><img src="image6.jpg" class="d-block w-100" alt="Image 6"></div>
+          {% for individual_identity in remaining_identities %}
+          <div class="col-4" id="card{{ individual_identity.id }}">
+              <div class="card">
+                  <img class="card-img-top" src="{{ individual_identity.mediafile_set.first.thumbnail.url }}"
+                       class="card-img-top" alt="Camera trap image">
+                  {#                        <div class="card-header">#}
+                  <div class="card-body">
+                      <div class="card-title">
+                          {{ individual_identity.name }}
+                      </div>
+                      <p class="card-text">
+                          <a href="{% url 'caidapp:set_individual_identity' foridentification.id individual_identity.id %}"
+                             class="btn btn-primary">Select</a>
+                          <a href="{% url 'caidapp:get_individual_identity_zoomed_by_identity' foridentification.id individual_identity.id %}"
+                             class="btn btn-secondary"><i class="bi bi-search"></i></a>
+                      </p>
+
+                  </div>
+              </div>
+          </div>
+            {% endfor %}
+{#        <div class="col-4"><img src="image4.jpg" class="d-block w-100" alt="Image 4"></div>#}
+{#        <div class="col-4"><img src="image5.jpg" class="d-block w-100" alt="Image 5"></div>#}
+{#        <div class="col-4"><img src="image6.jpg" class="d-block w-100" alt="Image 6"></div>#}
       </div>
     </div>
     <!-- Add more carousel-item divs as needed -->
   </div>
   <!-- Controls -->
-  <button class="carousel-control-prev" type="button" data-bs-target="#imageCarousel" data-bs-slide="prev">
+{#  <button class="carousel-control-prev" type="button" data-bs-target="#imageCarousel" data-bs-slide="prev">#}
+{#    <span class="carousel-control-prev-icon" aria-hidden="true"></span>#}
+{#    <span class="visually-hidden">Previous</span>#}
+{#  </button>#}
+{#  <button class="carousel-control-next" type="button" data-bs-target="#imageCarousel" data-bs-slide="next">#}
+{#    <span class="carousel-control-next-icon" aria-hidden="true"></span>#}
+{#    <span class="visually-hidden">Next</span>#}
+{#  </button>#}
+
+ <!-- Controls placed outside the .carousel-inner -->
+  <button class="carousel-control-prev" type="button" data-bs-target="#carouselExample" data-bs-slide="prev">
     <span class="carousel-control-prev-icon" aria-hidden="true"></span>
     <span class="visually-hidden">Previous</span>
   </button>
-  <button class="carousel-control-next" type="button" data-bs-target="#imageCarousel" data-bs-slide="next">
+  <button class="carousel-control-next" type="button" data-bs-target="#carouselExample" data-bs-slide="next">
     <span class="carousel-control-next-icon" aria-hidden="true"></span>
     <span class="visually-hidden">Next</span>
   </button>
+</div>
 </div>
 
 

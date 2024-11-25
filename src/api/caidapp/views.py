@@ -494,13 +494,47 @@ def delete_individual_identity(request, individual_identity_id):
     individual_identity.delete()
     return redirect("caidapp:individual_identities")
 
+def get_individual_identity_zoomed_by_identity(request, foridentification_id: int, identity_id: int):
+    foridentifications = MediafilesForIdentification.objects.filter(
+        mediafile__parent__owner__workgroup=request.user.caiduser.workgroup
+    ).order_by("?")
+    foridentification = MediafilesForIdentification.objects.get(id=foridentification_id)
+    if foridentification.mediafile.parent.owner.workgroup != request.user.caiduser.workgroup:
+        return HttpResponseNotAllowed("Not allowed to work with this media file.")
 
-def get_individual_identity_zoomed_paired_points(request, foridentification_id: int, top_id: int):
+    identity = IndividualIdentity.objects.get(id=identity_id)
+    top_mediafile = MediaFile.objects.filter(identity=identity, identity_is_representative=True).first()
+    top_name = identity.name
+
+    btn_link = reverse_lazy(
+        "caidapp:get_individual_identity_zoomed_by_identity",
+        kwargs={"foridentification_id": foridentification_id, "identity_id": identity_id},
+    )
+    btn_icon_style = "fa-solid fa-arrows-to-dot"
+
+    template = "caidapp/get_individual_identity_zoomed.html"
+    return render(
+        request,
+        template,
+        {
+            "foridentification": foridentification,
+            "foridentifications": foridentifications,
+            # "reid_suggestion_id": reid_suggestion_id,
+            "top_mediafile": top_mediafile,
+            # "top_score": top_score,
+            "top_name": top_name,
+            # "html_img_src": html_img_src,
+            "btn_link": btn_link,
+            "btn_icon_style": btn_icon_style,
+        },
+    )
+
+def get_individual_identity_zoomed_paired_points(request, foridentification_id: int, reid_suggestion_id: int):
     """Show detail with paired points."""
-    return get_individual_identity_zoomed(request, foridentification_id, top_id, points=True)
+    return get_individual_identity_zoomed(request, foridentification_id, reid_suggestion_id, points=True)
 
 
-def get_individual_identity_zoomed(request, foridentification_id: int, top_id: int, points=False):
+def get_individual_identity_zoomed(request, foridentification_id: int, reid_suggestion_id: int, points=False):
     """Show and update media file."""
     foridentifications = MediafilesForIdentification.objects.filter(
         mediafile__parent__owner__workgroup=request.user.caiduser.workgroup
@@ -509,13 +543,13 @@ def get_individual_identity_zoomed(request, foridentification_id: int, top_id: i
     if foridentification.mediafile.parent.owner.workgroup != request.user.caiduser.workgroup:
         return HttpResponseNotAllowed("Not allowed to work with this media file.")
 
-    (
-        top_id,
-        top_mediafile,
-        top_name,
-        top_score,
-        paired_points,
-    ) = _select_pair_for_detail_identification(foridentification, top_id)
+
+    reid_suggestion = models.MediafileIdentificationSuggestion.objects.get(id=reid_suggestion_id)
+    top_mediafile = reid_suggestion.mediafile
+    top_name = reid_suggestion.name
+    top_score = reid_suggestion.score
+    paired_points = reid_suggestion.paired_points
+    # ) = _select_pair_for_detail_identification(foridentification, reid_suggestion_id)
 
     if points:
         from . import gui_tools
@@ -563,7 +597,7 @@ def get_individual_identity_zoomed(request, foridentification_id: int, top_id: i
         template = "caidapp/get_individual_identity_zoomed_paired_points.html"
         btn_link = reverse_lazy(
             "caidapp:get_individual_identity_zoomed",
-            kwargs={"foridentification_id": foridentification_id, "top_id": top_id},
+            kwargs={"foridentification_id": foridentification_id, "reid_suggestion_id": reid_suggestion_id},
         )
         btn_icon_style = "fa fa-eye"
     else:
@@ -571,7 +605,7 @@ def get_individual_identity_zoomed(request, foridentification_id: int, top_id: i
         html_img_src = None
         btn_link = reverse_lazy(
             "caidapp:get_individual_identity_zoomed_paired_points",
-            kwargs={"foridentification_id": foridentification_id, "top_id": top_id},
+            kwargs={"foridentification_id": foridentification_id, "reid_suggestion_id": reid_suggestion_id},
         )
         btn_icon_style = "fa-solid fa-arrows-to-dot"
 
@@ -581,7 +615,7 @@ def get_individual_identity_zoomed(request, foridentification_id: int, top_id: i
         {
             "foridentification": foridentification,
             "foridentifications": foridentifications,
-            "top_id": top_id,
+            "reid_suggestion_id": reid_suggestion_id,
             "top_mediafile": top_mediafile,
             "top_score": top_score,
             "top_name": top_name,
@@ -592,33 +626,36 @@ def get_individual_identity_zoomed(request, foridentification_id: int, top_id: i
     )
 
 
-def _select_pair_for_detail_identification(foridentification, top_id):
-
-    # modulo
-    if top_id == 0:
-        top_id = 3
-    elif top_id == 4:
-        top_id = 1
-    if top_id == 1:
-        top_mediafile = foridentification.top1mediafile
-        top_score = foridentification.top1score
-        top_name = foridentification.top1name
-    elif top_id == 2:
-        top_mediafile = foridentification.top2mediafile
-        top_score = foridentification.top2score
-        top_name = foridentification.top2name
-    elif top_id == 3:
-        top_mediafile = foridentification.top3mediafile
-        top_score = foridentification.top3score
-        top_name = foridentification.top3name
-    else:
-        HttpResponseBadRequest("Wrong top_id.")
-
-    if (top_id - 1) < len(foridentification.paired_points):
-        paired_points = foridentification.paired_points[top_id - 1]
-    else:
-        paired_points = [[], []]
-    return top_id, top_mediafile, top_name, top_score, paired_points
+# def _select_pair_for_detail_identification(foridentification:models.MediafilesForIdentification, reid_suggestion_id):
+#     # get identification suggestion by reid_suggestion_id
+#     reid_suggestion = foridentification.
+#     # get order of the suggestion in r
+#
+#     # modulo
+#     if reid_suggestion_id == 0:
+#         reid_suggestion_id = 3
+#     elif reid_suggestion_id == 4:
+#         reid_suggestion_id = 1
+#     if reid_suggestion_id == 1:
+#         top_mediafile = foridentification.top1mediafile
+#         top_score = foridentification.top1score
+#         top_name = foridentification.top1name
+#     elif reid_suggestion_id == 2:
+#         top_mediafile = foridentification.top2mediafile
+#         top_score = foridentification.top2score
+#         top_name = foridentification.top2name
+#     elif reid_suggestion_id == 3:
+#         top_mediafile = foridentification.top3mediafile
+#         top_score = foridentification.top3score
+#         top_name = foridentification.top3name
+#     else:
+#         HttpResponseBadRequest("Wrong reid_suggestion_id.")
+#
+#     if (reid_suggestion_id - 1) < len(foridentification.paired_points):
+#         paired_points = foridentification.paired_points[reid_suggestion_id - 1]
+#     else:
+#         paired_points = [[], []]
+#     return reid_suggestion_id, top_mediafile, top_name, top_score, paired_points
 
 
 def not_identified_mediafiles(request):
@@ -653,12 +690,27 @@ def get_individual_identity_from_foridentification(
             foridentification = foridentifications.first()
         else:
             foridentification = MediafilesForIdentification.objects.get(id=foridentification_id)
+
+    # give me all identities in foridentification.top_mediafile_set.mediafile.identity
+    identities = foridentification.top_mediafiles.values_list("mediafile__identity", flat=True)
+    # all identities of workgroup
+
+    remaining_identities = (
+        IndividualIdentity.objects.filter(
+            Q(owner_workgroup=request.user.caiduser.workgroup) and ~Q(name="nan") and
+            ~Q(id__in=identities)
+        )
+        .all()
+        .order_by("-name")
+    )
+
     return render(
         request,
         "caidapp/get_individual_identity.html",
         {
             "foridentification": foridentification,
             "foridentifications": foridentifications,
+            "remaining_identities": remaining_identities,
         },
     )
 
