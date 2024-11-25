@@ -842,16 +842,6 @@ def create_dataframe_from_mediafiles(mediafiles: Generator[MediaFile, None, None
         logger.debug(f"{metadata_row=}, {type(metadata_row)=}")
         if (metadata_row is None) or ("predicted_category" not in metadata_row):
             metadata_row = {}
-        #     Path(csv_file).unlink()
-        #     logger.debug(
-        #         "No enough information stored in webapp. "
-        #         "The CSV file will be removed to be recreated."
-        #     )
-        #     records = None
-        #     break
-
-        # abs_pth = output_dir / "images" / row["image_path"]
-        # rel_pth = os.path.relpath(abs_pth, settings.MEDIA_ROOT)
 
         if mf.category:
             metadata_row["predicted_category"] = mf.category.name
