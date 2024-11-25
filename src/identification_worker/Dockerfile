@@ -12,9 +12,10 @@ RUN apt-get update --yes && \
     git \
     ffmpeg \
     libsm6 \
-    libxext6 && \
+    libxext6 \
     tesseract-ocr \
     exiftool \
+    && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 RUN mkdir -p /root/resources
