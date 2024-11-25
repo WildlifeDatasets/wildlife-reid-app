@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load custom_filters %}
 
 {% block body %}
     {% with col_style="col-md" %}
@@ -71,95 +72,197 @@
                                 </div>
                             </div>
                         </div>
-                        {% for reid_suggestion in foridentification.mediafile_identification_suggestion_set %}
-                            {{ reid_suggestion.name }}
-                            {{ reid_suggestion.score }}
+
+                        {% for reid_suggestion in foridentification.top_mediafiles.all %}
+{#                            {{ reid_suggestion.name }}#}
+{#                            {{ reid_suggestion.score }}#}
+
+                            <div class="{{ col_style }}" id="card{{ reid_suggestion.mediafile.id }}">
+                                <div class="card">
+                                    <img class="card-img-top" src="{{ reid_suggestion.mediafile.mediafile.url }}"
+                                         class="card-img-top" alt="Camera trap image">
+                                    {#                        <div class="card-header">#}
+                                    <div class="card-body">
+                                        <div class="card-title">
+                                            {{ reid_suggestion.name }}
+                                        </div>
+                                        <p class="card-text">
+                                            {{ reid_suggestion.score|mul:100|floatformat:2 }}%
+                                        </p>
+                                        <p class="card-text">
+                                            {% if reid_suggestion.mediafile.identity %}
+                                                {#                                        <a href="{% url 'caidapp:set_individual_identity' foridentification.id foridentification.top1mediafile.identity.id %}" class="stretched-link"> </a>#}
+                                                <a href="{% url 'caidapp:set_individual_identity' foridentification.id reid_suggestion.mediafile.identity.id %}"
+                                                   class="btn btn-primary">Select</a>
+                                                <a href="{% url 'caidapp:get_individual_identity_zoomed' foridentification.id forloop.counter0 %}"
+                                                   class="btn btn-secondary"><i class="bi bi-search"></i></a>
+                                            {% else %}
+                                                Identity does not exist
+                                            {% endif %}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+
                         {% endfor %}
 
                         {#                Top 1 #}
-                        <div class="{{ col_style }}" id="card{{ mediafile.id }}">
-                            <div class="card">
-                                <img class="card-img-top" src="{{ foridentification.top1mediafile.mediafile.url }}"
-                                     class="card-img-top" alt="Camera trap image">
+{#                        <div class="{{ col_style }}" id="card{{ mediafile.id }}">#}
+{#                            <div class="card">#}
+{#                                <img class="card-img-top" src="{{ foridentification.top1mediafile.mediafile.url }}"#}
+{#                                     class="card-img-top" alt="Camera trap image">#}
                                 {#                        <div class="card-header">#}
-                                <div class="card-body">
-                                    <div class="card-title">
-                                        {{ foridentification.top1name }}
-                                    </div>
-                                    <p class="card-text">
-                                        {{ foridentification.top1score|floatformat:2 }}
-                                    </p>
-                                    <p class="card-text">
-                                        {% if foridentification.top1mediafile.identity %}
+{#                                <div class="card-body">#}
+{#                                    <div class="card-title">#}
+{#                                        {{ foridentification.top1name }}#}
+{#                                    </div>#}
+{#                                    <p class="card-text">#}
+{#                                        {{ foridentification.top1score|floatformat:2 }}#}
+{#                                    </p>#}
+{#                                    <p class="card-text">#}
+{#                                        {% if foridentification.top1mediafile.identity %}#}
                                             {#                                        <a href="{% url 'caidapp:set_individual_identity' foridentification.id foridentification.top1mediafile.identity.id %}" class="stretched-link"> </a>#}
-                                            <a href="{% url 'caidapp:set_individual_identity' foridentification.id foridentification.top1mediafile.identity.id %}"
-                                               class="btn btn-primary">Select</a>
-                                            <a href="{% url 'caidapp:get_individual_identity_zoomed' foridentification.id 1 %}"
-                                               class="btn btn-secondary"><i class="bi bi-search"></i></a>
-                                        {% else %}
-                                            Identity does not exist
-                                        {% endif %}
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="{{ col_style }}" id="card{{ mediafile.id }}">
-                            <div class="card">
+{#                                            <a href="{% url 'caidapp:set_individual_identity' foridentification.id foridentification.top1mediafile.identity.id %}"#}
+{#                                               class="btn btn-primary">Select</a>#}
+{#                                            <a href="{% url 'caidapp:get_individual_identity_zoomed' foridentification.id 1 %}"#}
+{#                                               class="btn btn-secondary"><i class="bi bi-search"></i></a>#}
+{#                                        {% else %}#}
+{#                                            Identity does not exist#}
+{#                                        {% endif %}#}
+{#                                    </p>#}
+{#                                </div>#}
+{#                            </div>#}
+{#                        </div>#}
+{#                        <div class="{{ col_style }}" id="card{{ mediafile.id }}">#}
+{#                            <div class="card">#}
                                 {#                        <div class="card-header">#}
-                                <img class="card-img-top" src="{{ foridentification.top2mediafile.mediafile.url }}"
-                                     class="card-img-top" alt="Camera trap image">
-                                <div class="card-body">
-                                    <div class="card-title">
-                                        {{ foridentification.top2name }}
-                                    </div>
-                                    <p class="card-text">
-                                        {{ foridentification.top2score|floatformat:2 }}
+{#                                <img class="card-img-top" src="{{ foridentification.top2mediafile.mediafile.url }}"#}
+{#                                     class="card-img-top" alt="Camera trap image">#}
+{#                                <div class="card-body">#}
+{#                                    <div class="card-title">#}
+{#                                        {{ foridentification.top2name }}#}
+{#                                    </div>#}
+{#                                    <p class="card-text">#}
+{#                                        {{ foridentification.top2score|floatformat:2 }}#}
                                         {#                                {{ foridentification.top2mediafile.identity.id }}#}
                                         {#                                {{ foridentification.top2score }}#}
-                                    </p>
-                                    <p class="card-text">
-                                        {% if foridentification.top2mediafile.identity %}
+{#                                    </p>#}
+{#                                    <p class="card-text">#}
+{#                                        {% if foridentification.top2mediafile.identity %}#}
                                             {#                                        <a href="{% url 'caidapp:set_individual_identity' foridentification.id foridentification.top2mediafile.identity.id %}" class="stretched-link"> </a>#}
-                                            <a href="{% url 'caidapp:set_individual_identity' foridentification.id foridentification.top2mediafile.identity.id %}"
-                                               class="btn btn-primary">Select</a>
-                                            <a href="{% url 'caidapp:get_individual_identity_zoomed' foridentification.id 2 %}"
-                                               class="btn btn-secondary"><i class="bi bi-search"></i></a>
-                                        {% else %}
-                                            Identity does not exist
-                                        {% endif %}
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="{{ col_style }}" id="card{{ mediafile.id }}">
-                            <div class="card">
-                                <img class="card-img-top" src="{{ foridentification.top3mediafile.mediafile.url }}"
-                                     class="card-img-top" alt="Camera trap image">
-                                <div class="card-body">
-                                    <div class="card-title">
-                                        {{ foridentification.top3name }}
-                                    </div>
-                                    <p class="card-text">
-                                        {{ foridentification.top3score|floatformat:2 }}
-                                    </p>
-                                    <p class="card-text">
-                                        {% if foridentification.top3mediafile.identity %}
+{#                                            <a href="{% url 'caidapp:set_individual_identity' foridentification.id foridentification.top2mediafile.identity.id %}"#}
+{#                                               class="btn btn-primary">Select</a>#}
+{#                                            <a href="{% url 'caidapp:get_individual_identity_zoomed' foridentification.id 2 %}"#}
+{#                                               class="btn btn-secondary"><i class="bi bi-search"></i></a>#}
+{#                                        {% else %}#}
+{#                                            Identity does not exist#}
+{#                                        {% endif %}#}
+{#                                    </p>#}
+{#                                </div>#}
+{#                            </div>#}
+{#                        </div>#}
+{#                        <div class="{{ col_style }}" id="card{{ mediafile.id }}">#}
+{#                            <div class="card">#}
+{#                                <img class="card-img-top" src="{{ foridentification.top3mediafile.mediafile.url }}"#}
+{#                                     class="card-img-top" alt="Camera trap image">#}
+{#                                <div class="card-body">#}
+{#                                    <div class="card-title">#}
+{#                                        {{ foridentification.top3name }}#}
+{#                                    </div>#}
+{#                                    <p class="card-text">#}
+{#                                        {{ foridentification.top3score|floatformat:2 }}#}
+{#                                    </p>#}
+{#                                    <p class="card-text">#}
+{#                                        {% if foridentification.top3mediafile.identity %}#}
                                             {#                                        <a href="{% url 'caidapp:set_individual_identity' foridentification.id foridentification.top3mediafile.identity.id %}" class="stretched-link"> </a>#}
-                                            <a href="{% url 'caidapp:set_individual_identity' foridentification.id foridentification.top3mediafile.identity.id %}"
-                                               class="btn btn-primary">Select</a>
-                                            <a href="{% url 'caidapp:get_individual_identity_zoomed' foridentification.id 3 %}"
-                                               class="btn btn-secondary"><i class="bi bi-search"></i></a>
-                                        {% else %}
-                                            Identity does not exist
-                                        {% endif %}
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
+{#                                            <a href="{% url 'caidapp:set_individual_identity' foridentification.id foridentification.top3mediafile.identity.id %}"#}
+{#                                               class="btn btn-primary">Select</a>#}
+{#                                            <a href="{% url 'caidapp:get_individual_identity_zoomed' foridentification.id 3 %}"#}
+{#                                               class="btn btn-secondary"><i class="bi bi-search"></i></a>#}
+{#                                        {% else %}#}
+{#                                            Identity does not exist#}
+{#                                        {% endif %}#}
+{#                                    </p>#}
+{#                                </div>#}
+{#                            </div>#}
+{#                        </div>#}
                     </div>
                 {% else %}
                     <p>No media files left to identify.</p>
                 {% endif %}
+
+
+
+
+
+
+
+            <div id="imageCarousel" class="carousel slide" data-bs-ride="carousel">
+  <div class="carousel-inner">
+    <div class="carousel-item active">
+      <div class="row">
+          {% for reid_suggestion in foridentification.top_mediafiles.all %}
+
+          {#                            {{ reid_suggestion.name }}#}
+          {#                            {{ reid_suggestion.score }}#}
+
+          <div class="col-4" id="card{{ reid_suggestion.mediafile.id }}">
+              <div class="card">
+                  <img class="card-img-top" src="{{ reid_suggestion.mediafile.mediafile.url }}"
+                       class="card-img-top" alt="Camera trap image">
+                  {#                        <div class="card-header">#}
+                  <div class="card-body">
+                      <div class="card-title">
+                          {{ reid_suggestion.name }}
+                      </div>
+                      <p class="card-text">
+                          {{ reid_suggestion.score|mul:100|floatformat:2 }}%
+                      </p>
+                      <p class="card-text">
+                          {% if reid_suggestion.mediafile.identity %}
+                              {#                                        <a href="{% url 'caidapp:set_individual_identity' foridentification.id foridentification.top1mediafile.identity.id %}" class="stretched-link"> </a>#}
+                              <a href="{% url 'caidapp:set_individual_identity' foridentification.id reid_suggestion.mediafile.identity.id %}"
+                                 class="btn btn-primary">Select</a>
+                              <a href="{% url 'caidapp:get_individual_identity_zoomed' foridentification.id forloop.counter0 %}"
+                                 class="btn btn-secondary"><i class="bi bi-search"></i></a>
+                          {% else %}
+                              Identity does not exist
+                          {% endif %}
+                      </p>
+                  </div>
+              </div>
+          </div>
+          {% endfor %}
+{#        <div class="col-4"><img src="image1.jpg" class="d-block w-100" alt="Image 1"></div>#}
+{#        <div class="col-4"><img src="image2.jpg" class="d-block w-100" alt="Image 2"></div>#}
+{#        <div class="col-4"><img src="image3.jpg" class="d-block w-100" alt="Image 3"></div>#}
+      </div>
+    </div>
+    <div class="carousel-item">
+      <div class="row">
+        <div class="col-4"><img src="image4.jpg" class="d-block w-100" alt="Image 4"></div>
+        <div class="col-4"><img src="image5.jpg" class="d-block w-100" alt="Image 5"></div>
+        <div class="col-4"><img src="image6.jpg" class="d-block w-100" alt="Image 6"></div>
+      </div>
+    </div>
+    <!-- Add more carousel-item divs as needed -->
+  </div>
+  <!-- Controls -->
+  <button class="carousel-control-prev" type="button" data-bs-target="#imageCarousel" data-bs-slide="prev">
+    <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+    <span class="visually-hidden">Previous</span>
+  </button>
+  <button class="carousel-control-next" type="button" data-bs-target="#imageCarousel" data-bs-slide="next">
+    <span class="carousel-control-next-icon" aria-hidden="true"></span>
+    <span class="visually-hidden">Next</span>
+  </button>
+</div>
+
+
+
+
+
             </div>
         {% endif %}
         {#</div>#}
