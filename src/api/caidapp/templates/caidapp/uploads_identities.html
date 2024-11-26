@@ -43,6 +43,9 @@
                         <i class="bi bi-arrow-right-short fa-2x" style="vertical-align: middle;"></i>
                         <a class="btn {{ btn_styles.confirm_identification }}" href="{% url 'caidapp:get_individual_identity' %}"><i class="bi bi-question-circle"></i> Confirm identification</a>
                     </div>
+                    <div>
+                        <a class="btn btn-secondary" href="{% url 'caidapp:select_reid_model' %}"><i class="fa-solid fa-gear"></i></a>
+                    </div>
 {#                {% if workgroup.identification_init_status %}#}
 {#                    <p>Identification initiated at: {{ workgroup.identification_init_at|date:'Y-m-d H:i' }}</p>#}
 {#                    <p>{{ workgroup.identification_init_message }}</p>#}

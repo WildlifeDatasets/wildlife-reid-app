@@ -47,9 +47,12 @@ def init(
     self,
     input_metadata_file: str,
     organization_id: int,
+    identification_model: dict = None,
     **kwargs,
 ):
     """Process and store Reference Image records in the database."""
+    logger.debug(f"{identification_model=}")
+
     try:
         logger.info(f"Applying init task with args: {input_metadata_file=}, {organization_id=}.")
         # log celery worker id
@@ -70,7 +73,7 @@ def init(
         logger.debug(f"Database size: {database_size}")
         db_connection.reference_image.del_reference_images(organization_id)
 
-        init_models()
+        init_models(identification_model["path"])
         encoding_batch_size = int(os.environ["ENCODING_BATCH_SIZE"])
         target_num_splits = math.ceil(len(metadata) / encoding_batch_size)
         metadata_splits = np.array_split(metadata, target_num_splits)
@@ -80,7 +83,7 @@ def init(
         )
         for i, _metadata in enumerate(metadata_splits):
             logger.debug(f"[{i + 1}/{target_num_splits}] - {len(_metadata)}")
-            _features = encode_images(_metadata)
+            _features = encode_images(_metadata, identification_model_path=identification_model["path"])
             _features = [json.dumps(e) for e in _features]
             _metadata["embedding"] = _features
 
@@ -161,14 +164,16 @@ def get_priority_pairs_from_parts(priority_parts: list, image_budget: int):
 
 
 def predict_full(
-    metadata: pd.DataFrame, db_connection: object, organization_id: int, top_k: int = 1
+    metadata: pd.DataFrame, db_connection: object, organization_id: int,
+        identification_model_path,
+        top_k: int = 1
 ):
     """Predict identification for all samples."""
     # load features from database
     database_features, reference_images = load_features(db_connection, organization_id)
 
     # generate query embeddings
-    query_features = encode_images(metadata)
+    query_features = encode_images(metadata, identification_model_path)
 
     # prepare metadata for database
     query_metadata = pd.DataFrame(
@@ -191,6 +196,7 @@ def predict_full(
         database_features=database_features,
         query_metadata=query_metadata,
         database_metadata=database_metadata,
+        identification_model_path=identification_model_path,
         top_k=top_k,
         cal_images=int(os.environ["CALIBRATION_IMAGES"]),
         image_budget=int(os.environ["IMAGE_BUDGET"]),
@@ -206,6 +212,7 @@ def predict_batch(
     db_connection: object,
     organization_id: int,
     database_size: int,
+    identification_model_path,
     top_k: int = 1,
 ):
     """Predict identification in batches."""
@@ -215,7 +222,7 @@ def predict_batch(
     image_budget = int(os.environ["IMAGE_BUDGET"])
 
     # initialize and calibrate models
-    init_models()
+    init_models(identification_model_path)
     calibration_features, reference_images = load_features(
         db_connection, organization_id, start=0, end=cal_images
     )
@@ -244,7 +251,7 @@ def predict_batch(
     identification_output = {}
     for qi, _metadata in enumerate(metadata_splits):
         logger.debug(f"[{qi + 1}/{target_num_splits}] - {len(_metadata)}")
-        query_features = encode_images(_metadata)
+        query_features = encode_images(_metadata, identification_model_path)
         # prepare query metadata
         query_metadata = pd.DataFrame(
             {
@@ -285,6 +292,7 @@ def predict_batch(
                 database_features=database_features,
                 query_metadata=query_metadata,
                 database_metadata=database_metadata,
+                identification_model_path=identification_model_path,
                 target="priority",
             )
             priority_matrix.append(_priority_matrix)
@@ -348,6 +356,7 @@ def predict_batch(
                 database_features=database_features,
                 query_metadata=query_metadata,
                 database_metadata=database_metadata,
+                identification_model_path=identification_model_path,
                 target="scores",
                 pairs=_pairs,
             )
@@ -421,9 +430,13 @@ def predict(
     output_json_file_path: str,
     top_k: int = 1,
     sequence_time: str = "480s",
+    identification_model: dict = None,
     **kwargs,
 ):
     """Process and compare input samples with Reference Image records from the database."""
+    logger.debug(f"{identification_model=}")
+    # identification_model["name"]
+    # identification_model["path"]
     try:
         logger.info(
             f"Applying init task with args: {input_metadata_file_path=}, {organization_id=}."
@@ -484,7 +497,8 @@ def predict(
                         metadata,
                         db_connection,
                         organization_id,
-                        top_k,
+                        identification_model_path=identification_model["path"],
+                        top_k=top_k,
                     )
                 else:
                     logger.info("Starting batched identification.")

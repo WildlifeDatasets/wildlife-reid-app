@@ -68,6 +68,9 @@ class IdentificationModel(models.Model):
     public = models.BooleanField(default=False)
     model_path = models.CharField(max_length=255, blank=True, default="")
 
+    def __str__(self):
+        return str(self.name)
+
 
 class WorkGroup(models.Model):
     name = models.CharField(max_length=50)
@@ -97,7 +100,7 @@ class CaIDUser(models.Model):
     import_dir = models.CharField(max_length=255, blank=True, default="")
     dir_import_status = models.CharField(max_length=255, blank=True, default="")
     dir_import_message = models.CharField(max_length=255, blank=True, default="")
-    actual_model = models.ForeignKey(IdentificationModel, on_delete=models.SET_NULL, null=True, blank=True)
+    identification_model = models.ForeignKey(IdentificationModel, on_delete=models.SET_NULL, null=True, blank=True)
 
     @receiver(post_save, sender=DjangoUser)
     def create_user_profile(sender, instance, created, **kwargs):  # NOSONAR
