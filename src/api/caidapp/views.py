@@ -357,6 +357,30 @@ def _uploads_general(
 
     return page_context
 
+def select_reid_model(request):
+    """Select reid model."""
+    form = forms.UserIdentificationModelForm()
+    if request.method == "POST":
+        form = forms.UserIdentificationModelForm(request.POST)
+        if form.is_valid():
+            request.user.caiduser.identification_model = form.cleaned_data["identification_model"]
+            request.user.caiduser.save()
+            return redirect("caidapp:uploads_identities")
+
+    else:
+
+        initial = {"identification_model": request.user.caiduser.identification_model}
+        form = forms.UserIdentificationModelForm(initial=initial)
+    return render(
+        request,
+        "caidapp/update_form.html",
+        {
+            "form": form,
+            "headline": "Select identification model",
+            "button": "Save",
+        },
+    )
+
 
 def _multiple_species_button_style_and_tooltips(request) -> dict:
     models.get_content_owner_filter_params(request.user.caiduser, "owner")
@@ -908,7 +932,10 @@ def run_identification_on_unidentified(request):
         contains_identities=False,
     ).all()
     for uploaded_archive in uploaded_archives:
-        _run_identification(uploaded_archive)
+        _run_identification(
+            uploaded_archive,
+            caiduser = request.user.caiduser
+        )
     # next_page = request.GET.get("next", "caidapp:uploads_identities")
     # return redirect(next_page)
     return redirect(request.META.get("HTTP_REFERER", "/"))
@@ -920,13 +947,20 @@ def run_identification(request, uploadedarchive_id):
     # check if user is owner member of the workgroup
     if uploaded_archive.owner.workgroup != request.user.caiduser.workgroup:
         return HttpResponseNotAllowed("Identification is for workgroup members only.")
-    _run_identification(uploaded_archive)
+    _run_identification(
+        uploaded_archive,
+        caiduser=request.user.caiduser,
+    )
     # next_page = request.GET.get("next", "caidapp:uploads_identities")
     # return redirect(next_page)
     return redirect(request.META.get("HTTP_REFERER", "/"))
 
 
-def _run_identification(uploaded_archive: UploadedArchive, taxon_str="Lynx lynx"):
+def _run_identification(
+        uploaded_archive: UploadedArchive,
+        caiduser: models.CaIDUser,
+        taxon_str="Lynx lynx",
+                        ):
     logger.debug("Generating CSV for run_identification...")
     mediafiles = uploaded_archive.mediafile_set.filter(category__name=taxon_str).all()
     logger.debug(f"Generating CSV for init_identification with {len(mediafiles)} records...")
@@ -972,6 +1006,10 @@ def _run_identification(uploaded_archive: UploadedArchive, taxon_str="Lynx lynx"
             output_json_file_path=str(output_json_file),
             top_k=3,
             uploaded_archive_id=uploaded_archive.id,
+            identification_model={
+                "name": caiduser.identification_model.name,
+                "path": caiduser.identification_model.path,
+            }
         ),
     )
     identify_task = identify_signature.apply_async(

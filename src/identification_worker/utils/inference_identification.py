@@ -180,9 +180,10 @@ def del_sam_model():
     torch.cuda.empty_cache()
 
 
-def init_models():
+def init_models(identification_model_path):
     """Initialize identification and segmentation models."""
-    get_identification_model(os.environ["IDENTIFICATION_MODEL_VERSION"])
+    # get_identification_model(os.environ["IDENTIFICATION_MODEL_VERSION"])
+    get_identification_model(identification_model_path)
     get_sam_model()
 
 
@@ -285,10 +286,10 @@ def mask_images(metadata: pd.DataFrame) -> pd.DataFrame:
     return metadata
 
 
-def encode_images(metadata: pd.DataFrame) -> list:
+def encode_images(metadata: pd.DataFrame, identification_model_path:str) -> list:
     """Create feature vectors from given images."""
     global IDENTIFICATION_MODELS
-    get_identification_model(os.environ["IDENTIFICATION_MODEL_VERSION"])
+    get_identification_model(identification_model_path)
     metadata = mask_images(metadata)
     logger.info("Creating DataLoaders.")
 
@@ -397,6 +398,7 @@ def compute_partial(
     database_features: list,
     query_metadata: pd.DataFrame,
     database_metadata: pd.DataFrame,
+    identification_model_path: str,
     target: str,
     pairs: tuple = None,
 ):
@@ -412,7 +414,7 @@ def compute_partial(
     logger.info(f"Starting identification of {len(query_metadata)} images.")
 
     global IDENTIFICATION_MODELS
-    get_identification_model(os.environ["IDENTIFICATION_MODEL_VERSION"])
+    get_identification_model(identification_model_path)
 
     # gather features
     database_aliked_features, database_mega_features = prepare_feature_types(database_features)
@@ -517,6 +519,7 @@ def identify(
     database_features: list,
     query_metadata: pd.DataFrame,
     database_metadata: pd.DataFrame,
+    identification_model_path,
     top_k: int = 3,
     cal_images: int = 50,
     image_budget: int = 100,
@@ -527,7 +530,7 @@ def identify(
     logger.info(f"Starting identification of {len(query_metadata)} images.")
 
     global IDENTIFICATION_MODELS
-    get_identification_model(os.environ["IDENTIFICATION_MODEL_VERSION"])
+    get_identification_model(identification_model_path)
 
     # gather features
     database_aliked_features, database_mega_features = prepare_feature_types(database_features)

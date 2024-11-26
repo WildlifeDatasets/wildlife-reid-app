@@ -6,6 +6,11 @@ from .models import Album, CaIDUser, IndividualIdentity, MediaFile, UploadedArch
 
 User = get_user_model()
 
+class UserIdentificationModelForm(forms.Form):
+    identification_model = forms.ModelChoiceField(
+        queryset=models.IdentificationModel.objects.all(), required=True
+    )
+
 
 class WorkgroupUsersForm(forms.Form):
     workgroup_users = forms.ModelMultipleChoiceField(
