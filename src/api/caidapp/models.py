@@ -62,6 +62,13 @@ def human_readable_hash():
     return codenamize.codenamize(get_hash(), number_of_words - 1, 0, " ", True)
 
 
+class IdentificationModel(models.Model):
+    name = models.CharField(max_length=50)
+    description = models.CharField(max_length=255, blank=True, default="")
+    public = models.BooleanField(default=False)
+    model_path = models.CharField(max_length=255, blank=True, default="")
+
+
 class WorkGroup(models.Model):
     name = models.CharField(max_length=50)
     hash = models.CharField(max_length=50, default=random_string12)
@@ -90,6 +97,7 @@ class CaIDUser(models.Model):
     import_dir = models.CharField(max_length=255, blank=True, default="")
     dir_import_status = models.CharField(max_length=255, blank=True, default="")
     dir_import_message = models.CharField(max_length=255, blank=True, default="")
+    actual_model = models.ForeignKey(IdentificationModel, on_delete=models.SET_NULL, null=True, blank=True)
 
     @receiver(post_save, sender=DjangoUser)
     def create_user_profile(sender, instance, created, **kwargs):  # NOSONAR
