@@ -1008,7 +1008,7 @@ def _run_identification(
             uploaded_archive_id=uploaded_archive.id,
             identification_model={
                 "name": caiduser.identification_model.name,
-                "path": caiduser.identification_model.path,
+                "path": caiduser.identification_model.model_path,
             }
         ),
     )
