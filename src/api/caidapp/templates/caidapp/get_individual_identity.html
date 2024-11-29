@@ -205,10 +205,10 @@
                                                         <div class="row">
                                                 {% endif %}
                                                 <div class="col-4" id="card{{ individual_identity.id }}">
+
                                                     <div class="card">
                                                         <img class="card-img-top" src="{{ individual_identity.mediafile_set.first.thumbnail.url }}"
                                                              class="card-img-top" alt="Camera trap image">
-                                                        {#                        <div class="card-header">#}
                                                         <div class="card-body">
                                                             <div class="card-title">
                                                                 {{ individual_identity.name }}
@@ -223,11 +223,15 @@
                                                         </div>
                                                     </div>
                                                 </div>
-                                                {% if forloop.counter0|divisibleby:3 or forloop.last %}
-                                                        </div>
+{#                                                {% if forloop.counter0|divisibleby:3 or forloop.last %}#}
+                                                {% if forloop.counter0|add:1|divisibleby:3 or forloop.last %}
+                                                    </div>
                                                     </div>
                                                 {% endif %}
                                             {% endfor %}
+
+
+
 {#                                        </div>#}
 {#                                    </div>#}
                                 </div>
