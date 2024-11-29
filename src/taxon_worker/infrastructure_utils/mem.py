@@ -9,7 +9,7 @@ import torch
 logger = logging.getLogger()
 
 
-def get_torch_cuda_device_if_available(device: Union[int, str] = 0) -> torch.device:
+def get_torch_cuda_device_if_available(device: Union[None, int, str] = 0) -> torch.device:
     """Set device if available."""
     logger.debug(f"requested device: {device}")
     # logger.debug(f"{traceback.format_stack()=}")
@@ -22,7 +22,10 @@ def get_torch_cuda_device_if_available(device: Union[int, str] = 0) -> torch.dev
             logger.warning(f"Unknown device: {device}")
             device = 0
     if torch.cuda.is_available():
-        new_device = torch.device(device)
+        if device is None:
+            new_device = torch.device("cuda")
+        else:
+            new_device = torch.device(device)
     else:
         new_device = torch.device("cpu")
     logger.debug(f"new_device: {new_device}")
