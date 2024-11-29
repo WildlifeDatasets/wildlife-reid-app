@@ -155,7 +155,10 @@
 
 
                         <div class="col-md carousel-container">
-                            <div id="carouselExample" class="carousel slide" data-bs-ride="carousel">
+                            <div id="carouselExample" class="carousel slide"
+{#                                 data-bs-ride="carousel" #}
+                                 data-bs-interval="false"
+                            >
                                 <div class="carousel-inner">
                                     <div class="carousel-item active">
                                         <div class="row">
@@ -194,9 +197,13 @@
                                     </div>
 
 
-                                    <div class="carousel-item">
-                                        <div class="row">
+{#                                    <div class="carousel-item">#}
+{#                                        <div class="row">#}
                                             {% for individual_identity in remaining_identities %}
+                                                {% if forloop.counter0|divisibleby:3 %}
+                                                    <div class="carousel-item">
+                                                        <div class="row">
+                                                {% endif %}
                                                 <div class="col-4" id="card{{ individual_identity.id }}">
                                                     <div class="card">
                                                         <img class="card-img-top" src="{{ individual_identity.mediafile_set.first.thumbnail.url }}"
@@ -216,9 +223,13 @@
                                                         </div>
                                                     </div>
                                                 </div>
+                                                {% if forloop.counter0|divisibleby:3 or forloop.last %}
+                                                        </div>
+                                                    </div>
+                                                {% endif %}
                                             {% endfor %}
-                                        </div>
-                                    </div>
+{#                                        </div>#}
+{#                                    </div>#}
                                 </div>
 
                                 <!-- Controls placed outside the .carousel-inner -->
