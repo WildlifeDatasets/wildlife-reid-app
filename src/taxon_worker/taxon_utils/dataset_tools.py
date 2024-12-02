@@ -1305,8 +1305,8 @@ def data_preprocessing(
     )
     # post_update CSV is used for updating the metadata after all files are processed
 
-    post_update_path = list(tmp_dir.glob("**/*.csv")) + list(tmp_dir.glob("**/*.xlsx"))
-    post_update_path = post_update_path[0] if len(post_update_path) > 0 else None
+    post_update_path = sorted(list(tmp_dir.glob("**/*.csv")) + list(tmp_dir.glob("**/*.xlsx")))
+    post_update_path = post_update_path[-1] if len(post_update_path) > 0 else None
     if post_update_path is not None:
         if post_update_path.suffix == ".csv":
             df_post_update = pd.read_csv(post_update_path)
@@ -1315,7 +1315,7 @@ def data_preprocessing(
         else:
             df_post_update = None
         if df_post_update is not None:
-            pd.write_csv(media_dir_path / post_update_csv_name, encoding="utf-8-sig")
+            df_post_update.to_csv(media_dir_path / post_update_csv_name, encoding="utf-8-sig")
 
     # df["original_path"].map(lambda fn: dataset_tools.make_hash(fn, prefix="media_data"))
     df = make_dataset(
