@@ -37,24 +37,27 @@
                     <div class="col-xl-2">
                         {#                        <div class="col" style="-ms-flex: 0 0 200; flex: 0 0 200;">#}
                         <div class="card"
-                                {% if individual_identity.cover %}
-                             style="
-
-                                     background-image: linear-gradient(to left, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 1.0)), url({{ individual_identity.cover.thumbnail.url }});
-                                     background-repeat: no-repeat;
-                                     background-position-x: right;
-                                     background-position-y: center;
-                                     background-size: cover;
-                                     "
-
-                                {% endif %}
+{#                                {% if individual_identity.cover %}#}
+{#                             style="#}
+{##}
+{#                                     background-image: linear-gradient(to left, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 1.0)), url({{ individual_identity.cover.thumbnail.url }});#}
+{#                                     background-repeat: no-repeat;#}
+{#                                     background-position-x: right;#}
+{#                                     background-position-y: center;#}
+{#                                     background-size: cover;#}
+{#                                     "#}
+{##}
+{#                                {% endif %}#}
                         >
 
                         <a
                                 href="{% url 'caidapp:individual_identity_mediafiles' individual_identity.id %}"
                         >
+
+                            {% if individual_identity.mediafile_set.first.thumbnail %}
                             <img class="card-img-top" src="{{ individual_identity.mediafile_set.first.thumbnail.url }}"
                                  alt="Camera trap image">
+                            {% endif %}
                         </a>
                             <div class="card-body"
                             >
@@ -87,7 +90,7 @@
                                 {#                        </a>#}
 
                                 <div class="mt-2">
-                                    <a class="btn btn-primary"
+                                    <a class="btn btn-secondary"
                                        href="{% url 'caidapp:individual_identity_mediafiles' individual_identity.id %}"
                                     >
                                         <i class="bi bi-images"></i>
@@ -97,12 +100,36 @@
                                        href="{% url 'caidapp:update_individual_identity' individual_identity.id %}">
                                         <i class="bi bi-pencil"></i>
                                     </a>
-                                    {% if individual_identity.hash %}
-                                        <a class="btn btn-secondary"
-                                           href="{% url 'caidapp:shared_individual_identity' individual_identity.hash %}">
-                                            <i class="bi bi-share-fill"></i>
-                                        </a>
-                                    {% endif %}
+{#                                dropdown button #}
+                                    <a class="btn btn-secondary dropdown-toggle" href="#" role="button"
+                                       data-bs-toggle="dropdown" aria-expanded="false">
+                                        <i class="bi bi-three-dots"></i>
+                                    </a>
+                                    <ul class="dropdown-menu">
+                                        <li>
+                                            <a class="dropdown-item"
+                                                  href="{% url 'caidapp:merge_identities' individual_identity.id %}">
+{#                                                    <i class="bi bi-images"></i> #}
+                                                <i class="bi bi-union"></i>
+                                            Merge identities
+                                            </a>
+                                        </li>
+                                        {% if individual_identity.hash %}
+                                        <li>
+                                            <a class="dropdown-item"
+                                               href="{% url 'caidapp:shared_individual_identity' individual_identity.hash %}">
+                                                <i class="bi bi-share-fill"></i> Share
+                                            </a>
+                                        </li>
+                                        {% endif %}
+                                        <li>
+                                            <a class="dropdown-item"
+                                               href="{% url 'caidapp:delete_individual_identity' individual_identity.id %}"
+                                               onclick="return confirm('Delete identity {{ individual_identity }}?')">
+                                                <i class="bi bi-trash"></i> Delete
+                                            </a>
+                                        </li>
+                                    </ul>
 
                                 </div>
                             </div>

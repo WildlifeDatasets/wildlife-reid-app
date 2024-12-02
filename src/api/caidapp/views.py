@@ -2447,3 +2447,130 @@ class ImageUploadGraphView(View):
         graph = fig.to_html(full_html=False)
 
         return render(request, "caidapp/image_upload_graph.html", {"graph": graph})
+
+
+from django.shortcuts import get_object_or_404, render, redirect
+from django.views import View
+from django.urls import reverse_lazy
+from .models import IndividualIdentity, MediaFile
+from .forms import IndividualIdentityForm
+
+
+
+class MergeIdentities(View):
+
+    def get_individuals(self, request, id1, id2):
+        """Fetch the individual identities."""
+        individual_identity1 = get_object_or_404(
+            IndividualIdentity,
+            pk=id1,
+            owner_workgroup=request.user.caiduser.workgroup,
+        )
+        individual_identity2 = get_object_or_404(
+            IndividualIdentity,
+            pk=id2,
+            owner_workgroup=request.user.caiduser.workgroup,
+        )
+        return individual_identity1, individual_identity2
+
+    def generate_differences(self, individual1, individual2):
+        """Generate differences between two identities."""
+        differences = {}
+        fields_to_compare = ["sex", "coat_type", "birth_date", "death_date"]
+        for field in fields_to_compare:
+            value1 = getattr(individual1, field)
+            value2 = getattr(individual2, field)
+            if value1 != value2:
+                differences[field] = f"{value1} , {value2}"
+        return differences
+
+    def get(self, request, individual_identity1_id, individual_identity2_id):
+        """Render the merge form."""
+        individual1, individual2 = self.get_individuals(request, individual_identity1_id, individual_identity2_id)
+
+        # Suggestion based on merging logic
+        suggestion = IndividualIdentity(
+            name=f"{individual1.name} + {individual2.name}",
+            sex=individual1.sex if individual1.sex != "U" else individual2.sex,
+            coat_type=individual1.coat_type if individual1.coat_type != "U" else individual2.coat_type,
+            birth_date=individual1.birth_date or individual2.birth_date,
+            death_date=individual1.death_date or individual2.death_date,
+            note=f"{individual1.note}\n{individual2.note}",
+            code=f"{individual1.code} {individual2.code}",
+            juv_code=f"{individual1.juv_code} {individual2.juv_code}",
+        )
+
+        # Differences for the right column
+        differences = self.generate_differences(individual1, individual2)
+        differences_html = "<h3>Differences</h3><ul>" + "".join(f"<li>{key}: {value}</li>" for key, value in differences.items()) + "</ul>"
+
+        form = IndividualIdentityForm(instance=suggestion)
+        media_file = MediaFile.objects.filter(identity=individual1, identity_is_representative=True).first()
+
+        return render(
+            request,
+            "caidapp/update_form.html",
+            {
+                "form": form,
+                "headline": "Merge Individual Identity",
+                "button": "Save",
+                "individual_identity": individual1,
+                "mediafile": media_file,
+                "delete_button_url": reverse_lazy(
+                    "caidapp:delete_individual_identity",
+                    kwargs={"individual_identity_id": individual_identity1_id},
+                ),
+                "right_col_raw_html": differences_html,
+            },
+        )
+
+    def post(self, request, individual_identity1_id, individual_identity2_id):
+        """Handle form submission."""
+        individual1, individual2 = self.get_individuals(request, individual_identity1_id, individual_identity2_id)
+
+        form = IndividualIdentityForm(request.POST, instance=individual1)
+        if form.is_valid():
+            individual_identity = form.save(commit=False)
+            individual_identity.updated_by = request.user.caiduser
+            individual_identity.save()
+
+            # mediafiles of identity2 are reassigned to identity1
+            individual2.mediafile_set.update(identity=individual1)
+            # remove old identity
+            individual2.delete()
+
+            return redirect("caidapp:individual_identities")
+
+        # On failure, re-render the form with errors
+        return self.get(request, individual_identity1_id, individual_identity2_id)
+
+
+
+
+@login_required
+def select_second_id_for_identification_merge(request, individual_identity1_id: int):
+    """Select taxon for identification."""
+    individual_identity1 = get_object_or_404(IndividualIdentity, pk=individual_identity1_id)
+    identities = IndividualIdentity.objects.filter(owner_workgroup=request.user.caiduser.workgroup).exclude(pk=individual_identity1_id)
+    if request.method == "POST":
+        form = forms.IndividualIdentitySelectSecondForMergeForm(request.POST, identities=identities)
+        logger.debug("we are in POST")
+        if form.is_valid():
+            logger.debug("form is valid")
+            identity = form.cleaned_data["identity"]
+            return redirect("caidapp:merge_identities", individual_identity1_id, identity.pk)
+    else:
+        form = forms.IndividualIdentitySelectSecondForMergeForm(identities=identities)
+    return render(
+        request,
+        "caidapp/update_form.html",
+        {
+            "form": form,
+            "headline": "Select identity for merge",
+            "button": "Select",
+            "text_note": "The selected identity will be merged into the first one and then deleted.",
+            # "next": "caidapp:uploads_identities",
+            "mediafile": individual_identity1.mediafile_set.all().first(),
+        },
+    )
+

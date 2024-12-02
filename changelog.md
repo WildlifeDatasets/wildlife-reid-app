@@ -3,6 +3,10 @@
 
 # Changelog
 
+## 12-2024
+
+* [added] Merge identity
+
 ## 11-2024
 
 * [added] Extend sequence of media files

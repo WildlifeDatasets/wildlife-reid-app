@@ -3,7 +3,10 @@ from django.contrib.auth import get_user_model
 
 from . import models
 from .models import Album, CaIDUser, IndividualIdentity, MediaFile, UploadedArchive
+import logging
 
+
+logger = logging.getLogger(__name__)
 User = get_user_model()
 
 class UserIdentificationModelForm(forms.Form):
@@ -60,11 +63,32 @@ class IndividualIdentityForm(forms.ModelForm):
         required=False,
     )
 
+class MergeIdentitiesForm(forms.Form):
+    class Meta:
+        model = IndividualIdentity
+        fields = ("name", "code", "juv_code", "sex", "coat_type", "note", "birth_date", "death_date")
+
+    birth_date = forms.DateField(
+        widget=forms.TextInput(attrs={'placeholder': 'YYYY-MM-DD'}),
+        required=False,
+    )
+    death_date = forms.DateField(
+        widget=forms.TextInput(attrs={'placeholder': 'YYYY-MM-DD'}),
+        required=False,
+    )
+
 
 class UploadedArchiveSelectTaxonForIdentificationForm(forms.ModelForm):
     class Meta:
         model = UploadedArchive
         fields = ("taxon_for_identification",)
+
+class IndividualIdentitySelectSecondForMergeForm(forms.Form):
+    def __init__(self, *args, identities=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if identities is not None:
+            logger.debug(f"identities: {identities}")
+            self.fields['identity'] = forms.ModelChoiceField(queryset=identities, required=True)
 
 
 class UploadedArchiveUpdateForm(forms.ModelForm):
