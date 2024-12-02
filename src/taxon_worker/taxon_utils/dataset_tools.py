@@ -1315,7 +1315,10 @@ def data_preprocessing(
         else:
             df_post_update = None
         if df_post_update is not None:
-            df_post_update.to_csv(media_dir_path / post_update_csv_name, encoding="utf-8-sig")
+            csv_path = Path(media_dir_path) / post_update_csv_name
+            logger.debug(f"{csv_path=}, {csv_path.exists()=}")
+            csv_path.parent.mkdir(parents=True, exist_ok=True)
+            df_post_update.to_csv(csv_path, encoding="utf-8-sig")
 
     # df["original_path"].map(lambda fn: dataset_tools.make_hash(fn, prefix="media_data"))
     df = make_dataset(
