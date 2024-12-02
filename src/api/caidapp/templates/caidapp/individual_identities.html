@@ -34,7 +34,7 @@
                     {% include "caidapp/pagination_a.html" %}
                 </div>
                 {% for individual_identity in page_obj %}
-                    <div class="col-xl-3">
+                    <div class="col-xl-2">
                         {#                        <div class="col" style="-ms-flex: 0 0 200; flex: 0 0 200;">#}
                         <div class="card"
                                 {% if individual_identity.cover %}
@@ -49,18 +49,30 @@
 
                                 {% endif %}
                         >
+
+                        <a
+                                href="{% url 'caidapp:individual_identity_mediafiles' individual_identity.id %}"
+                        >
                             <img class="card-img-top" src="{{ individual_identity.mediafile_set.first.thumbnail.url }}"
                                  alt="Camera trap image">
+                        </a>
                             <div class="card-body"
                             >
                                 <h5 class="card-title">{{ individual_identity }}</h5>
                                 {#                        <p>Status: {{ album.mediafiles.0.thumbnail.url }} </p>#}
                                 {#                        <p>Created At: {{ individual_identity.created_at|date:'Y-m-d H:i' }} </p>#}
-                                <p>Media files: {{ individual_identity.count_of_mediafiles }}</p>
-                                <p>Representative media
-                                    files: {{ individual_identity.count_of_representative_mediafiles }}</p>
+                                <div>
+                                    <a
+                                            class="link-secondary"
+                                            href="{% url 'caidapp:individual_identity_mediafiles' individual_identity.id %}"
+                                            data-bs-toggle="tooltip" title="Representative media files / Media files">
+                                        <i class="bi bi-images"></i>
+                                        Media files: {{ individual_identity.count_of_representative_mediafiles }} /
+                                        {{ individual_identity.count_of_mediafiles }}
+                                    </a>
+                                </div>
                                 {% if individual_identity.updated_by %}
-                                    <p> Last update by: {{ individual_identity.updated_by }} </p>
+                                    <div> Last update by: {{ individual_identity.updated_by }} </div>
                                 {% endif %}
                                 {#                        <p>{{ individual_identity.mediafile_set.0.mediafile.url }}</p>#}
 
@@ -74,21 +86,25 @@
                                 {#                            <i class="bi bi-images"></i> Detail#}
                                 {#                        </a>#}
 
-                                <a class="btn btn-primary"
-                                   href="{% url 'caidapp:individual_identity_mediafiles' individual_identity.id %}">
-                                    <i class="bi bi-images"></i> Show
-                                </a>
-
-                                <a class="btn btn-secondary"
-                                   href="{% url 'caidapp:update_individual_identity' individual_identity.id %}">
-                                    <i class="bi bi-pencil"></i> Edit
-                                </a>
-                                {% if individual_identity.hash %}
-                                    <a class="btn btn-secondary"
-                                       href="{% url 'caidapp:shared_individual_identity' individual_identity.hash %}">
-                                        <i class="bi bi-share-fill"></i> Shared identity
+                                <div class="mt-2">
+                                    <a class="btn btn-primary"
+                                       href="{% url 'caidapp:individual_identity_mediafiles' individual_identity.id %}"
+                                    >
+                                        <i class="bi bi-images"></i>
                                     </a>
-                                {% endif %}
+
+                                    <a class="btn btn-secondary"
+                                       href="{% url 'caidapp:update_individual_identity' individual_identity.id %}">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    {% if individual_identity.hash %}
+                                        <a class="btn btn-secondary"
+                                           href="{% url 'caidapp:shared_individual_identity' individual_identity.hash %}">
+                                            <i class="bi bi-share-fill"></i>
+                                        </a>
+                                    {% endif %}
+
+                                </div>
                             </div>
                         </div>
                     </div>

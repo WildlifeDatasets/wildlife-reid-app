@@ -51,6 +51,15 @@ class IndividualIdentityForm(forms.ModelForm):
         model = IndividualIdentity
         fields = ("name", "code", "juv_code", "sex", "coat_type", "note", "birth_date", "death_date")
 
+    birth_date = forms.DateField(
+        widget=forms.TextInput(attrs={'placeholder': 'YYYY-MM-DD'}),
+        required=False,
+    )
+    death_date = forms.DateField(
+        widget=forms.TextInput(attrs={'placeholder': 'YYYY-MM-DD'}),
+        required=False,
+    )
+
 
 class UploadedArchiveSelectTaxonForIdentificationForm(forms.ModelForm):
     class Meta:

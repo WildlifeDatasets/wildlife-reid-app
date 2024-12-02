@@ -375,8 +375,11 @@
 
 
                                                 {% if mediafile.instance.taxon_verified %}
-                                                    <i class="fa-solid fa-hippo"></i>
-                                                    <i class="bi bi-check"></i>
+{#                                                    <i class="fa-solid fa-hippo"></i>#}
+                                                    <i class="bi bi-check"
+                                                       data-bs-toggle="tooltip"
+                                                       title="Taxon verified"
+                                                    ></i>
                                                 {% endif %}
 {#                                                {% if mediafile.instance.category.name == "Not Classified" %} #}
                                                 {% if mediafile.instance.is_for_suggestion %}
@@ -418,9 +421,15 @@
                                             {#                                            {{ mediafile.instance.identity }}#}
                                             {% if mediafile.instance.identity_is_representative %}
                                                 {#                                                <i class="bi bi-check-circle"></i>#}
-                                                {#<i class="bi bi-bookmark"></i>#}
-                                                <i class="bi bi-person" data-toggle="tooltip" data-placement="top"
-                                                   title="Identity confirmed by {{ user }}."></i>
+{#                                                <i class="bi bi-bookmark"></i>#}
+                                                <i
+{#                                                        class="bi bi-person"#}
+{#                                                        class="bi bi-bookmark"#}
+                                                        class="bi bi-star-fill"
+                                                   data-bs-toggle="tooltip"
+                                                        title="Representative identity"
+{#                                                   title="Identity confirmed by {{ user }}."#}
+                                                ></i>
                                             {% endif %}
 
                                             <br>
