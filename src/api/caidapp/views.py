@@ -2608,12 +2608,14 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
             counter0 = 0
             counter1 = 0
             counter_file_in_spreadsheet_does_not_exist = 0
-            if "original_path" in df.columns:
+            self.prev_url = request.META.get("HTTP_REFERER", "/")
+            if "original_path" not in df.columns:
                 return message_view(
                     request,
                     "The 'original_path' column is required in the uploaded spreadsheet.",
                     headline="Update metadata",
                     link=self.prev_url,
+                    button="Ok",
                 )
             for i, row in df.iterrows():
                 original_path = row['original_path']
@@ -2648,7 +2650,6 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
                     mf.save()
                 else:
                     counter_file_in_spreadsheet_does_not_exist += 1
-            self.prev_url = request.META.get("HTTP_REFERER", "/")
             return message_view(
                 request,
                 "Updated metadata for " + str(counter0) + " mediafiles. " + str(counter1) + " fields updated. " +\
