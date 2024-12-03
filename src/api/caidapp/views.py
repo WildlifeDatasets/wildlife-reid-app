@@ -2607,6 +2607,7 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
 
             counter0 = 0
             counter1 = 0
+            counter_file_in_spreadsheet_does_not_exist = 0
             if "original_path" in df.columns:
                 return message_view(
                     request,
@@ -2616,7 +2617,9 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
                 )
             for i, row in df.iterrows():
                 original_path = row['original_path']
-                mf = MediaFile.objects.get(parent=uploaded_archive, original_filename=original_path)
+
+                # get or None
+                mf = MediaFile.objects.filter(parent=uploaded_archive, original_filename=original_path).first()
                 if mf:
                     logger.debug(f"{mf=}")
                     counter0 += 1
@@ -2643,10 +2646,13 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
                         counter1 += 1
 
                     mf.save()
+                else:
+                    counter_file_in_spreadsheet_does_not_exist += 1
             self.prev_url = request.META.get("HTTP_REFERER", "/")
             return message_view(
                 request,
-                "Updated metadata for " + str(counter0) + " mediafiles. " + str(counter1) + " fields updated.",
+                "Updated metadata for " + str(counter0) + " mediafiles. " + str(counter1) + " fields updated. " +\
+                str(counter_file_in_spreadsheet_does_not_exist) + " files in spreadsheet do not exist.",
                 headline="Update metadata",
                 link=self.prev_url,
             )
