@@ -29,7 +29,7 @@ urlpatterns = [
     # path("", TemplateView.as_view(template_name="caidapp/login.html"), name="login"),  # <--I
 ]
 
-if True:
+if settings.DEBUG:
     import debug_toolbar
 
     # urlpatterns = [
