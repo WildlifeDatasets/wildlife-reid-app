@@ -438,7 +438,7 @@ def individual_identities(request):
     """List of individual identities."""
     individual_identities = (
         IndividualIdentity.objects.filter(
-            Q(owner_workgroup=request.user.caiduser.workgroup) and ~Q(name="nan")
+            Q(owner_workgroup=request.user.caiduser.workgroup) & ~Q(name="nan")
         )
         .all()
         .order_by("-name")
