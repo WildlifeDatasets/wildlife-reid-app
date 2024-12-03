@@ -1,7 +1,10 @@
-Django==3.2.18
+# Django==3.2.18
+Django==4.2.16
 django-allauth==0.54.0
-django-widget-tweaks==1.4
+# django-widget-tweaks==1.4
+django-widget-tweaks==1.5
 django-pagination==1.0.7
+django-debug-toolbar==4.4.6
 uvicorn==0.22.0
 celery[redis]==5.2.7
 PyYAML==6.0

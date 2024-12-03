@@ -1,4 +1,4 @@
-from django.urls import path
+from django.urls import path, include
 
 from . import views, views_location, views_mediafile, views_uploads
 
@@ -324,4 +324,8 @@ urlpatterns = [
     path("merge_identities/<int:individual_identity1_id>/",
          views.select_second_id_for_identification_merge, name="merge_identities"),
     path("update_uploaded_archive_with_spreadsheet/<int:uploaded_archive_id>/",views.UpdateUploadedArchiveBySpreadsheetFile.as_view(), name="update_uploaded_archive_with_spreadsheet"),
+
+
 ]
+# if settings.DEBUG:
+

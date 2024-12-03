@@ -28,6 +28,21 @@ urlpatterns = [
     path("", RedirectView.as_view(url="/caidapp/")),  # <--I
     # path("", TemplateView.as_view(template_name="caidapp/login.html"), name="login"),  # <--I
 ]
+
+if True:
+    import debug_toolbar
+
+    # urlpatterns = [
+    #     *urlpatterns,
+    # ] + debug_toolbar.debug_toolbar_urls()
+    urlpatterns = [
+                      # path("__debug__/", include(debug_toolbar.urls)),
+                      path('__debug__/', include('debug_toolbar.urls')),
+
+                  ] + urlpatterns
+    print(f"{urlpatterns=}")
+
 urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
 # print (static(settings.MEDIA_URL))
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+

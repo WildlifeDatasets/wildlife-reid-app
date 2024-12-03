@@ -81,6 +81,7 @@ INSTALLED_APPS = [
     "widget_tweaks",
     "location_field.apps.DefaultConfig",
     "django.db.migrations",
+    "debug_toolbar"
     # 'pagination',
 ]
 
@@ -92,6 +93,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "debug_toolbar.middleware.DebugToolbarMiddleware",
     "caidapp.middleware.ImpersonateMiddleware",
 ]
 
@@ -211,3 +213,16 @@ ACCOUNT_DEFAULT_HTTP_PROTOCOL = os.environ.get("ACCOUNT_DEFAULT_HTTP_PROTOCOL", 
 
 # if the automatic identification is under the threshold, add it to the list for manual confirmation
 IDENTITY_MANUAL_CONFIRMATION_THRESHOLD = 20.0
+
+INTERNAL_IPS = [
+    # ...
+    "127.0.0.1",
+    "localhost"
+    # ...
+]
+def show_toolbar(request):
+    return True  # Always show toolbar
+
+DEBUG_TOOLBAR_CONFIG = {
+    'SHOW_TOOLBAR_CALLBACK': show_toolbar,
+}

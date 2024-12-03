@@ -7,6 +7,7 @@
 
 * [added] Merge identity
 * [added] Update Media files in upload with spreadsheet file
+* [added] Django debug toolbar
 
 ## 11-2024
 
