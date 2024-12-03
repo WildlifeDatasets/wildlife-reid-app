@@ -2607,8 +2607,14 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
 
             counter0 = 0
             counter1 = 0
+            if "original_path" in df.columns:
+                return message_view(
+                    request,
+                    "The 'original_path' column is required in the uploaded spreadsheet.",
+                    headline="Update metadata",
+                    link=self.prev_url,
+                )
             for i, row in df.iterrows():
-                logger.debug(f"{row=}")
                 original_path = row['original_path']
                 mf = MediaFile.objects.get(parent=uploaded_archive, original_filename=original_path)
                 if mf:
