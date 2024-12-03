@@ -152,6 +152,20 @@ class Location(models.Model):
         return str(self.name)
 
 
+    def set_location_from_str(self, order: int = 3):
+        """Round location for anonymization."""
+        if (self.location is None) or (self.location == ""):
+            return self.location
+        lat, lon = str(self.location).split(",")
+        self.set_location(lat, lon, order=order)
+
+    def set_location(self, lat:float, lon:float, order: int = 3):
+        lat = round(float(lat), order)
+        lon = round(float(lon), order)
+        self.location = f"{lat},{lon}"
+        self.save()
+
+
 class UploadedArchive(models.Model):
     name = models.CharField(max_length=255, blank=True, default="")
     uploaded_at = models.DateTimeField("Uploaded at", default=datetime.now)

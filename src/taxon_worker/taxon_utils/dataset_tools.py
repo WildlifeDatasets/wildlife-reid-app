@@ -1270,7 +1270,7 @@ def data_preprocessing(
     media_dir_path: Path,
     num_cores: Optional[int] = None,
     contains_identities: bool = False,
-    post_update_csv_name: str = "mediafile.post_update.csv",
+    post_update_csv_path: Path = Path("mediafile.post_update.csv"),
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """Preprocessing of data in zip file.
 
@@ -1282,7 +1282,7 @@ def data_preprocessing(
     zip_path: file with zipped images
     media_dir_path: output dir for media files with hashed names
     csv_path: Path to csv file
-    post_update_csv_name: str - Name of file where will be stored any CSV or XLSX file
+    post_update_csv_path: str - Name of file where will be stored any CSV or XLSX file
 
     Returns
     -------
@@ -1292,6 +1292,7 @@ def data_preprocessing(
     """
     # create temporary directory
     import tempfile
+    post_update_csv_path = Path(post_update_csv_path)
 
     tmp_dir = Path(tempfile.gettempdir()) / str(uuid.uuid4())
     tmp_dir.mkdir(exist_ok=False, parents=True)
@@ -1305,20 +1306,7 @@ def data_preprocessing(
     )
     # post_update CSV is used for updating the metadata after all files are processed
 
-    post_update_path = sorted(list(tmp_dir.glob("**/*.csv")) + list(tmp_dir.glob("**/*.xlsx")))
-    post_update_path = post_update_path[-1] if len(post_update_path) > 0 else None
-    if post_update_path is not None:
-        if post_update_path.suffix == ".csv":
-            df_post_update = pd.read_csv(post_update_path)
-        elif post_update_path.suffix == ".xlsx":
-            df_post_update = pd.read_excel(post_update_path)
-        else:
-            df_post_update = None
-        if df_post_update is not None:
-            csv_path = Path(media_dir_path) / post_update_csv_name
-            logger.debug(f"{csv_path=}, {csv_path.exists()=}")
-            csv_path.parent.mkdir(parents=True, exist_ok=True)
-            df_post_update.to_csv(csv_path, encoding="utf-8-sig")
+    find_any_spreadsheet_and_save_as_csv(tmp_dir, post_update_csv_path)
 
     # df["original_path"].map(lambda fn: dataset_tools.make_hash(fn, prefix="media_data"))
     df = make_dataset(
@@ -1335,6 +1323,23 @@ def data_preprocessing(
     shutil.rmtree(tmp_dir, ignore_errors=True)
 
     return df, duplicates
+
+
+def find_any_spreadsheet_and_save_as_csv(tmp_dir, csv_path):
+    post_update_path = sorted(list(tmp_dir.glob("**/*.csv")) + list(tmp_dir.glob("**/*.xlsx")))
+    post_update_path = post_update_path[-1] if len(post_update_path) > 0 else None
+    logger.debug(f"{post_update_path=}")
+    if post_update_path is not None:
+        if post_update_path.suffix == ".csv":
+            df_post_update = pd.read_csv(post_update_path)
+        elif post_update_path.suffix == ".xlsx":
+            df_post_update = pd.read_excel(post_update_path)
+        else:
+            df_post_update = None
+        if df_post_update is not None:
+            logger.debug(f"{csv_path=}, {csv_path.parent.exists()=}")
+            csv_path.parent.mkdir(parents=True, exist_ok=True)
+            df_post_update.to_csv(csv_path, encoding="utf-8-sig")
 
 
 def make_zipfile_with_categories(

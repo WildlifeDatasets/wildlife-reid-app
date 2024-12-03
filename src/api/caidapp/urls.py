@@ -323,4 +323,5 @@ urlpatterns = [
     path("merge_identities/<int:individual_identity1_id>/<int:individual_identity2_id>/", views.MergeIdentities.as_view(), name="merge_identities"),
     path("merge_identities/<int:individual_identity1_id>/",
          views.select_second_id_for_identification_merge, name="merge_identities"),
+    path("update_uploaded_archive_with_spreadsheet/<int:uploaded_archive_id>/",views.UpdateUploadedArchiveBySpreadsheetFile.as_view(), name="update_uploaded_archive_with_spreadsheet"),
 ]

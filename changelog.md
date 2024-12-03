@@ -6,6 +6,7 @@
 ## 12-2024
 
 * [added] Merge identity
+* [added] Update Media files in upload with spreadsheet file
 
 ## 11-2024
 

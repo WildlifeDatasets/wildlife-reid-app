@@ -2546,6 +2546,107 @@ class MergeIdentities(View):
 
 
 
+class UpdateUploadedArchiveBySpreadsheetFile(View):
+
+    def __init__(self):
+        self.prev_url = None
+
+
+    def post(self, request, uploaded_archive_id):
+        """Handle the form submission."""
+        uploaded_archive = get_object_or_404(UploadedArchive, pk=uploaded_archive_id)
+        output_dir = Path(settings.MEDIA_ROOT) / uploaded_archive.outputdir
+
+        form = forms.UploadedArchiveUpdateBySpreadsheetForm(request.POST, request.FILES)
+        if form.is_valid():
+            # Save the form data to the output directory
+            spreadsheet_file = request.FILES["spreadsheet_file"]
+            file_path = output_dir / spreadsheet_file.name
+            logger.debug(f"{file_path=}")
+            with open(file_path, "wb+") as destination:
+                for chunk in spreadsheet_file.chunks():
+                    destination.write(chunk)
+
+            logger.debug(f"{file_path.exists()=}")
+
+
+            if file_path.suffix == ".csv":
+                df = pd.read_csv(file_path, index_col=0)
+            elif file_path.suffix == ".xlsx":
+                df = pd.read_excel(file_path)
+            else:
+                df = None
+
+            # load metadata
+
+            logger.debug(f"{uploaded_archive.csv_file.name=}")
+            metadata = pd.read_csv(Path(settings.MEDIA_ROOT) / uploaded_archive.csv_file.name, index_col=0)
+
+            # metadata = merge_update_spreadsheet_with_metadata_spreadsheet(df, metadata)
+            logger.debug("deleting uploaded file")
+            Path(file_path).unlink()
+
+            # metadata.to_csv(uploaded_archive.csv_file.name, encoding="utf-8-sig")
+
+            for i, row in df.iterrows():
+                original_path = row['original_path']
+                mf = MediaFile.objects.get(parent=uploaded_archive, original_filename=original_path)
+                if mf:
+                    logger.debug(f"{mf=}")
+                    # mf.category = row['category']
+                    if "predicted_category" in row:
+                        mf.category = models.get_taxon(row["predicted_category"])  # remove this
+                    if "unique_name" in row:
+                        mf.identity = models.get_unique_name(
+                            row["unique_name"], workgroup=uploaded_archive.owner.workgroup
+                        )
+                    if "location name" in row:
+                        mf.location = models.get_location(
+                            caiduser=request.user.caiduser,
+                            name=row["location name"])
+                        if ("latitude" in row) and ("longitude" in row):
+                            mf.location.set_location(float(row["latitude"]), float(row["longitude"]))
+                    if "datetime" in row:
+                        mf.captured_at = row["datetime"]
+
+                    mf.save()
+            self.prev_url = request.META.get("HTTP_REFERER", "/")
+            return redirect(self.prev_url)
+        else:
+            return render(
+                request,
+                "caidapp/update_form.html",
+                {
+                    "form": form,
+                    "headline": "Upload XLSX or CSV with column 'original_path'...",
+                    "button": "Save",
+                    "errors": form.errors,
+                    "text_note": "The 'original_path' is required in the uploaded spreadsheet. " \
+                        + "The 'predicted_category', 'unique_name', 'location name', 'latitude', " \
+                        + "'longitude', 'datetime' are optional.",
+                },
+            )
+
+
+    def get(self, request, uploaded_archive_id):
+        """Render the form for updating the uploaded archive."""
+        uploaded_archive = get_object_or_404(UploadedArchive, pk=uploaded_archive_id)
+        output_dir = Path(settings.MEDIA_ROOT) / uploaded_archive.outputdir
+        assert output_dir.exists()
+        form = forms.UploadedArchiveUpdateBySpreadsheetForm()
+
+        prev_url = request.META.get("HTTP_REFERER", "/")
+        self.prev_url
+        return render(request, "caidapp/update_form.html", {
+            "form": form,
+            "headline": "Upload XLSX or CSV",
+            "button": "Save",
+            "next": prev_url,
+            "text_note": "The 'original_path' is required in the uploaded spreadsheet. " \
+                         + "The 'predicted_category', 'unique_name', 'location name', 'latitude', " \
+                         + "'longitude', 'datetime' are optional.",
+        })
+
 
 @login_required
 def select_second_id_for_identification_merge(request, individual_identity1_id: int):

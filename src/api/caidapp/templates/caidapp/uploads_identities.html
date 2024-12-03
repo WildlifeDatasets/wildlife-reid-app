@@ -118,6 +118,12 @@
                                                            href="{{ uploadedarchive.csv_file.url }}"><i
                                                             class="bi bi-table"></i> Download CSV</a></li>
                                                 {% endif %}
+                                                     <li>
+                                                        <a class="dropdown-item"
+                                                           href="{% url 'caidapp:update_uploaded_archive_with_spreadsheet' uploadedarchive.id %}">
+                                                            <i class="fas fa-table"></i> Update with spreadsheet
+                                                        </a>
+                                                     </li>
                                                 {% if request.user.is_staff %}
                                                     <li>
                                                         <hr class="dropdown-divider">

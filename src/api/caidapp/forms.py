@@ -91,6 +91,23 @@ class IndividualIdentitySelectSecondForMergeForm(forms.Form):
             self.fields['identity'] = forms.ModelChoiceField(queryset=identities, required=True)
 
 
+class UploadedArchiveUpdateBySpreadsheetForm(forms.Form):
+
+    def __init__(self, *args, upload_to=None, **kwargs):
+        super(UploadedArchiveUpdateBySpreadsheetForm, self).__init__(*args, **kwargs)
+
+        # take only CSV or XLSX
+        self.fields['spreadsheet_file'] = forms.FileField(label="Spreadsheet File",
+                                                            required=True,
+                                                            help_text="Select a CSV or XLSX file with the following columns: "
+                                                                      "mediafile, location_at_upload, location_check_at, taxon_for_identification",
+                                                            widget=forms.FileInput(attrs={"accept": ".csv,.xlsx"}),
+
+            # "Spreadsheet File"
+                                                          # upload_to=upload_to
+                                                          )
+
+
 class UploadedArchiveUpdateForm(forms.ModelForm):
 
     from .models import UploadedArchive

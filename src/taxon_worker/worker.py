@@ -59,16 +59,20 @@ def predict(
         output_metadata_file = Path(output_metadata_file)
         do_init = force_init or (not output_metadata_file.exists())
         post_update_csv_name: str = "mediafile.post_update.csv"
+        post_update_csv_path = output_dir / post_update_csv_name
+
+        # if spreadsheet is provided in uploaded_archive, save it to post_update_csv_path
+        # and use it for data update
 
         if do_init:
             shutil.rmtree(output_images_dir, ignore_errors=True)
             # create metadata dataframe
             metadata, _ = data_processing_pipeline.data_preprocessing(
                 input_archive_file,
-                output_images_dir,
+                media_dir_path=output_images_dir,
                 num_cores=num_cores,
                 contains_identities=contains_identities,
-                post_update_csv_name=post_update_csv_name
+                post_update_csv_path=post_update_csv_path
             )
             metadata, df_failing0 = data_processing_pipeline.keep_correctly_loaded_images(metadata)
             # image_path is now relative to output_images_dir
@@ -114,10 +118,16 @@ def predict(
 
         # Update metadata with post_update_csv if it exists
         # find and read zip or xlsx file in temp dir
-        post_update_csv_path = output_dir / post_update_csv_name
+
+        # if spreadsheet is provided in uploaded_archive, use it to update metadata
         if post_update_csv_path.exists():
+            # this is not well tested
             metadata_post_update = pd.read_csv(post_update_csv_path, index_col=0)
             # join on column "original_path" if the column exists, use the column from post_update_metadata
+            logger.debug(f"{metadata['original_path']=}")
+            logger.debug(f"{metadata_post_update['original_path']=}")
+            logger.debug(f"{metadata.columns=}")
+            logger.debug(f"{metadata_post_update.columns=}")
 
             # Perform an inner join to ensure only rows from metadata are retained
             merged_df = metadata.merge(
@@ -126,6 +136,9 @@ def predict(
                 how='left',  # Keeps all rows from `metadata`, matching only from `metadata_post_update`
                 suffixes=('', '_post_update')
             )
+            logger.debug("Merging metadata with post_update_csv.")
+            logger.debug(f"{merged_df.shape=}")
+            logger.debug(f"{merged_df['location name']=}")
 
             # Overwrite columns from `metadata` with those from `metadata_post_update` if they exist
             for col in metadata_post_update.columns:
@@ -134,6 +147,8 @@ def predict(
                         merged_df[col] = merged_df[f"{col}_post_update"].combine_first(merged_df[col])
                         merged_df.drop(columns=[f"{col}_post_update"], inplace=True)
             metadata = merged_df
+            logger.debug("Merged metadata with post_update_csv.")
+            logger.debug(f"{metadata.shape=}")
 
         metadata.to_csv(output_metadata_file, encoding="utf-8-sig")
 
