@@ -61,9 +61,10 @@ ALLOWED_HOSTS = [
     ".localhost",  # '.' allows to match both 'www.localhost' and 'localhost'
     "147.228.43.21",
     ".caid.kky.zcu.cz",
+    ".kky.zcu.cz",
     CAID_HOST,
 ]
-
+CSRF_TRUSTED_ORIGINS = ['https://*.kky.zcu.cz']
 # Application definition
 
 INSTALLED_APPS = [
