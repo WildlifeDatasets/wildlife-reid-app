@@ -2580,13 +2580,24 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
             # load metadata
 
             logger.debug(f"{uploaded_archive.csv_file.name=}")
-            metadata = pd.read_csv(Path(settings.MEDIA_ROOT) / uploaded_archive.csv_file.name, index_col=0)
+            # metadata = pd.read_csv(Path(settings.MEDIA_ROOT) / uploaded_archive.csv_file.name, index_col=0)
 
             # metadata = merge_update_spreadsheet_with_metadata_spreadsheet(df, metadata)
             logger.debug("deleting uploaded file")
             Path(file_path).unlink()
+            logger.debug(f"{df.columns=}")
+
 
             # metadata.to_csv(uploaded_archive.csv_file.name, encoding="utf-8-sig")
+            df = df.rename({
+                "original path": "original_path",
+                "taxon": "category",
+                "unique name": "unique_name",
+                "location_name": "location name",
+                "lat": "latitude",
+                "lon": "longitude",
+                "datetime": "datetime",
+            })
 
             for i, row in df.iterrows():
                 original_path = row['original_path']
