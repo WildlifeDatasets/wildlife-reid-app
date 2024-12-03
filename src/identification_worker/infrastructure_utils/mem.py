@@ -9,21 +9,28 @@ import torch
 logger = logging.getLogger()
 
 
+
 def get_torch_cuda_device_if_available(device: Union[None, int, str] = 0) -> torch.device:
-    """Set device if available."""
+    """Set and return a valid torch device."""
     logger.debug(f"requested device: {device}")
-    # logger.debug(f"{traceback.format_stack()=}")
+
     if isinstance(device, str):
+        # Handle string input like 'cuda', 'cuda:0', or 'cpu'
         if device.startswith("cuda"):
-            device = int(device.split(":")[-1])
+            if ":" not in device:
+                device = 0  # Default to cuda:0 if no index is provided
+            else:
+                device = int(device.split(":")[-1])  # Extract index
         elif device == "cpu":
-            device = "cpu"
+            return torch.device("cpu")
         else:
-            logger.warning(f"Unknown device: {device}")
-            device = 0
+            logger.warning(f"Unknown device string: {device}. Falling back to CUDA or CPU.")
+            device = 0  # Default fallback
+
+    # Handle torch device assignment
     if torch.cuda.is_available():
-        if device is None:
-            new_device = torch.device("cuda")
+        if device is None or isinstance(device, int):
+            new_device = torch.device(f"cuda:{device}" if isinstance(device, int) else "cuda")
         else:
             new_device = torch.device(device)
     else:
