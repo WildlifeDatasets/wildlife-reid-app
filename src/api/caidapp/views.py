@@ -128,12 +128,17 @@ def login(request):
         )
 
 
-def message_view(request, message):
+def message_view(request, message, headline=None, link=None, button_label="Ok"):
     """Show message."""
     return render(
         request,
         "caidapp/message.html",
-        {"message": message},
+        {
+            "message": message,
+            "headline": headline,
+            "link": link,
+            "button_label": button_label,
+         },
     )
 
 
@@ -2575,6 +2580,7 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
             elif file_path.suffix == ".xlsx":
                 df = pd.read_excel(file_path)
             else:
+                return messages.error(request, "Only CSV and XLSX files are supported.")
                 df = None
 
             # load metadata
@@ -2599,30 +2605,46 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
                 "datetime": "datetime",
             })
 
+            counter0 = 0
+            counter1 = 0
             for i, row in df.iterrows():
+                logger.debug(f"{row=}")
                 original_path = row['original_path']
                 mf = MediaFile.objects.get(parent=uploaded_archive, original_filename=original_path)
                 if mf:
                     logger.debug(f"{mf=}")
+                    counter0 += 1
                     # mf.category = row['category']
                     if "predicted_category" in row:
                         mf.category = models.get_taxon(row["predicted_category"])  # remove this
+                        counter1 += 1
+
                     if "unique_name" in row:
                         mf.identity = models.get_unique_name(
                             row["unique_name"], workgroup=uploaded_archive.owner.workgroup
                         )
+                        counter1 += 1
                     if "location name" in row:
                         mf.location = models.get_location(
                             caiduser=request.user.caiduser,
                             name=row["location name"])
                         if ("latitude" in row) and ("longitude" in row):
                             mf.location.set_location(float(row["latitude"]), float(row["longitude"]))
+                            counter1 += 1
+                        counter1 += 1
                     if "datetime" in row:
                         mf.captured_at = row["datetime"]
+                        counter1 += 1
 
                     mf.save()
             self.prev_url = request.META.get("HTTP_REFERER", "/")
-            return redirect(self.prev_url)
+            return message_view(
+                request,
+                "Updated metadata for " + str(counter0) + " mediafiles. " + str(counter1) + " fields updated.",
+                headline="Update metadata",
+                link=self.prev_url,
+            )
+            # return redirect(self.prev_url)
         else:
             return render(
                 request,

@@ -11,6 +11,9 @@
             <p>{{ key }}: {{ value }}</p>
         {% endfor %}
     {% endif %}
+    {% if link %}
+        <a href="{{ link }}" class="btn btn-primary">{{ button_label }}</a>
+    {% endif %}
     </div>
 
 {% endblock %}
