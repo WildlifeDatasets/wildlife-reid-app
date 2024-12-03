@@ -720,18 +720,21 @@ def get_individual_identity_from_foridentification(
         else:
             foridentification = MediafilesForIdentification.objects.get(id=foridentification_id)
 
-    # give me all identities in foridentification.top_mediafile_set.mediafile.identity
-    identities = foridentification.top_mediafiles.values_list("mediafile__identity", flat=True)
-    # all identities of workgroup
+    if foridentification is not None:
+        # give me all identities in foridentification.top_mediafile_set.mediafile.identity
+        identities = foridentification.top_mediafiles.values_list("mediafile__identity", flat=True)
+        # all identities of workgroup
 
-    remaining_identities = (
-        IndividualIdentity.objects.filter(
-            Q(owner_workgroup=request.user.caiduser.workgroup) and ~Q(name="nan") and
-            ~Q(id__in=identities)
+        remaining_identities = (
+            IndividualIdentity.objects.filter(
+                Q(owner_workgroup=request.user.caiduser.workgroup) and ~Q(name="nan") and
+                ~Q(id__in=identities)
+            )
+            .all()
+            .order_by("-name")
         )
-        .all()
-        .order_by("-name")
-    )
+    else:
+        return message_view(request, "No mediafiles for identification.")
 
     return render(
         request,
