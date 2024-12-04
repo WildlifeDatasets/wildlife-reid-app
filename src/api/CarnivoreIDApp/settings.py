@@ -66,7 +66,7 @@ ALLOWED_HOSTS = [
 ]
 CSRF_TRUSTED_ORIGINS = [
     'https://*.kky.zcu.cz',
-    'http://*.kky.zcu.cz'
+    'http://*.kky.zcu.cz:13680'
 ]
 # Application definition
 
