@@ -130,7 +130,7 @@ def load_features(
     db_connection, organization_id, *, start: int = -1, end: int = -1, rows: tuple = ()
 ):
     """Loads specific or all rows from database."""
-    logger.debug("Started loading features from database")
+    # logger.debug("Started loading features from database")
 
     if rows:
         reference_images = []
@@ -148,7 +148,7 @@ def load_features(
         )
 
     features = [json.loads(e) for e in reference_images["embedding"]]
-    logger.debug(f"Loaded features {len(reference_images)}, rows: <{start}, {end})")
+    # logger.debug(f"Loaded features {len(reference_images)}, rows: <{start}, {end})")
     return features, reference_images
 
 
