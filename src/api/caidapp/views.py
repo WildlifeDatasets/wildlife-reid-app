@@ -727,12 +727,16 @@ def get_individual_identity_from_foridentification(
 
         remaining_identities = (
             IndividualIdentity.objects.filter(
-                Q(owner_workgroup=request.user.caiduser.workgroup) and ~Q(name="nan") and
+                Q(owner_workgroup=request.user.caiduser.workgroup) & ~Q(name="nan") &
                 ~Q(id__in=identities)
             )
             .all()
-            .order_by("-name")
+            .order_by("name")
         )
+        logger.debug(f"{len(remaining_identities)=}")
+        if len(remaining_identities) > 10:
+            # print first 10 remaining identities
+            logger.debug(f"{remaining_identities[:10]=}")
     else:
         return message_view(request, "No mediafiles for identification.")
 

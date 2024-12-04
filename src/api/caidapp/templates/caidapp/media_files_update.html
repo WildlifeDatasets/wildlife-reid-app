@@ -415,7 +415,7 @@
                                         {% if mediafile.instance.identity %}
                                             Identity:
                                             <a class="link-secondary"
-                                               href="{% url 'caidapp:individual_identity_mediafiles' mediafile.instance.id %}">
+                                               href="{% url 'caidapp:individual_identity_mediafiles' mediafile.instance.identity.id %}">
                                                 {{ mediafile.instance.identity }}
                                             </a>
                                             {#                                            {{ mediafile.instance.identity }}#}
