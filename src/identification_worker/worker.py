@@ -52,6 +52,12 @@ def init(
 ):
     """Process and store Reference Image records in the database."""
     logger.debug(f"{identification_model=}")
+    if identification_model is None:
+        identification_model = {
+            "name": "",
+            "path": "hf-hub:strakajk/LynxV4-MegaDescriptor-v2-T-256"
+        }
+
 
     try:
         logger.info(f"Applying init task with args: {input_metadata_file=}, {organization_id=}.")
@@ -83,7 +89,7 @@ def init(
         )
         for i, _metadata in enumerate(metadata_splits):
             logger.debug(f"[{i + 1}/{target_num_splits}] - {len(_metadata)}")
-            _features = encode_images(_metadata, identification_model_path=identification_model["path"])
+            _features = encode_images(_metadata, identification_model_path=identification_model['path'])
             _features = [json.dumps(e) for e in _features]
             _metadata["embedding"] = _features
 
@@ -435,6 +441,14 @@ def predict(
 ):
     """Process and compare input samples with Reference Image records from the database."""
     logger.debug(f"{identification_model=}")
+
+    if identification_model is None:
+        identification_model = {
+            "name": "",
+            "path": "hf-hub:strakajk/LynxV4-MegaDescriptor-v2-T-256"
+        }
+
+
     # identification_model["name"]
     # identification_model["path"]
     try:

@@ -118,7 +118,6 @@ services:
       # - shared-data:/shared_data  # shared data with API, Workers, and Nginx
       # - shared_data_external:/shared_data_external
       - shared_data_external:/shared_data
-#      - shared_data_external:/shared_data_external
     depends_on:
       - broker
       - redis
@@ -183,7 +182,7 @@ services:
     volumes:
       - identification-worker-db-data:/var/lib/postgresql/data
 #      - shared_data_external:/shared_data_external
-      - shared_data_external:/shared_data
+#  - shared_data_external:/shared_data
     expose:
       - 5432
     #      - identification-worker
