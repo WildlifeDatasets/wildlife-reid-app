@@ -705,7 +705,7 @@ def _update_database_by_one_row_of_metadata(
     media_abs_pth = Path(row["absolute_media_path"])
     media_rel_pth = media_abs_pth.relative_to(settings.MEDIA_ROOT)
     captured_at = row["datetime"]
-    logger.debug(f"{captured_at=}, {type(captured_at)}")
+    # logger.debug(f"{captured_at=}, {type(captured_at)}")
     if (captured_at == "") or (isinstance(captured_at, float) and np.isnan(captured_at)):
         captured_at = None
     try:

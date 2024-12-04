@@ -131,6 +131,7 @@ def get_identification_model(model_name, model_checkpoint=""):
 
     logger.debug("After identification model.")
     logger.debug(f"{mem.get_vram(DEVICE)}     {mem.get_ram()}")
+    return IDENTIFICATION_MODELS
 
 
 def get_sam_model() -> SamPredictor:
@@ -570,7 +571,7 @@ def identify(
     )
     similarity = wildfusion(query_features, database_features, B=image_budget)
     logger.debug(f"{similarity.shape=}")
-    del IDENTIFICATION_MODELS
+    IDENTIFICATION_MODELS = None
 
     output, result_idx = identify_from_similarity(similarity, database_metadata, top_k)
 
