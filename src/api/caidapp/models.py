@@ -329,9 +329,9 @@ class UploadedArchive(models.Model):
                     earliest_captured_at = mediafile.captured_at
                 if latest_captured_at is None or mediafile.captured_at > latest_captured_at:
                     latest_captured_at = mediafile.captured_at
-                logger.debug(f"{mediafile=}")
-        logger.debug(f"{mediafiles.count()=}")
-        logger.debug(f"{earliest_captured_at=}, {latest_captured_at=}")
+                # logger.debug(f"{mediafile=}")
+        # logger.debug(f"{mediafiles.count()=}")
+        # logger.debug(f"{earliest_captured_at=}, {latest_captured_at=}")
         self.earliest_captured_at = earliest_captured_at
         self.latest_captured_at = latest_captured_at
         self.save()

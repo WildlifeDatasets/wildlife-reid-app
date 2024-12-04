@@ -733,7 +733,7 @@ def get_individual_identity_from_foridentification(
             .all()
             .order_by("name")
         )
-        logger.debug(f"{len(remaining_identities)=}")
+        logger.debug(f"remaining:  {len(remaining_identities)=}")
         if len(remaining_identities) > 10:
             # print first 10 remaining identities
             logger.debug(f"{remaining_identities[:10]=}")
@@ -842,13 +842,18 @@ def init_identification(request, taxon_str: str = "Lynx lynx"):
     workgroup.save()
 
     logger.debug("Calling init_identification...")
+    caiduser = request.user.caiduser
     sig = signature(
         "init_identification",
         kwargs={
             # csv file should contain image_path, class_id, label
             "input_metadata_file": str(identity_metadata_file),
             "organization_id": request.user.caiduser.workgroup.id,
-        },
+            "identification_model": {
+                "name": caiduser.identification_model.name,
+                "path": caiduser.identification_model.model_path,
+            }
+    },
     )
     # task =
     sig.apply_async(

@@ -16,6 +16,7 @@ from scipy.special import softmax
 from fgvc.core.training import predict
 from fgvc.datasets import get_dataloaders
 from fgvc.utils.experiment import load_model
+from tqdm import tqdm
 
 from .config import RESOURCES_DIR, WANDB_API_KEY, WANDB_ARTIFACT_PATH, WANDB_ARTIFACT_PATH_CROPPED
 from .dataset_tools import data_preprocessing
@@ -384,7 +385,7 @@ def keep_correctly_loaded_images(metadata) -> Tuple[pd.DataFrame, pd.DataFrame]:
 def make_previews(metadata, output_dir, preview_width=1200):
     """Create preview image for video."""
     output_dir = Path(output_dir)
-    for i, row in metadata.iterrows():
+    for i, row in tqdm(metadata.iterrows(), total=len(metadata), desc="Creating previews"):
         mediafile_path = Path(row["absolute_media_path"])
         # output_dir = Path(settings.MEDIA_ROOT) / mediafile.parent.outputdir
         # abs_pth = output_dir / "thumbnails" / Path(mediafile.mediafile.name).name

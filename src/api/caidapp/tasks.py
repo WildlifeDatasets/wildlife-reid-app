@@ -11,6 +11,7 @@ from types import SimpleNamespace
 from typing import Generator
 import tempfile
 import traceback
+import tqdm
 
 import django
 import numpy as np
@@ -648,7 +649,7 @@ def update_uploaded_archive_by_metadata_csv(
     location = get_location(uploaded_archive.owner, str(uploaded_archive.location_at_upload))
 
     status_counts = StatusCounts()
-    for index, row in df.iterrows():
+    for index, row in tqdm.tqdm(df.iterrows(), total=len(df), desc="Updating database"):
         status = _update_database_by_one_row_of_metadata(
             df,
             index,

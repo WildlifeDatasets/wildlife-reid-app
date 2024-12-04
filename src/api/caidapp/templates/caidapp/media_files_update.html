@@ -296,7 +296,9 @@
                             <div
                                  id="card{{ mediafile.instance.id }}"
                                 {% if mediafile.instance != mediafile.instance.sequence.mediafile_set.first %}
-                                 class="col-12 col-sm-12 col-md-12 col-lg-6 col-xl-4 col-xxl-3 col-xxxl-2 d-none"
+{#                                 TODO fix media file groups #}
+{#                                 class="col-12 col-sm-12 col-md-12 col-lg-6 col-xl-4 col-xxl-3 col-xxxl-2 d-none"#}
+                                 class="col-12 col-sm-12 col-md-12 col-lg-6 col-xl-4 col-xxl-3 col-xxxl-2"
                                  data-sequence="{{ mediafile.instance.sequence.id }}"
                                 {% else %}
                                  class="col-12 col-sm-12 col-md-12 col-lg-6 col-xl-4 col-xxl-3 col-xxxl-2"

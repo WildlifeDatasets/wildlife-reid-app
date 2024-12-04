@@ -231,10 +231,10 @@ def segment_animal(image_path: str, bbox: list, border: float = 0.25) -> np.ndar
     image = cv2.imread(image_path)
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
-    logger.debug("Running segmentation inference.")
+    # logger.debug("Running segmentation inference.")
     SAM_PREDICTOR.set_image(image)
     sam_input_box = np.array([int(point) for point in bbox])
-    logger.debug(f"{sam_input_box=}")
+    # logger.debug(f"{sam_input_box=}")
 
     masks, _, _ = SAM_PREDICTOR.predict(
         point_coords=None,
@@ -253,7 +253,7 @@ def mask_images(metadata: pd.DataFrame) -> pd.DataFrame:
     """Mask images using SAM model."""
     masked_paths = []
     get_sam_model()
-    for row_idx, row in metadata.iterrows():
+    for row_idx, row in tqdm(metadata.iterrows(), total=len(metadata), desc="Masking images"):
         image_path = row["image_path"]
         # detection_results = ast.literal_eval(
         #    ast.literal_eval(row["detection_results"])["detection_results"])
