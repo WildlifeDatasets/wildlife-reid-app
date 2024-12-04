@@ -94,6 +94,7 @@ def get_identification_model(model_name, model_checkpoint=""):
 
     logger.debug("Before identification model.")
     logger.debug(f"{mem.get_vram(DEVICE)}     {mem.get_ram()}")
+    logger.debug(f"{model_name=}")
     mem.wait_for_gpu_memory(0.5)
 
     logger.info("Initializing identification model.")

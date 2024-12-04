@@ -218,7 +218,7 @@ def predict_batch(
     db_connection: object,
     organization_id: int,
     database_size: int,
-    identification_model_path,
+    identification_model_path: str,
     top_k: int = 1,
 ):
     """Predict identification in batches."""
@@ -521,7 +521,8 @@ def predict(
                         db_connection,
                         organization_id,
                         database_size,
-                        top_k,
+                        identification_model_path=identification_model["path"],
+                        top_k=top_k,
                     )
 
                 pred_labels = [
