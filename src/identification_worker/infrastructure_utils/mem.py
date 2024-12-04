@@ -6,11 +6,10 @@ from typing import Optional, Union
 import psutil
 import torch
 
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 
-
-def get_torch_cuda_device_if_available(device: Union[None, int, str] = 0) -> torch.device:
+def get_torch_cuda_device_if_available(device: Union[None, int, str, torch.device] = 0) -> torch.device:
     """Set and return a valid torch device."""
     logger.debug(f"requested device: {device}")
     print(f"requested device: {device}")
@@ -27,13 +26,17 @@ def get_torch_cuda_device_if_available(device: Union[None, int, str] = 0) -> tor
         else:
             logger.warning(f"Unknown device string: {device}. Falling back to CUDA or CPU.")
             device = 0  # Default fallback
+    elif isinstance(device, int):
+        pass
+    elif isinstance(device, torch.device):
+        return device
+    else:
+        logger.warning(f"Unknown device string: {device}. Falling back to CUDA or CPU.")
+        device = 0
 
     # Handle torch device assignment
     if torch.cuda.is_available():
-        if device is None or isinstance(device, int):
-            new_device = torch.device(f"cuda:{device}" if isinstance(device, int) else "cuda")
-        else:
-            new_device = torch.device(device)
+        new_device = torch.device(device)
     else:
         new_device = torch.device("cpu")
     logger.debug(f"new_device: {new_device}")
