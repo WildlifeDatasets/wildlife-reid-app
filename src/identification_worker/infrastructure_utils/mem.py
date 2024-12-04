@@ -13,6 +13,7 @@ logger = logging.getLogger()
 def get_torch_cuda_device_if_available(device: Union[None, int, str] = 0) -> torch.device:
     """Set and return a valid torch device."""
     logger.debug(f"requested device: {device}")
+    print(f"requested device: {device}")
 
     if isinstance(device, str):
         # Handle string input like 'cuda', 'cuda:0', or 'cpu'

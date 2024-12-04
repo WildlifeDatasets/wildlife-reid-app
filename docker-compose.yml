@@ -225,6 +225,7 @@ volumes:
       password: "${SFTP_PASSWORD}"
       allow_other: ""
       idmap: 'user'
+      nonempty: ""
 
   redis-data:
     labels:
