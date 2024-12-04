@@ -30,7 +30,7 @@ class DataToMemory:
     def __call__(self, dataset):
         """Load dataset to memory."""
         features = []
-        for batch in tqdm(dataset, mininterval=1, ncols=100):
+        for batch in tqdm(dataset, mininterval=1, ncols=100, desc="Loading dataset to memory"):
             features.append(batch)
         return features
 

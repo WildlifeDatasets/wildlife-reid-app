@@ -660,6 +660,7 @@ def make_dataset(
     copy_files: bool = False,
     move_files: bool = False,
     create_csv: bool = False,
+    tqdm_desc: typing.Optional[str] = None,
 ) -> pd.DataFrame:
     """Prepare the '.tar.gz' and '.csv' file based on the dataframe with list of the files.
 
@@ -688,6 +689,8 @@ def make_dataset(
         The original input dataframe extended by 'image_file' column.
     """
     assert not (copy_files and move_files), "Onle one arg 'copy_files' or 'move_files' can be True."
+    if tqdm_desc is None:
+        tqdm_desc = dataset_name
 
     if hash_filename:
         dataframe["image_path"] = dataframe["original_path"].apply(make_hash, prefix=dataset_name)
@@ -701,7 +704,7 @@ def make_dataset(
         dataframe.to_csv(output_path / f"{dataset_name}.csv", encoding="utf-8-sig")
 
     if copy_files or move_files:
-        for index, row in tqdm(dataframe.iterrows(), total=len(dataframe), desc=f"{dataset_name}"):
+        for index, row in tqdm(dataframe.iterrows(), total=len(dataframe), desc=tqdm_desc):
             input_file_path = (dataset_base_dir / row["original_path"]).resolve()
             output_file_path = (output_path / Path(row["image_path"])).resolve()
             output_file_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1318,6 +1321,7 @@ def data_preprocessing(
         make_tar=False,
         move_files=True,
         create_csv=False,
+        tqdm_desc="copying files",
     )
 
     shutil.rmtree(tmp_dir, ignore_errors=True)

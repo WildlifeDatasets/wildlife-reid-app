@@ -1,4 +1,5 @@
 {% extends "caidapp/get_individual_identity_zoomed_base.html" %}
+{% load custom_filters %}
 {% block inner_block %}
 
                         <div class="row" id="row-of-cards">
@@ -20,7 +21,7 @@
                                             Top-{{ reid_suggestion_id }}: {{ top_name }}
                                         </div>
                                         <p class="card-text">
-                                            {{ top_score|floatformat:2 }}
+                                            {{ top_score|mul:100|floatformat:2 }}%
                                         </p>
                                         <p class="card-text">
                                             {% if top_mediafile.identity %}

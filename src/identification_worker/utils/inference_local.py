@@ -327,6 +327,7 @@ def get_merged_predictions(
     """Get merged predictions and keypoints."""
     get_loftr_model()
     extractor_local, matcher, transform_local = get_local_matcher(threshold=threshold)
+    matcher.tqdm_kwargs.update({"desc": "Local matching"})
 
     classifier = WildFusionClassifier(
         matcher=matcher,

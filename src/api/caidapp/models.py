@@ -16,6 +16,7 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.urls import reverse_lazy
 from location_field.models.plain import PlainLocationField
+from tqdm import tqdm
 
 from . import fs_data
 from .model_tools import (
@@ -539,14 +540,14 @@ class UploadedArchive(models.Model):
         if sequence is None:
             sequence = Sequence.objects.create(uploaded_archive=self, local_id=sequence_id)
             sequence.save()
-            logger.debug("Sequence created.")
+            # logger.debug("Sequence created.")
 
         return sequence
 
     def make_sequences(self):
         """Create sequences from media files."""
         mediafiles = MediaFile.objects.filter(parent=self)
-        for mediafile in mediafiles:
+        for mediafile in tqdm(mediafiles, desc="Creating sequences"):
             try:
                 sequence_id = mediafile.metadata_json.get("sequence_number", None)
             except Exception as e:

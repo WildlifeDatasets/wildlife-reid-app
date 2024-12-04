@@ -129,7 +129,7 @@ def del_detection_model():
     DETECTION_MODEL = None
     torch.cuda.empty_cache()
 
-
+# TODO remove this line
 DETECTION_MODEL = get_detection_model(force_reload=True)
 del_detection_model()
 
@@ -216,7 +216,7 @@ def detect_animal_on_metadata(metadata: pd.DataFrame, border=0.0) -> pd.DataFram
     """
     assert "full_image_path" in metadata
     logger.info("Running detection inference.")
-    for row_idx, row in tqdm(metadata.iterrows(), total=len(metadata)):
+    for row_idx, row in tqdm(metadata.iterrows(), total=len(metadata), desc="Animal detection"):
         image_abs_path = row["full_image_path"]
         try:
             if (
