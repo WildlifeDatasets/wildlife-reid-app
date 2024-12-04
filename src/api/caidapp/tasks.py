@@ -513,7 +513,7 @@ def make_thumbnail_for_mediafile_if_necessary(
     mediafile: MediaFile, thumbnail_width: int = 400, preview_width: int = 1200
 ):
     """Make small image representing the upload."""
-    logger.debug("Making thumbnail for mediafile")
+    # logger.debug("Making thumbnail for mediafile")
     mediafile_path = Path(settings.MEDIA_ROOT) / mediafile.mediafile.name
     if mediafile.parent is None:
         logger.error(f"Mediafile {mediafile.id} has no parent.")
@@ -527,11 +527,11 @@ def make_thumbnail_for_mediafile_if_necessary(
         preview_abs_pth = preview_abs_pth.with_suffix(".mp4")
 
     gif_path = abs_pth.with_suffix(".gif")
-    logger.debug(f"{gif_path=}, {gif_path.exists()=}")
-    logger.debug(
-        f"{mediafile.thumbnail=}, {mediafile.thumbnail is None=}, "
-        f"{mediafile.thumbnail.name is None=}"
-    )
+    # logger.debug(f"{gif_path=}, {gif_path.exists()=}")
+    # logger.debug(
+    #     f"{mediafile.thumbnail=}, {mediafile.thumbnail is None=}, "
+    #     f"{mediafile.thumbnail.name is None=}"
+    # )
 
     if mediafile.thumbnail.name is None:
         # logger.debug("we are in first if")
@@ -546,7 +546,7 @@ def make_thumbnail_for_mediafile_if_necessary(
 
     if (mediafile.thumbnail.name is None) or (not abs_pth.exists()):
         rel_pth = os.path.relpath(abs_pth, settings.MEDIA_ROOT)
-        logger.debug(f"Creating thumbnail for {rel_pth}")
+        # logger.debug(f"Creating thumbnail for {rel_pth}")
         if make_thumbnail_from_file(mediafile_path, abs_pth, width=thumbnail_width):
             mediafile.thumbnail = str(rel_pth)
             mediafile.save()
@@ -556,7 +556,7 @@ def make_thumbnail_for_mediafile_if_necessary(
     if mediafile.media_type == "image":
         if mediafile.preview.name is None:
             preview_rel_pth = os.path.relpath(preview_abs_pth, settings.MEDIA_ROOT)
-            logger.debug(f"Creating preview for {preview_rel_pth}")
+            # logger.debug(f"Creating preview for {preview_rel_pth}")
             if make_thumbnail_from_file(mediafile_path, preview_abs_pth, width=preview_width):
                 mediafile.preview = str(preview_rel_pth)
                 mediafile.save()
