@@ -706,6 +706,8 @@ def _update_database_by_one_row_of_metadata(
     media_rel_pth = media_abs_pth.relative_to(settings.MEDIA_ROOT)
     captured_at = row["datetime"]
     # if no timzone is given, we assume it is the local time zone
+    local_timezone = django.utils.timezone.get_current_timezone()
+    captured_at = pd.to_datetime(captured_at, utc=True)
 
     # logger.debug(f"{captured_at=}, {type(captured_at)}")
     if (captured_at == "") or (isinstance(captured_at, float) and np.isnan(captured_at)):

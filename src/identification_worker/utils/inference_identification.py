@@ -251,11 +251,11 @@ def segment_animal(image_path: str, bbox: list, border: float = 0.25) -> np.ndar
     return pad_image(foregroud_image, bbox, border=border)
 
 
-def mask_images(metadata: pd.DataFrame) -> pd.DataFrame:
+def mask_images(metadata: pd.DataFrame, tqdm_desc="Masking images") -> pd.DataFrame:
     """Mask images using SAM model."""
     masked_paths = []
     get_sam_model()
-    for row_idx, row in tqdm(metadata.iterrows(), total=len(metadata), desc="Masking images"):
+    for row_idx, row in tqdm(metadata.iterrows(), total=len(metadata), desc=tqdm_desc):
         image_path = row["image_path"]
         # detection_results = ast.literal_eval(
         #    ast.literal_eval(row["detection_results"])["detection_results"])
@@ -288,11 +288,11 @@ def mask_images(metadata: pd.DataFrame) -> pd.DataFrame:
     return metadata
 
 
-def encode_images(metadata: pd.DataFrame, identification_model_path:str) -> list:
+def encode_images(metadata: pd.DataFrame, identification_model_path:str, tqdm_desc="") -> list:
     """Create feature vectors from given images."""
     global IDENTIFICATION_MODELS
     get_identification_model(identification_model_path)
-    metadata = mask_images(metadata)
+    metadata = mask_images(metadata, tqdm_desc=f"Masking images: {tqdm_desc}")
     logger.info("Creating DataLoaders.")
 
     dataset = CarnivoreDataset(

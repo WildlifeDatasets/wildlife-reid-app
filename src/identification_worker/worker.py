@@ -256,8 +256,9 @@ def predict_batch(
     # iterate over query splits/batches
     identification_output = {}
     for qi, _metadata in enumerate(metadata_splits):
-        logger.debug(f"[{qi + 1}/{target_num_splits}] - {len(_metadata)}")
-        query_features = encode_images(_metadata, identification_model_path)
+        progress_str = f"[{qi + 1}/{target_num_splits}] - {len(_metadata)}"
+        logger.debug(f"predict_batch: {progress_str}")
+        query_features = encode_images(_metadata, identification_model_path, tqdm_desc=progress_str)
         # prepare query metadata
         query_metadata = pd.DataFrame(
             {
