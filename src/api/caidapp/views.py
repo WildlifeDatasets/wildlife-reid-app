@@ -733,6 +733,13 @@ def get_individual_identity_from_foridentification(
             .all()
             .order_by("name")
         )
+
+        for identity in remaining_identities:
+            identity.representative_mediafiles = identity.mediafile_set.filter(identity_is_representative=True)
+
+        # for identity in identities:
+        #     identity.representative_mediafiles = identity.mediafile_set.filter(identity_is_representative=True)
+
         logger.debug(f"remaining:  {len(remaining_identities)=}")
         if len(remaining_identities) > 10:
             # print first 10 remaining identities

@@ -3,38 +3,37 @@
 
 {% block head %}
     <style>
-
-   .carousel-control-prev,
-.carousel-control-next {
+        .custom-carousel .carousel-control-prev,
+.custom-carousel .carousel-control-next {
   top: 50%;
   transform: translateY(-50%);
   width: 5%; /* Adjust width as needed */
 }
 
-.carousel-control-prev {
+.custom-carousel .carousel-control-prev {
   left: -5%; /* Position to the left outside the image */
 }
 
-.carousel-control-next {
+.custom-carousel .carousel-control-next {
   right: -5%; /* Position to the right outside the image */
 }
 
 
-.carousel-control-prev-icon,
-.carousel-control-next-icon {
+.custom-carousel .carousel-control-prev-icon,
+.custom-carousel .carousel-control-next-icon {
   background-color: rgba(0, 0, 0, 0.5); /* Semi-transparent background */
   border-radius: 10px; /* Circular shape */
   {#width: 50px; /* Adjust size */#}
   height: 100%; /* Adjust size */
 }
 
-.carousel-control-prev,
-.carousel-control-next {
+.custom-carousel .carousel-control-prev,
+.custom-carousel .carousel-control-next {
   opacity: 1; /* Ensure controls are fully visible */
 }
 
-.carousel-control-prev:hover .carousel-control-prev-icon,
-.carousel-control-next:hover .carousel-control-next-icon {
+.custom-carousel .carousel-control-prev:hover .carousel-control-prev-icon,
+.custom-carousel .carousel-control-next:hover .carousel-control-next-icon {
   background-color: rgba(0, 0, 0, 0.7); /* Darker on hover */
 }
 
@@ -71,7 +70,9 @@
                         </h2>
                     </div>
                     <div class="row">
-                        <div class="col-md-4">
+                        <div
+                                class="col-md-3"
+                        >
                             <p>
                                 from <a
                                     href="{% url 'caidapp:uploadedarchive_mediafiles' foridentification.mediafile.parent.id %}"
@@ -81,13 +82,31 @@
                                 {{ foridentifications|length }} media files left to identify.
                             </p>
                         </div>
+                        <div class="col-md-6">
+                            <div
+                                    class="d-flex align-items-center gap-2"
+                            >
+
+
+                          <button id="goToFirstSlide" class="btn btn-secondary mt-3 mb-3" data-bs-toggle="tooltip" title="Go to first identity suggestions" >
+                            <i class="bi bi-skip-backward"></i>
+                          </button>
+                           <!-- Search Bar -->
+                              <input type="text" id="carouselSearch" class="form-control mt-3 mb-3 gap-4" placeholder="Search by identity">
+
+                            </div>
+                        </div>
                         <div class="col-md-3">
+                                <div
+                                        class="d-flex align-items-center gap-2 mt-3 mb-3"
+                                >
                             <a href="{% url 'caidapp:not_identified_mediafiles' %}" class="btn btn-secondary"><i class="bi bi-list"></i>All for confirmation</a>
                             <a href="{% url 'caidapp:get_individual_identity' %}" class="btn btn-secondary"><i class="bi bi-chevron-bar-right"></i>Skip</a>
                             <a href="{% url 'caidapp:remove_foridentification' foridentification.id %}"
                                class="btn btn-danger"
                                onclick="return confirm('Remove mediafile from list for identification?')"><i
                                     class="fa fa-trash"></i></a>
+                            </div>
                         </div>
                     </div>
 
@@ -118,44 +137,8 @@
                             </div>
                         </div> {# end of unknown image #}
 
-                        {#                    Top N #}
-
-
-{#                        {% for reid_suggestion in foridentification.top_mediafiles.all %}#}
-{##}
-{#                            <div class="{{ col_style }}" id="card{{ reid_suggestion.mediafile.id }}">#}
-{#                                <div class="card">#}
-{#                                    <img class="card-img-top" src="{{ reid_suggestion.mediafile.mediafile.url }}"#}
-{#                                         class="card-img-top" alt="Camera trap image">#}
-                                    {#                        <div class="card-header">#}
-{#                                    <div class="card-body">#}
-{#                                        <div class="card-title">#}
-{#                                            {{ reid_suggestion.name }}#}
-{#                                        </div>#}
-{#                                        <p class="card-text">#}
-{#                                            {{ reid_suggestion.score|mul:100|floatformat:2 }}%#}
-{#                                        </p>#}
-{#                                        <p class="card-text">#}
-{#                                            {% if reid_suggestion.mediafile.identity %}#}
-                                                {#                                        <a href="{% url 'caidapp:set_individual_identity' foridentification.id foridentification.top1mediafile.identity.id %}" class="stretched-link"> </a>#}
-{#                                                <a href="{% url 'caidapp:set_individual_identity' foridentification.id reid_suggestion.mediafile.identity.id %}"#}
-{#                                                   class="btn btn-primary">Select</a>#}
-{#                                                <a href="{% url 'caidapp:get_individual_identity_zoomed' foridentification.id reid_suggestion.id %}"#}
-{#                                                   class="btn btn-secondary"><i class="bi bi-search"></i></a>#}
-{#                                            {% else %}#}
-{#                                                Identity does not exist#}
-{#                                            {% endif %}#}
-{#                                        </p>#}
-{#                                    </div>#}
-{#                                </div>#}
-{#                            </div>#}
-{##}
-{##}
-{#                        {% endfor %}#}
-
-
-                        <div class="col-md carousel-container">
-                            <div id="carouselExample" class="carousel slide"
+                        <div class="col-md carousel-container custom-carousel">
+                            <div id="carouselIdSuggestion" class="carousel slide"
 {#                                 data-bs-ride="carousel" #}
                                  data-bs-interval="false"
                             >
@@ -167,10 +150,12 @@
                                                 {#                            {{ reid_suggestion.name }}#}
                                                 {#                            {{ reid_suggestion.score }}#}
 
-                                                <div class={{ col_style }} id="card{{ reid_suggestion.mediafile.id }}">
-                                                    <div class="card">
-                                                        <img class="card-img-top" src="{{ reid_suggestion.mediafile.mediafile.url }}"
-                                                             class="card-img-top" alt="Camera trap image">
+                                                <div class={{ col_style }} id="card{{ reid_suggestion.mediafile.id }}" >
+                                                    <div class="card" data-name="{{ reid_suggestion.name }}">
+                                                        {%  if reid_suggestion.mediafile.thumbnail %}
+                                                        <img class="card-img-top" src="{{ reid_suggestion.mediafile.thumbnail.url }}"
+                                                             alt="{{ reid_suggestion.name }}" >
+                                                        {% endif %}
                                                         {#                        <div class="card-header">#}
                                                         <div class="card-body">
                                                             <div class="card-title">
@@ -197,8 +182,6 @@
                                     </div>
 
 
-{#                                    <div class="carousel-item">#}
-{#                                        <div class="row">#}
                                             {% for individual_identity in remaining_identities %}
                                                 {% if forloop.counter0|divisibleby:3 %}
                                                     <div class="carousel-item">
@@ -206,13 +189,46 @@
                                                 {% endif %}
                                                 <div class="col-4" id="card{{ individual_identity.id }}">
 
-                                                    <div class="card">
+                                                    <div class="card" data-name="{{ individual_identity.name }}">
+                                                        {%  if individual_identity.mediafile_set.first.thumbnail %}
                                                         <img class="card-img-top" src="{{ individual_identity.mediafile_set.first.thumbnail.url }}"
-                                                             class="card-img-top" alt="Camera trap image">
+                                                             alt="Camera trap image">
+                                                        {% endif %}
+
+
+                                                     <!-- Carousel -->
+{#  <div id="carousel{{ individual_identity.id }}" class="carousel slide" data-bs-interval="false">#}
+{#    <div class="carousel-inner">#}
+{#      {% for mediafile in individual_identity.mediafile_set.all %}#}
+{#        <div class="carousel-item {% if forloop.first %}active{% endif %}">#}
+{#          <img class="card-img-top d-block w-100" src="{{ mediafile.thumbnail.url }}" alt="Representative media file {{ forloop.counter }}">#}
+{#        </div>#}
+{#      {% endfor %}#}
+{#    </div>#}
+{#    <!-- Carousel Controls -->#}
+{#    <button class="carousel-control-prev" type="button" data-bs-target="#carousel{{ individual_identity.id }}" data-bs-slide="prev">#}
+{#      <span class="carousel-control-prev-icon"#}
+{#            aria-hidden="true"#}
+{#      ></span>#}
+{#      <span class="visually-hidden">Previous</span>#}
+{#    </button>#}
+{#    <button class="carousel-control-next" type="button" data-bs-target="#carousel{{ individual_identity.id }}" data-bs-slide="next">#}
+{#      <span class="carousel-control-next-icon"#}
+{#            aria-hidden="true"#}
+{#      ></span>#}
+{#      <span class="visually-hidden">Next</span>#}
+{#    </button>#}
+{#  </div>#}
+{##}
+
+
+
+
+
                                                         <div class="card-body">
-                                                            <div class="card-title">
+                                                            <a class="card-title" href="{% url 'caidapp:individual_identity_mediafiles' individual_identity.id %}">
                                                                 {{ individual_identity.name }}
-                                                            </div>
+                                                            </a>
                                                             <p class="card-text">
                                                                 <a href="{% url 'caidapp:set_individual_identity' foridentification.id individual_identity.id %}"
                                                                    class="btn btn-primary">Select</a>
@@ -223,7 +239,6 @@
                                                         </div>
                                                     </div>
                                                 </div>
-{#                                                {% if forloop.counter0|divisibleby:3 or forloop.last %}#}
                                                 {% if forloop.counter0|add:1|divisibleby:3 or forloop.last %}
                                                     </div>
                                                     </div>
@@ -237,12 +252,12 @@
                                 </div>
 
                                 <!-- Controls placed outside the .carousel-inner -->
-                                <button class="carousel-control-prev" type="button" data-bs-target="#carouselExample" data-bs-slide="prev">
-                                    <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                                <button class="carousel-control-prev custom-carousel" type="button" data-bs-target="#carouselIdSuggestion" data-bs-slide="prev">
+                                    <span class="carousel-control-prev-icon custom-carousel" aria-hidden="true"></span>
                                     <span class="visually-hidden">Previous</span>
                                 </button>
-                                <button class="carousel-control-next" type="button" data-bs-target="#carouselExample" data-bs-slide="next">
-                                    <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                                <button class="carousel-control-next custom-carousel" type="button" data-bs-target="#carouselIdSuggestion" data-bs-slide="next">
+                                    <span class="carousel-control-next-icon custom-carousel" aria-hidden="true"></span>
                                     <span class="visually-hidden">Next</span>
                                 </button>
                             </div>
@@ -266,4 +281,48 @@
         {% endif %}
         {#</div>#}
     {% endwith %}
+
+    <script>
+        document.getElementById('goToFirstSlide').addEventListener('click', function () {
+          const carousel = new bootstrap.Carousel(document.getElementById('carouselIdSuggestion'), {
+            interval: false
+          });
+          carousel.to(0); // Move to the first slide (index 0)
+        });
+
+
+
+        document.getElementById('carouselSearch').addEventListener('input', function () {
+  const searchQuery = document.getElementById('carouselSearch').value.trim().toLowerCase();
+  const cards = document.querySelectorAll('#carouselIdSuggestion .card');
+  const carouselItems = document.querySelectorAll('#carouselIdSuggestion .carousel-item');
+  let found = false;
+
+  // Remove "active" class from all carousel items initially
+  carouselItems.forEach(item => item.classList.remove('active'));
+
+  cards.forEach(card => {
+    const cardName = card.getAttribute('data-name').toLowerCase();
+    if (cardName.includes(searchQuery)) {
+      const carousel = new bootstrap.Carousel(document.getElementById('carouselIdSuggestion'));
+      const item = card.closest('.carousel-item');
+      const index = Array.from(item.parentElement.children).indexOf(item);
+
+      // Activate only the matching item
+      carouselItems.forEach(item => item.classList.remove('active')); // Ensure only one item is active
+      item.classList.add('active'); // Add "active" to the matching carousel-item
+
+      carousel.to(index); // Navigate to the matching carousel item
+      found = true;
+    }
+  });
+
+  if (!found && searchQuery) {
+    alert('No matches found!');
+  }
+});
+
+
+
+    </script>
 {% endblock %}

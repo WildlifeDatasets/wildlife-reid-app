@@ -18,9 +18,12 @@ python manage.py collectstatic --noinput --verbosity 2
 C_FORCE_ROOT=false celery -A caidapp.celery_app worker --pool threads --concurrency 4 --loglevel info &
 
 # start django
+
+# python manage.py runserver 0.0.0.0:8080
+
 uvicorn CarnivoreIDApp.asgi:application \
     --host 0.0.0.0 \
     --port 8080 \
-    --log-config logging.yaml \
-    --log-level info \
+    --log-level debug \
     --reload
+    --log-config logging.yaml \
