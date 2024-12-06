@@ -70,7 +70,6 @@ CSRF_TRUSTED_ORIGINS = [
     'http://caid.kky.zcu.cz:1360',
     'http://localhost:13680',
     'https://localhost:13680',
-    'localhost',
 ]
 # Application definition
 
@@ -89,7 +88,7 @@ INSTALLED_APPS = [
     "widget_tweaks",
     "location_field.apps.DefaultConfig",
     "django.db.migrations",
-    "debug_toolbar"
+    # "debug_toolbar"
     # 'pagination',
 ]
 
@@ -101,9 +100,15 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    "debug_toolbar.middleware.DebugToolbarMiddleware",
+    # "debug_toolbar.middleware.DebugToolbarMiddleware",
     "caidapp.middleware.ImpersonateMiddleware",
 ]
+
+DEBUG_TOOLBAR = DEBUG
+if DEBUG_TOOLBAR:
+    INSTALLED_APPS += ["debug_toolbar"]
+    MIDDLEWARE += ["debug_toolbar.middleware.DebugToolbarMiddleware"]
+
 
 ROOT_URLCONF = "CarnivoreIDApp.urls"
 
