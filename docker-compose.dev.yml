@@ -82,9 +82,9 @@ services:
       - shared-data:/shared_data
     expose:
       - 8080  # this should be accessible through inner nginx
-    depends_on:
-      - taxon_worker_dev
-      - identification_worker_dev
+#    depends_on:
+#      - taxon_worker_dev
+#      - identification_worker_dev
     labels:
       com.piva-ai.group: "applications"
     networks:

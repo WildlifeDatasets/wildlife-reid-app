@@ -30,14 +30,13 @@ RUN pip install --no-cache-dir --upgrade pip build && \
     pip install --no-cache-dir --compile -r requirements.txt && \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/* /tmp/* /var/tmp/*
 
-COPY ./src/identification_worker /identification_worker
-RUN pip install git+https://github.com/facebookresearch/segment-anything.git
 
+RUN pip install git+https://github.com/facebookresearch/segment-anything.git
 
 RUN pip install pytz --upgrade
 RUN pip install tzdata --upgrade
 
-COPY ./src/identification_worker/wildlife-tools /identification_worker/wildlife-tools
+COPY ./src/identification_worker /identification_worker
 RUN pip install -e /identification_worker/wildlife-tools --no-deps
 RUN pip install transformers==4.30.2
 RUN pip install git+https://github.com/cvg/glue-factory.git@1f56839db2242929960d70f85bfac6c19ef2821c
