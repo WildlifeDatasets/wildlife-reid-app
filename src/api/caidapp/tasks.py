@@ -479,7 +479,7 @@ def _estimate_time_for_taxon_classification_of_uploaded_archive(
     # estimate time to process
     # it is time for taxon classification + detection + segmentation
     # on CPU 22s per image, 0.1s per image on GPU
-    time_per_image = datetime.timedelta(seconds=0.1)
+    time_per_image = datetime.timedelta(seconds=0.5)  # detection 0.1, exif 0.25, taxon 0.01
     time_per_video = datetime.timedelta(seconds=60)
 
     time_to_process = datetime.timedelta(seconds=10) + (

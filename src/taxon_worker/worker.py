@@ -152,19 +152,6 @@ def predict(
 
         metadata.to_csv(output_metadata_file, encoding="utf-8-sig")
 
-        # process data
-        # if output_images_dir.exists():
-        #     # TODO turn of the following line
-        #     metadata = pd.read_csv(output_metadata_file, index_col=0)
-        # else:
-        #     metadata = data_processing_pipeline.data_processing(
-        #         input_archive_file,
-        #         output_images_dir,
-        #         output_metadata_file,
-        #         num_cores=1,
-        #         contains_identities=contains_identities,
-        #     )
-        # detect_and_segment_animal_on_metadata(metadata)
         logger.debug("Preparing output archive.")
         dataset_tools.make_zipfile_with_categories(output_archive_file, output_images_dir, metadata)
         logger.debug(f"{contains_identities=}")

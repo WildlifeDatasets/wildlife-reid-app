@@ -722,20 +722,42 @@ def get_individual_identity_from_foridentification(
 
     if foridentification is not None:
         # give me all identities in foridentification.top_mediafile_set.mediafile.identity
-        identities = foridentification.top_mediafiles.values_list("mediafile__identity", flat=True)
-        # all identities of workgroup
+        identity_ids= foridentification.top_mediafiles.values_list("mediafile__identity", flat=True)
+
+        # for identity in identities:
+        #     # select representative mediafile for each identity
+        #     identity.representative_mediafiles = identity.mediafile_set.filter(identity_is_representative=True)
+
+        # Fetch the identities
+        # related_identities = IndividualIdentity.objects.filter(
+        #     id__in=identity_ids,
+        #     owner_workgroup=request.user.caiduser.workgroup
+        # ).order_by("name")
+
 
         remaining_identities = (
             IndividualIdentity.objects.filter(
                 Q(owner_workgroup=request.user.caiduser.workgroup) & ~Q(name="nan") &
-                ~Q(id__in=identities)
+                ~Q(id__in=identity_ids)
             )
             .all()
             .order_by("name")
         )
 
+        # Add `representative_mediafiles` to related identities
+        # for identity in related_identities:
+        #     identity.representative_mediafiles = identity.mediafile_set.filter(identity_is_representative=True)
+
+        reid_suggestions = list(foridentification.top_mediafiles.all())
+        for reid_suggestion in reid_suggestions:
+            representative_mediafiles = reid_suggestion.identity.mediafile_set.filter(identity_is_representative=True)
+            reid_suggestion.representative_mediafiles = representative_mediafiles
+
+
         for identity in remaining_identities:
             identity.representative_mediafiles = identity.mediafile_set.filter(identity_is_representative=True)
+
+
 
         # for identity in identities:
         #     identity.representative_mediafiles = identity.mediafile_set.filter(identity_is_representative=True)
@@ -754,6 +776,8 @@ def get_individual_identity_from_foridentification(
             "foridentification": foridentification,
             "foridentifications": foridentifications,
             "remaining_identities": remaining_identities,
+            "reid_suggestions": reid_suggestions,
+            # "related_identities": identity_ids,
         },
     )
 
