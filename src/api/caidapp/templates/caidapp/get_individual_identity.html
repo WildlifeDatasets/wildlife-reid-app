@@ -45,6 +45,77 @@
     margin-right: 30px;
 }
 
+.image-carousel {
+    position: relative;
+    width: 100%;
+    max-width: 600px; /* Adjust as needed */
+    margin: auto;
+    overflow: hidden;
+}
+
+.carousel-image {
+    display: none;
+    width: 100%;
+}
+
+.carousel-image.active {
+    display: block;
+}
+
+{#.carousel-control {#}
+{#    position: absolute;#}
+{#    top: 50%;#}
+{#    transform: translateY(-50%);#}
+{#    background-color: rgba(0, 0, 0, 0.5);#}
+{#    color: white;#}
+{#    border: none;#}
+{#    padding: 10px;#}
+{#    cursor: pointer;#}
+{#}#}
+{##}
+{#.carousel-control.prev {#}
+{#    left: 10px;#}
+{#}#}
+{##}
+{#.carousel-control.next {#}
+{#    right: 10px;#}
+{#}#}
+
+
+
+
+.carousel-control {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 50px; /* Adjust width as needed */
+    background-color: rgba(0, 0, 0, .1);
+    color: white;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.carousel-control.prev {
+    left: 0;
+}
+
+.carousel-control.next {
+    right: 0;
+}
+
+.image-carousel:hover .carousel-control {
+    opacity: 1;
+}
+
+
+
+
+
         </style>
 {% endblock %}
 
@@ -155,17 +226,18 @@
 
                                                 <div class="{{ col_style }}" id="card-reid-{{ reid_suggestion.mediafile.id }}" >
                                                     <div class="card" data-name="{{ reid_suggestion.name }}">
-                                                        {%  if reid_suggestion.mediafile.thumbnail %}
-                                                        <img class="card-img-top" src="{{ reid_suggestion.mediafile.thumbnail.url }}"
-                                                             alt="{{ reid_suggestion.name }}" >
-                                                        {% endif %}
+{#                                                        {%  if reid_suggestion.mediafile.thumbnail %}#}
+{#                                                        <img class="card-img-top" src="{{ reid_suggestion.mediafile.thumbnail.url }}"#}
+{#                                                             alt="{{ reid_suggestion.name }}" >#}
+{#                                                        {% endif %}#}
 
 
 
 
+                                                          {% with id_prefix="suggestion" carousel_id=reid_suggestion.id representative_mediafiles=reid_suggestion.representative_mediafiles %}
 {#                                                        {% with individual_identity=reid_suggestion id_prefix="reid_suggestion" %}#}
-{#                                                        {% include "caidapp/get_individual_identity_img_card_top.html" %}#}
-{#                                                    {% endwith %}#}
+                                                        {% include "caidapp/get_individual_identity_img_card_top.html" %}
+                                                    {% endwith %}
 
 
 
@@ -208,39 +280,14 @@
                                                 <div class="col-4" id="card-remaining-identity-{{ individual_identity.id }}">
 
                                                     <div class="card" data-name="{{ individual_identity.name }}">
-                                                        {%  if individual_identity.mediafile_set.first.thumbnail %}
-                                                        <img class="card-img-top" src="{{ individual_identity.mediafile_set.first.thumbnail.url }}"
-                                                             alt="Camera trap image">
-                                                        {% endif %}
+{#                                                        {%  if individual_identity.mediafile_set.first.thumbnail %}#}
+{#                                                        <img class="card-img-top" src="{{ individual_identity.mediafile_set.first.thumbnail.url }}"#}
+{#                                                             alt="Camera trap image">#}
+{#                                                        {% endif %}#}
 
-{#                                                        {% with id_prefix="remaining" %}#}
-{#                                                        {% include "caidapp/get_individual_identity_img_card_top.html" %}#}
-{#                                                        {% endwith %}#}
-
-                                                     <!-- Carousel -->
-{#  <div id="carousel{{ individual_identity_id }}" class="carousel slide custom-image-carousel" data-bs-interval="false">#}
-{#    <div class="carousel-inner">#}
-{#      {% for mediafile in individual_identity.mediafile_set.all %}#}
-{#        {% for mediafile in individual_identity.representative_mediafiles.all %}#}
-{#        <div class="carousel-item {% if forloop.first %}active{% endif %}">#}
-{#          <img class="card-img-top d-block w-100" src="{{ mediafile.thumbnail.url }}" alt="Representative media file {{ forloop.counter }}">#}
-{#        </div>#}
-{#      {% endfor %}#}
-{#    </div>#}
-{#    <!-- Carousel Controls -->#}
-{#    <button class="carousel-control-prev" type="button" data-bs-target="#carousel{{ individual_identity_id }}" data-bs-slide="prev">#}
-{#      <span class="carousel-control-prev-icon"#}
-{#            aria-hidden="true"#}
-{#      ></span>#}
-{#      <span class="visually-hidden">Previous</span>#}
-{#    </button>#}
-{#    <button class="carousel-control-next" type="button" data-bs-target="#carousel{{ individual_identity.id }}" data-bs-slide="next">#}
-{#      <span class="carousel-control-next-icon"#}
-{#            aria-hidden="true"#}
-{#      ></span>#}
-{#      <span class="visually-hidden">Next</span>#}
-{#    </button>#}
-{#  </div>#}
+                                                        {% with id_prefix="remaining" carousel_id=individual_identity.id representative_mediafiles=individual_identity.representative_mediafiles %}
+                                                        {% include "caidapp/get_individual_identity_img_card_top.html" %}
+                                                        {% endwith %}
 
 
 
@@ -316,6 +363,7 @@
 
 
 
+        // Search functionality
         document.getElementById('carouselSearch').addEventListener('input', function () {
   const searchQuery = document.getElementById('carouselSearch').value.trim().toLowerCase();
   const cards = document.querySelectorAll('#carouselIdSuggestion .card');
@@ -339,14 +387,22 @@
       carousel.to(index); // Navigate to the matching carousel item
       found = true;
     }
-  });
+   });
 
   if (!found && searchQuery) {
     alert('No matches found!');
-  }
-});
+   }
+   });
 
+function changeImage(carouselId, direction) {
+    const carousel = document.getElementById(`image-carousel-${carouselId}`);
+    const images = carousel.getElementsByClassName('carousel-image');
+    let currentIndex = Array.from(images).findIndex(image => image.classList.contains('active'));
 
+    images[currentIndex].classList.remove('active');
+    currentIndex = (currentIndex + direction + images.length) % images.length;
+    images[currentIndex].classList.add('active');
+}
 
     </script>
 {% endblock %}

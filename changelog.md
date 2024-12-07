@@ -8,6 +8,7 @@
 * [added] Merge identity
 * [added] Update Media files in upload with spreadsheet file
 * [added] Django debug toolbar
+* [added] Double carousel in identification to show more images of the identity
 
 ## 11-2024
 

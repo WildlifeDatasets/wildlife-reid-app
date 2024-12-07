@@ -751,6 +751,8 @@ def get_individual_identity_from_foridentification(
         reid_suggestions = list(foridentification.top_mediafiles.all())
         for reid_suggestion in reid_suggestions:
             representative_mediafiles = reid_suggestion.identity.mediafile_set.filter(identity_is_representative=True)
+            # insert as first element the reid_suggestion mediafile
+            representative_mediafiles = [reid_suggestion.mediafile] + [mf for mf in list(representative_mediafiles) if mf != reid_suggestion.mediafile]
             reid_suggestion.representative_mediafiles = representative_mediafiles
 
 

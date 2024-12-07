@@ -1,24 +1,59 @@
-<!-- Carousel -->
-<div id="carousel-{{ id_prefix }}-{{ individual_identity.id }}" class="carousel slide custom-image-carousel" data-bs-interval="false">
-    <div class="carousel-inner">
+{#<!-- Carousel -->#}
+{#<div id="carousel-{{ id_prefix }}-{{ carousel_id }}" class="carousel slide custom-image-carousel" data-bs-interval="false">#}
+{#    <div class="carousel-inner">#}
         {#      {% for mediafile in individual_identity.mediafile_set.all %}#}
-        {% for mediafile in individual_identity.representative_mediafiles.all %}
-            <div class="carousel-item {% if forloop.first %}active{% endif %}">
-                <img class="card-img-top d-block w-100" src="{{ mediafile.thumbnail.url }}" alt="Representative media file {{ forloop.counter }}">
-            </div>
-        {% endfor %}
-    </div>
-    <!-- Carousel Controls -->
-    <button class="carousel-control-prev" type="button" data-bs-target="#carousel-{{ id_prefix }}-{{ individual_identity.id }}" data-bs-slide="prev">
-      <span class="carousel-control-prev-icon"
-            aria-hidden="true"
-      ></span>
-        <span class="visually-hidden">Previous</span>
+{#        {% for mediafile in representative_mediafiles %}#}
+{#            <div class="carousel-item {% if forloop.first %}active{% endif %}">#}
+{#                <img class="card-img-top d-block w-100" src="{{ mediafile.thumbnail.url }}" alt="Representative media file {{ forloop.counter }}">#}
+{#            </div>#}
+{#        {% endfor %}#}
+{#    </div>#}
+{#    <!-- Carousel Controls -->#}
+{#    <button class="carousel-control-prev" type="button" data-bs-target="#carousel-{{ id_prefix }}-{{ carousel_id }}" data-bs-slide="prev">#}
+{#      <span class="carousel-control-prev-icon"#}
+{#            aria-hidden="true"#}
+{#      ></span>#}
+{#        <span class="visually-hidden">Previous</span>#}
+{#    </button>#}
+{#    <button class="carousel-control-next" type="button" data-bs-target="#carousel-{{ id_prefix }}-{{ carousel_id }}" data-bs-slide="next">#}
+{#      <span class="carousel-control-next-icon"#}
+{#            aria-hidden="true"#}
+{#      ></span>#}
+{#        <span class="visually-hidden">Next</span>#}
+{#    </button>#}
+{#</div>#}
+
+
+
+
+
+{#<!-- Carousel -->#}
+{#<div id="top-image-{{ id_prefix }}-{{ carousel_id }}" class="top-image-container">#}
+{#    <div class="top-image-inner-container">#}
+        {#      {% for mediafile in individual_identity.mediafile_set.all %}#}
+{#        {% for mediafile in representative_mediafiles %}#}
+{#            <div class="top-image-item {% if forloop.first %}active{% endif %}">#}
+{#                <img class="card-img-top d-block w-100" src="{{ mediafile.thumbnail.url }}" alt="Representative media file {{ forloop.counter }}">#}
+{#            </div>#}
+{#        {% endfor %}#}
+{#    </div>#}
+{#    <!-- Carousel Controls -->#}
+{#    <button class="top-image-prev" type="button" data-ti-target="#top-image-{{ id_prefix }}-{{ carousel_id }}" data-ti-slide="prev">#}
+{#    </button>#}
+{#    <button class="top-image-next" type="button" data-ti-target="#top-image-{{ id_prefix }}-{{ carousel_id }}" data-ti-slide="next">#}
+{#    </button>#}
+{#</div>#}
+
+
+
+<div id="image-carousel-{{ id_prefix }}-{{ carousel_id }}" class="image-carousel">
+    {% for mediafile in representative_mediafiles %}
+        <img class="carousel-image {% if forloop.first %}active{% endif %}" src="{{ mediafile.thumbnail.url }}" alt="Representative media file {{ forloop.counter }}">
+    {% endfor %}
+    <button class="carousel-control prev" onclick="changeImage('{{ id_prefix }}-{{ carousel_id }}', -1)">
+        <span class="carousel-control-prev-icon" aria-hidden="true"></span>
     </button>
-    <button class="carousel-control-next" type="button" data-bs-target="#carousel{{ individual_identity.id }}" data-bs-slide="next">
-      <span class="carousel-control-next-icon"
-            aria-hidden="true"
-      ></span>
-        <span class="visually-hidden">Next</span>
+    <button class="carousel-control next" onclick="changeImage('{{ id_prefix }}-{{ carousel_id }}', 1)">
+        <span class="carousel-control-next-icon" aria-hidden="true"></span>
     </button>
 </div>
