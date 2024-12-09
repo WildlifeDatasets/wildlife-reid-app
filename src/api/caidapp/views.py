@@ -33,6 +33,13 @@ from django.views import View
 from django.db.models import OuterRef, Subquery
 from django.http import JsonResponse
 from celery.result import AsyncResult
+from django.shortcuts import get_object_or_404, render, redirect
+from django.views import View
+from django.urls import reverse_lazy
+from .models import IndividualIdentity, MediaFile
+from .forms import IndividualIdentityForm
+
+
 
 from . import forms, model_tools, models, tasks, views_uploads
 from .forms import (
@@ -1515,19 +1522,41 @@ def _mediafiles_query(
         .values(order_by_safe)[:1]
     )
 
-    mediafiles = (
-        mediafiles.filter(
-            Q(album__albumsharerole__user=request.user.caiduser)
-            | Q(parent__owner=request.user.caiduser)
-            | Q(parent__owner__workgroup=request.user.caiduser.workgroup),
-            **filter_kwargs,
+    # Build the base query with the conditions that are always applied
+    mediafiles = mediafiles.filter(
+        Q(album__albumsharerole__user=request.user.caiduser)
+        | Q(parent__owner=request.user.caiduser),
+        **filter_kwargs,
+    )
+
+    # Add workgroup filtering only if `request.user.caiduser.workgroup` is not None
+    if request.user.caiduser.workgroup is not None:
+        mediafiles = mediafiles.filter(
+            Q(parent__owner__workgroup=request.user.caiduser.workgroup)
         )
+
+    # Apply the exclusion, annotations, and ordering
+    mediafiles = (
+        mediafiles
         .exclude(**exclude_filter_kwargs)
         .distinct()
         .annotate(first_image_order_by=Subquery(first_image_order_by))
         .order_by('first_image_order_by', 'sequence', 'captured_at')
-        # .order_by(order_by)
     )
+
+    # mediafiles = (
+    #     mediafiles.filter(
+    #         Q(album__albumsharerole__user=request.user.caiduser)
+    #         | Q(parent__owner=request.user.caiduser)
+    #         | Q(parent__owner__workgroup=request.user.caiduser.workgroup),
+    #         **filter_kwargs,
+    #     )
+    #     .exclude(**exclude_filter_kwargs)
+    #     .distinct()
+    #     .annotate(first_image_order_by=Subquery(first_image_order_by))
+    #     .order_by('first_image_order_by', 'sequence', 'captured_at')
+    #     # .order_by(order_by)
+    # )
 
 
     if len(query) == 0:
@@ -2497,13 +2526,6 @@ class ImageUploadGraphView(View):
         graph = fig.to_html(full_html=False)
 
         return render(request, "caidapp/image_upload_graph.html", {"graph": graph})
-
-
-from django.shortcuts import get_object_or_404, render, redirect
-from django.views import View
-from django.urls import reverse_lazy
-from .models import IndividualIdentity, MediaFile
-from .forms import IndividualIdentityForm
 
 
 

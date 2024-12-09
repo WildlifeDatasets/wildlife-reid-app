@@ -9,6 +9,7 @@
 * [added] Update Media files in upload with spreadsheet file
 * [added] Django debug toolbar
 * [added] Double carousel in identification to show more images of the identity
+* [fix] Media files visible to all if user has no workgroup
 
 ## 11-2024
 
