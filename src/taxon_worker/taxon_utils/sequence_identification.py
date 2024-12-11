@@ -99,7 +99,7 @@ def replace_colon_in_exif_datetime(exif_datetime: str) -> str:
     replaced = exif_datetime
     if isinstance(exif_datetime, str):
         exif_ex = re.findall(
-            r"([0-9]{4}):([0-9]{2}):([0-9]{2}) ([0-9]{2}:[0-9]{2}:[0-9]{2})",
+            r"([0-9]{4}):([0-9]{2}):([0-9]{2}) ([0-9]{2}:[0-9]{2}:[0-9]{2}.*)",
             exif_datetime,
         )
         if len(exif_ex) == 1:
@@ -109,11 +109,12 @@ def replace_colon_in_exif_datetime(exif_datetime: str) -> str:
     return replaced
 
 
-def get_datetime_from_exif_or_ocr(filename: Path) -> typing.Tuple[str, str, str]:
+def get_datetime_from_exif_or_ocr(filename: Path, exiftool_metadata:dict) -> typing.Tuple[str, str, str]:
     """Extract datetime from EXIF in file and check if image is ok.
 
     Parameters
     ----------
+    exiftool_metadata : dict extracted from file using exiftool
     filename : name of the file
 
     Returns
@@ -135,13 +136,32 @@ def get_datetime_from_exif_or_ocr(filename: Path) -> typing.Tuple[str, str, str]
     if filename.exists():
         try:
             checked_keys = [
-                "QuickTime:MediaCreateDate",
-                "QuickTime:CreateDate",
-                "EXIF:CreateDate",
-                "EXIF:ModifyDate",
-                # "File:FileModifyDate",
-            ]
-            dt_str, is_ok, dt_source = get_datetime_exiftool(filename)
+                    "QuickTime:MediaCreateDate",
+                    "QuickTime:CreateDate",
+                    "EXIF:CreateDate",
+                    "EXIF:ModifyDate",
+                    "EXIF:DateTimeOriginal",
+                    "EXIF:DateTimeCreated",
+                    # "File:FileModifyDate",
+                    # "File:FileCreateDate",
+                ]
+
+            d = exiftool_metadata
+            dt_str = ""
+            is_ok = False
+            dt_source = ""
+            for k in checked_keys:
+                if k in d:
+                    dt_str = d[k]
+                    is_ok = True
+                    dt_source = k
+                    break
+            # if no key was found log the metadata
+            if not is_ok:
+                logger.debug(f"date not found, exif: {str(d)=}")
+
+
+            # dt_str, is_ok, dt_source = get_datetime_exiftool(filename)
             dt_str = replace_colon_in_exif_datetime(dt_str)
             if dt_source.startswith("QuickTime"):
                 in_worst_case_dt = dt_str
@@ -401,10 +421,17 @@ def get_datetime_from_exif(filename: Path) -> typing.Tuple[str, str]:
 def extend_df_with_datetime(df: pd.DataFrame) -> pd.DataFrame:
     """Extends dataframe with datetime based on image exif information."""
     assert "image_path" in df
+    logger.debug("Getting EXIFs")
+    # Collect EXIF info
+    exiftool_path = None
+    with exiftool.ExifToolHelper(executable=exiftool_path) as et:
+        # Your code to interact with ExifTool
+        exifs = et.get_metadata(df.image_path)
+    logger.debug("EXIFs collected")
     dates = []
-    for image_path in df.image_path:
+    for image_path, exif in df.image_path, exifs:
         # date, err = get_datetime_from_exif(Path(image_path))
-        date, err, source = get_datetime_from_exif_or_ocr(Path(image_path))
+        date, err, source = get_datetime_from_exif_or_ocr(Path(image_path), exif)
         dates.append(date)
     df["datetime"] = pd.to_datetime(dates, errors="coerce")
 

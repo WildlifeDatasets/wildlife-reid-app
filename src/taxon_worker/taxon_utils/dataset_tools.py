@@ -911,17 +911,28 @@ class SumavaInitialProcessing:
 
         return df
 
-    def add_datetime_from_exif_in_parallel(self, original_paths: list):
+    def add_datetime_from_exif_in_parallel(self, original_paths: list[Path]) -> Tuple[list, list, list]:
         """Get list of datetimes from EXIF."""
+
+        logger.debug("Getting EXIFs")
+        # Collect EXIF info
+        full_paths = [self.dataset_basedir / original_path for original_path in original_paths]
+        exiftool_path = None
+        with exiftool.ExifToolHelper(executable=exiftool_path) as et:
+            # Your code to interact with ExifTool
+            exifs = et.get_metadata(full_paths)
+        logger.debug("EXIFs collected")
+
+        # Evaluate exif info and use OCR if necessary
         if self.num_cores > 1:
             datetime_list = Parallel(n_jobs=self.num_cores)(
-                delayed(get_datetime_from_exif_or_ocr)(self.dataset_basedir / original_path)
-                for original_path in tqdm(original_paths, desc="getting EXIFs parallel")
+                delayed(get_datetime_from_exif_or_ocr)(full_path, exif)
+                for full_path, exif in tqdm(zip(full_paths, exifs), desc="datetime from EXIF or OCR parallel")
             )
         else:
             datetime_list = [
-                get_datetime_from_exif_or_ocr(self.dataset_basedir / original_path)
-                for original_path in tqdm(original_paths, desc="getting EXIFs")
+                get_datetime_from_exif_or_ocr(full_path, exif)
+                for full_path, exif in tqdm(zip(full_paths, exifs), desc="datetime from EXIF or OCR")
             ]
 
         datetime_list, error_list, source_list = zip(*datetime_list)

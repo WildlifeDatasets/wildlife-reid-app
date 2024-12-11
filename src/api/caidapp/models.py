@@ -434,8 +434,14 @@ class UploadedArchive(models.Model):
         )
 
     def number_of_media_files_in_archive(self) -> dict:
-        """Return number of media files in the archive."""
+        """Return number of media files in the archive and update UploadedArchive."""
         counts = fs_data.count_files_in_archive(self.archivefile.path)
+        if self.files_at_upload != counts["file_count"]:
+            self.images_at_upload = counts["image_count"]
+            self.videos_at_upload = counts["video_count"]
+            self.files_at_upload = counts["file_count"]
+            self.mediafiles_at_upload = self.images_at_upload + self.videos_at_upload
+            self.save()
         return counts
 
     def update_status(self):

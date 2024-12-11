@@ -12,6 +12,7 @@
 * [fix] Media files visible to all if user has no workgroup
 * [added] Impersonated sfaff person can now run classification
 * [changed] Disable link to media files before the processing is done
+* [changed] EXIFs calculated in one batch
 
 ## 11-2024
 

@@ -861,6 +861,9 @@ def run_taxon_classification_force_init(request, uploadedarchive_id):
 def run_taxon_classification(request, uploadedarchive_id, force_init=False):
     """Run processing of uploaded archive."""
     uploaded_archive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
+    if uploaded_archive.mediafiles_at_upload == 0:
+        uploaded_archive.number_of_media_files_in_archive()
+
     run_species_prediction_async(uploaded_archive, force_init=force_init, extract_identites=uploaded_archive.contains_identities)
     # next_page = request.GET.get("next", "/caidapp/uploads")
     # return redirect(next_page)
@@ -1205,10 +1208,11 @@ def upload_archive(
             uploaded_archive.contains_identities = contains_identities
             uploaded_archive.contains_single_taxon = contains_single_taxon
             uploaded_archive.name = Path(uploaded_archive.archivefile.name).stem
-            uploaded_archive.videos_at_upload = counts["video_count"]
-            uploaded_archive.images_at_upload = counts["image_count"]
-            uploaded_archive.files_at_upload = counts["file_count"]
-            uploaded_archive.mediafiles_at_upload = counts["video_count"] + counts["image_count"]
+            # done in number_of_media_files_in_archive
+            # uploaded_archive.videos_at_upload = counts["video_count"]
+            # uploaded_archive.images_at_upload = counts["image_count"]
+            # uploaded_archive.files_at_upload = counts["file_count"]
+            # uploaded_archive.mediafiles_at_upload = counts["video_count"] + counts["image_count"]
             uploaded_archive.save()
             uploaded_archive.extract_location_check_at_from_filename(commit=True)
             run_species_prediction_async(uploaded_archive, extract_identites=contains_identities)
