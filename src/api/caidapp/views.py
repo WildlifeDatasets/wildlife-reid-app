@@ -38,6 +38,9 @@ from django.views import View
 from django.urls import reverse_lazy
 from .models import IndividualIdentity, MediaFile
 from .forms import IndividualIdentityForm
+from functools import wraps
+from django.shortcuts import redirect
+from django.core.exceptions import PermissionDenied
 
 
 
@@ -101,17 +104,6 @@ def impersonate_user(request):
     return render(request, "caidapp/impersonate_user.html", {"form": form})
 
 
-# @user_passes_test(lambda u: u.is_superuser)
-# def stop_impersonation(request):
-#     logger.debug("Stopping Impersonation ...")
-#     if 'impersonate_user_id' in request.session:
-#         del request.session['impersonate_user_id']
-#         logger.debug("Impersonation stopped.")
-#
-#     logger.debug("Redirecting to uploads ...")
-#     return redirect('caidapp:uploads')
-
-
 @login_required
 def stop_impersonation(request):
     """Stop impersonation."""
@@ -120,8 +112,37 @@ def stop_impersonation(request):
     if "original_user_id" in request.session:
         original_user = User.objects.get(id=request.session["original_user_id"])
         auth_login(request, original_user)
+
         del request.session["original_user_id"]
     return redirect("caidapp:uploads")
+
+def is_impersonating(request):
+    """Check if user is impersonating."""
+    return "impersonate_user_id" in request.session
+
+
+def staff_or_impersonated_staff_required(view_func):
+    @wraps(view_func)
+    def _wrapped_view(request, *args, **kwargs):
+        # Check if the user is staff
+        if request.user.is_staff:
+            return view_func(request, *args, **kwargs)
+
+        # Check if the user is impersonating a staff member
+        if "original_user_id" in request.session:
+            original_user_id = request.session.get("original_user_id")
+            # logger.debug(f"{original_user_id=}")
+            try:
+                impersonated_user = User.objects.get(id=original_user_id)
+                if impersonated_user.is_staff:
+                    return view_func(request, *args, **kwargs)
+            except User.DoesNotExist:
+                pass  # If impersonated user does not exist, continue to deny access
+
+        # If neither condition is met, deny access
+        raise PermissionDenied("You do not have permission to access this page.")
+
+    return _wrapped_view
 
 
 def login(request):
@@ -185,7 +206,7 @@ def _prepare_page(
     return page_obj, elided_page_range, context
 
 
-@staff_member_required
+@staff_or_impersonated_staff_required
 def show_log(request):
     """List of uploads."""
     logfile = Path("/data/logging.log")
@@ -830,13 +851,13 @@ def set_individual_identity(
     return redirect("caidapp:get_individual_identity")
 
 
-@staff_member_required
+@staff_or_impersonated_staff_required
 def run_taxon_classification_force_init(request, uploadedarchive_id):
     """Run processing of uploaded archive with removal of previous outputs."""
     return run_taxon_classification(request, uploadedarchive_id=uploadedarchive_id, force_init=True)
 
 
-@staff_member_required
+@staff_or_impersonated_staff_required
 def run_taxon_classification(request, uploadedarchive_id, force_init=False):
     """Run processing of uploaded archive."""
     uploaded_archive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
@@ -1168,6 +1189,14 @@ def upload_archive(
                     f"Uploaded file with extension '{uploaded_archive_suffix}' is not an archive.",
                 )
 
+
+            if contains_single_taxon:
+                next_url = reverse_lazy("caidapp:uploads_identities")
+            else:
+                next_url = reverse_lazy("caidapp:uploads")
+            counts = uploaded_archive.number_of_media_files_in_archive()
+
+
             uploaded_archive.owner = request.user.caiduser
             logger.debug(f"{uploaded_archive.contains_identities=}, {contains_identities=}")
             logger.debug(f"{uploaded_archive.contains_single_taxon=}, {contains_single_taxon=}")
@@ -1176,16 +1205,15 @@ def upload_archive(
             uploaded_archive.contains_identities = contains_identities
             uploaded_archive.contains_single_taxon = contains_single_taxon
             uploaded_archive.name = Path(uploaded_archive.archivefile.name).stem
+            uploaded_archive.videos_at_upload = counts["video_count"]
+            uploaded_archive.images_at_upload = counts["image_count"]
+            uploaded_archive.files_at_upload = counts["file_count"]
+            uploaded_archive.mediafiles_at_upload = counts["video_count"] + counts["image_count"]
             uploaded_archive.save()
             uploaded_archive.extract_location_check_at_from_filename(commit=True)
             run_species_prediction_async(uploaded_archive, extract_identites=contains_identities)
 
             # return JsonResponse({"data": "Data uploaded"})
-            if contains_single_taxon:
-                next_url = reverse_lazy("caidapp:uploads_identities")
-            else:
-                next_url = reverse_lazy("caidapp:uploads")
-            counts = uploaded_archive.number_of_media_files_in_archive()
             context = dict(
                 headline="Upload finished",
                 text=f"Uploaded {counts['file_count']} files ("
@@ -1193,6 +1221,10 @@ def upload_archive(
                 next=next_url,
                 next_text="Back to uploads",
             )
+
+
+
+
             html = render_to_string(
                 "caidapp/partial_message.html", context=context, request=request
             )

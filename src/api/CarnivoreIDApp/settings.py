@@ -54,6 +54,9 @@ if isinstance(DEBUG, str):
     DEBUG = DEBUG.lower() == "true"
 logger.info(f"Setting environment variable {DEBUG=}.")
 
+# DEBUG_TOOLBAR = DEBUG
+DEBUG_TOOLBAR = False
+
 # A list of strings representing the host/domain names that this Django site can serve
 CAID_HOST = os.getenv("CAID_HOST", default="localhost")
 ALLOWED_HOSTS = [
@@ -105,7 +108,6 @@ MIDDLEWARE = [
     "caidapp.middleware.ImpersonateMiddleware",
 ]
 
-DEBUG_TOOLBAR = DEBUG
 if DEBUG_TOOLBAR:
     INSTALLED_APPS += ["debug_toolbar"]
     MIDDLEWARE += ["debug_toolbar.middleware.DebugToolbarMiddleware"]

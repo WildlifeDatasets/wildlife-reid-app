@@ -48,20 +48,25 @@
                 data-bs-toggle="tooltip" title="Date of upload"
         >
             <i class="bi bi-calendar"></i>
-            {{ uploadedarchive.uploaded_at|date:'Y-m-d' }}
+            {{ uploadedarchive.uploaded_at|date:'Y-m-d H:i' }}
         </div>
     {% endif %}
 
 <div
         data-bs-toggle="tooltip" title="Uploaded at: {{ uploadedarchive.uploaded_at|date:'Y-m-d H:i' }}"
 >
-    <a class="link-secondary"
+    {% if uploadedarchive.taxon_status == "C" or uploadedarchive.taxon_status == "TAIP" %}
+        <i class="bi bi-images"></i> Media files:
+        {{ uploadedarchive.count_of_mediafiles }}
+    {% else %}
+    <a class="link-secondary "
        href="{% url 'caidapp:uploadedarchive_mediafiles' uploadedarchive.id %}">
-        <i class="bi bi-images"></i> Media files
+        <i class="bi bi-images"></i> Media files:
+        {{ uploadedarchive.count_of_mediafiles }}
     </a>
+    {% endif %}
     {#        <i class="bi bi-images"></i>#}
     {#        Media files: #}
-    {{ uploadedarchive.count_of_mediafiles }}
 </div>
 
 {#<div class="d-flex justify-content-between align-items-center">#}

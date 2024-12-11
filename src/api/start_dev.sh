@@ -19,11 +19,12 @@ C_FORCE_ROOT=false celery -A caidapp.celery_app worker --pool threads --concurre
 
 # start django
 
-# python manage.py runserver 0.0.0.0:8080
+python manage.py runserver 0.0.0.0:8080
 
-uvicorn CarnivoreIDApp.asgi:application \
-    --host 0.0.0.0 \
-    --port 8080 \
-    --log-level debug \
-    --reload
-    --log-config logging.yaml \
+# this is not reloading the page when changes are made
+# uvicorn CarnivoreIDApp.asgi:application \
+#     --host 0.0.0.0 \
+#     --port 8080 \
+#     --log-level debug \
+#     --reload
+#     --log-config logging.yaml \

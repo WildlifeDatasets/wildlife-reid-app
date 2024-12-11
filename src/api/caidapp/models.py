@@ -215,6 +215,11 @@ class UploadedArchive(models.Model):
     earliest_captured_at = models.DateTimeField("Earliest Captured at", blank=True, null=True)
     latest_captured_at = models.DateTimeField("Latest Captured at", blank=True, null=True)
     location_check_at = models.DateTimeField("Location Check at", blank=True, null=True)
+    mediafiles_at_upload = models.IntegerField("Media Files at Upload", default=0)
+    images_at_upload = models.IntegerField("Images at Upload", default=0)
+    videos_at_upload = models.IntegerField("Videos at Upload", default=0)
+    files_at_upload = models.IntegerField("Files at Upload", default=0)
+    import_error_spreadsheet = models.FileField(upload_to=outputdir, blank=True, null=True)
 
     def refresh_status_after_migration(self, request: Optional[object] = None):
         """Refresh possible old setup of object to 'migrated' one."""
@@ -286,6 +291,12 @@ class UploadedArchive(models.Model):
 
     def count_of_mediafiles(self):
         """Return number of mediafiles in the archive."""
+        if self.taxon_status == "C":
+            return self.mediafiles_at_upload
+        elif self.taxon_status == "TAIP":
+            return self.mediafiles_at_upload
+        elif self.identification_status == "TAIP":
+            return self.mediafiles_at_upload
         return MediaFile.objects.filter(parent=self).count()
 
     def count_of_representative_mediafiles(self):

@@ -10,6 +10,8 @@
 * [added] Django debug toolbar
 * [added] Double carousel in identification to show more images of the identity
 * [fix] Media files visible to all if user has no workgroup
+* [added] Impersonated sfaff person can now run classification
+* [changed] Disable link to media files before the processing is done
 
 ## 11-2024
 

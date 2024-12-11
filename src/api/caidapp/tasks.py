@@ -88,6 +88,7 @@ def predict_species_on_success(
     elif output["status"] == "DONE":
         uploaded_archive.zip_file = zip_file
         uploaded_archive.csv_file = csv_file
+        uploaded_archive.import_error_spreadsheet = str(Path(csv_file).with_suffix(".failed.csv"))
         make_thumbnail_for_uploaded_archive(uploaded_archive)
         # update_metadata_csv_by_uploaded_archive(uploaded_archive)
         # create missing take effect only if the processing is done for the first time
