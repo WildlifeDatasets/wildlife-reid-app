@@ -916,7 +916,7 @@ class SumavaInitialProcessing:
         if self.num_cores > 1:
             datetime_list = Parallel(n_jobs=self.num_cores)(
                 delayed(get_datetime_from_exif_or_ocr)(self.dataset_basedir / original_path)
-                for original_path in tqdm(original_paths, desc="getting EXIFs")
+                for original_path in tqdm(original_paths, desc="getting EXIFs parallel")
             )
         else:
             datetime_list = [
