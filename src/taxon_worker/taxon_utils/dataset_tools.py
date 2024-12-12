@@ -802,7 +802,7 @@ class SumavaInitialProcessing:
         else:
             return False
 
-    def get_paths_from_dir_parallel(self, mask, exclude: Optional[list] = None) -> list:
+    def get_paths_from_dir_parallel(self, mask, exclude: Optional[list] = None, exclude_dirs:bool=True) -> list:
         """Get list of paths in parallel way.
 
         Parameters
@@ -855,6 +855,12 @@ class SumavaInitialProcessing:
             for item in sublist
             # if item.suffix.lower() not in exclude
         ]
+
+        if exclude_dirs:
+            original_paths = [str(original_path)
+                              for original_path in original_paths
+                              if (self.dataset_basedir / original_path).is_file()
+                              ]
         return original_paths
 
     def make_metadata_csv(self, path: Path):
@@ -914,13 +920,14 @@ class SumavaInitialProcessing:
     def add_datetime_from_exif_in_parallel(self, original_paths: list[Path]) -> Tuple[list, list, list]:
         """Get list of datetimes from EXIF."""
 
-        logger.debug("Getting EXIFs")
+        logger.debug(f"Getting EXIFs from {len(original_paths)} files.")
         # Collect EXIF info
         full_paths = [self.dataset_basedir / original_path for original_path in original_paths]
-        exiftool_path = None
-        with exiftool.ExifToolHelper(executable=exiftool_path) as et:
+        with exiftool.ExifToolHelper(executable=None) as et:
             # Your code to interact with ExifTool
             exifs = et.get_metadata(full_paths)
+        assert len(exifs) == len(full_paths), \
+            f"Number of EXIFs ({len(exifs)}) is not equal to number of files ({len(full_paths)}."
         logger.debug("EXIFs collected")
 
         # Evaluate exif info and use OCR if necessary

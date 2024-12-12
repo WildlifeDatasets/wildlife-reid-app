@@ -109,7 +109,7 @@ def replace_colon_in_exif_datetime(exif_datetime: str) -> str:
     return replaced
 
 
-def get_datetime_from_exif_or_ocr(filename: Path, exiftool_metadata:dict) -> typing.Tuple[str, str, str]:
+def get_datetime_from_exif_or_ocr(filename: typing.Union[Path, str], exiftool_metadata:dict) -> typing.Tuple[str, str, str]:
     """Extract datetime from EXIF in file and check if image is ok.
 
     Parameters
@@ -128,6 +128,7 @@ def get_datetime_from_exif_or_ocr(filename: Path, exiftool_metadata:dict) -> typ
 
         The function also checks if image or video is ok for read.
     """
+    filename = Path(filename)
     dt_source = ""
     in_worst_case_dt = None
     in_worst_case_dt_source = None
@@ -422,10 +423,8 @@ def extend_df_with_datetime(df: pd.DataFrame) -> pd.DataFrame:
     """Extends dataframe with datetime based on image exif information."""
     assert "image_path" in df
     logger.debug("Getting EXIFs")
-    # Collect EXIF info
     exiftool_path = None
     with exiftool.ExifToolHelper(executable=exiftool_path) as et:
-        # Your code to interact with ExifTool
         exifs = et.get_metadata(df.image_path)
     logger.debug("EXIFs collected")
     dates = []

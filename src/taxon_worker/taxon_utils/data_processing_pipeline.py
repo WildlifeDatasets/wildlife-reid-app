@@ -24,9 +24,9 @@ from .prediction_dataset import PredictionDataset
 
 # from taxon_worker.infrastructure_utils import mem
 try:
-    from ..infrastructure_utils import mem
+    from ..infrastructure_utils import mem, log_tools
 except ImportError:
-    from infrastructure_utils import mem
+    from infrastructure_utils import mem, log_tools
 
 
 logger = logging.getLogger("app")
@@ -393,13 +393,29 @@ def make_previews(metadata, output_dir, preview_width=1200):
 
         if row["media_type"] == "image":
             # preview_rel_pth = os.path.relpath(preview_abs_pth, settings.MEDIA_ROOT)
-            # logger.debug(f"Creating preview for {mediafile_path}")
+            logger.debug(f"Creating preview for {mediafile_path}")
             make_thumbnail_from_file(mediafile_path, preview_abs_pth, width=preview_width)
         elif row["media_type"] == "video":
-            # logger.debug(f"Creating preview for {mediafile_path}")
+            logger.debug(f"Creating preview for {mediafile_path}")
             convert_to_mp4(mediafile_path, preview_abs_pth)
 
     return metadata
+
+class TempLogContext:
+    def __init__(self, logger_names:list, levels:list):
+
+        self.logger_names = logger_names
+        self.levels = levels
+        self.loggers = [logging.getLogger(logger_name) for logger_name in logger_names]
+
+    def __enter__(self):
+        self.old_levels = [logger.level for logger in self.loggers]
+        for logger, level in zip(self.loggers, self.levels):
+            logger.setLevel(level)
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        for logger, level in zip(self.loggers, self.old_levels):
+            logger.setLevel(level)
 
 
 def make_thumbnail_from_file(image_path: Path, thumbnail_path: Path, width: int = 800) -> bool:
@@ -410,7 +426,11 @@ def make_thumbnail_from_file(image_path: Path, thumbnail_path: Path, width: int 
 
     """
     try:
-        image = skimage.io.imread(image_path)
+        with log_tools.TempLogContext(
+                ["skimage.io", "PIL", "tifffile"],
+                [logging.WARNING, logging.WARNING, logging.WARNING]
+        ):
+            image = skimage.io.imread(image_path)
         scale = float(width) / image.shape[1]
         scale = [scale, scale, 1]
         image_rescaled = cv2.resize(image, (0, 0), fx=scale[0], fy=scale[1])
