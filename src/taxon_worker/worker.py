@@ -123,32 +123,37 @@ def predict(
         if post_update_csv_path.exists():
             # this is not well tested
             metadata_post_update = pd.read_csv(post_update_csv_path, index_col=0)
-            # join on column "original_path" if the column exists, use the column from post_update_metadata
-            logger.debug(f"{metadata['original_path']=}")
-            logger.debug(f"{metadata_post_update['original_path']=}")
-            logger.debug(f"{metadata.columns=}")
-            logger.debug(f"{metadata_post_update.columns=}")
+            if "original_path" in metadata_post_update.columns:
+                # join on column "original_path" if the column exists, use the column from post_update_metadata
+                logger.debug(f"{metadata['original_path']=}")
+                logger.debug(f"{metadata_post_update['original_path']=}")
+                logger.debug(f"{metadata.columns=}")
+                logger.debug(f"{metadata_post_update.columns=}")
 
-            # Perform an inner join to ensure only rows from metadata are retained
-            merged_df = metadata.merge(
-                metadata_post_update,
-                on='original_path',
-                how='left',  # Keeps all rows from `metadata`, matching only from `metadata_post_update`
-                suffixes=('', '_post_update')
-            )
-            logger.debug("Merging metadata with post_update_csv.")
-            logger.debug(f"{merged_df.shape=}")
-            logger.debug(f"{merged_df['location name']=}")
+                # Perform an inner join to ensure only rows from metadata are retained
+                merged_df = metadata.merge(
+                    metadata_post_update,
+                    on='original_path',
+                    how='left',  # Keeps all rows from `metadata`, matching only from `metadata_post_update`
+                    suffixes=('', '_post_update')
+                )
+                logger.debug("Merging metadata with post_update_csv.")
+                logger.debug(f"{merged_df.shape=}")
+                logger.debug(f"{merged_df['location name']=}")
 
-            # Overwrite columns from `metadata` with those from `metadata_post_update` if they exist
-            for col in metadata_post_update.columns:
-                if col != 'original_path':  # Skip the join column
-                    if col in metadata.columns:  # Only overwrite common columns
-                        merged_df[col] = merged_df[f"{col}_post_update"].combine_first(merged_df[col])
-                        merged_df.drop(columns=[f"{col}_post_update"], inplace=True)
-            metadata = merged_df
-            logger.debug("Merged metadata with post_update_csv.")
-            logger.debug(f"{metadata.shape=}")
+                # Overwrite columns from `metadata` with those from `metadata_post_update` if they exist
+                for col in metadata_post_update.columns:
+                    if col != 'original_path':  # Skip the join column
+                        if col in metadata.columns:  # Only overwrite common columns
+                            merged_df[col] = merged_df[f"{col}_post_update"].combine_first(merged_df[col])
+                            merged_df.drop(columns=[f"{col}_post_update"], inplace=True)
+                metadata = merged_df
+                logger.debug("Merged metadata with post_update_csv.")
+                logger.debug(f"{metadata.shape=}")
+            else:
+                logger.warning("Column 'original_path' not found in post_update_csv. Skipping.")
+                logger.debug(f"{post_update_csv_path=}")
+                logger.debug(f"{metadata_post_update.columns=}")
 
         metadata.to_csv(output_metadata_file, encoding="utf-8-sig")
 
