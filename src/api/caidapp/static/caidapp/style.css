@@ -17,3 +17,31 @@
 .sidebar-logos img {
     margin: 5px;
 }
+
+
+     /* Custom breakpoint for screens larger than 1920px (you can adjust the value as needed) */
+@media (min-width: 1920px) {
+    .col-xxxl-1 {
+        flex: 0 0 auto;
+        width: 8.33%; /* 1/12th of the width */
+    }
+    .col-xxxl-2 {
+        flex: 0 0 auto;
+        width: 16.66%; /* 2/12th of the width */
+    }
+    .col-xxxl-3 {
+        flex: 0 0 auto;
+        width: 25%; /* 3/12th of the width */
+    }
+    .col-xxxl-4 {
+        flex: 0 0 auto;
+        width: 33.33%; /* 4/12th of the width */
+    }
+    .col-xxxl-6 {
+        flex: 0 0 auto;
+        width: 50%; /* 6/12th of the width */
+    }
+}
+
+
+

@@ -243,7 +243,7 @@ def show_taxons(request):
 
 def uploads_identities(request) -> HttpResponse:
     """List of uploads."""
-    page_context = _uploads_general(request, taxon_for_identification__isnull=False)
+    page_context = _uploads_general(request, taxon_for_identification__isnull=False, contains_identities=False)
 
     return render(
         request,
@@ -255,6 +255,22 @@ def uploads_identities(request) -> HttpResponse:
             "btn_styles": _single_species_button_style(request),
         },
     )
+
+def uploads_known_identities(request) -> HttpResponse:
+    """List of uploads."""
+    page_context = _uploads_general(request, taxon_for_identification__isnull=False, contains_identities=True)
+
+    return render(
+        request,
+        "caidapp/uploads_known_identities.html",
+        context={
+            **page_context,
+            # "page_obj": page_obj,
+            # "elided_page_range": elided_page_range,
+            "btn_styles": _single_species_button_style(request),
+        },
+    )
+
 
 
 def uploads_species(request) -> HttpResponse:
@@ -351,9 +367,16 @@ def _uploads_general(
     request,
     contains_single_taxon: Optional[bool] = None,
     taxon_for_identification__isnull: Optional[bool] = None,
+    contains_identities: Optional[bool] = None,
     **filter_params,
 ):
-    """List of uploads."""
+    """List of uploads.
+
+    taxon_for_identification__isnull: bool - True taxon classification, False - identification
+    contains_identitis: bool - go to separate view for known identities
+    """
+
+
     order_by = uploaded_archive_get_order_by(request)
     uploadedarchives = UploadedArchive.objects.annotate(**_uploads_general_order_annotation())
     if filter_params is None:
@@ -361,10 +384,12 @@ def _uploads_general(
 
     if contains_single_taxon is not None:
         filter_params.update(dict(contains_single_taxon=contains_single_taxon))
-    elif taxon_for_identification__isnull is not None:
+    if taxon_for_identification__isnull is not None:
         filter_params.update(
             dict(taxon_for_identification__isnull=taxon_for_identification__isnull)
         )
+    if contains_identities is not None:
+        filter_params.update(dict(contains_identities=contains_identities))
 
     uploadedarchives = (
         uploadedarchives.all()

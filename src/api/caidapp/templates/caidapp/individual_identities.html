@@ -34,7 +34,11 @@
                     {% include "caidapp/pagination_a.html" %}
                 </div>
                 {% for individual_identity in page_obj %}
-                    <div class="col-xl-2">
+                    <div
+{#                            class="col-xl-2 col-md-3 col-sm-4"#}
+                         class="col-12 col-sm-6 col-md-6 col-lg-4 col-xl-4 col-xxl-3 col-xxxl-2"
+                    >
+
                         {#                        <div class="col" style="-ms-flex: 0 0 200; flex: 0 0 200;">#}
                         <div class="card"
 {#                                {% if individual_identity.cover %}#}

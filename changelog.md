@@ -14,6 +14,7 @@
 * [changed] Disable link to media files before the processing is done
 * [changed] EXIFs calculated in one batch
 * [changed] Added trace in the map
+* [added] Base dataset view added
 
 ## 11-2024
 

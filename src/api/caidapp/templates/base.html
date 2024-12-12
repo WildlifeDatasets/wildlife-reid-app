@@ -415,6 +415,15 @@
                     </i><span>Individuality</span><i class="bi bi-chevron-down ms-auto"></i>
                 </a>
                 <ul id="icons-nav" class="nav-content collapse show" data-bs-parent="#sidebar-nav" style="">
+
+                    {% if user.caiduser.workgroup and user.caiduser.workgroup_admin %}
+                        <li>
+                            <a class="nav-link collapsed" href="{% url 'caidapp:uploads_known_identities' %}">
+                                <i class="bi bi-circle"></i>
+                                <span>Base dataset</span>
+                            </a>
+                        </li>
+                    {% endif %}
                     <li>
                         <a class="nav-link collapsed" href="{% url 'caidapp:uploads_identities' %}">
                             <i class="bi bi-circle"></i>

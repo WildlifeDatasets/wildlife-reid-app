@@ -22,6 +22,7 @@ urlpatterns = [
     path("logout/", views.logout_view, name="logout_view"),
     path("uploads/", views.uploads_species, name="uploads"),
     path("uploads_identities/", views.uploads_identities, name="uploads_identities"),
+    path("uploads_known_identities/", views.uploads_known_identities, name="uploads_known_identities"),
     path(
         "uploadedarchive_mediafiles/<int:uploadedarchive_id>",
         # views.uploadedarchive_mediafiles,
