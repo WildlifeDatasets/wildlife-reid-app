@@ -142,6 +142,7 @@ def load_model_and_predict_and_add_not_classified(
 
     logger.info("Running inference.")
     predict_output = predict(model, testloader)
+    logger.info("Inference done.")
     release_taxon_classification_model()
     logits = predict_output.preds
     if "temperature" in artifact_config:

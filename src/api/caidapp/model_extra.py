@@ -38,7 +38,7 @@ def user_has_rw_acces_to_uploadedarchive(
     )
 
 
-def prepare_dataframe_for_uploads_in_one_location(location_id: int) -> pd.DataFrame:
+def prepare_dataframe_for_uploads_in_one_locality(location_id: int) -> pd.DataFrame:
     """Prepare dataframe for uploads in one location."""
     location = Location.objects.get(id=location_id)
 

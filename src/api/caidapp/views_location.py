@@ -11,7 +11,7 @@ from django.urls import reverse_lazy
 from . import forms, model_tools
 from .forms import LocationForm
 from .model_extra import (
-    prepare_dataframe_for_uploads_in_one_location,
+    prepare_dataframe_for_uploads_in_one_locality,
     user_has_rw_acces_to_uploadedarchive,
 )
 from .models import Location, UploadedArchive, get_content_owner_filter_params
@@ -31,7 +31,7 @@ def _round_location(location: Location, order: int = 3):
     return f"{lat},{lon}"
 
 
-def delete_location(request, location_id):
+def delete_locality(request, location_id):
     """Delete location."""
     get_object_or_404(
         Location,
@@ -41,7 +41,7 @@ def delete_location(request, location_id):
     return redirect("caidapp:manage_locations")
 
 
-def update_location(request, location_id=None):
+def update_locality(request, location_id=None):
     """Show and create or update location."""
     if location_id is None:
         location = Location(
@@ -84,7 +84,7 @@ def update_location(request, location_id=None):
     )
 
 
-def manage_locations(request):
+def manage_localities(request):
     """Add new location or update names of locations."""
     LocationFormSet = modelformset_factory(
         Location, fields=("name",), can_delete=False, can_order=False
@@ -108,7 +108,7 @@ def manage_locations(request):
     )
 
 
-def _get_all_user_locations(request):
+def _get_all_user_localities(request):
     """Get all users locations."""
     params = get_content_owner_filter_params(request.user.caiduser, "owner")
     # logger.debug(f"{params=}")
@@ -116,7 +116,7 @@ def _get_all_user_locations(request):
     return locations
 
 
-def _set_location_to_mediafiles_of_uploadedarchive(
+def _set_localities_to_mediafiles_of_uploadedarchive(
     request, uploaded_archive: UploadedArchive, location: Location
 ):
     """Set location to mediafiles of uploaded archive."""
@@ -128,7 +128,7 @@ def _set_location_to_mediafiles_of_uploadedarchive(
         mediafile.save()
 
 
-def export_locations_view(request):
+def export_localities_view(request):
     """Export locations."""
     locations = Location.objects.filter(
         **get_content_owner_filter_params(request.user.caiduser, "owner")
@@ -139,7 +139,7 @@ def export_locations_view(request):
     return response
 
 
-def export_locations_view_xls(request):
+def export_localities_view_xls(request):
     """Export locations."""
     locations = Location.objects.filter(
         **get_content_owner_filter_params(request.user.caiduser, "owner")
@@ -161,7 +161,7 @@ def export_locations_view_xls(request):
     return response
 
 
-def import_locations_view(request):
+def import_localities_view(request):
     """Import locations."""
     logger.debug(f"Importing locations, method {request.method}")
     if request.method == "POST":
@@ -205,7 +205,7 @@ def import_locations_view(request):
     )
 
 
-def uploads_of_location(request, location_hash):
+def uploads_of_locality(request, location_hash):
     """Show all uploads of a location."""
     location = get_object_or_404(
         Location,
@@ -220,7 +220,7 @@ def uploads_of_location(request, location_hash):
     )
 
 
-def download_records_from_location_csv_view(request, location_hash):
+def download_records_from_locality_csv_view(request, location_hash):
     """Download records from location."""
     location = get_object_or_404(
         Location,
@@ -228,7 +228,7 @@ def download_records_from_location_csv_view(request, location_hash):
         **get_content_owner_filter_params(request.user.caiduser, "owner"),
     )
 
-    df = prepare_dataframe_for_uploads_in_one_location(location.id)
+    df = prepare_dataframe_for_uploads_in_one_locality(location.id)
     response = HttpResponse(df.to_csv(encoding="utf-8"), content_type="text/csv")
     response["Content-Disposition"] = "attachment; filename=location_checks.csv"
     return response
@@ -242,7 +242,7 @@ def download_records_from_location_xls_view(request, location_hash):
         **get_content_owner_filter_params(request.user.caiduser, "owner"),
     )
 
-    df = prepare_dataframe_for_uploads_in_one_location(location.id)
+    df = prepare_dataframe_for_uploads_in_one_locality(location.id)
     df = model_tools.convert_datetime_to_naive(df)
 
     # Create a BytesIO buffer to save the Excel file

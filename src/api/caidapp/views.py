@@ -82,7 +82,7 @@ from .tasks import (
     run_species_prediction_async,
     update_metadata_csv_by_uploaded_archive,
 )
-from .views_location import _get_all_user_locations, _set_location_to_mediafiles_of_uploadedarchive
+from .views_location import _get_all_user_localities, _set_localities_to_mediafiles_of_uploadedarchive
 
 logger = logging.getLogger("app")
 User = get_user_model()
@@ -1298,7 +1298,7 @@ def upload_archive(
             "button": "Upload",
             "text_note": text_note,
             "next": next,
-            "locations": _get_all_user_locations(request),
+            "locations": _get_all_user_localities(request),
         },
     )
 
@@ -1386,7 +1386,7 @@ def break_cloud_import_view(request):
 
 def locations_view(request):
     """List of locations."""
-    locations = _get_all_user_locations(request)
+    locations = _get_all_user_localities(request)
     logger.debug(f"{len(locations)=}")
     return render(request, "caidapp/locations.html", {"locations": locations})
 
@@ -1408,7 +1408,7 @@ def update_uploadedarchive(request, uploadedarchive_id):
                 logger.debug("Location has been changed.")
                 # location_str = form.cleaned_data["location_at_upload"]
                 location = get_location(request.user.caiduser, cleaned_location_at_upload)
-                _set_location_to_mediafiles_of_uploadedarchive(request, uploaded_archive, location)
+                _set_localities_to_mediafiles_of_uploadedarchive(request, uploaded_archive, location)
                 uploaded_archive.location_at_upload_object = location
                 uploaded_archive.save()
 
@@ -1424,7 +1424,7 @@ def update_uploadedarchive(request, uploadedarchive_id):
             "headline": "Uploaded Archive",
             "button": "Save",
             "uploadedarchive": uploaded_archive,
-            "locations": _get_all_user_locations(request),
+            "locations": _get_all_user_localities(request),
         },
     )
 

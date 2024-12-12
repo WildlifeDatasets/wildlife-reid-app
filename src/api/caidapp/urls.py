@@ -69,18 +69,18 @@ urlpatterns = [
         views_mediafile.media_file_update,
         name="media_file_update",
     ),
-    path("manage_locations/", views_location.manage_locations, name="manage_locations"),
+    path("manage_locations/", views_location.manage_localities, name="manage_locations"),
     path(
-        "delete_location/<int:location_id>/", views_location.delete_location, name="delete_location"
+        "delete_location/<int:location_id>/", views_location.delete_locality, name="delete_location"
     ),
     path(
         "update_location/<int:location_id>/",
-        views_location.update_location,
+        views_location.update_locality,
         name="update_location",
     ),
     path(
         "update_location/",
-        views_location.update_location,
+        views_location.update_locality,
         name="update_location",
     ),
     path("albums/", views.albums, name="albums"),
@@ -250,21 +250,21 @@ urlpatterns = [
         name="select_taxon_for_identification",
     ),
     path("locations/", views.locations_view, name="locations"),
-    path("locations/export/", views_location.export_locations_view, name="export_locations"),
+    path("locations/export/", views_location.export_localities_view, name="export_locations"),
     path(
         "locations/export_xls/",
-        views_location.export_locations_view_xls,
+        views_location.export_localities_view_xls,
         name="export_locations_xls",
     ),
-    path("locations/import/", views_location.import_locations_view, name="import_locations"),
+    path("locations/import/", views_location.import_localities_view, name="import_locations"),
     path(
         "locations/checks/<str:location_hash>/",
-        views_location.uploads_of_location,
+        views_location.uploads_of_locality,
         name="uploads_of_location",
     ),
     path(
         "locations/download_records_csv/<str:location_hash>/",
-        views_location.download_records_from_location_csv_view,
+        views_location.download_records_from_locality_csv_view,
         name="download_records_from_location_csv",
     ),
     path(
