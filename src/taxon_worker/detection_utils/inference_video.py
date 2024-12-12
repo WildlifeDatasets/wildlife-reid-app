@@ -166,6 +166,9 @@ def create_image_from_video(
     Keep the video path in absolute_media_path and change the full_image_path and image_path
     new image.
     """
+    skip_counter = 0
+    process_counter = 0
+    no_detection_counter = 0
     for row_idx, row in tqdm(metadata.iterrows(), desc="Video to image"):
         full_path = row["full_image_path"]
 
@@ -178,8 +181,10 @@ def create_image_from_video(
         gif_path = str(Path(full_path).parent.parent / "thumbnails" / f"{video_name}.gif")
 
         if row["media_type"] != "video":
-            logger.debug(f"{os.path.basename(full_path)} is image - skipping")
+            # logger.debug(f"{os.path.basename(full_path)} is image - skipping")
+            skip_counter += 1
             continue
+        process_counter += 1
 
         images = load_video(full_path)
         logger.debug(f"video frames: {images.shape}")
@@ -214,6 +219,7 @@ def create_image_from_video(
         # check if any detection
         if len([1 for p in predictions if p is not None]) == 0:
             logger.debug(f"no detection in video: {os.path.basename(full_path)} - skipping")
+            no_detection_counter += 1
             make_gif(all_images, gif_path, 0, height=gif_height)
 
             image = images[0]
@@ -248,5 +254,7 @@ def create_image_from_video(
         row["full_image_path"] = new_full_path
         row["suffix"] = f".{new_full_path.split('.')[-1]}"
         metadata.loc[row_idx] = row
+    logger.debug(f"Processed {process_counter} videos, skipped {no_detection_counter} "
+                 f"videos with no detection and  {skip_counter} images.")
 
     return metadata
