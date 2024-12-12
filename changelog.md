@@ -13,6 +13,7 @@
 * [added] Impersonated staff person can now run classification
 * [changed] Disable link to media files before the processing is done
 * [changed] EXIFs calculated in one batch
+* [changed] Added trace in the map
 
 ## 11-2024
 

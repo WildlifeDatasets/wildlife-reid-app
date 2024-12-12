@@ -1704,15 +1704,62 @@ def _create_map_from_mediafiles(mediafiles: Union[QuerySet, List[MediaFile]]):
     else:
         zoom = 3  # For larger ranges, set a smaller zoom level
 
-    fig = go.Figure(go.Densitymapbox(lat=df2.lat, lon=df2.lon, radius=10, showscale=False))
-    fig.update_layout(
-        mapbox_style="open-street-map",
-        mapbox_center_lon=df2.lon.unique().mean(),
-        mapbox_center_lat=df2.lat.unique().mean(),
-        mapbox_zoom=zoom,
+    # fig = go.Figure(go.Densitymapbox(lat=df2.lat, lon=df2.lon, radius=10, showscale=False))
+    # fig.update_layout(
+    #     mapbox_style="open-street-map",
+    #     mapbox_center_lon=df2.lon.unique().mean(),
+    #     mapbox_center_lat=df2.lat.unique().mean(),
+    #     mapbox_zoom=zoom,
+    # )
+    #
+    # fig.update_layout(margin={"r": 0, "t": 10, "l": 0, "b": 0}, height=300)
+
+    # Create the base map
+    fig = go.Figure()
+
+    # Add a density map for points
+    fig.add_trace(
+        go.Densitymapbox(
+            lat=df2.lat,
+            lon=df2.lon,
+            radius=10,
+            showscale=False,
+            name = 'Density Map',
+        )
     )
 
-    fig.update_layout(margin={"r": 0, "t": 10, "l": 0, "b": 0}, height=300)
+    # Add a Scattermapbox trace to connect points with lines
+    fig.add_trace(
+        go.Scattermapbox(
+            lat=df2.lat,
+            lon=df2.lon,
+            mode='lines+markers',  # Shows both lines and markers
+            marker=dict(size=7),  # Adjust marker size
+            line=dict(width=2, color='blue'),  # Adjust line style
+            name = 'Path (Lines and Markers)',  # Legend label
+            visible = True  # Default visibility
+        )
+    )
+
+    # Update layout with map style and center
+    fig.update_layout(
+        mapbox_style="open-street-map",
+        mapbox_center_lon=df2.lon.mean(),
+        mapbox_center_lat=df2.lat.mean(),
+        mapbox_zoom=zoom,
+        margin={"r": 0, "t": 10, "l": 0, "b": 30},
+        height=500,
+        showlegend=True,
+        legend=dict(
+            orientation="h",  # Horizontal orientation
+            yanchor="top",  # Align to the top of the legend
+            y=-0.1,  # Place below the map (negative value for outside the map area)
+            xanchor="center",  # Center align horizontally
+            x=0.5  # Position at the center
+        )
+
+    )
+
     map_html = fig.to_html()
     return map_html
 
