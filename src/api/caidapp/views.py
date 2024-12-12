@@ -2811,13 +2811,15 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
                         )
                         counter1 += 1
                     if "location name" in row:
-                        mf.location = models.get_location(
+                        location_obj = models.get_location(
                             caiduser=request.user.caiduser,
                             name=row["location name"])
-                        if ("latitude" in row) and ("longitude" in row):
-                            mf.location.set_location(float(row["latitude"]), float(row["longitude"]))
+                        if location_obj:
+                            mf.location = location_obj
+                            if ("latitude" in row) and ("longitude" in row):
+                                mf.location.set_location(float(row["latitude"]), float(row["longitude"]))
+                                counter1 += 1
                             counter1 += 1
-                        counter1 += 1
                     if "datetime" in row:
                         mf.captured_at = row["datetime"]
                         counter1 += 1

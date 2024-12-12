@@ -858,13 +858,15 @@ def get_taxon(name: str) -> Optional[Taxon]:
     return taxon
 
 
-def get_location(caiduser: CaIDUser, name: str) -> Location:
+def get_location(caiduser: CaIDUser, name: str) -> Union[Location,None]:
     """Return location according to the name, create it if necessary.
 
     Parameters
     ----------
     request
     """
+    if (name is None) or (name == ""):
+        return None
     objs = Location.objects.filter(name=name, owner__workgroup=caiduser.workgroup)
     if len(objs) == 0:
         location = Location(name=name, owner=caiduser)
