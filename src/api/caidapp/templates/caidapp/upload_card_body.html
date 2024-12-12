@@ -9,9 +9,9 @@
 {#</h5>#}
 
 <div class="mt-2">
-<span data-bs-toggle="tooltip" title="Location: {{ uploadedarchive.location_at_upload_object.name }}">
-        <i class="bi bi-geo-alt"></i>
     {% if uploadedarchive.location_at_upload_object %}
+        <span data-bs-toggle="tooltip" title="Location: {{ uploadedarchive.location_at_upload_object.name }}">
+        <i class="bi bi-geo-alt"></i>
         {#            {{ uploadedarchive.location_at_upload_object.name }}#}
         {#            {{ uploadedarchive.location_at_upload_object.hash }}#}
 
@@ -23,10 +23,10 @@
                         {{ uploadedarchive.location_at_upload_object.name }}
                     {% endif %}
             </a>
+        </span>
     {% else %}
-        {{ uploadedarchive.location_at_upload_object.name }}
+{#        {{ uploadedarchive.location_at_upload_object.name }}#}
     {% endif %}
-</span>
 
     {% if uploadedarchive.earliest_captured_at %}
         <div
