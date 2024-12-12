@@ -41,13 +41,18 @@ def delete_location(request, location_id):
     return redirect("caidapp:manage_locations")
 
 
-def update_location(request, location_id):
-    """Show and update location."""
-    location = get_object_or_404(
-        Location,
-        pk=location_id,
-        **get_content_owner_filter_params(request.user.caiduser, "owner"),
-    )
+def update_location(request, location_id=None):
+    """Show and create or update location."""
+    if location_id is None:
+        location = Location(
+            owner=request.user.caiduser,
+        )
+    else:
+        location = get_object_or_404(
+            Location,
+            pk=location_id,
+            **get_content_owner_filter_params(request.user.caiduser, "owner"),
+        )
     if request.method == "POST":
         form = LocationForm(request.POST, instance=location)
         if form.is_valid():
@@ -58,17 +63,23 @@ def update_location(request, location_id):
             return redirect("caidapp:locations")
     else:
         form = LocationForm(instance=location)
+
+    if location_id is None:
+        delete_button_url = None
+    else:
+        delete_button_url = reverse_lazy(
+            "caidapp:delete_location", kwargs={"location_id": location_id}
+        )
+
     return render(
         request,
         "caidapp/update_form.html",
         {
             "form": form,
-            "headline": "Location",
+            "headline": "Locality",
             "button": "Save",
             "location": location,
-            "delete_button_url": reverse_lazy(
-                "caidapp:delete_location", kwargs={"location_id": location_id}
-            ),
+            "delete_button_url": delete_button_url,
         },
     )
 

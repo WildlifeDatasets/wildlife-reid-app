@@ -77,6 +77,11 @@ urlpatterns = [
         views_location.update_location,
         name="update_location",
     ),
+    path(
+        "update_location/",
+        views_location.update_location,
+        name="update_location",
+    ),
     path("albums/", views.albums, name="albums"),
     path("album/<str:album_hash>", views.media_files_update, name="album"),
     path("taxon/<int:taxon_id>", views.media_files_update, name="taxon"),
