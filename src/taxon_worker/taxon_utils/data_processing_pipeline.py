@@ -393,10 +393,10 @@ def make_previews(metadata, output_dir, preview_width=1200):
 
         if row["media_type"] == "image":
             # preview_rel_pth = os.path.relpath(preview_abs_pth, settings.MEDIA_ROOT)
-            logger.debug(f"Creating preview for {mediafile_path}")
+            # logger.debug(f"Creating preview for {mediafile_path}")
             make_thumbnail_from_file(mediafile_path, preview_abs_pth, width=preview_width)
         elif row["media_type"] == "video":
-            logger.debug(f"Creating preview for {mediafile_path}")
+            # logger.debug(f"Creating preview for {mediafile_path}")
             convert_to_mp4(mediafile_path, preview_abs_pth)
 
     return metadata
