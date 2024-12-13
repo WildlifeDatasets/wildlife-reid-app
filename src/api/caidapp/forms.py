@@ -45,7 +45,7 @@ class AlbumForm(forms.ModelForm):
 
 class LocationForm(forms.ModelForm):
     class Meta:
-        model = models.Location
+        model = models.Locality
         fields = ("name", "visible_name", "location")
 
 

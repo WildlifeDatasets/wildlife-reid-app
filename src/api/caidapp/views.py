@@ -63,7 +63,7 @@ from .models import (
     Album,
     ArchiveCollection,
     IndividualIdentity,
-    Location,
+    Locality,
     MediaFile,
     MediafilesForIdentification,
     Taxon,
@@ -1657,7 +1657,7 @@ def _mediafiles_query(
         #     .order_by(order_by)
         # )
     if location_hash is not None:
-        location = get_object_or_404(Location, hash=location_hash)
+        location = get_object_or_404(Locality, hash=location_hash)
         filter_kwargs.update(dict(location=location))
         # mediafiles = (
         #     mediafiles.filter(location=location).all().distinct().order_by(order_by)
@@ -2025,7 +2025,7 @@ def media_files_update(
         taxon = get_object_or_404(Taxon, pk=taxon_id)
         page_title = f"Media files - {taxon.name}"
     elif location_hash is not None:
-        location = get_object_or_404(Location, hash=location_hash)
+        location = get_object_or_404(Locality, hash=location_hash)
         page_title = f"Media files - {location.name}"
     else:
         page_title = "Media files"
@@ -2598,7 +2598,7 @@ def _make_output_name(mediafile: models.MediaFile):
 
 
 def _generate_new_hash_for_locations():
-    for location in Location.objects.all():
+    for location in Locality.objects.all():
         location.hash = models.get_hash8()
         location.save()
 

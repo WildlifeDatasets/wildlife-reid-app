@@ -26,7 +26,7 @@ from . import models
 from .models import (
     CaIDUser,
     IndividualIdentity,
-    Location,
+    Locality,
     MediaFile,
     MediafilesForIdentification,
     UploadedArchive,
@@ -1356,7 +1356,7 @@ def _iterate_over_location_checks(
         yield_dict = SimpleNamespace(
             date=date,
             location=location,
-            location_exists=len(Location.objects.filter(name=location, **params)) > 0,
+            location_exists=len(Locality.objects.filter(name=location, **params)) > 0,
             zip_name_exists=zip_name in archives,
             is_already_processed=is_already_processed,
             path_of_location_check=path_of_location_check,

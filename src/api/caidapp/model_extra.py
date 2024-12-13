@@ -1,6 +1,6 @@
 import pandas as pd
 
-from .models import CaIDUser, Location, MediaFile, UploadedArchive
+from .models import CaIDUser, Locality, MediaFile, UploadedArchive
 
 
 def user_has_rw_access_to_mediafile(
@@ -40,7 +40,7 @@ def user_has_rw_acces_to_uploadedarchive(
 
 def prepare_dataframe_for_uploads_in_one_locality(location_id: int) -> pd.DataFrame:
     """Prepare dataframe for uploads in one location."""
-    location = Location.objects.get(id=location_id)
+    location = Locality.objects.get(id=location_id)
 
     location_uploads = UploadedArchive.objects.filter(location_at_upload_object=location).order_by(
         "uploaded_at"

@@ -135,7 +135,7 @@ class Taxon(models.Model):
         return str(self.name)
 
 
-class Location(models.Model):
+class Locality(models.Model):
     name = models.CharField(max_length=50)
     visible_name = models.CharField(max_length=255, blank=True, default=human_readable_hash)
     location = PlainLocationField(
@@ -202,7 +202,7 @@ class UploadedArchive(models.Model):
     identification_finished_at = models.DateTimeField("Finished at", blank=True, null=True)
     location_at_upload = models.CharField(max_length=255, blank=True, default="")
     location_at_upload_object = models.ForeignKey(
-        Location, on_delete=models.SET_NULL, null=True, blank=True
+        Locality, on_delete=models.SET_NULL, null=True, blank=True
     )
     owner = models.ForeignKey(CaIDUser, on_delete=models.CASCADE, null=True, blank=True)
     contains_identities = models.BooleanField(default=False)
@@ -312,7 +312,7 @@ class UploadedArchive(models.Model):
                 parent=self, category=self.taxon_for_identification
             ).count()
 
-    def update_location_in_mediafiles(self, location: Union[str, Location]):
+    def update_location_in_mediafiles(self, location: Union[str, Locality]):
         """Update location in mediafiles."""
         if isinstance(location, str):
             location = get_locality(self.owner, location)
@@ -649,7 +649,7 @@ class MediaFile(models.Model):
         Taxon, blank=True, null=True, on_delete=models.SET_NULL, related_name="predicted_taxon"
     )
     predicted_taxon_confidence = models.FloatField(null=True, blank=True)
-    location = models.ForeignKey(Location, blank=True, null=True, on_delete=models.CASCADE)
+    location = models.ForeignKey(Locality, blank=True, null=True, on_delete=models.CASCADE)
     captured_at = models.DateTimeField("Captured at", blank=True, null=True)
     mediafile = models.FileField(
         "Media File",
@@ -858,7 +858,7 @@ def get_taxon(name: str) -> Optional[Taxon]:
     return taxon
 
 
-def get_locality(caiduser: CaIDUser, name: str) -> Union[Location,None]:
+def get_locality(caiduser: CaIDUser, name: str) -> Union[Locality,None]:
     """Return location according to the name, create it if necessary.
 
     Parameters
@@ -867,9 +867,9 @@ def get_locality(caiduser: CaIDUser, name: str) -> Union[Location,None]:
     """
     if (name is None) or (name == ""):
         return None
-    objs = Location.objects.filter(name=name, owner__workgroup=caiduser.workgroup)
+    objs = Locality.objects.filter(name=name, owner__workgroup=caiduser.workgroup)
     if len(objs) == 0:
-        location = Location(name=name, owner=caiduser)
+        location = Locality(name=name, owner=caiduser)
         location.save()
     else:
         location = objs[0]

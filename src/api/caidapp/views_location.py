@@ -14,12 +14,12 @@ from .model_extra import (
     prepare_dataframe_for_uploads_in_one_locality,
     user_has_rw_acces_to_uploadedarchive,
 )
-from .models import Location, UploadedArchive, get_content_owner_filter_params
+from .models import Locality, UploadedArchive, get_content_owner_filter_params
 
 logger = logging.getLogger("app")
 
 
-def _round_location(location: Location, order: int = 3):
+def _round_location(location: Locality, order: int = 3):
     """Round location for anonymization."""
     if (location.location is None) or (location.location == ""):
         return location.location
@@ -34,7 +34,7 @@ def _round_location(location: Location, order: int = 3):
 def delete_locality(request, location_id):
     """Delete location."""
     get_object_or_404(
-        Location,
+        Locality,
         pk=location_id,
         **get_content_owner_filter_params(request.user.caiduser, "owner"),
     ).delete()
@@ -44,12 +44,12 @@ def delete_locality(request, location_id):
 def update_locality(request, location_id=None):
     """Show and create or update location."""
     if location_id is None:
-        location = Location(
+        location = Locality(
             owner=request.user.caiduser,
         )
     else:
         location = get_object_or_404(
-            Location,
+            Locality,
             pk=location_id,
             **get_content_owner_filter_params(request.user.caiduser, "owner"),
         )
@@ -87,10 +87,10 @@ def update_locality(request, location_id=None):
 def manage_localities(request):
     """Add new location or update names of locations."""
     LocationFormSet = modelformset_factory(
-        Location, fields=("name",), can_delete=False, can_order=False
+        Locality, fields=("name",), can_delete=False, can_order=False
     )
     params = get_content_owner_filter_params(request.user.caiduser, "owner")
-    formset = LocationFormSet(queryset=Location.objects.filter(**params))
+    formset = LocationFormSet(queryset=Locality.objects.filter(**params))
 
     if request.method == "POST":
         form = LocationFormSet(request.POST)
@@ -112,12 +112,12 @@ def _get_all_user_localities(request):
     """Get all users locations."""
     params = get_content_owner_filter_params(request.user.caiduser, "owner")
     # logger.debug(f"{params=}")
-    locations = Location.objects.filter(**params).order_by("name")
+    locations = Locality.objects.filter(**params).order_by("name")
     return locations
 
 
 def _set_localities_to_mediafiles_of_uploadedarchive(
-    request, uploaded_archive: UploadedArchive, location: Location
+    request, uploaded_archive: UploadedArchive, location: Locality
 ):
     """Set location to mediafiles of uploaded archive."""
     if not user_has_rw_acces_to_uploadedarchive(request.user.caiduser, uploaded_archive):
@@ -130,7 +130,7 @@ def _set_localities_to_mediafiles_of_uploadedarchive(
 
 def export_localities_view(request):
     """Export locations."""
-    locations = Location.objects.filter(
+    locations = Locality.objects.filter(
         **get_content_owner_filter_params(request.user.caiduser, "owner")
     )
     df = pd.DataFrame.from_records(locations.values())[["name", "location"]]
@@ -141,7 +141,7 @@ def export_localities_view(request):
 
 def export_localities_view_xls(request):
     """Export locations."""
-    locations = Location.objects.filter(
+    locations = Locality.objects.filter(
         **get_content_owner_filter_params(request.user.caiduser, "owner")
     )
     df = pd.DataFrame.from_records(locations.values())[["name", "location"]]
@@ -181,7 +181,7 @@ def import_localities_view(request):
                 return HttpResponse("Only .xlsx and .csv files are supported.")
 
             for index, row in df.iterrows():
-                location = Location()
+                location = Locality()
                 location.name = row["name"]
                 location.location = row["location"]
                 location.owner = request.user.caiduser
@@ -208,7 +208,7 @@ def import_localities_view(request):
 def uploads_of_locality(request, location_hash):
     """Show all uploads of a location."""
     location = get_object_or_404(
-        Location,
+        Locality,
         hash=location_hash,
         **get_content_owner_filter_params(request.user.caiduser, "owner"),
     )
@@ -223,7 +223,7 @@ def uploads_of_locality(request, location_hash):
 def download_records_from_locality_csv_view(request, location_hash):
     """Download records from location."""
     location = get_object_or_404(
-        Location,
+        Locality,
         hash=location_hash,
         **get_content_owner_filter_params(request.user.caiduser, "owner"),
     )
@@ -237,7 +237,7 @@ def download_records_from_locality_csv_view(request, location_hash):
 def download_records_from_location_xls_view(request, location_hash):
     """Download records from location."""
     location = get_object_or_404(
-        Location,
+        Locality,
         hash=location_hash,
         **get_content_owner_filter_params(request.user.caiduser, "owner"),
     )
