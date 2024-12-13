@@ -146,7 +146,7 @@ def test_analyze_dir(dataset):
     metadata.to_csv("test_metadata.csv", encoding="utf-8-sig")
     duplicates.to_csv("test_duplicates.csv", encoding="utf-8-sig")
     assert len(metadata) > 3
-    assert len(metadata.location.unique()) > 1, "There should be some localities."
+    assert len(metadata.locality.unique()) > 1, "There should be some localities."
 
 
 def test_analyze_dir_unique_names_as_parent_name():
@@ -177,7 +177,7 @@ def test_analyze_dir_sumava_unique_names(dataset):
     metadata.to_csv("test_metadata.csv", encoding="utf-8-sig")
     duplicates.to_csv("test_duplicates.csv", encoding="utf-8-sig")
     assert len(metadata) > 3
-    assert len(metadata.location.unique()) > 1, "There should be some localities."
+    assert len(metadata.locality.unique()) > 1, "There should be some localities."
     assert len(metadata.unique_name.unique()) > 1, "There should be some unique names."
     assert len(duplicates) > 0
     rows_with_duplicate = metadata[metadata.content_hash == duplicates.content_hash[0]]

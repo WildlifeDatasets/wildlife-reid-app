@@ -346,11 +346,11 @@
                                                 {% if mediafile.instance.category %}
                                                     Taxon: {{ mediafile.instance.category }}
                                                 {% endif %}
-                                                {% if mediafile.instance.location %}
+                                                {% if mediafile.instance.locality %}
                                                     {%  if request.session.private_mode %}
-                                                        Locality: {{ mediafile.instance.location.visible_name }}
+                                                        Locality: {{ mediafile.instance.locality.visible_name }}
                                                     {% else %}
-                                                        Locality: {{ mediafile.instance.location.name }}
+                                                        Locality: {{ mediafile.instance.locality.name }}
                                                     {% endif %}
                                                 {% endif %}
                                                 {% if mediafile.instance.identity %}
@@ -401,13 +401,13 @@
 
                                                 <br>
                                         {% endif %}
-                                        {% if mediafile.location %}
-                                                Location:
+                                        {% if mediafile.locality %}
+                                                Locality:
 
                                                 <a class="link-secondary"
-                                                   href="{% url 'caidapp:media_files_location' mediafile.location.hash %}">
+                                                   href="{% url 'caidapp:media_files_locality' mediafile.locality.hash %}">
                                                 <span data-bs-toggle="tooltip"
-                                                      title="Location: {{ mediafile.location.name }}">
+                                                      title="Locality: {{ mediafile.locality.name }}">
                                                     {{ mediafile.location.visible_name }}
                                                 </span>
                                                 </a>

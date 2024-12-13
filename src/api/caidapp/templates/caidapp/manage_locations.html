@@ -16,10 +16,10 @@
             {% for one_obj in page_obj %}
                 {{ one_obj }}
                 {%  if one_obj.instance.id %}
-                        <a class="btn btn-primary mt-1" href="{% url 'caidapp:update_location' one_obj.instance.id %}">Detail</a>
+                        <a class="btn btn-primary mt-1" href="{% url 'caidapp:update_locality' one_obj.instance.id %}">Detail</a>
                         <a class="btn btn-danger mt-1"
-                           href="{% url 'caidapp:delete_location' one_obj.instance.id %}"
-                           onclick="return confirm('Delete location {{ one_obj.instance.name }}: {{ one_obj.instance.visible_name }} ?')">
+                           href="{% url 'caidapp:delete_locality' one_obj.instance.id %}"
+                           onclick="return confirm('Delete locality {{ one_obj.instance.name }}: {{ one_obj.instance.visible_name }} ?')">
                         <i class="bi bi-trash"></i></a><br>
                 {% endif %}
             {% endfor %}

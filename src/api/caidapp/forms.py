@@ -43,7 +43,7 @@ class AlbumForm(forms.ModelForm):
         fields = ("name", "description")
 
 
-class LocationForm(forms.ModelForm):
+class LocalityForm(forms.ModelForm):
     class Meta:
         model = models.Locality
         fields = ("name", "visible_name", "location")
@@ -100,7 +100,7 @@ class UploadedArchiveUpdateBySpreadsheetForm(forms.Form):
         self.fields['spreadsheet_file'] = forms.FileField(label="Spreadsheet File",
                                                             required=True,
                                                             help_text="Select a CSV or XLSX file with the following columns: "
-                                                                      "mediafile, location_at_upload, location_check_at, taxon_for_identification",
+                                                                      "mediafile, locality_at_upload, locality_check_at, taxon_for_identification",
                                                             widget=forms.FileInput(attrs={"accept": ".csv,.xlsx"}),
 
             # "Spreadsheet File"
@@ -112,7 +112,7 @@ class UploadedArchiveUpdateForm(forms.ModelForm):
 
     from .models import UploadedArchive
 
-    location_at_upload = forms.CharField(
+    locality_at_upload = forms.CharField(
         widget=forms.TextInput(attrs={"class": "autocomplete"}), required=False
     )
 
@@ -121,18 +121,18 @@ class UploadedArchiveUpdateForm(forms.ModelForm):
         fields = (
             # "archivefile",
             "name",
-            "location_at_upload",
-            "location_check_at"
+            "locality_at_upload",
+            "locality_check_at"
             # "contains_identities"
         )
 
 
 class UploadedArchiveForm(forms.ModelForm):
 
-    location_at_upload = forms.CharField(
+    locality_at_upload = forms.CharField(
         widget=forms.TextInput(attrs={"class": "autocomplete"}), required=False
     )
-    location_check_at = forms.DateField(
+    locality_check_at = forms.DateField(
         widget=forms.DateInput(
             attrs={"class": "datepicker", "placeholder": "yyyy-mm-dd"}, format="%Y-%m-%d"
         ),
@@ -142,33 +142,33 @@ class UploadedArchiveForm(forms.ModelForm):
 
     class Meta:
         model = UploadedArchive
-        fields = ("archivefile", "location_at_upload", "location_check_at")
+        fields = ("archivefile", "locality_at_upload", "locality_check_at")
         help_texts = {
-            "archivefile": "Select a zip file. Date and location should be detected automatically, "
+            "archivefile": "Select a zip file. Date and locality should be detected automatically, "
             "e.g., '2023-02-21_Horni Lukavice.zip', 'Horni Lukavice 20230221.zip'",
         }
         labels = {
             "archivefile": "Upload Archive File",
-            "location_at_upload": "Location at Upload",
-            "location_check_at": "Location Check Date",
+            "locality_at_upload": "Locality at Upload",
+            "locality_check_at": "Locality Check Date",
         }
 
 
 class UploadedArchiveFormWithTaxon(forms.ModelForm):
 
-    location_at_upload = forms.CharField(
+    locality_at_upload = forms.CharField(
         widget=forms.TextInput(attrs={"class": "autocomplete"}), required=False
     )
 
     class Meta:
         model = UploadedArchive
-        fields = ("archivefile", "location_at_upload", "taxon_for_identification")
+        fields = ("archivefile", "locality_at_upload", "taxon_for_identification")
 
 
 class MediaFileForm(forms.ModelForm):
     class Meta:
         model = MediaFile
-        fields = ("category", "location", "identity", "captured_at", "taxon_verified", "note")
+        fields = ("category", "locality", "identity", "captured_at", "taxon_verified", "note")
 
 
 class MediaFileBulkForm(forms.ModelForm):
@@ -206,7 +206,7 @@ class ChangeMediaFilesTimeForm(forms.Form):
     change_by_years = forms.FloatField(label="Change by years", required=False)
 
 
-class LocationImportForm(forms.Form):
+class LocalityImportForm(forms.Form):
     spreadsheet_file = forms.FileField()
 
 

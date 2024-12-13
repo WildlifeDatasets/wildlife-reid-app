@@ -118,24 +118,24 @@ def is_string_date(date: str) -> bool:
         return False
 
 
-def get_date_and_location_from_filename(filename: Union[Path, str]) -> Tuple[str, str]:
-    """Extract date and location from the filename.
+def get_date_and_locality_from_filename(filename: Union[Path, str]) -> Tuple[str, str]:
+    """Extract date and locality from the filename.
 
-    The filename should be in the format: "{date}_{location}.{ext}" or "{location}_{date}.{ext}".
+    The filename should be in the format: "{date}_{locality}.{ext}" or "{locality}_{date}.{ext}".
     The date should be in the format: "YYYY-MM-DD" or "YYYYMMDD".
     """
     filename = Path(filename).stem
     date = None
-    location = None
+    locality = None
     parts = filename.split("_")
     if len(parts) >= 2:
         if is_string_date(parts[0]):
             date = parts[0]
-            location = "_".join(parts[1:])
+            locality = "_".join(parts[1:])
         elif is_string_date(parts[-1]):
             date = parts[-1]
-            location = "_".join(parts[:-1])
+            locality = "_".join(parts[:-1])
 
-    return date, location
+    return date, locality
 
 

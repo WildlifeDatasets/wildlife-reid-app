@@ -79,13 +79,13 @@
         const progress_bar = document.getElementById('progress');
 
         var src = [
-            {%  for location in locations %}
-                {title: "{{ location.name }}", id: "{{ location.id }}", data: {key: {{ location.id }}}},
+            {%  for locality in localities %}
+                {title: "{{ locality.name }}", id: "{{ locality.id }}", data: {key: {{ locality.id }}}},
             {% endfor %}
         ];
 
-        const warningElement = document.getElementById("warning_msg_id_location_at_upload");
-        const locationField = document.getElementById('id_location_at_upload');
+        const warningElement = document.getElementById("warning_msg_id_locality_at_upload");
+        const locationField = document.getElementById('id_locality_at_upload');
 
         // Event listener for when the user leaves the input field (onblur)
         locationField.addEventListener("blur", function () {
@@ -209,7 +209,7 @@
 
                 const inputValue = locationField.value;
 
-                // Check if the entered value is one of the suggested locations
+                // Check if the entered value is one of the suggested localities
                 const isValid = src.some(location => location.title === inputValue);
 
                 // Show or hide the warning message
@@ -250,7 +250,7 @@
             onSelectItem: console.log,
         };
         var src = [
-            {%  for location in locations %}
+            {%  for location in localities %}
                 {title: "{{ location.name }}", id: "{{ location.id }}", data: {key: {{ location.id }}}},
             {% endfor %}
         ];
@@ -261,17 +261,17 @@
             highlightTyped: true,
             onSelectItem: console.log,
         });
-        new Autocomplete(document.getElementById("id_location_at_upload"), opts);
+        new Autocomplete(document.getElementById("id_locality_at_upload"), opts);
 
         {#const warningElement = document.getElementById("warning-message");#}
-        const warningElement = document.getElementById("warning_msg_id_location_at_upload");
-        const locationField = document.getElementById('id_location_at_upload');
+        const warningElement = document.getElementById("warning_msg_id_locality_at_upload");
+        const locationField = document.getElementById('id_locality_at_upload');
 
         // Event listener for when the user leaves the input field (onblur)
         locationField.addEventListener("blur", function () {
             const inputValue = locationField.value;
 
-            // Check if the entered value is one of the suggested locations
+            // Check if the entered value is one of the suggested localities
             const isValid = src.some(location => location.title === inputValue);
 
             // Show or hide the warning message

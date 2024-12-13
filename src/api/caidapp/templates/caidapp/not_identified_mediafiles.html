@@ -31,7 +31,7 @@
                                     {#                                <h5 class="card-title">{{ mediafile }}</h5>#}
                                     <p class="card-text">
                                         Category: {{ mediafile.category }}<br>
-                                        Location: {{ mediafile.location }}<br>
+                                        Locality: {{ mediafile.locality }}<br>
                                         Captured at: {{ mediafile.captured_at|date:'Y-m-d H:i' }}<br>
                                         Camera Trap Check: <a href="{%  url 'caidapp:uploadedarchive_mediafiles' mediafile.parent.id %}" class="link-secondary">{{ mediafile.parent }}</a><br>
                                     </p>

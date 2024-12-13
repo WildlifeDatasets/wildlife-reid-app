@@ -46,17 +46,17 @@
         <div class="pagetitle">
             <h1>Localities</h1>
         <nav>
-            <a href="{% url 'caidapp:export_locations' %}" class="btn btn-secondary">
+            <a href="{% url 'caidapp:export_localities' %}" class="btn btn-secondary">
                 <i class="fas fa-file-export"></i> Export CSV
             </a>
-            <a href="{% url 'caidapp:export_locations_xls' %}" class="btn btn-secondary">
+            <a href="{% url 'caidapp:export_localities_xls' %}" class="btn btn-secondary">
                 <i class="fas fa-file-excel"></i>
                 Export XLSX
             </a>
-            <a href="{% url 'caidapp:import_locations' %}" class="btn btn-secondary">
+            <a href="{% url 'caidapp:import_localities' %}" class="btn btn-secondary">
                 <i class="fas fa-file-import"></i> Import spreadsheet
             </a>
-            <a href="{% url 'caidapp:update_location' %}" class="btn btn-secondary">
+            <a href="{% url 'caidapp:update_locality' %}" class="btn btn-secondary">
                 <i class="fas fa-plus"></i> Add new locality
             </a>
         </nav>
@@ -65,16 +65,16 @@
         <section class="section">
         <div class="row" id="row-of-cards">
 
-            {% if locations %}
-                {% for location in locations %}
-                    <div class="col-12 col-sm-12 col-md-12 col-lg-6 col-xl-4 col-xxl-3 col-xxxl-2" id="card{{ location.id }}">
+            {% if localities %}
+                {% for locality in localities %}
+                    <div class="col-12 col-sm-12 col-md-12 col-lg-6 col-xl-4 col-xxl-3 col-xxxl-2" id="card{{ locality.id }}">
                         {#                        <div class="col" style="-ms-flex: 0 0 200; flex: 0 0 200;">#}
                         <div class="card">
-                            {% if location.uploadedarchive_set.all.0 %}
-                                {% if location.uploadedarchive_set.all.0.thumbnail %}
+                            {% if locality.uploadedarchive_set.all.0 %}
+                                {% if locality.uploadedarchive_set.all.0.thumbnail %}
                                     <img
                                             class="card-img-top"
-                                            src="{{ location.uploadedarchive_set.all.0.thumbnail.url }}"
+                                            src="{{ locality.uploadedarchive_set.all.0.thumbnail.url }}"
                                             alt="Camera trap image"
                                     >
                                 {% endif %}
@@ -82,28 +82,28 @@
                             <div class="card-body">
                                 <h5 class="card-title">
                                     {%  if request.session.private_mode %}
-                                        {{ location.visible_name }}
+                                        {{ locality.visible_name }}
                                     {% else %}
-                                        {{ location.name }}
+                                        {{ locality.name }}
                                     {% endif %}
 
                                 </h5>
                                 <p class="card-text">
-                                    Uploaded archives: {{ location.uploadedarchive_set.count }}
+                                    Uploaded archives: {{ locality.uploadedarchive_set.count }}
                                 </p>
                             </div>
                             <div class="card-footer">
-                                <a href="{% url 'caidapp:update_location' location.id %}" class="btn btn-primary"
+                                <a href="{% url 'caidapp:update_locality' locality.id %}" class="btn btn-primary"
                                         {%  if request.session.private_mode %}
-                                            onclick="return confirm('You are in private mode. In edit view you will reveal the location. Do you want to continue?')"
+                                            onclick="return confirm('You are in private mode. In edit view you will reveal the locality. Do you want to continue?')"
                                         {% endif %}
                                 >
                                     <i class="fas fa-edit"></i> Edit
                                     </a>
-                                <a href="{% url 'caidapp:media_files_location' location.hash %}" class="btn btn-secondary" >
+                                <a href="{% url 'caidapp:media_files_locality' locality.hash %}" class="btn btn-secondary" >
                                     <i class="fas fa-images"></i> Media files
                                 </a>
-                                <a href="{% url 'caidapp:uploads_of_location' location.hash %}" class="btn btn-secondary"
+                                <a href="{% url 'caidapp:uploads_of_locality' locality.hash %}" class="btn btn-secondary"
                                    data-bs-toggle="tooltip" title="Camera Trap Checks"
                                 >
 {#                                    <i class="fas fa-images"></i> Media files#}

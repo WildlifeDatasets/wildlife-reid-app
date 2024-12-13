@@ -276,7 +276,7 @@
 
                         <li>
                             <a class="dropdown-item d-flex align-items-center" href="{% url 'caidapp:switch_private_mode' %}">
-                                <span data-bs-toggle="tooltip" title="In private mode the location names are hidden.">
+                                <span data-bs-toggle="tooltip" title="In private mode the locality names are hidden.">
                                 {%  if request.session.private_mode %}
                                     <i class="bi bi-eye-slash"></i>
                                     <span>Turn off private mode</span>
@@ -446,7 +446,7 @@
                 </a>
             </li>
             <li class="nav-item">
-                <a class="nav-link collapsed" href="{% url 'caidapp:locations' %}">
+                <a class="nav-link collapsed" href="{% url 'caidapp:localities' %}">
 {#                    <i class="bi bi-map"></i>#}
                     <i class="fa-solid fa-location-pin"></i>
                     <span>Localities</span>

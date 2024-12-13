@@ -489,12 +489,12 @@ def predict(
             else:
                 logger.debug(f"Starting identification with: {len(metadata)} query files.")
                 # estimate sequence id
-                if ("sequence_number" not in metadata) and ("location_name" in metadata):
-                    metadata["location"] = metadata["location_name"]
+                if ("sequence_number" not in metadata) and ("locality_name" in metadata):
+                    metadata["locality"] = metadata["locality_name"]
                     metadata = extend_df_with_datetime(metadata)
                     metadata = extend_df_with_sequence_id(metadata, sequence_time)
                     metadata["sequence_number"] = np.where(
-                        metadata["location"].isna(), -1, metadata["sequence_number"]
+                        metadata["locality"].isna(), -1, metadata["sequence_number"]
                     )
                 query_image_path = list(metadata.image_path)
                 query_masked_path = [

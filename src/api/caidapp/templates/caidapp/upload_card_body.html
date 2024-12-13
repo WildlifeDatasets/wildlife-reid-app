@@ -9,23 +9,23 @@
 {#</h5>#}
 
 <div class="mt-2">
-    {% if uploadedarchive.location_at_upload_object %}
-        <span data-bs-toggle="tooltip" title="Location: {{ uploadedarchive.location_at_upload_object.name }}">
+    {% if uploadedarchive.locality_at_upload_object %}
+        <span data-bs-toggle="tooltip" title="Locality: {{ uploadedarchive.locality_at_upload_object.name }}">
         <i class="bi bi-geo-alt"></i>
-        {#            {{ uploadedarchive.location_at_upload_object.name }}#}
-        {#            {{ uploadedarchive.location_at_upload_object.hash }}#}
+        {#            {{ uploadedarchive.locality_at_upload_object.name }}#}
+        {#            {{ uploadedarchive.locality_at_upload_object.hash }}#}
 
         <a class="link-secondary"
-           href="{% url 'caidapp:uploads_of_location' uploadedarchive.location_at_upload_object.hash %}">
+           href="{% url 'caidapp:uploads_of_locality' uploadedarchive.locality_at_upload_object.hash %}">
                     {% if request.session.private_mode %}
-                        {{ uploadedarchive.location_at_upload_object.visible_name }}
+                        {{ uploadedarchive.locality_at_upload_object.visible_name }}
                     {% else %}
-                        {{ uploadedarchive.location_at_upload_object.name }}
+                        {{ uploadedarchive.locality_at_upload_object.name }}
                     {% endif %}
             </a>
         </span>
     {% else %}
-{#        {{ uploadedarchive.location_at_upload_object.name }}#}
+{#        {{ uploadedarchive.locality_at_upload_object.name }}#}
     {% endif %}
 
     {% if uploadedarchive.earliest_captured_at %}
@@ -37,12 +37,12 @@
             &mdash;
             {{ uploadedarchive.latest_captured_at|date:'Y-m-d' }}
         </div>
-    {%  elif uploadedarchive.location_check_at %}
+    {%  elif uploadedarchive.locality_check_at %}
         <div
-                data-bs-toggle="tooltip" title="Date of location check"
+                data-bs-toggle="tooltip" title="Date of locality check"
         >
             <i class="bi bi-calendar-event"></i>
-            {{ uploadedarchive.location_check_at|date:'Y-m-d' }}
+            {{ uploadedarchive.locality_check_at|date:'Y-m-d' }}
         </div>
     {% else %}
         <div
@@ -71,24 +71,24 @@
 </div>
 
 {#<div class="d-flex justify-content-between align-items-center">#}
-    {#    <a href="{% url 'caidapp:uploads_of_location' uploadedarchive.location.hash %}">Checks</a>#}
-    {#    {{ uploadedarchive.location_at_upload_object }}#}
-{#    <span data-bs-toggle="tooltip" title="Location: {{ uploadedarchive.location_at_upload_object.name }}">#}
+    {#    <a href="{% url 'caidapp:uploads_of_locality' uploadedarchive.locality.hash %}">Checks</a>#}
+    {#    {{ uploadedarchive.locality_at_upload_object }}#}
+{#    <span data-bs-toggle="tooltip" title="Locality: {{ uploadedarchive.locality_at_upload_object.name }}">#}
 {#        <i class="bi bi-geo-alt"></i>#}
-{#        {% if uploadedarchive.location_at_upload_object %}#}
-            {#            {{ uploadedarchive.location_at_upload_object.name }}#}
-            {#            {{ uploadedarchive.location_at_upload_object.hash }}#}
+{#        {% if uploadedarchive.locality_at_upload_object %}#}
+            {#            {{ uploadedarchive.locality_at_upload_object.name }}#}
+            {#            {{ uploadedarchive.locality_at_upload_object.hash }}#}
 {##}
 {#            <a class="link-secondary"#}
-{#               href="{% url 'caidapp:uploads_of_location' uploadedarchive.location_at_upload_object.hash %}">#}
+{#               href="{% url 'caidapp:uploads_of_locality' uploadedarchive.locality_at_upload_object.hash %}">#}
 {#                    {% if request.session.private_mode %}#}
-{#                        {{ uploadedarchive.location_at_upload_object.visible_name }}#}
+{#                        {{ uploadedarchive.locality_at_upload_object.visible_name }}#}
 {#                    {% else %}#}
-{#                        {{ uploadedarchive.location_at_upload_object.name }}#}
+{#                        {{ uploadedarchive.locality_at_upload_object.name }}#}
 {#                    {% endif %}#}
 {#            </a>#}
 {#        {% else %}#}
-{#            {{ uploadedarchive.location_at_upload_object.name }}#}
+{#            {{ uploadedarchive.locality_at_upload_object.name }}#}
 {#        {% endif %}#}
 {#    </span>#}
 {#    <span data-bs-toggle="tooltip" title="Uploaded at: {{ uploadedarchive.uploaded_at|date:'Y-m-d H:i' }}">#}

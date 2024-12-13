@@ -38,15 +38,15 @@ def user_has_rw_acces_to_uploadedarchive(
     )
 
 
-def prepare_dataframe_for_uploads_in_one_locality(location_id: int) -> pd.DataFrame:
-    """Prepare dataframe for uploads in one location."""
-    location = Locality.objects.get(id=location_id)
+def prepare_dataframe_for_uploads_in_one_locality(locality_id: int) -> pd.DataFrame:
+    """Prepare dataframe for uploads in one locality."""
+    locality = Locality.objects.get(id=locality_id)
 
-    location_uploads = UploadedArchive.objects.filter(location_at_upload_object=location).order_by(
+    locality_uploads = UploadedArchive.objects.filter(locality_at_upload_object=locality).order_by(
         "uploaded_at"
     )
 
-    df = pd.DataFrame.from_records(location_uploads.values())
+    df = pd.DataFrame.from_records(locality_uploads.values())
 
     # remove unnecessary columns
     df = df.drop(
@@ -58,13 +58,13 @@ def prepare_dataframe_for_uploads_in_one_locality(location_id: int) -> pd.DataFr
             "zip_file",
             "csv_file",
             "hash",
-            "location_at_upload_object_id",
+            "locality_at_upload_object_id",
             "owner_id",
         ]
     )
 
-    # add columns for location
-    for upload in location_uploads:
+    # add columns for locality
+    for upload in locality_uploads:
         df.loc[df["id"] == upload.id, "count_of_mediafiles"] = upload.count_of_mediafiles()
         df.loc[
             df["id"] == upload.id, "count_of_representative_mediafiles"

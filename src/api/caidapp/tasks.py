@@ -128,9 +128,9 @@ def _prepare_dataframe_for_identification(mediafiles) -> dict:
         "mediafile_id": [None] * csv_len,
         "class_id": [None] * csv_len,
         "label": [None] * csv_len,
-        "location_id": [None] * csv_len,
-        "location_name": [None] * csv_len,
-        "location_coordinates": [None] * csv_len,
+        "locality_id": [None] * csv_len,
+        "locality_name": [None] * csv_len,
+        "locality_coordinates": [None] * csv_len,
         "detection_results": [None] * csv_len,
     }
     logger.debug(f"number of records={len(mediafiles)}")
@@ -140,10 +140,10 @@ def _prepare_dataframe_for_identification(mediafiles) -> dict:
         csv_data["mediafile_id"][i] = mediafile.id
         csv_data["class_id"][i] = int(mediafile.identity.id) if mediafile.identity else None
         csv_data["label"][i] = str(mediafile.identity.name) if mediafile.identity else None
-        csv_data["location_id"][i] = int(mediafile.location.id) if mediafile.location else None
-        csv_data["location_name"][i] = str(mediafile.location.name)
-        csv_data["location_coordinates"][i] = (
-            str(mediafile.location.location) if mediafile.location.location else ""
+        csv_data["locality_id"][i] = int(mediafile.locality.id) if mediafile.locality else None
+        csv_data["locality_name"][i] = str(mediafile.locality.name)
+        csv_data["locality_coordinates"][i] = (
+            str(mediafile.locality.locality) if mediafile.locality.locality else ""
         )
         # logger.debug(f"{mediafile.metadata_json=}")
         if "detection_results" in mediafile.metadata_json:
@@ -191,7 +191,7 @@ def do_cloud_import_for_user(self, caiduser_id: int):
     imported_dir = path / "_trash_bin" / datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     imported_dir.mkdir(exist_ok=True, parents=True)
     dirs_to_be_deleted = []
-    for yield_dict in _iterate_over_location_checks(path, caiduser):
+    for yield_dict in _iterate_over_locality_checks(path, caiduser):
 
         if yield_dict.parent_dir_to_be_deleted:
             dirs_to_be_deleted.append(yield_dict)
@@ -210,36 +210,36 @@ def do_cloud_import_for_user(self, caiduser_id: int):
             uploaded_at=django.utils.timezone.now(),
         )
         logger.debug(
-            f"{yield_dict.path_of_location_check=}, {yield_dict.path_of_location_check.exists()=}"
+            f"{yield_dict.path_of_locality_check=}, {yield_dict.path_of_locality_check.exists()=}"
         )
         uploaded_archive.save()
         zip_path = model_tools.get_zip_path_in_unique_folder(uploaded_archive, yield_dict.zip_name)
         zip_path_absolute = Path(settings.MEDIA_ROOT) / zip_path
         logger.debug(f"{zip_path=}, {zip_path_absolute=}")
-        if yield_dict.path_of_location_check.is_dir():
-            views.make_zipfile(zip_path_absolute, yield_dict.path_of_location_check)
+        if yield_dict.path_of_locality_check.is_dir():
+            views.make_zipfile(zip_path_absolute, yield_dict.path_of_locality_check)
         else:
             # if it is a file, copy it
             zip_path_absolute.parent.mkdir(exist_ok=True, parents=True)
-            shutil.copy(yield_dict.path_of_location_check, zip_path_absolute)
-        if yield_dict.location and len(yield_dict.location) > 0:
-            location = get_locality(caiduser, yield_dict.location)
-            uploaded_archive.location_at_upload_object = location
-            uploaded_archive.location_at_upload = yield_dict.location
+            shutil.copy(yield_dict.path_of_locality_check, zip_path_absolute)
+        if yield_dict.locality and len(yield_dict.locality) > 0:
+            locality = get_locality(caiduser, yield_dict.locality)
+            uploaded_archive.locality_at_upload_object = locality
+            uploaded_archive.locality_at_upload = yield_dict.locality
         uploaded_archive.archivefile = zip_path
         uploaded_archive.save()
         logger.debug("Zip file created. Ready to start processing.")
         run_species_prediction_async(uploaded_archive, extract_identites=False)
 
         # move imported files to _imported directory with subdirectory with "now"
-        relative_path = yield_dict.path_of_location_check.relative_to(path)
+        relative_path = yield_dict.path_of_locality_check.relative_to(path)
         imported_path = imported_dir / relative_path
         # move directory
-        shutil.move(yield_dict.path_of_location_check, imported_path)
+        shutil.move(yield_dict.path_of_locality_check, imported_path)
     for dir_to_be_deleted in dirs_to_be_deleted:
         # rmdir ignore errors
-        shutil.rmtree(dir_to_be_deleted.path_of_location_check, ignore_errors=True)
-        # dir_to_be_deleted.path_of_location_check.rmdir(ignore_errors=True)
+        shutil.rmtree(dir_to_be_deleted.path_of_locality_check, ignore_errors=True)
+        # dir_to_be_deleted.path_of_locality_check.rmdir(ignore_errors=True)
     # move imported files to processed directory
     caiduser.dir_import_status = "Finished"
     caiduser.save()
@@ -648,7 +648,7 @@ def update_uploaded_archive_by_metadata_csv(
 
     df = pd.read_csv(csv_file, index_col=0)
 
-    location = get_locality(uploaded_archive.owner, str(uploaded_archive.location_at_upload))
+    locality = get_locality(uploaded_archive.owner, str(uploaded_archive.locality_at_upload))
 
     status_counts = StatusCounts()
     for index, row in tqdm.tqdm(df.iterrows(), total=len(df), desc="Updating database"):
@@ -658,7 +658,7 @@ def update_uploaded_archive_by_metadata_csv(
             row,
             create_missing,
             extract_identites,
-            location,
+            locality,
             output_dir,
             thumbnail_width,
             uploaded_archive,
@@ -674,7 +674,7 @@ def update_uploaded_archive_by_metadata_csv(
     # num_cores = multiprocessing.cpu_count()
     # Parallel(n_jobs=num_cores)(
     #    delayed(_update_database_by_one_row_of_metadata)
-    #    (df, index, row, create_missing, extract_identites, location,
+    #    (df, index, row, create_missing, extract_identites, locality,
     #    output_dir, thumbnail_width, uploaded_archive)
     #    for index, row in tqdm(df.iterrows())
     # )
@@ -686,7 +686,7 @@ def update_uploaded_archive_by_metadata_csv(
     # logger.debug(f"{starts_at=}, {ends_at=}")
     # uploaded_archive.starts_at = str(starts_at)
     # uploaded_archive.ends_at = str(ends_at)
-    uploaded_archive.location_at_upload_object = location
+    uploaded_archive.locality_at_upload_object = locality
     uploaded_archive.save()
 
 
@@ -696,7 +696,7 @@ def _update_database_by_one_row_of_metadata(
     row,
     create_missing,
     extract_identites,
-    location,
+    locality,
     output_dir,
     thumbnail_width,
     uploaded_archive,
@@ -730,7 +730,7 @@ def _update_database_by_one_row_of_metadata(
                 mediafile=str(media_rel_pth),
                 image_file=str(image_rel_pth),
                 captured_at=captured_at,
-                location=location,
+                locality=locality,
                 media_type=row["media_type"],
                 # metadata_json=row["detection_results"],
                 # metadata_json=metadata_json,
@@ -857,10 +857,10 @@ def create_dataframe_from_mediafiles(mediafiles: Generator[MediaFile, None, None
             metadata_row["predicted_category"] = mf.category.name
         if mf.identity:
             metadata_row["unique_name"] = mf.identity.name
-        if mf.location:
-            metadata_row["location name"] = mf.location.name
-            if mf.location.location:
-                metadata_row["location coordinates"] = str(mf.location.location)
+        if mf.locality:
+            metadata_row["locality name"] = mf.locality.name
+            if mf.locality.locality:
+                metadata_row["locality coordinates"] = str(mf.locality.locality)
         if mf.original_filename:
             metadata_row["original_path"] = mf.original_filename
         if mf.identity:
@@ -869,8 +869,8 @@ def create_dataframe_from_mediafiles(mediafiles: Generator[MediaFile, None, None
             if mf.identity.juv_code:
                 metadata_row["juv_code"] = mf.identity.juv_code
         metadata_row["uploaded_archive"] = mf.parent.name
-        if mf.parent.location_check_at:
-            metadata_row["location_check_at"] = mf.parent.location_check_at
+        if mf.parent.locality_check_at:
+            metadata_row["locality_check_at"] = mf.parent.locality_check_at
 
         records.append(metadata_row)
     df = pd.DataFrame.from_records(records)
@@ -882,8 +882,8 @@ def _sync_metadata_by_checking_enlisted_mediafiles(csv_file, output_dir, uploade
     df = pd.read_csv(csv_file, index_col=0)
     logger.debug(f"{len(df)=}")
     df["deleted"] = True
-    df["location name"] = ""
-    df["location coordinates"] = ""
+    df["locality name"] = ""
+    df["locality coordinates"] = ""
     # for fn in df["image_path"]:
     for index, row in df.iterrows():
         rel_pth, _ = _get_rel_and_abs_paths_based_on_csv_row(row, output_dir)
@@ -906,10 +906,10 @@ def _sync_metadata_by_checking_enlisted_mediafiles(csv_file, output_dir, uploade
         if mf.identity:
             df.loc[index, "unique_name"] = mf.identity.name
             update_csv = True
-        if mf.location:
-            df.loc[index, "location name"] = mf.location.name
-            if mf.location.location:
-                df.loc[index, "location coordinates"] = str(mf.location.location)
+        if mf.locality:
+            df.loc[index, "locality name"] = mf.locality.name
+            if mf.locality.locality:
+                df.loc[index, "locality coordinates"] = str(mf.locality.locality)
     # delete rows with missing mediafiles
     df = df[df["deleted"] == False]  # noqa: E712
     if update_csv:
@@ -1255,7 +1255,7 @@ def _ensure_date_format(date_str: str) -> str:
     return date
 
 
-def _iterate_over_location_checks(
+def _iterate_over_locality_checks(
     path: Path, caiduser: CaIDUser
 ) -> Generator[SimpleNamespace, None, None]:
     import re
@@ -1264,7 +1264,7 @@ def _iterate_over_location_checks(
     params = get_content_owner_filter_params(caiduser, "owner")
     archives = [str(archive) for archive in UploadedArchive.objects.filter(**params)]
 
-    paths_of_location_check = chain(
+    paths_of_locality_check = chain(
         path.glob("./????????/*"),
         path.glob("./????-??-??/*"),
         path.glob("./*/????????"),
@@ -1273,79 +1273,79 @@ def _iterate_over_location_checks(
         path.glob("./*/????-??-??.zip"),
         path.glob("./*"),
     )
-    # paths_of_location_check = chain(path.glob("./*_????-??-??"), path.glob("./*_????-??-??.zip"))
-    # paths_of_location_check = path.glob("./*")
+    # paths_of_locality_check = chain(path.glob("./*_????-??-??"), path.glob("./*_????-??-??.zip"))
+    # paths_of_locality_check = path.glob("./*")
     base_path = path
 
     checked_subdirs = []
-    for path_of_location_check in paths_of_location_check:
+    for path_of_locality_check in paths_of_locality_check:
         parent_dir_to_be_deleted = False
         # is this a directory inside base_path?
-        is_first_level_dir = path_of_location_check.parent == base_path
-        # is_second_level_dir = path_of_location_check.parent.parent == base_path
+        is_first_level_dir = path_of_locality_check.parent == base_path
+        # is_second_level_dir = path_of_locality_check.parent.parent == base_path
 
         # remove extension if any
-        pth_no_suffix = path_of_location_check.with_suffix("")
-        # check if name is in format {location_name}_YYYY-MM-DD
+        pth_no_suffix = path_of_locality_check.with_suffix("")
+        # check if name is in format {locality_name}_YYYY-MM-DD
         # match0 = re.match(r"([0-9]{4}-?[0-9]{2}-?[0-9]{2})_(.*)", pth_no_suffix.name)
         match1 = re.match(r"[0-9]{4}-?[0-9]{2}-?[0-9]{2}", pth_no_suffix.parts[-2])
         match2 = re.match(r"([0-9]{4}-?[0-9]{2}-?[0-9]{2})", pth_no_suffix.parts[-1])
 
-        dt, loc = fs_data.get_date_and_location_from_filename(path_of_location_check)
+        dt, loc = fs_data.get_date_and_locality_from_filename(path_of_locality_check)
         if (loc is not None) and is_first_level_dir:
 
-            # date_str, location = match0.groups()
+            # date_str, locality = match0.groups()
             date = _ensure_date_format(dt)
-            location = loc
+            locality = loc
             # split name and date, date is in the end of the name in format YYYY-MM-DD,
-            # location is in the beginning of dir or file name separated from date by underscore
-            # date, location = pth_no_suffix.parts[-1].split("_", 1)
-            # location is everything after the last underscore
+            # locality is in the beginning of dir or file name separated from date by underscore
+            # date, locality = pth_no_suffix.parts[-1].split("_", 1)
+            # locality is everything after the last underscore
 
             error_message = None
         elif match1:
-            # Mediafiles are organized in directory structure DATE / LOCATION
-            # date is the parent directory and location is the leaf directory
+            # Mediafiles are organized in directory structure DATE / LOCALITY
+            # date is the parent directory and locality is the leaf directory
             date_str = pth_no_suffix.parts[-2]
             date = _ensure_date_format(date_str)
 
-            location = pth_no_suffix.parts[-1]
+            locality = pth_no_suffix.parts[-1]
             error_message = None
             checked_subdirs.append(pth_no_suffix.parts[-2])
         elif match2 and not is_first_level_dir:
-            # Mediafiles are organized in directory structure LOCATION / DATE
-            # date is the parent directory and location is the leaf directory
+            # Mediafiles are organized in directory structure LOCALITY / DATE
+            # date is the parent directory and locality is the leaf directory
             grps = match2.groups()
             date_str = grps[0]
             date = _ensure_date_format(date_str)
 
-            location = pth_no_suffix.parts[-2]
+            locality = pth_no_suffix.parts[-2]
             error_message = None
             checked_subdirs.append(pth_no_suffix.parts[-2])
         elif pth_no_suffix.parts[-1] in checked_subdirs:
             parent_dir_to_be_deleted = True
             # the parent directory which was already checked
             error_message = (None,)
-            location = ""
+            locality = ""
             date = ""
             # continue
         else:
             logger.debug(
-                "Name of the directory or file is not in format {YYYY-MM-DD}_{location_name}."
+                "Name of the directory or file is not in format {YYYY-MM-DD}_{locality_name}."
                 + "Skipping."
             )
             error_message = "Name of the directory or file is not in correct format. " + "Skipping."
-            location = ""
+            locality = ""
             date = ""
 
-        # location = path_of_location_check.parts[-2]
-        # date = path_of_location_check.parts[-1]
-        # logger.debug(f"{path_of_location_check.parts=}")
+        # locality = path_of_locality_check.parts[-2]
+        # date = path_of_locality_check.parts[-1]
+        # logger.debug(f"{path_of_locality_check.parts=}")
 
         # remove diacritics and spaces from zip_name
-        zip_name = fs_data.remove_diacritics(f"{location}_{date}.zip").replace(" ", "_")
+        zip_name = fs_data.remove_diacritics(f"{locality}_{date}.zip").replace(" ", "_")
 
-        relative_path = path_of_location_check.relative_to(path)
+        relative_path = path_of_locality_check.relative_to(path)
         is_already_processed = relative_path.parts[0] in (
             "_imported",
             "#recycle",
@@ -1355,11 +1355,11 @@ def _iterate_over_location_checks(
 
         yield_dict = SimpleNamespace(
             date=date,
-            location=location,
-            location_exists=len(Locality.objects.filter(name=location, **params)) > 0,
+            locality=locality,
+            locality_exists=len(Locality.objects.filter(name=locality, **params)) > 0,
             zip_name_exists=zip_name in archives,
             is_already_processed=is_already_processed,
-            path_of_location_check=path_of_location_check,
+            path_of_locality_check=path_of_locality_check,
             path=str(relative_path),
             error_message=error_message,
             zip_name=zip_name,

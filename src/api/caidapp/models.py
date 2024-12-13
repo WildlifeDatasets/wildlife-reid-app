@@ -200,8 +200,8 @@ class UploadedArchive(models.Model):
     )
     identification_started_at = models.DateTimeField("Started at", blank=True, null=True)
     identification_finished_at = models.DateTimeField("Finished at", blank=True, null=True)
-    location_at_upload = models.CharField(max_length=255, blank=True, default="")
-    location_at_upload_object = models.ForeignKey(
+    locality_at_upload = models.CharField(max_length=255, blank=True, default="")
+    locality_at_upload_object = models.ForeignKey(
         Locality, on_delete=models.SET_NULL, null=True, blank=True
     )
     owner = models.ForeignKey(CaIDUser, on_delete=models.CASCADE, null=True, blank=True)
@@ -214,7 +214,7 @@ class UploadedArchive(models.Model):
     mediafiles_imported = models.BooleanField("Media Files Imported Correctly", default=False)
     earliest_captured_at = models.DateTimeField("Earliest Captured at", blank=True, null=True)
     latest_captured_at = models.DateTimeField("Latest Captured at", blank=True, null=True)
-    location_check_at = models.DateTimeField("Location Check at", blank=True, null=True)
+    locality_check_at = models.DateTimeField("Locality Check at", blank=True, null=True)
     mediafiles_at_upload = models.IntegerField("Media Files at Upload", default=0)
     images_at_upload = models.IntegerField("Images at Upload", default=0)
     videos_at_upload = models.IntegerField("Videos at Upload", default=0)
@@ -274,8 +274,8 @@ class UploadedArchive(models.Model):
 
     def extract_location_check_at_from_filename(self, commit=True):
         """Extract location check at from filename."""
-        logger.debug(f"{self.location_check_at=}")
-        if self.location_check_at is None:
+        logger.debug(f"{self.locality_check_at=}")
+        if self.locality_check_at is None:
             archive_name = Path(self.archivefile.name).stem
             logger.debug(f"{archive_name=}")
             # find date in archive_name {YYYY-MM-DD}
@@ -285,7 +285,7 @@ class UploadedArchive(models.Model):
             if date_match:
                 date_match = date_match.group()
                 logger.debug(f"{date_match=}")
-                self.location_check_at = datetime.strptime(date_match, "%Y-%m-%d")
+                self.locality_check_at = datetime.strptime(date_match, "%Y-%m-%d")
                 if commit:
                     self.save()
 
@@ -318,8 +318,8 @@ class UploadedArchive(models.Model):
             location = get_locality(self.owner, location)
         mediafiles = MediaFile.objects.filter(parent=self)
         for mediafile in mediafiles:
-            mediafile.location = location
-        self.location_at_upload_object = location
+            mediafile.locality = location
+        self.locality_at_upload_object = location
         self.location = location.name
 
     def earliest_captured_taxon(self):
@@ -649,7 +649,7 @@ class MediaFile(models.Model):
         Taxon, blank=True, null=True, on_delete=models.SET_NULL, related_name="predicted_taxon"
     )
     predicted_taxon_confidence = models.FloatField(null=True, blank=True)
-    location = models.ForeignKey(Locality, blank=True, null=True, on_delete=models.CASCADE)
+    locality = models.ForeignKey(Locality, blank=True, null=True, on_delete=models.CASCADE)
     captured_at = models.DateTimeField("Captured at", blank=True, null=True)
     mediafile = models.FileField(
         "Media File",

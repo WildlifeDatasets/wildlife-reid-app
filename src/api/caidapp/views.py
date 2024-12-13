@@ -72,7 +72,7 @@ from .models import (
     get_content_owner_filter_params,
 )
 from .tasks import (
-    _iterate_over_location_checks,
+    _iterate_over_locality_checks,
     _prepare_dataframe_for_identification,
     get_locality,
     identify_on_success,
@@ -1327,7 +1327,7 @@ def upload_archive(
             # uploaded_archive.files_at_upload = counts["file_count"]
             # uploaded_archive.mediafiles_at_upload = counts["video_count"] + counts["image_count"]
             uploaded_archive.save()
-            uploaded_archive.extract_location_check_at_from_filename(commit=True)
+            uploaded_archive.extract_locality_check_at_from_filename(commit=True)
             run_species_prediction_async(uploaded_archive, extract_identites=contains_identities)
 
             # return JsonResponse({"data": "Data uploaded"})
@@ -1386,7 +1386,7 @@ def upload_archive(
             "button": "Upload",
             "text_note": text_note,
             "next": next,
-            "locations": _get_all_user_localities(request),
+            "localities": _get_all_user_localities(request),
         },
     )
 
@@ -1404,10 +1404,10 @@ def cloud_import_preview_view(request):
     # paths_of_locality_check = Path("/caid_import").glob("*")
     caiduser = request.user.caiduser
 
-    list_of_location_checks = []
+    list_of_locality_checks = []
     text = str(path) + ""
 
-    for yield_dict in _iterate_over_location_checks(path, caiduser):
+    for yield_dict in _iterate_over_locality_checks(path, caiduser):
 
         if yield_dict.parent_dir_to_be_deleted:
             continue
@@ -1415,7 +1415,7 @@ def cloud_import_preview_view(request):
         if yield_dict.is_already_processed:
             continue
 
-        list_of_location_checks.append(yield_dict.__dict__)
+        list_of_locality_checks.append(yield_dict.__dict__)
         # text += str(path_of_location_check.relative_to(path)) + "<br>"
 
     return render(
@@ -1472,11 +1472,11 @@ def break_cloud_import_view(request):
     return redirect("caidapp:cloud_import_preview")
 
 
-def locations_view(request):
-    """List of locations."""
-    locations = _get_all_user_localities(request)
-    logger.debug(f"{len(locations)=}")
-    return render(request, "caidapp/locations.html", {"locations": locations})
+def localities_view(request):
+    """List of localities."""
+    localities = _get_all_user_localities(request)
+    logger.debug(f"{len(localities)=}")
+    return render(request, "caidapp/locations.html", {"localities": localities})
 
 
 def update_uploadedarchive(request, uploadedarchive_id):
@@ -1484,20 +1484,20 @@ def update_uploadedarchive(request, uploadedarchive_id):
     uploaded_archive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
     if not user_has_rw_acces_to_uploadedarchive(request.user.caiduser, uploaded_archive):
         return HttpResponseNotAllowed("Not allowed to see this uploaded archive.")
-    uploaded_archive_location_at_upload = uploaded_archive.location_at_upload
+    uploaded_archive_locality_at_upload = uploaded_archive.locality_at_upload
 
     if request.method == "POST":
         form = UploadedArchiveUpdateForm(request.POST, instance=uploaded_archive)
         if form.is_valid():
-            cleaned_location_at_upload = form.cleaned_data["location_at_upload"]
+            cleaned_locality_at_upload = form.cleaned_data["locality_at_upload"]
             uploaded_archive = form.save()
-            logger.debug(f"{uploaded_archive.location_at_upload=}, {cleaned_location_at_upload=}")
-            if uploaded_archive_location_at_upload != cleaned_location_at_upload:
+            logger.debug(f"{uploaded_archive.locality_at_upload=}, {cleaned_locality_at_upload=}")
+            if uploaded_archive_locality_at_upload != cleaned_locality_at_upload:
                 logger.debug("Location has been changed.")
-                # location_str = form.cleaned_data["location_at_upload"]
-                location = get_locality(request.user.caiduser, cleaned_location_at_upload)
+                # location_str = form.cleaned_data["locality_at_upload"]
+                location = get_locality(request.user.caiduser, cleaned_locality_at_upload)
                 _set_localities_to_mediafiles_of_uploadedarchive(request, uploaded_archive, location)
-                uploaded_archive.location_at_upload_object = location
+                uploaded_archive.locality_at_upload_object = location
                 uploaded_archive.save()
 
             return redirect("caidapp:uploads")
@@ -1512,7 +1512,7 @@ def update_uploadedarchive(request, uploadedarchive_id):
             "headline": "Uploaded Archive",
             "button": "Save",
             "uploadedarchive": uploaded_archive,
-            "locations": _get_all_user_localities(request),
+            "localities": _get_all_user_localities(request),
         },
     )
 
@@ -1590,7 +1590,7 @@ def _mediafiles_query(
     taxon_id=None,
     uploadedarchive_id=None,
     identity_is_representative=None,
-    location_hash=None,
+    locality_hash=None,
     order_by: Optional[str] = None,
     taxon_verified: Optional[bool] = None,
     filter_kwargs: Optional[dict] = None,
@@ -1656,8 +1656,8 @@ def _mediafiles_query(
         #     .distinct()
         #     .order_by(order_by)
         # )
-    if location_hash is not None:
-        location = get_object_or_404(Locality, hash=location_hash)
+    if locality_hash is not None:
+        location = get_object_or_404(Locality, hash=locality_hash)
         filter_kwargs.update(dict(location=location))
         # mediafiles = (
         #     mediafiles.filter(location=location).all().distinct().order_by(order_by)
@@ -1774,17 +1774,17 @@ def _create_map_from_mediafiles(mediafiles: Union[QuerySet, List[MediaFile]]):
     data = []
     for mediafile in mediafiles:
         if (
-            mediafile.location
-            and mediafile.location.location
-            and mediafile.location.location.count(",") == 1
+            mediafile.locality
+            and mediafile.locality.locality
+            and mediafile.locality.locality.count(",") == 1
         ):
             row = {
                 "id": mediafile.id,
                 "category": mediafile.category.name if mediafile.category else None,
                 "category_id": mediafile.category.id if mediafile.category else None,
-                "location": mediafile.location.name if mediafile.location else None,
-                "location__location": mediafile.location.location
-                if mediafile.location.location
+                "location": mediafile.locality.name if mediafile.locality else None,
+                "location__location": mediafile.locality.locality
+                if mediafile.locality.locality
                 else None,
             }
             data.append(row)
@@ -2000,7 +2000,7 @@ def media_files_update(
         taxon_id=taxon_id,
         uploadedarchive_id=uploadedarchive_id,
         identity_is_representative=identity_is_representative,
-        location_hash=location_hash,
+        locality_hash=location_hash,
         order_by=order_by,
         taxon_verified=taxon_verified,
         filter_kwargs=filter_kwargs,
@@ -2009,11 +2009,11 @@ def media_files_update(
     if uploadedarchive_id is not None:
         uploaded_archive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
         # datetime format YYYY-MM-DD HH:MM:SS
-        if uploaded_archive.location_check_at is not None:
-            location_check_at = " - " + uploaded_archive.location_check_at.strftime("%Y-%m-%d %H:%M:%S")
+        if uploaded_archive.locality_check_at is not None:
+            location_check_at = " - " + uploaded_archive.locality_check_at.strftime("%Y-%m-%d %H:%M:%S")
         else:
             location_check_at = ""
-        page_title = f"Media files - {uploaded_archive.location_at_upload}{location_check_at}"
+        page_title = f"Media files - {uploaded_archive.locality_at_upload}{location_check_at}"
 
     elif album_hash is not None:
         album = get_object_or_404(Album, hash=album_hash)
@@ -2485,7 +2485,7 @@ def download_xlsx_for_mediafiles_view(request, uploadedarchive_id: Optional[int]
 
     output = BytesIO()
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
-        df.to_excel(writer, index=False, sheet_name="Locations")
+        df.to_excel(writer, index=False, sheet_name="Localities")
 
     # Rewind the buffer
     output.seek(0)
@@ -2583,7 +2583,7 @@ def _make_output_name(mediafile: models.MediaFile):
 
     pattern: {locality}_{date}_{original_name}_{taxon}_{identity}
     """
-    locality = mediafile.location.name if mediafile.location else "no_locality"
+    locality = mediafile.locality.name if mediafile.locality else "no_locality"
     date = mediafile.captured_at.strftime("%Y-%m-%d") if mediafile.captured_at else "no_date"
     original_name = (
         mediafile.original_filename if mediafile.original_filename else "no_original_name"
@@ -2597,10 +2597,10 @@ def _make_output_name(mediafile: models.MediaFile):
     return output_name
 
 
-def _generate_new_hash_for_locations():
-    for location in Locality.objects.all():
-        location.hash = models.get_hash8()
-        location.save()
+def _generate_new_hash_for_localities():
+    for locality in Locality.objects.all():
+        locality.hash = models.get_hash8()
+        locality.save()
 
 
 def refresh_data(request):
@@ -2621,7 +2621,7 @@ def refresh_data(request):
         # uploaded_archive.refresh_status_after_migration(request)
 
     # this was used to fix same hashes generated by wrong function
-    # _generate_new_hash_for_locations()
+    # _generate_new_hash_for_localities()
 
     # _refresh_media_file_original_name(request)
     tasks.refresh_thumbnails()
@@ -2903,9 +2903,9 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
                             caiduser=request.user.caiduser,
                             name=row["location name"])
                         if location_obj:
-                            mf.location = location_obj
+                            mf.locality = location_obj
                             if ("latitude" in row) and ("longitude" in row):
-                                mf.location.set_location(float(row["latitude"]), float(row["longitude"]))
+                                mf.locality.set_location(float(row["latitude"]), float(row["longitude"]))
                                 counter1 += 1
                             counter1 += 1
                     if "datetime" in row:
@@ -2972,15 +2972,15 @@ class MyPygWalkerView(PygWalkerView):
     template_name = "caidapp/custom_pygwalker.html"
     # queryset = MediaFile.objects.all()
     queryset = MediaFile.objects.annotate(
-        latitude=Cast(SplitPart(F('location__location'), Value(','), Value(1)), output_field=django.db.models.FloatField()),
-        longitude=Cast(SplitPart(F('location__location'), Value(','), Value(2)), output_field=django.db.models.FloatField())
+        latitude=Cast(SplitPart(F('locality__location'), Value(','), Value(1)), output_field=django.db.models.FloatField()),
+        longitude=Cast(SplitPart(F('locality__location'), Value(','), Value(2)), output_field=django.db.models.FloatField())
     )
     title = "Media files"
     theme = "light" # 'light', 'dark', 'media'
 
     # field_list = ["name", "some_field", "some_other__related_field", "id", "created_at", "updated_at"]
-    field_list = ["id", "captured_at", "location", "identity", "category", "category__name", "identity__name",
-                  "location__name", "latitude", 'longitude']
+    field_list = ["id", "captured_at", "locality", "identity", "category", "category__name", "identity__name",
+                  "locality__name", "latitude", 'longitude']
 
 @login_required
 def select_second_id_for_identification_merge(request, individual_identity1_id: int):

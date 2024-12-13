@@ -139,7 +139,7 @@ def predict(
                 )
                 logger.debug("Merging metadata with post_update_csv.")
                 logger.debug(f"{merged_df.shape=}")
-                logger.debug(f"{merged_df['location name']=}")
+                logger.debug(f"{merged_df['locality name']=}")
 
                 # Overwrite columns from `metadata` with those from `metadata_post_update` if they exist
                 for col in metadata_post_update.columns:

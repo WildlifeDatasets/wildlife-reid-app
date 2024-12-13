@@ -7,9 +7,10 @@ from django.forms import modelformset_factory
 from django.http import HttpResponseNotAllowed
 from django.shortcuts import HttpResponse, get_object_or_404, redirect, render
 from django.urls import reverse_lazy
+# from torch.serialization import location_tag
 
 from . import forms, model_tools
-from .forms import LocationForm
+from .forms import LocalityForm
 from .model_extra import (
     prepare_dataframe_for_uploads_in_one_locality,
     user_has_rw_acces_to_uploadedarchive,
@@ -19,56 +20,56 @@ from .models import Locality, UploadedArchive, get_content_owner_filter_params
 logger = logging.getLogger("app")
 
 
-def _round_location(location: Locality, order: int = 3):
+def _round_location(locality: Locality, order: int = 3):
     """Round location for anonymization."""
-    if (location.location is None) or (location.location == ""):
-        return location.location
-    lat, lon = str(location.location).split(",")
+    if (locality.location is None) or (locality.location == ""):
+        return locality.location
+    lat, lon = str(locality.location).split(",")
     lat = round(float(lat), order)
     lon = round(float(lon), order)
-    location.location = f"{lat},{lon}"
-    location.save()
+    locality.location = f"{lat},{lon}"
+    locality.save()
     return f"{lat},{lon}"
 
 
-def delete_locality(request, location_id):
-    """Delete location."""
+def delete_locality(request, locality_id):
+    """Delete locality."""
     get_object_or_404(
         Locality,
-        pk=location_id,
+        pk=locality_id,
         **get_content_owner_filter_params(request.user.caiduser, "owner"),
     ).delete()
-    return redirect("caidapp:manage_locations")
+    return redirect("caidapp:manage_localities")
 
 
-def update_locality(request, location_id=None):
+def update_locality(request, locality_id=None):
     """Show and create or update location."""
-    if location_id is None:
-        location = Locality(
+    if locality_id is None:
+        locality = Locality(
             owner=request.user.caiduser,
         )
     else:
-        location = get_object_or_404(
+        locality = get_object_or_404(
             Locality,
-            pk=location_id,
+            pk=locality_id,
             **get_content_owner_filter_params(request.user.caiduser, "owner"),
         )
     if request.method == "POST":
-        form = LocationForm(request.POST, instance=location)
+        form = LocalityForm(request.POST, instance=locality)
         if form.is_valid():
 
             # get uploaded archive
-            location = form.save()
-            _round_location(location, order=3)
-            return redirect("caidapp:locations")
+            locality = form.save()
+            _round_location(locality, order=3)
+            return redirect("caidapp:localities")
     else:
-        form = LocationForm(instance=location)
+        form = LocalityForm(instance=locality)
 
-    if location_id is None:
+    if locality_id is None:
         delete_button_url = None
     else:
         delete_button_url = reverse_lazy(
-            "caidapp:delete_location", kwargs={"location_id": location_id}
+            "caidapp:delete_locality", kwargs={"locality_id": locality_id}
         )
 
     return render(
@@ -78,22 +79,22 @@ def update_locality(request, location_id=None):
             "form": form,
             "headline": "Locality",
             "button": "Save",
-            "location": location,
+            "location": locality,
             "delete_button_url": delete_button_url,
         },
     )
 
 
 def manage_localities(request):
-    """Add new location or update names of locations."""
-    LocationFormSet = modelformset_factory(
+    """Add new location or update names of localities."""
+    LocalityFormSet = modelformset_factory(
         Locality, fields=("name",), can_delete=False, can_order=False
     )
     params = get_content_owner_filter_params(request.user.caiduser, "owner")
-    formset = LocationFormSet(queryset=Locality.objects.filter(**params))
+    formset = LocalityFormSet(queryset=Locality.objects.filter(**params))
 
     if request.method == "POST":
-        form = LocationFormSet(request.POST)
+        form = LocalityFormSet(request.POST)
         if form.is_valid():
             form.save()
     else:
@@ -109,47 +110,47 @@ def manage_localities(request):
 
 
 def _get_all_user_localities(request):
-    """Get all users locations."""
+    """Get all users localities."""
     params = get_content_owner_filter_params(request.user.caiduser, "owner")
     # logger.debug(f"{params=}")
-    locations = Locality.objects.filter(**params).order_by("name")
-    return locations
+    localities = Locality.objects.filter(**params).order_by("name")
+    return localities
 
 
 def _set_localities_to_mediafiles_of_uploadedarchive(
-    request, uploaded_archive: UploadedArchive, location: Locality
+    request, uploaded_archive: UploadedArchive, locality: Locality
 ):
-    """Set location to mediafiles of uploaded archive."""
+    """Set locality to mediafiles of uploaded archive."""
     if not user_has_rw_acces_to_uploadedarchive(request.user.caiduser, uploaded_archive):
         return HttpResponseNotAllowed("Not allowed to edit this uploaded archive.")
     mediafiles = uploaded_archive.mediafile_set.all()
     for mediafile in mediafiles:
-        mediafile.location = location
+        mediafile.locality = locality
         mediafile.save()
 
 
 def export_localities_view(request):
-    """Export locations."""
-    locations = Locality.objects.filter(
+    """Export localities."""
+    localities = Locality.objects.filter(
         **get_content_owner_filter_params(request.user.caiduser, "owner")
     )
-    df = pd.DataFrame.from_records(locations.values())[["name", "location"]]
+    df = pd.DataFrame.from_records(localities.values())[["name", "location"]]
     response = HttpResponse(df.to_csv(encoding="utf-8"), content_type="text/csv")
-    response["Content-Disposition"] = "attachment; filename=locations.csv"
+    response["Content-Disposition"] = "attachment; filename=localities.csv"
     return response
 
 
 def export_localities_view_xls(request):
-    """Export locations."""
-    locations = Locality.objects.filter(
+    """Export localities."""
+    localities = Locality.objects.filter(
         **get_content_owner_filter_params(request.user.caiduser, "owner")
     )
-    df = pd.DataFrame.from_records(locations.values())[["name", "location"]]
+    df = pd.DataFrame.from_records(localities.values())[["name", "location"]]
 
     # Create a BytesIO buffer to save the Excel file
     output = BytesIO()
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
-        df.to_excel(writer, index=False, sheet_name="Locations")
+        df.to_excel(writer, index=False, sheet_name="Localities")
 
     # Rewind the buffer
     output.seek(0)
@@ -157,15 +158,15 @@ def export_localities_view_xls(request):
     response = HttpResponse(
         output, content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
-    response["Content-Disposition"] = "attachment; filename=locations.xlsx"
+    response["Content-Disposition"] = "attachment; filename=localities.xlsx"
     return response
 
 
 def import_localities_view(request):
-    """Import locations."""
-    logger.debug(f"Importing locations, method {request.method}")
+    """Import localities."""
+    logger.debug(f"Importing localities, method {request.method}")
     if request.method == "POST":
-        form = forms.LocationImportForm(request.POST, request.FILES)
+        form = forms.LocalityImportForm(request.POST, request.FILES)
         if form.is_valid():
             logger.debug("form is valid")
             file = form.cleaned_data["spreadsheet_file"]
@@ -186,16 +187,16 @@ def import_localities_view(request):
                 location.location = row["location"]
                 location.owner = request.user.caiduser
                 location.save()
-            return redirect("caidapp:locations")
+            return redirect("caidapp:localities")
     else:
-        form = forms.LocationImportForm()
+        form = forms.LocalityImportForm()
     return render(
         request,
         # "caidapp/model_form_upload.html",
         "caidapp/update_form.html",
         {
             "form": form,
-            "headline": "Import locations",
+            "headline": "Import localities",
             "button": "Import",
             "text_note": "Upload CSV or XLSX file. "
             + "There should be columns 'name' and 'location' in the file. "
@@ -205,7 +206,7 @@ def import_localities_view(request):
     )
 
 
-def uploads_of_locality(request, location_hash):
+def uploads_of_location(request, location_hash):
     """Show all uploads of a location."""
     location = get_object_or_404(
         Locality,
@@ -220,11 +221,11 @@ def uploads_of_locality(request, location_hash):
     )
 
 
-def download_records_from_locality_csv_view(request, location_hash):
+def download_records_from_locality_csv_view(request, locality_hash):
     """Download records from location."""
     location = get_object_or_404(
         Locality,
-        hash=location_hash,
+        hash=locality_hash,
         **get_content_owner_filter_params(request.user.caiduser, "owner"),
     )
 
@@ -234,11 +235,11 @@ def download_records_from_locality_csv_view(request, location_hash):
     return response
 
 
-def download_records_from_location_xls_view(request, location_hash):
+def download_records_from_locality_xls_view(request, locality_hash):
     """Download records from location."""
     location = get_object_or_404(
         Locality,
-        hash=location_hash,
+        hash=locality_hash,
         **get_content_owner_filter_params(request.user.caiduser, "owner"),
     )
 

@@ -43,7 +43,7 @@ def _get_check_dates(
     )
 
     # get the list of unique dates
-    dates = uploaded_archives.values_list("location_check_at", flat=True).distinct()
+    dates = uploaded_archives.values_list("locality_check_at", flat=True).distinct()
     # logger.debug(f"dates: {dates}")
     # messages.info(request, f"{dates=}")
 
@@ -117,16 +117,27 @@ def camera_trap_check_date_view(
     years = list(sorted_grouped_dates.keys())
 
     if date is None:
-        filter = dict(location_check_at__isnull=True)
+        filter = dict(locality_check_at__isnull=True)
         date = "None"
     else:
-        filter = dict(location_check_at__date=date)
-    page_context = views._uploads_general(
-        request,
+        filter = dict(locality_check_at__date=date)
+
+
+    # page_context = views._uploads_general(
+    #     request,
+    #     contains_single_taxon=contains_single_taxon,
+    #     taxon_for_identification__isnull=taxon_for_identification__isnull,
+    #     **filter,
+    # )
+
+
+    queryset = views.get_filtered_mediafiles(
+        request.user,
         contains_single_taxon=contains_single_taxon,
         taxon_for_identification__isnull=taxon_for_identification__isnull,
         **filter,
     )
+    page_context = views.paginate_queryset(queryset, request)
 
     return render(
         request,
@@ -149,8 +160,8 @@ def uploadedarchive_detail(request, uploadedarchive_id: int) -> HttpResponse:
     # fmt: off
     dictionary = {
         "Uploaded at": uarch.uploaded_at,
-        "Location": uarch.location_at_upload_object,
-        "Location check at": uarch.location_check_at,
+        "Locality": uarch.locality_at_upload_object,
+        "Locality check at": uarch.locality_check_at,
         "Status": uarch.taxon_status,
         "Status message": uarch.status_message,
         "Identification status": uarch.identification_status,
@@ -175,8 +186,8 @@ def uploadedarchive_detail(request, uploadedarchive_id: int) -> HttpResponse:
         "caidapp/message.html",
         context=dict(
             headline="Uploaded Archive "
-            + f"{uarch.location_at_upload_object} "
-            + f"{uarch.location_check_at}",
+            + f"{uarch.locality_at_upload_object} "
+            + f"{uarch.locality_check_at}",
             dictionary=dictionary,
         ),
     )

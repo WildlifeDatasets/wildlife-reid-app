@@ -14,7 +14,7 @@
 {#                </ol>#}
 {#                {%  if user.caiduser.import_dir|length > 0 %}#}
 {#                    <a class="btn btn-secondary" href="{% url 'caidapp:upload_archive' %}"#}
-{#                    data-bs-toggle="tooltip" title="Location: "#}
+{#                    data-bs-toggle="tooltip" title="Locality: "#}
 {#                    ><i class="bi bi-cloud-arrow-up"></i> Import from cloud</a>#}
 {#                {% endif %}#}
 {##}
@@ -34,7 +34,7 @@
                     {% for uploadedarchive in page_obj %}
                         <div class="col-xl-3">
 {#                        <div class="col" style="-ms-flex: 0 0 200; flex: 0 0 200;">#}
-                            <div class="card {% if uploadedarchive.error_message %} bg-danger-light {% elif not uploadedarchive.location_exists  or uploadedarchive.zip_name_exists %} bg-warning-light {% endif %}"
+                            <div class="card {% if uploadedarchive.error_message %} bg-danger-light {% elif not uploadedarchive.locality_exists  or uploadedarchive.zip_name_exists %} bg-warning-light {% endif %}"
                             >
                                 <div class="card-body"
                                 >
@@ -55,9 +55,9 @@
                                         {{ uploadedarchive.error_message }}
                                     {% else %}
                                         <p class="card-text">
-                                        Locality: <strong>{{ uploadedarchive.location }}</strong>
+                                        Locality: <strong>{{ uploadedarchive.locality }}</strong>
                                         </p>
-                                        {%  if not uploadedarchive.location_exists %}
+                                        {%  if not uploadedarchive.locality_exists %}
                                             <p class="card-text">
                                                 <span class="text text-warning">New locality</span>: <br>
                                                 Is this really a first use of the locality or is it a typo?
@@ -78,7 +78,7 @@
                                     {% endif %}
 {##}
 {#                                    {{ uploadedarchive.zip_name }} <br>#}
-{#                                    <p>Location: <span data-bs-toggle="tooltip" title="Location: {{ uploadedarchive.location_at_upload_object.name }}">{{ uploadedarchive.location_at_upload_object.visible_name }}</span></p>#}
+{#                                    <p>Locality: <span data-bs-toggle="tooltip" title="Locality: {{ uploadedarchive.locality_at_upload_object.name }}">{{ uploadedarchive.locality_at_upload_object.visible_name }}</span></p>#}
 {#                                    {{ uploadedarchive.path }} <br>#}
 {#                                    <p>{{ uploadedarchive.starts_at|date:'Y-m-d' }} - {{ uploadedarchive.ends_at|date:'Y-m-d' }} </p>#}
                                 </div>
@@ -187,8 +187,8 @@
 <ol>
                     <li>In your local synchronized dir (<code>{HOME}/caid_import</code>) prepare a structure based on locality name and locality check date. There are two options:
                         <ul>
-                            <li>Directory or zip-file in format: <code>{YYYY}-{MM}-{DD}_{LOCATION NAME}</code></li>
-                            <li>Directory named by date with one or more subdirectories named by location: <code>{YYYY}-{MM}-{DD} / {LOCATION NAME}</code></li>
+                            <li>Directory or zip-file in format: <code>{YYYY}-{MM}-{DD}_{LOCALITY NAME}</code></li>
+                            <li>Directory named by date with one or more subdirectories named by locality: <code>{YYYY}-{MM}-{DD} / {LOCALITY NAME}</code></li>
                         </ul>
 
                     </li>
