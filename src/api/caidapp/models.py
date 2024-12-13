@@ -315,7 +315,7 @@ class UploadedArchive(models.Model):
     def update_location_in_mediafiles(self, location: Union[str, Location]):
         """Update location in mediafiles."""
         if isinstance(location, str):
-            location = get_location(self.owner, location)
+            location = get_locality(self.owner, location)
         mediafiles = MediaFile.objects.filter(parent=self)
         for mediafile in mediafiles:
             mediafile.location = location
@@ -858,7 +858,7 @@ def get_taxon(name: str) -> Optional[Taxon]:
     return taxon
 
 
-def get_location(caiduser: CaIDUser, name: str) -> Union[Location,None]:
+def get_locality(caiduser: CaIDUser, name: str) -> Union[Location,None]:
     """Return location according to the name, create it if necessary.
 
     Parameters

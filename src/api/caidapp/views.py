@@ -74,7 +74,7 @@ from .models import (
 from .tasks import (
     _iterate_over_location_checks,
     _prepare_dataframe_for_identification,
-    get_location,
+    get_locality,
     identify_on_success,
     init_identification_on_error,
     init_identification_on_success,
@@ -241,74 +241,6 @@ def show_taxons(request):
     )
 
 
-def uploads_identities(request) -> HttpResponse:
-    """List of uploads."""
-    page_context = _uploads_general(request, taxon_for_identification__isnull=False, contains_identities=False)
-
-    return render(
-        request,
-        "caidapp/uploads_identities.html",
-        context={
-            **page_context,
-            # "page_obj": page_obj,
-            # "elided_page_range": elided_page_range,
-            "btn_styles": _single_species_button_style(request),
-        },
-    )
-
-def uploads_known_identities(request) -> HttpResponse:
-    """List of uploads."""
-    page_context = _uploads_general(request, taxon_for_identification__isnull=False, contains_identities=True)
-
-    return render(
-        request,
-        "caidapp/uploads_known_identities.html",
-        context={
-            **page_context,
-            # "page_obj": page_obj,
-            # "elided_page_range": elided_page_range,
-            "btn_styles": _single_species_button_style(request),
-        },
-    )
-
-
-
-def uploads_species(request) -> HttpResponse:
-    """List of uploads."""
-    page_context = _uploads_general(request, contains_single_taxon=False)
-
-    dates = views_uploads._get_check_dates(
-        request, contains_single_taxon=False, taxon_for_identification__isnull=None
-    )
-    sorted_grouped_dates = views_uploads._get_grouped_dates(dates)
-
-    # get list of years
-    years = list(sorted_grouped_dates.keys())
-
-    btn_styles, btn_tooltips = _multiple_species_button_style_and_tooltips(request)
-    return render(
-        request,
-        "caidapp/uploads_species.html",
-        {
-            **page_context,
-            "btn_styles": btn_styles,
-            "btn_tooltips": btn_tooltips,
-            "years": years,
-        },
-    )
-
-
-def _uploads_general_order_annotation():
-    # for UploadedArchive.objects.annotate()
-    return dict(
-        mediafile_count=Count("mediafile"),  # Count of all related MediaFiles
-        mediafile_count_with_taxon=Count(
-            "mediafile", filter=Q(mediafile__category=F("taxon_for_identification"))
-        ),  # Count of MediaFiles with a specific taxon
-        earliest_mediafile_captured_at=Min("mediafile__captured_at"),  # Earliest capture date
-    )
-
-
 def update_taxon(request, taxon_id: Optional[int] = None):
     """Update species form. Create taxon if taxon_id is None."""
     if taxon_id is not None:
@@ -339,81 +271,238 @@ def update_taxon(request, taxon_id: Optional[int] = None):
         },
     )
 
-    # """Update species form."""
-    # if request.method == "POST":
-    #
-    #     form = MediaFileBulkForm(request.POST)
-    #     if form.is_valid():
-    #         mediafiles = form.cleaned_data["mediafiles"]
-    #         taxon = form.cleaned_data["taxon"]
-    #         for mediafile in mediafiles:
-    #             mediafile.category = taxon
-    #             mediafile.save()
-    #         return redirect("caidapp:uploads_species")
-    # else:
-    #     form = MediaFileBulkForm()
-    # return render(
-    #     request,
-    #     "caidapp/update_form.html",
-    #     {
-    #         "form": form,
-    #         "headline": "Update species",
-    #         "button": "Update",
-    #     },
-    # )
 
-
-def _uploads_general(
-    request,
+def get_filtered_mediafiles(
+    user,
     contains_single_taxon: Optional[bool] = None,
     taxon_for_identification__isnull: Optional[bool] = None,
     contains_identities: Optional[bool] = None,
-    **filter_params,
+    **extra_filters,
 ):
-    """List of uploads.
-
-    taxon_for_identification__isnull: bool - True taxon classification, False - identification
-    contains_identitis: bool - go to separate view for known identities
     """
-
-
-    order_by = uploaded_archive_get_order_by(request)
-    uploadedarchives = UploadedArchive.objects.annotate(**_uploads_general_order_annotation())
-    if filter_params is None:
-        filter_params = {}
-
+    Retrieve media files filtered by specific parameters.
+    """
+    filter_params = {}
     if contains_single_taxon is not None:
-        filter_params.update(dict(contains_single_taxon=contains_single_taxon))
+        filter_params['contains_single_taxon'] = contains_single_taxon
     if taxon_for_identification__isnull is not None:
-        filter_params.update(
-            dict(taxon_for_identification__isnull=taxon_for_identification__isnull)
-        )
+        filter_params['taxon_for_identification__isnull'] = taxon_for_identification__isnull
     if contains_identities is not None:
-        filter_params.update(dict(contains_identities=contains_identities))
+        filter_params['contains_identities'] = contains_identities
 
-    uploadedarchives = (
-        uploadedarchives.all()
-        .filter(
-            **get_content_owner_filter_params(request.user.caiduser, "owner"),
-            **filter_params
-            # contains_single_taxon=contains_single_taxon,
-            # taxon_for_identification__isnull=taxon_for_identification__isnull,
-            # parent__owner=request.user.caiduser
-        )
-        .all()
-        .order_by(order_by)
+    filter_params.update(extra_filters)
+
+    return UploadedArchive.objects.annotate(**_uploads_general_order_annotation()).filter(
+        **get_content_owner_filter_params(user.caiduser, "owner"),
+        **filter_params
     )
-    logger.debug(f"{uploadedarchives.count()=}")
+
+
+def uploads_species(request) -> HttpResponse:
+    """View for mediafiles with contains_single_taxon=False and taxon_for_identification__isnull=True."""
+    queryset = get_filtered_mediafiles(
+        request.user,
+        contains_single_taxon=False,
+        taxon_for_identification__isnull=True,
+    )
+    page_context = paginate_queryset(queryset, request)
+
+    dates = views_uploads._get_check_dates(
+        request, contains_single_taxon=False, taxon_for_identification__isnull=None
+    )
+    sorted_grouped_dates = views_uploads._get_grouped_dates(dates)
+    # get list of years
+    years = list(sorted_grouped_dates.keys())
+
+    btn_styles, btn_tooltips = _multiple_species_button_style_and_tooltips(request)
+    return render(
+        request,
+        "caidapp/uploads_species.html",
+        {
+            **page_context,
+            "btn_styles": btn_styles,
+            "btn_tooltips": btn_tooltips,
+            "years": years,
+        },
+    )
+
+
+def uploads_known_identities(request) -> HttpResponse:
+    """View for mediafiles with contains_identities=True."""
+    queryset = get_filtered_mediafiles(
+        request.user,
+        contains_identities=True,
+    )
+    page_context = paginate_queryset(queryset, request)
+
+    return render(
+        request,
+        "caidapp/uploads_known_identities.html",
+        {
+            **page_context,
+            "btn_styles": _single_species_button_style(request),
+        },
+    )
+
+
+def uploads_identities(request) -> HttpResponse:
+    """View for mediafiles not in other categories."""
+    queryset = get_filtered_mediafiles(
+        request.user,
+        contains_single_taxon=True,
+        contains_identities=False,
+    )
+    page_context = paginate_queryset(queryset, request)
+
+    return render(
+        request,
+        "caidapp/uploads_identities.html",
+        {
+            **page_context,
+            "btn_styles": _single_species_button_style(request),
+        },
+    )
+
+
+def paginate_queryset(queryset, request):
+    """
+    Paginate a queryset and return page context.
+    """
+    order_by = uploaded_archive_get_order_by(request)
+    queryset = queryset.order_by(order_by)
 
     records_per_page = get_item_number_uploaded_archives(request)
-    paginator = Paginator(uploadedarchives, per_page=records_per_page)
+    paginator = Paginator(queryset, per_page=records_per_page)
     _, _, page_context = _prepare_page(paginator, request=request)
 
-    # go over all items in the paginator
     for uploadedarchive in page_context["page_obj"]:
         uploadedarchive.update_status()
 
     return page_context
+
+### new is above
+#
+# def uploads_identities(request) -> HttpResponse:
+#     """List of uploads."""
+#     page_context = _uploads_general(request, taxon_for_identification__isnull=False, contains_identities=False)
+#
+#     return render(
+#         request,
+#         "caidapp/uploads_identities.html",
+#         context={
+#             **page_context,
+#             # "page_obj": page_obj,
+#             # "elided_page_range": elided_page_range,
+#             "btn_styles": _single_species_button_style(request),
+#         },
+#     )
+#
+# def uploads_known_identities(request) -> HttpResponse:
+#     """List of uploads."""
+#     page_context = _uploads_general(request, taxon_for_identification__isnull=False, contains_identities=True)
+#
+#     return render(
+#         request,
+#         "caidapp/uploads_known_identities.html",
+#         context={
+#             **page_context,
+#             # "page_obj": page_obj,
+#             # "elided_page_range": elided_page_range,
+#             "btn_styles": _single_species_button_style(request),
+#         },
+#     )
+#
+#
+#
+# def uploads_species(request) -> HttpResponse:
+#     """List of uploads."""
+#     page_context = _uploads_general(request, contains_single_taxon=False)
+#
+#     dates = views_uploads._get_check_dates(
+#         request, contains_single_taxon=False, taxon_for_identification__isnull=None
+#     )
+#     sorted_grouped_dates = views_uploads._get_grouped_dates(dates)
+#
+#     # get list of years
+#     years = list(sorted_grouped_dates.keys())
+#
+#     btn_styles, btn_tooltips = _multiple_species_button_style_and_tooltips(request)
+#     return render(
+#         request,
+#         "caidapp/uploads_species.html",
+#         {
+#             **page_context,
+#             "btn_styles": btn_styles,
+#             "btn_tooltips": btn_tooltips,
+#             "years": years,
+#         },
+#     )
+#
+#
+#
+# def _uploads_general(
+#     request,
+#     contains_single_taxon: Optional[bool] = None,
+#     taxon_for_identification__isnull: Optional[bool] = None,
+#     contains_identities: Optional[bool] = None,
+#     **filter_params,
+# ):
+#     """List of uploads.
+#
+#     taxon_for_identification__isnull: bool - True taxon classification, False - identification
+#     contains_identitis: bool - contain identities only - go to separate view for known identities base dataset
+#     """
+#
+#     order_by = uploaded_archive_get_order_by(request)
+#     uploadedarchives = UploadedArchive.objects.annotate(**_uploads_general_order_annotation())
+#     if filter_params is None:
+#         filter_params = {}
+#
+#     if taxon_for_identification__isnull is not None:
+#         filter_params.update(
+#             dict(taxon_for_identification__isnull=taxon_for_identification__isnull)
+#         )
+#     else:
+#         if contains_single_taxon is not None:
+#             filter_params.update(dict(contains_single_taxon=contains_single_taxon))
+#         if contains_identities is not None:
+#             filter_params.update(dict(contains_identities=contains_identities))
+#
+#     uploadedarchives = (
+#         uploadedarchives.all()
+#         .filter(
+#             **get_content_owner_filter_params(request.user.caiduser, "owner"),
+#             **filter_params
+#             # contains_single_taxon=contains_single_taxon,
+#             # taxon_for_identification__isnull=taxon_for_identification__isnull,
+#             # parent__owner=request.user.caiduser
+#         )
+#         .all()
+#         .order_by(order_by)
+#     )
+#     logger.debug(f"{uploadedarchives.count()=}")
+#
+#     records_per_page = get_item_number_uploaded_archives(request)
+#     paginator = Paginator(uploadedarchives, per_page=records_per_page)
+#     _, _, page_context = _prepare_page(paginator, request=request)
+#
+#     # go over all items in the paginator
+#     for uploadedarchive in page_context["page_obj"]:
+#         uploadedarchive.update_status()
+#
+#     return page_context
+
+
+def _uploads_general_order_annotation():
+    # for UploadedArchive.objects.annotate()
+    return dict(
+        mediafile_count=Count("mediafile"),  # Count of all related MediaFiles
+        mediafile_count_with_taxon=Count(
+            "mediafile", filter=Q(mediafile__category=F("taxon_for_identification"))
+        ),  # Count of MediaFiles with a specific taxon
+        earliest_mediafile_captured_at=Min("mediafile__captured_at"),  # Earliest capture date
+    )
+
 
 def select_reid_model(request):
     """Select reid model."""
@@ -1192,7 +1281,6 @@ def upload_archive(
         next = "caidapp:upload_archive_contains_identities"
 
     if request.method == "POST":
-        logger.debug(f"{request.POST=}")
         if contains_single_taxon:
             form = UploadedArchiveFormWithTaxon(
                 request.POST,
@@ -1407,7 +1495,7 @@ def update_uploadedarchive(request, uploadedarchive_id):
             if uploaded_archive_location_at_upload != cleaned_location_at_upload:
                 logger.debug("Location has been changed.")
                 # location_str = form.cleaned_data["location_at_upload"]
-                location = get_location(request.user.caiduser, cleaned_location_at_upload)
+                location = get_locality(request.user.caiduser, cleaned_location_at_upload)
                 _set_localities_to_mediafiles_of_uploadedarchive(request, uploaded_archive, location)
                 uploaded_archive.location_at_upload_object = location
                 uploaded_archive.save()
@@ -2811,7 +2899,7 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
                         )
                         counter1 += 1
                     if "location name" in row:
-                        location_obj = models.get_location(
+                        location_obj = models.get_locality(
                             caiduser=request.user.caiduser,
                             name=row["location name"])
                         if location_obj:
@@ -2870,6 +2958,29 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
                          + "'longitude', 'datetime' are optional.",
         })
 
+
+from djangoaddicts.pygwalker.views import PygWalkerView
+from django.db.models import F, Func, Value
+from django.db.models.functions import Cast
+import django.db
+
+class SplitPart(Func):
+    function = 'SPLIT_PART'
+    arity = 3  # Number of arguments the function takes
+
+class MyPygWalkerView(PygWalkerView):
+    template_name = "caidapp/custom_pygwalker.html"
+    # queryset = MediaFile.objects.all()
+    queryset = MediaFile.objects.annotate(
+        latitude=Cast(SplitPart(F('location__location'), Value(','), Value(1)), output_field=django.db.models.FloatField()),
+        longitude=Cast(SplitPart(F('location__location'), Value(','), Value(2)), output_field=django.db.models.FloatField())
+    )
+    title = "Media files"
+    theme = "light" # 'light', 'dark', 'media'
+
+    # field_list = ["name", "some_field", "some_other__related_field", "id", "created_at", "updated_at"]
+    field_list = ["id", "captured_at", "location", "identity", "category", "category__name", "identity__name",
+                  "location__name", "latitude", 'longitude']
 
 @login_required
 def select_second_id_for_identification_merge(request, individual_identity1_id: int):

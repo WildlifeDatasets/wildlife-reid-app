@@ -15,6 +15,7 @@
 * [changed] EXIFs calculated in one batch
 * [changed] Added trace in the map
 * [added] Base dataset view added
+* [added] Added pygwalker for media files
 
 ## 11-2024
 

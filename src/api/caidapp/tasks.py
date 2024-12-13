@@ -32,7 +32,7 @@ from .models import (
     UploadedArchive,
     WorkGroup,
     get_content_owner_filter_params,
-    get_location,
+    get_locality,
     get_taxon,
     get_unique_name,
 )
@@ -79,6 +79,7 @@ def predict_species_on_success(
 ):
     """Import media files after running predict function in taxon worker."""
     status = output.get("status", "unknown")
+    print(f"Taxon classification finished with status {status}")
     logger.info(f"Taxon classification finished with status '{status}'. Updating database record.")
     uploaded_archive = UploadedArchive.objects.get(id=uploaded_archive_id)
     if "status" not in output:
@@ -222,7 +223,7 @@ def do_cloud_import_for_user(self, caiduser_id: int):
             zip_path_absolute.parent.mkdir(exist_ok=True, parents=True)
             shutil.copy(yield_dict.path_of_location_check, zip_path_absolute)
         if yield_dict.location and len(yield_dict.location) > 0:
-            location = get_location(caiduser, yield_dict.location)
+            location = get_locality(caiduser, yield_dict.location)
             uploaded_archive.location_at_upload_object = location
             uploaded_archive.location_at_upload = yield_dict.location
         uploaded_archive.archivefile = zip_path
@@ -647,7 +648,7 @@ def update_uploaded_archive_by_metadata_csv(
 
     df = pd.read_csv(csv_file, index_col=0)
 
-    location = get_location(uploaded_archive.owner, str(uploaded_archive.location_at_upload))
+    location = get_locality(uploaded_archive.owner, str(uploaded_archive.location_at_upload))
 
     status_counts = StatusCounts()
     for index, row in tqdm.tqdm(df.iterrows(), total=len(df), desc="Updating database"):

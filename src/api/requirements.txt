@@ -5,6 +5,8 @@ django-allauth==0.54.0
 django-widget-tweaks==1.5
 django-pagination==1.0.7
 django-debug-toolbar==4.4.6
+django-pygwalker==0.0.9
+# django-handyhelpers
 uvicorn==0.22.0
 celery[redis]==5.2.7
 PyYAML==6.0

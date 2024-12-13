@@ -92,6 +92,8 @@ INSTALLED_APPS = [
     "widget_tweaks",
     "location_field.apps.DefaultConfig",
     "django.db.migrations",
+    'djangoaddicts.pygwalker',
+    'handyhelpers',
     # "debug_toolbar"
     # 'pagination',
 ]
