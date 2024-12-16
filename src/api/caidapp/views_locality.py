@@ -8,7 +8,9 @@ from django.forms import modelformset_factory
 from django.http import HttpResponseNotAllowed
 from django.shortcuts import HttpResponse, get_object_or_404, redirect, render
 from django.urls import reverse_lazy
+from django.db.models import Count, F, Min, Q, QuerySet
 # from torch.serialization import locality_tag
+import plotly.graph_objects as go
 
 from . import forms, model_tools
 from .forms import LocalityForm
@@ -16,7 +18,7 @@ from .model_extra import (
     prepare_dataframe_for_uploads_in_one_locality,
     user_has_rw_acces_to_uploadedarchive,
 )
-from .models import Locality, UploadedArchive, get_content_owner_filter_params
+from .models import Locality, UploadedArchive, get_content_owner_filter_params, MediaFile
 
 logger = logging.getLogger("app")
 
@@ -114,7 +116,11 @@ def _get_all_user_localities(request):
     """Get all users localities."""
     params = get_content_owner_filter_params(request.user.caiduser, "owner")
     # logger.debug(f"{params=}")
-    localities = Locality.objects.filter(**params).order_by("name")
+    localities = (
+        Locality.objects.filter(**params)
+        .annotate(mediafile_count=Count('uploadedarchive__mediafile'))
+        .order_by("name")
+    )
     return localities
 
 

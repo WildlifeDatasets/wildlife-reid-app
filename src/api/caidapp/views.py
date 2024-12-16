@@ -10,7 +10,6 @@ from typing import List, Optional, Tuple, Union
 import django
 import pandas as pd
 import plotly.express as px
-import plotly.graph_objects as go
 import pytz
 from celery import signature
 from django.conf import settings

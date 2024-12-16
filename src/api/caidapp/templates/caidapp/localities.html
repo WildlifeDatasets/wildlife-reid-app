@@ -72,23 +72,37 @@
                         <div class="card">
                             {% if locality.uploadedarchive_set.all.0 %}
                                 {% if locality.uploadedarchive_set.all.0.thumbnail %}
+
+                                    <a href="{% url 'caidapp:update_locality' locality.id %}" class=""
+                                            {%  if request.session.private_mode %}
+                                       onclick="return confirm('You are in private mode. In edit view you will reveal the locality. Do you want to continue?')"
+                                            {% endif %}
+                                    >
                                     <img
                                             class="card-img-top"
                                             src="{{ locality.uploadedarchive_set.all.0.thumbnail.url }}"
                                             alt="Camera trap image"
                                     >
+                                    </a>
                                 {% endif %}
                             {% endif %}
                             <div class="card-body">
                                 <h5 class="card-title">
+                                <a href="{% url 'caidapp:update_locality' locality.id %}" class=""
+                                        {%  if request.session.private_mode %}
+                                   onclick="return confirm('You are in private mode. In edit view you will reveal the locality. Do you want to continue?')"
+                                        {% endif %}
+                                >
                                     {%  if request.session.private_mode %}
                                         {{ locality.visible_name }}
                                     {% else %}
                                         {{ locality.name }}
                                     {% endif %}
                                     {% if locality.location %}
-                                        <i class="fas fa-map-marker-alt"></i>
+                                        <i class="fas fa-map-marker-alt" data-bs-toggle="tooltip" title="The GPS location is set"></i>
                                     {% endif %}
+
+                                </a>
 
                                 </h5>
                                 <p class="card-text">
@@ -96,27 +110,33 @@
                                     <a href="{% url 'caidapp:uploads_of_locality' locality.hash %}" class="link-secondary"
                                        data-bs-toggle="tooltip" title="Camera Trap Checks"
                                     >
+                                        <i class="fas fa-camera"></i>
                                     Camera trap checks: {{ locality.uploadedarchive_set.count }}
                                     </a>
+                                    <br>
+                                    <a href="{% url 'caidapp:media_files_locality' locality.hash %}" class="link-secondary" >
+                                        <i class="fas fa-images"></i> Media files: {{ locality.mediafile_count }}
+                                    </a>
+
                                 </p>
                             </div>
                             <div class="card-footer">
-                                <a href="{% url 'caidapp:update_locality' locality.id %}" class="btn btn-primary"
+                                <a href="{% url 'caidapp:update_locality' locality.id %}" class="btn btn-secondary"
                                         {%  if request.session.private_mode %}
                                             onclick="return confirm('You are in private mode. In edit view you will reveal the locality. Do you want to continue?')"
                                         {% endif %}
                                 >
                                     <i class="fas fa-edit"></i> Edit
                                     </a>
-                                <a href="{% url 'caidapp:media_files_locality' locality.hash %}" class="btn btn-secondary" >
-                                    <i class="fas fa-images"></i> Media files
-                                </a>
-                                <a href="{% url 'caidapp:uploads_of_locality' locality.hash %}" class="btn btn-secondary"
-                                   data-bs-toggle="tooltip" title="Camera Trap Checks"
-                                >
+{#                                <a href="{% url 'caidapp:media_files_locality' locality.hash %}" class="btn btn-secondary" >#}
 {#                                    <i class="fas fa-images"></i> Media files#}
-                                    Checks
-                                </a>
+{#                                </a>#}
+{#                                <a href="{% url 'caidapp:uploads_of_locality' locality.hash %}" class="btn btn-secondary"#}
+{#                                   data-bs-toggle="tooltip" title="Camera Trap Checks"#}
+{#                                >#}
+{#                                    <i class="fas fa-images"></i> Media files#}
+{#                                    Checks#}
+{#                                </a>#}
                             </div>
 
 {#                            {{ locality.uploadedarchive_set.all.0.thumbnail.url }}#}
