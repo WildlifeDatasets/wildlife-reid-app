@@ -141,7 +141,7 @@ def _prepare_dataframe_for_identification(mediafiles) -> dict:
         csv_data["class_id"][i] = int(mediafile.identity.id) if mediafile.identity else None
         csv_data["label"][i] = str(mediafile.identity.name) if mediafile.identity else None
         csv_data["locality_id"][i] = int(mediafile.locality.id) if mediafile.locality else None
-        csv_data["locality_name"][i] = str(mediafile.locality.name)
+        csv_data["locality_name"][i] = str(mediafile.locality.name) if mediafile.locality else ""
         csv_data["locality_coordinates"][i] = (
             str(mediafile.locality.location) if mediafile.locality.location else ""
         )
