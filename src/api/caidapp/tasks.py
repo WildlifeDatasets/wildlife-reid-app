@@ -143,7 +143,7 @@ def _prepare_dataframe_for_identification(mediafiles) -> dict:
         csv_data["locality_id"][i] = int(mediafile.locality.id) if mediafile.locality else None
         csv_data["locality_name"][i] = str(mediafile.locality.name)
         csv_data["locality_coordinates"][i] = (
-            str(mediafile.locality.locality) if mediafile.locality.locality else ""
+            str(mediafile.locality.location) if mediafile.locality.location else ""
         )
         # logger.debug(f"{mediafile.metadata_json=}")
         if "detection_results" in mediafile.metadata_json:
@@ -859,8 +859,8 @@ def create_dataframe_from_mediafiles(mediafiles: Generator[MediaFile, None, None
             metadata_row["unique_name"] = mf.identity.name
         if mf.locality:
             metadata_row["locality name"] = mf.locality.name
-            if mf.locality.locality:
-                metadata_row["locality coordinates"] = str(mf.locality.locality)
+            if mf.locality.location:
+                metadata_row["locality coordinates"] = str(mf.locality.location)
         if mf.original_filename:
             metadata_row["original_path"] = mf.original_filename
         if mf.identity:
@@ -908,8 +908,8 @@ def _sync_metadata_by_checking_enlisted_mediafiles(csv_file, output_dir, uploade
             update_csv = True
         if mf.locality:
             df.loc[index, "locality name"] = mf.locality.name
-            if mf.locality.locality:
-                df.loc[index, "locality coordinates"] = str(mf.locality.locality)
+            if mf.locality.location:
+                df.loc[index, "locality coordinates"] = str(mf.locality.location)
     # delete rows with missing mediafiles
     df = df[df["deleted"] == False]  # noqa: E712
     if update_csv:

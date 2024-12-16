@@ -1723,7 +1723,7 @@ def _mediafiles_query(
         #     else:
         #         queryset_combination |= mediafiles.filter(category__name__icontains=word).all()
         #
-        #     queryset_combination |= mediafiles.filter(location__name__icontains=word).all()
+        #     queryset_combination |= mediafiles.filter(locality__name__icontains=word).all()
         #
         # # queryset_combination.all().order_by("-parent_uploaded_at")
         # mediafiles = queryset_combination.all().order_by("-parent__uploaded_at")
