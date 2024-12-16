@@ -268,13 +268,16 @@ def download_records_from_locality_xls_view(request, locality_hash):
     return response
 
 
-def _create_map_from_mediafiles(mediafiles: Union[QuerySet, List[MediaFile]]):
+def create_map_from_mediafiles(mediafiles: Union[QuerySet, List[MediaFile]]):
     """Create dataframe from mediafiles."""
     # create dataframe
+    print(f"creating map for media files: {mediafiles=}")
+    logger.debug(f"creating map for media files: {mediafiles=}")
 
     queryset_list = list(mediafiles.values("id", "locality__name", "locality__location"))
     df = pd.DataFrame.from_records(queryset_list)
     logger.debug(f"{list(df.keys())}")
+    logger.debug(f"{df.shape=}")
     data = []
     for mediafile in mediafiles:
         if (
@@ -294,9 +297,9 @@ def _create_map_from_mediafiles(mediafiles: Union[QuerySet, List[MediaFile]]):
             data.append(row)
 
     df2 = pd.DataFrame.from_records(data)
-    if "location__location" not in df2.keys():
+    if "locality__location" not in df2.keys():
         return None
-    df2[["lat", "lon"]] = df2["location__location"].str.split(",", expand=True)
+    df2[["lat", "lon"]] = df2["locality__location"].str.split(",", expand=True)
     df2["lat"] = df2["lat"].astype(float)
     df2["lon"] = df2["lon"].astype(float)
     logger.debug(f"{list(df2.keys())}")

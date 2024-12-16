@@ -2116,7 +2116,8 @@ def mediafiles_stats_view(request):
     mediafile_ids = request.session.get("mediafile_ids", [])
     mediafiles = MediaFile.objects.filter(id__in=mediafile_ids)
 
-    map_html = views_locality._create_map_from_mediafiles(mediafiles)
+    map_html = views_locality.create_map_from_mediafiles(mediafiles)
+    logger.debug(f"{map_html=}")
     taxon_stats_html = _taxon_stats_for_mediafiles(mediafiles)
     return render(
         request,
@@ -2855,17 +2856,38 @@ class SplitPart(Func):
 
 class MyPygWalkerView(PygWalkerView):
     template_name = "caidapp/custom_pygwalker.html"
-    # queryset = MediaFile.objects.all()
-    queryset = MediaFile.objects.annotate(
-        latitude=Cast(SplitPart(F('locality__location'), Value(','), Value(1)), output_field=django.db.models.FloatField()),
-        longitude=Cast(SplitPart(F('locality__location'), Value(','), Value(2)), output_field=django.db.models.FloatField())
-    )
-    title = "Media files"
+
+    # mediafile_ids = request.session.get("mediafile_ids", [])
+    # mediafiles = MediaFile.objects.filter(id__in=mediafile_ids)
+
+    # queryset = MediaFile.objects.annotate(
+    #     latitude=Cast(SplitPart(F('locality__location'), Value(','), Value(1)), output_field=django.db.models.FloatField()),
+    #     longitude=Cast(SplitPart(F('locality__location'), Value(','), Value(2)), output_field=django.db.models.FloatField())
+    # )
+    title = "Media File Analysis"
     theme = "light" # 'light', 'dark', 'media'
 
     # field_list = ["name", "some_field", "some_other__related_field", "id", "created_at", "updated_at"]
     field_list = ["id", "captured_at", "locality", "identity", "category", "category__name", "identity__name",
                   "locality__name", "latitude", 'longitude']
+
+
+    def get(self, request):
+        # Access mediafile_ids from the session
+        mediafile_ids = request.session.get("mediafile_ids", [])
+        # Filter MediaFile objects based on the retrieved IDs
+        self.queryset = MediaFile.objects.filter(id__in=mediafile_ids).annotate(
+            latitude=Cast(
+                SplitPart(F('locality__location'), Value(','), 1),
+                output_field=django.db.models.FloatField()
+            ),
+            longitude=Cast(
+                SplitPart(F('locality__location'), Value(','), 2),
+                output_field=django.db.models.FloatField()
+            )
+        )
+        # Call the parent class's get method to maintain existing functionality
+        return super().get(request)
 
 @login_required
 def select_second_id_for_identification_merge(request, individual_identity1_id: int):
