@@ -1476,7 +1476,7 @@ def localities_view(request):
     """List of localities."""
     localities = _get_all_user_localities(request)
     logger.debug(f"{len(localities)=}")
-    return render(request, "caidapp/locations.html", {"localities": localities})
+    return render(request, "caidapp/localities.html", {"localities": localities})
 
 
 def update_uploadedarchive(request, uploadedarchive_id):

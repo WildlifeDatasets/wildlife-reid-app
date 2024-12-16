@@ -103,7 +103,7 @@ def manage_localities(request):
 
     return render(
         request,
-        "caidapp/manage_locations.html",
+        "caidapp/manage_localities.html",
         {
             "page_obj": form,
         },
