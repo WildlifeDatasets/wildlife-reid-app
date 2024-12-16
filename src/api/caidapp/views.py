@@ -1045,7 +1045,7 @@ def init_identification(request, taxon_str: str = "Lynx lynx"):
         ),
     )
     # return redirect("caidapp:individual_identities")
-    return redirect("caidapp:uploads_identities")
+    return redirect("caidapp:uploads_known_identities")
 
 
 # TODO rename to identification button style

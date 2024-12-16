@@ -272,7 +272,7 @@ class UploadedArchive(models.Model):
         else:
             return None
 
-    def extract_location_check_at_from_filename(self, commit=True):
+    def extract_locality_check_at_from_filename(self, commit=True):
         """Extract location check at from filename."""
         logger.debug(f"{self.locality_check_at=}")
         if self.locality_check_at is None:
