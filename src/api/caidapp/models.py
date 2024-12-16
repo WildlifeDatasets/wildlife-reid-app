@@ -145,7 +145,7 @@ class Locality(models.Model):
         blank=True,
     )
     hash = models.CharField(max_length=50, default=get_hash8)
-    # If the user is deleted, then we will keep the location but it does not
+    # If the user is deleted, then we will keep the locality but it does not
     # belong to any user which is not good.
     owner = models.ForeignKey(CaIDUser, on_delete=models.SET_NULL, null=True, blank=True)
 

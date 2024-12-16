@@ -1,6 +1,6 @@
 from django.urls import path, include
 
-from . import views, views_location, views_mediafile, views_uploads
+from . import views, views_locality, views_mediafile, views_uploads
 
 app_name = "caidapp"
 urlpatterns = [
@@ -69,18 +69,18 @@ urlpatterns = [
         views_mediafile.media_file_update,
         name="media_file_update",
     ),
-    path("manage_localities/", views_location.manage_localities, name="manage_localities"),
+    path("manage_localities/", views_locality.manage_localities, name="manage_localities"),
     path(
-        "delete_locality/<int:locality_id>/", views_location.delete_locality, name="delete_locality"
+        "delete_locality/<int:locality_id>/", views_locality.delete_locality, name="delete_locality"
     ),
     path(
         "update_locality/<int:locality_id>/",
-        views_location.update_locality,
+        views_locality.update_locality,
         name="update_locality",
     ),
     path(
         "update_locality/",
-        views_location.update_locality,
+        views_locality.update_locality,
         name="update_locality",
     ),
     path("albums/", views.albums, name="albums"),
@@ -250,27 +250,27 @@ urlpatterns = [
         name="select_taxon_for_identification",
     ),
     path("localities/", views.localities_view, name="localities"),
-    path("localities/export/", views_location.export_localities_view, name="export_localities"),
+    path("localities/export/", views_locality.export_localities_view, name="export_localities"),
     path(
         "localities/export_xls/",
-        views_location.export_localities_view_xls,
+        views_locality.export_localities_view_xls,
         name="export_localities_xls",
     ),
-    path("localities/import/", views_location.import_localities_view, name="import_localities"),
+    path("localities/import/", views_locality.import_localities_view, name="import_localities"),
     path(
         "localities/checks/<str:locality_hash>/",
-        views_location.uploads_of_location,
+        views_locality.uploads_of_locality,
         name="uploads_of_locality",
     ),
     path(
         "localities/download_records_csv/<str:locality_hash>/",
-        views_location.download_records_from_locality_csv_view,
+        views_locality.download_records_from_locality_csv_view,
         name="download_records_from_locality_csv",
     ),
     path(
         "localities/download_records_xls/<str:locality_hash>/",
-        views_location.download_records_from_locality_xls_view,
-        name="download_records_from_location_xls",
+        views_locality.download_records_from_locality_xls_view,
+        name="download_records_from_locality_xls",
     ),
     path(
         "uploaded_archives/set_sort_by/<str:sort_by>/",

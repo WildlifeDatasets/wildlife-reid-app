@@ -44,7 +44,7 @@ from django.core.exceptions import PermissionDenied
 
 
 
-from . import forms, model_tools, models, tasks, views_uploads
+from . import forms, model_tools, models, tasks, views_uploads, views_locality
 from .forms import (
     AlbumForm,
     IndividualIdentityForm,
@@ -82,7 +82,7 @@ from .tasks import (
     run_species_prediction_async,
     update_metadata_csv_by_uploaded_archive,
 )
-from .views_location import _get_all_user_localities, _set_localities_to_mediafiles_of_uploadedarchive
+from .views_locality import _get_all_user_localities, _set_localities_to_mediafiles_of_uploadedarchive
 
 logger = logging.getLogger("app")
 User = get_user_model()
@@ -1416,13 +1416,13 @@ def cloud_import_preview_view(request):
             continue
 
         list_of_locality_checks.append(yield_dict.__dict__)
-        # text += str(path_of_location_check.relative_to(path)) + "<br>"
+        # text += str(path_of_locality_check.relative_to(path)) + "<br>"
 
     return render(
         request,
         "caidapp/cloud_import_checks_preview.html",
         {
-            "page_obj": list_of_location_checks,
+            "page_obj": list_of_locality_checks,
             "text": text,
             # "form_objects": form,
             # "page_title": "Media files",
@@ -1493,11 +1493,11 @@ def update_uploadedarchive(request, uploadedarchive_id):
             uploaded_archive = form.save()
             logger.debug(f"{uploaded_archive.locality_at_upload=}, {cleaned_locality_at_upload=}")
             if uploaded_archive_locality_at_upload != cleaned_locality_at_upload:
-                logger.debug("Location has been changed.")
-                # location_str = form.cleaned_data["locality_at_upload"]
-                location = get_locality(request.user.caiduser, cleaned_locality_at_upload)
-                _set_localities_to_mediafiles_of_uploadedarchive(request, uploaded_archive, location)
-                uploaded_archive.locality_at_upload_object = location
+                logger.debug("Locality has been changed.")
+                # locality_str = form.cleaned_data["locality_at_upload"]
+                locality = get_locality(request.user.caiduser, cleaned_locality_at_upload)
+                _set_localities_to_mediafiles_of_uploadedarchive(request, uploaded_archive, locality)
+                uploaded_archive.locality_at_upload_object = locality
                 uploaded_archive.save()
 
             return redirect("caidapp:uploads")
@@ -1596,7 +1596,7 @@ def _mediafiles_query(
     filter_kwargs: Optional[dict] = None,
     exclude_filter_kwargs: Optional[dict] = None,
 ):
-    """Prepare list of mediafiles based on query search in category and location."""
+    """Prepare list of mediafiles based on query search in category and locality."""
     if filter_kwargs is None:
         filter_kwargs = {}
 
@@ -1657,11 +1657,8 @@ def _mediafiles_query(
         #     .order_by(order_by)
         # )
     if locality_hash is not None:
-        location = get_object_or_404(Locality, hash=locality_hash)
-        filter_kwargs.update(dict(location=location))
-        # mediafiles = (
-        #     mediafiles.filter(location=location).all().distinct().order_by(order_by)
-        # )
+        locality = get_object_or_404(Locality, hash=locality_hash)
+        filter_kwargs.update(dict(locality=locality))
     logger.debug(f"{filter_kwargs=}")
     # order by mediafile__sequence__mediafile_set order by
     order_by_safe = order_by if order_by[0] != "-" else order_by[1:]
@@ -1712,7 +1709,7 @@ def _mediafiles_query(
         return mediafiles
     else:
 
-        vector = SearchVector("category__name", "location__name")
+        vector = SearchVector("category__name", "locality__name")
         query = SearchQuery(query)
         logger.debug(str(query))
         mediafiles = (
@@ -1764,118 +1761,6 @@ def update_mediafile_is_representative(request, mediafile_hash: str, is_represen
     return JsonResponse({"data": "Data uploaded"})
 
 
-def _create_map_from_mediafiles(mediafiles: Union[QuerySet, List[MediaFile]]):
-    """Create dataframe from mediafiles."""
-    # create dataframe
-
-    queryset_list = list(mediafiles.values("id", "location__name", "location__location"))
-    df = pd.DataFrame.from_records(queryset_list)
-    logger.debug(f"{list(df.keys())}")
-    data = []
-    for mediafile in mediafiles:
-        if (
-            mediafile.locality
-            and mediafile.locality.locality
-            and mediafile.locality.locality.count(",") == 1
-        ):
-            row = {
-                "id": mediafile.id,
-                "category": mediafile.category.name if mediafile.category else None,
-                "category_id": mediafile.category.id if mediafile.category else None,
-                "location": mediafile.locality.name if mediafile.locality else None,
-                "location__location": mediafile.locality.locality
-                if mediafile.locality.locality
-                else None,
-            }
-            data.append(row)
-
-    df2 = pd.DataFrame.from_records(data)
-    if "location__location" not in df2.keys():
-        return None
-    df2[["lat", "lon"]] = df2["location__location"].str.split(",", expand=True)
-    df2["lat"] = df2["lat"].astype(float)
-    df2["lon"] = df2["lon"].astype(float)
-    logger.debug(f"{list(df2.keys())}")
-    # if len(df2) > 10:
-    #     logger.debug(f"{df2.sample(10).to_dict()=}")
-    # else:
-    #     logger.debug(f"{df2.to_dict()=}")
-
-    # Calculate the range of your data to set the zoom level
-    lat_range = df2["lat"].max() - df2["lat"].min()
-    lon_range = df2["lon"].max() - df2["lon"].min()
-
-    # Set an appropriate zoom level based on the maximum range
-    max_range = max(lat_range, lon_range)
-    zoom = 0  # Set a default zoom level
-    if max_range < 10:
-        zoom = 6
-    elif max_range < 30:
-        zoom = 5
-    elif max_range < 60:
-        zoom = 4
-    else:
-        zoom = 3  # For larger ranges, set a smaller zoom level
-
-    # fig = go.Figure(go.Densitymapbox(lat=df2.lat, lon=df2.lon, radius=10, showscale=False))
-    # fig.update_layout(
-    #     mapbox_style="open-street-map",
-    #     mapbox_center_lon=df2.lon.unique().mean(),
-    #     mapbox_center_lat=df2.lat.unique().mean(),
-    #     mapbox_zoom=zoom,
-    # )
-    #
-    # fig.update_layout(margin={"r": 0, "t": 10, "l": 0, "b": 0}, height=300)
-
-    # Create the base map
-    fig = go.Figure()
-
-    # Add a density map for points
-    fig.add_trace(
-        go.Densitymapbox(
-            lat=df2.lat,
-            lon=df2.lon,
-            radius=10,
-            showscale=False,
-            name = 'Density Map',
-        )
-    )
-
-    # Add a Scattermapbox trace to connect points with lines
-    fig.add_trace(
-        go.Scattermapbox(
-            lat=df2.lat,
-            lon=df2.lon,
-            mode='lines+markers',  # Shows both lines and markers
-            marker=dict(size=7),  # Adjust marker size
-            line=dict(width=2, color='blue'),  # Adjust line style
-            name = 'Path (Lines and Markers)',  # Legend label
-            visible = True  # Default visibility
-        )
-    )
-
-    # Update layout with map style and center
-    fig.update_layout(
-        mapbox_style="open-street-map",
-        mapbox_center_lon=df2.lon.mean(),
-        mapbox_center_lat=df2.lat.mean(),
-        mapbox_zoom=zoom,
-        margin={"r": 0, "t": 10, "l": 0, "b": 30},
-        height=500,
-        showlegend=True,
-        legend=dict(
-            orientation="h",  # Horizontal orientation
-            yanchor="top",  # Align to the top of the legend
-            y=-0.1,  # Place below the map (negative value for outside the map area)
-            xanchor="center",  # Center align horizontally
-            x=0.5  # Position at the center
-        )
-
-    )
-
-    map_html = fig.to_html()
-    return map_html
-
 
 def _taxon_stats_for_mediafiles(mediafiles: Union[QuerySet, List[MediaFile]]) -> str:
     """Create taxon stats for mediafiles."""
@@ -1925,7 +1810,7 @@ def media_files_update(
     taxon_id=None,
     uploadedarchive_id=None,
     identity_is_representative=None,
-    location_hash=None,
+    locality_hash=None,
     show_overview_button=False,
     order_by=None,
     taxon_verified: Optional[bool] = None,
@@ -2000,7 +1885,7 @@ def media_files_update(
         taxon_id=taxon_id,
         uploadedarchive_id=uploadedarchive_id,
         identity_is_representative=identity_is_representative,
-        locality_hash=location_hash,
+        locality_hash=locality_hash,
         order_by=order_by,
         taxon_verified=taxon_verified,
         filter_kwargs=filter_kwargs,
@@ -2010,10 +1895,10 @@ def media_files_update(
         uploaded_archive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
         # datetime format YYYY-MM-DD HH:MM:SS
         if uploaded_archive.locality_check_at is not None:
-            location_check_at = " - " + uploaded_archive.locality_check_at.strftime("%Y-%m-%d %H:%M:%S")
+            locality_check_at = " - " + uploaded_archive.locality_check_at.strftime("%Y-%m-%d %H:%M:%S")
         else:
-            location_check_at = ""
-        page_title = f"Media files - {uploaded_archive.locality_at_upload}{location_check_at}"
+            locality_check_at = ""
+        page_title = f"Media files - {uploaded_archive.locality_at_upload}{locality_check_at}"
 
     elif album_hash is not None:
         album = get_object_or_404(Album, hash=album_hash)
@@ -2024,9 +1909,9 @@ def media_files_update(
     elif taxon_id is not None:
         taxon = get_object_or_404(Taxon, pk=taxon_id)
         page_title = f"Media files - {taxon.name}"
-    elif location_hash is not None:
-        location = get_object_or_404(Locality, hash=location_hash)
-        page_title = f"Media files - {location.name}"
+    elif locality_hash is not None:
+        locality = get_object_or_404(Locality, hash=locality_hash)
+        page_title = f"Media files - {locality.name}"
     else:
         page_title = "Media files"
 
@@ -2232,7 +2117,7 @@ def mediafiles_stats_view(request):
     mediafile_ids = request.session.get("mediafile_ids", [])
     mediafiles = MediaFile.objects.filter(id__in=mediafile_ids)
 
-    map_html = _create_map_from_mediafiles(mediafiles)
+    map_html = views_locality._create_map_from_mediafiles(mediafiles)
     taxon_stats_html = _taxon_stats_for_mediafiles(mediafiles)
     return render(
         request,
@@ -2862,7 +2747,8 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
                 "original path": "original_path",
                 "taxon": "category",
                 "unique name": "unique_name",
-                "location_name": "location name",
+                "location_name": "locality name",
+                "locality_name": "locality name",
                 "lat": "latitude",
                 "lon": "longitude",
                 "datetime": "datetime",
@@ -2898,12 +2784,12 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
                             row["unique_name"], workgroup=uploaded_archive.owner.workgroup
                         )
                         counter1 += 1
-                    if "location name" in row:
-                        location_obj = models.get_locality(
+                    if "locality name" in row:
+                        locality_obj = models.get_locality(
                             caiduser=request.user.caiduser,
-                            name=row["location name"])
-                        if location_obj:
-                            mf.locality = location_obj
+                            name=row["locality name"])
+                        if locality_obj:
+                            mf.locality = locality_obj
                             if ("latitude" in row) and ("longitude" in row):
                                 mf.locality.set_location(float(row["latitude"]), float(row["longitude"]))
                                 counter1 += 1
@@ -2933,7 +2819,7 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
                     "button": "Save",
                     "errors": form.errors,
                     "text_note": "The 'original_path' is required in the uploaded spreadsheet. " \
-                        + "The 'predicted_category', 'unique_name', 'location name', 'latitude', " \
+                        + "The 'predicted_category', 'unique_name', 'locality name', 'latitude', " \
                         + "'longitude', 'datetime' are optional.",
                 },
             )
@@ -2954,7 +2840,7 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
             "button": "Save",
             "next": prev_url,
             "text_note": "The 'original_path' is required in the uploaded spreadsheet. " \
-                         + "The 'predicted_category', 'unique_name', 'location name', 'latitude', " \
+                         + "The 'predicted_category', 'unique_name', 'locality name', 'latitude', " \
                          + "'longitude', 'datetime' are optional.",
         })
 

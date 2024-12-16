@@ -9,11 +9,11 @@
                                                 {% if mediafile.instance.category %}
                                                     Taxon: {{ mediafile.instance.category }}
                                                 {% endif %}
-                                                {% if mediafile.instance.location %}
+                                                {% if mediafile.instance.locality %}
                                                     {%  if request.session.private_mode %}
-                                                        Location: {{ mediafile.instance.location.visible_name }}
+                                                        Locality: {{ mediafile.instance.locality.visible_name }}
                                                     {% else %}
-                                                        Location: {{ mediafile.instance.location.name }}
+                                                        Locality: {{ mediafile.instance.locality.name }}
                                                     {% endif %}
                                                 {% endif %}
                                                 {% if mediafile.instance.identity %}

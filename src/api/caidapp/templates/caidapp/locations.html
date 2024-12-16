@@ -86,10 +86,18 @@
                                     {% else %}
                                         {{ locality.name }}
                                     {% endif %}
+                                    {% if locality.location %}
+                                        <i class="fas fa-map-marker-alt"></i>
+                                    {% endif %}
 
                                 </h5>
                                 <p class="card-text">
-                                    Uploaded archives: {{ locality.uploadedarchive_set.count }}
+
+                                    <a href="{% url 'caidapp:uploads_of_locality' locality.hash %}" class="link-secondary"
+                                       data-bs-toggle="tooltip" title="Camera Trap Checks"
+                                    >
+                                    Camera trap checks: {{ locality.uploadedarchive_set.count }}
+                                    </a>
                                 </p>
                             </div>
                             <div class="card-footer">
@@ -111,7 +119,7 @@
                                 </a>
                             </div>
 
-{#                            {{ location.uploadedarchive_set.all.0.thumbnail.url }}#}
+{#                            {{ locality.uploadedarchive_set.all.0.thumbnail.url }}#}
                         </div>
                     </div>
                 {% endfor %}

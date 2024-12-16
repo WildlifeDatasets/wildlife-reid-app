@@ -1,13 +1,14 @@
 import logging
 from io import BytesIO
 from pathlib import Path
+from typing import Union, List, Dict
 
 import pandas as pd
 from django.forms import modelformset_factory
 from django.http import HttpResponseNotAllowed
 from django.shortcuts import HttpResponse, get_object_or_404, redirect, render
 from django.urls import reverse_lazy
-# from torch.serialization import location_tag
+# from torch.serialization import locality_tag
 
 from . import forms, model_tools
 from .forms import LocalityForm
@@ -79,14 +80,14 @@ def update_locality(request, locality_id=None):
             "form": form,
             "headline": "Locality",
             "button": "Save",
-            "location": locality,
+            "locality": locality,
             "delete_button_url": delete_button_url,
         },
     )
 
 
 def manage_localities(request):
-    """Add new location or update names of localities."""
+    """Add new locality or update names of localities."""
     LocalityFormSet = modelformset_factory(
         Locality, fields=("name",), can_delete=False, can_order=False
     )
@@ -182,11 +183,11 @@ def import_localities_view(request):
                 return HttpResponse("Only .xlsx and .csv files are supported.")
 
             for index, row in df.iterrows():
-                location = Locality()
-                location.name = row["name"]
-                location.location = row["location"]
-                location.owner = request.user.caiduser
-                location.save()
+                locality = Locality()
+                locality.name = row["name"]
+                locality.location = row["location"]
+                locality.owner = request.user.caiduser
+                locality.save()
             return redirect("caidapp:localities")
     else:
         form = forms.LocalityImportForm()
@@ -201,35 +202,35 @@ def import_localities_view(request):
             "text_note": "Upload CSV or XLSX file. "
             + "There should be columns 'name' and 'location' in the file. "
             + "Location should be in format 'lat,lon'.",
-            "next": "caidapp:locations",
+            "next": "caidapp:localitys",
         },
     )
 
 
-def uploads_of_location(request, location_hash):
+def uploads_of_locality(request, locality_hash):
     """Show all uploads of a location."""
-    location = get_object_or_404(
+    locality = get_object_or_404(
         Locality,
-        hash=location_hash,
+        hash=locality_hash,
         **get_content_owner_filter_params(request.user.caiduser, "owner"),
     )
-    uploaded_archives = location.uploadedarchive_set.all()
+    uploaded_archives = locality.uploadedarchive_set.all()
     return render(
         request,
         "caidapp/uploads_location.html",
-        {"location": location, "page_obj": uploaded_archives},
+        {"location": locality, "page_obj": uploaded_archives},
     )
 
 
 def download_records_from_locality_csv_view(request, locality_hash):
     """Download records from location."""
-    location = get_object_or_404(
+    locality = get_object_or_404(
         Locality,
         hash=locality_hash,
         **get_content_owner_filter_params(request.user.caiduser, "owner"),
     )
 
-    df = prepare_dataframe_for_uploads_in_one_locality(location.id)
+    df = prepare_dataframe_for_uploads_in_one_locality(locality.id)
     response = HttpResponse(df.to_csv(encoding="utf-8"), content_type="text/csv")
     response["Content-Disposition"] = "attachment; filename=location_checks.csv"
     return response
@@ -259,3 +260,117 @@ def download_records_from_locality_xls_view(request, locality_hash):
     )
     response["Content-Disposition"] = "attachment; filename=location_checks.xlsx"
     return response
+
+
+def _create_map_from_mediafiles(mediafiles: Union[QuerySet, List[MediaFile]]):
+    """Create dataframe from mediafiles."""
+    # create dataframe
+
+    queryset_list = list(mediafiles.values("id", "locality__name", "locality__location"))
+    df = pd.DataFrame.from_records(queryset_list)
+    logger.debug(f"{list(df.keys())}")
+    data = []
+    for mediafile in mediafiles:
+        if (
+                mediafile.locality
+                and mediafile.locality.location
+                and mediafile.locality.location.count(",") == 1
+        ):
+            row = {
+                "id": mediafile.id,
+                "category": mediafile.category.name if mediafile.category else None,
+                "category_id": mediafile.category.id if mediafile.category else None,
+                "locality": mediafile.locality.name if mediafile.locality else None,
+                "locality__location": mediafile.locality.location
+                if mediafile.locality.location
+                else None,
+            }
+            data.append(row)
+
+    df2 = pd.DataFrame.from_records(data)
+    if "location__location" not in df2.keys():
+        return None
+    df2[["lat", "lon"]] = df2["location__location"].str.split(",", expand=True)
+    df2["lat"] = df2["lat"].astype(float)
+    df2["lon"] = df2["lon"].astype(float)
+    logger.debug(f"{list(df2.keys())}")
+    # if len(df2) > 10:
+    #     logger.debug(f"{df2.sample(10).to_dict()=}")
+    # else:
+    #     logger.debug(f"{df2.to_dict()=}")
+
+    # Calculate the range of your data to set the zoom level
+    lat_range = df2["lat"].max() - df2["lat"].min()
+    lon_range = df2["lon"].max() - df2["lon"].min()
+
+    # Set an appropriate zoom level based on the maximum range
+    max_range = max(lat_range, lon_range)
+    zoom = 0  # Set a default zoom level
+    if max_range < 10:
+        zoom = 6
+    elif max_range < 30:
+        zoom = 5
+    elif max_range < 60:
+        zoom = 4
+    else:
+        zoom = 3  # For larger ranges, set a smaller zoom level
+
+    # fig = go.Figure(go.Densitymapbox(lat=df2.lat, lon=df2.lon, radius=10, showscale=False))
+    # fig.update_layout(
+    #     mapbox_style="open-street-map",
+    #     mapbox_center_lon=df2.lon.unique().mean(),
+    #     mapbox_center_lat=df2.lat.unique().mean(),
+    #     mapbox_zoom=zoom,
+    # )
+    #
+    # fig.update_layout(margin={"r": 0, "t": 10, "l": 0, "b": 0}, height=300)
+
+    # Create the base map
+    fig = go.Figure()
+
+    # Add a density map for points
+    fig.add_trace(
+        go.Densitymapbox(
+            lat=df2.lat,
+            lon=df2.lon,
+            radius=10,
+            showscale=False,
+            name = 'Density Map',
+        )
+    )
+
+    # Add a Scattermapbox trace to connect points with lines
+    fig.add_trace(
+        go.Scattermapbox(
+            lat=df2.lat,
+            lon=df2.lon,
+            mode='lines+markers',  # Shows both lines and markers
+            marker=dict(size=7),  # Adjust marker size
+            line=dict(width=2, color='blue'),  # Adjust line style
+            name = 'Path (Lines and Markers)',  # Legend label
+            visible = True  # Default visibility
+        )
+    )
+
+    # Update layout with map style and center
+    fig.update_layout(
+        mapbox_style="open-street-map",
+        mapbox_center_lon=df2.lon.mean(),
+        mapbox_center_lat=df2.lat.mean(),
+        mapbox_zoom=zoom,
+        margin={"r": 0, "t": 10, "l": 0, "b": 30},
+        height=500,
+        showlegend=True,
+        legend=dict(
+            orientation="h",  # Horizontal orientation
+            yanchor="top",  # Align to the top of the legend
+            y=-0.1,  # Place below the map (negative value for outside the map area)
+            xanchor="center",  # Center align horizontally
+            x=0.5  # Position at the center
+        )
+
+    )
+
+    map_html = fig.to_html()
+    return map_html
+

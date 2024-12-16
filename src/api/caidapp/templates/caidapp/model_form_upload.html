@@ -85,10 +85,10 @@
         ];
 
         const warningElement = document.getElementById("warning_msg_id_locality_at_upload");
-        const locationField = document.getElementById('id_locality_at_upload');
+        const localityField = document.getElementById('id_locality_at_upload');
 
         // Event listener for when the user leaves the input field (onblur)
-        locationField.addEventListener("blur", function () {
+        localityField.addEventListener("blur", function () {
         });
 
          input_file.addEventListener('change', function() {
@@ -161,7 +161,7 @@
         });
 
         const inputFile = document.getElementById('id_archivefile');
-        const dateField = document.getElementById('id_location_check_at');
+        const dateField = document.getElementById('id_locality_check_at');
         const datepickerInput = $('.datepicker');
 
         inputFile.addEventListener('change', function() {
@@ -182,8 +182,8 @@
                     dateField.value = date;
                     datepickerInput.datepicker('update', date);
 
-                    // Set the location field value (assuming the location field is a text input or similar)
-                    locationField.value = locality;
+                    // Set the locality field value (assuming the locality field is a text input or similar)
+                    localityField.value = locality;
 
                     console.log(`Parsed date: ${date}, locality: ${locality}`);
                     // Second format: locality_YYYY-MM-DD.zip
@@ -198,8 +198,8 @@
                     dateField.value = date;
                     datepickerInput.datepicker('update', date);
 
-                    // Set the location field value
-                    locationField.value = locality;
+                    // Set the locality field value
+                    localityField.value = locality;
 
                     console.log(`Parsed locality: ${locality}, date: ${date}`);
 
@@ -207,14 +207,14 @@
                     console.error('Filename format is incorrect');
                 }
 
-                const inputValue = locationField.value;
+                const inputValue = localityField.value;
 
                 // Check if the entered value is one of the suggested localities
-                const isValid = src.some(location => location.title === inputValue);
+                const isValid = src.some(locality => locality.title === inputValue);
 
                 // Show or hide the warning message
                 if (!isValid && inputValue) {
-                    warningElement.innerHTML = "Warning: Unknown location. New location will be created.";
+                    warningElement.innerHTML = "Warning: Unknown locality. New locality will be created.";
                     warningElement.style.display = "block";
                 } else {
                     warningElement.style.display = "none";
@@ -250,8 +250,8 @@
             onSelectItem: console.log,
         };
         var src = [
-            {%  for location in localities %}
-                {title: "{{ location.name }}", id: "{{ location.id }}", data: {key: {{ location.id }}}},
+            {%  for locality in localities %}
+                {title: "{{ locality.name }}", id: "{{ locality.id }}", data: {key: {{ locality.id }}}},
             {% endfor %}
         ];
         Autocomplete.init("input.autocomplete", {
@@ -265,18 +265,18 @@
 
         {#const warningElement = document.getElementById("warning-message");#}
         const warningElement = document.getElementById("warning_msg_id_locality_at_upload");
-        const locationField = document.getElementById('id_locality_at_upload');
+        const localityField = document.getElementById('id_locality_at_upload');
 
         // Event listener for when the user leaves the input field (onblur)
-        locationField.addEventListener("blur", function () {
-            const inputValue = locationField.value;
+        localityField.addEventListener("blur", function () {
+            const inputValue = localityField.value;
 
             // Check if the entered value is one of the suggested localities
-            const isValid = src.some(location => location.title === inputValue);
+            const isValid = src.some(locality => locality.title === inputValue);
 
             // Show or hide the warning message
             if (!isValid && inputValue) {
-                warningElement.innerHTML = "Warning: Unknown location. New location will be created.";
+                warningElement.innerHTML = "Warning: Unknown locality. New locality will be created.";
                 warningElement.style.display = "block";
             } else {
                 warningElement.style.display = "none";
