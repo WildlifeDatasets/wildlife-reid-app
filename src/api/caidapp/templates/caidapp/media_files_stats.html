@@ -20,20 +20,9 @@
 
 
         <section class="section">
-            {% if taxon_stats_html %}
-                <div class="col-lg-4">
-                    <div class="card">
-                        <div class="card-body">
-                            {#                                    render html #}
-                            {% autoescape off %}
-                                {{ taxon_stats_html }}
-                            {% endautoescape %}
-                        </div>
-                    </div>
-                </div>
-            {% endif %}
+        <div class="row">
             {% if map_html %}
-                <div class="col-lg-6">
+                <div class="col-lg-7">
                     <div class="card">
                         <div class="card-body">
                             {#                                    render html #}
@@ -44,6 +33,20 @@
                     </div>
                 </div>
             {% endif %}
+
+            {% if taxon_stats_html %}
+                <div class="col-lg-5">
+                    <div class="card">
+                        <div class="card-body">
+                            {#                                    render html #}
+                            {% autoescape off %}
+                                {{ taxon_stats_html }}
+                            {% endautoescape %}
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
 
         </section>
     {% endif %}
