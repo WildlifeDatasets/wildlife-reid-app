@@ -143,7 +143,7 @@ def _prepare_dataframe_for_identification(mediafiles) -> dict:
         csv_data["locality_id"][i] = int(mediafile.locality.id) if mediafile.locality else None
         csv_data["locality_name"][i] = str(mediafile.locality.name) if mediafile.locality else ""
         csv_data["locality_coordinates"][i] = (
-            str(mediafile.locality.location) if mediafile.locality.location else ""
+            str(mediafile.locality.location) if (mediafile.locality and mediafile.locality.location) else ""
         )
         # logger.debug(f"{mediafile.metadata_json=}")
         if "detection_results" in mediafile.metadata_json:
