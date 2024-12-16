@@ -24,13 +24,16 @@
 
                     <div>
 
-                        <a class="btn {{ btn_styles.upload_identified }}" href="{% url 'caidapp:upload_archive_contains_identities' %}"><i class="bi bi-upload"></i> Upload identified </a>
+                        <a class="btn {{ btn_styles.upload_identified.class }}" href="{% url 'caidapp:upload_archive_contains_identities' %}"><i class="bi bi-upload"></i> Upload identified </a>
                         <a class="btn btn-secondary" href="{% url 'caidapp:representative_mediafiles' %}"><i class="bi bi-eye"></i> Check representative images </a>
                         <i class="bi bi-arrow-right-short fa-2x" style="vertical-align: middle;"></i>
-                        <a class="btn {{ btn_styles.init_identification }}" href="{% url 'caidapp:init_identification' %}"
+                        <a class="btn {{ btn_styles.init_identification.class }}"
+                           href="{% url 'caidapp:init_identification' %}"
                                 {% if user.caiduser.workgroup.identification_init_status %}
-                           data-bs-toggle="tooltip" title="Initiated at: {{ user.caiduser.workgroup.identification_init_at|date:'Y-m-d H:i' }}, {{ user.caiduser.workgroup.identification_init_status}}, {{ user.caiduser.workgroup.identification_init_message }}"
+                           data-bs-toggle="tooltip"
+                           title="Initiated at: {{ user.caiduser.workgroup.identification_init_at|date:'Y-m-d H:i' }}, {{ user.caiduser.workgroup.identification_init_status}}, {{ user.caiduser.workgroup.identification_init_message }}"
                                 {% endif %}
+                           onclick="return confirm('{{ btn_styles.init_identification.confirm }}')"
                         ><i class="fas fa-fingerprint"></i> Init identification
 
                             {% if user.caiduser.workgroup.identification_init_status == "Processing" %}

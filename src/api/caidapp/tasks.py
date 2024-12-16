@@ -1057,6 +1057,9 @@ def identify_on_success(self, output: dict, *args, **kwargs):
     uploaded_archive = UploadedArchive.objects.get(id=uploaded_archive_id)
     # uploaded_archive.identification_status = "IAID"
     uploaded_archive.save()
+    owner = uploaded_archive.owner
+    workgroup = owner.workgroup
+
 
     try:
         if "status" not in output:
@@ -1092,6 +1095,12 @@ def identify_on_success(self, output: dict, *args, **kwargs):
             uploaded_archive.status_message = f"Identification suggestions ready for {len_mediafile_ids} media files."
             uploaded_archive.save()
             logger.debug("Identication suggestions done.")
+            # go over all uploaded archives of the workgroup
+            if UploadedArchive.objects.filter(owner__workgroup=workgroup, identification_status="IAIP").count() == 0:
+                # if there is no archive in the workgroup with status "IAIP", we can start identification
+                workgroup.identification_reid_status = "Finished"
+                workgroup.save()
+                logger.debug(f"Workgroup {workgroup} identification status set to 'IAID'.")
 
         else:
             # identification failed

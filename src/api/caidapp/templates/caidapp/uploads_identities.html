@@ -37,11 +37,19 @@
 {#                            {% endif %}#}
 {#                        </a>#}
 {#                        <i class="bi bi-arrow-right-short fa-2x" style="vertical-align: middle;"></i>#}
-                        <a class="btn {{ btn_styles.upload_unidentified }}" href="{% url 'caidapp:upload_archive_contains_single_taxon' %}"><i class="bi bi-upload"></i> Upload unidentified  single species</a>
+                        <a class="btn {{ btn_styles.upload_unidentified.class }}" href="{% url 'caidapp:upload_archive_contains_single_taxon' %}"><i class="bi bi-upload"></i> Upload unidentified  single species</a>
                         <i class="bi bi-arrow-right-short fa-2x" style="vertical-align: middle;"></i>
-                        <a class="btn {{ btn_styles.run_identification }}" href="{% url 'caidapp:run_identification_on_unidentified' %}"><i class="bi bi-question-circle"></i> Identify </a>
+                        <a class="btn {{ btn_styles.run_identification.class }}" href="{% url 'caidapp:run_identification_on_unidentified' %}"
+                            data-bs-toggle="tooltip" title="{{ btn_styles.run_identification.tooltip }}"
+                           onclick="return confirm('{{ btn_styles.run_identification.confirm }}')"
+                        >
+                            <i class="bi bi-question-circle"></i> Identify
+                            {% if user.caiduser.workgroup.identification_reid_status == "Processing" %}
+                                <i class="fa fa-spinner fa-spin"></i>
+                            {% endif %}
+                        </a>
                         <i class="bi bi-arrow-right-short fa-2x" style="vertical-align: middle;"></i>
-                        <a class="btn {{ btn_styles.confirm_identification }}" href="{% url 'caidapp:get_individual_identity' %}"><i class="bi bi-question-circle"></i> Confirm identification</a>
+                        <a class="btn {{ btn_styles.confirm_identification.class }}" href="{% url 'caidapp:get_individual_identity' %}"><i class="bi bi-question-circle"></i> Confirm identification</a>
                     </div>
 {#                    <div>#}
 {#                        <a class="btn btn-secondary" href="{% url 'caidapp:select_reid_model' %}"><i class="fa-solid fa-gear"></i></a>#}

@@ -1050,11 +1050,11 @@ def init_identification(request, taxon_str: str = "Lynx lynx"):
 
 # TODO rename to identification button style
 def _single_species_button_style(request) -> dict:
+    workgroup = request.user.caiduser.workgroup
 
     is_initiated = request.user.caiduser.workgroup.identification_init_at is not None
 
-    exists_representative = (
-        len(
+    n_representative = len(
             MediaFile.objects.filter(
                 parent__owner__workgroup=request.user.caiduser.workgroup,
                 identity_is_representative=True,
@@ -1062,11 +1062,9 @@ def _single_species_button_style(request) -> dict:
                 parent__taxon_for_identification__isnull=False,
             )
         )
-        > 0
-    )
+    exists_representative = ( n_representative > 0)
 
-    exists_unidentified = (
-        len(
+    n_unidentified = len(
             UploadedArchive.objects.filter(
                 # status="Species Finished",
                 Q(taxon_status="TKN") | Q(taxon_status="TV"),
@@ -1076,48 +1074,57 @@ def _single_species_button_style(request) -> dict:
                 taxon_for_identification__isnull=False,
             )
         )
-        > 0
-    )
 
-    exists_for_confirmation = (
-        len(
-            MediafilesForIdentification.objects.filter(
-                mediafile__parent__owner__workgroup=request.user.caiduser.workgroup
-            )
+    exists_unidentified = ( n_unidentified > 0)
+
+    n_for_confirmation = len(
+        MediafilesForIdentification.objects.filter(
+            mediafile__parent__owner__workgroup=request.user.caiduser.workgroup
         )
-        > 0
     )
+    exists_for_confirmation = ( n_for_confirmation > 0 )
 
+    btn_tooltips = {}
     btn_styles = {}
 
-    btn_styles["upload_identified"] = (
+    btn_styles["upload_identified"] = {"class":
         "btn-primary" if (not is_initiated) and (not exists_representative) else "btn-secondary"
-    )
-    btn_styles["init_identification"] = (
+    }
+    btn_styles["init_identification"] = {"class":
         "btn-primary" if (not is_initiated) and exists_representative else "btn-secondary"
-    )
-    btn_styles["upload_unidentified"] = (
+
+                                                     }
+    btn_styles["upload_unidentified"] = {"class":
         "btn-primary"
         if is_initiated and (not exists_unidentified) and (not exists_for_confirmation)
         else "btn-secondary"
-    )
-    btn_styles["run_identification"] = (
+                                         }
+    btn_styles["run_identification"] = {"class":
         "btn-primary"
         if is_initiated and exists_unidentified and (not exists_for_confirmation)
         else "btn-secondary"
-    )
-    btn_styles["confirm_identification"] = (
+    }
+    btn_styles["confirm_identification"] = {"class":
         "btn-primary" if exists_for_confirmation else "btn-secondary"
-    )
+                                            }
 
-    btn_styles["init_identification"] += " disabled" if not exists_representative else ""
-    btn_styles["run_identification"] += " disabled" if not is_initiated else ""
+    btn_styles["init_identification"]["class"] += " disabled" if ((not exists_representative) or (workgroup.identification_reid_status == "Processing")) else ""
+    btn_styles["init_identification"]["tooltip"] = f"Identification initialization with {n_representative} representative media files."
+    btn_styles["init_identification"]["confirm"] = f"Identification initialization with {n_representative} media files will take some time. Continue?"
+
+    btn_styles["run_identification"]["class"] += " disabled" if ((not is_initiated) or (workgroup.identification_init_status == "Processing")) else ""
+    btn_styles["run_identification"]["tooltip"] = f"Identification suggestion for {n_unidentified} media files."
+    btn_styles["run_identification"]["confirm"] = f"Identification of {n_unidentified} media files will take some time. Continue?"
 
     return btn_styles
 
 
 def run_identification_on_unidentified(request):
     """Run identification in all uploaded archives."""
+    workgroup = request.user.caiduser.workgroup
+    workgroup.identification_reid_status = "Processing"
+    workgroup.save()
+
     uploaded_archives = UploadedArchive.objects.filter(
         owner__workgroup=request.user.caiduser.workgroup,
         identification_status="IR",  # Ready for identification
