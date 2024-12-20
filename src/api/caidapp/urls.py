@@ -332,6 +332,7 @@ urlpatterns = [
     path("update_uploaded_archive_with_spreadsheet/<int:uploaded_archive_id>/",views.UpdateUploadedArchiveBySpreadsheetFile.as_view(), name="update_uploaded_archive_with_spreadsheet"),
     path("pygwalker/", include("djangoaddicts.pygwalker.urls")),
     path("pygwalker_mediafiles/", views.MyPygWalkerView.as_view(), name="pygwalker_mediafiles"),
+    path("pygwalker_localities/", views.PygWalkerLocalitiesView.as_view(), name="pygwalker_localities"),
 
 ]
 # if settings.DEBUG:

@@ -10,7 +10,7 @@ import codenamize
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.db import models
-from django.db.models import Q
+from django.db.models import Q, Count
 from django.db.models.query import QuerySet
 from django.db.models.signals import post_save
 from django.dispatch import receiver
@@ -649,7 +649,10 @@ class MediaFile(models.Model):
         Taxon, blank=True, null=True, on_delete=models.SET_NULL, related_name="predicted_taxon"
     )
     predicted_taxon_confidence = models.FloatField(null=True, blank=True)
-    locality = models.ForeignKey(Locality, blank=True, null=True, on_delete=models.CASCADE)
+    locality = models.ForeignKey(
+        Locality, blank=True, null=True, on_delete=models.CASCADE,
+        related_name = "mediafiles",
+    )
     captured_at = models.DateTimeField("Captured at", blank=True, null=True)
     mediafile = models.FileField(
         "Media File",
@@ -867,7 +870,10 @@ def get_locality(caiduser: CaIDUser, name: str) -> Union[Locality,None]:
     """
     if (name is None) or (name == ""):
         return None
-    objs = Locality.objects.filter(name=name, owner__workgroup=caiduser.workgroup)
+
+    objs = Locality.objects.filter(
+        name=name,
+        **get_content_owner_filter_params(caiduser, "owner"))
     if len(objs) == 0:
         location = Locality(name=name, owner=caiduser)
         location.save()
@@ -953,3 +959,16 @@ def get_mediafiles_with_missing_verification(
     )
     logger.debug(f"{mediafiles.count()=}")
     return mediafiles
+
+
+def get_all_relevant_localities(request):
+    """Get all users localities."""
+    params = get_content_owner_filter_params(request.user.caiduser, "owner")
+    # logger.debug(f"{params=}")
+    localities = (
+        Locality.objects.filter(**params)
+        # .annotate(mediafile_count=Count('uploadedarchive__mediafile'))
+        .annotate(mediafile_count=Count('mediafiles'))
+        .order_by("name")
+    )
+    return localities

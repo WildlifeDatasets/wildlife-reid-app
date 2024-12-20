@@ -1,14 +1,14 @@
 import logging
 from io import BytesIO
 from pathlib import Path
-from typing import Union, List, Dict
+from typing import Union, List
 
 import pandas as pd
 from django.forms import modelformset_factory
 from django.http import HttpResponseNotAllowed
 from django.shortcuts import HttpResponse, get_object_or_404, redirect, render
 from django.urls import reverse_lazy
-from django.db.models import Count, F, Min, Q, QuerySet
+from django.db.models import QuerySet
 # from torch.serialization import locality_tag
 import plotly.graph_objects as go
 
@@ -19,6 +19,7 @@ from .model_extra import (
     user_has_rw_acces_to_uploadedarchive,
 )
 from .models import Locality, UploadedArchive, get_content_owner_filter_params, MediaFile
+from . import models
 
 logger = logging.getLogger("app")
 
@@ -112,18 +113,6 @@ def manage_localities(request):
     )
 
 
-def _get_all_user_localities(request):
-    """Get all users localities."""
-    params = get_content_owner_filter_params(request.user.caiduser, "owner")
-    # logger.debug(f"{params=}")
-    localities = (
-        Locality.objects.filter(**params)
-        .annotate(mediafile_count=Count('uploadedarchive__mediafile'))
-        .order_by("name")
-    )
-    return localities
-
-
 def _set_localities_to_mediafiles_of_uploadedarchive(
     request, uploaded_archive: UploadedArchive, locality: Locality
 ):
@@ -180,19 +169,31 @@ def import_localities_view(request):
 
             file_ext = Path(file.name).suffix.lower()
             file_content = file.read()
+            rename_columns = {
+                "Location": "location",
+                "Latitude": "latitude",
+                "Longitude": "longitude",
+            }
+
 
             if file_ext == ".xlsx":
                 df = pd.read_excel(BytesIO(file_content))
+                df.rename(columns=rename_columns, inplace=True)
             elif file_ext == ".csv":
                 df = pd.read_csv(BytesIO(file_content))
+                df.rename(columns=rename_columns, inplace=True)
             else:
                 return HttpResponse("Only .xlsx and .csv files are supported.")
 
             for index, row in df.iterrows():
-                locality = Locality()
+                locality = models.get_locality(request.user.caiduser, row["name"])
                 locality.name = row["name"]
-                locality.location = row["location"]
-                locality.owner = request.user.caiduser
+                if "location" in df.keys():
+                    locality.location = row["location"]
+                elif "latitude" in df.keys() and "longitude" in df.keys():
+                    locality.location = f"{row['latitude']},{row['longitude']}"
+                if locality.owner is None:
+                    locality.owner = request.user.caiduser
                 locality.save()
             return redirect("caidapp:localities")
     else:

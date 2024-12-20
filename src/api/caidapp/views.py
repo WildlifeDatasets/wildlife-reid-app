@@ -35,7 +35,7 @@ from celery.result import AsyncResult
 from django.shortcuts import get_object_or_404, render, redirect
 from django.views import View
 from django.urls import reverse_lazy
-from .models import IndividualIdentity, MediaFile
+from .models import IndividualIdentity, MediaFile, get_all_relevant_localities
 from .forms import IndividualIdentityForm
 from functools import wraps
 from django.shortcuts import redirect
@@ -81,7 +81,7 @@ from .tasks import (
     run_species_prediction_async,
     update_metadata_csv_by_uploaded_archive,
 )
-from .views_locality import _get_all_user_localities, _set_localities_to_mediafiles_of_uploadedarchive
+from .views_locality import _set_localities_to_mediafiles_of_uploadedarchive
 
 logger = logging.getLogger("app")
 User = get_user_model()
@@ -1392,7 +1392,7 @@ def upload_archive(
             "button": "Upload",
             "text_note": text_note,
             "next": next,
-            "localities": _get_all_user_localities(request),
+            "localities": get_all_relevant_localities(request),
         },
     )
 
@@ -1480,7 +1480,7 @@ def break_cloud_import_view(request):
 
 def localities_view(request):
     """List of localities."""
-    localities = _get_all_user_localities(request)
+    localities = get_all_relevant_localities(request)
     logger.debug(f"{len(localities)=}")
     return render(request, "caidapp/localities.html", {"localities": localities})
 
@@ -1518,7 +1518,7 @@ def update_uploadedarchive(request, uploadedarchive_id):
             "headline": "Uploaded Archive",
             "button": "Save",
             "uploadedarchive": uploaded_archive,
-            "localities": _get_all_user_localities(request),
+            "localities": get_all_relevant_localities(request),
         },
     )
 
@@ -2893,6 +2893,68 @@ class MyPygWalkerView(PygWalkerView):
                 output_field=django.db.models.FloatField()
             )
         )
+        # Call the parent class's get method to maintain existing functionality
+        return super().get(request)
+
+
+
+class PygWalkerLocalitiesView(PygWalkerView):
+    template_name = "caidapp/custom_pygwalker.html"
+
+    # mediafile_ids = request.session.get("mediafile_ids", [])
+    # mediafiles = MediaFile.objects.filter(id__in=mediafile_ids)
+
+    # queryset = MediaFile.objects.annotate(
+    #     latitude=Cast(SplitPart(F('locality__location'), Value(','), Value(1)), output_field=django.db.models.FloatField()),
+    #     longitude=Cast(SplitPart(F('locality__location'), Value(','), Value(2)), output_field=django.db.models.FloatField())
+    # )
+    title = "Localities"
+    theme = "light" # 'light', 'dark', 'media'
+
+    # field_list = ["name", "some_field", "some_other__related_field", "id", "created_at", "updated_at"]
+    field_list = ["name", "latitude", 'longitude',
+                  "mediafile_count"
+                  ]
+
+
+
+    def get(self, request):
+        # Access mediafile_ids from the session
+        # mediafile_ids = request.session.get("mediafile_ids", [])
+        # Filter MediaFile objects based on the retrieved IDs
+        params = get_content_owner_filter_params(request.user.caiduser, "owner")
+        # logger.debug(f"{params=}")
+        # localities = (
+        #     Locality.objects.filter(**params)
+        self.queryset = Locality.objects.filter(
+            **params
+            # owner__workgroup=request.user.caiduser.workgroup
+        ).annotate(
+            latitude=Cast(
+                SplitPart(F('location'), Value(','), 1),
+                output_field=django.db.models.FloatField()
+            ),
+            longitude=Cast(
+                SplitPart(F('location'), Value(','), 2),
+                output_field=django.db.models.FloatField()
+            ),
+            # there is locality
+            mediafile_count=Count('mediafiles')
+        )
+        # annotate(
+
+
+
+        # self.queryset = MediaFile.objects.filter(id__in=mediafile_ids).annotate(
+        #     latitude=Cast(
+        #         SplitPart(F('locality__location'), Value(','), 1),
+        #         output_field=django.db.models.FloatField()
+        #     ),
+        #     longitude=Cast(
+        #         SplitPart(F('locality__location'), Value(','), 2),
+        #         output_field=django.db.models.FloatField()
+        #     )
+        # )
         # Call the parent class's get method to maintain existing functionality
         return super().get(request)
 
