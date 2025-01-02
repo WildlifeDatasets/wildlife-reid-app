@@ -79,6 +79,7 @@ services:
       - ./src/api:/api
       - api-data-dev:/data  # data used only by API
       - private-data-dev:/private_data  # private keys that should not be automatically backed up
+      - ${CAID_IMPORT:-./caid_import}:/caid_import
       - shared-data:/shared_data
     expose:
       - 8080  # this should be accessible through inner nginx
