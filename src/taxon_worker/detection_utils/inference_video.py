@@ -169,91 +169,99 @@ def create_image_from_video(
     skip_counter = 0
     process_counter = 0
     no_detection_counter = 0
-    for row_idx, row in tqdm(metadata.iterrows(), desc="Video to image"):
-        full_path = row["full_image_path"]
+    with (tqdm(total=len(metadata), desc=f"Mediafile to image [0 / {len(metadata)}]") as pbar):
+        # for row_idx, row in tqdm(metadata.iterrows(), desc="Video to image"):
+        for row_idx, row in metadata.iterrows():
+            pbar.set_description(f"Mediafile to image [{row_idx} / {len(metadata)}]")
+            full_path = row["full_image_path"]
 
-        video_name = os.path.basename(full_path)
-        video_name = ".".join(video_name.split(".")[:-1])
+            video_name = os.path.basename(full_path)
+            video_name = ".".join(video_name.split(".")[:-1])
 
-        # new_full_path = os.path.join(os.path.dirname(full_path), f"{video_name}.png")
-        # gif_path = os.path.join(os.path.dirname(full_path), f"{video_name}.gif")
-        new_full_path = str(Path(full_path).with_suffix(".jpg"))
-        gif_path = str(Path(full_path).parent.parent / "thumbnails" / f"{video_name}.gif")
+            # new_full_path = os.path.join(os.path.dirname(full_path), f"{video_name}.png")
+            # gif_path = os.path.join(os.path.dirname(full_path), f"{video_name}.gif")
+            new_full_path = str(Path(full_path).with_suffix(".jpg"))
+            gif_path = str(Path(full_path).parent.parent / "thumbnails" / f"{video_name}.gif")
 
-        if row["media_type"] != "video":
-            # logger.debug(f"{os.path.basename(full_path)} is image - skipping")
-            skip_counter += 1
-            continue
-        process_counter += 1
+            if row["media_type"] != "video":
+                # logger.debug(f"{os.path.basename(full_path)} is image - skipping")
+                skip_counter += 1
+                pbar.update(1)
+                continue
+            process_counter += 1
 
-        images = load_video(full_path)
-        logger.debug(f"video frames: {images.shape}")
-        if len(images) == 0:
-            logger.debug(f"Problem loading video: {os.path.basename(full_path)} - skipping")
-            row["read_error"] = "Problem loading video - skipping."
-            # row["image_path"] = os.path.basename(new_full_path)
-            # row["full_image_path"] = new_full_path
-            row["suffix"] = f".{new_full_path.split('.')[-1]}"
-            metadata.loc[row_idx] = row
-            continue
-        all_images = np.array([resize_images(image, gif_height) for image in images.copy()])
+            images = load_video(full_path)
+            len_images = len(images)
+            logger.debug(f"video frames: {images.shape}")
+            if len(images) == 0:
+                logger.debug(f"Problem loading video: {os.path.basename(full_path)} - skipping")
+                row["read_error"] = "Problem loading video - skipping."
+                # row["image_path"] = os.path.basename(new_full_path)
+                # row["full_image_path"] = new_full_path
+                row["suffix"] = f".{new_full_path.split('.')[-1]}"
+                metadata.loc[row_idx] = row
+                continue
+            all_images = np.array([resize_images(image, gif_height) for image in images.copy()])
 
-        logger.info("Running detection inference on video.")
-        # detect
-        predictions = []
-        for frame_id, image in tqdm(
-            enumerate(images), desc="Detection in video", total=len(images)
-        ):
-            prediction = detect_animals_in_one_image(image)
+            logger.info("Running detection inference on video.")
+            # detect
+            predictions = []
 
-            if prediction is not None:
-                # use only prediction with max confidence
-                # TODO: how to handle multiple detections in one image?
-                confidence = [p["confidence"] for p in prediction]
-                idx = np.argmax(confidence)
-                prediction = prediction[idx]
+            for frame_id, image in enumerate(images):
+            #     tqdm(
+            #     enumerate(images), desc="Detection in video", total=len(images)
+            # ):
+                prediction = detect_animals_in_one_image(image)
 
-                prediction["frame"] = frame_id
-            predictions.append(prediction)
+                if prediction is not None:
+                    # use only prediction with max confidence
+                    # TODO: how to handle multiple detections in one image?
+                    confidence = [p["confidence"] for p in prediction]
+                    idx = np.argmax(confidence)
+                    prediction = prediction[idx]
 
-        # check if any detection
-        if len([1 for p in predictions if p is not None]) == 0:
-            logger.debug(f"no detection in video: {os.path.basename(full_path)} - skipping")
-            no_detection_counter += 1
-            make_gif(all_images, gif_path, 0, height=gif_height)
+                    prediction["frame"] = frame_id
+                predictions.append(prediction)
+                pbar.update(1.0/len_images)
 
+            # check if any detection
+            if len([1 for p in predictions if p is not None]) == 0:
+                logger.debug(f"no detection in video: {os.path.basename(full_path)} - skipping")
+                no_detection_counter += 1
+                make_gif(all_images, gif_path, 0, height=gif_height)
+
+                image = images[0]
+                cv2.imwrite(new_full_path, image[..., ::-1])
+                row["image_path"] = os.path.basename(new_full_path)
+                row["full_image_path"] = new_full_path
+                row["suffix"] = f".{new_full_path.split('.')[-1]}"
+                metadata.loc[row_idx] = row
+                continue
+
+            # select
+            for selection_method_name, selection_threshold in zip(
+                selection_methods, selection_thresholds
+            ):
+                if selection_method_name == "area":
+                    selection_method = partial(area_selection, threshold=selection_threshold)
+                elif selection_method_name == "ratio":
+                    selection_method = partial(ratio_selection, threshold=selection_threshold)
+
+                images, predictions = select_images(images, predictions, selection_method)
+            logger.debug(f"selected frames: {images.shape}")
             image = images[0]
+            prediction = predictions[0]
+
+            # save image
+            make_gif(all_images, gif_path, prediction["frame"], height=gif_height)
+            logger.debug(f"selected 1 image forme video, saving to: {new_full_path}")
             cv2.imwrite(new_full_path, image[..., ::-1])
+
+            # update row
             row["image_path"] = os.path.basename(new_full_path)
             row["full_image_path"] = new_full_path
             row["suffix"] = f".{new_full_path.split('.')[-1]}"
             metadata.loc[row_idx] = row
-            continue
-
-        # select
-        for selection_method_name, selection_threshold in zip(
-            selection_methods, selection_thresholds
-        ):
-            if selection_method_name == "area":
-                selection_method = partial(area_selection, threshold=selection_threshold)
-            elif selection_method_name == "ratio":
-                selection_method = partial(ratio_selection, threshold=selection_threshold)
-
-            images, predictions = select_images(images, predictions, selection_method)
-        logger.debug(f"selected frames: {images.shape}")
-        image = images[0]
-        prediction = predictions[0]
-
-        # save image
-        make_gif(all_images, gif_path, prediction["frame"], height=gif_height)
-        logger.debug(f"selected 1 image forme video, saving to: {new_full_path}")
-        cv2.imwrite(new_full_path, image[..., ::-1])
-
-        # update row
-        row["image_path"] = os.path.basename(new_full_path)
-        row["full_image_path"] = new_full_path
-        row["suffix"] = f".{new_full_path.split('.')[-1]}"
-        metadata.loc[row_idx] = row
     logger.debug(f"Processed {process_counter} videos, skipped {no_detection_counter} "
                  f"videos with no detection and  {skip_counter} images.")
 

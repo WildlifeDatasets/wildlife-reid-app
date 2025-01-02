@@ -1319,8 +1319,10 @@ def data_preprocessing(
     tmp_dir.mkdir(exist_ok=False, parents=True)
 
     # extract files to the temporary directory
+    logger.debug(f"extract zip archive: {zip_path=}")
     extract_archive(zip_path, output_dir=tmp_dir)
 
+    logger.debug(f"analyze dataset directory: {tmp_dir=}")
     # create metadata directory
     df, duplicates = analyze_dataset_directory(
         tmp_dir, num_cores=num_cores, contains_identities=contains_identities
