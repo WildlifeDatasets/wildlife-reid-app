@@ -460,10 +460,13 @@ def convert_to_mp4(input_video_path, output_video_path):
     # Check if input file exists
     if not os.path.exists(input_video_path):
         raise FileNotFoundError(f"The input file '{input_video_path}' does not exist.")
+    if os.path.exists(output_video_path):
+        logger.warning(f"The output file '{output_video_path}' already exists. Overwriting.")
 
     # ffmpeg command to convert video to MP4 (H.264 + AAC)
     command = [
         "ffmpeg",
+        "-y",  # Overwrite output file if it exists
         "-i",
         input_video_path,  # Input video file
         "-c:v",
@@ -479,7 +482,20 @@ def convert_to_mp4(input_video_path, output_video_path):
 
     try:
         # Run the ffmpeg command
-        subprocess.run(command, check=True)
+        result = subprocess.run(
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+                                # check=True
+        )
+        if result.returncode != 0:
+            logger.error(
+                f"Error during conversion: {result.stderr}\nCommand: {' '.join(command)}"
+            )
+            raise subprocess.CalledProcessError(
+                result.returncode, command, output=result.stdout, stderr=result.stderr
+            )
         logger.debug(f"Conversion successful! Output saved at '{output_video_path}'")
     except subprocess.CalledProcessError as e:
         logger.error(f"Error during conversion: {e}")

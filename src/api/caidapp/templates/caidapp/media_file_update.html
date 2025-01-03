@@ -1,5 +1,39 @@
 {% extends 'base.html' %}
 {% load custom_filters %}
+{# add style #}
+{% block head %}
+    <style>
+/* Increase the size of the carousel control icons */
+.carousel-control-prev-icon,
+.carousel-control-next-icon {
+    background-color: rgba(0, 0, 0, 0.5); /* Semi-transparent background for better visibility */
+    background-size: 50%; /* Adjust the size of the arrow icon */
+    width: 3rem;
+    height: 3rem;
+    border-radius: 50%; /* Makes the control icons circular */
+}
+
+/* Optional: Add a border around the icons */
+.carousel-control-prev-icon,
+.carousel-control-next-icon {
+    border: 2px solid white;
+}
+
+/* Change the hover effect for the arrows */
+.carousel-control-prev:hover .carousel-control-prev-icon,
+.carousel-control-next:hover .carousel-control-next-icon {
+    background-color: rgba(0, 0, 0, 0.8); /* Darker background on hover */
+}
+
+/* Adjust the position of the arrows */
+.carousel-control-prev,
+.carousel-control-next {
+    top: 50%; /* Center the controls vertically */
+    transform: translateY(-50%);
+}
+</style>
+{% endblock %}
+{# add body #}
 
 {% block body %}
     {#<div class="container">#}
@@ -64,17 +98,47 @@
                     </div>
                 </div>
             </div>
+
+
+        <div id="mediafileCarousel" class="carousel slide" >
+    <div class="carousel-inner">
+        {% for chunk in mediafile.sequence.mediafile_set.all|chunk:5 %}
+            <div class="carousel-item {% if forloop.first %}active{% endif %}">
+                <div class="d-flex justify-content-center">
+                    {% for sequence_mediafile in chunk %}
+                        <div class="m-2">
+                            <a href="{% url 'caidapp:media_file_update' sequence_mediafile.id %}">
+                                <img src="{{ sequence_mediafile.thumbnail.url }}" class="img-fluid" alt="Media Thumbnail" style="max-width: 100px;">
+                            </a>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+
+    <!-- Carousel Controls -->
+    <button class="carousel-control-prev" type="button" data-bs-target="#mediafileCarousel" data-bs-slide="prev">
+        <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+        <span class="visually-hidden">Previous</span>
+    </button>
+    <button class="carousel-control-next" type="button" data-bs-target="#mediafileCarousel" data-bs-slide="next">
+        <span class="carousel-control-next-icon" aria-hidden="true"></span>
+        <span class="visually-hidden">Next</span>
+    </button>
+</div>
+
         </div><!-- End Page Title -->
 {#        {% if  mediafile.sequence.mediafile_set.all  > 1 %}#}
-               <div class="d-flex flex-row flex-wrap m-1" style="width:auto;">
-
-                    {% for sequence_mediafile in mediafile.sequence.mediafile_set.all %}
-                        <a href="{% url 'caidapp:media_file_update' sequence_mediafile.id %}" class="m-1">
-                            <img src="{{ sequence_mediafile.thumbnail.url }}" class="img-fluid" alt="Camera trap image" style="max-width: 100px;">
-                        </a>
-                    {% endfor %}
-
-                </div>
+{#               <div class="d-flex flex-row flex-wrap m-1" style="width:auto;">#}
+{##}
+{#                    {% for sequence_mediafile in mediafile.sequence.mediafile_set.all %}#}
+{#                        <a href="{% url 'caidapp:media_file_update' sequence_mediafile.id %}" class="m-1">#}
+{#                            <img src="{{ sequence_mediafile.thumbnail.url }}" class="img-fluid" alt="Camera trap image" style="max-width: 100px;">#}
+{#                        </a>#}
+{#                    {% endfor %}#}
+{##}
+{#                </div>#}
 
 {#        {% endif %}#}
         <div class="section">

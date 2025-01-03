@@ -21,3 +21,10 @@ def floor(value):
         return math.floor(float(value))
     except (ValueError, TypeError):
         return ""
+
+
+@register.filter
+def chunk(queryset, size):
+    """Split a queryset into chunks of the specified size."""
+    for i in range(0, len(queryset), size):
+        yield queryset[i:i+size]

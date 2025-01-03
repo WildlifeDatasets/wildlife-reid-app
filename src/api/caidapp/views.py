@@ -193,7 +193,7 @@ def _prepare_page(
 ) -> Tuple[Page, List, dict]:
     if page_number is None:
         page_number = request.GET.get("page", 1)
-    logger.debug(f"{page_number=}")
+    # logger.debug(f"{page_number=}")
     elided_page_range = paginator.get_elided_page_range(page_number, on_each_side=3, on_ends=2)
     page_obj = paginator.get_page(page_number)
 

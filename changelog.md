@@ -3,6 +3,11 @@
 
 # Changelog
 
+
+## 01-2025
+* [added] Added carousel for media files in the detail view
+* [changed] Logging in taxon worker
+
 ## 12-2024
 
 * [added] Merge identity
