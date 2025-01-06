@@ -934,12 +934,12 @@ class SumavaInitialProcessing:
         if self.num_cores > 1:
             datetime_list = Parallel(n_jobs=self.num_cores)(
                 delayed(get_datetime_from_exif_or_ocr)(full_path, exif)
-                for full_path, exif in tqdm(zip(full_paths, exifs), desc="datetime from EXIF or OCR parallel")
+                for full_path, exif in tqdm(list(zip(full_paths, exifs)), desc="datetime from EXIF or OCR parallel")
             )
         else:
             datetime_list = [
                 get_datetime_from_exif_or_ocr(full_path, exif)
-                for full_path, exif in tqdm(zip(full_paths, exifs), desc="datetime from EXIF or OCR")
+                for full_path, exif in tqdm(list(zip(full_paths, exifs)), desc="datetime from EXIF or OCR")
             ]
 
         datetime_list, error_list, source_list = zip(*datetime_list)
@@ -1251,6 +1251,7 @@ def analyze_dataset_directory(
     df.loc[:, "sequence_number"] = None
 
     df = add_column_with_lynx_id(df, contain_identities=contains_identities)
+    # hashing file names
     df, hashes = find_unique_names_between_duplicate_files(
         df, basedir=Path(dataset_dir_path), num_cores=num_cores
     )
@@ -1323,7 +1324,7 @@ def data_preprocessing(
     extract_archive(zip_path, output_dir=tmp_dir)
 
     logger.debug(f"analyze dataset directory: {tmp_dir=}")
-    # create metadata directory
+    # create metadata directory, hashing file names
     df, duplicates = analyze_dataset_directory(
         tmp_dir, num_cores=num_cores, contains_identities=contains_identities
     )

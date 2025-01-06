@@ -38,12 +38,12 @@ RUN uv pip install --no-cache-dir --upgrade pip build && \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/* /tmp/* /var/tmp/*
 RUN uv pip install https://github.com/BohemianVRA/FGVC/releases/download/v1.5.4-dev/fgvc-1.5.4.dev0-py3-none-any.whl
 
-COPY ./src/api/start_dev.sh /api/start_dev.sh
-
 RUN uv pip install pytz --upgrade
 RUN uv pip install tzdata --upgrade
 
 RUN uv pip install openpyxl
+
+COPY ./src/api/start_dev.sh /api/start_dev.sh
 
 # expose ports and run application
 WORKDIR $APP_DIR

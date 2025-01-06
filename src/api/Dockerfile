@@ -7,27 +7,43 @@ RUN apt-get update --yes &&  \
     wget \
     unzip \
     ffmpeg \
+    curl \
     gdal-bin && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# This approximately follows this guide: https://hynek.me/articles/docker-uv/
+# Which creates a standalone environment with the dependencies.
+# - Silence uv complaining about not being able to use hard links,
+# - tell uv to byte-compile packages for faster application startups,
+# - prevent uv from accidentally downloading isolated Python builds,
+# - pick a Python (use `/usr/bin/python3.12` on uv 0.5.0 and later),
+# - and finally declare `/app` as the target for `uv sync`.
+ENV UV_LINK_MODE=copy \
+    UV_COMPILE_BYTECODE=1 \
+    UV_PYTHON_DOWNLOADS=never \
+    UV_PROJECT_ENVIRONMENT=/code/.venv
+
+COPY --from=ghcr.io/astral-sh/uv:0.5.2 /uv /uvx /bin/
+
+RUN uv venv /code/.venv
+ENV PATH="/code/.venv/bin:$PATH"
 
 COPY ./src/api/requirements.txt /api/requirements.txt
 
 # install python dependencies
 ENV APP_DIR='/api'
 WORKDIR $APP_DIR
-RUN pip install --no-cache-dir --upgrade pip build && \
-    pip install --no-cache-dir --compile -r requirements.txt && \
+RUN uv pip install --no-cache-dir --upgrade pip build && \
+    uv pip install --no-cache-dir --compile --prerelease=allow -r requirements.txt && \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/* /tmp/* /var/tmp/*
-RUN pip install https://github.com/BohemianVRA/FGVC/releases/download/v1.5.4-dev/fgvc-1.5.4.dev0-py3-none-any.whl
+RUN uv pip install https://github.com/BohemianVRA/FGVC/releases/download/v1.5.4-dev/fgvc-1.5.4.dev0-py3-none-any.whl
 
+RUN uv pip install pytz --upgrade
+RUN uv pip install tzdata --upgrade
 
-RUN pip install pytz --upgrade
-RUN pip install tzdata --upgrade
-
-RUN pip install openpyxl
+RUN uv pip install openpyxl
 
 COPY ./src/api /api
-
 
 # expose ports and run application
 WORKDIR $APP_DIR
