@@ -189,6 +189,7 @@ def detect_animals_in_images(
     for i in range(0, len(images_rgb), batch_size):
         batch = images_rgb[i : i + batch_size]
 
+        # here is the problem, because
         results = DETECTION_MODEL(batch)
         id2label = results.names
         if pbar is not None:

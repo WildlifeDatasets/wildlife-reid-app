@@ -208,11 +208,12 @@ def create_image_from_video(
             # detect
             predictions = []
 
-            # for frame_id, image in enumerate(images):
-            #     prediction = detect_animals_in_one_image(image)
-            detections_per_frame = inference_detection.detect_animals_in_images(
-                images, batch_size=8, pbar=pbar)
-            for frame_id, prediction in enumerate(detections_per_frame):
+            for frame_id, image in enumerate(images):
+                prediction = detect_animals_in_one_image(image)
+                pbar.update(1.0 / len_images)
+            # detections_per_frame = inference_detection.detect_animals_in_images(
+            #     images, batch_size=8, pbar=pbar)
+            # for frame_id, prediction in enumerate(detections_per_frame):
                 if prediction is not None:
                     # use only prediction with max confidence
                     # TODO: how to handle multiple detections in one image?
@@ -222,7 +223,6 @@ def create_image_from_video(
 
                     prediction["frame"] = frame_id
                 predictions.append(prediction)
-                # pbar.update(1.0/len_images)
 
             # check if any detection
             if len([1 for p in predictions if p is not None]) == 0:
