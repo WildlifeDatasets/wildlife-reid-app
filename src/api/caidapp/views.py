@@ -169,6 +169,7 @@ def message_view(request, message, headline=None, link=None, button_label="Ok"):
     )
 
 
+@login_required
 def uploadedarchive_mediafiles(request, uploadedarchive_id):
     """List of uploads."""
     uploadedarchive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
@@ -240,6 +241,7 @@ def show_taxons(request):
     )
 
 
+@login_required
 def update_taxon(request, taxon_id: Optional[int] = None):
     """Update species form. Create taxon if taxon_id is None."""
     if taxon_id is not None:
@@ -297,6 +299,7 @@ def get_filtered_mediafiles(
     )
 
 
+@login_required
 def uploads_species(request) -> HttpResponse:
     """View for mediafiles with contains_single_taxon=False and taxon_for_identification__isnull=True."""
     queryset = get_filtered_mediafiles(
@@ -326,6 +329,7 @@ def uploads_species(request) -> HttpResponse:
     )
 
 
+@login_required
 def uploads_known_identities(request) -> HttpResponse:
     """View for mediafiles with contains_identities=True."""
     queryset = get_filtered_mediafiles(
@@ -344,6 +348,7 @@ def uploads_known_identities(request) -> HttpResponse:
     )
 
 
+@login_required
 def uploads_identities(request) -> HttpResponse:
     """View for mediafiles not in other categories."""
     queryset = get_filtered_mediafiles(
@@ -379,118 +384,6 @@ def paginate_queryset(queryset, request):
 
     return page_context
 
-### new is above
-#
-# def uploads_identities(request) -> HttpResponse:
-#     """List of uploads."""
-#     page_context = _uploads_general(request, taxon_for_identification__isnull=False, contains_identities=False)
-#
-#     return render(
-#         request,
-#         "caidapp/uploads_identities.html",
-#         context={
-#             **page_context,
-#             # "page_obj": page_obj,
-#             # "elided_page_range": elided_page_range,
-#             "btn_styles": _single_species_button_style(request),
-#         },
-#     )
-#
-# def uploads_known_identities(request) -> HttpResponse:
-#     """List of uploads."""
-#     page_context = _uploads_general(request, taxon_for_identification__isnull=False, contains_identities=True)
-#
-#     return render(
-#         request,
-#         "caidapp/uploads_known_identities.html",
-#         context={
-#             **page_context,
-#             # "page_obj": page_obj,
-#             # "elided_page_range": elided_page_range,
-#             "btn_styles": _single_species_button_style(request),
-#         },
-#     )
-#
-#
-#
-# def uploads_species(request) -> HttpResponse:
-#     """List of uploads."""
-#     page_context = _uploads_general(request, contains_single_taxon=False)
-#
-#     dates = views_uploads._get_check_dates(
-#         request, contains_single_taxon=False, taxon_for_identification__isnull=None
-#     )
-#     sorted_grouped_dates = views_uploads._get_grouped_dates(dates)
-#
-#     # get list of years
-#     years = list(sorted_grouped_dates.keys())
-#
-#     btn_styles, btn_tooltips = _multiple_species_button_style_and_tooltips(request)
-#     return render(
-#         request,
-#         "caidapp/uploads_species.html",
-#         {
-#             **page_context,
-#             "btn_styles": btn_styles,
-#             "btn_tooltips": btn_tooltips,
-#             "years": years,
-#         },
-#     )
-#
-#
-#
-# def _uploads_general(
-#     request,
-#     contains_single_taxon: Optional[bool] = None,
-#     taxon_for_identification__isnull: Optional[bool] = None,
-#     contains_identities: Optional[bool] = None,
-#     **filter_params,
-# ):
-#     """List of uploads.
-#
-#     taxon_for_identification__isnull: bool - True taxon classification, False - identification
-#     contains_identitis: bool - contain identities only - go to separate view for known identities base dataset
-#     """
-#
-#     order_by = uploaded_archive_get_order_by(request)
-#     uploadedarchives = UploadedArchive.objects.annotate(**_uploads_general_order_annotation())
-#     if filter_params is None:
-#         filter_params = {}
-#
-#     if taxon_for_identification__isnull is not None:
-#         filter_params.update(
-#             dict(taxon_for_identification__isnull=taxon_for_identification__isnull)
-#         )
-#     else:
-#         if contains_single_taxon is not None:
-#             filter_params.update(dict(contains_single_taxon=contains_single_taxon))
-#         if contains_identities is not None:
-#             filter_params.update(dict(contains_identities=contains_identities))
-#
-#     uploadedarchives = (
-#         uploadedarchives.all()
-#         .filter(
-#             **get_content_owner_filter_params(request.user.caiduser, "owner"),
-#             **filter_params
-#             # contains_single_taxon=contains_single_taxon,
-#             # taxon_for_identification__isnull=taxon_for_identification__isnull,
-#             # parent__owner=request.user.caiduser
-#         )
-#         .all()
-#         .order_by(order_by)
-#     )
-#     logger.debug(f"{uploadedarchives.count()=}")
-#
-#     records_per_page = get_item_number_uploaded_archives(request)
-#     paginator = Paginator(uploadedarchives, per_page=records_per_page)
-#     _, _, page_context = _prepare_page(paginator, request=request)
-#
-#     # go over all items in the paginator
-#     for uploadedarchive in page_context["page_obj"]:
-#         uploadedarchive.update_status()
-#
-#     return page_context
-
 
 def _uploads_general_order_annotation():
     # for UploadedArchive.objects.annotate()
@@ -503,6 +396,7 @@ def _uploads_general_order_annotation():
     )
 
 
+@login_required
 def select_reid_model(request):
     """Select reid model."""
     form = forms.UserIdentificationModelForm()
@@ -575,6 +469,7 @@ def logout_view(request):
     return redirect("caidapp:index")
 
 
+@login_required
 def individual_identities(request):
     """List of individual identities."""
     individual_identities = (
@@ -596,6 +491,7 @@ def individual_identities(request):
     )
 
 
+@login_required
 def new_individual_identity(request):
     """Create new individual_identity."""
     if request.method == "POST":
@@ -615,6 +511,7 @@ def new_individual_identity(request):
     )
 
 
+@login_required
 def update_individual_identity(request, individual_identity_id):
     """Show and update media file."""
     individual_identity = get_object_or_404(
@@ -654,6 +551,7 @@ def update_individual_identity(request, individual_identity_id):
     )
 
 
+@login_required
 def delete_individual_identity(request, individual_identity_id):
     """Delete individual identity if it belongs to the user."""
     individual_identity = get_object_or_404(
@@ -664,6 +562,7 @@ def delete_individual_identity(request, individual_identity_id):
     individual_identity.delete()
     return redirect("caidapp:individual_identities")
 
+@login_required
 def get_individual_identity_zoomed_by_identity(request, foridentification_id: int, identity_id: int):
     foridentifications = MediafilesForIdentification.objects.filter(
         mediafile__parent__owner__workgroup=request.user.caiduser.workgroup
@@ -699,11 +598,14 @@ def get_individual_identity_zoomed_by_identity(request, foridentification_id: in
         },
     )
 
+
+@login_required
 def get_individual_identity_zoomed_paired_points(request, foridentification_id: int, reid_suggestion_id: int):
     """Show detail with paired points."""
     return get_individual_identity_zoomed(request, foridentification_id, reid_suggestion_id, points=True)
 
 
+@login_required
 def get_individual_identity_zoomed(request, foridentification_id: int, reid_suggestion_id: int, points=False):
     """Show and update media file."""
     foridentifications = MediafilesForIdentification.objects.filter(
@@ -796,38 +698,7 @@ def get_individual_identity_zoomed(request, foridentification_id: int, reid_sugg
     )
 
 
-# def _select_pair_for_detail_identification(foridentification:models.MediafilesForIdentification, reid_suggestion_id):
-#     # get identification suggestion by reid_suggestion_id
-#     reid_suggestion = foridentification.
-#     # get order of the suggestion in r
-#
-#     # modulo
-#     if reid_suggestion_id == 0:
-#         reid_suggestion_id = 3
-#     elif reid_suggestion_id == 4:
-#         reid_suggestion_id = 1
-#     if reid_suggestion_id == 1:
-#         top_mediafile = foridentification.top1mediafile
-#         top_score = foridentification.top1score
-#         top_name = foridentification.top1name
-#     elif reid_suggestion_id == 2:
-#         top_mediafile = foridentification.top2mediafile
-#         top_score = foridentification.top2score
-#         top_name = foridentification.top2name
-#     elif reid_suggestion_id == 3:
-#         top_mediafile = foridentification.top3mediafile
-#         top_score = foridentification.top3score
-#         top_name = foridentification.top3name
-#     else:
-#         HttpResponseBadRequest("Wrong reid_suggestion_id.")
-#
-#     if (reid_suggestion_id - 1) < len(foridentification.paired_points):
-#         paired_points = foridentification.paired_points[reid_suggestion_id - 1]
-#     else:
-#         paired_points = [[], []]
-#     return reid_suggestion_id, top_mediafile, top_name, top_score, paired_points
-
-
+@login_required
 def not_identified_mediafiles(request):
     """View for mediafiles with individualities that are not identified."""
     foridentification_set = MediafilesForIdentification.objects.filter(
@@ -846,6 +717,7 @@ def not_identified_mediafiles(request):
     )
 
 
+@login_required
 def get_individual_identity_from_foridentification(
     request, foridentification_id: Optional[int] = None, media_file_id: Optional[int] = None
 ):
@@ -925,6 +797,7 @@ def get_individual_identity_from_foridentification(
     )
 
 
+@login_required
 def remove_foridentification(request, foridentification_id: int):
     """Remove mediafile from list for identification."""
     foridentification = get_object_or_404(
@@ -936,6 +809,7 @@ def remove_foridentification(request, foridentification_id: int):
     return redirect("caidapp:get_individual_identity")
 
 
+@login_required
 def set_individual_identity(
     request, mediafiles_for_identification_id: int, individual_identity_id: int
 ):
@@ -987,6 +861,7 @@ def run_taxon_classification(request, uploadedarchive_id, force_init=False):
 #     return redirect("/caidapp/uploads")
 
 
+@login_required
 def init_identification(request, taxon_str: str = "Lynx lynx"):
     """Run processing of uploaded archive."""
     # check if user is workgroup admin
@@ -1119,6 +994,7 @@ def _single_species_button_style(request) -> dict:
     return btn_styles
 
 
+@login_required
 def run_identification_on_unidentified(request):
     """Run identification in all uploaded archives."""
     workgroup = request.user.caiduser.workgroup
@@ -1142,6 +1018,7 @@ def run_identification_on_unidentified(request):
     return redirect(request.META.get("HTTP_REFERER", "/"))
 
 
+@login_required
 def run_identification(request, uploadedarchive_id):
     """Run identification of uploaded archive."""
     uploaded_archive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
@@ -1223,6 +1100,7 @@ def _run_identification(
     return redirect("caidapp:uploads_identities")
 
 
+@login_required
 def new_album(request):
     """Create new album."""
     if request.method == "POST":
@@ -1241,6 +1119,7 @@ def new_album(request):
     )
 
 
+@login_required
 def album_update(request, album_hash):
     """Show and update media file."""
     album = get_object_or_404(Album, hash=album_hash)
@@ -1260,6 +1139,7 @@ def album_update(request, album_hash):
     )
 
 
+@login_required
 def delete_album(request, album_hash):
     """Delete album if it belongs to the user."""
     album = get_object_or_404(Album, hash=album_hash)
@@ -1268,6 +1148,7 @@ def delete_album(request, album_hash):
     return redirect("caidapp:albums")
 
 
+@login_required
 def upload_archive(
     request,
     contains_single_taxon=False,
@@ -1478,6 +1359,7 @@ def break_cloud_import_view(request):
     return redirect("caidapp:cloud_import_preview")
 
 
+@login_required
 def localities_view(request):
     """List of localities."""
     localities = get_all_relevant_localities(request)
@@ -1485,6 +1367,7 @@ def localities_view(request):
     return render(request, "caidapp/localities.html", {"localities": localities})
 
 
+@login_required
 def update_uploadedarchive(request, uploadedarchive_id):
     """Show and update uploaded archive."""
     uploaded_archive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
@@ -1755,6 +1638,7 @@ def _page_number(request, page_number: int) -> int:
     return page_number
 
 
+@login_required
 def update_mediafile_is_representative(request, mediafile_hash: str, is_representative: bool):
     """Update mediafile is_representative."""
     mediafile = get_object_or_404(MediaFile, hash=mediafile_hash)
@@ -1808,6 +1692,7 @@ def _merge_form_filter_kwargs_with_filter_kwargs(
     return filter_kwargs, exclude_filter_kwargs
 
 
+@login_required
 def media_files_update(
     request,
     records_per_page: Optional[int] = None,
@@ -2062,6 +1947,7 @@ def media_files_update(
 from dateutil.relativedelta import relativedelta  # Import relativedelta
 
 
+@login_required
 def change_mediafiles_datetime(request):
     """Change time of media files."""
     next_url = request.GET.get("next_url", None)
@@ -2118,6 +2004,7 @@ def change_mediafiles_datetime(request):
     )
 
 
+@login_required
 def mediafiles_stats_view(request):
     """Show mediafiles stats."""
     mediafile_ids = request.session.get("mediafile_ids", [])
@@ -2167,6 +2054,7 @@ def select_taxon_for_identification(request, uploadedarchive_id: int):
     )
 
 
+@login_required
 def create_new_album(request, name="New Album"):
     """Create new album."""
     album = Album()
@@ -2176,6 +2064,7 @@ def create_new_album(request, name="New Album"):
     return album
 
 
+@login_required
 def workgroup_update(request, workgroup_hash: str):
     """Update workgroup."""
     workgroup = get_object_or_404(WorkGroup, hash=workgroup_hash)
@@ -2247,33 +2136,7 @@ def _update_csv_by_uploadedarchive(request, uploadedarchive_id: int):
     return False
 
 
-# def _generate_csv(request, uploadedarchive_id: int):
-#     uploaded_archive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
-#     output_dir = Path(settings.MEDIA_ROOT) / uploaded_archive.outputdir
-#     output_metadata_file = output_dir / "metadata.csv"
-#     output_archive_file = output_dir / "images.zip"
-#     mediafiles = MediaFile.objects.filter(parent=uploaded_archive).all()
-#     csv_len = len(mediafiles)
-#     csv_data = {
-#         "image_path": [None] * csv_len,
-#         "class_id": [None] * csv_len,
-#         "label": [None] * csv_len,
-#     }
-#
-#     media_root = Path(settings.MEDIA_ROOT)
-#     logger.debug(f"number of records={len(mediafiles)}")
-#     for i, mediafile in enumerate(mediafiles):
-#
-#         # if mediafile.identity is not None:
-#         csv_data["image_path"][i] = str(media_root / mediafile.mediafile.name)
-#         csv_data["class_id"][i] = int(mediafile.identity.id)
-#         csv_data["label"][i] = str(mediafile.identity.name)
-#
-#     pd.DataFrame(csv_data).to_csv(output_metadata_file, index=False)
-#
-#     return output_metadata_file, output_archive_file
-
-
+@login_required
 def download_uploadedarchive_images(request, uploadedarchive_id: int):
     """Download uploaded file."""
     uploaded_archive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
@@ -2295,6 +2158,7 @@ def download_uploadedarchive_images(request, uploadedarchive_id: int):
         return redirect("/caidapp/uploads")
 
 
+@login_required
 def download_uploadedarchive_csv(request, uploadedarchive_id: int):
     """Download uploaded file."""
     # get mediaifles_ids based on uplodedarchive id
@@ -2341,6 +2205,7 @@ def _get_mediafiles(request, uploadedarchive_id: Optional[int]) -> Tuple[QuerySe
     return mediafiles, name_suggestion
 
 
+@login_required
 def download_csv_for_mediafiles_view(request, uploadedarchive_id: Optional[int] = None):
     """Download csv for media files."""
     mediafiles, name_suggestion = _get_mediafiles(request, uploadedarchive_id)
@@ -2359,6 +2224,7 @@ def download_csv_for_mediafiles_view(request, uploadedarchive_id: Optional[int] 
     return response
 
 
+@login_required
 def download_xlsx_for_mediafiles_view(request, uploadedarchive_id: Optional[int] = None):
     """Download xlsx for media files."""
     mediafiles, name_suggestion = _get_mediafiles(request, uploadedarchive_id)
@@ -2389,6 +2255,7 @@ def download_xlsx_for_mediafiles_view(request, uploadedarchive_id: Optional[int]
     return response
 
 
+@login_required
 def download_zip_for_mediafiles_view(request, uploadedarchive_id: Optional[int] = None) -> JsonResponse:
     """Download zip for media files."""
     mediafiles, name_suggestion = _get_mediafiles(request, uploadedarchive_id)
@@ -2413,39 +2280,8 @@ def download_zip_for_mediafiles_view(request, uploadedarchive_id: Optional[int] 
     return JsonResponse({"task_id": task.id})
 
 
-# def download_zip_for_mediafiles_view_old(request, uploadedarchive_id: Optional[int] = None):
-#     """Download zip for media files."""
-#     mediafiles, name_suggestion = _get_mediafiles(request, uploadedarchive_id)
-#     fn = ("mediafiles_" + name_suggestion) if name_suggestion is not None else "mediafiles"
-#     # number_of_mediafiles = len(mediafiles)
-#
-#     abs_zip_path = (
-#         Path(settings.MEDIA_ROOT) / "users" / request.user.caiduser.hash / "mediafiles.zip"
-#     )
-#     abs_zip_path.parent.mkdir(parents=True, exist_ok=True)
-#     # get temp dir
-#     import tempfile
-#
-#     with tempfile.TemporaryDirectory() as tmpdirname:
-#         mediafiles_dir = Path(tmpdirname) / "images"
-#         mediafiles_dir.mkdir()
-#         for mediafile in mediafiles:
-#             # output_name = Path(mediafile.mediafile.name).name
-#             output_name = _make_output_name(mediafile)
-#             # get mediafile name with suffix
-#             src = Path(settings.MEDIA_ROOT) / mediafile.mediafile.name
-#             dst = mediafiles_dir / output_name
-#             logger.debug(f"{src=}, {dst=}")
-#             assert src.exists()
-#             shutil.copy(src, dst)
-#         tasks.make_zipfile(abs_zip_path, mediafiles_dir)
-#     with open(abs_zip_path, "rb") as fh:
-#         response = HttpResponse(fh.read(), content_type="application/zip")
-#         response["Content-Disposition"] = f"inline; filename={fn}.zip"
-#         return response
-#
-#     return Http404
 
+@login_required
 def check_zip_status_view(request, task_id):
     """Check the status of the zip creation task."""
 
@@ -2495,6 +2331,7 @@ def _generate_new_hash_for_localities():
         locality.save()
 
 
+@login_required
 def refresh_data(request):
     """Update new calculations for formerly uploaded archives."""
     uploaded_archives = UploadedArchive.objects.all()
@@ -2572,6 +2409,7 @@ def get_item_number_uploaded_archives(request):
     return item_number
 
 
+@login_required
 def switch_private_mode(request):
     """Switch private mode."""
     actual_mode = request.session.get("private_mode", False)
