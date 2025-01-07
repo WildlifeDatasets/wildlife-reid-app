@@ -172,6 +172,61 @@ def detect_animals_in_one_image(image_rgb: np.ndarray) -> Optional[List[Dict[str
 
     return results_list
 
+def detect_animals_in_images(
+    images_rgb: List[np.ndarray],
+    batch_size: int = 1,
+    pbar: Optional[tqdm] = None,
+) -> List[Optional[List[Dict[str, Any]]]]:
+    """Detect animals in a list of images."""
+    global DETECTION_MODEL
+
+    if DETECTION_MODEL is None:
+        DETECTION_MODEL = get_detection_model()
+
+    all_detections = []
+
+    # split images into batches
+    for i in range(0, len(images_rgb), batch_size):
+        batch = images_rgb[i : i + batch_size]
+
+        results = DETECTION_MODEL(batch)
+        id2label = results.names
+        if pbar is not None:
+            pbar.update(float(len(batch)) /  len(images_rgb))
+
+        # results.xyxy is list of tensors, each tensor contains detections for one image in batch.
+        for idx, single_result in enumerate(results.xyxy):
+            # frame_id is the index of the frame in the original list of images
+            frame_id = i + idx
+
+            detections_np = single_result.cpu().numpy()
+
+            if len(detections_np) == 0:
+                # Pokud jsme nic nedetekovali, uložíme None
+                all_detections.append(None)
+                continue
+
+            current_image_detections = []
+            for det in detections_np:
+                # det je ve formátu [x1, y1, x2, y2, confidence, class_id]
+                bbox = list(map(int, det[:4].tolist()))
+                conf = float(det[4])
+                class_name = id2label[int(det[5])]
+
+                detection_dict = {
+                    "bbox": bbox,
+                    "confidence": conf,
+                    "class": class_name,
+                    "size": batch[idx].shape[:2],  # (height, width)
+                    "frame": frame_id,            # přidáváme pořadí snímku
+                }
+                current_image_detections.append(detection_dict)
+
+            all_detections.append(current_image_detections)
+
+    return all_detections
+
+
 
 def human_annonymization(rgb_image: np.ndarray, bboxes: List[List[int]]) -> np.ndarray:
     """Annonymize humans in the image."""
