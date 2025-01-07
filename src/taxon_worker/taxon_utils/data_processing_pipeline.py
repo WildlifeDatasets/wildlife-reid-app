@@ -3,7 +3,7 @@ import logging
 import shutil
 import traceback
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Union
 
 import cv2
 import numpy as np
@@ -452,23 +452,25 @@ def make_thumbnail_from_file(image_path: Path, thumbnail_path: Path, width: int 
         return False
 
 
-def convert_to_mp4(input_video_path, output_video_path):
+def convert_to_mp4(input_video_path: Union[str, Path], output_video_path: Union[str, Path], force: bool = False):
     """Convert video to MP4 format using H.264 video codec and AAC audio codec."""
     import os.path
     import subprocess
+    input_video_path = str(input_video_path)
+    output_video_path = str(output_video_path)
 
     # Check if input file exists
     if not os.path.exists(input_video_path):
         raise FileNotFoundError(f"The input file '{input_video_path}' does not exist.")
     if os.path.exists(output_video_path):
-        logger.warning(f"The output file '{output_video_path}' already exists. Overwriting.")
+        logger.warning(f"The output file '{output_video_path}' already exists. Force overwrite={force}.")
 
     # ffmpeg command to convert video to MP4 (H.264 + AAC)
     command = [
         "ffmpeg",
-        "-y",  # Overwrite output file if it exists
+        # "-y",  # Overwrite output file if it exists
         "-i",
-        input_video_path,  # Input video file
+        str(input_video_path),  # Input video file
         "-c:v",
         "libx264",  # Set the video codec to H.264
         "-c:a",
@@ -477,8 +479,11 @@ def convert_to_mp4(input_video_path, output_video_path):
         "192k",  # Audio bitrate (you can adjust this)
         "-strict",
         "experimental",  # For using AAC
-        output_video_path,  # Output video file
+        str(output_video_path),  # Output video file
     ]
+    if force:
+        # Overwrite output file if it exists
+        command.insert(1, "-y")
 
     try:
         # Run the ffmpeg command
