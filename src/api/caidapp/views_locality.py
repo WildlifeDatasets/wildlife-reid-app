@@ -16,9 +16,8 @@ from . import forms, model_tools
 from .forms import LocalityForm
 from .model_extra import (
     prepare_dataframe_for_uploads_in_one_locality,
-    user_has_rw_acces_to_uploadedarchive,
-)
-from .models import Locality, UploadedArchive, get_content_owner_filter_params, MediaFile
+    user_has_rw_acces_to_uploadedarchive, )
+from .models import Locality, UploadedArchive, MediaFile, user_has_access_filter_params
 from . import models
 
 logger = logging.getLogger("app")
@@ -41,7 +40,7 @@ def delete_locality(request, locality_id):
     get_object_or_404(
         Locality,
         pk=locality_id,
-        **get_content_owner_filter_params(request.user.caiduser, "owner"),
+        **user_has_access_filter_params(request.user.caiduser, "owner"),
     ).delete()
     return redirect("caidapp:manage_localities")
 
@@ -56,7 +55,7 @@ def update_locality(request, locality_id=None):
         locality = get_object_or_404(
             Locality,
             pk=locality_id,
-            **get_content_owner_filter_params(request.user.caiduser, "owner"),
+            **user_has_access_filter_params(request.user.caiduser, "owner"),
         )
     if request.method == "POST":
         form = LocalityForm(request.POST, instance=locality)
@@ -94,7 +93,7 @@ def manage_localities(request):
     LocalityFormSet = modelformset_factory(
         Locality, fields=("name",), can_delete=False, can_order=False
     )
-    params = get_content_owner_filter_params(request.user.caiduser, "owner")
+    params = user_has_access_filter_params(request.user.caiduser, "owner")
     formset = LocalityFormSet(queryset=Locality.objects.filter(**params))
 
     if request.method == "POST":
@@ -128,7 +127,7 @@ def _set_localities_to_mediafiles_of_uploadedarchive(
 def export_localities_view(request):
     """Export localities."""
     localities = Locality.objects.filter(
-        **get_content_owner_filter_params(request.user.caiduser, "owner")
+        **user_has_access_filter_params(request.user.caiduser, "owner")
     )
     df = pd.DataFrame.from_records(localities.values())[["name", "location"]]
     response = HttpResponse(df.to_csv(encoding="utf-8"), content_type="text/csv")
@@ -139,7 +138,7 @@ def export_localities_view(request):
 def export_localities_view_xls(request):
     """Export localities."""
     localities = Locality.objects.filter(
-        **get_content_owner_filter_params(request.user.caiduser, "owner")
+        **user_has_access_filter_params(request.user.caiduser, "owner")
     )
     df = pd.DataFrame.from_records(localities.values())[["name", "location"]]
 
@@ -219,7 +218,7 @@ def uploads_of_locality(request, locality_hash):
     locality = get_object_or_404(
         Locality,
         hash=locality_hash,
-        **get_content_owner_filter_params(request.user.caiduser, "owner"),
+        **user_has_access_filter_params(request.user.caiduser, "owner"),
     )
     uploaded_archives = locality.uploadedarchive_set.all()
     return render(
@@ -234,7 +233,7 @@ def download_records_from_locality_csv_view(request, locality_hash):
     locality = get_object_or_404(
         Locality,
         hash=locality_hash,
-        **get_content_owner_filter_params(request.user.caiduser, "owner"),
+        **user_has_access_filter_params(request.user.caiduser, "owner"),
     )
 
     df = prepare_dataframe_for_uploads_in_one_locality(locality.id)
@@ -248,7 +247,7 @@ def download_records_from_locality_xls_view(request, locality_hash):
     location = get_object_or_404(
         Locality,
         hash=locality_hash,
-        **get_content_owner_filter_params(request.user.caiduser, "owner"),
+        **user_has_access_filter_params(request.user.caiduser, "owner"),
     )
 
     df = prepare_dataframe_for_uploads_in_one_locality(location.id)

@@ -873,33 +873,13 @@ def get_locality(caiduser: CaIDUser, name: str) -> Union[Locality,None]:
 
     objs = Locality.objects.filter(
         name=name,
-        **get_content_owner_filter_params(caiduser, "owner"))
+        **user_has_access_filter_params(caiduser, "owner"))
     if len(objs) == 0:
         location = Locality(name=name, owner=caiduser)
         location.save()
     else:
         location = objs[0]
     return location
-
-
-def get_content_owner_filter_params(ciduser: CaIDUser, prefix: str) -> dict:
-    """Parameters for filtering user content based on existence of workgroup.
-
-    Parameters
-    ----------
-    request : HttpRequest
-        Request object.
-    prefix : str
-        Prefix for filtering with ciduser.
-        If the filter will be used in MediaFile, the prefix should be "parent__owner".
-        If the filter will be used in Location or UploadedArchive, the prefix should be "owner".
-    """
-    if ciduser.workgroup:
-        # filter_params = dict(parent__owner__workgroup=request.user.caiduser.workgroup)
-        filter_params = {f"{prefix}__workgroup": ciduser.workgroup}
-    else:
-        filter_params = {f"{prefix}": ciduser}
-    return filter_params
 
 
 @receiver(models.signals.post_delete, sender=UploadedArchive)
@@ -929,7 +909,7 @@ def get_mediafiles_with_missing_taxon(
     not_classified_taxon = get_taxon("Not Classified")
     animalia_taxon = get_taxon("Animalia")
 
-    kwargs_filter = get_content_owner_filter_params(caiduser, "parent__owner")
+    kwargs_filter = user_has_access_filter_params(caiduser, "parent__owner")
     if uploadedarchive is not None:
         kwargs["parent"] = uploadedarchive
 
@@ -949,7 +929,7 @@ def get_mediafiles_with_missing_verification(
     caiduser: CaIDUser, uploadedarchive: Optional[UploadedArchive] = None, **kwargs
 ) -> QuerySet:
     """Return media files with missing taxon verification."""
-    kwargs_filter = get_content_owner_filter_params(caiduser, "parent__owner")
+    kwargs_filter = user_has_access_filter_params(caiduser, "parent__owner")
     if uploadedarchive is not None:
         kwargs["parent"] = uploadedarchive
 
@@ -963,7 +943,7 @@ def get_mediafiles_with_missing_verification(
 
 def get_all_relevant_localities(request):
     """Get all users localities."""
-    params = get_content_owner_filter_params(request.user.caiduser, "owner")
+    params = user_has_access_filter_params(request.user.caiduser, "owner")
     # logger.debug(f"{params=}")
     localities = (
         Locality.objects.filter(**params)
@@ -972,3 +952,23 @@ def get_all_relevant_localities(request):
         .order_by("name")
     )
     return localities
+
+
+def user_has_access_filter_params(ciduser: CaIDUser, prefix: str) -> dict:
+    """Parameters for filtering user content based on existence of workgroup.
+
+    Parameters
+    ----------
+    request : HttpRequest
+        Request object.
+    prefix : str
+        Prefix for filtering with ciduser.
+        If the filter will be used in MediaFile, the prefix should be "parent__owner".
+        If the filter will be used in Location or UploadedArchive, the prefix should be "owner".
+    """
+    if ciduser.workgroup:
+        # filter_params = dict(parent__owner__workgroup=request.user.caiduser.workgroup)
+        filter_params = {f"{prefix}__workgroup": ciduser.workgroup}
+    else:
+        filter_params = {f"{prefix}": ciduser}
+    return filter_params

@@ -35,15 +35,15 @@ from celery.result import AsyncResult
 from django.shortcuts import get_object_or_404, render, redirect
 from django.views import View
 from django.urls import reverse_lazy
-from .models import IndividualIdentity, MediaFile, get_all_relevant_localities
+
+from .models import IndividualIdentity, MediaFile, get_all_relevant_localities, user_has_access_filter_params
 from .forms import IndividualIdentityForm
 from functools import wraps
 from django.shortcuts import redirect
 from django.core.exceptions import PermissionDenied
 
 
-
-from . import forms, model_tools, models, tasks, views_uploads, views_locality
+from . import forms, model_tools, models, tasks, views_uploads, views_locality, model_extra
 from .forms import (
     AlbumForm,
     IndividualIdentityForm,
@@ -68,7 +68,6 @@ from .models import (
     Taxon,
     UploadedArchive,
     WorkGroup,
-    get_content_owner_filter_params,
 )
 from .tasks import (
     _iterate_over_locality_checks,
@@ -294,7 +293,7 @@ def get_filtered_mediafiles(
     filter_params.update(extra_filters)
 
     return UploadedArchive.objects.annotate(**_uploads_general_order_annotation()).filter(
-        **get_content_owner_filter_params(user.caiduser, "owner"),
+        **user_has_access_filter_params(user.caiduser, "owner"),
         **filter_params
     )
 
@@ -423,7 +422,7 @@ def select_reid_model(request):
 
 
 def _multiple_species_button_style_and_tooltips(request) -> dict:
-    models.get_content_owner_filter_params(request.user.caiduser, "owner")
+    models.user_has_access_filter_params(request.user.caiduser, "owner")
     n_non_classified_taxons = len(models.get_mediafiles_with_missing_taxon(request.user.caiduser))
     n_missing_verifications = len(
         models.get_mediafiles_with_missing_verification(request.user.caiduser)
@@ -1494,6 +1493,8 @@ def _mediafiles_query(
     if order_by is None:
         order_by = request.session.get("mediafiles_order_by", "-parent__uploaded_at")
 
+    logger.debug(f"{filter_kwargs=}, {exclude_filter_kwargs=}, {order_by=}")
+
     mediafiles = MediaFile.objects.annotate(**_mediafiles_annotate())
     # mediafiles = (
     #     mediafiles.filter(
@@ -1545,6 +1546,7 @@ def _mediafiles_query(
         #     .distinct()
         #     .order_by(order_by)
         # )
+    logger.debug(f"{filter_kwargs=}, {exclude_filter_kwargs=}, {order_by=}")
     if locality_hash is not None:
         locality = get_object_or_404(Locality, hash=locality_hash)
         filter_kwargs.update(dict(locality=locality))
@@ -1557,12 +1559,18 @@ def _mediafiles_query(
         .values(order_by_safe)[:1]
     )
 
+    # ownership filter params
+    fkw = filter
     # Build the base query with the conditions that are always applied
     mediafiles = mediafiles.filter(
         Q(album__albumsharerole__user=request.user.caiduser)
-        | Q(parent__owner=request.user.caiduser),
+        | Q(
+            # parent__owner=request.user.caiduser
+            **models.user_has_access_filter_params(request.user.caiduser, "parent__owner")
+        ),
         **filter_kwargs,
     )
+    logger.debug(f"{len(mediafiles)=}")
 
     # Add workgroup filtering only if `request.user.caiduser.workgroup` is not None
     if request.user.caiduser.workgroup is not None:
@@ -1570,6 +1578,7 @@ def _mediafiles_query(
             Q(parent__owner__workgroup=request.user.caiduser.workgroup)
         )
 
+    logger.debug(f"{len(mediafiles)=}")
     # Apply the exclusion, annotations, and ordering
     mediafiles = (
         mediafiles
@@ -1578,6 +1587,7 @@ def _mediafiles_query(
         .annotate(first_image_order_by=Subquery(first_image_order_by))
         .order_by('first_image_order_by', 'sequence', 'captured_at')
     )
+    logger.debug(f"{len(mediafiles)=}")
 
     # mediafiles = (
     #     mediafiles.filter(
@@ -1762,9 +1772,11 @@ def media_files_update(
         .order_by("created_at")
     )
 
+    logger.debug(f"{filter_kwargs=}, {exclude_filter_kwargs=}, {form_filter_kwargs=}")
     filter_kwargs, exclude_filter_kwargs = _merge_form_filter_kwargs_with_filter_kwargs(
         filter_kwargs, exclude_filter_kwargs, form_filter_kwargs
     )
+    logger.debug(f"     after:    {filter_kwargs=}, {exclude_filter_kwargs=}")
     # logger.debug(f"{albums_available=}")
     # logger.debug(f"{query=}")
     # logger.debug(f"{queryform}")
@@ -1807,6 +1819,7 @@ def media_files_update(
         page_title = "Media files"
 
     number_of_mediafiles = len(full_mediafiles)
+    logger.debug(f"{number_of_mediafiles=}")
 
     request.session["mediafile_ids"] = list(full_mediafiles.values_list("id", flat=True))
     paginator = Paginator(full_mediafiles, per_page=records_per_page)
@@ -2760,7 +2773,7 @@ class PygWalkerLocalitiesView(PygWalkerView):
         # Access mediafile_ids from the session
         # mediafile_ids = request.session.get("mediafile_ids", [])
         # Filter MediaFile objects based on the retrieved IDs
-        params = get_content_owner_filter_params(request.user.caiduser, "owner")
+        params = user_has_access_filter_params(request.user.caiduser, "owner")
         # logger.debug(f"{params=}")
         # localities = (
         #     Locality.objects.filter(**params)

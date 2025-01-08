@@ -561,7 +561,11 @@
                     console.log(data);
                     if (data.success) {
                         // Update the page dynamically (e.g., hide the button or update text)
-                        button.textContent = 'Prediction Confirmed';
+                        button.textContent = '';
+                        button.innerHTML= '<i class="bi bi-check"></i>';
+                        button.classList.remove('btn-secondary');
+                        button.classList.add('btn-light');
+                        button.classList.add('disabled');
                         button.disabled = true;
                     } else {
                         console.error(data.message);

@@ -31,10 +31,9 @@ from .models import (
     MediafilesForIdentification,
     UploadedArchive,
     WorkGroup,
-    get_content_owner_filter_params,
     get_locality,
     get_taxon,
-    get_unique_name,
+    get_unique_name, user_has_access_filter_params,
 )
 
 # from joblib import Parallel, delayed
@@ -1272,7 +1271,7 @@ def _iterate_over_locality_checks(
     import re
     from itertools import chain
 
-    params = get_content_owner_filter_params(caiduser, "owner")
+    params = user_has_access_filter_params(caiduser, "owner")
     archives = [str(archive) for archive in UploadedArchive.objects.filter(**params)]
 
     paths_of_locality_check = chain(

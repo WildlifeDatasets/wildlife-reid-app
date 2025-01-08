@@ -5,7 +5,7 @@ from django.http import HttpResponse
 from django.shortcuts import render
 from django.utils import timezone
 
-from . import views
+from . import views, models
 from .models import UploadedArchive
 
 logger = logging.getLogger(__name__)
@@ -39,7 +39,7 @@ def _get_check_dates(
         filter_params = dict(taxon_for_identification__isnull=taxon_for_identification__isnull)
 
     uploaded_archives = UploadedArchive.objects.filter(
-        **views.get_content_owner_filter_params(request.user.caiduser, "owner"), **filter_params
+        **models.user_has_access_filter_params(request.user.caiduser, "owner"), **filter_params
     )
 
     # get the list of unique dates

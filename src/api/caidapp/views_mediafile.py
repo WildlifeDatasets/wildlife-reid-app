@@ -107,7 +107,7 @@ def missing_taxon_annotation(request, uploaded_archive_id: Optional[int] = None)
     return media_file_update(
         request,
         mediafile.id,
-        next_text="Save",
+        next_text="Save and show next",
         next_url=next_url,
         skip_url=skip_url,
         cancel_url=cancel_url,
@@ -168,7 +168,7 @@ def confirm_prediction(request, mediafile_id: int) -> JsonResponse:
             mediafile.category = mediafile.predicted_taxon
             mediafile.updated_at = timezone.now()
             mediafile.updated_by = request.user.caiduser
-            mediafile.taxon_verified = True
+            # mediafile.taxon_verified = True
             mediafile.save()
 
             return JsonResponse({"success": True, "message": "Prediction confirmed."})
@@ -197,14 +197,19 @@ def media_file_update(
             next_url = request.GET.get("next")
 
             if next_url is None:
-                next_url = reverse_lazy(
-                    "caidapp:uploadedarchive_mediafiles",
-                    kwargs={"uploadedarchive_id": mediafile.parent.id},
-                )
+                # stay here
+                next_url = reverse_lazy("caidapp:media_file_update", kwargs={"media_file_id": media_file_id})
+                # next_url = reverse_lazy(
+                #     "caidapp:uploadedarchive_mediafiles",
+                #     kwargs={"uploadedarchive_id": mediafile.parent.id},
+                # )
         if "confirmTaxonSubmit" in request.POST:
             confirm_prediction(request, media_file_id)
             # decode_json
-            return redirect(next_url)
+            # stay on the same page
+            actual_url = request.META.get("HTTP_REFERER", "/")
+
+            return redirect(actual_url)
 
         form = MediaFileForm(request.POST, instance=mediafile)
         if form.is_valid():
@@ -215,8 +220,8 @@ def media_file_update(
             mediafile = form.save()
             logger.debug(f"{mediafile.category=}")
             if (mediafile.category is not None) and (mediafile.category.name != "Not Classified"):
-                mediafile.taxon_verified = True
-                mediafile.taxon_verified_at = django.utils.timezone.now()
+                # mediafile.taxon_verified = True
+                # mediafile.taxon_verified_at = django.utils.timezone.now()
                 mediafile.save()
                 logger.debug(f"{mediafile.taxon_verified=}")
 
