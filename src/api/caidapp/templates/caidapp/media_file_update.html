@@ -3,35 +3,35 @@
 {# add style #}
 {% block head %}
     <style>
-/* Increase the size of the carousel control icons */
-.carousel-control-prev-icon,
-.carousel-control-next-icon {
-    background-color: rgba(0, 0, 0, 0.5); /* Semi-transparent background for better visibility */
-    background-size: 50%; /* Adjust the size of the arrow icon */
-    width: 3rem;
-    height: 3rem;
-    border-radius: 50%; /* Makes the control icons circular */
-}
+        /* Increase the size of the carousel control icons */
+        .carousel-control-prev-icon,
+        .carousel-control-next-icon {
+            background-color: rgba(0, 0, 0, 0.5); /* Semi-transparent background for better visibility */
+            background-size: 50%; /* Adjust the size of the arrow icon */
+            width: 3rem;
+            height: 3rem;
+            border-radius: 50%; /* Makes the control icons circular */
+        }
 
-/* Optional: Add a border around the icons */
-.carousel-control-prev-icon,
-.carousel-control-next-icon {
-    border: 2px solid white;
-}
+        /* Optional: Add a border around the icons */
+        .carousel-control-prev-icon,
+        .carousel-control-next-icon {
+            border: 2px solid white;
+        }
 
-/* Change the hover effect for the arrows */
-.carousel-control-prev:hover .carousel-control-prev-icon,
-.carousel-control-next:hover .carousel-control-next-icon {
-    background-color: rgba(0, 0, 0, 0.8); /* Darker background on hover */
-}
+        /* Change the hover effect for the arrows */
+        .carousel-control-prev:hover .carousel-control-prev-icon,
+        .carousel-control-next:hover .carousel-control-next-icon {
+            background-color: rgba(0, 0, 0, 0.8); /* Darker background on hover */
+        }
 
-/* Adjust the position of the arrows */
-.carousel-control-prev,
-.carousel-control-next {
-    top: 50%; /* Center the controls vertically */
-    transform: translateY(-50%);
-}
-</style>
+        /* Adjust the position of the arrows */
+        .carousel-control-prev,
+        .carousel-control-next {
+            top: 50%; /* Center the controls vertically */
+            transform: translateY(-50%);
+        }
+    </style>
 {% endblock %}
 {# add body #}
 
@@ -46,11 +46,14 @@
                     <nav>
                         <ol class="breadcrumb">
                             {% if mediafile.parent.contains_single_taxon %}
-                                <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads_identities' %}">Identities Uploads </a></li>
+                                <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads_identities' %}">Identities
+                                    Uploads </a></li>
                             {% else %}
-                                <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}"> Taxon Uploads</a></li>
-                            {%  endif %}
-                            <li class="breadcrumb-item"><a href="{% url 'caidapp:uploadedarchive_mediafiles' mediafile.parent.id %}"> Uploaded
+                                <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}"> Taxon Uploads</a>
+                                </li>
+                            {% endif %}
+                            <li class="breadcrumb-item"><a
+                                    href="{% url 'caidapp:uploadedarchive_mediafiles' mediafile.parent.id %}"> Uploaded
                                 Archive: {{ mediafile.parent }}</a></li>
                         </ol>
                     </nav>
@@ -100,50 +103,55 @@
             </div>
 
 
-        <div id="mediafileCarousel" class="carousel slide" >
-    <div class="carousel-inner">
-        {% for chunk in mediafile.sequence.mediafile_set.all|chunk:5 %}
-            <div class="carousel-item {% if forloop.first %}active{% endif %}">
-                <div class="d-flex justify-content-center">
-                    {% for sequence_mediafile in chunk %}
-                        <div class="m-2">
-                            <a href="{% url 'caidapp:media_file_update' sequence_mediafile.id %}">
-                                <img src="{{ sequence_mediafile.thumbnail.url }}" class="img-fluid" alt="Media Thumbnail" style="max-width: 100px;">
-                            </a>
-                        </div>
-                    {% endfor %}
-                </div>
-            </div>
-        {% endfor %}
-    </div>
+            {% if mediafile.sequence.mediafile_set.all|length > 1 %}
+                <div id="mediafileCarousel" class="carousel slide">
+                    <div class="carousel-inner">
+                        {% for chunk in mediafile.sequence.mediafile_set.all|chunk:5 %}
+                            <div class="carousel-item {% if forloop.first %}active{% endif %}">
+                                <div class="d-flex justify-content-center">
+                                    {% for sequence_mediafile in chunk %}
+                                        <div class="m-2">
+                                            <a href="{% url 'caidapp:media_file_update' sequence_mediafile.id %}">
+                                                <img src="{{ sequence_mediafile.thumbnail.url }}" class="img-fluid"
+                                                     alt="Media Thumbnail" style="max-width: 100px;">
+                                            </a>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
 
-    <!-- Carousel Controls -->
-    <button class="carousel-control-prev" type="button" data-bs-target="#mediafileCarousel" data-bs-slide="prev">
-        <span class="carousel-control-prev-icon" aria-hidden="true"></span>
-        <span class="visually-hidden">Previous</span>
-    </button>
-    <button class="carousel-control-next" type="button" data-bs-target="#mediafileCarousel" data-bs-slide="next">
-        <span class="carousel-control-next-icon" aria-hidden="true"></span>
-        <span class="visually-hidden">Next</span>
-    </button>
-</div>
+                    <!-- Carousel Controls -->
+                    <button class="carousel-control-prev" type="button" data-bs-target="#mediafileCarousel"
+                            data-bs-slide="prev">
+                        <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                        <span class="visually-hidden">Previous</span>
+                    </button>
+                    <button class="carousel-control-next" type="button" data-bs-target="#mediafileCarousel"
+                            data-bs-slide="next">
+                        <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                        <span class="visually-hidden">Next</span>
+                    </button>
+                </div>
+            {% endif %}
 
         </div><!-- End Page Title -->
-{#        {% if  mediafile.sequence.mediafile_set.all  > 1 %}#}
-{#               <div class="d-flex flex-row flex-wrap m-1" style="width:auto;">#}
-{##}
-{#                    {% for sequence_mediafile in mediafile.sequence.mediafile_set.all %}#}
-{#                        <a href="{% url 'caidapp:media_file_update' sequence_mediafile.id %}" class="m-1">#}
-{#                            <img src="{{ sequence_mediafile.thumbnail.url }}" class="img-fluid" alt="Camera trap image" style="max-width: 100px;">#}
-{#                        </a>#}
-{#                    {% endfor %}#}
-{##}
-{#                </div>#}
+        {#        {% if  mediafile.sequence.mediafile_set.all  > 1 %}#}
+        {#               <div class="d-flex flex-row flex-wrap m-1" style="width:auto;">#}
+        {##}
+        {#                    {% for sequence_mediafile in mediafile.sequence.mediafile_set.all %}#}
+        {#                        <a href="{% url 'caidapp:media_file_update' sequence_mediafile.id %}" class="m-1">#}
+        {#                            <img src="{{ sequence_mediafile.thumbnail.url }}" class="img-fluid" alt="Camera trap image" style="max-width: 100px;">#}
+        {#                        </a>#}
+        {#                    {% endfor %}#}
+        {##}
+        {#                </div>#}
 
-{#        {% endif %}#}
+        {#        {% endif %}#}
         <div class="section">
             <div class="row">
-{#                <div class="col-lg-4 col-xl-2">#}
+                {#                <div class="col-lg-4 col-xl-2">#}
                 <div class="col-auto">
                     <div class="card">
                         {#                <div class="card-header">#}
@@ -152,32 +160,37 @@
                             <div style="display: flex; justify-content: space-between">
                                 <form method="post" enctype="multipart/form-data" class="mt-3">
                                     {% csrf_token %}
-{#                                    {{ form }}#}
-{#                                                    {{ form.as_p }}#}
+                                    {#                                    {{ form }}#}
+                                    {#                                                    {{ form.as_p }}#}
                                     <div class="form-group">
                                         {% if mediafile.is_for_suggestion %}
                                             <div>
                                                 <i class="bi bi-question-circle"></i>
-                                                Is it {{ mediafile.predicted_taxon  }} ({{ mediafile.predicted_taxon_confidence|mul:100|floor|floatformat:0 }}%) ?
-                                                <button name="confirmTaxonSubmit" class="btn btn-primary" id="confirmTaxonSubmit" type="submit">
+                                                Is it {{ mediafile.predicted_taxon }}
+                                                ({{ mediafile.predicted_taxon_confidence|mul:100|floor|floatformat:0 }}%)
+                                                ?
+                                                <button name="confirmTaxonSubmit" class="btn btn-primary"
+                                                        id="confirmTaxonSubmit" type="submit">
                                                     Confirm
                                                 </button>
                                             </div>
                                         {% endif %}
-        {% for field in form %}
-            <div>
-                    <label for="{{ field.id_for_label }}" class="mt-1">{{ field.label }}</label><br>  <!-- Label on its own line -->
-                        {{ field }}  <!-- Field on the next line -->
-                {% if field.help_text %}
-                    <small class="form-text text-muted">{{ field.help_text }}</small>
-                {% endif %}
-                {% for error in field.errors %}
-                    <div class="alert alert-danger" id="error_{{  field.id_for_label }}">{{ error }}</div>
-                {% endfor %}
-            </div>
-        {% endfor %}
-    </div>
-
+                                        {% for field in form %}
+                                            <div>
+                                                <label for="{{ field.id_for_label }}"
+                                                       class="mt-1">{{ field.label }}</label><br>
+                                                <!-- Label on its own line -->
+                                                {{ field }}  <!-- Field on the next line -->
+                                                {% if field.help_text %}
+                                                    <small class="form-text text-muted">{{ field.help_text }}</small>
+                                                {% endif %}
+                                                {% for error in field.errors %}
+                                                    <div class="alert alert-danger"
+                                                         id="error_{{ field.id_for_label }}">{{ error }}</div>
+                                                {% endfor %}
+                                            </div>
+                                        {% endfor %}
+                                    </div>
 
 
                                     <button class="btn btn-primary" id="btnUpload" type="submit">
@@ -191,46 +204,47 @@
                                     {% endif %}
 
 
-
                                 </form>
-
 
 
                             </div>
                         </div>
                     </div>
                 </div>
-<div class="d-flex flex-row align-items-start col">
-    {% if mediafile.media_type == 'video' %}
-        <video controls width="320" height="180" class="m-1">
-            <source src="{% url 'caidapp:stream_video' mediafile.id %}" type="video/x-m4v">
-            Your browser does not support the video tag.
-        </video>
+                <div class="d-flex flex-row align-items-start col">
+                    {% if mediafile.media_type == 'video' %}
+                        <video controls width="320" height="180" class="m-1">
+                            <source src="{% url 'caidapp:stream_video' mediafile.id %}" type="video/x-m4v">
+                            Your browser does not support the video tag.
+                        </video>
 
-        <!-- Thumbnail with modal trigger -->
-        <img src="{{ mediafile.thumbnail.url }}" class="img-fluid m-1" alt="Camera trap image"
-             style="max-width: 180px;" data-bs-toggle="modal" data-bs-target="#imageModal{{ mediafile.id }}">
+                        <!-- Thumbnail with modal trigger -->
+                        <img src="{{ mediafile.thumbnail.url }}" class="img-fluid m-1" alt="Camera trap image"
+                             style="max-width: 180px;" data-bs-toggle="modal"
+                             data-bs-target="#imageModal{{ mediafile.id }}">
 
-    {% else %}
-        <!-- Image with modal trigger -->
-        <img src="{{ mediafile.preview.url }}" class="img-fluid m-1" alt="Camera trap image"
-             data-bs-toggle="modal" data-bs-target="#imageModal{{ mediafile.id }}">
-    {% endif %}
-</div>
-           <!-- Bootstrap Modal for showing the larger image -->
-<div class="modal fade" id="imageModal{{ mediafile.id }}" tabindex="-1" aria-labelledby="imageModalLabel{{ mediafile.id }}" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered modal-lg">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="imageModalLabel{{ mediafile.id }}">Full Size Image</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body">
-        <img src="{{ mediafile.preview.url }}" class="img-fluid" alt="Full Size Image">
-      </div>
-    </div>
-  </div>
-</div>
+                    {% else %}
+                        <!-- Image with modal trigger -->
+                        <img src="{{ mediafile.preview.url }}" class="img-fluid m-1" alt="Camera trap image"
+                             data-bs-toggle="modal" data-bs-target="#imageModal{{ mediafile.id }}">
+                    {% endif %}
+                </div>
+                <!-- Bootstrap Modal for showing the larger image -->
+                <div class="modal fade" id="imageModal{{ mediafile.id }}" tabindex="-1"
+                     aria-labelledby="imageModalLabel{{ mediafile.id }}" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="imageModalLabel{{ mediafile.id }}">Full Size Image</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"
+                                        aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <img src="{{ mediafile.preview.url }}" class="img-fluid" alt="Full Size Image">
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
 
             </div>
