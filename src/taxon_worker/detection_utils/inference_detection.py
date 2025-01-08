@@ -173,7 +173,7 @@ def detect_animals_in_one_image(image_rgb: np.ndarray) -> Optional[List[Dict[str
     return results_list
 
 def detect_animals_in_images(
-    images_rgb: List[np.ndarray],
+    images_rgb: np.ndarray,
     batch_size: int = 1,
     pbar: Optional[tqdm] = None,
 ) -> List[Optional[List[Dict[str, Any]]]]:
@@ -187,7 +187,9 @@ def detect_animals_in_images(
 
     # split images into batches
     for i in range(0, len(images_rgb), batch_size):
-        batch = images_rgb[i : i + batch_size]
+        batch = list(images_rgb[i : i + batch_size])
+        logger.debug(f"{len(batch)=}, {len(images_rgb)=}")
+        # logger.debug(f"{batch.shape=}")
 
         # here is the problem, because
         results = DETECTION_MODEL(batch)
@@ -284,6 +286,7 @@ def detect_animal_on_metadata(metadata: pd.DataFrame, border=0.0) -> pd.DataFram
 
             image = cv2.imread(str(image_abs_path))
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            logger.debug(f"{image.shape=}")
             results = detect_animals_in_one_image(image_rgb=image)
 
             # "bbox": list(int(_) for _ in results[i][:4].tolist()),
