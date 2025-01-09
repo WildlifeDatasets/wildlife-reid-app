@@ -7,7 +7,7 @@
 {% block body %}
     {% if user.is_authenticated %}
         <div class="pagetitle">
-            <h1>Single species uploads</h1>
+            <h1>Identification uploaded archives</h1>
             <nav>
                 <ol class="breadcrumb">
 {#                    {% if uploadedarchive.contains_single_taxon %}#}
@@ -49,7 +49,7 @@
                             {% endif %}
                         </a>
                         <i class="bi bi-arrow-right-short fa-2x" style="vertical-align: middle;"></i>
-                        <a class="btn {{ btn_styles.confirm_identification.class }}" href="{% url 'caidapp:get_individual_identity' %}"><i class="bi bi-question-circle"></i> Confirm identification</a>
+                        <a class="btn {{ btn_styles.confirm_identification.class }} {% if btn_styles.n_for_confirmation == 0 %} disabled {% endif %} }}" href="{% url 'caidapp:get_individual_identity' %}"><i class="bi bi-question-circle"></i> Confirm identification</a>
                     </div>
 {#                    <div>#}
 {#                        <a class="btn btn-secondary" href="{% url 'caidapp:select_reid_model' %}"><i class="fa-solid fa-gear"></i></a>#}
@@ -102,14 +102,14 @@
 
                                     <div class="mt-2">
                                         {% if uploadedarchive.taxon_status == "TAIP" %}
-                                            <a class="btn btn-primary disabled"
+                                            <a class="btn btn-secondary disabled"
                                                href="{% url 'caidapp:uploadedarchive_mediafiles' uploadedarchive.id %}">
-                                                <i class="bi bi-images"></i> Detail
+                                                <i class="bi bi-images"></i>
                                             </a>
                                         {% else %}
-                                            <a class="btn btn-primary"
+                                            <a class="btn btn-secondary"
                                                href="{% url 'caidapp:uploadedarchive_mediafiles' uploadedarchive.id %}">
-                                                <i class="bi bi-images"></i> Detail
+                                                <i class="bi bi-images"></i>
                                             </a>
                                         {% endif %}
 
@@ -180,6 +180,22 @@
                                                 </a></li>
                                             </ul>
                                         </div>
+                                    {% if uploadedarchive.identification_status == "IR" %}
+                                        <a class="btn btn-primary"
+                                           href="{% url 'caidapp:run_identification' uploadedarchive.id %}"
+                                           data-bs-toggle="tooltip" title="AI Identification"
+                                        >
+                                            <i class="bi bi-arrow-right"></i>
+                                        </a>
+                                    {% endif %}
+                                    {% if uploadedarchive.identification_status == "IAID" and btn_styles.n_for_confirmation > 0 %}
+                                        <a class="btn btn-primary"
+                                           href="{% url 'caidapp:get_individual_identity' uploadedarchive.id %}"
+                                           data-bs-toggle="tooltip" title="Confirm Identification"
+                                        >
+                                            <i class="bi bi-arrow-right"></i>
+                                        </a>
+                                    {% endif %}
 
 
                                     {% include "caidapp/upload_info.html" %}
