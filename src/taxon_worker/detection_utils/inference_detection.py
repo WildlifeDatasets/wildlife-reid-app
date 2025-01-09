@@ -188,7 +188,7 @@ def detect_animals_in_images(
     # split images into batches
     for i in range(0, len(images_rgb), batch_size):
         batch = list(images_rgb[i : i + batch_size])
-        logger.debug(f"{len(batch)=}, {len(images_rgb)=}")
+        # logger.debug(f"{len(batch)=}, {len(images_rgb)=}")
         # logger.debug(f"{batch.shape=}")
 
         # here is the problem, because
