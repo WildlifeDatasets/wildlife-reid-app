@@ -464,6 +464,7 @@ def convert_to_mp4(input_video_path: Union[str, Path], output_video_path: Union[
         raise FileNotFoundError(f"The input file '{input_video_path}' does not exist.")
     if os.path.exists(output_video_path):
         logger.warning(f"The output file '{output_video_path}' already exists. Force overwrite={force}.")
+    Path(output_video_path).parent.mkdir(parents=True, exist_ok=True)
 
     # ffmpeg command to convert video to MP4 (H.264 + AAC)
     command = [
@@ -504,3 +505,4 @@ def convert_to_mp4(input_video_path: Union[str, Path], output_video_path: Union[
         # logger.debug(f"Conversion successful! Output saved at '{output_video_path}'")
     except subprocess.CalledProcessError as e:
         logger.error(f"Error during conversion of {str(input_video_path)} to {str(output_video_path)}: {e}")
+        logger.debug(traceback.format_exc())

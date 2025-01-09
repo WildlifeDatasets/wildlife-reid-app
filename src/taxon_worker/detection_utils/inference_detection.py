@@ -286,7 +286,7 @@ def detect_animal_on_metadata(metadata: pd.DataFrame, border=0.0) -> pd.DataFram
 
             image = cv2.imread(str(image_abs_path))
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-            logger.debug(f"{image.shape=}")
+            # logger.debug(f"{image.shape=}")
             results = detect_animals_in_one_image(image_rgb=image)
 
             # "bbox": list(int(_) for _ in results[i][:4].tolist()),
