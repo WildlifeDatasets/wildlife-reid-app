@@ -162,7 +162,7 @@
                                     {% endif %}
                                 </a>
                                 <a class="btn btn-secondary mt-3 {% if user.caiduser.dir_import_status == 'Processing' %} disabled {% endif %}"
-                                   href="{% url 'caidapp:do_cloud_import_single_taxon_known_identity' %}">Import all as known identity
+                                   href="{% url 'caidapp:do_cloud_import_single_taxon_known_identities' %}">Import all as known identity
                                     {% if user.caiduser.dir_import_status == 'Processing' %}
                                         <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
                                     {% endif %}
