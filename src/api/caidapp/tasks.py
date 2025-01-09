@@ -1220,35 +1220,41 @@ def _prepare_mediafile_for_identification(data, i, media_root, mediafile_id):
         unknown_mediafile.save()
 
     else:
-        top1_abspath = Path(reid_top_k_image_paths[0])
-        top1_relpath = top1_abspath.relative_to(media_root)
-        top1_mediafile = MediaFile.objects.get(mediafile=str(top1_relpath))
+        try:
+            top1_abspath = Path(reid_top_k_image_paths[0])
+            top1_relpath = top1_abspath.relative_to(media_root)
+            top1_mediafile = MediaFile.objects.get(mediafile=str(top1_relpath))
 
-        top2_abspath = Path(reid_top_k_image_paths[1])
-        top2_relpath = top2_abspath.relative_to(media_root)
-        top2_mediafile = MediaFile.objects.get(mediafile=str(top2_relpath))
+            top2_abspath = Path(reid_top_k_image_paths[1])
+            top2_relpath = top2_abspath.relative_to(media_root)
+            top2_mediafile = MediaFile.objects.get(mediafile=str(top2_relpath))
 
-        top3_abspath = Path(reid_top_k_image_paths[2])
-        top3_relpath = top3_abspath.relative_to(media_root)
-        top3_mediafile = MediaFile.objects.get(mediafile=str(top3_relpath))
+            top3_abspath = Path(reid_top_k_image_paths[2])
+            top3_relpath = top3_abspath.relative_to(media_root)
+            top3_mediafile = MediaFile.objects.get(mediafile=str(top3_relpath))
 
-        mfi, _ = MediafilesForIdentification.objects.get_or_create(
-            mediafile=unknown_mediafile,
-        )
+            mfi, _ = MediafilesForIdentification.objects.get_or_create(
+                mediafile=unknown_mediafile,
+            )
 
 
-        mfi.top1mediafile = top1_mediafile
-        mfi.top1score = reid_top_k_scores[0]
-        mfi.top1name = reid_top_k_labels[0]
-        mfi.top2mediafile = top2_mediafile
-        mfi.top2score = reid_top_k_scores[1]
-        mfi.top2name = reid_top_k_labels[1]
-        mfi.top3mediafile = top3_mediafile
-        mfi.top3score = reid_top_k_scores[2]
-        mfi.top3name = reid_top_k_labels[2]
-        mfi.paired_points = data["keypoints"][i]
-        # identification_output["query_image_path"] = query_image_path
-        # identification_output["query_masked_path"] = query_masked_path
+            mfi.top1mediafile = top1_mediafile
+            mfi.top1score = reid_top_k_scores[0]
+            mfi.top1name = reid_top_k_labels[0]
+            mfi.top2mediafile = top2_mediafile
+            mfi.top2score = reid_top_k_scores[1]
+            mfi.top2name = reid_top_k_labels[1]
+            mfi.top3mediafile = top3_mediafile
+            mfi.top3score = reid_top_k_scores[2]
+            mfi.top3name = reid_top_k_labels[2]
+            mfi.paired_points = data["keypoints"][i]
+            # identification_output["query_image_path"] = query_image_path
+            # identification_output["query_masked_path"] = query_masked_path
+        except Exception as e:
+            logger.debug(f"{reid_top_k_image_paths=}")
+            logger.debug(traceback.format_exc())
+            logger.error(f"Error during identification of {unknown_mediafile}: {e}")
+
 
         # new processing
         # delete mediafile suggestions related to mediafile for identification - mfi
@@ -1264,27 +1270,32 @@ def _prepare_mediafile_for_identification(data, i, media_root, mediafile_id):
         for identity_id, top_score, top_name, top_path, top_paired_points in zip(
                 reid_top_k_class_ids, reid_top_k_scores, reid_top_k_labels, reid_top_k_image_paths, paired_points_for_k_images
         ):
-            top_abspath = Path(top_path)
-            top_relpath = top_abspath.relative_to(media_root)
-            top_mediafile = MediaFile.objects.get(mediafile=str(top_relpath))
+            try:
+                top_abspath = Path(top_path)
+                top_relpath = top_abspath.relative_to(media_root)
+                top_mediafile = MediaFile.objects.get(mediafile=str(top_relpath))
 
 
-            identity = IndividualIdentity.objects.get(id=identity_id)
-            if identity.name != top_name:
-                logger.warning(
-                    f"Identity name mismatch: {identity.name} != {top_name} for {unknown_mediafile=}"
+                identity = IndividualIdentity.objects.get(id=identity_id)
+                if identity.name != top_name:
+                    logger.warning(
+                        f"Identity name mismatch: {identity.name} != {top_name} for {unknown_mediafile=}"
+                    )
+
+                mfi_suggestion = models.MediafileIdentificationSuggestion(
+                    for_identification=mfi,
+                    mediafile=top_mediafile,
+                    identity=identity,
+                    score=top_score,
+                    paired_points=top_paired_points,
+                    name=top_name,
                 )
 
-            mfi_suggestion = models.MediafileIdentificationSuggestion(
-                for_identification=mfi,
-                mediafile=top_mediafile,
-                identity=identity,
-                score=top_score,
-                paired_points=top_paired_points,
-                name=top_name,
-            )
-
-            mfi_suggestion.save()
+                mfi_suggestion.save()
+            except Exception as e:
+                logger.debug(f"{reid_top_k_image_paths=}")
+                logger.debug(traceback.format_exc())
+                logger.error(f"Error during identification of {unknown_mediafile}: {e}")
 
         mfi.save()
         # _identity_mismatch_waning(top1_mediafile, top2_mediafile, top3_mediafile, top_k_labels)

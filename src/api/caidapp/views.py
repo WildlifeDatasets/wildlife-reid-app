@@ -334,6 +334,7 @@ def uploads_known_identities(request) -> HttpResponse:
     queryset = get_filtered_mediafiles(
         request.user,
         contains_identities=True,
+        taxon_for_identification__isnull=False,
     )
     page_context = paginate_queryset(queryset, request)
 
@@ -352,8 +353,9 @@ def uploads_identities(request) -> HttpResponse:
     """View for mediafiles not in other categories."""
     queryset = get_filtered_mediafiles(
         request.user,
-        contains_single_taxon=True,
+        # contains_single_taxon=True,
         contains_identities=False,
+        taxon_for_identification__isnull=False,
     )
     page_context = paginate_queryset(queryset, request)
 
