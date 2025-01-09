@@ -140,7 +140,7 @@ def load_model_and_predict_and_add_not_classified(
     else:
         do_confidence_thresholding = True
 
-    logger.info("Running inference.")
+    logger.info("Running inference. Taxon classification.")
     predict_output = predict(model, testloader)
     logger.info("Inference done.")
     release_taxon_classification_model()
@@ -501,6 +501,6 @@ def convert_to_mp4(input_video_path: Union[str, Path], output_video_path: Union[
             raise subprocess.CalledProcessError(
                 result.returncode, command, output=result.stdout, stderr=result.stderr
             )
-        logger.debug(f"Conversion successful! Output saved at '{output_video_path}'")
+        # logger.debug(f"Conversion successful! Output saved at '{output_video_path}'")
     except subprocess.CalledProcessError as e:
-        logger.error(f"Error during conversion: {e}")
+        logger.error(f"Error during conversion of {str(input_video_path)} to {str(output_video_path)}: {e}")

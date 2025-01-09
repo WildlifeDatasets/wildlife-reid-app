@@ -588,6 +588,7 @@ def get_individual_identity_zoomed_by_identity(request, foridentification_id: in
             "foridentification": foridentification,
             "foridentifications": foridentifications,
             # "reid_suggestion_id": reid_suggestion_id,
+            # reid_sugestion_index: None,
             "top_mediafile": top_mediafile,
             # "top_score": top_score,
             "top_name": top_name,
@@ -622,7 +623,7 @@ def get_individual_identity_zoomed(request, foridentification_id: int, reid_sugg
     paired_points = reid_suggestion.paired_points
     # ) = _select_pair_for_detail_identification(foridentification, reid_suggestion_id)
 
-    if points:
+    if points and paired_points:
         from . import gui_tools
 
         logger.debug(f"{top_mediafile.mediafile.name}")
@@ -679,6 +680,13 @@ def get_individual_identity_zoomed(request, foridentification_id: int, reid_sugg
             kwargs={"foridentification_id": foridentification_id, "reid_suggestion_id": reid_suggestion_id},
         )
         btn_icon_style = "fa-solid fa-arrows-to-dot"
+    # get order number of reid_suggestion
+    reid_suggestions = list(foridentification.top_mediafiles.all())
+    #which is the actual reid_suggestion
+    try:
+        reid_suggestion_index = reid_suggestions.index(reid_suggestion)
+    except ValueError:
+        reid_suggestion_index = None
 
     return render(
         request,
@@ -687,6 +695,7 @@ def get_individual_identity_zoomed(request, foridentification_id: int, reid_sugg
             "foridentification": foridentification,
             "foridentifications": foridentifications,
             "reid_suggestion_id": reid_suggestion_id,
+            "reid_suggestion_index": reid_suggestion_index,
             "top_mediafile": top_mediafile,
             "top_score": top_score,
             "top_name": top_name,
@@ -1493,7 +1502,7 @@ def _mediafiles_query(
     if order_by is None:
         order_by = request.session.get("mediafiles_order_by", "-parent__uploaded_at")
 
-    logger.debug(f"{filter_kwargs=}, {exclude_filter_kwargs=}, {order_by=}")
+    # logger.debug(f"{filter_kwargs=}, {exclude_filter_kwargs=}, {order_by=}")
 
     mediafiles = MediaFile.objects.annotate(**_mediafiles_annotate())
     # mediafiles = (
@@ -1546,11 +1555,11 @@ def _mediafiles_query(
         #     .distinct()
         #     .order_by(order_by)
         # )
-    logger.debug(f"{filter_kwargs=}, {exclude_filter_kwargs=}, {order_by=}")
+    # logger.debug(f"{filter_kwargs=}, {exclude_filter_kwargs=}, {order_by=}")
     if locality_hash is not None:
         locality = get_object_or_404(Locality, hash=locality_hash)
         filter_kwargs.update(dict(locality=locality))
-    logger.debug(f"{filter_kwargs=}")
+    # logger.debug(f"{filter_kwargs=}")
     # order by mediafile__sequence__mediafile_set order by
     order_by_safe = order_by if order_by[0] != "-" else order_by[1:]
     first_image_order_by = (
@@ -1570,7 +1579,7 @@ def _mediafiles_query(
         ),
         **filter_kwargs,
     )
-    logger.debug(f"{len(mediafiles)=}")
+    # logger.debug(f"{len(mediafiles)=}")
 
     # Add workgroup filtering only if `request.user.caiduser.workgroup` is not None
     if request.user.caiduser.workgroup is not None:
@@ -1578,7 +1587,7 @@ def _mediafiles_query(
             Q(parent__owner__workgroup=request.user.caiduser.workgroup)
         )
 
-    logger.debug(f"{len(mediafiles)=}")
+    # logger.debug(f"{len(mediafiles)=}")
     # Apply the exclusion, annotations, and ordering
     mediafiles = (
         mediafiles
@@ -1772,11 +1781,11 @@ def media_files_update(
         .order_by("created_at")
     )
 
-    logger.debug(f"{filter_kwargs=}, {exclude_filter_kwargs=}, {form_filter_kwargs=}")
+    # logger.debug(f"{filter_kwargs=}, {exclude_filter_kwargs=}, {form_filter_kwargs=}")
     filter_kwargs, exclude_filter_kwargs = _merge_form_filter_kwargs_with_filter_kwargs(
         filter_kwargs, exclude_filter_kwargs, form_filter_kwargs
     )
-    logger.debug(f"     after:    {filter_kwargs=}, {exclude_filter_kwargs=}")
+    # logger.debug(f"     after:    {filter_kwargs=}, {exclude_filter_kwargs=}")
     # logger.debug(f"{albums_available=}")
     # logger.debug(f"{query=}")
     # logger.debug(f"{queryform}")
@@ -2245,6 +2254,38 @@ def download_xlsx_for_mediafiles_view(request, uploadedarchive_id: Optional[int]
 
     try:
         df = tasks.create_dataframe_from_mediafiles(mediafiles)
+        if df.empty:
+            return HttpResponse("No data available to export.", content_type="text/plain")
+    except Exception:
+        logger.error(traceback.format_exc())
+        return HttpResponse("Error during export.", content_type="text/plain")
+
+    # convert timezone-aware datetime to naive datetime
+    df = model_tools.convert_datetime_to_naive(df)
+
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        df.to_excel(writer, index=False, sheet_name="Localities")
+
+    # Rewind the buffer
+    output.seek(0)
+
+    response = HttpResponse(
+        output, content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    response["Content-Disposition"] = f"attachment; filename={fn}.xlsx"
+    return response
+
+
+@login_required
+def download_xlsx_for_mediafiles_view_NDOP(request, uploadedarchive_id: Optional[int] = None):
+    """Download xlsx for media files."""
+    logger.debug("download_xlsx_for_mediafiles_view_NDOP")
+    mediafiles, name_suggestion = _get_mediafiles(request, uploadedarchive_id)
+    fn = ("metadata_CaID_NDOP_" + name_suggestion) if name_suggestion is not None else "metadata_CaID_NDOP"
+
+    try:
+        df = tasks.create_dataframe_from_mediafiles_NDOP(mediafiles)
         if df.empty:
             return HttpResponse("No data available to export.", content_type="text/plain")
     except Exception:

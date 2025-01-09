@@ -237,6 +237,11 @@ urlpatterns = [
         views.download_xlsx_for_mediafiles_view,
         name="download_uploadedarchive_xlsx",
     ),
+    path(
+        "download_xlsx_for_mediafiles_NDOP/",
+        views.download_xlsx_for_mediafiles_view_NDOP,
+        name="download_xlsx_for_mediafiles_NDOP",
+    ),
     path("check_zip_status/<str:task_id>/", views.check_zip_status_view, name="check_zip_status"),
     path("mediafiles_stats/", views.mediafiles_stats_view, name="mediafiles_stats"),
     path(

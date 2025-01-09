@@ -850,7 +850,7 @@ def create_dataframe_from_mediafiles(mediafiles: Generator[MediaFile, None, None
     for mf in mediafiles:
         # logger.debug(f"{mf.metadata_json=}, {type(mf.metadata_json)=}")
         metadata_row = copy.copy(mf.metadata_json)
-        logger.debug(f"{metadata_row=}, {type(metadata_row)=}")
+        # logger.debug(f"{metadata_row=}, {type(metadata_row)=}")
         if (metadata_row is None) or ("predicted_category" not in metadata_row):
             metadata_row = {}
 
@@ -872,6 +872,58 @@ def create_dataframe_from_mediafiles(mediafiles: Generator[MediaFile, None, None
         metadata_row["uploaded_archive"] = mf.parent.name
         if mf.parent.locality_check_at:
             metadata_row["locality_check_at"] = mf.parent.locality_check_at
+
+        records.append(metadata_row)
+    df = pd.DataFrame.from_records(records)
+    return df
+
+def create_dataframe_from_mediafiles_NDOP(mediafiles: Generator[MediaFile, None, None]) -> pd.DataFrame:
+    """Create DataFrame from MediaFiles for NDOP and AOPK.
+
+    NDOP = Nálezová databáze ochrany přírody
+    AOPK = Agentura ochrany přírody a krajiny
+    """
+    records = []
+    # go over mediafiles in set
+    for i, mf in enumerate(mediafiles):
+        # logger.debug(f"{mf.metadata_json=}, {type(mf.metadata_json)=}")
+        # metadata_row = copy.copy(mf.metadata_json)
+        # logger.debug(f"{metadata_row=}, {type(metadata_row)=}")
+        metadata_row = {}
+        # if (metadata_row is None) or ("predicted_category" not in metadata_row):
+        #     metadata_row = {}
+
+        metadata_row["PORADI"] = i + 1
+        metadata_row["ID_NALEZ"] = mf.id
+
+        if mf.category:
+            metadata_row["DRUH"] = mf.category.name
+            metadata_row["CESKE_JMENO"] = ""
+        if mf.parent and mf.parent.owner and mf.parent.owner.user:
+            if mf.parent.owner.user.first_name and mf.parent.owner.user.last_name:
+                metadata_row["AUTOR"] = mf.parent.owner.user.first_name + " " + mf.parent.owner.user.last_name
+            else:
+                metadata_row["AUTOR"] = mf.parent.owner.user.username
+        # capture date
+        if mf.captured_at:
+            metadata_row["DATUM_OD"] = mf.captured_at.strftime("%Y%m%d")
+            metadata_row["DATUM_DO"] = mf.captured_at.strftime("%Y%m%d")
+        else:
+            metadata_row["DATUM_OD"] = ""
+            metadata_row["DATUM_DO"] = ""
+            # if mf.parent.locality_check_at:
+            #     metadata_row["locality_check_at"] = mf.parent.locality_check_at
+        if mf.locality:
+            metadata_row["NAZ_LOKAL"] = mf.locality.name
+            metadata_row["ID_LOKAL"] = mf.locality.id
+            if mf.locality.location:
+                lat, lon = str(mf.locality.location).split(",")
+                metadata_row["X"] = lat
+                metadata_row["Y"] = lon
+        metadata_row["ZDROJ"] = "caid.kky.zcu.cz"
+        metadata_row["NEGATIV"] = 0
+        metadata_row["POCET"] = ""
+        metadata_row["POCITANO"] = ""
 
         records.append(metadata_row)
     df = pd.DataFrame.from_records(records)
