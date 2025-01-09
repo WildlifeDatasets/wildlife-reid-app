@@ -1220,6 +1220,9 @@ def _prepare_mediafile_for_identification(data, i, media_root, mediafile_id):
         unknown_mediafile.save()
 
     else:
+        mfi, _ = MediafilesForIdentification.objects.get_or_create(
+            mediafile=unknown_mediafile,
+        )
         try:
             top1_abspath = Path(reid_top_k_image_paths[0])
             top1_relpath = top1_abspath.relative_to(media_root)
@@ -1233,9 +1236,6 @@ def _prepare_mediafile_for_identification(data, i, media_root, mediafile_id):
             top3_relpath = top3_abspath.relative_to(media_root)
             top3_mediafile = MediaFile.objects.get(mediafile=str(top3_relpath))
 
-            mfi, _ = MediafilesForIdentification.objects.get_or_create(
-                mediafile=unknown_mediafile,
-            )
 
 
             mfi.top1mediafile = top1_mediafile

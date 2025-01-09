@@ -998,8 +998,8 @@ def _single_species_button_style(request) -> dict:
     btn_styles["init_identification"]["confirm"] = f"Identification initialization with {n_representative} media files will take some time. Continue?"
 
     btn_styles["run_identification"]["class"] += " disabled" if ((not is_initiated) or (workgroup.identification_init_status == "Processing")) else ""
-    btn_styles["run_identification"]["tooltip"] = f"Identification suggestion for {n_unidentified} media files."
-    btn_styles["run_identification"]["confirm"] = f"Identification of {n_unidentified} media files will take some time. Continue?"
+    btn_styles["run_identification"]["tooltip"] = f"Identification suggestion for {n_unidentified} archives."
+    btn_styles["run_identification"]["confirm"] = f"Identification of {n_unidentified} archives will take some time. Continue?"
 
     return btn_styles
 
