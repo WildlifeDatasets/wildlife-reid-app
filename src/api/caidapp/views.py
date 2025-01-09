@@ -1357,6 +1357,52 @@ def do_cloud_import_view(request):
 
     return redirect("caidapp:cloud_import_preview")
 
+@login_required
+def do_cloud_import_view_single_taxon(request):
+    """Bulk import from one dir and prepare zip file for every check.
+
+    Make zip file from every check. The information encoded in path is code of lynx season (i.e.
+    LY2019), locality (Prachatice), date of check (2019-07-01). In the leaf directory are media
+    files (images and /dvideos). For every check there will be zip file. The name of the zip file
+    will be composed of locality and date of check.
+
+    Example of path structure:
+    NETRIDENA/LY2019/PRACHATICE/2019-07-01/2019-07-01_12-00-00_0001.jpg
+    """
+    if len(request.user.caiduser.import_dir) == 0:
+        return HttpResponseNotAllowed("No import directory specified. Ask admin to set it up.")
+
+    # get list of available localities
+    caiduser = request.user.caiduser
+
+    tasks.do_cloud_import_for_user_async(caiduser, contains_identities=False, contains_single_taxon=True)
+    # tasks.do_cloud_import_for_user(caiduser)
+
+    return redirect("caidapp:cloud_import_preview")
+
+
+@login_required
+def do_cloud_import_view_single_taxon_known_identities(request):
+    """Bulk import from one dir and prepare zip file for every check.
+
+    Make zip file from every check. The information encoded in path is code of lynx season (i.e.
+    LY2019), locality (Prachatice), date of check (2019-07-01). In the leaf directory are media
+    files (images and /dvideos). For every check there will be zip file. The name of the zip file
+    will be composed of locality and date of check.
+
+    Example of path structure:
+    NETRIDENA/LY2019/PRACHATICE/2019-07-01/2019-07-01_12-00-00_0001.jpg
+    """
+    if len(request.user.caiduser.import_dir) == 0:
+        return HttpResponseNotAllowed("No import directory specified. Ask admin to set it up.")
+
+    # get list of available localities
+    caiduser = request.user.caiduser
+
+    tasks.do_cloud_import_for_user_async(caiduser, contains_identities=True, contains_single_taxon=True)
+    # tasks.do_cloud_import_for_user(caiduser)
+
+    return redirect("caidapp:cloud_import_preview")
 
 @login_required
 def break_cloud_import_view(request):
@@ -2672,7 +2718,7 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
                 mf = MediaFile.objects.filter(parent=uploaded_archive, original_filename=original_path).first()
                 if mf:
                     try:
-                        logger.debug(f"{mf=}")
+                        # logger.debug(f"{mf=}")
                         counter0 += 1
                         # mf.category = row['category']
                         if "predicted_category" in row:

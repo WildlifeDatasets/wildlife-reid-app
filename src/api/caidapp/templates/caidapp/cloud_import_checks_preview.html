@@ -154,6 +154,20 @@
                                     <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
                                 {% endif %}
                             </a>
+                            {%  if user.caiduser.workgroup_admin %}
+                                <a class="btn btn-secondary mt-3 {% if user.caiduser.dir_import_status == 'Processing' %} disabled {% endif %}"
+                                   href="{% url 'caidapp:do_cloud_import_single_taxon' %}">Import as single taxon
+                                    {% if user.caiduser.dir_import_status == 'Processing' %}
+                                        <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                    {% endif %}
+                                </a>
+                                <a class="btn btn-secondary mt-3 {% if user.caiduser.dir_import_status == 'Processing' %} disabled {% endif %}"
+                                   href="{% url 'caidapp:do_cloud_import_single_taxon_known_identity' %}">Import all as known identity
+                                    {% if user.caiduser.dir_import_status == 'Processing' %}
+                                        <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                    {% endif %}
+                                </a>
+                            {% endif %}
                             {% if user.caiduser.dir_import_status == 'Processing' %}
                                 <a class="btn btn-warning mt-3"
                                    href="{% url 'caidapp:break_cloud_import' %}"><i class="bi bi-stop-fill"></i>

@@ -179,7 +179,12 @@ def _prepare_dataframe_for_identification(mediafiles) -> dict:
 
 
 @shared_task(bind=True)
-def do_cloud_import_for_user(self, caiduser_id: int):
+def do_cloud_import_for_user(
+        self, caiduser_id: int,
+        contains_single_taxon: bool = False,
+        contains_identities: bool = False,
+
+):
     """Import files from cloud storage."""
 
 
@@ -227,6 +232,7 @@ def do_cloud_import_for_user(self, caiduser_id: int):
             locality = get_locality(caiduser, yield_dict.locality)
             uploaded_archive.locality_at_upload_object = locality
             uploaded_archive.locality_at_upload = yield_dict.locality
+        uploaded_archive.contains_identities = contains_identities
         uploaded_archive.archivefile = zip_path
         uploaded_archive.save()
         logger.debug("Zip file created. Ready to start processing.")
@@ -246,14 +252,22 @@ def do_cloud_import_for_user(self, caiduser_id: int):
     caiduser.save()
 
 # @shared_task(bind=True)
-def do_cloud_import_for_user_async(caiduser: CaIDUser):
+def do_cloud_import_for_user_async(caiduser: CaIDUser,
+    contains_identities: bool = False,
+    contains_single_taxon: bool = False
+                                   ):
     """Run cloud import asynchronously."""
     # sig = do_cloud_import_for_user.s(caiduser=caiduser)
     # run async
     # sig.apply_async()
     caiduser.dir_import_status = "Processing"
     caiduser.save()
-    sig = signature("caidapp.tasks.do_cloud_import_for_user", kwargs={"caiduser_id": caiduser.id})
+    sig = signature("caidapp.tasks.do_cloud_import_for_user",
+                    kwargs={
+                        "caiduser_id": caiduser.id,
+                        "contains_single_taxon": contains_single_taxon,
+                        "contains_identities": contains_identities,
+                    })
     sig.apply_async()
 
 @shared_task

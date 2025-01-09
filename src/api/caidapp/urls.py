@@ -206,6 +206,8 @@ urlpatterns = [
     path("sample_data/", views.sample_data, name="sample_data"),
     path("cloud_import_preview/", views.cloud_import_preview_view, name="cloud_import_preview"),
     path("do_cloud_import/", views.do_cloud_import_view, name="do_cloud_import"),
+    path("do_cloud_import_single_taxon/", views.do_cloud_import_view_single_taxon, name="do_cloud_import_single_taxon"),
+    path("do_cloud_import_single_taxon_known_identities/", views.do_cloud_import_view_single_taxon_known_identities, name="do_cloud_import_single_taxon_known_identities"),
     path("break_cloud_import/", views.break_cloud_import_view, name="break_cloud_import"),
     path(
         "download_csv_for_mediafiles/",
