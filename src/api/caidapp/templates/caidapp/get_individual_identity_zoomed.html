@@ -15,7 +15,18 @@
 {#                    Top N #}
                             <div class="{{ col_style }}" id="card{{ mediafile.id }}">
                                 <div class="card">
-                                    <img class="card-img-top" src="{{ top_mediafile.mediafile.url }}" alt="Camera trap">
+                                    <img class="card-img-top"
+{#                                         src="{{ top_mediafile.mediafile.url }}" alt="Camera trap"#}
+                                            src="{{ top_mediafile.image_file.url }}" alt="Camera trap"
+
+{#                                            {% if top_mediafile.mediafile.media_type == 'video' %}#}
+{#                                         src="{{  top_mediafile.mediafile.thumbnail.url }}"#}
+{#                                         alt="Camera trap GIF thumbnail image"#}
+{#                                            {% else %}#}
+{#                                         src="{{ top_mediafile.mediafile.mediafile.url }}"#}
+{#                                         alt="Camera trap image"#}
+{#                                            {% endif %}#}
+                                    >
                                     <div class="card-body">
                                         <div class="card-title">
                                             Top-{{ reid_suggestion_index|add:1 }}: {{ top_name }}

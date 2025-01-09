@@ -189,13 +189,14 @@
 {#                            <div class="{{ col_style }} me-5" id="card{{ mediafile.id }}">#}
                             <div class="card">
                                 <img class="card-img-top"
-                                        {% if foridentification.mediafile.media_type == 'video' %}
-                                        src="{{  foridentification.mediafile.thumbnail.url }}"
-                                        alt="Camera trap GIF thumbnail image"
-                                        {% else %}
-                                        src="{{ foridentification.mediafile.mediafile.url }}"
-                                        alt="Camera trap image"
-                                        {% endif %}
+                                        src="{{  foridentification.mediafile.image_file.url }}"
+{#                                        {% if foridentification.mediafile.media_type == 'video' %}#}
+{#                                        src="{{  foridentification.mediafile.thumbnail.url }}"#}
+{#                                        alt="Camera trap GIF thumbnail image"#}
+{#                                        {% else %}#}
+{#                                        src="{{ foridentification.mediafile.mediafile.url }}"#}
+{#                                        alt="Camera trap image"#}
+{#                                        {% endif %}#}
                                 >
                                 <div class="card-body">
                                     <div class="card-title">

@@ -1273,7 +1273,8 @@ def _prepare_mediafile_for_identification(data, i, media_root, mediafile_id):
             try:
                 top_abspath = Path(top_path)
                 top_relpath = top_abspath.relative_to(media_root)
-                top_mediafile = MediaFile.objects.get(mediafile=str(top_relpath))
+                top_mediafile = MediaFile.objects.get(image_file=str(top_relpath))
+                # top_mediafile = MediaFile.objects.get(mediafile=str(top_relpath))
 
 
                 identity = IndividualIdentity.objects.get(id=identity_id)
