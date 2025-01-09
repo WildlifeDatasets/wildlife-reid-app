@@ -192,8 +192,8 @@ def create_image_from_video(
             process_counter += 1
 
             images = load_video(full_path)
-            len_images = len(images)
-            logger.debug(f"video frames: {images.shape}")
+            # len_images = len(images)
+            # logger.debug(f"video frames: {images.shape}")
             if len(images) == 0:
                 logger.debug(f"Problem loading video: {os.path.basename(full_path)} - skipping")
                 row["read_error"] = "Problem loading video - skipping."
@@ -204,7 +204,7 @@ def create_image_from_video(
                 continue
             all_images = np.array([resize_images(image, gif_height) for image in images.copy()])
 
-            logger.info("Running detection inference on video.")
+            # logger.info("Running detection inference on video.")
             # detect
             predictions = []
 
@@ -252,13 +252,13 @@ def create_image_from_video(
                     selection_method = partial(ratio_selection, threshold=selection_threshold)
 
                 images, predictions = select_images(images, predictions, selection_method)
-            logger.debug(f"selected frames: {images.shape}")
+            # logger.debug(f"selected frames: {images.shape}")
             image = images[0]
             prediction = predictions[0]
 
             # save image
             make_gif(all_images, gif_path, prediction["frame"], height=gif_height)
-            logger.debug(f"selected 1 image forme video, saving to: {new_full_path}")
+            logger.debug(f"selected 1 image forme video ({images.shape}), saving to: {new_full_path}")
             cv2.imwrite(new_full_path, image[..., ::-1])
 
             # update row
