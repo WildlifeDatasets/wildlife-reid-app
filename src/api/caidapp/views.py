@@ -2671,39 +2671,47 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
                 # get or None
                 mf = MediaFile.objects.filter(parent=uploaded_archive, original_filename=original_path).first()
                 if mf:
-                    logger.debug(f"{mf=}")
-                    counter0 += 1
-                    # mf.category = row['category']
-                    if "predicted_category" in row:
-                        mf.category = models.get_taxon(row["predicted_category"])  # remove this
-                        counter1 += 1
-
-                    if "unique_name" in row:
-                        mf.identity = models.get_unique_name(
-                            row["unique_name"], workgroup=uploaded_archive.owner.workgroup
-                        )
-                        counter1 += 1
-                    if "locality name" in row:
-                        locality_obj = models.get_locality(
-                            caiduser=request.user.caiduser,
-                            name=row["locality name"])
-                        if locality_obj:
-                            mf.locality = locality_obj
-                            if ("latitude" in row) and ("longitude" in row):
-                                mf.locality.set_location(float(row["latitude"]), float(row["longitude"]))
-                                counter1 += 1
+                    try:
+                        logger.debug(f"{mf=}")
+                        counter0 += 1
+                        # mf.category = row['category']
+                        if "predicted_category" in row:
+                            mf.category = models.get_taxon(row["predicted_category"])  # remove this
                             counter1 += 1
-                    if "datetime" in row:
-                        mf.captured_at = row["datetime"]
-                        counter1 += 1
 
-                    mf.save()
+                        if "unique_name" in row:
+                            mf.identity = models.get_unique_name(
+                                row["unique_name"], workgroup=uploaded_archive.owner.workgroup
+                            )
+                            counter1 += 1
+                        if "locality name" in row:
+                            locality_obj = models.get_locality(
+                                caiduser=request.user.caiduser,
+                                name=row["locality name"])
+                            if locality_obj:
+                                mf.locality = locality_obj
+                                if ("latitude" in row) and ("longitude" in row):
+                                    mf.locality.set_location(float(row["latitude"]), float(row["longitude"]))
+                                    counter1 += 1
+                                counter1 += 1
+                        if "datetime" in row:
+                            mf.captured_at = row["datetime"]
+                            counter1 += 1
+
+                        mf.save()
+                    except Exception as e:
+                        logger.debug(f"{mf=}")
+                        logger.debug(traceback.format_exc())
+                        logger.error(e)
                 else:
                     counter_file_in_spreadsheet_does_not_exist += 1
+            msg = "Updated metadata for " + str(counter0) + " mediafiles. " + str(counter1) + " fields updated. " + \
+            str(counter_file_in_spreadsheet_does_not_exist) + " files in spreadsheet do not exist.",
+            logger.info(msg)
+
             return message_view(
                 request,
-                "Updated metadata for " + str(counter0) + " mediafiles. " + str(counter1) + " fields updated. " +\
-                str(counter_file_in_spreadsheet_does_not_exist) + " files in spreadsheet do not exist.",
+                msg,
                 headline="Update metadata",
                 link=self.prev_url,
             )
