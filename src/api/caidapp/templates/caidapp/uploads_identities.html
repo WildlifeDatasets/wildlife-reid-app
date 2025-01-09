@@ -190,7 +190,7 @@
                                     {% endif %}
                                     {% if uploadedarchive.identification_status == "IAID" and btn_styles.n_for_confirmation > 0 %}
                                         <a class="btn btn-primary"
-                                           href="{% url 'caidapp:get_individual_identity' uploadedarchive.id %}"
+                                           href="{% url 'caidapp:get_individual_identity' %}"
                                            data-bs-toggle="tooltip" title="Confirm Identification"
                                         >
                                             <i class="bi bi-arrow-right"></i>
