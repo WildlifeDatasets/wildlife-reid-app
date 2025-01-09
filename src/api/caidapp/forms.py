@@ -168,7 +168,25 @@ class UploadedArchiveFormWithTaxon(forms.ModelForm):
 class MediaFileForm(forms.ModelForm):
     class Meta:
         model = MediaFile
-        fields = ("category", "locality", "identity", "captured_at", "taxon_verified", "note")
+        fields = ("category", "taxon_verified", "locality", "identity", "identity_is_representative",  "captured_at" , "note")
+
+    def __init__(self, *args, **kwargs):
+        mediafile = kwargs.get("instance")
+        super().__init__(*args, **kwargs)
+        # Only show the identities accessible to the given user.
+        caiduser = mediafile.parent.owner
+        if caiduser.workgroup is not None:
+            self.fields["identity"].queryset = IndividualIdentity.objects.filter(
+                # adjust this filter to however your user-Identity relationship is defined
+                owner_workgroup=caiduser.workgroup
+            )
+        else:
+            # fields identity is empty
+            self.fields["identity"].queryset = IndividualIdentity.objects.none()
+
+        self.fields["locality"].queryset = models.Locality.objects.filter(
+            **models.user_has_access_filter_params(caiduser, "owner")
+        )
 
 
 class MediaFileBulkForm(forms.ModelForm):

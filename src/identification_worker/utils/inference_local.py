@@ -198,6 +198,7 @@ def get_local_matcher(size=512, threshold=0.8):
         device=DEVICE,
         num_workers=2,
     )
+    matcher.tqdm_kwargs.update({"desc": "Match LOFTR"})
     transform = T.Compose(
         [
             T.Resize(size=(size, size)),

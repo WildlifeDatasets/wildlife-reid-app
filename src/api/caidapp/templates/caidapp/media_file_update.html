@@ -122,6 +122,7 @@
                         {% endfor %}
                     </div>
 
+                    {% if mediafile.sequence.mediafile_set.all|length > 5 %}
                     <!-- Carousel Controls -->
                     <button class="carousel-control-prev" type="button" data-bs-target="#mediafileCarousel"
                             data-bs-slide="prev">
@@ -133,6 +134,7 @@
                         <span class="carousel-control-next-icon" aria-hidden="true"></span>
                         <span class="visually-hidden">Next</span>
                     </button>
+                    {% endif %}
                 </div>
             {% endif %}
 
@@ -211,16 +213,17 @@
                         </div>
                     </div>
                 </div>
-                <div class="d-flex flex-row align-items-start col">
+                <div class="col">
+                <div class="d-flex flex-row flex-wrap align-items-start col">
                     {% if mediafile.media_type == 'video' %}
-                        <video controls width="320" height="180" class="m-1">
+                        <video controls autoplay muted width="640" class="m-1">
                             <source src="{% url 'caidapp:stream_video' mediafile.id %}" type="video/x-m4v">
                             Your browser does not support the video tag.
                         </video>
 
                         <!-- Thumbnail with modal trigger -->
                         <img src="{{ mediafile.thumbnail.url }}" class="img-fluid m-1" alt="Camera trap image"
-                             style="max-width: 180px;" data-bs-toggle="modal"
+                             style="max-width: 320px;" data-bs-toggle="modal"
                              data-bs-target="#imageModal{{ mediafile.id }}">
 
                     {% else %}
@@ -228,6 +231,7 @@
                         <img src="{{ mediafile.preview.url }}" class="img-fluid m-1" alt="Camera trap image"
                              data-bs-toggle="modal" data-bs-target="#imageModal{{ mediafile.id }}">
                     {% endif %}
+                </div>
                 </div>
                 <!-- Bootstrap Modal for showing the larger image -->
                 <div class="modal fade" id="imageModal{{ mediafile.id }}" tabindex="-1"
