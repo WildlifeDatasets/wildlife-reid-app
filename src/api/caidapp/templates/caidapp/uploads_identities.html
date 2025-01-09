@@ -196,6 +196,11 @@
                                             <i class="bi bi-arrow-right"></i>
                                         </a>
                                     {% endif %}
+                                        {% if uploadedarchive.identification_status == "IAIP" %}
+{#                                            rotating #}
+                                            <i class="fa fa-spinner fa-spin"></i>
+                                        {% endif %}
+
 
 
                                     {% include "caidapp/upload_info.html" %}

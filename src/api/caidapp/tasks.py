@@ -1251,8 +1251,8 @@ def _prepare_mediafile_for_identification(data, i, media_root, mediafile_id):
             # identification_output["query_image_path"] = query_image_path
             # identification_output["query_masked_path"] = query_masked_path
         except Exception as e:
-            logger.debug(f"{reid_top_k_image_paths=}")
-            logger.debug(traceback.format_exc())
+            # logger.debug(f"{reid_top_k_image_paths=}")
+            # logger.debug(traceback.format_exc())
             logger.error(f"Error during identification of {unknown_mediafile}: {e}")
 
 
@@ -1294,6 +1294,7 @@ def _prepare_mediafile_for_identification(data, i, media_root, mediafile_id):
                 mfi_suggestion.save()
             except Exception as e:
                 logger.debug(f"{reid_top_k_image_paths=}")
+                logger.debug(f"{top_path=}")
                 logger.debug(traceback.format_exc())
                 logger.error(f"Error during identification of {unknown_mediafile}: {e}")
 

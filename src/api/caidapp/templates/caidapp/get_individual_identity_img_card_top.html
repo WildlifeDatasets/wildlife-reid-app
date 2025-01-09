@@ -48,7 +48,10 @@
 
 <div id="image-carousel-{{ id_prefix }}-{{ carousel_id }}" class="image-carousel">
     {% for mediafile in representative_mediafiles %}
-        <img class="carousel-image {% if forloop.first %}active{% endif %}" src="{{ mediafile.thumbnail.url }}" alt="Representative media file {{ forloop.counter }}">
+        <img class="carousel-image {% if forloop.first %}active{% endif %}"
+             src="{{ mediafile.thumbnail.url }}"
+             alt="Representative media file {{ forloop.counter }}"
+        >
     {% endfor %}
     <button class="carousel-control prev" onclick="changeImage('{{ id_prefix }}-{{ carousel_id }}', -1)">
         <span class="carousel-control-prev-icon" aria-hidden="true"></span>
