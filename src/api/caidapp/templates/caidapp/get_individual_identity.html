@@ -185,11 +185,11 @@
                     <div class="row" id="row-of-cards">
 
                         {#                   Unknown image#}
-                        <div class="col-md-3 me-5" id="unknown-card-{{ mediafile.id }}">
+                        <div class="col-md-3 me-5" id="unknown-card-{{ foridentification.mediafile.id }}">
 {#                            <div class="{{ col_style }} me-5" id="card{{ mediafile.id }}">#}
                             <div class="card">
                                 <img class="card-img-top"
-                                        {% if mediafile.media_type == 'video' %}
+                                        {% if foridentification.mediafile.media_type == 'video' %}
                                         src="{{  foridentification.mediafile.thumbnail.url }}"
                                         alt="Camera trap GIF thumbnail image"
                                         {% else %}
