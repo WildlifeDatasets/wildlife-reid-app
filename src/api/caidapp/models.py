@@ -166,6 +166,10 @@ class Locality(models.Model):
         self.location = f"{lat},{lon}"
         self.save()
 
+    def mediafiles(self):
+        """Return mediafiles."""
+        return MediaFile.objects.filter(locality=self).all()
+
 
 class UploadedArchive(models.Model):
     name = models.CharField(max_length=255, blank=True, default="")

@@ -28,3 +28,8 @@ def chunk(queryset, size):
     """Split a queryset into chunks of the specified size."""
     for i in range(0, len(queryset), size):
         yield queryset[i:i+size]
+
+
+@register.filter
+def order_by(queryset, field):
+    return queryset.order_by(field)
