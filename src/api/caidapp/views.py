@@ -639,9 +639,13 @@ def get_individual_identity_zoomed(request, foridentification_id: int, reid_sugg
         pth0 = Path(settings.MEDIA_ROOT) / str(foridentification.mediafile.mediafile.name).replace(
             "/images/", "/masked_images/"
         )
+        if foridentification.mediafile.media_type == "video":
+            pth0 = pth0.with_suffix(".jpg")
         pth1 = Path(settings.MEDIA_ROOT) / str(top_mediafile.mediafile.name).replace(
             "/images/", "/masked_images/"
         )
+        if top_mediafile.media_type == "video":
+            pth1 = pth1.with_suffix(".jpg")
         pil_img0 = Image.open(pth0)
         pil_img1 = Image.open(pth1)
         img0 = np.array(pil_img0)
