@@ -777,10 +777,20 @@ def get_individual_identity_from_foridentification(
 
         reid_suggestions = list(foridentification.top_mediafiles.all())
         for reid_suggestion in reid_suggestions:
-            representative_mediafiles = reid_suggestion.identity.mediafile_set.filter(identity_is_representative=True)
-            # insert as first element the reid_suggestion mediafile
-            representative_mediafiles = [reid_suggestion.mediafile] + [mf for mf in list(representative_mediafiles) if mf != reid_suggestion.mediafile]
-            reid_suggestion.representative_mediafiles = representative_mediafiles
+            if reid_suggestion.identity is None:
+                # i.e. The identity was removed from the app
+                # remove from foridentification.top_mediafiles
+                foridentification.top_mediafiles.remove(reid_suggestion)
+                logger.warning(f"Missing identity for reid_suggestion. Removed one suggestion for {foridentification.mediafile.mediafile.name=}")
+            else:
+                representative_mediafiles = reid_suggestion.identity.mediafile_set.filter(identity_is_representative=True)
+                if len(representative_mediafiles) == 0:
+                    # If no representative mediafiles for this identity, show at least some mediafiles
+                    representative_mediafiles = reid_suggestion.identity.mediafile_set.all()
+                # insert as first element the reid_suggestion mediafile
+                representative_mediafiles = [reid_suggestion.mediafile] + [mf for mf in list(representative_mediafiles) if mf != reid_suggestion.mediafile]
+
+                reid_suggestion.representative_mediafiles = representative_mediafiles
 
 
         for identity in remaining_identities:
