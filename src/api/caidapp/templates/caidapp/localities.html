@@ -71,9 +71,10 @@
 
             {% if localities %}
                 {% for locality in localities %}
-                    <div class="col-12 col-sm-12 col-md-12 col-lg-6 col-xl-4 col-xxl-3 col-xxxl-2" id="card{{ locality.id }}">
+                    <div class="col-auto" id="card{{ locality.id }}">
+{#                    <div class="col-12 col-sm-12 col-md-12 col-lg-6 col-xl-4 col-xxl-3 col-xxxl-2" id="card{{ locality.id }}">#}
                         {#                        <div class="col" style="-ms-flex: 0 0 200; flex: 0 0 200;">#}
-                        <div class="card">
+                        <div class="card" style="width: 300px;">
                             {% if locality.mediafiles.count > 0 %}
                                     <a href="{% url 'caidapp:update_locality' locality.id %}" class=""
                                             {%  if request.session.private_mode %}
