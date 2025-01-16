@@ -1921,76 +1921,23 @@ def media_files_update(
             #     elif 'newsletter_unsub' in self.data:
             selected_album_hash = form.data["selectAlbum"]
 
-            select_all = True if form.data.get("select_all", '') == "on" else False
-            logger.debug(f"{select_all=}")
-            for mediafileform in form:
-                if mediafileform.is_valid():
-                    if mediafileform.cleaned_data["selected"] or select_all:
-                        logger.debug("mediafileform is valid")
-                        # reset selected field for refreshed view
-                        mediafileform.cleaned_data["selected"] = False
-                        mediafileform.selected = False
-                        if "btnBulkProcessingAlbum" in form.data:
-                            logger.debug("Select Album :" + form.data["selectAlbum"])
-                            if selected_album_hash == "new":
-                                logger.debug("Creating new album")
-                                instance: MediaFile = mediafileform.save(commit=False)
-                                album = create_new_album(request)
-                                album.cover = instance
-                                album.save()
-                                instance.album_set.add(album)
-                                instance.save()
-                                selected_album_hash = album.hash
-                            else:
-                                logger.debug("selectAlbum")
-                                instance = mediafileform.save(commit=False)
-                                logger.debug(f"{selected_album_hash=}")
-                                album = get_object_or_404(Album, hash=selected_album_hash)
-
-                                # check if file is not already in album
-                                if instance.album_set.filter(pk=album.pk).count() == 0:
-                                    # add file to album
-                                    instance.album_set.add(album)
-                                    instance.save()
-                        elif "btnBulkProcessing_id_category" in form.data:
-                            instance = mediafileform.save(commit=False)
-                            instance.category = form_bulk_processing.cleaned_data["category"]
-                            instance.updated_by = request.user.caiduser
-                            instance.updated_at = django.utils.timezone.now()
-                            instance.save()
-                        elif "btnBulkProcessing_id_identity" in form.data:
-                            instance = mediafileform.save(commit=False)
-                            instance.identity = form_bulk_processing.cleaned_data["identity"]
-                            instance.identity_is_representative = False
-                            instance.updated_by = request.user.caiduser
-                            instance.updated_at = django.utils.timezone.now()
-                            instance.save()
-                        elif "btnBulkProcessing_id_identity_is_representative" in form.data:
-                            instance = mediafileform.save(commit=False)
-                            instance.identity_is_representative = form_bulk_processing.cleaned_data[
-                                "identity_is_representative"
-                            ]
-                            instance.updated_by = request.user.caiduser
-                            instance.updated_at = django.utils.timezone.now()
-                            instance.save()
-                        elif "btnBulkProcessingDelete" in form.data:
-                            instance = mediafileform.save(commit=False)
-                            instance.delete()
-                        elif "btnBulkProcessing_id_taxon_verified" in form.data:
-                            instance = mediafileform.save(commit=False)
-                            instance.taxon_verified = form_bulk_processing.cleaned_data[
-                                "taxon_verified"
-                            ]
-                            instance.updated_by = request.user.caiduser
-                            instance.updated_at = django.utils.timezone.now()
-                            instance.save()
-
-                        elif "btnBulkProcessing_set_taxon_verified" in form.data:
-                            instance = mediafileform.save(commit=False)
-                            instance.taxon_verified = True
-                            instance.updated_by = request.user.caiduser
-                            instance.updated_at = django.utils.timezone.now()
-                            instance.save()
+            select_all_in_the_pages = True if form.data.get("select_all", '') == "on" else False
+            logger.debug(f"{select_all_in_the_pages=}")
+            if select_all_in_the_pages:
+                # selected all m media file processing
+                for mediafile in full_mediafiles:
+                    _single_mediafile_update(request, mediafile, form, form_bulk_processing, selected_album_hash)
+            else:
+                for mediafileform in form:
+                    # go over selected mediafiles
+                    if mediafileform.is_valid():
+                        if mediafileform.cleaned_data["selected"]:
+                            logger.debug("mediafileform is valid")
+                            # reset selected field for refreshed view
+                            mediafileform.cleaned_data["selected"] = False
+                            mediafileform.selected = False
+                            instance: MediaFile = mediafileform.save(commit=False)
+                            _single_mediafile_update(request, instance, form, form_bulk_processing, selected_album_hash)
 
                     # mediafileform.save()
             # form.save()
@@ -2028,6 +1975,62 @@ def media_files_update(
             # "taxon_stats_html": taxon_stats_html,
         },
     )
+
+
+def _single_mediafile_update(request, instance, form, form_bulk_processing, selected_album_hash):
+    if "btnBulkProcessingAlbum" in form.data:
+        logger.debug("Select Album :" + form.data["selectAlbum"])
+        if selected_album_hash == "new":
+            logger.debug("Creating new album")
+            album = create_new_album(request)
+            album.cover = instance
+            album.save()
+            instance.album_set.add(album)
+            instance.save()
+            selected_album_hash = album.hash
+        else:
+            logger.debug("selectAlbum")
+            logger.debug(f"{selected_album_hash=}")
+            album = get_object_or_404(Album, hash=selected_album_hash)
+
+            # check if file is not already in album
+            if instance.album_set.filter(pk=album.pk).count() == 0:
+                # add file to album
+                instance.album_set.add(album)
+                instance.save()
+    elif "btnBulkProcessing_id_category" in form.data:
+        instance.category = form_bulk_processing.cleaned_data["category"]
+        instance.updated_by = request.user.caiduser
+        instance.updated_at = django.utils.timezone.now()
+        instance.save()
+    elif "btnBulkProcessing_id_identity" in form.data:
+        instance.identity = form_bulk_processing.cleaned_data["identity"]
+        instance.identity_is_representative = False
+        instance.updated_by = request.user.caiduser
+        instance.updated_at = django.utils.timezone.now()
+        instance.save()
+    elif "btnBulkProcessing_id_identity_is_representative" in form.data:
+        instance.identity_is_representative = form_bulk_processing.cleaned_data[
+            "identity_is_representative"
+        ]
+        instance.updated_by = request.user.caiduser
+        instance.updated_at = django.utils.timezone.now()
+        instance.save()
+    elif "btnBulkProcessingDelete" in form.data:
+        instance.delete()
+    elif "btnBulkProcessing_id_taxon_verified" in form.data:
+        instance.taxon_verified = form_bulk_processing.cleaned_data[
+            "taxon_verified"
+        ]
+        instance.updated_by = request.user.caiduser
+        instance.updated_at = django.utils.timezone.now()
+        instance.save()
+
+    elif "btnBulkProcessing_set_taxon_verified" in form.data:
+        instance.taxon_verified = True
+        instance.updated_by = request.user.caiduser
+        instance.updated_at = django.utils.timezone.now()
+        instance.save()
 
 
 from dateutil.relativedelta import relativedelta  # Import relativedelta

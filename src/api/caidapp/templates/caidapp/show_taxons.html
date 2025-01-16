@@ -59,7 +59,7 @@
 {#                    <div class="col-12 col-sm-12 col-md-12 col-lg-6 col-xl-4 col-xxl-3 col-xxxl-2" id="card{{ mediafile.instance.id }}">#}
                     <div class="col-12 col-sm-12 col-md-12 col-lg-6 col-xl-4 col-xxl-3 col-xxxl-2" id="card{{ taxon.id }}">
                         <div class="card">
-                            {% if  taxon.mediafile_set.last  and  taxon.mediafile_set.last.thumbnail %}
+                            {% if  taxon.mediafile_set.all.first and  taxon.mediafile_set.all.first.thumbnail %}
                             <img class="card-img-top" src="{{ mediafiles.last.thumbnail.url }}" alt="Cameratrap image">
                             {% else %}
                                 <svg class="bd-placeholder-img card-img-top" width="100%" height="200"

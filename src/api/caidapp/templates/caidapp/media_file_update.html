@@ -167,14 +167,21 @@
                                     <div class="form-group">
                                         {% if mediafile.is_for_suggestion %}
                                             <div>
+
                                                 <i class="bi bi-question-circle"></i>
-                                                Is it {{ mediafile.predicted_taxon }}
+                                                <a href="#"
+                                                   name="confirmTaxonSubmit"
+                                                   class="btn btn-secondary"
+                                                   id="confirmTaxonSubmit"
+                                                        {#                                                        type="submit"#}
+                                                   onclick="setCategoryAndSubmit('{{ mediafile.predicted_taxon }}')"
+                                                >
+                                                    Select
+                                                </a>
+
+                                                {{ mediafile.predicted_taxon }}
                                                 ({{ mediafile.predicted_taxon_confidence|mul:100|floor|floatformat:0 }}%)
-                                                ?
-                                                <button name="confirmTaxonSubmit" class="btn btn-primary"
-                                                        id="confirmTaxonSubmit" type="submit">
-                                                    Confirm
-                                                </button>
+
                                             </div>
                                         {% endif %}
                                         {% for field in form %}
@@ -198,6 +205,12 @@
                                     <button class="btn btn-primary" id="btnUpload" type="submit">
                                         {{ button }}
                                     </button>
+                                    {%  if save_and_continue_button %}
+                                        <button class="btn btn-primary" id="btnSaveAndContinue" type="submit">
+                                            {{ save }}
+                                        </button>
+
+                                    {% endif %}
                                     {% if  skip_url %}
                                         <a href="{{ skip_url }}" class="btn btn-secondary mt-1 ">Skip</a>
                                     {% endif %}
@@ -255,4 +268,19 @@
         </div>
     {% endif %}
     {#</div>#}
+    <script>
+        function setCategoryAndSubmit(predictedTaxon) {
+        const categoryDropdown = document.getElementById('id_category');
+        const options = categoryDropdown.options;
+
+        // Loop through options to find and select the predicted taxon
+        for (let i = 0; i < options.length; i++) {
+            if (options[i].text === predictedTaxon) {
+                categoryDropdown.selectedIndex = i;
+                break;
+            }
+        }
+    }
+
+    </script>
 {% endblock %}
