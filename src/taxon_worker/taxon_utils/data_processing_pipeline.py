@@ -262,6 +262,7 @@ def data_processing(
     csv_path: Path,
     *,
     num_cores: Optional[int] = None,
+    sequence_time_limit_s: Optional[int] = None,
     contains_identities: bool = False,
 ) -> pd.DataFrame:
     """Preprocessing and prediction on data in ZIP file.
@@ -277,6 +278,8 @@ def data_processing(
     csv_path
         Path to output CSV file.
     """
+    if sequence_time_limit_s is None:
+        sequence_time_limit_s = 120
     logger.debug(f"{media_dir_path=}, {zip_path=}, {csv_path=}")
     # create metadata dataframe
     metadata, _ = data_preprocessing(
@@ -284,6 +287,8 @@ def data_processing(
         media_dir_path,
         num_cores=num_cores,
         contains_identities=contains_identities,
+        sequence_time_limit_s=sequence_time_limit_s,
+
     )
     metadata, df_failing = keep_correctly_loaded_images(metadata)
     df_failing.to_csv(csv_path.with_suffix(".failed.csv"), encoding="utf-8-sig")

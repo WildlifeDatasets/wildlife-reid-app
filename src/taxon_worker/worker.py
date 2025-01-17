@@ -10,6 +10,7 @@ from detection_utils.inference_video import create_image_from_video
 from taxon_utils import data_processing_pipeline, dataset_tools
 from taxon_utils.config import RABBITMQ_URL, REDIS_URL
 from taxon_utils.log import setup_logging
+from typing import Optional
 
 setup_logging()
 logger = logging.getLogger("app")
@@ -34,6 +35,7 @@ def predict(
     output_metadata_file: str,
     contains_identities: bool = False,
     force_init: bool = False,
+    sequence_time_limit_s: int = 120,
     **kwargs,
 ):
     """Main method called by Celery broker.
@@ -49,6 +51,7 @@ def predict(
         )
         logger.debug(f"celery {self.request.id=}")
         num_cores = 1
+
 
         # prepare input and output file names
         input_archive_file = Path(input_archive_file)
@@ -72,7 +75,8 @@ def predict(
                 media_dir_path=output_images_dir,
                 num_cores=num_cores,
                 contains_identities=contains_identities,
-                post_update_csv_path=post_update_csv_path
+                post_update_csv_path=post_update_csv_path,
+                sequence_time_limit_s=sequence_time_limit_s,
             )
             metadata, df_failing0 = data_processing_pipeline.keep_correctly_loaded_images(metadata)
             # image_path is now relative to output_images_dir

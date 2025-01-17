@@ -434,6 +434,11 @@ def run_species_prediction_async(
         # if the metadata file exists, it is updated
         update_metadata_csv_by_uploaded_archive(uploaded_archive)
 
+    if uploaded_archive.owner.workgroup is not None:
+        sequence_time_limit_s = uploaded_archive.owner.workgroup.sequence_time_limit_s
+    else:
+        sequence_time_limit_s = 120
+
     # send celery message to the data worker
     logger.info("Sending request to inference worker.")
     logger.debug(f"{uploaded_archive.contains_identities=}")
@@ -448,6 +453,7 @@ def run_species_prediction_async(
             "output_metadata_file": str(output_metadata_file),
             "contains_identities": uploaded_archive.contains_identities,
             "force_init": force_init,
+            "sequence_time_limit_s": sequence_time_limit_s
         },
     )
 

@@ -86,6 +86,7 @@ class WorkGroup(models.Model):
         max_length=255, blank=True, default="Not initiated"
     )
     identification_reid_message = models.TextField(blank=True, default="")
+    sequence_time_limit = models.IntegerField("Sequence time limit [s]", default=120)
 
     def __str__(self):
         return str(self.name)

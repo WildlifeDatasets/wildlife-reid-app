@@ -1217,6 +1217,7 @@ def analyze_dataset_directory(
     num_cores: Optional[int] = None,
     latin_to_taxonomy_csv_path: Optional[Path] = None,
     contains_identities: bool = False,
+    sequence_time_limit_s: int = 120,
 ):
     """Get species, locality, datetime and sequence_id from directory with media files.
 
@@ -1257,7 +1258,8 @@ def analyze_dataset_directory(
     )
     df["content_hash"] = hashes
 
-    df = extend_df_with_sequence_id(df, time_limit="120s")
+    sequence_time_limit_s = int(sequence_time_limit_s)
+    df = extend_df_with_sequence_id(df, time_limit=f"{sequence_time_limit_s}s")
 
     # Turn NaN int None
     df = df.where(pd.notnull(df), None)
@@ -1293,6 +1295,7 @@ def data_preprocessing(
     num_cores: Optional[int] = None,
     contains_identities: bool = False,
     post_update_csv_path: Path = Path("mediafile.post_update.csv"),
+    sequence_time_limit_s: int = 120,
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """Preprocessing of data in zip file.
 
@@ -1305,6 +1308,7 @@ def data_preprocessing(
     media_dir_path: output dir for media files with hashed names
     csv_path: Path to csv file
     post_update_csv_path: str - Name of file where will be stored any CSV or XLSX file
+    sequence_time_limit_s: int - Time limit for unique sequence
 
     Returns
     -------
@@ -1324,9 +1328,10 @@ def data_preprocessing(
     extract_archive(zip_path, output_dir=tmp_dir)
 
     logger.debug(f"analyze dataset directory: {tmp_dir=}")
-    # create metadata directory, hashing file names
+    # create metadata directory, hashing file names, datetime, sequences
     df, duplicates = analyze_dataset_directory(
-        tmp_dir, num_cores=num_cores, contains_identities=contains_identities
+        tmp_dir, num_cores=num_cores,
+        contains_identities=contains_identities, sequence_time_limit_s=sequence_time_limit_s
     )
     # post_update CSV is used for updating the metadata after all files are processed
 
