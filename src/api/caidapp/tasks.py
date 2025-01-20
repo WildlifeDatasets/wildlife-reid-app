@@ -1433,6 +1433,7 @@ def _iterate_over_locality_checks(
             date = ""
             # continue
         else:
+            logger.debug(f"Path withouth the suffix: {pth_no_suffix=}")
             logger.debug(
                 "Name of the directory or file is not in format {YYYY-MM-DD}_{locality_name}."
                 + "Skipping."
