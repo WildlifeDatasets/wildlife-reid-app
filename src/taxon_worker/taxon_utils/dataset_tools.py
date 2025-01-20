@@ -1035,7 +1035,8 @@ def extract_information_from_dir_structure(
                 continue
 
             data["annotated"].append(True if pthir.parts[0] == "TRIDENA" else False)
-            data["data_code"].append(pthir.parts[1])
+            # data["data_code"].append(pthir.parts[1])
+            data["data_code"].append(None)  # We do not use anymore the Lynx year information from dir structure
             data["vanilla_location"].append(pthir.parts[2])
             data["date"].append(get_date_from_path_structure(str(pthir)))
             data["path_len"].append(len(pthir.parts))
