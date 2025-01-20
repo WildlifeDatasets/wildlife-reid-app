@@ -78,6 +78,10 @@
                                         {{ individual_identity.count_of_mediafiles }}
                                     </a>
                                 </div>
+                                <div>
+                                        <i class="bi bi-geo-alt"></i>
+                                        Localities: {{ individual_identity.count_of_localities }}
+                                </div>
                                 {% if individual_identity.updated_by %}
                                     <div> Last update by: {{ individual_identity.updated_by }} </div>
                                 {% endif %}

@@ -623,6 +623,10 @@ class IndividualIdentity(models.Model):
         """Return number of media files."""
         return MediaFile.objects.filter(identity=self).count()
 
+    def count_of_localities(self):
+        """Return number of localities."""
+        return MediaFile.objects.filter(identity=self).values("locality").distinct().count()
+
     def __str__(self):
         return str(self.name)
 
