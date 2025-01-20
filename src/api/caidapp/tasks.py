@@ -435,7 +435,7 @@ def run_species_prediction_async(
         update_metadata_csv_by_uploaded_archive(uploaded_archive)
 
     if uploaded_archive.owner.workgroup is not None:
-        sequence_time_limit_s = uploaded_archive.owner.workgroup.sequence_time_limit_s
+        sequence_time_limit_s = uploaded_archive.owner.workgroup.sequence_time_limit
     else:
         sequence_time_limit_s = 120
 
