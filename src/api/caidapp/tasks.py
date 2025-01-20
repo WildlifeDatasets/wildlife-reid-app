@@ -223,7 +223,7 @@ def do_cloud_import_for_user(
         zip_path_absolute = Path(settings.MEDIA_ROOT) / zip_path
         logger.debug(f"{zip_path=}, {zip_path_absolute=}")
         if yield_dict.path_of_locality_check.is_dir():
-            views.make_zipfile(zip_path_absolute, yield_dict.path_of_locality_check)
+            make_zipfile(zip_path_absolute, yield_dict.path_of_locality_check)
         else:
             # if it is a file, copy it
             zip_path_absolute.parent.mkdir(exist_ok=True, parents=True)
