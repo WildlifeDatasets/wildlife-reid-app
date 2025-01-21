@@ -38,6 +38,21 @@
             display: flex;
             flex-direction: column;
         }
+
+        .image-container-300 {
+            width: 300px;
+            height: 225px;
+        }
+
+        .image-container-300 img {
+            width: 300px;
+            height: 225px;
+            object-fit: cover;
+        }
+
+        .card.width-300 {
+            width: 300px;
+        }
     </style>
 {% endblock %}
 {% block body %}
@@ -72,10 +87,9 @@
             {% if localities %}
                 {% for locality in localities %}
                     <div class="col-auto" id="card{{ locality.id }}">
-{#                    <div class="col-12 col-sm-12 col-md-12 col-lg-6 col-xl-4 col-xxl-3 col-xxxl-2" id="card{{ locality.id }}">#}
-                        {#                        <div class="col" style="-ms-flex: 0 0 200; flex: 0 0 200;">#}
-                        <div class="card" style="width: 300px;">
-                            {% if locality.mediafiles.count > 0 %}
+                        <div class="card width-300">
+                            <div class="image-container-300">
+                            {% if locality.mediafiles.count > 0 and locality.mediafiles.all.0.image_file  %}
                                     <a href="{% url 'caidapp:update_locality' locality.id %}" class=""
                                             {%  if request.session.private_mode %}
                                        onclick="return confirm('You are in private mode. In edit view you will reveal the locality. Do you want to continue?')"
@@ -88,7 +102,11 @@
                                             alt="Camera trap image"
                                     >
                                     </a>
+                            {% else %}
+                                <div class="card-img-top placeholder" style="width: 300px; height: 225px; background-color: #898c8f;"></div>
                             {% endif %}
+                            </div>
+
                             <div class="card-body">
                                 <h5 class="card-title">
                                 <a href="{% url 'caidapp:update_locality' locality.id %}" class=""

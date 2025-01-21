@@ -256,7 +256,7 @@ urlpatterns = [
         views.select_taxon_for_identification,
         name="select_taxon_for_identification",
     ),
-    path("localities/", views.localities_view, name="localities"),
+    path("localities/", views_locality.localities_view, name="localities"),
     path("localities/export/", views_locality.export_localities_view, name="export_localities"),
     path(
         "localities/export_xls/",

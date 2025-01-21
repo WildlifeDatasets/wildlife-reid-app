@@ -1,7 +1,6 @@
 import datetime
 import logging
 import os
-import shutil
 import traceback
 from io import BytesIO
 from pathlib import Path
@@ -14,7 +13,6 @@ import pytz
 from celery import signature
 from django.conf import settings
 from django.contrib import messages
-from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth import get_user_model
 from django.contrib.auth import login as auth_login
 from django.contrib.auth import logout
@@ -22,28 +20,25 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.views import LoginView
 from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector
 from django.core.paginator import Page, Paginator
-from django.db.models import Count, F, Min, Q, QuerySet
+from django.db.models import Count, Min, Q, QuerySet
 from django.forms import modelformset_factory
-from django.http import HttpResponseBadRequest, HttpResponseNotAllowed, JsonResponse
-from django.shortcuts import Http404, HttpResponse, get_object_or_404, redirect, render
+from django.http import HttpResponseNotAllowed
+from django.shortcuts import Http404, HttpResponse
 from django.template.loader import render_to_string
-from django.urls import reverse_lazy
-from django.views import View
 from django.db.models import OuterRef, Subquery
 from django.http import JsonResponse
 from celery.result import AsyncResult
-from django.shortcuts import get_object_or_404, render, redirect
+from django.shortcuts import get_object_or_404, render
 from django.views import View
 from django.urls import reverse_lazy
 
-from .models import IndividualIdentity, MediaFile, get_all_relevant_localities, user_has_access_filter_params
-from .forms import IndividualIdentityForm
+from .models import get_all_relevant_localities, user_has_access_filter_params
 from functools import wraps
 from django.shortcuts import redirect
 from django.core.exceptions import PermissionDenied
 
 
-from . import forms, model_tools, models, tasks, views_uploads, views_locality, model_extra
+from . import forms, model_tools, models, tasks, views_uploads, views_locality
 from .forms import (
     AlbumForm,
     IndividualIdentityForm,
@@ -1432,14 +1427,6 @@ def break_cloud_import_view(request):
 
 
 @login_required
-def localities_view(request):
-    """List of localities."""
-    localities = get_all_relevant_localities(request)
-    logger.debug(f"{len(localities)=}")
-    return render(request, "caidapp/localities.html", {"localities": localities})
-
-
-@login_required
 def update_uploadedarchive(request, uploadedarchive_id):
     """Show and update uploaded archive."""
     uploaded_archive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
@@ -2100,7 +2087,7 @@ def mediafiles_stats_view(request):
     mediafiles = MediaFile.objects.filter(id__in=mediafile_ids)
 
     map_html = views_locality.create_map_from_mediafiles(mediafiles)
-    logger.debug(f"{map_html=}")
+    # logger.debug(f"{map_html=}")
     taxon_stats_html = _taxon_stats_for_mediafiles(mediafiles)
     return render(
         request,

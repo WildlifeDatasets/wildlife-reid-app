@@ -9,6 +9,7 @@ from django.http import HttpResponseNotAllowed
 from django.shortcuts import HttpResponse, get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.db.models import QuerySet
+from django.contrib.auth.decorators import login_required, user_passes_test
 # from torch.serialization import locality_tag
 import plotly.graph_objects as go
 
@@ -17,8 +18,9 @@ from .forms import LocalityForm
 from .model_extra import (
     prepare_dataframe_for_uploads_in_one_locality,
     user_has_rw_acces_to_uploadedarchive, )
-from .models import Locality, UploadedArchive, MediaFile, user_has_access_filter_params
+from .models import Locality, UploadedArchive, MediaFile, user_has_access_filter_params, get_all_relevant_localities
 from . import models
+import logging
 
 logger = logging.getLogger("app")
 
@@ -271,7 +273,6 @@ def download_records_from_locality_xls_view(request, locality_hash):
 def create_map_from_mediafiles(mediafiles: Union[QuerySet, List[MediaFile]]):
     """Create dataframe from mediafiles."""
     # create dataframe
-    print(f"creating map for media files: {mediafiles=}")
     logger.debug(f"creating map for media files: {mediafiles=}")
 
     queryset_list = list(mediafiles.values("id", "locality__name", "locality__location"))
@@ -289,6 +290,7 @@ def create_map_from_mediafiles(mediafiles: Union[QuerySet, List[MediaFile]]):
                 "id": mediafile.id,
                 "category": mediafile.category.name if mediafile.category else None,
                 "category_id": mediafile.category.id if mediafile.category else None,
+                'captured_at': mediafile.captured_at if mediafile.captured_at else None,
                 "locality": mediafile.locality.name if mediafile.locality else None,
                 "locality__location": mediafile.locality.location
                 if mediafile.locality.location
@@ -302,6 +304,20 @@ def create_map_from_mediafiles(mediafiles: Union[QuerySet, List[MediaFile]]):
     df2[["lat", "lon"]] = df2["locality__location"].str.split(",", expand=True)
     df2["lat"] = df2["lat"].astype(float)
     df2["lon"] = df2["lon"].astype(float)
+    df2 = df2.sort_values("captured_at")
+
+    # Assign colors based on sequence
+    df2["color"] = pd.cut(
+        df2.index, bins=len(df2), labels=range(len(df2)), include_lowest=True
+    )
+    step_r = 255 / len(df2)
+    step_g = 155 / len(df2)
+    step_b = 105 / len(df2)
+    # color_scale = [f"rgba({int(255 - i*step_r)}, {int(100 + i*step_g)}, {int(150 + i*step_b)}, 160)" for i in range(len(df2))]
+    color_scale = [f"rgba(10,100,100, 160)" for i in range(len(df2))]
+
+
+
     logger.debug(f"{list(df2.keys())}")
     # if len(df2) > 10:
     #     logger.debug(f"{df2.sample(10).to_dict()=}")
@@ -355,11 +371,25 @@ def create_map_from_mediafiles(mediafiles: Union[QuerySet, List[MediaFile]]):
             lon=df2.lon,
             mode='lines+markers',  # Shows both lines and markers
             marker=dict(size=7),  # Adjust marker size
-            line=dict(width=2, color='blue'),  # Adjust line style
-            name = 'Path (Lines and Markers)',  # Legend label
+            # line=dict(width=2, color=[color_scale[i] for i in range(len(df2))]),  # Adjust line style
+            line=dict(width=2, color="blue"),  # Adjust line style
+            name = 'Path',  # Legend label
             visible = True  # Default visibility
         )
     )
+
+    # Add arrow for last segment
+    if len(df2) > 1:
+        fig.add_trace(
+            go.Scattermapbox(
+                lat=df2.lat.iloc[-2:],  # Last two points
+                lon=df2.lon.iloc[-2:],
+                mode='lines+markers',
+                line=dict(width=3, color='red'),  # Arrow color
+                marker=dict(size=10, symbol='arrow-bar'),  # Arrowhead
+                name='Last Segment',
+            )
+        )
 
     # Update layout with map style and center
     fig.update_layout(
@@ -383,3 +413,10 @@ def create_map_from_mediafiles(mediafiles: Union[QuerySet, List[MediaFile]]):
     map_html = fig.to_html()
     return map_html
 
+
+@login_required
+def localities_view(request):
+    """List of localities."""
+    localities = get_all_relevant_localities(request)
+    logger.debug(f"{len(localities)=}")
+    return render(request, "caidapp/localities.html", {"localities": localities})
