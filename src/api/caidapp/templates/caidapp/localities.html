@@ -98,7 +98,8 @@
                                     <img
                                             class="card-img-top"
 {#                                            src="{{ locality.uploadedarchive_set.all.0.thumbnail.url }}"#}
-                                            src="{{ locality.mediafiles.all.0.image_file.url }}"
+{#                                            src="{{ locality.mediafiles.all.0.image_file.url }}"#}
+                                            src="{{ locality.mediafiles.all.0.get_static_thumbnail.url }}"
                                             alt="Camera trap image"
                                     >
                                     </a>

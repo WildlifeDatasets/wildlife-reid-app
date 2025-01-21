@@ -14,6 +14,7 @@ from django.db.models import Q, Count
 from django.db.models.query import QuerySet
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from django.conf import settings
 from django.urls import reverse_lazy
 from location_field.models.plain import PlainLocationField
 from tqdm import tqdm
@@ -681,6 +682,7 @@ class MediaFile(models.Model):
         max_length=500,
     )
     thumbnail = models.ImageField(blank=True, null=True, max_length=500)
+    static_thumbnail = models.ImageField(blank=True, null=True, max_length=500)
     preview = models.ImageField(blank=True, null=True, max_length=500)  # 1200 x 800 px preview
     identity = models.ForeignKey(
         IndividualIdentity, blank=True, null=True, on_delete=models.SET_NULL
@@ -718,6 +720,49 @@ class MediaFile(models.Model):
         if commit:
             self.save()
         return self.original_filename
+
+    def get_static_thumbnail(self):
+        if self.static_thumbnail:
+            return self.static_thumbnail
+        else:
+            # create static thumbnail from self.image_file
+            import skimage.io
+            import skimage.transform
+            from PIL import Image
+            import numpy as np
+            im = skimage.io.imread(self.image_file.path)
+            logger.debug(f"{im.shape=}")
+            # resize to width 640 and relevant height
+            width = im.shape[1]
+            scale = 640 / width
+            im_rescaled = skimage.transform.rescale(im, scale, anti_aliasing=True, channel_axis=-1)
+
+            # Convert the rescaled image to uint8 format
+            im_rescaled_uint8 = (im_rescaled * 255).astype(np.uint8)
+
+            # Create a PIL Image from the NumPy array
+            pil_image = Image.fromarray(im_rescaled_uint8)
+            logger.debug(f"{self.image_file=}")
+            logger.debug(f"{self.image_file.path=}")
+            logger.debug(f"{self.mediafile=}")
+            logger.debug(f"{self.mediafile.path=}")
+            logger.debug(f"{self.thumbnail=}")
+            logger.debug(f"{str(self.thumbnail)=}")
+            # logger.debug(f"{Path(self.thumbnail)=}")
+            logger.debug(f"{self.thumbnail.path=}")
+
+            # Define the path for the static thumbnail
+            static_thumbnail_path = Path(self.thumbnail.path).with_name(".static_thumbnail.jpg")
+
+            # Save the image using Pillow
+            pil_image.save(static_thumbnail_path, format='JPEG')
+
+            static_thumbnail_path = static_thumbnail_path.relative_to(settings.MEDIA_ROOT)
+            logger.debug(f"{static_thumbnail_path=}")
+            self.static_thumbnail = str(static_thumbnail_path)
+            self.save()
+            return self.static_thumbnail
+
 
     def is_preidentified(self):
         """Return True if mediafile is preidentified."""
