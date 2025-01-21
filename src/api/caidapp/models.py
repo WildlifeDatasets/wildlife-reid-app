@@ -731,7 +731,6 @@ class MediaFile(models.Model):
             from PIL import Image
             import numpy as np
             im = skimage.io.imread(self.image_file.path)
-            logger.debug(f"{im.shape=}")
             # resize to width 640 and relevant height
             width = im.shape[1]
             scale = 640 / width
@@ -742,14 +741,7 @@ class MediaFile(models.Model):
 
             # Create a PIL Image from the NumPy array
             pil_image = Image.fromarray(im_rescaled_uint8)
-            logger.debug(f"{self.image_file=}")
-            logger.debug(f"{self.image_file.path=}")
-            logger.debug(f"{self.mediafile=}")
-            logger.debug(f"{self.mediafile.path=}")
-            logger.debug(f"{self.thumbnail=}")
-            logger.debug(f"{str(self.thumbnail)=}")
             # logger.debug(f"{Path(self.thumbnail)=}")
-            logger.debug(f"{self.thumbnail.path=}")
 
             # Define the path for the static thumbnail
             static_thumbnail_path = Path(self.thumbnail.path).with_name(".static_thumbnail.jpg")
@@ -758,7 +750,7 @@ class MediaFile(models.Model):
             pil_image.save(static_thumbnail_path, format='JPEG')
 
             static_thumbnail_path = static_thumbnail_path.relative_to(settings.MEDIA_ROOT)
-            logger.debug(f"{static_thumbnail_path=}")
+            logger.debug(f"Thumbnail created. Original size {im.sahpe}, path={static_thumbnail_path=}")
             self.static_thumbnail = str(static_thumbnail_path)
             self.save()
             return self.static_thumbnail
