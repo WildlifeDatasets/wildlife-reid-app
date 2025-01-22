@@ -750,7 +750,7 @@ class MediaFile(models.Model):
             pil_image.save(static_thumbnail_path, format='JPEG')
 
             static_thumbnail_path = static_thumbnail_path.relative_to(settings.MEDIA_ROOT)
-            logger.debug(f"Thumbnail created. Original size {im.sahpe}, path={static_thumbnail_path=}")
+            logger.debug(f"Thumbnail created. Original size {im.shape}, path={static_thumbnail_path=}")
             self.static_thumbnail = str(static_thumbnail_path)
             self.save()
             return self.static_thumbnail
