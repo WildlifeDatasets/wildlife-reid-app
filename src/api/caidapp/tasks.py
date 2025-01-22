@@ -105,6 +105,7 @@ def predict_species_on_success(
         uploaded_archive.save()
         uploaded_archive.update_earliest_and_latest_captured_at()
         uploaded_archive.make_sequences()
+        logger.debug("Running async detection on success taxon classification")
         run_detection_async(uploaded_archive)
     else:
         uploaded_archive.taxon_status = "F"
@@ -595,6 +596,8 @@ def make_thumbnail_for_mediafile_if_necessary(
             mediafile.save()
         else:
             logger.debug(f"Preview already exists for {mediafile.preview}")
+    # make static image thumbnail
+    mediafile.get_static_thumbnail()
 
 
 def convert_to_mp4(input_video_path: Path, output_video_path, force_rewrite=False) -> None:

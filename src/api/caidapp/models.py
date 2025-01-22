@@ -721,8 +721,8 @@ class MediaFile(models.Model):
             self.save()
         return self.original_filename
 
-    def get_static_thumbnail(self):
-        if self.static_thumbnail:
+    def get_static_thumbnail(self, force:bool=True, width:int=400) -> models.ImageField:
+        if self.static_thumbnail and not force:
             return self.static_thumbnail
         else:
             # create static thumbnail from self.image_file
@@ -732,8 +732,8 @@ class MediaFile(models.Model):
             import numpy as np
             im = skimage.io.imread(self.image_file.path)
             # resize to width 640 and relevant height
-            width = im.shape[1]
-            scale = 640 / width
+            im_width = im.shape[1]
+            scale = width / im_width
             im_rescaled = skimage.transform.rescale(im, scale, anti_aliasing=True, channel_axis=-1)
 
             # Convert the rescaled image to uint8 format
@@ -744,7 +744,7 @@ class MediaFile(models.Model):
             # logger.debug(f"{Path(self.thumbnail)=}")
 
             # Define the path for the static thumbnail
-            static_thumbnail_path = Path(self.thumbnail.path).with_name(".static_thumbnail.jpg")
+            static_thumbnail_path = Path(self.thumbnail.path).with_suffix(".static_thumbnail.jpg")
 
             # Save the image using Pillow
             pil_image.save(static_thumbnail_path, format='JPEG')
