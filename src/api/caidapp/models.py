@@ -721,7 +721,7 @@ class MediaFile(models.Model):
             self.save()
         return self.original_filename
 
-    def get_static_thumbnail(self, force:bool=True, width:int=400) -> models.ImageField:
+    def get_static_thumbnail(self, force:bool=False, width:int=400) -> models.ImageField:
         if self.static_thumbnail and not force:
             return self.static_thumbnail
         else:
