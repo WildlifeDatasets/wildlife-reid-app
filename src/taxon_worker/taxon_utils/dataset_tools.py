@@ -923,9 +923,29 @@ class SumavaInitialProcessing:
         logger.debug(f"Getting EXIFs from {len(original_paths)} files.")
         # Collect EXIF info
         full_paths = [self.dataset_basedir / original_path for original_path in original_paths]
-        with exiftool.ExifToolHelper(executable=None) as et:
-            # Your code to interact with ExifTool
-            exifs = et.get_metadata(full_paths)
+        try:
+            with exiftool.ExifToolHelper(executable=None) as et:
+                # Your code to interact with ExifTool
+                exifs = et.get_metadata(full_paths)
+        except exiftool.exceptions.ExifToolError as e:
+            logger.exception(traceback.format_exc())
+            logger.warning(f"Error while batch reading EXIFs from {full_paths}.")
+            logger.info("Trying to process per file (slow).")
+
+            # do it per file
+            exifs = []
+            for path in full_paths:
+                try:
+                    with exiftool.ExifToolHelper(executable=None) as et:
+                        exif = et.get_metadata(path)
+                    exifs.append(exif)
+                except exiftool.exceptions.ExifToolError as e:
+                    logger.debug(traceback.format_exc())
+                    logger.error(f"Error while reding EXIF from {str(path)}")
+                    exifs.append({})
+
+            exifs = [{} for _ in full_paths]
+
         assert len(exifs) == len(full_paths), \
             f"Number of EXIFs ({len(exifs)}) is not equal to number of files ({len(full_paths)}."
         logger.debug("EXIFs collected")
