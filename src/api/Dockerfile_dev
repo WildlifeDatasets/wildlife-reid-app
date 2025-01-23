@@ -41,7 +41,7 @@ RUN uv pip install https://github.com/BohemianVRA/FGVC/releases/download/v1.5.4-
 RUN uv pip install pytz --upgrade
 RUN uv pip install tzdata --upgrade
 
-RUN uv pip install openpyxl
+RUN uv pip install openpyxl pyproj
 
 COPY ./src/api/start_dev.sh /api/start_dev.sh
 

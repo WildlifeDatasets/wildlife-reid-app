@@ -8,6 +8,7 @@
 * [added] Added carousel for media files in the detail view
 * [changed] Logging in taxon worker
 * [added] Using `uv` installer for api Docker
+* [added] NDOP export
 
 ## 12-2024
 

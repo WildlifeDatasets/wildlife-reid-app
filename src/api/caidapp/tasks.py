@@ -948,9 +948,23 @@ def create_dataframe_from_mediafiles_NDOP(mediafiles: Generator[MediaFile, None,
             metadata_row["NAZ_LOKAL"] = mf.locality.name
             metadata_row["ID_LOKAL"] = mf.locality.id
             if mf.locality.location:
-                lat, lon = str(mf.locality.location).split(",")
-                metadata_row["X"] = lat
-                metadata_row["Y"] = lon
+                try:
+                    lat, lon = str(mf.locality.location).split(",")
+
+                    metadata_row["latitude"] = lat
+                    metadata_row["longitude"] = lon
+
+                    from pyproj import Transformer
+
+                    # from WGS84 to S-JTSK
+                    transformer = Transformer.from_crs("EPSG:4326", "EPSG:5514", always_xy=True)
+                    x, y = transformer.transform(lon, lat)
+                    metadata_row["X"] = x
+                    metadata_row["Y"] = y
+
+                except Exception as e:
+                    logger.debug(traceback.format_exc())
+                    logger.error(f"Error ({str(e)} during parsing location: {mf.locality.name}")
         metadata_row["ZDROJ"] = "caid.kky.zcu.cz"
         metadata_row["NEGATIV"] = 0
         metadata_row["POCET"] = ""
