@@ -86,6 +86,10 @@
         color: white; /* Darker color inside the light background */
     }
 
+    .card.width-300 {
+        width: 300px;
+    }
+
 </style>
 
 {% endblock %}
@@ -302,24 +306,29 @@
                         {% for mediafile in form_objects %}
                             <div
                                  id="card{{ mediafile.instance.id }}"
+{#                                 class="card width-300"#}
                                 {% if mediafile.instance != mediafile.instance.sequence.mediafile_set.first %}
+                                 class="col-auto"
+                                 style="margin-left: 20px; shado: 10px; shadow-color: red;"
 {#                                 TODO fix media file groups #}
 {#                                 class="col-12 col-sm-12 col-md-12 col-lg-6 col-xl-4 col-xxl-3 col-xxxl-2 d-none"#}
-                                 class="col-12 col-sm-12 col-md-12 col-lg-6 col-xl-4 col-xxl-3 col-xxxl-2"
+{#                                 class="col-12 col-sm-12 col-md-12 col-lg-6 col-xl-4 col-xxl-3 col-xxxl-2"#}
                                  data-sequence="{{ mediafile.instance.sequence.id }}"
                                 {% else %}
-                                 class="col-12 col-sm-12 col-md-12 col-lg-6 col-xl-4 col-xxl-3 col-xxxl-2"
+                                 class="col-auto "
+{#                                 class="col-12 col-sm-12 col-md-12 col-lg-6 col-xl-4 col-xxl-3 col-xxxl-2"#}
                                 {% endif %}
                             >
 {#    same-sized cards (but with a lot emtpy space on bottom of the card are done by:  card h-100 , <style> of .card  and row g-2#}
 {#                                <div class="card h-100">#}
-                                <div class="card"
+                                <div class="card width-300"
                                 >
                                     {% for hidden in mediafile.hidden_fields %}
                                         {{ hidden }}
                                     {% endfor %}
                                     {% if mediafile.instance.thumbnail %}
-                                        <a href="{% url 'caidapp:media_file_update' mediafile.instance.id %}">
+                                        <a
+                                            href="{% url 'caidapp:media_file_update' mediafile.instance.id %}?next={{ request.get_full_path }}">
                                             <img class="card-img-top" src="{{ mediafile.instance.thumbnail.url }}"
                                                  alt="Camera trap">
                                         </a>

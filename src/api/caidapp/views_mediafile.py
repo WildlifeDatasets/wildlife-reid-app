@@ -200,6 +200,8 @@ def media_file_update(
         return HttpResponseNotAllowed("Not allowed to see this media file.")
 
     if request.method == "POST":
+
+        logger.debug(f"{next_url=}")
         if next_url:
             pass
             # return HttpResponseRedirect(next_url)
@@ -250,6 +252,19 @@ def media_file_update(
             messages.error(request, "Form is not valid.")
 
     else:
+        logger.debug(f"{next_url=}")
+        if next_url:
+            pass
+            # return HttpResponseRedirect(next_url)
+        else:
+            next_url = request.GET.get("next")
+
+            if next_url is None:
+                # next url is where i am comming from
+                next_url = request.META.get("HTTP_REFERER", "/")
+        cancel_url = next_url
+        logger.debug(f"{next_url=}")
+
         form = MediaFileForm(instance=mediafile)
     return render(
         request,
