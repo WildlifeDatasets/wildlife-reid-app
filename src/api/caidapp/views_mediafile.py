@@ -44,7 +44,7 @@ def stream_video(request, mediafile_id):
     return response
 
 
-def missing_taxon_annotation(request, uploaded_archive_id: Optional[int] = None):
+def missing_taxon_annotation(request, uploaded_archive_id: Optional[int] = None, prev_mediafile_id: Optional[int] = None):
     """List of uploads."""
     # get uploadeda archive or None
     if uploaded_archive_id is not None:
@@ -60,6 +60,9 @@ def missing_taxon_annotation(request, uploaded_archive_id: Optional[int] = None)
     mediafiles = models.get_mediafiles_with_missing_taxon(
         request.user.caiduser, uploadedarchive=uploadedarchive
     )
+    missing_count = mediafiles.count()
+    if prev_mediafile_id is not None and mediafiles.count() > 1:
+        mediafiles = mediafiles.exclude(id=prev_mediafile_id)
     # not_classified_taxon = models.Taxon.objects.get(name="Not Classified")
     # animalia_taxon = models.Taxon.objects.get(name="Animalia")
 
@@ -76,7 +79,7 @@ def missing_taxon_annotation(request, uploaded_archive_id: Optional[int] = None)
     #     ploaded_at and then by mediafile captured_at, then take first 10
 
     # Order by parent uploaded_at and then by mediafile captured_at, then take last 10
-    last_ten_mediafiles = list(mediafiles.order_by("-parent__uploaded_at", "-captured_at")[:10])
+    last_ten_mediafiles = list(mediafiles.order_by("-parent__uploaded_at", "-captured_at")[:100])
 
     # Select a random media file from the last 10
     if last_ten_mediafiles:
@@ -88,22 +91,29 @@ def missing_taxon_annotation(request, uploaded_archive_id: Optional[int] = None)
     # .first()
 
     if uploadedarchive is not None:
-        next_url = reverse_lazy(
-            "caidapp:missing_taxon_annotation", kwargs={"uploaded_archive_id": uploadedarchive.id}
-        )
-        skip_url = reverse_lazy(
-            "caidapp:missing_taxon_annotation", kwargs={"uploaded_archive_id": uploadedarchive.id}
-        )
+        kwargs = {"uploaded_archive_id": uploadedarchive.id}
+        if mediafile:
+            kwargs["prev_mediafile_id"] = mediafile.id
+        next_url = reverse_lazy( "caidapp:missing_taxon_annotation", kwargs=kwargs )
+        if missing_count > 1:
+            skip_url = reverse_lazy( "caidapp:missing_taxon_annotation", kwargs=kwargs )
+        else:
+            skip_url = None
         cancel_url = reverse_lazy(
             "caidapp:uploadedarchive_mediafiles", kwargs={"uploadedarchive_id": uploadedarchive.id}
         )
     else:
-        next_url = reverse_lazy("caidapp:missing_taxon_annotation")
-        skip_url = reverse_lazy("caidapp:missing_taxon_annotation")
+        kwargs = {"prev_mediafile_id": prev_mediafile_id}
+        next_url = reverse_lazy( "caidapp:missing_taxon_annotation", kwargs=kwargs )
+        skip_url = next_url
         cancel_url = reverse_lazy("caidapp:taxon_processing")
 
     if mediafile is None:
-        return message_view(request, "No non-classified media files.")
+        if uploadedarchive is not None:
+            message = f"All taxa known for {uploadedarchive.name}"
+        else:
+            message = "All taxa known"
+        return message_view(request, message, link=cancel_url)
     return media_file_update(
         request,
         mediafile.id,
@@ -197,38 +207,47 @@ def media_file_update(
             next_url = request.GET.get("next")
 
             if next_url is None:
+                # next url is where i am comming from
+                next_url = request.META.get("HTTP_REFERER", "/")
                 # stay here
-                next_url = reverse_lazy("caidapp:media_file_update", kwargs={"media_file_id": media_file_id})
+                # next_url = reverse_lazy("caidapp:media_file_update", kwargs={"media_file_id": media_file_id})
                 # next_url = reverse_lazy(
                 #     "caidapp:uploadedarchive_mediafiles",
                 #     kwargs={"uploadedarchive_id": mediafile.parent.id},
                 # )
-        if "confirmTaxonSubmit" in request.POST:
-            confirm_prediction(request, media_file_id)
-            # decode_json
-            # stay on the same page
-            actual_url = request.META.get("HTTP_REFERER", "/")
-
-            return redirect(actual_url)
+        # if "confirmTaxonSubmit" in request.POST:
+        #     confirm_prediction(request, media_file_id)
+        #     # decode_json
+        #     # stay on the same page
+        #     actual_url = request.META.get("HTTP_REFERER", "/")
+        #
+        #     return redirect(actual_url)
 
         form = MediaFileForm(request.POST, instance=mediafile)
+        logger.debug(f"Form in POST: {mediafile=}")
         if form.is_valid():
+            logger.debug(f"Form is valid")
 
             mediafile.updated_by = request.user.caiduser
             mediafile.updated_at = django.utils.timezone.now()
             # get uploaded archive
             mediafile = form.save()
             logger.debug(f"{mediafile.category=}")
-            if (mediafile.category is not None) and (mediafile.category.name != "Not Classified"):
-                # mediafile.taxon_verified = True
-                # mediafile.taxon_verified_at = django.utils.timezone.now()
-                mediafile.save()
-                logger.debug(f"{mediafile.taxon_verified=}")
-
-                return redirect(next_url)
+            logger.debug(f"{mediafile.mediafile.path=}")
+            logger.debug(f"{mediafile.updated_at=}")
+            logger.debug(f"{next_url=}")
+            # if (mediafile.category is not None) and (mediafile.category.name != "Not Classified"):
+            #     # mediafile.taxon_verified = True
+            #     # mediafile.taxon_verified_at = django.utils.timezone.now()
+            #     mediafile.save()
+            #     logger.debug(f"{mediafile.taxon_verified=}")
+            #
+            #     return redirect(next_url)
+            return redirect(next_url)
         else:
             logger.error("Form is not valid.")
-            # messages.error(request, "Form is not valid.")
+            from django.contrib import messages
+            messages.error(request, "Form is not valid.")
 
     else:
         form = MediaFileForm(instance=mediafile)

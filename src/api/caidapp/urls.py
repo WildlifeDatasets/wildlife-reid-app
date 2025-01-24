@@ -199,7 +199,17 @@ urlpatterns = [
         name="missing_taxon_annotation",
     ),
     path(
+        "missing_taxon_annotation/prev_mediafile_id/<int:prev_mediafile_id>",
+        views_mediafile.missing_taxon_annotation,
+        name="missing_taxon_annotation",
+    ),
+    path(
         "missing_taxon_annotation/uploaded_archive/<int:uploaded_archive_id>",
+        views_mediafile.missing_taxon_annotation,
+        name="missing_taxon_annotation",
+    ),
+    path(
+        "missing_taxon_annotation/uploaded_archive/<int:uploaded_archive_id>/prev_mediafile_id/<int:prev_mediafile_id>",
         views_mediafile.missing_taxon_annotation,
         name="missing_taxon_annotation",
     ),
