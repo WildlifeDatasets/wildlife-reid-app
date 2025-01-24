@@ -742,6 +742,8 @@ class MediaFile(models.Model):
             # Create a PIL Image from the NumPy array
             pil_image = Image.fromarray(im_rescaled_uint8)
             # logger.debug(f"{Path(self.thumbnail)=}")
+            # turn RGBA to RGB
+            pil_image = pil_image.convert("RGB")
 
             # Define the path for the static thumbnail
             static_thumbnail_path = Path(self.thumbnail.path).with_suffix(".static_thumbnail.jpg")
