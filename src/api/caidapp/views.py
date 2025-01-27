@@ -2730,7 +2730,8 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
                     link=self.prev_url,
                     button_label="Ok",
                 )
-            for i, row in df.iterrows():
+
+            for i, row in tqdm(df.iterrows(), total=len(df), desc="Updating metadata"):
                 original_path = row['original_path']
 
                 # get or None

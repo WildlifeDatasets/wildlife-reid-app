@@ -258,7 +258,7 @@ def create_image_from_video(
 
             # save image
             make_gif(all_images, gif_path, prediction["frame"], height=gif_height)
-            logger.trace(f"Selected 1 video frame ({images.shape}), saving to: {new_full_path}")
+            # logger.debug(f"Selected 1 video frame ({images.shape}), saving to: {new_full_path}")
             cv2.imwrite(new_full_path, image[..., ::-1])
 
             # update row
