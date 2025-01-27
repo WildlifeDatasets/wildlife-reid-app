@@ -31,11 +31,16 @@ from celery.result import AsyncResult
 from django.shortcuts import get_object_or_404, render
 from django.views import View
 from django.urls import reverse_lazy
-
-from .models import get_all_relevant_localities, user_has_access_filter_params
 from functools import wraps
 from django.shortcuts import redirect
 from django.core.exceptions import PermissionDenied
+
+from django.contrib.auth.models import Group, User
+from rest_framework import permissions, viewsets
+
+from .serializers import LocalitySerializer
+
+from .models import get_all_relevant_localities, user_has_access_filter_params
 
 
 from . import forms, model_tools, models, tasks, views_uploads, views_locality
@@ -2715,12 +2720,15 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
             counter_individuality = 0
             self.prev_url = request.META.get("HTTP_REFERER", "/")
             if "original_path" not in df.columns:
+                logger.debug(f"{df.columns=}")
+                logger.warning("The 'original_path' column is required in the uploaded spreadsheet.")
+
                 return message_view(
                     request,
                     "The 'original_path' column is required in the uploaded spreadsheet.",
                     headline="Update metadata",
                     link=self.prev_url,
-                    button="Ok",
+                    button_label="Ok",
                 )
             for i, row in df.iterrows():
                 original_path = row['original_path']
