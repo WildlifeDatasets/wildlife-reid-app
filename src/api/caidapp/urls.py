@@ -1,10 +1,17 @@
 from django.urls import path, include
+# from rest_framework import routers
+from django.views.generic import ListView, DetailView
 
-from . import views, views_locality, views_mediafile, views_uploads
+from . import views, views_locality, views_mediafile, views_uploads, models
+
+# router = routers.DefaultRouter()
+# router.register(r"localities", views.LocalitiesViewSet)
+
 
 app_name = "caidapp"
 urlpatterns = [
     path("", views.login, name="index"),
+    # path("rest_api/", include(router.urls)), # not used any more
     path("upload/", views.upload_archive, name="upload_archive"),
     path(
         "upload/contains_single_taxon/",
@@ -350,6 +357,9 @@ urlpatterns = [
     path("pygwalker/", include("djangoaddicts.pygwalker.urls")),
     path("pygwalker_mediafiles/", views.MyPygWalkerView.as_view(), name="pygwalker_mediafiles"),
     path("pygwalker_localities/", views.PygWalkerLocalitiesView.as_view(), name="pygwalker_localities"),
+    # path("generic/locality/", ListView.as_view(model=models.Locality), name="generic_localities"),
+    path("generic/locality/", views.LocalityListView.as_view(), name="generic_locality_list"),
+    path("generic/locality/<int:pk>/", DetailView.as_view(model=models.Locality), name="generic_locality_detail"),
 
 ]
 # if settings.DEBUG:

@@ -2953,3 +2953,17 @@ def select_second_id_for_identification_merge(request, individual_identity1_id: 
         },
     )
 
+from django.views.generic import ListView
+
+class LocalityListView(ListView):
+    model = Locality
+    template_name = "caidapp/generic_list.html"
+    context_object_name = "localities"
+    paginate_by = 10
+
+    def get_queryset(self):
+        params = user_has_access_filter_params(self.request.user.caiduser, "owner")
+        return Locality.objects.filter(**params)
+
+    def get_detail_url_name(self):
+        return "caidapp:generic_locality_detail"

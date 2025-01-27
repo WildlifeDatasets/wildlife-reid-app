@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+{% load widget_tweaks %}
+{% load custom_filters %}
+
+{% block head %}
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    {{ form.media }}
+    <!-- Include jQuery -->
+
+{% endblock %}
+
+{% block body %}
+    {#<div class="container">#}
+    {% if user.is_authenticated %}
+        <div class="pagetitle">
+            <h1>{{ view.model | get_verbose_name_plural }}</h1>
+            <nav>
+{#                <ol class="breadcrumb">#}
+{#                    <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li>#}
+{#                    <li class="breadcrumb-item"><a href="{% url 'caidapp:uploadedarchive_mediafiles' mediafile.parent.id %}"> Uploaded#}
+{#                        Archive: {{ mediafile.parent }}</a></li>#}
+{#                </ol>#}
+            </nav>
+        </div><!-- End Page Title -->
+        <div class="section">
+            <div class="row">
+            {% for object in object_list %}
+                <div class="col-md-4 mb-4">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">{{ object }}</h5>
+                            <ul class="list-group list-group-flush">
+{#                                {% for field in view.model. %}#}
+{#                                    {% if not field.auto_created and not field.primary_key %}#}
+{#                                        <li class="list-group-item">#}
+{#                                            <strong>{{ field.verbose_name }}:</strong> {{ object|getattr:field.name }}#}
+{#                                        </li>#}
+{#                                    {% endif %}#}
+{#                                {% endfor %}#}
+                            </ul>
+                            <a href="{% url view.get_detail_url_name pk=object.pk %}" class="btn btn-primary mt-3">View Details</a>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+
+        </div>
+    {% endif %}
+    {#</div>#}
+{% endblock %}

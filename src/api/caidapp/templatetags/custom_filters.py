@@ -33,3 +33,11 @@ def chunk(queryset, size):
 @register.filter
 def order_by(queryset, field):
     return queryset.order_by(field)
+
+
+@register.filter
+def get_verbose_name_plural(model):
+    return model._meta.verbose_name_plural
+
+def get_model_fields(model):
+    return model._meta.fields

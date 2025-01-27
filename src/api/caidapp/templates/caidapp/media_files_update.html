@@ -90,6 +90,26 @@
         width: 300px;
     }
 
+
+
+    .sequence-group {
+        border: 2px solid rgba(0, 123, 255, 0.5); /* Blue border for the group */
+        border-radius: 10px; /* Rounded corners */
+        margin: 10px 0; /* Spacing between groups */
+        padding: 10px; /* Inner spacing */
+        background-color: rgba(0, 123, 255, 0.1); /* Light blue background */
+    }
+    .sequence-header {
+        font-weight: bold;
+        margin-bottom: 5px;
+        cursor: pointer; /* Indicates toggle functionality */
+    }
+    .sequence-collapsed .card {
+        display: none; /* Hide cards in collapsed groups */
+    }
+
+
+
 </style>
 
 {% endblock %}
