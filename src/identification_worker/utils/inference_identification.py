@@ -27,7 +27,6 @@ from .wildfusion_utils import SimilarityPipelineExtended, WildFusionExtended
 try:
     from ..infrastructure_utils import mem
 except ImportError:
-    print(traceback.format_exc())
     from infrastructure_utils import mem
 
 logger = logging.getLogger("app")

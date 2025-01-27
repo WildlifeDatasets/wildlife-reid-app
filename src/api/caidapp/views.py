@@ -2762,13 +2762,21 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
                                 counter_fields_updated += 1
                                 counter_locality += 1
                         if "datetime" in row:
-                            mf.captured_at = row["datetime"]
+                            datetime_str = str(row["datetime"])
+
+                            # convert datetime to string
+                            mf.captured_at = datetime_str
                             counter_fields_updated += 1
 
                         mf.save()
+
                     except Exception as e:
                         logger.debug(f"{mf=}")
                         logger.debug(traceback.format_exc())
+                        logger.debug(f"{row=}")
+                        if "datetime" in row:
+                            logger.debug(f"{row['datetime']=}")
+                            logger.debug(f"{type(row['datetime'])=}")
                         logger.error(e)
                 else:
                     counter_file_in_spreadsheet_does_not_exist += 1
