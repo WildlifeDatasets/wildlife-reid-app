@@ -66,7 +66,7 @@ class DuplicateFilter(logging.Filter):
 
 
 @shared_task(bind=True)
-def predict_species_on_success(
+def on_success_predict_taxon(
     self,
     output: dict,
     *args,
@@ -81,43 +81,49 @@ def predict_species_on_success(
     print(f"Taxon classification finished with status {status}")
     logger.info(f"Taxon classification finished with status '{status}'. Updating database record.")
     uploaded_archive = UploadedArchive.objects.get(id=uploaded_archive_id)
-    if "status" not in output:
-        logger.critical(f"Unexpected error {output=} is missing 'status' field.")
-        uploaded_archive.taxon_status = "U"
-        uploaded_archive.identification = "U"
-    elif output["status"] == "DONE":
-        uploaded_archive.zip_file = zip_file
-        uploaded_archive.csv_file = csv_file
-        uploaded_archive.import_error_spreadsheet = str(Path(csv_file).with_suffix(".failed.csv"))
-        make_thumbnail_for_uploaded_archive(uploaded_archive)
-        # update_metadata_csv_by_uploaded_archive(uploaded_archive)
-        # create missing take effect only if the processing is done for the first time
-        # in other cases the file should be removed from CSV before the processing is run
-        logger.debug(f"{uploaded_archive.contains_identities=}")
-        update_uploaded_archive_by_metadata_csv(
-            uploaded_archive, create_missing=True, extract_identites=extract_identites
-        )
-        uploaded_archive.mediafiles_imported = True
-        uploaded_archive.taxon_status = "TAID"
-        uploaded_archive.identification_status = "IR"  # Ready for identification
-        uploaded_archive.status_message = "Taxon classification finished."
-        uploaded_archive.finished_at = django.utils.timezone.now()
-        uploaded_archive.save()
-        uploaded_archive.update_earliest_and_latest_captured_at()
-        uploaded_archive.make_sequences()
-        logger.debug("Running async detection on success taxon classification")
-        run_detection_async(uploaded_archive)
-    else:
+
+    try:
+        if "status" not in output:
+            logger.critical(f"Unexpected error {output=} is missing 'status' field.")
+            uploaded_archive.taxon_status = "U"
+            uploaded_archive.identification = "U"
+        elif output["status"] == "DONE":
+            uploaded_archive.zip_file = zip_file
+            uploaded_archive.csv_file = csv_file
+            uploaded_archive.import_error_spreadsheet = str(Path(csv_file).with_suffix(".failed.csv"))
+            make_thumbnail_for_uploaded_archive(uploaded_archive)
+            # update_metadata_csv_by_uploaded_archive(uploaded_archive)
+            # create missing take effect only if the processing is done for the first time
+            # in other cases the file should be removed from CSV before the processing is run
+            logger.debug(f"{uploaded_archive.contains_identities=}")
+            update_uploaded_archive_by_metadata_csv(
+                uploaded_archive, create_missing=True, extract_identites=extract_identites
+            )
+            uploaded_archive.mediafiles_imported = True
+            uploaded_archive.taxon_status = "TAID"
+            uploaded_archive.identification_status = "IR"  # Ready for identification
+            uploaded_archive.status_message = "Taxon classification finished."
+            uploaded_archive.finished_at = django.utils.timezone.now()
+            uploaded_archive.save()
+            uploaded_archive.update_earliest_and_latest_captured_at()
+            uploaded_archive.make_sequences()
+            logger.debug("Running async detection on success taxon classification")
+            run_detection_async(uploaded_archive)
+        else:
+            uploaded_archive.taxon_status = "F"
+            uploaded_archive.identification_status = "F"
+            uploaded_archive.finished_at = django.utils.timezone.now()
+            if "error" in output:
+                logger.error(f"{output['error']=}")
+                uploaded_archive.status_message = output["error"]
+            uploaded_archive.save()
+    except Exception as e:
+        logger.debug(str(traceback.format_exc()))
+        logger.error(f"Error during on_success_predict_taxon: {e}")
         uploaded_archive.taxon_status = "F"
-        uploaded_archive.identification_status = "F"
         uploaded_archive.finished_at = django.utils.timezone.now()
-        if "error" in output:
-            logger.error(f"{output['error']=}")
-            uploaded_archive.status_message = output["error"]
+        uploaded_archive.status_message = str(traceback.format_exc())
         uploaded_archive.save()
-
-
-
 
 
 def _prepare_dataframe_for_identification(mediafiles) -> dict:
@@ -418,7 +424,7 @@ def run_species_prediction_async(
 
     if link is None:
         link = (
-            predict_species_on_success.s(
+            on_success_predict_taxon.s(
                 uploaded_archive_id=uploaded_archive.id,
                 zip_file=os.path.relpath(str(output_archive_file), settings.MEDIA_ROOT),
                 csv_file=os.path.relpath(str(output_metadata_file), settings.MEDIA_ROOT),
