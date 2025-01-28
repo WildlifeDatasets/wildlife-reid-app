@@ -7,6 +7,7 @@ django-pagination==1.0.7
 django-debug-toolbar==4.4.6
 django-pygwalker==0.0.9
 django-rest-framework==0.1.0
+django-cruds
 # django-handyhelpers
 uvicorn==0.22.0
 celery[redis]==5.2.7
@@ -25,3 +26,4 @@ opencv-python-headless==4.5.5.64  # just pinned version, no specific reason for 
 tqdm==4.62.3
 joblib==1.4.0
 numpy==1.26
+python-Levenshtein==0.26.1

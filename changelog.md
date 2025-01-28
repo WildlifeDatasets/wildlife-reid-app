@@ -9,6 +9,8 @@
 * [changed] Logging in taxon worker
 * [added] Using `uv` installer for api Docker
 * [added] NDOP export
+* [added] Merge localities
+* [added] Merge localities suggestion
 
 ## 12-2024
 

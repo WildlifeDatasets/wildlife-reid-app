@@ -36,6 +36,7 @@ from django.shortcuts import redirect
 from django.core.exceptions import PermissionDenied
 
 from django.contrib.auth.models import Group, User
+from tqdm import tqdm
 from rest_framework import permissions, viewsets
 
 from .serializers import LocalitySerializer

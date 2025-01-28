@@ -2,12 +2,16 @@ from django import forms
 from django.contrib.auth import get_user_model
 
 from . import models
-from .models import Album, CaIDUser, IndividualIdentity, MediaFile, UploadedArchive
+from .models import Album, CaIDUser, IndividualIdentity, MediaFile, UploadedArchive, Locality
 import logging
 
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
+
+class CompareLocalitiesForm(forms.Form):
+    locality = forms.ModelChoiceField(queryset=Locality.objects.all(), label="Locality")
+
 
 class UserIdentificationModelForm(forms.Form):
     identification_model = forms.ModelChoiceField(

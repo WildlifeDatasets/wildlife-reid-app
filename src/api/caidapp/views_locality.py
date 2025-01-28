@@ -20,6 +20,13 @@ from .model_extra import (
     user_has_rw_acces_to_uploadedarchive, )
 from .models import Locality, UploadedArchive, MediaFile, user_has_access_filter_params, get_all_relevant_localities
 from . import models
+import Levenshtein
+from django.shortcuts import render, redirect
+from django.contrib import messages
+from .forms import CompareLocalitiesForm
+from .models import Locality
+
+
 import logging
 
 logger = logging.getLogger("app")
@@ -420,3 +427,70 @@ def localities_view(request):
     localities = get_all_relevant_localities(request)
     logger.debug(f"{len(localities)=}")
     return render(request, "caidapp/localities.html", {"localities": localities})
+
+
+def suggest_merge_localities_view(request):
+    suggestions = []
+    all_localities = Locality.objects.filter(**user_has_access_filter_params(request.user.caiduser, "owner"))
+    len_all_localities = len(all_localities)
+    for i, locality1 in enumerate(all_localities):
+        # other_localities = all_localities.exclude(id=locality1.id)
+        # for locality2 in other_localities:
+        for j in range(i + 1, len_all_localities):
+            locality2 = all_localities[j]
+            if locality1 == locality2:
+                continue
+            distance = Levenshtein.distance(locality1.name, locality2.name)
+
+            if distance < (len(locality1.name) / 4. + len(locality2.name) / 4.):
+                # count media files of locality
+                count_media_files_locality1 = locality1.mediafiles.count()
+                count_media_files_locality2 = locality2.mediafiles.count()
+
+                if count_media_files_locality1 < count_media_files_locality2:
+                    locality_a = locality1
+                    locality_b = locality2
+                else:
+                    locality_a = locality2
+                    locality_b = locality1
+
+                suggestions.append((locality_a, locality_b, distance))
+        # sort by distance and if the distance is the same, then the longest name first
+    suggestions.sort(key=lambda x: (x[2], -len(x[1].name)))  # Sort by distance
+        # suggestions.sort(key=lambda x: (x[2], len(x[1])))  # Sort by distance
+
+    return render(request, "caidapp/suggest_merge_localities.html",
+                  {"suggestions": suggestions})
+
+
+def merge_localities_view(request, locality_from_id, locality_to_id):
+    """Merge localities."""
+    locality_from = get_object_or_404(
+        Locality,
+        pk=locality_from_id,
+        **user_has_access_filter_params(request.user.caiduser, "owner"),
+    )
+    locality_to = get_object_or_404(
+        Locality,
+        pk=locality_to_id,
+        **user_has_access_filter_params(request.user.caiduser, "owner"),
+    )
+    if locality_from == locality_to:
+        messages.error(request, "Cannot merge locality with itself.")
+        return redirect("caidapp:suggest_merge_localities")
+
+    # Move media files to the target locality
+    mediafiles = locality_from.mediafiles.all()
+    for mediafile in mediafiles:
+        mediafile.locality = locality_to
+        mediafile.save()
+
+    uploaded_archives = UploadedArchive.objects.filter(locality_at_upload_object=locality_from)
+    for uploaded_archive in uploaded_archives:
+        uploaded_archive.locality_at_upload_object = locality_to
+        uploaded_archive.save()
+
+    # Delete the source locality
+    locality_from.delete()
+    messages.info(request, f"Localities merged: {locality_from.name} -> {locality_to.name}")
+    return redirect("caidapp:suggest_merge_localities")

@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <h1>Suggest Merge Localities</h1>
+
+  {% if suggestions %}
+    <h2>Suggestions</h2>
+      <ul class="list-group">
+      {% for locality1, locality2, distance in suggestions %}
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+          {{ locality1.name }} => {{ locality2.name }} with distance: {{ distance }}
+{#            draw a dialog to make sure that user wants this #}
+          <a class="btn btn-secondary" href="{% url 'caidapp:merge_localities' locality1.id locality2.id %}"
+          onclick="return confirm('Are you sure you want to merge {{ locality1.name }} into {{ locality2.name }}?');"
+          >Merge</a>
+        </li>
+      {% endfor %}
+      </ul>
+
+
+  {% endif %}
+
+
+    <div class="container">
+  <div class="item">1</div>
+  <div class="item">2</div>
+  <div class="item">3</div>
+</div>
+
+<style>
+  .container {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .item {
+    background-color: lightblue;
+    padding: 10px;
+    border: 1px solid blue;
+  }
+</style>
+{% endblock %}

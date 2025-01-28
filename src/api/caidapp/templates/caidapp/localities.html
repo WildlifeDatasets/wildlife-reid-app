@@ -61,6 +61,15 @@
         <div class="pagetitle">
             <h1>Localities</h1>
         <nav>
+            <a href="{% url 'caidapp:update_locality' %}" class="btn btn-secondary">
+                <i class="fas fa-plus"></i> Add new locality
+            </a>
+            <a href="{% url 'caidapp:suggest_merge_localities' %}" class="btn btn-secondary">
+                <i class="fas fa-link"></i> Suggest merge localities
+            </a>
+            <a href="{% url 'caidapp:import_localities' %}" class="btn btn-secondary">
+                <i class="fas fa-file-import"></i> Import spreadsheet
+            </a>
             <a href="{% url 'caidapp:export_localities' %}" class="btn btn-secondary">
                 <i class="fas fa-file-export"></i> Export CSV
             </a>
@@ -68,12 +77,7 @@
                 <i class="fas fa-file-excel"></i>
                 Export XLSX
             </a>
-            <a href="{% url 'caidapp:import_localities' %}" class="btn btn-secondary">
-                <i class="fas fa-file-import"></i> Import spreadsheet
-            </a>
-            <a href="{% url 'caidapp:update_locality' %}" class="btn btn-secondary">
-                <i class="fas fa-plus"></i> Add new locality
-            </a>
+
             <a href="{% url 'caidapp:pygwalker_localities' %}" class="btn btn-secondary">
 {#                graphs and statistics #}
                 <i class="fas fa-chart-line"></i> Walk Localities
