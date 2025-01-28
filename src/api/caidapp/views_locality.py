@@ -25,7 +25,7 @@ from django.shortcuts import render, redirect
 from django.contrib import messages
 from .forms import CompareLocalitiesForm
 from .models import Locality
-
+from .fs_data import remove_diacritics
 
 import logging
 
@@ -429,6 +429,7 @@ def localities_view(request):
     return render(request, "caidapp/localities.html", {"localities": localities})
 
 
+@login_required
 def suggest_merge_localities_view(request):
     suggestions = []
     all_localities = Locality.objects.filter(**user_has_access_filter_params(request.user.caiduser, "owner"))
@@ -440,9 +441,11 @@ def suggest_merge_localities_view(request):
             locality2 = all_localities[j]
             if locality1 == locality2:
                 continue
-            distance = Levenshtein.distance(locality1.name, locality2.name)
+            locality1_name = remove_diacritics(locality1.name)
+            locality2_name = remove_diacritics(locality1.name)
+            distance = Levenshtein.distance(locality1_name, locality2_name)
 
-            if distance < (len(locality1.name) / 4. + len(locality2.name) / 4.):
+            if distance < (len(locality1_name) / 4. + len(locality2_name) / 4.):
                 # count media files of locality
                 count_media_files_locality1 = locality1.mediafiles.count()
                 count_media_files_locality2 = locality2.mediafiles.count()
@@ -463,6 +466,7 @@ def suggest_merge_localities_view(request):
                   {"suggestions": suggestions})
 
 
+@login_required
 def merge_localities_view(request, locality_from_id, locality_to_id):
     """Merge localities."""
     locality_from = get_object_or_404(

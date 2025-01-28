@@ -1,20 +1,18 @@
 {% extends "base.html" %}
 
 {% block content %}
-  <h1>Suggest Merge Localities</h1>
+  <h1>Merge Identities Suggestion</h1>
 
   {% if suggestions %}
-    <h2>Suggestions</h2>
       <ul class="list-group">
       {% for locality1, locality2, distance in suggestions %}
         <li class="list-group-item d-flex justify-content-between align-items-center">
           {{ locality1.name }} => {{ locality2.name }}
-            <div>
-                <div class="d-flex align-items-center">
-                    <div class="me-5">
-                        distance: {{ distance }}
-                    </div>
-          <a class="btn btn-secondary" href="{% url 'caidapp:merge_localities' locality1.id locality2.id %}"
+            <div class="d-flex align-items-center">
+                <div class="me-5">
+                    distance: {{ distance }}
+                </div>
+          <a class="btn btn-secondary" href="{% url 'caidapp:merge_identities' locality1.id locality2.id %}"
           onclick="return confirm('Are you sure you want to merge {{ locality1.name }} into {{ locality2.name }}?');"
           >Merge</a>
             </div>

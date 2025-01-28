@@ -37,8 +37,10 @@ from django.core.exceptions import PermissionDenied
 
 from django.contrib.auth.models import Group, User
 from tqdm import tqdm
+import Levenshtein
 from rest_framework import permissions, viewsets
 
+from .fs_data import remove_diacritics
 from .serializers import LocalitySerializer
 
 from .models import get_all_relevant_localities, user_has_access_filter_params
@@ -2596,28 +2598,28 @@ class MergeIdentities(View):
                 differences[field] = f"{value1} , {value2}"
         return differences
 
-    def get(self, request, individual_identity1_id, individual_identity2_id):
+    def get(self, request, individual_identity_from_id, individual_identity_to_id):
         """Render the merge form."""
-        individual1, individual2 = self.get_individuals(request, individual_identity1_id, individual_identity2_id)
+        individual_to, individual_from = self.get_individuals(request, individual_identity_to_id, individual_identity_from_id)
 
         # Suggestion based on merging logic
         suggestion = IndividualIdentity(
-            name=f"{individual1.name} + {individual2.name}",
-            sex=individual1.sex if individual1.sex != "U" else individual2.sex,
-            coat_type=individual1.coat_type if individual1.coat_type != "U" else individual2.coat_type,
-            birth_date=individual1.birth_date or individual2.birth_date,
-            death_date=individual1.death_date or individual2.death_date,
-            note=f"{individual1.note}\n{individual2.note}",
-            code=f"{individual1.code} {individual2.code}",
-            juv_code=f"{individual1.juv_code} {individual2.juv_code}",
+            name=f"{individual_to.name} + {individual_from.name}",
+            sex=individual_to.sex if individual_to.sex != "U" else individual_from.sex,
+            coat_type=individual_to.coat_type if individual_to.coat_type != "U" else individual_from.coat_type,
+            birth_date=individual_to.birth_date or individual_from.birth_date,
+            death_date=individual_to.death_date or individual_from.death_date,
+            note=f"{individual_to.note}\n{individual_from.note}",
+            code=f"{individual_to.code} {individual_from.code}",
+            juv_code=f"{individual_to.juv_code} {individual_from.juv_code}",
         )
 
         # Differences for the right column
-        differences = self.generate_differences(individual1, individual2)
+        differences = self.generate_differences(individual_to, individual_from)
         differences_html = "<h3>Differences</h3><ul>" + "".join(f"<li>{key}: {value}</li>" for key, value in differences.items()) + "</ul>"
 
         form = IndividualIdentityForm(instance=suggestion)
-        media_file = MediaFile.objects.filter(identity=individual1, identity_is_representative=True).first()
+        media_file = MediaFile.objects.filter(identity=individual_to, identity_is_representative=True).first()
 
         return render(
             request,
@@ -2626,36 +2628,39 @@ class MergeIdentities(View):
                 "form": form,
                 "headline": "Merge Individual Identity",
                 "button": "Save",
-                "individual_identity": individual1,
+                "individual_identity": individual_to,
                 "mediafile": media_file,
                 "delete_button_url": reverse_lazy(
                     "caidapp:delete_individual_identity",
-                    kwargs={"individual_identity_id": individual_identity1_id},
+                    kwargs={"individual_identity_id": individual_identity_to_id},
                 ),
                 "right_col_raw_html": differences_html,
             },
         )
 
-    def post(self, request, individual_identity1_id, individual_identity2_id):
+    def post(self, request, individual_identity_from_id, individual_identity_to_id):
         """Handle form submission."""
-        individual1, individual2 = self.get_individuals(request, individual_identity1_id, individual_identity2_id)
+        individual_to, individual_from = self.get_individuals(request, individual_identity_to_id, individual_identity_from_id)
 
-        form = IndividualIdentityForm(request.POST, instance=individual1)
+        form = IndividualIdentityForm(request.POST, instance=individual_to)
         if form.is_valid():
             individual_identity = form.save(commit=False)
             individual_identity.updated_by = request.user.caiduser
             individual_identity.save()
 
             # mediafiles of identity2 are reassigned to identity1
-            individual2.mediafile_set.update(identity=individual1)
+            individual_from.mediafile_set.update(identity=individual_to)
+
+            models.MediafileIdentificationSuggestion.objects.filter(identity=individual_from).update(identity=individual_to)
+
             # remove old identity
-            individual2.delete()
+
+            individual_from.delete()
 
             return redirect("caidapp:individual_identities")
 
         # On failure, re-render the form with errors
-        return self.get(request, individual_identity1_id, individual_identity2_id)
-
+        return self.get(request, individual_identity_to_id, individual_identity_from_id)
 
 
 class UpdateUploadedArchiveBySpreadsheetFile(View):
@@ -2977,3 +2982,38 @@ class LocalityListView(ListView):
 
     def get_detail_url_name(self):
         return "caidapp:generic_locality_detail"
+
+@login_required
+def suggest_merge_identities_view(request):
+    """Suggest merge identities."""
+    suggestions = []
+    all_identities = IndividualIdentity.objects.filter(
+        owner_workgroup=request.user.caiduser.workgroup,
+        # **user_has_access_filter_params(request.user.caiduser, "owner")
+    )
+    for i, identity1 in enumerate(all_identities):
+        for j in range(i + 1, len(all_identities)):
+            identity2 = all_identities[j]
+            if identity1 == identity2:
+                continue
+            # remove accents
+            identity1_name = remove_diacritics(identity1.name)
+            identity2_name = remove_diacritics(identity2.name)
+            distance = Levenshtein.distance(identity1_name, identity2_name)
+            if distance < (len(identity1_name) / 4. + len(identity2_name) / 4.):
+                # count media files of identity
+                count_media_files_identity1 = identity1.mediafile_set.count()
+                count_media_files_identity2 = identity2.mediafile_set.count()
+
+                if count_media_files_identity1 < count_media_files_identity2:
+                    identity_a = identity1
+                    identity_b = identity2
+                else:
+                    identity_a = identity2
+                    identity_b = identity1
+
+                suggestions.append((identity_a, identity_b, distance))
+    # sort by distance and if the distance is the same, then the longest name first
+    suggestions.sort(key=lambda x: (x[2], -len(x[1].name)))  # Sort by distance
+    return render(request, "caidapp/suggest_merge_identities.html",
+                  {"suggestions": suggestions})

@@ -11,6 +11,7 @@
 * [added] NDOP export
 * [added] Merge localities
 * [added] Merge localities suggestion
+* [added] Merge identities suggestion
 
 ## 12-2024
 
