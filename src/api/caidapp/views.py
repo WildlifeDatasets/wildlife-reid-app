@@ -2769,12 +2769,19 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
                                 counter_fields_updated += 1
                                 counter_locality += 1
                         if "datetime" in row:
-                            datetime_str = str(row["datetime"])
-
-                            # convert datetime to string
-                            mf.captured_at = datetime_str
-                            counter_fields_updated += 1
-
+                            # check if it is in django compatible datetime format
+                            row_datetime = row["datetime"]
+                            if isinstance(row_datetime, str):
+                                # datetime_str = row["datetime"]
+                                # mf.captured_at = datetime_str
+                                mf.captured_at = row_datetime
+                                counter_fields_updated += 1
+                            elif isinstance(row_datetime, float) and np.isnan(row_datetime):
+                                pass  # do nothing
+                            else:
+                                logger.debug(f"{row['datetime']=}")
+                                logger.debug(f"{type(row['datetime'])=}")
+                                logger.warning(f"Could not update datetime for {mf=}")
                         mf.save()
 
                     except Exception as e:
