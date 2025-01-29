@@ -38,6 +38,7 @@ from django.core.exceptions import PermissionDenied
 from django.contrib.auth.models import Group, User
 from tqdm import tqdm
 import Levenshtein
+import numpy as np
 from rest_framework import permissions, viewsets
 
 from .fs_data import remove_diacritics
