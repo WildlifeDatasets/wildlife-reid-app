@@ -3,21 +3,6 @@
 {% load widget_tweaks %}
 {% load custom_filters %}
 {% block head %}
-{#<style>#}
-{#    .card {#}
-{#        display: flex;#}
-{#        flex-direction: column;#}
-{#        height: 100%;#}
-{#    }#}
-{#    .card-img-top {#}
-{#        object-fit: cover; /* Ensures the image covers the area */#}
-{#    }#}
-{#    .card-body {#}
-{#        flex: 1;#}
-{#        display: flex;#}
-{#        flex-direction: column;#}
-{#    }#}
-{#</style>#}
 <style>
     /* Custom breakpoint for screens larger than 1920px (you can adjust the value as needed) */
     @media (min-width: 1920px) {
@@ -147,7 +132,7 @@
                             <div class="row g-2">
 
                                 <div class="col">
-                                    {% render_field form_query.query class="form-control mb-3" placeholder="type here to search..." %}
+                                    {% render_field form_query.query  id="search_here" class="form-control mb-3" placeholder="type here to search..." %}
                                 </div>
                                 <div class="col-auto">
                                     <button name="querySubmit" class="btn btn-primary" id="querySubmit" type="submit">
@@ -204,7 +189,7 @@
                                         </a>
                                     </li>
                                     <li>
-                                        <a class="dropdown-item download-mediafiles-button"
+                                        <a class="dropdown-item download-mediafiles-button trigger-loading-modal"
                                              href="#"
 {#                                           href="{% url 'caidapp:download_zip_for_mediafiles' %}"#}
                                            >
@@ -243,7 +228,7 @@
 
                                                 {{ field.label }}:
                                                 {{ field }}
-                                                <button class="btn btn-primary"
+                                                <button class="btn btn-primary trigger-loading-modal"
                                                         name="btnBulkProcessing_{{ field.id_for_label }}"
                                                         id="btnBulkProcessing"
                                                         type="submit">
@@ -553,34 +538,27 @@
         </section>
     {% endif %}
 {#    <script>#}
-{#        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))#}
-{#        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {#}
-{#            return new bootstrap.Tooltip(tooltipTriggerEl)#}
+{#        const data = '{{qs_json}}'#}
+{##}
+{#        const rdata = data ? JSON.parse(data.replace(/&quot;/g, "")) : {};#}
+{##}
+{#        const input = document.getElementById('search_here');#}
+{##}
+{#        let filteredArr = []#}
+{##}
+{#        input.addEventListener('keyup', (e) => {#}
+{#            for (const element_id in rdata) {#}
+{#                if (rdata[element_id].includes(e.target.value)) {#}
+{#                    const el = document.getElementById("card" + element_id);#}
+{#                    el.classList.remove("d-none");#}
+{#                } else {#}
+{#                    document.getElementById("card" + element_id).classList.add('d-none');#}
+{##}
+{#                }#}
+{#            }#}
 {#        })#}
+{##}
 {#    </script>#}
-    <script>
-        const data = '{{qs_json}}'
-
-        {#const rdata = JSON.parse(data.replace(/&quot;/g, '"'))#}
-        const rdata = data ? JSON.parse(data.replace(/&quot;/g, "")) : {};
-
-        const input = document.getElementById('search_here');
-
-        let filteredArr = []
-
-        input.addEventListener('keyup', (e) => {
-            for (const element_id in rdata) {
-                if (rdata[element_id].includes(e.target.value)) {
-                    const el = document.getElementById("card" + element_id);
-                    el.classList.remove("d-none");
-                } else {
-                    document.getElementById("card" + element_id).classList.add('d-none');
-
-                }
-            }
-        })
-
-    </script>
     <script>
     document.addEventListener('DOMContentLoaded', function() {
         const buttons = document.querySelectorAll('.confirm-prediction');
