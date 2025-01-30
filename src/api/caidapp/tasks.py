@@ -1277,13 +1277,13 @@ def _prepare_mediafile_for_identification(data, i, media_root, mediafile_id):
 
             mfi.top1mediafile = top1_mediafile
             mfi.top1score = reid_top_k_scores[0]
-            mfi.top1name = reid_top_k_labels[0]
+            mfi.top1name = reid_top_k_labels[0] or "Unknown"
             mfi.top2mediafile = top2_mediafile
             mfi.top2score = reid_top_k_scores[1]
-            mfi.top2name = reid_top_k_labels[1]
+            mfi.top2name = reid_top_k_labels[1] or "Unknown"
             mfi.top3mediafile = top3_mediafile
             mfi.top3score = reid_top_k_scores[2]
-            mfi.top3name = reid_top_k_labels[2]
+            mfi.top3name = reid_top_k_labels[2] or "Unknown"
             mfi.paired_points = data["keypoints"][i]
             # identification_output["query_image_path"] = query_image_path
             # identification_output["query_masked_path"] = query_masked_path
@@ -1326,7 +1326,7 @@ def _prepare_mediafile_for_identification(data, i, media_root, mediafile_id):
                     identity=identity,
                     score=top_score,
                     paired_points=top_paired_points,
-                    name=top_name,
+                    name=top_name or "Unknown",
                 )
 
                 mfi_suggestion.save()
@@ -1334,7 +1334,7 @@ def _prepare_mediafile_for_identification(data, i, media_root, mediafile_id):
                 logger.debug(f"{reid_top_k_image_paths=}")
                 logger.debug(f"{top_path=}")
                 logger.debug(traceback.format_exc())
-                logger.error(f"Error during identification of {unknown_mediafile}: {e}")
+                logger.error(f"Error during identification of {unknown_mediafile}: {e}: {traceback.format_exc()}")
 
         mfi.save()
         # _identity_mismatch_waning(top1_mediafile, top2_mediafile, top3_mediafile, top_k_labels)
