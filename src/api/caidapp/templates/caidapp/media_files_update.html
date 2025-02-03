@@ -189,7 +189,8 @@
                                         </a>
                                     </li>
                                     <li>
-                                        <a class="dropdown-item download-mediafiles-button trigger-loading-modal"
+{#                                        <a class="dropdown-item download-mediafiles-button trigger-loading-modal"#}
+                                        <a class="dropdown-item download-mediafiles-button"
                                              href="#"
 {#                                           href="{% url 'caidapp:download_zip_for_mediafiles' %}"#}
                                            >
@@ -537,28 +538,6 @@
             </form>
         </section>
     {% endif %}
-{#    <script>#}
-{#        const data = '{{qs_json}}'#}
-{##}
-{#        const rdata = data ? JSON.parse(data.replace(/&quot;/g, "")) : {};#}
-{##}
-{#        const input = document.getElementById('search_here');#}
-{##}
-{#        let filteredArr = []#}
-{##}
-{#        input.addEventListener('keyup', (e) => {#}
-{#            for (const element_id in rdata) {#}
-{#                if (rdata[element_id].includes(e.target.value)) {#}
-{#                    const el = document.getElementById("card" + element_id);#}
-{#                    el.classList.remove("d-none");#}
-{#                } else {#}
-{#                    document.getElementById("card" + element_id).classList.add('d-none');#}
-{##}
-{#                }#}
-{#            }#}
-{#        })#}
-{##}
-{#    </script>#}
     <script>
     document.addEventListener('DOMContentLoaded', function() {
         const buttons = document.querySelectorAll('.confirm-prediction');

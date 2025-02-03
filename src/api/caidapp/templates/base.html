@@ -614,6 +614,19 @@
         });
     });
 
+    {# The fallowing function fix modal for screen-readers. Modal window should be focusable only if visible. #}
+    document.addEventListener('DOMContentLoaded', function() {
+        const loadingModal = document.getElementById('loadingModal');
+
+        loadingModal.addEventListener('show.bs.modal', function() {
+            loadingModal.removeAttribute('inert');
+        });
+
+        loadingModal.addEventListener('hide.bs.modal', function() {
+            loadingModal.setAttribute('inert', '');
+        });
+    });
+
 </script>
 
 {% block script %}

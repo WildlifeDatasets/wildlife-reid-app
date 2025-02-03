@@ -42,11 +42,14 @@ $(document).on("click", ".download-mediafiles-button", function(event) {
     }
     // print the id of the clicked element
     console.log(uploadedarchiveId);
+    console.log("url=")
+    console.log(uploadedarchiveUrl);
 
     // Set a timeout to show an additional alert if the download isn't ready after 5 seconds
     const alertTimeout = setTimeout(function() {
         alert("The file is being prepared. The download will start automatically once it's ready.");
-    }, 5000);
+    }, 500);
+    console.log(" Downloading media files ");
     // Send the request for this specific group
     $.get(uploadedarchiveUrl, function(data) {
         console.log(data);
