@@ -8,14 +8,17 @@ function pollTaskStatus(taskId, alertTimeout) {
             console.log(data.download_url);
 
             // here would be better to use the original download link
+            console.log("creating link to download the file from the server. data.download_url=" + data.download_url);
             const downloadUrl = data.download_url;
             const link = document.createElement("a");
             link.href = downloadUrl;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
+            console.log("Download link clicked.");
         } else if (data.status === "pending") {
             setTimeout(function() {
+                console.log("... still pending, checking again in 3 seconds");
                 pollTaskStatus(taskId, alertTimeout);
             }, 3000); // Poll every 3 seconds
         } else if (data.status === "error") {
@@ -54,6 +57,7 @@ $(document).on("click", ".download-mediafiles-button", function(event) {
     console.log("Preparing ZIP with media files");
     // Send the request for this specific group
     $.get(uploadedarchiveUrl, function(data) {
+        console.log("Calling pollTaskStatus(data), data=");
         console.log(data);
         pollTaskStatus(data.task_id, alertTimeout); // Reuse pollTaskStatus logic
     }).fail(function() {
