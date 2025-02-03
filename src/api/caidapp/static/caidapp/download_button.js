@@ -1,5 +1,6 @@
 function pollTaskStatus(taskId, alertTimeout) {
     $.get(`/caidapp/check_zip_status/${taskId}/`, function(data) {
+        console.log("Checking status of the download task");
         if (data.status === "ready") {
             console.log("Download is ready");
             clearTimeout(alertTimeout);
@@ -17,8 +18,8 @@ function pollTaskStatus(taskId, alertTimeout) {
             document.body.removeChild(link);
             console.log("Download link clicked.");
         } else if (data.status === "pending") {
+            console.log("... still pending, checking again in 3 seconds");
             setTimeout(function() {
-                console.log("... still pending, checking again in 3 seconds");
                 pollTaskStatus(taskId, alertTimeout);
             }, 3000); // Poll every 3 seconds
         } else if (data.status === "error") {
