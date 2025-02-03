@@ -2391,6 +2391,7 @@ def download_zip_for_mediafiles_view(request, uploadedarchive_id: Optional[int] 
     ]
 
     # Start the Celery task
+
     task = tasks.create_mediafiles_zip.delay(user_hash, mediafiles_data, str(abs_zip_path))
 
     # Return the task ID so the frontend can poll for completion

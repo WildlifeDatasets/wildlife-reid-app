@@ -280,17 +280,20 @@ def do_cloud_import_for_user_async(caiduser: CaIDUser,
 @shared_task
 def create_mediafiles_zip(user_hash, mediafiles, abs_zip_path):
     """Create a zip file for media files in the background."""
+    logger.debug(f"Creating zip file for {len(mediafiles)} media files.")
     abs_zip_path = Path(abs_zip_path)
     abs_zip_path.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory() as tmpdirname:
         mediafiles_dir = Path(tmpdirname) / "images"
         mediafiles_dir.mkdir()
-        for mediafile in mediafiles:
+        for mediafile in tqdm.tqdm(mediafiles):
             src = Path(settings.MEDIA_ROOT) / mediafile["path"]
             dst = mediafiles_dir / mediafile["output_name"]
             shutil.copy(src, dst)
         # Assume `make_zipfile` is your custom function to create a zip
+        logger.debug(f"Creating zip file {abs_zip_path}")
         make_zipfile(abs_zip_path, mediafiles_dir)
+    logger.debug(f"Zip file created: {abs_zip_path}")
     return str(abs_zip_path)
 
 def make_zipfile(output_filename: Path, source_dir: Path):
