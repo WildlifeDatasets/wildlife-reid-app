@@ -1,6 +1,7 @@
 function pollTaskStatus(taskId, alertTimeout) {
-    console.log("Checking status of the download task");
+    console.log("Checking status of the download task: " + taskId + ", alertTimeout=" + alertTimeout);
     $.get(`/caidapp/check_zip_status/${taskId}/`, function(data) {
+        console.log("data=" + data);
         if (data.status === "ready") {
             console.log("Download is ready");
             clearTimeout(alertTimeout);
