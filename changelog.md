@@ -12,6 +12,7 @@
 * [added] Merge localities
 * [added] Merge localities suggestion
 * [added] Merge identities suggestion
+* [fixed] Download ZIP with media files in production
 
 ## 12-2024
 
