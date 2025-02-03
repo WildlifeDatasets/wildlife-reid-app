@@ -27,6 +27,9 @@ function pollTaskStatus(taskId, alertTimeout) {
             }, 3000); // Poll every 3 seconds
         } else if (data.status === "error") {
             alert("Error: " + data.message);
+        } else {
+            console.error("Unexpected status: " + data.status);
+            alert("An unexpected error occurred.");
         }
     });
 }
