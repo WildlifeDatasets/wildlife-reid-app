@@ -2382,7 +2382,7 @@ def download_zip_for_mediafiles_view(request, uploadedarchive_id: Optional[int] 
 
     user_hash = request.user.caiduser.hash
     abs_zip_path = (
-            Path(settings.MEDIA_ROOT) / "users" / request.user.caiduser.hash / f"{fn}.zip"
+            Path(settings.MEDIA_ROOT) / "users" / request.user.caiduser.hash / f"mediafiles.zip"
     )
 
     # Prepare the mediafiles list for serialization (e.g., paths and output names)

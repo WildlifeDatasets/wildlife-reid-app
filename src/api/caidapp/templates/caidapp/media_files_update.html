@@ -191,7 +191,8 @@
                                     <li>
 {#                                        <a class="dropdown-item download-mediafiles-button trigger-loading-modal"#}
                                         <a class="dropdown-item download-mediafiles-button"
-                                             href="#"
+                                             href="/media/users/{{ user.caiduser.hash }}/mediafiles.zip"
+
 {#                                           href="{% url 'caidapp:download_zip_for_mediafiles' %}"#}
                                            >
                                             <i class="bi bi-archive"></i> Download media files
@@ -591,7 +592,7 @@
 
 {% block script %}
 {#    The download of mediafiles  #}
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+{#    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>#}
     <script src="{% static 'caidapp/download_button.js' %}"></script>
     <script>
         // Select all checkboxes by clicking on the checkbox in the header

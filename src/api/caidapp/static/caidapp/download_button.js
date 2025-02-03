@@ -7,6 +7,7 @@ function pollTaskStatus(taskId, alertTimeout) {
             console.log(data);
             console.log(data.download_url);
 
+            // here would be better to use the original download link
             const downloadUrl = data.download_url;
             const link = document.createElement("a");
             link.href = downloadUrl;
@@ -28,7 +29,8 @@ $(document).on("click", ".download-mediafiles-button", function(event) {
     event.preventDefault(); // Prevent default link behavior
 
     // Extract the group ID dynamically
-
+    console.log("Starting download of media files in javascript");
+    console.log("data-id=")
     console.log( $(this).data("data-id") ) ;
     var uploadedarchiveId;
     var uploadedarchiveUrl;
@@ -49,13 +51,14 @@ $(document).on("click", ".download-mediafiles-button", function(event) {
     const alertTimeout = setTimeout(function() {
         alert("The file is being prepared. The download will start automatically once it's ready.");
     }, 500);
-    console.log(" Downloading media files ");
+    console.log("Preparing ZIP with media files");
     // Send the request for this specific group
     $.get(uploadedarchiveUrl, function(data) {
         console.log(data);
         pollTaskStatus(data.task_id, alertTimeout); // Reuse pollTaskStatus logic
     }).fail(function() {
         clearTimeout(alertTimeout);
+        console.error("An error occurred while starting the download process.");
         alert("An error occurred while starting the download process.");
     });
 });
