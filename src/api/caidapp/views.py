@@ -2406,7 +2406,17 @@ def check_zip_status_view(request, task_id):
     # find task based on task_id
     task = AsyncResult(task_id)
     logger.debug(f"Check status of the task: {task_id=}: {task.state=}")
-    response = None
+
+    # Define response mappings
+    status_mapping = {
+        "PENDING": "pending",
+        "STARTED": "pending",  # Treat STARTED as pending
+        "SUCCESS": "ready",
+        "FAILURE": "error"
+    }
+
+    response = { "status": status_mapping.get(task.state, "unknown"), }
+
     if task.state == "SUCCESS":
         # Task is complete, return the download link
         # download_url = f"/media/users/{request.user.caiduser.hash}/mediafiles.zip"
@@ -2415,19 +2425,17 @@ def check_zip_status_view(request, task_id):
         # download_url = request.build_absolute_uri(download_url)
         # logger.debug(f"{download_url=}")
 
-        response = {"status": "ready", "download_url": download_url}
+        response["download_url"] = download_url
         # return JsonResponse()
 
-    elif task.state == "PENDING":
-        response = {"status": "pending"}
+    # elif task.state == "PENDING":
+        # response = {"status": "pending"}
         # return JsonResponse({"status": "pending"})
     elif task.state == "FAILURE":
-        response = {"status": "error", "message": str(task.result)}
+        response["message"] = str(task.result)
+        # response = {"status": "error", "message": str(task.result)}
         # return JsonResponse({"status": "error", "message": str(task.result)})
 
-    logger.debug(f"{response=}")
-    if response is None:
-        response = {"status": task.state}
     logger.debug(f"{response=}")
     return JsonResponse(response)
 
