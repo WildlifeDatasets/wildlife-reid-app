@@ -10,10 +10,11 @@ from django.shortcuts import HttpResponse, get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.db.models import QuerySet
 from django.contrib.auth.decorators import login_required, user_passes_test
+import django.db
 # from torch.serialization import locality_tag
 import plotly.graph_objects as go
 
-from . import forms, model_tools
+from . import forms, model_tools, views_general
 from .forms import LocalityForm
 from .model_extra import (
     prepare_dataframe_for_uploads_in_one_locality,
@@ -421,13 +422,51 @@ def create_map_from_mediafiles(mediafiles: Union[QuerySet, List[MediaFile]]):
     return map_html
 
 
-@login_required
-def localities_view(request):
-    """List of localities."""
-    localities = get_all_relevant_localities(request)
-    logger.debug(f"{len(localities)=}")
-    return render(request, "caidapp/localities.html", {"localities": localities})
+# @login_required
+# def localities_view(request):
+#     """List of localities."""
+#     localities = get_all_relevant_localities(request)
+#     order_by = views_general.get_order_by_anything(request, "identities")
+#     localities = localities.order_by(order_by)
+#     logger.debug(f"{len(localities)=}")
+#
+#
+#
+#     return render(request, "caidapp/localities.html", {"localities": localities})
 
+from django.views.generic import ListView
+
+class LocalityListView(ListView):
+    model = Locality
+    # template_name = "caidapp/generic_list.html"
+    template_name = "caidapp/localities.html"
+    context_object_name = "localities"
+    paginate_by = 8
+    # order by
+
+
+    # paginate_by = views_general.get_item_number_anything(request, "localities")
+
+    def get_queryset(self):
+        # params = user_has_access_filter_params(self.request.user.caiduser, "owner")
+        self.paginate_by = views_general.get_item_number_anything(self.request, "localities")
+        objects = get_all_relevant_localities(request=self.request)
+        # objects = Locality.objects.filter(**params)
+        order_by = views_general.get_order_by_anything(self.request, "localities")
+        logger.debug(f"{order_by=}")
+        # if order_by == "count_of_mediafiles" or order_by == "-count_of_mediafiles":
+        #     logger.debug("Annotating")
+        #     objects = objects.annotate(count_of_mediafiles=django.db.models.Count("mediafiles"))
+        return objects.order_by(order_by)
+
+    def get_detail_url_name(self):
+        return "caidapp:generic_locality_detail"
+
+    # extend context
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # context["headline"] = "Localities"
+        return context
 
 @login_required
 def suggest_merge_localities_view(request):

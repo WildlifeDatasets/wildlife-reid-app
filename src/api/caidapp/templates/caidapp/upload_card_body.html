@@ -70,6 +70,18 @@
     {#        Media files: #}
 </div>
 
+
+    <div class="position-absolute bottom-0 end-0 p-3">
+                                    <span
+                                            {#                                            data-bs-toggle="tooltip"#}
+                                            {#                                            data-toggle="tooltip"#}
+                                            title="File name: {{ uploadedarchive.get_name }}"
+                                    ">
+                                            <i class="bi bi-info-circle"></i>
+                                        </span>
+
+    </div>
+
 {#<div class="d-flex justify-content-between align-items-center">#}
     {#    <a href="{% url 'caidapp:uploads_of_locality' uploadedarchive.locality.hash %}">Checks</a>#}
     {#    {{ uploadedarchive.locality_at_upload_object }}#}

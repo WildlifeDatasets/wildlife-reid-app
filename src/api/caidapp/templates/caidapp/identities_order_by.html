@@ -1,0 +1,37 @@
+<div class="btn-group text-right">
+    <div class="dropdown">
+        <button class="btn btn-secondary dropdown-toggle btn-sm" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+            Order By
+        </button>
+        <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_anything_by' name_plural  '-name' %}">▼ Name</a></li>
+            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_anything_by' name_plural  'name' %}">▲ Name</a></li>
+            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_anything_by' name_plural '-uploaded_at' %}">▼ Uploaded At</a></li>
+            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_anything_by' name_plural  'uploaded_at' %}">▲ Uploaded At</a></li>
+            {% if request.user.is_staff %}
+            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_anything_by' name_plural '-started_at' %}">▼ Started At</a></li>
+            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_anything_by' name_plural  'started_at' %}">▲ Started At</a></li>
+            {%  endif %}
+            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_anything_by' name_plural '-mediafile_count' %}">▼ Media file Count</a></li>
+            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_anything_by' name_plural  'mediafile_count' %}">▲ Media file Count</a></li>
+            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_anything_by' name_plural '-mediafile_count_with_taxon' %}">▼ Media files with Taxon</a></li>
+            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_anything_by' name_plural  'mediafile_count_with_taxon' %}">▲ Media files with Taxon</a></li>
+            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_anything_by' name_plural '-earliest_mediafile_captured_at' %}">▼ Earliest media file captured at</a></li>
+            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_anything_by' name_plural  'earliest_mediafile_captured_at' %}">▲ Earliest media file captured at</a></li>
+            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_anything_by' name_plural '-locality_at_upload' %}">▼ Locality </a></li>
+            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_anything_by' name_plural  'locality_at_upload' %}">▲ Locality </a></li>
+        </ul>
+    </div>
+    <div class="dropdown ms-1">
+        <button class="btn btn-secondary dropdown-toggle btn-sm" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+            Items Per Page
+        </button>
+        <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="{% url 'caidapp:set_item_number_anything' name_plural 6 %}"> 6 </a></li>
+            <li><a class="dropdown-item" href="{% url 'caidapp:set_item_number_anything' name_plural 12 %}"> 12 </a></li>
+            <li><a class="dropdown-item" href="{% url 'caidapp:set_item_number_anything' name_plural 24 %}"> 24 </a></li>
+            <li><a class="dropdown-item" href="{% url 'caidapp:set_item_number_anything' name_plural 48 %}"> 48 </a></li>
+            <li><a class="dropdown-item" href="{% url 'caidapp:set_item_number_anything' name_plural 96 %}"> 96 </a></li>
+        </ul>
+    </div>
+</div>

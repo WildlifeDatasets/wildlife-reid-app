@@ -2,7 +2,7 @@ from django.urls import path, include
 # from rest_framework import routers
 from django.views.generic import ListView, DetailView
 
-from . import views, views_locality, views_mediafile, views_uploads, models
+from . import views, views_locality, views_mediafile, views_uploads, models, views_general
 
 # router = routers.DefaultRouter()
 # router.register(r"localities", views.LocalitiesViewSet)
@@ -273,7 +273,9 @@ urlpatterns = [
         views.select_taxon_for_identification,
         name="select_taxon_for_identification",
     ),
-    path("localities/", views_locality.localities_view, name="localities"),
+    # path("localities/", views_locality.localities_view, name="localities"),
+
+    path("localities/", views_locality.LocalityListView.as_view(), name="localities"),
     path("localities/export/", views_locality.export_localities_view, name="export_localities"),
     path(
         "localities/export_xls/",
@@ -306,6 +308,21 @@ urlpatterns = [
         views.set_item_number_uploaded_archives,
         name="set_item_number_uploaded_archives",
     ),
+    path(
+        "set_item_number/<str:name_plural>/<int:item_number>/",
+        views_general.set_item_number_anything,
+        name="set_item_number_anything",
+    ),
+    path(
+        "set_sort_by/<str:name_plural>/<str:sort_by>/",
+        views_general.set_sort_anything_by,
+        name="set_sort_anything_by",
+    ),
+    # path(
+    #     "identities/set_sort_by/<str:sort_by>/",
+    #     views.set_sort_uploaded_archives_by,
+    #     name="set_sort_uploaded_archives_by",
+    # ),
     path("stream_video/<int:mediafile_id>/", views_mediafile.stream_video, name="stream_video"),
     path("mediafiles/verify_taxa/", views_mediafile.verify_taxa_view, name="verify_taxa"),
     path(
@@ -359,7 +376,7 @@ urlpatterns = [
     path("pygwalker_mediafiles/", views.MyPygWalkerView.as_view(), name="pygwalker_mediafiles"),
     path("pygwalker_localities/", views.PygWalkerLocalitiesView.as_view(), name="pygwalker_localities"),
     # path("generic/locality/", ListView.as_view(model=models.Locality), name="generic_localities"),
-    path("generic/locality/", views.LocalityListView.as_view(), name="generic_locality_list"),
+    path("generic/locality/", views_locality.LocalityListView.as_view(), name="generic_locality_list"),
     path("generic/locality/<int:pk>/", DetailView.as_view(model=models.Locality), name="generic_locality_detail"),
     path("suggest_merge_localities/", views_locality.suggest_merge_localities_view, name="suggest_merge_localities"),
     path("merge_localities/<int:locality_from_id>/<int:locality_to_id>/", views_locality.merge_localities_view, name="merge_localities"),

@@ -1,0 +1,37 @@
+from django.shortcuts import redirect
+import re
+
+def set_sort_anything_by(request, name_plural:str, sort_by: str):
+    """Sort uploaded archives by."""
+    request.session[f"sort_{name_plural}_by"] = sort_by
+
+    # go back to previous page
+    return redirect(request.META.get("HTTP_REFERER", "/"))
+
+def set_item_number_anything(request, name_plural:str, item_number: int):
+    """Sort uploaded archives by."""
+    request.session[f"item_number_{name_plural}"] = item_number
+    # go back to previous page but set ?page=1
+    referer = request.META.get("HTTP_REFERER", "/")
+    # find page= and remove it
+    referer = re.sub(r"page=\d+", "", referer)
+    # add page=1
+    referer += "?page=1"
+    return redirect(referer)
+
+    # return redirect(request.META.get("HTTP_REFERER", "/"))
+
+
+def get_order_by_anything(request, name_plural:str):
+    """Get order by for uploaded archives."""
+    default = "-name"
+    if name_plural == "uploaded_archives":
+        default = "-uploaded_at"
+    sort_by = request.session.get(f"sort_{name_plural}_by", default)
+    return sort_by
+
+def get_item_number_anything(request, name_plural:str):
+    """Get order by for uploaded archives."""
+    default = 10
+    item_number = request.session.get(f"item_number_{name_plural}", default)
+    return item_number

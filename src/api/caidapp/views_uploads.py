@@ -123,14 +123,6 @@ def camera_trap_check_date_view(
         filter = dict(locality_check_at__date=date)
 
 
-    # page_context = views._uploads_general(
-    #     request,
-    #     contains_single_taxon=contains_single_taxon,
-    #     taxon_for_identification__isnull=taxon_for_identification__isnull,
-    #     **filter,
-    # )
-
-
     queryset = views.get_filtered_mediafiles(
         request.user,
         contains_single_taxon=contains_single_taxon,

@@ -171,6 +171,10 @@ class Locality(models.Model):
     def mediafiles(self):
         """Return mediafiles."""
         return MediaFile.objects.filter(locality=self).all()
+    #
+    # def count_of_mediafiles(self):
+    #     """Return number of mediafiles."""
+    #     return MediaFile.objects.filter(locality=self).count()
 
 
 class UploadedArchive(models.Model):

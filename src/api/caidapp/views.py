@@ -2522,6 +2522,21 @@ def set_sort_uploaded_archives_by(request, sort_by: str):
     # go back to previous page
     return redirect(request.META.get("HTTP_REFERER", "/"))
 
+# def set_sort_identities_by(request, sort_by: str):
+#     """Sort uploaded archives by."""
+#     request.session["sort_identities_by"] = sort_by
+#
+#     # go back to previous page
+#     return redirect(request.META.get("HTTP_REFERER", "/"))
+
+
+# def set_sort_localities_by(request, sort_by: str):
+#     """Sort uploaded archives by."""
+#     request.session["sort_localities_by"] = sort_by
+#
+#     # go back to previous page
+#     return redirect(request.META.get("HTTP_REFERER", "/"))
+
 
 def uploaded_archive_get_order_by(request):
     """Get order by for uploaded archives."""
@@ -2993,20 +3008,6 @@ def select_second_id_for_identification_merge(request, individual_identity1_id: 
         },
     )
 
-from django.views.generic import ListView
-
-class LocalityListView(ListView):
-    model = Locality
-    template_name = "caidapp/generic_list.html"
-    context_object_name = "localities"
-    paginate_by = 10
-
-    def get_queryset(self):
-        params = user_has_access_filter_params(self.request.user.caiduser, "owner")
-        return Locality.objects.filter(**params)
-
-    def get_detail_url_name(self):
-        return "caidapp:generic_locality_detail"
 
 @login_required
 def suggest_merge_identities_view(request):

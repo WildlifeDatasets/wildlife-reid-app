@@ -86,6 +86,21 @@
 
         </div><!-- End Page Title -->
         <section class="section">
+        <div class="d-flex justify-content-between">
+            <div>
+                {% include 'caidapp/pagination_simple_a.html' %}
+            </div>
+            <div>
+                {% with name_plural='localities' %}
+                    {% include 'caidapp/localities_order_by.html' %}
+                {% endwith %}
+
+
+            </div>
+
+        </div>
+{#        {{ localities|length }} localities#}
+{#        {{ page_obj.paginator.count }} localities#}
         <div class="row" id="row-of-cards">
 
             {% if localities %}
@@ -163,6 +178,19 @@
 {#                                    <i class="fas fa-images"></i> Media files#}
 {#                                    Checks#}
 {#                                </a>#}
+
+{#                                <div class="position-absolute bottom-0 end-0 p-3">#}
+                                    {#                                        info in circle#}
+{##}
+{#                                    <span#}
+{#                                            data-bs-toggle="tooltip"#}
+{#                                            data-toggle="tooltip"#}
+{#                                            title="ahoj"#}
+{#                                    >#}
+{#                                            <i class="bi bi-info-circle"></i>#}
+{#                                        </span>#}
+{##}
+{#                                </div>#}
                             </div>
 
 {#                            {{ locality.uploadedarchive_set.all.0.thumbnail.url }}#}
