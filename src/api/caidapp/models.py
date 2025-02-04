@@ -598,7 +598,7 @@ class IndividualIdentity(models.Model):
         ("N", "Unspotted"),
         ("U", "Unknown"),
     )
-    name = models.CharField(max_length=50)
+    name = models.CharField(max_length=100)
     id_worker = models.IntegerField(null=True, blank=True)
     owner_workgroup = models.ForeignKey(WorkGroup, on_delete=models.CASCADE, null=True, blank=True)
     updated_by = models.ForeignKey(CaIDUser, on_delete=models.CASCADE, null=True, blank=True)
@@ -891,6 +891,8 @@ def get_unique_name(name: str, workgroup: WorkGroup) -> Optional[IndividualIdent
     """Return taxon according to the name, create it if necessary."""
     if (name is None) or (name == ""):
         return None
+    if len(name) > 100:
+        name = name[:100]
     objs = IndividualIdentity.objects.filter(name=name, owner_workgroup=workgroup)
     if len(objs) == 0:
         identity = IndividualIdentity(name=name, owner_workgroup=workgroup)

@@ -1,8 +1,10 @@
-
-
-
 # Changelog
 
+
+## 02-2025
+
+* [fixed] Download ZIP with media files in production
+* [changed]  Length of individuality prolonged to 100 characters
 
 ## 01-2025
 * [added] Added carousel for media files in the detail view
@@ -12,7 +14,6 @@
 * [added] Merge localities
 * [added] Merge localities suggestion
 * [added] Merge identities suggestion
-* [fixed] Download ZIP with media files in production
 
 ## 12-2024
 
