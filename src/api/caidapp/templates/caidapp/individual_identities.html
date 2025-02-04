@@ -29,20 +29,20 @@
             </nav>
         </div><!-- End Page Title -->
         <section class="section">
+            <div class="d-flex justify-content-between mt-2 mb-2">
+                <div>
+                    {% include "caidapp/pagination_simple_a.html" %}
+                </div>
+                <div>
+                    {%  with name_plural='identities' %}
+                        {% include "caidapp/identities_order_by.html" %}
+                    {% endwith %}
+                </div>
+
+            </div>
         <div class="row" id="row-of-cards">
 
             {% if page_obj %}
-                <div class="d-flex justify-content-between mt-2">
-                    <div>
-                        {% include "caidapp/pagination_a.html" %}
-                    </div>
-                    <div>
-                        {%  with name_plural='identities' %}
-                        {% include "caidapp/identities_order_by.html" %}
-                        {% endwith %}
-                    </div>
-
-                </div>
                 {% for individual_identity in page_obj %}
                     <div
 {#                            class="col-xl-2 col-md-3 col-sm-4"#}

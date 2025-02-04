@@ -6,20 +6,20 @@
         <ul class="dropdown-menu">
             <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_anything_by' name_plural  '-name' %}">▼ Name</a></li>
             <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_anything_by' name_plural  'name' %}">▲ Name</a></li>
-            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_anything_by' name_plural '-uploaded_at' %}">▼ Uploaded At</a></li>
-            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_anything_by' name_plural  'uploaded_at' %}">▲ Uploaded At</a></li>
-            {% if request.user.is_staff %}
-            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_anything_by' name_plural '-started_at' %}">▼ Started At</a></li>
-            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_anything_by' name_plural  'started_at' %}">▲ Started At</a></li>
-            {%  endif %}
-            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_anything_by' name_plural '-mediafile_count' %}">▼ Media file Count</a></li>
-            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_anything_by' name_plural  'mediafile_count' %}">▲ Media file Count</a></li>
-            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_anything_by' name_plural '-mediafile_count_with_taxon' %}">▼ Media files with Taxon</a></li>
-            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_anything_by' name_plural  'mediafile_count_with_taxon' %}">▲ Media files with Taxon</a></li>
-            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_anything_by' name_plural '-earliest_mediafile_captured_at' %}">▼ Earliest media file captured at</a></li>
-            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_anything_by' name_plural  'earliest_mediafile_captured_at' %}">▲ Earliest media file captured at</a></li>
-            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_anything_by' name_plural '-locality_at_upload' %}">▼ Locality </a></li>
-            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_anything_by' name_plural  'locality_at_upload' %}">▲ Locality </a></li>
+            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_anything_by' name_plural '-sex' %}">▼ Sex</a></li>
+            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_anything_by' name_plural  'sex' %}">▲ Sex</a></li>
+            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_anything_by' name_plural '-birth_date' %}">▼ Birth date</a></li>
+            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_anything_by' name_plural  'birth_date' %}">▲ Birth date</a></li>
+            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_anything_by' name_plural '-death_date' %}">▼ Death date</a></li>
+            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_anything_by' name_plural  'death_date' %}">▲ Death date</a></li>
+            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_anything_by' name_plural '-coat_type' %}">▼ Coat type</a></li>
+            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_anything_by' name_plural  'coat_type' %}">▲ Coat type</a></li>
+            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_anything_by' name_plural '-mediafile_count' %}">▼ Count of media files</a></li>
+            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_anything_by' name_plural  'mediafile_count' %}">▲ Count of media files</a></li>
+            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_anything_by' name_plural '-representative_mediafile_count' %}">▼ Count of representative media files</a></li>
+            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_anything_by' name_plural  'representative_mediafile_count' %}">▲ Count of representative media files</a></li>
+            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_anything_by' name_plural '-locality_count' %}">▼ Count of localities</a></li>
+            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_anything_by' name_plural  'locality_count' %}">▲ Count of localities</a></li>
         </ul>
     </div>
     <div class="dropdown ms-1">

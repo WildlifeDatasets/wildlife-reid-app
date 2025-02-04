@@ -41,7 +41,7 @@ RUN uv pip install https://github.com/BohemianVRA/FGVC/releases/download/v1.5.4-
 RUN uv pip install pytz --upgrade
 RUN uv pip install tzdata --upgrade
 
-RUN uv pip install openpyxl pyproj
+RUN uv pip install openpyxl pyproj django-cruds-adminlte
 
 COPY ./src/api /api
 

@@ -619,7 +619,6 @@ class IndividualIdentity(models.Model):
         """Return last seen date."""
         return MediaFile.objects.filter(identity=self).order_by("-captured_at").first().captured_at
 
-
     def count_of_representative_mediafiles(self):
         """Return number of representative media files."""
         return MediaFile.objects.filter(identity=self, identity_is_representative=True).count()

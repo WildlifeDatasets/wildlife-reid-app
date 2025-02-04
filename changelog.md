@@ -7,6 +7,7 @@
 * [changed]  Length of individuality prolonged to 100 characters
 * [added] Ordering in Locailities
 * [changed] Generic Locality List view used
+* [added] Ordering in identities
 
 ## 01-2025
 * [added] Added carousel for media files in the detail view

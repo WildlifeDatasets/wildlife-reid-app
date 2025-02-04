@@ -18,6 +18,7 @@ from django.contrib.auth import login as auth_login
 from django.contrib.auth import logout
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.views import LoginView
+from django.views.generic import ListView
 from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector
 from django.core.paginator import Page, Paginator
 from django.db.models import Count, Min, Q, QuerySet
@@ -47,7 +48,7 @@ from .serializers import LocalitySerializer
 from .models import get_all_relevant_localities, user_has_access_filter_params
 
 
-from . import forms, model_tools, models, tasks, views_uploads, views_locality
+from . import forms, model_tools, models, tasks, views_uploads, views_locality, views_general
 from .forms import (
     AlbumForm,
     IndividualIdentityForm,
@@ -494,6 +495,28 @@ def individual_identities(request):
         "caidapp/individual_identities.html",
         {**page_context, "workgroup": request.user.caiduser.workgroup},
     )
+
+
+
+class IdentityListView(ListView):
+    model = IndividualIdentity
+    template_name = "caidapp/individual_identities.html"
+    context_object_name = "individual_identities"
+    paginate_by = 24
+
+    def get_queryset(self):
+        self.paginate_by = views_general.get_item_number_anything(self.request, "identities")
+        objects = IndividualIdentity.objects.filter(
+            Q(owner_workgroup=self.request.user.caiduser.workgroup) & ~Q(name="nan")
+        )
+        objects = objects.annotate(
+            mediafile_count=Count("mediafile"),
+            representative_mediafile_count=Count("mediafile", filter=Q(mediafile__identity_is_representative=True)),
+            locality_count=Count("mediafile__locality", distinct=True),
+        )
+
+        order_by = views_general.get_order_by_anything(self.request, "identities")
+        return objects.order_by(order_by)
 
 
 @login_required

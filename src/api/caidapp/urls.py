@@ -131,11 +131,17 @@ urlpatterns = [
         views.delete_individual_identity,
         name="delete_individual_identity",
     ),
+    # path(
+    #     "individual_identities/",
+    #     views.individual_identities,
+    #     name="individual_identities",
+    # ),
     path(
         "individual_identities/",
-        views.individual_identities,
+        views.IdentityListView.as_view(),
         name="individual_identities",
     ),
+
     path("init_identification/", views.init_identification, name="init_identification"),
     path(
         "run_identification/<int:uploadedarchive_id>/",
