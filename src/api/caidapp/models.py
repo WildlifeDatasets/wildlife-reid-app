@@ -894,6 +894,8 @@ def get_unique_name(name: str, workgroup: WorkGroup) -> Optional[IndividualIdent
     """Return taxon according to the name, create it if necessary."""
     if (name is None) or (name == ""):
         return None
+    # make sure name is string
+    name = str(name)
     if len(name) > 100:
         name = name[:100]
     objs = IndividualIdentity.objects.filter(name=name, owner_workgroup=workgroup)
