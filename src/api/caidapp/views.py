@@ -3053,7 +3053,7 @@ def select_second_id_for_identification_merge(request, individual_identity1_id: 
 
 
 @login_required
-def suggest_merge_identities_view(request):
+def suggest_merge_identities_view(request, limit:int=100):
     """Suggest merge identities."""
     suggestions = []
     all_identities = IndividualIdentity.objects.filter(
@@ -3082,6 +3082,9 @@ def suggest_merge_identities_view(request):
                 suggestions.append((identity_a, identity_b, distance))
     # sort by distance and if the distance is the same, then the longest name first
     suggestions.sort(key=lambda x: (x[2], -len(x[1].name)))  # Sort by distance
+    if limit and limit > 0:
+        suggestions = suggestions[:limit]
+
     return render(request, "caidapp/suggest_merge_identities.html",
                   {"suggestions": suggestions})
 
