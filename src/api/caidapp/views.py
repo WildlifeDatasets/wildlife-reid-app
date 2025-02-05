@@ -3061,6 +3061,8 @@ def suggest_merge_identities_view(request, limit:int=100):
         # **user_has_access_filter_params(request.user.caiduser, "owner")
     )
     for i, identity1 in enumerate(all_identities):
+        # min_distance = 1000
+        # min_distance_identity = None
         for j in range(i + 1, len(all_identities)):
             identity2 = all_identities[j]
             if identity1 == identity2:
@@ -3070,6 +3072,8 @@ def suggest_merge_identities_view(request, limit:int=100):
 
                 identity_a, identity_b = order_identity_by_mediafile_count(identity1, identity2)
                 suggestions.append((identity_a, identity_b, 0))
+                continue
+            if abs(len(identity1.name) - len(identity2.name)) > 8:
                 continue
             # remove accents
             identity1_name = remove_diacritics(identity1.name)
@@ -3126,18 +3130,23 @@ def merge_selected_identities_view(request):
                                               owner_workgroup=request.user.caiduser.workgroup)
                 identity2 = get_object_or_404(IndividualIdentity, pk=id2,
                                               owner_workgroup=request.user.caiduser.workgroup)
-            except ValueError:
+                # Order the identities by media file count (if that’s how your merge logic expects it)
+                # identity_a, identity_b = order_identity_by_mediafile_count(identity1, identity2)
+
+                # Perform the merge.
+                # Replace the following call with your actual merge logic.
+                merge_identities_helper(request, identity1, identity2)
+                # For example, if you have a function that handles merging:
+                # merge_identities_no_preview(request, identity_a.id, identity_b.id)
+
+            except Exception:
+                logger.debug(f"{suggestion=}")
+                logger.error(traceback.format_exc())
+
+                messages.error(request, "Rrror in the merge process, skipping this suggestion.")
                 # Skip this suggestion if it doesn't have the correct format
                 continue
 
-            # Order the identities by media file count (if that’s how your merge logic expects it)
-            identity_a, identity_b = order_identity_by_mediafile_count(identity1, identity2)
-
-            # Perform the merge.
-            # Replace the following call with your actual merge logic.
-            merge_identities_helper(request, identity_a, identity_b)
-            # For example, if you have a function that handles merging:
-            # merge_identities_no_preview(request, identity_a.id, identity_b.id)
 
         messages.success(request, "Selected identities merged successfully.")
         return redirect('caidapp:suggest_merge_identities')
