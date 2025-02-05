@@ -2578,10 +2578,13 @@ class ImageUploadGraphView(View):
 
 
 def _prepare_merged_individual_identity(
-        request, individual_identity_from_id:int, individual_identity_to_id:int) -> Tuple[models.IndividualIdentity, models.IndividualIdentity, models.IndividualIdentity, Dict[str, str]]:
+        # request,
+        individual_from:models.IndividualIdentity, individual_to:models.IndividualIdentity,
+        # individual_identity_from_id:int, individual_identity_to_id:int
+) -> Tuple[models.IndividualIdentity, Dict[str, str]]:
 
-    individual_from, individual_to = get_individuals(request, individual_identity_from_id,
-                                                     individual_identity_to_id)
+    # individual_from, individual_to = get_individuals(request, individual_identity_from_id,
+    #                                                  individual_identity_to_id)
     today = datetime.date.today()
     today_str = today.strftime("%Y-%m-%d")
 
@@ -2601,7 +2604,7 @@ def _prepare_merged_individual_identity(
         juv_code=f"{individual_to.juv_code}",
     )
 
-    return individual_from, individual_to, suggestion, differences
+    return suggestion, differences
 
 def generate_differences(individual1, individual2):
     """Generate differences between two identities."""
@@ -2635,7 +2638,12 @@ class MergeIdentitiesWithPreview(View):
     def get(self, request, individual_identity_from_id, individual_identity_to_id):
         """Render the merge form."""
 
-        _, individual_to, suggestion, differences = _prepare_merged_individual_identity(request, individual_identity_from_id, individual_identity_to_id)
+        individual_from, individual_to = get_individuals(request, individual_identity_from_id,
+                                                         individual_identity_to_id)
+        suggestion, differences = _prepare_merged_individual_identity(
+            individual_from, individual_to
+            # individual_identity_from_id, individual_identity_to_id
+        )
         differences_html = "<h3>Differences</h3><ul>" + "".join(f"<li>{key}: {value}</li>" for key, value in differences.items()) + "</ul>"
 
         # Differences for the right column
@@ -2691,35 +2699,43 @@ class MergeIdentitiesWithPreview(View):
 class MergeIdentitiesNoPreview(View):
 
     def get(self, request, individual_identity_from_id, individual_identity_to_id):
-        # individual_to, individual_from = self.get_individuals(request, individual_identity_to_id, individual_identity_from_id)
+        individual_from, individual_to = get_individuals(request, individual_identity_from_id,
+                                                         individual_identity_to_id)
 
-        individual_from, individual_to, suggestion, _= _prepare_merged_individual_identity(request, individual_identity_from_id, individual_identity_to_id)
-        # set individual_to to suggestion
-
-        # Convert the suggestion to a dict, excluding the primary key (and any other fields you want to skip)
-        suggestion_data = model_to_dict(suggestion, exclude=[
-            "id", "updated_by", "id_worker", "owner", "owner_workgroup",
-            "hash"
-        ])
-
-        for field, value in suggestion_data.items():
-            logger.debug(f"{field=}, {value=}")
-            setattr(individual_to, field, value)
-
-        # Reassign media files and identification suggestions from individual_from to individual_to.
-        individual_from.mediafile_set.update(identity=individual_to)
-        models.MediafileIdentificationSuggestion.objects.filter(
-            identity=individual_from
-        ).update(identity=individual_to)
-
-        # Remove the redundant identity.
-        individual_from.delete()
-        individual_to.save()
+        merge_identities_helper(request, individual_from, individual_to)
 
         # go back to prev page
         return redirect(request.META.get("HTTP_REFERER", "/"))
 
+def merge_identities_helper(request, individual_from, individual_to):
+    """Merge two individual identities."""
 
+    if individual_to is None or individual_from is None:
+        messages.warning(request, "Individual identity not found.")
+        return
+
+    suggestion, _= _prepare_merged_individual_identity(
+        individual_from, individual_to
+        # individual_identity_from_id, individual_identity_to_id
+    )
+    # individual_from, individual_to, suggestion, _= _prepare_merged_individual_identity(request, individual_identity_from_id, individual_identity_to_id)
+    # set individual_to to suggestion
+    # Convert the suggestion to a dict, excluding the primary key (and any other fields you want to skip)
+    suggestion_data = model_to_dict(suggestion, exclude=[
+        "id", "updated_by", "id_worker", "owner", "owner_workgroup",
+        "hash"
+    ])
+    for field, value in suggestion_data.items():
+        logger.debug(f"{field=}, {value=}")
+        setattr(individual_to, field, value)
+    # Reassign media files and identification suggestions from individual_from to individual_to.
+    individual_from.mediafile_set.update(identity=individual_to)
+    models.MediafileIdentificationSuggestion.objects.filter(
+        identity=individual_from
+    ).update(identity=individual_to)
+    # Remove the redundant identity.
+    individual_from.delete()
+    individual_to.save()
 
 
 class UpdateUploadedArchiveBySpreadsheetFile(View):
@@ -3083,3 +3099,44 @@ def order_identity_by_mediafile_count(identity1, identity2):
         identity_a = identity2
         identity_b = identity1
     return identity_a, identity_b
+
+
+from django.contrib import messages
+from django.shortcuts import redirect, get_object_or_404
+from django.contrib.auth.decorators import login_required
+
+
+@login_required
+def merge_selected_identities_view(request):
+    if request.method == 'POST':
+        selected_suggestions = request.POST.getlist('suggestions')
+        if not selected_suggestions:
+            messages.info(request, "No suggestions were selected for merging.")
+            return redirect('caidapp:suggest_merge_identities')
+
+        for suggestion in selected_suggestions:
+            try:
+                id1, id2 = suggestion.split('|')
+                # Retrieve the identities ensuring they belong to the user's workgroup
+                identity1 = get_object_or_404(IndividualIdentity, pk=id1,
+                                              owner_workgroup=request.user.caiduser.workgroup)
+                identity2 = get_object_or_404(IndividualIdentity, pk=id2,
+                                              owner_workgroup=request.user.caiduser.workgroup)
+            except ValueError:
+                # Skip this suggestion if it doesn't have the correct format
+                continue
+
+            # Order the identities by media file count (if that’s how your merge logic expects it)
+            identity_a, identity_b = order_identity_by_mediafile_count(identity1, identity2)
+
+            # Perform the merge.
+            # Replace the following call with your actual merge logic.
+            merge_identities_helper(request, identity_a, identity_b)
+            # For example, if you have a function that handles merging:
+            # merge_identities_no_preview(request, identity_a.id, identity_b.id)
+
+        messages.success(request, "Selected identities merged successfully.")
+        return redirect('caidapp:suggest_merge_identities')
+    else:
+        messages.error(request, "Invalid request method.")
+        return redirect('caidapp:suggest_merge_identities')

@@ -156,6 +156,8 @@
                                             {#                                            data-toggle="tooltip"#}
                                             title="Updated by: {{ individual_identity.updated_by }}
 {% if individual_identity.birth_date %}Birth: {{ individual_identity.birth_date }}{% endif %}
+{% for mf in individual_identity.mediafiles %}
+{{ mf.id }} {{ mf }} {% endfor %}
 {# {% if individual_identity.birth_date and individual_identity.birth_date.length > 0 %}Birth: {{ individual_identity.birth_date |date:'Y-m-d H:i' }}{% endif %}#}
 {# {% if individual_identity.death_date %}Death: {{ individual_identity.death_date |date:'Y-m-d H:i' }}{% endif %} #}
                                     ">

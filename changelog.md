@@ -8,6 +8,7 @@
 * [added] Ordering in Locailities
 * [changed] Generic Locality List view used
 * [added] Ordering in identities
+* [added] Merge multiple identities
 
 ## 01-2025
 * [added] Added carousel for media files in the detail view

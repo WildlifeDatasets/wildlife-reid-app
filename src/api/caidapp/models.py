@@ -615,6 +615,10 @@ class IndividualIdentity(models.Model):
     birth_date = models.DateField("Birth date", blank=True, null=True)
     death_date = models.DateField("Death date", blank=True, null=True)
 
+    def mediafiles(self):
+        """Return mediafiles."""
+        return MediaFile.objects.filter(identity=self).all()
+
     def last_seen(self):
         """Return last seen date."""
         return MediaFile.objects.filter(identity=self).order_by("-captured_at").first().captured_at

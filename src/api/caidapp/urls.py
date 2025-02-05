@@ -386,6 +386,7 @@ urlpatterns = [
     path("generic/locality/<int:pk>/", DetailView.as_view(model=models.Locality), name="generic_locality_detail"),
     path("suggest_merge_localities/", views_locality.suggest_merge_localities_view, name="suggest_merge_localities"),
     path("merge_localities/<int:locality_from_id>/<int:locality_to_id>/", views_locality.merge_localities_view, name="merge_localities"),
+    path('merge_selected_identities/', views.merge_selected_identities_view, name='merge_selected_identities'),
 
 ]
 # if settings.DEBUG:
