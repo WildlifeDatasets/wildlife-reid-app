@@ -7,7 +7,6 @@ from . import views, views_locality, views_mediafile, views_uploads, models, vie
 # router = routers.DefaultRouter()
 # router.register(r"localities", views.LocalitiesViewSet)
 
-
 app_name = "caidapp"
 urlpatterns = [
     path("", views.login, name="index"),

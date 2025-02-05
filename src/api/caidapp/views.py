@@ -590,6 +590,25 @@ def delete_individual_identity(request, individual_identity_id):
     individual_identity.delete()
     return redirect("caidapp:individual_identities")
 
+# from cruds_adminlte.crud import CRUDView
+#
+# class IndividualIdentityCRUDView(CRUDView):
+#     model = IndividualIdentity
+    # form = IndividualIdentityForm
+    # template_name = "caidapp/update_form.html"
+    # list_template_name = "caidapp/individual_identities.html"
+    # list_context = {"workgroup": request.user.caiduser.workgroup}
+    # list_paginate_by = 24
+    # list_order_by = "-name"
+    # list_queryset = lambda self, request: IndividualIdentity.objects.filter(
+    #     Q(owner_workgroup=request.user.caiduser.workgroup) & ~Q(name="nan")
+    # ).annotate(
+    #     mediafile_count=Count("mediafile"),
+    #     representative_mediafile_count=Count("mediafile", filter=Q(mediafile__identity_is_representative=True)),
+    #     locality_count=Count("mediafile__locality", distinct=True),
+    # )
+    # list_order_by = "-name"
+
 @login_required
 def get_individual_identity_zoomed_by_identity(request, foridentification_id: int, identity_id: int):
     foridentifications = MediafilesForIdentification.objects.filter(
@@ -1082,8 +1101,6 @@ def run_identification(request, uploadedarchive_id):
         uploaded_archive,
         caiduser=request.user.caiduser,
     )
-    # next_page = request.GET.get("next", "caidapp:uploads_identities")
-    # return redirect(next_page)
     return redirect(request.META.get("HTTP_REFERER", "/"))
 
 
@@ -1095,26 +1112,12 @@ def _run_identification(
     logger.debug("Generating CSV for run_identification...")
     mediafiles = uploaded_archive.mediafile_set.filter(category__name=taxon_str).all()
     logger.debug(f"Generating CSV for init_identification with {len(mediafiles)} records...")
-    # csv_len = len(mediafiles)
-    # csv_data = {"image_path": [None] * csv_len, "mediafile_id": [None] * csv_len}
     uploaded_archive.identification_status = "IAIP"
 
     csv_data = _prepare_dataframe_for_identification(mediafiles)
     media_root = Path(settings.MEDIA_ROOT)
-    # output_dir = Path(settings.MEDIA_ROOT) / request.user.caiduser.workgroup.name
-    # output_dir.mkdir(exist_ok=True, parents=True)
-
-    # logger.debug(f"number of records={len(mediafiles)}")
-    #
-    # for i, mediafile in enumerate(mediafiles):
-    #     # if mediafile.identity is not None:
-    #     csv_data["image_path"][i] = str(media_root / mediafile.mediafile.name)
-    #     csv_data["mediafile_id"][i] = mediafile.id
 
     identity_metadata_file = media_root / uploaded_archive.outputdir / "identification_metadata.csv"
-    # cropped_identity_metadata_file = (
-    #     media_root / uploaded_archive.outputdir / "cropped_identification_metadata.csv"
-    # )
     pd.DataFrame(csv_data).to_csv(identity_metadata_file, index=False)
     output_json_file = media_root / uploaded_archive.outputdir / "identification_result.json"
 
@@ -1125,7 +1128,6 @@ def _run_identification(
 
     logger.debug("Calling run_detection and run_identification ...")
 
-    # uploaded_archive = UploadedArchive.objects.get(id=uploaded_archive_id)
     uploaded_archive.identification_status = "IAIP"
     uploaded_archive.save()
 
@@ -1261,7 +1263,7 @@ def upload_archive(
             uploaded_archive.contains_identities = contains_identities
             uploaded_archive.contains_single_taxon = contains_single_taxon
             uploaded_archive.name = Path(uploaded_archive.archivefile.name).stem
-            # done in number_of_media_files_in_archive
+            # Done in number_of_media_files_in_archive
             # uploaded_archive.videos_at_upload = counts["video_count"]
             # uploaded_archive.images_at_upload = counts["image_count"]
             # uploaded_archive.files_at_upload = counts["file_count"]
@@ -1270,7 +1272,6 @@ def upload_archive(
             uploaded_archive.extract_locality_check_at_from_filename(commit=True)
             run_species_prediction_async(uploaded_archive, extract_identites=contains_identities)
 
-            # return JsonResponse({"data": "Data uploaded"})
             context = dict(
                 headline="Upload finished",
                 text=f"Uploaded {counts['file_count']} files ("
@@ -1474,7 +1475,6 @@ def update_uploadedarchive(request, uploadedarchive_id):
             logger.debug(f"{uploaded_archive.locality_at_upload=}, {cleaned_locality_at_upload=}")
             if uploaded_archive_locality_at_upload != cleaned_locality_at_upload:
                 logger.debug("Locality has been changed.")
-                # locality_str = form.cleaned_data["locality_at_upload"]
                 locality = get_locality(request.user.caiduser, cleaned_locality_at_upload)
                 _set_localities_to_mediafiles_of_uploadedarchive(request, uploaded_archive, locality)
                 uploaded_archive.locality_at_upload_object = locality
@@ -1599,45 +1599,20 @@ def _mediafiles_query(
     # )
     if taxon_verified is not None:
         filter_kwargs.update(dict(taxon_verified=taxon_verified))
-        # mediafiles = mediafiles.filter(taxon_verified=taxon_verified).all()
     if album_hash is not None:
         album = get_object_or_404(Album, hash=album_hash)
         filter_kwargs.update(dict(album=album))
-        # mediafiles = (
-        #     mediafiles.filter(album=album).all().distinct().order_by(order_by)
-        # )
     if individual_identity_id is not None:
         individual_identity = get_object_or_404(IndividualIdentity, pk=individual_identity_id)
         filter_kwargs.update(dict(identity=individual_identity))
-        # mediafiles = (
-        #     mediafiles.filter(identity=individual_identity)
-        #     .all()
-        #     .distinct()
-        #     .order_by(order_by)
-        # )
     if taxon_id is not None:
         taxon = get_object_or_404(Taxon, pk=taxon_id)
         filter_kwargs.update(dict(category=taxon))
-        # mediafiles = (
-        #     mediafiles.filter(category=taxon).all().distinct().order_by(order_by)
-        # )
     if uploadedarchive_id is not None:
         uploadedarchive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
         filter_kwargs.update(dict(parent=uploadedarchive))
-        # mediafiles = (
-        #     mediafiles.filter(parent=uploadedarchive)
-        #     .all()
-        #     .distinct()
-        #     .order_by(order_by)
-        # )
     if identity_is_representative is not None:
         filter_kwargs.update(dict(identity_is_representative=identity_is_representative))
-        # mediafiles = (
-        #     mediafiles.filter(identity_is_representative=identity_is_representative)
-        #     .all()
-        #     .distinct()
-        #     .order_by(order_by)
-        # )
     # logger.debug(f"{filter_kwargs=}, {exclude_filter_kwargs=}, {order_by=}")
     if locality_hash is not None:
         locality = get_object_or_404(Locality, hash=locality_hash)
@@ -1652,12 +1627,10 @@ def _mediafiles_query(
     )
 
     # ownership filter params
-    fkw = filter
     # Build the base query with the conditions that are always applied
     mediafiles = mediafiles.filter(
         Q(album__albumsharerole__user=request.user.caiduser)
         | Q(
-            # parent__owner=request.user.caiduser
             **models.user_has_access_filter_params(request.user.caiduser, "parent__owner")
         ),
         **filter_kwargs,
@@ -1681,21 +1654,6 @@ def _mediafiles_query(
     )
     logger.debug(f"{len(mediafiles)=}")
 
-    # mediafiles = (
-    #     mediafiles.filter(
-    #         Q(album__albumsharerole__user=request.user.caiduser)
-    #         | Q(parent__owner=request.user.caiduser)
-    #         | Q(parent__owner__workgroup=request.user.caiduser.workgroup),
-    #         **filter_kwargs,
-    #     )
-    #     .exclude(**exclude_filter_kwargs)
-    #     .distinct()
-    #     .annotate(first_image_order_by=Subquery(first_image_order_by))
-    #     .order_by('first_image_order_by', 'sequence', 'captured_at')
-    #     # .order_by(order_by)
-    # )
-
-
     if len(query) == 0:
         return mediafiles
     else:
@@ -1706,19 +1664,6 @@ def _mediafiles_query(
         mediafiles = (
             mediafiles.annotate(rank=SearchRank(vector, query)).filter(rank__gt=0).order_by("-rank")
         )
-        # words = [query]
-        #
-        # queryset_combination = None
-        # for word in words:
-        #     if queryset_combination is None:
-        #         queryset_combination = mediafiles.filter(category__name__icontains=word).all()
-        #     else:
-        #         queryset_combination |= mediafiles.filter(category__name__icontains=word).all()
-        #
-        #     queryset_combination |= mediafiles.filter(locality__name__icontains=word).all()
-        #
-        # # queryset_combination.all().order_by("-parent_uploaded_at")
-        # mediafiles = queryset_combination.all().order_by("-parent__uploaded_at")
         return mediafiles
 
 
@@ -1815,6 +1760,7 @@ def media_files_update(
     page_number = 1
     exclude_filter_kwargs = {}
     form_filter_kwargs = {}
+    query = None
     if records_per_page is None:
         records_per_page = request.session.get("mediafiles_records_per_page", 20)
 
@@ -1843,7 +1789,6 @@ def media_files_update(
             for error in queryform.non_field_errors():
                 logger.error(error)
     else:
-        # request.method == "GET"
         # logger.debug("GET")
         page_number = 1
         initial_data = dict(
@@ -1868,7 +1813,6 @@ def media_files_update(
     filter_kwargs, exclude_filter_kwargs = _merge_form_filter_kwargs_with_filter_kwargs(
         filter_kwargs, exclude_filter_kwargs, form_filter_kwargs
     )
-    # logger.debug(f"     after:    {filter_kwargs=}, {exclude_filter_kwargs=}")
     # logger.debug(f"{albums_available=}")
     # logger.debug(f"{query=}")
     # logger.debug(f"{queryform}")
@@ -2657,15 +2601,34 @@ class MergeIdentities(View):
     def get(self, request, individual_identity_from_id, individual_identity_to_id):
         """Render the merge form."""
         individual_to, individual_from = self.get_individuals(request, individual_identity_to_id, individual_identity_from_id)
+        today = datetime.date.today()
+        today_str = today.strftime("%Y-%m-%d")
+
+        # make records of conflicts
+        merge_notes = f"merged: {individual_to.name} + {individual_from.name}, {today_str}"
+        if individual_from.note and len(individual_from.note) > 0:
+            merge_notes += f"\n  note: {individual_from.note}"
+        if individual_from.birth_date and individual_from.birth_date != individual_to.birth_date:
+            merge_notes += f"\n  birth_date: {str(individual_from.birth_date)}"
+        if individual_from.death_date and individual_from.death_date != individual_to.death_date:
+            merge_notes += f"\n  death_date: {str(individual_from.death_date)}"
+        if individual_from.coat_type and individual_from.coat_type != individual_to.coat_type:
+            merge_notes += f"\n  coat_type: {individual_from.coat_type}"
+        if individual_from.sex and individual_from.sex != individual_to.sex:
+            merge_notes += f"\n  sex: {individual_from.sex}"
+        if individual_from.code and individual_from.code != individual_to.code:
+            merge_notes += f"\n  code: {individual_from.code}"
+        if individual_from.juv_code and individual_from.juv_code != individual_to.juv_code:
+            merge_notes += f"\n  juv_code: {individual_from.juv_code}"
 
         # Suggestion based on merging logic
         suggestion = IndividualIdentity(
-            name=f"{individual_to.name} + {individual_from.name}",
+            name=f"{individual_to.name}",
             sex=individual_to.sex if individual_to.sex != "U" else individual_from.sex,
             coat_type=individual_to.coat_type if individual_to.coat_type != "U" else individual_from.coat_type,
             birth_date=individual_to.birth_date or individual_from.birth_date,
             death_date=individual_to.death_date or individual_from.death_date,
-            note=f"{individual_to.note}\n{individual_from.note}",
+            note=f"{individual_to.note}\n{individual_from.note}\n" + merge_notes,
             code=f"{individual_to.code} {individual_from.code}",
             juv_code=f"{individual_to.juv_code} {individual_from.juv_code}",
         )
