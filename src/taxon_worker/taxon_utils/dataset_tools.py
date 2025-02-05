@@ -927,8 +927,8 @@ class SumavaInitialProcessing:
             with exiftool.ExifToolHelper(executable=None) as et:
                 # Your code to interact with ExifTool
                 exifs = et.get_metadata(full_paths)
-        except exiftool.exceptions.ExifToolError as e:
-            logger.exception(traceback.format_exc())
+        except exiftool.exceptions.ExifToolExecuteError as e:
+            logger.debug(traceback.format_exc())
             logger.warning(f"Error while batch reading EXIFs from {full_paths}.")
             logger.info("Trying to process per file (slow).")
 
@@ -939,7 +939,7 @@ class SumavaInitialProcessing:
                     with exiftool.ExifToolHelper(executable=None) as et:
                         exif = et.get_metadata(path)
                     exifs.append(exif)
-                except exiftool.exceptions.ExifToolError as e:
+                except exiftool.exceptions.ExifToolExecuteError as e:
                     logger.debug(traceback.format_exc())
                     logger.error(f"Error while reding EXIF from {str(path)}")
                     exifs.append({})

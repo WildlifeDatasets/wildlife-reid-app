@@ -2606,6 +2606,7 @@ def _prepare_merged_individual_identity(
 
     return suggestion, differences
 
+
 def generate_differences(individual1, individual2):
     """Generate differences between two identities."""
     differences = {}
@@ -2616,6 +2617,7 @@ def generate_differences(individual1, individual2):
         if value1 != value2:
             differences[field] = f"{value1} , {value2}"
     return differences
+
 
 def get_individuals(request, id1, id2) -> Tuple[models.IndividualIdentity, models.IndividualIdentity]:
     """Fetch the individual identities."""
@@ -2633,7 +2635,6 @@ def get_individuals(request, id1, id2) -> Tuple[models.IndividualIdentity, model
 
 
 class MergeIdentitiesWithPreview(View):
-
 
     def get(self, request, individual_identity_from_id, individual_identity_to_id):
         """Render the merge form."""
