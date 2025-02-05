@@ -4,7 +4,7 @@ import os
 import traceback
 from io import BytesIO
 from pathlib import Path
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Tuple, Union, Dict
 
 import django
 import pandas as pd
@@ -35,6 +35,7 @@ from django.urls import reverse_lazy
 from functools import wraps
 from django.shortcuts import redirect
 from django.core.exceptions import PermissionDenied
+from django.forms.models import model_to_dict
 
 from django.contrib.auth.models import Group, User
 from tqdm import tqdm
@@ -1857,7 +1858,9 @@ def media_files_update(
     number_of_mediafiles = len(full_mediafiles)
     logger.debug(f"{number_of_mediafiles=}")
 
-    request.session["mediafile_ids"] = list(full_mediafiles.values_list("id", flat=True))
+    mediafiles_ids = list(full_mediafiles.values_list("id", flat=True))
+    logger.debug(f"{mediafiles_ids=}")
+    request.session["mediafile_ids"] = mediafiles_ids
     paginator = Paginator(full_mediafiles, per_page=records_per_page)
     page_with_mediafiles, _, page_context = _prepare_page(paginator, page_number=page_number)
 
@@ -1941,6 +1944,9 @@ def media_files_update(
 
 
 def _single_mediafile_update(request, instance, form, form_bulk_processing, selected_album_hash):
+    logger.debug(f"{instance=}")
+    logger.debug(f"{instance.id=}")
+    logger.debug(f"{form.data=}")
     if "btnBulkProcessingAlbum" in form.data:
         logger.debug("Select Album :" + form.data["selectAlbum"])
         if selected_album_hash == "new":
@@ -1968,7 +1974,7 @@ def _single_mediafile_update(request, instance, form, form_bulk_processing, sele
         instance.save()
     elif "btnBulkProcessing_id_identity" in form.data:
         instance.identity = form_bulk_processing.cleaned_data["identity"]
-        instance.identity_is_representative = False
+        # instance.identity_is_representative = False
         instance.updated_by = request.user.caiduser
         instance.updated_at = django.utils.timezone.now()
         instance.save()
@@ -2571,71 +2577,68 @@ class ImageUploadGraphView(View):
 
 
 
-class MergeIdentities(View):
+def _prepare_merged_individual_identity(
+        request, individual_identity_from_id:int, individual_identity_to_id:int) -> Tuple[models.IndividualIdentity, models.IndividualIdentity, models.IndividualIdentity, Dict[str, str]]:
 
-    def get_individuals(self, request, id1, id2):
-        """Fetch the individual identities."""
-        individual_identity1 = get_object_or_404(
-            IndividualIdentity,
-            pk=id1,
-            owner_workgroup=request.user.caiduser.workgroup,
-        )
-        individual_identity2 = get_object_or_404(
-            IndividualIdentity,
-            pk=id2,
-            owner_workgroup=request.user.caiduser.workgroup,
-        )
-        return individual_identity1, individual_identity2
+    individual_from, individual_to = get_individuals(request, individual_identity_from_id,
+                                                     individual_identity_to_id)
+    today = datetime.date.today()
+    today_str = today.strftime("%Y-%m-%d")
 
-    def generate_differences(self, individual1, individual2):
-        """Generate differences between two identities."""
-        differences = {}
-        fields_to_compare = ["sex", "coat_type", "birth_date", "death_date"]
-        for field in fields_to_compare:
-            value1 = getattr(individual1, field)
-            value2 = getattr(individual2, field)
-            if value1 != value2:
-                differences[field] = f"{value1} , {value2}"
-        return differences
+    differences = generate_differences(individual_to, individual_from)
+    differences_str = (f"merged: {individual_to.name} + {individual_from.name}, {today_str}\n" +
+                       "\n  ".join(f"{key}: {value}" for key, value in differences.items()))
+
+    # Suggestion based on merging logic
+    suggestion = IndividualIdentity(
+        name=f"{individual_to.name}",
+        sex=individual_to.sex if individual_to.sex != "U" else individual_from.sex,
+        coat_type=individual_to.coat_type if individual_to.coat_type != "U" else individual_from.coat_type,
+        birth_date=individual_to.birth_date or individual_from.birth_date,
+        death_date=individual_to.death_date or individual_from.death_date,
+        note=f"{individual_to.note}\n{individual_from.note}\n" + differences_str,
+        code=f"{individual_to.code}",
+        juv_code=f"{individual_to.juv_code}",
+    )
+
+    return individual_from, individual_to, suggestion, differences
+
+def generate_differences(individual1, individual2):
+    """Generate differences between two identities."""
+    differences = {}
+    fields_to_compare = ["sex", "coat_type", "birth_date", "death_date", "code", "juv_code"]
+    for field in fields_to_compare:
+        value1 = getattr(individual1, field)
+        value2 = getattr(individual2, field)
+        if value1 != value2:
+            differences[field] = f"{value1} , {value2}"
+    return differences
+
+def get_individuals(request, id1, id2) -> Tuple[models.IndividualIdentity, models.IndividualIdentity]:
+    """Fetch the individual identities."""
+    individual_identity1 = get_object_or_404(
+        IndividualIdentity,
+        pk=id1,
+        owner_workgroup=request.user.caiduser.workgroup,
+    )
+    individual_identity2 = get_object_or_404(
+        IndividualIdentity,
+        pk=id2,
+        owner_workgroup=request.user.caiduser.workgroup,
+    )
+    return individual_identity1, individual_identity2
+
+
+class MergeIdentitiesWithPreview(View):
+
 
     def get(self, request, individual_identity_from_id, individual_identity_to_id):
         """Render the merge form."""
-        individual_to, individual_from = self.get_individuals(request, individual_identity_to_id, individual_identity_from_id)
-        today = datetime.date.today()
-        today_str = today.strftime("%Y-%m-%d")
 
-        # make records of conflicts
-        merge_notes = f"merged: {individual_to.name} + {individual_from.name}, {today_str}"
-        if individual_from.note and len(individual_from.note) > 0:
-            merge_notes += f"\n  note: {individual_from.note}"
-        if individual_from.birth_date and individual_from.birth_date != individual_to.birth_date:
-            merge_notes += f"\n  birth_date: {str(individual_from.birth_date)}"
-        if individual_from.death_date and individual_from.death_date != individual_to.death_date:
-            merge_notes += f"\n  death_date: {str(individual_from.death_date)}"
-        if individual_from.coat_type and individual_from.coat_type != individual_to.coat_type:
-            merge_notes += f"\n  coat_type: {individual_from.coat_type}"
-        if individual_from.sex and individual_from.sex != individual_to.sex:
-            merge_notes += f"\n  sex: {individual_from.sex}"
-        if individual_from.code and individual_from.code != individual_to.code:
-            merge_notes += f"\n  code: {individual_from.code}"
-        if individual_from.juv_code and individual_from.juv_code != individual_to.juv_code:
-            merge_notes += f"\n  juv_code: {individual_from.juv_code}"
-
-        # Suggestion based on merging logic
-        suggestion = IndividualIdentity(
-            name=f"{individual_to.name}",
-            sex=individual_to.sex if individual_to.sex != "U" else individual_from.sex,
-            coat_type=individual_to.coat_type if individual_to.coat_type != "U" else individual_from.coat_type,
-            birth_date=individual_to.birth_date or individual_from.birth_date,
-            death_date=individual_to.death_date or individual_from.death_date,
-            note=f"{individual_to.note}\n{individual_from.note}\n" + merge_notes,
-            code=f"{individual_to.code} {individual_from.code}",
-            juv_code=f"{individual_to.juv_code} {individual_from.juv_code}",
-        )
+        _, individual_to, suggestion, differences = _prepare_merged_individual_identity(request, individual_identity_from_id, individual_identity_to_id)
+        differences_html = "<h3>Differences</h3><ul>" + "".join(f"<li>{key}: {value}</li>" for key, value in differences.items()) + "</ul>"
 
         # Differences for the right column
-        differences = self.generate_differences(individual_to, individual_from)
-        differences_html = "<h3>Differences</h3><ul>" + "".join(f"<li>{key}: {value}</li>" for key, value in differences.items()) + "</ul>"
 
         form = IndividualIdentityForm(instance=suggestion)
         media_file = MediaFile.objects.filter(identity=individual_to, identity_is_representative=True).first()
@@ -2647,6 +2650,8 @@ class MergeIdentities(View):
                 "form": form,
                 "headline": "Merge Individual Identity",
                 "button": "Save",
+                "link": request.META.get("HTTP_REFERER", "/"),
+                "cancel_button_url": request.META.get("HTTP_REFERER", "/"),
                 "individual_identity": individual_to,
                 "mediafile": media_file,
                 "delete_button_url": reverse_lazy(
@@ -2659,7 +2664,7 @@ class MergeIdentities(View):
 
     def post(self, request, individual_identity_from_id, individual_identity_to_id):
         """Handle form submission."""
-        individual_to, individual_from = self.get_individuals(request, individual_identity_to_id, individual_identity_from_id)
+        individual_to, individual_from = get_individuals(request, individual_identity_to_id, individual_identity_from_id)
 
         form = IndividualIdentityForm(request.POST, instance=individual_to)
         if form.is_valid():
@@ -2680,6 +2685,41 @@ class MergeIdentities(View):
 
         # On failure, re-render the form with errors
         return self.get(request, individual_identity_to_id, individual_identity_from_id)
+
+
+
+class MergeIdentitiesNoPreview(View):
+
+    def get(self, request, individual_identity_from_id, individual_identity_to_id):
+        # individual_to, individual_from = self.get_individuals(request, individual_identity_to_id, individual_identity_from_id)
+
+        individual_from, individual_to, suggestion, _= _prepare_merged_individual_identity(request, individual_identity_from_id, individual_identity_to_id)
+        # set individual_to to suggestion
+
+        # Convert the suggestion to a dict, excluding the primary key (and any other fields you want to skip)
+        suggestion_data = model_to_dict(suggestion, exclude=[
+            "id", "updated_by", "id_worker", "owner", "owner_workgroup",
+            "hash"
+        ])
+
+        for field, value in suggestion_data.items():
+            logger.debug(f"{field=}, {value=}")
+            setattr(individual_to, field, value)
+
+        # Reassign media files and identification suggestions from individual_from to individual_to.
+        individual_from.mediafile_set.update(identity=individual_to)
+        models.MediafileIdentificationSuggestion.objects.filter(
+            identity=individual_from
+        ).update(identity=individual_to)
+
+        # Remove the redundant identity.
+        individual_from.delete()
+        individual_to.save()
+
+        # go back to prev page
+        return redirect(request.META.get("HTTP_REFERER", "/"))
+
+
 
 
 class UpdateUploadedArchiveBySpreadsheetFile(View):
@@ -3008,24 +3048,38 @@ def suggest_merge_identities_view(request):
             identity2 = all_identities[j]
             if identity1 == identity2:
                 continue
+
+            if identity1.code == identity2.code:
+
+                identity_a, identity_b = order_identity_by_mediafile_count(identity1, identity2)
+                suggestions.append((identity_a, identity_b, 0))
+                continue
             # remove accents
             identity1_name = remove_diacritics(identity1.name)
             identity2_name = remove_diacritics(identity2.name)
             distance = Levenshtein.distance(identity1_name, identity2_name)
             if distance < (len(identity1_name) / 4. + len(identity2_name) / 4.):
                 # count media files of identity
-                count_media_files_identity1 = identity1.mediafile_set.count()
-                count_media_files_identity2 = identity2.mediafile_set.count()
-
-                if count_media_files_identity1 < count_media_files_identity2:
-                    identity_a = identity1
-                    identity_b = identity2
-                else:
-                    identity_a = identity2
-                    identity_b = identity1
+                identity_a, identity_b = order_identity_by_mediafile_count(identity1, identity2)
 
                 suggestions.append((identity_a, identity_b, distance))
     # sort by distance and if the distance is the same, then the longest name first
     suggestions.sort(key=lambda x: (x[2], -len(x[1].name)))  # Sort by distance
     return render(request, "caidapp/suggest_merge_identities.html",
                   {"suggestions": suggestions})
+
+
+def order_identity_by_mediafile_count(identity1, identity2):
+    """Order identity by mediafile count.
+
+    The identity with fewer media files is the first one."""
+
+    count_media_files_identity1 = identity1.mediafile_set.count()
+    count_media_files_identity2 = identity2.mediafile_set.count()
+    if count_media_files_identity1 < count_media_files_identity2:
+        identity_a = identity1
+        identity_b = identity2
+    else:
+        identity_a = identity2
+        identity_b = identity1
+    return identity_a, identity_b

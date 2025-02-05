@@ -372,7 +372,8 @@ urlpatterns = [
     # urls.py
     path("users_stats/", views.ImageUploadGraphView.as_view(), name="users_stats"),
     path("select_reid_model/", views.select_reid_model, name="select_reid_model"),
-    path("merge_identities/<int:individual_identity_from_id>/<int:individual_identity_to_id>/", views.MergeIdentities.as_view(), name="merge_identities"),
+    path("merge_identities/<int:individual_identity_from_id>/<int:individual_identity_to_id>/", views.MergeIdentitiesWithPreview.as_view(), name="merge_identities"),
+    path("merge_identities_no_preview/<int:individual_identity_from_id>/<int:individual_identity_to_id>/", views.MergeIdentitiesNoPreview.as_view(), name="merge_identities_no_preview"),
     path("merge_identities/<int:individual_identity1_id>/",
          views.select_second_id_for_identification_merge, name="merge_identities"),
     path("suggest_merge_identities/", views.suggest_merge_identities_view, name="suggest_merge_identities"),

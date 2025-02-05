@@ -56,6 +56,13 @@
                                 <button class="btn btn-primary mt-2" id="btnUpload" type="submit">
                                     {{ button }}
                                 </button>
+                                {% if cancel_button_url %}
+                                    <a class="btn btn-secondary mt-2"
+                                       href="{{ cancel_button_url }}">
+{#                                        <i class="bi bi-"></i> #}
+                                        Cancel
+                                    </a>
+                                {% endif %}
                                 {% if delete_button_url %}
                                     <a class="btn btn-danger mt-2"
                                        href="{{ delete_button_url }}"
