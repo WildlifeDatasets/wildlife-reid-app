@@ -18,6 +18,10 @@ from django.conf import settings
 from django.urls import reverse_lazy
 from location_field.models.plain import PlainLocationField
 from tqdm import tqdm
+import skimage.io
+import skimage.transform
+from PIL import Image
+import numpy as np
 
 from . import fs_data
 from .model_tools import (
@@ -44,6 +48,8 @@ UA_STATUS_CHOICES = (
     ("U", "Unknown"),
 )
 UA_STATUS_CHOICES_DICT = dict(UA_STATUS_CHOICES)
+
+TAXON_NOT_CLASSIFIED = "Not Classified"
 
 
 def get_hash():
@@ -171,10 +177,6 @@ class Locality(models.Model):
     def mediafiles(self):
         """Return mediafiles."""
         return MediaFile.objects.filter(locality=self).all()
-    #
-    # def count_of_mediafiles(self):
-    #     """Return number of mediafiles."""
-    #     return MediaFile.objects.filter(locality=self).count()
 
 
 class UploadedArchive(models.Model):
@@ -305,11 +307,7 @@ class UploadedArchive(models.Model):
 
     def count_of_mediafiles(self):
         """Return number of mediafiles in the archive."""
-        if self.taxon_status == "C":
-            return self.mediafiles_at_upload
-        elif self.taxon_status == "TAIP":
-            return self.mediafiles_at_upload
-        elif self.identification_status == "TAIP":
+        if self.taxon_status in ("C", "TAIP", "TAID"):
             return self.mediafiles_at_upload
         return MediaFile.objects.filter(parent=self).count()
 
@@ -355,7 +353,6 @@ class UploadedArchive(models.Model):
                     earliest_captured_at = mediafile.captured_at
                 if latest_captured_at is None or mediafile.captured_at > latest_captured_at:
                     latest_captured_at = mediafile.captured_at
-                # logger.debug(f"{mediafile=}")
         # logger.debug(f"{mediafiles.count()=}")
         # logger.debug(f"{earliest_captured_at=}, {latest_captured_at=}")
         self.earliest_captured_at = earliest_captured_at
@@ -380,13 +377,6 @@ class UploadedArchive(models.Model):
     def mediafiles_with_missing_taxon(self, **kwargs):
         """Return media files with missing taxon."""
         return get_mediafiles_with_missing_taxon(self.owner, uploadedarchive=self, **kwargs)
-        # not_classified_taxon = Taxon.objects.get(name="Not Classified")
-        # animalia_taxon = Taxon.objects.get(name="Animalia")
-        # return self.mediafile_set.filter(
-        #     Q(category=None) | Q(category=not_classified_taxon) |
-        #     (Q(category=animalia_taxon) & Q(taxon_verified=False)),
-        #     **kwargs
-        # )
 
     def count_of_mediafiles_with_missing_taxon(self):
         """Return number of media files with missing taxon."""
@@ -439,7 +429,7 @@ class UploadedArchive(models.Model):
 
     def count_of_taxons(self):
         """Return number of unique taxons in the archive."""
-        not_classified_taxon = Taxon.objects.get(name="Not Classified")
+        not_classified_taxon = Taxon.objects.get(name=TAXON_NOT_CLASSIFIED)
         return (
             self.mediafile_set.filter(Q(category=None) | Q(category=not_classified_taxon))
             .values("category")
@@ -490,9 +480,6 @@ class UploadedArchive(models.Model):
             self.taxon_status = status
             self.save()
 
-    def get_status(self) -> dict:
-        return self.format_status(self.taxon_status, self.status_message)
-
     def get_identification_status(self) -> dict:
         """Return short status message, long message and color-style for the status."""
         # find 'F' in self.STATUS_CHOICES[]
@@ -520,8 +507,6 @@ class UploadedArchive(models.Model):
             status_style = "secondary"
         elif status == "IAID":
             status_style = "primary"
-        elif status == "IAID":
-            status_style = "primary"
 
         status = UA_STATUS_CHOICES_DICT.get(status, "Unknown")
 
@@ -530,8 +515,6 @@ class UploadedArchive(models.Model):
             status_message=status_message,
             status_style=status_style,
         )
-        return self.format_status(self.identification_status, self.self.status_message)
-
 
     def get_status(self) -> dict:
         """Return short status message, long message and color-style for the status."""
@@ -707,13 +690,13 @@ class MediaFile(models.Model):
     taxon_verified_at = models.DateTimeField("Taxon verified at", blank=True, null=True)
     sequence = models.ForeignKey(Sequence, on_delete=models.SET_NULL, null=True, blank=True)
     note = models.TextField(blank=True, default="")
+    media_file_corrupted = models.BooleanField("Media file corrupted", default=False)
 
     class Meta:
         ordering = ["-identity_is_representative", "captured_at"]
 
     def __str__(self):
         return str(self.original_filename)
-        # return str(Path(self.mediafile.name).name)
 
     def extract_original_filename(self, commit=True):
         """Extract original filename from metadata_json or mediafile."""
@@ -731,38 +714,42 @@ class MediaFile(models.Model):
     def get_static_thumbnail(self, force:bool=False, width:int=400) -> models.ImageField:
         if self.static_thumbnail and not force:
             return self.static_thumbnail
+        elif not self.mediafile_corrupted or force:
+            try:
+                # create static thumbnail from self.image_file
+                im = skimage.io.imread(self.image_file.path)
+                # resize to width 640 and relevant height
+                im_width = im.shape[1]
+                scale = width / im_width
+                im_rescaled = skimage.transform.rescale(im, scale, anti_aliasing=True, channel_axis=-1)
+
+                # Convert the rescaled image to uint8 format
+                im_rescaled_uint8 = (im_rescaled * 255).astype(np.uint8)
+
+                # Create a PIL Image from the NumPy array
+                pil_image = Image.fromarray(im_rescaled_uint8)
+                # logger.debug(f"{Path(self.thumbnail)=}")
+                # turn RGBA to RGB
+                pil_image = pil_image.convert("RGB")
+
+                # Define the path for the static thumbnail
+                static_thumbnail_path = Path(self.thumbnail.path).with_suffix(".static_thumbnail.jpg")
+
+                # Save the image using Pillow
+                pil_image.save(static_thumbnail_path, format='JPEG')
+
+                static_thumbnail_path = static_thumbnail_path.relative_to(settings.MEDIA_ROOT)
+                logger.debug(f"Thumbnail created. Original size {im.shape}, path={static_thumbnail_path=}")
+                self.static_thumbnail = str(static_thumbnail_path)
+                self.save()
+                return self.static_thumbnail
+
+            except Exception as e:
+                logger.debug(f"Error during creation of static thumbnail: {e}")
+                self.media_file_corrupted = True
+                return None
         else:
-            # create static thumbnail from self.image_file
-            import skimage.io
-            import skimage.transform
-            from PIL import Image
-            import numpy as np
-            im = skimage.io.imread(self.image_file.path)
-            # resize to width 640 and relevant height
-            im_width = im.shape[1]
-            scale = width / im_width
-            im_rescaled = skimage.transform.rescale(im, scale, anti_aliasing=True, channel_axis=-1)
-
-            # Convert the rescaled image to uint8 format
-            im_rescaled_uint8 = (im_rescaled * 255).astype(np.uint8)
-
-            # Create a PIL Image from the NumPy array
-            pil_image = Image.fromarray(im_rescaled_uint8)
-            # logger.debug(f"{Path(self.thumbnail)=}")
-            # turn RGBA to RGB
-            pil_image = pil_image.convert("RGB")
-
-            # Define the path for the static thumbnail
-            static_thumbnail_path = Path(self.thumbnail.path).with_suffix(".static_thumbnail.jpg")
-
-            # Save the image using Pillow
-            pil_image.save(static_thumbnail_path, format='JPEG')
-
-            static_thumbnail_path = static_thumbnail_path.relative_to(settings.MEDIA_ROOT)
-            logger.debug(f"Thumbnail created. Original size {im.shape}, path={static_thumbnail_path=}")
-            self.static_thumbnail = str(static_thumbnail_path)
-            self.save()
-            return self.static_thumbnail
+            return None
 
 
     def is_preidentified(self):
@@ -772,11 +759,11 @@ class MediaFile(models.Model):
     def is_for_suggestion(self):
         """Return True if mediafile is for suggestion."""
         return (self.predicted_taxon is not None) and (
-            (self.category.name == "Not Classified")
+            (self.category.name == TAXON_NOT_CLASSIFIED)
             or ((self.category.name == "Animalia") and (self.taxon_verified is False))
         )
 
-    def is_consistenti_with_uploaded_archive_taxo_for_identification(self) -> bool:
+    def is_consistent_with_uploaded_archive_taxon_for_identification(self) -> bool:
         """Return True if mediafile is consistent with uploaded archive taxo for identification."""
         return self.category == self.parent.taxon_for_identification
 
@@ -873,10 +860,6 @@ class ArchiveCollection(models.Model):
     def __str__(self):
         return str(self.name)
 
-    # def get_absolute_url(self):
-    #     """Return absolute url."""
-    #     return f"/album/{str(self.hash)}/"
-
 
 class AlbumShareRoleType(models.Model):
     name = models.CharField(max_length=50)
@@ -925,12 +908,7 @@ def get_taxon(name: str) -> Optional[Taxon]:
 
 
 def get_locality(caiduser: CaIDUser, name: str) -> Union[Locality,None]:
-    """Return location according to the name, create it if necessary.
-
-    Parameters
-    ----------
-    request
-    """
+    """Return location according to the name, create it if necessary."""
     if (name is None) or (name == ""):
         return None
 
@@ -954,22 +932,11 @@ def auto_delete_file_on_delete(sender, instance, **kwargs):
         shutil.rmtree(instance.outputdir)
 
 
-# class Notification(models.Model):
-#     title = models.CharField(max_length=255)
-#     message = models.CharField(max_length=255)
-#     owner = models.ForeignKey(CaIDUser, on_delete=models.CASCADE, null=True, blank=True)
-#     created_at = models.DateTimeField("Created at", default=datetime.now)
-#     read_at = models.DateTimeField("Read at", blank=True, null=True)
-#
-#     def __str__(self):
-#         return str(self.title)
-
-
 def get_mediafiles_with_missing_taxon(
     caiduser: CaIDUser, uploadedarchive: Optional[UploadedArchive] = None, **kwargs
 ) -> QuerySet:
     """Return media files with missing taxon."""
-    not_classified_taxon = get_taxon("Not Classified")
+    not_classified_taxon = get_taxon(TAXON_NOT_CLASSIFIED)
     animalia_taxon = get_taxon("Animalia")
 
     kwargs_filter = user_has_access_filter_params(caiduser, "parent__owner")
@@ -1022,15 +989,14 @@ def user_has_access_filter_params(ciduser: CaIDUser, prefix: str) -> dict:
 
     Parameters
     ----------
-    request : HttpRequest
-        Request object.
+    ciduser: CaIDUser
+        User who want to access the data.
     prefix : str
         Prefix for filtering with ciduser.
         If the filter will be used in MediaFile, the prefix should be "parent__owner".
         If the filter will be used in Location or UploadedArchive, the prefix should be "owner".
     """
     if ciduser.workgroup:
-        # filter_params = dict(parent__owner__workgroup=request.user.caiduser.workgroup)
         filter_params = {f"{prefix}__workgroup": ciduser.workgroup}
     else:
         filter_params = {f"{prefix}": ciduser}

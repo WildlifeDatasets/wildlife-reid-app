@@ -3141,9 +3141,10 @@ def merge_selected_identities_view(request):
 
             except Exception:
                 logger.debug(f"{suggestion=}")
-                logger.error(traceback.format_exc())
+                logger.debug(traceback.format_exc())
+                logger.warning("Skipping this suggestion. Probably the identities were already merged.")
 
-                messages.error(request, "Rrror in the merge process, skipping this suggestion.")
+                messages.debug(request, "Skipping this suggestion. Probably the identities were already merged.")
                 # Skip this suggestion if it doesn't have the correct format
                 continue
 
