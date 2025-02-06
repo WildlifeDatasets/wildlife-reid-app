@@ -313,29 +313,7 @@
                                     <span>Admin</span>
                                 </a>
                             </li>
-                            <li>
-                                <a class="dropdown-item d-flex align-items-center" href="{% url 'caidapp:show_log' %}#logend">
-                                    <i class="bi bi-card-text"></i>
-                                    <span>Log</span>
-                                </a>
-                            </li>
-                            <li>
-                                <a class="dropdown-item d-flex align-items-center" href="{% url 'caidapp:refresh_data' %}#logend"
-                                    title="Make old data compatible with new functionalities" data-bs-toggle="tooltip"
-                                >
-                                    <i class="bi bi-arrow-clockwise"></i>
-                                    <span>Refresh data</span>
-                                </a>
-                            </li>
-                            <li>
-                                <a class="dropdown-item d-flex align-items-center" href="{% url 'caidapp:users_stats' %}#logend"
-                                   title="Make old data compatible with new functionalities" data-bs-toggle="tooltip"
-                                >
-                                    <i class="bi bi-graph-up"></i>
-                                    <span>Uploads stats</span>
-                                </a>
-
-                            </li>
+                            {% include 'caidapp/do_admin_stuff.html' %}
                         {% endif %}
 
                         <li>

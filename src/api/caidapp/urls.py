@@ -2,7 +2,7 @@ from django.urls import path, include
 # from rest_framework import routers
 from django.views.generic import ListView, DetailView
 
-from . import views, views_locality, views_mediafile, views_uploads, models, views_general
+from . import views, views_locality, views_mediafile, views_uploads, models, views_general, views_admin
 
 # router = routers.DefaultRouter()
 # router.register(r"localities", views.LocalitiesViewSet)
@@ -387,6 +387,7 @@ urlpatterns = [
     path("suggest_merge_localities/", views_locality.suggest_merge_localities_view, name="suggest_merge_localities"),
     path("merge_localities/<int:locality_from_id>/<int:locality_to_id>/", views_locality.merge_localities_view, name="merge_localities"),
     path('merge_selected_identities/', views.merge_selected_identities_view, name='merge_selected_identities'),
+    path('do_admin_stuff/<str:process_name>/', views_admin.do_admin_stuff, name='do_admin_stuff'),
 
 ]
 # if settings.DEBUG:
