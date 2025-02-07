@@ -200,7 +200,6 @@ class UploadedArchive(models.Model):
         choices=UA_STATUS_CHOICES,
         default="C",
     )
-    # status_message = models.CharField(max_length=2047, blank=True, default="")
     status_message = models.TextField(blank=True)
     started_at = models.DateTimeField("Started at", blank=True, null=True)
     finished_at = models.DateTimeField("Finished at", blank=True, null=True)
@@ -353,7 +352,6 @@ class UploadedArchive(models.Model):
                     earliest_captured_at = mediafile.captured_at
                 if latest_captured_at is None or mediafile.captured_at > latest_captured_at:
                     latest_captured_at = mediafile.captured_at
-        # logger.debug(f"{mediafiles.count()=}")
         # logger.debug(f"{earliest_captured_at=}, {latest_captured_at=}")
         self.earliest_captured_at = earliest_captured_at
         self.latest_captured_at = latest_captured_at
@@ -714,7 +712,7 @@ class MediaFile(models.Model):
     def get_static_thumbnail(self, force:bool=False, width:int=400) -> models.ImageField:
         if self.static_thumbnail and not force:
             return self.static_thumbnail
-        elif not self.mediafile_corrupted or force:
+        elif not self.media_file_corrupted or force:
             try:
                 # create static thumbnail from self.image_file
                 im = skimage.io.imread(self.image_file.path)
