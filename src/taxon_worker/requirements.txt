@@ -8,8 +8,8 @@ celery[redis]==5.2.7
 
 # for old version of taxon classification model /swin_small_patch4_window7_224-CrossEntropyLoss-vit_heavy
 # timm==0.6.13
-# for new model
-timm==0.9.12
+# for new model before the fgvc install, later in the docker this is downgraded to 0.6.13
+# timm==0.9.12
 
 # FGVC library
 # put fgvv back when pipy.piva-ai.com is available
@@ -34,3 +34,5 @@ pytesseract==0.3
 # for exiftool
 pyexiftool==0.5.*
 scikit-image==0.24.*
+
+openpyxl==3.0.*

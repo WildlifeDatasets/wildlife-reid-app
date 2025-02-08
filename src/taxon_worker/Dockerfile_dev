@@ -27,26 +27,28 @@ RUN pip install pillow==10.3.0 tqdm==4.66.3 ultralytics==8.2.34 opencv-python==4
 RUN python -c "import torch; torch.hub.load('ultralytics/yolov5', 'custom','/root/resources/md_v5a.0.0.pt', force_reload=True) and print('yolov5 loaded')"
 RUN ls /root/resources
 
-COPY ./src/taxon_worker/requirements.txt /taxon_worker/requirements.txt
-
 # install python dependencies
 ENV APP_DIR='/taxon_worker'
 WORKDIR $APP_DIR
 RUN pip install --no-cache-dir --upgrade pip build && \
-    pip install --no-cache-dir --compile -r requirements.txt && \
+    pip install --no-cache-dir --compile timm==0.9.12 && \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/* /tmp/* /var/tmp/*
 RUN pip install https://github.com/BohemianVRA/FGVC/releases/download/v1.5.4-dev/fgvc-1.5.4.dev0-py3-none-any.whl
 
-RUN pip install pytz --upgrade
-RUN pip install tzdata --upgrade
+COPY ./src/taxon_worker/requirements.txt /taxon_worker/requirements.txt
+
+#RUN pip install pytz --upgrade
+#RUN pip install tzdata --upgrade
+
+RUN pip install --no-cache-dir --upgrade pip build && \
+    pip install --no-cache-dir --compile -r requirements.txt && \
+    rm -rf /var/lib/apt/lists/* /var/cache/apt/* /tmp/* /var/tmp/* \
 
 RUN pip install \
     opencv-python==4.5.5.64 \
     opencv-python-headless==4.5.5.64
 
 RUN pip install timm==0.6.13
-# move this into requirements.txt
-RUN pip install openpyxl==3.0.*
 
 # expose ports and run application
 WORKDIR $APP_DIR
