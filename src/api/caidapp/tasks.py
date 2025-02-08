@@ -685,18 +685,23 @@ def update_uploaded_archive_by_metadata_csv(
 
     status_counts = StatusCounts()
     for index, row in tqdm.tqdm(df.iterrows(), total=len(df), desc="Updating database"):
-        status = _update_database_by_one_row_of_metadata(
-            df,
-            index,
-            row,
-            create_missing,
-            extract_identites,
-            locality,
-            output_dir,
-            thumbnail_width,
-            uploaded_archive,
-        )
-        status_counts.increment(status)
+        try:
+            status = _update_database_by_one_row_of_metadata(
+                df,
+                index,
+                row,
+                create_missing,
+                extract_identites,
+                locality,
+                output_dir,
+                thumbnail_width,
+                uploaded_archive,
+            )
+            status_counts.increment(status)
+        except:
+            logger.error(f"Error during processing row {index}: {row}")
+            logger.error(traceback.format_exc())
+            status_counts.increment("error")
 
     logger.debug(f"{status_counts=}")
     # parallel calculation have problem:
@@ -751,9 +756,8 @@ def _update_database_by_one_row_of_metadata(
         logger.error(f"Error during parsing datetime: {e}")
         captured_at = None
 
-
-    # logger.debug(f"{captured_at=}, {type(captured_at)}")
-    if (captured_at == "") or (isinstance(captured_at, float) and np.isnan(captured_at)):
+    # Pokud je captured_at prázdný řetězec, NaN nebo NaT, nastavíme na None
+    if (captured_at == "") or (isinstance(captured_at, float) and np.isnan(captured_at)) or pd.isnull(captured_at):
         captured_at = None
     try:
         mf = uploaded_archive.mediafile_set.get(mediafile=str(image_rel_pth))
