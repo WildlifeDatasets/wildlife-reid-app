@@ -10,6 +10,7 @@
 * [added] Ordering in identities
 * [added] Merge multiple identities
 * [added] Suggest code extraction from the name of identity 
+* [changed] Priority of loading media files in the detail view
 
 ## 01-2025
 * [added] Added carousel for media files in the detail view

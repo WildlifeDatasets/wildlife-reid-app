@@ -112,8 +112,13 @@
                                     {% for sequence_mediafile in chunk %}
                                         <div class="m-2">
                                             <a href="{% url 'caidapp:media_file_update' sequence_mediafile.id %}">
-                                                <img src="{{ sequence_mediafile.thumbnail.url }}" class="img-fluid"
-                                                     alt="Media Thumbnail" style="max-width: 100px;">
+                                                <img src="{{ sequence_mediafile.static_thumbnail.url }}" class="img-fluid"
+                                                     alt="Media Thumbnail" style="max-width: 100px;"
+                                                        fetchpriority="low"
+                                                     {% if not forloop.parentloop.first  %}
+                                                     loading="lazy"
+                                                     {% endif %}
+                                                >
                                             </a>
                                         </div>
                                     {% endfor %}
@@ -239,7 +244,7 @@
                 <div class="col">
                 <div class="d-flex flex-row flex-wrap align-items-start col">
                     {% if mediafile.media_type == 'video' %}
-                        <video controls autoplay muted width="640" class="m-1">
+                        <video controls autoplay muted width="640" class="m-1" preload="auto">
                             <source src="{% url 'caidapp:stream_video' mediafile.id %}" type="video/x-m4v">
                             Your browser does not support the video tag.
                         </video>
@@ -247,12 +252,17 @@
                         <!-- Thumbnail with modal trigger -->
                         <img src="{{ mediafile.thumbnail.url }}" class="img-fluid m-1" alt="Camera trap image"
                              style="max-width: 320px;" data-bs-toggle="modal"
-                             data-bs-target="#imageModal{{ mediafile.id }}">
+                             data-bs-target="#imageModal{{ mediafile.id }}"
+                             fetchpriority="high"
+                        >
 
                     {% else %}
                         <!-- Image with modal trigger -->
                         <img src="{{ mediafile.preview.url }}" class="img-fluid m-1" alt="Camera trap image"
-                             data-bs-toggle="modal" data-bs-target="#imageModal{{ mediafile.id }}">
+                             data-bs-toggle="modal" data-bs-target="#imageModal{{ mediafile.id }}"
+                             fetchpriority="high"
+                        >
+                        >
                     {% endif %}
                 </div>
                 </div>
