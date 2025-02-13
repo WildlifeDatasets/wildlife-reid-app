@@ -2588,7 +2588,7 @@ class ImageUploadGraphView(View):
 
 
 
-def _prepare_merged_individual_identity(
+def _prepare_merged_individual_identity_object(
         # request,
         individual_from:models.IndividualIdentity, individual_to:models.IndividualIdentity,
         # individual_identity_from_id:int, individual_identity_to_id:int
@@ -2652,7 +2652,7 @@ class MergeIdentitiesWithPreview(View):
 
         individual_from, individual_to = get_individuals(request, individual_identity_from_id,
                                                          individual_identity_to_id)
-        suggestion, differences = _prepare_merged_individual_identity(
+        suggestion, differences = _prepare_merged_individual_identity_object(
             individual_from, individual_to
             # individual_identity_from_id, individual_identity_to_id
         )
@@ -2726,7 +2726,19 @@ def merge_identities_helper(request, individual_from, individual_to):
         messages.warning(request, "Individual identity not found.")
         return
 
-    suggestion, _= _prepare_merged_individual_identity(
+    # remove individual_from and list of suggestion
+    if "merge_identity_suggestions_ids" not in request.session:
+        refresh_identities_suggestions(request)
+
+    assert "merge_identity_suggestions_ids" in request.session
+    suggestions_ids = request.session["merge_identity_suggestions_ids"]
+    suggestions_ids = [
+        (id_from, id_to, distance) for id_from, id_to, distance in suggestions_ids if id_from != individual_from.id and id_to != individual_from.id
+    ]
+    request.session["merge_identity_suggestions_ids"] = suggestions_ids
+
+
+    suggestion, _= _prepare_merged_individual_identity_object(
         individual_from, individual_to
         # individual_identity_from_id, individual_identity_to_id
     )
@@ -3105,7 +3117,7 @@ def refresh_identities_suggestions(request, limit:int=100, redirect:bool=True):
     suggestions_ids = [
         (identity_a.id, identity_b.id, distance) for identity_a, identity_b, distance in suggestions
     ]
-    request.session["suggestions_ids"] = suggestions_ids
+    request.session["merge_identity_suggestions_ids"] = suggestions_ids
     return
     # if redirect:
     #     logger.debug(redirect)
@@ -3122,12 +3134,12 @@ def refresh_identities_suggestions(request, limit:int=100, redirect:bool=True):
 def suggest_merge_identities_view(request, limit:int=100):
     """Suggest merge identities."""
 
-    if "suggestions_ids" not in request.session:
+    if "merge_identity_suggestions_ids" not in request.session:
         refresh_identities_suggestions(request)
 
-    assert "suggestions_ids" in request.session
+    assert "merge_identity_suggestions_ids" in request.session
 
-    suggestions_ids = request.session["suggestions_ids"]
+    suggestions_ids = request.session["merge_identity_suggestions_ids"]
     suggestions = [
         (
             IndividualIdentity.objects.get(id=identity_a_id),

@@ -527,6 +527,16 @@ def suggest_merge_localities_view(request):
 @login_required
 def merge_localities_view(request, locality_from_id, locality_to_id):
     """Merge localities."""
+
+    # remove merged suggestion from the list
+    if "merge_localities_suggestions" not in  request.session:
+        suggest_merge_localities(request)
+    suggestions_ids = request.session["merge_localities_suggestions"]
+    suggestions_ids = [(loc_a_id, loc_b_id, dist) for loc_a_id, loc_b_id, dist in suggestions_ids if loc_a_id != locality_from_id and loc_b_id != locality_from_id and loc_a_id != locality_to_id and loc_b_id != locality_to_id]
+    request.session["merge_localities_suggestions"] = suggestions_ids
+
+
+
     locality_from = get_object_or_404(
         Locality,
         pk=locality_from_id,
