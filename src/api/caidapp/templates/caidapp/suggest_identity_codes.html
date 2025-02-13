@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <h1>Identity Code Suggestion</h1>
+    <p>Here you can see the suggestions for merging identities. Code is letter B fallowed by numbers (B025, B657)</p>
+{#  <form method="post" action="{% url 'caidapp:merge_selected_identities' %}">#}
+    {% if identities %}
+{#        <div class="mt-3 mb-3 d-flex justify-content-between">#}
+{#            <button type="submit" class="btn btn-primary"#}
+{#                    onclick="return confirm('Are you sure you want to merge the selected suggestions?');">#}
+{#                Merge Selected#}
+{#            </button>#}
+{##}
+{#            <a class="btn btn-secondary" href="{% url 'caidapp:refresh_merge_identities_suggestions' %}">#}
+{#                <i class="bi bi-arrow-clockwise"></i>#}
+{#                Refresh#}
+{#            </a>#}
+{##}
+{#        </div>#}
+      <ul class="list-group">
+      {% for identity in identities %}
+          {% if identity.suggested_code_from_name %}
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+          <div >
+              <a href="{% url 'caidapp:update_individual_identity' identity.id %}" class="link-secondary">
+               {{ identity.name }} ({{ identity.code }})
+              </a>
+              &rarr; {{ identity.suggested_name_without_code }} ({{ identity.suggested_code_from_name }})
+          </div>
+          <div class="d-flex align-items-center">
+            <a class="btn btn-secondary"
+               href="{% url 'caidapp:apply_identity_code_suggestion' identity.id %}"
+{#               onclick="return confirm('Are you sure you want to merge {{ locality1.name }} into {{ locality2.name }}?');">#}
+                >
+              Apply
+            </a>
+          </div>
+        </li>
+          {% endif %}
+      {% endfor %}
+      </ul>
+    {% else %}
+      <p>No suggestions available.</p>
+    {% endif %}
+{#  </form>#}
+{% endblock %}
+
+
+
+
+
+
+
+{#{% extends "base.html" %}#}
+{##}
+{#{% block content %}#}
+{#  <h1>Merge Identities Suggestion</h1>#}
+{##}
+{#  {% if suggestions %}#}
+{#      <ul class="list-group">#}
+{#      {% for locality1, locality2, distance in suggestions %}#}
+{#        <li class="list-group-item d-flex justify-content-between align-items-center">#}
+{#          {{ locality1.name }} ({{ locality1.code }}) => {{ locality2.name }} ({{ locality2.code }})#}
+{#            <div class="d-flex align-items-center">#}
+{#                <div class="me-5">#}
+{#                    distance: {{ distance }}#}
+{#                </div>#}
+{#          <a class="btn btn-secondary me-1" href="{% url 'caidapp:merge_identities' locality1.id locality2.id %}"#}
+{#          onclick="return confirm('Are you sure you want to merge {{ locality1.name }} into {{ locality2.name }}?');"#}
+{#          >Merge with preview</a>#}
+{#                <a class="btn btn-secondary" href="{% url 'caidapp:merge_identities_no_preview' locality1.id locality2.id %}"#}
+{#                   onclick="return confirm('Are you sure you want to merge {{ locality1.name }} into {{ locality2.name }}?');"#}
+{#                >Merge</a>#}
+{#            </div>#}
+{#        </li>#}
+{#      {% endfor %}#}
+{#      </ul>#}
+{##}
+{##}
+{#  {% endif %}#}
+{#{% endblock %}#}

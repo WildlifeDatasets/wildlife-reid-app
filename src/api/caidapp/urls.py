@@ -390,6 +390,9 @@ urlpatterns = [
     path('merge_selected_identities/', views.merge_selected_identities_view, name='merge_selected_identities'),
     path('do_admin_stuff/<str:process_name>/', views_admin.do_admin_stuff, name='do_admin_stuff'),
 
+    path("show_identity_code_suggestions", views.show_identity_code_suggestions, name="show_identity_code_suggestions"),
+    path("apply_identity_code_suggestion/<int:identity_id>/", views.apply_identity_code_suggestion, name="apply_identity_code_suggestion"),
+
 ]
 # if settings.DEBUG:
 

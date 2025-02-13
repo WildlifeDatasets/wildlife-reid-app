@@ -638,6 +638,26 @@ class IndividualIdentity(models.Model):
         """Return human readable coat type."""
         return dict(self.COAT_TYPE_CHOICES).get(self.coat_type, "Unknown")
 
+    def suggested_code_from_name(self):
+        """Find code in identity name.
+
+        If the name contains B character fallowed by a number, then the number is used as code."""
+        # looking for B{number}
+        code = None
+        code_match = re.search(r"B\d+", self.name)
+        if code_match:
+            code = code_match.group()
+            new_name = self.name.replace(code, "")
+        return code
+
+    def suggested_name_without_code(self):
+        """Return name without code."""
+        code = self.suggested_code_from_name()
+        name = None
+        if code:
+            name = self.name.replace(code, "")
+        return name
+
 
 class Sequence(models.Model):
     uploaded_archive = models.ForeignKey(UploadedArchive, on_delete=models.CASCADE, null=True)

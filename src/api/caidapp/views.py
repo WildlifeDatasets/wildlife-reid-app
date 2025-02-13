@@ -3205,3 +3205,34 @@ def merge_selected_identities_view(request):
     else:
         messages.error(request, "Invalid request method.")
         return redirect('caidapp:suggest_merge_identities')
+
+
+
+
+@login_required
+def show_identity_code_suggestions(request):
+
+    all_identities = IndividualIdentity.objects.filter(
+        owner_workgroup=request.user.caiduser.workgroup,
+        # **user_has_access_filter_params(request.user.caiduser, "owner")
+    )
+
+    return render(request, "caidapp/suggest_identity_codes.html",
+                  {"identities": list(all_identities)})
+
+
+@login_required
+def apply_identity_code_suggestion(request, identity_id:int, rename:bool=True):
+    """Use the suggested individuality code."""
+
+    identity = get_object_or_404(IndividualIdentity, pk=identity_id, owner_workgroup=request.user.caiduser.workgroup)
+
+    code = identity.suggested_code_from_name()
+    if code:
+        identity.note = identity.note + f"\nformer code: {str(identity.code)} \nformer name: {str(identity.name)}"
+        identity.code = code
+        if rename:
+            identity.name = identity.name.replace(code, "").strip()
+        identity.save()
+
+    return redirect(request.META.get("HTTP_REFERER", "/"))
