@@ -50,7 +50,7 @@ class AlbumForm(forms.ModelForm):
 class LocalityForm(forms.ModelForm):
     class Meta:
         model = models.Locality
-        fields = ("name", "visible_name", "location")
+        fields = ("name", "visible_name", "location", "note")
 
 
 class IndividualIdentityForm(forms.ModelForm):
