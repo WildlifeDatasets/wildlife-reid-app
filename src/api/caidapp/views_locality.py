@@ -576,6 +576,13 @@ def merge_localities_view(request, locality_from_id, locality_to_id):
         uploaded_archive.locality_at_upload_object = locality_to
         uploaded_archive.save()
 
+    locality_to.notes += f"\n\nMerged from {locality_from.name}:\n{locality_from.notes}"
+
+    if locality_to.location is None:
+        locality_to.location = locality_from.location
+    elif locality_from.location is not None:
+        locality_to.location = f"  {locality_to.location},{locality_from.location}"
+
     # Delete the source locality
     locality_from.delete()
     messages.info(request, f"Localities merged: {locality_from.name} -> {locality_to.name}")

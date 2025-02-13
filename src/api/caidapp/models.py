@@ -157,6 +157,7 @@ class Locality(models.Model):
     # If the user is deleted, then we will keep the locality but it does not
     # belong to any user which is not good.
     owner = models.ForeignKey(CaIDUser, on_delete=models.SET_NULL, null=True, blank=True)
+    note = models.TextField(blank=True, default="")
 
     def __str__(self):
         return str(self.name)
