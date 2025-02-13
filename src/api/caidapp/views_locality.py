@@ -468,8 +468,8 @@ class LocalityListView(ListView):
         # context["headline"] = "Localities"
         return context
 
-@login_required
-def suggest_merge_localities_view(request):
+def suggest_merge_localities(request):
+    """Suggest merging localities."""
     suggestions = []
     all_localities = Locality.objects.filter(**user_has_access_filter_params(request.user.caiduser, "owner"))
     len_all_localities = len(all_localities)
@@ -481,7 +481,7 @@ def suggest_merge_localities_view(request):
             if locality1 == locality2:
                 continue
             locality1_name = remove_diacritics(locality1.name)
-            locality2_name = remove_diacritics(locality1.name)
+            locality2_name = remove_diacritics(locality2.name)
             distance = Levenshtein.distance(locality1_name, locality2_name)
 
             if distance < (len(locality1_name) / 4. + len(locality2_name) / 4.):
@@ -499,7 +499,26 @@ def suggest_merge_localities_view(request):
                 suggestions.append((locality_a, locality_b, distance))
         # sort by distance and if the distance is the same, then the longest name first
     suggestions.sort(key=lambda x: (x[2], -len(x[1].name)))  # Sort by distance
-        # suggestions.sort(key=lambda x: (x[2], len(x[1])))  # Sort by distance
+    # suggestions.sort(key=lambda x: (x[2], len(x[1])))  # Sort by distance
+    request.session["merge_localities_suggestions"] = [(loc_a.id, loc_b.id, dist) for loc_a, loc_b, dist in suggestions]
+
+@login_required
+def refresh_merge_localities_suggestions(request):
+    suggest_merge_localities(request)
+    # go back to the previous page
+    return redirect("caidapp:suggest_merge_localities")
+
+
+
+@login_required
+def suggest_merge_localities_view(request):
+    if "merge_localities_suggestions" not in  request.session:
+        suggest_merge_localities(request)
+
+
+    suggestions = request.session["merge_localities_suggestions"]
+    # decode locality ids into locality objects
+    suggestions = [(get_object_or_404(Locality, pk=loc_a_id), get_object_or_404(Locality, pk=loc_b_id), dist) for loc_a_id, loc_b_id, dist in suggestions]
 
     return render(request, "caidapp/suggest_merge_localities.html",
                   {"suggestions": suggestions})

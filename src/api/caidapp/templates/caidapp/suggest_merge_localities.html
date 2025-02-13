@@ -1,14 +1,39 @@
 {% extends "base.html" %}
 
 {% block content %}
-  <h1>Suggest Merge Localities</h1>
+  <h1>Merge Localities Suggestions</h1>
 
   {% if suggestions %}
-    <h2>Suggestions</h2>
+      <div class="d-flex justify-content-between align-items-center">
+        <div>
+          <a class="link-secondary" href="{% url 'caidapp:localities' %}">
+            <i class="bi bi-geo-alt"></i> Localities
+          </a>
+        </div>
+        <div>
+          <i class="bi bi-geo-alt"></i>
+          {% if count_of_localities %}
+            Count: {{ count_of_localities }}
+          {% endif %}
+        </div>
+      <div>
+        <a class="btn btn-secondary" href="{% url 'caidapp:refresh_merge_localities_suggestions' %}">
+          <i class="bi bi-arrow-clockwise"></i>
+          Refresh
+        </a>
+      </div>
+      </div>
       <ul class="list-group">
       {% for locality1, locality2, distance in suggestions %}
         <li class="list-group-item d-flex justify-content-between align-items-center">
-          {{ locality1.name }} => {{ locality2.name }}
+            <a href="{% url 'caidapp:update_locality' locality1.id %}" class="link-secondary">
+          {{ locality1.name }}
+                </a>
+                =>
+            <a href="{% url 'caidapp:update_locality' locality2.id %}" class="link-secondary">
+                {{ locality2.name }}
+            </a>
+
             <div>
                 <div class="d-flex align-items-center">
                     <div class="me-5">

@@ -18,15 +18,21 @@
 
         </div>
       <ul class="list-group">
-      {% for locality1, locality2, distance in suggestions %}
+      {% for identity1, identity2, distance in suggestions %}
         <li class="list-group-item d-flex justify-content-between align-items-center">
           <div class="form-check">
             <input class="form-check-input" type="checkbox"
                    name="suggestions"
-                   value="{{ locality1.id }}|{{ locality2.id }}"
-                   id="suggestion-{{ locality1.id }}-{{ locality2.id }}">
-            <label class="form-check-label" for="suggestion-{{ locality1.id }}-{{ locality2.id }}">
-              {{ locality1.name }} ({{ locality1.code }}) &rarr; {{ locality2.name }} ({{ locality2.code }})
+                   value="{{ identity1.id }}|{{ identity2.id }}"
+                   id="suggestion-{{ identity1.id }}-{{ identity2.id }}">
+            <label class="form-check-label" for="suggestion-{{ identity1.id }}-{{ identity2.id }}">
+                <a href="{% url 'caidapp:update_individual_identity' identity1.id %}" class="link-secondary">
+                    {{ identity1.name }} ({{ identity1.code }})
+                </a>
+                &rarr;
+                <a href="{% url 'caidapp:update_individual_identity' identity1.id %}" class="link-secondary">
+                    {{ identity2.name }} ({{ identity2.code }})
+                </a>
             </label>
           </div>
           <div class="d-flex align-items-center">
@@ -34,12 +40,12 @@
               distance: {{ distance }}
             </div>
             <a class="btn btn-secondary me-1"
-               href="{% url 'caidapp:merge_identities' locality1.id locality2.id %}">
+               href="{% url 'caidapp:merge_identities' identity1.id identity2.id %}">
               Merge with preview
             </a>
             <a class="btn btn-secondary"
-               href="{% url 'caidapp:merge_identities_no_preview' locality1.id locality2.id %}"
-               onclick="return confirm('Are you sure you want to merge {{ locality1.name }} into {{ locality2.name }}?');">
+               href="{% url 'caidapp:merge_identities_no_preview' identity1.id identity2.id %}"
+               onclick="return confirm('Are you sure you want to merge {{ identity1.name }} into {{ identity2.name }}?');">
               Merge
             </a>
           </div>
