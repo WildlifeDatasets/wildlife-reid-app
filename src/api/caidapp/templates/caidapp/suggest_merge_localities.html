@@ -24,10 +24,16 @@
         <li class="list-group-item d-flex justify-content-between align-items-center">
             <a href="{% url 'caidapp:update_locality' locality1.id %}" class="link-secondary">
           {{ locality1.name }}
+                {%  if locality1.location %}
+                    <i class="bi bi-geo-alt " data-bs-toggle="tooltip" title="The GPS location is set"></i>
+                {% endif %}
                 </a>
                 =>
             <a href="{% url 'caidapp:update_locality' locality2.id %}" class="link-secondary">
                 {{ locality2.name }}
+                {%  if locality2.location %}
+                    <i class="bi bi-geo-alt " data-bs-toggle="tooltip" title="The GPS location is set"></i>
+                {% endif %}
             </a>
 
             <div>
