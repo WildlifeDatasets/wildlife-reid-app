@@ -1957,7 +1957,11 @@ def _single_mediafile_update(request, instance, form, form_bulk_processing, sele
     # logger.debug(f"{form.data=}")
     logger.debug(f"{len(form.data)=}")
     if len(form.data) > 0:
-        logger.debug(f"{form.data[0]=} ... {form.data[-1]=}")
+        items = list(form.data.items())
+        if items and len(items) > 0:
+            logger.debug(f"{items[0]=} ... {items[-1]=}")
+        else:
+            logger.debug("No data found in form.")
     if "btnBulkProcessingAlbum" in form.data:
         logger.debug("Select Album :" + form.data["selectAlbum"])
         if selected_album_hash == "new":
