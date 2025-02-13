@@ -582,6 +582,7 @@ def merge_localities_view(request, locality_from_id, locality_to_id):
         locality_to.location = locality_from.location
     elif locality_from.location is not None:
         locality_to.note = f"  location: {locality_from.location}"
+    locality_to.save()
 
     # Delete the source locality
     locality_from.delete()
