@@ -87,6 +87,7 @@ class WorkGroup(models.Model):
     identification_init_status = models.CharField(
         max_length=255, blank=True, default="Not initiated"
     )
+    # identification_init_model_path = models.CharField(max_length=512, blank=True, default="")
     identification_init_message = models.TextField(blank=True, default="")
     identification_reid_at = models.DateTimeField("Identification reid at", blank=True, null=True)
     identification_reid_status = models.CharField(
@@ -161,12 +162,16 @@ class Locality(models.Model):
         return str(self.name)
 
 
-    def set_location_from_str(self, order: int = 3):
-        """Round location for anonymization."""
-        if (self.location is None) or (self.location == ""):
-            return self.location
-        lat, lon = str(self.location).split(",")
-        self.set_location(lat, lon, order=order)
+    # def set_location_from_str(self, order: int = 3):
+    #     """Round location for anonymization."""
+    #     if (self.location is None) or (self.location == ""):
+    #         return self.location
+    #     location_str = str(self.location)
+    #     if "," in location_str:
+    #         lat, lon = location_str.split(",")
+    #         self.set_location(lat, lon, order=order)
+    #     else:
+    #         logger.debug(f"Location {self.location} is not in format 'lat,lon'.")
 
     def set_location(self, lat:float, lon:float, order: int = 3):
         lat = round(float(lat), order)
@@ -737,7 +742,7 @@ class MediaFile(models.Model):
                 pil_image.save(static_thumbnail_path, format='JPEG')
 
                 static_thumbnail_path = static_thumbnail_path.relative_to(settings.MEDIA_ROOT)
-                logger.debug(f"Thumbnail created. Original size {im.shape}, path={static_thumbnail_path=}")
+                # logger.debug(f"Thumbnail created. Original size {im.shape}, path={static_thumbnail_path=}")
                 self.static_thumbnail = str(static_thumbnail_path)
                 self.save()
                 return self.static_thumbnail
@@ -745,6 +750,10 @@ class MediaFile(models.Model):
             except Exception as e:
                 logger.debug(f"Error during creation of static thumbnail: {e}")
                 self.media_file_corrupted = True
+                if self.image_file:
+                    logger.debug(f"  {str(self.image_file)=}")
+                    if self.image_file.path:
+                        logger.debug(f"  {str(self.image_file.path)=}")
                 return None
         else:
             return None

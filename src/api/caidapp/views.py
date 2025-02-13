@@ -412,6 +412,13 @@ def select_reid_model(request):
         if form.is_valid():
             request.user.caiduser.identification_model = form.cleaned_data["identification_model"]
             request.user.caiduser.save()
+            if request.user.caiduser.workgroup.identification_init_model_path == request.user.caiduser.identification_model.model_path:
+                request.user.caiduser.workgroup.identification_init_status = "Initialized"
+            else:
+                request.user.caiduser.workgroup.identification_init_status = "Finished"
+
+
+                messages.info(request, "Identification model set.")
             return redirect("caidapp:uploads_identities")
 
     else:
@@ -958,6 +965,7 @@ def init_identification(request, taxon_str: str = "Lynx lynx"):
     workgroup = request.user.caiduser.workgroup
     workgroup.identification_init_at = django.utils.timezone.now()
     workgroup.identification_init_status = "Processing"
+    workgroup.identification_init_model_path = str(request.user.caiduser.identification_model.model_path)
     workgroup.identification_init_message = (
         f"Using {len(csv_data['image_path'])}"
         + "representative images for identification initialization."
@@ -1946,7 +1954,10 @@ def media_files_update(
 def _single_mediafile_update(request, instance, form, form_bulk_processing, selected_album_hash):
     logger.debug(f"{instance=}")
     logger.debug(f"{instance.id=}")
-    logger.debug(f"{form.data=}")
+    # logger.debug(f"{form.data=}")
+    logger.debug(f"{len(form.data)=}")
+    if len(form.data) > 0:
+        logger.debug(f"{form.data[0]=} ... {form.data[-1]=}")
     if "btnBulkProcessingAlbum" in form.data:
         logger.debug("Select Album :" + form.data["selectAlbum"])
         if selected_album_hash == "new":
@@ -3052,9 +3063,13 @@ def select_second_id_for_identification_merge(request, individual_identity1_id: 
     )
 
 
-@login_required
-def suggest_merge_identities_view(request, limit:int=100):
-    """Suggest merge identities."""
+
+def refresh_identities_suggestions_view(request):
+    refresh_identities_suggestions(request)
+    return redirect(request.META.get("HTTP_REFERER", "/"))
+
+
+def refresh_identities_suggestions(request, limit:int=100, redirect:bool=True):
     suggestions = []
     all_identities = IndividualIdentity.objects.filter(
         owner_workgroup=request.user.caiduser.workgroup,
@@ -3086,6 +3101,42 @@ def suggest_merge_identities_view(request, limit:int=100):
                 suggestions.append((identity_a, identity_b, distance))
     # sort by distance and if the distance is the same, then the longest name first
     suggestions.sort(key=lambda x: (x[2], -len(x[1].name)))  # Sort by distance
+
+    suggestions_ids = [
+        (identity_a.id, identity_b.id, distance) for identity_a, identity_b, distance in suggestions
+    ]
+    request.session["suggestions_ids"] = suggestions_ids
+    return
+    # if redirect:
+    #     logger.debug(redirect)
+    #
+    #     return reverse_lazy("caidapp:suggest_merge_identities")
+    #     # return redirect(request.META.get("HTTP_REFERER", "/"))
+    # else:
+    #     return
+
+
+
+
+@login_required
+def suggest_merge_identities_view(request, limit:int=100):
+    """Suggest merge identities."""
+
+    if "suggestions_ids" not in request.session:
+        refresh_identities_suggestions(request)
+
+    assert "suggestions_ids" in request.session
+
+    suggestions_ids = request.session["suggestions_ids"]
+    suggestions = [
+        (
+            IndividualIdentity.objects.get(id=identity_a_id),
+            IndividualIdentity.objects.get(id=identity_b_id),
+            distance
+          )
+        for identity_a_id, identity_b_id, distance in suggestions_ids
+    ]
+
     if limit and limit > 0:
         suggestions = suggestions[:limit]
 

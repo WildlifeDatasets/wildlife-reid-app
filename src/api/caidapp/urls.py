@@ -377,6 +377,7 @@ urlpatterns = [
     path("merge_identities/<int:individual_identity1_id>/",
          views.select_second_id_for_identification_merge, name="merge_identities"),
     path("suggest_merge_identities/", views.suggest_merge_identities_view, name="suggest_merge_identities"),
+    path("refresh_merge_identities_suggestions/", views.refresh_identities_suggestions_view, name="refresh_merge_identities_suggestions"),
     path("update_uploaded_archive_with_spreadsheet/<int:uploaded_archive_id>/",views.UpdateUploadedArchiveBySpreadsheetFile.as_view(), name="update_uploaded_archive_with_spreadsheet"),
     path("pygwalker/", include("djangoaddicts.pygwalker.urls")),
     path("pygwalker_mediafiles/", views.MyPygWalkerView.as_view(), name="pygwalker_mediafiles"),

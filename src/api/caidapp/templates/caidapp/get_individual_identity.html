@@ -203,6 +203,10 @@
                                         Unknown
                                     </div>
                                     <p class="card-text">
+                                        File: <a class="link-secondary" href="{% url 'caidapp:media_file_update' foridentification.mediafile.id %}"
+                                        >{{ foridentification.mediafile }}</a>
+                                    </p>
+                                    <p class="card-text">
                                         from <a
                                             href="{% url 'caidapp:uploadedarchive_mediafiles' foridentification.mediafile.parent.id %}"
                                             class="link-secondary"> {{ foridentification.mediafile.parent }}</a>
@@ -229,35 +233,18 @@
 {#                                            {% for reid_suggestion in foridentification.top_mediafiles.all %}#}
                                             {% for reid_suggestion in reid_suggestions  %}
 
-                                                {#                            {{ reid_suggestion.name }}#}
-                                                {#                            {{ reid_suggestion.score }}#}
-
                                                 <div class="{{ col_style }}" id="card-reid-{{ reid_suggestion.mediafile.id }}" >
                                                     <div class="card" data-name="{{ reid_suggestion.name }}">
-{#                                                        {%  if reid_suggestion.mediafile.thumbnail %}#}
-{#                                                        <img class="card-img-top" src="{{ reid_suggestion.mediafile.thumbnail.url }}"#}
-{#                                                             alt="{{ reid_suggestion.name }}" >#}
-{#                                                        {% endif %}#}
-
-
-
 
                                                           {% with id_prefix="suggestion" carousel_id=reid_suggestion.id representative_mediafiles=reid_suggestion.representative_mediafiles %}
 {#                                                        {% with individual_identity=reid_suggestion id_prefix="reid_suggestion" %}#}
                                                         {% include "caidapp/get_individual_identity_img_card_top.html" %}
                                                     {% endwith %}
-
-
-
-
-
-
-
-
-                                                        {#                        <div class="card-header">#}
                                                         <div class="card-body">
                                                             <div class="card-title">
-                                                                {{ reid_suggestion.name }}
+                                                                <a href="{% url 'caidapp:update_individual_identity' reid_suggestion.identity.id %}">
+                                                                    {{ reid_suggestion.name }}
+                                                                </a>
                                                             </div>
                                                             <p class="card-text">
                                                                 {{ reid_suggestion.score|mul:100|floatformat:2 }}%
@@ -268,6 +255,8 @@
                                                                        class="btn btn-primary">Select</a>
                                                                     <a href="{% url 'caidapp:get_individual_identity_zoomed' foridentification.id reid_suggestion.id %}"
                                                                        class="btn btn-secondary"><i class="bi bi-search"></i></a>
+                                                                    <a href="{% url 'caidapp:get_individual_identity_zoomed_paired_points' foridentification.id reid_suggestion.id %}"
+                                                                       class="btn btn-secondary"><i class="fa-solid fa-arrows-to-dot"></i></a>
                                                                 {% else %}
                                                                     Identity does not exist
                                                                 {% endif %}
@@ -321,10 +310,6 @@
                                                 {% endif %}
                                             {% endfor %}
 
-
-
-{#                                        </div>#}
-{#                                    </div>#}
                                 </div>
 
                                 <!-- Controls placed outside the .carousel-inner -->

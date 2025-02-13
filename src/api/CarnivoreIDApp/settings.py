@@ -70,10 +70,13 @@ ALLOWED_HOSTS = [
 CSRF_TRUSTED_ORIGINS = [
     'https://*.kky.zcu.cz',
     'http://*.kky.zcu.cz',
+    'http://127.0.0.1',
     'http://caid.kky.zcu.cz:13680',
     'https://caid.kky.zcu.cz:13680',
     'http://localhost:13680',
     'https://localhost:13680',
+    'http://127.0.0.1:13680'
+
 ]
 # Application definition
 
