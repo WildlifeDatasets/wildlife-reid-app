@@ -154,7 +154,7 @@ def _prepare_dataframe_for_identification(mediafiles) -> dict:
         )
         csv_data["sequence_number"][i] = mediafile.sequence.local_id if mediafile.sequence else None
         # logger.debug(f"{mediafile.metadata_json=}")
-        if "detection_results" in mediafile.metadata_json:
+        if mediafile.metadata_json and "detection_results" in mediafile.metadata_json:
             detection_results = mediafile.metadata_json["detection_results"]
         else:
             detection_results = None
