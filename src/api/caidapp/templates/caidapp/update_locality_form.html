@@ -1,0 +1,123 @@
+{% extends 'base.html' %}
+{% load widget_tweaks %}
+
+{% block head %}
+{#    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>#}
+    <!-- Bootstrap JS -->
+{#<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"#}
+{#        integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p"#}
+{#        crossorigin="anonymous"></script>#}
+    {{ form.media }}
+    <!-- Include jQuery -->
+        <script>
+        $(document).ready(function() {
+            console.log('document is ready');
+            $('#myForm').on('submit', function() {
+                console.log('form is submitted');
+                $('#loadingModal').modal('show');
+            });
+        });
+    </script>
+
+{% endblock %}
+
+{% block body %}
+    {#<div class="container">#}
+    {% if user.is_authenticated %}
+        <div class="pagetitle">
+            <h1>{{ headline }}</h1>
+            <nav>
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'caidapp:media_files_locality' locality.hash %}"> {{ locality.mediafiles.count }} Media Files</a></li>
+{#                    <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li>#}
+{#                    <li class="breadcrumb-item"><a href="{% url 'caidapp:uploadedarchive_mediafiles' mediafile.parent.id %}"> Uploaded#}
+{#                        Archive: {{ mediafile.parent }}</a></li>#}
+                </ol>
+            </nav>
+        </div><!-- End Page Title -->
+        <div class="section">
+
+            <div class="row">
+                <div class="col-md-8">
+{#                    <div class="card">#}
+{#                        <div class="card-body">#}
+
+
+                            <form id="myForm" method="post" enctype="multipart/form-data">
+                                {% csrf_token %}
+{#                                {{ form.as_p }}#}
+                                {% for field in form %}
+                                    <div class="form-group">
+                                        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                                        {{ field.errors }}
+                                        {{ field|add_class:"form-control" }}
+                                    </div>
+                                {% endfor %}
+                                {#                {{ form.as_p }}#}
+                                <button class="btn btn-primary mt-2" id="btnUpload" type="submit">
+                                    {{ button }}
+                                </button>
+                                {% if cancel_button_url %}
+                                    <a class="btn btn-secondary mt-2"
+                                       href="{{ cancel_button_url }}">
+{#                                        <i class="bi bi-"></i> #}
+                                        Cancel
+                                    </a>
+                                {% endif %}
+                                {% if delete_button_url %}
+                                    <a class="btn btn-danger mt-2"
+                                       href="{{ delete_button_url }}"
+                                            {#                               href="{% url 'caidapp:delete_upload' uploadedarchive.id %}"#}
+                                       onclick="return confirm('Delete {{ form.instance }}?')">
+                                        <i class="bi bi-trash"></i> Delete
+                                    </a>
+                                {% endif %}
+
+                            </form>
+{#                        </div>#}
+{#                    </div>#}
+                </div>
+{#                {% if text_note %}#}
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-body mt-4">
+                            <ul class="list-group">
+                                <li class="list-group"><a class="link-secondary" href="{% url 'caidapp:media_files_locality' locality.hash %}">  Media Files: {{ locality.mediafiles.count }} </a></li>
+
+                            </ul>
+                        {%  if locality.identities.count > 0 %}
+                            <h5 class="mt-4">Identities</h5>
+                            <ul class="list-group">
+                                {%  for identity in locality.identities %}
+                                <li class="list-group"><a class="link-secondary" href="{% url 'caidapp:update_individual_identity' identity.id %}"> {{ identity }} </a></li>
+                                {% endfor %}
+
+                            </ul>
+                        {% endif %}
+                            {{ text_note }}
+                        </div>
+                    </div>
+
+                </div>
+{#                {% endif %}#}
+                {% if mediafile or right_col_raw_html %}
+                <div class="col-4">
+                {% if mediafile %}
+                        <img src="{{ mediafile.thumbnail.url }}" alt="{{ mediafile.name }}" class="img-thumbnail">
+{#                    <div class="card">#}
+{#                        <div class="card-body">#}
+{#                        </div>#}
+{#                    </div>#}
+
+                {% endif %}
+                {% if right_col_raw_html %}
+                    {{ right_col_raw_html|safe }}
+                {% endif %}
+                {% endif %}
+                </div>
+
+            </div>
+        </div>
+    {% endif %}
+    {#</div>#}
+{% endblock %}

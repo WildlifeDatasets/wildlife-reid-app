@@ -183,6 +183,10 @@ class Locality(models.Model):
         """Return mediafiles."""
         return MediaFile.objects.filter(locality=self).all()
 
+    def identities(self):
+        """Return identities."""
+        return IndividualIdentity.objects.filter(mediafile__locality=self).all()
+
 
 class UploadedArchive(models.Model):
     name = models.CharField(max_length=255, blank=True, default="")

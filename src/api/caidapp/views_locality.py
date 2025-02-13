@@ -87,7 +87,7 @@ def update_locality(request, locality_id=None):
 
     return render(
         request,
-        "caidapp/update_form.html",
+        "caidapp/update_locality_form.html",
         {
             "form": form,
             "headline": "Locality",
