@@ -3134,26 +3134,49 @@ def refresh_identities_suggestions(request, limit:int=100, redirect:bool=True):
 def suggest_merge_identities_view(request, limit:int=100):
     """Suggest merge identities."""
 
+
     if "merge_identity_suggestions_ids" not in request.session:
         refresh_identities_suggestions(request)
+    try:
+        assert "merge_identity_suggestions_ids" in request.session
 
-    assert "merge_identity_suggestions_ids" in request.session
+        suggestions_ids = request.session["merge_identity_suggestions_ids"]
+        suggestions = [
+            (
+                IndividualIdentity.objects.get(id=identity_a_id),
+                IndividualIdentity.objects.get(id=identity_b_id),
+                distance
+              )
+            for identity_a_id, identity_b_id, distance in suggestions_ids
+        ]
 
-    suggestions_ids = request.session["merge_identity_suggestions_ids"]
-    suggestions = [
-        (
-            IndividualIdentity.objects.get(id=identity_a_id),
-            IndividualIdentity.objects.get(id=identity_b_id),
-            distance
-          )
-        for identity_a_id, identity_b_id, distance in suggestions_ids
-    ]
+        if limit and limit > 0:
+            suggestions = suggestions[:limit]
 
-    if limit and limit > 0:
-        suggestions = suggestions[:limit]
+        return render(request, "caidapp/suggest_merge_identities.html",
+                      {"suggestions": suggestions})
+    except Exception as e:
 
-    return render(request, "caidapp/suggest_merge_identities.html",
-                  {"suggestions": suggestions})
+        logger.warning(e)
+        logger.debug(traceback.format_exc())
+        refresh_identities_suggestions(request)
+
+        suggestions_ids = request.session["merge_identity_suggestions_ids"]
+        suggestions = [
+            (
+                IndividualIdentity.objects.get(id=identity_a_id),
+                IndividualIdentity.objects.get(id=identity_b_id),
+                distance
+            )
+            for identity_a_id, identity_b_id, distance in suggestions_ids
+        ]
+
+        if limit and limit > 0:
+            suggestions = suggestions[:limit]
+
+
+        return render(request, "caidapp/suggest_merge_identities.html",
+                      {"suggestions": suggestions})
 
 
 def order_identity_by_mediafile_count(identity1, identity2):

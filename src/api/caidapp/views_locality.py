@@ -29,6 +29,7 @@ from .models import Locality
 from .fs_data import remove_diacritics
 
 import logging
+import traceback
 
 logger = logging.getLogger("app")
 
@@ -512,16 +513,29 @@ def refresh_merge_localities_suggestions(request):
 
 @login_required
 def suggest_merge_localities_view(request):
-    if "merge_localities_suggestions" not in  request.session:
+    try:
+        if "merge_localities_suggestions" not in  request.session:
+            suggest_merge_localities(request)
+
+        suggestions = request.session["merge_localities_suggestions"]
+        # decode locality ids into locality objects
+        suggestions = [(get_object_or_404(Locality, pk=loc_a_id), get_object_or_404(Locality, pk=loc_b_id), dist) for loc_a_id, loc_b_id, dist in suggestions]
+
+        return render(request, "caidapp/suggest_merge_localities.html",
+                      {"suggestions": suggestions})
+    except Exception as e:
+        # If some of the ids in the session are not valid, the session is cleared
+        logger.warning(f"{e=}")
+        logger.debug(traceback.format_exc())
+
+
         suggest_merge_localities(request)
+        suggestions = request.session["merge_localities_suggestions"]
+        # decode locality ids into locality objects
+        suggestions = [(get_object_or_404(Locality, pk=loc_a_id), get_object_or_404(Locality, pk=loc_b_id), dist) for loc_a_id, loc_b_id, dist in suggestions]
 
-
-    suggestions = request.session["merge_localities_suggestions"]
-    # decode locality ids into locality objects
-    suggestions = [(get_object_or_404(Locality, pk=loc_a_id), get_object_or_404(Locality, pk=loc_b_id), dist) for loc_a_id, loc_b_id, dist in suggestions]
-
-    return render(request, "caidapp/suggest_merge_localities.html",
-                  {"suggestions": suggestions})
+        return render(request, "caidapp/suggest_merge_localities.html",
+                      {"suggestions": suggestions})
 
 
 @login_required
