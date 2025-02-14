@@ -97,6 +97,7 @@
 {#                    insert upload_card_body.html#}
                                     <span class="badge badge-status rounded-pill bg-{{ uploadedarchive.get_identification_status.status_style }}"
                                           data-bs-toggle="tooltip" title="{{ uploadedarchive.get_identification_status.status_message }}"
+                                          id="status-{{ uploadedarchive.id }}"
                                     >{{ uploadedarchive.get_identification_status.status }}</span> <br>
                                     {% include "caidapp/upload_card_body.html" %}
 

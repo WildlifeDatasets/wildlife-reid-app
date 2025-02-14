@@ -233,7 +233,8 @@
                                              <div class="card-img-placeholder"></div>
                                         {% endif %}
 
-                                        <span class="badge badge-status rounded-pill bg-{{ uploadedarchive.get_status.status_style }}" id="status-{{ uploadedarchive.id }}"
+                                        <span class="badge badge-status rounded-pill bg-{{ uploadedarchive.get_status.status_style }}"
+                                              id="status-{{ uploadedarchive.id }}"
                                               data-bs-toggle="tooltip" title="{{ uploadedarchive.get_status.status_message }}"
                                         >{{ uploadedarchive.get_status.status }}</span>
 
