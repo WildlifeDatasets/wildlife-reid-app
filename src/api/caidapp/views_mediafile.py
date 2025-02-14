@@ -7,6 +7,7 @@ from django.http import Http404, HttpResponseNotAllowed, JsonResponse, Streaming
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.utils import timezone
+from django.auth.decorators import login_required
 
 from . import model_extra, models
 from .forms import MediaFileForm
@@ -14,6 +15,7 @@ from .models import MediaFile
 from .views import logger, media_files_update, message_view
 
 
+@login_required
 def stream_video(request, mediafile_id):
     """Stream video file."""
     mediafile = get_object_or_404(MediaFile, id=mediafile_id)
@@ -44,6 +46,7 @@ def stream_video(request, mediafile_id):
     return response
 
 
+@login_required
 def missing_taxon_annotation(request, uploaded_archive_id: Optional[int] = None, prev_mediafile_id: Optional[int] = None):
     """List of uploads."""
     # get uploadeda archive or None
@@ -124,6 +127,7 @@ def missing_taxon_annotation(request, uploaded_archive_id: Optional[int] = None,
     )
 
 
+@login_required
 def verify_taxa_view(request, uploaded_archive_id: Optional[int] = None):
     """See media files for verification."""
     return media_files_update(
@@ -137,6 +141,7 @@ def verify_taxa_view(request, uploaded_archive_id: Optional[int] = None):
     # views.
 
 
+@login_required
 def taxons_on_page_are_verified(request):
     """Mark taxons on page as verified."""
     # get 'mediafiles_ids_page' from session
@@ -152,13 +157,14 @@ def taxons_on_page_are_verified(request):
     return redirect(next_url)
 
 
+@login_required
 def set_mediafiles_order_by(request, order_by: str):
     """Set order by for media files."""
     request.session["mediafiles_order_by"] = order_by
     # go back to the same page
     return redirect(request.META.get("HTTP_REFERER", "/"))
 
-
+@login_required
 def set_mediafiles_records_per_page(request, records_per_page: int):
     """Set records per page for media files."""
     request.session["mediafiles_records_per_page"] = records_per_page
@@ -166,6 +172,7 @@ def set_mediafiles_records_per_page(request, records_per_page: int):
     return redirect(request.META.get("HTTP_REFERER", "/"))
 
 
+@login_required
 def confirm_prediction(request, mediafile_id: int) -> JsonResponse:
     """Confirm prediction for media file with low confidence."""
     try:
@@ -187,6 +194,7 @@ def confirm_prediction(request, mediafile_id: int) -> JsonResponse:
         return JsonResponse({"success": False, "message": "Invalid request."})
 
 
+@login_required
 def media_file_update(
     request, media_file_id, next_text="Save", next_url=None, skip_url=None, cancel_url=None
 ):
