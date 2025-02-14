@@ -3304,9 +3304,6 @@ def uploads_status_api(request, group:str):
         data.append({
             "id": ua.id,
             **st
-            # "status": status,  # nebo jakkoliv jej vracíte
-            # "status_message": status_message
-            # klidně i "status_message": ua.get_identification_status.status_message
         })
 
     return JsonResponse({"archives": data})
