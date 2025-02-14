@@ -98,6 +98,7 @@ INSTALLED_APPS = [
     "django.db.migrations",
     'djangoaddicts.pygwalker',
     'handyhelpers',
+    "compressor",
     # "debug_toolbar"
     # 'pagination',
 ]
@@ -113,6 +114,15 @@ MIDDLEWARE = [
     # "debug_toolbar.middleware.DebugToolbarMiddleware",
     "caidapp.middleware.ImpersonateMiddleware",
 ]
+
+STATICFILES_FINDERS = [
+    'django.contrib.staticfiles.finders.FileSystemFinder',
+    'django.contrib.staticfiles.finders.AppDirectoriesFinder',
+    'compressor.finders.CompressorFinder',
+]
+
+# COMPRESS_ENABLED = True  # aktivuje kompresi i v debug režimu (obvykle jen v produkci)
+# COMPRESS_OUTPUT_DIR = 'CACHE'  # kam se uloží zkomprimované soubory
 
 if DEBUG_TOOLBAR:
     INSTALLED_APPS += ["debug_toolbar"]

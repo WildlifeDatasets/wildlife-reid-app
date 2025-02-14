@@ -41,8 +41,9 @@ RUN uv pip install https://github.com/BohemianVRA/FGVC/releases/download/v1.5.4-
 RUN uv pip install pytz --upgrade
 RUN uv pip install tzdata --upgrade
 
-RUN uv pip install openpyxl pyproj django-cruds-adminlte
+RUN uv pip install openpyxl==3.1.5 pyproj==3.7.0 django-cruds-adminlte==0.0.16
 RUN uv pip install --upgrade 'sentry-sdk[django]'
+RUN uv pip install django-compressor==4.5.1 csscompressor==0.9.5
 
 COPY ./src/api/start_dev.sh /api/start_dev.sh
 
