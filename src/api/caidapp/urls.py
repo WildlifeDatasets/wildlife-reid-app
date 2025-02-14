@@ -4,6 +4,9 @@ from django.views.generic import ListView, DetailView
 
 from . import views, views_locality, views_mediafile, views_uploads, models, views_general, views_admin
 
+def trigger_error(request):
+    division_by_zero = 1 / 0
+
 # router = routers.DefaultRouter()
 # router.register(r"localities", views.LocalitiesViewSet)
 
@@ -395,6 +398,7 @@ urlpatterns = [
     path("apply_identity_code_suggestion/<int:identity_id>/", views.apply_identity_code_suggestion, name="apply_identity_code_suggestion"),
     # path("uploads_status_api/<bool:species>/", views.uploads_status_api, name="uploads_status_api"),
     path("uploads_status_api/<str:group>/", views.uploads_status_api, name="uploads_status_api"),
+    path('sentry-debug/', trigger_error),
 
 ]
 # if settings.DEBUG:

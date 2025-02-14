@@ -7,7 +7,7 @@ from django.http import Http404, HttpResponseNotAllowed, JsonResponse, Streaming
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.utils import timezone
-from django.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, user_passes_test
 
 from . import model_extra, models
 from .forms import MediaFileForm

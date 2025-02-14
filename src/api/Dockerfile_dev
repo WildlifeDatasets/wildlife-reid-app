@@ -42,6 +42,7 @@ RUN uv pip install pytz --upgrade
 RUN uv pip install tzdata --upgrade
 
 RUN uv pip install openpyxl pyproj django-cruds-adminlte
+RUN uv pip install --upgrade 'sentry-sdk[django]'
 
 COPY ./src/api/start_dev.sh /api/start_dev.sh
 
