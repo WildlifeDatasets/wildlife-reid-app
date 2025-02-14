@@ -10,6 +10,8 @@ from django.shortcuts import HttpResponse, get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.db.models import QuerySet
 from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.views.generic import ListView
 import django.db
 # from torch.serialization import locality_tag
 import plotly.graph_objects as go
@@ -435,9 +437,8 @@ def create_map_from_mediafiles(mediafiles: Union[QuerySet, List[MediaFile]]):
 #
 #     return render(request, "caidapp/localities.html", {"localities": localities})
 
-from django.views.generic import ListView
 
-class LocalityListView(ListView):
+class LocalityListView(LoginRequiredMixin, ListView):
     model = Locality
     # template_name = "caidapp/generic_list.html"
     template_name = "caidapp/localities.html"

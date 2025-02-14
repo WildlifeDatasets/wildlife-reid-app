@@ -18,6 +18,7 @@ from django.contrib.auth import login as auth_login
 from django.contrib.auth import logout
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.views import LoginView
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views.generic import ListView
 from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector
 from django.core.paginator import Page, Paginator
@@ -507,11 +508,12 @@ def individual_identities(request):
 
 
 
-class IdentityListView(ListView):
+class IdentityListView(LoginRequiredMixin, ListView):
     model = IndividualIdentity
     template_name = "caidapp/individual_identities.html"
     context_object_name = "individual_identities"
     paginate_by = 24
+
 
     def get_queryset(self):
         self.paginate_by = views_general.get_item_number_anything(self.request, "identities")
@@ -1766,6 +1768,7 @@ def media_files_update(
 ) -> Union[QuerySet, List[MediaFile]]:
     """List of mediafiles based on query with bulk update of category."""
     # create list of mediafiles
+    logger.debug(f"Starting Media files view")
 
     page_number = 1
     exclude_filter_kwargs = {}
@@ -1826,6 +1829,7 @@ def media_files_update(
     # logger.debug(f"{albums_available=}")
     # logger.debug(f"{query=}")
     # logger.debug(f"{queryform}")
+    logger.debug("  before _mediafiles_query()")
     full_mediafiles = _mediafiles_query(
         request,
         query,
