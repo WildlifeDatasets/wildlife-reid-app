@@ -42,15 +42,20 @@ COPY ./src/taxon_worker/requirements.txt /taxon_worker/requirements.txt
 
 RUN pip install --no-cache-dir --upgrade pip build && \
     pip install --no-cache-dir --compile -r requirements.txt && \
-    rm -rf /var/lib/apt/lists/* /var/cache/apt/* /tmp/* /var/tmp/* \
+    rm -rf /var/lib/apt/lists/* /var/cache/apt/* /tmp/* /var/tmp/*
 
-RUN pip install \
+RUN pip install --no-cache-dir --upgrade pip build && \
+    pip install \
     opencv-python==4.5.5.64 \
-    opencv-python-headless==4.5.5.64
+    opencv-python-headless==4.5.5.64 && \
+    rm -rf /var/lib/apt/lists/* /var/cache/apt/* /tmp/* /var/tmp/*
 
 RUN pip install timm==0.6.13
+
 
 # expose ports and run application
 WORKDIR $APP_DIR
 CMD C_FORCE_ROOT=false celery -A worker.taxon_worker worker --pool threads --concurrency 1 --loglevel debug --queues taxon_worker
 # CMD C_FORCE_ROOT=false celery -A worker worker --pool threads --concurrency 2 --loglevel info --queues taxon_worker
+# just run and be accessable from terminal
+#CMD ["tail", "-f", "/dev/null"]

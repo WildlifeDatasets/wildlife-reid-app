@@ -44,9 +44,11 @@ RUN pip install --no-cache-dir --upgrade pip build && \
     pip install --no-cache-dir --compile -r requirements.txt && \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/* /tmp/* /var/tmp/*
 
-RUN pip install \
+RUN pip install --no-cache-dir --upgrade pip build && \
+    pip install \
     opencv-python==4.5.5.64 \
-    opencv-python-headless==4.5.5.64
+    opencv-python-headless==4.5.5.64 && \
+    rm -rf /var/lib/apt/lists/* /var/cache/apt/* /tmp/* /var/tmp/*
 
 RUN pip install timm==0.6.13
 
