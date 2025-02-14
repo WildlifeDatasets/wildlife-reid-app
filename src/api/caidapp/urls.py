@@ -393,6 +393,8 @@ urlpatterns = [
 
     path("show_identity_code_suggestions", views.show_identity_code_suggestions, name="show_identity_code_suggestions"),
     path("apply_identity_code_suggestion/<int:identity_id>/", views.apply_identity_code_suggestion, name="apply_identity_code_suggestion"),
+    # path("uploads_status_api/<bool:species>/", views.uploads_status_api, name="uploads_status_api"),
+    path("uploads_status_api/<str:group>/", views.uploads_status_api, name="uploads_status_api"),
 
 ]
 # if settings.DEBUG:

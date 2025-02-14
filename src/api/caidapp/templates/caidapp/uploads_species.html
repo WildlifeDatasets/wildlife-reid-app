@@ -233,16 +233,9 @@
                                              <div class="card-img-placeholder"></div>
                                         {% endif %}
 
-                                        <!-- Badge for status -->
-{#                                        <span class="badge badge-status rounded-pill bg-{{ uploadedarchive.get_status.status_style }}"#}
-{#                                              data-bs-toggle="tooltip" title="{{ uploadedarchive.get_status.status_message }}"#}
-{#                                        >{{ uploadedarchive.get_status.status }}</span>#}
-
-                                        <span class="badge badge-status rounded-pill bg-{{ uploadedarchive.get_status.status_style }}"
+                                        <span class="badge badge-status rounded-pill bg-{{ uploadedarchive.get_status.status_style }}" id="status-{{ uploadedarchive.id }}"
                                               data-bs-toggle="tooltip" title="{{ uploadedarchive.get_status.status_message }}"
                                         >{{ uploadedarchive.get_status.status }}</span>
-
-{#                                        <span class="badge rounded-pill bg-info">{{ uploadedarchive.get_status.status }}</span>#}
 
 {#                                      Dropdown menu #}
                                         <div class="dropdown dropdown-top-right">
@@ -301,6 +294,14 @@
 {% block script %}
 
     {#    The download of mediafiles  #}
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+{#    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>#}
     <script src="{% static 'caidapp/download_button.js' %}"></script>
+    <script src="{% static 'caidapp/uploads.js' %}"></script>
+    <script>
+
+        document.addEventListener("DOMContentLoaded", function () {
+        // spustí první dotaz po načtení stránky
+            checkStatuses( "{% url 'caidapp:uploads_status_api' 'species' %}");
+        });
+    </script>
 {% endblock %}

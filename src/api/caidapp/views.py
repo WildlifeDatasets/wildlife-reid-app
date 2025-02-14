@@ -87,6 +87,7 @@ from .tasks import (
     update_metadata_csv_by_uploaded_archive,
 )
 from .views_locality import _set_localities_to_mediafiles_of_uploadedarchive
+from .views_uploads import uploadedarchive_detail
 
 logger = logging.getLogger("app")
 User = get_user_model()
@@ -3275,3 +3276,38 @@ def apply_identity_code_suggestion(request, identity_id:int, rename:bool=True):
         identity.save()
 
     return redirect(request.META.get("HTTP_REFERER", "/"))
+
+
+@login_required
+def uploads_status_api(request, group:str):
+    """
+    Vrátí JSON s informacemi o statusech (např. pro všechny archivy daného uživatele).
+    """
+    species = True if group == "species" else False
+    # Můžete vrátit jen pro aktuálně přihlášeného uživatele:
+    user = request.user
+    if not user.is_authenticated:
+        return JsonResponse({"error": "Unauthorized"}, status=401)
+
+    # Získat archivy usera (dle vaší logiky, v příkladu jen pro demonstraci)
+    uploaded_archives = UploadedArchive.objects.filter(**user_has_access_filter_params(user.caiduser, "owner"))
+
+
+    data = []
+    for ua in uploaded_archives:
+        if species:
+            st = ua.get_status()
+        else:
+            st = ua.get_identification_status()
+        status = st["status"]
+        status_message = st["status_message"]
+        data.append({
+            "id": ua.id,
+            **st
+            # "status": status,  # nebo jakkoliv jej vracíte
+            # "status_message": status_message
+            # klidně i "status_message": ua.get_identification_status.status_message
+        })
+
+    return JsonResponse({"archives": data})
+
