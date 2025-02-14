@@ -203,3 +203,14 @@
         </section>
     {% endif %}
 {% endblock %}
+{% block script %}
+    <script src="{% static 'caidapp/uploads.js' %}"></script>
+    <script>
+
+        document.addEventListener("DOMContentLoaded", function () {
+            // spustí první dotaz po načtení stránky
+            checkStatuses( "{% url 'caidapp:uploads_status_api' 'identities' %}");
+        });
+    </script>
+
+{% endblock %}
