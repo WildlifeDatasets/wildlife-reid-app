@@ -3,6 +3,7 @@ import os
 import traceback
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
+import timm
 
 import cv2
 import numpy as np
@@ -10,6 +11,8 @@ import pandas as pd
 import torch
 from PIL import Image
 from tqdm import tqdm
+import torchvision.transforms as T
+from torch.nn import functional as F
 
 try:
     from ..infrastructure_utils import mem
@@ -29,6 +32,9 @@ logger.info("Initializing MegaDetector model and loading pre-trained checkpoint.
 
 MEDIA_DIR = Path("/shared_data/media")
 DETECTION_MODEL = None
+ORIENTATION_MODEL = None
+
+CLS_TO_ORIENTATION = {0: 'back', 1: 'front', 2: 'left', 3: 'right'}
 
 
 def download_file(url: str, output_file: str):
@@ -123,11 +129,26 @@ def get_detection_model(force_reload: bool = False):
     return DETECTION_MODEL
 
 
+def get_orientation_model(model_name="resnet10t", model_checkpoint=""):
+    """Load the orientation classification model"""
+    # create model
+    model = timm.create_model(model_name, num_classes=4, pretrained=True)
+
+    # load model checkpoint
+    if model_checkpoint:
+        model_ckpt = torch.load(model_checkpoint)["model"]
+        model.load_state_dict(model_ckpt)
+
+    model = model.to(DEVICE).eval()
+    return model
+
+
 def del_detection_model():
     """Release the detection model."""
     global DETECTION_MODEL
     DETECTION_MODEL = None
     torch.cuda.empty_cache()
+
 
 # TODO remove this line
 DETECTION_MODEL = get_detection_model(force_reload=True)
@@ -172,10 +193,11 @@ def detect_animals_in_one_image(image_rgb: np.ndarray) -> Optional[List[Dict[str
 
     return results_list
 
+
 def detect_animals_in_images(
-    images_rgb: np.ndarray,
-    batch_size: int = 1,
-    pbar: Optional[tqdm] = None,
+        images_rgb: np.ndarray,
+        batch_size: int = 1,
+        pbar: Optional[tqdm] = None,
 ) -> List[Optional[List[Dict[str, Any]]]]:
     """Detect animals in a list of images."""
     global DETECTION_MODEL
@@ -187,7 +209,7 @@ def detect_animals_in_images(
 
     # split images into batches
     for i in range(0, len(images_rgb), batch_size):
-        batch = list(images_rgb[i : i + batch_size])
+        batch = list(images_rgb[i: i + batch_size])
         # logger.debug(f"{len(batch)=}, {len(images_rgb)=}")
         # logger.debug(f"{batch.shape=}")
 
@@ -195,7 +217,7 @@ def detect_animals_in_images(
         results = DETECTION_MODEL(batch)
         id2label = results.names
         if pbar is not None:
-            pbar.update(float(len(batch)) /  len(images_rgb))
+            pbar.update(float(len(batch)) / len(images_rgb))
 
         # results.xyxy is list of tensors, each tensor contains detections for one image in batch.
         for idx, single_result in enumerate(results.xyxy):
@@ -221,14 +243,13 @@ def detect_animals_in_images(
                     "confidence": conf,
                     "class": class_name,
                     "size": batch[idx].shape[:2],  # (height, width)
-                    "frame": frame_id,            # přidáváme pořadí snímku
+                    "frame": frame_id,  # přidáváme pořadí snímku
                 }
                 current_image_detections.append(detection_dict)
 
             all_detections.append(current_image_detections)
 
     return all_detections
-
 
 
 def human_annonymization(rgb_image: np.ndarray, bboxes: List[List[int]]) -> np.ndarray:
@@ -266,6 +287,38 @@ def human_annonymization(rgb_image: np.ndarray, bboxes: List[List[int]]) -> np.n
     return rgb_image
 
 
+def detect_animal_orientation(
+        image_rgb: np.array,
+        image_size: int = 176
+):
+    """Detect animal orientation in cropped images."""
+    global ORIENTATION_MODEL
+
+    if ORIENTATION_MODEL is None:
+        ORIENTATION_MODEL = get_orientation_model(
+            "hf-hub:strakajk/Lynx-Orientation-ResNet10t-176" #"resnet10t", "resources/resnet10_02-b-13-02_19-08-16_orientation.pth"
+        )
+
+    transforms = T.Compose([
+        T.Resize(size=(image_size, image_size)),
+        T.ToTensor(),
+        T.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
+    ])
+    
+    image_rgb = Image.fromarray(image_rgb).convert("RGB")
+    image = transforms(image_rgb)
+    image = image.unsqueeze(0)
+    image = image.to(DEVICE)
+
+    prediction = ORIENTATION_MODEL(image)
+    cls_idx = torch.argmax(prediction)
+    cls_idx = cls_idx.item()
+    prediction = F.softmax(prediction, 1)
+    score = prediction[0][cls_idx].item()
+
+    return CLS_TO_ORIENTATION[cls_idx], score
+
+
 def detect_animal_on_metadata(metadata: pd.DataFrame, border=0.0) -> pd.DataFrame:
     """Do the detection and segmentation on images in metadata.
 
@@ -278,8 +331,8 @@ def detect_animal_on_metadata(metadata: pd.DataFrame, border=0.0) -> pd.DataFram
         image_abs_path = row["full_image_path"]
         try:
             if (
-                row["media_type"] == "video"
-                and row["full_image_path"] == row["absolute_media_path"]
+                    row["media_type"] == "video"
+                    and row["full_image_path"] == row["absolute_media_path"]
             ):
                 # there are no detected animals in video
                 continue
@@ -303,12 +356,22 @@ def detect_animal_on_metadata(metadata: pd.DataFrame, border=0.0) -> pd.DataFram
                 # if result["class"] == "animal":
                 base_path = Path(image_abs_path).parent.parent / "detection_images"
                 save_path = base_path / (
-                    Path(image_abs_path).stem + f".{ii}" + Path(image_abs_path).suffix
+                        Path(image_abs_path).stem + f".{ii}" + Path(image_abs_path).suffix
                 )
                 base_path.mkdir(exist_ok=True, parents=True)
 
                 padded_image = pad_image(image, result["bbox"], border=border)
                 Image.fromarray(padded_image).convert("RGB").save(save_path)
+
+                # predict the orientation
+                try:
+                    orientation, score = detect_animal_orientation(image_rgb=padded_image)
+                    row["detection_results"][ii]["orientation"] = orientation
+                    row["detection_results"][ii]["orientation_score"] = score
+                except:
+                    row["detection_results"][ii]["orientation"] = "unknown"
+                    row["detection_results"][ii]["orientation_score"] = -1.0
+
                 if ii == 0:
                     # if there is at least one detection save the very first one as the main image
                     save_path = base_path / (Path(image_abs_path).name)
