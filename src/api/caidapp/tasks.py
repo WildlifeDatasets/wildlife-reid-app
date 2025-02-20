@@ -318,53 +318,54 @@ def make_zipfile(output_filename: Path, source_dir: Path):
         output_filename.parent / output_filename.stem, archive_type, root_dir=source_dir
     )
 
-def run_detection_async(uploaded_archive: UploadedArchive, link=None, link_error=None):
-    """Run detection and mask preparation on UploadedArchive."""
-    # TODO remove this function. The 'detect' function does not exist anymore.
-    mediafiles = uploaded_archive.mediafile_set.all()
-    logger.debug(f"Running detection with {len(mediafiles)} records...")
 
-    csv_data = _prepare_dataframe_for_identification(mediafiles)
-    media_root = Path(settings.MEDIA_ROOT)
-    identity_metadata_file = media_root / uploaded_archive.outputdir / "detection_metadata.csv"
-    cropped_identity_metadata_file = (
-        media_root / uploaded_archive.outputdir / "detection_metadata.csv"
-    )
-    pd.DataFrame(csv_data).to_csv(identity_metadata_file, index=False)
-
-    # logger.debug("Calling run_detection and run_identification ...")
-    detect_sig = signature(
-        "detect",
-        kwargs={
-            "input_metadata_path": str(identity_metadata_file),
-            "output_metadata_path": str(cropped_identity_metadata_file),
-        },
-    )
-    tasks = chain(
-        detect_sig,
-        # simple_log_sig,
-        # identify_sig,
-    )
-    tasks.apply_async(
-        # link=identify_on_success.s(
-        link=detection_on_success_after_species_prediction.s(
-            # csv file should contain image_path, class_id, label
-            # input_metadata_file_path=str(identity_metadata_file),
-            # organization_id=uploaded_archive.owner.workgroup.id,
-            # output_json_file_path=str(output_json_file),
-            # top_k=3,
-            uploaded_archive_id=uploaded_archive.id,
-            # mediafiles=mediafiles,
-            # metadata_file=str(identity_metadata_file),
-            # mediafile_ids=mediafile_ids
-            # zip_file=os.path.relpath(str(output_archive_file), settings.MEDIA_ROOT),
-            # csv_file=os.path.relpath(str(output_metadata_file), settings.MEDIA_ROOT),
-        ),
-        link_error=on_error_with_uploaded_archive.s(
-            # uploaded_archive_id=uploaded_archive.id
-        ),
-    )
-
+# remove this function. The 'detect' function does not exist anymore.
+# def run_detection_async(uploaded_archive: UploadedArchive, link=None, link_error=None):
+#     """Run detection and mask preparation on UploadedArchive."""
+#     mediafiles = uploaded_archive.mediafile_set.all()
+#     logger.debug(f"Running detection with {len(mediafiles)} records...")
+#
+#     csv_data = _prepare_dataframe_for_identification(mediafiles)
+#     media_root = Path(settings.MEDIA_ROOT)
+#     identity_metadata_file = media_root / uploaded_archive.outputdir / "detection_metadata.csv"
+#     cropped_identity_metadata_file = (
+#         media_root / uploaded_archive.outputdir / "detection_metadata.csv"
+#     )
+#     pd.DataFrame(csv_data).to_csv(identity_metadata_file, index=False)
+#
+#     # logger.debug("Calling run_detection and run_identification ...")
+#     detect_sig = signature(
+#         "detect",
+#         kwargs={
+#             "input_metadata_path": str(identity_metadata_file),
+#             "output_metadata_path": str(cropped_identity_metadata_file),
+#         },
+#     )
+#     tasks = chain(
+#         detect_sig,
+#         # simple_log_sig,
+#         # identify_sig,
+#     )
+#     tasks.apply_async(
+#         # link=identify_on_success.s(
+#         link=detection_on_success_after_species_prediction.s(
+#             # csv file should contain image_path, class_id, label
+#             # input_metadata_file_path=str(identity_metadata_file),
+#             # organization_id=uploaded_archive.owner.workgroup.id,
+#             # output_json_file_path=str(output_json_file),
+#             # top_k=3,
+#             uploaded_archive_id=uploaded_archive.id,
+#             # mediafiles=mediafiles,
+#             # metadata_file=str(identity_metadata_file),
+#             # mediafile_ids=mediafile_ids
+#             # zip_file=os.path.relpath(str(output_archive_file), settings.MEDIA_ROOT),
+#             # csv_file=os.path.relpath(str(output_metadata_file), settings.MEDIA_ROOT),
+#         ),
+#         link_error=on_error_with_uploaded_archive.s(
+#             # uploaded_archive_id=uploaded_archive.id
+#         ),
+#     )
+#
 
 @shared_task(bind=True)
 def on_error_with_uploaded_archive(self, task_id: str, *args, uploaded_archive_id: int, **kwargs):
@@ -1129,29 +1130,29 @@ def log_output(self, output: dict, *args, **kwargs):
     logger.debug(f"{kwargs=}")
 
 
-@shared_task(bind=True)
-def detection_on_success_after_species_prediction(self, output: dict, *args, **kwargs):
-    """Finish detection and set status after species is predicted."""
-    # TODO remove this function  - it is not used
-    logger.debug("detection on success")
-    logger.debug(f"{output=}")
-    logger.debug(f"{args=}")
-    logger.debug(f"{kwargs=}")
-    uploaded_archive_id: int = kwargs.pop("uploaded_archive_id")
-    uploaded_archive = UploadedArchive.objects.get(id=uploaded_archive_id)
-    if "status" not in output:
-        logger.critical(f"Unexpected error {output=} is missing 'status' field.")
-        uploaded_archive.taxon_status = "U"
-    elif output["status"] == "DONE":
-        uploaded_archive.taxon_status = "TAID"
-        uploaded_archive.status_message = str(uploaded_archive.status_message) + " Detection done."
-    else:
-        uploaded_archive.taxon_status = "F"
-        if "error" in output:
-            logger.error(f"{output['error']=}")
-            uploaded_archive.status_message = output["error"]
-        uploaded_archive.finished_at = django.utils.timezone.now()
-    uploaded_archive.save()
+#  remove this function  - it is not used
+# @shared_task(bind=True)
+# def detection_on_success_after_species_prediction(self, output: dict, *args, **kwargs):
+#     """Finish detection and set status after species is predicted."""
+#     logger.debug("detection on success")
+#     logger.debug(f"{output=}")
+#     logger.debug(f"{args=}")
+#     logger.debug(f"{kwargs=}")
+#     uploaded_archive_id: int = kwargs.pop("uploaded_archive_id")
+#     uploaded_archive = UploadedArchive.objects.get(id=uploaded_archive_id)
+#     if "status" not in output:
+#         logger.critical(f"Unexpected error {output=} is missing 'status' field.")
+#         uploaded_archive.taxon_status = "U"
+#     elif output["status"] == "DONE":
+#         uploaded_archive.taxon_status = "TAID"
+#         uploaded_archive.status_message = str(uploaded_archive.status_message) + " Detection done."
+#     else:
+#         uploaded_archive.taxon_status = "F"
+#         if "error" in output:
+#             logger.error(f"{output['error']=}")
+#             uploaded_archive.status_message = output["error"]
+#         uploaded_archive.finished_at = django.utils.timezone.now()
+#     uploaded_archive.save()
 
 
 # @shared_task(bind=True)
