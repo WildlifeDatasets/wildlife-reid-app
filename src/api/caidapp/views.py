@@ -573,6 +573,10 @@ def update_individual_identity(request, individual_identity_id):
             return redirect("caidapp:individual_identities")
     else:
         form = IndividualIdentityForm(instance=individual_identity)
+
+    nav_dict = {
+        "Media Files": reverse_lazy("caidapp:uploadedarchive_mediafiles", kwargs={"uploadedarchive_id": media_file.parent.id}),
+    }
     return render(
         request,
         "caidapp/update_form.html",
@@ -586,6 +590,7 @@ def update_individual_identity(request, individual_identity_id):
                 "caidapp:delete_individual_identity",
                 kwargs={"individual_identity_id": individual_identity_id},
             ),
+            "nav_dict": nav_dict,
         },
     )
 
