@@ -1,4 +1,5 @@
 import copy
+import ast
 import datetime
 import json
 import logging
@@ -76,7 +77,10 @@ def on_success_predict_taxon(
     extract_identites: bool = False,
     **kwargs,
 ):
-    """Import media files after running predict function in taxon worker."""
+    """Import media files after running predict function in taxon worker.
+
+    This function is called after the taxon classification is finished. After this function the detection is called.
+    """
     status = output.get("status", "unknown")
     print(f"Taxon classification finished with status {status}")
     logger.info(f"Taxon classification finished with status '{status}'. Updating database record.")
@@ -108,7 +112,7 @@ def on_success_predict_taxon(
             uploaded_archive.update_earliest_and_latest_captured_at()
             uploaded_archive.make_sequences()
             logger.debug("Running async detection on success taxon classification")
-            run_detection_async(uploaded_archive)
+            # run_detection_async(uploaded_archive)  # this is probably not necessary
         else:
             uploaded_archive.taxon_status = "F"
             uploaded_archive.identification_status = "F"
@@ -316,6 +320,7 @@ def make_zipfile(output_filename: Path, source_dir: Path):
 
 def run_detection_async(uploaded_archive: UploadedArchive, link=None, link_error=None):
     """Run detection and mask preparation on UploadedArchive."""
+    # TODO remove this function. The 'detect' function does not exist anymore.
     mediafiles = uploaded_archive.mediafile_set.all()
     logger.debug(f"Running detection with {len(mediafiles)} records...")
 
@@ -738,6 +743,7 @@ def _update_database_by_one_row_of_metadata(
     output_dir,
     thumbnail_width,
     uploaded_archive,
+    orientation_score_threshold=0.5,
 ) -> str:
     # rel_pth, _ = _get_rel_and_abs_paths_based_on_csv_row(row, output_dir)
     image_abs_pth = output_dir / "images" / row["image_path"]
@@ -821,7 +827,7 @@ def _update_database_by_one_row_of_metadata(
             mf.predicted_taxon = get_taxon(row["predicted_category_raw"])
             mf.predicted_taxon_confidence = float(row["predicted_prob_raw"])
         if len(mf.animalobservation_set.all()) == 0:
-            mf.animalobservation_set.create(
+            ao = mf.animalobservation_set.create(
                 mediafile=mf,
                 taxon=mf.category,
                 # metadata_json=row.to_dict(),
@@ -831,6 +837,27 @@ def _update_database_by_one_row_of_metadata(
             # ao.metadata_json = row.to_dict()
             ao.taxon = mf.category
             ao.save()
+
+        try:
+            if ("detection_results" in row) and (row["detection_results"] is not None):
+                detection_results = ast.literal_eval(row["detection_results"])
+                if len(detection_results) > 0:
+                    kv = {'back': "B", 'front': "F", 'left': "F", 'right': "R", "unknown": "U"}
+                    orientation = detection_results[0]["orientation"]
+                    orientation_score = detection_results[0]["orientation_score"]
+                    if orientation in kv:
+                        if orientation_score < orientation_score_threshold:
+                            orientation = "unknown"
+
+                        mf.orientation = kv[orientation]
+                        ao.orientation = kv[orientation]
+                    else:
+                        logger.warning(f"Unknown orientation: {orientation} in {mf.mediafile}")
+        except Exception as e:
+            logger.warning(f"Error during setting orientation in media file {mf.mediafile}: {e}")
+            logger.debug(traceback.format_exc())
+
+
         if extract_identites:
             mf.identity = get_unique_name(
                 row["unique_name"], workgroup=uploaded_archive.owner.workgroup
@@ -1105,6 +1132,7 @@ def log_output(self, output: dict, *args, **kwargs):
 @shared_task(bind=True)
 def detection_on_success_after_species_prediction(self, output: dict, *args, **kwargs):
     """Finish detection and set status after species is predicted."""
+    # TODO remove this function  - it is not used
     logger.debug("detection on success")
     logger.debug(f"{output=}")
     logger.debug(f"{args=}")

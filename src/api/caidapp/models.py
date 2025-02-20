@@ -49,6 +49,14 @@ UA_STATUS_CHOICES = (
 )
 UA_STATUS_CHOICES_DICT = dict(UA_STATUS_CHOICES)
 
+ORIENTATION_CHOICES = (
+    ("L", "Left"),
+    ("R", "Right"),
+    ("F", "Front"),
+    ("B", "Back"),
+    ("N", "None"),
+    ("U", "Unknown"),
+)
 TAXON_NOT_CLASSIFIED = "Not Classified"
 
 
@@ -670,11 +678,14 @@ class Sequence(models.Model):
 
 
 class MediaFile(models.Model):
-    ORIENTATION_CHOICES = (
-        ("L", "Left"),
-        ("R", "Right"),
-        ("N", "None"),
-    )
+    # ORIENTATION_CHOICES = (
+    #     ("L", "Left"),
+    #     ("R", "Right"),
+    #     ("F", "Front"),
+    #     ("B", "Back"),
+    #     ("N", "None"),
+    #     ("U", "Unknown"),
+    # )
     parent = models.ForeignKey(UploadedArchive, on_delete=models.CASCADE, null=True)
     category = models.ForeignKey(Taxon, blank=True, null=True, on_delete=models.CASCADE)
     predicted_taxon = models.ForeignKey(
@@ -806,6 +817,7 @@ class AnimalObservation(models.Model):
     metadata_json = models.JSONField(blank=True, null=True)
     updated_by = models.ForeignKey(CaIDUser, on_delete=models.SET_NULL, null=True, blank=True)
     updated_at = models.DateTimeField("Updated at", blank=True, null=True)
+    orientation = models.CharField(max_length=2, choices=ORIENTATION_CHOICES, default="N")
 
 
 class MediafilesForIdentification(models.Model):

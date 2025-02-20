@@ -11,6 +11,7 @@
 * [added] Merge multiple identities
 * [added] Suggest code extraction from the name of identity 
 * [changed] Priority of loading media files in the detail view
+* [added] Orientation detection introduced
 
 ## 01-2025
 * [added] Added carousel for media files in the detail view
