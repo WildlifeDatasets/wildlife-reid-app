@@ -1743,6 +1743,10 @@ def _merge_form_filter_kwargs_with_filter_kwargs(
         filter_kwargs["media_type"] = "video"
     elif ffk.get("filter_show_images", None):
         filter_kwargs["media_type"] = "image"
+    if ffk.get("filter_orientation", None):
+        orientation = ffk.get("filter_orientation")
+        if orientation != "All":
+            filter_kwargs["orientation"] = orientation
 
     if ffk.get("filter_hide_empty", None):
         # MediaFile.category.name is not "Empty"
@@ -1826,6 +1830,8 @@ def media_files_update(
     filter_kwargs, exclude_filter_kwargs = _merge_form_filter_kwargs_with_filter_kwargs(
         filter_kwargs, exclude_filter_kwargs, form_filter_kwargs
     )
+    logger.debug(f"{filter_kwargs=}")
+    logger.debug(f"{exclude_filter_kwargs=}")
     # logger.debug(f"{albums_available=}")
     # logger.debug(f"{query=}")
     # logger.debug(f"{queryform}")

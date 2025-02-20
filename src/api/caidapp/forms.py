@@ -172,7 +172,7 @@ class UploadedArchiveFormWithTaxon(forms.ModelForm):
 class MediaFileForm(forms.ModelForm):
     class Meta:
         model = MediaFile
-        fields = ("category", "taxon_verified", "locality", "identity", "identity_is_representative",  "captured_at" , "note")
+        fields = ("category", "taxon_verified", "locality", "identity", "identity_is_representative",  "captured_at" , "note", "orientation")
 
     def __init__(self, *args, **kwargs):
         mediafile = kwargs.get("instance")
@@ -220,6 +220,20 @@ class MediaFileSetQueryForm(forms.Form):
     filter_show_videos = forms.BooleanField(label="Show videos", initial=True, required=False)
     filter_show_images = forms.BooleanField(label="Show images", initial=True, required=False)
     filter_hide_empty = forms.BooleanField(label="Hide empty", initial=True, required=False)
+    filter_orientation = forms.ChoiceField(
+        label="Orientation",
+        choices=(
+            ("All", "All"),
+            ("L", "Left"),
+            ("R", "Right"),
+            ("F", "Front"),
+            ("B", "Back"),
+            ("U", "Unknown")
+        ),
+        initial="all",
+        required=False,
+
+    )
 
 
 class ChangeMediaFilesTimeForm(forms.Form):
