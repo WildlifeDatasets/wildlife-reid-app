@@ -119,7 +119,10 @@ def stop_impersonation(request):
         original_user = User.objects.get(id=request.session["original_user_id"])
         auth_login(request, original_user)
 
-        del request.session["original_user_id"]
+        if "original_user_id" in request.session:
+            # remove original_user_id from session
+            request.session.pop("original_user_id")
+            # del request.session["original_user_id"]
     return redirect("caidapp:uploads")
 
 def is_impersonating(request):
@@ -1883,7 +1886,7 @@ def media_files_update(
     logger.debug(f"{number_of_mediafiles=}")
 
     mediafiles_ids = list(full_mediafiles.values_list("id", flat=True))
-    logger.debug(f"{mediafiles_ids=}")
+    # logger.debug(f"{mediafiles_ids=}")
     request.session["mediafile_ids"] = mediafiles_ids
     paginator = Paginator(full_mediafiles, per_page=records_per_page)
     page_with_mediafiles, _, page_context = _prepare_page(paginator, page_number=page_number)
