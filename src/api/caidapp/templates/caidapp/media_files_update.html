@@ -147,20 +147,21 @@
                                 Filter
                             </a>
                             <div class="collapse" name="collapseFilterProcessing" id="collapseFilterProcessing">
-                                <div class="card">
+                                <div class="card mt-2">
                                     <div class="card-body mt-3">
                                         {{ form_bulk_processing.non_field_errors }}
+                                        <div class="d-flex">
                                         {% for field in form_query %}
                                             {% if field.name != "pagenumber" and field.name != "query" %}
 
-                                            <p>
+                                                    <div class="mt-2 me-4">
+                                                        {{ field.label }}:
+                                                        {{ field }}
+                                                    </div>
 
-                                                {{ field.label }}:
-                                                {{ field }}
-                                            </p>
                                             {% endif %}
-
                                         {% endfor %}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
