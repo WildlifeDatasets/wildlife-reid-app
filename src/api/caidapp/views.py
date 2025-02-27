@@ -50,7 +50,7 @@ from .serializers import LocalitySerializer
 from .models import get_all_relevant_localities, user_has_access_filter_params
 
 
-from . import forms, model_tools, models, tasks, views_uploads, views_locality, views_general
+from . import forms, model_tools, models, tasks, views_uploads, views_locality, views_general, filters
 from .forms import (
     AlbumForm,
     IndividualIdentityForm,
@@ -529,9 +529,15 @@ class IdentityListView(LoginRequiredMixin, ListView):
             locality_count=Count("mediafile__locality", distinct=True),
         )
 
-        order_by = views_general.get_order_by_anything(self.request, "identities")
-        return objects.order_by(order_by)
+        self.filterset = filters.IndividualIdentityFilter(self.request.GET, queryset=objects)
 
+        order_by = views_general.get_order_by_anything(self.request, "identities")
+        return self.filterset.qs.order_by(order_by)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["filter_form"] = self.filterset.form
+        return context
 
 @login_required
 def new_individual_identity(request):

@@ -99,6 +99,7 @@ INSTALLED_APPS = [
     'djangoaddicts.pygwalker',
     'handyhelpers',
     "compressor",
+    "django_filters",
     # "debug_toolbar"
     # 'pagination',
 ]

@@ -44,6 +44,7 @@ RUN uv pip install tzdata --upgrade
 RUN uv pip install openpyxl==3.1.5 pyproj==3.7.0 django-cruds-adminlte==0.0.16
 RUN uv pip install --upgrade 'sentry-sdk[django]'
 RUN uv pip install django-compressor==4.5.1 csscompressor==0.9.5
+RUN uv pip install django-filter==24.3 django-crispy-forms==2.3
 
 COPY ./src/api /api
 

@@ -58,6 +58,7 @@
 {% block body %}
     {% if user.is_authenticated %}
 
+
         <div class="pagetitle">
             <h1>Localities</h1>
         <nav>
@@ -86,7 +87,17 @@
 
         </div><!-- End Page Title -->
         <section class="section">
-        <div class="d-flex justify-content-between">
+        <form method="GET" action="{% url 'caidapp:localities' %}">
+             <div style="display: flex; align-items: center;">
+                {% for field in filter_form %}
+                  <div style="margin-right: 15px;">
+                    {{ field.label_tag }} {{ field }}
+                  </div>
+                {% endfor %}
+                <input type="submit" value="Filter" class="btn btn-primary">
+              </div>
+        </form>
+        <div class="d-flex justify-content-between mt-3">
             <div>
                 {% include 'caidapp/pagination_simple_a.html' %}
             </div>

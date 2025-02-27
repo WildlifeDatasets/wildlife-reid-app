@@ -29,6 +29,7 @@ from django.contrib import messages
 from .forms import CompareLocalitiesForm
 from .models import Locality
 from .fs_data import remove_diacritics
+from .filters import LocalityFilter
 
 import logging
 import traceback
@@ -444,6 +445,7 @@ class LocalityListView(LoginRequiredMixin, ListView):
     template_name = "caidapp/localities.html"
     context_object_name = "localities"
     paginate_by = 8
+
     # order by
 
 
@@ -453,13 +455,14 @@ class LocalityListView(LoginRequiredMixin, ListView):
         # params = user_has_access_filter_params(self.request.user.caiduser, "owner")
         self.paginate_by = views_general.get_item_number_anything(self.request, "localities")
         objects = get_all_relevant_localities(request=self.request)
+        self.filterset = LocalityFilter(self.request.GET, queryset=objects)
         # objects = Locality.objects.filter(**params)
         order_by = views_general.get_order_by_anything(self.request, "localities")
         logger.debug(f"{order_by=}")
         # if order_by == "count_of_mediafiles" or order_by == "-count_of_mediafiles":
         #     logger.debug("Annotating")
         #     objects = objects.annotate(count_of_mediafiles=django.db.models.Count("mediafiles"))
-        return objects.order_by(order_by)
+        return self.filterset.qs.order_by(order_by)
 
     def get_detail_url_name(self):
         return "caidapp:generic_locality_detail"
@@ -468,6 +471,7 @@ class LocalityListView(LoginRequiredMixin, ListView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         # context["headline"] = "Localities"
+        context["filter_form"] = self.filterset.form
         return context
 
 def suggest_merge_localities(request):
