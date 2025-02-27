@@ -166,9 +166,11 @@ class Locality(models.Model):
     # belong to any user which is not good.
     owner = models.ForeignKey(CaIDUser, on_delete=models.SET_NULL, null=True, blank=True)
     note = models.TextField(blank=True, default="")
+    area = models.ForeignKey("Area", on_delete=models.SET_NULL, null=True, blank=True)
 
     def __str__(self):
         return str(self.name)
+
 
 
     # def set_location_from_str(self, order: int = 3):
@@ -195,6 +197,59 @@ class Locality(models.Model):
     def identities(self):
         """Return identities."""
         return IndividualIdentity.objects.filter(mediafile__locality=self).all()
+
+    def set_closest_area(self):
+        """Find area for the locality."""
+        areas = Area.objects.all()
+
+        if "," in str(self.location):
+            lat, lon = str(self.location).split(",")
+            lat = float(lat)
+            lon = float(lon)
+
+            closest_area = None
+            closest_distance = 1000000
+            for area in areas:
+                if "," in str(area.location):
+                    alat, alon = str(area.location).split(",")
+                    alat = float(alat)
+                    alon = float(alon)
+                    distance = np.sqrt((lat - alat)**2 + (lon - alon)**2)
+
+                    if distance < closest_distance:
+                        closest_distance = distance
+                        closest_area = area
+
+            if closest_area is not None:
+                self.area = closest_area
+                self.save()
+
+
+class Area(models.Model):
+    name = models.CharField(max_length=50)
+    visible_name = models.CharField(max_length=255, blank=True, default=human_readable_hash)
+    location = PlainLocationField(
+        based_fields=["city"],
+        zoom=5,
+        null=True,
+        blank=True,
+    )
+    hash = models.CharField(max_length=50, default=get_hash8)
+    # If the user is deleted, then we will keep the locality but it does not
+    # belong to any user which is not good.
+    # owner = models.ForeignKey(CaIDUser, on_delete=models.SET_NULL, null=True, blank=True)
+    note = models.TextField(blank=True, default="")
+
+    def __str__(self):
+        return str(self.name)
+
+    # def mediafiles(self):
+    #     """Return mediafiles."""
+    #     return MediaFile.objects.filter(locality=self).all()
+    #
+    # def identities(self):
+    #     """Return identities."""
+    #     return IndividualIdentity.objects.filter(mediafile__locality=self).all()
 
 
 class UploadedArchive(models.Model):

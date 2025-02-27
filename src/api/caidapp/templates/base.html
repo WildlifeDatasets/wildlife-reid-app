@@ -251,6 +251,33 @@
             {#        </li><!-- End Messages Nav -->#}
 
             {% if user.is_authenticated %}
+                {% if request.user.is_superuser %}
+                    <li class="nav-item dropdown pe-3">
+                    <a class="nav-link nav-profile d-flex align-items-center pe-0" href="#" data-bs-toggle="dropdown">
+                        {#            <img src="{% static 'assets/img/profile-img.jpg' %}" alt="Profile" class="rounded-circle">#}
+                        <span class="d-none d-md-block dropdown-toggle ps-2">
+                            <i class="bi bi-tools"></i>
+                            Admin tools
+                        </span>
+                    </a><!-- End Profile Iamge Icon -->
+
+                    <ul class="dropdown-menu dropdown-menu-end dropdown-menu-arrow profile">
+                        <li class="dropdown-header">
+                            <h6>Admin tools</h6>
+                            {#              <span>Web Designer</span>#}
+                        </li>
+{#                    <li>#}
+{#                        <a class="dropdown-item d-flex align-items-center" href="{% url 'caidapp:sample_data' %}">#}
+{#                            <i class="fa-solid fa-vial"></i>#}
+{#                            <span>Sample data</span>#}
+{#                        </a>#}
+{#                    </li>#}
+                        {% if user.is_staff %}
+                            {% include 'caidapp/do_admin_stuff.html' %}
+                        {% endif %}
+                    </ul>
+                {% endif %}
+
             <li class="nav-item dropdown pe-3">
 
                 <a class="nav-link nav-profile d-flex align-items-center pe-0" href="#" data-bs-toggle="dropdown">
@@ -316,7 +343,7 @@
                                     <span>Admin</span>
                                 </a>
                             </li>
-                            {% include 'caidapp/do_admin_stuff.html' %}
+{#                            {% include 'caidapp/do_admin_stuff.html' %}#}
                         {% endif %}
 
                         <li>

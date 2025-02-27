@@ -146,6 +146,9 @@
                                 </a>
 
                                 </h5>
+                             {% if locality.area %}
+    <h6 class="card-subtitle mb-2 text-muted">{{ locality.area }}</h6>
+  {% endif %}
                                 <p class="card-text">
 
                                     <a href="{% url 'caidapp:uploads_of_locality' locality.hash %}" class="link-secondary"

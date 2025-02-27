@@ -26,6 +26,7 @@
     {% if user.is_authenticated %}
         <div class="pagetitle">
             <h1>{{ headline }}</h1>
+            <p>{{ locality.area }}</p>
             <nav>
                 <ol class="breadcrumb">
                     {% if locality.id %}
