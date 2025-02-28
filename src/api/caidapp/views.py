@@ -22,7 +22,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views.generic import ListView
 from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector
 from django.core.paginator import Page, Paginator
-from django.db.models import Count, Min, Q, QuerySet
+from django.db.models import Count, Min, Q, QuerySet, Max
 from django.forms import modelformset_factory
 from django.http import HttpResponseNotAllowed
 from django.shortcuts import Http404, HttpResponse
@@ -527,6 +527,7 @@ class IdentityListView(LoginRequiredMixin, ListView):
             mediafile_count=Count("mediafile"),
             representative_mediafile_count=Count("mediafile", filter=Q(mediafile__identity_is_representative=True)),
             locality_count=Count("mediafile__locality", distinct=True),
+            last_seen=Max("mediafile__captured_at"),
         )
 
         self.filterset = filters.IndividualIdentityFilter(self.request.GET, queryset=objects)
@@ -583,9 +584,12 @@ def update_individual_identity(request, individual_identity_id):
     else:
         form = IndividualIdentityForm(instance=individual_identity)
 
-    nav_dict = {
-        "Media Files": reverse_lazy("caidapp:uploadedarchive_mediafiles", kwargs={"uploadedarchive_id": media_file.parent.id}),
-    }
+    nav_dict = {}
+    if media_file and media_file.parent:
+        nav_dict["Media Files"] = reverse_lazy(
+            "caidapp:uploadedarchive_mediafiles",
+            kwargs={"uploadedarchive_id": media_file.parent.id}
+        )
     return render(
         request,
         "caidapp/update_form.html",
