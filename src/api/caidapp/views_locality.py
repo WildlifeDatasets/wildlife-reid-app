@@ -30,6 +30,7 @@ from .forms import CompareLocalitiesForm
 from .models import Locality
 from .fs_data import remove_diacritics
 from .filters import LocalityFilter
+from .views_tools import add_querystring_to_context
 
 import logging
 import traceback
@@ -472,9 +473,10 @@ class LocalityListView(LoginRequiredMixin, ListView):
         context = super().get_context_data(**kwargs)
         # context["headline"] = "Localities"
         context["filter_form"] = self.filterset.form
-        query_params = self.request.GET.copy()
-        query_params.pop('page', None)
-        context['query_string'] = query_params.urlencode()
+        context = add_querystring_to_context(self.request, context)
+        # query_params = self.request.GET.copy()
+        # query_params.pop('page', None)
+        # context['query_string'] = query_params.urlencode()
         return context
 
 def suggest_merge_localities(request):

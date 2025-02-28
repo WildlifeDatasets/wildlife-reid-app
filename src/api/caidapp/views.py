@@ -488,26 +488,27 @@ def logout_view(request):
     return redirect("caidapp:index")
 
 
-@login_required
-def individual_identities(request):
-    """List of individual identities."""
-    individual_identities = (
-        IndividualIdentity.objects.filter(
-            Q(owner_workgroup=request.user.caiduser.workgroup) & ~Q(name="nan")
-        )
-        .all()
-        .order_by("-name")
-    )
-
-    records_per_page = 24
-    paginator = Paginator(individual_identities, per_page=records_per_page)
-    _, _, page_context = _prepare_page(paginator, request=request)
-
-    return render(
-        request,
-        "caidapp/individual_identities.html",
-        {**page_context, "workgroup": request.user.caiduser.workgroup},
-    )
+# TODO remove?
+# @login_required
+# def individual_identities(request):
+#     """List of individual identities."""
+#     individual_identities = (
+#         IndividualIdentity.objects.filter(
+#             Q(owner_workgroup=request.user.caiduser.workgroup) & ~Q(name="nan")
+#         )
+#         .all()
+#         .order_by("-name")
+#     )
+#
+#     records_per_page = 24
+#     paginator = Paginator(individual_identities, per_page=records_per_page)
+#     _, _, page_context = _prepare_page(paginator, request=request)
+#
+#     return render(
+#         request,
+#         "caidapp/individual_identities.html",
+#         {**page_context, "workgroup": request.user.caiduser.workgroup},
+#     )
 
 
 
@@ -538,9 +539,11 @@ class IdentityListView(LoginRequiredMixin, ListView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["filter_form"] = self.filterset.form
-        query_params = self.request.GET.copy()
-        query_params.pop('page', None)
-        context['query_string'] = query_params.urlencode()
+        from .views_tools import add_querystring_to_context
+        context = add_querystring_to_context(self.request, context)
+        # query_params = self.request.GET.copy()
+        # query_params.pop('page', None)
+        # context['query_string'] = query_params.urlencode()
         return context
 
 @login_required
