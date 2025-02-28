@@ -747,7 +747,7 @@ class MediaFile(models.Model):
         ('video', 'Video'),
     )
     parent = models.ForeignKey(UploadedArchive, on_delete=models.CASCADE, null=True)
-    category = models.ForeignKey(Taxon, blank=True, null=True, on_delete=models.CASCADE)
+    category = models.ForeignKey(Taxon, blank=True, null=True, on_delete=models.CASCADE, verbose_name="Taxon")
     predicted_taxon = models.ForeignKey(
         Taxon, blank=True, null=True, on_delete=models.SET_NULL, related_name="predicted_taxon"
     )
