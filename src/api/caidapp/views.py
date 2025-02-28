@@ -46,6 +46,7 @@ from rest_framework import permissions, viewsets
 
 from .fs_data import remove_diacritics
 from .serializers import LocalitySerializer
+from .views_tools import add_querystring_to_context
 
 from .models import get_all_relevant_localities, user_has_access_filter_params
 
@@ -539,7 +540,6 @@ class IdentityListView(LoginRequiredMixin, ListView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["filter_form"] = self.filterset.form
-        from .views_tools import add_querystring_to_context
         context = add_querystring_to_context(self.request, context)
         # query_params = self.request.GET.copy()
         # query_params.pop('page', None)
@@ -1594,6 +1594,9 @@ class MyLoginView(LoginView):
 
 
 def _mediafiles_annotate() -> dict:
+    """Prepare annotations for mediafiles."""
+
+
 
     return dict()
 
@@ -1623,7 +1626,18 @@ def _mediafiles_query(
 
     # logger.debug(f"{filter_kwargs=}, {exclude_filter_kwargs=}, {order_by=}")
 
-    mediafiles = MediaFile.objects.annotate(**_mediafiles_annotate())
+    from django.db.models import Concat
+    mediafiles = MediaFile.objects.annotate(
+        # combine all the fields that are used for search
+        # search=Concat(
+        #     "category__name",
+        #     Value(" "),
+        #     "locality__name",
+        #     Value(" "),
+        #     "individualidentity__name",
+        # ),
+        **_mediafiles_annotate()
+    )
     # mediafiles = (
     #     mediafiles.filter(
     #         Q(album__albumsharerole__user=request.user.caiduser)
@@ -1797,6 +1811,7 @@ def media_files_update(
     """List of mediafiles based on query with bulk update of category."""
     # create list of mediafiles
     logger.debug(f"Starting Media files view")
+    logger.debug(f"{request.GET=}")
 
     page_number = 1
     exclude_filter_kwargs = {}
@@ -1805,43 +1820,6 @@ def media_files_update(
     if records_per_page is None:
         records_per_page = request.session.get("mediafiles_records_per_page", 20)
 
-    if request.method == "POST":
-        queryform = MediaFileSetQueryForm(request.POST)
-        if queryform.is_valid():
-            query = queryform.cleaned_data["query"]
-            # logger.debug(f"{queryform.cleaned_data=}")
-            # page_number = int(request.GET.get('page'))
-            # logger.debug(f"{page_number=}")
-            # pick all parameters from queryform with key startin with "filter_"
-            for key in queryform.cleaned_data.keys():
-                if key.startswith("filter_"):
-                    form_filter_kwargs[key] = queryform.cleaned_data[key]
-            logger.debug(f"{form_filter_kwargs=}")
-
-            page_number = _page_number(request, page_number=queryform.cleaned_data["pagenumber"])
-            if "querySubmit" in request.POST:
-                logger.debug("querySubmit")
-                page_number = 1
-            queryform.cleaned_data["pagenumber"] = page_number
-            queryform = MediaFileSetQueryForm(initial=queryform.cleaned_data)
-        else:
-            logger.error("queryform is not valid")
-            logger.error(queryform.errors)
-            for error in queryform.non_field_errors():
-                logger.error(error)
-    else:
-        # logger.debug("GET")
-        page_number = 1
-        initial_data = dict(
-            query="",
-            pagenumber=page_number,
-            filter_show_videos=True,
-            filter_show_images=True,
-            filter_hide_empty=not show_overview_button,
-        )
-
-        queryform = MediaFileSetQueryForm(initial=initial_data)
-        query = ""
     albums_available = (
         Album.objects.filter(
             Q(albumsharerole__user=request.user.caiduser) | Q(owner=request.user.caiduser)
@@ -1850,30 +1828,70 @@ def media_files_update(
         .order_by("created_at")
     )
 
-    # logger.debug(f"{filter_kwargs=}, {exclude_filter_kwargs=}, {form_filter_kwargs=}")
-    filter_kwargs, exclude_filter_kwargs = _merge_form_filter_kwargs_with_filter_kwargs(
-        filter_kwargs, exclude_filter_kwargs, form_filter_kwargs
-    )
-    logger.debug(f"{filter_kwargs=}")
-    logger.debug(f"{exclude_filter_kwargs=}")
-    # logger.debug(f"{albums_available=}")
-    # logger.debug(f"{query=}")
-    # logger.debug(f"{queryform}")
-    logger.debug("  before _mediafiles_query()")
-    full_mediafiles = _mediafiles_query(
-        request,
-        query,
-        album_hash=album_hash,
-        individual_identity_id=individual_identity_id,
-        taxon_id=taxon_id,
-        uploadedarchive_id=uploadedarchive_id,
-        identity_is_representative=identity_is_representative,
-        locality_hash=locality_hash,
-        order_by=order_by,
-        taxon_verified=taxon_verified,
-        filter_kwargs=filter_kwargs,
-        exclude_filter_kwargs=exclude_filter_kwargs,
-    )
+
+    # My implementation of filtration
+    # if request.method == "POST":
+    #     queryform = MediaFileSetQueryForm(request.POST)
+    #     if queryform.is_valid():
+    #         query = queryform.cleaned_data["query"]
+    #         # logger.debug(f"{queryform.cleaned_data=}")
+    #         # page_number = int(request.GET.get('page'))
+    #         # logger.debug(f"{page_number=}")
+    #         # pick all parameters from queryform with key startin with "filter_"
+    #         for key in queryform.cleaned_data.keys():
+    #             if key.startswith("filter_"):
+    #                 form_filter_kwargs[key] = queryform.cleaned_data[key]
+    #         logger.debug(f"{form_filter_kwargs=}")
+    #
+    #         page_number = _page_number(request, page_number=queryform.cleaned_data["pagenumber"])
+    #         if "querySubmit" in request.POST:
+    #             logger.debug("querySubmit")
+    #             page_number = 1
+    #         queryform.cleaned_data["pagenumber"] = page_number
+    #         queryform = MediaFileSetQueryForm(initial=queryform.cleaned_data)
+    #     else:
+    #         logger.error("queryform is not valid")
+    #         logger.error(queryform.errors)
+    #         for error in queryform.non_field_errors():
+    #             logger.error(error)
+    # else:
+    #     # logger.debug("GET")
+    #     page_number = 1
+    #     initial_data = dict(
+    #         query="",
+    #         pagenumber=page_number,
+    #         filter_show_videos=True,
+    #         filter_show_images=True,
+    #         filter_hide_empty=not show_overview_button,
+    #     )
+    #
+    #     queryform = MediaFileSetQueryForm(initial=initial_data)
+    #     query = ""
+    #
+    # # logger.debug(f"{filter_kwargs=}, {exclude_filter_kwargs=}, {form_filter_kwargs=}")
+    # filter_kwargs, exclude_filter_kwargs = _merge_form_filter_kwargs_with_filter_kwargs(
+    #     filter_kwargs, exclude_filter_kwargs, form_filter_kwargs
+    # )
+    # logger.debug(f"{filter_kwargs=}")
+    # logger.debug(f"{exclude_filter_kwargs=}")
+    # # logger.debug(f"{albums_available=}")
+    # # logger.debug(f"{query=}")
+    # # logger.debug(f"{queryform}")
+    # logger.debug("  before _mediafiles_query()")
+    # full_mediafiles = _mediafiles_query(
+    #     request,
+    #     query,
+    #     album_hash=album_hash,
+    #     individual_identity_id=individual_identity_id,
+    #     taxon_id=taxon_id,
+    #     uploadedarchive_id=uploadedarchive_id,
+    #     identity_is_representative=identity_is_representative,
+    #     locality_hash=locality_hash,
+    #     order_by=order_by,
+    #     taxon_verified=taxon_verified,
+    #     filter_kwargs=filter_kwargs,
+    #     exclude_filter_kwargs=exclude_filter_kwargs,
+    # )
     if uploadedarchive_id is not None:
         uploaded_archive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
         # datetime format YYYY-MM-DD HH:MM:SS
@@ -1898,6 +1916,32 @@ def media_files_update(
     else:
         page_title = "Media files"
 
+    # Nová filtrace
+    # Build the base queryset (including annotations)
+    mediafiles = MediaFile.objects.annotate(**_mediafiles_annotate())
+
+    # Apply always-on filters (for example, access control)
+    mediafiles = mediafiles.filter(
+        Q(album__albumsharerole__user=request.user.caiduser)
+        | Q(**models.user_has_access_filter_params(request.user.caiduser, "parent__owner"))
+    )
+    logger.debug(f"{len(mediafiles)=}")
+    if request.user.caiduser.workgroup:
+        mediafiles = mediafiles.filter(Q(parent__owner__workgroup=request.user.caiduser.workgroup))
+
+    # Order the queryset according to your session or default preference
+    order_by = request.session.get("mediafiles_order_by", "-parent__uploaded_at")
+    mediafiles = mediafiles.order_by(order_by)
+    logger.debug(f"{request.GET=}")
+
+    # Instantiate the filter with GET parameters and your base queryset
+    mediafile_filter = filters.MediaFileFilter(request.GET, queryset=mediafiles)
+
+    # The filtered queryset is available as .qs
+    full_mediafiles = mediafile_filter.qs
+
+    # konec nové filtrace
+
     number_of_mediafiles = len(full_mediafiles)
     logger.debug(f"{number_of_mediafiles=}")
 
@@ -1905,7 +1949,10 @@ def media_files_update(
     # logger.debug(f"{mediafiles_ids=}")
     request.session["mediafile_ids"] = mediafiles_ids
     paginator = Paginator(full_mediafiles, per_page=records_per_page)
-    page_with_mediafiles, _, page_context = _prepare_page(paginator, page_number=page_number)
+    page_with_mediafiles, _, page_context = _prepare_page(paginator,
+                                                          request=request,
+                                                          # page_number=page_number
+                                                          )
 
     page_ids = [obj.id for obj in page_with_mediafiles.object_list]
     request.session["mediafile_ids_page"] = page_ids
@@ -1965,24 +2012,28 @@ def media_files_update(
         form = MediaFileFormSet(queryset=page_query)
 
     logger.debug("ready to render page")
+    context = {
+        # "page_obj": page_with_mediafiles,
+        # "elided_page_range": elided_page_range,
+        **page_context,
+        "form_objects": form,
+        "page_title": page_title,
+        "user_is_staff": request.user.is_staff,
+        "form_bulk_processing": form_bulk_processing,
+        # "form_query": queryform,
+        "albums_available": albums_available,
+        "number_of_mediafiles": number_of_mediafiles,
+        "show_overview_button": show_overview_button,
+        "filter": mediafile_filter,
+        # "map_html": map_html,
+        # "taxon_stats_html": taxon_stats_html,
+    }
+    context = add_querystring_to_context(request, context)
+
     return render(
         request,
         "caidapp/media_files_update.html",
-        {
-            # "page_obj": page_with_mediafiles,
-            # "elided_page_range": elided_page_range,
-            **page_context,
-            "form_objects": form,
-            "page_title": page_title,
-            "user_is_staff": request.user.is_staff,
-            "form_bulk_processing": form_bulk_processing,
-            "form_query": queryform,
-            "albums_available": albums_available,
-            "number_of_mediafiles": number_of_mediafiles,
-            "show_overview_button": show_overview_button,
-            # "map_html": map_html,
-            # "taxon_stats_html": taxon_stats_html,
-        },
+        context
     )
 
 
@@ -2510,7 +2561,7 @@ def refresh_data(request):
     # _generate_new_hash_for_localities()
 
     # _refresh_media_file_original_name(request)
-    tasks.refresh_thumbnails()
+    # tasks.refresh_thumbnails()
 
     # get taxon (and create it if it does not exist
     models.get_taxon("Unclassifiable")

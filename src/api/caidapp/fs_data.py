@@ -9,6 +9,7 @@ import pandas as pd
 import skimage.io
 import skimage.transform
 from typing import Tuple
+import subprocess
 
 logger = logging.getLogger(__file__)
 
@@ -138,4 +139,40 @@ def get_date_and_locality_from_filename(filename: Union[Path, str]) -> Tuple[str
 
     return date, locality
 
+
+
+def convert_to_mp4(input_video_path: Path, output_video_path, force_rewrite=False) -> None:
+    """Convert video to MP4 format."""
+    input_video_path = Path(input_video_path)
+    output_video_path = Path(output_video_path)
+
+    if not force_rewrite and output_video_path.exists():
+        logger.debug(f"Output file '{output_video_path}' already exists. Skipping conversion.")
+        return
+
+    if not input_video_path.exists():
+        raise FileNotFoundError(f"The input file '{input_video_path}' does not exist.")
+
+    # ffmpeg command to convert video to MP4 (H.264 + AAC)
+    command = [
+        "ffmpeg",
+        "-i",
+        str(input_video_path),  # Input video file
+        "-c:v",
+        "libx264",  # Set the video codec to H.264
+        "-c:a",
+        "aac",  # Set the audio codec to AAC
+        "-b:a",
+        "192k",  # Audio bitrate (you can adjust this)
+        "-strict",
+        "experimental",  # For using AAC
+        str(output_video_path),  # Output video file
+    ]
+
+    try:
+        # Run the ffmpeg command
+        subprocess.run(command, check=True)
+        logger.debug(f"Conversion successful! Output saved at '{str(output_video_path)}'")
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Error during conversion: {e}")
 

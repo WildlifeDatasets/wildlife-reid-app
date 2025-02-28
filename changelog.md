@@ -14,6 +14,7 @@
 * [added] Orientation detection introduced
 * [added] Filter of Localitites and Identities
 * [added] Area added to Locality
+* [changed] Reworked search and filter in media files
 
 ## 01-2025
 * [added] Added carousel for media files in the detail view

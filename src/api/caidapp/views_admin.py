@@ -3,9 +3,13 @@ from django.shortcuts import redirect
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
 from django.db.models import Q
+import logging
 
 from . import models
 from .models import MediaFile
+
+
+logger = logging.getLogger(__name__)
 
 
 @staff_member_required
@@ -14,8 +18,11 @@ def do_admin_stuff(request, process_name: str):
 
     if process_name == "clean_mediafiles_with_no_file_attached":
         return clean_mediafiles_with_no_file_attached_view(request)
-    if process_name == "refresh_area":
+    elif process_name == "refresh_area":
         return refresh_area(request)
+    elif process_name == "refresh_thumbnails":
+        refresh_thumbnails(request)
+        return redirect(request.META.get("HTTP_REFERER", "/"))
     else:
         messages.error(request, f"Process name '{process_name}' not recognized.")
         return redirect(request.META.get("HTTP_REFERER", "/"))
@@ -49,3 +56,10 @@ def refresh_area(request):
         locality.set_closest_area()
 
     return redirect(request.META.get("HTTP_REFERER", "/"))
+
+@staff_member_required
+def refresh_thumbnails(request):
+    """Refresh all thumbnails."""
+    for mf in MediaFile.objects.all():
+        mf.make_thumbnail_for_mediafile_if_necessary()
+    logger.debug("Refreshed all thumbnails")

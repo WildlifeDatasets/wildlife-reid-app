@@ -23,6 +23,7 @@ import skimage.transform
 from PIL import Image
 import numpy as np
 
+from .fs_data import make_thumbnail_from_file, convert_to_mp4
 from . import fs_data
 from .model_tools import (
     generate_sha1,
@@ -741,6 +742,10 @@ class MediaFile(models.Model):
     #     ("N", "None"),
     #     ("U", "Unknown"),
     # )
+    MEDIA_TYPE_CHOICES = (
+        ('image', 'Image'),
+        ('video', 'Video'),
+    )
     parent = models.ForeignKey(UploadedArchive, on_delete=models.CASCADE, null=True)
     category = models.ForeignKey(Taxon, blank=True, null=True, on_delete=models.CASCADE)
     predicted_taxon = models.ForeignKey(
@@ -776,7 +781,10 @@ class MediaFile(models.Model):
     updated_at = models.DateTimeField("Updated at", blank=True, null=True)
     metadata_json = models.JSONField(blank=True, null=True)
     animal_number = models.IntegerField(null=True, blank=True)
-    media_type = models.CharField(max_length=255, blank=True, default="image")
+    media_type = models.CharField(
+        max_length=255, blank=True, default="image" ,
+        choices=MEDIA_TYPE_CHOICES,
+    )
     orientation = models.CharField(max_length=2, choices=ORIENTATION_CHOICES, default="N")
     original_filename = models.CharField(max_length=512, blank=True, default="")
 
@@ -864,6 +872,75 @@ class MediaFile(models.Model):
     def is_consistent_with_uploaded_archive_taxon_for_identification(self) -> bool:
         """Return True if mediafile is consistent with uploaded archive taxo for identification."""
         return self.category == self.parent.taxon_for_identification
+
+
+    def make_thumbnail_for_mediafile_if_necessary(
+            self,
+            # mediafile: MediaFile,
+            thumbnail_width: int = 400, preview_width: int = 1200
+    ):
+        """Make small image representing the upload."""
+        # logger.debug("Making thumbnail for mediafile")
+        mediafile_path = Path(settings.MEDIA_ROOT) / self.mediafile.name
+        if self.parent is None:
+            logger.error(f"Mediafile {self.id} has no parent.")
+            return
+        output_dir = Path(settings.MEDIA_ROOT) / self.parent.outputdir
+        abs_pth = output_dir / "thumbnails" / Path(self.mediafile.name).name
+        preview_abs_pth = output_dir / "previews" / Path(self.mediafile.name).name
+        if self.media_type == "image":
+            preview_abs_pth = preview_abs_pth.with_suffix(".jpg")
+        elif self.media_type == "video":
+            preview_abs_pth = preview_abs_pth.with_suffix(".mp4")
+
+        gif_path = abs_pth.with_suffix(".gif")
+        # logger.debug(f"{gif_path=}, {gif_path.exists()=}")
+        # logger.debug(
+        #     f"{mediafile.thumbnail=}, {mediafile.thumbnail is None=}, "
+        #     f"{mediafile.thumbnail.name is None=}"
+        # )
+
+        if self.thumbnail.name is None:
+            # logger.debug("we are in first if")
+            gif_path = abs_pth.with_suffix(".gif")
+            if gif_path.exists():
+                # logger.debug("we are in second if")
+                abs_pth = gif_path
+                rel_pth = os.path.relpath(abs_pth, settings.MEDIA_ROOT)
+                self.thumbnail = str(rel_pth)
+                self.save()
+                logger.debug(f"Used GIF thumbnail generated before: {rel_pth}")
+
+        if (self.thumbnail.name is None) or (not abs_pth.exists()):
+            rel_pth = os.path.relpath(abs_pth, settings.MEDIA_ROOT)
+            # logger.debug(f"Creating thumbnail for {rel_pth}")
+            if make_thumbnail_from_file(mediafile_path, abs_pth, width=thumbnail_width):
+                self.thumbnail = str(rel_pth)
+                self.save()
+            else:
+                logger.warning(f"Cannot generate thumbnail for {abs_pth}")
+
+        if self.media_type == "image":
+            if self.preview.name is None:
+                preview_rel_pth = os.path.relpath(preview_abs_pth, settings.MEDIA_ROOT)
+                # logger.debug(f"Creating preview for {preview_rel_pth}")
+                if make_thumbnail_from_file(mediafile_path, preview_abs_pth, width=preview_width):
+                    self.preview = str(preview_rel_pth)
+                    self.save()
+                else:
+                    logger.warning(f"Cannot generate preview for {preview_abs_pth}")
+        elif self.media_type == "video":
+            if self.preview.name is None:
+                preview_rel_pth = os.path.relpath(preview_abs_pth, settings.MEDIA_ROOT)
+                preview_abs_pth.parent.mkdir(exist_ok=True, parents=True)
+                logger.debug(f"Creating preview for {preview_rel_pth}")
+                convert_to_mp4(mediafile_path, preview_abs_pth)
+                self.preview = str(preview_rel_pth)
+                self.save()
+            else:
+                logger.debug(f"Preview already exists for {self.preview}")
+        # make static image thumbnail
+        self.get_static_thumbnail()
 
 
 class AnimalObservation(models.Model):

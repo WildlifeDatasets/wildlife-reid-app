@@ -121,50 +121,89 @@
 
 
         <section class="section">
+            <form method="GET"
+{#                  action="{% url 'caidapp:media_files' %}"#}
+            >
+{#                <a class="btn btn-secondary" data-bs-toggle="collapse" href="#collapseFilterProcessing"#}
+{#                   role="button"#}
+{#                   aria-expanded="false" aria-controls="collapseBulkProcessing">#}
+{#                    <i class="bi bi-ui-checks-grid"></i>#}
+{#                    Filter#}
+{#                </a>#}
+{#                <div class="collapse" name="collapseFilterProcessing" id="collapseFilterProcessing">#}
+{#                    <div class="card mt-2">#}
+{#                        <div class="card-body mt-3">#}
+{#                            {{ form_bulk_processing.non_field_errors }}#}
+{#                            <div class="d-flex">#}
+{#                                {% for field in form_query %}#}
+{#                                    {% if field.name != "pagenumber" and field.name != "query" %}#}
+{##}
+{#                                        <div class="mt-2 me-4">#}
+{#                                            {{ field.label }}:#}
+{#                                            {{ field }}#}
+{#                                        </div>#}
+{##}
+{#                                    {% endif %}#}
+{#                                {% endfor %}#}
+{#                            </div>#}
+{#                        </div>#}
+{#                    </div>#}
+{#                </div>#}
+            <div class="d-flex align-items-center">
+                <a class="btn btn-secondary" data-bs-toggle="collapse" href="#collapseFilterProcessing"
+                   role="button"
+                   aria-expanded="false" aria-controls="collapseBulkProcessing">
+                    <i class="bi bi-ui-checks-grid"></i>
+                    Filter
+                </a>
+                <div class=" ms-2">
+                    {% render_field filter.form.search  class="form-control" placeholder="type here to search..." style="width: 300px;"%}
+                </div>
+                <div class="ms-2">
+                    <button class="btn btn-primary" type="submit">
+                        <i class="bi bi-search"></i>
+                        Search
+                    </button>
+
+                </div>
+                <div class="ms-2">
+                    Found {{ page_obj.paginator.count }} mediafiles.
+                </div>
+            </div>
+                <div class="collapse" name="collapseFilterProcessing" id="collapseFilterProcessing">
+                    <div class="card mt-2">
+                        <div class="d-flex flex-wrap m-2">
+                            {% for field in filter.form %}
+                                {% if field.name != "search" %}
+                                <div class="d-flex me-3 mt-1">
+                                {{ field.label_tag }}
+                                {{ field }}
+                                </div>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </form>
 
             <form method="POST">
                 {% csrf_token %}
 
                 {% if form_objects %}
                     {{ form_objects.management_form }}
-                    <div class="row">
+                    <div class="row mt-3">
                         <div class="col-lg-8">
-                            <div class="row g-2">
-
-                                <div class="col">
-                                    {% render_field form_query.query  id="search_here" class="form-control mb-3" placeholder="type here to search..." %}
-                                </div>
-                                <div class="col-auto">
-                                    <button name="querySubmit" class="btn btn-primary" id="querySubmit" type="submit">
-                                        <i class="bi bi-search"></i>
-                                    </button>
-                                </div>
-                            </div>
-                            <a class="btn btn-secondary" data-bs-toggle="collapse" href="#collapseFilterProcessing"
-                               role="button"
-                               aria-expanded="false" aria-controls="collapseBulkProcessing">
-                                <i class="bi bi-ui-checks-grid"></i>
-                                Filter
-                            </a>
-                            <div class="collapse" name="collapseFilterProcessing" id="collapseFilterProcessing">
-                                <div class="card mt-2">
-                                    <div class="card-body mt-3">
-                                        {{ form_bulk_processing.non_field_errors }}
-                                        <div class="d-flex">
-                                        {% for field in form_query %}
-                                            {% if field.name != "pagenumber" and field.name != "query" %}
-
-                                                    <div class="mt-2 me-4">
-                                                        {{ field.label }}:
-                                                        {{ field }}
-                                                    </div>
-
-                                            {% endif %}
-                                        {% endfor %}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+{#                            <div class="row g-2">#}
+{##}
+{#                                <div class="col">#}
+{#                                    {% render_field form_query.query  id="search_here" class="form-control mb-3" placeholder="type here to search..." %}#}
+{#                                </div>#}
+{#                                <div class="col-auto">#}
+{#                                    <button name="querySubmit" class="btn btn-primary" id="querySubmit" type="submit">#}
+{#                                        <i class="bi bi-search"></i>#}
+{#                                    </button>#}
+{#                                </div>#}
+{#                            </div>#}
 
                             {#                Do not remove the fallowing line with pagenumber. It is invisible. but importatn for the form. #}
                             {{ form_query.pagenumber }}
@@ -281,7 +320,6 @@
 
                                 </ul>
                             </div>
-                            Found {{ page_obj.paginator.count }} mediafiles.
                         </div>
                     </div>
 
@@ -306,7 +344,8 @@
                         </div>
                     {% endif %}
                     <div class="mt-2">
-                        {% include "caidapp/pagination_submit.html" %}
+{#                        {% include "caidapp/pagination_submit.html" %}#}
+                        {% include "caidapp/pagination_a.html" %}
                     </div>
 {#                    <div class="row g-4" id="row-of-cards">#}
                     <div class="row" id="row-of-cards">

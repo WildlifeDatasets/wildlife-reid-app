@@ -548,116 +548,6 @@ def timedelta_to_human_readable(timedelta: datetime.timedelta) -> str:
             return f"in {hours} hours"
 
 
-def make_thumbnail_for_mediafile_if_necessary(
-    mediafile: MediaFile, thumbnail_width: int = 400, preview_width: int = 1200
-):
-    """Make small image representing the upload."""
-    # logger.debug("Making thumbnail for mediafile")
-    mediafile_path = Path(settings.MEDIA_ROOT) / mediafile.mediafile.name
-    if mediafile.parent is None:
-        logger.error(f"Mediafile {mediafile.id} has no parent.")
-        return
-    output_dir = Path(settings.MEDIA_ROOT) / mediafile.parent.outputdir
-    abs_pth = output_dir / "thumbnails" / Path(mediafile.mediafile.name).name
-    preview_abs_pth = output_dir / "previews" / Path(mediafile.mediafile.name).name
-    if mediafile.media_type == "image":
-        preview_abs_pth = preview_abs_pth.with_suffix(".jpg")
-    elif mediafile.media_type == "video":
-        preview_abs_pth = preview_abs_pth.with_suffix(".mp4")
-
-    gif_path = abs_pth.with_suffix(".gif")
-    # logger.debug(f"{gif_path=}, {gif_path.exists()=}")
-    # logger.debug(
-    #     f"{mediafile.thumbnail=}, {mediafile.thumbnail is None=}, "
-    #     f"{mediafile.thumbnail.name is None=}"
-    # )
-
-    if mediafile.thumbnail.name is None:
-        # logger.debug("we are in first if")
-        gif_path = abs_pth.with_suffix(".gif")
-        if gif_path.exists():
-            # logger.debug("we are in second if")
-            abs_pth = gif_path
-            rel_pth = os.path.relpath(abs_pth, settings.MEDIA_ROOT)
-            mediafile.thumbnail = str(rel_pth)
-            mediafile.save()
-            logger.debug(f"Used GIF thumbnail generated before: {rel_pth}")
-
-    if (mediafile.thumbnail.name is None) or (not abs_pth.exists()):
-        rel_pth = os.path.relpath(abs_pth, settings.MEDIA_ROOT)
-        # logger.debug(f"Creating thumbnail for {rel_pth}")
-        if make_thumbnail_from_file(mediafile_path, abs_pth, width=thumbnail_width):
-            mediafile.thumbnail = str(rel_pth)
-            mediafile.save()
-        else:
-            logger.warning(f"Cannot generate thumbnail for {abs_pth}")
-
-    if mediafile.media_type == "image":
-        if mediafile.preview.name is None:
-            preview_rel_pth = os.path.relpath(preview_abs_pth, settings.MEDIA_ROOT)
-            # logger.debug(f"Creating preview for {preview_rel_pth}")
-            if make_thumbnail_from_file(mediafile_path, preview_abs_pth, width=preview_width):
-                mediafile.preview = str(preview_rel_pth)
-                mediafile.save()
-            else:
-                logger.warning(f"Cannot generate preview for {preview_abs_pth}")
-    elif mediafile.media_type == "video":
-        if mediafile.preview.name is None:
-            preview_rel_pth = os.path.relpath(preview_abs_pth, settings.MEDIA_ROOT)
-            preview_abs_pth.parent.mkdir(exist_ok=True, parents=True)
-            logger.debug(f"Creating preview for {preview_rel_pth}")
-            convert_to_mp4(mediafile_path, preview_abs_pth)
-            mediafile.preview = str(preview_rel_pth)
-            mediafile.save()
-        else:
-            logger.debug(f"Preview already exists for {mediafile.preview}")
-    # make static image thumbnail
-    mediafile.get_static_thumbnail()
-
-
-def convert_to_mp4(input_video_path: Path, output_video_path, force_rewrite=False) -> None:
-    """Convert video to MP4 format."""
-    input_video_path = Path(input_video_path)
-    output_video_path = Path(output_video_path)
-
-    if not force_rewrite and output_video_path.exists():
-        logger.debug(f"Output file '{output_video_path}' already exists. Skipping conversion.")
-        return
-
-    if not input_video_path.exists():
-        raise FileNotFoundError(f"The input file '{input_video_path}' does not exist.")
-
-    # ffmpeg command to convert video to MP4 (H.264 + AAC)
-    command = [
-        "ffmpeg",
-        "-i",
-        str(input_video_path),  # Input video file
-        "-c:v",
-        "libx264",  # Set the video codec to H.264
-        "-c:a",
-        "aac",  # Set the audio codec to AAC
-        "-b:a",
-        "192k",  # Audio bitrate (you can adjust this)
-        "-strict",
-        "experimental",  # For using AAC
-        str(output_video_path),  # Output video file
-    ]
-
-    try:
-        # Run the ffmpeg command
-        subprocess.run(command, check=True)
-        logger.debug(f"Conversion successful! Output saved at '{str(output_video_path)}'")
-    except subprocess.CalledProcessError as e:
-        logger.error(f"Error during conversion: {e}")
-
-
-def refresh_thumbnails():
-    """Refresh all thumbnails."""
-    for mf in MediaFile.objects.all():
-        make_thumbnail_for_mediafile_if_necessary(mf)
-    logger.debug("Refreshed all thumbnails")
-
-
 def _get_rel_and_abs_paths_based_on_csv_row(row: dict, output_dir: Path):
     abs_pth = output_dir / "images" / row["image_path"]
     rel_pth = os.path.relpath(abs_pth, settings.MEDIA_ROOT)
@@ -808,7 +698,7 @@ def _update_database_by_one_row_of_metadata(
             return status
 
     # generate thumbnail if necessary
-    make_thumbnail_for_mediafile_if_necessary(mf, thumbnail_width=thumbnail_width)
+    mf.make_thumbnail_for_mediafile_if_necessary(thumbnail_width=thumbnail_width)
 
     metadata_json = row.to_dict()
     # remove None and NaN values
@@ -1037,7 +927,7 @@ def _sync_metadata_by_checking_enlisted_mediafiles(csv_file, output_dir, uploade
             logger.debug(f"Mediafile {rel_pth} not found. The row will be removed from CSV.")
             continue
         # generate thumbnail if necessary
-        make_thumbnail_for_mediafile_if_necessary(mf)
+        mf.make_thumbnail_for_mediafile_if_necessary()
 
         if mf.category:
             df.loc[index, "predicted_category"] = mf.category.name
