@@ -32,16 +32,20 @@
             </nav>
         </div><!-- End Page Title -->
         <section class="section">
-            <form method="GET" action="{% url 'caidapp:individual_identities' %}">
-                <div class="d-flex align-items-center flex-wrap">
-                    {% for field in filter_form %}
-                        <div class="d-flex ms-2">
-                            {{ field.label_tag }} {{ field }}
-                        </div>
-                    {% endfor %}
-                    <input type="submit" value="Filter" class="btn btn-primary">
-                </div>
-            </form>
+            {% include "caidapp/filter_collapse.html" %}
+
+
+
+{#            <form method="GET" action="{% url 'caidapp:individual_identities' %}">#}
+{#                <div class="d-flex align-items-center flex-wrap">#}
+{#                    {% for field in filter_form %}#}
+{#                        <div class="d-flex ms-2">#}
+{#                            {{ field.label_tag }} {{ field }}#}
+{#                        </div>#}
+{#                    {% endfor %}#}
+{#                    <input type="submit" value="Filter" class="btn btn-primary">#}
+{#                </div>#}
+{#            </form>#}
             <div class="d-flex justify-content-between mt-2 mb-2">
                 <div>
                     {% include "caidapp/pagination_simple_a.html" %}

@@ -6,6 +6,7 @@ from . import models
 
 
 class LocalityFilter(django_filters.FilterSet):
+    search = django_filters.CharFilter(method='filter_search', label="Search")
     class Meta:
         model = models.Locality
         fields = {
@@ -13,6 +14,17 @@ class LocalityFilter(django_filters.FilterSet):
             "area": ['exact'],
         }
 
+    def filter_search(self, queryset, name, value):
+        # Annotate the queryset with a computed 'search' field.
+        queryset = queryset.annotate(
+            search=Concat(
+                "name",
+                Value(" "),
+                "area__name",
+            )
+        )
+        # Now filter on the annotated 'search' field.
+        return queryset.filter(search__icontains=value)
 
 class IndividualIdentityFilter(django_filters.FilterSet):
     mediafile_count = django_filters.RangeFilter(label="Count of Media Files")
@@ -22,6 +34,7 @@ class IndividualIdentityFilter(django_filters.FilterSet):
         help_text="Enter dates in YYYY-MM-DD format",
         widget=django_filters.widgets.RangeWidget(attrs={'type': 'date'})
     )
+    search = django_filters.CharFilter(method='filter_search', label="Search")
     class Meta:
         model = models.IndividualIdentity
         fields = {
@@ -32,6 +45,19 @@ class IndividualIdentityFilter(django_filters.FilterSet):
             "coat_type": ["exact"],
         }
 
+    def filter_search(self, queryset, name, value):
+        # Annotate the queryset with a computed 'search' field.
+        queryset = queryset.annotate(
+            search=Concat(
+                "name",
+                Value(" "),
+                "code",
+                Value(" "),
+                "juv_code",
+            )
+        )
+        # Now filter on the annotated 'search' field.
+        return queryset.filter(search__icontains=value)
 
 import django_filters
 from django.shortcuts import get_object_or_404

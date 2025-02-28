@@ -1,0 +1,40 @@
+{% load widget_tweaks %}
+{% load custom_filters %}
+
+<form method="GET">
+    <div class="d-flex align-items-center">
+        <a class="btn btn-secondary" data-bs-toggle="collapse" href="#collapseFilterProcessing"
+           role="button"
+           aria-expanded="false" aria-controls="collapseBulkProcessing">
+            <i class="bi bi-ui-checks-grid"></i>
+            Filter
+        </a>
+        <div class=" ms-2">
+            {% render_field filter.form.search  class="form-control" placeholder="type here to search..." style="width: 300px;"%}
+        </div>
+        <div class="ms-2">
+            <button class="btn btn-primary" type="submit">
+                <i class="bi bi-search"></i>
+                Search
+            </button>
+
+        </div>
+        <div class="ms-2">
+            Found {{ page_obj.paginator.count }} records.
+        </div>
+    </div>
+    <div class="collapse" name="collapseFilterProcessing" id="collapseFilterProcessing">
+        <div class="card mt-2">
+            <div class="d-flex flex-wrap m-2">
+                {% for field in filter.form %}
+                    {% if field.name != "search" %}
+                        <div class="d-flex me-3 mt-1">
+                            {{ field.label_tag }}
+                            {{ field }}
+                        </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</form>
