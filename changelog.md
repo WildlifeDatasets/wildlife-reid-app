@@ -15,6 +15,7 @@
 * [added] Filter of Localitites and Identities
 * [added] Area added to Locality
 * [changed] Reworked search and filter in media files
+* [changed] Category renamed to taxon
 
 ## 01-2025
 * [added] Added carousel for media files in the detail view

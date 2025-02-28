@@ -66,7 +66,7 @@ class MediaFileFilter(django_filters.FilterSet):
             "locality__name": ['icontains'],
             "identity__name": ["icontains"],
             "media_type": ["exact"],
-            "category" : ["exact"],
+            "taxon" : ["exact"],
             "orientation": ["exact"],
             "identity_is_representative": ["exact"],
             # "search": ["icontains"],
@@ -78,7 +78,7 @@ class MediaFileFilter(django_filters.FilterSet):
         # Annotate the queryset with a computed 'search' field.
         queryset = queryset.annotate(
             search=Concat(
-                "category__name",
+                "taxon__name",
                 Value(" "),
                 "locality__name",
                 Value(" "),
@@ -87,45 +87,4 @@ class MediaFileFilter(django_filters.FilterSet):
         )
         # Now filter on the annotated 'search' field.
         return queryset.filter(search__icontains=value)
-            # 'query', 'album_hash', 'individual_identity_id',
-            # 'taxon_id', 'uploadedarchive_id',
-            # 'identity_is_representative', 'locality_hash',
 
-    # def filter_query(self, queryset, name, value):
-    #     if not value:
-    #         return queryset
-    #     vector = SearchVector("category__name", "locality__name")
-    #     search_query = SearchQuery(value)
-    #     return queryset.annotate(rank=SearchRank(vector, search_query)) \
-    #         .filter(rank__gt=0) \
-    #         .order_by("-rank")
-    #
-    # def filter_album(self, queryset, name, value):
-    #     if not value:
-    #         return queryset
-    #     album = get_object_or_404(Album, hash=value)
-    #     return queryset.filter(album=album)
-    #
-    # def filter_identity(self, queryset, name, value):
-    #     if not value:
-    #         return queryset
-    #     identity = get_object_or_404(IndividualIdentity, pk=value)
-    #     return queryset.filter(identity=identity)
-    #
-    # def filter_taxon(self, queryset, name, value):
-    #     if not value:
-    #         return queryset
-    #     taxon = get_object_or_404(Taxon, pk=value)
-    #     return queryset.filter(category=taxon)
-    #
-    # def filter_uploaded_archive(self, queryset, name, value):
-    #     if not value:
-    #         return queryset
-    #     archive = get_object_or_404(UploadedArchive, pk=value)
-    #     return queryset.filter(parent=archive)
-    #
-    # def filter_locality(self, queryset, name, value):
-    #     if not value:
-    #         return queryset
-    #     locality = get_object_or_404(Locality, hash=value)
-    #     return queryset.filter(locality=locality)

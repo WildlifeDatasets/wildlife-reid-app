@@ -409,11 +409,11 @@ class UploadedArchive(models.Model):
 
     def earliest_captured_taxon(self):
         """Return earliest captured taxon in the archive."""
-        return MediaFile.objects.filter(parent=self).order_by("captured_at").first().category
+        return MediaFile.objects.filter(parent=self).order_by("captured_at").first().taxon
 
     def latest_captured_taxon(self):
         """Return latest captured taxon in the archive."""
-        return MediaFile.objects.filter(parent=self).order_by("-captured_at").first().category
+        return MediaFile.objects.filter(parent=self).order_by("-captured_at").first().taxon
 
     def update_earliest_and_latest_captured_at(self):
         """Update the earliest and latest captured at in the archive based on media files."""
@@ -503,8 +503,8 @@ class UploadedArchive(models.Model):
         """Return number of unique taxons in the archive."""
         not_classified_taxon = Taxon.objects.get(name=TAXON_NOT_CLASSIFIED)
         return (
-            self.mediafile_set.filter(Q(category=None) | Q(category=not_classified_taxon))
-            .values("category")
+            self.mediafile_set.filter(Q(taxon=None) | Q(taxon=not_classified_taxon))
+            .values("taxon")
             .distinct()
             .count()
         )
@@ -747,7 +747,7 @@ class MediaFile(models.Model):
         ('video', 'Video'),
     )
     parent = models.ForeignKey(UploadedArchive, on_delete=models.CASCADE, null=True)
-    category = models.ForeignKey(Taxon, blank=True, null=True, on_delete=models.CASCADE, verbose_name="Taxon")
+    taxon = models.ForeignKey(Taxon, blank=True, null=True, on_delete=models.CASCADE, verbose_name="Taxon")
     predicted_taxon = models.ForeignKey(
         Taxon, blank=True, null=True, on_delete=models.SET_NULL, related_name="predicted_taxon"
     )
@@ -865,13 +865,13 @@ class MediaFile(models.Model):
     def is_for_suggestion(self):
         """Return True if mediafile is for suggestion."""
         return (self.predicted_taxon is not None) and (
-            (self.category.name == TAXON_NOT_CLASSIFIED)
-            or ((self.category.name == "Animalia") and (self.taxon_verified is False))
+            (self.taxon.name == TAXON_NOT_CLASSIFIED)
+            or ((self.taxon.name == "Animalia") and (self.taxon_verified is False))
         )
 
     def is_consistent_with_uploaded_archive_taxon_for_identification(self) -> bool:
         """Return True if mediafile is consistent with uploaded archive taxo for identification."""
-        return self.category == self.parent.taxon_for_identification
+        return self.taxon == self.parent.taxon_for_identification
 
 
     def make_thumbnail_for_mediafile_if_necessary(
@@ -1120,9 +1120,9 @@ def get_mediafiles_with_missing_taxon(
         kwargs["parent"] = uploadedarchive
 
     mediafiles = MediaFile.objects.filter(
-        Q(category=None)
-        | Q(category=not_classified_taxon)
-        | (Q(category=animalia_taxon) & Q(taxon_verified=False)),
+        Q(taxon=None)
+        | Q(taxon=not_classified_taxon)
+        | (Q(taxon=animalia_taxon) & Q(taxon_verified=False)),
         **kwargs_filter,
         parent__contains_single_taxon=False,
         **kwargs,

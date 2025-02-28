@@ -403,7 +403,7 @@ def _uploads_general_order_annotation():
     return dict(
         mediafile_count=Count("mediafile"),  # Count of all related MediaFiles
         mediafile_count_with_taxon=Count(
-            "mediafile", filter=Q(mediafile__category=F("taxon_for_identification"))
+            "mediafile", filter=Q(mediafile__taxon=F("taxon_for_identification"))
         ),  # Count of MediaFiles with a specific taxon
         earliest_mediafile_captured_at=Min("mediafile__captured_at"),  # Earliest capture date
     )
@@ -1649,7 +1649,7 @@ def _mediafiles_query(
         filter_kwargs.update(dict(identity=individual_identity))
     if taxon_id is not None:
         taxon = get_object_or_404(Taxon, pk=taxon_id)
-        filter_kwargs.update(dict(category=taxon))
+        filter_kwargs.update(dict(taxon=taxon))
     if uploadedarchive_id is not None:
         uploadedarchive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
         filter_kwargs.update(dict(parent=uploadedarchive))
@@ -1916,7 +1916,7 @@ def media_files_update(
     elif taxon_id is not None:
         taxon = get_object_or_404(Taxon, pk=taxon_id)
         page_title = f"Media files - {taxon.name}"
-        mediafiles = mediafiles.filter(category=taxon)
+        mediafiles = mediafiles.filter(taxon=taxon)
     elif locality_hash is not None:
         locality = get_object_or_404(Locality, hash=locality_hash)
         page_title = f"Media files - {locality.name}"
@@ -2068,7 +2068,7 @@ def _single_mediafile_update(request, instance, form, form_bulk_processing, sele
                 instance.album_set.add(album)
                 instance.save()
     elif "btnBulkProcessing_id_category" in form.data:
-        instance.category = form_bulk_processing.cleaned_data["category"]
+        instance.taxon = form_bulk_processing.cleaned_data["taxon"]
         instance.updated_by = request.user.caiduser
         instance.updated_at = django.utils.timezone.now()
         instance.save()
@@ -2525,7 +2525,7 @@ def _make_output_name(mediafile: models.MediaFile):
     )
     # remove extension
     original_name = Path(original_name).stem
-    taxon = mediafile.category.name if mediafile.category else "no_taxon"
+    taxon = mediafile.taxon.name if mediafile.taxon else "no_taxon"
     identity = mediafile.identity.name if mediafile.identity else "no_identity"
     suffix = Path(mediafile.mediafile.name).suffix
     output_name = f"{locality}_{date}_{original_name}_{taxon}_{identity}.{suffix}"
@@ -2667,7 +2667,7 @@ class ImageUploadGraphView(View):
         )
 
         # Customize x-axis to show dates properly
-        fig.update_xaxes(type="category", title_text="Upload Date")
+        fig.update_xaxes(type="taxon", title_text="Upload Date")
         fig.update_yaxes(title_text="Number of Uploads")
 
         # Convert Plotly figure to HTML
@@ -2898,7 +2898,8 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
             df.rename(
                 columns={
                 "original path": "original_path",
-                "taxon": "category",
+                "taxon": "taxon",
+                "category": "taxon",
                 "unique name": "unique_name",
                 "location_name": "locality_name",
                 "locality name": "locality_name",
@@ -2936,7 +2937,7 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
                         counter0 += 1
                         # mf.category = row['category']
                         if "predicted_category" in row:
-                            mf.category = models.get_taxon(row["predicted_category"])  # remove this
+                            mf.taxon = models.get_taxon(row["predicted_category"])  # remove this
                             counter_fields_updated += 1
 
                         if "unique_name" in row:
@@ -3053,7 +3054,7 @@ class MyPygWalkerView(PygWalkerView):
     theme = "light" # 'light', 'dark', 'media'
 
     # field_list = ["name", "some_field", "some_other__related_field", "id", "created_at", "updated_at"]
-    field_list = ["id", "captured_at", "locality", "identity", "category", "category__name", "identity__name",
+    field_list = ["id", "captured_at", "locality", "identity", "taxon", "category__name", "identity__name",
                   "locality__name", "latitude", 'longitude']
 
 

@@ -713,20 +713,20 @@ def _update_database_by_one_row_of_metadata(
         # logger.debug(f"{uploaded_archive.contains_identities=}")
         # logger.debug(f"{row['predicted_category']=}")
 
-        mf.category = get_taxon(row["predicted_category"])  # remove this
+        mf.taxon = get_taxon(row["predicted_category"])  # remove this
         if "predicted_category_raw" in row:
             mf.predicted_taxon = get_taxon(row["predicted_category_raw"])
             mf.predicted_taxon_confidence = float(row["predicted_prob_raw"])
         if len(mf.animalobservation_set.all()) == 0:
             ao = mf.animalobservation_set.create(
                 mediafile=mf,
-                taxon=mf.category,
+                taxon=mf.taxon,
                 # metadata_json=row.to_dict(),
             )
         else:
             ao = mf.animalobservation_set.first()
             # ao.metadata_json = row.to_dict()
-            ao.taxon = mf.category
+            ao.taxon = mf.taxon
             ao.save()
 
         try:
@@ -816,8 +816,8 @@ def create_dataframe_from_mediafiles(mediafiles: Generator[MediaFile, None, None
         if (metadata_row is None) or ("predicted_category" not in metadata_row):
             metadata_row = {}
 
-        if mf.category:
-            metadata_row["predicted_category"] = mf.category.name
+        if mf.taxon:
+            metadata_row["predicted_category"] = mf.taxon.name
         if mf.identity:
             metadata_row["unique_name"] = mf.identity.name
         if mf.locality:
@@ -858,8 +858,8 @@ def create_dataframe_from_mediafiles_NDOP(mediafiles: Generator[MediaFile, None,
         metadata_row["PORADI"] = i + 1
         metadata_row["ID_NALEZ"] = mf.id
 
-        if mf.category:
-            metadata_row["DRUH"] = mf.category.name
+        if mf.taxon:
+            metadata_row["DRUH"] = mf.taxon.name
             metadata_row["CESKE_JMENO"] = ""
         if mf.parent and mf.parent.owner and mf.parent.owner.user:
             if mf.parent.owner.user.first_name and mf.parent.owner.user.last_name:
@@ -929,8 +929,8 @@ def _sync_metadata_by_checking_enlisted_mediafiles(csv_file, output_dir, uploade
         # generate thumbnail if necessary
         mf.make_thumbnail_for_mediafile_if_necessary()
 
-        if mf.category:
-            df.loc[index, "predicted_category"] = mf.category.name
+        if mf.taxon:
+            df.loc[index, "predicted_category"] = mf.taxon.name
             update_csv = True
         if mf.identity:
             df.loc[index, "unique_name"] = mf.identity.name

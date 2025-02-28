@@ -172,7 +172,7 @@ class UploadedArchiveFormWithTaxon(forms.ModelForm):
 class MediaFileForm(forms.ModelForm):
     class Meta:
         model = MediaFile
-        fields = ("category", "taxon_verified", "locality", "identity", "identity_is_representative",  "captured_at" , "note", "orientation")
+        fields = ("taxon", "taxon_verified", "locality", "identity", "identity_is_representative",  "captured_at" , "note", "orientation")
 
     def __init__(self, *args, **kwargs):
         mediafile = kwargs.get("instance")
@@ -197,11 +197,11 @@ class MediaFileBulkForm(forms.ModelForm):
     # select_all = forms.BooleanField(required=False)
     class Meta:
         model = MediaFile
-        fields = ("category", "identity", "identity_is_representative", "taxon_verified")
+        fields = ("taxon", "identity", "identity_is_representative", "taxon_verified")
 
     def __init__(self, *args, **kwargs):
         super(MediaFileBulkForm, self).__init__(*args, **kwargs)
-        self.fields["category"].queryset = models.Taxon.objects.order_by("name")
+        self.fields["taxon"].queryset = models.Taxon.objects.order_by("name")
 
 
 class MediaFileSelectionForm(forms.ModelForm):

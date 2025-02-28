@@ -301,8 +301,8 @@ def create_map_from_mediafiles(mediafiles: Union[QuerySet, List[MediaFile]]):
         ):
             row = {
                 "id": mediafile.id,
-                "category": mediafile.category.name if mediafile.category else None,
-                "category_id": mediafile.category.id if mediafile.category else None,
+                "taxon": mediafile.taxon.name if mediafile.taxon else None,
+                "taxon_id": mediafile.taxon.id if mediafile.taxon else None,
                 'captured_at': mediafile.captured_at if mediafile.captured_at else None,
                 "locality": mediafile.locality.name if mediafile.locality else None,
                 "locality__location": mediafile.locality.location

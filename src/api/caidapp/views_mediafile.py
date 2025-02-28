@@ -182,7 +182,7 @@ def confirm_prediction(request, mediafile_id: int) -> JsonResponse:
             request.user.caiduser, mediafile, accept_none=True
         ):
             # Update the MediaFile instance
-            mediafile.category = mediafile.predicted_taxon
+            mediafile.taxon = mediafile.predicted_taxon
             mediafile.updated_at = timezone.now()
             mediafile.updated_by = request.user.caiduser
             # mediafile.taxon_verified = True
@@ -242,7 +242,7 @@ def media_file_update(
             mediafile.updated_at = django.utils.timezone.now()
             # get uploaded archive
             mediafile = form.save()
-            logger.debug(f"{mediafile.category=}")
+            logger.debug(f"{mediafile.taxon=}")
             logger.debug(f"{mediafile.mediafile.path=}")
             logger.debug(f"{mediafile.updated_at=}")
             logger.debug(f"{next_url=}")

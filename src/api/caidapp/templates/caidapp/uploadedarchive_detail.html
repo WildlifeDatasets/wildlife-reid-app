@@ -31,7 +31,7 @@
                                     {% if mediafile.identity_is_representative %}
                                         <i class="bi bi-check-circle-fill"></i>
                                     {% endif %}
-                                    <p class="card-text"> Category: {{ mediafile.category }}</p>
+                                    <p class="card-text"> Category: {{ mediafile.taxon }}</p>
                                     <p class="card-text"> Locality: {{ mediafile.locality }}</p>
                                     <p class="card-text"> Identity: {{ mediafile.identity}}</p>
                                     <p class="card-text"> Captured at: {{ mediafile.captured_at|date:'Y-m-d H:i' }}</p>
