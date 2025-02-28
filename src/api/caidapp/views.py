@@ -1601,6 +1601,7 @@ def _mediafiles_annotate() -> dict:
     return dict()
 
 
+# TODO remove
 def _mediafiles_query(
     request,
     query: str,
@@ -1626,16 +1627,7 @@ def _mediafiles_query(
 
     # logger.debug(f"{filter_kwargs=}, {exclude_filter_kwargs=}, {order_by=}")
 
-    from django.db.models import Concat
     mediafiles = MediaFile.objects.annotate(
-        # combine all the fields that are used for search
-        # search=Concat(
-        #     "category__name",
-        #     Value(" "),
-        #     "locality__name",
-        #     Value(" "),
-        #     "individualidentity__name",
-        # ),
         **_mediafiles_annotate()
     )
     # mediafiles = (
@@ -1892,29 +1884,6 @@ def media_files_update(
     #     filter_kwargs=filter_kwargs,
     #     exclude_filter_kwargs=exclude_filter_kwargs,
     # )
-    if uploadedarchive_id is not None:
-        uploaded_archive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
-        # datetime format YYYY-MM-DD HH:MM:SS
-        if uploaded_archive.locality_check_at is not None:
-            locality_check_at = " - " + uploaded_archive.locality_check_at.strftime("%Y-%m-%d %H:%M:%S")
-        else:
-            locality_check_at = ""
-        page_title = f"Media files - {uploaded_archive.locality_at_upload}{locality_check_at}"
-
-    elif album_hash is not None:
-        album = get_object_or_404(Album, hash=album_hash)
-        page_title = f"Media files - {album.name}"
-    elif individual_identity_id is not None:
-        individual_identity = get_object_or_404(IndividualIdentity, pk=individual_identity_id)
-        page_title = f"Media files - {individual_identity.name}"
-    elif taxon_id is not None:
-        taxon = get_object_or_404(Taxon, pk=taxon_id)
-        page_title = f"Media files - {taxon.name}"
-    elif locality_hash is not None:
-        locality = get_object_or_404(Locality, hash=locality_hash)
-        page_title = f"Media files - {locality.name}"
-    else:
-        page_title = "Media files"
 
     # Nová filtrace
     # Build the base queryset (including annotations)
@@ -1925,6 +1894,36 @@ def media_files_update(
         Q(album__albumsharerole__user=request.user.caiduser)
         | Q(**models.user_has_access_filter_params(request.user.caiduser, "parent__owner"))
     )
+
+    if uploadedarchive_id is not None:
+        uploaded_archive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
+        # datetime format YYYY-MM-DD HH:MM:SS
+        if uploaded_archive.locality_check_at is not None:
+            locality_check_at = " - " + uploaded_archive.locality_check_at.strftime("%Y-%m-%d %H:%M:%S")
+        else:
+            locality_check_at = ""
+        page_title = f"Media files - {uploaded_archive.locality_at_upload}{locality_check_at}"
+        mediafiles = mediafiles.filter(parent=uploaded_archive)
+
+    elif album_hash is not None:
+        album = get_object_or_404(Album, hash=album_hash)
+        page_title = f"Media files - {album.name}"
+        mediafiles = mediafiles.filter(album=album)
+    elif individual_identity_id is not None:
+        individual_identity = get_object_or_404(IndividualIdentity, pk=individual_identity_id)
+        page_title = f"Media files - {individual_identity.name}"
+        mediafiles = mediafiles.filter(identity=individual_identity)
+    elif taxon_id is not None:
+        taxon = get_object_or_404(Taxon, pk=taxon_id)
+        page_title = f"Media files - {taxon.name}"
+        mediafiles = mediafiles.filter(category=taxon)
+    elif locality_hash is not None:
+        locality = get_object_or_404(Locality, hash=locality_hash)
+        page_title = f"Media files - {locality.name}"
+        mediafiles = mediafiles.filter(locality=locality)
+    else:
+        page_title = "Media files"
+
     logger.debug(f"{len(mediafiles)=}")
     if request.user.caiduser.workgroup:
         mediafiles = mediafiles.filter(Q(parent__owner__workgroup=request.user.caiduser.workgroup))
