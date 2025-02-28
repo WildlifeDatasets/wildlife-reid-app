@@ -538,6 +538,9 @@ class IdentityListView(LoginRequiredMixin, ListView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["filter_form"] = self.filterset.form
+        query_params = self.request.GET.copy()
+        query_params.pop('page', None)
+        context['query_string'] = query_params.urlencode()
         return context
 
 @login_required

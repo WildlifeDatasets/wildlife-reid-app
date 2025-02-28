@@ -472,6 +472,9 @@ class LocalityListView(LoginRequiredMixin, ListView):
         context = super().get_context_data(**kwargs)
         # context["headline"] = "Localities"
         context["filter_form"] = self.filterset.form
+        query_params = self.request.GET.copy()
+        query_params.pop('page', None)
+        context['query_string'] = query_params.urlencode()
         return context
 
 def suggest_merge_localities(request):
