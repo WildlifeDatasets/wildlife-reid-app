@@ -897,8 +897,9 @@ class MediaFile(models.Model):
     def is_for_suggestion(self):
         """Return True if mediafile is for suggestion."""
         return (self.predicted_taxon is not None) and (
-            (self.taxon.name == TAXON_NOT_CLASSIFIED)
-            or ((self.taxon.name == "Animalia") and (self.taxon_verified is False))
+                (self.taxon is None)
+                or (self.taxon.name == TAXON_NOT_CLASSIFIED)
+                or ((self.taxon.name == "Animalia") and (self.taxon_verified is False))
         )
 
     def is_consistent_with_uploaded_archive_taxon_for_identification(self) -> bool:

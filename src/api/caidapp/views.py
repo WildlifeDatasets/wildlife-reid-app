@@ -2068,7 +2068,7 @@ def _single_mediafile_update(request, instance, form, form_bulk_processing, sele
                 # add file to album
                 instance.album_set.add(album)
                 instance.save()
-    elif "btnBulkProcessing_id_category" in form.data:
+    elif "btnBulkProcessing_id_taxon" in form.data:
         instance.taxon = form_bulk_processing.cleaned_data["taxon"]
         instance.updated_by = request.user.caiduser
         instance.updated_at = django.utils.timezone.now()
