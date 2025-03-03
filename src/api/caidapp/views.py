@@ -1147,7 +1147,7 @@ def _run_identification(
         taxon_str="Lynx lynx",
                         ):
     logger.debug("Generating CSV for run_identification...")
-    mediafiles = uploaded_archive.mediafile_set.filter(category__name=taxon_str).all()
+    mediafiles = uploaded_archive.mediafile_set.filter(taxon__name=taxon_str).all()
     logger.debug(f"Generating CSV for init_identification with {len(mediafiles)} records...")
     uploaded_archive.identification_status = "IAIP"
 
@@ -1701,7 +1701,7 @@ def _mediafiles_query(
         return mediafiles
     else:
 
-        vector = SearchVector("category__name", "locality__name")
+        vector = SearchVector("taxon__name", "locality__name")
         query = SearchQuery(query)
         logger.debug(str(query))
         mediafiles = (
@@ -1747,13 +1747,13 @@ def _taxon_stats_for_mediafiles(mediafiles: Union[QuerySet, List[MediaFile]]) ->
     taxon_stats = ""
     if len(mediafiles) > 0:
         taxon_stats = (
-            mediafiles.values("category__name")
-            .annotate(count=Count("category__name"))
+            mediafiles.values("taxon__name")
+            .annotate(count=Count("taxon__name"))
             .order_by("-count")
         )
         logger.debug(f"{taxon_stats=}")
         df = pd.DataFrame.from_records(taxon_stats)
-        df.rename(columns={"category__name": "Taxon", "count": "Count"}, inplace=True)
+        df.rename(columns={"taxon__name": "Taxon", "count": "Count"}, inplace=True)
         fig = px.bar(df, x="Taxon", y="Count", height=300)
         taxon_stats_html = fig.to_html()
     else:
@@ -1781,7 +1781,7 @@ def _merge_form_filter_kwargs_with_filter_kwargs(
 
     if ffk.get("filter_hide_empty", None):
         # MediaFile.category.name is not "Empty"
-        exclude_filter_kwargs.update(dict(category__name="Nothing"))
+        exclude_filter_kwargs.update(dict(taxon__name="Nothing"))
 
     return filter_kwargs, exclude_filter_kwargs
 
@@ -3055,7 +3055,7 @@ class MyPygWalkerView(PygWalkerView):
     theme = "light" # 'light', 'dark', 'media'
 
     # field_list = ["name", "some_field", "some_other__related_field", "id", "created_at", "updated_at"]
-    field_list = ["id", "captured_at", "locality", "identity", "taxon", "category__name", "identity__name",
+    field_list = ["id", "captured_at", "locality", "identity", "taxon", "taxon__name", "identity__name",
                   "locality__name", "latitude", 'longitude']
 
 
