@@ -54,7 +54,8 @@
     {% endif %}
 
 <div
-        data-bs-toggle="tooltip" title="Uploaded at: {{ uploadedarchive.uploaded_at|date:'Y-m-d H:i' }}"
+        data-bs-toggle="tooltip"
+        title="{% if uploadedarchive.taxon_for_identification %} Media Files with {{ uploadedarchive.taxon_for_identification }} / {% endif %} All Media Files"
 >
     {% if uploadedarchive.taxon_status == "C" or uploadedarchive.taxon_status == "TAIP" %}
         <i class="bi bi-images"></i> Media files:
@@ -63,6 +64,9 @@
     <a class="link-secondary "
        href="{% url 'caidapp:uploadedarchive_mediafiles' uploadedarchive.id %}">
         <i class="bi bi-images"></i> Media files:
+        {% if uploadedarchive.taxon_for_identification %}
+            {{ uploadedarchive.count_of_mediafiles_with_taxon_for_identification }} /
+        {% endif %}
         {{ uploadedarchive.count_of_mediafiles }}
     </a>
     {% endif %}

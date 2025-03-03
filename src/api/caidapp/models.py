@@ -96,7 +96,7 @@ class WorkGroup(models.Model):
     identification_init_status = models.CharField(
         max_length=255, blank=True, default="Not initiated"
     )
-    # identification_init_model_path = models.CharField(max_length=512, blank=True, default="")
+    identification_init_model_path = models.CharField(max_length=512, blank=True, default="")
     identification_init_message = models.TextField(blank=True, default="")
     identification_reid_at = models.DateTimeField("Identification reid at", blank=True, null=True)
     identification_reid_status = models.CharField(
@@ -394,7 +394,7 @@ class UploadedArchive(models.Model):
             return None
         else:
             return MediaFile.objects.filter(
-                parent=self, category=self.taxon_for_identification
+                parent=self, taxon=self.taxon_for_identification
             ).count()
 
     def update_location_in_mediafiles(self, location: Union[str, Locality]):

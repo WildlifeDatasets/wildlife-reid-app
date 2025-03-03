@@ -418,13 +418,12 @@ def select_reid_model(request):
         if form.is_valid():
             request.user.caiduser.identification_model = form.cleaned_data["identification_model"]
             request.user.caiduser.save()
-            if request.user.caiduser.workgroup.identification_init_model_path == request.user.caiduser.identification_model.model_path:
-                request.user.caiduser.workgroup.identification_init_status = "Initialized"
-            else:
-                request.user.caiduser.workgroup.identification_init_status = "Finished"
+            # if request.user.caiduser.workgroup.identification_init_model_path == request.user.caiduser.identification_model.model_path:
+            #     request.user.caiduser.workgroup.identification_init_status = "Initialized"
+            # else:
+            #     request.user.caiduser.workgroup.identification_init_status = "Finished"
 
-
-                messages.info(request, "Identification model set.")
+            messages.info(request, "Identification model set.")
             return redirect("caidapp:uploads_identities")
 
     else:
@@ -974,11 +973,16 @@ def init_identification(request, taxon_str: str = "Lynx lynx"):
     if not request.user.caiduser.workgroup_admin:
         return HttpResponseNotAllowed("Identification init is for workgroup admins only.")
     mediafiles = MediaFile.objects.filter(
-        # category__name=taxon_str,
+        # taxon__name=taxon_str,
         identity__isnull=False,
         parent__owner__workgroup=request.user.caiduser.workgroup,
         identity_is_representative=True,
     ).all()
+
+    if not request.user.caiduser.identification_model:
+        # go back to the page
+        link = request.META.get("HTTP_REFERER", "/")
+        return message_view(request, "No identification model set.", link=link)
 
     logger.debug("Generating CSV for init_identification...")
 
@@ -1027,6 +1031,18 @@ def init_identification(request, taxon_str: str = "Lynx lynx"):
         ),
     )
     # return redirect("caidapp:individual_identities")
+    return redirect("caidapp:uploads_known_identities")
+
+
+def stop_init_identification(request):
+    """Stop identification initialization."""
+    workgroup = request.user.caiduser.workgroup
+    if workgroup.identification_init_status == "Processing":
+        workgroup.identification_init_status = "Not initiated"
+        workgroup.save()
+    elif workgroup.identification_reid_status == "Processing":
+        workgroup.identification_reid_status = "Not initiated"
+        workgroup.save()
     return redirect("caidapp:uploads_known_identities")
 
 
@@ -1090,7 +1106,9 @@ def _single_species_button_style(request) -> dict:
         "btn-primary" if exists_for_confirmation else "btn-secondary"
                                             }
 
-    btn_styles["init_identification"]["class"] += " disabled" if ((not exists_representative) or (workgroup.identification_reid_status == "Processing")) else ""
+    init_disabled  = ((not exists_representative) or (workgroup.identification_reid_status == "Processing"))
+    logger.debug(f"{init_disabled=}, {workgroup.identification_reid_status=}, {exists_representative=}")
+    btn_styles["init_identification"]["class"] += " disabled" if init_disabled else ""
     btn_styles["init_identification"]["tooltip"] = f"Identification initialization with {n_representative} representative media files."
     btn_styles["init_identification"]["confirm"] = f"Identification initialization with {n_representative} media files will take some time. Continue?"
 
@@ -1922,6 +1940,9 @@ def media_files_update(
         locality = get_object_or_404(Locality, hash=locality_hash)
         page_title = f"Media files - {locality.name}"
         mediafiles = mediafiles.filter(locality=locality)
+    elif identity_is_representative is not None:
+        page_title = "Media files - representative"
+        mediafiles = mediafiles.filter(identity_is_representative=identity_is_representative)
     else:
         page_title = "Media files"
 

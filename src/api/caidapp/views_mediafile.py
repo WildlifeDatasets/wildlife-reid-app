@@ -71,8 +71,8 @@ def missing_taxon_annotation(request, uploaded_archive_id: Optional[int] = None,
 
     # mediafiles = (
     #     MediaFile.objects.filter(
-    #         Q(category=None) | Q(category=not_classified_taxon) |
-    #         (Q(category=animalia_taxon) & Q(taxon_verified=False)),
+    #         Q(taxon=None) | Q(category=not_classified_taxon) |
+    #         (Q(taxon=animalia_taxon) & Q(taxon_verified=False)),
     #         **get_content_owner_filter_params(request.user.caiduser, "parent__owner"),
     #         parent=uploadedarchive,
     #         parent__contains_single_taxon=False,
@@ -113,12 +113,14 @@ def missing_taxon_annotation(request, uploaded_archive_id: Optional[int] = None,
         skip_url = next_url
         cancel_url = reverse_lazy("caidapp:taxon_processing")
 
+    # Everything done
     if mediafile is None:
         if uploadedarchive is not None:
             message = f"All taxa known for {uploadedarchive.name}"
         else:
             message = "All taxa known"
         return message_view(request, message, link=cancel_url)
+
     return media_file_update(
         request,
         mediafile.id,
@@ -137,7 +139,7 @@ def verify_taxa_view(request, uploaded_archive_id: Optional[int] = None):
         show_overview_button=True,
         taxon_verified=False,
         uploadedarchive_id=uploaded_archive_id,
-        order_by="category__name",
+        order_by="taxon__name",
         parent__contains_single_taxon=False,
     )
     # views.

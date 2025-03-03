@@ -4,24 +4,30 @@
 
     <span
             data-bs-toggle="tooltip"
-            title="
-                                                {{ uploadedarchive }}
-                                                {% if mediafile.instance.category %}
-                                                    Taxon: {{ mediafile.instance.category }}
-                                                {% endif %}
-                                                {% if mediafile.instance.locality %}
-                                                    {%  if request.session.private_mode %}
-                                                        Locality: {{ mediafile.instance.locality.visible_name }}
-                                                    {% else %}
-                                                        Locality: {{ mediafile.instance.locality.name }}
-                                                    {% endif %}
-                                                {% endif %}
-                                                {% if mediafile.instance.identity %}
-                                                    Identity: {{ mediafile.instance.identity }}
-                                                {% endif %}
-                                                {{ mediafile.instance.captured_at|date:'Y-m-d H:i' }}
-                                                {{ mediafile.instance.original_filename }}
-                                                "
+            title="{{ uploadedarchive }}
+Uploaded at: {{ uploadedarchive.uploaded_at|date:'Y-m-d H:i' }}
+Locality check at: {{ uploadedarchive.locality_check_at|date:'Y-m-d' }}
+Media files: {{ uploadedarchive.count_of_mediafiles }}
+  Missing taxa: {{ uploadedarchive.mediafiles_with_missing_taxon|length }}
+  Missing taxon verification {{ uploadedarchive.count_of_mediafiles_with_unverified_taxon }}
+  Media files with taxon for identification: {{ uploadedarchive.count_of_mediafiles_with_taxon_for_identification }}
+  Representative media files: {{ uploadedarchive.count_of_representative_mediafiles }}
+{#{% if mediafile.instance.category %}#}
+{#Taxon: {{ mediafile.instance.category }}#}
+{#{% endif %}#}
+{#{% if mediafile.instance.locality %}#}
+{#{%  if request.session.private_mode %}#}
+{#    Locality: {{ mediafile.instance.locality.visible_name }}#}
+{#{% else %}#}
+{#    Locality: {{ mediafile.instance.locality.name }}#}
+{#{% endif %}#}
+{#{% endif %}#}
+{#{% if mediafile.instance.identity %}#}
+{#Identity: {{ mediafile.instance.identity }}#}
+{#{% endif %}#}
+{#{{ mediafile.instance.captured_at|date:'Y-m-d H:i' }}#}
+{#{{ mediafile.instance.original_filename }}#}
+"
     >
                                             <i class="bi bi-info-circle"></i>
                                         </span>

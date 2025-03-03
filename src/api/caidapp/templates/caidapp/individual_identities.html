@@ -36,16 +36,6 @@
 
 
 
-{#            <form method="GET" action="{% url 'caidapp:individual_identities' %}">#}
-{#                <div class="d-flex align-items-center flex-wrap">#}
-{#                    {% for field in filter_form %}#}
-{#                        <div class="d-flex ms-2">#}
-{#                            {{ field.label_tag }} {{ field }}#}
-{#                        </div>#}
-{#                    {% endfor %}#}
-{#                    <input type="submit" value="Filter" class="btn btn-primary">#}
-{#                </div>#}
-{#            </form>#}
             <div class="d-flex justify-content-between mt-2 mb-2">
                 <div>
                     {% include "caidapp/pagination_simple_a.html" %}
@@ -68,17 +58,6 @@
 
                         {#                        <div class="col" style="-ms-flex: 0 0 200; flex: 0 0 200;">#}
                         <div class="card"
-{#                                {% if individual_identity.cover %}#}
-{#                             style="#}
-{##}
-{#                                     background-image: linear-gradient(to left, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 1.0)), url({{ individual_identity.cover.thumbnail.url }});#}
-{#                                     background-repeat: no-repeat;#}
-{#                                     background-position-x: right;#}
-{#                                     background-position-y: center;#}
-{#                                     background-size: cover;#}
-{#                                     "#}
-{##}
-{#                                {% endif %}#}
                         >
 
                         <a
