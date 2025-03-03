@@ -1,6 +1,10 @@
 # Changelog
 
 
+## 03-2025
+
+* [fixed] Form behavior fixed for Missing taxon in media file
+
 ## 02-2025
 
 * [fixed] Download ZIP with media files in production

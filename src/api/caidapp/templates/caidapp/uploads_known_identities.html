@@ -28,6 +28,7 @@
                         <a class="btn btn-secondary" href="{% url 'caidapp:representative_mediafiles' %}"><i class="bi bi-eye"></i> Check representative images </a>
                         <i class="bi bi-arrow-right-short fa-2x" style="vertical-align: middle;"></i>
                         <a class="btn {{ btn_styles.init_identification.class }}"
+                            href="{% url 'caidapp:init_identification' %}"
                                 {% if user.caiduser.workgroup.identification_init_status %}
                            data-bs-toggle="tooltip"
                            title="Initiated at: {{ user.caiduser.workgroup.identification_init_at|date:'Y-m-d H:i' }}, {{ user.caiduser.workgroup.identification_init_status}}, {{ user.caiduser.workgroup.identification_init_message }}"

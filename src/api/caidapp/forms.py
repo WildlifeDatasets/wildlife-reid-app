@@ -190,8 +190,25 @@ class MediaFileForm(forms.ModelForm):
 
         self.fields["locality"].queryset = models.Locality.objects.filter(
             **models.user_has_access_filter_params(caiduser, "owner")
-        )
+        ).order_by("name")
+        self.fields["taxon"].queryset = models.Taxon.objects.order_by("name")
 
+
+class MediaFileMissingTaxonForm(forms.ModelForm):
+    class Meta:
+        model = MediaFile
+        fields = ("taxon", "taxon_verified", "locality")
+
+    def __init__(self, *args, **kwargs):
+        mediafile = kwargs.get("instance")
+        super().__init__(*args, **kwargs)
+        # Only show the identities accessible to the given user.
+        caiduser = mediafile.parent.owner
+
+        self.fields["locality"].queryset = models.Locality.objects.filter(
+            **models.user_has_access_filter_params(caiduser, "owner")
+        ).order_by("name")
+        self.fields["taxon"].queryset = models.Taxon.objects.order_by("name")
 
 class MediaFileBulkForm(forms.ModelForm):
     # select_all = forms.BooleanField(required=False)

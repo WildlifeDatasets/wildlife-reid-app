@@ -215,19 +215,19 @@ urlpatterns = [
         name="missing_taxon_annotation",
     ),
     path(
-        "missing_taxon_annotation/prev_mediafile_id/<int:prev_mediafile_id>",
-        views_mediafile.missing_taxon_annotation,
-        name="missing_taxon_annotation",
-    ),
-    path(
         "missing_taxon_annotation/uploaded_archive/<int:uploaded_archive_id>",
         views_mediafile.missing_taxon_annotation,
         name="missing_taxon_annotation",
     ),
     path(
-        "missing_taxon_annotation/uploaded_archive/<int:uploaded_archive_id>/prev_mediafile_id/<int:prev_mediafile_id>",
-        views_mediafile.missing_taxon_annotation,
-        name="missing_taxon_annotation",
+        "missing_taxon_annotation_for_mediafile/mediafile_id/<int:mediafile_id>",
+        views_mediafile.missing_taxon_annotation_for_mediafile,
+        name="missing_taxon_annotation_for_mediafile",
+    ),
+    path(
+        "missing_taxon_annotation_for_mediafile/mediafile_id/<int:mediafile_id>/uploaded_archive/<int:uploaded_archive_id>",
+        views_mediafile.missing_taxon_annotation_for_mediafile,
+        name="missing_taxon_annotation_for_mediafile",
     ),
     path("sample_data/", views.sample_data, name="sample_data"),
     path("cloud_import_preview/", views.cloud_import_preview_view, name="cloud_import_preview"),
