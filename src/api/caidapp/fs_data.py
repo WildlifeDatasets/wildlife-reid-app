@@ -10,6 +10,8 @@ import skimage.io
 import skimage.transform
 from typing import Tuple
 import subprocess
+import numpy as np
+from PIL import Image
 
 logger = logging.getLogger(__file__)
 
@@ -31,6 +33,98 @@ def remove_diacritics(input_str):
     # Return the normalized string
     return unicodedata.normalize("NFC", filtered)
 
+def resize_images(input_image: np.ndarray, new_height: int = 360) -> np.ndarray:
+    """Resize image to match new height and conserve aspect ratio."""
+    org_height = input_image.shape[0]
+    new_width = int(np.round((input_image.shape[1] * new_height) / org_height))
+    resized_image = cv2.resize(input_image, (new_width, new_height))
+    return resized_image
+
+
+def save_gif(images, path: str):
+    """Save frames as gif using PIL library."""
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    frame_one = Image.fromarray(images[0])
+    frames = [Image.fromarray(image) for image in images[1:]]
+    duration = 1 / 24 * len(images)
+    frame_one.save(
+        path,
+        format="GIF",
+        append_images=frames,
+        save_all=True,
+        duration=duration,
+        loop=0,
+        optimize=True,
+    )
+    jpg_path = path + ".jpg"
+    frame_one = Image.fromarray(images[0])
+    frame_one.save(jpg_path)
+
+
+def make_thumbnail_from_video_file(video_path: Path, thumbnail_path: Path, width: int = 800) -> bool:
+    try:
+        cap = cv2.VideoCapture(str(video_path))
+        ret, frame = cap.read()
+        if not ret:
+            logger.warning(f"Cannot read frame from video file '{video_path}'")
+            return False
+        scale = float(width) / frame.shape[1]
+        scale = [scale, scale, 1]
+        frame_rescaled = cv2.resize(frame, (0, 0), fx=scale[0], fy=scale[1])
+        thumbnail_path.parent.mkdir(exist_ok=True, parents=True)
+        cv2.imwrite(str(thumbnail_path), frame_rescaled)
+        return True
+    except Exception:
+        logger.debug(traceback.format_exc())
+        logger.warning(
+            f"Cannot create thumbnail from video file '{video_path}'."
+        )
+        return False
+
+
+def make_gif_from_video_file(video_path: Path, gif_path: Path, width: int = 800, num_frames=30) -> bool:
+    """Create small thumbnail image from input image.
+
+    Returns:
+        True if the processing is ok.
+
+    """
+    try:
+        cap = cv2.VideoCapture(str(video_path))
+        ret, frame = cap.read()
+        if not ret:
+            logger.warning(f"Cannot read frame from video file '{video_path}'")
+            return False
+
+        # get the number of frames
+        frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        frames = []
+        for i in range(num_frames):
+            frame_idx = int(i * frame_count / num_frames)
+            cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
+            ret, frame = cap.read()
+
+            if not ret:
+                continue
+
+            scale = float(width) / frame.shape[1]
+            scale = [scale, scale, 1]
+            frame = cv2.resize(frame, (0, 0), fx=scale[0], fy=scale[1])
+            # turn to rgb
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            frames.append(frame)
+
+        frames = np.array(frames)
+
+        gif_path.parent.mkdir(exist_ok=True, parents=True)
+        save_gif(frames, str(gif_path))
+        return True
+    except Exception:
+        logger.debug(traceback.format_exc())
+        logger.warning(
+            f"Cannot create thumbnail from video file '{video_path}'."
+        )
+        return False
 
 def make_thumbnail_from_file(image_path: Path, thumbnail_path: Path, width: int = 800) -> bool:
     """Create small thumbnail image from input image.

@@ -4,6 +4,7 @@ from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
 from django.db.models import Q
 import logging
+from tqdm import tqdm
 
 from . import models
 from .models import MediaFile
@@ -16,6 +17,7 @@ logger = logging.getLogger(__name__)
 def do_admin_stuff(request, process_name: str):
     """Do admin stuff."""
 
+    logger.debug(f"{process_name=}")
     if process_name == "clean_mediafiles_with_no_file_attached":
         return clean_mediafiles_with_no_file_attached_view(request)
     elif process_name == "refresh_area":
@@ -52,7 +54,7 @@ def clean_mediafiles_with_no_file_attached_view(request):
 @staff_member_required
 def refresh_area(request):
 
-    for locality in models.Locality.objects.all():
+    for locality in tqdm(models.Locality.objects.all()):
         locality.set_closest_area()
 
     return redirect(request.META.get("HTTP_REFERER", "/"))
@@ -60,6 +62,7 @@ def refresh_area(request):
 @staff_member_required
 def refresh_thumbnails(request):
     """Refresh all thumbnails."""
-    for mf in MediaFile.objects.all():
+    logger.debug("Refreshing all thumbnails")
+    for mf in tqdm(MediaFile.objects.all()):
         mf.make_thumbnail_for_mediafile_if_necessary()
     logger.debug("Refreshed all thumbnails")

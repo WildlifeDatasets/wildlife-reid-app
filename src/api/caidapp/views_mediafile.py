@@ -90,6 +90,8 @@ def missing_taxon_annotation(request, uploaded_archive_id: Optional[int] = None,
     else:
         mediafile = None  # Handle the case when there are no media files
 
+    logger.debug(f"{mediafile.id=}")
+    logger.debug(f"{mediafile=}")
     # .order_by("?")
     # .first()
 
