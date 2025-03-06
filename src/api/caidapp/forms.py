@@ -58,31 +58,43 @@ class IndividualIdentityForm(forms.ModelForm):
         model = IndividualIdentity
         fields = ("name", "code", "juv_code", "sex", "coat_type", "note", "birth_date", "death_date")
 
-    birth_date = forms.DateField(
-        widget=forms.TextInput(attrs={'placeholder': 'YYYY-MM-DD'}),
-        required=False,
-    )
-    death_date = forms.DateField(
-        widget=forms.TextInput(attrs={'placeholder': 'YYYY-MM-DD'}),
-        required=False,
-    )
+        widgets = {
+            'birth_date': forms.DateInput(attrs={'type': 'date'}),
+            'death_date': forms.DateInput(attrs={'type': 'date'}),
+        }
+    # birth_date = forms.DateField(
+    #     widget=forms.TextInput(attrs={'type': 'date'}),
+    #     required=False,
+    # )
+    # death_date = forms.DateField(
+    #     widget=forms.TextInput(attrs={'placeholder': 'YYYY-MM-DD'}),
+    #     required=False,
+    # )
 
 class MergeIdentitiesForm(forms.Form):
     class Meta:
         model = IndividualIdentity
         fields = ("name", "code", "juv_code", "sex", "coat_type", "note", "birth_date", "death_date")
 
-    birth_date = forms.DateField(
-        widget=forms.TextInput(attrs={'placeholder': 'YYYY-MM-DD'}),
-        required=False,
-    )
-    death_date = forms.DateField(
-        widget=forms.TextInput(attrs={'placeholder': 'YYYY-MM-DD'}),
-        required=False,
-    )
+        widgets = {
+            'birth_date': forms.DateInput(attrs={'type': 'date'}),
+            'death_date': forms.DateInput(attrs={'type': 'date'}),
+        }
+    # birth_date = forms.DateField(
+    #     widget=forms.TextInput(attrs={'placeholder': 'YYYY-MM-DD'}),
+    #     required=False,
+    # )
+    # death_date = forms.DateField(
+    #     widget=forms.TextInput(attrs={'placeholder': 'YYYY-MM-DD'}),
+    #     required=False,
+    # )
 
 
 class UploadedArchiveSelectTaxonForIdentificationForm(forms.ModelForm):
+    taxon_for_identification = forms.ModelChoiceField(
+        queryset=models.Taxon.objects.all().order_by("name"),
+        required=True
+    )
     class Meta:
         model = UploadedArchive
         fields = ("taxon_for_identification",)
@@ -163,10 +175,13 @@ class UploadedArchiveFormWithTaxon(forms.ModelForm):
     locality_at_upload = forms.CharField(
         widget=forms.TextInput(attrs={"class": "autocomplete"}), required=False
     )
+    taxon_for_identification = forms.ModelChoiceField(
+        queryset=models.Taxon.objects.all().order_by("name"), required=True
+    )
 
     class Meta:
         model = UploadedArchive
-        fields = ("archivefile", "locality_at_upload", "taxon_for_identification")
+        fields = ("archivefile", "locality_at_upload", )
 
 
 class MediaFileForm(forms.ModelForm):

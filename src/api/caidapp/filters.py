@@ -1,17 +1,20 @@
 import django_filters
-from django.db.models import Value
-from django.db.models.functions import Concat
+from django.db.models import Value, CharField
+from django.db.models.functions import Concat, Cast
 
 from . import models
 
 
 class LocalityFilter(django_filters.FilterSet):
     search = django_filters.CharFilter(method='filter_search', label="Search")
+    area = django_filters.ModelChoiceFilter(
+        queryset=models.Area.objects.all().order_by('name')
+    )
     class Meta:
         model = models.Locality
         fields = {
             "name": ['icontains'],
-            "area": ['exact'],
+            # "area": ['exact'],
         }
 
     def filter_search(self, queryset, name, value):
@@ -78,6 +81,28 @@ class MediaFileFilter(django_filters.FilterSet):
     # identity_is_representative = django_filters.BooleanFilter(field_name='identity_is_representative')
     # locality_hash = django_filters.CharFilter(method='filter_locality', label='Locality')
     # search = django_filters.CharFilter(label='Search')
+    taxon = django_filters.ModelChoiceFilter(
+        queryset=models.Taxon.objects.all().order_by('name')
+    )
+    uploadedarchive = django_filters.ModelChoiceFilter(
+        queryset=models.UploadedArchive.objects.all()
+            # .annotate(
+            #     name_extended=Concat(
+            #         'name',
+            #         Value(' ('),
+            #         Cast('uploaded_at', output_field=CharField()),
+            #         Value(')')
+            #     )
+            # )
+            .order_by('-uploaded_at'),
+        # annotate(
+            # name_extended=Concat('name', Value(' ( asd'),  Value(')'))
+        # ).order_by('-uploaded_at'),
+        # label_from_instance=lambda obj: f"{obj.name} ({obj.uploaded_at.strftime('%Y-%m-%d')})",
+        label='Uploaded Archive',
+        # label_from_instance=lambda obj: obj.name_extended
+    )
+    #
     captured_at = django_filters.DateFromToRangeFilter(
         label="Captured At",
         help_text="Enter dates in YYYY-MM-DD format",
@@ -88,11 +113,12 @@ class MediaFileFilter(django_filters.FilterSet):
     class Meta:
         model = models.MediaFile
         # Declare the fields you want to filter by.
+        taxon = Taxon.objects.all().order_by('name')
         fields = {
             "locality__name": ['icontains'],
             "identity__name": ["icontains"],
             "media_type": ["exact"],
-            "taxon" : ["exact"],
+            # "taxon" : ["exact"],
             "orientation": ["exact"],
             "identity_is_representative": ["exact"],
             # "search": ["icontains"],

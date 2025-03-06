@@ -1913,6 +1913,9 @@ def media_files_update(
         Q(album__albumsharerole__user=request.user.caiduser)
         | Q(**models.user_has_access_filter_params(request.user.caiduser, "parent__owner"))
     )
+    if show_overview_button:
+        mediafiles = mediafiles.filter(taxon_verified=False)
+        # page_title = "Media files - verification"
 
     if uploadedarchive_id is not None:
         uploaded_archive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
@@ -1954,6 +1957,11 @@ def media_files_update(
     order_by = request.session.get("mediafiles_order_by", "-parent__uploaded_at")
     mediafiles = mediafiles.order_by(order_by)
     logger.debug(f"{request.GET=}")
+
+    if len(mediafiles) == 0 and show_overview_button:
+        return message_view(request, "No mediafiles for verification.",
+                            headline="Verification",
+                            link=reverse_lazy("caidapp:uploads"))
 
     # Instantiate the filter with GET parameters and your base queryset
     mediafile_filter = filters.MediaFileFilter(request.GET, queryset=mediafiles)

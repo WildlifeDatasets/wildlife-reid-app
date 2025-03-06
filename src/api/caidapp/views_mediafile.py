@@ -8,6 +8,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.utils import timezone
 from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib import messages
 
 from . import model_extra, models, forms
 from .forms import MediaFileForm, MediaFileMissingTaxonForm
@@ -131,7 +132,6 @@ def missing_taxon_annotation_for_mediafile(request, mediafile_id: int, uploaded_
                 reverse_lazy("caidapp:missing_taxon_annotation", kwargs=kwargs)
             )
         else:
-            from django.contrib import messages
             messages.error(request, "Form is not valid")
     else:
         # GET: vybrat náhodný media file z dostupných
@@ -193,8 +193,8 @@ def taxons_on_page_are_verified(request):
         mediafile.taxon_verified = True
         mediafile.save()
 
-    # get next page
-    next_url = request.GET.get("next", reverse_lazy("caidapp:verify_taxa"))
+    # get previous url
+    next_url = request.META.get("HTTP_REFERER", "/")
 
     return redirect(next_url)
 

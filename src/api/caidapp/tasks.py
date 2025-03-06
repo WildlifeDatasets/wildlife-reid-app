@@ -909,6 +909,10 @@ def create_dataframe_from_mediafiles_NDOP(mediafiles: Generator[MediaFile, None,
 def _sync_metadata_by_checking_enlisted_mediafiles(csv_file, output_dir, uploaded_archive):
     update_csv = False
     df = pd.read_csv(csv_file, index_col=0)
+    df.rename(columns={
+        "locality_name": "locality name",
+        "locality_coordinates": "locality coordinates",
+    }, inplace=True)
     logger.debug(f"{len(df)=}")
     df["deleted"] = True
     df["locality name"] = ""

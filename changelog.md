@@ -4,6 +4,8 @@
 ## 03-2025
 
 * [fixed] Form behavior fixed for Missing taxon in media file
+* [fixed] Verification of media files
+* [changed] Most of the choice lists are sorted now
 
 ## 02-2025
 
