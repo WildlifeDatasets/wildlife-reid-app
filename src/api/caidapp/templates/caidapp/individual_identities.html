@@ -65,7 +65,8 @@
                         >
 
                             {% if individual_identity.mediafile_set.first.thumbnail %}
-                            <img class="card-img-top" src="{{ individual_identity.mediafile_set.first.thumbnail.url }}"
+                            <img class="card-img-top img-fluid cover-image" src="{{ individual_identity.mediafile_set.first.thumbnail.url }}"
+                                 style="height: 300px; object-fit: cover;"
                                  alt="Camera trap image">
                             {% endif %}
                         </a>
