@@ -596,6 +596,15 @@ def update_individual_identity(request, individual_identity_id):
             "caidapp:uploadedarchive_mediafiles",
             kwargs={"uploadedarchive_id": media_file.parent.id}
         )
+    right_nav = {"Localities": None}
+    for locality in individual_identity.localities():
+        right_nav[locality.name] = reverse_lazy(
+            "caidapp:update_locality",
+            kwargs={"locality_id": locality.id},
+        )
+
+
+
     return render(
         request,
         "caidapp/update_form.html",
@@ -610,6 +619,7 @@ def update_individual_identity(request, individual_identity_id):
                 kwargs={"individual_identity_id": individual_identity_id},
             ),
             "nav_dict": nav_dict,
+            "right_nav": right_nav,
         },
     )
 

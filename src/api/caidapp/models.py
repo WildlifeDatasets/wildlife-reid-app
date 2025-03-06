@@ -690,6 +690,14 @@ class IndividualIdentity(models.Model):
         """Return number of localities."""
         return MediaFile.objects.filter(identity=self).values("locality").distinct().count()
 
+    def localities(self):
+        """Return localities ordered by count of media files."""
+        # return MediaFile.objects.filter(identity=self).values("locality").distinct().or
+        return Locality.objects.filter(mediafiles__identity=self).annotate(
+            count=Count("mediafiles")
+        ).order_by("-count")
+
+
     def __str__(self):
         return str(self.name)
 
