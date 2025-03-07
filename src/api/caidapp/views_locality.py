@@ -43,10 +43,11 @@ def _round_location(locality: Locality, order: int = 3):
     if (locality.location is None) or (locality.location == ""):
         return locality.location
     lat, lon = str(locality.location).split(",")
-    lat = round(float(lat), order)
-    lon = round(float(lon), order)
-    locality.location = f"{lat},{lon}"
-    locality.save()
+    locality.set_location(lat, lon)
+    # lat = round(float(lat), order)
+    # lon = round(float(lon), order)
+    # locality.location = f"{lat},{lon}"
+    # locality.save()
     return f"{lat},{lon}"
 
 
@@ -203,9 +204,9 @@ def import_localities_view(request):
                 locality = models.get_locality(request.user.caiduser, row["name"])
                 locality.name = row["name"]
                 if "location" in df.keys():
-                    locality.location = row["location"]
+                    locality.set_location(row["location"])
                 elif "latitude" in df.keys() and "longitude" in df.keys():
-                    locality.location = f"{row['latitude']},{row['longitude']}"
+                    locality.set_location(f"{row['latitude']},{row['longitude']}")
                 if locality.owner is None:
                     locality.owner = request.user.caiduser
                 locality.save()

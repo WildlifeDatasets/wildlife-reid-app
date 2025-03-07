@@ -2077,10 +2077,10 @@ def media_files_update(
 
 
 def _single_mediafile_update(request, instance, form, form_bulk_processing, selected_album_hash):
-    logger.debug(f"{instance=}")
-    logger.debug(f"{instance.id=}")
+    # logger.debug(f"{instance=}")
+    # logger.debug(f"{instance.id=}")
     # logger.debug(f"{form.data=}")
-    logger.debug(f"{len(form.data)=}")
+    # logger.debug(f"{len(form.data)=}")
     if len(form.data) > 0:
         items = list(form.data.items())
         if items and len(items) > 0:
@@ -2088,9 +2088,9 @@ def _single_mediafile_update(request, instance, form, form_bulk_processing, sele
         else:
             logger.debug("No data found in form.")
     if "btnBulkProcessingAlbum" in form.data:
-        logger.debug("Select Album :" + form.data["selectAlbum"])
         if selected_album_hash == "new":
             logger.debug("Creating new album")
+            logger.debug("Select Album :" + form.data["selectAlbum"])
             album = create_new_album(request)
             album.cover = instance
             album.save()
@@ -2098,8 +2098,8 @@ def _single_mediafile_update(request, instance, form, form_bulk_processing, sele
             instance.save()
             selected_album_hash = album.hash
         else:
-            logger.debug("selectAlbum")
-            logger.debug(f"{selected_album_hash=}")
+            # logger.debug("selectAlbum")
+            # logger.debug(f"{selected_album_hash=}")
             album = get_object_or_404(Album, hash=selected_album_hash)
 
             # check if file is not already in album

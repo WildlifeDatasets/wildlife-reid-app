@@ -184,12 +184,20 @@ class Locality(models.Model):
     #         self.set_location(lat, lon, order=order)
     #     else:
     #         logger.debug(f"Location {self.location} is not in format 'lat,lon'.")
+    def set_location_from_str(self, location_str:str, order: int = 3):
+        """Round location for anonymization."""
+        if "," in location_str:
+            lat, lon = location_str.split(",")
+            self.set_location(lat, lon, order=order)
+        else:
+            logger.debug(f"Location {location_str} is not in format 'lat,lon'.")
 
     def set_location(self, lat:float, lon:float, order: int = 3):
         lat = round(float(lat), order)
         lon = round(float(lon), order)
         self.location = f"{lat},{lon}"
         self.save()
+        self.set_closest_area()
 
     def mediafiles(self):
         """Return mediafiles."""
@@ -225,6 +233,29 @@ class Locality(models.Model):
                 self.area = closest_area
                 self.save()
 
+    def closest_localities(self, distance_threshold=0.1):
+        """Find closest localities."""
+        localities = Locality.objects.all()
+
+        if "," in str(self.location):
+            lat, lon = str(self.location).split(",")
+            lat = float(lat)
+            lon = float(lon)
+
+            closest_localities = []
+            for locality in localities:
+                if "," in str(locality.location):
+                    alat, alon = str(locality.location).split(",")
+                    alat = float(alat)
+                    alon = float(alon)
+                    distance = np.sqrt((lat - alat)**2 + (lon - alon)**2)
+
+                    if distance < distance_threshold:
+                        closest_localities.append(locality)
+
+            return closest_localities
+        return []
+
 
 class Area(models.Model):
     name = models.CharField(max_length=50)
@@ -243,6 +274,13 @@ class Area(models.Model):
 
     def __str__(self):
         return str(self.name)
+
+    #on location change, update all localities
+    def save(self, *args, **kwargs):
+        super(Area, self).save(*args, **kwargs)
+        localities = Locality.objects.all()
+        for locality in localities:
+            locality.set_closest_area()
 
     # def mediafiles(self):
     #     """Return mediafiles."""

@@ -97,6 +97,15 @@
 
                             </ul>
                         {% endif %}
+{#                        {{ locality.closest_localities }}#}
+                        {% if locality.closest_localities|length > 0 %}
+                            <h5 class="mt-4">Closest Localities</h5>
+                            <ul class="list-group">
+                                {%  for closest_locality in locality.closest_localities %}
+                                <li class="list-group-item"><a class="link-secondary" href="{% url 'caidapp:update_locality' closest_locality.id %}"> {{ closest_locality }} </a></li>
+                                {% endfor %}
+                            </ul>
+                        {% endif %}
                             {{ text_note }}
                         </div>
                     </div>
