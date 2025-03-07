@@ -2947,6 +2947,8 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
                 "lon": "longitude",
                 "datetime": "datetime",
             }, inplace=True)
+            # check if the column names are unique
+
 
             counter0 = 0
             counter_fields_updated = 0
@@ -3007,6 +3009,10 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
                                 counter_fields_updated += 1
                             elif isinstance(row_datetime, float) and np.isnan(row_datetime):
                                 pass  # do nothing
+                            # else if it is pandas datetime
+                            elif isinstance(row_datetime, pd.Timestamp):
+                                mf.captured_at = row_datetime.to_pydatetime()
+                                counter_fields_updated += 1
                             else:
                                 logger.debug(f"{row['datetime']=}")
                                 logger.debug(f"{type(row['datetime'])=}")
