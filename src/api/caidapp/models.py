@@ -1008,7 +1008,8 @@ class MediaFile(models.Model):
                 self.preview = str(preview_rel_pth)
                 self.save()
             else:
-                logger.debug(f"Preview already exists for {self.preview}")
+                # logger.debug(f"Preview already exists for {self.preview}")
+                pass
 
             if (self.thumbnail.name is None) or (not abs_pth.exists()):
                 # logger.debug("we are in first if")
@@ -1018,7 +1019,7 @@ class MediaFile(models.Model):
                 if gif_path.exists():
                     self.thumbnail = str(rel_pth)
                     self.save()
-                    logger.debug(f"Used GIF thumbnail generated before: {rel_pth}")
+                    # logger.debug(f"Used GIF thumbnail generated before: {rel_pth}")
                 else:
                     # logger.debug(f"Creating thumbnail for {rel_pth}")
                     if fs_data.make_gif_from_video_file(mediafile_path, abs_pth, width=thumbnail_width):
@@ -1036,36 +1037,6 @@ class MediaFile(models.Model):
                     self.save()
                 else:
                     logger.warning(f"Cannot generate thumbnail for {abs_pth}")
-        # gif_path = abs_pth.with_suffix(".gif")
-        # logger.debug(f"{gif_path=}, {gif_path.exists()=}")
-        # logger.debug(
-        #     f"{mediafile.thumbnail=}, {mediafile.thumbnail is None=}, "
-        #     f"{mediafile.thumbnail.name is None=}"
-        # )
-
-        # if self.thumbnail.name is None:
-        #     # logger.debug("we are in first if")
-        #     gif_path = abs_pth.with_suffix(".gif")
-        #     if gif_path.exists():
-        #         # logger.debug("we are in second if")
-        #         abs_pth = gif_path
-        #         rel_pth = os.path.relpath(abs_pth, settings.MEDIA_ROOT)
-        #         self.thumbnail = str(rel_pth)
-        #         self.save()
-        #         logger.debug(f"Used GIF thumbnail generated before: {rel_pth}")
-
-        # if (self.thumbnail.name is None) or (not abs_pth.exists()):
-        #     rel_pth = os.path.relpath(abs_pth, settings.MEDIA_ROOT)
-        #     # logger.debug(f"Creating thumbnail for {rel_pth}")
-        #     if make_thumbnail_from_file(mediafile_path, abs_pth, width=thumbnail_width):
-        #         self.thumbnail = str(rel_pth)
-        #         self.save()
-        #     else:
-        #         logger.warning(f"Cannot generate thumbnail for {abs_pth}")
-
-        # if self.media_type == "image":
-        # elif self.media_type == "video":
-        # make static image thumbnail
         self.get_static_thumbnail()
 
 
