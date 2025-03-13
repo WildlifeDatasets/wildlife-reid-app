@@ -147,6 +147,9 @@ def make_thumbnail_from_file(image_path: Path, thumbnail_path: Path, width: int 
             quality = 85
         else:
             quality = None
+        # check if image_rescaled is rgba. If so, convert to rgb
+        if image_rescaled.shape[2] == 4:
+            image_rescaled = cv2.cvtColor(image_rescaled, cv2.COLOR_RGBA2RGB)
         skimage.io.imsave(thumbnail_path, image_rescaled, quality=quality)
         return True
     except Exception:
