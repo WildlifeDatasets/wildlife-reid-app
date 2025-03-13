@@ -875,7 +875,7 @@ class MediaFile(models.Model):
         # logger.debug(f"{self.media_file_corrupted=}")
 
         if self.static_thumbnail and not force:
-            logger.debug(f"Returning existing static thumbnail {self.static_thumbnail}")
+            # logger.debug(f"Returning existing static thumbnail {self.static_thumbnail}")
             return self.static_thumbnail
         elif not self.media_file_corrupted or force:
             try:
@@ -933,6 +933,7 @@ class MediaFile(models.Model):
                         logger.debug(f"  {str(self.image_file.path)=}")
                 return None
         else:
+            logger.debug(f"Something is wrong with: {self.mediafile.name}, {force=}, {self.media_file_corrupted=}")
             return None
 
 
