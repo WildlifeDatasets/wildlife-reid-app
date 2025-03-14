@@ -29,6 +29,12 @@
                 {#                <a class="btn btn-secondary mt-2" href="{% url 'caidapp:init_identification' %}"><i class="fas fa-fingerprint"></i> Init identification</a>#}
                 <a class="btn btn-secondary mt-2" href="{% url 'caidapp:not_identified_mediafiles' %}"><i
                         class="fa fa-question"></i> List of not identified media files </a>
+                <a class="btn btn-secondary mt-2" href="{% url 'caidapp:import_identities' %}"><i
+                        class="bi bi-file-earmark-arrow-up"></i> Import identities</a>
+                <a class="btn btn-secondary mt-2" href="{% url 'caidapp:export_identities_csv' %}"><i
+                        class="bi bi-file-earmark-spreadsheet"></i> Export identities to CSV</a>
+                <a class="btn btn-secondary mt-2" href="{% url 'caidapp:export_identities_xlsx' %}"><i
+                        class="bi bi-file-earmark-spreadsheet"></i> Export identities to XLSX</a>
             </nav>
         </div><!-- End Page Title -->
         <section class="section">

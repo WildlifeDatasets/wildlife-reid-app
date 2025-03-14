@@ -9,6 +9,7 @@
 * [added] Localities of Identity
 * [added] List of closest localities
 * [changed] Simplification of previews, thumbnails and static thumbnails generation
+* [added] CSV and XLSX import and export of identities 
 
 ## 02-2025
 

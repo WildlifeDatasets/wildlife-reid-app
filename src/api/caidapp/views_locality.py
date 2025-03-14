@@ -146,9 +146,7 @@ def export_localities_view(request):
         **user_has_access_filter_params(request.user.caiduser, "owner")
     )
     df = pd.DataFrame.from_records(localities.values())[["name", "location"]]
-    response = HttpResponse(df.to_csv(encoding="utf-8"), content_type="text/csv")
-    response["Content-Disposition"] = "attachment; filename=localities.csv"
-    return response
+    return views_general.csv_response(df, "localities")
 
 
 def export_localities_view_xls(request):
@@ -158,26 +156,14 @@ def export_localities_view_xls(request):
     )
     df = pd.DataFrame.from_records(localities.values())[["name", "location"]]
 
-    # Create a BytesIO buffer to save the Excel file
-    output = BytesIO()
-    with pd.ExcelWriter(output, engine="openpyxl") as writer:
-        df.to_excel(writer, index=False, sheet_name="Localities")
-
-    # Rewind the buffer
-    output.seek(0)
-
-    response = HttpResponse(
-        output, content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
-    response["Content-Disposition"] = "attachment; filename=localities.xlsx"
-    return response
+    return views_general.excel_response(df, "localities")
 
 
 def import_localities_view(request):
     """Import localities."""
     logger.debug(f"Importing localities, method {request.method}")
     if request.method == "POST":
-        form = forms.LocalityImportForm(request.POST, request.FILES)
+        form = forms.SpreadsheetFileImportForm(request.POST, request.FILES)
         if form.is_valid():
             logger.debug("form is valid")
             file = form.cleaned_data["spreadsheet_file"]
@@ -188,6 +174,10 @@ def import_localities_view(request):
                 "Location": "location",
                 "Latitude": "latitude",
                 "Longitude": "longitude",
+                "lat": "latitude",
+                "lon": "longitude",
+                "Lat": "latitude",
+                "Lon": "longitude",
             }
 
 
@@ -212,7 +202,7 @@ def import_localities_view(request):
                 locality.save()
             return redirect("caidapp:localities")
     else:
-        form = forms.LocalityImportForm()
+        form = forms.SpreadsheetFileImportForm()
     return render(
         request,
         # "caidapp/model_form_upload.html",

@@ -3439,3 +3439,149 @@ def uploads_status_api(request, group:str):
 
     return JsonResponse({"archives": data})
 
+
+@login_required
+def export_identities_csv(request):
+    """Export identities to CSV."""
+    all_identities = IndividualIdentity.objects.filter(
+        owner_workgroup=request.user.caiduser.workgroup,
+        # **user_has_access_filter_params(request.user.caiduser, "owner")
+    )
+    df = pd.DataFrame.from_records(all_identities.values())[["name", "code", "juv_code" , "sex", "coat_type", "birth_date", "death_date", "note"]]
+
+    return views_general.csv_response(df, 'identities')
+
+
+
+
+@login_required
+def export_identities_xlsx(request):
+    all_identities = IndividualIdentity.objects.filter(
+        owner_workgroup=request.user.caiduser.workgroup,
+        # **user_has_access_filter_params(request.user.caiduser, "owner")
+    )
+    df = pd.DataFrame.from_records(all_identities.values())[["name", "code", "juv_code" , "sex", "coat_type", "birth_date", "death_date", "note"]]
+
+
+    return views_general.excel_response(df, 'identities')
+
+def import_identities_view(request):
+    """Import identities."""
+    logger.debug(f"Importing identities, method {request.method}")
+    if request.method == "POST":
+        form = forms.SpreadsheetFileImportForm(request.POST, request.FILES)
+        if form.is_valid():
+            logger.debug("form is valid")
+            file = form.cleaned_data["spreadsheet_file"]
+
+            file_ext = Path(file.name).suffix.lower()
+            file_content = file.read()
+            rename_columns = {
+                "Location": "location",
+                "Latitude": "latitude",
+                "Longitude": "longitude",
+                "lat": "latitude",
+                "lon": "longitude",
+                "Lat": "latitude",
+                "Lon": "longitude",
+            }
+
+
+            if file_ext == ".xlsx":
+                df = pd.read_excel(BytesIO(file_content))
+                df.rename(columns=rename_columns, inplace=True)
+            elif file_ext == ".csv":
+                df = pd.read_csv(BytesIO(file_content))
+                df.rename(columns=rename_columns, inplace=True)
+            else:
+                return HttpResponse("Only .xlsx and .csv files are supported.")
+
+            for index, row in df.iterrows():
+                # row as dict
+                row = row.to_dict()
+                identity = None
+                try:
+                    if "code" in row and len(row["code"]) > 0:
+                        identity, created_new = IndividualIdentity.objects.get_or_create(
+                            code=row["code"],
+                            owner_workgroup=request.user.caiduser.workgroup
+                        )
+                    elif "name" in row and len(row["name"]) > 0:
+                        identity, created_new = IndividualIdentity.objects.get_or_create(
+                            name=row["name"],
+                            owner_workgroup=request.user.caiduser.workgroup
+                        )
+                    else:
+                        logger.warning(f"No identification (name or code) found for {row} ")
+                        continue
+                except models.IndividualIdentity.MultipleObjectsReturned:
+                    logger.debug(f"{row=}")
+                    logger.warning(traceback.format_exc())
+                    messages.warning(request, f"Skipping row. Multiple identities found for {row}")
+                    continue
+
+                logger.debug(f"{identity=}")
+
+                if "name" in row and len(row["name"]) > 0:
+                    print(f"{row}")
+                    print(f"{row['name']}")
+                    identity.name = row["name"]
+                if "code" in row and len(row["code"]) > 0:
+                    identity.code = row["code"]
+                if "sex" in  row and len(row["sex"]) > 0:
+                    sex = row["sex"][0].upper()
+                    if sex in ["M", "F", "U"]:
+                        identity.sex = sex
+                    else:
+                        logger.warning(f"Invalid sex: {row['sex']}")
+                if "coat_type" in row and len(row["coat_type"]) > 0:
+                    rename_coat = {
+                        "Spotted": "S",
+                        "Marbled": "M",
+                        "Unspotted": "N",
+                        "Unkown": "U",
+                    }
+                    if row["coat_type"] in rename_coat:
+                        coat_type = rename_coat[row["coat_type"]]
+                    else:
+                        coat_type = row["coat_type"][0]
+
+                    if coat_type in ["S", "M", "N", "U"]:
+                        identity.coat_type = coat_type
+                    else:
+                        logger.warning(f"Invalid coat_type: {row['coat_type']}")
+
+                if "note" in row:
+                    note = row["note"]
+                    if type(note) == str:
+                        identity.note = note
+
+                if "juv_code" in row and len(row["juv_code"]) > 0:
+                    identity.juv_code = row["juv_code"]
+
+                if "birth_date" in row and not pd.isna(row["birth_date"]):
+                    identity.birth_date = row["birth_date"]
+                if "death_date" in row and not pd.isna(row["death_date"]):
+                    identity.death_date = row["death_date"]
+
+                if identity.owner_workgroup == None:
+                    identity.owner_workgroup = request.user.caiduser.workgroup
+
+                identity.save()
+            return redirect("caidapp:individual_identities")
+    else:
+        form = forms.SpreadsheetFileImportForm()
+    return render(
+        request,
+        # "caidapp/model_form_upload.html",
+        "caidapp/update_form.html",
+        {
+            "form": form,
+            "headline": "Import identities",
+            "button": "Import",
+            "text_note": "Upload CSV or XLSX file. "
+                         + "There should be columns 'name' or 'code' in the file. "
+                         + "Optional columns are 'sex', 'coat_type', 'birth_date', 'death_date', 'note'.",
+            "next": "caidapp:individual_identities",
+        },
+    )

@@ -274,7 +274,7 @@ class ChangeMediaFilesTimeForm(forms.Form):
     change_by_years = forms.FloatField(label="Change by years", required=False)
 
 
-class LocalityImportForm(forms.Form):
+class SpreadsheetFileImportForm(forms.Form):
     spreadsheet_file = forms.FileField()
 
 

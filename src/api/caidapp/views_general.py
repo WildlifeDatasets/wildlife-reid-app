@@ -1,5 +1,9 @@
 from django.shortcuts import redirect
 import re
+from django.http import HttpResponse
+import datetime
+import pandas as pd
+from io import BytesIO
 
 def set_sort_anything_by(request, name_plural:str, sort_by: str):
     """Sort uploaded archives by."""
@@ -35,3 +39,28 @@ def get_item_number_anything(request, name_plural:str):
     default = 10
     item_number = request.session.get(f"item_number_{name_plural}", default)
     return item_number
+
+
+def excel_response(df, name):
+    datetime_str = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+
+    # Create a BytesIO buffer to save the Excel file
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        df.to_excel(writer, index=False, sheet_name=name)
+    # Rewind the buffer
+
+    output.seek(0)
+
+    response = HttpResponse(
+        output, content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    response["Content-Disposition"] = f"attachment; filename={name}.{datetime_str}.xlsx"
+    return response
+
+
+def csv_response(df, name):
+    datetime_str = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    response = HttpResponse(df.to_csv(encoding="utf-8"), content_type="text/csv")
+    response["Content-Disposition"] = f"attachment; filename={name}.{datetime_str}.csv"
+    return response
