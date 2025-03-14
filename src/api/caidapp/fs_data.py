@@ -186,7 +186,6 @@ def save_thumbnail(image:np.array, thumbnail_path:Path, width:int=800):
     thumbnail_path = Path(thumbnail_path)
     scale = float(width) / image.shape[1]
     scale = [scale, scale, 1]
-    # TODO use opencv to resize image
     image_rescaled = cv2.resize(image, (0, 0), fx=scale[0], fy=scale[1])
     # image_rescaled = skimage.transform.rescale(image, scale=scale, anti_aliasing=True)
     # image_rescaled = (image_rescaled * 255).astype(np.uint8)

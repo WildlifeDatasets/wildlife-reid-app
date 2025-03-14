@@ -925,7 +925,7 @@ class MediaFile(models.Model):
             self,
             # mediafile: MediaFile,
             thumbnail_width: int = 400, preview_width: int = 1200,
-            force=True
+            force=False
     ):
         """Make small image representing the upload."""
         # logger.debug("Making thumbnail for mediafile")
