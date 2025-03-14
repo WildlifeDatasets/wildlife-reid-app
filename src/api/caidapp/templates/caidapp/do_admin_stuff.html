@@ -40,8 +40,14 @@
         <li>
             <a class="dropdown-item d-flex align-items-center" href="{% url 'caidapp:do_admin_stuff'   'refresh_thumbnails' %}"
                title="Refresh thumbnails" data-bs-toggle="tooltip">
-                <i class="fa fa-map-marker"></i>
+                <i class="bi bi-images"></i>
                 Refresh thumbnails</a>
+        </li>
+        <li>
+            <a class="dropdown-item d-flex align-items-center" href="{% url 'caidapp:do_admin_stuff'   'force_refresh_thumbnails' %}"
+               title="Force refresh thumbnails (also the existing)" data-bs-toggle="tooltip">
+                <i class="bi bi-images"></i>
+                Force refresh thumbnails</a>
         </li>
 {#    </ul>#}
 {#</li>#}

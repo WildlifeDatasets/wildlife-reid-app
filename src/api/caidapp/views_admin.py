@@ -25,6 +25,9 @@ def do_admin_stuff(request, process_name: str):
     elif process_name == "refresh_thumbnails":
         refresh_thumbnails(request)
         return redirect(request.META.get("HTTP_REFERER", "/"))
+    elif process_name == "force_refresh_thumbnails":
+        refresh_thumbnails(request, force=True)
+        return redirect(request.META.get("HTTP_REFERER", "/"))
     else:
         messages.error(request, f"Process name '{process_name}' not recognized.")
         return redirect(request.META.get("HTTP_REFERER", "/"))
@@ -60,9 +63,9 @@ def refresh_area(request):
     return redirect(request.META.get("HTTP_REFERER", "/"))
 
 @staff_member_required
-def refresh_thumbnails(request):
+def refresh_thumbnails(request, force: bool = False):
     """Refresh all thumbnails."""
     logger.debug("Refreshing all thumbnails")
     for mf in tqdm(MediaFile.objects.all()):
-        mf.make_thumbnail_for_mediafile_if_necessary()
+        mf.make_thumbnail_for_mediafile_if_necessary(force=force)
     logger.debug("Refreshed all thumbnails")
