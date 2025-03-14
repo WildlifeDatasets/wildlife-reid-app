@@ -859,14 +859,15 @@ class MediaFile(models.Model):
             self.save()
         return self.original_filename
 
-    def get_static_thumbnail(self, force:bool=False, width:int=400) -> models.ImageField:
+    def get_static_thumbnail(self, force:bool=True, width:int=400) -> models.ImageField:
+        logger.debug(f"Getting static thumbnail for {self.mediafile.name=}")
 
-        if self.static_thumbnail:
-            # logger.debug(f"Returning existing static thumbnail {self.static_thumbnail}")
-            pass
 
+        if self.static_thumbnail :
+            return self.static_thumbnail
         else:
             logger.debug(f"static_thumbnail Does not exist for {self.mediafile.name=}")
+            return None
 
         # logger.debug(f"{self.mediafile.name=}")
         # logger.debug(f"{self.static_thumbnail=}")
@@ -874,67 +875,33 @@ class MediaFile(models.Model):
         # # logger.debug(f"{self.static_thumbnail.path=}")
         # logger.debug(f"{self.media_file_corrupted=}")
 
-        if self.static_thumbnail and not force:
-            # logger.debug(f"Returning existing static thumbnail {self.static_thumbnail}")
-            return self.static_thumbnail
-        elif not self.media_file_corrupted or force:
-            try:
 
-                if self.media_type=="image":
-                    # create static thumbnail from self.image_file
-                    im = skimage.io.imread(self.image_file.path)
-                    # resize to width 640 and relevant height
-                    im_width = im.shape[1]
-                    scale = width / im_width
-                    im_rescaled = skimage.transform.rescale(im, scale, anti_aliasing=True, channel_axis=-1)
-
-                    # Convert the rescaled image to uint8 format
-                    im_rescaled_uint8 = (im_rescaled * 255).astype(np.uint8)
-
-                    # Create a PIL Image from the NumPy array
-                    pil_image = Image.fromarray(im_rescaled_uint8)
-                    # logger.debug(f"{Path(self.thumbnail)=}")
-                    # turn RGBA to RGB
-                    pil_image = pil_image.convert("RGB")
-                else:
-                    import cv2
-                    # read first frame of video file
-                    cap = cv2.VideoCapture(self.mediafile.path)
-                    ret, frame = cap.read()
-                    cap.release()
-                    if not ret:
-                        logger.error(f"Cannot read first frame of video {self.mediafile.path}")
-                        return None
-                    # resize to width 640 and relevant height
-                    im_width = frame.shape[1]
-                    scale = width / im_width
-                    im_rescaled = cv2.resize(frame, (0, 0), fx=scale, fy=scale)
-                    pil_image = Image.fromarray(im_rescaled)
-
-
-                # Define the path for the static thumbnail
-                static_thumbnail_path = Path(self.thumbnail.path).with_suffix(".static_thumbnail.jpg")
-
-                # Save the image using Pillow
-                pil_image.save(static_thumbnail_path, format='JPEG')
-
-                static_thumbnail_path = static_thumbnail_path.relative_to(settings.MEDIA_ROOT)
-                # logger.debug(f"Thumbnail created. Original size {im.shape}, path={static_thumbnail_path=}")
-                self.static_thumbnail = str(static_thumbnail_path)
-                self.save()
-                return self.static_thumbnail
-
-            except Exception as e:
-                logger.debug(f"Error during creation of static thumbnail: {e}")
-                self.media_file_corrupted = True
-                if self.image_file:
-                    logger.debug(f"  {str(self.image_file)=}")
-                    if self.image_file.path:
-                        logger.debug(f"  {str(self.image_file.path)=}")
-                return None
-        else:
-            logger.debug(f"Something is wrong with: {self.mediafile.name}, {force=}, {self.media_file_corrupted=}")
-            return None
+        # if self.static_thumbnail and Path(self.static_thumbnail.path).exists() and not force:
+        #     # logger.debug(f"Returning existing static thumbnail {self.static_thumbnail}")
+        #     return self.static_thumbnail
+        # elif not self.media_file_corrupted or force:
+        #     logger.debug(f"Creating static thumbnail for {self.mediafile.name}")
+        #     try:
+        #         # Define the path for the static thumbnail
+        #         static_thumbnail_path = Path(self.thumbnail.path).with_suffix(".static_thumbnail.webp")
+        #         fs_data.make_thumbnail_from_file(self.mediafile.path, static_thumbnail_path, width=width)
+        #
+        #         self.static_thumbnail = str(static_thumbnail_path)
+        #         self.media_file_corrupted = False
+        #         self.save()
+        #         return self.static_thumbnail
+        #
+        #     except Exception as e:
+        #         logger.warning(f"Error during creation of static thumbnail: {e}")
+        #         self.media_file_corrupted = True
+        #         if self.image_file:
+        #             logger.debug(f"  {str(self.image_file)=}")
+        #             if self.image_file.path:
+        #                 logger.debug(f"  {str(self.image_file.path)=}")
+        #         return None
+        # else:
+        #     logger.debug(f"Something is wrong with: {self.mediafile.name}, {force=}, {self.media_file_corrupted=}")
+        #     return None
 
 
     def is_preidentified(self):
@@ -957,7 +924,8 @@ class MediaFile(models.Model):
     def make_thumbnail_for_mediafile_if_necessary(
             self,
             # mediafile: MediaFile,
-            thumbnail_width: int = 400, preview_width: int = 1200
+            thumbnail_width: int = 400, preview_width: int = 1200,
+            force=True
     ):
         """Make small image representing the upload."""
         # logger.debug("Making thumbnail for mediafile")
@@ -965,80 +933,125 @@ class MediaFile(models.Model):
         # image_file = static image created from mediafile
 
         # preview: image or video in mp4 format with a bit smaller size than the original
-        # thumbnail: image with fixed size, or GIF
+        # thumbnail: small image with fixed size, or GIF (stored in webP)
         # static_preview: image with fixed size
         mediafile_path = Path(settings.MEDIA_ROOT) / self.mediafile.name
         if self.parent is None:
             logger.error(f"Mediafile {self.id} has no parent.")
             return
         output_dir = Path(settings.MEDIA_ROOT) / self.parent.outputdir
-        abs_pth = output_dir / "thumbnails" / Path(self.mediafile.name).name
         preview_abs_pth = output_dir / "previews" / Path(self.mediafile.name).name
+        thumbnail_abs_pth = output_dir / "thumbnails" / Path(self.mediafile.name).name
+        thumbnail_abs_pth = thumbnail_abs_pth.with_suffix(".webp")
+        static_thumbnail_abs_pth = output_dir / "static_thumbnails" / Path(self.mediafile.name).name
+        static_thumbnail_abs_pth = static_thumbnail_abs_pth.with_suffix(".webp")
+
+        if self.media_type == "video":
+            preview_abs_pth = preview_abs_pth.with_suffix(".mp4")
+            # thumbnail_abs_pth = thumbnail_abs_pth.with_suffix(".gif")
+        else:
+            preview_abs_pth = preview_abs_pth.with_suffix(".webp")
+
+        preview_rel_pth = os.path.relpath(preview_abs_pth, settings.MEDIA_ROOT)
+        thumbnail_rel_pth = os.path.relpath(thumbnail_abs_pth, settings.MEDIA_ROOT)
+        static_thumbnail_rel_pth = os.path.relpath(thumbnail_abs_pth, settings.MEDIA_ROOT)
+
+        if (not self.preview) or (not self.preview.name) or (not preview_abs_pth.exists()) or force:
+            if not force:
+                logger.debug(f"preview does not exist for {self.mediafile.name=}")
+            preview_abs_pth.parent.mkdir(exist_ok=True, parents=True)
+            # logger.debug(f"Creating preview for {preview_rel_pth}")
+            if self.media_type == "video":
+                convert_to_mp4(mediafile_path, preview_abs_pth)
+            else:
+                fs_data.make_thumbnail_from_file(mediafile_path, preview_abs_pth, width=preview_width)
+            self.preview = str(preview_rel_pth)
+            self.save()
+
+        if (not self.thumbnail) or (not self.thumbnail.name) or (not thumbnail_abs_pth.exists()) or force:
+            if not force:
+                logger.debug(f"thumbnail does not exist for {self.mediafile.name=}")
+            thumbnail_abs_pth.parent.mkdir(exist_ok=True, parents=True)
+            if self.media_type == "video":
+                fs_data.make_gif_from_video_file(mediafile_path, thumbnail_abs_pth, width=thumbnail_width)
+            else:
+                fs_data.make_thumbnail_from_file(mediafile_path, thumbnail_abs_pth, width=thumbnail_width)
+            self.thumbnail = str(thumbnail_rel_pth)
+            self.save()
+
+        if (not self.static_thumbnail) or (not self.static_thumbnail.name) or (not static_thumbnail_abs_pth.exists()) or force:
+            if not force:
+                logger.debug(f"static_thumbnail does not exist for {self.mediafile.name=}")
+            fs_data.make_thumbnail_from_file(mediafile_path, static_thumbnail_abs_pth, width=thumbnail_width)
+            self.static_thumbnail = str(static_thumbnail_rel_pth)
+            self.save()
+            # self.get_static_thumbnail(force=force)
 
         # logger.debug(f"{self.media_type=}, {self.preview=}")
-        if self.media_type == "image":
-            # logger.debug(f"{self.preview=}")
-            preview_abs_pth = preview_abs_pth.with_suffix(".jpg")
-
-            if (not self.preview) or (not self.preview.name):
-                logger.debug(f"preview does not exist for {self.mediafile.name=}")
-                preview_rel_pth = os.path.relpath(preview_abs_pth, settings.MEDIA_ROOT)
-                # logger.debug(f"Creating preview for {preview_rel_pth}")
-                if make_thumbnail_from_file(mediafile_path, preview_abs_pth, width=preview_width):
-                    self.preview = str(preview_rel_pth)
-                    self.save()
-                else:
-                    logger.warning(f"Cannot generate preview for {preview_abs_pth}")
-
-            if (not self.thumbnail.name) or (not abs_pth.exists()):
-                rel_pth = os.path.relpath(abs_pth, settings.MEDIA_ROOT)
-                # logger.debug(f"Creating thumbnail for {rel_pth}")
-                if make_thumbnail_from_file(mediafile_path, abs_pth, width=thumbnail_width):
-                    self.thumbnail = str(rel_pth)
-                    self.save()
-                else:
-                    logger.warning(f"Cannot generate thumbnail for {abs_pth}")
-
-        elif self.media_type == "video":
-            preview_abs_pth = preview_abs_pth.with_suffix(".mp4")
-            if (not self.preview ) or (not self.preview.name):
-                preview_rel_pth = os.path.relpath(preview_abs_pth, settings.MEDIA_ROOT)
-                preview_abs_pth.parent.mkdir(exist_ok=True, parents=True)
-                logger.debug(f"Creating preview for {preview_rel_pth}")
-                convert_to_mp4(mediafile_path, preview_abs_pth)
-                self.preview = str(preview_rel_pth)
-                self.save()
-            else:
-                # logger.debug(f"Preview already exists for {self.preview}")
-                pass
-
-            if (self.thumbnail.name is None) or (not abs_pth.exists()):
-                # logger.debug("we are in first if")
-                gif_path = abs_pth.with_suffix(".gif")
-                abs_pth = gif_path
-                rel_pth = os.path.relpath(abs_pth, settings.MEDIA_ROOT)
-                if gif_path.exists():
-                    self.thumbnail = str(rel_pth)
-                    self.save()
-                    # logger.debug(f"Used GIF thumbnail generated before: {rel_pth}")
-                else:
-                    # logger.debug(f"Creating thumbnail for {rel_pth}")
-                    if fs_data.make_gif_from_video_file(mediafile_path, abs_pth, width=thumbnail_width):
-                        self.thumbnail = str(rel_pth)
-                        self.save()
-                    else:
-                        logger.warning(f"Cannot generate thumbnail for {abs_pth}")
-
-
-            if (self.thumbnail.name is None) or (not abs_pth.exists()):
-                rel_pth = os.path.relpath(abs_pth, settings.MEDIA_ROOT)
-                # logger.debug(f"Creating thumbnail for {rel_pth}")
-                if fs_data.make_thumbnail_from_video_file(mediafile_path, abs_pth, width=thumbnail_width):
-                    self.thumbnail = str(rel_pth)
-                    self.save()
-                else:
-                    logger.warning(f"Cannot generate thumbnail for {abs_pth}")
-        self.get_static_thumbnail()
+        # if self.media_type == "image":
+        #     # logger.debug(f"{self.preview=}")
+        #     # preview_abs_pth = preview_abs_pth.with_suffix(".jpg")
+        #     preview_abs_pth = preview_abs_pth.with_suffix(".webp")
+        #
+        #     if (not self.preview) or (not self.preview.name) or force:
+        #         logger.debug(f"preview does not exist for {self.mediafile.name=}")
+        #         preview_rel_pth = os.path.relpath(preview_abs_pth, settings.MEDIA_ROOT)
+        #         # logger.debug(f"Creating preview for {preview_rel_pth}")
+        #         if make_thumbnail_from_file(mediafile_path, preview_abs_pth, width=preview_width):
+        #             self.preview = str(preview_rel_pth)
+        #             self.save()
+        #         else:
+        #             logger.warning(f"Cannot generate preview for {preview_abs_pth}")
+        #
+        #     if (not self.thumbnail.name) or (not thumbnail_abs_pth.exists()) or force:
+        #         rel_pth = os.path.relpath(thumbnail_abs_pth, settings.MEDIA_ROOT)
+        #         # logger.debug(f"Creating thumbnail for {rel_pth}")
+        #         if make_thumbnail_from_file(mediafile_path, thumbnail_abs_pth, width=thumbnail_width):
+        #             self.thumbnail = str(rel_pth)
+        #             self.save()
+        #         else:
+        #             logger.warning(f"Cannot generate thumbnail for {thumbnail_abs_pth}")
+        #
+        # elif self.media_type == "video":
+        #     preview_abs_pth = preview_abs_pth.with_suffix(".mp4")
+        #     if (not self.preview ) or (not self.preview.name) or force:
+        #         preview_rel_pth = os.path.relpath(preview_abs_pth, settings.MEDIA_ROOT)
+        #         preview_abs_pth.parent.mkdir(exist_ok=True, parents=True)
+        #         logger.debug(f"Creating preview for {preview_rel_pth}")
+        #         convert_to_mp4(mediafile_path, preview_abs_pth)
+        #         self.preview = str(preview_rel_pth)
+        #         self.save()
+        #     else:
+        #         # logger.debug(f"Preview already exists for {self.preview}")
+        #         pass
+        #
+        #     if (self.thumbnail.name is None) or (not thumbnail_abs_pth.exists()) or force:
+        #         # logger.debug("we are in first if")
+        #         gif_path = thumbnail_abs_pth.with_suffix(".gif")
+        #         thumbnail_abs_pth = gif_path
+        #         rel_pth = os.path.relpath(thumbnail_abs_pth, settings.MEDIA_ROOT)
+        #         if gif_path.exists():
+        #             self.thumbnail = str(rel_pth)
+        #             self.save()
+        #             # logger.debug(f"Used GIF thumbnail generated before: {rel_pth}")
+        #         else:
+        #             # logger.debug(f"Creating thumbnail for {rel_pth}")
+        #             if fs_data.make_gif_from_video_file(mediafile_path, thumbnail_abs_pth, width=thumbnail_width):
+        #                 self.thumbnail = str(rel_pth)
+        #                 self.save()
+        #             else:
+        #                 logger.warning(f"Cannot generate thumbnail for {thumbnail_abs_pth}")
+        #
+        #
+        #     if (self.thumbnail.name is None) or (not thumbnail_abs_pth.exists()) or force:
+        #         rel_pth = os.path.relpath(thumbnail_abs_pth, settings.MEDIA_ROOT)
+        #         # logger.debug(f"Creating thumbnail for {rel_pth}")
+        #         if fs_data.make_thumbnail_from_file(mediafile_path, thumbnail_abs_pth, width=thumbnail_width):
+        #             self.thumbnail = str(rel_pth)
+        #             self.save()
+        #         else:
+        #             logger.warning(f"Cannot generate thumbnail for {thumbnail_abs_pth}")
+        # self.get_static_thumbnail(force=force)
 
 
 class AnimalObservation(models.Model):

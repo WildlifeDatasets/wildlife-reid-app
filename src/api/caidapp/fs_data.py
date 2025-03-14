@@ -41,49 +41,59 @@ def resize_images(input_image: np.ndarray, new_height: int = 360) -> np.ndarray:
     return resized_image
 
 
-def save_gif(images, path: str):
+def save_gif(images, path: str, fps:float):
     """Save frames as gif using PIL library."""
-    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    if path.suffix.lower() == ".gif":
+        format = "GIF"
+    elif path.suffix.lower() == ".webp":
+        format = "WEBP"
+    else:
+        logger.warning(f"Unsupported file type: {path.suffix}")
+        format = None
+    # if it is int like type, convert to uint8
+    # if images[0].dtype != np.uint8:
+    #     logger.error(f"Unsupported image type: {images[0].dtype}")
+    #     raise ValueError(f"Unsupported image type: {images[0].dtype}")
+
     frame_one = Image.fromarray(images[0])
     frames = [Image.fromarray(image) for image in images[1:]]
-    duration = 1 / 24 * len(images)
+    duration = int(1000 / fps)
     frame_one.save(
-        path,
-        format="GIF",
+        str(path),
+        format=format,
         append_images=frames,
         save_all=True,
         duration=duration,
         loop=0,
         optimize=True,
     )
-    jpg_path = path + ".jpg"
+    jpg_path = str(path) + ".jpg"
     frame_one = Image.fromarray(images[0])
     frame_one.save(jpg_path)
 
 
-def make_thumbnail_from_video_file(video_path: Path, thumbnail_path: Path, width: int = 800) -> bool:
-    try:
-        cap = cv2.VideoCapture(str(video_path))
-        ret, frame = cap.read()
-        if not ret:
-            logger.warning(f"Cannot read frame from video file '{video_path}'")
-            return False
-        scale = float(width) / frame.shape[1]
-        scale = [scale, scale, 1]
-        frame_rescaled = cv2.resize(frame, (0, 0), fx=scale[0], fy=scale[1])
-        thumbnail_path.parent.mkdir(exist_ok=True, parents=True)
-        cv2.imwrite(str(thumbnail_path), frame_rescaled)
-        return True
-    except Exception:
-        logger.debug(traceback.format_exc())
-        logger.warning(
-            f"Cannot create thumbnail from video file '{video_path}'."
-        )
-        return False
+# def make_thumbnail_from_video_file(video_path: Path, thumbnail_path: Path, width: int = 800, frame_id=0) -> bool:
+#     try:
+#         frame = get_frame_from_video(video_path, frame_id)
+#         scale = float(width) / frame.shape[1]
+#         scale = [scale, scale, 1]
+#         frame_rescaled = cv2.resize(frame, (0, 0), fx=scale[0], fy=scale[1])
+#         thumbnail_path.parent.mkdir(exist_ok=True, parents=True)
+#         cv2.imwrite(str(thumbnail_path), frame_rescaled)
+#         return True
+#     except Exception:
+#         logger.debug(traceback.format_exc())
+#         logger.warning(
+#             f"Cannot create thumbnail from video file '{video_path}'."
+#         )
+#         return False
 
 
-def make_gif_from_video_file(video_path: Path, gif_path: Path, width: int = 800, num_frames=30) -> bool:
-    """Create small thumbnail image from input image.
+def make_gif_from_video_file(video_path: Path, gif_path: Path, width: int = 800, num_frames:int=30, start_frame_id:int=0) -> bool:
+    """Create small gif image from input video.
 
     Returns:
         True if the processing is ok.
@@ -91,16 +101,20 @@ def make_gif_from_video_file(video_path: Path, gif_path: Path, width: int = 800,
     """
     try:
         cap = cv2.VideoCapture(str(video_path))
+        cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame_id)
+
+        fps = cap.get(cv2.CAP_PROP_FPS)
+
         ret, frame = cap.read()
         if not ret:
             logger.warning(f"Cannot read frame from video file '{video_path}'")
             return False
 
         # get the number of frames
-        frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT)) - start_frame_id
         frames = []
         for i in range(num_frames):
-            frame_idx = int(i * frame_count / num_frames)
+            frame_idx = start_frame_id + int(i * frame_count / num_frames)
             cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
             ret, frame = cap.read()
 
@@ -117,46 +131,77 @@ def make_gif_from_video_file(video_path: Path, gif_path: Path, width: int = 800,
         frames = np.array(frames)
 
         gif_path.parent.mkdir(exist_ok=True, parents=True)
-        save_gif(frames, str(gif_path))
+        # the whole video is shorten to 3 seconds per 10 frames
+        fps = 10.
+        save_gif(frames, str(gif_path), fps=fps)
         return True
     except Exception:
-        logger.debug(traceback.format_exc())
+        logger.debug("Problem in video creation.")
+        logger.warning(traceback.format_exc())
         logger.warning(
-            f"Cannot create thumbnail from video file '{video_path}'."
+            f"aaaa Cannot create thumbnail from video file '{video_path}'."
         )
         return False
 
-def make_thumbnail_from_file(image_path: Path, thumbnail_path: Path, width: int = 800) -> bool:
+
+def get_frame_from_video(video_path: Path, frame_id: int = 0) -> np.ndarray:
+    """Get frame from video file."""
+    cap = cv2.VideoCapture(str(video_path))
+    cap.set(cv2.CAP_PROP_POS_FRAMES, frame_id)
+    ret, frame = cap.read()
+    if not ret:
+        logger.warning(f"Cannot read frame {frame_id} from video file '{video_path}'")
+        return None
+
+    # turn to rgb
+    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    return frame
+
+
+def make_thumbnail_from_file(image_path: Path, thumbnail_path: Path, width: int = 800, frame_id=0) -> bool:
     """Create small thumbnail image from input image.
 
     Returns:
         True if the processing is ok.
 
     """
+    image_path = Path(image_path)
     try:
-        image = skimage.io.imread(image_path)
-        scale = float(width) / image.shape[1]
-        scale = [scale, scale, 1]
-        # TODO use opencv to resize image
-        image_rescaled = cv2.resize(image, (0, 0), fx=scale[0], fy=scale[1])
-        # image_rescaled = skimage.transform.rescale(image, scale=scale, anti_aliasing=True)
-        # image_rescaled = (image_rescaled * 255).astype(np.uint8)
-        # logger.info(f"{image_rescaled.shape=}, {image_rescaled.dtype=}")
-        thumbnail_path.parent.mkdir(exist_ok=True, parents=True)
-        if thumbnail_path.suffix.lower() in (".jpg", ".jpeg"):
-            quality = 85
+        # if input is video get first frame
+        if image_path.suffix.lower() in (".mp4", ".avi", ".mov", ".mkv", ".webm", ".flv", ".wmv", ".m4v"):
+            image = get_frame_from_video(image_path, frame_id)
         else:
-            quality = None
-        # check if image_rescaled is rgba. If so, convert to rgb
-        if image_rescaled.shape[2] == 4:
-            image_rescaled = cv2.cvtColor(image_rescaled, cv2.COLOR_RGBA2RGB)
-        skimage.io.imsave(thumbnail_path, image_rescaled, quality=quality)
+            image = skimage.io.imread(image_path)
+        save_thumbnail(image, thumbnail_path, width)
         return True
     except Exception:
+        logger.warning(traceback.format_exc())
         logger.warning(
-            f"Cannot create thumbnail from file '{image_path}'. Exception: {traceback.format_exc()}"
+            f"Cannot create thumbnail from file '{image_path}'."
         )
         return False
+
+
+def save_thumbnail(image:np.array, thumbnail_path:Path, width:int=800):
+    thumbnail_path = Path(thumbnail_path)
+    scale = float(width) / image.shape[1]
+    scale = [scale, scale, 1]
+    # TODO use opencv to resize image
+    image_rescaled = cv2.resize(image, (0, 0), fx=scale[0], fy=scale[1])
+    # image_rescaled = skimage.transform.rescale(image, scale=scale, anti_aliasing=True)
+    # image_rescaled = (image_rescaled * 255).astype(np.uint8)
+    # logger.info(f"{image_rescaled.shape=}, {image_rescaled.dtype=}")
+    thumbnail_path.parent.mkdir(exist_ok=True, parents=True)
+    if thumbnail_path.suffix.lower() in (".jpg", ".jpeg"):
+        quality = 85
+        if image_rescaled.shape[2] == 4:
+            image_rescaled = cv2.cvtColor(image_rescaled, cv2.COLOR_RGBA2RGB)
+    elif thumbnail_path.suffix.lower() == ".webp":
+        quality = 85
+    else:
+        quality = None
+    # check if image_rescaled is rgba. If so, convert to rgb
+    skimage.io.imsave(thumbnail_path, image_rescaled, quality=quality)
 
 
 def get_images_from_csv(csv_file: Path) -> list:

@@ -8,6 +8,7 @@
 * [changed] Most of the choice lists are sorted now
 * [added] Localities of Identity
 * [added] List of closest localities
+* [changed] Simplification of previews, thumbnails and static thumbnails generation
 
 ## 02-2025
 
