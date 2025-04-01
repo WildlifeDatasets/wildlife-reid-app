@@ -871,8 +871,12 @@ def get_individual_identity_from_foridentification(
             if reid_suggestion.identity is None:
                 # i.e. The identity was removed from the app
                 # remove from foridentification.top_mediafiles
-                foridentification.top_mediafiles.remove(reid_suggestion)
-                logger.warning(f"Missing identity for reid_suggestion. Removed one suggestion for {foridentification.mediafile.mediafile.name=}")
+                try:
+                    foridentification.top_mediafiles.remove(reid_suggestion)
+                    logger.warning(f"Missing identity for reid_suggestion. Removed one suggestion for {foridentification.mediafile.mediafile.name=}")
+                except Exception as e:
+                    logger.debug(traceback.format_exc())
+                    logger.error(f"Error removing reid_suggestion from foridentification.top_mediafiles: {e}")
             else:
                 representative_mediafiles = reid_suggestion.identity.mediafile_set.filter(identity_is_representative=True)
                 if len(representative_mediafiles) == 0:
@@ -2908,6 +2912,9 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
             spreadsheet_file = request.FILES["spreadsheet_file"]
             file_path = output_dir / spreadsheet_file.name
             logger.debug(f"{file_path=}")
+            # remove file if it already exists
+            if file_path.exists():
+                file_path.unlink()
             with open(file_path, "wb+") as destination:
                 for chunk in spreadsheet_file.chunks():
                     destination.write(chunk)
@@ -2920,8 +2927,8 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
             elif file_path.suffix == ".xlsx":
                 df = pd.read_excel(file_path)
             else:
-                return messages.error(request, "Only CSV and XLSX files are supported.")
                 df = None
+                return messages.error(request, "Only CSV and XLSX files are supported.")
 
             # load metadata
 
@@ -3030,8 +3037,22 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
                 else:
                     counter_file_in_spreadsheet_does_not_exist += 1
             msg = "Updated metadata for " + str(counter0) + " mediafiles. " + str(counter_fields_updated) + " fields updated " + \
-                    f"(individualities={counter_individuality}, localities={counter_locality}). " + \
-            str(counter_file_in_spreadsheet_does_not_exist) + " files in spreadsheet do not exist."
+                f"(individualities={counter_individuality}, localities={counter_locality}). " + \
+                str(counter_file_in_spreadsheet_does_not_exist) + " files in spreadsheet do not exist. " + \
+                f"The spreadsheet has {len(df)} rows. "
+            if counter0 == 0:
+                # show a few examples of original_path from table
+                sample_size = min(3, len(df))
+                if sample_size > 0:
+                    msg += "Sample of `original_path` in spreadsheet: " + ", ".join(
+                        df.sample(sample_size)["original_path"].dropna().astype(str).values) + " ; "
+                # add example of up to 3 original filenames from uploaded archives
+                mfs = list(
+                    MediaFile.objects.filter(parent=uploaded_archive).values_list("original_filename", flat=True))
+                if mfs:
+                    msg += "Sample of `original_filename` in uploaded archive: " + ", ".join(
+                        random.sample(mfs, min(3, len(mfs))))
+
             logger.info(msg)
 
             return message_view(
