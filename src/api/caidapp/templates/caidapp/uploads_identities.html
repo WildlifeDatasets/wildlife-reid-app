@@ -122,6 +122,16 @@
                                             </a>
 
                                             <ul class="dropdown-menu">
+                                                {% if request.user.is_staff or request.session.impersonate_user_id %}
+                                                    <li>
+                                                        <hr class="dropdown-divider">
+                                                    </li>
+                                                    {% if uploadedarchive.archivefile %}
+                                                        <li><a class="dropdown-item"
+                                                               href="{{ uploadedarchive.archivefile.url }}"><i
+                                                                class="bi bi-download"></i> Download uploaded archive</a></li>
+                                                    {% endif %}
+                                                {% endif %}
                                                 {% if uploadedarchive.zip_file %}
                                                     <li><a class="dropdown-item"
                                                            href="{{ uploadedarchive.zip_file.url }}"><i
