@@ -90,6 +90,7 @@ from .tasks import (
 )
 from .views_locality import _set_localities_to_mediafiles_of_uploadedarchive
 from .views_uploads import uploadedarchive_detail
+import random
 
 logger = logging.getLogger("app")
 User = get_user_model()
@@ -3051,6 +3052,7 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
                     MediaFile.objects.filter(parent=uploaded_archive).values_list("original_filename", flat=True))
                 if mfs:
                     msg += "Sample of `original_filename` in uploaded archive: " + ", ".join(
+
                         random.sample(mfs, min(3, len(mfs))))
 
             logger.info(msg)
@@ -3086,7 +3088,6 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
         form = forms.UploadedArchiveUpdateBySpreadsheetForm()
 
         prev_url = request.META.get("HTTP_REFERER", "/")
-        self.prev_url
         return render(request, "caidapp/update_form.html", {
             "form": form,
             "headline": "Upload XLSX or CSV",
