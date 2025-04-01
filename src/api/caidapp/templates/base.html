@@ -375,6 +375,7 @@
 {#                    <span>Taxon</span>#}
 {#                </a>#}
 {#            </li>#}
+            {% if user.caiduser.show_taxon_classification %}
             <li class="nav-item">
                 <a class="nav-link collapsed" data-bs-target="#icons-nav1" data-bs-toggle="collapse" href="#" aria-expanded="true">
                     <i class="fa-solid fa-hippo"></i>
@@ -405,7 +406,7 @@
 {#                            <span>Dates</span>#}
 {#                        </a>#}
 {#                    </li>#}
-                    {%  if user.caiduser.import_dir|length > 0 %}
+                    {% if user.caiduser.import_dir|length > 0 %}
                     <li>
                             <a class="nav-link collapsed" href="{% url 'caidapp:cloud_import_preview' %}"
                             ><i class="bi bi-cloud-arrow-up"></i> Cloud upload </a>
@@ -413,6 +414,7 @@
                     {% endif %}
                 </ul>
             </li>
+            {% endif %}
 {#            <li class="nav-item">#}
 {#                <a class="nav-link collapsed" href="{% url 'caidapp:uploads_identities' %}">#}
 {#                    <i class="fas fa-fingerprint"></i>#}

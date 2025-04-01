@@ -120,6 +120,8 @@ class CaIDUser(models.Model):
     dir_import_status = models.CharField(max_length=255, blank=True, default="")
     dir_import_message = models.CharField(max_length=255, blank=True, default="")
     identification_model = models.ForeignKey(IdentificationModel, on_delete=models.SET_NULL, null=True, blank=True)
+    show_taxon_classification = models.BooleanField(default=True)
+    show_wellcome_message_on_next_login = models.BooleanField(default=False)
 
     @receiver(post_save, sender=DjangoUser)
     def create_user_profile(sender, instance, created, **kwargs):  # NOSONAR

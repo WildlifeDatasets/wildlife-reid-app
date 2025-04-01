@@ -170,6 +170,15 @@ class UploadedArchiveForm(forms.ModelForm):
         }
 
 
+class CaIDUserForm(forms.ModelForm):
+    class Meta:
+        model = CaIDUser
+        fields = ("show_taxon_classification",)
+
+        help_texts = {
+            "show_taxon_classification": "Do you plan to use taxon classification?",
+        }
+
 class UploadedArchiveFormWithTaxon(forms.ModelForm):
 
     locality_at_upload = forms.CharField(
