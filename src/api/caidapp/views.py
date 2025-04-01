@@ -1322,6 +1322,7 @@ def upload_archive(
                 next_url = reverse_lazy("caidapp:uploads_identities")
             else:
                 next_url = reverse_lazy("caidapp:uploads")
+                uploaded_archive.taxon_for_identification = form.cleaned_data["taxon_for_identification"]
             counts = uploaded_archive.number_of_media_files_in_archive()
 
 
@@ -1338,8 +1339,10 @@ def upload_archive(
             # uploaded_archive.images_at_upload = counts["image_count"]
             # uploaded_archive.files_at_upload = counts["file_count"]
             # uploaded_archive.mediafiles_at_upload = counts["video_count"] + counts["image_count"]
+
             uploaded_archive.save()
             uploaded_archive.extract_locality_check_at_from_filename(commit=True)
+
             run_species_prediction_async(uploaded_archive, extract_identites=contains_identities)
 
             context = dict(
