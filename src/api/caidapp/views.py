@@ -1150,6 +1150,7 @@ def run_identification_on_unidentified(request):
         taxon_for_identification__isnull=False,
         contains_identities=False,
     ).all()
+
     for uploaded_archive in uploaded_archives:
         _run_identification(
             uploaded_archive,
@@ -1177,9 +1178,12 @@ def run_identification(request, uploadedarchive_id):
 def _run_identification(
         uploaded_archive: UploadedArchive,
         caiduser: models.CaIDUser,
-        taxon_str="Lynx lynx",
                         ):
     logger.debug("Generating CSV for run_identification...")
+    if uploaded_archive.taxon_for_identification:
+        taxon_str = uploaded_archive.taxon_for_identification.name
+    else:
+        taxon_str = "Lynx lynx"
     mediafiles = uploaded_archive.mediafile_set.filter(taxon__name=taxon_str).all()
     logger.debug(f"Generating CSV for init_identification with {len(mediafiles)} records...")
     uploaded_archive.identification_status = "IAIP"
