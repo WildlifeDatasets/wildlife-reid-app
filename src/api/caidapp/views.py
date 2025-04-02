@@ -2927,7 +2927,7 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
 
 
             if file_path.suffix == ".csv":
-                df = pd.read_csv(file_path, index_col=0)
+                df = pd.read_csv(file_path)
             elif file_path.suffix == ".xlsx":
                 df = pd.read_excel(file_path)
             else:
