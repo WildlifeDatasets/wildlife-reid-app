@@ -1292,6 +1292,14 @@ def upload_archive(
         )
         next = "caidapp:upload_archive_contains_identities"
 
+    if contains_single_taxon:
+        if contains_identities:
+            next_url = reverse_lazy("caidapp:uploads_known_identities")
+        else:
+            next_url = reverse_lazy("caidapp:uploads_identities")
+    else:
+        next_url = reverse_lazy("caidapp:uploads")
+
     if request.method == "POST":
         if contains_single_taxon:
             form = UploadedArchiveFormWithTaxon(
@@ -1319,10 +1327,11 @@ def upload_archive(
 
 
             if contains_single_taxon:
-                next_url = reverse_lazy("caidapp:uploads_identities")
-            else:
-                next_url = reverse_lazy("caidapp:uploads")
                 uploaded_archive.taxon_for_identification = form.cleaned_data["taxon_for_identification"]
+                # next_url = reverse_lazy("caidapp:uploads_identities")
+            else:
+                # next_url = reverse_lazy("caidapp:uploads")
+                pass
             counts = uploaded_archive.number_of_media_files_in_archive()
 
 
@@ -1362,10 +1371,6 @@ def upload_archive(
             return JsonResponse({"html": html})
         else:
             # Error
-            if contains_single_taxon:
-                next_url = reverse_lazy("caidapp:uploads_identities")
-            else:
-                next_url = reverse_lazy("caidapp:uploads")
             context = dict(
                 headline="Upload failed",
                 text="Upload failed. Try it again.",
@@ -1385,7 +1390,11 @@ def upload_archive(
         }
 
         if contains_single_taxon:
-            initial_data["taxon_for_identification"] = models.get_taxon("Lynx lynx")
+            if request.user.caiduser.default_taxon_for_identification:
+                default_taxon = request.user.caiduser.default_taxon_for_identification
+            else:
+                default_taxon = models.get_taxon("Lynx lynx")
+            initial_data["taxon_for_identification"] = default_taxon
             logger.debug(f"{initial_data=}")
             form = UploadedArchiveFormWithTaxon(initial=initial_data)
         else:

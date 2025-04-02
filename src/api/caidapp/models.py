@@ -79,6 +79,27 @@ def human_readable_hash():
     return codenamize.codenamize(get_hash(), number_of_words - 1, 0, " ", True)
 
 
+class Taxon(models.Model):
+    name = models.CharField(max_length=50)
+    parent = models.ForeignKey("self", on_delete=models.SET_NULL, null=True, blank=True)
+
+    def __str__(self):
+        return str(self.name)
+
+
+def get_taxon(name: str) -> Optional[Taxon]:
+    """Return taxon according to the name, create it if necessary."""
+    if (name is None) or (name == ""):
+        return None
+    objs = Taxon.objects.filter(name=name)
+    if len(objs) == 0:
+        taxon = Taxon(name=name)
+        taxon.save()
+    else:
+        taxon = objs[0]
+    return taxon
+
+
 class IdentificationModel(models.Model):
     name = models.CharField(max_length=50)
     description = models.CharField(max_length=255, blank=True, default="")
@@ -122,6 +143,10 @@ class CaIDUser(models.Model):
     identification_model = models.ForeignKey(IdentificationModel, on_delete=models.SET_NULL, null=True, blank=True)
     show_taxon_classification = models.BooleanField(default=True)
     show_wellcome_message_on_next_login = models.BooleanField(default=False)
+    default_taxon_for_identification = models.ForeignKey(
+        Taxon, on_delete=models.SET_NULL,
+        null=True, blank=True,
+    )
 
     @receiver(post_save, sender=DjangoUser)
     def create_user_profile(sender, instance, created, **kwargs):  # NOSONAR
@@ -143,16 +168,13 @@ class CaIDUser(models.Model):
         # UserProfile.objects.get_or_create(user=request.user)
         instance.caiduser.save()
 
+    def save(self, *args, **kwargs):
+        if not self.default_taxon_for_identification:
+            self.default_taxon_for_identification = get_taxon("Lynx lynx")
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return str(self.user)
-
-
-class Taxon(models.Model):
-    name = models.CharField(max_length=50)
-    parent = models.ForeignKey("self", on_delete=models.SET_NULL, null=True, blank=True)
-
-    def __str__(self):
-        return str(self.name)
 
 
 class Locality(models.Model):
@@ -1181,19 +1203,6 @@ def get_unique_name(name: str, workgroup: WorkGroup) -> Optional[IndividualIdent
     else:
         identity = objs[0]
     return identity
-
-
-def get_taxon(name: str) -> Optional[Taxon]:
-    """Return taxon according to the name, create it if necessary."""
-    if (name is None) or (name == ""):
-        return None
-    objs = Taxon.objects.filter(name=name)
-    if len(objs) == 0:
-        taxon = Taxon(name=name)
-        taxon.save()
-    else:
-        taxon = objs[0]
-    return taxon
 
 
 def get_locality(caiduser: CaIDUser, name: str) -> Union[Locality,None]:
