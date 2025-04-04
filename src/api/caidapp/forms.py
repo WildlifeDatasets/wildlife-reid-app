@@ -295,3 +295,29 @@ class UserSelectForm(forms.Form):
     user = forms.ModelChoiceField(
         queryset=User.objects.all().order_by("username"), label="Select User"
     )
+
+
+class ColumnMappingForm(forms.Form):
+    original_path = forms.ChoiceField(choices=[], required=True)
+    unique_name = forms.ChoiceField(choices=[], required=False)
+    taxon = forms.ChoiceField(choices=[], required=False)
+    locality_name = forms.ChoiceField(choices=[], required=False)
+    datetime = forms.ChoiceField(choices=[], required=False)
+    latitude = forms.ChoiceField(choices=[], required=False)
+    longitude = forms.ChoiceField(choices=[], required=False)
+
+
+
+    def __init__(self, *args, **kwargs):
+        column_choices = kwargs.pop("column_choices", [])
+        super().__init__(*args, **kwargs)
+
+        choices = [("", "----")] + [(col, col) for col in column_choices]  # možnost nevybrat
+
+        for field_name in self.fields:
+            self.fields[field_name].choices = choices
+
+        # Předvyplnění pokud název sloupce odpovídá očekávanému jménu
+        for field_name in self.fields:
+            if field_name in column_choices:
+                self.initial[field_name] = field_name

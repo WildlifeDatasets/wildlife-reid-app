@@ -2973,112 +2973,25 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
             }, inplace=True)
             # check if the column names are unique
 
+            # Check for required columns
+            # required_columns = ["original_path", "unique_name", "taxon", "locality_name", "latitude", "longitude", "datetime"]
+            # missing_columns = [col for col in required_columns if col not in df.columns]
+            #
+            # if missing_columns:
+            #     mapping_form = forms.ColumnMappingForm(
+            #         column_choices=df.columns  # <-- tady posíláš seznam sloupců z df
+            #     )
+            #     return render(request, 'caidapp/update_form.html',
+            #                   {
+            #                       'form': mapping_form,
+            #                        'headline': "Map Columns",
+            #
+            #                   }
+            #                   )
 
-            counter0 = 0
-            counter_fields_updated = 0
-            counter_file_in_spreadsheet_does_not_exist = 0
-            counter_locality = 0
-            counter_individuality = 0
-            self.prev_url = request.META.get("HTTP_REFERER", "/")
-            if "original_path" not in df.columns:
-                logger.debug(f"{df.columns=}")
-                logger.warning("The 'original_path' column is required in the uploaded spreadsheet.")
 
-                return message_view(
-                    request,
-                    "The 'original_path' column is required in the uploaded spreadsheet.",
-                    headline="Update metadata",
-                    link=self.prev_url,
-                    button_label="Ok",
-                )
-
-            for i, row in tqdm(df.iterrows(), total=len(df), desc="Updating metadata"):
-                original_path = row['original_path']
-
-                # get or None
-                mf = MediaFile.objects.filter(parent=uploaded_archive, original_filename=original_path).first()
-                if mf:
-                    try:
-                        # logger.debug(f"{mf=}")
-                        counter0 += 1
-                        # mf.category = row['category']
-                        if "predicted_category" in row:
-                            mf.taxon = models.get_taxon(row["predicted_category"])  # remove this
-                            counter_fields_updated += 1
-
-                        if "unique_name" in row:
-                            mf.identity = models.get_unique_name(
-                                row["unique_name"], workgroup=uploaded_archive.owner.workgroup
-                            )
-                            counter_fields_updated += 1
-                            counter_individuality += 1
-                        if "locality_name" in row:
-                            locality_obj = models.get_locality(
-                                caiduser=request.user.caiduser,
-                                name=row["locality_name"])
-                            if locality_obj:
-                                mf.locality = locality_obj
-                                if ("latitude" in row) and ("longitude" in row):
-                                    mf.locality.set_location(float(row["latitude"]), float(row["longitude"]))
-                                    counter_fields_updated += 1
-                                counter_fields_updated += 1
-                                counter_locality += 1
-                        if "datetime" in row:
-                            # check if it is in django compatible datetime format
-                            row_datetime = row["datetime"]
-                            if isinstance(row_datetime, str):
-                                # datetime_str = row["datetime"]
-                                # mf.captured_at = datetime_str
-                                mf.captured_at = row_datetime
-                                counter_fields_updated += 1
-                            elif isinstance(row_datetime, float) and np.isnan(row_datetime):
-                                pass  # do nothing
-                            # else if it is pandas datetime
-                            elif isinstance(row_datetime, pd.Timestamp):
-                                mf.captured_at = row_datetime.to_pydatetime()
-                                counter_fields_updated += 1
-                            else:
-                                logger.debug(f"{row['datetime']=}")
-                                logger.debug(f"{type(row['datetime'])=}")
-                                logger.warning(f"Could not update datetime for {mf=}")
-                        mf.save()
-
-                    except Exception as e:
-                        logger.debug(f"{mf=}")
-                        logger.debug(traceback.format_exc())
-                        logger.debug(f"{row=}")
-                        if "datetime" in row:
-                            logger.debug(f"{row['datetime']=}")
-                            logger.debug(f"{type(row['datetime'])=}")
-                        logger.error(e)
-                else:
-                    counter_file_in_spreadsheet_does_not_exist += 1
-            msg = "Updated metadata for " + str(counter0) + " mediafiles. " + str(counter_fields_updated) + " fields updated " + \
-                f"(individualities={counter_individuality}, localities={counter_locality}). " + \
-                str(counter_file_in_spreadsheet_does_not_exist) + " files in spreadsheet do not exist. " + \
-                f"The spreadsheet has {len(df)} rows. "
-            if counter0 == 0:
-                # show a few examples of original_path from table
-                sample_size = min(3, len(df))
-                if sample_size > 0:
-                    msg += "Sample of `original_path` in spreadsheet: " + ", ".join(
-                        df.sample(sample_size)["original_path"].dropna().astype(str).values) + " ; "
-                # add example of up to 3 original filenames from uploaded archives
-                mfs = list(
-                    MediaFile.objects.filter(parent=uploaded_archive).values_list("original_filename", flat=True))
-                if mfs:
-                    msg += "Sample of `original_filename` in uploaded archive: " + ", ".join(
-
-                        random.sample(mfs, min(3, len(mfs))))
-
-            logger.info(msg)
-
-            return message_view(
-                request,
-                msg,
-                headline="Update metadata",
-                link=self.prev_url,
-            )
+            retval = self.update_uploaded_archive_by_selected_columns(request, df, uploaded_archive)
+            return retval
             # return redirect(self.prev_url)
         else:
             return render(
@@ -3095,6 +3008,112 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
                 },
             )
 
+    def update_uploaded_archive_by_selected_columns(self, request, df, uploaded_archive):
+        counter0 = 0
+        counter_fields_updated = 0
+        counter_file_in_spreadsheet_does_not_exist = 0
+        counter_locality = 0
+        counter_individuality = 0
+        self.prev_url = request.META.get("HTTP_REFERER", "/")
+        if "original_path" not in df.columns:
+            logger.debug(f"{df.columns=}")
+            logger.warning("The 'original_path' column is required in the uploaded spreadsheet.")
+
+            retval = message_view(
+                request,
+                "The 'original_path' column is required in the uploaded spreadsheet.",
+                headline="Update metadata",
+                link=self.prev_url,
+                button_label="Ok",
+            )
+            # return
+        for i, row in tqdm(df.iterrows(), total=len(df), desc="Updating metadata"):
+            original_path = row['original_path']
+
+            # get or None
+            mf = MediaFile.objects.filter(parent=uploaded_archive, original_filename=original_path).first()
+            if mf:
+                try:
+                    # logger.debug(f"{mf=}")
+                    counter0 += 1
+                    # mf.category = row['category']
+                    if "predicted_category" in row:
+                        mf.taxon = models.get_taxon(row["predicted_category"])  # remove this
+                        counter_fields_updated += 1
+
+                    if "unique_name" in row:
+                        mf.identity = models.get_unique_name(
+                            row["unique_name"], workgroup=uploaded_archive.owner.workgroup
+                        )
+                        counter_fields_updated += 1
+                        counter_individuality += 1
+                    if "locality_name" in row:
+                        locality_obj = models.get_locality(
+                            caiduser=request.user.caiduser,
+                            name=row["locality_name"])
+                        if locality_obj:
+                            mf.locality = locality_obj
+                            if ("latitude" in row) and ("longitude" in row):
+                                mf.locality.set_location(float(row["latitude"]), float(row["longitude"]))
+                                counter_fields_updated += 1
+                            counter_fields_updated += 1
+                            counter_locality += 1
+                    if "datetime" in row:
+                        # check if it is in django compatible datetime format
+                        row_datetime = row["datetime"]
+                        if isinstance(row_datetime, str):
+                            # datetime_str = row["datetime"]
+                            # mf.captured_at = datetime_str
+                            mf.captured_at = row_datetime
+                            counter_fields_updated += 1
+                        elif isinstance(row_datetime, float) and np.isnan(row_datetime):
+                            pass  # do nothing
+                        # else if it is pandas datetime
+                        elif isinstance(row_datetime, pd.Timestamp):
+                            mf.captured_at = row_datetime.to_pydatetime()
+                            counter_fields_updated += 1
+                        else:
+                            logger.debug(f"{row['datetime']=}")
+                            logger.debug(f"{type(row['datetime'])=}")
+                            logger.warning(f"Could not update datetime for {mf=}")
+                    mf.save()
+
+                except Exception as e:
+                    logger.debug(f"{mf=}")
+                    logger.debug(traceback.format_exc())
+                    logger.debug(f"{row=}")
+                    if "datetime" in row:
+                        logger.debug(f"{row['datetime']=}")
+                        logger.debug(f"{type(row['datetime'])=}")
+                    logger.error(e)
+            else:
+                counter_file_in_spreadsheet_does_not_exist += 1
+        msg = "Updated metadata for " + str(counter0) + " mediafiles. " + str(
+            counter_fields_updated) + " fields updated " + \
+              f"(individualities={counter_individuality}, localities={counter_locality}). " + \
+              str(counter_file_in_spreadsheet_does_not_exist) + " files in spreadsheet do not exist. " + \
+              f"The spreadsheet has {len(df)} rows. "
+        if counter0 == 0:
+            # show a few examples of original_path from table
+            sample_size = min(3, len(df))
+            if sample_size > 0:
+                msg += "Sample of `original_path` in spreadsheet: " + ", ".join(
+                    df.sample(sample_size)["original_path"].dropna().astype(str).values) + " ; "
+            # add example of up to 3 original filenames from uploaded archives
+            mfs = list(
+                MediaFile.objects.filter(parent=uploaded_archive).values_list("original_filename", flat=True))
+            if mfs:
+                msg += "Sample of `original_filename` in uploaded archive: " + ", ".join(
+
+                    random.sample(mfs, min(3, len(mfs))))
+        logger.info(msg)
+        retval = message_view(
+            request,
+            msg,
+            headline="Update metadata",
+            link=self.prev_url,
+        )
+        return retval
 
     def get(self, request, uploaded_archive_id):
         """Render the form for updating the uploaded archive."""
