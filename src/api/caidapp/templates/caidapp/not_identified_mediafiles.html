@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load static %}
+{% load custom_filters %}
 {% block head %}
     <!--refresh every 120 s-->
     {#<meta http-equiv="refresh" content="120">#}
@@ -30,8 +31,9 @@
                                 <div class="card-body">
                                     {#                                <h5 class="card-title">{{ mediafile }}</h5>#}
                                     <p class="card-text">
-                                        Category: {{ mediafile.category }}<br>
-                                        Locality: {{ mediafile.locality }}<br>
+                                        Top score: {{ mediafileforidentification.max_score|mul:100 }} %
+                                        Category: <a class="link-secondary" href="{%  url 'caidapp:taxon' mediafile.taxon.id %}">{{ mediafile.taxon}}</a><br>
+                                        Locality: <a class="link-secondary" href="{%  url 'caidapp:media_files_locality' mediafile.locality.id %}">{{ mediafile.locality }}</a><br>
                                         Captured at: {{ mediafile.captured_at|date:'Y-m-d H:i' }}<br>
                                         Camera Trap Check: <a href="{%  url 'caidapp:uploadedarchive_mediafiles' mediafile.parent.id %}" class="link-secondary">{{ mediafile.parent }}</a><br>
                                     </p>

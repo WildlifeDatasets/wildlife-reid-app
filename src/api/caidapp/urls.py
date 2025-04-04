@@ -403,6 +403,7 @@ urlpatterns = [
     # path("uploads_status_api/<bool:species>/", views.uploads_status_api, name="uploads_status_api"),
     path("uploads_status_api/<str:group>/", views.uploads_status_api, name="uploads_status_api"),
     path('sentry-debug/', trigger_error),
+    path("home/", views.home_view, name="home"),
 
 ]
 # if settings.DEBUG:

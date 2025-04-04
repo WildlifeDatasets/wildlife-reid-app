@@ -49,7 +49,8 @@
                             {% endif %}
                         </a>
                         <i class="bi bi-arrow-right-short fa-2x" style="vertical-align: middle;"></i>
-                        <a class="btn {{ btn_styles.confirm_identification.class }} {% if btn_styles.n_for_confirmation == 0 %} disabled {% endif %} }}" href="{% url 'caidapp:get_individual_identity' %}"><i class="bi bi-question-circle"></i> Confirm identification</a>
+{#                        <a class="btn {{ btn_styles.confirm_identification.class }} {% if btn_styles.n_for_confirmation == 0 %} disabled {% endif %} }}" href="{% url 'caidapp:get_individual_identity' %}"><i class="bi bi-question-circle"></i> Confirm identification</a>#}
+                        <a class="btn {{ btn_styles.confirm_identification.class }} {% if btn_styles.n_for_confirmation == 0 %} disabled {% endif %} }}" href="{% url 'caidapp:not_identified_mediafiles' %}"><i class="bi bi-question-circle"></i> Confirm identification</a>
                     </div>
 {#                    <div>#}
 {#                        <a class="btn btn-secondary" href="{% url 'caidapp:select_reid_model' %}"><i class="fa-solid fa-gear"></i></a>#}

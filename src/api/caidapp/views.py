@@ -105,7 +105,7 @@ def impersonate_user(request):
             user = form.cleaned_data["user"]
             request.session["original_user_id"] = request.user.id
             request.session["impersonate_user_id"] = user.id
-            return redirect("caidapp:uploads")
+            return redirect("caidapp:home")
     else:
         form = UserSelectForm()
 
@@ -125,7 +125,7 @@ def stop_impersonation(request):
             # remove original_user_id from session
             request.session.pop("original_user_id")
             # del request.session["original_user_id"]
-    return redirect("caidapp:uploads")
+    return redirect("caidapp:home")
 
 def is_impersonating(request):
     """Check if user is impersonating."""
@@ -155,11 +155,17 @@ def staff_or_impersonated_staff_required(view_func):
 
     return _wrapped_view
 
+def home_view(request):
+    return render(
+        request,
+        "caidapp/home.html",
+    )
+
 
 def login(request):
     """Login page."""
     if request.user.is_authenticated:
-        return redirect("caidapp:uploads")
+        return redirect("caidapp:home")
     else:
         return render(
             request,
@@ -807,10 +813,20 @@ def get_individual_identity_zoomed(request, foridentification_id: int, reid_sugg
 @login_required
 def not_identified_mediafiles(request):
     """View for mediafiles with individualities that are not identified."""
-    foridentification_set = MediafilesForIdentification.objects.filter(
-        mediafile__parent__owner__workgroup=request.user.caiduser.workgroup
+    foridentification_set = (
+        MediafilesForIdentification.objects
+        .filter( mediafile__parent__owner__workgroup=request.user.caiduser.workgroup )
+        .annotate(max_score=Max("top_mediafiles__score"))
+        .order_by("-max_score")
     )
-    # mediafile_set = uploadedarchive.mediafile_set.all()
+
+    # sort by highest score
+    # for foridentification in foridentification_set:
+    #     reid_suggestion = models.MediafileIdentificationSuggestion.objects.get(id=reid_suggestion_id)
+    #     suggestions = MediafilesIdentificationSuggestion
+    # foridentification_set.annotate(
+    #
+    # )
 
     records_per_page = 80
     paginator = Paginator(foridentification_set, per_page=records_per_page)
@@ -889,6 +905,7 @@ def get_individual_identity_from_foridentification(
                 reid_suggestion.representative_mediafiles = representative_mediafiles
 
 
+
         for identity in remaining_identities:
             identity.representative_mediafiles = identity.mediafile_set.filter(identity_is_representative=True)
 
@@ -901,6 +918,21 @@ def get_individual_identity_from_foridentification(
         if len(remaining_identities) > 10:
             # print first 10 remaining identities
             logger.debug(f"{remaining_identities[:10]=}")
+
+        # max_score for current foridentification
+        current_max_score = foridentification.top_mediafiles.aggregate(
+            max_score=Max("score")
+        )["max_score"]
+
+        # find the next foridentification with lower max_score
+        next_foridentification = (
+            foridentifications.annotate(max_score=Max("top_mediafiles__score"))
+            .filter(max_score__lt=current_max_score)
+            .order_by("-max_score")
+            .first()
+        )
+
+
     else:
         return message_view(request, "No mediafiles for identification.")
 
@@ -912,6 +944,7 @@ def get_individual_identity_from_foridentification(
             "foridentifications": foridentifications,
             "remaining_identities": remaining_identities,
             "reid_suggestions": reid_suggestions,
+            "next_foridentification": next_foridentification,
             # "related_identities": identity_ids,
         },
     )
@@ -1286,23 +1319,18 @@ def upload_archive(
     """Process the uploaded zip file."""
     text_note = ""
     next = "caidapp:uploads"
+    next_url = reverse_lazy("caidapp:uploads")
     if contains_single_taxon:
         text_note = "The archive contains images of a single taxon."
         next = "caidapp:upload_archive_contains_single_taxon"
+        next_url = reverse_lazy("caidapp:uploads_identities")
     if contains_identities:
         text_note = (
             "The archive contains identities (of single taxon). "
             + "Each identity is in individual folder"
         )
         next = "caidapp:upload_archive_contains_identities"
-
-    if contains_single_taxon:
-        if contains_identities:
-            next_url = reverse_lazy("caidapp:uploads_known_identities")
-        else:
-            next_url = reverse_lazy("caidapp:uploads_identities")
-    else:
-        next_url = reverse_lazy("caidapp:uploads")
+        next_url = reverse_lazy("caidapp:uploads_known_identities")
 
     if request.method == "POST":
         if contains_single_taxon:
@@ -1566,7 +1594,12 @@ def update_uploadedarchive(request, uploadedarchive_id):
                 uploaded_archive.locality_at_upload_object = locality
                 uploaded_archive.save()
 
-            return redirect("caidapp:uploads")
+            if uploaded_archive.contains_identities:
+                return redirect("caidapp:uploads_identities")
+            elif uploaded_archive.contains_single_taxon:
+                return redirect("caidapp:uploads_known_identities")
+            else:
+                return redirect("caidapp:uploads")
     else:
         form = UploadedArchiveUpdateForm(instance=uploaded_archive)
     return render(
@@ -1609,7 +1642,7 @@ def delete_mediafile(request, mediafile_id):
             uploaded_archive.save()
         mediafile.delete()
         if uploaded_archive is None:
-            return redirect("caidapp:uploads")
+            return redirect("caidapp:home")
         else:
             return redirect("caidapp:uploadedarchive_mediafiles", uploadedarchive_id=parent_id)
     else:
@@ -1635,7 +1668,7 @@ class MyLoginView(LoginView):
 
     def get_success_url(self):
         """Return url of next page."""
-        return reverse_lazy("caidapp:uploads")
+        return reverse_lazy("caidapp:home")
 
     def form_invalid(self, form):
         """Return error message if wrong username or password is given."""
@@ -2190,7 +2223,9 @@ def change_mediafiles_datetime(request):
 
             logger.debug("Going back")
             if next_url is None:
-                next_url = reverse_lazy("caidapp:uploads")
+                prev_url = request.META.get("HTTP_REFERER", "/")
+                # next_url = reverse_lazy("caidapp:")
+                next_url = prev_url
             return redirect(next_url)
 
         else:
@@ -2626,7 +2661,7 @@ def refresh_data(request):
     # get taxon (and create it if it does not exist
     models.get_taxon("Unclassifiable")
 
-    return redirect("caidapp:uploads")
+    return redirect("caidapp:home")
 
 
 def _refresh_media_file_original_name(request):
@@ -2973,25 +3008,112 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
             }, inplace=True)
             # check if the column names are unique
 
-            # Check for required columns
-            # required_columns = ["original_path", "unique_name", "taxon", "locality_name", "latitude", "longitude", "datetime"]
-            # missing_columns = [col for col in required_columns if col not in df.columns]
-            #
-            # if missing_columns:
-            #     mapping_form = forms.ColumnMappingForm(
-            #         column_choices=df.columns  # <-- tady posíláš seznam sloupců z df
-            #     )
-            #     return render(request, 'caidapp/update_form.html',
-            #                   {
-            #                       'form': mapping_form,
-            #                        'headline': "Map Columns",
-            #
-            #                   }
-            #                   )
 
+            counter0 = 0
+            counter_fields_updated = 0
+            counter_file_in_spreadsheet_does_not_exist = 0
+            counter_locality = 0
+            counter_individuality = 0
+            self.prev_url = request.META.get("HTTP_REFERER", "/")
+            if "original_path" not in df.columns:
+                logger.debug(f"{df.columns=}")
+                logger.warning("The 'original_path' column is required in the uploaded spreadsheet.")
 
-            retval = self.update_uploaded_archive_by_selected_columns(request, df, uploaded_archive)
-            return retval
+                return message_view(
+                    request,
+                    "The 'original_path' column is required in the uploaded spreadsheet.",
+                    headline="Update metadata",
+                    link=self.prev_url,
+                    button_label="Ok",
+                )
+
+            for i, row in tqdm(df.iterrows(), total=len(df), desc="Updating metadata"):
+                original_path = row['original_path']
+
+                # get or None
+                mf = MediaFile.objects.filter(parent=uploaded_archive, original_filename=original_path).first()
+                if mf:
+                    try:
+                        # logger.debug(f"{mf=}")
+                        counter0 += 1
+                        # mf.category = row['category']
+                        if "predicted_category" in row:
+                            mf.taxon = models.get_taxon(row["predicted_category"])  # remove this
+                            counter_fields_updated += 1
+
+                        if "unique_name" in row:
+                            mf.identity = models.get_unique_name(
+                                row["unique_name"], workgroup=uploaded_archive.owner.workgroup
+                            )
+                            counter_fields_updated += 1
+                            counter_individuality += 1
+                        if "locality_name" in row:
+                            locality_obj = models.get_locality(
+                                caiduser=request.user.caiduser,
+                                name=row["locality_name"])
+                            if locality_obj:
+                                mf.locality = locality_obj
+                                if ("latitude" in row) and ("longitude" in row):
+                                    mf.locality.set_location(float(row["latitude"]), float(row["longitude"]))
+                                    counter_fields_updated += 1
+                                counter_fields_updated += 1
+                                counter_locality += 1
+                        if "datetime" in row:
+                            # check if it is in django compatible datetime format
+                            row_datetime = row["datetime"]
+                            if isinstance(row_datetime, str):
+                                # datetime_str = row["datetime"]
+                                # mf.captured_at = datetime_str
+                                mf.captured_at = row_datetime
+                                counter_fields_updated += 1
+                            elif isinstance(row_datetime, float) and np.isnan(row_datetime):
+                                pass  # do nothing
+                            # else if it is pandas datetime
+                            elif isinstance(row_datetime, pd.Timestamp):
+                                mf.captured_at = row_datetime.to_pydatetime()
+                                counter_fields_updated += 1
+                            else:
+                                logger.debug(f"{row['datetime']=}")
+                                logger.debug(f"{type(row['datetime'])=}")
+                                logger.warning(f"Could not update datetime for {mf=}")
+                        mf.save()
+
+                    except Exception as e:
+                        logger.debug(f"{mf=}")
+                        logger.debug(traceback.format_exc())
+                        logger.debug(f"{row=}")
+                        if "datetime" in row:
+                            logger.debug(f"{row['datetime']=}")
+                            logger.debug(f"{type(row['datetime'])=}")
+                        logger.error(e)
+                else:
+                    counter_file_in_spreadsheet_does_not_exist += 1
+            msg = "Updated metadata for " + str(counter0) + " mediafiles. " + str(counter_fields_updated) + " fields updated " + \
+                f"(individualities={counter_individuality}, localities={counter_locality}). " + \
+                str(counter_file_in_spreadsheet_does_not_exist) + " files in spreadsheet do not exist. " + \
+                f"The spreadsheet has {len(df)} rows. "
+            if counter0 == 0:
+                # show a few examples of original_path from table
+                sample_size = min(3, len(df))
+                if sample_size > 0:
+                    msg += "Sample of `original_path` in spreadsheet: " + ", ".join(
+                        df.sample(sample_size)["original_path"].dropna().astype(str).values) + " ; "
+                # add example of up to 3 original filenames from uploaded archives
+                mfs = list(
+                    MediaFile.objects.filter(parent=uploaded_archive).values_list("original_filename", flat=True))
+                if mfs:
+                    msg += "Sample of `original_filename` in uploaded archive: " + ", ".join(
+
+                        random.sample(mfs, min(3, len(mfs))))
+
+            logger.info(msg)
+
+            return message_view(
+                request,
+                msg,
+                headline="Update metadata",
+                link=self.prev_url,
+            )
             # return redirect(self.prev_url)
         else:
             return render(
@@ -3008,112 +3130,6 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
                 },
             )
 
-    def update_uploaded_archive_by_selected_columns(self, request, df, uploaded_archive):
-        counter0 = 0
-        counter_fields_updated = 0
-        counter_file_in_spreadsheet_does_not_exist = 0
-        counter_locality = 0
-        counter_individuality = 0
-        self.prev_url = request.META.get("HTTP_REFERER", "/")
-        if "original_path" not in df.columns:
-            logger.debug(f"{df.columns=}")
-            logger.warning("The 'original_path' column is required in the uploaded spreadsheet.")
-
-            retval = message_view(
-                request,
-                "The 'original_path' column is required in the uploaded spreadsheet.",
-                headline="Update metadata",
-                link=self.prev_url,
-                button_label="Ok",
-            )
-            # return
-        for i, row in tqdm(df.iterrows(), total=len(df), desc="Updating metadata"):
-            original_path = row['original_path']
-
-            # get or None
-            mf = MediaFile.objects.filter(parent=uploaded_archive, original_filename=original_path).first()
-            if mf:
-                try:
-                    # logger.debug(f"{mf=}")
-                    counter0 += 1
-                    # mf.category = row['category']
-                    if "predicted_category" in row:
-                        mf.taxon = models.get_taxon(row["predicted_category"])  # remove this
-                        counter_fields_updated += 1
-
-                    if "unique_name" in row:
-                        mf.identity = models.get_unique_name(
-                            row["unique_name"], workgroup=uploaded_archive.owner.workgroup
-                        )
-                        counter_fields_updated += 1
-                        counter_individuality += 1
-                    if "locality_name" in row:
-                        locality_obj = models.get_locality(
-                            caiduser=request.user.caiduser,
-                            name=row["locality_name"])
-                        if locality_obj:
-                            mf.locality = locality_obj
-                            if ("latitude" in row) and ("longitude" in row):
-                                mf.locality.set_location(float(row["latitude"]), float(row["longitude"]))
-                                counter_fields_updated += 1
-                            counter_fields_updated += 1
-                            counter_locality += 1
-                    if "datetime" in row:
-                        # check if it is in django compatible datetime format
-                        row_datetime = row["datetime"]
-                        if isinstance(row_datetime, str):
-                            # datetime_str = row["datetime"]
-                            # mf.captured_at = datetime_str
-                            mf.captured_at = row_datetime
-                            counter_fields_updated += 1
-                        elif isinstance(row_datetime, float) and np.isnan(row_datetime):
-                            pass  # do nothing
-                        # else if it is pandas datetime
-                        elif isinstance(row_datetime, pd.Timestamp):
-                            mf.captured_at = row_datetime.to_pydatetime()
-                            counter_fields_updated += 1
-                        else:
-                            logger.debug(f"{row['datetime']=}")
-                            logger.debug(f"{type(row['datetime'])=}")
-                            logger.warning(f"Could not update datetime for {mf=}")
-                    mf.save()
-
-                except Exception as e:
-                    logger.debug(f"{mf=}")
-                    logger.debug(traceback.format_exc())
-                    logger.debug(f"{row=}")
-                    if "datetime" in row:
-                        logger.debug(f"{row['datetime']=}")
-                        logger.debug(f"{type(row['datetime'])=}")
-                    logger.error(e)
-            else:
-                counter_file_in_spreadsheet_does_not_exist += 1
-        msg = "Updated metadata for " + str(counter0) + " mediafiles. " + str(
-            counter_fields_updated) + " fields updated " + \
-              f"(individualities={counter_individuality}, localities={counter_locality}). " + \
-              str(counter_file_in_spreadsheet_does_not_exist) + " files in spreadsheet do not exist. " + \
-              f"The spreadsheet has {len(df)} rows. "
-        if counter0 == 0:
-            # show a few examples of original_path from table
-            sample_size = min(3, len(df))
-            if sample_size > 0:
-                msg += "Sample of `original_path` in spreadsheet: " + ", ".join(
-                    df.sample(sample_size)["original_path"].dropna().astype(str).values) + " ; "
-            # add example of up to 3 original filenames from uploaded archives
-            mfs = list(
-                MediaFile.objects.filter(parent=uploaded_archive).values_list("original_filename", flat=True))
-            if mfs:
-                msg += "Sample of `original_filename` in uploaded archive: " + ", ".join(
-
-                    random.sample(mfs, min(3, len(mfs))))
-        logger.info(msg)
-        retval = message_view(
-            request,
-            msg,
-            headline="Update metadata",
-            link=self.prev_url,
-        )
-        return retval
 
     def get(self, request, uploaded_archive_id):
         """Render the form for updating the uploaded archive."""

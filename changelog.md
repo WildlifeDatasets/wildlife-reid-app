@@ -1,5 +1,10 @@
 # Changelog
 
+## 04-2025
+
+* [added] Home page
+* [added] Identify sorted by score
+* [changed] Update by spreadsheet is now more robust
 
 ## 03-2025
 

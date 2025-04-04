@@ -173,6 +173,18 @@
                                 >
                             <a href="{% url 'caidapp:not_identified_mediafiles' %}" class="btn btn-secondary"><i class="bi bi-list"></i>All for confirmation</a>
                             <a href="{% url 'caidapp:get_individual_identity' %}" class="btn btn-secondary"><i class="bi bi-chevron-bar-right"></i>Skip</a>
+                                    {% if next_foridentification %}
+                                        <a href="{% url 'caidapp:get_individual_identity' next_foridentification.id %}" class="btn btn-primary">
+                                              <i class="bi bi-chevron-right"></i>
+                                                Next (Score: {{ next_foridentification.max_score|mul:100|floatformat:0 }}%)
+                                        </a>
+                                            {% else %}
+
+                                        <a href="#" class="btn btn-secondary disabled">
+                                            <i class="bi bi-chevron-right"></i>
+                                            Next
+                                        </a>
+{% endif %}
                             <a href="{% url 'caidapp:remove_foridentification' foridentification.id %}"
                                class="btn btn-danger"
                                onclick="return confirm('Remove mediafile from list for identification?')"><i
