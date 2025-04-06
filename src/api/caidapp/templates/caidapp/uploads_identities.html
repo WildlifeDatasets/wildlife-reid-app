@@ -43,7 +43,7 @@
                             data-bs-toggle="tooltip" title="{{ btn_styles.run_identification.tooltip }}"
                            onclick="return confirm('{{ btn_styles.run_identification.confirm }}')"
                         >
-                            <i class="bi bi-question-circle"></i> Identify
+                            <i class="bi bi-question-circle"></i> Compare with identity database
                             {% if user.caiduser.workgroup.identification_reid_status == "Processing" %}
                                 <i class="fa fa-spinner fa-spin"></i>
                             {% endif %}
@@ -52,17 +52,6 @@
 {#                        <a class="btn {{ btn_styles.confirm_identification.class }} {% if btn_styles.n_for_confirmation == 0 %} disabled {% endif %} }}" href="{% url 'caidapp:get_individual_identity' %}"><i class="bi bi-question-circle"></i> Confirm identification</a>#}
                         <a class="btn {{ btn_styles.confirm_identification.class }} {% if btn_styles.n_for_confirmation == 0 %} disabled {% endif %} }}" href="{% url 'caidapp:not_identified_mediafiles' %}"><i class="bi bi-question-circle"></i> Confirm identification</a>
                     </div>
-{#                    <div>#}
-{#                        <a class="btn btn-secondary" href="{% url 'caidapp:select_reid_model' %}"><i class="fa-solid fa-gear"></i></a>#}
-{#                    </div>#}
-{#                {% if workgroup.identification_init_status %}#}
-{#                    <p>Identification initiated at: {{ workgroup.identification_init_at|date:'Y-m-d H:i' }}</p>#}
-{#                    <p>{{ workgroup.identification_init_message }}</p>#}
-{#                {% else %}#}
-{#                    Identification not initiated.#}
-{#                {% endif %}#}
-{#                <p><i class="bi bi-calendar" ></i></p>#}
-{#                {{ user.caiduser.workgroup }}#}
                 </div>
             </nav>
             <div class="d-flex justify-content-between mt-5">

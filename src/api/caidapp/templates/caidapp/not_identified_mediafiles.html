@@ -31,7 +31,7 @@
                                 <div class="card-body">
                                     {#                                <h5 class="card-title">{{ mediafile }}</h5>#}
                                     <p class="card-text">
-                                        Top score: {{ mediafileforidentification.max_score|mul:100 }} %
+                                        Top score: {{ mediafileforidentification.max_score|mul:100|floatformat:0 }} %<br>
                                         Category: <a class="link-secondary" href="{%  url 'caidapp:taxon' mediafile.taxon.id %}">{{ mediafile.taxon}}</a><br>
                                         Locality: <a class="link-secondary" href="{%  url 'caidapp:media_files_locality' mediafile.locality.id %}">{{ mediafile.locality }}</a><br>
                                         Captured at: {{ mediafile.captured_at|date:'Y-m-d H:i' }}<br>
