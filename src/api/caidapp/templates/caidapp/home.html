@@ -25,24 +25,45 @@
                         {% endfor %}
                     </ol>
                 {% endif %}
-            <div class="section">
-                <p class="mt-4">What do you want to process?</p>
-                <div class="row">
-                    <div class="col">
-                        <a class="btn btn-primary" href="{% url 'caidapp:taxon_processing' %}" >Taxon</a>
-                    </div>
-                    <div class="col">
-                        <a class="btn btn-primary" href="{% url 'caidapp:uploads_identities' %}" >Individuality</a>
+            </nav>
+        </div>
+        <div class="card">
+            <div class="card-body">
+                <div class="section">
+                    <p class="mt-4">What do you want to process?</p>
+                    <div class="row">
+                        <div class="col">
+                            <a class="btn btn-primary" href="{% url 'caidapp:taxon_processing' %}">Taxon</a>
+                        </div>
+                        <div class="col">
+                            <a class="btn btn-primary" href="{% url 'caidapp:uploads_identities' %}">Individuality</a>
+                        </div>
+
                     </div>
 
                 </div>
-
-            </div>
                 {#                    <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li>#}
                 {#                    <li class="breadcrumb-item"><a href="{% url 'caidapp:uploadedarchive_mediafiles' mediafile.parent.id %}"> Uploaded#}
                 {#                        Archive: {{ mediafile.parent }}</a></li>#}
                 {#                </ol>#}
-            </nav>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-body">
+                <h2 class="card-title">User data</h2>
+                {{ user.caiduser.number_of_uploaded_archives }} archives uploaded {{ user }}<br>
+                {{ user.caiduser.number_of_uploaded_media_files }} media files uploaded by {{ user }} <br>
+
+                {% if user.caiduser.workgroup %}
+                <h2 class="card-title">Workgroup data</h2>
+                {{ user.caiduser.workgroup.number_of_uploaded_archives }} archives uploaded by members of {{ user.caiduser.workgroup.name }}<br>
+                {{ user.caiduser.workgroup.number_of_uploaded_media_files }} media files uploaded by members of {{ user.caiduser.workgroup.name }} <br>
+                {% else %}
+                {%  endif %}
+
+
+            </div>
+        </div>
         </div><!-- End Page Title -->
     {% endif %}
 {% endblock %}

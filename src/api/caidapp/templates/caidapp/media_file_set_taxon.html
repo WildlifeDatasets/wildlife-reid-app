@@ -1,0 +1,305 @@
+{% extends 'base.html' %}
+{% load custom_filters %}
+{# add style #}
+{% block head %}
+    <style>
+        /* Increase the size of the carousel control icons */
+        .carousel-control-prev-icon,
+        .carousel-control-next-icon {
+            background-color: rgba(0, 0, 0, 0.5); /* Semi-transparent background for better visibility */
+            background-size: 50%; /* Adjust the size of the arrow icon */
+            width: 3rem;
+            height: 3rem;
+            border-radius: 50%; /* Makes the control icons circular */
+        }
+
+        /* Optional: Add a border around the icons */
+        .carousel-control-prev-icon,
+        .carousel-control-next-icon {
+            border: 2px solid white;
+        }
+
+        /* Change the hover effect for the arrows */
+        .carousel-control-prev:hover .carousel-control-prev-icon,
+        .carousel-control-next:hover .carousel-control-next-icon {
+            background-color: rgba(0, 0, 0, 0.8); /* Darker background on hover */
+        }
+
+        /* Adjust the position of the arrows */
+        .carousel-control-prev,
+        .carousel-control-next {
+            top: 50%; /* Center the controls vertically */
+            transform: translateY(-50%);
+        }
+    </style>
+{% endblock %}
+{# add body #}
+
+{% block body %}
+    {#<div class="container">#}
+    {% if user.is_authenticated %}
+        <div class="pagetitle">
+            <div style="display: flex; justify-content: space-between">
+
+                <div>
+                    <h1>{{ headline }}</h1>
+                    <nav>
+                        <ol class="breadcrumb">
+                            {% if mediafile.parent.contains_single_taxon %}
+                                <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads_identities' %}">Identities
+                                    Uploads </a></li>
+                            {% else %}
+                                <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}"> Taxon Uploads</a>
+                                </li>
+                            {% endif %}
+                            <li class="breadcrumb-item"><a
+                                    href="{% url 'caidapp:uploadedarchive_mediafiles' mediafile.parent.id %}"> Uploaded
+                                Archive: {{ mediafile.parent }}</a></li>
+                        </ol>
+                    </nav>
+                </div>
+                <div>
+
+                    <div class="dropdown mt-3">
+                        {#                                <div class="dropdown d-inline-block">#}
+                        <a class="btn btn-secondary dropdown-toggle" href="#" role="button"
+                           data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-three-dots"></i>
+                        </a>
+
+                        <ul class="dropdown-menu">
+                            {% if request.user.is_staff %}
+
+                                <li>
+                                    <a class="dropdown-item"
+                                       href="{% url 'admin:caidapp_mediafile_change' mediafile.id %}">
+                                        <i class="bi bi-lock"></i>
+                                        Edit in admin
+                                    </a>
+                                </li>
+                                <li>
+                                    <hr class="dropdown-divider">
+                                </li>
+                            {% endif %}
+                            <li>
+
+                                {#                                            download mediafile#}
+                                <a class="dropdown-item"
+                                   href="{{ mediafile.mediafile.url }}" download>
+                                    <i class="bi bi-download"></i> Download media file
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item text-danger"
+                                   href="{% url 'caidapp:delete_mediafile' mediafile.id %}"
+                                   onclick="return confirm('Delete file {{ mediafile }}?')">
+                                    <i class="bi bi-trash"></i> Delete
+                                </a>
+
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+
+            {% if mediafile.sequence.mediafile_set.all|length > 1 %}
+                <div id="mediafileCarousel" class="carousel slide">
+                    <div class="carousel-inner">
+                        {% for chunk in mediafile.sequence.mediafile_set.all|chunk:5 %}
+                            <div class="carousel-item {% if forloop.first %}active{% endif %}">
+                                <div class="d-flex justify-content-center">
+                                    {% for sequence_mediafile in chunk %}
+                                        <div class="m-2">
+                                            <a href="{% url 'caidapp:missing_taxon_annotation_for_mediafile' sequence_mediafile.id %}">
+                                                <img src="{{ sequence_mediafile.static_thumbnail.url }}" class="img-fluid"
+                                                     alt="Media Thumbnail" style="max-width: 100px;"
+                                                        fetchpriority="low"
+                                                     {% if not forloop.parentloop.first  %}
+                                                     loading="lazy"
+                                                     {% endif %}
+                                                >
+                                            </a>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+
+                    {% if mediafile.sequence.mediafile_set.all|length > 5 %}
+                    <!-- Carousel Controls -->
+                    <button class="carousel-control-prev" type="button" data-bs-target="#mediafileCarousel"
+                            data-bs-slide="prev">
+                        <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                        <span class="visually-hidden">Previous</span>
+                    </button>
+                    <button class="carousel-control-next" type="button" data-bs-target="#mediafileCarousel"
+                            data-bs-slide="next">
+                        <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                        <span class="visually-hidden">Next</span>
+                    </button>
+                    {% endif %}
+                </div>
+            {% endif %}
+
+        </div><!-- End Page Title -->
+        {#        {% if  mediafile.sequence.mediafile_set.all  > 1 %}#}
+        {#               <div class="d-flex flex-row flex-wrap m-1" style="width:auto;">#}
+        {##}
+        {#                    {% for sequence_mediafile in mediafile.sequence.mediafile_set.all %}#}
+        {#                        <a href="{% url 'caidapp:media_file_update' sequence_mediafile.id %}" class="m-1">#}
+        {#                            <img src="{{ sequence_mediafile.thumbnail.url }}" class="img-fluid" alt="Camera trap image" style="max-width: 100px;">#}
+        {#                        </a>#}
+        {#                    {% endfor %}#}
+        {##}
+        {#                </div>#}
+
+        {#        {% endif %}#}
+        <div class="section">
+            <div class="row">
+                {#                <div class="col-lg-4 col-xl-2">#}
+                <div class="col-auto">
+                    <div class="card">
+                        {#                <div class="card-header">#}
+                        {#                </div>#}
+                        <div class="card-body">
+                            <div style="display: flex; justify-content: space-between">
+                                <form method="post" enctype="multipart/form-data" class="mt-3">
+                                    {% csrf_token %}
+                                    {#                                    {{ form }}#}
+                                    {#                                                    {{ form.as_p }}#}
+                                    <div class="form-group">
+                                        {% if mediafile.is_for_suggestion %}
+                                            <div>
+
+                                                <i class="bi bi-question-circle"></i>
+                                                <a href="#"
+                                                   name="confirmTaxonSubmit"
+                                                   class="btn btn-secondary"
+                                                   id="confirmTaxonSubmit"
+                                                        {#                                                        type="submit"#}
+                                                   onclick="setCategoryAndSubmit('{{ mediafile.predicted_taxon }}')"
+                                                >
+                                                    Select
+                                                </a>
+
+                                                {{ mediafile.predicted_taxon }}
+                                                ({{ mediafile.predicted_taxon_confidence|mul:100|floor|floatformat:0 }}%)
+
+                                            </div>
+                                        {% endif %}
+                                        {% for field in form %}
+                                            <div>
+                                                <label for="{{ field.id_for_label }}"
+                                                       class="mt-1">{{ field.label }}</label><br>
+                                                <!-- Label on its own line -->
+                                                {{ field }}  <!-- Field on the next line -->
+                                                {% if field.help_text %}
+                                                    <small class="form-text text-muted">{{ field.help_text }}</small>
+                                                {% endif %}
+                                                {% for error in field.errors %}
+                                                    <div class="alert alert-danger"
+                                                         id="error_{{ field.id_for_label }}">{{ error }}</div>
+                                                {% endfor %}
+                                            </div>
+                                        {% endfor %}
+                                    </div>
+
+
+                                    <button class="btn btn-primary" id="btnUpload" type="submit">
+                                        {{ button }}
+                                    </button>
+                                    {%  if save_and_continue_button %}
+                                        <button class="btn btn-primary" id="btnSaveAndContinue" type="submit">
+                                            {{ save }}
+                                        </button>
+
+                                    {% endif %}
+                                    {% if  skip_url %}
+                                        <a href="{{ skip_url }}" class="btn btn-secondary mt-1 ">Skip</a>
+                                    {% endif %}
+                                    {% if  cancel_url %}
+                                        <a href="{{ cancel_url }}" class="btn btn-secondary mt-1 ">Cancel</a>
+                                    {% endif %}
+
+
+                                </form>
+
+                                <div class="position-absolute bottom-0 end-0 p-3">
+                                    <span
+                                            {#                                            data-bs-toggle="tooltip"#}
+                                            {#                                            data-toggle="tooltip"#}
+                                            title="File name: {{ mediafile}}
+ID: {{ mediafile.id }}">
+                                    <i class="bi bi-info-circle"></i>
+                                    </span>
+
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col">
+                <div class="d-flex flex-row flex-wrap align-items-start col">
+                    {% if mediafile.media_type == 'video' %}
+                        <video controls autoplay muted width="640" class="m-1" preload="auto">
+                            <source src="{% url 'caidapp:stream_video' mediafile.id %}" type="video/x-m4v">
+                            Your browser does not support the video tag.
+                        </video>
+
+                        <!-- Thumbnail with modal trigger -->
+                        <img src="{{ mediafile.thumbnail.url }}" class="img-fluid m-1" alt="Camera trap image"
+                             style="max-width: 320px;" data-bs-toggle="modal"
+                             data-bs-target="#imageModal{{ mediafile.id }}"
+                             fetchpriority="high"
+                        >
+
+                    {% else %}
+                        <!-- Image with modal trigger -->
+                        <img src="{{ mediafile.preview.url }}" class="img-fluid m-1" alt="Camera trap image"
+                             data-bs-toggle="modal" data-bs-target="#imageModal{{ mediafile.id }}"
+                             fetchpriority="high"
+                        >
+                    {% endif %}
+                </div>
+                </div>
+                <!-- Bootstrap Modal for showing the larger image -->
+                <div class="modal fade" id="imageModal{{ mediafile.id }}" tabindex="-1"
+                     aria-labelledby="imageModalLabel{{ mediafile.id }}" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="imageModalLabel{{ mediafile.id }}">Full Size Image</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"
+                                        aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <img src="{{ mediafile.preview.url }}" class="img-fluid" alt="Full Size Image">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+
+            </div>
+        </div>
+    {% endif %}
+    {#</div>#}
+    <script>
+        function setCategoryAndSubmit(predictedTaxon) {
+        const categoryDropdown = document.getElementById('id_taxon');
+        const options = categoryDropdown.options;
+
+        // Loop through options to find and select the predicted taxon
+        for (let i = 0; i < options.length; i++) {
+            if (options[i].text === predictedTaxon) {
+                categoryDropdown.selectedIndex = i;
+                break;
+            }
+        }
+    }
+
+    </script>
+{% endblock %}

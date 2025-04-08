@@ -130,6 +130,18 @@ class WorkGroup(models.Model):
         return str(self.name)
 
 
+    def number_of_uploaded_archives(self) -> int:
+        """Return number of uploaded archives."""
+        return UploadedArchive.objects.filter(owner__workgroup=self).count()
+
+    def number_of_uploaded_media_files(self) -> int:
+        """Return number of uploaded files."""
+        return MediaFile.objects.filter(parent__owner__workgroup=self).count()
+
+
+
+
+
 class CaIDUser(models.Model):
     DjangoUser = get_user_model()
     id = models.AutoField(primary_key=True)
@@ -176,6 +188,44 @@ class CaIDUser(models.Model):
     def __str__(self):
         return str(self.user)
 
+    def number_of_uploaded_archives(self) -> int:
+        """Return number of uploaded archives."""
+        return UploadedArchive.objects.filter(owner=self).count()
+
+    def number_of_uploaded_media_files(self) -> int:
+        """Return number of uploaded files."""
+        return MediaFile.objects.filter(parent__owner=self).count()
+
+    def number_of_uploaded_media_files_with_known_taxon(self) -> int:
+        """Return number of uploaded files with known taxon."""
+        return MediaFile.objects.filter(parent__owner=self, taxon__isnull=False).count()
+
+
+    def number_of_media_files_with_missing_taxa_general(self) -> int:
+        """Return number of uploaded files with missing taxon.
+
+        If possible, we use data for whole workgroup.
+        """
+
+        return len(get_mediafiles_with_missing_taxon(self))
+
+    def number_of_media_files_general(self) -> int:
+        """Return number of uploaded files.
+
+        If possible, we use data for whole workgroup.
+        """
+        return MediaFile.objects.filter(
+            **user_has_access_filter_params(self, "parent__owner")
+        ).count()
+
+    def number_of_media_files_with_missing_taxa_verification_general(self) -> int:
+        """Return number of uploaded files with missing verification.
+
+        If possible, we use data for whole workgroup.
+        """
+        return MediaFile.objects.filter(
+            **user_has_access_filter_params(self, "parent__owner")
+        ).filter(taxon_verified=False).count()
 
 class Locality(models.Model):
     name = models.CharField(max_length=50)

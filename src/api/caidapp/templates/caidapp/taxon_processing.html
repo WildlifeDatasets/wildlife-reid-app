@@ -53,7 +53,7 @@
 {#                <div class="d-flex justify-content-between">#}
                 <div class="row">
 
-                    <div class="col-xl-4">
+                    <div class="col-xl-5">
                         <div class="card">
                             <div class="card-body">
                                 <h3 class="card-title">Upload</h3>
@@ -66,18 +66,19 @@
                             </div>
                         </div>
                     </div>
-                    <div class="col-xl-1 d-flex align-items-center justify-content-center">
+                    <div class="col-xl-2 d-flex align-items-center justify-content-center">
                             <i class="bi bi-arrow-right-short fa-2x" style="vertical-align: middle;"></i>
                     </div>
-                    <div class="col-xl-4">
+                    <div class="col-xl-5">
                         <div class="card">
                             <div class="card-body">
                                 <h3 class="card-title">Annotate</h3>
+                                <a class="btn btn-secondary" href="{% url 'caidapp:uploads' %}">Camera Trap Checks</a>
                                 <a class="btn {{ btn_styles.annotate_missing_taxa }} mt-2" href="{% url 'caidapp:missing_taxon_annotation' %}"
                                    data-bs-toggle="tooltip" title="{{ btn_tooltips.annotate_missing_taxa }}"
                                 >Annotate missing taxa (one by one)</a>
                                 <a class="btn {{ btn_styles.verify_taxa }} mt-2" href="{% url 'caidapp:verify_taxa' %}"
-                                   data-bs-toggle="tooltip" title="{{ btn_tooltips.verify_taxa}}"
+                                   data-bs-toggle="tooltip" title="{{ btn_tooltips.verify_taxa }}"
                                 >Verify taxa</a>
                             </div>
                         </div>
@@ -86,6 +87,19 @@
 
                     </div>
                 </div>
+
+            <div class="card">
+                <div class="card-body">
+                    <h3 class="card-title">Taxon data</h3>
+
+                    Number of media files: {{ user.caiduser.number_of_media_files_general }}<br>
+                    Number of media files with missing taxa: {{ user.caiduser.number_of_media_files_with_missing_taxa_general }}<br>
+                    Number of media files with missing taxa verification: {{ user.caiduser.number_of_media_files_with_missing_taxa_verification_general }}<br>
+
+
+
+                </div>
+            </div>
 
 
             </nav>

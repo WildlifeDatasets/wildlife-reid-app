@@ -101,7 +101,10 @@ def missing_taxon_annotation(request, uploaded_archive_id: Optional[int] = None,
             message = "All taxa known"
         return message_view(request, message, link=cancel_url , headline="No missing taxa")
 
-    return redirect("caidapp:missing_taxon_annotation_for_mediafile", mediafile_id=mediafile.id, uploaded_archive_id=uploaded_archive_id)
+    if uploaded_archive_id:
+        return redirect("caidapp:missing_taxon_annotation_for_mediafile", mediafile_id=mediafile.id, uploaded_archive_id=uploaded_archive_id)
+    else:
+        return redirect("caidapp:missing_taxon_annotation_for_mediafile", mediafile_id=mediafile.id)
 
 
 @login_required
@@ -156,7 +159,7 @@ def missing_taxon_annotation_for_mediafile(request, mediafile_id: int, uploaded_
     # aby bylo možné při POST identifikovat, který soubor se upravuje.
     return render(
         request,
-        "caidapp/media_file_update.html",
+        "caidapp/media_file_set_taxon.html",
         {
             "form": form,
             "headline": "Media File",
