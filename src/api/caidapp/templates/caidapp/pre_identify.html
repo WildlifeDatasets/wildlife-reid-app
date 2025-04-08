@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block head %}
+{% endblock %}
+{% block body %}
+    <div class="container">
+        <h2 class="pagetitle"> Compare media files with unknown identity with database</h2>
+        <nav>
+            <ol class="breadcrumb">
+                {#                icon for goibg bac#}
+                <a href="{{ prev_page_url }}">
+
+                    <i class="bi bi-arrow-left"></i>
+                </a>
+
+                {#                    <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li>#}
+            </ol>
+        </nav>
+
+        <div class="card">
+            <div class="card-body">
+
+                <h3 class="card-title">Ready for identification</h3>
+                {{ user.caiduser.workgroup.number_of_media_files_in_uploaded_archives_ready_for_identification }}
+                media files ready for identification in
+                {{ user.caiduser.workgroup.number_of_uploaded_archives_ready_for_identification }} uploaded archives<br>
+
+
+                <a class="btn btn-primary mt-3" href="{% url 'caidapp:run_identification_on_unidentified' %}"
+                   data-bs-toggle="tooltip"
+                   title="Compare {{ user.caiduser.workgroup.number_of_media_files_with_missing_identity }} media files with the base dataset? The processing will take some time."
+                   onclick="return confirm('Compare {{ user.caiduser.workgroup.number_of_media_files_with_missing_identity }} media files with the base dataset? The processing will take some time.')"
+                >Compare unknown media files with database</a>
+            </div>
+        </div>
+        <div class="card">
+
+            <div class="card-body">
+                <h3 class="card-title">Base dataset init</h3>
+
+                {{ user.caiduser.workgroup.identification_init_message }}<br>
+                Initiated at: {{ user.caiduser.workgroup.identification_init_at }}<br>
+
+
+                <h3 class="card-title">Data in identity processing</h3>
+                Number of media files for individuality
+                processing: {{ user.caiduser.workgroup.number_of_media_files_with_taxon_for_identification }}<br>
+                Number of representative media files: {{ user.caiduser.workgroup.number_of_representative_media_files }}<br>
+                Number of media files with missing
+                identity: {{ user.caiduser.workgroup.number_of_media_files_with_missing_identity }}<br>
+
+            </div>
+        </div>
+    </div>
+
+{% endblock %}

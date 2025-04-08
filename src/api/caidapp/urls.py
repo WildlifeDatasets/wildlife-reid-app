@@ -405,6 +405,7 @@ urlpatterns = [
     path('sentry-debug/', trigger_error),
     path("home/", views.home_view, name="home"),
 
+    path("pre_identify/", views.pre_identify_view, name="pre_identify"),
 ]
 # if settings.DEBUG:
 

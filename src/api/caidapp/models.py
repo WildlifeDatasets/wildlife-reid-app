@@ -138,6 +138,53 @@ class WorkGroup(models.Model):
         """Return number of uploaded files."""
         return MediaFile.objects.filter(parent__owner__workgroup=self).count()
 
+    def number_of_media_files_with_taxon_for_identification(self) -> int:
+        """Return number of uploaded files with taxon for identification."""
+        return MediaFile.objects.filter(
+            parent__owner__workgroup=self,
+            parent__taxon_for_identification__isnull=False
+        ).count()
+
+    def number_of_uploaded_archives_with_taxon_for_identification(self) -> int:
+        """Return number of uploaded archives with taxon for identification."""
+        return UploadedArchive.objects.filter(
+            owner__workgroup=self,
+            taxon_for_identification__isnull=False
+        ).count()
+
+    def number_of_media_files_with_missing_identity(self) -> int:
+        """Return number of uploaded files with missing identity."""
+        return MediaFile.objects.filter(
+            parent__owner__workgroup=self,
+            identity__isnull=True,
+            parent__taxon_for_identification__isnull = False
+        ).count()
+
+    def number_of_representative_media_files(self):
+        """Return number of representative media files."""
+        return MediaFile.objects.filter(
+            parent__owner__workgroup=self,
+            identity_is_representative=True,
+            parent__taxon_for_identification__isnull=False
+        ).count()
+
+    def number_of_uploaded_archives_ready_for_identification(self) -> int:
+        """Return number of uploaded archives ready for identification."""
+        return UploadedArchive.objects.filter(
+            owner__workgroup=self,
+            taxon_for_identification__isnull=False,
+            identification_status="IR",
+        ).count()
+
+    def number_of_media_files_in_uploaded_archives_ready_for_identification(self) -> int:
+        """Return number of media files in uploaded archives ready for identification."""
+        return MediaFile.objects.filter(
+            parent__owner__workgroup=self,
+            parent__taxon_for_identification__isnull=False,
+            parent__identification_status = "IR",
+        ).count()
+
+
 
 
 

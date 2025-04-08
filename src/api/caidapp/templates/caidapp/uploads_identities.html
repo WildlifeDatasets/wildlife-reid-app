@@ -10,37 +10,40 @@
             <h1>Identification uploaded archives</h1>
             <nav>
                 <ol class="breadcrumb">
-{#                    {% if uploadedarchive.contains_single_taxon %}#}
-                        <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads_identities' %}">Identities Uploads </a></li>
-{#                    {% else %}#}
-{#                        <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li>#}
-{#                    {%  endif %}#}
-    {#                <li class="breadcrumb-item"><a href="{% url 'caidapp:uploadedarchive_mediafiles' mediafile.parent.id %}"> Uploaded#}
-    {#                    Archive: {{ mediafile.parent }}</a></li>#}
+                    {#                    {% if uploadedarchive.contains_single_taxon %}#}
+                    <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads_identities' %}">Identities Uploads </a>
+                    </li>
+                    {#                    {% else %}#}
+                    {#                        <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li>#}
+                    {#                    {%  endif %}#}
+                    {#                <li class="breadcrumb-item"><a href="{% url 'caidapp:uploadedarchive_mediafiles' mediafile.parent.id %}"> Uploaded#}
+                    {#                    Archive: {{ mediafile.parent }}</a></li>#}
 
                 </ol>
 
                 <div class="d-flex justify-content-between">
                     <div>
 
-{#                        <a class="btn {{ btn_styles.upload_identified }}" href="{% url 'caidapp:upload_archive_contains_identities' %}"><i class="bi bi-upload"></i> Upload identified </a>#}
-{#                        <a class="btn btn-secondary" href="{% url 'caidapp:representative_mediafiles' %}"><i class="bi bi-eye"></i> Check representative images </a>#}
-{#                        <i class="bi bi-arrow-right-short fa-2x" style="vertical-align: middle;"></i>#}
-{#                        <a class="btn {{ btn_styles.init_identification }}" href="{% url 'caidapp:init_identification' %}"#}
-{#                                {% if user.caiduser.workgroup.identification_init_status %}#}
-{#                           data-bs-toggle="tooltip" title="Initiated at: {{ user.caiduser.workgroup.identification_init_at|date:'Y-m-d H:i' }}, {{ user.caiduser.workgroup.identification_init_status}}, {{ user.caiduser.workgroup.identification_init_message }}"#}
-{#                                {% endif %}#}
-{#                        ><i class="fas fa-fingerprint"></i> Init identification#}
-{##}
-{#                            {% if user.caiduser.workgroup.identification_init_status == "Processing" %}#}
-{#                                <i class="fa fa-spinner fa-spin"></i>#}
-{#                            {% endif %}#}
-{#                        </a>#}
-{#                        <i class="bi bi-arrow-right-short fa-2x" style="vertical-align: middle;"></i>#}
-                        <a class="btn {{ btn_styles.upload_unidentified.class }}" href="{% url 'caidapp:upload_archive_contains_single_taxon' %}"><i class="bi bi-upload"></i> Upload unidentified  single species</a>
+                        {#                        <a class="btn {{ btn_styles.upload_identified }}" href="{% url 'caidapp:upload_archive_contains_identities' %}"><i class="bi bi-upload"></i> Upload identified </a>#}
+                        {#                        <a class="btn btn-secondary" href="{% url 'caidapp:representative_mediafiles' %}"><i class="bi bi-eye"></i> Check representative images </a>#}
+                        {#                        <i class="bi bi-arrow-right-short fa-2x" style="vertical-align: middle;"></i>#}
+                        {#                        <a class="btn {{ btn_styles.init_identification }}" href="{% url 'caidapp:init_identification' %}"#}
+                        {#                                {% if user.caiduser.workgroup.identification_init_status %}#}
+                        {#                           data-bs-toggle="tooltip" title="Initiated at: {{ user.caiduser.workgroup.identification_init_at|date:'Y-m-d H:i' }}, {{ user.caiduser.workgroup.identification_init_status}}, {{ user.caiduser.workgroup.identification_init_message }}"#}
+                        {#                                {% endif %}#}
+                        {#                        ><i class="fas fa-fingerprint"></i> Init identification#}
+                        {##}
+                        {#                            {% if user.caiduser.workgroup.identification_init_status == "Processing" %}#}
+                        {#                                <i class="fa fa-spinner fa-spin"></i>#}
+                        {#                            {% endif %}#}
+                        {#                        </a>#}
+                        {#                        <i class="bi bi-arrow-right-short fa-2x" style="vertical-align: middle;"></i>#}
+                        <a class="btn {{ btn_styles.upload_unidentified.class }}"
+                           href="{% url 'caidapp:upload_archive_contains_single_taxon' %}"><i class="bi bi-upload"></i>
+                            Upload unidentified single species</a>
                         <i class="bi bi-arrow-right-short fa-2x" style="vertical-align: middle;"></i>
-                        <a class="btn {{ btn_styles.run_identification.class }}" href="{% url 'caidapp:run_identification_on_unidentified' %}"
-                            data-bs-toggle="tooltip" title="{{ btn_styles.run_identification.tooltip }}"
+                        <a class="btn {{ btn_styles.run_identification.class }}" href="{% url 'caidapp:pre_identify' %}"
+                           data-bs-toggle="tooltip" title="{{ btn_styles.run_identification.tooltip }}"
                            onclick="return confirm('{{ btn_styles.run_identification.confirm }}')"
                         >
                             <i class="bi bi-question-circle"></i> Compare with identity database
@@ -49,13 +52,15 @@
                             {% endif %}
                         </a>
                         <i class="bi bi-arrow-right-short fa-2x" style="vertical-align: middle;"></i>
-{#                        <a class="btn {{ btn_styles.confirm_identification.class }} {% if btn_styles.n_for_confirmation == 0 %} disabled {% endif %} }}" href="{% url 'caidapp:get_individual_identity' %}"><i class="bi bi-question-circle"></i> Confirm identification</a>#}
-                        <a class="btn {{ btn_styles.confirm_identification.class }} {% if btn_styles.n_for_confirmation == 0 %} disabled {% endif %} }}" href="{% url 'caidapp:not_identified_mediafiles' %}"><i class="bi bi-question-circle"></i> Confirm identification</a>
+                        {#                        <a class="btn {{ btn_styles.confirm_identification.class }} {% if btn_styles.n_for_confirmation == 0 %} disabled {% endif %} }}" href="{% url 'caidapp:get_individual_identity' %}"><i class="bi bi-question-circle"></i> Confirm identification</a>#}
+                        <a class="btn {{ btn_styles.confirm_identification.class }} {% if btn_styles.n_for_confirmation == 0 %} disabled {% endif %} }}"
+                           href="{% url 'caidapp:not_identified_mediafiles' %}"><i class="bi bi-question-circle"></i>
+                            Confirm identification</a>
                     </div>
                 </div>
             </nav>
             <div class="d-flex justify-content-between mt-5">
-                <div> </div>
+                <div></div>
                 <div>
                     {% include "caidapp/uploads_order_by.html" %}
                 </div>
@@ -68,7 +73,7 @@
                 {% if page_obj %}
                     {% for uploadedarchive in page_obj %}
                         <div class="col-xl-3">
-{#                        <div class="col" style="-ms-flex: 0 0 200; flex: 0 0 200;">#}
+                            {#                        <div class="col" style="-ms-flex: 0 0 200; flex: 0 0 200;">#}
                             <div class="card"
                                     {% if uploadedarchive.thumbnail %}
                                  style="
@@ -84,9 +89,10 @@
                             >
                                 <div class="card-body mt-2"
                                 >
-{#                    insert upload_card_body.html#}
+                                    {#                    insert upload_card_body.html#}
                                     <span class="badge badge-status rounded-pill bg-{{ uploadedarchive.get_identification_status.status_style }}"
-                                          data-bs-toggle="tooltip" title="{{ uploadedarchive.get_identification_status.status_message }}"
+                                          data-bs-toggle="tooltip"
+                                          title="{{ uploadedarchive.get_identification_status.status_message }}"
                                           id="status-{{ uploadedarchive.id }}"
                                     >{{ uploadedarchive.get_identification_status.status }}</span> <br>
                                     {% include "caidapp/upload_card_body.html" %}
@@ -119,7 +125,8 @@
                                                     {% if uploadedarchive.archivefile %}
                                                         <li><a class="dropdown-item"
                                                                href="{{ uploadedarchive.archivefile.url }}"><i
-                                                                class="bi bi-download"></i> Download uploaded archive</a></li>
+                                                                class="bi bi-download"></i> Download uploaded
+                                                            archive</a></li>
                                                     {% endif %}
                                                 {% endif %}
                                                 {% if uploadedarchive.zip_file %}
@@ -132,20 +139,21 @@
                                                            href="{{ uploadedarchive.csv_file.url }}"><i
                                                             class="bi bi-table"></i> Download CSV</a></li>
                                                 {% endif %}
-                                                     <li>
-                                                        <a class="dropdown-item"
-                                                           href="{% url 'caidapp:update_uploaded_archive_with_spreadsheet' uploadedarchive.id %}">
-                                                            <i class="fas fa-table"></i> Update with spreadsheet
-                                                        </a>
-                                                     </li>
+                                                <li>
+                                                    <a class="dropdown-item"
+                                                       href="{% url 'caidapp:update_uploaded_archive_with_spreadsheet' uploadedarchive.id %}">
+                                                        <i class="fas fa-table"></i> Update with spreadsheet
+                                                    </a>
+                                                </li>
                                                 {% if request.user.is_staff %}
                                                     <li>
                                                         <hr class="dropdown-divider">
                                                     </li>
-                                                    {% if uploadedarchive.archivefile%}
+                                                    {% if uploadedarchive.archivefile %}
                                                         <li><a class="dropdown-item"
                                                                href="{{ uploadedarchive.archivefile.url }}"><i
-                                                                class="bi bi-download"></i> Download uploaded archive</a></li>
+                                                                class="bi bi-download"></i> Download uploaded
+                                                            archive</a></li>
                                                     {% endif %}
                                                     <li><a class="dropdown-item"
                                                            href="{% url 'caidapp:run_processing' uploadedarchive.id %}">
@@ -181,31 +189,30 @@
                                                 </a></li>
                                             </ul>
                                         </div>
-                                    {% if uploadedarchive.identification_status == "IR" %}
-                                        <a class="btn btn-primary"
-                                           href="{% url 'caidapp:run_identification' uploadedarchive.id %}"
-                                           data-bs-toggle="tooltip" title="AI Identification"
-                                        >
-                                            <i class="bi bi-arrow-right"></i>
-                                        </a>
-                                    {% endif %}
-                                    {% if uploadedarchive.identification_status == "IAID" and btn_styles.n_for_confirmation > 0 %}
-                                        <a class="btn btn-primary"
-                                           href="{% url 'caidapp:get_individual_identity' %}"
-                                           data-bs-toggle="tooltip" title="Confirm Identification"
-                                        >
-                                            <i class="bi bi-arrow-right"></i>
-                                        </a>
-                                    {% endif %}
+                                        {% if uploadedarchive.identification_status == "IR" %}
+                                            <a class="btn btn-primary"
+                                               href="{% url 'caidapp:run_identification' uploadedarchive.id %}"
+                                               data-bs-toggle="tooltip" title="AI Identification"
+                                            >
+                                                <i class="bi bi-arrow-right"></i>
+                                            </a>
+                                        {% endif %}
+                                        {% if uploadedarchive.identification_status == "IAID" and btn_styles.n_for_confirmation > 0 %}
+                                            <a class="btn btn-primary"
+                                               href="{% url 'caidapp:get_individual_identity' %}"
+                                               data-bs-toggle="tooltip" title="Confirm Identification"
+                                            >
+                                                <i class="bi bi-arrow-right"></i>
+                                            </a>
+                                        {% endif %}
                                         {% if uploadedarchive.identification_status == "IAIP" %}
-{#                                            rotating #}
+                                            {#                                            rotating #}
                                             <i class="fa fa-spinner fa-spin"></i>
                                         {% endif %}
 
 
 
-                                    {% include "caidapp/upload_info.html" %}
-
+                                        {% include "caidapp/upload_info.html" %}
 
 
                                     </div>
@@ -232,13 +239,13 @@
 {% endblock %}
 
 {% block script %}
-<script src="{% static 'caidapp/uploads.js' %}"></script>
-<script>
+    <script src="{% static 'caidapp/uploads.js' %}"></script>
+    <script>
 
-    document.addEventListener("DOMContentLoaded", function () {
-        // spustí první dotaz po načtení stránky
-        checkStatuses( "{% url 'caidapp:uploads_status_api' 'identities' %}");
-    });
-</script>
+        document.addEventListener("DOMContentLoaded", function () {
+            // spustí první dotaz po načtení stránky
+            checkStatuses("{% url 'caidapp:uploads_status_api' 'identities' %}");
+        });
+    </script>
 
 {% endblock %}

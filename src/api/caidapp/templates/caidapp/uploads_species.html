@@ -81,16 +81,16 @@
             }
         }
 
-        .card {
-            display: flex;
-            flex-direction: column;
-        }
+        {#.card {#}
+        {#    display: flex;#}
+        {#    flex-direction: column;#}
+        {# }#}
 
-        .card-body {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-        }
+        {#.card-body {#}
+        {#    flex: 1;#}
+        {#    display: flex;#}
+        {#    flex-direction: column;#}
+        {# }#}
         .custom-dropdown-toggle::after {
             display: none;
         }
@@ -131,17 +131,17 @@
             transition: opacity 0.3s ease; /* Smooth transition when showing */
         }
 
-        .badge-status {
-            position: absolute;
-            top: 10px;
-            left: 10px;
+        {#.badge-status { #}
+            {#position: absolute;#}
+            {#top: 10px;#}
+            {#left: 10px;#}
             {#background-color: #28a745; /* Green background, you can customize */#}
             {#color: white;#}
             {#font-size: 0.9em;#}
             {#padding: 5px 10px;#}
             {#border-radius: 12px; /* Rounded corners */#}
             {#font-weight: bold;#}
-        }
+        {# } #}
         .card-img-wrapper:hover .next-step-button {
             opacity: 1; /* Show the button when hovering over the card */
 
@@ -216,8 +216,19 @@
                     {% for uploadedarchive in page_obj %}
                         <div class="col-12 col-sm-12 col-md-12 col-lg-6 col-xl-4 col-xxl-3 col-xxxl-3 col-xxxxl-1" id="card{{ uploadedarchive.instance.id }}">
                             <div class="card"
+                                  {% if uploadedarchive.thumbnail %}
+                                 style="
+
+                                         background-image: linear-gradient(to left, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 1.0)), url({{ uploadedarchive.thumbnail.url }});
+                                         background-repeat: no-repeat;
+                                         background-position-x: right;
+                                         background-position-y: center;
+                                         background-size: cover;
+                                         "
+
+                                    {% endif %}
                             >
-                                    <div class="card-img-wrapper">
+{#                                    <div class="card-img-wrapper">#}
 {##}
 {#                                        <a href="{% url 'caidapp:media_file_update' mediafile.instance.id %}">#}
 {#                                            <img class="card-img-top" src="{{ mediafile.instance.thumbnail.url }}"#}
@@ -225,21 +236,56 @@
 {#                                        </a>#}
 {##}
 {##}
-                                        {% if uploadedarchive.thumbnail %}
-                                            <a href="{% url 'caidapp:uploadedarchive_mediafiles' uploadedarchive.id %}">
-                                                <img class="card-img-top" src="{{ uploadedarchive.thumbnail.url }}" alt="Camera trap check representative">
-                                            </a>
-                                        {%  else %}
-                                             <div class="card-img-placeholder"></div>
-                                        {% endif %}
+{#                                        {% if uploadedarchive.mediafile_set.first.static_thumbnail %}#}
+{#                                            <a href="{% url 'caidapp:uploadedarchive_mediafiles' uploadedarchive.id %}">#}
+{#                                                <img class="card-img-top" src="{{ uploadedarchive.mediafile_set.first.static_thumbnail.url }}" alt="Camera trap check representative">#}
+{#                                            </a>#}
+{#                                        {%  else %}#}
+{#                                             <div class="card-img-placeholder"></div>#}
+{#                                        {% endif %}#}
 
-                                        <span class="badge badge-status rounded-pill bg-{{ uploadedarchive.get_status.status_style }}"
+{#                                        <span class="badge badge-status rounded-pill bg-{{ uploadedarchive.get_status.status_style }}"#}
+{#                                              id="status-{{ uploadedarchive.id }}"#}
+{#                                              data-bs-toggle="tooltip" title="{{ uploadedarchive.get_status.status_message }}"#}
+{#                                        >{{ uploadedarchive.get_status.status }}</span>#}
+{##}
+{#                                      Dropdown menu #}
+{#                                        <div class="dropdown dropdown-top-right">#}
+{#                                            <a class="btn btn-secondary custom-dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">#}
+{#                                                <i class="bi bi-three-dots"></i>#}
+{#                                            </a>#}
+{#                                            {% include "caidapp/upload_species_card_dropdown.html" %}#}
+{#                                        </div>#}
+
+
+{#                                    Next step button               #}
+
+{#                                        {% with next_step_structure=uploadedarchive.next_processing_step_structure %}#}
+{#                                            {% if next_step_structure %}#}
+{#                                                    <a class="btn btn-primary next-step-button transparent-button"#}
+{#                                                       data-bs-toggle="tooltip" title="Next step: {{ next_step_structure.0 }}"#}
+{#                                                       href={{ next_step_structure.1 }}>#}
+{#                                                        <i class="bi bi-arrow-right"></i>#}
+{#                                                    </a>#}
+{#                                            {% endif %}#}
+{#                                        {% endwith %}#}
+
+
+
+{#                                    </div>#}
+{#                                    <img class="card-img-top" src="{{ uploadedarchive.thumbnail.url }}" alt="Camera trap check representative">#}
+                                <div class="card-body"
+                                >
+                                        <span class="badge badge-status rounded-pill mt-3 bg-{{ uploadedarchive.get_status.status_style }}"
                                               id="status-{{ uploadedarchive.id }}"
                                               data-bs-toggle="tooltip" title="{{ uploadedarchive.get_status.status_message }}"
                                         >{{ uploadedarchive.get_status.status }}</span>
 
-{#                                      Dropdown menu #}
-                                        <div class="dropdown dropdown-top-right">
+                                    {% include "caidapp/upload_card_body.html" %}
+
+
+                                    <div class="d-flex gap-1 mt-2">
+                                        <div class="dropdown">
                                             <a class="btn btn-secondary custom-dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                                                 <i class="bi bi-three-dots"></i>
                                             </a>
@@ -247,26 +293,20 @@
                                         </div>
 
 
-{#                                    Next step button               #}
 
-                                        {% with next_step_structure=uploadedarchive.next_processing_step_structure %}
-                                            {% if next_step_structure %}
-                                                    <a class="btn btn-primary next-step-button transparent-button"
-                                                       data-bs-toggle="tooltip" title="Next step: {{ next_step_structure.0 }}"
-                                                       href={{ next_step_structure.1 }}>
-                                                        <i class="bi bi-arrow-right"></i>
-                                                    </a>
-                                            {% endif %}
-                                        {% endwith %}
-
-
-
+                                    {% with next_step_structure=uploadedarchive.next_processing_step_structure %}
+                                        {% if next_step_structure %}
+                                            <div>
+                                                <a class="btn btn-primary transparent-button"
+                                                   data-bs-toggle="tooltip" title="Next step: {{ next_step_structure.0 }}"
+                                                   href={{ next_step_structure.1 }}>
+                                                    <i class="bi bi-arrow-right"></i>
+                                                </a>
+                                            </div>
+                                        {% endif %}
+                                    {% endwith %}
                                     </div>
-{#                                    <img class="card-img-top" src="{{ uploadedarchive.thumbnail.url }}" alt="Camera trap check representative">#}
-                                <div class="card-body"
-                                >
 
-                                    {% include "caidapp/upload_card_body.html" %}
 
                                 </div>
                             </div>

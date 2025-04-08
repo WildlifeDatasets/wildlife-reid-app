@@ -1189,6 +1189,9 @@ def run_identification_on_unidentified(request):
             uploaded_archive,
             caiduser = request.user.caiduser
         )
+        messages.info(request, f"Identification started for {uploaded_archive.name}.")
+
+
     # next_page = request.GET.get("next", "caidapp:uploads_identities")
     # return redirect(next_page)
     return redirect(request.META.get("HTTP_REFERER", "/"))
@@ -3658,3 +3661,22 @@ def import_identities_view(request):
             "next": "caidapp:individual_identities",
         },
     )
+
+
+# create view which will be shown just before the identify to make sure that the user wants to identify
+@login_required
+
+
+def pre_identify_view(request):
+    return render(
+        request,
+        "caidapp/pre_identify.html",
+        {
+            "prev_page_url": request.META.get("HTTP_REFERER", "/"),
+        },
+    )
+
+
+
+
+
