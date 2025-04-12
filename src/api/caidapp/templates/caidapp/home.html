@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load static %}
 {% load widget_tweaks %}
 
 {% block head %}
@@ -33,10 +34,14 @@
                     <p class="mt-4">What do you want to process?</p>
                     <div class="row">
                         <div class="col">
-                            <a class="btn btn-primary" href="{% url 'caidapp:taxon_processing' %}">Taxon</a>
+                            <a class="btn btn-primary btn-lg" href="{% url 'caidapp:taxon_processing' %}">
+                                <img src="{% static 'caidapp/taxon_classification.svg' %}" alt="taxon classification icon" class="img-fluid" style="max-height: 100px;">
+                                <br>Taxon</a>
                         </div>
                         <div class="col">
-                            <a class="btn btn-primary" href="{% url 'caidapp:uploads_identities' %}">Individuality</a>
+                            <a class="btn btn-primary btn-lg" href="{% url 'caidapp:uploads_identities' %}">
+                                <img src="{% static 'caidapp/identification.svg' %}" alt="taxon classification icon" class="img-fluid" style="max-height: 100px;">
+                                <br>Indentity</a>
                         </div>
 
                     </div>
