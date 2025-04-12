@@ -111,6 +111,7 @@ env.bak/
 venv.bak/
 src/detection_worker/resources/
 src/taxon_worker/cache.json
+src/api/static/assets/
 
 # Spyder project settings
 .spyderproject
