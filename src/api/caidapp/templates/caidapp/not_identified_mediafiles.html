@@ -32,10 +32,18 @@
                                     {#                                <h5 class="card-title">{{ mediafile }}</h5>#}
                                     <p class="card-text">
                                         Top score: {{ mediafileforidentification.max_score|mul:100|floatformat:0 }} %<br>
+                                        {% if mediafile.taxon %}
                                         Category: <a class="link-secondary" href="{%  url 'caidapp:taxon' mediafile.taxon.id %}">{{ mediafile.taxon}}</a><br>
+                                        {% endif %}
+                                        {% if mediafile.locality %}
                                         Locality: <a class="link-secondary" href="{%  url 'caidapp:media_files_locality' mediafile.locality.id %}">{{ mediafile.locality }}</a><br>
+                                        {% endif %}
+                                        {% if mediafile.captured_at %}
                                         Captured at: {{ mediafile.captured_at|date:'Y-m-d H:i' }}<br>
+                                        {% endif %}
+                                        {% if mediafile.parent %}
                                         Camera Trap Check: <a href="{%  url 'caidapp:uploadedarchive_mediafiles' mediafile.parent.id %}" class="link-secondary">{{ mediafile.parent }}</a><br>
+                                        {% endif %}
                                     </p>
 
                                     <a class="btn btn-primary"
