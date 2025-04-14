@@ -7,6 +7,7 @@ import psutil
 import torch
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 
 def get_torch_cuda_device_if_available(device: Union[None, int, str, torch.device] = 0) -> torch.device:
@@ -95,6 +96,7 @@ def wait_for_gpu_memory(required_memory_gb: float = 1.0, device: Union[int, str]
     free_memory_gb = available_memory_gb - used_memory_gb
     while free_memory_gb < required_memory_gb:
         logger.debug(f"Waiting for {required_memory_gb} GB of GPU memory. " + get_vram(device))
+        print(f"Waiting for {required_memory_gb} GB of GPU memory. " + get_vram(device))
         torch.cuda.empty_cache()
         torch.cuda.synchronize()
         time.sleep(5)

@@ -713,7 +713,12 @@ def _update_database_by_one_row_of_metadata(
         # logger.debug(f"{uploaded_archive.contains_identities=}")
         # logger.debug(f"{row['predicted_category']=}")
 
-        mf.taxon = get_taxon(row["predicted_category"])  # remove this
+        # if archive is uploaded with known taxon, then do not use the predicted taxon.
+        if uploaded_archive.contains_single_taxon and uploaded_archive.taxon_for_identification:
+            mf.taxon = uploaded_archive.taxon_for_identification
+        else:
+            mf.taxon = get_taxon(row["predicted_category"])  # remove this
+
         if "predicted_category_raw" in row:
             mf.predicted_taxon = get_taxon(row["predicted_category_raw"])
             mf.predicted_taxon_confidence = float(row["predicted_prob_raw"])
@@ -1137,8 +1142,16 @@ def identify_on_success(self, output: dict, *args, **kwargs):
         else:
             # identification failed
             uploaded_archive.identification_status = "F"
-            uploaded_archive.status_message = "Identification failed."
             uploaded_archive.save()
+            message = "Identification failed. "
+            if "error" in output:
+                logger.error(f"{output['error']=}")
+                uploaded_archive.identification_message = output["error"]
+                message += output["error"]
+                if output["error"] == "Input data is empty.":
+                    message += " Try to check the taxa in the input data."
+
+            uploaded_archive.status_message = message
             logger.debug(f"{output=}")
             logger.error("Identification failed.")
 

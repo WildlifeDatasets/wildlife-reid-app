@@ -960,6 +960,7 @@ class MediaFile(models.Model):
     sequence = models.ForeignKey(Sequence, on_delete=models.SET_NULL, null=True, blank=True)
     note = models.TextField(blank=True, default="")
     media_file_corrupted = models.BooleanField("Media file corrupted", default=False)
+    used_for_init_identification = models.BooleanField("Used for init identification", default=False)
 
     class Meta:
         ordering = ["-identity_is_representative", "captured_at"]

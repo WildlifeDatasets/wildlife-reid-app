@@ -1015,17 +1015,31 @@ def run_taxon_classification(request, uploadedarchive_id, force_init=False):
 
 
 @login_required
-def init_identification(request, taxon_str: str = "Lynx lynx"):
+def init_identification(request,
+                        # taxon_str: str = "Lynx lynx"
+                        ):
     """Run processing of uploaded archive."""
     # check if user is workgroup admin
     if not request.user.caiduser.workgroup_admin:
         return HttpResponseNotAllowed("Identification init is for workgroup admins only.")
+
+    # set attribute media_file_used_for_init_identification
+    MediaFile.objects.filter(
+        parent__owner__workgroup=request.user.caiduser.workgroup,
+    ).update(used_for_init_identification=False)
+
+    kwargs = {}
+    if request.user.caiduser.default_taxon_for_identification:
+        kwargs.update(dict(taxon=request.user.caiduser.default_taxon_for_identification))
+
     mediafiles = MediaFile.objects.filter(
         # taxon__name=taxon_str,
+        **kwargs,
         identity__isnull=False,
         parent__owner__workgroup=request.user.caiduser.workgroup,
         identity_is_representative=True,
-    ).all()
+    ).update(used_for_init_identification=True)
+
 
     if not request.user.caiduser.identification_model:
         # go back to the page
@@ -1185,11 +1199,16 @@ def run_identification_on_unidentified(request):
     ).all()
 
     for uploaded_archive in uploaded_archives:
-        _run_identification(
+        status_ok = _run_identification(
+            request,
             uploaded_archive,
             caiduser = request.user.caiduser
         )
-        messages.info(request, f"Identification started for {uploaded_archive.name}.")
+        if status_ok:
+            messages.info(request, f"Identification started for {uploaded_archive.name}.")
+        else:
+            # message is generated in run identification
+            pass
 
 
     # next_page = request.GET.get("next", "caidapp:uploads_identities")
@@ -1204,17 +1223,23 @@ def run_identification(request, uploadedarchive_id):
     # check if user is owner member of the workgroup
     if uploaded_archive.owner.workgroup != request.user.caiduser.workgroup:
         return HttpResponseNotAllowed("Identification is for workgroup members only.")
-    _run_identification(
+    status_ok = _run_identification(
+        request,
         uploaded_archive,
         caiduser=request.user.caiduser,
     )
+    if status_ok:
+        messages.info(request, f"Identification started for {uploaded_archive.name}.")
+    else:
+        pass
     return redirect(request.META.get("HTTP_REFERER", "/"))
 
 
 def _run_identification(
+        request,
         uploaded_archive: UploadedArchive,
         caiduser: models.CaIDUser,
-                        ):
+                        ) -> bool:
     logger.debug("Generating CSV for run_identification...")
     if uploaded_archive.taxon_for_identification:
         taxon_str = uploaded_archive.taxon_for_identification.name
@@ -1228,8 +1253,17 @@ def _run_identification(
     media_root = Path(settings.MEDIA_ROOT)
 
     identity_metadata_file = media_root / uploaded_archive.outputdir / "identification_metadata.csv"
-    pd.DataFrame(csv_data).to_csv(identity_metadata_file, index=False)
+    df = pd.DataFrame(csv_data)
+    df.to_csv(identity_metadata_file, index=False)
     output_json_file = media_root / uploaded_archive.outputdir / "identification_result.json"
+
+    # if no records in df
+    if df.shape[0] == 0:
+        logger.warning("No records for identification with the expected taxon. ")
+        messages.error(request, "No records for identification with the expected taxon.")
+        return False
+        # return redirect(request.META.get("HTTP_REFERER", "/"))
+
 
     from celery import current_app
 
@@ -1262,7 +1296,8 @@ def _run_identification(
         link_error=on_error_in_upload_processing.s(),
     )
     logger.debug(f"{identify_task=}")
-    return redirect("caidapp:uploads_identities")
+    return True
+    # return redirect("caidapp:uploads_identities")
 
 
 @login_required

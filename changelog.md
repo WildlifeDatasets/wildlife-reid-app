@@ -5,6 +5,7 @@
 * [added] Home page
 * [added] Identify sorted by score
 * [changed] Update by spreadsheet is now more robust
+* [changed] If the uploaded archive is uploaded as single taxon, the taxon is used instead of the prediction
 
 ## 03-2025
 

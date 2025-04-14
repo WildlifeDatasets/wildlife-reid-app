@@ -24,12 +24,12 @@ function checkStatuses(fetch_url) {
             });
 
             // Polling opakovat za 5 vteřin (libovolně nastavit)
-            setTimeout(checkStatuses, 5000, fetch_url);
+            setTimeout(checkStatuses, 10000, fetch_url);
         })
         .catch(err => {
             console.error(err);
             // I v případě chyby to po chvíli zkusit znovu
-            setTimeout(checkStatuses, 10000, fetch_url);
+            setTimeout(checkStatuses, 20000, fetch_url);
         });
 }
 
