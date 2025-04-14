@@ -69,6 +69,7 @@ def get_vram(device: Optional[torch.device] = None):
     try:
         free = torch.cuda.mem_get_info(device)[0] / 1024**3
         total = torch.cuda.mem_get_info(device)[1] / 1024**3
+        used = total - free
         total_cubes = 24
         free_cubes = int(total_cubes * free / total)
         return (
@@ -91,10 +92,15 @@ def wait_for_gpu_memory(required_memory_gb: float = 1.0, device: Union[int, str]
     if device.type == "cpu":
         logger.debug("No need to wait for CPU")
         return
-    used_memory_gb = torch.cuda.mem_get_info(device)[0] / 1024**3
-    available_memory_gb = torch.cuda.mem_get_info(device)[1] / 1024**3
-    free_memory_gb = available_memory_gb - used_memory_gb
-    while free_memory_gb < required_memory_gb:
+
+    while True:
+        reserved = torch.cuda.memory_reserved(device) / 1024 ** 3
+        total = torch.cuda.get_device_properties(device).total_memory / 1024 ** 3
+        free_memory_gb = total - reserved
+        if free_memory_gb > required_memory_gb:
+            logger.debug(f"Free memory: {free_memory_gb:.1f} GB > {required_memory_gb} GB")
+            print(f"Free memory: {free_memory_gb:.1f} GB > {required_memory_gb} GB")
+            break
         logger.debug(f"Waiting for {required_memory_gb} GB of GPU memory. " + get_vram(device))
         print(f"Waiting for {required_memory_gb} GB of GPU memory. " + get_vram(device))
         torch.cuda.empty_cache()
