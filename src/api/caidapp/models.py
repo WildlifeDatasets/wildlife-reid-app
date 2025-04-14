@@ -39,7 +39,7 @@ logger = logging.getLogger("database")
 UA_STATUS_CHOICES = (
     ("C", "Created"),
     ("F", "Failed"),
-    ("TAIP", "Taxon processing"),
+    ("TAIP", "Initialization"),  # former Taxon Processing
     ("TAID", "Missing taxa"),
     ("TKN", "Taxa known"),
     ("TV", "Taxa verified"),

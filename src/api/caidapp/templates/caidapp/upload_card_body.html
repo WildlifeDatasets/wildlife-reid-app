@@ -9,6 +9,12 @@
 {#</h5>#}
 
 <div class="mt-2">
+    <div
+{#            data-bs-toggle="tooltip" title="Filename {{ uploadedarchive }}"#}
+    >
+        <i class="bi bi-file-zip"></i>
+        {{ uploadedarchive }}
+    </div>
     {% if uploadedarchive.locality_at_upload_object %}
         <span data-bs-toggle="tooltip" title="Locality: {{ uploadedarchive.locality_at_upload_object.name }}">
         <i class="bi bi-geo-alt"></i>
