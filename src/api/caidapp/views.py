@@ -1032,13 +1032,15 @@ def init_identification(request,
     if request.user.caiduser.default_taxon_for_identification:
         kwargs.update(dict(taxon=request.user.caiduser.default_taxon_for_identification))
 
-    mediafiles = MediaFile.objects.filter(
+    mediafiles_qs = MediaFile.objects.filter(
         # taxon__name=taxon_str,
         **kwargs,
         identity__isnull=False,
         parent__owner__workgroup=request.user.caiduser.workgroup,
         identity_is_representative=True,
-    ).update(used_for_init_identification=True)
+    )
+
+    mediafiles_qs.update(used_for_init_identification=True)
 
 
     if not request.user.caiduser.identification_model:
@@ -1051,7 +1053,7 @@ def init_identification(request,
     output_dir = Path(settings.MEDIA_ROOT) / request.user.caiduser.workgroup.name
     output_dir.mkdir(exist_ok=True, parents=True)
 
-    csv_data = _prepare_dataframe_for_identification(mediafiles)
+    csv_data = _prepare_dataframe_for_identification(mediafiles_qs)
 
     identity_metadata_file = output_dir / "init_identification.csv"
     pd.DataFrame(csv_data).to_csv(identity_metadata_file, index=False)
