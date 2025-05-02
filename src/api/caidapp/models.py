@@ -39,13 +39,14 @@ logger = logging.getLogger("database")
 UA_STATUS_CHOICES = (
     ("C", "Created"),
     ("F", "Failed"),
-    ("TAIP", "Initialization"),  # former Taxon Processing
+    ("TAIP", "Importing"),  # former Taxon Processing
     ("TAID", "Missing taxa"),
     ("TKN", "Taxa known"),
     ("TV", "Taxa verified"),
     ("IR", "Ready for ID"),
     ("IAIP", "ID processing"),
     ("IAID", "ID AI done"),
+    ("ID", "Identified"),
     ("U", "Unknown"),
 )
 UA_STATUS_CHOICES_DICT = dict(UA_STATUS_CHOICES)
