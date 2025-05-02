@@ -27,6 +27,12 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+
+DATETIME_BLACKLIST = [
+    # "0000-00-00 00:00:00",
+    "2015-05-21 17:29:12",
+]
+
 class DatasetEventIdManager:
     """
     A tool for getting unique event ID based on time differences between two following images.
@@ -109,7 +115,7 @@ def replace_colon_in_exif_datetime(exif_datetime: str) -> str:
     return replaced
 
 
-def get_datetime_from_exif_or_ocr(filename: typing.Union[Path, str], exiftool_metadata:dict) -> typing.Tuple[str, str, str]:
+def get_datetime_using_exif_or_ocr(filename: typing.Union[Path, str], exiftool_metadata:dict) -> typing.Tuple[str, str, str]:
     """Extract datetime from EXIF in file and check if image is ok.
 
     Parameters
@@ -132,81 +138,64 @@ def get_datetime_from_exif_or_ocr(filename: typing.Union[Path, str], exiftool_me
     dt_source = ""
     in_worst_case_dt = None
     in_worst_case_dt_source = None
-    opened_sucessfully = False
     opened_with_fail = False
-    if filename.exists():
-        try:
-            checked_keys = [
-                    "QuickTime:MediaCreateDate",
-                    "QuickTime:CreateDate",
-                    "EXIF:CreateDate",
-                    "EXIF:ModifyDate",
-                    "EXIF:DateTimeOriginal",
-                    "EXIF:DateTimeCreated",
-                    # "File:FileModifyDate",
-                    # "File:FileCreateDate",
-                ]
-
-            d = exiftool_metadata
-            dt_str = ""
-            is_ok = False
-            dt_source = ""
-            for k in checked_keys:
-                if k in d:
-                    dt_str = d[k]
-                    is_ok = True
-                    dt_source = k
-                    break
-            # if no key was found log the metadata
-            if not is_ok:
-                logger.debug(f"date not found, exif: {str(d)=}")
-
-
-            # dt_str, is_ok, dt_source = get_datetime_exiftool(filename)
-            dt_str = replace_colon_in_exif_datetime(dt_str)
-            if dt_source.startswith("QuickTime"):
-                in_worst_case_dt = dt_str
-                in_worst_case_dt_source = dt_source
-                df_str = ""
-                dt_source = ""
-            read_error = ""
-        except Exception as e:
-            dt_str = ""
-            read_error = str(e)
-            logger.warning(f"Error while reading EXIF from {filename}")
-            logger.exception(traceback.format_exc())
-            opened_with_fail = True
-    else:
+    read_error = ""
+    if not filename.exists():
         return "", "File does not exist", ""
 
-    # check if file is ok
-    if filename.suffix.lower() in (".jpg", ".jpeg", ".png", ".tif", ".tiff", ".bmp"):
-        try:
-            image = Image.open(filename)
-            image.verify()
-            opened_sucessfully = True
-        except Exception as e:
-            return "", str(e), ""
-    elif filename.suffix.lower() in (
-            ".mp4",
-            ".avi",
-            ".mov",
-            ".mkv",
-            ".webm",
-            ".flv",
-            ".wmv",
-            ".m4v",
-    ):
-        # import cv2
-        try:
-            cap = cv2.VideoCapture(str(filename))
-            ret, frame = cap.read()
-            cap.release()
-            opened_sucessfully = True
-        except Exception as e:
-            return "", str(e), ""
+    opened_sucessfully, opening_error, media_file_type = check_file_by_opening(filename)
 
-    if filename.exists() and read_error == "":
+    if opening_error:
+        return "", str(opening_error), ""
+
+    dt_str = ""
+    try:
+        checked_keys = [
+                "QuickTime:MediaCreateDate",
+                "QuickTime:CreateDate",
+                "EXIF:CreateDate",
+                "EXIF:ModifyDate",
+                "EXIF:DateTimeOriginal",
+                "EXIF:DateTimeCreated",
+                # "File:FileModifyDate",
+                # "File:FileCreateDate",
+            ]
+
+        d = exiftool_metadata
+        dt_str = ""
+        is_ok = False
+        dt_source = ""
+        for k in checked_keys:
+            if k in d:
+                dt_str = d[k]
+                is_ok = True
+                dt_source = k
+                break
+        # if no key was found log the metadata
+        if not is_ok:
+            logger.debug(f"date not found, exif: {str(d)=}")
+
+
+        # dt_str, is_ok, dt_source = get_datetime_exiftool(filename)
+        dt_str = replace_colon_in_exif_datetime(dt_str)
+        if dt_source.startswith("QuickTime"):
+            in_worst_case_dt = dt_str
+            in_worst_case_dt_source = dt_source
+            df_str = ""
+            dt_source = ""
+        if dt_str in DATETIME_BLACKLIST:
+            logger.debug("blacklisted datetime")
+            dt_str = ""
+            dt_source = ""
+        read_error = ""
+    except Exception as e:
+        dt_str = ""
+        read_error = str(e)
+        logger.warning(f"Error while reading EXIF from {filename}")
+        logger.exception(traceback.format_exc())
+        opened_with_fail = True
+
+    if read_error == "":
         if dt_str == "":
             try:
                 dt_str, dt_source = get_datetime_from_ocr(filename)
@@ -236,6 +225,44 @@ def get_datetime_from_exif_or_ocr(filename: typing.Union[Path, str], exiftool_me
         logger.error(f"File {filename} was not opened.")
 
     return dt_str, read_error, dt_source
+
+
+def check_file_by_opening(filename):
+    opened_sucessfully = False
+    opening_error = None
+    frame = None
+    media_file_type = "unknown"
+    # check if file is ok
+    if filename.suffix.lower() in (".jpg", ".jpeg", ".png", ".tif", ".tiff", ".bmp"):
+        media_file_type = "image"
+        try:
+            image = Image.open(filename)
+            image.verify()
+            opened_sucessfully = True
+        except Exception as e:
+            opening_error = str(e)
+            # return "", str(e), ""
+    elif filename.suffix.lower() in (
+            ".mp4",
+            ".avi",
+            ".mov",
+            ".mkv",
+            ".webm",
+            ".flv",
+            ".wmv",
+            ".m4v",
+    ):
+        media_file_type = "video"
+        # import cv2
+        try:
+            cap = cv2.VideoCapture(str(filename))
+            ret, frame = cap.read()
+            cap.release()
+            opened_sucessfully = True
+        except Exception as e:
+            opening_error = str(e)
+            # return "", str(e), ""
+    return opened_sucessfully, opening_error, media_file_type
 
 
 def get_datetime_exiftool(video_pth: Path, checked_keys: Optional[list]=None) -> typing.Tuple[str, bool, str]:
@@ -430,7 +457,7 @@ def extend_df_with_datetime(df: pd.DataFrame) -> pd.DataFrame:
     dates = []
     for image_path, exif in df.image_path, exifs:
         # date, err = get_datetime_from_exif(Path(image_path))
-        date, err, source = get_datetime_from_exif_or_ocr(Path(image_path), exif)
+        date, err, source = get_datetime_using_exif_or_ocr(Path(image_path), exif)
         dates.append(date)
     df["datetime"] = pd.to_datetime(dates, errors="coerce")
 

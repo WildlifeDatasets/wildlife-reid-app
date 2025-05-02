@@ -29,7 +29,7 @@ from tqdm import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
 
 from .inout import extract_archive
-from .sequence_identification import get_datetime_from_exif_or_ocr
+from .sequence_identification import get_datetime_using_exif_or_ocr
 
 logger = logging.getLogger("app")
 
@@ -918,7 +918,10 @@ class SumavaInitialProcessing:
         return df
 
     def add_datetime_from_exif_in_parallel(self, original_paths: list[Path]) -> Tuple[list, list, list]:
-        """Get list of datetimes from EXIF."""
+        """Get list of datetimes from EXIF.
+
+        The EXIF information is extracted in single-core way but with the help of ExifTool.
+        """
 
         logger.debug(f"Getting EXIFs from {len(original_paths)} files.")
         # Collect EXIF info
@@ -953,12 +956,12 @@ class SumavaInitialProcessing:
         # Evaluate exif info and use OCR if necessary
         if self.num_cores > 1:
             datetime_list = Parallel(n_jobs=self.num_cores)(
-                delayed(get_datetime_from_exif_or_ocr)(full_path, exif)
+                delayed(get_datetime_using_exif_or_ocr)(full_path, exif)
                 for full_path, exif in tqdm(list(zip(full_paths, exifs)), desc="datetime from EXIF or OCR parallel")
             )
         else:
             datetime_list = [
-                get_datetime_from_exif_or_ocr(full_path, exif)
+                get_datetime_using_exif_or_ocr(full_path, exif)
                 for full_path, exif in tqdm(list(zip(full_paths, exifs)), desc="datetime from EXIF or OCR")
             ]
 
