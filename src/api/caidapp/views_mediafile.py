@@ -163,7 +163,7 @@ def missing_taxon_annotation_for_mediafile(request, mediafile_id: int, uploaded_
         {
             "form": form,
             "headline": "Media File",
-            "button": "Uložit a další",
+            "button": "Save and continue",
             "mediafile": mediafile,
             "skip_url": skip_url,
             "cancel_url": cancel_url,
