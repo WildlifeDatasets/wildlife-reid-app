@@ -207,6 +207,7 @@ class CaIDUser(models.Model):
         Taxon, on_delete=models.SET_NULL,
         null=True, blank=True,
     )
+    timezone = models.CharField(max_length=50, blank=True, default=settings.TIME_ZONE)
 
     @receiver(post_save, sender=DjangoUser)
     def create_user_profile(sender, instance, created, **kwargs):  # NOSONAR

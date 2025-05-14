@@ -649,7 +649,8 @@ def _update_database_by_one_row_of_metadata(
         # Pokud chybí časová zóna, nastav aktuální časovou zónu
         # If the TZ is missing, use the local timezone
         if captured_at.tzinfo is None or captured_at.tzinfo.utcoffset(captured_at) is None:
-            local_timezone = django.utils.timezone.get_current_timezone()
+            local_timezone = settings.TIME_ZONE
+            # local_timezone = django.utils.timezone.get_current_timezone()
             captured_at = local_timezone.localize(captured_at)
     except Exception as e:
         # logger.debug(f"{captured_at=}")
