@@ -644,8 +644,13 @@ def _update_database_by_one_row_of_metadata(
     captured_at = row["datetime"]
     # if no timzone is given, we assume it is the local time zone
     try:
-        local_timezone = django.utils.timezone.get_current_timezone()
-        captured_at = pd.to_datetime(captured_at, utc=True)
+        # captured_at = pd.to_datetime(captured_at, utc=True)
+        captured_at = pd.to_datetime(captured_at)
+        # Pokud chybí časová zóna, nastav aktuální časovou zónu
+        # If the TZ is missing, use the local timezone
+        if captured_at.tzinfo is None or captured_at.tzinfo.utcoffset(captured_at) is None:
+            local_timezone = django.utils.timezone.get_current_timezone()
+            captured_at = local_timezone.localize(captured_at)
     except Exception as e:
         # logger.debug(f"{captured_at=}")
         logger.debug(str(row))
@@ -718,7 +723,8 @@ def _update_database_by_one_row_of_metadata(
             mf.taxon = uploaded_archive.taxon_for_identification
         else:
             mf.taxon = get_taxon(row["predicted_category"])  # remove this
-
+        if captured_at is not None:
+            mf.captured_at = captured_at
         if "predicted_category_raw" in row:
             mf.predicted_taxon = get_taxon(row["predicted_category_raw"])
             mf.predicted_taxon_confidence = float(row["predicted_prob_raw"])
