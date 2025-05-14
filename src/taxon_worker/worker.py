@@ -118,7 +118,7 @@ def predict(
 
         metadata = inference_detection.detect_animal_on_metadata(metadata)
         data_processing_pipeline.run_taxon_classification_inference(metadata)
-        data_processing_pipeline.make_previews(metadata, output_dir)
+        data_processing_pipeline.make_previews(metadata, output_dir, force=do_init)
 
         # Update metadata with post_update_csv if it exists
         # find and read zip or xlsx file in temp dir

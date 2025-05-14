@@ -388,7 +388,7 @@ def keep_correctly_loaded_images(metadata) -> Tuple[pd.DataFrame, pd.DataFrame]:
 
 
 # TODO make preview on taxon worker
-def make_previews(metadata, output_dir, preview_width=1200):
+def make_previews(metadata, output_dir, preview_width=1200, force:bool=False):
     """Create preview image for video."""
     output_dir = Path(output_dir)
     for i, row in tqdm(metadata.iterrows(), total=len(metadata), desc="Creating previews"):
@@ -403,7 +403,7 @@ def make_previews(metadata, output_dir, preview_width=1200):
             make_thumbnail_from_file(mediafile_path, preview_abs_pth, width=preview_width)
         elif row["media_type"] == "video":
             # logger.debug(f"Creating preview for {mediafile_path}")
-            convert_to_mp4(mediafile_path, preview_abs_pth)
+            convert_to_mp4(mediafile_path, preview_abs_pth, force=force)
 
     return metadata
 
