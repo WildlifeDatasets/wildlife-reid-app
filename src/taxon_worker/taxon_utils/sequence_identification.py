@@ -330,10 +330,15 @@ def _check_if_it_is_cuddleback1(frame_bgr: np.nan) -> Tuple[str, bool, str]:
     ocr_result = ""
     try:
 
+        if frame_bgr.shape[0] != 720 or frame_bgr.shape[1] != 1280:
+            # this is not Cuddleback
+            return "", False, ""
         # Preprocess the frame: Convert to grayscale and apply thresholding
         gray_frame = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2GRAY)
         # maybe, the thresholding is not necessary, but it works now
-        _, processed_frame = cv2.threshold(gray_frame, 150, 255, cv2.THRESH_BINARY)
+        _, processed_frame = cv2.threshold(gray_frame, 140, 255, cv2.THRESH_BINARY)
+        # Crop the frame to the area where the date is expected
+        processed_frame = processed_frame[300:500,:]
 
         # Use Tesseract to perform OCR on the processed frame
         ocr_result = pytesseract.image_to_string(processed_frame)
