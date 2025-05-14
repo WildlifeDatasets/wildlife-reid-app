@@ -2,7 +2,7 @@ import re
 import typing
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Optional, Tuple, List
 import traceback
 
 import numpy as np
@@ -27,10 +27,12 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+# EXIFTOOL_EXECUTABLE = "/webapps/piglegsurgery/Image-ExifTool-13.00/exiftool"
+EXIFTOOL_EXECUTABLE = None
 
 DATETIME_BLACKLIST = [
     # "0000-00-00 00:00:00",
-    "2015-05-21 17:29:12",
+    '2015-05-21 15:29:12'
 ]
 
 class DatasetEventIdManager:
@@ -151,15 +153,15 @@ def get_datetime_using_exif_or_ocr(filename: typing.Union[Path, str], exiftool_m
     dt_str = ""
     try:
         checked_keys = [
-                "QuickTime:MediaCreateDate",
-                "QuickTime:CreateDate",
-                "EXIF:CreateDate",
-                "EXIF:ModifyDate",
-                "EXIF:DateTimeOriginal",
-                "EXIF:DateTimeCreated",
-                # "File:FileModifyDate",
-                # "File:FileCreateDate",
-            ]
+            "QuickTime:MediaCreateDate",
+            "QuickTime:CreateDate",
+            "EXIF:CreateDate",
+            "EXIF:ModifyDate",
+            "EXIF:DateTimeOriginal",
+            "EXIF:DateTimeCreated",
+            # "File:FileModifyDate",
+            # "File:FileCreateDate",
+        ]
 
         d = exiftool_metadata
         dt_str = ""
@@ -280,7 +282,7 @@ def get_datetime_exiftool(video_pth: Path, checked_keys: Optional[list]=None) ->
         ]
     # files = [png", "c.tif"]
     files = [video_pth]
-    with exiftool.ExifToolHelper() as et:
+    with exiftool.ExifToolHelper(executable=EXIFTOOL_EXECUTABLE) as et:
         metadata = et.get_metadata(files)
         for d in metadata:
             for k in checked_keys:
@@ -307,6 +309,9 @@ def get_datetime_from_ocr(filename: Path) -> typing.Tuple[str, str]:
         ret, frame_bgr = cap.read()
         cap.release()
 
+    # from matplotlib import pyplot as plt
+    # plt.imshow(frame_bgr[:, :, ::-1])
+    # plt.show()
     date_str, is_cuddleback1, ocr_result = _check_if_it_is_cuddleback1(frame_bgr)
     if not is_cuddleback1:
         date_str, is_cuddleback_corner, ocr_result_corner = _check_if_it_is_cuddleback_corner(
@@ -332,9 +337,10 @@ def _check_if_it_is_cuddleback1(frame_bgr: np.nan) -> Tuple[str, bool, str]:
 
         # Use Tesseract to perform OCR on the processed frame
         ocr_result = pytesseract.image_to_string(processed_frame)
+        logger.debug(f"OCR: {ocr_result=}")
         # Define a regex pattern to match date and time format:
         # MM/DD/YYYY hh:mm AM
-        date_pattern = r"\b(\d{1,2})[-\/s.](\d{1,2})[-\/s.](\d{4}) (\d{1,2}):(\d{1,2}) ([AP]M)"
+        date_pattern = r"\b(\d{1,2})[-\/s.](\d{1,2})[-\/s.](\d{4}) (\d{1,2}):(\d{1,2}) ?([AP]M)"
 
         # Search for dates in the OCR result
         dates = re.findall(date_pattern, ocr_result)
@@ -446,13 +452,12 @@ def get_datetime_from_exif(filename: Path) -> typing.Tuple[str, str]:
     return dt_str, read_error
 
 
-def extend_df_with_datetime(df: pd.DataFrame) -> pd.DataFrame:
+def extend_df_with_datetime(df: pd.DataFrame, exiftool_executable=None) -> pd.DataFrame:
     """Extends dataframe with datetime based on image exif information."""
     assert "image_path" in df
     logger.debug("Getting EXIFs")
-    exiftool_path = None
-    with exiftool.ExifToolHelper(executable=exiftool_path) as et:
-        exifs = et.get_metadata(df.image_path)
+    with exiftool.ExifToolHelper(executable=exiftool_executable) as et:
+        exifs = et.get_metadata(list(df.image_path))
     logger.debug("EXIFs collected")
     dates = []
     for image_path, exif in df.image_path, exifs:
@@ -493,3 +498,63 @@ def extend_df_with_sequence_id(df: pd.DataFrame, time_limit: typing.Union[str, d
     event_id_manager = DatasetEventIdManager(time_limit=time_limit)
     df["sequence_number"] = df.delta_datetime.progress_map(event_id_manager.create_event_id)
     return df
+
+
+
+def add_datetime_from_exif_in_parallel(
+        original_paths: List[Path], dataset_basedir: Optional[Path]=None,
+        exiftool_executable=None, num_cores:int=1
+) -> Tuple[list, list, list]:
+    """Get list of datetimes from EXIF.
+
+    The EXIF information is extracted in single-core way but with the help of ExifTool.
+    """
+
+    logger.debug(f"Getting EXIFs from {len(original_paths)} files.")
+    # Collect EXIF info
+    if  dataset_basedir:
+        full_paths = [dataset_basedir / original_path for original_path in original_paths]
+    else:
+        full_paths = original_paths
+    try:
+        with exiftool.ExifToolHelper(executable=exiftool_executable) as et:
+            # Your code to interact with ExifTool
+            exifs = et.get_metadata(full_paths)
+    except exiftool.exceptions.ExifToolExecuteError as e:
+        logger.debug(traceback.format_exc())
+        logger.warning(f"Error while batch reading EXIFs from {full_paths}.")
+        logger.info("Trying to process per file (slow).")
+
+        # do it per file
+        exifs = []
+        for path in full_paths:
+            try:
+                with exiftool.ExifToolHelper(executable=None) as et:
+                    exif = et.get_metadata(path)
+                exifs.append(exif)
+            except exiftool.exceptions.ExifToolExecuteError as e:
+                logger.debug(traceback.format_exc())
+                logger.error(f"Error while reding EXIF from {str(path)}")
+                exifs.append({})
+
+        exifs = [{} for _ in full_paths]
+
+    assert len(exifs) == len(full_paths), \
+        f"Number of EXIFs ({len(exifs)}) is not equal to number of files ({len(full_paths)}."
+    logger.debug("EXIFs collected")
+
+    # Evaluate exif info and use OCR if necessary
+    if num_cores > 1:
+        datetime_list = Parallel(n_jobs=num_cores)(
+            delayed(get_datetime_using_exif_or_ocr)(full_path, exif)
+            for full_path, exif in tqdm(list(zip(full_paths, exifs)), desc="datetime from EXIF or OCR parallel")
+        )
+    else:
+        datetime_list = [
+            get_datetime_using_exif_or_ocr(full_path, exif)
+            for full_path, exif in tqdm(list(zip(full_paths, exifs)), desc="datetime from EXIF or OCR")
+        ]
+
+    datetime_list, error_list, source_list = zip(*datetime_list)
+    return datetime_list, error_list, source_list
+

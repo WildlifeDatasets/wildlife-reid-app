@@ -29,7 +29,7 @@ from tqdm import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
 
 from .inout import extract_archive
-from .sequence_identification import get_datetime_using_exif_or_ocr
+from .sequence_identification import get_datetime_using_exif_or_ocr, add_datetime_from_exif_in_parallel
 
 logger = logging.getLogger("app")
 
@@ -922,51 +922,7 @@ class SumavaInitialProcessing:
 
         The EXIF information is extracted in single-core way but with the help of ExifTool.
         """
-
-        logger.debug(f"Getting EXIFs from {len(original_paths)} files.")
-        # Collect EXIF info
-        full_paths = [self.dataset_basedir / original_path for original_path in original_paths]
-        try:
-            with exiftool.ExifToolHelper(executable=None) as et:
-                # Your code to interact with ExifTool
-                exifs = et.get_metadata(full_paths)
-        except exiftool.exceptions.ExifToolExecuteError as e:
-            logger.debug(traceback.format_exc())
-            logger.warning(f"Error while batch reading EXIFs from {full_paths}.")
-            logger.info("Trying to process per file (slow).")
-
-            # do it per file
-            exifs = []
-            for path in full_paths:
-                try:
-                    with exiftool.ExifToolHelper(executable=None) as et:
-                        exif = et.get_metadata(path)
-                    exifs.append(exif)
-                except exiftool.exceptions.ExifToolExecuteError as e:
-                    logger.debug(traceback.format_exc())
-                    logger.error(f"Error while reding EXIF from {str(path)}")
-                    exifs.append({})
-
-            exifs = [{} for _ in full_paths]
-
-        assert len(exifs) == len(full_paths), \
-            f"Number of EXIFs ({len(exifs)}) is not equal to number of files ({len(full_paths)}."
-        logger.debug("EXIFs collected")
-
-        # Evaluate exif info and use OCR if necessary
-        if self.num_cores > 1:
-            datetime_list = Parallel(n_jobs=self.num_cores)(
-                delayed(get_datetime_using_exif_or_ocr)(full_path, exif)
-                for full_path, exif in tqdm(list(zip(full_paths, exifs)), desc="datetime from EXIF or OCR parallel")
-            )
-        else:
-            datetime_list = [
-                get_datetime_using_exif_or_ocr(full_path, exif)
-                for full_path, exif in tqdm(list(zip(full_paths, exifs)), desc="datetime from EXIF or OCR")
-            ]
-
-        datetime_list, error_list, source_list = zip(*datetime_list)
-        return datetime_list, error_list, source_list
+        return  add_datetime_from_exif_in_parallel(original_paths, dataset_basedir=self.dataset_basedir, num_cores=self.num_cores)
 
 
 def add_column_with_lynx_id(df: pd.DataFrame, contain_identities: bool = False) -> pd.DataFrame:
