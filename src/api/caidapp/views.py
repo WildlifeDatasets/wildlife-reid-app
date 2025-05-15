@@ -10,6 +10,7 @@ import django
 import pandas as pd
 import plotly.express as px
 import pytz
+from zoneinfo import ZoneInfo
 from celery import signature
 from django.conf import settings
 from django.contrib import messages
@@ -37,6 +38,10 @@ from functools import wraps
 from django.shortcuts import redirect
 from django.core.exceptions import PermissionDenied
 from django.forms.models import model_to_dict
+from django.db.models import F, Func, Value
+from django.db.models.functions import Cast
+import django.db
+from djangoaddicts.pygwalker.views import PygWalkerView
 
 from django.contrib.auth.models import Group, User
 from tqdm import tqdm
@@ -2408,7 +2413,8 @@ def _update_csv_by_uploadedarchive(request, uploadedarchive_id: int):
         if updated_at is None:
             # set updated_at to old date
             updated_at = datetime.datetime(
-                2000, 1, 1, 0, 0, 0, 0, tzinfo=pytz.timezone(settings.TIME_ZONE)
+                2000, 1, 1, 0, 0, 0, 0).replace(
+                tzinfo=ZoneInfo(settings.TIME_ZONE)
             )
         # check if mediafiles are updated later than updated_at
 
@@ -3190,10 +3196,6 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
         })
 
 
-from djangoaddicts.pygwalker.views import PygWalkerView
-from django.db.models import F, Func, Value
-from django.db.models.functions import Cast
-import django.db
 
 class SplitPart(Func):
     function = 'SPLIT_PART'
