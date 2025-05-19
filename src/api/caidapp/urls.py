@@ -15,6 +15,7 @@ urlpatterns = [
     path("", views.login, name="index"),
     # path("rest_api/", include(router.urls)), # not used any more
     path("upload/", views.upload_archive, name="upload_archive"),
+    path("user_settings/", views.update_caiduser, name="update_caiduser"),
     path(
         "upload/contains_single_taxon/",
         views.upload_archive,

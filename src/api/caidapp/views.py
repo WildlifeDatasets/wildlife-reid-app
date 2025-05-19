@@ -30,6 +30,7 @@ from django.shortcuts import Http404, HttpResponse
 from django.template.loader import render_to_string
 from django.db.models import OuterRef, Subquery
 from django.http import JsonResponse
+from django.utils import timezone
 from celery.result import AsyncResult
 from django.shortcuts import get_object_or_404, render
 from django.views import View
@@ -295,6 +296,33 @@ def update_taxon(request, taxon_id: Optional[int] = None):
         },
     )
 
+@login_required
+def update_caiduser(request):
+    """Update species form. Create taxon if taxon_id is None."""
+    caiduser = request.user.caiduser
+    if request.method == "POST":
+        form = forms.CaIDForm(request.POST, instance=caiduser)
+        if form.is_valid():
+            taxon = form.save(commit=False)
+            # taxon.updated_by = request.user.caiduser
+            taxon.save()
+            # go back to prev url
+            url = request.META.get("HTTP_REFERER", "/")
+
+            return redirect(url)
+            # return
+            # return redirect("caidapp:show_taxons")
+    else:
+        form = forms.CaIDForm(instance=caiduser)
+    return render(
+        request,
+        "caidapp/update_form.html",
+        {
+            "form": form,
+            "headline": "User settings",
+            "button": "Save",
+        },
+    )
 
 def get_filtered_mediafiles(
     user,
@@ -1382,14 +1410,39 @@ def upload_archive(
             form = UploadedArchiveFormWithTaxon(
                 request.POST,
                 request.FILES,
+                user=request.user,
             )
         else:
             form = UploadedArchiveForm(
                 request.POST,
                 request.FILES,
+                user=request.user,
             )
         if form.is_valid():
 
+            caiduser = request.user.caiduser
+            if not caiduser.ml_consent_given:
+                if form.cleaned_data.get("ml_consent"):
+                    caiduser.ml_consent_given = True
+                    caiduser.ml_consent_given_date = timezone.now().astimezone(
+                        ZoneInfo(request.user.caiduser.timezone)
+                    )
+                    caiduser.save()
+                else:
+                    messages.error(
+                        request,
+                        "To upload data, you must agree to their use for training AI models.",
+                    )
+                    return JsonResponse({"html": render_to_string(
+                        "caidapp/partial_message.html",
+                        context={
+                            "headline": "Consent required",
+                            "text": "Upload cancelled. Please agree to the use of your data for training AI models.",
+                            "next": reverse_lazy("caidapp:uploads"),
+                            "next_text": "Back to uploads",
+                        },
+                        request=request,
+                    )})
             # get uploaded archive
             uploaded_archive = form.save()
             uploaded_archive_suffix = Path(uploaded_archive.archivefile.name).suffix.lower()
@@ -1473,9 +1526,9 @@ def upload_archive(
                 default_taxon = models.get_taxon("Lynx lynx")
             initial_data["taxon_for_identification"] = default_taxon
             logger.debug(f"{initial_data=}")
-            form = UploadedArchiveFormWithTaxon(initial=initial_data)
+            form = UploadedArchiveFormWithTaxon(initial=initial_data, user=request.user)
         else:
-            form = UploadedArchiveForm(initial=initial_data)
+            form = UploadedArchiveForm(initial=initial_data, user=request.user)
 
     return render(
         request,

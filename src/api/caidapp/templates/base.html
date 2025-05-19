@@ -345,6 +345,12 @@
                             </li>
 {#                            {% include 'caidapp/do_admin_stuff.html' %}#}
                         {% endif %}
+                        <li >
+                            <a class="dropdown-item d-flex align-items-center" href="{% url 'caidapp:update_caiduser' %}">
+                                <i class="bi bi-gear"></i>
+                                Settings</a>
+                            {#              <span>Web Designer</span>#}
+                        </li>
 
                         <li>
                             <a class="dropdown-item d-flex align-items-center" href="{% url 'caidapp:logout_view' %}">

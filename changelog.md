@@ -1,5 +1,9 @@
 # Changelog
 
+## 05-2025
+
+* [added] AI consent
+
 ## 04-2025
 
 * [added] Home page

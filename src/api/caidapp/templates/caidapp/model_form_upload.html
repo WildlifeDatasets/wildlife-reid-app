@@ -43,14 +43,33 @@
 
                 {% for field in form %}
                     <div class="form-group mt-2">
-                        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+
+        {% if field.field.widget.input_type == "checkbox" %}
+                <div class="form-check">
+        {{ field|add_class:"form-check-input" }}
+        <label class="form-check-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                </div>
+        {% else %}
+            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {{ field|add_class:"form-control" }}
+        {% endif %}
                         <span class="text-danger">{{ field.errors }}</span>
-                        {{ field|add_class:"form-control" }}
                         <span class="text-muted">{{ field.help_text}}</span>
                         <span class="text-warning" id="warning_msg_{{ field.id_for_label }}"></span>
                         <span class="text-secondary" id="secondary_msg_{{ field.id_for_label }}"></span>
                     </div>
                 {% endfor %}
+            <div class="mt-4">
+                <h4>
+                    Consent for Data Use
+                </h4>
+                <p>
+                    By uploading files to this platform, you confirm that you have the right to share the uploaded content and you grant permission for the uploaded images and videos to be used for research and development purposes, including the training of machine learning models. You understand and agree that the resulting models, which may include representations learned from your data, may be made publicly available.
+                </p>
+                <p>
+                    The data will be processed in accordance with applicable data protection laws. Where applicable, personal data will be anonymized before use. Trained models may be shared with the scientific community or third-party partners for the purpose of advancing research and conservation efforts.
+                </p>
+            </div>
 
                 <p>
                 <div class="progress not-visible" id="progress"></div>
@@ -63,9 +82,6 @@
                 {#                <a class="btn btn-secondary" href="{% url 'caidapp:uploads' %}">Cancel</a>#}
 
             </form>
-        </div>
-        </form>
-        </div>
         </div>
     {% endif %}
     {#</div>#}

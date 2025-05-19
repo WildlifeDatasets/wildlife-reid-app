@@ -208,6 +208,8 @@ class CaIDUser(models.Model):
         null=True, blank=True,
     )
     timezone = models.CharField(max_length=50, blank=True, default=settings.TIME_ZONE)
+    ml_consent_given = models.BooleanField(default=False)
+    ml_consent_given_date = models.DateTimeField("ML consent given date", blank=True, null=True)
 
     @receiver(post_save, sender=DjangoUser)
     def create_user_profile(sender, instance, created, **kwargs):  # NOSONAR

@@ -55,7 +55,13 @@
                                     <div class="form-group">
                                         <label for="{{ field.id_for_label }}">{{ field.label }}</label>
                                         {{ field.errors }}
-                                        {{ field|add_class:"form-control" }}
+                                        {% if field.field.widget.input_type == "checkbox" %}
+                                            {{ field|add_class:"form-check-input" }}
+                                        {% else %}
+                                        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                                            {{ field|add_class:"form-control" }}
+                                        {% endif %}
+
                                     </div>
                                 {% endfor %}
                                 {#                {{ form.as_p }}#}

@@ -40,6 +40,15 @@ class TaxonForm(forms.ModelForm):
         model = models.Taxon
         fields = ("name", "parent")
 
+class CaIDForm(forms.ModelForm):
+    class Meta:
+        model = models.CaIDUser
+        fields = ("default_taxon_for_identification", "timezone", "ml_consent_given", )
+
+        # widgets = {
+        #     'locality': forms.TextInput(attrs={'class': 'autocomplete'}),
+        # }
+
 
 class AlbumForm(forms.ModelForm):
     class Meta:
@@ -148,6 +157,11 @@ class UploadedArchiveForm(forms.ModelForm):
     locality_at_upload = forms.CharField(
         widget=forms.TextInput(attrs={"class": "autocomplete"}), required=False
     )
+    ml_consent = forms.BooleanField(
+        widget=forms.CheckboxInput(),
+        label="I agree to the use of my uploaded images and videos for training AI models.",
+            required=True
+    )
     locality_check_at = forms.DateField(
         widget=forms.DateInput(
             attrs={"class": "datepicker", "placeholder": "yyyy-mm-dd"}, format="%Y-%m-%d"
@@ -155,6 +169,7 @@ class UploadedArchiveForm(forms.ModelForm):
         input_formats=["%Y-%m-%d"],
         # widget=forms.TextInput(attrs={'class': 'datepicker'})
     )
+
 
     class Meta:
         model = UploadedArchive
@@ -169,15 +184,14 @@ class UploadedArchiveForm(forms.ModelForm):
             "locality_check_at": "Locality Check Date",
         }
 
+    def __init__(self, *args, **kwargs):
+        user = kwargs.pop("user", None)
+        super().__init__(*args, **kwargs)
+        self.fields["ml_consent"].initial = user.caiduser.ml_consent_given if user else False
+        # if user and user.caiduser.ml_consent_given:
+        #     # Don't show the checkbox if already agreed
+        #     self.fields.pop("ml_consent")
 
-class CaIDUserForm(forms.ModelForm):
-    class Meta:
-        model = CaIDUser
-        fields = ("show_taxon_classification",)
-
-        help_texts = {
-            "show_taxon_classification": "Do you plan to use taxon classification?",
-        }
 
 class UploadedArchiveFormWithTaxon(forms.ModelForm):
 
@@ -188,9 +202,31 @@ class UploadedArchiveFormWithTaxon(forms.ModelForm):
         queryset=models.Taxon.objects.all().order_by("name"), required=True
     )
 
+    ml_consent = forms.BooleanField(
+        label="I agree to the use of my uploaded images and videos for training AI models.",
+        required=True
+    )
+
     class Meta:
         model = UploadedArchive
         fields = ("archivefile", "locality_at_upload", )
+
+    def __init__(self, *args, **kwargs):
+        user = kwargs.pop("user", None)
+        super().__init__(*args, **kwargs)
+        self.fields["ml_consent"].initial = user.caiduser.ml_consent_given if user else False
+        # if user and user.caiduser.ml_consent_given:
+        #     # Don't show the checkbox if already agreed
+        #     self.fields.pop("ml_consent")
+
+class CaIDUserForm(forms.ModelForm):
+    class Meta:
+        model = CaIDUser
+        fields = ("show_taxon_classification",)
+
+        help_texts = {
+            "show_taxon_classification": "Do you plan to use taxon classification?",
+        }
 
 
 class MediaFileForm(forms.ModelForm):
