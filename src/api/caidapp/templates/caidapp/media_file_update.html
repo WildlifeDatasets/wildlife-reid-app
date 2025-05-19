@@ -195,6 +195,10 @@
                                                        class="mt-1">{{ field.label }}</label><br>
                                                 <!-- Label on its own line -->
                                                 {{ field }}  <!-- Field on the next line -->
+                                                {% if field.id_for_label == "id_identity" %}
+            <button type="button" class="btn btn-outline-primary btn-sm"
+                    onclick="window.location.href='{% url 'caidapp:new_individual_identity' %}'">+</button>
+        {% endif %}
                                                 {% if field.help_text %}
                                                     <small class="form-text text-muted">{{ field.help_text }}</small>
                                                 {% endif %}

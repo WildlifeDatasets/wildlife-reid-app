@@ -3,6 +3,8 @@
 ## 05-2025
 
 * [added] AI consent
+* [added] New idenitity from media file detail
+* [update] Fixed error on some Cuddeback camera trap
 
 ## 04-2025
 
