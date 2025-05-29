@@ -26,11 +26,11 @@
                    value="{{ identity1.id }}|{{ identity2.id }}"
                    id="suggestion-{{ identity1.id }}-{{ identity2.id }}">
             <label class="form-check-label" for="suggestion-{{ identity1.id }}-{{ identity2.id }}">
-                <a href="{% url 'caidapp:update_individual_identity' identity1.id %}" class="link-secondary">
+                <a href="{% url 'caidapp:individual_identity_update' identity1.id %}" class="link-secondary">
                     {{ identity1.name }} ({{ identity1.code }})
                 </a>
                 &rarr;
-                <a href="{% url 'caidapp:update_individual_identity' identity1.id %}" class="link-secondary">
+                <a href="{% url 'caidapp:individual_identity_update' identity1.id %}" class="link-secondary">
                     {{ identity2.name }} ({{ identity2.code }})
                 </a>
             </label>

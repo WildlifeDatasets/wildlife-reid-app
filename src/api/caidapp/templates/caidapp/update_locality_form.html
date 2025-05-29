@@ -92,7 +92,7 @@
                             <h5 class="mt-4">Identities</h5>
                             <ul class="list-group">
                                 {%  for identity in locality.identities %}
-                                <li class="list-group"><a class="link-secondary" href="{% url 'caidapp:update_individual_identity' identity.id %}"> {{ identity }} </a></li>
+                                <li class="list-group"><a class="link-secondary" href="{% url 'caidapp:individual_identity_update' identity.id %}"> {{ identity }} </a></li>
                                 {% endfor %}
 
                             </ul>

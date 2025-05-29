@@ -19,7 +19,7 @@
                 {#                    <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li>#}
                 {#                </ol>#}
                 {#                <a class="btn btn-primary mt-2" href="{% url 'caidapp:get_individual_identity' %}"><i class="bi bi-question-circle"></i> Annotate unknown identities</a>#}
-                <a class="btn btn-secondary mt-2" href="{% url 'caidapp:new_individual_identity' %}"><i
+                <a class="btn btn-secondary mt-2" href="{% url 'caidapp:individual_identity_create' %}"><i
                         class="bi bi-plus-circle"></i> Add new identity</a>
                 <a class="btn btn-secondary mt-2" href="{% url 'caidapp:suggest_merge_identities' %}"><i
                         class="bi bi-union"></i> Identity merge tool</a>
@@ -106,7 +106,7 @@
                                 {#                    {% endif %}#}
                                 {##}
                                 {#                        <a class="btn btn-primary"#}
-                                {#                           href="{% url 'caidapp:update_individual_identity' individual_identity.hash %}">#}
+                                {#                           href="{% url 'caidapp:individual_identity_update' individual_identity.hash %}">#}
                                 {#                            <i class="bi bi-images"></i> Detail#}
                                 {#                        </a>#}
 
@@ -118,7 +118,7 @@
                                     </a>
 
                                     <a class="btn btn-secondary"
-                                       href="{% url 'caidapp:update_individual_identity' individual_identity.id %}">
+                                       href="{% url 'caidapp:individual_identity_update' individual_identity.id %}">
                                         <i class="bi bi-pencil"></i>
                                     </a>
 {#                                dropdown button #}

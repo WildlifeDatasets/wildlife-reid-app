@@ -118,14 +118,19 @@ urlpatterns = [
     path("delete_album/<str:album_hash>/", views.delete_album, name="delete_album"),
     path("new_album/", views.new_album, name="new_album"),
     path(
-        "new_individual_identity/",
-        views.new_individual_identity,
-        name="new_individual_identity",
+        "individual_identity_create/",
+        views.individual_identity_create,
+        name="individual_identity_create",
     ),
     path(
-        "update_individual_identity/<int:individual_identity_id>",
-        views.update_individual_identity,
-        name="update_individual_identity",
+        "individual_identity_create/media_file/<int:media_file_id>",
+        views.individual_identity_create,
+        name="individual_identity_create",
+    ),
+    path(
+        "individual_identity_update/<int:individual_identity_id>",
+        views.individual_identity_update,
+        name="individual_identity_update",
     ),
     path(
         "individual_identity/share/<str:identity_hash>",

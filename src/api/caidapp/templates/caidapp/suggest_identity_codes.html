@@ -22,7 +22,7 @@
           {% if identity.suggested_code_from_name %}
         <li class="list-group-item d-flex justify-content-between align-items-center">
           <div >
-              <a href="{% url 'caidapp:update_individual_identity' identity.id %}" class="link-secondary">
+              <a href="{% url 'caidapp:individual_identity_update' identity.id %}" class="link-secondary">
                {{ identity.name }} ({{ identity.code }})
               </a>
               &rarr; {{ identity.suggested_name_without_code }} ({{ identity.suggested_code_from_name }})

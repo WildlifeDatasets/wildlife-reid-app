@@ -587,7 +587,7 @@ class IdentityListView(LoginRequiredMixin, ListView):
         return context
 
 @login_required
-def new_individual_identity(request):
+def individual_identity_create(request, media_file_id:Optional[int]=None):
     """Create new individual_identity."""
     if request.method == "POST":
         form = IndividualIdentityForm(request.POST)
@@ -596,7 +596,18 @@ def new_individual_identity(request):
             individual_identity.owner_workgroup = request.user.caiduser.workgroup
             individual_identity.updated_by = request.user.caiduser
             individual_identity.save()
-            return redirect("caidapp:individual_identities")
+            # go back to prev page
+            if media_file_id:
+                media_file = get_object_or_404(
+                    MediaFile,
+                    pk=media_file_id,
+                    parent__owner_workgroup=request.user.caiduser.workgroup,
+                )
+                media_file.identity = individual_identity
+                media_file.save()
+                messages.success(request, "Individual identity created and linked to media file.")
+            url = request.META.get("HTTP_REFERER", "caidapp:individual_identities")
+            return redirect(url)
     else:
         form = IndividualIdentityForm()
     return render(
@@ -607,7 +618,7 @@ def new_individual_identity(request):
 
 
 @login_required
-def update_individual_identity(request, individual_identity_id):
+def individual_identity_update(request, individual_identity_id):
     """Show and update media file."""
     individual_identity = get_object_or_404(
         IndividualIdentity,

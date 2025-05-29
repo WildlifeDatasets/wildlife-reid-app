@@ -71,15 +71,15 @@
 {#    border: none;#}
 {#    padding: 10px;#}
 {#    cursor: pointer;#}
-{#}#}
+{# }#}
 {##}
 {#.carousel-control.prev {#}
 {#    left: 10px;#}
-{#}#}
+{# }#}
 {##}
 {#.carousel-control.next {#}
 {#    right: 10px;#}
-{#}#}
+{# }#}
 
 
 
@@ -153,7 +153,7 @@
                                 {{ foridentifications|length }} media files left to identify.
                             </p>
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-4">
                             <div
                                     class="d-flex align-items-center gap-2"
                             >
@@ -167,11 +167,16 @@
 
                             </div>
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-5">
                                 <div
                                         class="d-flex align-items-center gap-2 mt-3 mb-3"
                                 >
                             <a href="{% url 'caidapp:not_identified_mediafiles' %}" class="btn btn-secondary"><i class="bi bi-list"></i>All for confirmation</a>
+                            <a class="btn btn-secondary " href="{% url 'caidapp:individual_identity_create' foridentification.mediafile.id %}"
+                               data-bs-toggle="tooltip" title="This is a new identity. Create a new identity for this media file."
+                            >
+                                <i class="bi bi-plus-lg"></i>
+                                This is new identity</a>
                             <a href="{% url 'caidapp:get_individual_identity' %}" class="btn btn-secondary"><i class="bi bi-chevron-bar-right"></i>Skip</a>
                                     {% if next_foridentification %}
                                         <a href="{% url 'caidapp:get_individual_identity' next_foridentification.id %}" class="btn btn-primary">
@@ -219,6 +224,8 @@
                                         >{{ foridentification.mediafile }}</a>
                                     </p>
                                     <p class="card-text">
+                                    </p>
+                                    <p class="card-text">
                                         from <a
                                             href="{% url 'caidapp:uploadedarchive_mediafiles' foridentification.mediafile.parent.id %}"
                                             class="link-secondary"> {{ foridentification.mediafile.parent }}</a>
@@ -254,7 +261,7 @@
                                                     {% endwith %}
                                                         <div class="card-body">
                                                             <div class="card-title">
-                                                                <a href="{% url 'caidapp:update_individual_identity' reid_suggestion.identity.id %}">
+                                                                <a href="{% url 'caidapp:individual_identity_update' reid_suggestion.identity.id %}">
                                                                     {{ reid_suggestion.name }}
                                                                 </a>
                                                             </div>
