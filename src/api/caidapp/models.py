@@ -1319,6 +1319,20 @@ class AlbumShareRole(models.Model):
         return str(self.album.name) + " " + str(self.user.user.username)
 
 
+class  CaptureDevice(models.Model):
+    """Capture device model."""
+
+    name = models.CharField(max_length=100, unique=True)
+    description = models.TextField(blank=True, default="")
+    owner = models.ForeignKey(CaIDUser, on_delete=models.CASCADE, null=True, blank=True)
+
+    # JSON pole pro rozpoznávací znaky
+    exif_features = models.JSONField(blank=True, default=dict,
+                                     help_text="Dictionary of EXIF keys and expected values for identifying this device.")
+
+    def __str__(self):
+        return self.name
+
 def get_unique_name(name: str, workgroup: WorkGroup) -> Optional[IndividualIdentity]:
     """Return taxon according to the name, create it if necessary."""
     if (name is None) or (name == ""):
@@ -1430,3 +1444,5 @@ def user_has_access_filter_params(ciduser: CaIDUser, prefix: str) -> dict:
     else:
         filter_params = {f"{prefix}": ciduser}
     return filter_params
+
+
