@@ -50,6 +50,10 @@
 
                             <form id="myForm" method="post" enctype="multipart/form-data">
                                 {% csrf_token %}
+
+                                {# this is passing th nex page from GET to POST to be applicable when the form is ok  #}
+                                <input type="hidden" name="next" value="{{ request.GET.next }}">
+
 {#                                {{ form.as_p }}#}
                                 {% for field in form %}
                                     <div class="form-group">

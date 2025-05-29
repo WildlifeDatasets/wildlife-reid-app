@@ -1,0 +1,160 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block head %}
+    <!--refresh every 120 s-->
+    {#<meta http-equiv="refresh" content="120">#}
+{% endblock %}
+{% block body %}
+    {% if user.is_authenticated %}
+        <div class="pagetitle">
+            <h1>Base dataset</h1>
+            <div>
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'caidapp:home' %}"><i class="fa fa-home"></i> Home</a></li>
+                    {#                    {% if uploadedarchive.contains_single_taxon %}#}
+{#                    <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads_identities' %}">Identities Uploads </a></li>#}
+                    {#                    {% else %}#}
+                    {#                        <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li>#}
+                    {#                    {%  endif %}#}
+                    {#                <li class="breadcrumb-item"><a href="{% url 'caidapp:uploadedarchive_mediafiles' mediafile.parent.id %}"> Uploaded#}
+                    {#                    Archive: {{ mediafile.parent }}</a></li>#}
+{##}
+                </ol>
+
+                <div class="d-flex justify-content-between">
+
+                    <div>
+
+                        <a class="btn {{ btn_styles.upload_identified.class }}" href="{% url 'caidapp:upload_archive_contains_identities' %}"><i class="bi bi-upload"></i> Upload identified </a>
+                        <a class="btn btn-secondary" href="{% url 'caidapp:representative_mediafiles' %}"><i class="bi bi-eye"></i> Check representative images </a>
+                        <i class="bi bi-arrow-right-short fa-2x" style="vertical-align: middle;"></i>
+                        <a class="btn {{ btn_styles.init_identification.class }}"
+                           href="{% url 'caidapp:init_identification' %}"
+                                {% if user.caiduser.workgroup.identification_init_status %}
+                           data-bs-toggle="tooltip"
+                           title="Initiated at: {{ user.caiduser.workgroup.identification_init_at|date:'Y-m-d H:i' }}, {{ user.caiduser.workgroup.identification_init_status}}, {{ user.caiduser.workgroup.identification_init_message }}"
+                                {% endif %}
+                           onclick="return confirm('{{ btn_styles.init_identification.confirm }}')"
+                        ><i class="fas fa-fingerprint"></i> Init identification
+
+                            {% if user.caiduser.workgroup.identification_init_status == "Processing" %}
+                                <i class="fa fa-spinner fa-spin"></i>
+                            {% endif %}
+                        </a>
+                        {% if user.caiduser.workgroup.identification_init_status == "Processing" or  user.caiduser.workgroup.identification_init_status == "Processing" %}
+                            <a class="btn btn-danger" href="{% url 'caidapp:stop_init_identification' %}"><i class="bi bi-stop-fill "></i> Stop </a>
+                        {% endif %}
+                        {#                        <i class="bi bi-arrow-right-short fa-2x" style="vertical-align: middle;"></i>#}
+                        {#                        <a class="btn {{ btn_styles.upload_unidentified }}" href="{% url 'caidapp:upload_archive_contains_single_taxon' %}"><i class="bi bi-upload"></i> Upload unidentified  single species</a>#}
+                        {#                        <i class="bi bi-arrow-right-short fa-2x" style="vertical-align: middle;"></i>#}
+                        {#                        <a class="btn {{ btn_styles.run_identification }}" href="{% url 'caidapp:run_identification_on_unidentified' %}"><i class="bi bi-question-circle"></i> Identify </a>#}
+                        {#                        <i class="bi bi-arrow-right-short fa-2x" style="vertical-align: middle;"></i>#}
+                        {#                        <a class="btn {{ btn_styles.confirm_identification }}" href="{% url 'caidapp:get_individual_identity' %}"><i class="bi bi-question-circle"></i> Confirm identification</a>#}
+                    </div>
+                    <div>
+                        <a class="btn btn-secondary" href="{% url 'caidapp:select_reid_model' %}"><i class="fa-solid fa-gear"></i></a>
+                    </div>
+                    {#                {% if workgroup.identification_init_status %}#}
+                    {#                    <p>Identification initiated at: {{ workgroup.identification_init_at|date:'Y-m-d H:i' }}</p>#}
+                    {#                    <p>{{ workgroup.identification_init_message }}</p>#}
+                    {#                {% else %}#}
+                    {#                    Identification not initiated.#}
+                    {#                {% endif %}#}
+                    {#                <p><i class="bi bi-calendar" ></i></p>#}
+                    {#                {{ user.caiduser.workgroup }}#}
+                </div>
+            </div>
+            <h1 class="mt-4">Identification uploaded archives</h1>
+            <div>
+{#                <ol class="breadcrumb">#}
+                    {#                    {% if uploadedarchive.contains_single_taxon %}#}
+{#                    <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads_identities' %}">Identities Uploads </a>#}
+{#                    </li>#}
+                    {#                    {% else %}#}
+                    {#                        <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li>#}
+                    {#                    {%  endif %}#}
+                    {#                <li class="breadcrumb-item"><a href="{% url 'caidapp:uploadedarchive_mediafiles' mediafile.parent.id %}"> Uploaded#}
+                    {#                    Archive: {{ mediafile.parent }}</a></li>#}
+{##}
+{#                </ol>#}
+
+                <div class="d-flex justify-content-between">
+                    <div>
+
+                        {#                        <a class="btn {{ btn_styles.upload_identified }}" href="{% url 'caidapp:upload_archive_contains_identities' %}"><i class="bi bi-upload"></i> Upload identified </a>#}
+                        {#                        <a class="btn btn-secondary" href="{% url 'caidapp:representative_mediafiles' %}"><i class="bi bi-eye"></i> Check representative images </a>#}
+                        {#                        <i class="bi bi-arrow-right-short fa-2x" style="vertical-align: middle;"></i>#}
+                        {#                        <a class="btn {{ btn_styles.init_identification }}" href="{% url 'caidapp:init_identification' %}"#}
+                        {#                                {% if user.caiduser.workgroup.identification_init_status %}#}
+                        {#                           data-bs-toggle="tooltip" title="Initiated at: {{ user.caiduser.workgroup.identification_init_at|date:'Y-m-d H:i' }}, {{ user.caiduser.workgroup.identification_init_status}}, {{ user.caiduser.workgroup.identification_init_message }}"#}
+                        {#                                {% endif %}#}
+                        {#                        ><i class="fas fa-fingerprint"></i> Init identification#}
+                        {##}
+                        {#                            {% if user.caiduser.workgroup.identification_init_status == "Processing" %}#}
+                        {#                                <i class="fa fa-spinner fa-spin"></i>#}
+                        {#                            {% endif %}#}
+                        {#                        </a>#}
+                        {#                        <i class="bi bi-arrow-right-short fa-2x" style="vertical-align: middle;"></i>#}
+                        <a class="btn {{ btn_styles.upload_unidentified.class }}"
+                           href="{% url 'caidapp:upload_archive_contains_single_taxon' %}"><i class="bi bi-upload"></i>
+                            Upload unidentified single species</a>
+                        <a class="btn btn-secondary" href="{% url 'caidapp:uploads_identities' %}">
+                            <i class="bi bi-card-list"></i>
+                            Check uploads
+                        </a>
+                        <i class="bi bi-arrow-right-short fa-2x" style="vertical-align: middle;"></i>
+                        <a class="btn {{ btn_styles.run_identification.class }}" href="{% url 'caidapp:pre_identify' %}"
+                           data-bs-toggle="tooltip" title="{{ btn_styles.run_identification.tooltip }}"
+                           onclick="return confirm('{{ btn_styles.run_identification.confirm }}')"
+                        >
+                            <i class="bi bi-question-circle"></i> Compare with identity database
+                            {% if user.caiduser.workgroup.identification_reid_status == "Processing" %}
+                                <i class="fa fa-spinner fa-spin"></i>
+                            {% endif %}
+                        </a>
+                        <i class="bi bi-arrow-right-short fa-2x" style="vertical-align: middle;"></i>
+                        {#                        <a class="btn {{ btn_styles.confirm_identification.class }} {% if btn_styles.n_for_confirmation == 0 %} disabled {% endif %} }}" href="{% url 'caidapp:get_individual_identity' %}"><i class="bi bi-question-circle"></i> Confirm identification</a>#}
+                        <a class="btn {{ btn_styles.confirm_identification.class }} {% if btn_styles.n_for_confirmation == 0 %} disabled {% endif %} }}"
+                           href="{% url 'caidapp:not_identified_mediafiles' %}"><i class="bi bi-question-circle"></i>
+                            Confirm identification</a>
+                    </div>
+                </div>
+            </div>
+        </div><!-- End Page Title -->
+
+        <div class="card">
+            <div class="card-body">
+                <h3 class="card-title">Identification data</h3>
+
+                Number of identities: {{ user.caiduser.number_of_identities }}<br>
+                Number of media files in identification: {{ user.caiduser.number_of_media_files_for_identification }}<br>
+                Number of media files with known identity: {{ user.caiduser.number_of_media_files_with_known_identity }}<br>
+                Number of media files with missing identity: {{ user.caiduser.number_of_media_files_with_missing_identity }}<br>
+
+{#                Number of media files: {{ user.caiduser.number_of_media_files_general }}<br>#}
+{#                Number of media files with missing taxa: {{ user.caiduser.number_of_media_files_with_missing_taxa_general }}<br>#}
+{#                Number of media files with missing taxa verification: {{ user.caiduser.number_of_media_files_with_missing_taxa_verification_general }}<br>#}
+
+
+
+            </div>
+        </div>
+    {% endif %}
+
+
+
+
+
+{% endblock %}
+
+{% block script %}
+    <script src="{% static 'caidapp/uploads.js' %}"></script>
+    <script>
+
+        document.addEventListener("DOMContentLoaded", function () {
+            // spustí první dotaz po načtení stránky
+            checkStatuses("{% url 'caidapp:uploads_status_api' 'identities' %}");
+        });
+    </script>
+
+{% endblock %}

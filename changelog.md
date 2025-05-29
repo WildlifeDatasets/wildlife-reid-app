@@ -5,6 +5,7 @@
 * [added] AI consent
 * [added] New idenitity from media file detail
 * [update] Fixed error on some Cuddeback camera trap
+* [added] Dash for identity processing
 
 ## 04-2025
 

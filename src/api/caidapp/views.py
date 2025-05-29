@@ -420,6 +420,26 @@ def uploads_identities(request) -> HttpResponse:
         },
     )
 
+@login_required
+def dash_identities(request) -> HttpResponse:
+    """View for mediafiles not in other categories."""
+    # queryset = get_filtered_mediafiles(
+    #     request.user,
+    #     # contains_single_taxon=True,
+    #     contains_identities=False,
+    #     taxon_for_identification__isnull=False,
+    # )
+    # page_context = paginate_queryset(queryset, request)
+
+    return render(
+        request,
+        "caidapp/dash_identities.html",
+        {
+            # **page_context,
+            "btn_styles": _single_species_button_style(request),
+        },
+    )
+
 
 def paginate_queryset(queryset, request):
     """
@@ -601,13 +621,14 @@ def individual_identity_create(request, media_file_id:Optional[int]=None):
                 media_file = get_object_or_404(
                     MediaFile,
                     pk=media_file_id,
-                    parent__owner_workgroup=request.user.caiduser.workgroup,
+                    parent__owner__workgroup=request.user.caiduser.workgroup,
                 )
                 media_file.identity = individual_identity
                 media_file.save()
                 messages.success(request, "Individual identity created and linked to media file.")
             url = request.META.get("HTTP_REFERER", "caidapp:individual_identities")
-            return redirect(url)
+            next_url = request.GET.get("next") or request.POST.get("next") or reverse("caidapp:individual_identities")
+            return redirect(next_url)
     else:
         form = IndividualIdentityForm()
     return render(

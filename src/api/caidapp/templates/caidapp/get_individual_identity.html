@@ -172,7 +172,7 @@
                                         class="d-flex align-items-center gap-2 mt-3 mb-3"
                                 >
                             <a href="{% url 'caidapp:not_identified_mediafiles' %}" class="btn btn-secondary"><i class="bi bi-list"></i>All for confirmation</a>
-                            <a class="btn btn-secondary " href="{% url 'caidapp:individual_identity_create' foridentification.mediafile.id %}"
+                            <a class="btn btn-secondary " href="{% url 'caidapp:individual_identity_create' foridentification.mediafile.id %}?next={{ request.path }}"
                                data-bs-toggle="tooltip" title="This is a new identity. Create a new identity for this media file."
                             >
                                 <i class="bi bi-plus-lg"></i>

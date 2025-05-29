@@ -278,6 +278,35 @@ class CaIDUser(models.Model):
             **user_has_access_filter_params(self, "parent__owner")
         ).filter(taxon_verified=False).count()
 
+    def number_of_identities(self) -> int:
+        """Return number of identities."""
+        return IndividualIdentity.objects.filter(owner_workgroup=self.workgroup).count()
+
+    def number_of_media_files_with_missing_identity(self) -> int:
+        """Return number of uploaded files with missing identity."""
+        return MediaFile.objects.filter(
+            parent__owner__workgroup=self.workgroup,
+            identity__isnull=True,
+            parent__taxon_for_identification__isnull=False,
+        ).count()
+
+    def number_of_media_files_with_known_identity(self) -> int:
+        """Return number of uploaded files with missing identity."""
+        return MediaFile.objects.filter(
+            parent__owner__workgroup=self.workgroup,
+            identity__isnull=False,
+            parent__taxon_for_identification__isnull=False,
+        ).count()
+
+    def number_of_media_files_for_identification(self) -> int:
+        """Return number of media files for identification."""
+        return MediaFile.objects.filter(
+            parent__owner__workgroup=self.workgroup,
+            parent__taxon_for_identification__isnull=False,
+        ).count()
+
+
+
 class Locality(models.Model):
     name = models.CharField(max_length=50)
     visible_name = models.CharField(max_length=255, blank=True, default=human_readable_hash)

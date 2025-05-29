@@ -197,7 +197,7 @@
                                                 {{ field }}  <!-- Field on the next line -->
                                                 {% if field.id_for_label == "id_identity" %}
             <button type="button" class="btn btn-outline-primary btn-sm"
-                    onclick="window.location.href='{% url 'caidapp:individual_identity_create' %}'">+</button>
+                    onclick="window.location.href='{% url 'caidapp:individual_identity_create' mediafile.id %}?next={{ request.path }}'"><i class="bi-plus"></i></button>
         {% endif %}
                                                 {% if field.help_text %}
                                                     <small class="form-text text-muted">{{ field.help_text }}</small>
