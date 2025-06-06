@@ -15,7 +15,8 @@ urlpatterns = [
     path("", views.login, name="index"),
     # path("rest_api/", include(router.urls)), # not used any more
     path("upload/", views.upload_archive, name="upload_archive"),
-    path("user_settings/", views.update_caiduser, name="update_caiduser"),
+    # path("user_settings/", views.update_caiduser, name="update_caiduser"),
+    path("user_settings/", views.CaIDUserSettingsView.as_view(), name="update_caiduser"),
     path(
         "upload/contains_single_taxon/",
         views.upload_archive,
@@ -411,6 +412,7 @@ urlpatterns = [
     path("uploads_status_api/<str:group>/", views.uploads_status_api, name="uploads_status_api"),
     path('sentry-debug/', trigger_error),
     path("home/", views.home_view, name="home"),
+    path("wellcome/", views.WellcomeView.as_view(), name="wellcome"),
 
     path("pre_identify/", views.pre_identify_view, name="pre_identify"),
 ]

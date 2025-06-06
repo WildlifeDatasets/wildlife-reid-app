@@ -40,15 +40,35 @@ class TaxonForm(forms.ModelForm):
         model = models.Taxon
         fields = ("name", "parent")
 
-class CaIDForm(forms.ModelForm):
-    class Meta:
-        model = models.CaIDUser
-        fields = ("default_taxon_for_identification", "timezone", "ml_consent_given", )
+# class CaIDForm(forms.ModelForm):
+#     class Meta:
+#         model = models.CaIDUser
+#         fields = ("default_taxon_for_identification", "timezone", "ml_consent_given", )
 
         # widgets = {
         #     'locality': forms.TextInput(attrs={'class': 'autocomplete'}),
         # }
 
+class WellcomeForm(forms.ModelForm):
+    # show_taxon_classification = forms.BooleanField(label="Taxon Classification", initial=True, required=False)
+    # show_reidentification = forms.BooleanField(label="Identification", initial=False, required=False)
+    # show_wellcome_message_on_next_login = forms.BooleanField(label="Show this message next time", initial=False, required=False)
+    class Meta:
+        model = CaIDUser
+        fields = ("show_taxon_classification", "show_wellcome_message_on_next_login" )
+
+
+
+class CaIDUserSettingsForm(forms.ModelForm):
+    class Meta:
+        model = CaIDUser
+        fields = ("show_taxon_classification", "default_taxon_for_identification", "timezone", "ml_consent_given", "show_wellcome_message_on_next_login" )
+
+    # def __init__(self, *args, **kwargs):
+    #     user = kwargs.pop("user", None)
+    #     super().__init__(*args, **kwargs)
+    #     if user:
+    #         self.fields["ml_consent_given"].initial = user.caiduser.ml_consent_given
 
 class AlbumForm(forms.ModelForm):
     class Meta:

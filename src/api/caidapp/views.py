@@ -18,6 +18,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth import login as auth_login
 from django.contrib.auth import logout
 from django.contrib.auth.decorators import login_required, user_passes_test
+from django.utils.decorators import method_decorator
 from django.contrib.auth.views import LoginView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views.generic import ListView
@@ -41,6 +42,7 @@ from django.core.exceptions import PermissionDenied
 from django.forms.models import model_to_dict
 from django.db.models import F, Func, Value
 from django.db.models.functions import Cast
+from django.urls import reverse
 import django.db
 from djangoaddicts.pygwalker.views import PygWalkerView
 
@@ -296,33 +298,93 @@ def update_taxon(request, taxon_id: Optional[int] = None):
         },
     )
 
-@login_required
-def update_caiduser(request):
-    """Update species form. Create taxon if taxon_id is None."""
-    caiduser = request.user.caiduser
-    if request.method == "POST":
-        form = forms.CaIDForm(request.POST, instance=caiduser)
-        if form.is_valid():
-            taxon = form.save(commit=False)
-            # taxon.updated_by = request.user.caiduser
-            taxon.save()
-            # go back to prev url
-            url = request.META.get("HTTP_REFERER", "/")
+# @login_required
+# def update_caiduser(request):
+#     """Update species form. Create taxon if taxon_id is None."""
+#     caiduser = request.user.caiduser
+#     if request.method == "POST":
+#         form = forms.CaIDForm(request.POST, instance=caiduser)
+#         if form.is_valid():
+#             taxon = form.save(commit=False)
+#             # taxon.updated_by = request.user.caiduser
+#             taxon.save()
+#             # go back to prev url
+#             url = request.META.get("HTTP_REFERER", "/")
+#
+#             return redirect(url)
+#             # return
+#             # return redirect("caidapp:show_taxons")
+#     else:
+#         form = forms.CaIDForm(instance=caiduser)
+#     return render(
+#         request,
+#         "caidapp/update_form.html",
+#         {
+#             "form": form,
+#             "headline": "User settings",
+#             "button": "Save",
+#         },
+#     )
 
-            return redirect(url)
-            # return
-            # return redirect("caidapp:show_taxons")
-    else:
-        form = forms.CaIDForm(instance=caiduser)
-    return render(
-        request,
-        "caidapp/update_form.html",
-        {
+
+@method_decorator(login_required, name='dispatch')
+class WellcomeView(View):
+    """Wellcome view for the CAID application."""
+
+    template_name = "caidapp/wellcome.html"
+    # template_name = "caidapp/update_form.html"
+
+    def get(self, request):
+        instance = request.user.caiduser
+        instance.show_wellcome_message_on_next_login = False
+        form = forms.WellcomeForm(instance=instance)
+        """Render the user settings page."""
+        return render(request, self.template_name, {
             "form": form,
             "headline": "User settings",
             "button": "Save",
-        },
-    )
+        })
+
+    def post(self, request):
+        """Handle the form submission for user settings."""
+        form = forms.WellcomeForm(request.POST, instance=request.user.caiduser)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Settings updated successfully.")
+
+            return redirect("caidapp:home")
+        else:
+            messages.error(request, "Please correct the errors below.")
+        return render(request, self.template_name, {"form": form})
+
+
+@method_decorator(login_required, name='dispatch')
+class CaIDUserSettingsView(View):
+    template_name = "caidapp/update_form.html"
+
+    def get(self, request):
+        form = forms.CaIDUserSettingsForm(instance=request.user.caiduser)
+        """Render the user settings page."""
+        return render(request, self.template_name, {
+            "form": form,
+            "headline": "User settings",
+            "button": "Save",
+        })
+
+    def post(self, request):
+        """Handle the form submission for user settings."""
+        form = forms.CaIDUserSettingsForm(request.POST, instance=request.user.caiduser)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Settings updated successfully.")
+            url = request.META.get("HTTP_REFERER", "/")
+            return redirect(url)
+        else:
+            messages.error(request, "Please correct the errors below.")
+        return render(request, self.template_name, {"form": form})
+
+
+
 
 def get_filtered_mediafiles(
     user,
@@ -3322,7 +3384,6 @@ class MyPygWalkerView(PygWalkerView):
         return super().get(request)
 
 
-
 class PygWalkerLocalitiesView(PygWalkerView):
     template_name = "caidapp/custom_pygwalker.html"
 
@@ -3789,8 +3850,6 @@ def import_identities_view(request):
 
 # create view which will be shown just before the identify to make sure that the user wants to identify
 @login_required
-
-
 def pre_identify_view(request):
     return render(
         request,
