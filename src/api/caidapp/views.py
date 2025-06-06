@@ -1860,7 +1860,12 @@ class MyLoginView(LoginView):
 
     def get_success_url(self):
         """Return url of next page."""
-        return reverse_lazy("caidapp:home")
+
+        caid_user = self.request.user.caiduser
+        if caid_user.show_wellcome_message_on_next_login:
+            return reverse("caidapp:wellcome")
+        else:
+            return reverse_lazy("caidapp:home")
 
     def form_invalid(self, form):
         """Return error message if wrong username or password is given."""
