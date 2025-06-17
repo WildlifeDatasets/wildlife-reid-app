@@ -353,6 +353,16 @@ class UserSelectForm(forms.Form):
     )
 
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.fields['user'].label_from_instance = lambda obj: (
+            f"{obj.first_name} {obj.last_name}".strip()
+            if obj.first_name or obj.last_name
+            else obj.username
+        )
+
+
 class ColumnMappingForm(forms.Form):
     original_path = forms.ChoiceField(choices=[], required=True)
     unique_name = forms.ChoiceField(choices=[], required=False)

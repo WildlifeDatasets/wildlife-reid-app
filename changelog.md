@@ -3,6 +3,7 @@
 ## 06-2025
 
 * [added] Name, Last name, and email in the identity
+* [added] Name and Last name shown in impersonation
 * [added] Orientation import from CSV
 * [added] Coat type import from CSV
 

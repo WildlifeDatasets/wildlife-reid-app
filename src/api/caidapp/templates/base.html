@@ -289,12 +289,23 @@
 
                 <a class="nav-link nav-profile d-flex align-items-center pe-0" href="#" data-bs-toggle="dropdown">
                     {#            <img src="{% static 'assets/img/profile-img.jpg' %}" alt="Profile" class="rounded-circle">#}
-                    <span class="d-none d-md-block dropdown-toggle ps-2">{{ user.username }}</span>
+                    <span class="d-none d-md-block dropdown-toggle ps-2">
+                                {% if user.first_name or user.last_name %}
+                                    {{ user.first_name }} {{ user.last_name }}
+                                {% else %}
+                                    {{ user.username }}
+                                {% endif %}
+                    </span>
                 </a><!-- End Profile Iamge Icon -->
 
                     <ul class="dropdown-menu dropdown-menu-end dropdown-menu-arrow profile">
                         <li class="dropdown-header">
-                            <h6 data-bs-toggle="tooltip" data-bs-placement="top" title="{{ user.username}} {{ user.email }}">
+                            <h6 data-bs-toggle="tooltip" data-bs-placement="top" title="{{ user.username}}
+                            {% if user.email %}
+                                ({{ user.email }})
+                            {% endif %}
+                            "
+                            >
                                 {% if user.first_name or user.last_name %}
                                     {{ user.first_name }} {{ user.last_name }}
                                 {% else %}
