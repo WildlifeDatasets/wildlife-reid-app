@@ -3173,7 +3173,8 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
 
 
             if file_path.suffix == ".csv":
-                df = pd.read_csv(file_path)
+                # read csv file with utf-8 encoding
+                df = pd.read_csv(file_path, encoding="utf-8-sig")
             elif file_path.suffix == ".xlsx":
                 df = pd.read_excel(file_path)
             else:
@@ -3243,12 +3244,15 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
                         code = row["code"] if "code" in row else ""
                         unique_name = row["unique_name"] if "unique_name" in row else ""
                         if code:
-                            mf.identity = models.get_unique_code(code, workgroup=uploaded_archive.owner.workgroup)
+                            identity = models.get_unique_code(code, workgroup=uploaded_archive.owner.workgroup)
+                            if identity is None:
+                                logger.warning("Could not find identity with code: " + code)
                             counter_fields_updated += 1
                             counter_individuality += 1
                             if unique_name:
                                 mf.identity.name = unique_name.strip()
                                 counter_fields_updated += 1
+                                mf.identity.save()
                         elif unique_name:
                             mf.identity = models.get_unique_name(
                                 row["unique_name"], workgroup=uploaded_archive.owner.workgroup
