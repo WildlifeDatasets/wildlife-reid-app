@@ -1349,6 +1349,22 @@ def get_unique_name(name: str, workgroup: WorkGroup) -> Optional[IndividualIdent
         identity = objs[0]
     return identity
 
+def get_unique_code(code:str, workgroup: WorkGroup) -> Optional[IndividualIdentity]:
+    """Return taxon according to the code, create it if necessary."""
+    if (code is None) or (code == ""):
+        return None
+    # make sure code is string
+    code = str(code)
+    if len(code) > 50:
+        code = code[:50]
+    objs = IndividualIdentity.objects.filter(code=code, owner_workgroup=workgroup)
+    if len(objs) == 0:
+        identity = IndividualIdentity(code=code, owner_workgroup=workgroup)
+        identity.save()
+    else:
+        identity = objs[0]
+    return identity
+
 
 def get_locality(caiduser: CaIDUser, name: str) -> Union[Locality,None]:
     """Return location according to the name, create it if necessary."""

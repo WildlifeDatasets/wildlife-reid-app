@@ -3240,14 +3240,22 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
                             mf.taxon = models.get_taxon(row["predicted_category"])  # remove this
                             counter_fields_updated += 1
 
-                        if "unique_name" in row:
-                            unique_name = row["unique_name"].strip()
+                        code = row["code"] if "code" in row else ""
+                        unique_name = row["unique_name"] if "unique_name" in row else ""
+                        if code:
+                            mf.identity = models.get_unique_code(code, workgroup=uploaded_archive.owner.workgroup)
+                            counter_fields_updated += 1
+                            counter_individuality += 1
                             if unique_name:
-                                mf.identity = models.get_unique_name(
-                                    row["unique_name"], workgroup=uploaded_archive.owner.workgroup
-                                )
+                                mf.identity.name = unique_name.strip()
                                 counter_fields_updated += 1
-                                counter_individuality += 1
+                        elif unique_name:
+                            mf.identity = models.get_unique_name(
+                                row["unique_name"], workgroup=uploaded_archive.owner.workgroup
+                            )
+                            counter_fields_updated += 1
+                            counter_individuality += 1
+
                         if "locality_name" in row:
                             locality_obj = models.get_locality(
                                 caiduser=request.user.caiduser,
