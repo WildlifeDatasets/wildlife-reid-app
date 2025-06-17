@@ -2,6 +2,7 @@
 
 ## 06-2025
 
+* [added] Name, Last name, and email in the identity
 * [added] Orientation import from CSV
 * [added] Coat type import from CSV
 

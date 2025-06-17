@@ -294,8 +294,13 @@
 
                     <ul class="dropdown-menu dropdown-menu-end dropdown-menu-arrow profile">
                         <li class="dropdown-header">
-                            <h6>{{ user.username }}</h6>
-                            {#              <span>Web Designer</span>#}
+                            <h6 data-bs-toggle="tooltip" data-bs-placement="top" title="{{ user.username}} {{ user.email }}">
+                                {% if user.first_name or user.last_name %}
+                                    {{ user.first_name }} {{ user.last_name }}
+                                {% else %}
+                                    {{ user.username }}
+                                {% endif %}
+                            </h6>
                         </li>
                         <li>
                             <p class="dropdown-item-text">
