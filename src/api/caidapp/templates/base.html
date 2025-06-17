@@ -477,35 +477,49 @@
                             <span>Re-identification</span>
                         </a>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link collapsed" data-bs-target="#icons-nav" data-bs-toggle="collapse" href="#" aria-expanded="true">
-                            {#                        <i class="fas fa-fingerprint"></i>#}
+                    <li>
+                        <a class="nav-link collapsed" href="{% url 'caidapp:uploads_identities' %}">
                             <i class="bi bi-circle"></i>
-                            <span>Data</span><i class="bi bi-chevron-down ms-auto"></i>
+                            <span>Uploads</span>
                         </a>
-                        <ul>
-                            <li>
-                                <a class="nav-link collapsed" href="{% url 'caidapp:uploads_identities' %}">
-                                    <i class="bi bi-circle"></i>
-                                    <span>Recognition</span>
-                                </a>
-                            </li>
-                            <li>
-                                <a class="nav-link collapsed" href="{% url 'caidapp:individual_identities' %}">
-                                    <i class="bi bi-circle"></i>
-                                    <span>Identities</span>
-                                </a>
-                            </li>
-
-                        </ul>
                     </li>
+                    <li>
+                        <a class="nav-link collapsed" href="{% url 'caidapp:individual_identities' %}">
+                            <i class="bi bi-circle"></i>
+                            <span>Identities</span>
+                        </a>
+                    </li>
+
+
+{#                    <li class="nav-item">#}
+{#                        <a class="nav-link collapsed" data-bs-target="#icons-nav" data-bs-toggle="collapse" href="#" aria-expanded="true">#}
+                            {#                        <i class="fas fa-fingerprint"></i>#}
+{#                            <i class="bi bi-circle"></i>#}
+{#                            <span>Data</span><i class="bi bi-chevron-down ms-auto"></i>#}
+{#                        </a>#}
+{#                        <ul>#}
+{#                            <li>#}
+{#                                <a class="nav-link collapsed" href="{% url 'caidapp:uploads_identities' %}">#}
+{#                                    <i class="bi bi-circle"></i>#}
+{#                                    <span>Recognition</span>#}
+{#                                </a>#}
+{#                            </li>#}
+{#                            <li>#}
+{#                                <a class="nav-link collapsed" href="{% url 'caidapp:individual_identities' %}">#}
+{#                                    <i class="bi bi-circle"></i>#}
+{#                                    <span>Identities</span>#}
+{#                                </a>#}
+{#                            </li>#}
+{##}
+{#                        </ul>#}
+{#                    </li>#}
 
                     {% if user.caiduser.workgroup and user.caiduser.workgroup_admin %}
                             <li>
                                 <a class="nav-link collapsed" href="{% url 'caidapp:uploads_known_identities' %}">
                                     <i class="bi bi-circle"></i>
-{#                                    <span>Base dataset</span>#}
-                                    <span>Uploads</span>
+                                    <span>Base dataset</span>
+{#                                    <span>Uploads</span>#}
                                 </a>
                             </li>
 
