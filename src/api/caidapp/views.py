@@ -3226,7 +3226,8 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
                 )
 
             for i, row in tqdm(df.iterrows(), total=len(df), desc="Updating metadata"):
-                original_path = row['original_path']
+                # turn \ into / in path
+                original_path = row['original_path'].replace("\\", "/").strip()
 
                 # get or None
                 mf = MediaFile.objects.filter(parent=uploaded_archive, original_filename=original_path).first()
@@ -3240,11 +3241,13 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
                             counter_fields_updated += 1
 
                         if "unique_name" in row:
-                            mf.identity = models.get_unique_name(
-                                row["unique_name"], workgroup=uploaded_archive.owner.workgroup
-                            )
-                            counter_fields_updated += 1
-                            counter_individuality += 1
+                            unique_name = row["unique_name"].strip()
+                            if unique_name:
+                                mf.identity = models.get_unique_name(
+                                    row["unique_name"], workgroup=uploaded_archive.owner.workgroup
+                                )
+                                counter_fields_updated += 1
+                                counter_individuality += 1
                         if "locality_name" in row:
                             locality_obj = models.get_locality(
                                 caiduser=request.user.caiduser,
@@ -3274,6 +3277,28 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
                                 logger.debug(f"{row['datetime']=}")
                                 logger.debug(f"{type(row['datetime'])=}")
                                 logger.warning(f"Could not update datetime for {mf=}")
+
+                        if "identity__coat_type" in row:
+                            coat_type = row["coat_type"]
+                            if coat_type:
+                                counter_fields_updated += 1
+                                mf.identity.coat_type = coat_type
+
+                        if "orientation" in row:
+                            orientation = row["orientation"]
+                            if orientation:
+                                # ORIENTATION_CHOICES = (
+                                #     ("L", "Left"),
+                                #     ("R", "Right"),
+                                #     ("F", "Front"),
+                                #     ("B", "Back"),
+                                #     ("N", "None"),
+                                #     ("U", "Unknown"),
+                                # )
+                                orientation = orientation.upper().strip()
+                                orientation = orientation[0]
+                                counter_fields_updated += 1
+                                mf.orientation = orientation
                         mf.save()
 
                     except Exception as e:

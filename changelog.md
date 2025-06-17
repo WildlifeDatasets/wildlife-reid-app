@@ -1,5 +1,10 @@
 # Changelog
 
+## 06-2025
+
+* [added] Orientation import from CSV
+* [added] Coat type import from CSV
+
 ## 05-2025
 
 * [added] AI consent
