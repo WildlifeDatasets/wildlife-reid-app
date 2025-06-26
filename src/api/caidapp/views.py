@@ -2101,70 +2101,6 @@ def media_files_update(
     )
 
 
-    # My implementation of filtration
-    # if request.method == "POST":
-    #     queryform = MediaFileSetQueryForm(request.POST)
-    #     if queryform.is_valid():
-    #         query = queryform.cleaned_data["query"]
-    #         # logger.debug(f"{queryform.cleaned_data=}")
-    #         # page_number = int(request.GET.get('page'))
-    #         # logger.debug(f"{page_number=}")
-    #         # pick all parameters from queryform with key startin with "filter_"
-    #         for key in queryform.cleaned_data.keys():
-    #             if key.startswith("filter_"):
-    #                 form_filter_kwargs[key] = queryform.cleaned_data[key]
-    #         logger.debug(f"{form_filter_kwargs=}")
-    #
-    #         page_number = _page_number(request, page_number=queryform.cleaned_data["pagenumber"])
-    #         if "querySubmit" in request.POST:
-    #             logger.debug("querySubmit")
-    #             page_number = 1
-    #         queryform.cleaned_data["pagenumber"] = page_number
-    #         queryform = MediaFileSetQueryForm(initial=queryform.cleaned_data)
-    #     else:
-    #         logger.error("queryform is not valid")
-    #         logger.error(queryform.errors)
-    #         for error in queryform.non_field_errors():
-    #             logger.error(error)
-    # else:
-    #     # logger.debug("GET")
-    #     page_number = 1
-    #     initial_data = dict(
-    #         query="",
-    #         pagenumber=page_number,
-    #         filter_show_videos=True,
-    #         filter_show_images=True,
-    #         filter_hide_empty=not show_overview_button,
-    #     )
-    #
-    #     queryform = MediaFileSetQueryForm(initial=initial_data)
-    #     query = ""
-    #
-    # # logger.debug(f"{filter_kwargs=}, {exclude_filter_kwargs=}, {form_filter_kwargs=}")
-    # filter_kwargs, exclude_filter_kwargs = _merge_form_filter_kwargs_with_filter_kwargs(
-    #     filter_kwargs, exclude_filter_kwargs, form_filter_kwargs
-    # )
-    # logger.debug(f"{filter_kwargs=}")
-    # logger.debug(f"{exclude_filter_kwargs=}")
-    # # logger.debug(f"{albums_available=}")
-    # # logger.debug(f"{query=}")
-    # # logger.debug(f"{queryform}")
-    # logger.debug("  before _mediafiles_query()")
-    # full_mediafiles = _mediafiles_query(
-    #     request,
-    #     query,
-    #     album_hash=album_hash,
-    #     individual_identity_id=individual_identity_id,
-    #     taxon_id=taxon_id,
-    #     uploadedarchive_id=uploadedarchive_id,
-    #     identity_is_representative=identity_is_representative,
-    #     locality_hash=locality_hash,
-    #     order_by=order_by,
-    #     taxon_verified=taxon_verified,
-    #     filter_kwargs=filter_kwargs,
-    #     exclude_filter_kwargs=exclude_filter_kwargs,
-    # )
-
     # Nová filtrace
     # Build the base queryset (including annotations)
     mediafiles = MediaFile.objects.annotate(**_mediafiles_annotate())
@@ -2174,8 +2110,11 @@ def media_files_update(
         Q(album__albumsharerole__user=request.user.caiduser)
         | Q(**models.user_has_access_filter_params(request.user.caiduser, "parent__owner"))
     )
+    mediafiles_name_suggestion = None
     if show_overview_button:
         mediafiles = mediafiles.filter(taxon_verified=False)
+        mediafiles_name_suggestion = "taxon_not_verified"
+
         # page_title = "Media files - verification"
 
     if uploadedarchive_id is not None:
@@ -2187,26 +2126,32 @@ def media_files_update(
             locality_check_at = ""
         page_title = f"Media files - {uploaded_archive.locality_at_upload}{locality_check_at}"
         mediafiles = mediafiles.filter(parent=uploaded_archive)
+        mediafiles_name_suggestion = f"uploaded_archive_{uploaded_archive.locality_at_upload}{locality_check_at}"
 
     elif album_hash is not None:
         album = get_object_or_404(Album, hash=album_hash)
         page_title = f"Media files - {album.name}"
         mediafiles = mediafiles.filter(album=album)
+        mediafiles_name_suggestion = f"album_{album.name}"
     elif individual_identity_id is not None:
         individual_identity = get_object_or_404(IndividualIdentity, pk=individual_identity_id)
         page_title = f"Media files - {individual_identity.name}"
         mediafiles = mediafiles.filter(identity=individual_identity)
+        mediafiles_name_suggestion = f"individual_identity_{individual_identity.name}"
     elif taxon_id is not None:
         taxon = get_object_or_404(Taxon, pk=taxon_id)
         page_title = f"Media files - {taxon.name}"
         mediafiles = mediafiles.filter(taxon=taxon)
+        mediafiles_name_suggestion = f"taxon_{taxon.name}"
     elif locality_hash is not None:
         locality = get_object_or_404(Locality, hash=locality_hash)
         page_title = f"Media files - {locality.name}"
         mediafiles = mediafiles.filter(locality=locality)
+        mediafiles_name_suggestion = f"locality_{locality.name}"
     elif identity_is_representative is not None:
         page_title = "Media files - representative"
         mediafiles = mediafiles.filter(identity_is_representative=identity_is_representative)
+        mediafiles_name_suggestion = f"representative_identity_{str(identity_is_representative)}"
     else:
         page_title = "Media files"
 
@@ -2238,6 +2183,7 @@ def media_files_update(
     mediafiles_ids = list(full_mediafiles.values_list("id", flat=True))
     # logger.debug(f"{mediafiles_ids=}")
     request.session["mediafile_ids"] = mediafiles_ids
+    request.session["mediafiles_name_suggestion"] = mediafiles_name_suggestion
     paginator = Paginator(full_mediafiles, per_page=records_per_page)
     page_with_mediafiles, _, page_context = _prepare_page(paginator,
                                                           request=request,
@@ -2653,6 +2599,7 @@ def _get_mediafiles(request, uploadedarchive_id: Optional[int]) -> Tuple[QuerySe
     else:
         mediafile_ids = request.session.get("mediafile_ids", [])
         mediafiles = MediaFile.objects.filter(id__in=mediafile_ids)
+        name_suggestion = request.session.get("mediafiles_name_suggestion", None)
 
     return mediafiles, name_suggestion
 
