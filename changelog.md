@@ -6,6 +6,8 @@
 * [added] Name and Last name shown in impersonation
 * [added] Orientation import from CSV
 * [added] Coat type import from CSV
+* [added] Hide base dataset in the identity
+* [changed] Suggest file name for download of media files
 
 ## 05-2025
 
