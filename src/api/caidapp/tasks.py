@@ -301,6 +301,25 @@ def create_mediafiles_zip(user_hash, mediafiles, abs_zip_path):
     logger.debug(f"Zip file created: {abs_zip_path}")
     return str(abs_zip_path)
 
+@shared_task
+def clean_old_mediafile_zips(dirpath:str, glob_pattern: str = "mediafiles_*.zip", max_age_days: int = 7):
+    """Clean up zpped mediafiles older than a week files in the specified directory."""
+    logger.debug(f"Cleaning up old mediafile zips in {dirpath}")
+    dirpath = Path(dirpath)
+    if not dirpath.exists():
+        logger.warning(f"Directory {dirpath} does not exist. Skipping cleanup.")
+        return
+
+    now = datetime.datetime.now()
+    for file in dirpath.glob(glob_pattern):
+        file_age = now - datetime.datetime.fromtimestamp(file.stat().st_mtime)
+        if file_age > datetime.timedelta(days=max_age_days):
+            logger.debug(f"Removing old zip file: {file}")
+            file.unlink()
+        else:
+            logger.debug(f"Keeping recent zip file: {file}")
+
+
 def make_zipfile(output_filename: Path, source_dir: Path):
     """Make archive (zip, tar.gz) from a folder.
 

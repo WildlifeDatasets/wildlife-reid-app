@@ -1,4 +1,5 @@
 import logging
+import unicodedata
 import secrets
 import string
 from datetime import datetime
@@ -91,3 +92,9 @@ def get_zip_path_in_unique_folder(instance, filename):
 
 
 
+def remove_diacritics(text: str) -> str:
+    """Odstraní diakritiku ze stringu."""
+    return ''.join(
+        c for c in unicodedata.normalize('NFD', text)
+        if unicodedata.category(c) != 'Mn'
+    )

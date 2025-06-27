@@ -2690,13 +2690,18 @@ def download_xlsx_for_mediafiles_view_NDOP(request, uploadedarchive_id: Optional
 def download_zip_for_mediafiles_view(request, uploadedarchive_id: Optional[int] = None) -> JsonResponse:
     """Download zip for media files."""
     mediafiles, name_suggestion = _get_mediafiles(request, uploadedarchive_id)
+    #remove diacritics from name_suggestion
+    if name_suggestion is not None:
+        name_suggestion = model_tools.remove_diacritics(name_suggestion)
     fn = ("mediafiles_" + name_suggestion) if name_suggestion is not None else "mediafiles"
     # number_of_mediafiles = len(mediafiles)
     logger.debug(f"{len(mediafiles)=}")
+    datetime_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
     user_hash = request.user.caiduser.hash
     abs_zip_path = (
-            Path(settings.MEDIA_ROOT) / "users" / request.user.caiduser.hash / f"mediafiles.zip"
+            # Path(settings.MEDIA_ROOT) / "users" / request.user.caiduser.hash / f"mediafiles.zip"
+                       Path(settings.MEDIA_ROOT) / "users" / request.user.caiduser.hash / f"{fn}.{datetime_str}.zip"
     )
 
     # Prepare the mediafiles list for serialization (e.g., paths and output names)
@@ -2707,6 +2712,9 @@ def download_zip_for_mediafiles_view(request, uploadedarchive_id: Optional[int] 
     # Start the Celery task
 
     task = tasks.create_mediafiles_zip.delay(user_hash, mediafiles_data, str(abs_zip_path))
+
+    task2 = tasks.clean_old_mediafile_zips.delay(str(abs_zip_path.parent), glob_pattern="mediafiles_*.zip", max_age_days=7)
+
 
     # Return the task ID so the frontend can poll for completion
     return JsonResponse({"task_id": task.id})
@@ -2732,9 +2740,12 @@ def check_zip_status_view(request, task_id):
     response = { "status": status_mapping.get(task.state, "unknown"), }
 
     if task.state == "SUCCESS":
+        logger.debug(f"{task.result=}")
+        fn_name = Path(task.result).name
         # Task is complete, return the download link
         # download_url = f"/media/users/{request.user.caiduser.hash}/mediafiles.zip"
-        download_url = f"{settings.MEDIA_URL}users/{request.user.caiduser.hash}/mediafiles.zip"
+        # download_url = f"{settings.MEDIA_URL}users/{request.user.caiduser.hash}/mediafiles.zip"
+        download_url = f"{settings.MEDIA_URL}users/{request.user.caiduser.hash}/{fn_name}"
         logger.debug(f"{download_url=}")
         # download_url = request.build_absolute_uri(download_url)
         # logger.debug(f"{download_url=}")
