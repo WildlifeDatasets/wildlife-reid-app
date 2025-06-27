@@ -25,7 +25,9 @@
 
                     <div>
 
+                        {% if user.caiduser.show_base_dataset %}
                         <a class="btn {{ btn_styles.upload_identified.class }}" href="{% url 'caidapp:upload_archive_contains_identities' %}"><i class="bi bi-upload"></i> Upload identified </a>
+                            {% endif %}
                         <a class="btn btn-secondary" href="{% url 'caidapp:representative_mediafiles' %}"><i class="bi bi-eye"></i> Check representative images </a>
                         <i class="bi bi-arrow-right-short fa-2x" style="vertical-align: middle;"></i>
                         <a class="btn {{ btn_styles.init_identification.class }}"

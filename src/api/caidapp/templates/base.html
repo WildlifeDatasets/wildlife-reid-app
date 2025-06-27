@@ -514,7 +514,7 @@
 {#                        </ul>#}
 {#                    </li>#}
 
-                    {% if user.caiduser.workgroup and user.caiduser.workgroup_admin %}
+                    {% if user.caiduser.workgroup and user.caiduser.workgroup_admin  and user.caiduser.show_base_dataset %}
                             <li>
                                 <a class="nav-link collapsed" href="{% url 'caidapp:uploads_known_identities' %}">
                                     <i class="bi bi-circle"></i>
