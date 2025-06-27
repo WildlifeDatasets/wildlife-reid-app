@@ -123,11 +123,11 @@
                                             </a>
 
                                             <ul class="dropdown-menu">
-                                                {% if uploadedarchive.zip_file %}
-                                                    <li><a class="dropdown-item"
-                                                           href="{{ uploadedarchive.zip_file.url }}"><i
-                                                            class="bi bi-download"></i> Download images</a></li>
-                                                {% endif %}
+                                                <li><a class="dropdown-item download-mediafiles-button"
+                                                       data-id="{{ uploadedarchive.id }}"
+                                                       href="#"><i
+                                                        class="bi bi-download"></i> Download media files</a></li>
+                                                <li>
                                                 {% if uploadedarchive.csv_file %}
                                                     <li><a class="dropdown-item"
                                                            href="{{ uploadedarchive.csv_file.url }}"><i
@@ -147,6 +147,11 @@
                                                         <li><a class="dropdown-item"
                                                                href="{{ uploadedarchive.archivefile.url }}"><i
                                                                 class="bi bi-download"></i> Download uploaded archive</a></li>
+                                                    {% endif %}
+                                                    {% if uploadedarchive.zip_file %}
+                                                        <li><a class="dropdown-item"
+                                                               href="{{ uploadedarchive.zip_file.url }}"><i
+                                                                class="bi bi-download"></i> Download images from worker</a></li>
                                                     {% endif %}
                                                     <li><a class="dropdown-item"
                                                            href="{% url 'caidapp:run_processing' uploadedarchive.id %}">
