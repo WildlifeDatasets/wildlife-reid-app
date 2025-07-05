@@ -226,35 +226,23 @@ volumes:
       idmap: 'user'
       nonempty: ""
 
-  redis-data:
+  api-data:  # mame
     labels:
       com.piva-ai.group: "applications"
       com.piva-ai.backup: "yes"
-  db-data:
+  db-data:  # mame
     labels:
       com.piva-ai.group: "applications"
       com.piva-ai.backup: "yes"
-  api-data:
+  identification-worker-data:  # mame
     labels:
       com.piva-ai.group: "applications"
       com.piva-ai.backup: "yes"
-  taxon-worker-data:
+  identification-worker-db-data: # mame
     labels:
       com.piva-ai.group: "applications"
       com.piva-ai.backup: "yes"
-  identification-worker-data:
-    labels:
-      com.piva-ai.group: "applications"
-      com.piva-ai.backup: "yes"
-  identification-worker-db-data:
-    labels:
-      com.piva-ai.group: "applications"
-      com.piva-ai.backup: "yes"
-  #  detection-worker-data:
-  #    labels:
-  #      com.piva-ai.group: "applications"
-  #      com.piva-ai.backup: "yes"
-  private-data:
+  private-data:  # mame
     labels:
       com.piva-ai.group: "applications"
       com.piva-ai.backup: "yes"
@@ -262,12 +250,24 @@ volumes:
       # labels:
       # com.piva-ai.group: "applications"
       # com.piva-ai.backup: "no"
+  redis-data: # mame
+    labels:
+      com.piva-ai.group: "applications"
+      com.piva-ai.backup: "yes"
   shared-data:
     #    profiles:
     #      - dev
     labels:
       com.piva-ai.group: "applications"
       com.piva-ai.backup: "yes"
+  taxon-worker-data:
+    labels:
+      com.piva-ai.group: "applications"
+      com.piva-ai.backup: "yes"
+  #  detection-worker-data:
+  #    labels:
+  #      com.piva-ai.group: "applications"
+  #      com.piva-ai.backup: "yes"
 
 networks:
   frontend:
