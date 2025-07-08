@@ -115,11 +115,12 @@ def get_detection_model(force_reload: bool = False):
 
         torch.hub._validate_not_a_forked_repo = lambda a, b, c: True
         DETECTION_MODEL = torch.hub.load(
-            "ultralytics/yolov5",  # repo_or_dir
+            "ultralytics/yolov5:915bbf2",  # repo_or_dir tag v7.0
             "custom",  # model
             str(model_file.expanduser()),  # args for callable model
             # force_reload=True,
             force_reload=force_reload,
+            trust_repo=True,
             device=DEVICE,
         )
         DETECTION_MODEL.conf = 0.05
@@ -304,7 +305,7 @@ def detect_animal_orientation(
         T.ToTensor(),
         T.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
     ])
-    
+
     image_rgb = Image.fromarray(image_rgb).convert("RGB")
     image = transforms(image_rgb)
     image = image.unsqueeze(0)
