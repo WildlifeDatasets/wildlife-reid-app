@@ -22,9 +22,9 @@ RUN mkdir -p ~/resources && \
     wget http://ptak.felk.cvut.cz/plants/DanishFungiDataset/md_v5a.0.0.pt \
     -O /root/resources/md_v5a.0.0.pt
 
-# call torchub to load model into cache
-RUN pip install pillow==10.3.0 tqdm==4.66.3 ultralytics==8.2.34 opencv-python==4.6.0.66
-RUN python -c "import torch; torch.hub.load('ultralytics/yolov5', 'custom','/root/resources/md_v5a.0.0.pt', force_reload=True) and print('yolov5 loaded')"
+# call torchub to load model into cache, 915bbf2 is v7.0 with no dependency on ultralytics
+RUN pip install pillow==10.3.0 tqdm==4.66.3 opencv-python==4.6.0.66
+RUN python -c "import torch; torch.hub.load('ultralytics/yolov5:915bbf2', 'custom','/root/resources/md_v5a.0.0.pt', force_reload=True, trust_repo=True) and print('yolov5 loaded')"
 RUN ls /root/resources
 
 # install python dependencies
@@ -44,13 +44,13 @@ RUN pip install --no-cache-dir --upgrade pip build && \
     pip install --no-cache-dir --compile -r requirements.txt && \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/* /tmp/* /var/tmp/*
 
-RUN pip install --no-cache-dir --upgrade pip build && \
-    pip install \
-    opencv-python==4.5.5.64 \
-    opencv-python-headless==4.5.5.64 && \
-    rm -rf /var/lib/apt/lists/* /var/cache/apt/* /tmp/* /var/tmp/*
-
-RUN pip install timm==0.6.13
+# RUN pip install --no-cache-dir --upgrade pip build && \
+#     pip install \
+#     opencv-python==4.5.5.64 \
+#     opencv-python-headless==4.5.5.64 && \
+#     rm -rf /var/lib/apt/lists/* /var/cache/apt/* /tmp/* /var/tmp/*
+# 
+# RUN pip install timm==0.6.13
 
 COPY ./src/taxon_worker /taxon_worker
 

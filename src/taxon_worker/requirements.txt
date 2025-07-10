@@ -26,6 +26,8 @@ wandb
 # Pillow==11.0.0
 # ultralytics==8.3.14
 # tqdm==4.66.5
+
+
 setuptools==75.2.0
 
 # for OCR
@@ -36,3 +38,10 @@ pyexiftool==0.5.*
 scikit-image==0.24.*
 
 openpyxl==3.0.*
+
+# New install in production 2025-06-07
+# ultralytics==8.0.232
+timm==0.6.13
+opencv-python==4.5.5.64
+opencv-python-headless==4.5.5.64
+
