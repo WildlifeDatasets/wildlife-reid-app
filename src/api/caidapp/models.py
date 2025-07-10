@@ -101,16 +101,6 @@ def get_taxon(name: str) -> Optional[Taxon]:
     return taxon
 
 
-class IdentificationModel(models.Model):
-    name = models.CharField(max_length=50)
-    description = models.CharField(max_length=255, blank=True, default="")
-    public = models.BooleanField(default=False)
-    model_path = models.CharField(max_length=255, blank=True, default="")
-
-    def __str__(self):
-        return str(self.name)
-
-
 class WorkGroup(models.Model):
     name = models.CharField(max_length=50)
     hash = models.CharField(max_length=50, default=random_string12)
@@ -125,6 +115,7 @@ class WorkGroup(models.Model):
         max_length=255, blank=True, default="Not initiated"
     )
     identification_reid_message = models.TextField(blank=True, default="")
+    identification_train_status = models.CharField(max_length=255, blank=True, default="")
     sequence_time_limit = models.IntegerField("Sequence time limit [s]", default=120)
 
     def __str__(self):
@@ -186,8 +177,15 @@ class WorkGroup(models.Model):
         ).count()
 
 
+class IdentificationModel(models.Model):
+    name = models.CharField(max_length=50)
+    description = models.CharField(max_length=255, blank=True, default="")
+    public = models.BooleanField(default=False)
+    model_path = models.CharField(max_length=255, blank=True, default="")
+    workgroup = models.ForeignKey(WorkGroup, on_delete=models.CASCADE, null=True, blank=True)
 
-
+    def __str__(self):
+        return str(self.name)
 
 
 class CaIDUser(models.Model):

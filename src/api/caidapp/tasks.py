@@ -1018,6 +1018,35 @@ def init_identification_on_success(*args, **kwargs):
 
 
 @shared_task
+def train_identification_on_success(*args, **kwargs):
+    """Callback invoked after running init_identification function in inference worker."""
+    logger.debug(f"{args=}")
+    logger.debug(f"{kwargs=}")
+    workgroup_id = kwargs.pop("workgroup_id")
+    workgroup = WorkGroup.objects.get(id=workgroup_id)
+    output: dict = args[0]
+    status = output["status"]
+    status = "Finished" if status == "DONE" else status
+    workgroup.identification_init_status = status
+    if "message" in output:
+        message = output["message"]
+    elif "error" in output:
+        message = output["error"]
+    else:
+        message = ""
+    workgroup.identification_init_message = message
+    now = django.utils.timezone.now()
+    workgroup.identification_init_at = now
+    workgroup.save()
+    logger.debug(f"{message=}")
+    logger.debug(f"{workgroup=}")
+    logger.debug(f"{workgroup.identification_init_at=}")
+    logger.debug(f"{workgroup.hash=}")
+
+    logger.debug("init_identification done.")
+
+
+@shared_task
 def init_identification_on_error(*args, **kwargs):
     """Callback invoked after failing init_identification function in inference worker."""
     logger.error("init_identification done with error.")

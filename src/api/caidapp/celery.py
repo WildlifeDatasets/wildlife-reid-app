@@ -23,6 +23,7 @@ app.conf.task_routes = {
     "detectionsimplelog": {"queue": "detection_worker"},
     # identification workflow
     "init_identification": {"queue": "identification_worker"},
+    "train_identification": {"queue": "identification_worker"},
     "identify": {"queue": "identification_worker"},
 }
 app.conf.update(task_track_started=True)

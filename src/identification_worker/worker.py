@@ -41,6 +41,34 @@ identification_worker = Celery(
 )
 init_db_connection(db_url=config.POSTGRES_URL)
 
+@identification_worker.task(bind=True, name="train_identification")
+def train_identification(
+        self,
+        input_metadata_file: str,
+        organization_id: int,
+        identification_model: dict = None,
+        **kwargs,
+):
+    """Process and store Reference Image records in the database."""
+    logger.debug(f"{identification_model=}")
+    if identification_model is None:
+        identification_model = {
+            "name": "derived from LynxV4-MegaDescriptor-v2-T-256",
+            "source_path": "hf-hub:strakajk/LynxV4-MegaDescriptor-v2-T-256",
+            "path": "/models/model1/LynxV4-MegaDescriptor-v2-T-256.pth"
+        }
+    outputdir = Path(identification_model["path"]).parent
+    try:
+        outputdir.mkdir(parents=True, exist_ok=True)
+        pass
+    except Exception as e:
+        error = traceback.format_exc()
+        logger.critical(f"Returning unexpected error output: '{error}'.")
+        return {"status": "ERROR", "error": error}
+
+    return {"status" "DONE"}
+
+
 
 @identification_worker.task(bind=True, name="init_identification")
 def init(

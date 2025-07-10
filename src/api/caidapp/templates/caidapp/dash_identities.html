@@ -52,6 +52,19 @@
                         {#                        <a class="btn {{ btn_styles.run_identification }}" href="{% url 'caidapp:run_identification_on_unidentified' %}"><i class="bi bi-question-circle"></i> Identify </a>#}
                         {#                        <i class="bi bi-arrow-right-short fa-2x" style="vertical-align: middle;"></i>#}
                         {#                        <a class="btn {{ btn_styles.confirm_identification }}" href="{% url 'caidapp:get_individual_identity' %}"><i class="bi bi-question-circle"></i> Confirm identification</a>#}
+                        <a class="btn {{ btn_styles.init_identification.class }}"
+                           href="{% url 'caidapp:train_identification' %}"
+                           onclick="return confirm('Start training of the identification model?')"
+                           >
+{#                            <i class="fas fa-fingerprint"></i>#}
+                            <i class="bi bi-lightning"></i>
+                            Train identification model
+                            {% if user.caiduser.workgroup.identification_train_status == "Processing" %}
+                                <i class="fa fa-spinner fa-spin"></i>
+                            {% endif %}
+                        </a>
+
+
                     </div>
                     <div>
                         <a class="btn btn-secondary" href="{% url 'caidapp:select_reid_model' %}"><i class="fa-solid fa-gear"></i></a>

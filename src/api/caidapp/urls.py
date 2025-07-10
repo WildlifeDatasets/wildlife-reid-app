@@ -156,6 +156,7 @@ urlpatterns = [
     path("dash_identities/", views.dash_identities, name="dash_identities"),
 
     path("init_identification/", views.init_identification, name="init_identification"),
+    path("train_identification/", views.train_identification, name="train_identification"),
     path("stop_init_identification/", views.stop_init_identification, name="stop_init_identification"),
     path(
         "run_identification/<int:uploadedarchive_id>/",
