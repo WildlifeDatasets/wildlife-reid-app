@@ -5,6 +5,7 @@ import traceback
 from io import BytesIO
 from pathlib import Path
 from typing import List, Optional, Tuple, Union, Dict
+import re
 
 import django
 import pandas as pd
@@ -1205,12 +1206,18 @@ def train_identification(request,
 
     logger.debug("Generating CSV for init_identification...")
 
-    output_dir = Path(settings.MEDIA_ROOT) / request.user.caiduser.workgroup.name /"models"
+    caiduser = request.user.caiduser
+    new_name = str_bumpversion(caiduser.identification_model.name)
+    clean_new_name = re.sub(r'[^a-zA-Z0-9 _-]', '', new_name)
+
+    group_dir = Path(settings.MEDIA_ROOT) / request.user.caiduser.workgroup.name
+    output_dir =  group_dir / "models" / clean_new_name
     output_dir.mkdir(exist_ok=True, parents=True)
+    output_model_path = output_dir / f"{clean_new_name}.pth"
+    identity_metadata_file = group_dir / "train_identification.csv"
 
     csv_data = _prepare_dataframe_for_identification(mediafiles_qs)
 
-    identity_metadata_file = output_dir / "train_identification.csv"
     pd.DataFrame(csv_data).to_csv(identity_metadata_file, index=False)
     # logger.debug(f"{identity_metadata_file=}")
     # workgroup = request.user.caiduser.workgroup
@@ -1224,11 +1231,6 @@ def train_identification(request,
     # workgroup.save()
 
     logger.debug("Calling train_identification...")
-    caiduser = request.user.caiduser
-    new_name = str_bumpversion(caiduser.identification_model.name)
-    import re
-    clean_new_name = re.sub(r'[^a-zA-Z0-9 _-]', '', new_name)
-    output_model_path = output_dir / f"{clean_new_name}.pth"
     new_identification_model = models.IdentificationModel(
         name=new_name,
         model_path=output_model_path,
