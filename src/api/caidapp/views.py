@@ -986,6 +986,10 @@ def get_individual_identity_from_foridentification(
     if foridentification is not None:
         # give me all identities in foridentification.top_mediafile_set.mediafile.identity
         identity_ids= foridentification.top_mediafiles.values_list("mediafile__identity", flat=True)
+        logger.debug(f"{identity_ids=}")
+
+        identity_ids = [i for i in identity_ids if i is not None]
+        logger.debug(f"{identity_ids=}")
 
         # for identity in identities:
         #     # select representative mediafile for each identity
@@ -1037,15 +1041,11 @@ def get_individual_identity_from_foridentification(
         for identity in remaining_identities:
             identity.representative_mediafiles = identity.mediafile_set.filter(identity_is_representative=True)
 
-
-
         # for identity in identities:
         #     identity.representative_mediafiles = identity.mediafile_set.filter(identity_is_representative=True)
 
-        logger.debug(f"remaining:  {len(remaining_identities)=}")
-        if len(remaining_identities) > 10:
-            # print first 10 remaining identities
-            logger.debug(f"{remaining_identities[:10]=}")
+        logger.debug(f"{len(remaining_identities)=}")
+        logger.debug(f"   {remaining_identities[:10]=}")
 
         # max_score for current foridentification
         current_max_score = foridentification.top_mediafiles.aggregate(
@@ -1068,6 +1068,7 @@ def get_individual_identity_from_foridentification(
     else:
         return message_view(request, "No mediafiles for identification.")
 
+    logger.debug(f"{remaining_identities[:5]}")
     return render(
         request,
         "caidapp/get_individual_identity.html",
