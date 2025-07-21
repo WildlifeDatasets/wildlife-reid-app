@@ -1430,55 +1430,11 @@ def _single_species_button_style(request) -> dict:
 
 
 @login_required
-def assign_unidentified_to_identification(request):
+def assign_unidentified_to_identification_view(request):
     """Assign unidentified archive to identification."""
     # logger.debug("Generating CSV for run_identification...")
-    taxon_str = request.user.caiduser.default_taxon_for_identification.name
-
-    from django.db.models import Subquery
-
-    # unused_mediafiles
-    mediafiles = models.MediaFile.objects.filter(
-        parent__owner__workgroup=request.user.caiduser.workgroup,
-        taxon__name=taxon_str,
-        identity__isnull=True,
-    ).exclude(
-        id__in=Subquery(MediafilesForIdentification.objects.values('mediafile_id'))
-    )
-
-    identities = models.IndividualIdentity.objects.filter(
-        owner_workgroup=request.user.caiduser.workgroup,
-        
-    )
-
-    for unknown_mediafile in mediafiles:
-        # check if mediafile is already in MediafilesForIdentification
-        mfi, _ = MediafilesForIdentification.objects.get_or_create(
-            mediafile=unknown_mediafile,
-        )
-        #place for some similarity between identities and filename of current file
-        # try to find some of identity name in unknown_mediafile.original_filename
-
-        orig_fn = str(unknown_mediafile.original_filename).lower()
-        for identity in identities:
-            if len(identity.name) > 0:
-                score = 0
-                if identity.name.lower() in orig_fn:
-                    score += 0.1
-                if identity.code.lower() in orig_fn:
-                    score += 0.1
-                if score > 0:
-                    identity_mediafile = identity.mediafile_set.filter(
-                        identity_is_representative=True,
-                    ).first()
-                    mfi_suggestion = models.MediafileIdentificationSuggestion(
-                        for_identification=mfi,
-                        mediafile=identity_mediafile,
-                        identity=identity,
-                        score=score,
-                        name=identity.name,
-                    )
-                    mfi_suggestion.save()
+    caiduser = request.user.caiduser
+    tasks.assign_unidentified_to_identification(caiduser)
     return redirect(request.META.get("HTTP_REFERER", "/"))
 
 
