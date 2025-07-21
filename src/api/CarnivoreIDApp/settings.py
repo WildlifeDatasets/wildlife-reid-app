@@ -80,7 +80,9 @@ CSRF_TRUSTED_ORIGINS = [
     # 'https://localhost:13680',
 
 ]
+logger.debug(f"{CAID_CSRF_TRUSTED_ORIGINS=}")
 CSRF_TRUSTED_ORIGINS.extend(CAID_CSRF_TRUSTED_ORIGINS.split(","))
+logger.debug(f"{CSRF_TRUSTED_ORIGINS=}")
 # Application definition
 
 INSTALLED_APPS = [
