@@ -1050,12 +1050,16 @@ def get_individual_identity_from_foridentification(
         # max_score for current foridentification
         current_max_score = foridentification.top_mediafiles.aggregate(
             max_score=Max("score")
-        )["max_score"]
+        )["max_score"] or 0.
+
 
         # find the next foridentification with lower max_score
+        from django.db.models.functions import Coalesce
         next_foridentification = (
-            foridentifications.annotate(max_score=Max("top_mediafiles__score"))
-            .filter(max_score__lt=current_max_score)
+            foridentifications
+            .exclude(pk=foridentification.pk)
+            .annotate(max_score=Coalesce(Max("top_mediafiles__score"), 0.))
+            .filter(max_score__lte=current_max_score)
             .order_by("-max_score")
             .first()
         )
@@ -1266,7 +1270,6 @@ def train_identification(request,
     return redirect("caidapp:uploads_known_identities")
 
 
-
 @login_required
 def init_identification(request,
                         # taxon_str: str = "Lynx lynx"
@@ -1423,6 +1426,59 @@ def _single_species_button_style(request) -> dict:
     btn_styles["n_unidentified"] = n_unidentified
 
     return btn_styles
+
+
+@login_required
+def assign_unidentified_to_identification(request):
+    """Assign unidentified archive to identification."""
+    # logger.debug("Generating CSV for run_identification...")
+    taxon_str = request.user.caiduser.default_taxon_for_identification.name
+
+    from django.db.models import Subquery
+
+    # unused_mediafiles
+    mediafiles = models.MediaFile.objects.filter(
+        parent__owner__workgroup=request.user.caiduser.workgroup,
+        taxon__name=taxon_str,
+        identity__isnull=True,
+    ).exclude(
+        id__in=Subquery(MediafilesForIdentification.objects.values('mediafile_id'))
+    )
+
+    identities = models.IndividualIdentity.objects.filter(
+        owner_workgroup=request.user.caiduser.workgroup,
+        
+    )
+
+    for unknown_mediafile in mediafiles:
+        # check if mediafile is already in MediafilesForIdentification
+        mfi, _ = MediafilesForIdentification.objects.get_or_create(
+            mediafile=unknown_mediafile,
+        )
+        #place for some similarity between identities and filename of current file
+        # try to find some of identity name in unknown_mediafile.original_filename
+
+        orig_fn = str(unknown_mediafile.original_filename).lower()
+        for identity in identities:
+            if len(identity.name) > 0:
+                score = 0
+                if identity.name.lower() in orig_fn:
+                    score += 0.1
+                if identity.code.lower() in orig_fn:
+                    score += 0.1
+                if score > 0:
+                    identity_mediafile = identity.mediafile_set.filter(
+                        identity_is_representative=True,
+                    ).first()
+                    mfi_suggestion = models.MediafileIdentificationSuggestion(
+                        for_identification=mfi,
+                        mediafile=identity_mediafile,
+                        identity=identity,
+                        score=score,
+                        name=identity.name,
+                    )
+                    mfi_suggestion.save()
+    return redirect(request.META.get("HTTP_REFERER", "/"))
 
 
 @login_required

@@ -1,5 +1,11 @@
 # Changelog
 
+
+## 07-2025
+
+* [added] Add not identified media files to the list (to be identified manually)
+* [fixed] List of not confirmed now doesn't skip doubled score
+
 ## 06-2025
 
 * [added] Name, Last name, and email in the identity
@@ -12,7 +18,7 @@
 ## 05-2025
 
 * [added] AI consent
-* [added] New idenitity from media file detail
+* [added] New identity from media file detail
 * [update] Fixed error on some Cuddeback camera trap
 * [added] Dash for identity processing
 

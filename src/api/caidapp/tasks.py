@@ -1263,6 +1263,7 @@ def _prepare_mediafile_for_identification(data, i, media_root, mediafile_id):
         mfi, _ = MediafilesForIdentification.objects.get_or_create(
             mediafile=unknown_mediafile,
         )
+        # this try - except could be deleted
         try:
             top1_abspath = Path(reid_top_k_image_paths[0])
             top1_relpath = top1_abspath.relative_to(media_root)

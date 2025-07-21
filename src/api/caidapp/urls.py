@@ -416,6 +416,7 @@ urlpatterns = [
     path("wellcome/", views.WellcomeView.as_view(), name="wellcome"),
 
     path("pre_identify/", views.pre_identify_view, name="pre_identify"),
+    path("assign_unidentified_to_identification/", views.assign_unidentified_to_identification, name="assign_unidentified_to_identification"),
 ]
 # if settings.DEBUG:
 
