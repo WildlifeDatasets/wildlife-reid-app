@@ -104,6 +104,8 @@ def on_success_predict_taxon(
             update_uploaded_archive_by_metadata_csv(
                 uploaded_archive, create_missing=True, extract_identites=extract_identites
             )
+            if uploaded_archive.taxon_for_identification:
+                assign_unidentified_to_identification(caiduser=uploaded_archive.owner)
             uploaded_archive.mediafiles_imported = True
             uploaded_archive.taxon_status = "TAID"
             uploaded_archive.identification_status = "IR"  # Ready for identification
@@ -1263,6 +1265,7 @@ def _prepare_mediafile_for_identification(data, i, media_root, mediafile_id):
         mfi, _ = MediafilesForIdentification.objects.get_or_create(
             mediafile=unknown_mediafile,
         )
+        # this try - except could be deleted
         try:
             top1_abspath = Path(reid_top_k_image_paths[0])
             top1_relpath = top1_abspath.relative_to(media_root)
@@ -1497,3 +1500,54 @@ def _iterate_over_locality_checks(
         )
 
         yield yield_dict
+
+def assign_unidentified_to_identification(caiduser:CaIDUser):
+    taxon_str = caiduser.default_taxon_for_identification.name
+    if caiduser.workgroup is None:
+        logger.error("CaIDUser has no workgroup assigned. Cannot assign unidentified media files to identification.")
+        return
+
+    from django.db.models import Subquery
+
+    # unused_mediafiles
+    mediafiles = models.MediaFile.objects.filter(
+        parent__owner__workgroup=caiduser.workgroup,
+        taxon__name=taxon_str,
+        identity__isnull=True,
+    ).exclude(
+        id__in=Subquery(MediafilesForIdentification.objects.values('mediafile_id'))
+    )
+
+    identities = models.IndividualIdentity.objects.filter(
+        owner_workgroup=caiduser.workgroup,
+
+    )
+
+    for unknown_mediafile in mediafiles:
+        # check if mediafile is already in MediafilesForIdentification
+        mfi, _ = MediafilesForIdentification.objects.get_or_create(
+            mediafile=unknown_mediafile,
+        )
+        # place for some similarity between identities and filename of current file
+        # try to find some of identity name in unknown_mediafile.original_filename
+
+        orig_fn = str(unknown_mediafile.original_filename).lower()
+        for identity in identities:
+            if len(identity.name) > 0:
+                score = 0
+                if identity.name.lower() in orig_fn:
+                    score += 0.1
+                if identity.code.lower() in orig_fn:
+                    score += 0.1
+                if score > 0:
+                    identity_mediafile = identity.mediafile_set.filter(
+                        identity_is_representative=True,
+                    ).first()
+                    mfi_suggestion = models.MediafileIdentificationSuggestion(
+                        for_identification=mfi,
+                        mediafile=identity_mediafile,
+                        identity=identity,
+                        score=score,
+                        name=identity.name,
+                    )
+                    mfi_suggestion.save()

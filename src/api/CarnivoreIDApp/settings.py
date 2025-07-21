@@ -81,7 +81,8 @@ CSRF_TRUSTED_ORIGINS = [
 
 ]
 logger.debug(f"{CAID_CSRF_TRUSTED_ORIGINS=}")
-CSRF_TRUSTED_ORIGINS.extend(CAID_CSRF_TRUSTED_ORIGINS.split(","))
+if len(CAID_CSRF_TRUSTED_ORIGINS) > 0:
+    CSRF_TRUSTED_ORIGINS.extend(CAID_CSRF_TRUSTED_ORIGINS.split(","))
 logger.debug(f"{CSRF_TRUSTED_ORIGINS=}")
 # Application definition
 

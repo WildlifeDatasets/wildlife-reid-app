@@ -986,6 +986,10 @@ def get_individual_identity_from_foridentification(
     if foridentification is not None:
         # give me all identities in foridentification.top_mediafile_set.mediafile.identity
         identity_ids= foridentification.top_mediafiles.values_list("mediafile__identity", flat=True)
+        logger.debug(f"{identity_ids=}")
+
+        identity_ids = [i for i in identity_ids if i is not None]
+        logger.debug(f"{identity_ids=}")
 
         # for identity in identities:
         #     # select representative mediafile for each identity
@@ -1037,25 +1041,25 @@ def get_individual_identity_from_foridentification(
         for identity in remaining_identities:
             identity.representative_mediafiles = identity.mediafile_set.filter(identity_is_representative=True)
 
-
-
         # for identity in identities:
         #     identity.representative_mediafiles = identity.mediafile_set.filter(identity_is_representative=True)
 
-        logger.debug(f"remaining:  {len(remaining_identities)=}")
-        if len(remaining_identities) > 10:
-            # print first 10 remaining identities
-            logger.debug(f"{remaining_identities[:10]=}")
+        logger.debug(f"{len(remaining_identities)=}")
+        logger.debug(f"   {remaining_identities[:10]=}")
 
         # max_score for current foridentification
         current_max_score = foridentification.top_mediafiles.aggregate(
             max_score=Max("score")
-        )["max_score"]
+        )["max_score"] or 0.
+
 
         # find the next foridentification with lower max_score
+        from django.db.models.functions import Coalesce
         next_foridentification = (
-            foridentifications.annotate(max_score=Max("top_mediafiles__score"))
-            .filter(max_score__lt=current_max_score)
+            foridentifications
+            .exclude(pk=foridentification.pk)
+            .annotate(max_score=Coalesce(Max("top_mediafiles__score"), 0.))
+            .filter(max_score__lte=current_max_score)
             .order_by("-max_score")
             .first()
         )
@@ -1064,6 +1068,7 @@ def get_individual_identity_from_foridentification(
     else:
         return message_view(request, "No mediafiles for identification.")
 
+    logger.debug(f"{remaining_identities[:5]}")
     return render(
         request,
         "caidapp/get_individual_identity.html",
@@ -1266,7 +1271,6 @@ def train_identification(request,
     return redirect("caidapp:uploads_known_identities")
 
 
-
 @login_required
 def init_identification(request,
                         # taxon_str: str = "Lynx lynx"
@@ -1423,6 +1427,15 @@ def _single_species_button_style(request) -> dict:
     btn_styles["n_unidentified"] = n_unidentified
 
     return btn_styles
+
+
+@login_required
+def assign_unidentified_to_identification_view(request):
+    """Assign unidentified archive to identification."""
+    # logger.debug("Generating CSV for run_identification...")
+    caiduser = request.user.caiduser
+    tasks.assign_unidentified_to_identification(caiduser)
+    return redirect(request.META.get("HTTP_REFERER", "/"))
 
 
 @login_required

@@ -198,6 +198,7 @@
                         </div>
                     </div>
 
+
                     {#                    </div>#}
                     <div class="row" id="row-of-cards">
 
@@ -214,6 +215,7 @@
 {#                                        src="{{ foridentification.mediafile.mediafile.url }}"#}
 {#                                        alt="Camera trap image"#}
 {#                                        {% endif %}#}
+                                        alt="Camera trap image with unknown identity"
                                 >
                                 <div class="card-body">
                                     <div class="card-title">
@@ -246,6 +248,7 @@
                                  data-bs-interval="false"
                             >
                                 <div class="carousel-inner">
+                                    {% if reid_suggestions|length > 0 %}
                                     <div class="carousel-item active">
                                         <div class="row">
 
@@ -286,11 +289,12 @@
                                             {% endfor %}
                                         </div>
                                     </div>
+                                        {% endif %}
 
 
                                             {% for individual_identity in remaining_identities %}
                                                 {% if forloop.counter0|divisibleby:3 %}
-                                                    <div class="carousel-item">
+                                                    <div class="carousel-item {% if reid_suggestions|length == 0  and forloop.counter0 == 0 %}active{% endif%}">
                                                         <div class="row">
                                                 {% endif %}
                                                 <div class="col-4" id="card-remaining-identity-{{ individual_identity.id }}">

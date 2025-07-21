@@ -2,6 +2,9 @@
 
 ## 07-2025
 * [fixed] Removed ultralytics dependency (by pinning yolo5)
+* [added] Add not identified media files to the list (to be identified manually)
+* [fixed] List of not confirmed now doesn't skip doubled score
+* [fixed] Show remaining identities if one of the suggestion is None
 
 ## 06-2025
 
@@ -15,7 +18,7 @@
 ## 05-2025
 
 * [added] AI consent
-* [added] New idenitity from media file detail
+* [added] New identity from media file detail
 * [update] Fixed error on some Cuddeback camera trap
 * [added] Dash for identity processing
 
