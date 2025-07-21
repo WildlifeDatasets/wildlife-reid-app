@@ -59,26 +59,28 @@ logger.info(f"Setting environment variable {DEBUG=}.")
 DEBUG_TOOLBAR = False
 
 # A list of strings representing the host/domain names that this Django site can serve
-CAID_HOST = os.getenv("CAID_HOST", default="localhost")
+CAID_HOST = os.getenv("CAID_ALLOWED_HOSTS", default="")
 ALLOWED_HOSTS = [
     "127.0.0.1",
     ".localhost",  # '.' allows to match both 'www.localhost' and 'localhost'
     "147.228.43.21",
-    ".caid.kky.zcu.cz",
-    ".kky.zcu.cz",
-    CAID_HOST,
+    # ".caid.kky.zcu.cz",
+    # ".kky.zcu.cz",
 ]
+ALLOWED_HOSTS.extend(CAID_HOST.split(","))
+
+CAID_CSRF_TRUSTED_ORIGINS=os.getenv("CSRF_TRUSTED_ORIGINS", default="")
 CSRF_TRUSTED_ORIGINS = [
-    'https://*.kky.zcu.cz',
-    'http://*.kky.zcu.cz',
     'http://127.0.0.1',
-    'http://caid.kky.zcu.cz:13680',
-    'https://caid.kky.zcu.cz:13680',
+    'http://localhost',
     'http://localhost:13680',
-    'https://localhost:13680',
     'http://127.0.0.1:13680'
+    # 'http://caid.kky.zcu.cz:13680',
+    # 'https://caid.kky.zcu.cz:13680',
+    # 'https://localhost:13680',
 
 ]
+CSRF_TRUSTED_ORIGINS.extend(CAID_CSRF_TRUSTED_ORIGINS.split(","))
 # Application definition
 
 INSTALLED_APPS = [
