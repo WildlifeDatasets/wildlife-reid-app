@@ -1,5 +1,8 @@
 # Changelog
 
+## 07-2025
+* [fixed] Removed ultralytics dependency (by pinning yolo5)
+
 ## 06-2025
 
 * [added] Name, Last name, and email in the identity
