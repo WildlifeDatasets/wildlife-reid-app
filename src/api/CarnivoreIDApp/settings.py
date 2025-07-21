@@ -69,7 +69,7 @@ ALLOWED_HOSTS = [
 ]
 ALLOWED_HOSTS.extend(CAID_HOST.split(","))
 
-CAID_CSRF_TRUSTED_ORIGINS=os.getenv("CSRF_TRUSTED_ORIGINS", default="")
+CAID_CSRF_TRUSTED_ORIGINS=os.getenv("CAID_CSRF_TRUSTED_ORIGINS", default="")
 CSRF_TRUSTED_ORIGINS = [
     'http://127.0.0.1',
     'http://localhost',
