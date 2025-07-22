@@ -1552,3 +1552,4 @@ def assign_unidentified_to_identification(caiduser:CaIDUser):
                         name=identity.name,
                     )
                     mfi_suggestion.save()
+    logger.debug(f"Unidentified media files added to the lit. Found {mediafiles.count()} media files.")
