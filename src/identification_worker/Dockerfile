@@ -30,7 +30,7 @@ RUN pip install --no-cache-dir --upgrade pip build && \
     pip install --no-cache-dir --compile -r requirements.txt && \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/* /tmp/* /var/tmp/*
 
-RUN pip list
+RUN echo pip list
 
 RUN pip install git+https://github.com/facebookresearch/segment-anything.git
 
