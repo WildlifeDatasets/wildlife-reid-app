@@ -48,7 +48,7 @@ RUN pip install git+https://github.com/cvg/glue-factory.git@1f56839db2242929960d
 
 RUN pip install \
     opencv-python==4.5.5.64 \
-    opencv-python-headless==4.5.5.64 \
+    opencv-python-headless==4.5.5.64
 
 RUN pip install numpy==1.26.4
 
