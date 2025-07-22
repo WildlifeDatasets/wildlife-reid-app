@@ -33,11 +33,13 @@ RUN pip install --no-cache-dir --upgrade pip build && \
 RUN echo "------- pip list 1 --------"
 RUN pip list
 
+RUN echo "------- SAM (not pinned) --------"
 RUN pip install git+https://github.com/facebookresearch/segment-anything.git
 
 #RUN pip install pytz --upgrade
 #RUN pip install tzdata --upgrade
 
+RUN echo "------- wildlife-tools (pinned, no-deps) --------"
 COPY ./src/identification_worker /identification_worker
 RUN pip install -e /identification_worker/wildlife-tools --no-deps
 RUN pip install transformers==4.30.2
