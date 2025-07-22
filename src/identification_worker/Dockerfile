@@ -55,4 +55,4 @@ RUN pip list
 
 # expose ports and run application
 WORKDIR $APP_DIR
-# CMD C_FORCE_ROOT=false celery -A worker.identification_worker worker --pool threads --concurrency 1 --loglevel info --queues identification_worker
+CMD C_FORCE_ROOT=false celery -A worker.identification_worker worker --pool threads --concurrency 1 --loglevel info --queues identification_worker
