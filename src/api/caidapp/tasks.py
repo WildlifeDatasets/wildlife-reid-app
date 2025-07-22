@@ -1509,6 +1509,7 @@ def assign_unidentified_to_identification(caiduser:CaIDUser):
 
     from django.db.models import Subquery
 
+    logger.debug(f"Assigning unidentified media files to identification for {caiduser.workgroup} and taxon {taxon_str}.")
     # unused_mediafiles
     mediafiles = models.MediaFile.objects.filter(
         parent__owner__workgroup=caiduser.workgroup,
