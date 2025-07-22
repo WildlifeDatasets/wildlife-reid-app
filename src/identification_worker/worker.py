@@ -6,6 +6,7 @@ import traceback
 from pathlib import Path
 
 import numpy as np
+print(f"numpy version: {np.__version__}")
 import pandas as pd
 import torch
 from celery import Celery, shared_task
