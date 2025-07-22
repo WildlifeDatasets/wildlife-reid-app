@@ -30,6 +30,7 @@ RUN pip install --no-cache-dir --upgrade pip build && \
     pip install --no-cache-dir --compile -r requirements.txt && \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/* /tmp/* /var/tmp/*
 
+RUN pip list
 
 RUN pip install git+https://github.com/facebookresearch/segment-anything.git
 
@@ -45,6 +46,7 @@ RUN pip install git+https://github.com/cvg/glue-factory.git@1f56839db2242929960d
 RUN pip install \
     opencv-python==4.5.5.64 \
     opencv-python-headless==4.5.5.64
+RUN echo pip list
 
 # expose ports and run application
 WORKDIR $APP_DIR
