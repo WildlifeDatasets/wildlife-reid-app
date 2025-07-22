@@ -8,7 +8,8 @@ SQLAlchemy~=1.4.44
 # timm==0.9.7  # works fine, just in taxonworker is 0.9.12
 timm==0.9.12
 pycocotools==2.0.7
-pandas==2.0.2
+# pandas==2.0.2
+pandas==1.5.3 # because of glue
 kornia==0.7.1
 
 # FGVC library
@@ -31,8 +32,5 @@ pyexiftool==0.5.*
 scikit-image==0.24.*
 
 # timezones
-pytz
-tzdata
-
-# pytz==2025.2
-# tzdata==2025.2
+pytz==2025.2
+tzdata==2025.2
