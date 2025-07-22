@@ -1517,13 +1517,26 @@ def assign_unidentified_to_identification(caiduser:CaIDUser):
     logger.debug(f"{models.MediaFile.objects.filter(parent__owner__workgroup=caiduser.workgroup, taxon__name=taxon_str).count()=}")
     logger.debug(f"{models.MediaFile.objects.filter(parent__owner__workgroup=caiduser.workgroup, identity__isnull=True).count()=}")
     logger.debug(f"{models.MediaFile.objects.filter(parent__owner__workgroup=caiduser.workgroup, identity__isnull=True, taxon__name=taxon_str).count()=}")
-    mediafiles = models.MediaFile.objects.filter(
+
+    existing_mfi_ids = MediafilesForIdentification.objects.values_list('mediafile_id', flat=True)
+    logger.debug(f"Number of Mediafiles already in identification: {existing_mfi_ids.count()}")
+
+    base_qs = models.MediaFile.objects.filter(
         parent__owner__workgroup=caiduser.workgroup,
         taxon__name=taxon_str,
         identity__isnull=True,
-    ).exclude(
-        id__in=Subquery(MediafilesForIdentification.objects.values('mediafile_id'))
     )
+    logger.debug(f"Base queryset count (before exclude): {base_qs.count()}")
+
+    mediafiles = base_qs.exclude(id__in=list(existing_mfi_ids))
+
+    # mediafiles = models.MediaFile.objects.filter(
+    #     parent__owner__workgroup=caiduser.workgroup,
+    #     taxon__name=taxon_str,
+    #     identity__isnull=True,
+    # ).exclude(
+    #     id__in=Subquery(MediafilesForIdentification.objects.values('mediafile_id'))
+    # )
 
     identities = models.IndividualIdentity.objects.filter(
         owner_workgroup=caiduser.workgroup,
@@ -1558,4 +1571,4 @@ def assign_unidentified_to_identification(caiduser:CaIDUser):
                         name=identity.name,
                     )
                     mfi_suggestion.save()
-    logger.debug(f"Unidentified media files added to the lit. Found {mediafiles.count()} media files.")
+    logger.debug(f"Unidentified media files added to the list. Found {mediafiles.count()} media files.")
