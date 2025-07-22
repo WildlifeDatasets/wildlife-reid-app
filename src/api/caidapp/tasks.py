@@ -1515,6 +1515,8 @@ def assign_unidentified_to_identification(caiduser:CaIDUser):
     logger.debug(f"{models.MediaFile.objects.filter(taxon__name=taxon_str).count()=}")
     logger.debug(f"{models.MediaFile.objects.filter(parent__owner__workgroup=caiduser.workgroup).count()=}")
     logger.debug(f"{models.MediaFile.objects.filter(parent__owner__workgroup=caiduser.workgroup, taxon__name=taxon_str).count()=}")
+    logger.debug(f"{models.MediaFile.objects.filter(parent__owner__workgroup=caiduser.workgroup, identity__isnull=True).count()=}")
+    logger.debug(f"{models.MediaFile.objects.filter(parent__owner__workgroup=caiduser.workgroup, identity__isnull=True, taxon_name==taxon_str).count()=}")
     mediafiles = models.MediaFile.objects.filter(
         parent__owner__workgroup=caiduser.workgroup,
         taxon__name=taxon_str,
