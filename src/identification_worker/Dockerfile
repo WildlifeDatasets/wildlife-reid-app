@@ -35,8 +35,8 @@ RUN pip list
 
 RUN pip install git+https://github.com/facebookresearch/segment-anything.git
 
-RUN pip install pytz --upgrade
-RUN pip install tzdata --upgrade
+#RUN pip install pytz --upgrade
+#RUN pip install tzdata --upgrade
 
 COPY ./src/identification_worker /identification_worker
 RUN pip install -e /identification_worker/wildlife-tools --no-deps

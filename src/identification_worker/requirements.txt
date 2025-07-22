@@ -29,3 +29,10 @@ pytesseract==0.3
 # for exiftool
 pyexiftool==0.5.*
 scikit-image==0.24.*
+
+# timezones
+pytz
+tzdata
+
+# pytz==2025.2
+# tzdata==2025.2
