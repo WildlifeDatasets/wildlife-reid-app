@@ -1511,6 +1511,10 @@ def assign_unidentified_to_identification(caiduser:CaIDUser):
 
     logger.debug(f"Assigning unidentified media files to identification for {caiduser.workgroup} and taxon {taxon_str}.")
     # unused_mediafiles
+    logger.debug(f"{models.MediaFile.objects.filter(identity__isnull=True).count()=}")
+    logger.debug(f"{models.MediaFile.objects.filter(taxon__name=taxon_str).count()=}")
+    logger.debug(f"{models.MediaFile.objects.filter(parent__owner__workgroup=caiduser.workgroup).count()=}")
+    logger.debug(f"{models.MediaFile.objects.filter(parent__owner__workgroup=caiduser.workgroup, taxon__name=taxon_str).count()=}")
     mediafiles = models.MediaFile.objects.filter(
         parent__owner__workgroup=caiduser.workgroup,
         taxon__name=taxon_str,
