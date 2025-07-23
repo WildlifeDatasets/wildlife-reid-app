@@ -33,7 +33,15 @@
                                     >
                                     <div class="card-body">
                                         <div class="card-title">
-                                            Top-{{ reid_suggestion_index|add:1 }}: {{ top_name }}
+
+                                            Top-{{ reid_suggestion_index|add:1 }}:
+                                        {% if top_mediafile.identity %}
+                                            <a href="{% url 'caidapp:individual_identity_update' top_mediafile.identity.id %}">
+                                                {{ top_mediafile.name }}
+                                            </a>
+                                        {% else %}
+                                            {{ top_name }}
+                                        {% endif %}
                                         </div>
                                         <p class="card-text">
                                             {{ top_score|mul:100|floatformat:2 }}%
