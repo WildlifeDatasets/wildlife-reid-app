@@ -967,10 +967,22 @@ def not_identified_mediafiles(request):
         {**page_context, "page_title": "Not Identified"},
     )
 
+def get_best_representative_mediafiles(identity, orientation=None, max_count=5) -> QuerySet[MediaFile]:
+    qs = identity.mediafile_set
+    mf = qs.filter(identity_is_representative=True, orientation=orientation)
+
+    if not mf.exists():
+        mf = qs.filter(identity_is_representative=True)
+
+    if not mf.exists():
+        mf = qs.all()
+
+    return mf.order_by("-captured_at")[:max_count]
 
 @login_required
 def get_individual_identity_from_foridentification(
-    request, foridentification_id: Optional[int] = None, media_file_id: Optional[int] = None
+    request, foridentification_id: Optional[int] = None, media_file_id: Optional[int] = None,
+        max_representative_mediafiles:int=5
 ):
     """Show and update media file."""
     t0 = time.time()
@@ -1007,6 +1019,7 @@ def get_individual_identity_from_foridentification(
         # for identity in related_identities:
         #     identity.representative_mediafiles = identity.mediafile_set.filter(identity_is_representative=True)
 
+        orientation_of_unknown = foridentification.mediafile.orientation
         reid_suggestions = list(foridentification.top_mediafiles.all().select_related("identity", "mediafile"))
         for reid_suggestion in reid_suggestions:
             if reid_suggestion.identity is None:
@@ -1019,18 +1032,15 @@ def get_individual_identity_from_foridentification(
                     logger.debug(traceback.format_exc())
                     logger.error(f"Error removing reid_suggestion from foridentification.top_mediafiles: {e}")
             else:
-                representative_mediafiles = reid_suggestion.identity.mediafile_set.filter(identity_is_representative=True)
-                if len(representative_mediafiles) == 0:
-                    # If no representative mediafiles for this identity, show at least some mediafiles
-                    representative_mediafiles = reid_suggestion.identity.mediafile_set.all()
+                representative_mediafiles = get_best_representative_mediafiles(reid_suggestion.identity, orientation=orientation_of_unknown)
                 # insert as first element the reid_suggestion mediafile
                 representative_mediafiles = [reid_suggestion.mediafile] + [mf for mf in list(representative_mediafiles) if mf != reid_suggestion.mediafile]
 
-                reid_suggestion.representative_mediafiles = representative_mediafiles
+                reid_suggestion.representative_mediafiles = representative_mediafiles[:max_representative_mediafiles]
 
         logger.debug(f"  2 {time.time() - t0=:.2f} [s]")
         for identity in remaining_identities:
-            identity.representative_mediafiles = identity.mediafile_set.filter(identity_is_representative=True)
+            identity.representative_mediafiles = list(get_best_representative_mediafiles(identity, orientation=orientation_of_unknown, max_count=max_representative_mediafiles))
 
         logger.debug(f"  3 {time.time() - t0=:.2f} [s]")
         # for identity in identities:

@@ -5,6 +5,7 @@
 * [added] Add not identified media files to the list (to be identified manually)
 * [fixed] List of not confirmed now doesn't skip doubled score
 * [fixed] Show remaining identities if one of the suggestion is None
+* [changed] Select representative media files in identification according to the orientation
 
 ## 06-2025
 
