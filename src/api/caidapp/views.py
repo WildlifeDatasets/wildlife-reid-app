@@ -1092,7 +1092,7 @@ def get_individual_identity_from_foridentification(
                 # i.e. The identity was removed from the app
                 # remove from foridentification.top_mediafiles
                 try:
-                    foridentification.top_mediafiles.remove(reid_suggestion)
+                    reid_suggestion.delete()
                     logger.warning(f"Missing identity for reid_suggestion. Removed one suggestion for {foridentification.mediafile.mediafile.name=}")
                 except Exception as e:
                     logger.debug(traceback.format_exc())
