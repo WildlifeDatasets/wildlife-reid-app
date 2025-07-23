@@ -1015,7 +1015,7 @@ def get_individual_identity_from_foridentification(
         # for identity in related_identities:
         #     identity.representative_mediafiles = identity.mediafile_set.filter(identity_is_representative=True)
 
-        reid_suggestions = list(foridentification.top_mediafiles.all())
+        reid_suggestions = list(foridentification.top_mediafiles.all().select_related("identity", "mediafile"))
         for reid_suggestion in reid_suggestions:
             if reid_suggestion.identity is None:
                 # i.e. The identity was removed from the app
@@ -1035,8 +1035,6 @@ def get_individual_identity_from_foridentification(
                 representative_mediafiles = [reid_suggestion.mediafile] + [mf for mf in list(representative_mediafiles) if mf != reid_suggestion.mediafile]
 
                 reid_suggestion.representative_mediafiles = representative_mediafiles
-
-
 
         for identity in remaining_identities:
             identity.representative_mediafiles = identity.mediafile_set.filter(identity_is_representative=True)
@@ -1067,6 +1065,10 @@ def get_individual_identity_from_foridentification(
 
     else:
         return message_view(request, "No mediafiles for identification.")
+    remaining_identities = remaining_identities.select_related(
+            "name",
+            "representative_mediafiles"
+        )
 
     logger.debug(f"{remaining_identities[:5]}")
     return render(
@@ -2036,15 +2038,6 @@ def _mediafiles_query(
     mediafiles = MediaFile.objects.annotate(
         **_mediafiles_annotate()
     )
-    # mediafiles = (
-    #     mediafiles.filter(
-    #         Q(album__albumsharerole__user=request.user.caiduser)
-    #         | Q(parent__owner=request.user.caiduser)
-    #         | Q(parent__owner__workgroup=request.user.caiduser.workgroup)
-    #     )
-    #     .distinct()
-    #     .order_by(order_by)
-    # )
     if taxon_verified is not None:
         filter_kwargs.update(dict(taxon_verified=taxon_verified))
     if album_hash is not None:
@@ -2103,7 +2096,8 @@ def _mediafiles_query(
     logger.debug(f"{len(mediafiles)=}")
 
     if len(query) == 0:
-        return mediafiles
+        pass
+        # return mediafiles
     else:
 
         vector = SearchVector("taxon__name", "locality__name")
@@ -2112,7 +2106,18 @@ def _mediafiles_query(
         mediafiles = (
             mediafiles.annotate(rank=SearchRank(vector, query)).filter(rank__gt=0).order_by("-rank")
         )
-        return mediafiles
+        # return mediafiles
+    mediafiles = mediafiles.select_related(
+        "parent",
+        "taxon",
+        "predicted_taxon",
+        "locality",
+        "identity",
+        "updated_by",
+        "sequence"
+    )
+
+    return mediafiles
 
 
 def _page_number(request, page_number: int) -> int:
@@ -2287,7 +2292,15 @@ def media_files_update(
 
     # Order the queryset according to your session or default preference
     order_by = request.session.get("mediafiles_order_by", "-parent__uploaded_at")
-    mediafiles = mediafiles.order_by(order_by)
+    mediafiles = mediafiles.order_by(order_by).select_related(
+        "parent",
+        "taxon",
+        "predicted_taxon",
+        "locality",
+        "identity",
+        "updated_by",
+        "sequence"
+    )
     logger.debug(f"{request.GET=}")
 
     if len(mediafiles) == 0 and show_overview_button:

@@ -1528,7 +1528,15 @@ def assign_unidentified_to_identification(caiduser:CaIDUser):
     )
     logger.debug(f"Base queryset count (before exclude): {base_qs.count()}")
 
-    mediafiles = base_qs.exclude(id__in=list(existing_mfi_ids))
+    mediafiles = base_qs.exclude(id__in=list(existing_mfi_ids)).select_related(
+        "parent",
+        "taxon",
+        "predicted_taxon",
+        "locality",
+        "identity",
+        "updated_by",
+        "sequence"
+    )
 
     # mediafiles = models.MediaFile.objects.filter(
     #     parent__owner__workgroup=caiduser.workgroup,

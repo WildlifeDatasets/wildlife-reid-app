@@ -1408,8 +1408,15 @@ def get_mediafiles_with_missing_taxon(
         **kwargs_filter,
         parent__contains_single_taxon=False,
         **kwargs,
+    ).select_related(
+        "parent",
+        "taxon",
+        "predicted_taxon",
+        "locality",
+        "identity",
+        "updated_by",
+        "sequence"
     )
-    # logger.debug(f"{mediafiles.count()=}")
     return mediafiles
 
 
@@ -1424,7 +1431,16 @@ def get_mediafiles_with_missing_verification(
     logger.debug(f"{caiduser=}, {uploadedarchive=}, {kwargs=}, {kwargs_filter=}")
     mediafiles = MediaFile.objects.filter(
         taxon_verified=False, **kwargs_filter, parent__contains_single_taxon=False, **kwargs
+    ).select_related(
+        "parent",
+        "taxon",
+        "predicted_taxon",
+        "locality",
+        "identity",
+        "updated_by",
+        "sequence"
     )
+
     logger.debug(f"{mediafiles.count()=}")
     return mediafiles
 
