@@ -264,9 +264,13 @@
                                                     {% endwith %}
                                                         <div class="card-body">
                                                             <div class="card-title">
+                                                                {% if reid_suggestion.identity %}
                                                                 <a href="{% url 'caidapp:individual_identity_update' reid_suggestion.identity.id %}">
                                                                     {{ reid_suggestion.name }}
                                                                 </a>
+                                                                {% else %}
+                                                                {{ reid_suggestion.name }}
+                                                                {% endif %}
                                                             </div>
                                                             <p class="card-text">
                                                                 {{ reid_suggestion.score|mul:100|floatformat:2 }}%
