@@ -967,17 +967,41 @@ def not_identified_mediafiles(request):
         {**page_context, "page_title": "Not Identified"},
     )
 
-def get_best_representative_mediafiles(identity, orientation=None, max_count=5) -> QuerySet[MediaFile]:
-    qs = identity.mediafile_set
-    mf = qs.filter(identity_is_representative=True, orientation=orientation)
+# delete
+# def get_best_representative_mediafiles(identity, orientation=None, max_count=5) -> List[MediaFile]:
+#     qs = identity.mediafile_set
+#     mf = qs.filter(identity_is_representative=True, orientation=orientation)
+#
+#     if not mf.exists():
+#         mf = qs.filter(identity_is_representative=True)
+#
+#     if not mf.exists():
+#         mf = qs.all()
+#
+#     return list(mf.order_by("-captured_at")[:max_count])
 
-    if not mf.exists():
-        mf = qs.filter(identity_is_representative=True)
+def get_best_representative_mediafiles(identity, orientation=None, max_count=5) -> list[MediaFile]:
+    # Pokud máme předem načtené reprezentativní mediafiles
+    candidates = getattr(identity, "representative_mediafiles_candidates", None)
+    if candidates is not None:
+        if candidates:
+            return candidates[:max_count]
+        # fallback na reprezentativní bez orientace
+        fallback = list(
+            identity.mediafile_set.filter(identity_is_representative=True).order_by("-captured_at")[:max_count])
+        if fallback:
+            return fallback
+        return list(identity.mediafile_set.all().order_by("-captured_at")[:max_count])
+    else:
+        # fallback: přímé dotazy jako dřív
+        qs = identity.mediafile_set
+        mf = qs.filter(identity_is_representative=True, orientation=orientation)
+        if not mf.exists():
+            mf = qs.filter(identity_is_representative=True)
+        if not mf.exists():
+            mf = qs.all()
+        return list(mf.order_by("-captured_at")[:max_count])
 
-    if not mf.exists():
-        mf = qs.all()
-
-    return mf.order_by("-captured_at")[:max_count]
 
 @login_required
 def get_individual_identity_from_foridentification(
@@ -1005,21 +1029,47 @@ def get_individual_identity_from_foridentification(
         identity_ids = [i for i in identity_ids if i is not None]
         logger.debug(f"{identity_ids=}")
 
+        orientation_of_unknown = foridentification.mediafile.orientation
+
+        # remaining_identities = (
+        #     IndividualIdentity.objects.filter(
+        #         Q(owner_workgroup=request.user.caiduser.workgroup) & ~Q(name="nan") &
+        #         ~Q(id__in=identity_ids)
+        #     )
+        #     .all()
+        #     .order_by("name")
+        # )
+
+        # -------------------------------- vvvvv ------
+        from django.db.models import Prefetch
+
+        # připrav filtr: reprezentativní a orientované (pokud zadané)
+        mediafile_filter = {"identity_is_representative": True}
+        if orientation_of_unknown is not None:
+            mediafile_filter["orientation"] = orientation_of_unknown
+
+        prefetch_candidates = Prefetch(
+            "mediafile_set",
+            queryset=MediaFile.objects.filter(**mediafile_filter).order_by("-captured_at"),
+            to_attr="representative_mediafiles_candidates"
+        )
         remaining_identities = (
             IndividualIdentity.objects.filter(
-                Q(owner_workgroup=request.user.caiduser.workgroup) & ~Q(name="nan") &
+                Q(owner_workgroup=request.user.caiduser.workgroup),
+                ~Q(name="nan"),
                 ~Q(id__in=identity_ids)
             )
-            .all()
+            .prefetch_related(prefetch_candidates)
             .order_by("name")
         )
+        # -------------------------------- ^^^^^ ------
+
         logger.debug(f"  1 {time.time() - t0=:.2f} [s]")
 
         # Add `representative_mediafiles` to related identities
         # for identity in related_identities:
         #     identity.representative_mediafiles = identity.mediafile_set.filter(identity_is_representative=True)
 
-        orientation_of_unknown = foridentification.mediafile.orientation
         reid_suggestions = list(foridentification.top_mediafiles.all().select_related("identity", "mediafile"))
         for reid_suggestion in reid_suggestions:
             if reid_suggestion.identity is None:
@@ -1032,15 +1082,15 @@ def get_individual_identity_from_foridentification(
                     logger.debug(traceback.format_exc())
                     logger.error(f"Error removing reid_suggestion from foridentification.top_mediafiles: {e}")
             else:
-                representative_mediafiles = get_best_representative_mediafiles(reid_suggestion.identity, orientation=orientation_of_unknown)
+                representative_mediafiles:list = get_best_representative_mediafiles(reid_suggestion.identity, orientation=orientation_of_unknown)
                 # insert as first element the reid_suggestion mediafile
-                representative_mediafiles = [reid_suggestion.mediafile] + [mf for mf in list(representative_mediafiles) if mf != reid_suggestion.mediafile]
+                representative_mediafiles = [reid_suggestion.mediafile] + [mf for mf in representative_mediafiles if mf != reid_suggestion.mediafile]
 
                 reid_suggestion.representative_mediafiles = representative_mediafiles[:max_representative_mediafiles]
 
         logger.debug(f"  2 {time.time() - t0=:.2f} [s]")
         for identity in remaining_identities:
-            identity.representative_mediafiles = list(get_best_representative_mediafiles(identity, orientation=orientation_of_unknown, max_count=max_representative_mediafiles))
+            identity.representative_mediafiles = get_best_representative_mediafiles(identity, orientation=orientation_of_unknown, max_count=max_representative_mediafiles)
 
         logger.debug(f"  3 {time.time() - t0=:.2f} [s]")
         # for identity in identities:
