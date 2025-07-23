@@ -1065,9 +1065,6 @@ def get_individual_identity_from_foridentification(
 
     else:
         return message_view(request, "No mediafiles for identification.")
-    remaining_identities = remaining_identities.select_related(
-            "representative_mediafiles"
-        )
 
     logger.debug(f"{remaining_identities[:5]}")
     return render(
