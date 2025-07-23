@@ -1,6 +1,7 @@
 import datetime
 import logging
 import os
+import time
 import traceback
 from io import BytesIO
 from pathlib import Path
@@ -972,6 +973,7 @@ def get_individual_identity_from_foridentification(
     request, foridentification_id: Optional[int] = None, media_file_id: Optional[int] = None
 ):
     """Show and update media file."""
+    t0 = time.time()
     foridentifications = MediafilesForIdentification.objects.filter(
         mediafile__parent__owner__workgroup=request.user.caiduser.workgroup
     ).order_by("?")
@@ -991,17 +993,6 @@ def get_individual_identity_from_foridentification(
         identity_ids = [i for i in identity_ids if i is not None]
         logger.debug(f"{identity_ids=}")
 
-        # for identity in identities:
-        #     # select representative mediafile for each identity
-        #     identity.representative_mediafiles = identity.mediafile_set.filter(identity_is_representative=True)
-
-        # Fetch the identities
-        # related_identities = IndividualIdentity.objects.filter(
-        #     id__in=identity_ids,
-        #     owner_workgroup=request.user.caiduser.workgroup
-        # ).order_by("name")
-
-
         remaining_identities = (
             IndividualIdentity.objects.filter(
                 Q(owner_workgroup=request.user.caiduser.workgroup) & ~Q(name="nan") &
@@ -1010,6 +1001,7 @@ def get_individual_identity_from_foridentification(
             .all()
             .order_by("name")
         )
+        logger.debug(f"  1 {time.time() - t0=:.2f} [s]")
 
         # Add `representative_mediafiles` to related identities
         # for identity in related_identities:
@@ -1036,9 +1028,11 @@ def get_individual_identity_from_foridentification(
 
                 reid_suggestion.representative_mediafiles = representative_mediafiles
 
+        logger.debug(f"  2 {time.time() - t0=:.2f} [s]")
         for identity in remaining_identities:
             identity.representative_mediafiles = identity.mediafile_set.filter(identity_is_representative=True)
 
+        logger.debug(f"  3 {time.time() - t0=:.2f} [s]")
         # for identity in identities:
         #     identity.representative_mediafiles = identity.mediafile_set.filter(identity_is_representative=True)
 
@@ -1050,7 +1044,7 @@ def get_individual_identity_from_foridentification(
             max_score=Max("score")
         )["max_score"] or 0.
 
-
+        logger.debug(f"  4 {time.time() - t0=:.2f} [s]")
         # find the next foridentification with lower max_score
         from django.db.models.functions import Coalesce
         next_foridentification = (
@@ -1062,10 +1056,10 @@ def get_individual_identity_from_foridentification(
             .first()
         )
 
-
     else:
         return message_view(request, "No mediafiles for identification.")
 
+    logger.debug(f"  5 {time.time() - t0=:.2f} [s]")
     logger.debug(f"{remaining_identities[:5]}")
     return render(
         request,
