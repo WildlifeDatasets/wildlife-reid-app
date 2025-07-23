@@ -1062,6 +1062,22 @@ def get_individual_identity_from_foridentification(
             .prefetch_related(prefetch_candidates)
             .order_by("name")
         )
+        # ----------------------
+        prefetch_first_mediafile = Prefetch(
+            "mediafile_set",
+            queryset=MediaFile.objects.order_by("captured_at"),
+            to_attr="all_mediafiles_ordered"
+        )
+
+        remaining_identities = (
+            IndividualIdentity.objects.filter(
+                Q(owner_workgroup=request.user.caiduser.workgroup),
+                ~Q(name="nan"),
+                ~Q(id__in=identity_ids)
+            )
+            .prefetch_related(prefetch_first_mediafile)
+            .order_by("name")
+        )
         # -------------------------------- ^^^^^ ------
 
         logger.debug(f"  1 {time.time() - t0=:.2f} [s]")
@@ -1089,8 +1105,13 @@ def get_individual_identity_from_foridentification(
                 reid_suggestion.representative_mediafiles = representative_mediafiles[:max_representative_mediafiles]
 
         logger.debug(f"  2 {time.time() - t0=:.2f} [s]")
+
+        # for identity in remaining_identities:
+        #     identity.representative_mediafiles = get_best_representative_mediafiles(identity, orientation=orientation_of_unknown, max_count=max_representative_mediafiles)
+        # logger.debug(f"  2.1 {time.time() - t0=:.2f} [s]")
         for identity in remaining_identities:
-            identity.representative_mediafiles = get_best_representative_mediafiles(identity, orientation=orientation_of_unknown, max_count=max_representative_mediafiles)
+            mf = identity.all_mediafiles_ordered
+            identity.representative_mediafiles = mf[:3] if mf else []
 
         logger.debug(f"  3 {time.time() - t0=:.2f} [s]")
         # for identity in identities:
