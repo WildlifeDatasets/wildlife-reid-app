@@ -30,7 +30,7 @@
             <nav>
                 <ol class="breadcrumb">
                     {% if locality.id %}
-                    <li class="breadcrumb-item"><a href="{% url 'caidapp:media_files_locality' locality.hash %}"> {{ locality.mediafiles.count }} Media Files</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'caidapp:media_files_locality' locality.hash %}"> {{ locality.mediafile_set.count }} Media Files</a></li>
                         {% endif %}
 {#                    <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li>#}
 {#                    <li class="breadcrumb-item"><a href="{% url 'caidapp:uploadedarchive_mediafiles' mediafile.parent.id %}"> Uploaded#}
@@ -85,7 +85,7 @@
                     <div class="card">
                         <div class="card-body mt-4">
                             <ul class="list-group">
-                                <li class="list-group"><a class="link-secondary" href="{% url 'caidapp:media_files_locality' locality.hash %}">  Media Files: {{ locality.mediafiles.count }} </a></li>
+                                <li class="list-group"><a class="link-secondary" href="{% url 'caidapp:media_files_locality' locality.hash %}">  Media Files: {{ locality.mediafile_set.count }} </a></li>
 
                             </ul>
                         {%  if locality.identities.count > 0 %}

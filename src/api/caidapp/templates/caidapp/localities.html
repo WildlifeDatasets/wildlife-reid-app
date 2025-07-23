@@ -120,7 +120,7 @@
                     <div class="col-auto" id="card{{ locality.id }}">
                         <div class="card width-300">
                             <div class="image-container-300">
-                            {% if locality.mediafiles.count > 0 and locality.mediafiles.all.0.image_file  %}
+                            {% if locality.mediafile_set.count > 0 and locality.mediafile_set.all.0.image_file  %}
                                     <a href="{% url 'caidapp:update_locality' locality.id %}" class=""
                                             {%  if request.session.private_mode %}
                                        onclick="return confirm('You are in private mode. In edit view you will reveal the locality. Do you want to continue?')"
@@ -130,7 +130,7 @@
                                             class="card-img-top"
 {#                                            src="{{ locality.uploadedarchive_set.all.0.thumbnail.url }}"#}
 {#                                            src="{{ locality.mediafiles.all.0.image_file.url }}"#}
-                                            src="{{ locality.mediafiles.all.0.get_static_thumbnail.url }}"
+                                            src="{{ locality.mediafile_set.all.0.get_static_thumbnail.url }}"
                                             alt="Camera trap image"
                                     >
                                     </a>

@@ -489,8 +489,8 @@ def suggest_merge_localities(request):
 
             if distance < (len(locality1_name) / 4. + len(locality2_name) / 4.):
                 # count media files of locality
-                count_media_files_locality1 = locality1.mediafiles.count()
-                count_media_files_locality2 = locality2.mediafiles.count()
+                count_media_files_locality1 = locality1.mediafile_set.count()
+                count_media_files_locality2 = locality2.mediafile_set.count()
 
                 if count_media_files_locality1 < count_media_files_locality2:
                     locality_a = locality1
@@ -568,7 +568,7 @@ def merge_localities_view(request, locality_from_id, locality_to_id):
         return redirect("caidapp:suggest_merge_localities")
 
     # Move media files to the target locality
-    mediafiles = locality_from.mediafiles.all()
+    mediafiles = locality_from.mediafile_set.all()
     for mediafile in mediafiles:
         mediafile.locality = locality_to
         mediafile.save()

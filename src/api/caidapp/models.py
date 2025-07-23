@@ -352,6 +352,7 @@ class Locality(models.Model):
         self.save()
         self.set_closest_area()
 
+    # remove and use mediafile_set
     def mediafiles(self):
         """Return mediafiles."""
         return MediaFile.objects.filter(locality=self).all()
@@ -861,13 +862,15 @@ class IndividualIdentity(models.Model):
     birth_date = models.DateField("Birth date", blank=True, null=True)
     death_date = models.DateField("Death date", blank=True, null=True)
 
+    # remove mediefiles and use mediafile_set
     def mediafiles(self):
         """Return mediafiles."""
         return MediaFile.objects.filter(identity=self).all()
 
     def last_seen(self):
         """Return last seen date."""
-        return MediaFile.objects.filter(identity=self).order_by("-captured_at").first().captured_at
+        last = MediaFile.objects.filter(identity=self).order_by("-captured_at").first()
+        return last.captured_at if last else None
 
     def count_of_representative_mediafiles(self):
         """Return number of representative media files."""
