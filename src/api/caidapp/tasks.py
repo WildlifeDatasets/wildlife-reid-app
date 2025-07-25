@@ -17,7 +17,7 @@ import tqdm
 import django
 import numpy as np
 import pandas as pd
-from celery import chain, shared_task, signature
+from celery import chain, shared_task, signature, current_app
 from django.conf import settings
 from zoneinfo import ZoneInfo
 
@@ -1367,6 +1367,81 @@ def simple_log(self, *args, **kwargs):
     logger.info(f"Applying simple log task with args: {args=}, {kwargs=}.")
     return {"status": "DONE"}
 
+from django.utils.timezone import now
+from datetime import timedelta
+from caidapp.models import WorkGroup
+
+def schedule_init_identification_for_workgroup(workgroup: models.WorkGroup, delay_minutes: int = 40):
+
+    # Zruš předchozí naplánovaný task
+    if workgroup.identification_scheduled_init_task_id:
+        current_app.control.revoke(workgroup.identification_scheduled_init_task_id, terminate=True)
+
+    eta = now() + timedelta(minutes=delay_minutes)
+    task = init_identification.apply_async(args=[workgroup.id], eta=eta)
+
+    workgroup.identification_scheduled_init_task_id = task.id
+    workgroup.identification_scheduled_init_eta = eta
+    workgroup.identification_init_status = "Scheduled"
+    workgroup.save(update_fields=[
+        "identification_scheduled_init_task_id",
+        "identification_scheduled_init_eta",
+        "identification_init_status"
+    ])
+
+
+@shared_task
+def init_identification(workgroup_id: int):
+    from .views import _get_mediafiles_for_train_or_init_identification
+    workgroup = WorkGroup.objects.get(pk=workgroup_id)
+
+    process_for_message = "initialization"
+    called_function_name = "init_identification"
+    mediafiles_qs = _get_mediafiles_for_train_or_init_identification(
+        workgroup
+    )
+    # set attribute media_file_used_for_init_identification
+    logger.debug("Generating CSV for init_identification...")
+    output_dir = Path(settings.MEDIA_ROOT) / workgroup.name
+    output_dir.mkdir(exist_ok=True, parents=True)
+    csv_data = _prepare_dataframe_for_identification(mediafiles_qs)
+    identity_metadata_file = output_dir / "init_identification.csv"
+    pd.DataFrame(csv_data).to_csv(identity_metadata_file, index=False)
+    logger.debug(f"{identity_metadata_file=}")
+    workgroup.identification_init_at = django.utils.timezone.now()
+    workgroup.identification_init_status = "Processing"
+    workgroup.identification_init_model_path = str(workgroup.identification_model.model_path)
+    workgroup.identification_init_message = (
+            f"Using {len(csv_data['image_path'])}"
+            + f"representative images for identification {process_for_message}."
+    )
+    workgroup.save()
+    logger.debug(f"Calling {process_for_message} identification...")
+    sig = signature(
+        called_function_name,
+        # "init_identification",
+        kwargs={
+            # csv file should contain image_path, class_id, label
+            "input_metadata_file": str(identity_metadata_file),
+            "organization_id": workgroup.id,
+            "identification_model": {
+                "name": workgroup.identification_model.name,
+                "path": workgroup.identification_model.model_path,
+            }
+        },
+    )
+    # task =
+    sig.apply_async(
+        link=init_identification_on_success.s(
+            workgroup_id=workgroup.id,
+            # uploaded_archive_id=uploaded_archive.id,
+            # zip_file=os.path.relpath(str(output_archive_file), settings.MEDIA_ROOT),
+            # csv_file=os.path.relpath(str(output_metadata_file), settings.MEDIA_ROOT),
+        ),
+        link_error=init_identification_on_error.s(
+            # uploaded_archive_id=uploaded_archive.id
+        ),
+    )
 
 def _find_mediafiles_for_identification(
     mediafile_paths: list,
@@ -1502,10 +1577,10 @@ def _iterate_over_locality_checks(
         yield yield_dict
 
 def assign_unidentified_to_identification(caiduser:CaIDUser):
-    taxon_str = caiduser.default_taxon_for_identification.name
     if caiduser.workgroup is None:
         logger.error("CaIDUser has no workgroup assigned. Cannot assign unidentified media files to identification.")
         return
+    taxon_str = caiduser.workgroup.default_taxon_for_identification.name
 
     from django.db.models import Subquery
 
