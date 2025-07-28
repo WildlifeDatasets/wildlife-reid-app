@@ -42,8 +42,10 @@ RUN pip install git+https://github.com/facebookresearch/segment-anything.git
 RUN echo "------- wildlife-tools (pinned, no-deps) --------"
 COPY ./src/identification_worker /identification_worker
 RUN pip install -e /identification_worker/wildlife-tools --no-deps
+RUN pip install pytorch_metric_learning==2.8.1
 RUN pip install transformers==4.30.2
 RUN pip install git+https://github.com/cvg/glue-factory.git@1f56839db2242929960d70f85bfac6c19ef2821c
+RUN pip install git+https://github.com/cvg/LightGlue.git@edb2b838efb2ecfe3f88097c5fad9887d95aedad
 
 
 RUN pip install \

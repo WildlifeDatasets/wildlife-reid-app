@@ -52,6 +52,8 @@ RUN pip install --no-cache-dir --upgrade pip build && \
 # 
 # RUN pip install timm==0.6.13
 
+RUN pip install numpy==1.26.4
+
 COPY ./src/taxon_worker /taxon_worker
 
 # expose ports and run application
