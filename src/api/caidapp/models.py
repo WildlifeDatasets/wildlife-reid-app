@@ -87,6 +87,17 @@ class Taxon(models.Model):
     def __str__(self):
         return str(self.name)
 
+class IdentificationModel(models.Model):
+    name = models.CharField(max_length=50)
+    description = models.CharField(max_length=255, blank=True, default="")
+    public = models.BooleanField(default=False)
+    model_path = models.CharField(max_length=255, blank=True, default="")
+    workgroup = models.ForeignKey("WorkGroup", on_delete=models.CASCADE, null=True, blank=True,
+                                  related_name="identification_models"
+                                  )
+
+    def __str__(self):
+        return str(self.name)
 
 def get_taxon(name: str) -> Optional[Taxon]:
     """Return taxon according to the name, create it if necessary."""
@@ -117,6 +128,24 @@ class WorkGroup(models.Model):
     identification_reid_message = models.TextField(blank=True, default="")
     identification_train_status = models.CharField(max_length=255, blank=True, default="")
     sequence_time_limit = models.IntegerField("Sequence time limit [s]", default=120)
+    identification_scheduled_init_task_id = models.CharField(max_length=255, null=True, blank=True)
+    identification_scheduled_init_eta = models.DateTimeField(null=True, blank=True)
+    default_taxon_for_identification = models.ForeignKey(
+        Taxon, on_delete=models.SET_NULL,
+        null=True, blank=True,
+    )
+    identification_model = models.ForeignKey(
+        IdentificationModel, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="actual_workgroup_identification_model"
+    )
+    def save(self, *args, **kwargs):
+        if not self.default_taxon_for_identification:
+            self.default_taxon_for_identification = get_taxon("Lynx lynx")
+
+        if not self.identification_model:
+            model = IdentificationModel.objects.filter(public=True).first()
+            self.identification_model = model
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return str(self.name)
@@ -177,15 +206,6 @@ class WorkGroup(models.Model):
         ).count()
 
 
-class IdentificationModel(models.Model):
-    name = models.CharField(max_length=50)
-    description = models.CharField(max_length=255, blank=True, default="")
-    public = models.BooleanField(default=False)
-    model_path = models.CharField(max_length=255, blank=True, default="")
-    workgroup = models.ForeignKey(WorkGroup, on_delete=models.CASCADE, null=True, blank=True)
-
-    def __str__(self):
-        return str(self.name)
 
 
 class CaIDUser(models.Model):
@@ -236,7 +256,12 @@ class CaIDUser(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return str(self.user)
+        user_str = str(self.user)
+        if self.user.first_name:
+            user_str += " " + self.user.first_name
+        if self.user.last_name:
+            user_str += " " + self.user.last_name
+        return user_str
 
     def number_of_uploaded_archives(self) -> int:
         """Return number of uploaded archives."""
@@ -1026,41 +1051,6 @@ class MediaFile(models.Model):
             logger.debug(f"static_thumbnail Does not exist for {self.mediafile.name=}")
             return None
 
-        # logger.debug(f"{self.mediafile.name=}")
-        # logger.debug(f"{self.static_thumbnail=}")
-        # logger.debug(f"{self.static_thumbnail.name=}")
-        # # logger.debug(f"{self.static_thumbnail.path=}")
-        # logger.debug(f"{self.media_file_corrupted=}")
-
-
-        # if self.static_thumbnail and Path(self.static_thumbnail.path).exists() and not force:
-        #     # logger.debug(f"Returning existing static thumbnail {self.static_thumbnail}")
-        #     return self.static_thumbnail
-        # elif not self.media_file_corrupted or force:
-        #     logger.debug(f"Creating static thumbnail for {self.mediafile.name}")
-        #     try:
-        #         # Define the path for the static thumbnail
-        #         static_thumbnail_path = Path(self.thumbnail.path).with_suffix(".static_thumbnail.webp")
-        #         fs_data.make_thumbnail_from_file(self.mediafile.path, static_thumbnail_path, width=width)
-        #
-        #         self.static_thumbnail = str(static_thumbnail_path)
-        #         self.media_file_corrupted = False
-        #         self.save()
-        #         return self.static_thumbnail
-        #
-        #     except Exception as e:
-        #         logger.warning(f"Error during creation of static thumbnail: {e}")
-        #         self.media_file_corrupted = True
-        #         if self.image_file:
-        #             logger.debug(f"  {str(self.image_file)=}")
-        #             if self.image_file.path:
-        #                 logger.debug(f"  {str(self.image_file.path)=}")
-        #         return None
-        # else:
-        #     logger.debug(f"Something is wrong with: {self.mediafile.name}, {force=}, {self.media_file_corrupted=}")
-        #     return None
-
-
     def is_preidentified(self):
         """Return True if mediafile is preidentified."""
         return MediafilesForIdentification.objects.filter(mediafile=self).exists()
@@ -1143,72 +1133,16 @@ class MediaFile(models.Model):
             self.static_thumbnail = str(static_thumbnail_rel_pth)
             self.save()
             # self.get_static_thumbnail(force=force)
+    def save(self, *args, **kwargs):
+        if self.pk:
+            old = MediaFile.objects.get(pk=self.pk)
+            if old.identity_is_representative != self.identity_is_representative:
+                from .tasks import schedule_init_identification_for_workgroup
+                schedule_init_identification_for_workgroup(self.parent.owner.workgroup, delay_minutes=40)
 
-        # logger.debug(f"{self.media_type=}, {self.preview=}")
-        # if self.media_type == "image":
-        #     # logger.debug(f"{self.preview=}")
-        #     # preview_abs_pth = preview_abs_pth.with_suffix(".jpg")
-        #     preview_abs_pth = preview_abs_pth.with_suffix(".webp")
-        #
-        #     if (not self.preview) or (not self.preview.name) or force:
-        #         logger.debug(f"preview does not exist for {self.mediafile.name=}")
-        #         preview_rel_pth = os.path.relpath(preview_abs_pth, settings.MEDIA_ROOT)
-        #         # logger.debug(f"Creating preview for {preview_rel_pth}")
-        #         if make_thumbnail_from_file(mediafile_path, preview_abs_pth, width=preview_width):
-        #             self.preview = str(preview_rel_pth)
-        #             self.save()
-        #         else:
-        #             logger.warning(f"Cannot generate preview for {preview_abs_pth}")
-        #
-        #     if (not self.thumbnail.name) or (not thumbnail_abs_pth.exists()) or force:
-        #         rel_pth = os.path.relpath(thumbnail_abs_pth, settings.MEDIA_ROOT)
-        #         # logger.debug(f"Creating thumbnail for {rel_pth}")
-        #         if make_thumbnail_from_file(mediafile_path, thumbnail_abs_pth, width=thumbnail_width):
-        #             self.thumbnail = str(rel_pth)
-        #             self.save()
-        #         else:
-        #             logger.warning(f"Cannot generate thumbnail for {thumbnail_abs_pth}")
-        #
-        # elif self.media_type == "video":
-        #     preview_abs_pth = preview_abs_pth.with_suffix(".mp4")
-        #     if (not self.preview ) or (not self.preview.name) or force:
-        #         preview_rel_pth = os.path.relpath(preview_abs_pth, settings.MEDIA_ROOT)
-        #         preview_abs_pth.parent.mkdir(exist_ok=True, parents=True)
-        #         logger.debug(f"Creating preview for {preview_rel_pth}")
-        #         convert_to_mp4(mediafile_path, preview_abs_pth)
-        #         self.preview = str(preview_rel_pth)
-        #         self.save()
-        #     else:
-        #         # logger.debug(f"Preview already exists for {self.preview}")
-        #         pass
-        #
-        #     if (self.thumbnail.name is None) or (not thumbnail_abs_pth.exists()) or force:
-        #         # logger.debug("we are in first if")
-        #         gif_path = thumbnail_abs_pth.with_suffix(".gif")
-        #         thumbnail_abs_pth = gif_path
-        #         rel_pth = os.path.relpath(thumbnail_abs_pth, settings.MEDIA_ROOT)
-        #         if gif_path.exists():
-        #             self.thumbnail = str(rel_pth)
-        #             self.save()
-        #             # logger.debug(f"Used GIF thumbnail generated before: {rel_pth}")
-        #         else:
-        #             # logger.debug(f"Creating thumbnail for {rel_pth}")
-        #             if fs_data.make_gif_from_video_file(mediafile_path, thumbnail_abs_pth, width=thumbnail_width):
-        #                 self.thumbnail = str(rel_pth)
-        #                 self.save()
-        #             else:
-        #                 logger.warning(f"Cannot generate thumbnail for {thumbnail_abs_pth}")
-        #
-        #
-        #     if (self.thumbnail.name is None) or (not thumbnail_abs_pth.exists()) or force:
-        #         rel_pth = os.path.relpath(thumbnail_abs_pth, settings.MEDIA_ROOT)
-        #         # logger.debug(f"Creating thumbnail for {rel_pth}")
-        #         if fs_data.make_thumbnail_from_file(mediafile_path, thumbnail_abs_pth, width=thumbnail_width):
-        #             self.thumbnail = str(rel_pth)
-        #             self.save()
-        #         else:
-        #             logger.warning(f"Cannot generate thumbnail for {thumbnail_abs_pth}")
-        # self.get_static_thumbnail(force=force)
+        super().save(*args, **kwargs)
+
+
 
 
 class AnimalObservation(models.Model):

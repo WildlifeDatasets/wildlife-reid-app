@@ -1221,28 +1221,27 @@ def run_taxon_classification(request, uploadedarchive_id, force_init=False):
 
 
 def _get_mediafiles_for_train_or_init_identification(
-    request,
+        workgoup: models.WorkGroup,
+    # request,
     # workgroup, taxon=None, identity_is_representative=True
 ):
     """Get mediafiles for training or initialization of identification."""
 
-    if not request.user.caiduser.workgroup_admin:
-        return HttpResponseNotAllowed("Identification init is for workgroup admins only.")
 
     # set attribute media_file_used_for_init_identification
     MediaFile.objects.filter(
-        parent__owner__workgroup=request.user.caiduser.workgroup,
+        parent__owner__workgroup=caiduser.workgroup,
     ).update(used_for_init_identification=False)
 
     kwargs = {}
-    if request.user.caiduser.default_taxon_for_identification:
-        kwargs.update(dict(taxon=request.user.caiduser.default_taxon_for_identification))
+    if caiduser.workgroup.default_taxon_for_identification:
+        kwargs.update(dict(taxon=caiduser.workgroup.default_taxon_for_identification))
 
     mediafiles_qs = MediaFile.objects.filter(
         # taxon__name=taxon_str,
         **kwargs,
         identity__isnull=False,
-        parent__owner__workgroup=request.user.caiduser.workgroup,
+        parent__owner__workgroup=caiduser.workgroup,
         identity_is_representative=True,
     )
 
@@ -1278,8 +1277,9 @@ def train_identification(request,
         # go back to the page
         link = request.META.get("HTTP_REFERER", "/")
         return message_view(request, "No identification model set.", link=link)
+    caiduser = request.user.caiduser
     mediafiles_qs = _get_mediafiles_for_train_or_init_identification(
-        request
+        caiduser
     )
 
     logger.debug("Generating CSV for init_identification...")
@@ -1345,74 +1345,25 @@ def train_identification(request,
 
 
 @login_required
-def init_identification(request,
-                        # taxon_str: str = "Lynx lynx"
-                        ):
+def init_identification_view(request,
+                             # taxon_str: str = "Lynx lynx"
+                             ):
     """Run processing of uploaded archive."""
     # check if user is workgroup admin
-    process_for_message = "initialization"
-    called_function_name = "init_identification"
     if not request.user.caiduser.workgroup_admin:
         return HttpResponseNotAllowed("Identification init is for workgroup admins only.")
     if not request.user.caiduser.identification_model:
         # go back to the page
         link = request.META.get("HTTP_REFERER", "/")
         return message_view(request, "No identification model set.", link=link)
-    mediafiles_qs = _get_mediafiles_for_train_or_init_identification(
-        request
-    )
-    # set attribute media_file_used_for_init_identification
 
-
-    logger.debug("Generating CSV for init_identification...")
-
-    output_dir = Path(settings.MEDIA_ROOT) / request.user.caiduser.workgroup.name
-    output_dir.mkdir(exist_ok=True, parents=True)
-
-    csv_data = _prepare_dataframe_for_identification(mediafiles_qs)
-
-    identity_metadata_file = output_dir / "init_identification.csv"
-    pd.DataFrame(csv_data).to_csv(identity_metadata_file, index=False)
-    logger.debug(f"{identity_metadata_file=}")
-    workgroup = request.user.caiduser.workgroup
-    workgroup.identification_init_at = django.utils.timezone.now()
-    workgroup.identification_init_status = "Processing"
-    workgroup.identification_init_model_path = str(request.user.caiduser.identification_model.model_path)
-    workgroup.identification_init_message = (
-        f"Using {len(csv_data['image_path'])}"
-        + f"representative images for identification {process_for_message}."
-    )
-    workgroup.save()
-
-    logger.debug(f"Calling {process_for_message} identification...")
     caiduser = request.user.caiduser
-    sig = signature(
-        called_function_name,
-        # "init_identification",
-        kwargs={
-            # csv file should contain image_path, class_id, label
-            "input_metadata_file": str(identity_metadata_file),
-            "organization_id": request.user.caiduser.workgroup.id,
-            "identification_model": {
-                "name": caiduser.identification_model.name,
-                "path": caiduser.identification_model.model_path,
-            }
-    },
-    )
-    # task =
-    sig.apply_async(
-        link=init_identification_on_success.s(
-            workgroup_id=request.user.caiduser.workgroup.id,
-            # uploaded_archive_id=uploaded_archive.id,
-            # zip_file=os.path.relpath(str(output_archive_file), settings.MEDIA_ROOT),
-            # csv_file=os.path.relpath(str(output_metadata_file), settings.MEDIA_ROOT),
-        ),
-        link_error=init_identification_on_error.s(
-            # uploaded_archive_id=uploaded_archive.id
-        ),
-    )
+    from .tasks import schedule_init_identification_for_workgroup
+    schedule_init_identification_for_workgroup(caiduser.workgroup, delay_minutes=0)
     # return redirect("caidapp:individual_identities")
     return redirect("caidapp:uploads_known_identities")
+
+
 
 
 def stop_init_identification(request):
