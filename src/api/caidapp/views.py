@@ -102,6 +102,7 @@ from .views_locality import _set_localities_to_mediafiles_of_uploadedarchive
 from .views_uploads import uploadedarchive_detail
 import random
 
+
 logger = logging.getLogger("app")
 User = get_user_model()
 
@@ -1466,59 +1467,31 @@ def assign_unidentified_to_identification_view(request):
 def run_identification_on_unidentified(request):
     """Run identification in all uploaded archives."""
     workgroup = request.user.caiduser.workgroup
-    workgroup.identification_reid_status = "Processing"
-    workgroup.save()
+    run_identification_on_unidentified_for_workgroup(workgroup.id)
+    return redirect(request.META.get("HTTP_REFERER", "/"))
 
-    uploaded_archives = UploadedArchive.objects.filter(
-        owner__workgroup=request.user.caiduser.workgroup,
-        identification_status="IR",  # Ready for identification
-        # contains_single_taxon=True,
-        taxon_for_identification__isnull=False,
-        contains_identities=False,
-    ).all()
-
-    for uploaded_archive in uploaded_archives:
-        status_ok = _run_identification(
-            request,
-            uploaded_archive,
-            caiduser = request.user.caiduser
-        )
-        if status_ok:
-            messages.info(request, f"Identification started for {uploaded_archive.name}.")
-        else:
-            # message is generated in run identification
-            pass
 
 
     # next_page = request.GET.get("next", "caidapp:uploads_identities")
     # return redirect(next_page)
-    return redirect(request.META.get("HTTP_REFERER", "/"))
 
 
 @login_required
-def run_identification(request, uploadedarchive_id):
+def run_identification_view(request, uploadedarchive_id):
     """Run identification of uploaded archive."""
     uploaded_archive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
     # check if user is owner member of the workgroup
     if uploaded_archive.owner.workgroup != request.user.caiduser.workgroup:
         return HttpResponseNotAllowed("Identification is for workgroup members only.")
-    status_ok = _run_identification(
-        request,
-        uploaded_archive,
-        caiduser=request.user.caiduser,
-    )
+    status_ok = run_identification(uploaded_archive, workgroup=request.user.caiduser.workgroup)
     if status_ok:
         messages.info(request, f"Identification started for {uploaded_archive.name}.")
     else:
-        pass
+        messages.error(request, "No records for identification with the expected taxon.")
     return redirect(request.META.get("HTTP_REFERER", "/"))
 
 
-def _run_identification(
-        request,
-        uploaded_archive: UploadedArchive,
-        caiduser: models.CaIDUser,
-                        ) -> bool:
+def run_identification(uploaded_archive: UploadedArchive, workgroup: models.WorkGroup) -> bool:
     logger.debug("Generating CSV for run_identification...")
     if uploaded_archive.taxon_for_identification:
         taxon_str = uploaded_archive.taxon_for_identification.name
@@ -1539,7 +1512,6 @@ def _run_identification(
     # if no records in df
     if df.shape[0] == 0:
         logger.warning("No records for identification with the expected taxon. ")
-        messages.error(request, "No records for identification with the expected taxon.")
         return False
         # return redirect(request.META.get("HTTP_REFERER", "/"))
 
@@ -1563,8 +1535,8 @@ def _run_identification(
             top_k=3,
             uploaded_archive_id=uploaded_archive.id,
             identification_model={
-                "name": caiduser.identification_model.name,
-                "path": caiduser.identification_model.model_path,
+                "name": workgroup.identification_model.name,
+                "path": workgroup.identification_model.model_path,
             }
         ),
     )
