@@ -29,6 +29,8 @@ from utils.inference_identification import (
 )
 from utils.log import setup_logging
 from utils.sequence_identification import extend_df_with_datetime, extend_df_with_sequence_id
+from train_model import train_identification_model
+
 
 setup_logging()
 logger = logging.getLogger("app")
@@ -58,10 +60,16 @@ def train_identification(
             "source_path": "hf-hub:strakajk/LynxV4-MegaDescriptor-v2-T-256",
             "path": "/models/model1/LynxV4-MegaDescriptor-v2-T-256.pth"
         }
-    outputdir = Path(identification_model["path"]).parent
+    # outputdir = Path(identification_model["path"]).parent
     try:
-        outputdir.mkdir(parents=True, exist_ok=True)
-        pass
+        # outputdir.mkdir(parents=True, exist_ok=True)
+        # pass
+        train_identification_model(
+            input_metadata_file=input_metadata_file,
+            organization_id=organization_id,
+            identification_model=identification_model,
+            **kwargs
+        )
     except Exception as e:
         error = traceback.format_exc()
         logger.critical(f"Returning unexpected error output: '{error}'.")

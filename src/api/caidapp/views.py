@@ -1286,7 +1286,7 @@ def train_identification(request,
     logger.debug("Generating CSV for init_identification...")
 
     caiduser = request.user.caiduser
-    new_name = str_bumpversion(caiduser.identification_model.name)
+    new_name = str_bumpversion("MegaDescriptor-T-224-v0") # caiduser.identification_model.name
     clean_new_name = re.sub(r'[^a-zA-Z0-9 _-]', '', new_name)
 
     group_dir = Path(settings.MEDIA_ROOT) / request.user.caiduser.workgroup.name
@@ -1323,7 +1323,7 @@ def train_identification(request,
             "organization_id": request.user.caiduser.workgroup.id,
             "identification_model": {
                 "name": new_identification_model.name,
-                "init_path": str(caiduser.identification_model.model_path),
+                "init_path": "hf-hub:BVRA/MegaDescriptor-T-224", #str(caiduser.identification_model.model_path),
                 "path": str(new_identification_model.model_path),
             }
         },
