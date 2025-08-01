@@ -160,7 +160,7 @@ urlpatterns = [
     path("stop_init_identification/", views.stop_init_identification, name="stop_init_identification"),
     path(
         "run_identification/<int:uploadedarchive_id>/",
-        views.run_identification,
+        views.run_identification_view,
         name="run_identification",
     ),
     path(

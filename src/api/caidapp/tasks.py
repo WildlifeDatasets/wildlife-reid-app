@@ -1010,6 +1010,7 @@ def init_identification_on_success(*args, **kwargs):
     workgroup.identification_init_message = message
     now = django.utils.timezone.now()
     workgroup.identification_init_at = now
+    workgroup.identification_scheduled_reid_eta = None
     workgroup.save()
     logger.debug(f"{message=}")
     logger.debug(f"{workgroup=}")
@@ -1017,6 +1018,7 @@ def init_identification_on_success(*args, **kwargs):
     logger.debug(f"{workgroup.hash=}")
 
     logger.debug("init_identification done.")
+    schedule_reid_identification_for_workgroup(workgroup, delay_minutes=2)
 
 
 @shared_task
@@ -1371,7 +1373,57 @@ from django.utils.timezone import now
 from datetime import timedelta
 from caidapp.models import WorkGroup
 
-def schedule_init_identification_for_workgroup(workgroup: models.WorkGroup, delay_minutes: int = 40):
+def schedule_reid_identification_for_workgroup(workgroup: models.WorkGroup, delay_minutes: int = 15):
+    """Schedule reiidentification suggestions for a workgroup."""
+    # Zruš předchozí naplánovaný task
+    if workgroup.identification_scheduled_run_task_id:
+        current_app.control.revoke(workgroup.identification_scheduled_run_task_id, terminate=True)
+
+    eta = now() + timedelta(minutes=delay_minutes)
+    if (workgroup.identification_scheduled_reid_eta is None) or (eta > workgroup.identification_scheduled_reid_eta):
+        # if there is already scheduled re-identification, use that time
+        task = run_identification_on_unidentified_for_workgroup_task.apply_async(args=[workgroup.id], eta=eta)
+
+        workgroup.identification_scheduled_run_task_id = task.id
+        workgroup.identification_scheduled_reid_eta = eta
+        workgroup.identification_reid_status = "Scheduled"
+        workgroup.save(update_fields=[
+            "identification_scheduled_reid_task_id",
+            "identification_scheduled_reid_eta",
+            "identification_reid_status"
+        ])
+
+
+@shared_task
+def run_identification_on_unidentified_for_workgroup_task(workgroup_id: int):
+    return run_identification_on_unidentified_for_workgroup.s(workgroup_id)
+
+def run_identification_on_unidentified_for_workgroup(workgroup_id: int, request=None):
+    from .views import run_identification
+    workgroup = WorkGroup.objects.get(pk=workgroup_id)
+
+    workgroup.identification_reid_status = "Processing"
+    workgroup.save()
+
+    uploaded_archives = UploadedArchive.objects.filter(
+        owner__workgroup=workgroup,
+        identification_status="IR",  # Ready for identification
+        # contains_single_taxon=True,
+        taxon_for_identification__isnull=False,
+        contains_identities=False,
+    ).all()
+
+    for uploaded_archive in uploaded_archives:
+        status_ok = run_identification(uploaded_archive, workgroup=workgroup)
+        if request:
+            from django.contrib import messages
+            if status_ok:
+                messages.info(request, f"Identification started for {uploaded_archive.name}.")
+            else:
+                # message is generated in run identification
+                messages.error(request, f"No records for identification with the expected taxon for {uploaded_archive.name}.")
+
+def schedule_init_identification_for_workgroup(workgroup: models.WorkGroup, delay_minutes: int = 15):
 
     # Zruš předchozí naplánovaný task
     if workgroup.identification_scheduled_init_task_id:
@@ -1380,14 +1432,18 @@ def schedule_init_identification_for_workgroup(workgroup: models.WorkGroup, dela
     eta = now() + timedelta(minutes=delay_minutes)
     task = init_identification.apply_async(args=[workgroup.id], eta=eta)
 
+
     workgroup.identification_scheduled_init_task_id = task.id
     workgroup.identification_scheduled_init_eta = eta
     workgroup.identification_init_status = "Scheduled"
+
     workgroup.save(update_fields=[
         "identification_scheduled_init_task_id",
         "identification_scheduled_init_eta",
         "identification_init_status"
     ])
+
+    schedule_reid_identification_for_workgroup(workgroup, delay_minutes=delay_minutes+50)
 
 
 @shared_task

@@ -130,6 +130,8 @@ class WorkGroup(models.Model):
     sequence_time_limit = models.IntegerField("Sequence time limit [s]", default=120)
     identification_scheduled_init_task_id = models.CharField(max_length=255, null=True, blank=True)
     identification_scheduled_init_eta = models.DateTimeField(null=True, blank=True)
+    identification_scheduled_reid_task_id = models.CharField(max_length=255, null=True, blank=True)
+    identification_scheduled_reid_eta = models.DateTimeField(null=True, blank=True)
     default_taxon_for_identification = models.ForeignKey(
         Taxon, on_delete=models.SET_NULL,
         null=True, blank=True,
@@ -1139,6 +1141,7 @@ class MediaFile(models.Model):
             if old.identity_is_representative != self.identity_is_representative:
                 from .tasks import schedule_init_identification_for_workgroup
                 schedule_init_identification_for_workgroup(self.parent.owner.workgroup, delay_minutes=40)
+                # and the reid will be started after the init
 
         super().save(*args, **kwargs)
 

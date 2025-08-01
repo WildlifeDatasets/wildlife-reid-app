@@ -7,6 +7,7 @@
 * [fixed] Show remaining identities if one of the suggestion is None
 * [changed] Select representative media files in identification according to the orientation
 * [added] Automatic postponed run of init identification on changed list of representative media files
+* [added] Re-identification init and run automatized
 
 ## 06-2025
 

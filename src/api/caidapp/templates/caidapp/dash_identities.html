@@ -27,47 +27,91 @@
 
                         {% if user.caiduser.show_base_dataset %}
                         <a class="btn {{ btn_styles.upload_identified.class }}" href="{% url 'caidapp:upload_archive_contains_identities' %}"><i class="bi bi-upload"></i> Upload identified </a>
-                            {% endif %}
-                        <a class="btn btn-secondary" href="{% url 'caidapp:representative_mediafiles' %}"><i class="bi bi-eye"></i> Check representative images </a>
-                        <i class="bi bi-arrow-right-short fa-2x" style="vertical-align: middle;"></i>
-                        <a class="btn {{ btn_styles.init_identification.class }}"
-                           href="{% url 'caidapp:init_identification' %}"
-                                {% if user.caiduser.workgroup.identification_init_status %}
-                           data-bs-toggle="tooltip"
-                           title="Initiated at: {{ user.caiduser.workgroup.identification_init_at|date:'Y-m-d H:i' }}, {{ user.caiduser.workgroup.identification_init_status}}, {{ user.caiduser.workgroup.identification_init_message }}"
-                                {% endif %}
-                           onclick="return confirm('{{ btn_styles.init_identification.confirm }}')"
-                        ><i class="fas fa-fingerprint"></i> Init identification
-
-                            {% if user.caiduser.workgroup.identification_init_status == "Processing" %}
-                                <i class="fa fa-spinner fa-spin"></i>
-                            {% endif %}
-                        </a>
-                        {% if user.caiduser.workgroup.identification_init_status == "Processing" or  user.caiduser.workgroup.identification_init_status == "Processing" %}
-                            <a class="btn btn-danger" href="{% url 'caidapp:stop_init_identification' %}"><i class="bi bi-stop-fill "></i> Stop </a>
                         {% endif %}
+
+                        <a class="btn {{ btn_styles.upload_unidentified.class }}"
+                           href="{% url 'caidapp:upload_archive_contains_single_taxon' %}"><i class="bi bi-upload"></i>
+                            Upload unidentified single species</a>
+                        {#                        <a class="btn btn-secondary" href="{% url 'caidapp:uploads_identities' %}">#}
+                        {#                            <i class="bi bi-card-list"></i>#}
+                        {#                            Check uploads#}
+                        {#                        </a>#}
+                        <i class="bi bi-arrow-right-short fa-2x" style="vertical-align: middle;"></i>
+                        {#                        <a class="btn {{ btn_styles.confirm_identification.class }} {% if btn_styles.n_for_confirmation == 0 %} disabled {% endif %} }}" href="{% url 'caidapp:get_individual_identity' %}"><i class="bi bi-question-circle"></i> Confirm identification</a>#}
+                        <a class="btn {{ btn_styles.confirm_identification.class }} {% if btn_styles.n_for_confirmation == 0 %} disabled {% endif %}"
+                           href="{% url 'caidapp:not_identified_mediafiles' %}"><i class="bi bi-question-circle"></i>
+                            Confirm identification</a>
+
+
+{#                        <i class="bi bi-arrow-right-short fa-2x" style="vertical-align: middle;"></i>#}
                         {#                        <i class="bi bi-arrow-right-short fa-2x" style="vertical-align: middle;"></i>#}
                         {#                        <a class="btn {{ btn_styles.upload_unidentified }}" href="{% url 'caidapp:upload_archive_contains_single_taxon' %}"><i class="bi bi-upload"></i> Upload unidentified  single species</a>#}
                         {#                        <i class="bi bi-arrow-right-short fa-2x" style="vertical-align: middle;"></i>#}
                         {#                        <a class="btn {{ btn_styles.run_identification }}" href="{% url 'caidapp:run_identification_on_unidentified' %}"><i class="bi bi-question-circle"></i> Identify </a>#}
                         {#                        <i class="bi bi-arrow-right-short fa-2x" style="vertical-align: middle;"></i>#}
                         {#                        <a class="btn {{ btn_styles.confirm_identification }}" href="{% url 'caidapp:get_individual_identity' %}"><i class="bi bi-question-circle"></i> Confirm identification</a>#}
-                        <a class="btn {{ btn_styles.init_identification.class }}"
-                           href="{% url 'caidapp:train_identification' %}"
-                           onclick="return confirm('Start training of the identification model?')"
-                           >
-{#                            <i class="fas fa-fingerprint"></i>#}
-                            <i class="bi bi-lightning"></i>
-                            Train identification model
-                            {% if user.caiduser.workgroup.identification_train_status == "Processing" %}
-                                <i class="fa fa-spinner fa-spin"></i>
-                            {% endif %}
-                        </a>
-
-
                     </div>
                     <div>
-                        <a class="btn btn-secondary" href="{% url 'caidapp:select_reid_model' %}"><i class="fa-solid fa-gear"></i></a>
+
+                        <div class="dropdown d-inline-block">
+                            <a class="btn btn-secondary dropdown-toggle" href="#" role="button"
+                               data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="bi bi-three-dots"></i>
+                            </a>
+
+                            <ul class="dropdown-menu">
+                                <li>
+
+                                    <a class="dropdown-item" href="{% url 'caidapp:representative_mediafiles' %}"><i class="bi bi-eye"></i> Check representative images </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item {{ btn_styles.init_identification.class }}"
+                                       href="{% url 'caidapp:init_identification' %}"
+                                            {% if user.caiduser.workgroup.identification_init_status %}
+                                       data-bs-toggle="tooltip"
+                                       title="Initiated at: {{ user.caiduser.workgroup.identification_init_at|date:'Y-m-d H:i' }}, {{ user.caiduser.workgroup.identification_init_status}}, {{ user.caiduser.workgroup.identification_init_message }}"
+                                            {% endif %}
+                                       onclick="return confirm('{{ btn_styles.init_identification.confirm }}')"
+                                    ><i class="fas fa-fingerprint"></i> Init identification
+
+                                        {% if user.caiduser.workgroup.identification_init_status == "Processing" %}
+                                            <i class="fa fa-spinner fa-spin"></i>
+                                        {% endif %}
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item {{ btn_styles.init_identification.class }}"
+                                       href="{% url 'caidapp:train_identification' %}"
+                                       onclick="return confirm('Start training of the identification model?')"
+                                    >
+                                        {#                            <i class="fas fa-fingerprint"></i>#}
+                                        <i class="bi bi-lightning"></i>
+                                        Train identification model
+                                        {% if user.caiduser.workgroup.identification_train_status == "Processing" %}
+                                            <i class="fa fa-spinner fa-spin"></i>
+                                        {% endif %}
+                                    </a>
+
+                                </li>
+                                <li>
+
+                                    <a class="dropdown-item {{ btn_styles.run_identification.class }}" href="{% url 'caidapp:pre_identify' %}"
+                                       data-bs-toggle="tooltip" title="{{ btn_styles.run_identification.tooltip }}"
+                                       onclick="return confirm('{{ btn_styles.run_identification.confirm }}')"
+                                    >
+                                        <i class="bi bi-question-circle"></i> Compare with identity database
+                                        {% if user.caiduser.workgroup.identification_reid_status == "Processing" %}
+                                            <i class="fa fa-spinner fa-spin"></i>
+                                        {% endif %}
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+
+                        {% if user.caiduser.workgroup.identification_init_status == "Processing" or  user.caiduser.workgroup.identification_init_status == "Processing" %}
+                            <a class="btn btn-danger" href="{% url 'caidapp:stop_init_identification' %}"><i class="bi bi-stop-fill "></i> Stop </a>
+                        {% endif %}
+                        <a class="btn btn-secondary bs-1" href="{% url 'caidapp:select_reid_model' %}"><i class="bi bi-gear"></i></a>
                     </div>
                     {#                {% if workgroup.identification_init_status %}#}
                     {#                    <p>Identification initiated at: {{ workgroup.identification_init_at|date:'Y-m-d H:i' }}</p>#}
@@ -110,28 +154,6 @@
                         {#                            {% endif %}#}
                         {#                        </a>#}
                         {#                        <i class="bi bi-arrow-right-short fa-2x" style="vertical-align: middle;"></i>#}
-                        <a class="btn {{ btn_styles.upload_unidentified.class }}"
-                           href="{% url 'caidapp:upload_archive_contains_single_taxon' %}"><i class="bi bi-upload"></i>
-                            Upload unidentified single species</a>
-                        <a class="btn btn-secondary" href="{% url 'caidapp:uploads_identities' %}">
-                            <i class="bi bi-card-list"></i>
-                            Check uploads
-                        </a>
-                        <i class="bi bi-arrow-right-short fa-2x" style="vertical-align: middle;"></i>
-                        <a class="btn {{ btn_styles.run_identification.class }}" href="{% url 'caidapp:pre_identify' %}"
-                           data-bs-toggle="tooltip" title="{{ btn_styles.run_identification.tooltip }}"
-                           onclick="return confirm('{{ btn_styles.run_identification.confirm }}')"
-                        >
-                            <i class="bi bi-question-circle"></i> Compare with identity database
-                            {% if user.caiduser.workgroup.identification_reid_status == "Processing" %}
-                                <i class="fa fa-spinner fa-spin"></i>
-                            {% endif %}
-                        </a>
-                        <i class="bi bi-arrow-right-short fa-2x" style="vertical-align: middle;"></i>
-                        {#                        <a class="btn {{ btn_styles.confirm_identification.class }} {% if btn_styles.n_for_confirmation == 0 %} disabled {% endif %} }}" href="{% url 'caidapp:get_individual_identity' %}"><i class="bi bi-question-circle"></i> Confirm identification</a>#}
-                        <a class="btn {{ btn_styles.confirm_identification.class }} {% if btn_styles.n_for_confirmation == 0 %} disabled {% endif %}"
-                           href="{% url 'caidapp:not_identified_mediafiles' %}"><i class="bi bi-question-circle"></i>
-                            Confirm identification</a>
                     </div>
                 </div>
             </div>
