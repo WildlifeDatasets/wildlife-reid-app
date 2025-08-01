@@ -8,6 +8,7 @@
 * [changed] Select representative media files in identification according to the orientation
 * [added] Automatic postponed run of init identification on changed list of representative media files
 * [added] Re-identification init and run automatized
+* [changed] Aspect ratio of the media files is fixed
 
 ## 06-2025
 
