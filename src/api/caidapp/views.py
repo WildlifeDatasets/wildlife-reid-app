@@ -1049,20 +1049,20 @@ def get_individual_identity_from_foridentification(
         if orientation_of_unknown is not None:
             mediafile_filter["orientation"] = orientation_of_unknown
 
-        prefetch_candidates = Prefetch(
-            "mediafile_set",
-            queryset=MediaFile.objects.filter(**mediafile_filter).order_by("-captured_at"),
-            to_attr="representative_mediafiles_candidates"
-        )
-        remaining_identities = (
-            IndividualIdentity.objects.filter(
-                Q(owner_workgroup=request.user.caiduser.workgroup),
-                ~Q(name="nan"),
-                ~Q(id__in=identity_ids)
-            )
-            .prefetch_related(prefetch_candidates)
-            .order_by("name")
-        )
+        # prefetch_candidates = Prefetch(
+        #     "mediafile_set",
+        #     queryset=MediaFile.objects.filter(**mediafile_filter).order_by("-captured_at"),
+        #     to_attr="representative_mediafiles_candidates"
+        # )
+        # remaining_identities = (
+        #     IndividualIdentity.objects.filter(
+        #         Q(owner_workgroup=request.user.caiduser.workgroup),
+        #         ~Q(name="nan"),
+        #         ~Q(id__in=identity_ids)
+        #     )
+        #     .prefetch_related(prefetch_candidates)
+        #     .order_by("name")
+        # )
         # ----------------------
         prefetch_first_mediafile = Prefetch(
             "mediafile_set",
@@ -1104,6 +1104,9 @@ def get_individual_identity_from_foridentification(
                 representative_mediafiles = [reid_suggestion.mediafile] + [mf for mf in representative_mediafiles if mf != reid_suggestion.mediafile]
 
                 reid_suggestion.representative_mediafiles = representative_mediafiles[:max_representative_mediafiles]
+                reid_suggestion.is_representative_dict = is_candidate_for_representative_mediafile(
+                    reid_suggestion.mediafile, reid_suggestion.identity
+                )
 
         logger.debug(f"  2 {time.time() - t0=:.2f} [s]")
 
@@ -1157,6 +1160,89 @@ def get_individual_identity_from_foridentification(
     )
 
 
+def is_candidate_for_representative_mediafile(mediafile: models.MediaFile, identity: models.IndividualIdentity, representative_count_coefficient:float=5.) -> dict:
+    """Check if mediafile is candidate for representative mediafile.
+
+    Args:
+        # request: HttpRequest object.
+        # mediafile_identification_suggestion_id: ID of the MediafileIdentificationSuggestion.
+        representative_count_coefficient: The threshold is about 0.60 if this is thenumber of representative mediafiles.
+    """
+    # suggestion = get_object_or_404(
+    #     models.MediafileIdentificationSuggestion,
+    #     id=mediafile_identification_suggestion_id,
+    #     mediafile__parent__owner__workgroup=request.user.caiduser.workgroup,
+    # )
+
+    orientation_score = 0.
+    animal_score = 0.
+    count_of_representative_mediafiles = identity.count_of_representative_mediafiles()
+
+    dr = "nic"
+    debug_info = "prdlajs"
+
+    threshold = 1. - np.exp(-count_of_representative_mediafiles / representative_count_coefficient)  # i
+    meta = mediafile.metadata_json
+    logger.debug(f"{mediafile.metadata_json=}")
+    if "detection_results" in meta and len(meta["detection_results"])>0:
+
+        debug_info += " detection_results found"
+        dr = meta["detection_results"]
+        detection_results = meta["detection_results"]
+        debug_info += f" detection_results (json) ={detection_results}"
+        if type(detection_results) == str:
+            # it is probably not a json, but the python string representation of a list of dicts
+            import ast
+            detection_results = ast.literal_eval(detection_results)
+            # import json
+            # detection_results = json.loads(detecion_results_in_json)
+
+        if len(detection_results)>0:
+
+            first_bbox = detection_results[0]
+            logger.debug(f"{first_bbox=}")
+            debug_info += f" bbox={first_bbox=}, "
+            if "class" in first_bbox and "confidence" in first_bbox:
+                orientation_score = float(first_bbox["confidence"])
+                debug_info += f" {first_bbox['confidence']=}"
+            if "orientation_score" in first_bbox:
+                orientation_score = float(first_bbox["orientation_score"])
+                debug_info += f" {first_bbox['orientation_score']=}"
+
+    is_candidate = ((animal_score + orientation_score) / 2.) > threshold
+    message = (f"This is " + ("not " if not is_candidate else "") + "a candidate for representative mediafile. " +
+               "Actual count of representative media files for this individuality is: " +
+               str(count_of_representative_mediafiles) +
+               ". Orientation score: " + str(orientation_score) +
+               ". Animal score: " + str(animal_score) +
+               ". Threshold: " + str(threshold) + ".")
+
+    return dict(
+        is_candidate=is_candidate,
+        orientation_score=orientation_score,
+        animal_score=animal_score,
+        threshold=threshold,
+        count_of_representative_mediafiles=count_of_representative_mediafiles,
+        message=message,
+        debug_info=debug_info,
+        # detection_results=dr,
+        # meta=meta
+    )
+
+
+
+
+
+
+
+
+
+
+
+    return False
+
+
+
 @login_required
 def remove_foridentification(request, foridentification_id: int):
     """Remove mediafile from list for identification."""
@@ -1177,6 +1263,7 @@ def set_individual_identity(
     mediafiles_for_identification = get_object_or_404(
         MediafilesForIdentification, id=mediafiles_for_identification_id
     )
+    representative = request.GET.get("representative") == "1"
     individual_identity = get_object_or_404(IndividualIdentity, id=individual_identity_id)
 
     # if request.user.caiduser.workgroup != mediafile.parent.owner.workgroup:
@@ -1190,7 +1277,7 @@ def set_individual_identity(
         return HttpResponseNotAllowed("Not allowed to work with this media file.")
 
     mediafiles_for_identification.mediafile.identity = individual_identity
-    mediafiles_for_identification.mediafile.identity_is_representative = True
+    mediafiles_for_identification.mediafile.identity_is_representative = representative
     mediafiles_for_identification.mediafile.updated_by = request.user.caiduser
     mediafiles_for_identification.mediafile.save()
     mediafiles_for_identification.delete()

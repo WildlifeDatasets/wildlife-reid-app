@@ -1,5 +1,10 @@
 # Changelog
 
+
+## 08-2025
+
+* [added] Suggest representative media file during identification
+
 ## 07-2025
 * [fixed] Removed ultralytics dependency (by pinning yolo5)
 * [added] Add not identified media files to the list (to be identified manually)

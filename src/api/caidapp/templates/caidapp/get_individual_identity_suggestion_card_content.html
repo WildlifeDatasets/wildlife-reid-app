@@ -1,0 +1,43 @@
+{% load custom_filters %}
+{% with id_prefix="suggestion" carousel_id=reid_suggestion.id representative_mediafiles=reid_suggestion.representative_mediafiles %}
+    {#                                                        {% with individual_identity=reid_suggestion id_prefix="reid_suggestion" %}#}
+    {% include "caidapp/get_individual_identity_img_card_top.html" %}
+{% endwith %}
+<div class="card-body">
+    <div class="card-title">
+        {% if reid_suggestion.identity %}
+            <a href="{% url 'caidapp:individual_identity_update' reid_suggestion.identity.id %}">
+                {{ reid_suggestion.name }}
+            </a>
+        {% else %}
+            {{ reid_suggestion.name }}
+        {% endif %}
+    </div>
+    <p class="card-text">
+        {{ reid_suggestion.score|mul:100|floatformat:2 }}%
+    </p>
+    <p class="card-text">
+        {% if reid_suggestion.mediafile.identity %}
+            <a href="{% url 'caidapp:set_individual_identity' foridentification.id reid_suggestion.mediafile.identity.id %}"
+                    {% if reid_suggestion.is_representative_dict.is_candidate == True %}
+               class="btn btn-secondary"
+                    {% else %}
+               class="btn btn-primary"
+                    {% endif %}
+            >Select</a>
+            <a href="{% url 'caidapp:set_individual_identity' foridentification.id reid_suggestion.mediafile.identity.id %}?representative=1"
+                    {% if reid_suggestion.is_representative_dict.is_candidate == True %}
+               class="btn btn-primary"
+                    {% else %}
+               class="btn btn-secondary"
+                    {% endif %}
+            >Select as <i class="bi bi-star-fill"></i></a>
+            <a href="{% url 'caidapp:get_individual_identity_zoomed' foridentification.id reid_suggestion.id %}"
+               class="btn btn-secondary"><i class="bi bi-search"></i></a>
+            <a href="{% url 'caidapp:get_individual_identity_zoomed_paired_points' foridentification.id reid_suggestion.id %}"
+               class="btn btn-secondary"><i class="fa-solid fa-arrows-to-dot"></i></a>
+        {% else %}
+            Identity does not exist
+        {% endif %}
+    </p>
+</div>

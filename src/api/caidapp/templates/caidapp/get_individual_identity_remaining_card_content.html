@@ -1,0 +1,23 @@
+{% load custom_filters %}
+<div class="card" data-name="{{ individual_identity.name }}">
+    {% with id_prefix="remaining" carousel_id=individual_identity.id representative_mediafiles=individual_identity.representative_mediafiles %}
+        {% include "caidapp/get_individual_identity_img_card_top.html" %}
+    {% endwith %}
+
+
+
+
+
+    <div class="card-body">
+        <a class="card-title" href="{% url 'caidapp:individual_identity_mediafiles' individual_identity.id %}">
+            {{ individual_identity.name }}
+        </a>
+        <p class="card-text">
+            <a href="{% url 'caidapp:set_individual_identity' foridentification.id individual_identity.id %}"
+               class="btn btn-primary">Select</a>
+            <a href="{% url 'caidapp:get_individual_identity_zoomed_by_identity' foridentification.id individual_identity.id %}"
+               class="btn btn-secondary"><i class="bi bi-search"></i></a>
+        </p>
+
+    </div>
+</div>
