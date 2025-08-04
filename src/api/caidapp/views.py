@@ -1160,6 +1160,36 @@ def get_individual_identity_from_foridentification(
     )
 
 
+def get_individual_identity_remaining_card_content(request, foridentification_id:int, identity_id: int,) -> HttpResponse:
+    identity = get_object_or_404(
+        IndividualIdentity,
+        id=identity_id,
+        owner_workgroup=request.user.caiduser.workgroup,
+    )
+    foridentification_id = get_object_or_404(
+        MediafilesForIdentification,
+        id=foridentification_id,
+        mediafile__parent__owner__workgroup=request.user.caiduser.workgroup,
+    )
+    mediafile = foridentification_id.mediafile
+    is_representative_dict = is_candidate_for_representative_mediafile(
+        mediafile, identity
+    )
+
+    identity.representative_mediafiles = identity.mediafile_set.filter(identity_is_representative=True)
+
+    html = render_to_string(
+        "caidapp/get_individual_identity_remaining_card_content.html",
+        context=dict(
+            individual_identity=identity,
+            foridentification=foridentification_id,
+            is_representative_dict=is_representative_dict,
+
+        )
+    )
+    return HttpResponse(html)
+
+
 def is_candidate_for_representative_mediafile(mediafile: models.MediaFile, identity: models.IndividualIdentity, representative_count_coefficient:float=5.) -> dict:
     """Check if mediafile is candidate for representative mediafile.
 

@@ -4,6 +4,7 @@
 ## 08-2025
 
 * [added] Suggest representative media file during identification
+* [added] Lazy loading of identities in re-identification
 
 ## 07-2025
 * [fixed] Removed ultralytics dependency (by pinning yolo5)

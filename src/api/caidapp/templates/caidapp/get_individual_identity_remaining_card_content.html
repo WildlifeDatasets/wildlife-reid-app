@@ -1,5 +1,5 @@
 {% load custom_filters %}
-<div class="card" data-name="{{ individual_identity.name }}">
+{#<div class="card" data-name="{{ individual_identity.name }}">#}
     {% with id_prefix="remaining" carousel_id=individual_identity.id representative_mediafiles=individual_identity.representative_mediafiles %}
         {% include "caidapp/get_individual_identity_img_card_top.html" %}
     {% endwith %}
@@ -25,4 +25,4 @@
         </p>
 
     </div>
-</div>
+{#</div>#}

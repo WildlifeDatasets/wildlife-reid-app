@@ -273,10 +273,41 @@
                                                     <div class="carousel-item {% if reid_suggestions|length == 0  and forloop.counter0 == 0 %}active{% endif%}">
                                                         <div class="row">
                                                 {% endif %}
-                                                <div class="col-4" id="card-remaining-identity-{{ individual_identity.id }}">
+                                                                                            <div class="col-4" id="card-remaining-identity-{{ individual_identity.id }}">
+                                                                                                <div class="card" data-name="{{ individual_identity.name }}">
+                                                                                                    <div
+                                                                                                            class="remaining-card-placeholder"
+{#                                                                                                            id="card-remaining-identity-{{ individual_identity.id }}"#}
+                                                                                                            data-identity-id="{{ individual_identity.id }}"
+                                                                                                            data-foridentification-id="{{ foridentification.id }}"
+                                                                                                    >
 
-                                                {% include "caidapp/get_individual_identity_remaining_card_content.html" %}
-                                                </div>
+                                                                                                        <div class="card-body">
+                                                                                                            <h3 class="">{{ individual_identity.name }}</h3>
+                                                                                                            <div class="spinner-border text-primary" role="status">
+                                                                                                                <span class="visually-hidden">Loading...</span>
+                                                                                                            </div>
+                                                                                                        </div>
+                                                                                                    </div>
+                                                                                                </div>
+                                                                                            </div>
+{#                                                new lazy way #}
+{#                                                <div class="col-4 remaining-card-placeholder"#}
+{#         id="card-remaining-identity-{{ individual_identity.id }}"#}
+{#         data-identity-id="{{ individual_identity.id }}"#}
+{#         data-foridentification-id="{{ foridentification.id }}">#}
+{#                                                <h2>{{ individual_identity }}</h2>#}
+{#         <div class="spinner-border text-primary" role="status">#}
+{#             <span class="visually-hidden">Loading...</span>#}
+{#         </div>#}
+{#    </div>#}
+
+{#                                                --------------- old not lazy way --------------#}
+{#                                                <div class="col-4" id="card-remaining-identity-{{ individual_identity.id }}">#}
+{#                                                    <div class="card" data-name="{{ individual_identity.name }}">#}
+{#                                                         {% include "caidapp/get_individual_identity_remaining_card_content.html" %}#}
+{#                                                    </div>#}
+{#                                                </div>#}
                                                 {% if forloop.counter0|add:1|divisibleby:3 or forloop.last %}
                                                     </div>
                                                     </div>
@@ -370,5 +401,39 @@ function changeImage(carouselId, direction) {
     images[currentIndex].classList.add('active');
 }
 
+
+
+// Lazy loading of remaining identity cards
+document.addEventListener("DOMContentLoaded", function () {
+    const observer = new IntersectionObserver((entries, obs) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                const el = entry.target;
+                const identityId = el.dataset.identityId;
+                const foridentificationId = el.dataset.foridentificationId;
+
+                fetch(`/caidapp/ajax/identity-card/${foridentificationId}/${identityId}/`)
+                    .then(response => response.text())
+                    .then(html => {
+                        el.innerHTML = html;
+                        obs.unobserve(el);  // přestaň sledovat
+                    })
+                    .catch(error => {
+                        el.innerHTML = `<div class="text-danger">Chyba načítání.</div>`;
+                        console.error("Error loading card:", error);
+                    });
+            }
+        });
+    });
+
+    document.querySelectorAll(".remaining-card-placeholder").forEach(el => {
+        observer.observe(el);
+    });
+});
+
+
+
+
     </script>
+
 {% endblock %}

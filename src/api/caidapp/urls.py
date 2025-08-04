@@ -417,6 +417,11 @@ urlpatterns = [
 
     path("pre_identify/", views.pre_identify_view, name="pre_identify"),
     path("assign_unidentified_to_identification/", views.assign_unidentified_to_identification_view, name="assign_unidentified_to_identification"),
+path(
+    "ajax/identity-card/<int:foridentification_id>/<int:identity_id>/",
+    views.get_individual_identity_remaining_card_content,
+    name="ajax_identity_card",
+),
 ]
 # if settings.DEBUG:
 
