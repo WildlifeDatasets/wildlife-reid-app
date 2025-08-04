@@ -14,7 +14,12 @@
         </a>
         <p class="card-text">
             <a href="{% url 'caidapp:set_individual_identity' foridentification.id individual_identity.id %}"
-               class="btn btn-primary">Select</a>
+               class="btn btn-primary"
+            >Select</a>
+            <a href="{% url 'caidapp:set_individual_identity' foridentification.id individual_identity.id %}"?representative=1
+               class="btn btn-secondary"
+            >Select as <i class="bi bi-star-fill"></i></a>
+
             <a href="{% url 'caidapp:get_individual_identity_zoomed_by_identity' foridentification.id individual_identity.id %}"
                class="btn btn-secondary"><i class="bi bi-search"></i></a>
         </p>
