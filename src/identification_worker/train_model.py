@@ -154,10 +154,11 @@ def train_identification_model(
     if "observation_id" not in metadata.columns:
         metadata['observation_id'] = list(range(len(metadata)))
 
-    remove_tail = 5
-    if len(metadata) < 100:
-        remove_tail = 0
-    metadata_train, metadata_val = split_data(metadata, 0.8, remove_tail=remove_tail, remove_both_tails=True)
+    # remove_tail = 5
+    # if len(metadata) < 100:
+    #     remove_tail = 0
+    # metadata_train, metadata_val = split_data(metadata, 0.8, remove_tail=remove_tail, remove_both_tails=True)
+    metadata_train, metadata_val = split_data(metadata, 0.8, remove_tail=0, remove_both_tails=False)
 
     # Create datasets
     train_transforms, val_transforms = get_transforms(image_size)
