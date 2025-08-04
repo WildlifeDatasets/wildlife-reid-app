@@ -14,10 +14,18 @@
         </a>
         <p class="card-text">
             <a href="{% url 'caidapp:set_individual_identity' foridentification.id individual_identity.id %}"
+                    {% if is_representative_dict.is_candidate == True %}
+               class="btn btn-secondary"
+                    {% else %}
                class="btn btn-primary"
+                    {% endif %}
             >Select</a>
             <a href="{% url 'caidapp:set_individual_identity' foridentification.id individual_identity.id %}"?representative=1
+                    {% if is_representative_dict.is_candidate == True %}
+               class="btn btn-primary"
+                    {% else %}
                class="btn btn-secondary"
+                    {% endif %}
             >Select as <i class="bi bi-star-fill"></i></a>
 
             <a href="{% url 'caidapp:get_individual_identity_zoomed_by_identity' foridentification.id individual_identity.id %}"

@@ -1178,6 +1178,7 @@ def get_individual_identity_remaining_card_content(request, foridentification_id
 
     identity.representative_mediafiles = identity.mediafile_set.filter(identity_is_representative=True)
 
+
     html = render_to_string(
         "caidapp/get_individual_identity_remaining_card_content.html",
         context=dict(
