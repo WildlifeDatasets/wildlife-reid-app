@@ -1340,7 +1340,7 @@ def run_taxon_classification(request, uploadedarchive_id, force_init=False):
 
 
 def _get_mediafiles_for_train_or_init_identification(
-        workgoup: models.WorkGroup,
+        workgroup: models.WorkGroup,
     # request,
     # workgroup, taxon=None, identity_is_representative=True
 ):
@@ -1349,18 +1349,18 @@ def _get_mediafiles_for_train_or_init_identification(
 
     # set attribute media_file_used_for_init_identification
     MediaFile.objects.filter(
-        parent__owner__workgroup=caiduser.workgroup,
+        parent__owner__workgroup=workgroup,
     ).update(used_for_init_identification=False)
 
     kwargs = {}
-    if caiduser.workgroup.default_taxon_for_identification:
-        kwargs.update(dict(taxon=caiduser.workgroup.default_taxon_for_identification))
+    if workgroup.default_taxon_for_identification:
+        kwargs.update(dict(taxon=workgroup.default_taxon_for_identification))
 
     mediafiles_qs = MediaFile.objects.filter(
         # taxon__name=taxon_str,
         **kwargs,
         identity__isnull=False,
-        parent__owner__workgroup=caiduser.workgroup,
+        parent__owner__workgroup=workgroup,
         identity_is_representative=True,
     )
 
@@ -1398,7 +1398,7 @@ def train_identification(request,
         return message_view(request, "No identification model set.", link=link)
     caiduser = request.user.caiduser
     mediafiles_qs = _get_mediafiles_for_train_or_init_identification(
-        caiduser
+        caiduser.workgroup
     )
 
     logger.debug("Generating CSV for init_identification...")
