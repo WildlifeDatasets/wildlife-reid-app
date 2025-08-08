@@ -2440,6 +2440,7 @@ def media_files_update(
 
     # Order the queryset according to your session or default preference
     order_by = request.session.get("mediafiles_order_by", "-parent__uploaded_at")
+    logger.debug("Selecting related")
     mediafiles = mediafiles.order_by(order_by).select_related(
         "parent",
         "taxon",
@@ -2481,6 +2482,7 @@ def media_files_update(
     request.session["mediafile_ids_page"] = page_ids
 
     MediaFileFormSet = modelformset_factory(MediaFile, form=MediaFileSelectionForm, extra=0)
+    logger.debug("Processing POST or GET request")
     if (request.method == "POST") and (
         any([(type(key) == str) and (key.startswith("btnBulkProcessing")) for key in request.POST])
         # ("btnBulkProcessing" in request.POST) or ("btnBulkProcessingAlbum" in request.POST)
@@ -2534,7 +2536,7 @@ def media_files_update(
         page_query = full_mediafiles.filter(id__in=[object.id for object in page_with_mediafiles])
         form = MediaFileFormSet(queryset=page_query)
 
-    logger.debug("ready to render page")
+    logger.debug("Setting the context for rendering the page")
     context = {
         # "page_obj": page_with_mediafiles,
         # "elided_page_range": elided_page_range,
@@ -2552,6 +2554,7 @@ def media_files_update(
         # "taxon_stats_html": taxon_stats_html,
     }
     context = add_querystring_to_context(request, context)
+    logger.debug("ready to render page")
 
     return render(
         request,
