@@ -422,6 +422,11 @@ path(
     views.get_individual_identity_remaining_card_content,
     name="ajax_identity_card",
 ),
+    path(
+        "mediafile/<int:mediafile_id>/toggle-representative/",
+        views.toggle_identity_representative,
+        name="toggle_identity_representative",
+    ),
 ]
 # if settings.DEBUG:
 

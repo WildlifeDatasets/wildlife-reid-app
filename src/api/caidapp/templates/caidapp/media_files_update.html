@@ -413,18 +413,26 @@
                                             {#                                            {{ mediafile.instance.identity }}#}
                                                 {#                                                <i class="bi bi-check-circle"></i>#}
 {#                                                <i class="bi bi-bookmark"></i>#}
-                                                <i
+                                              <button
+      type="button"
+      class="btn btn-link p-0 rep-star-btn"
+      data-mediafile-id="{{ mediafile.instance.id }}"
+      data-bs-toggle="tooltip"
+      title="Representative identity">
+    <i class="bi {% if mediafile.instance.identity_is_representative %}bi-star-fill{% else %}bi-star{% endif %}"></i>
+  </button>
+{#                                                <i#}
 {#                                                        class="bi bi-person"#}
 {#                                                        class="bi bi-bookmark"#}
-                                                        {% if mediafile.instance.identity_is_representative %}
-                                                        class="bi bi-star-fill"
-                                                        {% else %}
-                                                        class="bi bi-star"
-                                                        {% endif %}
-                                                   data-bs-toggle="tooltip"
-                                                        title="Representative identity"
+{#                                                        {% if mediafile.instance.identity_is_representative %}#}
+{#                                                        class="bi bi-star-fill"#}
+{#                                                        {% else %}#}
+{#                                                        class="bi bi-star"#}
+{#                                                        {% endif %}#}
+{#                                                   data-bs-toggle="tooltip"#}
+{#                                                        title="Representative identity"#}
 {#                                                   title="Identity confirmed by {{ user }}."#}
-                                                ></i>
+{#                                                ></i>#}
 
                                             <br>
                                         {% endif %}
@@ -569,5 +577,68 @@
             var checked = $(this).prop("checked");
             $(".select-mediafile-checkbox").prop("checked", checked);
         });
+    </script>
+    <script>
+    // CSRF z cookie (Django standard)
+function getCookie(name) {
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop().split(';').shift();
+}
+
+// Přepínání hvězdy
+document.addEventListener("click", async (e) => {
+  const btn = e.target.closest(".rep-star-btn");
+  if (!btn) return;
+
+  const icon = btn.querySelector("i");
+  const isRepNow = icon.classList.contains("bi-star-fill");
+  const confirmText = isRepNow
+    ? "Zrušit označení 'reprezentativní' pro tuto identitu?"
+    : "Označit tuto identitu jako 'reprezentativní'?";
+  if (!confirm(confirmText)) return;
+
+  btn.disabled = true;
+  try {
+    const mediafileId = btn.dataset.mediafileId;
+    const resp = await fetch(
+      `/caidapp/mediafile/${mediafileId}/toggle-representative/`,
+      {
+        method: "POST",
+        headers: {
+          "X-CSRFToken": getCookie("csrftoken"),
+          "Accept": "application/json",
+        },
+      }
+    );
+    const data = await resp.json();
+    if (!data.ok) throw new Error(data.error || "Neznámá chyba.");
+
+    // Přepnout ikonu
+    icon.classList.toggle("bi-star-fill", data.representative);
+    icon.classList.toggle("bi-star", !data.representative);
+
+    //
+          // Bezpečný refresh tooltipu (žádné setContent ani interní API)
+    const newTitle = data.representative ? "Representative identity" : "Not representative";
+    btn.setAttribute("title", newTitle);                     // pro případ, že BS není aktivní
+    btn.setAttribute("data-bs-title", newTitle);             // BS 5.2+
+    const ttOld = bootstrap.Tooltip.getInstance(btn);
+    if (ttOld) ttOld.dispose();
+    new bootstrap.Tooltip(btn);                              // znovu inicializovat
+
+    // Tooltip text
+    {#btn.title = data.representative ? "Representative identity" : "Not representative";#}
+    {#console.log("Tooltip text:", btn.title);#}
+    {#const tt = bootstrap.Tooltip.getInstance(btn) || new bootstrap.Tooltip(btn);#}
+    {#// Bootstrap 5.3: update content#}
+    {#if (tt && tt.setContent) tt.setContent({ ".tooltip-inner": btn.title });#}
+
+  } catch (err) {
+    alert(`Nepodařilo se uložit změnu: ${err.message}`);
+  } finally {
+    btn.disabled = false;
+  }
+});
     </script>
 {% endblock %}

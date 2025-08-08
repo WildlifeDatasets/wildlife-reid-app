@@ -12,6 +12,7 @@ import django
 import pandas as pd
 import plotly.express as px
 import pytz
+from django.views.decorators.http import require_POST
 from zoneinfo import ZoneInfo
 from celery import signature
 from django.conf import settings
@@ -53,7 +54,6 @@ from tqdm import tqdm
 import Levenshtein
 import numpy as np
 from rest_framework import permissions, viewsets
-
 from .fs_data import remove_diacritics
 from .serializers import LocalitySerializer
 from .views_tools import add_querystring_to_context
@@ -4163,5 +4163,22 @@ def pre_identify_view(request):
 
 
 
+@login_required
+@require_POST
+def toggle_identity_representative(request, mediafile_id: int):
+    mf = get_object_or_404(models.MediaFile, id=mediafile_id)
+
+    # Povolení jen v rámci stejné workgroup + musí mít identitu
+    if mf.identity is None:
+        return JsonResponse({"ok": False, "error": "Mediafile nemá přiřazenou identitu."}, status=400)
+    if request.user.caiduser.workgroup != mf.parent.owner.workgroup:
+        return HttpResponseNotAllowed("Not allowed")
+
+    mf.identity_is_representative = not mf.identity_is_representative
+    mf.updated_by = request.user.caiduser  # pokud máš tohle pole
+    mf.save(update_fields=["identity_is_representative", "updated_by"])
+
+    logger.debug("almost done")
+    return JsonResponse({"ok": True, "representative": mf.identity_is_representative})
 
 
