@@ -1415,7 +1415,28 @@ def train_identification(request,
 
     csv_data = _prepare_dataframe_for_identification(mediafiles_qs)
 
-    pd.DataFrame(csv_data).to_csv(identity_metadata_file, index=False)
+
+
+    df = pd.DataFrame(csv_data)
+    df.to_csv(identity_metadata_file, index=False)
+    # counts = df["class_id"].value_counts()
+    counts = df["label"].value_counts()
+    # nejpočetnější třída a kolik jich tam je
+    most_common_class = counts.idxmax()
+    most_common_count = counts.max()
+    logger.debug(f"Most common class: {most_common_class} with {most_common_count} images.")
+    # min class
+    min_class = counts.idxmin()
+    min_count = counts.min()
+    logger.debug(f"Min class: {min_class} with {min_count} images.")
+
+    messages.info(
+        f"Using {len(csv_data['image_path'])} representative images for identification initialization. " +
+        f"Most common class: {most_common_class} with {most_common_count} images. " +
+        f"Min class: {min_class} with {min_count} images."
+    )
+
+
     # logger.debug(f"{identity_metadata_file=}")
     # workgroup = request.user.caiduser.workgroup
     # workgroup.identification_init_at = django.utils.timezone.now()
@@ -1460,7 +1481,9 @@ def train_identification(request,
     )
     new_identification_model.save()
     # return redirect("caidapp:individual_identities")
-    return redirect("caidapp:uploads_known_identities")
+    go_back = request.META.get("HTTP_REFERER", "/")
+    return redirect(go_back)
+    # return redirect("caidapp:uploads_known_identities")
 
 
 @login_required
@@ -1585,6 +1608,7 @@ def assign_unidentified_to_identification_view(request):
 def run_identification_on_unidentified(request):
     """Run identification in all uploaded archives."""
     workgroup = request.user.caiduser.workgroup
+    from tasks import run_identification_on_unidentified_for_workgroup
     run_identification_on_unidentified_for_workgroup(workgroup.id)
     return redirect(request.META.get("HTTP_REFERER", "/"))
 
