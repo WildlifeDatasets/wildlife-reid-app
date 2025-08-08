@@ -165,61 +165,81 @@
 
             <div class="col-md-4">
 
-                <div class="card">
-                    <div class="card-body">
-                        <h3 class="card-title">Identification data</h3>
+                    <div class="card">
+                        <div class="card-body">
+                            <h3 class="card-title">Identification data</h3>
 
-                        Number of identities: {{ user.caiduser.number_of_identities }}<br>
-                        Number of media files in identification: {{ user.caiduser.number_of_media_files_for_identification }}<br>
-                        Number of media files with known identity: {{ user.caiduser.number_of_media_files_with_known_identity }}<br>
-                        Number of representative media files: {{ user.caiduser.workgroup.number_of_representative_media_files }}<br>
-                        Number of media files with missing identity: {{ user.caiduser.number_of_media_files_with_missing_identity }}<br>
+                            Number of identities: {{ user.caiduser.number_of_identities }}<br>
+                            Number of media files in identification: {{ user.caiduser.number_of_media_files_for_identification }}<br>
+                            Number of media files with known identity: {{ user.caiduser.number_of_media_files_with_known_identity }}<br>
+                            Number of representative media files: {{ user.caiduser.workgroup.number_of_representative_media_files }}<br>
+                            Number of media files with missing identity: {{ user.caiduser.number_of_media_files_with_missing_identity }}<br>
 
-                        <br>
-                        {% if user.caiduser.number_of_media_files_for_identification == 0 %}
-                            <p>You might want to <a href="{% url 'caidapp:upload_archive_contains_single_taxon' %}">upload unidentified single species</a> or <a href="{% url 'caidapp:upload_archive_contains_single_taxon' %}">upload identified archive</a>.</p>
-                        {% else %}
-                            {% if user.caiduser.workgroup.number_of_representative_media_files == 0 %}
-                                <p>
-                                    You might want to select representative images for the identification process.
-                                </p>
-                            {% endif %}
-
-                            {% if user.caiduser.number_of_media_files_with_missing_identity > 0 %}
-                                <p>
-                                You might want to <a href="{% url 'caidapp:not_identified_mediafiles' %}">do the identification on uploaded images</a>.
-                                </p>
-                            {% endif %}
-                        {% endif %}
-                        {#                Number of media files: {{ user.caiduser.number_of_media_files_general }}<br>#}
-                        {#                Number of media files with missing taxa: {{ user.caiduser.number_of_media_files_with_missing_taxa_general }}<br>#}
-                        {#                Number of media files with missing taxa verification: {{ user.caiduser.number_of_media_files_with_missing_taxa_verification_general }}<br>#}
-
-
-
-                    </div>
-                </div>
-
-
-            </div>
-            <div class="col-md-4">
-                <a class="card text-reset" href="{% url 'caidapp:representative_mediafiles' %}">
-                    <div class="card-body">
-                        <h3 class="card-title"><i class="bi bi-eye"></i> Check representative images</h3>
-                        <div class="card-text">
-                            Representative images are used for the identification of the species. They are used in the identification process and in the identification results.
                             <br>
-                            <br>
-                            {% if user.caiduser.number_of_representative_media_files == 0 %}
-                                No representative images found.
+                            {% if user.caiduser.number_of_media_files_for_identification == 0 %}
+                                <p>You might want to <a href="{% url 'caidapp:upload_archive_contains_single_taxon' %}">upload unidentified single species</a> or <a href="{% url 'caidapp:upload_archive_contains_single_taxon' %}">upload identified archive</a>.</p>
                             {% else %}
-                                Number of representative images: {{ user.caiduser.number_of_representative_media_files }}
+                                {% if user.caiduser.workgroup.number_of_representative_media_files == 0 %}
+                                    <p>
+                                        You might want to select representative images for the identification process.
+                                    </p>
+                                {% endif %}
+
+                                {% if user.caiduser.number_of_media_files_with_missing_identity > 0 %}
+                                    <p>
+                                    You might want to <a href="{% url 'caidapp:not_identified_mediafiles' %}">do the identification on uploaded images</a>.
+                                    </p>
+                                {% endif %}
                             {% endif %}
+                            {#                Number of media files: {{ user.caiduser.number_of_media_files_general }}<br>#}
+                            {#                Number of media files with missing taxa: {{ user.caiduser.number_of_media_files_with_missing_taxa_general }}<br>#}
+                            {#                Number of media files with missing taxa verification: {{ user.caiduser.number_of_media_files_with_missing_taxa_verification_general }}<br>#}
+
+
 
                         </div>
                     </div>
-                </a>
-            </div>
+
+
+                </div>
+{#                <div class="col-md-4">#}
+{#                    <a class="card text-reset bg-light" href="{% url 'caidapp:representative_mediafiles' %}">#}
+{#                        <div class="card-body">#}
+{#                            <h3 class="card-title"><i class="bi bi-eye"></i> Check representative images</h3>#}
+{#                            <div class="card-text">#}
+{#                                Representative images are used for the identification of the species. They are used in the identification process and in the identification results.#}
+{#                                <br>#}
+{#                                <br>#}
+{#                                {% if user.caiduser.number_of_representative_media_files == 0 %}#}
+{#                                    No representative images found.#}
+{#                                {% else %}#}
+{#                                    Number of representative images: {{ user.caiduser.number_of_representative_media_files }}#}
+{#                                {% endif %}#}
+{##}
+{#                            </div>#}
+{#                        </div>#}
+{#                    </a>#}
+{#                </div>#}
+
+
+                <div class="col-md-4">
+                    <a class="card text-reset bg-light" href="{% url 'caidapp:representative_mediafiles' %}">
+                        <div class="card-body">
+                            <h3 class="card-title"><i class="bi bi-eye"></i> Check representative images</h3>
+                            <div class="card-text">
+                                Representative images are used for the identification of the species. They are used in the identification process and in the identification results.
+                                <br>
+                                <br>
+                                {% if user.caiduser.number_of_representative_media_files == 0 %}
+                                    No representative images found.
+                                {% else %}
+                                    Number of representative images: {{ user.caiduser.number_of_representative_media_files }}
+                                {% endif %}
+
+                            </div>
+                        </div>
+                    </a>
+                </div>
 
             </div>
 {#        </div>#}
