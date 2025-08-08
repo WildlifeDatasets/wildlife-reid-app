@@ -1417,21 +1417,26 @@ def train_identification(request,
 
 
 
-    df = pd.DataFrame(csv_data)
-    df.to_csv(identity_metadata_file, index=False)
-    # counts = df["class_id"].value_counts()
-    counts = df["label"].value_counts()
-    # nejpočetnější třída a kolik jich tam je
-    most_common_class = counts.idxmax()
-    most_common_count = counts.max()
-    logger.debug(f"Most common class: {most_common_class} with {most_common_count} images.")
-    # min class
-    min_class = counts.idxmin()
-    min_count = counts.min()
-    logger.debug(f"Min class: {min_class} with {min_count} images.")
+    messages.info(
+        request,
+        f"Using {len(csv_data['image_path'])} representative images for identification initialization. "
+    )
+    if len(csv_data)> 0:
+        df = pd.DataFrame(csv_data)
+        df.to_csv(identity_metadata_file, index=False)
+        # counts = df["class_id"].value_counts()
+        counts = df["label"].value_counts()
+        # nejpočetnější třída a kolik jich tam je
+        most_common_class = counts.idxmax()
+        most_common_count = counts.max()
+        logger.debug(f"Most common class: {most_common_class} with {most_common_count} images.")
+        # min class
+        min_class = counts.idxmin()
+        min_count = counts.min()
+        logger.debug(f"Min class: {min_class} with {min_count} images.")
 
     messages.info(
-        f"Using {len(csv_data['image_path'])} representative images for identification initialization. " +
+        request,
         f"Most common class: {most_common_class} with {most_common_count} images. " +
         f"Min class: {min_class} with {min_count} images."
     )
