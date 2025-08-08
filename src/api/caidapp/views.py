@@ -222,7 +222,14 @@ def _prepare_page(
     paginator: Paginator, request: Optional = None, page_number: Optional[int] = None
 ) -> Tuple[Page, List, dict]:
     if page_number is None:
-        page_number = request.GET.get("page", 1)
+        page_number = int(request.GET.get("page", 1))
+    page_number = int(page_number)
+    # is page number in paginator range?
+    if page_number > paginator.num_pages:
+        messages.warning(request, "Page not found")
+        page_number = 1
+
+
     # logger.debug(f"{page_number=}")
     elided_page_range = paginator.get_elided_page_range(page_number, on_each_side=3, on_ends=2)
     page_obj = paginator.get_page(page_number)
@@ -2351,7 +2358,7 @@ def media_files_update(
     order_by=None,
     taxon_verified: Optional[bool] = None,
     **filter_kwargs,
-) -> Union[QuerySet, List[MediaFile]]:
+) -> HttpResponse:
     """List of mediafiles based on query with bulk update of category."""
     # create list of mediafiles
     logger.debug(f"Starting Media files view")
