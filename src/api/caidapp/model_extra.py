@@ -1,7 +1,13 @@
 import pandas as pd
 
 from .models import CaIDUser, Locality, MediaFile, UploadedArchive
+from . import models
 
+def user_has_access_to_uploadedarchives_filter_params(caiduser: CaIDUser):
+    return models.user_has_access_filter_params(caiduser=caiduser, prefix="owner")
+
+def user_has_access_to_mediafiles_filter_params(caiduser: CaIDUser):
+    return models.user_has_access_filter_params(caiduser=caiduser, prefix="parent__owner")
 
 def user_has_rw_access_to_mediafile(
     ciduser: CaIDUser, mediafile: MediaFile, accept_none: bool

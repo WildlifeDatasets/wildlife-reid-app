@@ -1398,22 +1398,22 @@ def get_all_relevant_localities(request):
     return localities
 
 
-def user_has_access_filter_params(ciduser: CaIDUser, prefix: str) -> dict:
+def user_has_access_filter_params(caiduser: CaIDUser, prefix: str) -> dict:
     """Parameters for filtering user content based on existence of workgroup.
 
     Parameters
     ----------
-    ciduser: CaIDUser
+    caiduser: CaIDUser
         User who want to access the data.
     prefix : str
         Prefix for filtering with ciduser.
         If the filter will be used in MediaFile, the prefix should be "parent__owner".
         If the filter will be used in Location or UploadedArchive, the prefix should be "owner".
     """
-    if ciduser.workgroup:
-        filter_params = {f"{prefix}__workgroup": ciduser.workgroup}
+    if caiduser.workgroup:
+        filter_params = {f"{prefix}__workgroup": caiduser.workgroup}
     else:
-        filter_params = {f"{prefix}": ciduser}
+        filter_params = {f"{prefix}": caiduser}
     return filter_params
 
 

@@ -2380,18 +2380,13 @@ def media_files_update(
     )
 
 
-    # Nová filtrace
-    # Build the base queryset (including annotations)
-    mediafiles = MediaFile.objects.annotate(**_mediafiles_annotate())
 
-    # Apply always-on filters (for example, access control)
-    mediafiles = mediafiles.filter(
-        Q(album__albumsharerole__user=request.user.caiduser)
-        | Q(**models.user_has_access_filter_params(request.user.caiduser, "parent__owner"))
-    )
+    filter_kwargs={}
+
     mediafiles_name_suggestion = None
     if show_overview_button:
-        mediafiles = mediafiles.filter(taxon_verified=False)
+        # mediafiles = mediafiles.filter(taxon_verified=False)
+        filter_kwargs["taxon_verified"] = False
         mediafiles_name_suggestion = "taxon_not_verified"
 
         # page_title = "Media files - verification"
@@ -2404,43 +2399,59 @@ def media_files_update(
         else:
             locality_check_at = ""
         page_title = f"Media files - {uploaded_archive.locality_at_upload}{locality_check_at}"
-        mediafiles = mediafiles.filter(parent=uploaded_archive)
+        # mediafiles = mediafiles.filter(parent=uploaded_archive)
+        filter_kwargs["parent"] = uploaded_archive
         mediafiles_name_suggestion = f"uploaded_archive_{uploaded_archive.locality_at_upload}{locality_check_at}"
 
     elif album_hash is not None:
         album = get_object_or_404(Album, hash=album_hash)
         page_title = f"Media files - {album.name}"
-        mediafiles = mediafiles.filter(album=album)
+        # mediafiles = mediafiles.filter(album=album)
+        filter_kwargs= {"album": album}
         mediafiles_name_suggestion = f"album_{album.name}"
     elif individual_identity_id is not None:
         individual_identity = get_object_or_404(IndividualIdentity, pk=individual_identity_id)
         page_title = f"Media files - {individual_identity.name}"
-        mediafiles = mediafiles.filter(identity=individual_identity)
+        # mediafiles = mediafiles.filter(identity=individual_identity)
+        filter_kwargs = {"identity": individual_identity}
         mediafiles_name_suggestion = f"individual_identity_{individual_identity.name}"
     elif taxon_id is not None:
         taxon = get_object_or_404(Taxon, pk=taxon_id)
         page_title = f"Media files - {taxon.name}"
-        mediafiles = mediafiles.filter(taxon=taxon)
+        # mediafiles = mediafiles.filter(taxon=taxon)
+        filter_kwargs = {"taxon": taxon}
         mediafiles_name_suggestion = f"taxon_{taxon.name}"
     elif locality_hash is not None:
         locality = get_object_or_404(Locality, hash=locality_hash)
         page_title = f"Media files - {locality.name}"
-        mediafiles = mediafiles.filter(locality=locality)
+        # mediafiles = mediafiles.filter(locality=locality)
+        filter_kwargs = {"locality": locality}
         mediafiles_name_suggestion = f"locality_{locality.name}"
     elif identity_is_representative is not None:
         page_title = "Media files - representative"
-        mediafiles = mediafiles.filter(identity_is_representative=identity_is_representative)
+        # mediafiles = mediafiles.filter(identity_is_representative=identity_is_representative)
+        filter_kwargs = {"identity_is_representative": identity_is_representative}
         mediafiles_name_suggestion = f"representative_identity_{str(identity_is_representative)}"
     else:
         page_title = "Media files"
 
-    logger.debug(f"{len(mediafiles)=}")
-    if request.user.caiduser.workgroup:
-        mediafiles = mediafiles.filter(Q(parent__owner__workgroup=request.user.caiduser.workgroup))
+    # logger.debug(f"{len(mediafiles)=}")
+    # if request.user.caiduser.workgroup:
+    #     mediafiles = mediafiles.filter(Q(parent__owner__workgroup=request.user.caiduser.workgroup))
 
     # Order the queryset according to your session or default preference
     order_by = request.session.get("mediafiles_order_by", "-parent__uploaded_at")
     logger.debug("Selecting related")
+    # Nová filtrace
+    # Build the base queryset (including annotations)
+
+    # mediafiles = MediaFile.objects.annotate(**_mediafiles_annotate())
+    # Apply always-on filters (for example, access control)
+    mediafiles = MediaFile.objects.filter(
+        Q(album__albumsharerole__user=request.user.caiduser)
+        | Q(**models.user_has_access_filter_params(request.user.caiduser, "parent__owner")),
+        **filter_kwargs
+    )
     mediafiles = mediafiles.order_by(order_by).select_related(
         "parent",
         "taxon",
@@ -2452,20 +2463,20 @@ def media_files_update(
     )
     logger.debug(f"{request.GET=}")
 
-    if len(mediafiles) == 0 and show_overview_button:
+    if show_overview_button and not mediafiles.exists():
         return message_view(request, "No mediafiles for verification.",
                             headline="Verification",
                             link=reverse_lazy("caidapp:uploads"))
 
     # Instantiate the filter with GET parameters and your base queryset
-    mediafile_filter = filters.MediaFileFilter(request.GET, queryset=mediafiles)
+    mediafile_filter = filters.MediaFileFilter(request.GET, queryset=mediafiles, request=request)
 
     # The filtered queryset is available as .qs
     full_mediafiles = mediafile_filter.qs
 
     # konec nové filtrace
 
-    number_of_mediafiles = len(full_mediafiles)
+    number_of_mediafiles = mediafile_filter.qs.count()
     logger.debug(f"{number_of_mediafiles=}")
 
     mediafiles_ids = list(full_mediafiles.values_list("id", flat=True))

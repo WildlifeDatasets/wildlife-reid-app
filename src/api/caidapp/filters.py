@@ -81,11 +81,14 @@ class MediaFileFilter(django_filters.FilterSet):
     # identity_is_representative = django_filters.BooleanFilter(field_name='identity_is_representative')
     # locality_hash = django_filters.CharFilter(method='filter_locality', label='Locality')
     # search = django_filters.CharFilter(label='Search')
+    request=None
     taxon = django_filters.ModelChoiceFilter(
         queryset=models.Taxon.objects.all().order_by('name')
     )
     uploadedarchive = django_filters.ModelChoiceFilter(
-        queryset=models.UploadedArchive.objects.all()
+        queryset=models.UploadedArchive.objects.none()
+
+
             # .annotate(
             #     name_extended=Concat(
             #         'name',
@@ -139,4 +142,16 @@ class MediaFileFilter(django_filters.FilterSet):
         )
         # Now filter on the annotated 'search' field.
         return queryset.filter(search__icontains=value)
+
+    def __init__(self, *args, **kwargs):
+        self.request = kwargs.pop('request', None)
+        if self.request is None:
+            raise ValueError("request must be provided to MediaFileFilter")
+        caiduser = self.request.user.caiduser
+        super().__init__(*args, **kwargs)
+
+        from .model_extra import user_has_access_to_uploadedarchives_filter_params
+        self.filters["uploadedarchive"].queryset = UploadedArchive.objects.filter(
+            **user_has_access_to_uploadedarchives_filter_params(caiduser)
+        ).order_by('-uploaded_at')
 

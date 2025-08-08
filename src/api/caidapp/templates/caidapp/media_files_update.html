@@ -411,18 +411,20 @@
                                                 {{ mediafile.instance.identity }}
                                             </a>
                                             {#                                            {{ mediafile.instance.identity }}#}
-                                            {% if mediafile.instance.identity_is_representative %}
                                                 {#                                                <i class="bi bi-check-circle"></i>#}
 {#                                                <i class="bi bi-bookmark"></i>#}
                                                 <i
 {#                                                        class="bi bi-person"#}
 {#                                                        class="bi bi-bookmark"#}
+                                                        {% if mediafile.instance.identity_is_representative %}
                                                         class="bi bi-star-fill"
+                                                        {% else %}
+                                                        class="bi bi-star"
+                                                        {% endif %}
                                                    data-bs-toggle="tooltip"
                                                         title="Representative identity"
 {#                                                   title="Identity confirmed by {{ user }}."#}
                                                 ></i>
-                                            {% endif %}
 
                                             <br>
                                         {% endif %}
