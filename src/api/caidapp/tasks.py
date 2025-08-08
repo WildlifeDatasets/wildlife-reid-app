@@ -1010,7 +1010,7 @@ def init_identification_on_success(*args, **kwargs):
     workgroup.identification_init_message = message
     now = django.utils.timezone.now()
     workgroup.identification_init_at = now
-    workgroup.identification_scheduled_reid_eta = None
+    workgroup.identification_scheduled_run_eta = None
     workgroup.save()
     logger.debug(f"{message=}")
     logger.debug(f"{workgroup=}")
@@ -1380,16 +1380,16 @@ def schedule_reid_identification_for_workgroup(workgroup: models.WorkGroup, dela
         current_app.control.revoke(workgroup.identification_scheduled_run_task_id, terminate=True)
 
     eta = now() + timedelta(minutes=delay_minutes)
-    if (workgroup.identification_scheduled_reid_eta is None) or (eta > workgroup.identification_scheduled_reid_eta):
+    if (workgroup.identification_scheduled_run_eta is None) or (eta > workgroup.identification_scheduled_run_eta):
         # if there is already scheduled re-identification, use that time
         task = run_identification_on_unidentified_for_workgroup_task.apply_async(args=[workgroup.id], eta=eta)
 
         workgroup.identification_scheduled_run_task_id = task.id
-        workgroup.identification_scheduled_reid_eta = eta
+        workgroup.identification_scheduled_run_eta = eta
         workgroup.identification_reid_status = "Scheduled"
         workgroup.save(update_fields=[
-            "identification_scheduled_reid_task_id",
-            "identification_scheduled_reid_eta",
+            "identification_scheduled_run_task_id",
+            "identification_scheduled_run_eta",
             "identification_reid_status"
         ])
 

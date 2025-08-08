@@ -130,8 +130,8 @@ class WorkGroup(models.Model):
     sequence_time_limit = models.IntegerField("Sequence time limit [s]", default=120)
     identification_scheduled_init_task_id = models.CharField(max_length=255, null=True, blank=True)
     identification_scheduled_init_eta = models.DateTimeField(null=True, blank=True)
-    identification_scheduled_reid_task_id = models.CharField(max_length=255, null=True, blank=True)
-    identification_scheduled_reid_eta = models.DateTimeField(null=True, blank=True)
+    identification_scheduled_run_task_id = models.CharField(max_length=255, null=True, blank=True)
+    identification_scheduled_run_eta = models.DateTimeField(null=True, blank=True)
     default_taxon_for_identification = models.ForeignKey(
         Taxon, on_delete=models.SET_NULL,
         null=True, blank=True,
