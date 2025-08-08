@@ -2452,7 +2452,22 @@ def media_files_update(
         | Q(**models.user_has_access_filter_params(request.user.caiduser, "parent__owner")),
         **filter_kwargs
     )
-    mediafiles = mediafiles.order_by(order_by).select_related(
+    logger.debug(f"{request.GET=}")
+
+
+    # Instantiate the filter with GET parameters and your base queryset
+    mediafile_filter = filters.MediaFileFilter(request.GET, queryset=mediafiles, request=request)
+
+    # The filtered queryset is available as .qs
+    full_mediafiles = mediafile_filter.qs
+
+    if show_overview_button and not full_mediafiles.exists():
+        return message_view(request, "No mediafiles for verification.",
+                            headline="Verification",
+                            link=reverse_lazy("caidapp:uploads"))
+
+    # konec nové filtrace
+    full_mediafiles = full_mediafiles.order_by(order_by).select_related(
         "parent",
         "taxon",
         "predicted_taxon",
@@ -2461,20 +2476,6 @@ def media_files_update(
         "updated_by",
         "sequence"
     )
-    logger.debug(f"{request.GET=}")
-
-    if show_overview_button and not mediafiles.exists():
-        return message_view(request, "No mediafiles for verification.",
-                            headline="Verification",
-                            link=reverse_lazy("caidapp:uploads"))
-
-    # Instantiate the filter with GET parameters and your base queryset
-    mediafile_filter = filters.MediaFileFilter(request.GET, queryset=mediafiles, request=request)
-
-    # The filtered queryset is available as .qs
-    full_mediafiles = mediafile_filter.qs
-
-    # konec nové filtrace
 
     number_of_mediafiles = mediafile_filter.qs.count()
     logger.debug(f"{number_of_mediafiles=}")
