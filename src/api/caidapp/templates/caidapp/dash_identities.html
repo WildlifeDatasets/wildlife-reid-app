@@ -181,7 +181,7 @@
                             {% else %}
                                 {% if user.caiduser.workgroup.number_of_representative_media_files == 0 %}
                                     <p>
-                                        You might want to select representative images for the identification process.
+                                        You might want to select representative images (marked with <i class="bi bi-star-fill"></i>>) for the identification process.
                                     </p>
                                 {% endif %}
 
@@ -240,6 +240,23 @@
                         </div>
                     </a>
                 </div>
+
+
+                <div class="col-md-4">
+                    <a class="card text-reset bg-light" href="{% url 'caidapp:upload_archive_contains_identities' %}">
+                        <div class="card-body">
+                            <h3 class="card-title"><i class="bi bi-eye"></i> Upload archive with known identities </h3>
+                            <div class="card-text">
+                                <p>
+                                    If you have existing database it can be uploaded here. The uploaded archive must contain directories with the name of the identity.
+                                </p>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+
+
+
 
             </div>
 {#        </div>#}
