@@ -150,10 +150,23 @@ def train_identification_model(
 
     metadata = metadata.loc[:, ["path", "identity"]]
 
-    # Split data
     if "observation_id" not in metadata.columns:
         metadata['observation_id'] = list(range(len(metadata)))
 
+    # Remove identities that occur only once
+    logger.info(f'Identities before single identity removal: '
+                 f'\nIdentity counts: {dict(metadata["identity"].value_counts())}'
+                 f'\nRow counts: {len(metadata)}')
+    metadata = metadata[metadata['identity'].duplicated(keep=False)]
+    logger.info(f'Identities after single identity removal: '
+                 f'\nIdentity counts: {dict(metadata["identity"].value_counts())}'
+                 f'\nRow counts: {len(metadata)}')
+
+    if len(metadata) <= 1:
+        logger.info("Cancelling training, not enough representativ images.")
+        return {"status": "ERROR", "error": "Cancelling training, not enough representativ images."}
+
+    # Split data
     # remove_tail = 5
     # if len(metadata) < 100:
     #     remove_tail = 0
