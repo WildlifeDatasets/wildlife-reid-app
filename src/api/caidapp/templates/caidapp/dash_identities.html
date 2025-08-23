@@ -1,6 +1,15 @@
 {% extends 'base.html' %}
 {% load static %}
 {% block head %}
+    <style>
+    .card-btn {
+        background-repeat: no-repeat;
+        background-position-x: right;
+        background-position-y: center;
+        background-size: cover;
+    }
+
+    </style>
     <!--refresh every 120 s-->
     {#<meta http-equiv="refresh" content="120">#}
 {% endblock %}
@@ -113,47 +122,12 @@
                         {% endif %}
                         <a class="btn btn-secondary bs-1" href="{% url 'caidapp:select_reid_model' %}"><i class="bi bi-gear"></i></a>
                     </div>
-                    {#                {% if workgroup.identification_init_status %}#}
-                    {#                    <p>Identification initiated at: {{ workgroup.identification_init_at|date:'Y-m-d H:i' }}</p>#}
-                    {#                    <p>{{ workgroup.identification_init_message }}</p>#}
-                    {#                {% else %}#}
-                    {#                    Identification not initiated.#}
-                    {#                {% endif %}#}
-                    {#                <p><i class="bi bi-calendar" ></i></p>#}
-                    {#                {{ user.caiduser.workgroup }}#}
                 </div>
             </div>
             <h1 class="mt-4">Identification uploaded archives</h1>
             <div>
-{#                <ol class="breadcrumb">#}
-                    {#                    {% if uploadedarchive.contains_single_taxon %}#}
-{#                    <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads_identities' %}">Identities Uploads </a>#}
-{#                    </li>#}
-                    {#                    {% else %}#}
-                    {#                        <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li>#}
-                    {#                    {%  endif %}#}
-                    {#                <li class="breadcrumb-item"><a href="{% url 'caidapp:uploadedarchive_mediafiles' mediafile.parent.id %}"> Uploaded#}
-                    {#                    Archive: {{ mediafile.parent }}</a></li>#}
-{##}
-{#                </ol>#}
-
                 <div class="d-flex justify-content-between">
                     <div>
-
-                        {#                        <a class="btn {{ btn_styles.upload_identified }}" href="{% url 'caidapp:upload_archive_contains_identities' %}"><i class="bi bi-upload"></i> Upload identified </a>#}
-                        {#                        <a class="btn btn-secondary" href="{% url 'caidapp:representative_mediafiles' %}"><i class="bi bi-eye"></i> Check representative images </a>#}
-                        {#                        <i class="bi bi-arrow-right-short fa-2x" style="vertical-align: middle;"></i>#}
-                        {#                        <a class="btn {{ btn_styles.init_identification }}" href="{% url 'caidapp:init_identification' %}"#}
-                        {#                                {% if user.caiduser.workgroup.identification_init_status %}#}
-                        {#                           data-bs-toggle="tooltip" title="Initiated at: {{ user.caiduser.workgroup.identification_init_at|date:'Y-m-d H:i' }}, {{ user.caiduser.workgroup.identification_init_status}}, {{ user.caiduser.workgroup.identification_init_message }}"#}
-                        {#                                {% endif %}#}
-                        {#                        ><i class="fas fa-fingerprint"></i> Init identification#}
-                        {##}
-                        {#                            {% if user.caiduser.workgroup.identification_init_status == "Processing" %}#}
-                        {#                                <i class="fa fa-spinner fa-spin"></i>#}
-                        {#                            {% endif %}#}
-                        {#                        </a>#}
-                        {#                        <i class="bi bi-arrow-right-short fa-2x" style="vertical-align: middle;"></i>#}
                     </div>
                 </div>
             </div>
@@ -165,7 +139,16 @@
 
             <div class="col-md-4">
 
-                    <div class="card">
+                    <div class="card card-btn"
+                         style="
+                                 background-image:
+                                 linear-gradient(to left, rgba(255, 255, 255, 0.93), rgba(255, 255, 255, 0.93)),
+                                 {#url('https://cdn.pixabay.com/photo/2020/10/22/10/28/cow-5675684_960_720.jpg');#}
+                                 {#url('https://cdn.pixabay.com/photo/2015/10/15/21/25/label-990091_960_720.jpg');#}
+                                 {#url('https://cdn.pixabay.com/photo/2015/10/15/21/25/label-990091_960_720.jpg');#}
+                                 url({% static 'caidapp/pexels-anna-nekrashevich-6801648.jpg' %});
+                                 "
+                    >
                         <div class="card-body">
                             <h3 class="card-title">Identification data</h3>
 
@@ -202,57 +185,115 @@
 
 
                 </div>
-{#                <div class="col-md-4">#}
-{#                    <a class="card text-reset bg-light" href="{% url 'caidapp:representative_mediafiles' %}">#}
-{#                        <div class="card-body">#}
-{#                            <h3 class="card-title"><i class="bi bi-eye"></i> Check representative images</h3>#}
-{#                            <div class="card-text">#}
-{#                                Representative images are used for the identification of the species. They are used in the identification process and in the identification results.#}
-{#                                <br>#}
-{#                                <br>#}
-{#                                {% if user.caiduser.number_of_representative_media_files == 0 %}#}
-{#                                    No representative images found.#}
-{#                                {% else %}#}
-{#                                    Number of representative images: {{ user.caiduser.number_of_representative_media_files }}#}
-{#                                {% endif %}#}
-{##}
-{#                            </div>#}
-{#                        </div>#}
-{#                    </a>#}
-{#                </div>#}
 
 
                 <div class="col-md-4">
-                    <a class="card text-reset bg-light" href="{% url 'caidapp:representative_mediafiles' %}">
+                    <div class="card card-btn text-reset bg-light"
+{#                         href="{% url 'caidapp:representative_mediafiles' %}"#}
+
+                         style="
+                                 background-image: linear-gradient(to left, rgba(255, 255, 255, 0.96), rgba(255, 255, 255, 0.96)),
+                                 {#url('https://cdn.pixabay.com/photo/2020/10/22/10/28/cow-5675684_960_720.jpg');#}
+                                 {#url('https://cdn.pixabay.com/photo/2015/10/15/21/25/label-990091_960_720.jpg');#}
+                                 url({% static 'caidapp/pexels-jessbaileydesign-735277.jpg' %});
+                                 "
+                         >
                         <div class="card-body">
-                            <h3 class="card-title"><i class="bi bi-eye"></i> Check representative images</h3>
+                            <h3 class="card-title">Representative images</h3>
                             <div class="card-text">
-                                Representative images are used for the identification of the species. They are used in the identification process and in the identification results.
-                                <br>
-                                <br>
-                                {% if user.caiduser.number_of_representative_media_files == 0 %}
+                            <p>
+
+                                Representative media files (marked with <i class="bi bi-star-fill"></i>) are used for the identification of the species. They are used in the identification process and in the identification results.
+                            </p>
+                            <p>
+                                {% if not user.caiduser.workgroup.number_of_representative_media_files or user.caiduser.workgroup.number_of_representative_media_files == 0 %}
                                     No representative images found.
                                 {% else %}
-                                    Number of representative images: {{ user.caiduser.number_of_representative_media_files }}
+                                    Number of representative images: {{ user.caiduser.workgroup.number_of_representative_media_files }}
                                 {% endif %}
-
+                            </p>
                             </div>
+
+                                <!-- Viditelné tlačítko (volitelné) -->
+
+
+                                {% if identities_by_representative_mediafiles %}
+                                    {% if identities_by_representative_mediafiles.count == 0 %}
+                                        <p>
+                                        There is nothing you can do here. All identities have representative media files.
+                                        </p>
+                                    {% else  %}
+                                        <p class="mt-2">
+                                            Number of identities without representative mediafile: {{ identities_by_representative_mediafiles|length }}
+                                        </p>
+                                        <p>
+                                        Identity {{ identities_by_representative_mediafiles.0.name }} has {{ identities_by_representative_mediafiles.0.representative_mediafile_count }} representative media files.
+
+                                        </p>
+                                        <a
+                                                href="{% url 'caidapp:individual_identity_mediafiles' identities_by_representative_mediafiles.0.id %}"
+                                                class="btn btn-outline-primary">
+
+                                        Select representative media files for
+                                        {{  identities_by_representative_mediafiles.0.name  }}
+                                        </a>
+
+                                    {% endif %}
+{#                                    <a href="{% url 'caidapp:identity'  %}">Check them</a>.#}
+
+                                {% endif %}
+                            <a
+                                    href="{% url 'caidapp:representative_mediafiles' %}"
+                                    class="btn btn-outline-secondary mt-2">
+                                Check representative media files
+                            </a>
+
+                                <!-- Neviditelný klikací překryv celé karty -->
+{#                                <a#}
+{#                                        href="{% url 'caidapp:representative_mediafiles' %}"#}
+{#                                        class="stretched-link"#}
+{#                                        aria-label="Upload archive with known identities"></a>#}
+
+
                         </div>
-                    </a>
+                    </div>
                 </div>
 
 
                 <div class="col-md-4">
-                    <a class="card text-reset bg-light" href="{% url 'caidapp:upload_archive_contains_identities' %}">
+                    <div class="card card-btn text-reset bg-light"
+
+                       style="
+                               background-image: linear-gradient(to left, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.9)),
+                               {#url('https://cdn.pixabay.com/photo/2020/10/22/10/28/cow-5675684_960_720.jpg');#}
+                               url('https://cdn.pixabay.com/photo/2015/10/15/21/25/label-990091_960_720.jpg');
+                               "
+{#                       href="{% url 'caidapp:upload_archive_contains_identities' %}"#}
+                    >
                         <div class="card-body">
-                            <h3 class="card-title"><i class="bi bi-eye"></i> Upload archive with known identities </h3>
+                            <h3 class="card-title">
+                                Upload archive with known identities
+                            </h3>
                             <div class="card-text">
                                 <p>
                                     If you have existing database it can be uploaded here. The uploaded archive must contain directories with the name of the identity.
                                 </p>
                             </div>
+                            <!-- Viditelné tlačítko (volitelné) -->
+                            <a href="{% url 'caidapp:upload_archive_contains_identities' %}"
+                               class="btn btn-outline-primary">
+                                Upload
+                            </a>
+
+                            <!-- Neviditelný klikací překryv celé karty -->
+                            <a href="{% url 'caidapp:upload_archive_contains_identities' %}"
+                               class="stretched-link"
+                               aria-label="Upload archive with known identities"></a>
                         </div>
-                    </a>
+
+
+                    </div>
+
                 </div>
 
 

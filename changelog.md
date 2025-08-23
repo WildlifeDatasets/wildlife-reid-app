@@ -6,6 +6,8 @@
 * [added] Suggest representative media file during identification
 * [added] Lazy loading of identities in re-identification
 * [added] Set representative from media file list
+* [added] Pictures in cards in the identity dash
+* [added] Suggestions on low number of representative media files
 
 ## 07-2025
 * [fixed] Removed ultralytics dependency (by pinning yolo5)

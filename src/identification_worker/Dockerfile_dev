@@ -34,8 +34,8 @@ RUN pip install --no-cache-dir --upgrade pip build && \
 RUN echo "------- pip list 1 --------"
 RUN pip list
 
-RUN echo "------- SAM (not pinned) --------"
-RUN pip install git+https://github.com/facebookresearch/segment-anything.git
+RUN echo "------- SAM (pinned, just to be sure) --------"
+RUN pip install git+https://github.com/facebookresearch/segment-anything.git@dca509fe793f601edb92606367a655c15ac00fdf
 
 #RUN pip install pytz --upgrade
 #RUN pip install tzdata --upgrade

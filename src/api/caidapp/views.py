@@ -503,13 +503,23 @@ def dash_identities(request) -> HttpResponse:
     # )
     # page_context = paginate_queryset(queryset, request)
 
+    # find the identity with minimum number of representative mediafiles
+    identities = IndividualIdentity.objects.filter(
+        owner_workgroup=request.user.caiduser.workgroup,
+        name__ne="nan"
+    ).annotate(
+        representative_mediafile_count=Count("mediafile", filter=Q(mediafile__identity_is_representative=True)),
+        non_representative_mediafile_count=Count("mediafile", filter=Q(mediafile__identity_is_representative=False))
+    ).filter(non_representative_mediafile_count__gt=0).order_by("representative_mediafile_count", "-non_representative_mediafile_count")
+
     return render(
         request,
         "caidapp/dash_identities.html",
-        {
+        dict(
             # **page_context,
-            "btn_styles": _single_species_button_style(request),
-        },
+            btn_styles =_single_species_button_style(request),
+            identities_by_representative_mediafiles=identities,
+        ),
     )
 
 
