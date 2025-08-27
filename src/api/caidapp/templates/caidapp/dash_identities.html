@@ -297,6 +297,73 @@
                 </div>
 
 
+                <div class="col-md-4">
+                    <div class="card card-btn text-reset bg-light"
+                            {#                         href="{% url 'caidapp:representative_mediafiles' %}"#}
+
+                         style="
+                                 background-image: linear-gradient(to left, rgba(255, 255, 255, 0.96), rgba(255, 255, 255, 0.96)),
+                                 {#url('https://cdn.pixabay.com/photo/2020/10/22/10/28/cow-5675684_960_720.jpg');#}
+                                 {#url('https://cdn.pixabay.com/photo/2015/10/15/21/25/label-990091_960_720.jpg');#}
+                                 url({% static 'caidapp/pexels-jessbaileydesign-735277.jpg' %});
+                                 "
+                    >
+                        <div class="card-body">
+                            <h3 class="card-title">Identity suggestion</h3>
+                            <div class="card-text">
+                                <p>
+                                    The identity suggestion is based on the comparison of the uploaded images with the representative images of known identities.
+                                    The reference identity database is updated automatically when the set of representative images is changed.
+                                    The suggestion generation is done automatically in the background when new media files are uploaded.
+                                </p>
+                                <p>
+                                    {% if user.caiduser.workgroup.identification_scheduled_init_eta %}
+                                        <br>
+                                        Database update at:
+                                        {{ user.caiduser.workgroup.identification_scheduled_init_eta|date:'Y-m-d H:i' }}
+                                    {% endif %}
+
+                                    {%  if user.caiduser.workgroup.identification_scheduled_run_eta %}
+                                        <br>
+                                        Suggestion generation at:
+                                        {{ user.caiduser.workgroup.identification_scheduled_run_eta|date:'Y-m-d H:i' }}
+                                    {% endif %}
+                                </p>
+
+                                <div class="position-absolute bottom-0 end-0 p-3">
+                                    <span
+                                            {#                                            data-bs-toggle="tooltip"#}
+                                            {#                                            data-toggle="tooltip"#}
+                                            title="Model: {{ user.caiduser.workgroup.identification_model }}&#10;
+Init ({{ user.caiduser.workgroup.identification_init_status }} {{ user.caiduser.workgroup.identification_init_at|date:'Y-m-d H:i' }}): {{ user.caiduser.workgroup.identification_init_message }}
+Run ({{ user.caiduser.workgroup.identification_reid_status }} {{ user.caiduser.workgroup.identification_reid_at|date:'Y-m-d H:i' }}): {{ user.caiduser.workgroup.identification_reid_message }}
+"
+                                    >
+                                            <i class="bi bi-info-circle"></i>
+                                        </span>
+
+                                </div>
+                            </div>
+
+                            <!-- Viditelné tlačítko (volitelné) -->
+
+
+{#                            <a#}
+{#                                    href="{% url 'caidapp:representative_mediafiles' %}"#}
+{#                                    class="btn btn-outline-secondary mt-2">#}
+{#                                Check representative media files#}
+{#                            </a>#}
+
+                            <!-- Neviditelný klikací překryv celé karty -->
+                            {#                                <a#}
+                            {#                                        href="{% url 'caidapp:representative_mediafiles' %}"#}
+                            {#                                        class="stretched-link"#}
+                            {#                                        aria-label="Upload archive with known identities"></a>#}
+
+
+                        </div>
+                    </div>
+                </div>
 
 
             </div>
