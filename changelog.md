@@ -8,6 +8,7 @@
 * [added] Set representative from media file list
 * [added] Pictures in cards in the identity dash
 * [added] Suggestions on low number of representative media files
+* [added] Status messages of identity suggestion
 
 ## 07-2025
 * [fixed] Removed ultralytics dependency (by pinning yolo5)
