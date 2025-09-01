@@ -17,6 +17,59 @@
     {% if user.is_authenticated %}
         <div class="pagetitle">
             <h1>Identification dashboard</h1>
+        </div>
+        <div class="row">
+            <div class="col-md-4">
+                <div class="card card-btn text-reset bg-light"
+
+                     style="
+                             background-image: linear-gradient(to left, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.9)),
+                             {#url('https://cdn.pixabay.com/photo/2020/10/22/10/28/cow-5675684_960_720.jpg');#}
+                             url('https://cdn.pixabay.com/photo/2015/10/15/21/25/label-990091_960_720.jpg');
+                             "
+                        {#                       href="{% url 'caidapp:upload_archive_contains_identities' %}"#}
+                >
+                    <div class="card-body">
+                        <h3 class="card-title">
+                            Upload media files
+                        </h3>
+
+                        <div class="card-text">
+                            <p>
+                                Upload media files and later identify them. You can upload media files with known identity or unidentified media files of a single species.
+                            </p>
+
+
+                            <p>
+                                If you have existing organized database it can be uploaded here. The uploaded archive must contain directories with the name of the identity.
+                            </p>
+
+                            <a href="{% url 'caidapp:upload_archive_contains_identities' %}"
+                               class="btn btn-outline-primary">
+                                Upload
+                            </a>
+
+
+                        </div>
+                        <!-- Viditelné tlačítko (volitelné) -->
+
+                        <!-- Neviditelný klikací překryv celé karty -->
+{#                        <a href="{% url 'caidapp:upload_archive_contains_identities' %}"#}
+{#                           class="stretched-link"#}
+{#                           aria-label="Upload archive with known identities"></a>#}
+                    </div>
+
+
+                </div>
+
+            </div>
+
+
+        <div class="col-md-4">
+        </div>
+        </div>
+
+
             <div>
                 <ol class="breadcrumb">
                     <li class="breadcrumb-item"><a href="{% url 'caidapp:home' %}"><i class="fa fa-home"></i> Home</a></li>
@@ -124,14 +177,7 @@
                     </div>
                 </div>
             </div>
-            <h1 class="mt-4">Identification uploaded archives</h1>
-            <div>
-                <div class="d-flex justify-content-between">
-                    <div>
-                    </div>
-                </div>
-            </div>
-        </div><!-- End Page Title -->
+            <h1 class="mt-4">Additional information</h1>
 
 {#        <div  class="container-fluid">#}
             <div class="row">
@@ -260,41 +306,6 @@
                 </div>
 
 
-                <div class="col-md-4">
-                    <div class="card card-btn text-reset bg-light"
-
-                       style="
-                               background-image: linear-gradient(to left, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.9)),
-                               {#url('https://cdn.pixabay.com/photo/2020/10/22/10/28/cow-5675684_960_720.jpg');#}
-                               url('https://cdn.pixabay.com/photo/2015/10/15/21/25/label-990091_960_720.jpg');
-                               "
-{#                       href="{% url 'caidapp:upload_archive_contains_identities' %}"#}
-                    >
-                        <div class="card-body">
-                            <h3 class="card-title">
-                                Upload archive with known identities
-                            </h3>
-                            <div class="card-text">
-                                <p>
-                                    If you have existing database it can be uploaded here. The uploaded archive must contain directories with the name of the identity.
-                                </p>
-                            </div>
-                            <!-- Viditelné tlačítko (volitelné) -->
-                            <a href="{% url 'caidapp:upload_archive_contains_identities' %}"
-                               class="btn btn-outline-primary">
-                                Upload
-                            </a>
-
-                            <!-- Neviditelný klikací překryv celé karty -->
-                            <a href="{% url 'caidapp:upload_archive_contains_identities' %}"
-                               class="stretched-link"
-                               aria-label="Upload archive with known identities"></a>
-                        </div>
-
-
-                    </div>
-
-                </div>
 
 
                 <div class="col-md-4">
