@@ -57,11 +57,11 @@
 {#                </div>#}
             </nav>
             <div class="d-flex justify-content-between mt-2">
-                <div>
-                    <a class="btn {{ btn_styles.upload_unidentified.class }}"
-                       href="{% url 'caidapp:upload_archive_contains_single_taxon' %}"><i class="bi bi-upload"></i>
-                        Upload unidentified single species</a>
-                </div>
+{#                <div>#}
+{#                    <a class="btn btn-{{ btn_styles.upload_unidentified.class }}"#}
+{#                       href="{% url 'caidapp:upload_archive_contains_single_taxon' %}"><i class="bi bi-upload"></i>#}
+{#                        Upload unidentified single species</a>#}
+{#                </div>#}
                 <div>
                     {% include "caidapp/uploads_order_by.html" %}
                 </div>
