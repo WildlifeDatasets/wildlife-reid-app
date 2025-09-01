@@ -599,16 +599,16 @@ def _multiple_species_button_style_and_tooltips(request) -> dict:
         "verify_taxa": f"Go to verification of {n_missing_verifications} media files.",
     }
     btn_styles = {
-        "upload_species": "btn-secondary",
-        "annotate_missing_taxa": "btn-secondary",
-        "verify_taxa": "btn-secondary",
+        "upload_species": "secondary",
+        "annotate_missing_taxa": "secondary",
+        "verify_taxa": "secondary",
     }
     if not some_missing_taxons and not some_missing_verifications:
-        btn_styles["upload_species"] = "btn-primary"
+        btn_styles["upload_species"] = "primary"
     elif some_missing_taxons:
-        btn_styles["annotate_missing_taxa"] = "btn-primary"
+        btn_styles["annotate_missing_taxa"] = "primary"
     elif some_missing_verifications:
-        btn_styles["verify_taxa"] = "btn-primary"
+        btn_styles["verify_taxa"] = "primary"
 
     return btn_styles, btn_tooltips
 
@@ -1582,24 +1582,24 @@ def _single_species_button_style(request) -> dict:
     btn_styles = {}
 
     btn_styles["upload_identified"] = {"class":
-        "btn-primary" if (not is_initiated) and (not exists_representative) else "btn-secondary"
+        "primary" if (not is_initiated) and (not exists_representative) else "secondary"
     }
     btn_styles["init_identification"] = {"class":
-        "btn-primary" if (not is_initiated) and exists_representative else "btn-secondary"
+        "primary" if (not is_initiated) and exists_representative else "secondary"
 
                                                      }
     btn_styles["upload_unidentified"] = {"class":
-        "btn-primary"
+        "primary"
         if is_initiated and (not exists_unidentified) and (not exists_for_confirmation)
-        else "btn-secondary"
+        else "secondary"
                                          }
     btn_styles["run_identification"] = {"class":
-        "btn-primary"
+        "primary"
         if is_initiated and exists_unidentified and (not exists_for_confirmation)
-        else "btn-secondary"
+        else "secondary"
     }
     btn_styles["confirm_identification"] = {"class":
-        "btn-primary" if exists_for_confirmation else "btn-secondary"
+        "primary" if exists_for_confirmation else "secondary"
                                             }
 
     init_disabled  = ((not exists_representative) or (workgroup.identification_reid_status == "Processing"))

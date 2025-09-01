@@ -18,14 +18,26 @@
         <div class="pagetitle">
             <h1>Identification dashboard</h1>
         </div>
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'caidapp:home' %}"><i class="fa fa-home"></i> Home</a></li>
+            {#                    {% if uploadedarchive.contains_single_taxon %}#}
+            {#                    <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads_identities' %}">Identities Uploads </a></li>#}
+            {#                    {% else %}#}
+            {#                        <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li>#}
+            {#                    {%  endif %}#}
+            {#                <li class="breadcrumb-item"><a href="{% url 'caidapp:uploadedarchive_mediafiles' mediafile.parent.id %}"> Uploaded#}
+            {#                    Archive: {{ mediafile.parent }}</a></li>#}
+            {##}
+        </ol>
         <div class="row">
             <div class="col-md-4">
-                <div class="card card-btn text-reset bg-light"
+                <div class="card card-btn text-reset bg-light shadow border"
 
                      style="
                              background-image: linear-gradient(to left, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.9)),
                              {#url('https://cdn.pixabay.com/photo/2020/10/22/10/28/cow-5675684_960_720.jpg');#}
-                             url('https://cdn.pixabay.com/photo/2015/10/15/21/25/label-990091_960_720.jpg');
+                             {#url('https://images.pexels.com/photos/13735956/pexels-photo-13735956.jpeg');#}
+                             url('https://images.pexels.com/photos/2619707/pexels-photo-2619707.jpeg');
                              "
                         {#                       href="{% url 'caidapp:upload_archive_contains_identities' %}"#}
                 >
@@ -35,53 +47,58 @@
                         </h3>
 
                         <div class="card-text">
-                            <p>
-                                Upload media files and later identify them. You can upload media files with known identity or unidentified media files of a single species.
-                            </p>
-
-
-                            <p>
+                            <p class="mt-1">
                                 If you have existing organized database it can be uploaded here. The uploaded archive must contain directories with the name of the identity.
                             </p>
 
                             <a href="{% url 'caidapp:upload_archive_contains_identities' %}"
-                               class="btn btn-outline-primary">
-                                Upload
+                               class="btn btn-secondary"><i class="bi bi-upload"></i>
+                                Upload identified media files
                             </a>
+                            <p class="mt-4">
+                                Upload media files and later identify them. You can upload media files with known identity or unidentified media files of a single species.
+                            </p>
+                            <a class="btn btn-{{ btn_styles.upload_unidentified.class }}"
+                               href="{% url 'caidapp:upload_archive_contains_single_taxon' %}"><i class="bi bi-upload"></i>
+                                Upload</a>
+
+
 
 
                         </div>
-                        <!-- Viditelné tlačítko (volitelné) -->
-
-                        <!-- Neviditelný klikací překryv celé karty -->
-{#                        <a href="{% url 'caidapp:upload_archive_contains_identities' %}"#}
-{#                           class="stretched-link"#}
-{#                           aria-label="Upload archive with known identities"></a>#}
                     </div>
-
-
                 </div>
-
             </div>
 
 
         <div class="col-md-4">
+            <div class="card card-btn text-reset bg-light shadow border"
+
+                 style="
+                         background-image: linear-gradient(to left, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.9)),
+                         {#url('https://cdn.pixabay.com/photo/2020/10/22/10/28/cow-5675684_960_720.jpg');#}
+                         url('https://cdn.pixabay.com/photo/2015/10/15/21/25/label-990091_960_720.jpg');
+                         "
+            >
+                <div class="card-body">
+                    <h3 class="card-title">
+                        Confirm identification
+                    </h3>
+                    <div class="card-text">
+                        <p>
+                            Confirm the identity of media files. Suggestions are generated automatically.
+                        </p>
+                        <a class="btn btn-{{ btn_styles.confirm_identification.class }} {% if btn_styles.n_for_confirmation == 0 %} disabled {% endif %}"
+                           href="{% url 'caidapp:not_identified_mediafiles' %}"><i class="bi bi-question-circle"></i>
+                            Confirm identification</a>
+                    </div>
+                </div>
+            </div>
         </div>
         </div>
 
 
             <div>
-                <ol class="breadcrumb">
-                    <li class="breadcrumb-item"><a href="{% url 'caidapp:home' %}"><i class="fa fa-home"></i> Home</a></li>
-                    {#                    {% if uploadedarchive.contains_single_taxon %}#}
-{#                    <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads_identities' %}">Identities Uploads </a></li>#}
-                    {#                    {% else %}#}
-                    {#                        <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li>#}
-                    {#                    {%  endif %}#}
-                    {#                <li class="breadcrumb-item"><a href="{% url 'caidapp:uploadedarchive_mediafiles' mediafile.parent.id %}"> Uploaded#}
-                    {#                    Archive: {{ mediafile.parent }}</a></li>#}
-{##}
-                </ol>
 
                 <div class="d-flex justify-content-between">
 
@@ -91,18 +108,12 @@
                         <a class="btn {{ btn_styles.upload_identified.class }}" href="{% url 'caidapp:upload_archive_contains_identities' %}"><i class="bi bi-upload"></i> Upload identified </a>
                         {% endif %}
 
-                        <a class="btn {{ btn_styles.upload_unidentified.class }}"
-                           href="{% url 'caidapp:upload_archive_contains_single_taxon' %}"><i class="bi bi-upload"></i>
-                            Upload unidentified single species</a>
                         {#                        <a class="btn btn-secondary" href="{% url 'caidapp:uploads_identities' %}">#}
                         {#                            <i class="bi bi-card-list"></i>#}
                         {#                            Check uploads#}
                         {#                        </a>#}
-                        <i class="bi bi-arrow-right-short fa-2x" style="vertical-align: middle;"></i>
+{#                        <i class="bi bi-arrow-right-short fa-2x" style="vertical-align: middle;"></i>#}
                         {#                        <a class="btn {{ btn_styles.confirm_identification.class }} {% if btn_styles.n_for_confirmation == 0 %} disabled {% endif %} }}" href="{% url 'caidapp:get_individual_identity' %}"><i class="bi bi-question-circle"></i> Confirm identification</a>#}
-                        <a class="btn {{ btn_styles.confirm_identification.class }} {% if btn_styles.n_for_confirmation == 0 %} disabled {% endif %}"
-                           href="{% url 'caidapp:not_identified_mediafiles' %}"><i class="bi bi-question-circle"></i>
-                            Confirm identification</a>
 
 
 {#                        <i class="bi bi-arrow-right-short fa-2x" style="vertical-align: middle;"></i>#}

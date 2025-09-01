@@ -59,7 +59,7 @@
                         <div class="card">
                             <div class="card-body">
                                 <h3 class="card-title">Upload</h3>
-                                <a class="btn {{ btn_styles.upload_species }} mt-2" href="{% url 'caidapp:upload_archive' %}"><i class="bi bi-plus-circle"></i> New Upload </a>
+                                <a class="btn btn-{{ btn_styles.upload_species }} mt-2" href="{% url 'caidapp:upload_archive' %}"><i class="bi bi-plus-circle"></i> New Upload </a>
                                 {%  if user.caiduser.import_dir|length > 0 %}
                                     <a class="btn btn-secondary mt-2" href="{% url 'caidapp:cloud_import_preview' %}"
                                        data-bs-toggle="tooltip" title="Locality: "
@@ -76,10 +76,10 @@
                             <div class="card-body">
                                 <h3 class="card-title">Annotate</h3>
                                 <a class="btn btn-secondary" href="{% url 'caidapp:uploads' %}">Camera Trap Checks</a>
-                                <a class="btn {{ btn_styles.annotate_missing_taxa }} mt-2" href="{% url 'caidapp:missing_taxon_annotation' %}"
+                                <a class="btn btn-{{ btn_styles.annotate_missing_taxa }} mt-2" href="{% url 'caidapp:missing_taxon_annotation' %}"
                                    data-bs-toggle="tooltip" title="{{ btn_tooltips.annotate_missing_taxa }}"
                                 >Annotate missing taxa (one by one)</a>
-                                <a class="btn {{ btn_styles.verify_taxa }} mt-2" href="{% url 'caidapp:verify_taxa' %}"
+                                <a class="btn btn-{{ btn_styles.verify_taxa }} mt-2" href="{% url 'caidapp:verify_taxa' %}"
                                    data-bs-toggle="tooltip" title="{{ btn_tooltips.verify_taxa }}"
                                 >Verify taxa</a>
                             </div>
