@@ -1635,8 +1635,8 @@ def assign_unidentified_to_identification_view(request):
 def run_identification_on_unidentified(request):
     """Run identification in all uploaded archives."""
     workgroup = request.user.caiduser.workgroup
-    from tasks import run_identification_on_unidentified_for_workgroup
-    run_identification_on_unidentified_for_workgroup(workgroup.id)
+
+    tasks.run_identification_on_unidentified_for_workgroup(workgroup.id)
     return redirect(request.META.get("HTTP_REFERER", "/"))
 
 
