@@ -1443,6 +1443,11 @@ def train_identification(request,
         df.to_csv(identity_metadata_file, index=False)
         # counts = df["class_id"].value_counts()
         counts = df["label"].value_counts()
+        logger.debug(f"Class counts:{str(counts)}")
+        if len(counts) == 0:
+            messages.error(request, f"No classes found in the data for taxon {caiduser.workgroup.default_taxon_for_identification}")
+            go_back = request.META.get("HTTP_REFERER", "/")
+            return redirect(go_back)
         # nejpočetnější třída a kolik jich tam je
         most_common_class = counts.idxmax()
         most_common_count = counts.max()
