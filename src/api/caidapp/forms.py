@@ -2,7 +2,7 @@ from django import forms
 from django.contrib.auth import get_user_model
 
 from . import models
-from .models import Album, CaIDUser, IndividualIdentity, MediaFile, UploadedArchive, Locality
+from .models import Album, CaIDUser, IndividualIdentity, MediaFile, UploadedArchive, Locality, WorkGroup
 import logging
 
 
@@ -19,12 +19,44 @@ class UserIdentificationModelForm(forms.Form):
     )
 
 
+# deprecated TODO remove
 class WorkgroupUsersForm(forms.Form):
     workgroup_users = forms.ModelMultipleChoiceField(
         queryset=CaIDUser.objects.all(), required=False
     )
 
 
+
+from django import forms
+
+# class WorkgroupForm(forms.ModelForm):
+#     class Meta:
+#         model = WorkGroup
+#         fields = ["name", 'default_taxon_for_identification', 'caiduser_set']   # nebo jiná pole, která chceš editovat
+
+
+class WorkgroupForm(forms.ModelForm):
+    caidusers = forms.ModelMultipleChoiceField(
+        queryset=CaIDUser.objects.all(),
+        # widget=forms.CheckboxSelectMultiple,  # nebo forms.SelectMultiple
+        widget=forms.SelectMultiple,
+        required=False
+    )
+
+    class Meta:
+        model = WorkGroup
+        fields = ["name", "default_taxon_for_identification"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance.pk:
+            self.fields["caidusers"].initial = self.instance.caiduser_set.all()
+
+    def save(self, commit=True):
+        workgroup = super().save(commit=commit)
+        if commit:
+            workgroup.caiduser_set.set(self.cleaned_data["caidusers"])
+        return workgroup
 # class MergeIdentityForm(forms.Form):
 #     queryset = IndividualIdentity.objects.filter()
 #     models.get_content_owner_filter_params()

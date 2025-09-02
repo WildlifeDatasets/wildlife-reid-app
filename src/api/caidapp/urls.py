@@ -427,6 +427,8 @@ path(
         views.toggle_identity_representative,
         name="toggle_identity_representative",
     ),
+    path("workgroups/<int:pk>/update/", views.WorkgroupUpdateView.as_view(), name="workgroup-update"),
 ]
+
 # if settings.DEBUG:
 

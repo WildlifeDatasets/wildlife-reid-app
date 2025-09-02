@@ -2777,7 +2777,39 @@ def create_new_album(request, name="New Album"):
     album.save()
     return album
 
+from django.views.generic import UpdateView
+from django.contrib.auth.mixins import UserPassesTestMixin
 
+
+class WorkgroupAdminRequiredMixin(UserPassesTestMixin):
+    def test_func(self):
+        return self.request.user.caiduser.workgroup_admin
+
+class WorkgroupUpdateView(WorkgroupAdminRequiredMixin, UpdateView):
+    model = WorkGroup
+    form_class = forms.WorkgroupForm
+    template_name = "caidapp/update_form.html"
+    # go_back = request.META.get("HTTP_REFERER", "/")
+    success_url = reverse_lazy("caidapp:home")
+
+    def get_object(self, queryset=None):
+
+        # workgroup_hash = self.kwargs.get("workgroup_hash")
+        # return get_object_or_404(WorkGroup, hash=workgroup_hash)
+        return self.request.user.caiduser.workgroup
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        # Additional processing can be done here if needed
+        return response
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["headline"] = "Update workgroup"
+        context["button"] = "Save"
+        return context
+
+# TODO remove, depreceated
 @login_required
 def workgroup_update(request, workgroup_hash: str):
     """Update workgroup."""
@@ -2788,9 +2820,9 @@ def workgroup_update(request, workgroup_hash: str):
         logger.debug(form)
         if form.is_valid():
             logger.debug(form.cleaned_data)
-            workgroup_users_all = workgroup.ciduser_set.all()
+            workgroup_users_all = workgroup.caiduser_set.all()
             logger.debug(f"Former all users {workgroup_users_all}")
-            workgroup.ciduser_set.set(form.cleaned_data["workgroup_users"])
+            workgroup.caiduser_set.set(form.cleaned_data["workgroup_users"])
 
             pass
             # logger

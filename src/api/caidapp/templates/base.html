@@ -550,7 +550,11 @@
 
             {% if user.caiduser.workgroup and user.caiduser.workgroup_admin %}
             <li class="nav-item">
-                <a class="nav-link collapsed" href="{% url 'caidapp:workgroup_update' user.caiduser.workgroup.hash %}">
+{#                <a class="nav-link collapsed" href="{% url 'caidapp:workgroup_update' user.caiduser.workgroup.hash %}">#}
+{#                    <i class="bi bi-gear"></i>#}
+{#                    <span>Workgroup Admin</span>#}
+{#                </a>#}
+                <a class="nav-link collapsed" href="{% url 'caidapp:workgroup-update' user.caiduser.workgroup.id %}">
                     <i class="bi bi-gear"></i>
                     <span>Workgroup Admin</span>
                 </a>
