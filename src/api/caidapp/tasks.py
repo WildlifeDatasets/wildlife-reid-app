@@ -1633,10 +1633,16 @@ def _iterate_over_locality_checks(
         yield yield_dict
 
 def assign_unidentified_to_identification(caiduser:CaIDUser):
+    kwargs = {}
+    taxon_str = ""
     if caiduser.workgroup is None:
         logger.error("CaIDUser has no workgroup assigned. Cannot assign unidentified media files to identification.")
-        return
-    taxon_str = caiduser.workgroup.default_taxon_for_identification.name
+    if caiduser.workgroup.default_taxon_for_identification is not None:
+        taxon_str = caiduser.workgroup.default_taxon_for_identification.name
+        kwargs["taxon__name"] = taxon_str
+    else:
+        logger.error("Workgroup has no default taxon for identification assigned. Using all media files.")
+        # kwargs = {}
 
     from django.db.models import Subquery
 
@@ -1654,8 +1660,8 @@ def assign_unidentified_to_identification(caiduser:CaIDUser):
 
     base_qs = models.MediaFile.objects.filter(
         parent__owner__workgroup=caiduser.workgroup,
-        taxon__name=taxon_str,
         identity__isnull=True,
+        **kwargs
     )
     logger.debug(f"Base queryset count (before exclude): {base_qs.count()}")
 
