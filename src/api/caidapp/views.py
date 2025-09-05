@@ -47,6 +47,7 @@ from django.db.models import F, Func, Value
 from django.db.models.functions import Cast
 from django.urls import reverse
 import django.db
+import django.utils.timezone
 from djangoaddicts.pygwalker.views import PygWalkerView
 
 from django.contrib.auth.models import Group, User
@@ -1422,7 +1423,7 @@ def train_identification(request,
 
     caiduser = request.user.caiduser
     # new_name = str_bumpversion("MegaDescriptor-T-224-v0") # caiduser.identification_model.name
-    now_str = datetime.now().strftime("%Y%m%d-%H%M%S")
+    now_str = django.utils.timezone.now().strftime("%Y%m%d-%H%M%S")
     new_name = f"MegaDescriptor-T-224-v0.{now_str}"
     # caiduser.identification_model.name
     clean_new_name = re.sub(r'[^a-zA-Z0-9 _-]', '', new_name)
