@@ -7,24 +7,76 @@ from torch.utils.data import DataLoader
 from typing import Tuple, Union
 
 import albumentations as A
+from albumentations.pytorch import ToTensorV2
 import numpy as np
 import pandas as pd
 import torch
 import torchvision.transforms as T
 from PIL import Image, ImageFile
 from torch.utils.data import Dataset
-from .albumentations import (
-    heavy_transforms,
-    light_transforms,
-    # light_transforms_rcrop,
-    # tta_transforms,
-)
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 IMAGENET_MEAN = (0.485, 0.456, 0.406)
 IMAGENET_STD = (0.229, 0.224, 0.225)
 
+
+
+def light_transforms(
+    *, image_size: tuple, mean: tuple = IMAGENET_MEAN, std: tuple = IMAGENET_STD, **kwargs
+) -> Tuple[A.Compose, A.Compose]:
+    """Create light training and validation transforms."""
+    train_tfms = A.Compose(
+        [
+            A.RandomResizedCrop(height=image_size[0], width=image_size[1], scale=(0.8, 1.0)),
+            A.HorizontalFlip(p=0.5),
+            A.VerticalFlip(p=0.5),
+            A.RandomBrightnessContrast(brightness_limit=0.2, contrast_limit=0.2, p=0.5),
+            A.Normalize(mean=mean, std=std),
+            ToTensorV2(),
+        ]
+    )
+    val_tfms = A.Compose(
+        [
+            A.PadIfNeeded(min_height=image_size[0], min_width=image_size[1]),
+            A.Resize(height=image_size[0], width=image_size[1]),
+            A.Normalize(mean=mean, std=std),
+            ToTensorV2(),
+        ]
+    )
+    return train_tfms, val_tfms
+
+
+def heavy_transforms(
+    *, image_size: tuple, mean: tuple = IMAGENET_MEAN, std: tuple = IMAGENET_STD, **kwargs
+) -> Tuple[A.Compose, A.Compose]:
+    """Create heavy training and validation transforms."""
+    train_tfms = A.Compose(
+        [
+            A.RandomResizedCrop(height=image_size[0], width=image_size[1], scale=(0.7, 1.3)),
+            A.HorizontalFlip(p=0.5),
+            A.VerticalFlip(p=0.5),
+            A.RandomBrightnessContrast(brightness_limit=0.2, contrast_limit=0.2, p=0.3),
+            A.GaussianBlur(blur_limit=(7, 7), p=0.5),
+            A.HueSaturationValue(p=0.2),
+            A.ImageCompression(quality_lower=50, quality_upper=100, p=0.2),
+            A.CoarseDropout(max_holes=8, max_height=20, max_width=20, fill_value=128, p=0.2),
+            A.ShiftScaleRotate(shift_limit=0.10, scale_limit=0.25, rotate_limit=90, p=0.5),
+            A.RandomGridShuffle(grid=(3, 3), p=0.1),
+            A.MultiplicativeNoise(multiplier=(0.8, 1.2), elementwise=True, p=0.1),
+            A.Normalize(mean=mean, std=std),
+            ToTensorV2(),
+        ]
+    )
+    val_tfms = A.Compose(
+        [
+            A.PadIfNeeded(min_height=image_size[0], min_width=image_size[1]),
+            A.Resize(height=image_size[0], width=image_size[1]),
+            A.Normalize(mean=mean, std=std),
+            ToTensorV2(),
+        ]
+    )
+    return train_tfms, val_tfms
 
 
 def vit_light_transforms(
