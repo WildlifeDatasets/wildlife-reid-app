@@ -1421,7 +1421,10 @@ def train_identification(request,
     logger.debug("Generating CSV for init_identification...")
 
     caiduser = request.user.caiduser
-    new_name = str_bumpversion("MegaDescriptor-T-224-v0") # caiduser.identification_model.name
+    # new_name = str_bumpversion("MegaDescriptor-T-224-v0") # caiduser.identification_model.name
+    now_str = datetime.now().strftime("%Y%m%d-%H%M%S")
+    new_name = f"MegaDescriptor-T-224-v0.{now_str}"
+    # caiduser.identification_model.name
     clean_new_name = re.sub(r'[^a-zA-Z0-9 _-]', '', new_name)
 
     group_dir = Path(settings.MEDIA_ROOT) / request.user.caiduser.workgroup.name
@@ -1638,11 +1641,6 @@ def run_identification_on_unidentified(request):
 
     tasks.run_identification_on_unidentified_for_workgroup(workgroup.id)
     return redirect(request.META.get("HTTP_REFERER", "/"))
-
-
-
-    # next_page = request.GET.get("next", "caidapp:uploads_identities")
-    # return redirect(next_page)
 
 
 @login_required
