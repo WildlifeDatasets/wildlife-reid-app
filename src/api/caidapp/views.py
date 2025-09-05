@@ -1510,7 +1510,7 @@ def train_identification(request,
             # csv_file=os.path.relpath(str(output_metadata_file), settings.MEDIA_ROOT),
         ),
         link_error=init_identification_on_error.s(
-            caiduser_id=request.user.caiduser.id
+            caiduser_id=request.user.caiduser.id,
             user_name=request.user.username,
             # uploaded_archive_id=uploaded_archive.id
         ),
