@@ -1,7 +1,8 @@
 # Changelog
 
+## 2025-09
 
-## 08-2025
+## 2025-08
 
 * [added] Suggest representative media file during identification
 * [added] Lazy loading of identities in re-identification
@@ -10,7 +11,7 @@
 * [added] Suggestions on low number of representative media files
 * [added] Status messages of identity suggestion
 
-## 07-2025
+## 2025-07
 * [fixed] Removed ultralytics dependency (by pinning yolo5)
 * [added] Add not identified media files to the list (to be identified manually)
 * [fixed] List of not confirmed now doesn't skip doubled score
@@ -20,7 +21,7 @@
 * [added] Re-identification init and run automatized
 * [changed] Aspect ratio of the media files is fixed
 
-## 06-2025
+## 2025-06
 
 * [added] Name, Last name, and email in the identity
 * [added] Name and Last name shown in impersonation
@@ -29,14 +30,14 @@
 * [added] Hide base dataset in the identity
 * [changed] Suggest file name for download of media files
 
-## 05-2025
+## 2025-05
 
 * [added] AI consent
 * [added] New identity from media file detail
 * [update] Fixed error on some Cuddeback camera trap
 * [added] Dash for identity processing
 
-## 04-2025
+## 2025-05
 
 * [added] Home page
 * [added] Identify sorted by score
@@ -44,7 +45,7 @@
 * [changed] If the uploaded archive is uploaded as single taxon, the taxon is used instead of the prediction
 * [fixed] Crash on not identified media files view when no locality in one of media files 
 
-## 03-2025
+## 2025-05
 
 * [fixed] Form behavior fixed for Missing taxon in media file
 * [fixed] Verification of media files
@@ -54,7 +55,7 @@
 * [changed] Simplification of previews, thumbnails and static thumbnails generation
 * [added] CSV and XLSX import and export of identities 
 
-## 02-2025
+## 2025-05
 
 * [fixed] Download ZIP with media files in production
 * [changed]  Length of individuality prolonged to 100 characters
@@ -71,7 +72,7 @@
 * [changed] Category renamed to taxon
 * [added] Search for Locality and identity
 
-## 01-2025
+## 2025-05
 * [added] Added carousel for media files in the detail view
 * [changed] Logging in taxon worker
 * [added] Using `uv` installer for api Docker
@@ -80,7 +81,7 @@
 * [added] Merge localities suggestion
 * [added] Merge identities suggestion
 
-## 12-2024
+## 2024-05
 
 * [added] Merge identity
 * [added] Update Media files in upload with spreadsheet file
@@ -95,7 +96,7 @@
 * [added] Added pygwalker for media files
 * [changed] Block identification init if identification is running
 
-## 11-2024
+## 2024-05
 
 * [added] Extend sequence of media files
 * [changed] Order media files in sequence together
@@ -103,7 +104,7 @@
 * [added] Select all media files on the page, or in the selection
 * [added] Page title in media files upload
 
-## 10-2024
+## 2024-05
 
 * [changed] Separated dev and prod
 * [added] OCR for date time in media files
@@ -115,7 +116,7 @@
 * [added] Support for external synology drive
 * [added] Preparation for dev and prod environments
 
-## 09-2024
+## 2024-05
 
 * [added] Video conversion to mp4
 * [added] Better date and location detection in file name during upload
@@ -125,7 +126,7 @@
 * [added] Status badge
 * [changed] renamed uploadedarchive_detail to uploadedarchive_mediafiles
 
-## 08-2024
+## 2024-05
 
 * [changed] Fix count of files after upload
 * [changed] Camera trap check card image is now on the top of the card
@@ -146,7 +147,7 @@
 * [added] Taxon update form
 * [added] Taxon parent
 
-## 07-2024
+## 2024-05
 
 * [added] Checkbox on overviewed taxon of mediafile
 * [added] Checkbox on no missing taxons in camera trap check
@@ -171,7 +172,7 @@
 * [added] Added support for extra wide monitor on media files view
 * [added] Date picker in upload archive view
 
-## 06-2024
+## 2024-05
 
 * [added] video files are streamed in the detail view
 * [added] Download original file for mediafile
@@ -190,7 +191,7 @@
 * [added] Export XLSX for media files
 * [added] Show number of media files with taxon for identification
 
-## 05-2024
+## 2024-05
 
 * [added] Bulk import of media files using Synology Drive
 * [added] Error message as status tooltip
@@ -208,7 +209,7 @@
 * [added] Location check date added to Uploaded Archive
 * [added] SAM - large model used and downloaded from original url
 
-## 04-2024
+## 2024-05
 
 * [added] Taxon classification by detection if necessary
 * [fixed] Re-run of taxon classification works again for workgroup users
@@ -220,7 +221,7 @@
 * [changed] Increased number of workers in webapp
 * [changed] Do the thumbnail generation in parallel
 
-## 03-2024
+## 2024-05
 
 * [added] Visible name for locations
 * [added] Extended edit options for locations
@@ -228,7 +229,7 @@
 * [changed] Layout of the list of mediafiles
 * [fixed] Query for media files works now together with filters like taxon, filter, ...
 
-## 02-2024
+## 2024-05
 
 * [added] Icon showing the mediafile is representative
 * [fixed] The single species identified media files are set representative
@@ -240,7 +241,7 @@
 * [added] Sample data support
 * [added] Added autocomplete for location at upload
 
-## 01-2024
+## 2024-05
 
 * [changed] Easier deployment by better setup of migrations and Google Auth
 * [fixed] Album thumbnail is now the first image in album
@@ -250,7 +251,7 @@
 * [fixed] Failure when mediafile datetime is NaN
 * [added] On removal of mediafile or archive from database, the files are also removed from the storage
 
-## 12-2023
+## 2023-05
 
 * [added] Edit in admin button for Uploaded Archive
 * [added] View with all not identified media files

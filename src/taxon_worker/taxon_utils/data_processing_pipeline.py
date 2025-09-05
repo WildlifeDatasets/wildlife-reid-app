@@ -16,6 +16,9 @@ from scipy.special import softmax
 from fgvc.core.training import predict
 from fgvc.datasets import get_dataloaders
 from fgvc.utils.experiment import load_model
+# from .fgvc_core_training_subset import predict
+# from .fgvc_datasets_subset import get_dataloaders
+# from .fgvc_utils_experiment_subset import load_model
 from tqdm import tqdm
 
 from .config import RESOURCES_DIR, WANDB_API_KEY, WANDB_ARTIFACT_PATH, WANDB_ARTIFACT_PATH_CROPPED

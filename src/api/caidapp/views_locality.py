@@ -433,7 +433,7 @@ def create_map_from_mediafiles(mediafiles: Union[QuerySet, List[MediaFile]]):
 
 class LocalityListView(LoginRequiredMixin, ListView):
     model = Locality
-    # template_name = "caidapp/generic_list.html"
+    # template_name = "caidapp/generic_list_cards.html"
     template_name = "caidapp/localities.html"
     context_object_name = "localities"
     paginate_by = 8

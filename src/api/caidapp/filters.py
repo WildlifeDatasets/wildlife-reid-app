@@ -155,3 +155,35 @@ class MediaFileFilter(django_filters.FilterSet):
             **user_has_access_to_uploadedarchives_filter_params(caiduser)
         ).order_by('-uploaded_at')
 
+class NotificationFilter(django_filters.FilterSet):
+    level = django_filters.NumberFilter(field_name="level")
+    read = django_filters.BooleanFilter(field_name="read")
+    created_after = django_filters.DateTimeFilter(field_name="created", lookup_expr="gte")
+    created_before = django_filters.DateTimeFilter(field_name="created", lookup_expr="lte")
+
+    search = django_filters.CharFilter(method='filter_search', label="Search")
+
+    class Meta:
+        model = models.Notification
+        fields = ["level", "read"]
+
+    def filter_search(self, queryset, name, value):
+        # Annotate the queryset with a computed 'search' field.
+        queryset = queryset.annotate(
+            search=Concat(
+                "name",
+                Value(" "),
+                "area__name",
+            )
+        )
+        # Now filter on the annotated 'search' field.
+        return queryset.filter(search__icontains=value)
+
+
+        # fields = {
+        #     "name": ['icontains'],
+        #     "code": ['icontains'],
+        #     "juv_code": ['icontains'],
+        #     "sex": ["exact"],
+        #     "coat_type": ["exact"],
+        # }

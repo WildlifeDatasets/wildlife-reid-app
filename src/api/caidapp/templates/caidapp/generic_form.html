@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% load crispy_forms_tags %}
+
+
+{% block content %}
+<h2>{{ view.title|default:"Formulář" }}</h2>
+<form method="post">
+    {% csrf_token %}
+            {{ form|crispy }}
+    <button type="submit" class="btn btn-primary">{% trans 'Save' %}</button>
+    <a href="{{ view.cancel_url|default:'/' }}" class="btn btn-secondary">{% trans 'Cancel' %}</a>
+</form>
+{% endblock %}

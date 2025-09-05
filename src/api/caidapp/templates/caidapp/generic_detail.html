@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+{% load i18n %}
+
+{% block content %}
+  <h2>{{ view.title|default:"Detail" }}</h2>
+
+  <div class="card my-3">
+    <div class="card-body">
+      <dl class="row">
+        {% for f in fields %}
+          <dt class="col-sm-3">{{ f.verbose_name|capfirst }}</dt>
+          <dd class="col-sm-9">{{ f.value }}</dd>
+        {% endfor %}
+      </dl>
+    </div>
+  </div>
+
+  <a href="{{ view.cancel_url|default:'/' }}" class="btn btn-secondary">{% trans "Back" %}</a>
+{% endblock %}

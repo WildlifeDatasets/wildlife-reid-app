@@ -419,3 +419,4 @@ class ColumnMappingForm(forms.Form):
         for field_name in self.fields:
             if field_name in column_choices:
                 self.initial[field_name] = field_name
+

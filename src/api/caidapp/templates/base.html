@@ -356,6 +356,13 @@
                                     <span>Sample data</span>
                                 </a>
                             </li>
+                    <li>
+                        <a class="dropdown-item d-flex align-items-center" href="{% url 'caidapp:notifications' %}">
+                            <i class="bi bi-bell"></i>
+                            <span>Notifications</span>
+                        </a>
+
+                    </li>
                         {% if user.is_staff %}
                             <li>
                                 <hr class="dropdown-divider">

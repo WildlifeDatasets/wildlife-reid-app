@@ -49,6 +49,7 @@ from django.urls import reverse
 import django.db
 import django.utils.timezone
 from djangoaddicts.pygwalker.views import PygWalkerView
+from django.utils.translation import gettext_lazy as _
 
 from django.contrib.auth.models import Group, User
 from tqdm import tqdm
@@ -1500,13 +1501,17 @@ def train_identification(request,
     )
     # task =
     sig.apply_async(
-        link=init_identification_on_success.s(
+        link=tasks.train_identification_on_success.s(
             workgroup_id=request.user.caiduser.workgroup.id,
+            caiduser_id=request.user.caiduser.id,
+            user_name=request.user.username,
             # uploaded_archive_id=uploaded_archive.id,
             # zip_file=os.path.relpath(str(output_archive_file), settings.MEDIA_ROOT),
             # csv_file=os.path.relpath(str(output_metadata_file), settings.MEDIA_ROOT),
         ),
         link_error=init_identification_on_error.s(
+            caiduser_id=request.user.caiduser.id
+            user_name=request.user.username,
             # uploaded_archive_id=uploaded_archive.id
         ),
     )
@@ -4227,4 +4232,94 @@ def toggle_identity_representative(request, mediafile_id: int):
     logger.debug("almost done")
     return JsonResponse({"ok": True, "representative": mf.identity_is_representative})
 
+
+
+from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView
+class NotificationCreateView(CreateView):
+    model = models.Notification
+    fields = ['message', 'read', 'level']
+     # could use a form class instead
+    title = "Create Notification"
+    # form_class = forms.NotificationForm
+    template_name = "caidapp/generic_form.html"
+    success_url = reverse_lazy("caidapp:notifications")
+
+    def form_valid(self, form):
+        form.instance.user = self.request.user.caiduser
+        return super().form_valid(form)
+
+
+
+class NotificationListView(ListView):
+    model = models.Notification
+    template_name = "caidapp/generic_list_table.html"
+    context_object_name = "notifications"
+    title = "Notifications"
+
+    def get_queryset(self):
+        return models.Notification.objects.filter(user=self.request.user.caiduser).order_by('-created_at')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['title'] = _("Issue")
+        context['list_display'] = ['message', 'user', 'read', 'created_at']
+        context['object_detail_url'] = 'caidapp:notification-detail'
+        context['object_update_url'] = 'caidapp:notification-update'
+        context['object_delete_url'] = 'caidapp:notification-delete'
+        context['object_create_url'] = 'caidapp:notification-create'
+        return context
+
+
+class NotificationDetailView(DetailView):
+    model = models.Notification
+    template_name = "caidapp/generic_detail.html"
+    context_object_name = "notification"
+    title = "Notification Detail"
+    paginate_by = 20
+    fields = ['message', 'read', 'level', 'created_at']
+    cancel_url = reverse_lazy("caidapp:notifications")
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        # např. jen zprávy pro aktuálního uživatele
+        return qs.filter(user=self.request.user.caiduser)
+
+    def get(self, request, *args, **kwargs):
+        response = super().get(request, *args, **kwargs)
+        # Mark as read when viewed
+        if not self.object.read:
+            self.object.read = True
+            self.object.save(update_fields=['read'])
+        return response
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        field_data = []
+
+        for field_name in self.fields:
+            field = self.model._meta.get_field(field_name)
+            value = getattr(self.object, field_name)
+            field_data.append(
+                {
+                    "name": field_name,
+                    "verbose_name": field.verbose_name,
+                    "value": value,
+                }
+            )
+        context["fields"] = field_data
+        return context
+
+class NotificationUpdateView(UpdateView):
+    model = models.Notification
+    fields = ['message', 'read', 'level']
+    template_name = "caidapp/generic_form.html"
+    success_url = reverse_lazy("caidapp:notifications")
+    title = "Update Notification"
+
+
+class NotificationDeleteView(DeleteView):
+    model = models.Notification
+    template_name = "caidapp/generic_form.html"
+    success_url = reverse_lazy("caidapp:notifications")
+    title = "Delete Notification"
 

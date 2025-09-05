@@ -7,7 +7,13 @@ django-pagination==1.0.7
 django-debug-toolbar==4.4.6
 django-pygwalker==0.0.9
 django-rest-framework==0.1.0
-django-cruds
+django-cruds==3.0.0
+django-filter==24.3
+django-rosetta==0.10.2
+django-widget-tweaks==1.5.0
+django-crispy-forms==2.3
+crispy-bootstrap5==2025.6
+django-import-export==4.3.9
 # django-handyhelpers
 uvicorn==0.22.0
 celery[redis]==5.2.7

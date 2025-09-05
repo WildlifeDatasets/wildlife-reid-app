@@ -428,6 +428,13 @@ path(
         name="toggle_identity_representative",
     ),
     path("workgroups/<int:pk>/update/", views.WorkgroupUpdateView.as_view(), name="workgroup-update"),
+
+    # notifications
+    path('notifications/create/', views.NotificationCreateView.as_view(), name='notification-create'),
+    path('notifications/', views.NotificationListView.as_view(), name='notifications'),
+    path('notifications/<int:pk>/', views.NotificationDetailView.as_view(), name='notification-detail'),
+    path('notifications/<int:pk>/update/', views.NotificationUpdateView.as_view(), name='notification-update'),
+    path('notifications/<int:pk>/delete/', views.NotificationDeleteView.as_view(), name='notification-delete'),
 ]
 
 # if settings.DEBUG:

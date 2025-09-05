@@ -105,6 +105,8 @@ INSTALLED_APPS = [
     'handyhelpers',
     "compressor",
     "django_filters",
+    "crispy_forms",
+    "crispy_bootstrap5",
     # "debug_toolbar"
     # 'pagination',
 ]
@@ -160,6 +162,9 @@ LOCATION_FIELD = {
     "search.provider": "nominatim",
 }
 
+
+CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap5"
+CRISPY_TEMPLATE_PACK = "bootstrap5"
 
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases

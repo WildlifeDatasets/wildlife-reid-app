@@ -1417,3 +1417,41 @@ def user_has_access_filter_params(caiduser: CaIDUser, prefix: str) -> dict:
     return filter_params
 
 
+
+
+class Notification(models.Model):
+    """Notification model."""
+
+    DEBUG = 10
+    INFO = 20
+    WARNING = 30
+    ERROR = 40
+    CRITICAL = 50
+
+    LEVEL_CHOICES = [
+        (DEBUG, "Debug"),
+        (INFO, "Info"),
+        (WARNING, "Warning"),
+        (ERROR, "Error"),
+        (CRITICAL, "Critical"),
+    ]
+    BOOTSTRAP_CLASSES = {
+        DEBUG: "secondary",   # šedá
+        INFO: "info",         # modrá
+        WARNING: "warning",   # žlutá
+        ERROR: "danger",      # červená
+        CRITICAL: "dark",     # tmavá (nebo taky danger, podle vkusu)
+    }
+
+    user = models.ForeignKey(CaIDUser, on_delete=models.CASCADE, null=True, blank=True)
+    message = models.TextField(blank=True, default="")
+    json_message = models.JSONField(blank=True, null=True)
+    created_at = models.DateTimeField("Created at", auto_now_add=True)
+    read = models.BooleanField("Read", default=False)
+    level = models.PositiveSmallIntegerField(choices=LEVEL_CHOICES, default=INFO)
+
+    def __str__(self):
+        return f"Notification for {self.user.user.username} at {self.created_at}"
+
+    def bootstrap_class(self):
+        return self.BOOTSTRAP_CLASSES.get(self.level, "secondary")

@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% load custom_tags %}
+{% block content %}
+<h2>{{ title|default:"Seznam položek" }}</h2>
+
+    {{ filter.form }}
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            {% for field in list_display %}
+                <th>{{ field|capfirst }}</th>
+            {% endfor %}
+            {% if object_detail_url or object_update_url or object_delete_url %}
+                <th>{% trans "Action" %}</th>
+            {% endif %}
+        </tr>
+    </thead>
+    <tbody>
+        {% for object in object_list %}
+            <tr>
+                {% for field in list_display %}
+                    <td>{{ object|attr:field }}</td>
+                {% endfor %}
+                {% if object_detail_url or object_update_url or object_delete_url %}
+                <td>
+                    {% if object_detail_url %}
+                        <a href="{% url object_detail_url object.pk %}" class="btn btn-sm btn-outline-info">{% trans 'Detail' %}</a>
+                    {% endif %}
+                    {% if object_update_url %}
+                        <a href="{% url object_update_url object.pk %}" class="btn btn-sm btn-outline-primary">{% trans 'Edit' %}</a>
+                    {% endif %}
+                    {% if object_delete_url %}
+                        <a href="{% url object_delete_url object.pk %}" class="btn btn-sm btn-outline-danger">{% trans 'Delete' %}</a>
+                    {% endif %}
+                </td>
+                {% endif %}
+            </tr>
+        {% empty %}
+            <tr><td colspan="100%">{% trans "No records" %}</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+{% if object_create_url %}
+<a href="{% url object_create_url %}" class="btn btn-success mt-3">{% trans '+ New' %}</a>
+{% endif %}
+{% endblock %}

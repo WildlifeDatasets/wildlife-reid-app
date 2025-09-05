@@ -995,6 +995,7 @@ def init_identification_on_success(*args, **kwargs):
     """Callback invoked after running init_identification function in inference worker."""
     logger.debug(f"{args=}")
     logger.debug(f"{kwargs=}")
+    models.Notification(message=f"Identification initialization finished. {args=} {kwargs=}").save()
     workgroup_id = kwargs.pop("workgroup_id")
     workgroup = WorkGroup.objects.get(id=workgroup_id)
     output: dict = args[0]
@@ -1026,6 +1027,14 @@ def train_identification_on_success(*args, **kwargs):
     """Callback invoked after running init_identification function in inference worker."""
     logger.debug(f"{args=}")
     logger.debug(f"{kwargs=}")
+    caiduser = None
+    if "user_id" in kwargs:
+        caiduser_id = kwargs.pop("caiduser_id")
+        caiduser = models.CaIDUser.objects.get(id=caiduser_id)
+    models.Notification(
+        user=caiduser,
+        message=f"Task finished with error. {args=} {kwargs=}",
+    ).save()
     workgroup_id = kwargs.pop("workgroup_id")
     workgroup = WorkGroup.objects.get(id=workgroup_id)
     output: dict = args[0]
@@ -1053,6 +1062,14 @@ def train_identification_on_success(*args, **kwargs):
 @shared_task
 def init_identification_on_error(*args, **kwargs):
     """Callback invoked after failing init_identification function in inference worker."""
+    caiduser = None
+    if "user_id" in kwargs:
+        caiduser_id = kwargs.pop("caiduser_id")
+        caiduser = models.CaIDUser.objects.get(id=caiduser_id)
+    models.Notification(
+        user=caiduser,
+        message=f"Task finished with error. {args=} {kwargs=}",
+    ).save()
     logger.error("init_identification done with error.")
 
 
