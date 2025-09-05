@@ -1,26 +1,8 @@
 from typing import Dict, Optional, Tuple, Type, Union
 
-import pandas as pd
+import torchvision.transforms as T
 from PIL import ImageFile
 from torch.utils.data import DataLoader
-
-
-ImageFile.LOAD_TRUNCATED_IMAGES = True
-
-from .torchvision import light_transforms as tv_light_transforms
-from .vit_torchvision import vit_heavy_transforms, vit_light_transforms, vit_medium_transforms
-default_tranforms = {
-    "light": light_transforms,
-    "heavy": heavy_transforms,
-    "tv_light": tv_light_transforms,
-    "vit_light": vit_light_transforms,
-    "vit_medium": vit_medium_transforms,
-    "vit_heavy": vit_heavy_transforms,
-}
-
-IMAGENET_MEAN = (0.485, 0.456, 0.406)
-IMAGENET_STD = (0.229, 0.224, 0.225)
-
 
 from typing import Tuple, Union
 
@@ -31,8 +13,118 @@ import torch
 import torchvision.transforms as T
 from PIL import Image, ImageFile
 from torch.utils.data import Dataset
+from .albumentations import (
+    heavy_transforms,
+    light_transforms,
+    # light_transforms_rcrop,
+    # tta_transforms,
+)
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
+
+IMAGENET_MEAN = (0.485, 0.456, 0.406)
+IMAGENET_STD = (0.229, 0.224, 0.225)
+
+
+
+def vit_light_transforms(
+    *, image_size: tuple, mean: tuple = IMAGENET_MEAN, std: tuple = IMAGENET_STD, **kwargs
+) -> Tuple[T.Compose, T.Compose]:
+    """Create light training and validation transforms based on the RandAugment method."""
+    train_tfms = T.Compose(
+        [
+            T.RandomResizedCrop(size=image_size, scale=(0.8, 1.0)),
+            T.RandAugment(num_ops=2, magnitude=10),
+            T.ToTensor(),
+            T.Normalize(mean=mean, std=std),
+        ]
+    )
+    val_tfms = T.Compose(
+        [
+            T.Resize(size=image_size),
+            T.ToTensor(),
+            T.Normalize(mean=mean, std=std),
+        ]
+    )
+    return train_tfms, val_tfms
+
+
+def vit_medium_transforms(
+    *, image_size: tuple, mean: tuple = IMAGENET_MEAN, std: tuple = IMAGENET_STD, **kwargs
+) -> Tuple[T.Compose, T.Compose]:
+    """Create medium training and validation transforms based on the RandAugment method."""
+    train_tfms = T.Compose(
+        [
+            T.RandomResizedCrop(size=image_size, scale=(0.8, 1.0)),
+            T.RandAugment(num_ops=2, magnitude=15),
+            T.ToTensor(),
+            T.Normalize(mean=mean, std=std),
+        ]
+    )
+    val_tfms = T.Compose(
+        [
+            T.Resize(size=image_size),
+            T.ToTensor(),
+            T.Normalize(mean=mean, std=std),
+        ]
+    )
+    return train_tfms, val_tfms
+
+
+def vit_heavy_transforms(
+    *, image_size: tuple, mean: tuple = IMAGENET_MEAN, std: tuple = IMAGENET_STD, **kwargs
+) -> Tuple[T.Compose, T.Compose]:
+    """Create heavy training and validation transforms based on the RandAugment method."""
+    train_tfms = T.Compose(
+        [
+            T.RandomResizedCrop(size=image_size, scale=(0.8, 1.0)),
+            T.RandAugment(num_ops=2, magnitude=20),
+            T.ToTensor(),
+            T.Normalize(mean=mean, std=std),
+        ]
+    )
+    val_tfms = T.Compose(
+        [
+            T.Resize(size=image_size),
+            T.ToTensor(),
+            T.Normalize(mean=mean, std=std),
+        ]
+    )
+    return train_tfms, val_tfms
+
+def tv_light_transforms(
+    *, image_size: tuple, mean: tuple = IMAGENET_MEAN, std: tuple = IMAGENET_STD, **kwargs
+) -> Tuple[T.Compose, T.Compose]:
+    """Create light training and validation transforms."""
+    train_tfms = T.Compose(
+        [
+            T.RandomResizedCrop(size=image_size, scale=(0.8, 1.0)),
+            T.RandomHorizontalFlip(p=0.5),
+            T.RandomVerticalFlip(p=0.5),
+            T.RandomApply(T.ColorJitter(brightness=0.2, contrast=0.2), p=0.5),
+            T.ToTensor(),
+            T.Normalize(mean=mean, std=std),
+        ]
+    )
+    val_tfms = T.Compose(
+        [
+            T.Resize(size=image_size),
+            T.ToTensor(),
+            T.Normalize(mean=mean, std=std),
+        ]
+    )
+    return train_tfms, val_tfms
+
+
+default_tranforms = {
+    "light": light_transforms,
+    "heavy": heavy_transforms,
+    "tv_light": tv_light_transforms,
+    "vit_light": vit_light_transforms,
+    "vit_medium": vit_medium_transforms,
+    "vit_heavy": vit_heavy_transforms,
+}
+
 
 
 class ImageDataset(Dataset):
