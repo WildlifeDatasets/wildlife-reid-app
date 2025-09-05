@@ -7,6 +7,8 @@ from torch.utils.data import DataLoader
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
+from .torchvision import light_transforms as tv_light_transforms
+from .vit_torchvision import vit_heavy_transforms, vit_light_transforms, vit_medium_transforms
 default_tranforms = {
     "light": light_transforms,
     "heavy": heavy_transforms,
