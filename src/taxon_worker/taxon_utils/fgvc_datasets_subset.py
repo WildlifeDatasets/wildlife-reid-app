@@ -300,17 +300,17 @@ def get_dataloaders(
         )
 
     # create training dataset and dataloader
-    # if train_data is not None:
-    #     trainset = dataset_cls(train_data, transform=train_tfm, **dataset_kws)
-    #     trainloader_kws = dataloader_kws.copy()
-    #     if "shuffle" not in trainloader_kws:
-    #         trainloader_kws["shuffle"] = True
-    #     trainloader = DataLoader(
-    #         trainset, batch_size=batch_size, num_workers=num_workers, **trainloader_kws
-    #     )
-    # else:
-    trainset = None
-    trainloader = None
+    if train_data is not None:
+        trainset = dataset_cls(train_data, transform=train_tfm, **dataset_kws)
+        trainloader_kws = dataloader_kws.copy()
+        if "shuffle" not in trainloader_kws:
+            trainloader_kws["shuffle"] = True
+        trainloader = DataLoader(
+            trainset, batch_size=batch_size, num_workers=num_workers, **trainloader_kws
+        )
+    else:
+        trainset = None
+        trainloader = None
 
     # create validation dataset and dataloader
     if val_data is not None:
@@ -325,7 +325,7 @@ def get_dataloaders(
         valset = None
         valloader = None
 
-    # return trainloader, valloader, (trainset, valset), (train_tfm, val_tfm)
+    return trainloader, valloader, (trainset, valset), (train_tfm, val_tfm)
 
 
-    return None, valloader, (None, None), (None, None)
+    # return None, valloader, (None, None), (None, None)

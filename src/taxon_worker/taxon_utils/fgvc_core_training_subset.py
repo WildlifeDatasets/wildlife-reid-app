@@ -1,4 +1,7 @@
 from typing import Type
+import os
+import random
+import time
 
 import torch
 import torch.nn as nn
@@ -27,6 +30,9 @@ from torch.utils.data import DataLoader
 from timm.scheduler import CosineLRScheduler
 from torch.optim.lr_scheduler import CosineAnnealingLR, ReduceLROnPlateau
 from torch.utils.data import DataLoader
+
+
+from .fgvc_subset.utils.wandb import log_progress
 
 SchedulerType = Union[ReduceLROnPlateau, CosineLRScheduler, CosineAnnealingLR]
 
@@ -781,6 +787,304 @@ class LossMonitor:
         return other_avg_losses
 
 
+import logging
+import logging.config
+import os
+from typing import Optional
+
+import yaml
+
+_module_dir = os.path.abspath(os.path.dirname(__file__))
+LOGGER_CONFIG = os.path.join(_module_dir, "../config/logging.yaml")
+TRAINING_LOGGER_CONFIG = os.path.join(_module_dir, "../config/training_logging.yaml")
+
+
+def setup_logging():
+    """Setup logging configuration from a file."""
+    with open(LOGGER_CONFIG, "r") as f:
+        config = yaml.safe_load(f.read())
+        logging.config.dictConfig(config)
+
+
+def setup_training_logger(training_log_file: Optional[str]) -> logging.Logger:
+    """
+    Setup logging configuration from a file.
+
+    Parameters
+    ----------
+    training_log_file
+        Name of the log file to write training logs.
+    """
+    # load logging config
+    with open(TRAINING_LOGGER_CONFIG, "r") as f:
+        config = yaml.safe_load(f.read())
+    assert "handlers" in config, "Logging configuration file should contain handlers."
+    training_handler_name = "training_file_handler"
+    assert (
+        training_handler_name in config["handlers"]
+    ), f"Logging configuration file is missing field '{training_handler_name}'."
+    assert (
+        len(config["loggers"]) == 1
+    ), "Logging configuration file should contain only one training logger."
+
+    # update configuration
+    config["handlers"][training_handler_name]["filename"] = training_log_file
+
+    # set logging
+    logging.config.dictConfig(config)
+
+    # get logger instance
+    logger_name = list(config["loggers"].keys())[0]
+    logger = logging.getLogger(logger_name)
+    return logger
+
+
+class TrainingState:
+    """Class to log scores, track best scores, and save checkpoints with best scores.
+
+    Parameters
+    ----------
+    model
+        Pytorch neural network.
+    path
+        Experiment path for saving training outputs like checkpoints or logs.
+    optimizer
+        Optimizer instance for saving training state in case of interruption and need to resume.
+    scheduler
+        Scheduler instance for saving training state in case of interruption and need to resume.
+    resume
+        If True resumes run from a checkpoint with optimizer and scheduler state.
+    device
+        Device to use (cpu,0,1,2,...).
+    """
+
+    STATE_VARIABLES = (
+        "last_epoch",
+        "_elapsed_training_time",
+        "best_loss",
+        "best_scores_loss",
+        "best_metrics",
+        "best_scores_metrics",
+    )
+
+    def __init__(
+        self,
+        model: nn.Module,
+        path: str = ".",
+        *,
+        ema_model: nn.Module = None,
+        optimizer: Optimizer,
+        scheduler: SchedulerType = None,
+        resume: bool = False,
+        device: torch.device = None,
+    ):
+        if resume:
+            assert optimizer is not None
+        self.model = model
+        self.ema_model = ema_model
+        self.path = path or "."
+        self.optimizer = optimizer
+        self.scheduler = scheduler
+        self.device = device
+        os.makedirs(self.path, exist_ok=True)
+
+        # setup training logger
+        self.t_logger = setup_training_logger(
+            training_log_file=os.path.join(self.path, "training.log")
+        )
+
+        if resume:
+            self.resume_training()
+            self.t_logger.info(f"Resuming training after epoch {self.last_epoch}.")
+        else:
+            # create training state variables
+            self.last_epoch = 0
+            self._elapsed_training_time = 0.0
+
+            self.best_loss = np.inf
+            self.best_scores_loss = None
+
+            self.best_metrics = {}  # best other metrics like accuracy or f1 score
+            self.best_scores_metrics = {}  # string with all scores for each best metric
+
+            self.t_logger.info("Training started.")
+        self.start_training_time = time.time()
+
+    def resume_training(self):
+        """Resume training state from checkpoint.pth.tar file stored in the experiment directory."""
+        # load training checkpoint to the memory
+        checkpoint_path = os.path.join(self.path, "checkpoint.pth.tar")
+        if not os.path.isfile(checkpoint_path):
+            raise ValueError(f"Training checkpoint '{checkpoint_path}' not found.")
+        checkpoint = torch.load(checkpoint_path, map_location="cpu")
+
+        # restore state variables of this class' instance (TrainingState)
+        for variable in self.STATE_VARIABLES:
+            if variable not in checkpoint["training_state"]:
+                raise ValueError(
+                    f"Training checkpoint '{checkpoint_path} is missing variable '{variable}'."
+                )
+        for k, v in checkpoint["training_state"].items():
+            setattr(self, k, v)
+
+        # load model, optimizer, and scheduler checkpoints
+        self.model.load_state_dict(checkpoint["model"])
+        if self.device is not None:
+            self.model.to(self.device)
+        self.optimizer.load_state_dict(checkpoint["optimizer"])
+        if self.scheduler:
+            if "scheduler" not in checkpoint:
+                raise ValueError(f"Training checkpoint '{checkpoint_path}' is missing scheduler.")
+            self.scheduler.load_state_dict(checkpoint["scheduler"])
+
+        # restore random state
+        random_state = checkpoint["random_state"]
+        random.setstate(random_state["python_random_state"])
+        np.random.set_state(random_state["np_random_state"])
+        torch.set_rng_state(random_state["torch_random_state"])
+        if torch.cuda.is_available() and random_state["torch_cuda_random_state"] is not None:
+            torch.cuda.set_rng_state(random_state["torch_cuda_random_state"])
+
+    def _save_training_state(self, epoch: int):
+        if self.optimizer is not None:
+            # save state variables of this class' instance (TrainingState)
+            training_state = {}
+            for variable in self.STATE_VARIABLES:
+                training_state[variable] = getattr(self, variable)
+
+            # save random state variables
+            random_state = dict(
+                python_random_state=random.getstate(),
+                np_random_state=np.random.get_state(),
+                torch_random_state=torch.get_rng_state(),
+                torch_cuda_random_state=torch.cuda.get_rng_state()
+                if torch.cuda.is_available()
+                else None,
+            )
+
+            torch.save(
+                {
+                    "epoch": epoch + 1,
+                    "model": self.model.state_dict(),
+                    "optimizer": self.optimizer.state_dict(),
+                    "scheduler": self.scheduler and self.scheduler.state_dict(),
+                    "training_state": training_state,
+                    "random_state": random_state,
+                },
+                os.path.join(self.path, "checkpoint.pth.tar"),
+            )
+
+    def _save_checkpoint(self, epoch: int, metric_name: str, metric_value: float):
+        """Save checkpoint to .pth file and log score.
+
+        Parameters
+        ----------
+        epoch
+            Epoch number.
+        metric_name
+            Name of metric (e.g. loss) based on which checkpoint is saved.
+        metric_value
+            Value of metric based on which checkpoint is saved.
+        """
+        metric_name = metric_name.lower()
+        self.t_logger.info(
+            f"Epoch {epoch} - "
+            f"Save checkpoint with best validation {metric_name}: {metric_value:.6f}"
+        )
+        torch.save(
+            self.model.state_dict(),
+            os.path.join(self.path, f"best_{metric_name}.pth"),
+        )
+
+    def step(self, epoch: int, scores_str: str, valid_loss: float, valid_metrics: dict = None):
+        """Log scores and save the best loss and metrics.
+
+        Save checkpoints if the new best loss and metrics were achieved.
+        Save training state for resuming the training if optimizer and scheduler are passed.
+
+        The method should be called after training and validation of one epoch.
+
+        Parameters
+        ----------
+        epoch
+            Epoch number.
+        scores_str
+            Validation scores to log.
+        valid_loss
+            Validation loss based on which checkpoint is saved.
+        valid_metrics
+            Other validation metrics based on which checkpoint is saved.
+        """
+        self.last_epoch = epoch
+        self.t_logger.info(f"Epoch {epoch} - {scores_str}")
+
+        # save model checkpoint based on validation loss
+        if valid_loss is not None and valid_loss is not np.nan and valid_loss < self.best_loss:
+            self.best_loss = valid_loss
+            self.best_scores_loss = scores_str
+            self._save_checkpoint(epoch, "loss", self.best_loss)
+
+        # save model checkpoint based on other metrics
+        if valid_metrics is not None:
+            if len(self.best_metrics) == 0:
+                # set first values for self.best_metrics
+                self.best_metrics = valid_metrics.copy()
+                self.best_scores_metrics = {k: scores_str for k in self.best_metrics.keys()}
+                for metric_name, metric_value in valid_metrics.items():
+                    self._save_checkpoint(epoch, metric_name, metric_value)
+            else:
+                for metric_name, metric_value in valid_metrics.items():
+                    if metric_value > self.best_metrics[metric_name]:
+                        self.best_metrics[metric_name] = metric_value
+                        self.best_scores_metrics[metric_name] = scores_str
+                        self._save_checkpoint(epoch, metric_name, metric_value)
+
+        # save training state for resuming the training
+        self._save_training_state(epoch)
+
+    def finish(self):
+        """Log best scores achieved during training and save checkpoint of last epoch.
+
+        The method should be called after training of all epochs is done.
+        """
+        # save checkpoint of the last epoch
+        self.t_logger.info("Save checkpoint of the last epoch")
+        torch.save(
+            self.model.state_dict(),
+            os.path.join(self.path, f"epoch_{self.last_epoch}.pth"),
+        )
+        if self.ema_model is not None:
+            self.t_logger.info("Save checkpoint of the EMA model")
+            torch.save(
+                self.ema_model.state_dict(),
+                os.path.join(self.path, "EMA.pth"),
+            )
+
+        # remove training state
+        os.remove(os.path.join(self.path, "checkpoint.pth.tar"))
+
+        # make final training logs
+        self.t_logger.info(f"Best scores (validation loss): {self.best_scores_loss}")
+        for metric_name, best_scores_metric in self.best_scores_metrics.items():
+            self.t_logger.info(f"Best scores (validation {metric_name}): {best_scores_metric}")
+        elapsed_training_time = time.time() - self.start_training_time + self._elapsed_training_time
+        self.t_logger.info(f"Training done in {elapsed_training_time}s.")
+
+
+def set_random_seed(seed=777):
+    """Set random seed.
+
+    The method ensures multiple runs of the same experiment yield the same result.
+    """
+    random.seed(seed)
+    os.environ["PYTHONHASHSEED"] = str(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
 class ClassificationTrainer(SchedulerMixin, MixupMixin, EMAMixin, BaseTrainer):
     """Class to perform training of a classification neural network and/or run inference.
 
@@ -894,56 +1198,58 @@ class ClassificationTrainer(SchedulerMixin, MixupMixin, EMAMixin, BaseTrainer):
         if len(kwargs) > 0:
             warnings.warn(f"Class {self.__class__.__name__} got unused key arguments: {kwargs}")
 
-    # def train_epoch(self, epoch: int, dataloader: DataLoader) -> TrainEpochOutput:
-    #     """Train one epoch.
-    #
-    #     Parameters
-    #     ----------
-    #     epoch
-    #         Epoch number.
-    #     dataloader
-    #         PyTorch dataloader with training data.
-    #
-    #     Returns
-    #     -------
-    #     TrainEpochOutput tuple with average loss and average scores.
-    #     """
-    #     self.model.to(self.device)
-    #     self.model.train()
-    #     self.optimizer.zero_grad()
-    #     num_updates = epoch * len(dataloader)
-    #     max_grad_norm = 0.0
-    #     loss_monitor = LossMonitor(num_batches=len(dataloader))
-    #     scores_monitor = ScoresMonitor(
-    #         scores_fn=self.train_scores_fn, num_samples=len(dataloader.dataset), eval_batches=False
-    #     )
-    #     for i, batch in tqdm(enumerate(dataloader), total=len(dataloader)):
-    #         preds, targs, loss = self.train_batch(batch)
-    #         loss_monitor.update(loss)
-    #         scores_monitor.update(preds, targs)
-    #
-    #         # make optimizer step
-    #         if (i - 1) % self.accumulation_steps == 0:
-    #             grad_norm = get_gradient_norm(self.model.parameters(), norm_type=2)
-    #             max_grad_norm = max(max_grad_norm, grad_norm)  # store maximum gradient norm
-    #             if self.clip_grad is not None:  # apply gradient clipping
-    #                 torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.clip_grad)
-    #             self.optimizer.step()
-    #             self.optimizer.zero_grad()
-    #
-    #             # update average model
-    #             self.make_ema_update(epoch + 1)
-    #
-    #             # update lr scheduler from timm library
-    #             num_updates += 1
-    #             self.make_timm_scheduler_update(num_updates)
-    #
-    #     return TrainEpochOutput(
-    #         loss_monitor.avg_loss,
-    #         scores_monitor.avg_scores,
-    #         max_grad_norm,
-    #         loss_monitor.other_avg_losses,
-    #     )
+    def train_epoch(self, epoch: int, dataloader: DataLoader) -> TrainEpochOutput:
+        """Train one epoch.
+
+        Parameters
+        ----------
+        epoch
+            Epoch number.
+        dataloader
+            PyTorch dataloader with training data.
+
+        Returns
+        -------
+        TrainEpochOutput tuple with average loss and average scores.
+        """
+        self.model.to(self.device)
+        self.model.train()
+        self.optimizer.zero_grad()
+        num_updates = epoch * len(dataloader)
+        max_grad_norm = 0.0
+        loss_monitor = LossMonitor(num_batches=len(dataloader))
+        scores_monitor = ScoresMonitor(
+            scores_fn=self.train_scores_fn, num_samples=len(dataloader.dataset), eval_batches=False
+        )
+        for i, batch in tqdm(enumerate(dataloader), total=len(dataloader)):
+            preds, targs, loss = self.train_batch(batch)
+            loss_monitor.update(loss)
+            scores_monitor.update(preds, targs)
+
+            # make optimizer step
+            if (i - 1) % self.accumulation_steps == 0:
+                grad_norm = get_gradient_norm(self.model.parameters(), norm_type=2)
+                max_grad_norm = max(max_grad_norm, grad_norm)  # store maximum gradient norm
+                if self.clip_grad is not None:  # apply gradient clipping
+                    torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.clip_grad)
+                self.optimizer.step()
+                self.optimizer.zero_grad()
+
+                # update average model
+                self.make_ema_update(epoch + 1)
+
+                # update lr scheduler from timm library
+                num_updates += 1
+                self.make_timm_scheduler_update(num_updates)
+
+        return TrainEpochOutput(
+            loss_monitor.avg_loss,
+            scores_monitor.avg_scores,
+            max_grad_norm,
+            loss_monitor.other_avg_losses,
+        )
+
+
 
 
 
@@ -994,94 +1300,94 @@ class ClassificationTrainer(SchedulerMixin, MixupMixin, EMAMixin, BaseTrainer):
             scores_monitor.avg_scores,
         )
 
-    # def train(
-    #     self,
-    #     num_epochs: int = 1,
-    #     seed: int = 777,
-    #     path: str = None,
-    #     resume: bool = False,
-    # ):
-    #     """Train neural network.
-    #
-    #     Parameters
-    #     ----------
-    #     num_epochs
-    #         Number of epochs to train.
-    #     seed
-    #         Random seed to set.
-    #     path
-    #         Experiment path for saving training outputs like checkpoints or logs.
-    #     resume
-    #         If True resumes run from a checkpoint with optimizer and scheduler state.
-    #     """
-    #     # create training state
-    #     training_state = TrainingState(
-    #         self.model,
-    #         path=path,
-    #         ema_model=self.get_ema_model(),
-    #         optimizer=self.optimizer,
-    #         scheduler=self.scheduler,
-    #         resume=resume,
-    #         device=self.device,
-    #     )
-    #
-    #     # run training loop
-    #     if not resume:
-    #         # set random seed when training from the start
-    #         # otherwise, when resuming training use state from the checkpoint
-    #         set_random_seed(seed)
-    #     for epoch in range(training_state.last_epoch, num_epochs):
-    #         # apply training and validation on one epoch
-    #         start_epoch_time = time.time()
-    #         train_output = self.train_epoch(epoch, self.trainloader)
-    #         predict_output = PredictOutput()
-    #         ema_predict_output = None
-    #         if self.validloader is not None:
-    #             predict_output = self.predict(self.validloader, return_preds=False)
-    #             if getattr(self, "ema_model") is not None:
-    #                 ema_predict_output = self.predict(
-    #                     self.validloader, return_preds=False, model=self.get_ema_model()
-    #                 )
-    #         elapsed_epoch_time = time.time() - start_epoch_time
-    #
-    #         # make a scheduler step
-    #         lr = self.optimizer.param_groups[0]["lr"]
-    #         self.make_scheduler_step(epoch + 1, valid_loss=predict_output.avg_loss)
-    #
-    #         # log scores to W&B
-    #         ema_scores = ema_predict_output.avg_scores if ema_predict_output is not None else {}
-    #         ema_scores = {f"{k} (EMA)": v for k, v in ema_scores.items()}
-    #         log_progress(
-    #             epoch + 1,
-    #             train_loss=train_output.avg_loss,
-    #             valid_loss=predict_output.avg_loss,
-    #             train_scores={**train_output.avg_scores, **train_output.other_avg_losses},
-    #             valid_scores={**predict_output.avg_scores, **ema_scores},
-    #             lr=lr,
-    #             max_grad_norm=train_output.max_grad_norm,
-    #             train_prefix=self.wandb_train_prefix,
-    #             valid_prefix=self.wandb_valid_prefix,
-    #         )
-    #
-    #         # log scores to file and save model checkpoints
-    #         _scores = {
-    #             "avg_train_loss": f"{train_output.avg_loss:.4f}",
-    #             "avg_val_loss": f"{predict_output.avg_loss:.4f}",
-    #             **{
-    #                 s: f"{predict_output.avg_scores.get(s, np.nan):.2%}"
-    #                 for s in ["F1", "Accuracy", "Recall@3"]
-    #             },
-    #             "time": f"{elapsed_epoch_time:.0f}s",
-    #         }
-    #         training_state.step(
-    #             epoch + 1,
-    #             scores_str="\t".join([f"{k}: {v}" for k, v in _scores.items()]),
-    #             valid_loss=predict_output.avg_loss,
-    #             valid_metrics=predict_output.avg_scores,
-    #         )
-    #
-    #     # save last checkpoint, log best scores and total training time
-    #     training_state.finish()
+    def train(
+        self,
+        num_epochs: int = 1,
+        seed: int = 777,
+        path: str = None,
+        resume: bool = False,
+    ):
+        """Train neural network.
+
+        Parameters
+        ----------
+        num_epochs
+            Number of epochs to train.
+        seed
+            Random seed to set.
+        path
+            Experiment path for saving training outputs like checkpoints or logs.
+        resume
+            If True resumes run from a checkpoint with optimizer and scheduler state.
+        """
+        # create training state
+        training_state = TrainingState(
+            self.model,
+            path=path,
+            ema_model=self.get_ema_model(),
+            optimizer=self.optimizer,
+            scheduler=self.scheduler,
+            resume=resume,
+            device=self.device,
+        )
+
+        # run training loop
+        if not resume:
+            # set random seed when training from the start
+            # otherwise, when resuming training use state from the checkpoint
+            set_random_seed(seed)
+        for epoch in range(training_state.last_epoch, num_epochs):
+            # apply training and validation on one epoch
+            start_epoch_time = time.time()
+            train_output = self.train_epoch(epoch, self.trainloader)
+            predict_output = PredictOutput()
+            ema_predict_output = None
+            if self.validloader is not None:
+                predict_output = self.predict(self.validloader, return_preds=False)
+                if getattr(self, "ema_model") is not None:
+                    ema_predict_output = self.predict(
+                        self.validloader, return_preds=False, model=self.get_ema_model()
+                    )
+            elapsed_epoch_time = time.time() - start_epoch_time
+
+            # make a scheduler step
+            lr = self.optimizer.param_groups[0]["lr"]
+            self.make_scheduler_step(epoch + 1, valid_loss=predict_output.avg_loss)
+
+            # log scores to W&B
+            ema_scores = ema_predict_output.avg_scores if ema_predict_output is not None else {}
+            ema_scores = {f"{k} (EMA)": v for k, v in ema_scores.items()}
+            log_progress(
+                epoch + 1,
+                train_loss=train_output.avg_loss,
+                valid_loss=predict_output.avg_loss,
+                train_scores={**train_output.avg_scores, **train_output.other_avg_losses},
+                valid_scores={**predict_output.avg_scores, **ema_scores},
+                lr=lr,
+                max_grad_norm=train_output.max_grad_norm,
+                train_prefix=self.wandb_train_prefix,
+                valid_prefix=self.wandb_valid_prefix,
+            )
+
+            # log scores to file and save model checkpoints
+            _scores = {
+                "avg_train_loss": f"{train_output.avg_loss:.4f}",
+                "avg_val_loss": f"{predict_output.avg_loss:.4f}",
+                **{
+                    s: f"{predict_output.avg_scores.get(s, np.nan):.2%}"
+                    for s in ["F1", "Accuracy", "Recall@3"]
+                },
+                "time": f"{elapsed_epoch_time:.0f}s",
+            }
+            training_state.step(
+                epoch + 1,
+                scores_str="\t".join([f"{k}: {v}" for k, v in _scores.items()]),
+                valid_loss=predict_output.avg_loss,
+                valid_metrics=predict_output.avg_scores,
+            )
+
+        # save last checkpoint, log best scores and total training time
+        training_state.finish()
 
 def predict(
         model: nn.Module,
