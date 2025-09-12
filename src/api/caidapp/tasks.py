@@ -454,6 +454,7 @@ def run_species_prediction_async(
         logger.debug(f"{len(df)=}")
 
     if link is None:
+        logger.debug("setting default link for run_species_prediction_async to ")
         link = (
             on_success_predict_taxon.s(
                 uploaded_archive_id=uploaded_archive.id,
