@@ -1,63 +1,17 @@
 {% extends 'base.html' %}
 {% load static %}
+{% load i18n %}
 {% block head %}
 {% endblock %}
 {% block body %}
     {% if user.is_authenticated %}
 
         <div class="pagetitle">
-            <h1>Identities</h1>
-            {#            {% if workgroup.identification_init_status %}#}
-            {#                <p>Identification initiated at: {{ workgroup.identification_init_at|date:'Y-m-d H:i' }}</p>#}
-            {#                <p>{{ workgroup.identification_init_message }}</p>#}
-            {#            {% else %}#}
-            {#                Identification not initiated.#}
-            {#            {% endif %}#}
+{#            <h2>{% if title %}{{ title }}{% else %}{% trans 'Object list' %}{% endif %}</h2>#}
+            <h1>{% if title %}{{ title }}{% else %}{% trans 'Identities' %}{% endif %}</h1>
 
             <nav>
-                {#                <ol class="breadcrumb">#}
-                {#                    <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li>#}
-                {#                </ol>#}
-                {#                <a class="btn btn-primary mt-2" href="{% url 'caidapp:get_individual_identity' %}"><i class="bi bi-question-circle"></i> Annotate unknown identities</a>#}
-                <a class="btn btn-secondary dropdown-toggle" href="#" role="button"
-                   data-bs-toggle="dropdown" aria-expanded="false">
-                    <i class="bi bi-file-earmark-arrow-down"></i>
-                    Import / Export identities
-                </a>
-                <ul class="dropdown-menu">
-                    <li>
-                <a class="dropdown-item " href="{% url 'caidapp:import_identities' %}"><i
-                        class="bi bi-file-earmark-arrow-up"></i> Import identities</a>
-                    </li>
-                    <li><a class="dropdown-item " href="{% url 'caidapp:export_identities_csv' %}"><i
-                            class="bi bi-filetype-csv"></i> Export identities to CSV</a></li>
-                    <li><a class="dropdown-item " href="{% url 'caidapp:export_identities_xlsx' %}"><i
-                            class="bi bi-file-earmark-excel"></i> Export identities to XLSX</a></li>
-                </ul>
-                <a class="btn btn-secondary dropdown-toggle" href="#" role="button"
-                   data-bs-toggle="dropdown" aria-expanded="false">
-                    <i class="bi bi-three-dots"></i>
-                </a>
-                <ul class="dropdown-menu">
-                    <li>
-
-{#                        <a class="dropdown-item" href="{% url 'caidapp:representative_mediafiles' %}"><i class="bi bi-eye"></i> Check representative images </a>#}
-                        <a class="dropdown-item mt-2" href="{% url 'caidapp:individual_identity_create' %}"><i
-                                class="bi bi-plus-circle"></i> Add new identity</a>
-                    </li>
-                    <li>
-                        <a class="dropdown-item mt-2" href="{% url 'caidapp:suggest_merge_identities' %}"><i
-                                class="bi bi-union"></i> Identity merge tool</a>
-                    </li>
-
-                    <li><a class="dropdown-item mt-2" href="{% url 'caidapp:show_identity_code_suggestions' %}">
-                        {#                    icon with numbers #}
-                        <i class="bi bi-upc"></i> Identity code suggestions</a>
-                    </li>
-                    {#                <a class="btn btn-secondary mt-2" href="{% url 'caidapp:init_identification' %}"><i class="fas fa-fingerprint"></i> Init identification</a>#}
-                    <li><a class="dropdown-item mt-2" href="{% url 'caidapp:not_identified_mediafiles' %}"><i
-                            class="fa fa-question"></i> List of not identified media files </a></li>
-                </ul>
+                {% include "caidapp/include_identities_tools.html" %}
             </nav>
         </div><!-- End Page Title -->
         <section class="section">
@@ -70,6 +24,7 @@
                     {% include "caidapp/pagination_simple_a.html" %}
                 </div>
                 <div>
+                    <a href="?view=cards"><i class="bi bi-grid"></i></a>  <a href="?view=table"><i class="bi bi-list"></i></a>
                     {%  with name_plural='identities' %}
                         {% include "caidapp/identities_order_by.html" %}
                     {% endwith %}

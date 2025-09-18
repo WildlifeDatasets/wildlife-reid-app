@@ -661,6 +661,7 @@ class IdentityListView(LoginRequiredMixin, ListView):
     template_name = "caidapp/individual_identities.html"
     context_object_name = "individual_identities"
     paginate_by = 24
+    title = "Identities"
 
 
     def get_queryset(self):
@@ -680,10 +681,18 @@ class IdentityListView(LoginRequiredMixin, ListView):
         order_by = views_general.get_order_by_anything(self.request, "identities")
         return self.filterset.qs.order_by(order_by)
 
+    def get_template_names(self):
+        view_type = self.request.GET.get("view", "cards")
+        if view_type == "table":
+            return ["caidapp/individual_identities_table.html"]
+        else:
+            return ["caidapp/individual_identities.html"]
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         # context["filter_form"] = self.filterset.form
         context["filter"] = self.filterset
+        context['list_display'] = []
         context = add_querystring_to_context(self.request, context)
         # query_params = self.request.GET.copy()
         # query_params.pop('page', None)

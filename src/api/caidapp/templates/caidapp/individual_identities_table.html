@@ -1,0 +1,194 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load custom_tags %}
+{% block head %}
+{% endblock %}
+{% block body %}
+    {% if user.is_authenticated %}
+
+        <div class="pagetitle">
+{#            <h2>{% if title %}{{ title }}{% else %}{% trans 'Object list' %}{% endif %}</h2>#}
+            <h1>{% if title %}{{ title }}{% else %}{% trans 'Identities' %}{% endif %}</h1>
+
+            <nav>
+                {% include "caidapp/include_identities_tools.html" %}
+            </nav>
+        </div><!-- End Page Title -->
+        <section class="section">
+            {% include "caidapp/filter_collapse.html" %}
+
+
+
+            <div class="d-flex justify-content-between mt-2 mb-2">
+                <div>
+                    {% include "caidapp/pagination_simple_a.html" %}
+                </div>
+                <div>
+                    <a href="?view=cards"><i class="bi bi-grid"></i></a>  <a href="?view=table"><i class="bi bi-list"></i></a>
+                    {%  with name_plural='identities' %}
+                        {% include "caidapp/identities_order_by.html" %}
+                    {% endwith %}
+                </div>
+
+            </div>
+        <div class="row" id="row-of-cards">
+
+            {% if page_obj %}
+                <table class="table table-striped">
+                    <thead>
+                    <tr>
+                        <th></th>
+                        <th>{% trans 'Name' %}</th>
+                    <th>Sex</th>
+                        <th> Media files </th>
+                        <th> Representative</th>
+                    <th>
+{#                        <i class="bi bi-geo-alt"></i> #}
+                        Locality</th>
+                    <th>Count</th>
+                    <th>Last seen</th>
+                        {% for field in list_display %}
+                            <th>{{ field|capfirst }}</th>
+                        {% endfor %}
+                        {% if object_detail_url or object_update_url or object_delete_url %}
+                            <th>{% trans "Action" %}</th>
+                        {% endif %}
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {% for object in object_list %}
+                        {% with individual_identity=object %}
+                        <tr>
+                            <td>
+                                <a class="link-secondary"
+{#                                        href="{% url 'caidapp:individual_identity_mediafiles' individual_identity.id %}"#}
+                                        href="{% url 'caidapp:individual_identity_update' individual_identity.id %}"
+                                >
+
+                                    {% if individual_identity.mediafile_set.first.thumbnail %}
+                                        <img class="img-fluid cover-image" src="{{ individual_identity.mediafile_set.first.thumbnail.url }}"
+                                             style="height: 25px; width:45px; object-fit: cover;"
+                                             alt="Camera trap image">
+                                    {% endif %}
+                                </a>
+                            </td>
+                            <td><a class="link-secondary"
+                                    href="{% url 'caidapp:individual_identity_update' individual_identity.id %}"
+                                >
+                                    {{ individual_identity }}
+                                </a>
+                            </td>
+                        <td>
+                            {% if individual_identity.sex != "U" %}
+                            {{ individual_identity.sex }}
+                            {% endif %}
+                        </td>
+                            <td>
+                                <a
+                                        class="link-secondary"
+                                        href="{% url 'caidapp:individual_identity_mediafiles' individual_identity.id %}"
+                                        data-bs-toggle="tooltip" title="Representative media files / Media files">
+                                    {{ individual_identity.count_of_mediafiles }}
+                                </a>
+                            </td>
+                            <td>
+                                <a
+                                        class="link-secondary"
+                                        href="{% url 'caidapp:individual_identity_mediafiles' individual_identity.id %}?search&identity_is_representative=true"
+                                        data-bs-toggle="tooltip" title="Representative media files / Media files">
+                                    {{ individual_identity.count_of_representative_mediafiles }}
+                                </a>
+                            </td>
+                            <td>
+                                {{ individual_identity.localities.0 }}
+                            </td>
+                            <td>
+                                {{ individual_identity.count_of_localities }}
+                            </td>
+                        <td>
+                            {{ individual_identity.last_seen|date:'Y-m-d' }}
+                        </td>
+                            {% for field in list_display %}
+                                <td>{{ object|attr:field }}</td>
+                            {% endfor %}
+                            {% if object_detail_url or object_update_url or object_delete_url %}
+                                <td>
+                                    {% if object_detail_url %}
+                                        <a href="{% url object_detail_url object.pk %}" class="btn btn-sm btn-outline-info">{% trans 'Detail' %}</a>
+                                    {% endif %}
+                                    {% if object_update_url %}
+                                        <a href="{% url object_update_url object.pk %}" class="btn btn-sm btn-outline-primary">{% trans 'Edit' %}</a>
+                                    {% endif %}
+                                    {% if object_delete_url %}
+                                        <a href="{% url object_delete_url object.pk %}" class="btn btn-sm btn-outline-danger">{% trans 'Delete' %}</a>
+                                    {% endif %}
+                                </td>
+                            {% endif %}
+                            <td>
+                                <a class="btn btn-sm btn-secondary"
+                                   href="{% url 'caidapp:individual_identity_update' individual_identity.id %}">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+
+                                {#                                dropdown button #}
+                                <a class="btn btn-sm btn-secondary dropdown-toggle" href="#" role="button"
+                                   data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="bi bi-three-dots"></i>
+                                </a>
+                                <ul class="dropdown-menu">
+                                    <li>
+                                        <a class="dropdown-item"
+                                           href="{% url 'caidapp:merge_identities' individual_identity.id %}">
+                                            {#                                                    <i class="bi bi-images"></i> #}
+                                            <i class="bi bi-union"></i>
+                                            Merge identities
+                                        </a>
+                                    </li>
+                                    {% if individual_identity.hash %}
+                                        <li>
+                                            <a class="dropdown-item"
+                                               href="{% url 'caidapp:shared_individual_identity' individual_identity.hash %}">
+                                                <i class="bi bi-share-fill"></i> Share
+                                            </a>
+                                        </li>
+                                    {% endif %}
+                                    <li>
+                                        <a class="dropdown-item"
+                                           href="{% url 'caidapp:delete_individual_identity' individual_identity.id %}"
+                                           onclick="return confirm('Delete identity {{ individual_identity }}?')">
+                                            <i class="bi bi-trash"></i> Delete
+                                        </a>
+                                    </li>
+                                </ul>
+
+                                <span
+                                        {#                                            data-bs-toggle="tooltip"#}
+                                        {#                                            data-toggle="tooltip"#}
+                                        title="Updated by: {{ individual_identity.updated_by }}
+{% if individual_identity.birth_date %}Birth: {{ individual_identity.birth_date }}{% endif %}
+{#{% for mf in individual_identity.mediafiles %}#}
+{#{{ mf.id }} {{ mf }} {% endfor %}#}
+{# {% if individual_identity.birth_date and individual_identity.birth_date.length > 0 %}Birth: {{ individual_identity.birth_date |date:'Y-m-d H:i' }}{% endif %}#}
+{# {% if individual_identity.death_date %}Death: {{ individual_identity.death_date |date:'Y-m-d H:i' }}{% endif %} #}
+                                    ">
+                                            <i class="bi bi-info-circle"></i>
+                                        </span>
+                            </td>
+                        </tr>
+                        {% endwith %}
+                    {% empty %}
+                        <tr><td colspan="100%">{% trans "No records" %}</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+                <div class="mt-2">
+                    {% include "caidapp/pagination_a.html" %}
+                </div>
+            {% endif %}
+        </div>
+{#        pagination #}
+        </section>
+
+    {% endif %}
+{% endblock %}

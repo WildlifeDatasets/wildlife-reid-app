@@ -1,0 +1,13 @@
+{% load i18n %}
+{% load custom_tags %}
+{% load crispy_forms_tags %}
+
+{% if filter %}
+    <form method="get" class="filter-form d-flex align-items-end flex-wrap gap-2">
+        {{ filter.form|crispy}}
+        <button type="submit" class="btn btn-secondary h-100 align-self-end mb-3" >
+            <span class="bi bi-search"></span>
+                {% trans 'Filter' %}
+        </button>
+    </form>
+{% endif %}
