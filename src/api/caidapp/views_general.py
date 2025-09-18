@@ -4,6 +4,7 @@ from django.http import HttpResponse
 import datetime
 import pandas as pd
 from io import BytesIO
+from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 
 def set_sort_anything_by(request, name_plural:str, sort_by: str):
     """Sort uploaded archives by."""
@@ -17,13 +18,25 @@ def set_item_number_anything(request, name_plural:str, item_number: int):
     request.session[f"item_number_{name_plural}"] = item_number
     # go back to previous page but set ?page=1
     referer = request.META.get("HTTP_REFERER", "/")
-    # find page= and remove it
-    referer = re.sub(r"page=\d+", "", referer)
-    # add page=1
-    referer += "?page=1"
-    return redirect(referer)
+    # rozparsuj URL
+    parsed = urlparse(referer)
+    query_params = parse_qs(parsed.query)
 
-    # return redirect(request.META.get("HTTP_REFERER", "/"))
+    # nastav page=1
+    query_params["page"] = ["1"]
+
+    # slož zpět
+    new_query = urlencode(query_params, doseq=True)
+    new_url = urlunparse(parsed._replace(query=new_query))
+
+    return redirect(new_url)
+    # # find page= and remove it
+    # referer = re.sub(r"page=\d+", "", referer)
+    # # add page=1
+    # referer += "?page=1"
+    # return redirect(referer)
+    #
+    # # return redirect(request.META.get("HTTP_REFERER", "/"))
 
 
 def get_order_by_anything(request, name_plural:str):
