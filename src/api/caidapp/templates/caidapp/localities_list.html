@@ -1,0 +1,193 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load custom_tags %}
+{% block head %}
+    <style>
+        /* Custom breakpoint for screens larger than 1920px (you can adjust the value as needed) */
+        @media (min-width: 1920px) {
+            .col-xxxl-1 {
+                flex: 0 0 auto;
+                width: 8.33%; /* 1/12th of the width */
+            }
+            .col-xxxl-2 {
+                flex: 0 0 auto;
+                width: 16.66%; /* 2/12th of the width */
+            }
+            .col-xxxl-3 {
+                flex: 0 0 auto;
+                width: 25%; /* 3/12th of the width */
+            }
+            .col-xxxl-4 {
+                flex: 0 0 auto;
+                width: 33.33%; /* 4/12th of the width */
+            }
+            .col-xxxl-6 {
+                flex: 0 0 auto;
+                width: 50%; /* 6/12th of the width */
+            }
+        }
+
+
+
+        .card {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .card-body {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .image-container-300 {
+            width: 300px;
+            height: 225px;
+        }
+
+        .image-container-300 img {
+            width: 300px;
+            height: 225px;
+            object-fit: cover;
+        }
+
+        .card.width-300 {
+            width: 300px;
+        }
+    </style>
+{% endblock %}
+{% block body %}
+    {% if user.is_authenticated %}
+
+
+        <div class="pagetitle">
+            <h1>Localities</h1>
+        <nav>
+            {% include 'caidapp/localities_include_menu.html' %}
+        </nav>
+
+        </div><!-- End Page Title -->
+        <section class="section">
+        {% include "caidapp/filter_collapse.html" %}
+        <div class="d-flex justify-content-between mt-3">
+            <div>
+                {% include 'caidapp/pagination_simple_a.html' %}
+            </div>
+            <div>
+                {% with name_plural='localities' %}
+                    {% include 'caidapp/localities_order_by.html' %}
+                {% endwith %}
+
+
+            </div>
+
+        </div>
+{#        {{ localities|length }} localities#}
+{#        {{ page_obj.paginator.count }} localities#}
+        <div class="row" id="row-of-cards">
+
+            {% if localities %}
+                <table class="table table-striped">
+                    <thead>
+                    <tr>
+                        <th></th>
+{#                        <th>{% trans 'Name' %}</th>#}
+                        {% for field in list_display %}
+                            <th>{{ field|capfirst }}</th>
+                        {% endfor %}
+                    <th>Camera trap checks</th>
+                        <th>Camera trap checks</th>
+                        {% if object_detail_url or object_update_url or object_delete_url %}
+                            <th>{% trans "Action" %}</th>
+                        {% endif %}
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {% for object in object_list %}
+                        {% with locality=object %}
+                            <tr>
+                                <td>
+                                    {% if locality.mediafile_set.count > 0 and locality.mediafile_set.all.0.image_file  %}
+                                        <a href="{% url 'caidapp:update_locality' locality.id %}" class=""
+                                                {%  if request.session.private_mode %}
+                                           onclick="return confirm('You are in private mode. In edit view you will reveal the locality. Do you want to continue?')"
+                                                {% endif %}
+                                        >
+                                            <img
+                                                    class="card-img-top"
+                                                    {#                                            src="{{ locality.uploadedarchive_set.all.0.thumbnail.url }}"#}
+                                                    {#                                            src="{{ locality.mediafiles.all.0.image_file.url }}"#}
+                                                    src="{{ locality.mediafile_set.all.0.get_static_thumbnail.url }}"
+                                                    alt="Camera trap image"
+                                                    style="width:25px; height:45px; object-fit: cover;"
+                                            >
+                                        </a>
+                                    {% else %}
+{#                                        <div class="card-img-top placeholder" style="width: 300px; height: 225px; background-color: #898c8f;"></div>#}
+                                    {% endif %}
+{#                                    <a class="link-secondary"#}
+                                            {#                                        href="{% url 'caidapp:individual_identity_mediafiles' individual_identity.id %}"#}
+{#                                       href="{% url 'caidapp:locality' object.id %}"#}
+{#                                    >#}
+
+                                        {% if object.mediafile_set.first.thumbnail %}
+                                            <img class="img-fluid cover-image" src="{{ object.mediafile_set.first.thumbnail.url }}"
+                                                 style="height: 25px; width:45px; object-fit: cover;"
+                                                 alt="Camera trap locality image">
+                                        {% endif %}
+{#                                    </a>#}
+                                </td>
+{#                                <td>#}
+{#                                    <a class="link-secondary"#}
+{#                                       href="{% url 'caidapp:individual_identity_update' individual_identity.id %}"#}
+{#                                >#}
+{#                                    {{ object }}#}
+{#                                </a>#}
+{#                                </td>#}
+                                {% for field in list_display %}
+                                    <td>{{ object|attr:field }}</td>
+                                {% endfor %}
+
+
+                                <td>
+
+                                    <a href="{% url 'caidapp:uploads_of_locality' locality.hash %}" class="link-secondary"
+                                       data-bs-toggle="tooltip" title="Camera Trap Checks"
+                                    >
+                                        {{ locality.uploadedarchive_set.count }}
+                                    </a>
+                                </td>
+                                <td>
+                                    <a href="{% url 'caidapp:media_files_locality' locality.hash %}" class="link-secondary" >
+                                        {{ locality.mediafile_count }}
+                                    </a>
+                                </td>
+                                {% if object_detail_url or object_update_url or object_delete_url %}
+                                    <td>
+                                        {% if object_detail_url %}
+                                            <a href="{% url object_detail_url object.pk %}" class="btn btn-sm btn-outline-info">{% trans 'Detail' %}</a>
+                                        {% endif %}
+                                        {% if object_update_url %}
+                                            <a href="{% url object_update_url object.pk %}" class="btn btn-sm btn-outline-primary">{% trans 'Edit' %}</a>
+                                        {% endif %}
+                                        {% if object_delete_url %}
+                                            <a href="{% url object_delete_url object.pk %}" class="btn btn-sm btn-outline-danger">{% trans 'Delete' %}</a>
+                                        {% endif %}
+                                    </td>
+                                {% endif %}
+                                <td>
+                                </td>
+                            </tr>
+                        {% endwith %}
+                    {% empty %}
+                        <tr><td colspan="100%">{% trans "No records" %}</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            {% endif %}
+        </div>
+        </section>
+
+    {% endif %}
+{% endblock %}

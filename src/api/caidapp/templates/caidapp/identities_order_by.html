@@ -1,11 +1,15 @@
+<a href="{% querystring request.GET view='cards' %}"><i class="bi bi-grid"></i></a>  <a href="{% querystring request.GET view='list' %}"><i class="bi bi-list"></i></a>
+
 <div class="btn-group text-right">
     <div class="dropdown">
         <button class="btn btn-secondary dropdown-toggle btn-sm" type="button" data-bs-toggle="dropdown" aria-expanded="false">
             Order By
         </button>
         <ul class="dropdown-menu">
-            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_anything_by' name_plural  '-name' %}">▼ Name</a></li>
-            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_anything_by' name_plural  'name' %}">▲ Name</a></li>
+            <li><a class="dropdown-item" href="{% querystring request.GET sort='name' dir='desc'  %}">▼ Name</a></li>
+            <li><a class="dropdown-item" href="{% querystring request.GET sort='name' dir='asc'  %}">▲ Name</a></li>
+{#            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_anything_by' name_plural  '-name' %}">▼ Name</a></li>#}
+{#            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_anything_by' name_plural  'name' %}">▲ Name</a></li>#}
             <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_anything_by' name_plural '-sex' %}">▼ Sex</a></li>
             <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_anything_by' name_plural  'sex' %}">▲ Sex</a></li>
             <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_anything_by' name_plural '-birth_date' %}">▼ Birth date</a></li>

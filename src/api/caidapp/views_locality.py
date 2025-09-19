@@ -437,24 +437,37 @@ class LocalityListView(LoginRequiredMixin, ListView):
     template_name = "caidapp/localities.html"
     context_object_name = "localities"
     paginate_by = 8
+    title = "Localities"
 
     # order by
 
 
     # paginate_by = views_general.get_item_number_anything(request, "localities")
+    def get_template_names(self):
+        view_type = self.request.GET.get("view", "cards")
+        if view_type == "cards":
+            return ["caidapp/localities.html"]
+        else:
+            return ["caidapp/localities_list.html"]
 
     def get_queryset(self):
         # params = user_has_access_filter_params(self.request.user.caiduser, "owner")
         self.paginate_by = views_general.get_item_number_anything(self.request, "localities")
         objects = get_all_relevant_localities(request=self.request)
         self.filterset = LocalityFilter(self.request.GET, queryset=objects)
+        qs = self.filterset.qs
         # objects = Locality.objects.filter(**params)
-        order_by = views_general.get_order_by_anything(self.request, "localities")
-        logger.debug(f"{order_by=}")
+        sort, direction = views_general.get_order_by_anything(self.request, "localities")
+
+        if sort in [f.name for f in self.model._meta.fields]:
+            if direction == "desc":
+                sort = f"-{sort}"
+            qs = qs.order_by(sort)
+        logger.debug(f"{sort=}")
         # if order_by == "count_of_mediafiles" or order_by == "-count_of_mediafiles":
         #     logger.debug("Annotating")
         #     objects = objects.annotate(count_of_mediafiles=django.db.models.Count("mediafiles"))
-        return self.filterset.qs.order_by(order_by)
+        return qs
 
     def get_detail_url_name(self):
         return "caidapp:generic_locality_detail"
@@ -467,8 +480,15 @@ class LocalityListView(LoginRequiredMixin, ListView):
         context["filter"] = self.filterset
         context = add_querystring_to_context(self.request, context)
         # query_params = self.request.GET.copy()
+        context["list_display"] = ["name", "area", ]
         # query_params.pop('page', None)
         # context['query_string'] = query_params.urlencode()
+        # context['object_detail_url'] = 'shift-report-detail'
+        # context['object_update_url'] = 'shift-report-update'
+        context['object_update_url'] = 'caidapp:update_locality'
+        # context['object_delete_url'] = 'caidapp:delete_locality'
+        # context['object_delete_url'] = 'shift-report-delete'
+        # context['object_create_url'] = 'shift-report-create'
         return context
 
 def suggest_merge_localities(request):

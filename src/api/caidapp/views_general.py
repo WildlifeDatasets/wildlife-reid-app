@@ -5,10 +5,13 @@ import datetime
 import pandas as pd
 from io import BytesIO
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
+import logging
+logger = logging.getLogger(__name__)
 
 def set_sort_anything_by(request, name_plural:str, sort_by: str):
     """Sort uploaded archives by."""
     request.session[f"sort_{name_plural}_by"] = sort_by
+    # request.session[f"sort_{name_plural}_by"] = sort_by
 
     # go back to previous page
     return redirect(request.META.get("HTTP_REFERER", "/"))
@@ -39,13 +42,32 @@ def set_item_number_anything(request, name_plural:str, item_number: int):
     # # return redirect(request.META.get("HTTP_REFERER", "/"))
 
 
-def get_order_by_anything(request, name_plural:str):
+def get_order_by_anything(request, name_plural:str, model=None):
     """Get order by for uploaded archives."""
-    default = "-name"
-    if name_plural == "uploaded_archives":
-        default = "-uploaded_at"
-    sort_by = request.session.get(f"sort_{name_plural}_by", default)
-    return sort_by
+    direction = "desc"
+
+    def get_session_key(param: str) -> str:
+        return f"{param}_{name_plural}"
+
+    sort = request.GET.get("sort") or request.session.get(get_session_key("sort"))
+    direction = request.GET.get("dir") or request.session.get(get_session_key("dir"), direction)
+    # page = request.GET.get("page") or request.session.get(get_session_key("page"), 1)
+    logger.debug(f"{sort=}, {direction=}")
+
+    if sort:
+        request.session[get_session_key("sort")] = sort
+    else:
+        if name_plural == "uploaded_archives":
+            sort = "uploaded_at"
+        else:
+            sort = "name"
+
+    request.session[get_session_key("dir")] = direction
+    # request.session[get_session_key("page")] = page
+
+
+    # sort_by = request.session.get(f"sort_{name_plural}_by", default)
+    return sort, direction
 
 def get_item_number_anything(request, name_plural:str):
     """Get order by for uploaded archives."""

@@ -3,6 +3,7 @@
 ## 2025-09
 * [added] Notification on finished identification
 * [changed] FGVC subset extracted from FGVC package
+* [added] List view for localities and identities
 
 ## 2025-08
 

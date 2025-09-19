@@ -1,0 +1,21 @@
+<a href="{% url 'caidapp:update_locality' %}" class="btn btn-secondary">
+    <i class="fas fa-plus"></i> Add new locality
+</a>
+<a href="{% url 'caidapp:suggest_merge_localities' %}" class="btn btn-secondary">
+    <i class="bi bi-union"></i> Suggest merge localities
+</a>
+<a href="{% url 'caidapp:import_localities' %}" class="btn btn-secondary">
+    <i class="fas fa-file-import"></i> Import spreadsheet
+</a>
+<a href="{% url 'caidapp:export_localities' %}" class="btn btn-secondary">
+    <i class="fas fa-file-export"></i> Export CSV
+</a>
+<a href="{% url 'caidapp:export_localities_xls' %}" class="btn btn-secondary">
+    <i class="fas fa-file-excel"></i>
+    Export XLSX
+</a>
+
+<a href="{% url 'caidapp:pygwalker_localities' %}" class="btn btn-secondary">
+    {#                graphs and statistics #}
+    <i class="fas fa-chart-line"></i> Walk Localities
+</a>

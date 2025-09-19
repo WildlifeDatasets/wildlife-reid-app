@@ -662,31 +662,42 @@ class IdentityListView(LoginRequiredMixin, ListView):
     context_object_name = "individual_identities"
     paginate_by = 24
     title = "Identities"
+    # order by
+    ordering = ["-name"]
 
 
     def get_queryset(self):
         self.paginate_by = views_general.get_item_number_anything(self.request, "identities")
-        objects = IndividualIdentity.objects.filter(
+        qs = IndividualIdentity.objects.filter(
             Q(owner_workgroup=self.request.user.caiduser.workgroup) & ~Q(name="nan")
         )
-        objects = objects.annotate(
+        qs = qs.annotate(
             mediafile_count=Count("mediafile"),
             representative_mediafile_count=Count("mediafile", filter=Q(mediafile__identity_is_representative=True)),
             locality_count=Count("mediafile__locality", distinct=True),
             last_seen=Max("mediafile__captured_at"),
         )
 
-        self.filterset = filters.IndividualIdentityFilter(self.request.GET, queryset=objects)
+        self.filterset = filters.IndividualIdentityFilter(self.request.GET, queryset=qs)
 
-        order_by = views_general.get_order_by_anything(self.request, "identities")
-        return self.filterset.qs.order_by(order_by)
+        # class_prefix = self.__class__.__name__.lower() # maybe this is more general
+        class_prefix = 'identities'
+        sort, direction = views_general.get_order_by_anything(self.request, class_prefix, IndividualIdentity)
+        list_of_fields = [f.name for f in self.model._meta.fields] + ['mediafile_count', 'representative_mediafile_count', 'locality_count', 'last_seen']
+
+        if sort in list_of_fields:
+            if direction == "desc":
+                sort = f"-{sort}"
+            logger.debug(f"Sorting by {sort}")
+            qs = qs.order_by(sort)
+        return qs
 
     def get_template_names(self):
         view_type = self.request.GET.get("view", "cards")
-        if view_type == "table":
-            return ["caidapp/individual_identities_table.html"]
-        else:
+        if view_type == "cards":
             return ["caidapp/individual_identities.html"]
+        else:
+            return ["caidapp/individual_identities_list.html"]
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)

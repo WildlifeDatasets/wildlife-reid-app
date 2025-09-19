@@ -62,42 +62,12 @@
         <div class="pagetitle">
             <h1>Localities</h1>
         <nav>
-            <a href="{% url 'caidapp:update_locality' %}" class="btn btn-secondary">
-                <i class="fas fa-plus"></i> Add new locality
-            </a>
-            <a href="{% url 'caidapp:suggest_merge_localities' %}" class="btn btn-secondary">
-                <i class="bi bi-union"></i> Suggest merge localities
-            </a>
-            <a href="{% url 'caidapp:import_localities' %}" class="btn btn-secondary">
-                <i class="fas fa-file-import"></i> Import spreadsheet
-            </a>
-            <a href="{% url 'caidapp:export_localities' %}" class="btn btn-secondary">
-                <i class="fas fa-file-export"></i> Export CSV
-            </a>
-            <a href="{% url 'caidapp:export_localities_xls' %}" class="btn btn-secondary">
-                <i class="fas fa-file-excel"></i>
-                Export XLSX
-            </a>
-
-            <a href="{% url 'caidapp:pygwalker_localities' %}" class="btn btn-secondary">
-{#                graphs and statistics #}
-                <i class="fas fa-chart-line"></i> Walk Localities
-            </a>
+            {% include 'caidapp/localities_include_menu.html' %}
         </nav>
 
         </div><!-- End Page Title -->
         <section class="section">
         {% include "caidapp/filter_collapse.html" %}
-{#        <form method="GET" action="{% url 'caidapp:localities' %}">#}
-{#             <div style="display: flex; align-items: center;">#}
-{#                {% for field in filter_form %}#}
-{#                  <div style="margin-right: 15px;">#}
-{#                    {{ field.label_tag }} {{ field }}#}
-{#                  </div>#}
-{#                {% endfor %}#}
-{#                <input type="submit" value="Filter" class="btn btn-primary">#}
-{#              </div>#}
-{#        </form>#}
         <div class="d-flex justify-content-between mt-3">
             <div>
                 {% include 'caidapp/pagination_simple_a.html' %}
@@ -184,31 +154,8 @@
                                 >
                                     <i class="fas fa-edit"></i> Edit
                                     </a>
-{#                                <a href="{% url 'caidapp:media_files_locality' locality.hash %}" class="btn btn-secondary" >#}
-{#                                    <i class="fas fa-images"></i> Media files#}
-{#                                </a>#}
-{#                                <a href="{% url 'caidapp:uploads_of_locality' locality.hash %}" class="btn btn-secondary"#}
-{#                                   data-bs-toggle="tooltip" title="Camera Trap Checks"#}
-{#                                >#}
-{#                                    <i class="fas fa-images"></i> Media files#}
-{#                                    Checks#}
-{#                                </a>#}
-
-{#                                <div class="position-absolute bottom-0 end-0 p-3">#}
-                                    {#                                        info in circle#}
-{##}
-{#                                    <span#}
-{#                                            data-bs-toggle="tooltip"#}
-{#                                            data-toggle="tooltip"#}
-{#                                            title="ahoj"#}
-{#                                    >#}
-{#                                            <i class="bi bi-info-circle"></i>#}
-{#                                        </span>#}
-{##}
-{#                                </div>#}
                             </div>
 
-{#                            {{ locality.uploadedarchive_set.all.0.thumbnail.url }}#}
                         </div>
                     </div>
                 {% endfor %}
