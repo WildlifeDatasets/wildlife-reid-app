@@ -152,15 +152,23 @@ def train_identification_model(
 
     if "observation_id" not in metadata.columns:
         metadata['observation_id'] = list(range(len(metadata)))
+    
+    # Data filtration
+    logger.info("Starting training metadata filtration")
+    logger.info(f"    Initialization\n"
+                f"    {'    '*15}-> file counts: {len(metadata)}, identity counts: {len(set(metadata['identity']))}")
 
     # Remove identities that occur only once
-    logger.info(f'Identities before single identity removal: '
-                 f'\nIdentity counts: {dict(metadata["identity"].value_counts())}'
-                 f'\nRow counts: {len(metadata)}')
-    metadata = metadata[metadata['identity'].duplicated(keep=False)]
-    logger.info(f'Identities after single identity removal: '
-                 f'\nIdentity counts: {dict(metadata["identity"].value_counts())}'
-                 f'\nRow counts: {len(metadata)}')
+    metadata = metadata[metadata['identity'].duplicated(keep=False)].reset_index(drop=True)
+    logger.info(f"    Single file identities filtration\n"
+                f"    {'    '*15}-> file counts: {len(metadata)}, identity counts: {len(set(metadata['identity']))}")
+
+    # Check if the files exist
+    exists_mask = metadata['path'].map(os.path.exists)
+    failed_paths = metadata.loc[~exists_mask, 'path'].tolist()
+    metadata = metadata.loc[exists_mask].reset_index(drop=True)
+    logger.info(f"    Missing files filtration\n"
+                f"    {'    '*15}-> file counts: {len(metadata)}, identity counts: {len(set(metadata['identity']))}")
 
     if len(metadata) <= 1:
         logger.info("Cancelling training, not enough representativ images.")
@@ -241,6 +249,7 @@ def train_identification_model(
     status["stage"] = "training"
     save_data(os.path.join(output_folder, "status.json"), status)
 
+    logger.info(f"Starting training with {len(metadata)} images and {len(set(metadata['identity']))} identities.")
     # define trainer and start training
     trainer = CarnivoreIDTrainer(
         val_dataset=val_dataset,
