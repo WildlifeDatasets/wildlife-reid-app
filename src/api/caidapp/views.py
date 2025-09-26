@@ -46,6 +46,9 @@ from django.forms.models import model_to_dict
 from django.db.models import F, Func, Value
 from django.db.models.functions import Cast
 from django.urls import reverse
+from django.contrib import messages
+from django.shortcuts import redirect, get_object_or_404
+from django.contrib.auth.decorators import login_required
 import django.db
 import django.utils.timezone
 from djangoaddicts.pygwalker.views import PygWalkerView
@@ -53,12 +56,13 @@ from django.utils.translation import gettext_lazy as _
 
 from django.contrib.auth.models import Group, User
 from tqdm import tqdm
-import Levenshtein
 import numpy as np
 from rest_framework import permissions, viewsets
+from celery.result import AsyncResult
 from .fs_data import remove_diacritics
 from .serializers import LocalitySerializer
 from .views_tools import add_querystring_to_context
+from .model_tools import timesince_now
 
 from .models import get_all_relevant_localities, user_has_access_filter_params
 
@@ -3440,6 +3444,7 @@ def merge_identities_helper(request, individual_from, individual_to):
         messages.warning(request, "Individual identity not found.")
         return
 
+    # TODO check if it has been finished already and show here time of last update
     # remove individual_from and list of suggestion
     if "merge_identity_suggestions_ids" not in request.session:
         refresh_identities_suggestions(request)
@@ -3847,70 +3852,63 @@ def select_second_id_for_identification_merge(request, individual_identity1_id: 
 
 
 def refresh_identities_suggestions_view(request):
+    # call background task
     refresh_identities_suggestions(request)
     return redirect(request.META.get("HTTP_REFERER", "/"))
 
 
 def refresh_identities_suggestions(request, limit:int=100, redirect:bool=True):
-    suggestions = []
-    all_identities = IndividualIdentity.objects.filter(
-        owner_workgroup=request.user.caiduser.workgroup,
-        # **user_has_access_filter_params(request.user.caiduser, "owner")
-    )
-    for i, identity1 in enumerate(all_identities):
-        # min_distance = 1000
-        # min_distance_identity = None
-        for j in range(i + 1, len(all_identities)):
-            identity2 = all_identities[j]
-            if identity1 == identity2:
-                continue
+    job = tasks.refresh_identities_suggestions_task.delay(request.user.id)
+    request.session["refresh_job_id"] = job.id
+    request.session["refresh_job_started_at"] = timezone.now().isoformat()
 
-            if identity1.code == identity2.code:
 
-                identity_a, identity_b = order_identity_by_mediafile_count(identity1, identity2)
-                suggestions.append((identity_a, identity_b, 0))
-                continue
-            if abs(len(identity1.name) - len(identity2.name)) > 8:
-                continue
-            # remove accents
-            identity1_name = remove_diacritics(identity1.name)
-            identity2_name = remove_diacritics(identity2.name)
-            distance = Levenshtein.distance(identity1_name, identity2_name)
-            if distance < (len(identity1_name) / 4. + len(identity2_name) / 4.):
-                # count media files of identity
-                identity_a, identity_b = order_identity_by_mediafile_count(identity1, identity2)
+def get_identity_suggestions(request):
+    job_id = request.session.get("refresh_job_id")
 
-                suggestions.append((identity_a, identity_b, distance))
-    # sort by distance and if the distance is the same, then the longest name first
-    suggestions.sort(key=lambda x: (x[2], -len(x[1].name)))  # Sort by distance
+    if not job_id:
+        return {"status": "no-job"}
 
-    suggestions_ids = [
-        (identity_a.id, identity_b.id, distance) for identity_a, identity_b, distance in suggestions
-    ]
-    request.session["merge_identity_suggestions_ids"] = suggestions_ids
-    return
-    # if redirect:
-    #     logger.debug(redirect)
-    #
-    #     return reverse_lazy("caidapp:suggest_merge_identities")
-    #     # return redirect(request.META.get("HTTP_REFERER", "/"))
-    # else:
-    #     return
+    job_started_at = request.session.get("refresh_job_started_at")
 
+    result = AsyncResult(job_id)
+    if result.successful():
+        result_id = result.result  # ID uloženého výsledku
+        suggestions = models.IdentitySuggestionResult.objects.get(id=result_id).suggestions
+        return {"status": "done", "suggestions": suggestions, 'started_at': job_started_at}
+    return {"status": result.status, 'started_at': job_started_at}
 
 
 
 @login_required
 def suggest_merge_identities_view(request, limit:int=100):
     """Suggest merge identities."""
+    response = get_identity_suggestions(request)
 
+    if "started_at" in response:
+        started_at = datetime.datetime.fromisoformat(response["started_at"])
+        messages.info(request, f"Suggestion refreshed {timesince_now(started_at)} ago.")
 
-    if "merge_identity_suggestions_ids" not in request.session:
+    elif response["status"] == "no-job":
         refresh_identities_suggestions(request)
-    try:
-        assert "merge_identity_suggestions_ids" in request.session
+        return message_view(
+            request,
+            "Suggestions are being prepared. Please refresh this page later.",
+        )
+    if response["status"] != "done":
+        return message_view(
+            request,
+            f"Suggestions are being prepared. Job was started at {response['started_at']}. Please refresh this page later.",
+            link=reverse_lazy("caidapp:suggest_merge_identities"),
+            button_label="Check now",
 
-        suggestions_ids = request.session["merge_identity_suggestions_ids"]
+        )
+
+    suggestions_ids = response["suggestions"]
+    try:
+        # assert "merge_identity_suggestions_ids" in request.session
+
+        # suggestions_ids = request.session["merge_identity_suggestions_ids"]
         suggestions = [
             (
                 IndividualIdentity.objects.get(id=identity_a_id),
@@ -3929,45 +3927,33 @@ def suggest_merge_identities_view(request, limit:int=100):
 
         logger.warning(e)
         logger.debug(traceback.format_exc())
-        refresh_identities_suggestions(request)
-
-        suggestions_ids = request.session["merge_identity_suggestions_ids"]
-        suggestions = [
-            (
-                IndividualIdentity.objects.get(id=identity_a_id),
-                IndividualIdentity.objects.get(id=identity_b_id),
-                distance
-            )
-            for identity_a_id, identity_b_id, distance in suggestions_ids
-        ]
-
-        if limit and limit > 0:
-            suggestions = suggestions[:limit]
-
-
-        return render(request, "caidapp/suggest_merge_identities.html",
-                      {"suggestions": suggestions})
-
-
-def order_identity_by_mediafile_count(identity1, identity2):
-    """Order identity by mediafile count.
-
-    The identity with fewer media files is the first one."""
-
-    count_media_files_identity1 = identity1.mediafile_set.count()
-    count_media_files_identity2 = identity2.mediafile_set.count()
-    if count_media_files_identity1 < count_media_files_identity2:
-        identity_a = identity1
-        identity_b = identity2
-    else:
-        identity_a = identity2
-        identity_b = identity1
-    return identity_a, identity_b
+        return message_view(
+            request,
+            "An error occurred while fetching suggestions. They might be being refreshed. Please try again later.",
+        )
+        # # TODO show time of last update and maybe init
+        # refresh_identities_suggestions(request)
+        #
+        # suggestions_ids = request.session["merge_identity_suggestions_ids"]
+        # suggestions = [
+        #     (
+        #         IndividualIdentity.objects.get(id=identity_a_id),
+        #         IndividualIdentity.objects.get(id=identity_b_id),
+        #         distance
+        #     )
+        #     for identity_a_id, identity_b_id, distance in suggestions_ids
+        # ]
+        #
+        # if limit and limit > 0:
+        #     suggestions = suggestions[:limit]
+        #
+        #
+        # return render(request, "caidapp/suggest_merge_identities.html",
+        #               {"suggestions": suggestions})
 
 
-from django.contrib import messages
-from django.shortcuts import redirect, get_object_or_404
-from django.contrib.auth.decorators import login_required
+
+
 
 
 @login_required

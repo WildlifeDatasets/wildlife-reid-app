@@ -1,5 +1,8 @@
 import pandas as pd
-
+import Levenshtein
+from django.contrib.auth import get_user_model
+from .models import IndividualIdentity, IdentitySuggestionResult
+from .model_tools import order_identity_by_mediafile_count, remove_diacritics
 from .models import CaIDUser, Locality, MediaFile, UploadedArchive
 from . import models
 
@@ -85,3 +88,46 @@ def prepare_dataframe_for_uploads_in_one_locality(locality_id: int) -> pd.DataFr
     # df["uploaded_at"] = df["uploaded_at"].dt.strftime("%Y-%m-%d %H:%M:%S")
     # df["uploaded_at"] = pd.to_datetime(df["uploaded_at"])
     return df
+
+
+
+def compute_identity_suggestions(user_id: int, limit: int = 100) -> int:
+    user = get_user_model().objects.get(id=user_id)
+    suggestions = []
+
+    all_identities = IndividualIdentity.objects.filter(
+        owner_workgroup=user.caiduser.workgroup,
+    )
+
+    for i, identity1 in enumerate(all_identities):
+        for j in range(i + 1, len(all_identities)):
+            identity2 = all_identities[j]
+            if identity1 == identity2:
+                continue
+
+            if identity1.code == identity2.code:
+                identity_a, identity_b = order_identity_by_mediafile_count(identity1, identity2)
+                suggestions.append((identity_a.id, identity_b.id, 0))
+                continue
+
+            if abs(len(identity1.name) - len(identity2.name)) > 8:
+                continue
+
+            identity1_name = remove_diacritics(identity1.name)
+            identity2_name = remove_diacritics(identity2.name)
+            distance = Levenshtein.distance(identity1_name, identity2_name)
+
+            if distance < (len(identity1_name) / 4. + len(identity2_name) / 4.):
+                identity_a, identity_b = order_identity_by_mediafile_count(identity1, identity2)
+                suggestions.append((identity_a.id, identity_b.id, distance))
+
+    # seřadit
+    suggestions.sort(key=lambda x: (x[2], -len(IndividualIdentity.objects.get(id=x[1]).name)))
+
+    # uložit výsledek do DB
+    result = IdentitySuggestionResult.objects.create(
+        user=user,
+        suggestions=suggestions,
+    )
+    return result.id
+

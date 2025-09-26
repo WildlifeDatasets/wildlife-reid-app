@@ -13,25 +13,27 @@ import subprocess
 import numpy as np
 from PIL import Image
 
+from .model_tools import remove_diacritics
+
 logger = logging.getLogger(__file__)
 
 import unicodedata
 
 
-def remove_diacritics(input_str):
-    """Removes diacritics (accents) from the given Unicode string.
-
-    The function decomposes the string into its combining characters, removes
-    any diacritic characters, and then recomposes the string.
-    """
-    # Normalize the input string to NFD (Normalization Form Decomposed)
-    normalized = unicodedata.normalize("NFD", input_str)
-
-    # Filter out combining characters (those in category 'Mn')
-    filtered = "".join(c for c in normalized if unicodedata.category(c) != "Mn")
-
-    # Return the normalized string
-    return unicodedata.normalize("NFC", filtered)
+# def remove_diacritics(input_str):
+#     """Removes diacritics (accents) from the given Unicode string.
+#
+#     The function decomposes the string into its combining characters, removes
+#     any diacritic characters, and then recomposes the string.
+#     """
+#     # Normalize the input string to NFD (Normalization Form Decomposed)
+#     normalized = unicodedata.normalize("NFD", input_str)
+#
+#     # Filter out combining characters (those in category 'Mn')
+#     filtered = "".join(c for c in normalized if unicodedata.category(c) != "Mn")
+#
+#     # Return the normalized string
+#     return unicodedata.normalize("NFC", filtered)
 
 def resize_images(input_image: np.ndarray, new_height: int = 360) -> np.ndarray:
     """Resize image to match new height and conserve aspect ratio."""

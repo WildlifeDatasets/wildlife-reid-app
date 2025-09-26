@@ -24,6 +24,9 @@ from zoneinfo import ZoneInfo
 from . import fs_data, model_tools, views
 from .fs_data import make_thumbnail_from_file
 from .log_tools import StatusCounts
+import Levenshtein
+from django.contrib.auth import get_user_model
+from .model_extra import compute_identity_suggestions
 from . import models
 from .models import (
     CaIDUser,
@@ -1735,3 +1738,9 @@ def assign_unidentified_to_identification(caiduser:CaIDUser):
                     )
                     mfi_suggestion.save()
     logger.debug(f"Unidentified media files added to the list. Found {mediafiles.count()} media files.")
+
+
+@shared_task
+def refresh_identities_suggestions_task(user_id, limit=100):
+    return compute_identity_suggestions(user_id, limit)
+

@@ -4,6 +4,7 @@
 * [added] Notification on finished identification
 * [changed] FGVC subset extracted from FGVC package
 * [added] List view for localities and identities
+* [changed] Merging is now processed on backgroud
 
 ## 2025-08
 

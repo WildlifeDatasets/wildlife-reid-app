@@ -5,6 +5,8 @@ import string
 from datetime import datetime
 from hashlib import sha1 as sha_constructor
 from pathlib import Path
+from django.utils.timesince import timesince
+from django.utils import timezone
 
 import pandas as pd
 from django.conf import settings
@@ -92,9 +94,47 @@ def get_zip_path_in_unique_folder(instance, filename):
 
 
 
-def remove_diacritics(text: str) -> str:
-    """Odstraní diakritiku ze stringu."""
-    return ''.join(
-        c for c in unicodedata.normalize('NFD', text)
-        if unicodedata.category(c) != 'Mn'
-    )
+# def remove_diacritics(text: str) -> str:
+#     """Odstraní diakritiku ze stringu."""
+#     return ''.join(
+#         c for c in unicodedata.normalize('NFD', text)
+#         if unicodedata.category(c) != 'Mn'
+#     )
+
+def remove_diacritics(input_str: str):
+    """Removes diacritics (accents) from the given Unicode string.
+
+    The function decomposes the string into its combining characters, removes
+    any diacritic characters, and then recomposes the string.
+    """
+    # Normalize the input string to NFD (Normalization Form Decomposed)
+    normalized = unicodedata.normalize("NFD", input_str)
+
+    # Filter out combining characters (those in category 'Mn')
+    filtered = "".join(c for c in normalized if unicodedata.category(c) != "Mn")
+
+    # Return the normalized string
+    return unicodedata.normalize("NFC", filtered)
+
+def order_identity_by_mediafile_count(identity1, identity2):
+    """Order identity by mediafile count.
+
+    The identity with fewer media files is the first one."""
+
+    count_media_files_identity1 = identity1.mediafile_set.count()
+    count_media_files_identity2 = identity2.mediafile_set.count()
+    if count_media_files_identity1 < count_media_files_identity2:
+        identity_a = identity1
+        identity_b = identity2
+    else:
+        identity_a = identity2
+        identity_b = identity1
+    return identity_a, identity_b
+
+def timesince_now(started_at: datetime) -> str:
+    if timezone.is_naive(started_at):
+        started_at = timezone.make_aware(started_at)
+
+    now = timezone.now()
+    description = timesince(started_at, now)
+    return description

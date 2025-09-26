@@ -1455,3 +1455,12 @@ class Notification(models.Model):
 
     def bootstrap_class(self):
         return self.BOOTSTRAP_CLASSES.get(self.level, "secondary")
+
+
+class IdentitySuggestionResult(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    suggestions = models.JSONField()  # uloží [(id1, id2, distance), ...]
+
+    def __str__(self):
+        return f"Suggestions for {self.user} at {self.created_at}"
