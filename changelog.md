@@ -5,6 +5,7 @@
 * [changed] FGVC subset extracted from FGVC package
 * [added] List view for localities and identities
 * [changed] Merging is now processed on backgroud
+* [added] Separated AnimalObservation from MediaFile in model
 
 ## 2025-08
 

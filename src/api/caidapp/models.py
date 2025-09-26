@@ -1146,15 +1146,46 @@ class MediaFile(models.Model):
         super().save(*args, **kwargs)
 
 
-
-
 class AnimalObservation(models.Model):
-    mediafile = models.ForeignKey(MediaFile, on_delete=models.CASCADE, null=True, blank=True)
+    mediafile = models.ForeignKey(
+        MediaFile, on_delete=models.CASCADE, related_name="observations",
+        # null=True, blank=True
+                                  )
     taxon = models.ForeignKey(Taxon, on_delete=models.SET_NULL, null=True, blank=True)
-    metadata_json = models.JSONField(blank=True, null=True)
+    taxon_verified = models.BooleanField("Taxon verified", default=False)
+    taxon_verified_at = models.DateTimeField("Taxon verified at", blank=True, null=True)
+    predicted_taxon = models.ForeignKey(Taxon, on_delete=models.SET_NULL, null=True, blank=True, related_name="predicted_observations")
+    predicted_taxon_confidence = models.FloatField(null=True, blank=True)
+
+    identity = models.ForeignKey(IndividualIdentity, on_delete=models.SET_NULL, null=True, blank=True)
+    identity_is_representative = models.BooleanField(default=False)
+
+    bbox_x_center = models.FloatField(null=True, blank=True)
+    bbox_y_center = models.FloatField(null=True, blank=True)
+    bbox_width = models.FloatField(null=True, blank=True)
+    bbox_height = models.FloatField(null=True, blank=True)
+
+    orientation = models.CharField(max_length=2, choices=ORIENTATION_CHOICES, default="N")
+
     updated_by = models.ForeignKey(CaIDUser, on_delete=models.SET_NULL, null=True, blank=True)
     updated_at = models.DateTimeField("Updated at", blank=True, null=True)
-    orientation = models.CharField(max_length=2, choices=ORIENTATION_CHOICES, default="N")
+    metadata_json = models.JSONField(blank=True, null=True)
+
+def set_bbox_from_xyxy(self, x_min, y_min, x_max, y_max, img_w, img_h):
+    """Nastaví YOLO-style bbox z absolutních pixelových souřadnic."""
+    self.bbox_x_center = ((x_min + x_max) / 2) / img_w
+    self.bbox_y_center = ((y_min + y_max) / 2) / img_h
+    self.bbox_width = (x_max - x_min) / img_w
+    self.bbox_height = (y_max - y_min) / img_h
+
+def get_bbox_xyxy(self, img_w, img_h):
+    """Vrátí absolutní pixelové souřadnice (x_min, y_min, x_max, y_max)."""
+    x_min = int((self.bbox_x_center - self.bbox_width / 2) * img_w)
+    y_min = int((self.bbox_y_center - self.bbox_height / 2) * img_h)
+    x_max = int((self.bbox_x_center + self.bbox_width / 2) * img_w)
+    y_max = int((self.bbox_y_center + self.bbox_height / 2) * img_h)
+    return x_min, y_min, x_max, y_max
+
 
 
 class MediafilesForIdentification(models.Model):
