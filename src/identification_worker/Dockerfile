@@ -40,7 +40,7 @@ RUN pip install git+https://github.com/facebookresearch/segment-anything.git@dca
 #RUN pip install tzdata --upgrade
 
 RUN echo "------- wildlife-tools (pinned, no-deps) --------"
-COPY ./src/identification_worker /identification_worker
+COPY ./src/identification_worker/wildlife-tools /identification_worker/wildlife-tools
 RUN pip install -e /identification_worker/wildlife-tools --no-deps
 RUN pip install pytorch_metric_learning==2.8.1
 RUN pip install transformers==4.30.2
@@ -57,6 +57,8 @@ RUN pip install numpy==1.26.4
 RUN echo "------- pip list 1 --------"
 RUN echo pip list
 RUN pip list
+
+COPY ./src/identification_worker /identification_worker
 
 # expose ports and run application
 WORKDIR $APP_DIR
