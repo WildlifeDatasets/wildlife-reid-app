@@ -1,8 +1,9 @@
-<a href="{% querystring request.GET view='cards' %}"><i class="bi bi-grid"></i></a>  <a href="{% querystring request.GET view='list' %}"><i class="bi bi-list"></i></a>
+<a href="{% querystring request.GET view='cards' %}" class="btn btn-sm btn-outline-primary"><i class="bi bi-grid"></i></a>
+<a href="{% querystring request.GET view='list' %}" class="btn btn-sm btn-outline-primary"><i class="bi bi-list"></i></a>
 
 <div class="btn-group text-right">
     <div class="dropdown">
-        <button class="btn btn-secondary dropdown-toggle btn-sm" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+        <button class="btn btn-outline-secondary dropdown-toggle btn-sm" type="button" data-bs-toggle="dropdown" aria-expanded="false">
             Order By
         </button>
         <ul class="dropdown-menu">
@@ -27,7 +28,7 @@
         </ul>
     </div>
     <div class="dropdown ms-1">
-        <button class="btn btn-secondary dropdown-toggle btn-sm" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+        <button class="btn btn-outline-secondary dropdown-toggle btn-sm" type="button" data-bs-toggle="dropdown" aria-expanded="false">
             Items Per Page
         </button>
         <ul class="dropdown-menu">

@@ -671,7 +671,9 @@ class IdentityListView(LoginRequiredMixin, ListView):
 
 
     def get_queryset(self):
-        self.paginate_by = views_general.get_item_number_anything(self.request, "identities")
+        class_prefix = "identities_" + self.request.GET.get("view", "cards")
+
+        self.paginate_by = views_general.get_item_number_anything(self.request, class_prefix)
         qs = IndividualIdentity.objects.filter(
             Q(owner_workgroup=self.request.user.caiduser.workgroup) & ~Q(name="nan")
         )
@@ -685,7 +687,7 @@ class IdentityListView(LoginRequiredMixin, ListView):
         self.filterset = filters.IndividualIdentityFilter(self.request.GET, queryset=qs)
 
         # class_prefix = self.__class__.__name__.lower() # maybe this is more general
-        class_prefix = 'identities'
+        # class_prefix = 'identities'
         sort, direction = views_general.get_order_by_anything(self.request, class_prefix, IndividualIdentity)
         list_of_fields = [f.name for f in self.model._meta.fields] + ['mediafile_count', 'representative_mediafile_count', 'locality_count', 'last_seen']
 

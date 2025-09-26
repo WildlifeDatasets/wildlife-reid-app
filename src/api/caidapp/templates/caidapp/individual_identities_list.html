@@ -25,7 +25,7 @@
                     {% include "caidapp/pagination_simple_a.html" %}
                 </div>
                 <div>
-                    {%  with name_plural='identities' %}
+                    {%  with name_plural='identities_list' %}
                         {% include "caidapp/identities_order_by.html" %}
                     {% endwith %}
                 </div>
@@ -51,7 +51,8 @@
                             <th>{{ field|capfirst }}</th>
                         {% endfor %}
                         {% if object_detail_url or object_update_url or object_delete_url %}
-                            <th>{% trans "Action" %}</th>
+{#                            <th>{% trans "Action" %}</th>#}
+                            <th>Action</th>
                         {% endif %}
                     </tr>
                     </thead>
