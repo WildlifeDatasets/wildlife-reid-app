@@ -262,10 +262,39 @@ ID: {{ mediafile.id }}">
 
                     {% else %}
                         <!-- Image with modal trigger -->
+                           <div class="position-relative d-inline-block m-1"
+         style="max-width: 100%; cursor: pointer;"
+         data-bs-toggle="modal" data-bs-target="#imageModal{{ mediafile.id }}">
+
+        <img src="{{ mediafile.preview.url }}" class="img-fluid" alt="Camera trap image">
+
+        {% for obs in mediafile.observations.all %}
+            {% if obs.bbox_x_center %}
+                <div class="bbox-overlay"
+                     style="
+                        position: absolute;
+                        border: 2px solid red;
+                        box-sizing: border-box;
+                        left: calc(({{ obs.bbox_x_center }} - {{ obs.bbox_width }}/2) * 100%);
+                        top: calc(({{ obs.bbox_y_center }} - {{ obs.bbox_height }}/2) * 100%);
+                        width: calc({{ obs.bbox_width }} * 100%);
+                        height: calc({{ obs.bbox_height }} * 100%);
+                     ">
+                </div>
+            {% endif %}
+        {% endfor %}
+    </div>
+
+
+
+
+
+
                         <img src="{{ mediafile.preview.url }}" class="img-fluid m-1" alt="Camera trap image"
                              data-bs-toggle="modal" data-bs-target="#imageModal{{ mediafile.id }}"
                              fetchpriority="high"
                         >
+
                     {% endif %}
                 </div>
                 </div>

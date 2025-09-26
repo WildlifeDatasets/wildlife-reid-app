@@ -1172,14 +1172,14 @@ class AnimalObservation(models.Model):
     metadata_json = models.JSONField(blank=True, null=True)
 
 def set_bbox_from_xyxy(self, x_min, y_min, x_max, y_max, img_w, img_h):
-    """Nastaví YOLO-style bbox z absolutních pixelových souřadnic."""
+    """YOLO-style relative bbox from absolute in px."""
     self.bbox_x_center = ((x_min + x_max) / 2) / img_w
     self.bbox_y_center = ((y_min + y_max) / 2) / img_h
     self.bbox_width = (x_max - x_min) / img_w
     self.bbox_height = (y_max - y_min) / img_h
 
 def get_bbox_xyxy(self, img_w, img_h):
-    """Vrátí absolutní pixelové souřadnice (x_min, y_min, x_max, y_max)."""
+    """Get absolute pixel coordinates (x_min, y_min, x_max, y_max)."""
     x_min = int((self.bbox_x_center - self.bbox_width / 2) * img_w)
     y_min = int((self.bbox_y_center - self.bbox_height / 2) * img_h)
     x_max = int((self.bbox_x_center + self.bbox_width / 2) * img_w)
