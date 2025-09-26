@@ -99,6 +99,11 @@
         margin-left: 0.25rem;
     }
 
+    .bbox-overlay {
+    border: 2px solid red;
+    background-color: rgba(255, 0, 0, 0.01);
+    pointer-events: none; /* non-blocking overlay for <a> */
+}
 
 </style>
 
@@ -316,11 +321,32 @@
                                         {{ hidden }}
                                     {% endfor %}
                                     {% if mediafile.instance.thumbnail %}
-                                        <a
-                                            href="{% url 'caidapp:media_file_update' mediafile.instance.id %}?next={{ request.get_full_path }}">
-                                            <img class="card-img-top" src="{{ mediafile.instance.thumbnail.url }}"
-                                                 alt="Camera trap">
-                                        </a>
+                                         <a href="{% url 'caidapp:media_file_update' mediafile.instance.id %}?next={{ request.get_full_path }}">
+            <div class="position-relative">
+                <img class="card-img-top" src="{{ mediafile.instance.thumbnail.url }}" alt="Camera trap">
+
+                {% for obs in mediafile.instance.observations.all %}
+                    {% if obs.bbox_x_center %}
+                        <div class="bbox-overlay"
+                             style="
+                                position: absolute;
+                                left: calc(({{ obs.bbox_x_center }} - {{ obs.bbox_width }}/2) * 100%);
+                                top: calc(({{ obs.bbox_y_center }} - {{ obs.bbox_height }}/2) * 100%);
+                                width: calc({{ obs.bbox_width }} * 100%);
+                                height: calc({{ obs.bbox_height }} * 100%);
+                             ">
+                        </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        </a>
+
+
+{#                                        <a#}
+{#                                            href="{% url 'caidapp:media_file_update' mediafile.instance.id %}?next={{ request.get_full_path }}">#}
+{#                                            <img class="card-img-top" src="{{ mediafile.instance.thumbnail.url }}"#}
+{#                                                 alt="Camera trap">#}
+{#                                        </a>#}
                                     {% else %}
                                         <div class="card-img-placeholder"></div>
                                     {% endif %}
