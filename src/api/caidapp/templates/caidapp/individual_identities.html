@@ -58,23 +58,23 @@
                                 <h5 class="card-title">{{ individual_identity }}</h5>
                                 {#                        <p>Status: {{ album.mediafiles.0.thumbnail.url }} </p>#}
                                 {#                        <p>Created At: {{ individual_identity.created_at|date:'Y-m-d H:i' }} </p>#}
-                                <div>
-                                    <a
-                                            class="link-secondary"
-                                            href="{% url 'caidapp:individual_identity_mediafiles' individual_identity.id %}"
-                                            data-bs-toggle="tooltip" title="Representative media files / Media files">
-                                        <i class="bi bi-images"></i>
-                                        Media files: {{ individual_identity.count_of_representative_mediafiles }} /
-                                        {{ individual_identity.count_of_mediafiles }}
-                                    </a>
-                                </div>
-                                <div>
-                                        <i class="bi bi-geo-alt"></i>
-                                        Localities: {{ individual_identity.count_of_localities }}
-                                </div>
-                                {% if individual_identity.updated_by %}
-                                    <div> Last update by: {{ individual_identity.updated_by }} </div>
-                                {% endif %}
+{#                                <div>#}
+{#                                    <a#}
+{#                                            class="link-secondary"#}
+{#                                            href="{% url 'caidapp:individual_identity_mediafiles' individual_identity.id %}"#}
+{#                                            data-bs-toggle="tooltip" title="Representative media files / Media files">#}
+{#                                        <i class="bi bi-images"></i>#}
+{#                                        Media files: {{ individual_identity.count_of_representative_mediafiles }} /#}
+{#                                        {{ individual_identity.count_of_mediafiles }}#}
+{#                                    </a>#}
+{#                                </div>#}
+{#                                <div>#}
+{#                                        <i class="bi bi-geo-alt"></i>#}
+{#                                        Localities: {{ individual_identity.count_of_localities }}#}
+{#                                </div>#}
+{#                                {% if individual_identity.updated_by %}#}
+{#                                    <div> Last update by: {{ individual_identity.updated_by }} </div>#}
+{#                                {% endif %}#}
                                 {#                        <p>{{ individual_identity.mediafile_set.0.mediafile.url }}</p>#}
 
                                 {#                    <p><i class="fa-light fa-calendar-image"></i>Uploaded at: {{ uploadedarchive.uploaded_at|date:'Y-m-d H:i' }} </p>#}

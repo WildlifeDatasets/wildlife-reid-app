@@ -42,10 +42,10 @@
                     <th>Sex</th>
                         <th> Media files </th>
                         <th> Representative</th>
-                    <th>
+                    <th title="Most frequent locality">
 {#                        <i class="bi bi-geo-alt"></i> #}
                         Locality</th>
-                    <th>Count</th>
+                    <th title="Count of localities">Localities</th>
                     <th>Last seen</th>
                         {% for field in list_display %}
                             <th>{{ field|capfirst }}</th>
@@ -68,7 +68,7 @@
 
                                     {% if individual_identity.mediafile_set.first.thumbnail %}
                                         <img class="img-fluid cover-image" src="{{ individual_identity.mediafile_set.first.thumbnail.url }}"
-                                             style="height: 25px; width:45px; object-fit: cover;"
+                                             style="height: 31px; width:45px; object-fit: cover;"
                                              alt="Camera trap image">
                                     {% endif %}
                                 </a>
