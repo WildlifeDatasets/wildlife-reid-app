@@ -346,11 +346,11 @@ class ObservationInline(InlineFormSetFactory):
         "bbox_x_center", "bbox_y_center", "bbox_width", "bbox_height",
         "orientation"
     ]
-    can_delete = True
+    can_delete = False
 
     def get_factory_kwargs(self):
         kwargs = super().get_factory_kwargs()
-        kwargs['extra'] = 1   # nebo 1, jak potřebuješ
+        kwargs['extra'] = 0   # nebo 1, jak potřebuješ
         return kwargs
 
 class MediaFileUpdateView(LoginRequiredMixin, UpdateWithInlinesView):
@@ -368,3 +368,19 @@ class MediaFileUpdateView(LoginRequiredMixin, UpdateWithInlinesView):
         form.instance.updated_at = django.utils.timezone.now()
         return super().form_valid(form)
 
+
+
+from django.urls import reverse
+from django.views.generic import DeleteView
+from django.contrib.auth.mixins import LoginRequiredMixin
+from .models import AnimalObservation
+
+class ObservationDeleteView(LoginRequiredMixin, DeleteView):
+    model = AnimalObservation
+    template_name = "caidapp/generic_form.html"
+    context_object_name = "observation"
+
+    def get_success_url(self):
+        # po smazání se vrátíš na editaci mediafile
+        mediafile = self.object.mediafile
+        return reverse("caidapp:media_file_update", args=[mediafile.id])

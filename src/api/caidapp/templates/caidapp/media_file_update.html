@@ -112,12 +112,13 @@
                                     {% for sequence_mediafile in chunk %}
                                         <div class="m-2">
                                             <a href="{% url 'caidapp:media_file_update' sequence_mediafile.id %}">
-                                                <img src="{{ sequence_mediafile.static_thumbnail.url }}" class="img-fluid"
+                                                <img src="{{ sequence_mediafile.static_thumbnail.url }}"
+                                                     class="img-fluid"
                                                      alt="Media Thumbnail" style="max-width: 100px;"
-                                                        fetchpriority="low"
-                                                     {% if not forloop.parentloop.first  %}
+                                                     fetchpriority="low"
+                                                        {% if not forloop.parentloop.first %}
                                                      loading="lazy"
-                                                     {% endif %}
+                                                        {% endif %}
                                                 >
                                             </a>
                                         </div>
@@ -128,17 +129,17 @@
                     </div>
 
                     {% if mediafile.sequence.mediafile_set.all|length > 5 %}
-                    <!-- Carousel Controls -->
-                    <button class="carousel-control-prev" type="button" data-bs-target="#mediafileCarousel"
-                            data-bs-slide="prev">
-                        <span class="carousel-control-prev-icon" aria-hidden="true"></span>
-                        <span class="visually-hidden">Previous</span>
-                    </button>
-                    <button class="carousel-control-next" type="button" data-bs-target="#mediafileCarousel"
-                            data-bs-slide="next">
-                        <span class="carousel-control-next-icon" aria-hidden="true"></span>
-                        <span class="visually-hidden">Next</span>
-                    </button>
+                        <!-- Carousel Controls -->
+                        <button class="carousel-control-prev" type="button" data-bs-target="#mediafileCarousel"
+                                data-bs-slide="prev">
+                            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                            <span class="visually-hidden">Previous</span>
+                        </button>
+                        <button class="carousel-control-next" type="button" data-bs-target="#mediafileCarousel"
+                                data-bs-slide="next">
+                            <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                            <span class="visually-hidden">Next</span>
+                        </button>
                     {% endif %}
                 </div>
             {% endif %}
@@ -196,9 +197,10 @@
                                                 <!-- Label on its own line -->
                                                 {{ field }}  <!-- Field on the next line -->
                                                 {% if field.id_for_label == "id_identity" %}
-            <button type="button" class="btn btn-outline-primary btn-sm"
-                    onclick="window.location.href='{% url 'caidapp:individual_identity_create' mediafile.id %}?next={{ request.path }}'"><i class="bi-plus"></i></button>
-        {% endif %}
+                                                    <button type="button" class="btn btn-outline-primary btn-sm"
+                                                            onclick="window.location.href='{% url 'caidapp:individual_identity_create' mediafile.id %}?next={{ request.path }}'">
+                                                        <i class="bi-plus"></i></button>
+                                                {% endif %}
                                                 {% if field.help_text %}
                                                     <small class="form-text text-muted">{{ field.help_text }}</small>
                                                 {% endif %}
@@ -211,49 +213,72 @@
 
 
                                         <h5>Observations</h5>
-                                    <p>
-                                        {{ mediafile.observations.count }} observation(s) linked to this media file.
-                                    </p>
-                                    <p>
+                                        {#  {% for inline in inlines %}#}
+                                        {#      {{ inline.management_form }}#}
+                                        {#      <table class="table">#}
+                                        {#        {% for obs_form in inline %}#}
+                                        {#          <tr>#}
+                                        {#            <td>{{ obs_form.taxon }}</td>#}
+                                        {#            <td>{{ obs_form.identity }}</td>#}
+                                        {#            <td>{{ obs_form.bbox_x_center }} {{ obs_form.bbox_y_center }}</td>#}
+                                        {#            <td>{{ obs_form.DELETE }}</td>#}
+                                        {#          </tr>#}
+                                        {#        {% endfor %}#}
+                                        {#      </table>#}
+                                        {#  {% endfor %}#}
 
-                                        {{ inlines.0.total_form_count }} form(s) available to edit observations.
-                                    </p>
-                                    <p>initial: {{ inlines.0.initial_form_count }}</p>
-<p>extra: {{ inlines.0.extra }}</p>
-<p>total: {{ inlines.0.total_form_count }}</p>
-                                    {% for obs in mediafile.observations.all %}
-    <li>{{ obs.id }} – {{ obs.taxon }} – {{ obs.identity }}</li>
-{% empty %}
-    <li>No observations yet.</li>
-{% endfor %}
-{#  {% for inline in inlines %}#}
-{#      {{ inline.management_form }}#}
-{#      <table class="table">#}
-{#        {% for obs_form in inline %}#}
-{#          <tr>#}
-{#            <td>{{ obs_form.taxon }}</td>#}
-{#            <td>{{ obs_form.identity }}</td>#}
-{#            <td>{{ obs_form.bbox_x_center }} {{ obs_form.bbox_y_center }}</td>#}
-{#            <td>{{ obs_form.DELETE }}</td>#}
-{#          </tr>#}
-{#        {% endfor %}#}
-{#      </table>#}
-{#  {% endfor %}#}
+                                        <div>
+                                            {% for inline in inlines %}
+                                                <h6>Inline debug info</h6>
+                                                <ul>
+                                                    <li>Total forms: {{ inline.total_form_count }}</li>
+                                                    <li>Initial forms: {{ inline.initial_form_count }}</li>
+                                                    <li>Extra forms: {{ inline.extra_forms|length }}</li>
+                                                    <li>Non-form errors: {{ inline.non_form_errors }}</li>
+                                                </ul>
+                                                {{ inline.management_form }}
 
-                                    {% for inline in inlines %}
-                                        {{ inline.instance.id }} - Observation forms:
-    {{ inline.management_form }}
-    {% for obs_form in inline %}
-        {{ obs_form.as_p }}
-    {% endfor %}
-{% endfor %}
+                                                <!-- existující formuláře -->
+                                                <div id="observation-forms">
+                                                    {% for obs_form in inline %}
+                                                        <div class="mb-2 border rounded p-2">
+                                                            {{ obs_form.as_p }}
+                                                           {% if obs_form.instance.pk %}
+          <a href="{% url 'caidapp:observation_delete' obs_form.instance.pk %}"
+             class="btn btn-sm btn-danger"
+             onclick="return confirm('Delete this observation?');">
+              Delete
+          </a>
+      {% endif %}
+                                                        </div>
+                                                    {% endfor %}
+                                                </div>
+
+                                                <!-- tlačítko Bootstrap collapse -->
+                                                <p>
+                                                    <a class="btn btn-sm btn-outline-primary" data-bs-toggle="collapse"
+                                                       href="#collapseAddObs" role="button" aria-expanded="false"
+                                                       aria-controls="collapseAddObs">
+                                                        Add Observation
+                                                    </a>
+                                                </p>
+
+                                                <div class="collapse" id="collapseAddObs">
+                                                    <div class="card card-body">
+                                                        {{ inline.empty_form.as_p }}
+                                                    </div>
+                                                </div>
+                                            {% endfor %}
+                                        </div>
+
+
                                     </div>
 
 
                                     <button class="btn btn-primary mt-1" id="btnUpload" type="submit">
-                                        {{ button }}
+                                        {{ button|default:"Save" }}
                                     </button>
-                                    {%  if save_and_continue_button %}
+                                    {% if save_and_continue_button %}
                                         <button class="btn btn-primary mt-1" id="btnSaveAndContinue" type="submit">
                                             {{ save }}
                                         </button>
@@ -273,7 +298,7 @@
                                     <span
                                             {#                                            data-bs-toggle="tooltip"#}
                                             {#                                            data-toggle="tooltip"#}
-                                            title="File name: {{ mediafile}}
+                                            title="File name: {{ mediafile }}
 ID: {{ mediafile.id }}">
                                     <i class="bi bi-info-circle"></i>
                                     </span>
@@ -285,57 +310,57 @@ ID: {{ mediafile.id }}">
                     </div>
                 </div>
                 <div class="col">
-                <div class="d-flex flex-row flex-wrap align-items-start col">
-                    {% if mediafile.media_type == 'video' %}
-                        <video controls autoplay muted width="640" class="m-1" preload="auto">
-                            <source src="{% url 'caidapp:stream_video' mediafile.id %}" type="video/x-m4v">
-                            Your browser does not support the video tag.
-                        </video>
+                    <div class="d-flex flex-row flex-wrap align-items-start col">
+                        {% if mediafile.media_type == 'video' %}
+                            <video controls autoplay muted width="640" class="m-1" preload="auto">
+                                <source src="{% url 'caidapp:stream_video' mediafile.id %}" type="video/x-m4v">
+                                Your browser does not support the video tag.
+                            </video>
 
-                        <!-- Thumbnail with modal trigger -->
-                        <img src="{{ mediafile.thumbnail.url }}" class="img-fluid m-1" alt="Camera trap image"
-                             style="max-width: 320px;" data-bs-toggle="modal"
-                             data-bs-target="#imageModal{{ mediafile.id }}"
-                             fetchpriority="high"
-                        >
+                            <!-- Thumbnail with modal trigger -->
+                            <img src="{{ mediafile.thumbnail.url }}" class="img-fluid m-1" alt="Camera trap image"
+                                 style="max-width: 320px;" data-bs-toggle="modal"
+                                 data-bs-target="#imageModal{{ mediafile.id }}"
+                                 fetchpriority="high"
+                            >
 
-                    {% else %}
-                        <!-- Image with modal trigger -->
-                           <div class="position-relative d-inline-block m-1"
-         style="max-width: 100%; cursor: pointer;"
-         data-bs-toggle="modal" data-bs-target="#imageModal{{ mediafile.id }}">
+                        {% else %}
+                            <!-- Image with modal trigger -->
+                            <div class="position-relative d-inline-block m-1"
+                                 style="max-width: 100%; cursor: pointer;"
+                                 data-bs-toggle="modal" data-bs-target="#imageModal{{ mediafile.id }}">
 
-        <img src="{{ mediafile.preview.url }}" class="img-fluid" alt="Camera trap image">
+                                <img src="{{ mediafile.preview.url }}" class="img-fluid" alt="Camera trap image">
 
-        {% for obs in mediafile.observations.all %}
-            {% if obs.bbox_x_center %}
-                <div class="bbox-overlay"
-                     style="
-                        position: absolute;
-                        border: 2px solid red;
-                        box-sizing: border-box;
-                        left: calc(({{ obs.bbox_x_center }} - {{ obs.bbox_width }}/2) * 100%);
-                        top: calc(({{ obs.bbox_y_center }} - {{ obs.bbox_height }}/2) * 100%);
-                        width: calc({{ obs.bbox_width }} * 100%);
-                        height: calc({{ obs.bbox_height }} * 100%);
-                     ">
-                </div>
-            {% endif %}
-        {% endfor %}
-    </div>
-
-
+                                {% for obs in mediafile.observations.all %}
+                                    {% if obs.bbox_x_center %}
+                                        <div class="bbox-overlay"
+                                             style="
+                                                     position: absolute;
+                                                     border: 2px solid red;
+                                                     box-sizing: border-box;
+                                                     left: calc(({{ obs.bbox_x_center }} - {{ obs.bbox_width }}/2) * 100%);
+                                                     top: calc(({{ obs.bbox_y_center }} - {{ obs.bbox_height }}/2) * 100%);
+                                                     width: calc({{ obs.bbox_width }} * 100%);
+                                                     height: calc({{ obs.bbox_height }} * 100%);
+                                                     ">
+                                        </div>
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
 
 
 
 
-{#                        <img src="{{ mediafile.preview.url }}" class="img-fluid m-1" alt="Camera trap image"#}
-{#                             data-bs-toggle="modal" data-bs-target="#imageModal{{ mediafile.id }}"#}
-{#                             fetchpriority="high"#}
-{#                        >#}
 
-                    {% endif %}
-                </div>
+
+                            {#                        <img src="{{ mediafile.preview.url }}" class="img-fluid m-1" alt="Camera trap image"#}
+                            {#                             data-bs-toggle="modal" data-bs-target="#imageModal{{ mediafile.id }}"#}
+                            {#                             fetchpriority="high"#}
+                            {#                        >#}
+
+                        {% endif %}
+                    </div>
                 </div>
                 <!-- Bootstrap Modal for showing the larger image -->
                 <div class="modal fade" id="imageModal{{ mediafile.id }}" tabindex="-1"
@@ -361,17 +386,17 @@ ID: {{ mediafile.id }}">
     {#</div>#}
     <script>
         function setCategoryAndSubmit(predictedTaxon) {
-        const categoryDropdown = document.getElementById('id_taxon');
-        const options = categoryDropdown.options;
+            const categoryDropdown = document.getElementById('id_taxon');
+            const options = categoryDropdown.options;
 
-        // Loop through options to find and select the predicted taxon
-        for (let i = 0; i < options.length; i++) {
-            if (options[i].text === predictedTaxon) {
-                categoryDropdown.selectedIndex = i;
-                break;
+            // Loop through options to find and select the predicted taxon
+            for (let i = 0; i < options.length; i++) {
+                if (options[i].text === predictedTaxon) {
+                    categoryDropdown.selectedIndex = i;
+                    break;
+                }
             }
         }
-    }
 
     </script>
 {% endblock %}

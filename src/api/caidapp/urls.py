@@ -81,6 +81,8 @@ urlpatterns = [
     #     views_mediafile.media_file_update,
     #     name="media_file_update",
     # ),
+
+    path("observation/<int:pk>/delete/", views_mediafile.ObservationDeleteView.as_view(), name="observation_delete"),
     path("manage_localities/", views_locality.manage_localities, name="manage_localities"),
     path(
         "delete_locality/<int:locality_id>/", views_locality.delete_locality, name="delete_locality"
