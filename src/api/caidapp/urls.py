@@ -75,11 +75,12 @@ urlpatterns = [
     ),
     path("refresh_data/", views.refresh_data, name="refresh_data"),
     path("djangologin/", views.MyLoginView.as_view(), name="djangologin"),
-    path(
-        "media_file_update/<int:media_file_id>/",
-        views_mediafile.media_file_update,
-        name="media_file_update",
-    ),
+    path("mediafile/<int:pk>/update/", views_mediafile.MediaFileUpdateView.as_view(), name="media_file_update"),
+    # path(
+    #     "media_file_update/<int:media_file_id>/",
+    #     views_mediafile.media_file_update,
+    #     name="media_file_update",
+    # ),
     path("manage_localities/", views_locality.manage_localities, name="manage_localities"),
     path(
         "delete_locality/<int:locality_id>/", views_locality.delete_locality, name="delete_locality"

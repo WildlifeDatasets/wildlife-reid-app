@@ -36,7 +36,7 @@ WORKDIR $APP_DIR
 RUN uv pip install --no-cache-dir --upgrade pip build && \
     uv pip install --no-cache-dir --compile --prerelease=allow -r requirements.txt && \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/* /tmp/* /var/tmp/*
-RUN uv pip install https://github.com/BohemianVRA/FGVC/releases/download/v1.5.4-dev/fgvc-1.5.4.dev0-py3-none-any.whl
+# RUN uv pip install https://github.com/BohemianVRA/FGVC/releases/download/v1.5.4-dev/fgvc-1.5.4.dev0-py3-none-any.whl
 
 RUN uv pip install pytz --upgrade
 RUN uv pip install tzdata --upgrade

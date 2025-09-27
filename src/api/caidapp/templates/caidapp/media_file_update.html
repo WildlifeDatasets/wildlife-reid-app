@@ -208,6 +208,45 @@
                                                 {% endfor %}
                                             </div>
                                         {% endfor %}
+
+
+                                        <h5>Observations</h5>
+                                    <p>
+                                        {{ mediafile.observations.count }} observation(s) linked to this media file.
+                                    </p>
+                                    <p>
+
+                                        {{ inlines.0.total_form_count }} form(s) available to edit observations.
+                                    </p>
+                                    <p>initial: {{ inlines.0.initial_form_count }}</p>
+<p>extra: {{ inlines.0.extra }}</p>
+<p>total: {{ inlines.0.total_form_count }}</p>
+                                    {% for obs in mediafile.observations.all %}
+    <li>{{ obs.id }} – {{ obs.taxon }} – {{ obs.identity }}</li>
+{% empty %}
+    <li>No observations yet.</li>
+{% endfor %}
+{#  {% for inline in inlines %}#}
+{#      {{ inline.management_form }}#}
+{#      <table class="table">#}
+{#        {% for obs_form in inline %}#}
+{#          <tr>#}
+{#            <td>{{ obs_form.taxon }}</td>#}
+{#            <td>{{ obs_form.identity }}</td>#}
+{#            <td>{{ obs_form.bbox_x_center }} {{ obs_form.bbox_y_center }}</td>#}
+{#            <td>{{ obs_form.DELETE }}</td>#}
+{#          </tr>#}
+{#        {% endfor %}#}
+{#      </table>#}
+{#  {% endfor %}#}
+
+                                    {% for inline in inlines %}
+                                        {{ inline.instance.id }} - Observation forms:
+    {{ inline.management_form }}
+    {% for obs_form in inline %}
+        {{ obs_form.as_p }}
+    {% endfor %}
+{% endfor %}
                                     </div>
 
 

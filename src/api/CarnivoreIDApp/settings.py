@@ -107,6 +107,8 @@ INSTALLED_APPS = [
     "django_filters",
     "crispy_forms",
     "crispy_bootstrap5",
+    'extra_views',
+    "django_extensions",
     # "debug_toolbar"
     # 'pagination',
 ]

@@ -259,6 +259,7 @@ def confirm_prediction(request, mediafile_id: int) -> JsonResponse:
         return JsonResponse({"success": False, "message": "Invalid request."})
 
 
+# todo deprecated
 @login_required
 def media_file_update(
     request, media_file_id, next_text="Save", next_url=None, skip_url=None, cancel_url=None
@@ -284,19 +285,6 @@ def media_file_update(
             if next_url is None:
                 # next url is where i am comming from
                 next_url = request.META.get("HTTP_REFERER", "/")
-                # stay here
-                # next_url = reverse_lazy("caidapp:media_file_update", kwargs={"media_file_id": media_file_id})
-                # next_url = reverse_lazy(
-                #     "caidapp:uploadedarchive_mediafiles",
-                #     kwargs={"uploadedarchive_id": mediafile.parent.id},
-                # )
-        # if "confirmTaxonSubmit" in request.POST:
-        #     confirm_prediction(request, media_file_id)
-        #     # decode_json
-        #     # stay on the same page
-        #     actual_url = request.META.get("HTTP_REFERER", "/")
-        #
-        #     return redirect(actual_url)
 
         form = MediaFileForm(request.POST, instance=mediafile)
         logger.debug(f"Form in POST: {mediafile=}")
@@ -311,13 +299,6 @@ def media_file_update(
             logger.debug(f"{mediafile.mediafile.path=}")
             logger.debug(f"{mediafile.updated_at=}")
             logger.debug(f"{next_url=}")
-            # if (mediafile.category is not None) and (mediafile.category.name != "Not Classified"):
-            #     # mediafile.taxon_verified = True
-            #     # mediafile.taxon_verified_at = django.utils.timezone.now()
-            #     mediafile.save()
-            #     logger.debug(f"{mediafile.taxon_verified=}")
-            #
-            #     return redirect(next_url)
             return redirect(next_url)
         else:
             logger.error("Form is not valid.")
@@ -351,3 +332,39 @@ def media_file_update(
             "cancel_url": cancel_url,
         },
     )
+
+from django.contrib.auth.mixins import LoginRequiredMixin
+from extra_views import UpdateWithInlinesView, InlineFormSetFactory
+from .models import MediaFile, AnimalObservation
+from .forms import MediaFileForm
+
+class ObservationInline(InlineFormSetFactory):
+    model = AnimalObservation
+    fields = [
+        "taxon",
+        "identity", "identity_is_representative",
+        "bbox_x_center", "bbox_y_center", "bbox_width", "bbox_height",
+        "orientation"
+    ]
+    can_delete = True
+
+    def get_factory_kwargs(self):
+        kwargs = super().get_factory_kwargs()
+        kwargs['extra'] = 1   # nebo 1, jak potřebuješ
+        return kwargs
+
+class MediaFileUpdateView(LoginRequiredMixin, UpdateWithInlinesView):
+    model = MediaFile
+    form_class = MediaFileForm
+    inlines = [ObservationInline]
+    template_name = "caidapp/media_file_update.html"
+    context_object_name = "mediafile"
+
+    def get_success_url(self):
+        return self.request.GET.get("next") or self.request.META.get("HTTP_REFERER", "/")
+
+    def form_valid(self, form):
+        form.instance.updated_by = self.request.user.caiduser
+        form.instance.updated_at = django.utils.timezone.now()
+        return super().form_valid(form)
+
