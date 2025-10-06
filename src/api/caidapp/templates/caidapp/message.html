@@ -14,6 +14,9 @@
     {% if link %}
         <a href="{{ link }}" class="btn btn-primary">{{ button_label }}</a>
     {% endif %}
+        {% if link_secondary %}
+            <a href="{{ link_secondary }}" class="btn btn-primary">{{ button_label_secondary }}</a>
+        {% endif %}
     </div>
 
 {% endblock %}

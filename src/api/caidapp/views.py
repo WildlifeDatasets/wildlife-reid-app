@@ -49,6 +49,7 @@ from django.urls import reverse
 from django.contrib import messages
 from django.shortcuts import redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
+from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView
 import django.db
 import django.utils.timezone
 from djangoaddicts.pygwalker.views import PygWalkerView
@@ -190,7 +191,9 @@ def login(request):
         )
 
 
-def message_view(request, message, headline=None, link=None, button_label="Ok"):
+def message_view(request, message, headline=None, link=None, button_label="Ok",
+                 link_secondary=None, button_label_secondary=None
+                 ):
     """Show message."""
     return render(
         request,
@@ -200,7 +203,9 @@ def message_view(request, message, headline=None, link=None, button_label="Ok"):
             "headline": headline,
             "link": link,
             "button_label": button_label,
-         },
+            "link_secondary": link_secondary,
+            "button_label_secondary": button_label_secondary,
+        },
     )
 
 
@@ -3927,6 +3932,9 @@ def suggest_merge_identities_view(request, limit:int=100):
             f"Suggestions are being prepared. Job was started at {response['started_at']}. Please refresh this page later.",
             link=reverse_lazy("caidapp:suggest_merge_identities"),
             button_label="Check now",
+            headline="Suggestions are being prepared",
+            link_secondary=reverse_lazy("caidapp:refresh_merge_identities_suggestions"),
+            button_label_secondary="Refresh suggestions",
 
         )
 
@@ -4266,7 +4274,6 @@ def toggle_identity_representative(request, mediafile_id: int):
 
 
 
-from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView
 class NotificationCreateView(CreateView):
     model = models.Notification
     fields = ['message', 'read', 'level']
