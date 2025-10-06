@@ -420,11 +420,17 @@ ID: {{ mediafile.id }}">
                             </video>
 
                             <!-- Thumbnail with modal trigger -->
-                            <img src="{{ mediafile.thumbnail.url }}" class="img-fluid m-1" alt="Camera trap image"
-                                 style="max-width: 320px;" data-bs-toggle="modal"
-                                 data-bs-target="#imageModal{{ mediafile.id }}"
-                                 fetchpriority="high"
-                            >
+{#                            <img src="{{ mediafile.thumbnail.url }}" class="img-fluid m-1" alt="Camera trap image"#}
+{#                                 style="max-width: 320px;" data-bs-toggle="modal"#}
+{#                                 data-bs-target="#imageModal{{ mediafile.id }}"#}
+{#                                 fetchpriority="high"#}
+{#                            >#}
+{#                            <canvas id="annotCanvas"#}
+                                    {#                                style="max-width: 600px;"#}
+{##}
+                                    {#                                class="img-fluid"#}
+{#                                    style="border:1px solid #ccc; margin-top:10px;"></canvas>#}
+{#                                <img id="annotatable-image" src="{{ mediafile.static_thumbnail.url }}" hidden>#}
 
                         {% else %}
                             <!-- Image with modal trigger -->
