@@ -2561,10 +2561,20 @@ def media_files_update(
 
             select_all_in_the_pages = True if form.data.get("select_all", '') == "on" else False
             logger.debug(f"{select_all_in_the_pages=}")
+            if "btnBulkProcessingAlbum" in form.data:
+                if selected_album_hash == "new":
+                    logger.debug("Creating new album")
+                    logger.debug("Select Album :" + form.data["selectAlbum"])
+                    album = create_new_album(request)
+                    selected_album_hash = album.hash
+
             if select_all_in_the_pages:
                 # selected all m media file processing
                 for mediafile in full_mediafiles:
+
                     _single_mediafile_update(request, mediafile, form, form_bulk_processing, selected_album_hash)
+                    album.cover = mediafile
+                    album.save()
             else:
                 for mediafileform in form:
                     # go over selected mediafiles
@@ -2576,6 +2586,8 @@ def media_files_update(
                             mediafileform.selected = False
                             instance: MediaFile = mediafileform.save(commit=False)
                             _single_mediafile_update(request, instance, form, form_bulk_processing, selected_album_hash)
+                            album.cover = instance
+                            album.save()
 
                     # mediafileform.save()
             # form.save()
@@ -2631,6 +2643,7 @@ def _single_mediafile_update(request, instance, form, form_bulk_processing, sele
             logger.debug(f"{items[0]=} ... {items[-1]=}")
         else:
             logger.debug("No data found in form.")
+
     if "btnBulkProcessingAlbum" in form.data:
         if selected_album_hash == "new":
             logger.debug("Creating new album")
@@ -2652,35 +2665,46 @@ def _single_mediafile_update(request, instance, form, form_bulk_processing, sele
                 instance.album_set.add(album)
                 instance.save()
     elif "btnBulkProcessing_id_taxon" in form.data:
-        instance.taxon = form_bulk_processing.cleaned_data["taxon"]
+        observation = instance.first_observation_get_or_create
+        observation.taxon = form_bulk_processing.cleaned_data["taxon"]
+        instance.taxon = observation.taxon
         instance.updated_by = request.user.caiduser
         instance.updated_at = django.utils.timezone.now()
         instance.save()
+        observation.save()
     elif "btnBulkProcessing_id_identity" in form.data:
-        instance.identity = form_bulk_processing.cleaned_data["identity"]
+        observation = instance.first_observation_get_or_create
+        observation.identity = form_bulk_processing.cleaned_data["identity"]
+        instance.identity = observation.identity
         # instance.identity_is_representative = False
         instance.updated_by = request.user.caiduser
         instance.updated_at = django.utils.timezone.now()
         instance.save()
     elif "btnBulkProcessing_id_identity_is_representative" in form.data:
-        instance.identity_is_representative = form_bulk_processing.cleaned_data[
+        observation = instance.first_observation_get_or_create
+        observation.identity_is_representative = form_bulk_processing.cleaned_data[
             "identity_is_representative"
         ]
+        instance.identity_is_representative = observation.identity_is_representative
         instance.updated_by = request.user.caiduser
         instance.updated_at = django.utils.timezone.now()
         instance.save()
     elif "btnBulkProcessingDelete" in form.data:
         instance.delete()
     elif "btnBulkProcessing_id_taxon_verified" in form.data:
-        instance.taxon_verified = form_bulk_processing.cleaned_data[
+        observation = instance.first_observation_get_or_create
+        observation.taxon_verified = form_bulk_processing.cleaned_data[
             "taxon_verified"
         ]
+        instance.taxon_verified = observation.taxon_verified
         instance.updated_by = request.user.caiduser
         instance.updated_at = django.utils.timezone.now()
         instance.save()
 
     elif "btnBulkProcessing_set_taxon_verified" in form.data:
-        instance.taxon_verified = True
+        observation = instance.first_observation_get_or_create
+        observation.taxon_verified = True
+        instance.taxon_verified = observation.taxon_verified
         instance.updated_by = request.user.caiduser
         instance.updated_at = django.utils.timezone.now()
         instance.save()

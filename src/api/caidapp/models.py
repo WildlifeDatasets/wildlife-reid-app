@@ -977,6 +977,7 @@ class MediaFile(models.Model):
     )
     parent = models.ForeignKey(UploadedArchive, on_delete=models.CASCADE, null=True)
     taxon = models.ForeignKey(Taxon, blank=True, null=True, on_delete=models.CASCADE, verbose_name="Taxon")
+    # legacy_taxon = taxon
     predicted_taxon = models.ForeignKey(
         Taxon, blank=True, null=True, on_delete=models.SET_NULL, related_name="predicted_taxon"
     )
@@ -1144,6 +1145,20 @@ class MediaFile(models.Model):
                 # and the reid will be started after the init
 
         super().save(*args, **kwargs)
+
+    @property
+    def first_observation(self) -> Optional["AnimalObservation"]:
+        """Return the first AnimalObservation related to this MediaFile."""
+        obs = self.observations.first()
+        if obs:
+            return obs
+        return None
+
+    @property
+    def first_observation_get_or_create(self) -> "AnimalObservation":
+        """Return the first AnimalObservation related to this MediaFile, or create one if none exists."""
+        obs, created = AnimalObservation.objects.get_or_create(mediafile=self)
+        return obs
 
 
 class AnimalObservation(models.Model):

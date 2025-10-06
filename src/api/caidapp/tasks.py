@@ -713,17 +713,23 @@ def _update_database_by_one_row_of_metadata(
                 # metadata_json=row["detection_results"],
                 # metadata_json=metadata_json,
             )
+            observation = mf.animalobservation_set.create(
+                mediafile=mf,
+            )
 
             # logger.debug(f"{uploaded_archive.contains_identities=}")
             # logger.debug(f"{uploaded_archive.contains_single_taxon=}")
             if uploaded_archive.contains_identities and uploaded_archive.contains_single_taxon:
-                mf.identity_is_representative = True
+                observation = True
+                mf.identity_is_representative = observation
             if "original_path" in row:
                 mf.original_filename = row["original_path"]
             # if "media_type" in row:
             #     mf.media_type = str(row["media_type"])
             # logger.debug(f"{mf.identity_is_representative}")
+
             mf.save()
+            observation.save()
             # logger.debug(f"Created new Mediafile {mf}")
             status = "created"
         else:
@@ -751,9 +757,11 @@ def _update_database_by_one_row_of_metadata(
 
         # if archive is uploaded with known taxon, then do not use the predicted taxon.
         if uploaded_archive.contains_single_taxon and uploaded_archive.taxon_for_identification:
-            mf.taxon = uploaded_archive.taxon_for_identification
+            # mf.first_observation.taxon = uploaded_archive.taxon_for_identification
+            taxon = uploaded_archive.taxon_for_identification
         else:
-            mf.taxon = get_taxon(row["predicted_category"])  # remove this
+            taxon = get_taxon(row["predicted_category"])  # remove this
+            # mf.first_observation.taxon = get_taxon(row["predicted_category"])  # remove this
         if captured_at is not None:
             mf.captured_at = captured_at
         if "predicted_category_raw" in row:
@@ -762,13 +770,13 @@ def _update_database_by_one_row_of_metadata(
         if len(mf.animalobservation_set.all()) == 0:
             ao = mf.animalobservation_set.create(
                 mediafile=mf,
-                taxon=mf.taxon,
+                taxon=taxon,
                 # metadata_json=row.to_dict(),
             )
         else:
             ao = mf.animalobservation_set.first()
             # ao.metadata_json = row.to_dict()
-            ao.taxon = mf.taxon
+            ao.taxon = taxon
             ao.save()
 
         try:

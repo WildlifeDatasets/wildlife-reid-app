@@ -172,7 +172,47 @@
                                     {#                                    {{ form }}#}
                                     {#                                                    {{ form.as_p }}#}
                                     <div class="form-group">
+                                        {% if mediafile.is_for_suggestion  and forloop.counter == 1 %}
+                                            <div>
 
+                                                <i class="bi bi-question-circle me-2"></i>
+                                                <a href="#"
+                                                   name="confirmTaxonSubmit"
+                                                   class="btn btn-secondary"
+                                                   id="confirmTaxonSubmit"
+                                                        {#                                                        type="submit"#}
+                                                   onclick="setCategoryAndSubmit('{{ mediafile.predicted_taxon }}')"
+                                                >
+                                                    Select
+                                                </a>
+
+                                                {{ mediafile.predicted_taxon }}
+                                                ({{ mediafile.predicted_taxon_confidence|mul:100|floor|floatformat:0 }}%)
+
+                                            </div>
+                                        {% endif %}
+
+                                        {% for field in form %}
+                                            <div>
+                                                <label for="{{ field.id_for_label }}"
+                                                       class="mt-1">{{ field.label }}</label><br>
+                                                <!-- Label on its own line -->
+                                                {{ field }}  <!-- Field on the next line -->
+                                                {% if field.id_for_label == "id_identity" %}
+                                                    <button type="button" class="btn btn-outline-primary btn-sm"
+                                                            onclick="window.location.href='{% url 'caidapp:individual_identity_create' mediafile.id %}?next={{ request.path }}'">
+                                                        <i class="bi-plus"></i></button>
+                                                {% endif %}
+                                                {% if field.help_text %}
+                                                    <small class="form-text text-muted">{{ field.help_text }}</small>
+                                                {% endif %}
+                                                {% for error in field.errors %}
+                                                    <div class="alert alert-danger"
+                                                         id="error_{{ field.id_for_label }}">{{ error }}</div>
+                                                {% endfor %}
+                                            </div>
+                                        {% endfor %}
+                                        {# end of mediafile fields #}
 
                                         <h5>Observations</h5>
                                         {#  {% for inline in inlines %}#}
@@ -213,69 +253,69 @@
 
                                                             {# --- běžná pole --- #}
 
-                                                            {% if mediafile.is_for_suggestion  and forloop.counter == 1 %}
-                                                                <div>
-
-                                                                    <i class="bi bi-question-circle me-2"></i>
-                                                                    <a href="#"
-                                                                       name="confirmTaxonSubmit"
-                                                                       class="btn btn-secondary"
-                                                                       id="confirmTaxonSubmit"
-                                                                            {#                                                        type="submit"#}
-                                                                       onclick="setCategoryAndSubmit('{{ mediafile.predicted_taxon }}')"
-                                                                    >
-                                                                        Select
-                                                                    </a>
-
-                                                                    {{ mediafile.predicted_taxon }}
-                                                                    ({{ mediafile.predicted_taxon_confidence|mul:100|floor|floatformat:0 }}%)
-
-                                                                </div>
-                                                            {% endif %}
-                                                            <div class="mt-1">
-                                                                {{ obs_form.taxon.label_tag }}<br>
-                                                                {{ obs_form.taxon }}
-                                                                {% for error in obs_form.taxon.errors %}
-                                                                    <div class="text-danger small">{{ error }}</div>
-                                                                {% endfor %}
-                                                            </div>
-
-                                                            <div class="mt-1">
-                                                                {{ obs_form.taxon_verified.label_tag }}
-                                                                {{ obs_form.taxon_verified }}
-                                                                {% for error in obs_form.taxon_verified.errors %}
-                                                                    <div class="text-danger small">{{ error }}</div>
-                                                                {% endfor %}
-                                                            </div>
-
-
-                                                            <div class="mt-1">
-                                                                {{ obs_form.identity.label_tag }}
-                                                                {{ obs_form.identity }}
-                                                                <button type="button"
-                                                                        class="btn btn-outline-primary btn-sm"
-                                                                        onclick="window.location.href='{% url 'caidapp:individual_identity_create' mediafile.id %}?next={{ request.path }}'">
-                                                                    <i class="bi-plus"></i></button>
-                                                                {% for error in obs_form.identity.errors %}
-                                                                    <div class="text-danger small">{{ error }}</div>
-                                                                {% endfor %}
-                                                            </div>
-
-                                                            <div class="mt-1">
-                                                                {{ obs_form.identity_is_representative.label_tag }}
-                                                                {{ obs_form.identity_is_representative }}
-                                                                {% for error in obs_form.identity_is_representative.errors %}
-                                                                    <div class="text-danger small">{{ error }}</div>
-                                                                {% endfor %}
-                                                            </div>
-
-                                                            <div class="mt-1">
-                                                                {{ obs_form.orientation.label_tag }}
-                                                                {{ obs_form.orientation }}
-                                                                {% for error in obs_form.orientation.errors %}
-                                                                    <div class="text-danger small">{{ error }}</div>
-                                                                {% endfor %}
-                                                            </div>
+                                                            {#                                                            {% if mediafile.is_for_suggestion  and forloop.counter == 1 %}#}
+                                                            {#                                                                <div>#}
+                                                            {##}
+                                                            {#                                                                    <i class="bi bi-question-circle me-2"></i>#}
+                                                            {#                                                                    <a href="#"#}
+                                                            {#                                                                       name="confirmTaxonSubmit"#}
+                                                            {#                                                                       class="btn btn-secondary"#}
+                                                            {#                                                                       id="confirmTaxonSubmit"#}
+                                                            {#                                                        type="submit"#}
+                                                            {#                                                                       onclick="setCategoryAndSubmitInObservation('{{ mediafile.predicted_taxon }}')"#}
+                                                            {#                                                                    >#}
+                                                            {#                                                                        Select#}
+                                                            {#                                                                    </a>#}
+                                                            {##}
+                                                            {#                                                                    {{ mediafile.predicted_taxon }}#}
+                                                            {#                                                                    ({{ mediafile.predicted_taxon_confidence|mul:100|floor|floatformat:0 }}%)#}
+                                                            {##}
+                                                            {#                                                                </div>#}
+                                                            {#                                                            {% endif %}#}
+                                                            {#                                                            <div class="mt-1">#}
+                                                            {#                                                                {{ obs_form.taxon.label_tag }}<br>#}
+                                                            {#                                                                {{ obs_form.taxon }}#}
+                                                            {#                                                                {% for error in obs_form.taxon.errors %}#}
+                                                            {#                                                                    <div class="text-danger small">{{ error }}</div>#}
+                                                            {#                                                                {% endfor %}#}
+                                                            {#                                                            </div>#}
+                                                            {##}
+                                                            {#                                                            <div class="mt-1">#}
+                                                            {#                                                                {{ obs_form.taxon_verified.label_tag }}#}
+                                                            {#                                                                {{ obs_form.taxon_verified }}#}
+                                                            {#                                                                {% for error in obs_form.taxon_verified.errors %}#}
+                                                            {#                                                                    <div class="text-danger small">{{ error }}</div>#}
+                                                            {#                                                                {% endfor %}#}
+                                                            {#                                                            </div>#}
+                                                            {##}
+                                                            {##}
+                                                            {#                                                            <div class="mt-1">#}
+                                                            {#                                                                {{ obs_form.identity.label_tag }}#}
+                                                            {#                                                                {{ obs_form.identity }}#}
+                                                            {#                                                                <button type="button"#}
+                                                            {#                                                                        class="btn btn-outline-primary btn-sm"#}
+                                                            {#                                                                        onclick="window.location.href='{% url 'caidapp:individual_identity_create' mediafile.id %}?next={{ request.path }}'">#}
+                                                            {#                                                                    <i class="bi-plus"></i></button>#}
+                                                            {#                                                                {% for error in obs_form.identity.errors %}#}
+                                                            {#                                                                    <div class="text-danger small">{{ error }}</div>#}
+                                                            {#                                                                {% endfor %}#}
+                                                            {#                                                            </div>#}
+                                                            {##}
+                                                            {#                                                            <div class="mt-1">#}
+                                                            {#                                                                {{ obs_form.identity_is_representative.label_tag }}#}
+                                                            {#                                                                {{ obs_form.identity_is_representative }}#}
+                                                            {#                                                                {% for error in obs_form.identity_is_representative.errors %}#}
+                                                            {#                                                                    <div class="text-danger small">{{ error }}</div>#}
+                                                            {#                                                                {% endfor %}#}
+                                                            {#                                                            </div>#}
+                                                            {##}
+{#                                                                                                                        <div class="mt-1">#}
+{#                                                                                                                            {{ obs_form.orientation.label_tag }}#}
+{#                                                                                                                            {{ obs_form.orientation }}#}
+{#                                                                                                                            {% for error in obs_form.orientation.errors %}#}
+{#                                                                                                                                <div class="text-danger small">{{ error }}</div>#}
+{#                                                                                                                            {% endfor %}#}
+{#                                                                                                                        </div>#}
 
                                                             {# --- bbox hidden fields --- #}
                                                             {{ obs_form.bbox_x_center.as_hidden }}
@@ -321,67 +361,18 @@
                                                             </button>
 
 
-                                                            {#                                                            <a href="{% url 'caidapp:observation_delete' obs_form.instance.pk %}"#}
-                                                            {#                                                               class="btn btn-sm btn-danger"#}
-                                                            {#                                                               onclick="return confirm('Delete this observation?');">#}
-                                                            {#                                                                Delete#}
-                                                            {#                                                            </a>#}
                                                         </div>
                                                     {% endfor %}
 
                                                 {% endfor %}
                                             </div>
-                                            {#                                            <div id="empty-form" style="display:none;">#}
-                                            {#                                                <div class="mb-2 border rounded p-2">#}
-                                            {#                                                    New observation:#}
-                                            {#                                                    {% with inline.empty_form as new_obs_form %}#}
-                                            {#  {{ inline.empty_form.as_p }}#}
-                                            {#                                                        {{ new_obs_form.taxon.label_tag }}<br>#}
-                                            {#                                                        {{ new_obs_form.taxon }}<br>#}
-                                            {#                                                        {{ new_obs_form.taxon_verified }}<br>#}
-                                            {#                                                        {{ new_obs_form.identity }}<br>#}
-                                            {#                                                        {{ new_obs_form.identity_is_representative }}<br>#}
-                                            {#                                                        {{ new_obs_form.orientation }}<br>#}
-                                            {##}
-                                            {#                                                        <!-- bbox jako hidden inputy -->#}
-                                            {#                                                                    {{ obs_form.bbox_x_center.as_hidden }}#}
-                                            {#                                                                    {{ obs_form.bbox_y_center.as_hidden }}#}
-                                            {#                                                                    {{ obs_form.bbox_width.as_hidden }}#}
-                                            {#                                                                    {{ obs_form.bbox_height.as_hidden }}#}
-                                            {#                                                        {{ new_obs_form.bbox_x_center }}<br>#}
-                                            {#                                                        {{ new_obs_form.bbox_y_center }}<br>#}
-                                            {#                                                        {{ new_obs_form.bbox_width }}<br>#}
-                                            {#                                                        {{ new_obs_form.bbox_height }}<br>#}
-                                            {#                                                    {% endwith %}#}
-                                            {#                                                </div>#}
-                                            {#                                            </div>#}
-                                            <button type="button" id="add-observation-btn"
-                                                    class="btn btn-outline-primary">
-                                                Add Observation
-                                            </button>
+                                            {#                                            <button type="button" id="add-observation-btn"#}
+                                            {#                                                    class="btn btn-outline-primary">#}
+                                            {#                                                Add Observation#}
+                                            {#                                            </button>#}
                                         </div>
+                                        {# end of observations #}
 
-
-                                        {% for field in form %}
-                                            <div>
-                                                <label for="{{ field.id_for_label }}"
-                                                       class="mt-1">{{ field.label }}</label><br>
-                                                <!-- Label on its own line -->
-                                                {{ field }}  <!-- Field on the next line -->
-                                                {% if field.id_for_label == "id_identity" %}
-                                                    <button type="button" class="btn btn-outline-primary btn-sm"
-                                                            onclick="window.location.href='{% url 'caidapp:individual_identity_create' mediafile.id %}?next={{ request.path }}'">
-                                                        <i class="bi-plus"></i></button>
-                                                {% endif %}
-                                                {% if field.help_text %}
-                                                    <small class="form-text text-muted">{{ field.help_text }}</small>
-                                                {% endif %}
-                                                {% for error in field.errors %}
-                                                    <div class="alert alert-danger"
-                                                         id="error_{{ field.id_for_label }}">{{ error }}</div>
-                                                {% endfor %}
-                                            </div>
-                                        {% endfor %}
 
                                     </div>
 
@@ -510,9 +501,23 @@ ID: {{ mediafile.id }}">
 {% endblock %}
 {% block script %}
     <script>
-        function setCategoryAndSubmit(predictedTaxon) {
+        function setCategoryAndSubmitInObservation(predictedTaxon) {
             {#const categoryDropdown = document.getElementById('id_taxon');#}
             const categoryDropdown = document.getElementById('id_observations-0-taxon');
+            const options = categoryDropdown.options;
+
+            // Loop through options to find and select the predicted taxon
+            for (let i = 0; i < options.length; i++) {
+                if (options[i].text === predictedTaxon) {
+                    categoryDropdown.selectedIndex = i;
+                    break;
+                }
+            }
+        }
+
+        function setCategoryAndSubmit(predictedTaxon) {
+            const categoryDropdown = document.getElementById('id_taxon');
+            {#const categoryDropdown = document.getElementById('id_observations-0-taxon');#}
             const options = categoryDropdown.options;
 
             // Loop through options to find and select the predicted taxon

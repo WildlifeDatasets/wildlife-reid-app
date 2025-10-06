@@ -348,8 +348,9 @@ class ObservationInline(InlineFormSetFactory):
         "taxon",
         "identity", "identity_is_representative",
         "bbox_x_center", "bbox_y_center", "bbox_width", "bbox_height",
-        "orientation"
+        # "orientation"
     ]
+    # warning, the orientation is reqired field, if it is here it will fail if it will be not rendered while not filled.
     can_delete = False
     extra = 0
     fk_name = "mediafile"
