@@ -9,11 +9,20 @@ from django.urls import reverse_lazy
 from django.utils import timezone
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
+from django.contrib.auth.mixins import LoginRequiredMixin
+from extra_views import UpdateWithInlinesView, InlineFormSetFactory
+from django.contrib import messages
+from django.urls import reverse
+from django.views.generic import DeleteView
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.forms import  HiddenInput
 
 from . import model_extra, models, forms
 from .forms import MediaFileForm, MediaFileMissingTaxonForm
 from .models import MediaFile
 from .views import logger, media_files_update, message_view
+from .models import MediaFile, AnimalObservation
+from .forms import MediaFileForm
 
 
 @login_required
@@ -302,7 +311,6 @@ def media_file_update(
             return redirect(next_url)
         else:
             logger.error("Form is not valid.")
-            from django.contrib import messages
             messages.error(request, "Form is not valid.")
 
     else:
@@ -333,10 +341,6 @@ def media_file_update(
         },
     )
 
-from django.contrib.auth.mixins import LoginRequiredMixin
-from extra_views import UpdateWithInlinesView, InlineFormSetFactory
-from .models import MediaFile, AnimalObservation
-from .forms import MediaFileForm
 
 class ObservationInline(InlineFormSetFactory):
     model = AnimalObservation
@@ -347,11 +351,26 @@ class ObservationInline(InlineFormSetFactory):
         "orientation"
     ]
     can_delete = False
+    extra = 0
+    fk_name = "mediafile"
+    # widgets = {
+    #     "bbox_x_center": HiddenInput(),
+    #     "bbox_y_center": HiddenInput(),
+    #     "bbox_width": HiddenInput(),
+    #     "bbox_height": HiddenInput(),
+    # }
 
     def get_factory_kwargs(self):
         kwargs = super().get_factory_kwargs()
-        kwargs['extra'] = 0   # nebo 1, jak potřebuješ
+        kwargs['extra'] = self.extra
         return kwargs
+
+    # def get_formset(self, **kwargs):
+    #     formset = super().get_formset(**kwargs)
+    #     for form in formset.forms:
+    #         for field in ["bbox_x_center", "bbox_y_center", "bbox_width", "bbox_height"]:
+    #             form.fields[field].widget = HiddenInput()
+    #     return formset
 
 class MediaFileUpdateView(LoginRequiredMixin, UpdateWithInlinesView):
     model = MediaFile
@@ -363,17 +382,47 @@ class MediaFileUpdateView(LoginRequiredMixin, UpdateWithInlinesView):
     def get_success_url(self):
         return self.request.GET.get("next") or self.request.META.get("HTTP_REFERER", "/")
 
+    # def get_context_data(self, **kwargs):
+    #     # just for debug logs
+    #     # TODO remove later
+    #     context = super().get_context_data(**kwargs)
+    #     logger.debug("In get_context_data of MediaFileUpdateView")
+    #     for inline in context.get("inlines", []):
+    #         for form in inline:
+    #             print("Form instance:", form.instance, "PK:", form.instance.pk)
+    #     return context
+
     def form_valid(self, form):
+        logger.debug("In form_valid of MediaFileUpdateView")
         form.instance.updated_by = self.request.user.caiduser
         form.instance.updated_at = django.utils.timezone.now()
-        return super().form_valid(form)
+        response = super().form_valid(form)
+        # Save all valid inline formsets
+        inlines = self.get_inlines()
+        logger.debug(f"{len(inlines)=}")
 
+        return response
 
+    # def form_valid(self, form):
+    #     form.instance.updated_by = self.request.user.caiduser
+    #     form.instance.updated_at = django.utils.timezone.now()
+    #     self.object = form.save()  # uloží parent objekt
+    #
+    #     # uložit inlines s navázáním na uložený objekt
+    #     for formset in self.get_inlines():
+    #         formset.instance = self.object
+    #         if formset.is_valid():
+    #             instances = formset.save(commit=False)
+    #             for obj in instances:
+    #                 obj.mediafile = self.object
+    #                 obj.save()
+    #             for obj in formset.deleted_objects:
+    #                 obj.delete()
+    #         else:
+    #             messages.error(self.request, f"Inline formset error: {formset.errors}")
 
-from django.urls import reverse
-from django.views.generic import DeleteView
-from django.contrib.auth.mixins import LoginRequiredMixin
-from .models import AnimalObservation
+        # return redirect(self.get_success_url())
+
 
 class ObservationDeleteView(LoginRequiredMixin, DeleteView):
     model = AnimalObservation

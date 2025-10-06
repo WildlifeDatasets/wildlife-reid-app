@@ -1171,20 +1171,42 @@ class AnimalObservation(models.Model):
     updated_at = models.DateTimeField("Updated at", blank=True, null=True)
     metadata_json = models.JSONField(blank=True, null=True)
 
-def set_bbox_from_xyxy(self, x_min, y_min, x_max, y_max, img_w, img_h):
-    """YOLO-style relative bbox from absolute in px."""
-    self.bbox_x_center = ((x_min + x_max) / 2) / img_w
-    self.bbox_y_center = ((y_min + y_max) / 2) / img_h
-    self.bbox_width = (x_max - x_min) / img_w
-    self.bbox_height = (y_max - y_min) / img_h
+    def set_bbox_from_xyxy(self, x_min, y_min, x_max, y_max, img_w, img_h):
+        """YOLO-style relative bbox from absolute in px."""
+        self.bbox_x_center = ((x_min + x_max) / 2) / img_w
+        self.bbox_y_center = ((y_min + y_max) / 2) / img_h
+        self.bbox_width = (x_max - x_min) / img_w
+        self.bbox_height = (y_max - y_min) / img_h
 
-def get_bbox_xyxy(self, img_w, img_h):
-    """Get absolute pixel coordinates (x_min, y_min, x_max, y_max)."""
-    x_min = int((self.bbox_x_center - self.bbox_width / 2) * img_w)
-    y_min = int((self.bbox_y_center - self.bbox_height / 2) * img_h)
-    x_max = int((self.bbox_x_center + self.bbox_width / 2) * img_w)
-    y_max = int((self.bbox_y_center + self.bbox_height / 2) * img_h)
-    return x_min, y_min, x_max, y_max
+    def get_bbox_xyxy(self, img_w, img_h):
+        """Get absolute pixel coordinates (x_min, y_min, x_max, y_max)."""
+        x_min = int((self.bbox_x_center - self.bbox_width / 2) * img_w)
+        y_min = int((self.bbox_y_center - self.bbox_height / 2) * img_h)
+        x_max = int((self.bbox_x_center + self.bbox_width / 2) * img_w)
+        y_max = int((self.bbox_y_center + self.bbox_height / 2) * img_h)
+        return x_min, y_min, x_max, y_max
+
+    def get_message(self):
+        print("Getting message")
+        return "ahoj"
+
+    @property
+    def bbox_xywh_percent_as_str(self) -> Optional[str]:
+        """Get bbox according to W3C media-fragments specification.
+
+        https://www.w3.org/TR/media-frags/
+        """
+        # print("Getting bbox as string")
+        # logger.debug("Getting bbox as string")
+        if self.bbox_x_center is None:
+            # return "nic"
+            return None
+        x = self.bbox_x_center - self.bbox_width/2
+        y = self.bbox_y_center - self.bbox_height/2
+        logger.debug(f"{x=}, {y=}, {self.bbox_width=}, {self.bbox_height=}")
+
+        # return f"xywh=percent:{x:.4f},{y:.4f},{self.bbox_width:.4f},{self.bbox_height:.4f}"
+        return f"xywh=percent:{x*100:.4f},{y*100:.4f},{self.bbox_width*100:.4f},{self.bbox_height*100:.4f}"
 
 
 

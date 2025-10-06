@@ -2,6 +2,7 @@
 {% load custom_filters %}
 {# add style #}
 {% block head %}
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js"></script>
     <style>
         /* Increase the size of the carousel control icons */
         .carousel-control-prev-icon,
@@ -228,50 +229,176 @@
                                         {#  {% endfor %}#}
 
                                         <div>
-                                            {% for inline in inlines %}
-                                                <h6>Inline debug info</h6>
-                                                <ul>
-                                                    <li>Total forms: {{ inline.total_form_count }}</li>
-                                                    <li>Initial forms: {{ inline.initial_form_count }}</li>
-                                                    <li>Extra forms: {{ inline.extra_forms|length }}</li>
-                                                    <li>Non-form errors: {{ inline.non_form_errors }}</li>
-                                                </ul>
-                                                {{ inline.management_form }}
 
-                                                <!-- existující formuláře -->
-                                                <div id="observation-forms">
+                                            {#                                            {% for obs in mediafile.observations.all %}#}
+                                            {#                                                {{ obs.pk }} → {{ obs.bbox_xywh_percent_as_str|default:"-" }}#}
+                                            {#                                            {% endfor %}#}
+
+                                            <div id="observation-forms">
+                                                {% for inline in inlines %}
+                                                    {{ inline.management_form }}
+
                                                     {% for obs_form in inline %}
-                                                        <div class="mb-2 border rounded p-2">
-                                                            {{ obs_form.as_p }}
-                                                           {% if obs_form.instance.pk %}
-          <a href="{% url 'caidapp:observation_delete' obs_form.instance.pk %}"
-             class="btn btn-sm btn-danger"
-             onclick="return confirm('Delete this observation?');">
-              Delete
-          </a>
-      {% endif %}
+                                                        <div class="mb-2 border rounded p-2 observation-form"
+                                                             data-obs-id="{{ obs_form.instance.pk|default:'new' }}">
+                                                            Observation {{ forloop.counter }},
+                                                            pk: {{ obs_form.instance.pk }}: <br>
+
+                                                            {#                                                            {{ obs_form.as_p }}#}
+
+                                                            {#                                                            {{ obs_form.initial.id|default:obs_form.instance.pk|default:'new' }}<br>#}
+                                                            {{ obs_form.id }}
+
+
+                                                            {# --- běžná pole --- #}
+
+                                                            {% if mediafile.is_for_suggestion  and forloop.counter == 1 %}
+                                                                <div>
+
+                                                                    <i class="bi bi-question-circle me-2"></i>
+                                                                    <a href="#"
+                                                                       name="confirmTaxonSubmit"
+                                                                       class="btn btn-secondary"
+                                                                       id="confirmTaxonSubmit"
+                                                                            {#                                                        type="submit"#}
+                                                                       onclick="setCategoryAndSubmit('{{ mediafile.predicted_taxon }}')"
+                                                                    >
+                                                                        Select
+                                                                    </a>
+
+                                                                    {{ mediafile.predicted_taxon }}
+                                                                    ({{ mediafile.predicted_taxon_confidence|mul:100|floor|floatformat:0 }}%)
+
+                                                                </div>
+                                                            {% endif %}
+                                                            <div class="mt-1">
+                                                                {{ obs_form.taxon.label_tag }}<br>
+                                                                {{ obs_form.taxon }}
+                                                                {% for error in obs_form.taxon.errors %}
+                                                                    <div class="text-danger small">{{ error }}</div>
+                                                                {% endfor %}
+                                                            </div>
+
+                                                            <div class="mt-1">
+                                                                {{ obs_form.taxon_verified.label_tag }}
+                                                                {{ obs_form.taxon_verified }}
+                                                                {% for error in obs_form.taxon_verified.errors %}
+                                                                    <div class="text-danger small">{{ error }}</div>
+                                                                {% endfor %}
+                                                            </div>
+
+
+                                                            <div class="mt-1">
+                                                                {{ obs_form.identity.label_tag }}
+                                                                {{ obs_form.identity }}
+                                                                <button type="button"
+                                                                        class="btn btn-outline-primary btn-sm"
+                                                                        onclick="window.location.href='{% url 'caidapp:individual_identity_create' mediafile.id %}?next={{ request.path }}'">
+                                                                    <i class="bi-plus"></i></button>
+                                                                {% for error in obs_form.identity.errors %}
+                                                                    <div class="text-danger small">{{ error }}</div>
+                                                                {% endfor %}
+                                                            </div>
+
+                                                            <div class="mt-1">
+                                                                {{ obs_form.identity_is_representative.label_tag }}
+                                                                {{ obs_form.identity_is_representative }}
+                                                                {% for error in obs_form.identity_is_representative.errors %}
+                                                                    <div class="text-danger small">{{ error }}</div>
+                                                                {% endfor %}
+                                                            </div>
+
+                                                            <div class="mt-1">
+                                                                {{ obs_form.orientation.label_tag }}
+                                                                {{ obs_form.orientation }}
+                                                                {% for error in obs_form.orientation.errors %}
+                                                                    <div class="text-danger small">{{ error }}</div>
+                                                                {% endfor %}
+                                                            </div>
+
+                                                            {# --- bbox hidden fields --- #}
+                                                            {{ obs_form.bbox_x_center.as_hidden }}
+                                                            {{ obs_form.bbox_y_center.as_hidden }}
+                                                            {{ obs_form.bbox_width.as_hidden }}
+                                                            {{ obs_form.bbox_height.as_hidden }}
+
+                                                            {% for field in obs_form.hidden_fields %}
+                                                                {% for error in field.errors %}
+                                                                    <div class="text-danger small">{{ error }}</div>
+                                                                {% endfor %}
+                                                            {% endfor %}
+
+
+
+
+                                                            {##}
+                                                            {#                                                            {{ obs_form.taxon.label_tag }}#}
+                                                            {#                                                            {{ obs_form.taxon }}<br>#}
+                                                            {#                                                            {{ obs_form.taxon_verified }}<br>#}
+                                                            {#                                                            {{ obs_form.identity }}<br>#}
+                                                            {#                                                            {{ obs_form.identity_is_representative }}<br>#}
+                                                            {#                                                            {{ obs_form.orientation }}<br>#}
+                                                            {##}
+                                                            {##}
+                                                            {#                                                            <!-- bbox jako hidden inputy -->#}
+                                                            {#                                                             {{ obs_form.bbox_x_center.as_hidden }}#}
+                                                            {#                                                             {{ obs_form.bbox_y_center.as_hidden }}#}
+                                                            {#                                                             {{ obs_form.bbox_width.as_hidden }}#}
+                                                            {#                                                             {{ obs_form.bbox_height.as_hidden }}#}
+                                                            {#                                                            {{ obs_form.bbox_x_center }}<br>#}
+                                                            {#                                                            {{ obs_form.bbox_y_center }}<br>#}
+                                                            {#                                                            {{ obs_form.bbox_width }}<br>#}
+                                                            {#                                                            {{ obs_form.bbox_height }}<br>#}
+
+                                                            <button type="button"
+                                                                    class="btn btn-sm btn-outline-primary add-bbox-btn">
+                                                                Add BBox
+                                                            </button>
+                                                            <button type="button"
+                                                                    class="btn btn-sm btn-outline-danger remove-bbox-btn d-none">
+                                                                Remove BBox
+                                                            </button>
+
+
+                                                            {#                                                            <a href="{% url 'caidapp:observation_delete' obs_form.instance.pk %}"#}
+                                                            {#                                                               class="btn btn-sm btn-danger"#}
+                                                            {#                                                               onclick="return confirm('Delete this observation?');">#}
+                                                            {#                                                                Delete#}
+                                                            {#                                                            </a>#}
                                                         </div>
                                                     {% endfor %}
-                                                </div>
 
-                                                <!-- tlačítko Bootstrap collapse -->
-                                                <p>
-                                                    <a class="btn btn-sm btn-outline-primary" data-bs-toggle="collapse"
-                                                       href="#collapseAddObs" role="button" aria-expanded="false"
-                                                       aria-controls="collapseAddObs">
-                                                        Add Observation
-                                                    </a>
-                                                </p>
-
-                                                <div class="collapse" id="collapseAddObs">
-                                                    <div class="card card-body">
-                                                        {{ inline.empty_form.as_p }}
-                                                    </div>
-                                                </div>
-                                            {% endfor %}
+                                                {% endfor %}
+                                            </div>
+                                            {#                                            <div id="empty-form" style="display:none;">#}
+                                            {#                                                <div class="mb-2 border rounded p-2">#}
+                                            {#                                                    New observation:#}
+                                            {#                                                    {% with inline.empty_form as new_obs_form %}#}
+                                            {#  {{ inline.empty_form.as_p }}#}
+                                            {#                                                        {{ new_obs_form.taxon.label_tag }}<br>#}
+                                            {#                                                        {{ new_obs_form.taxon }}<br>#}
+                                            {#                                                        {{ new_obs_form.taxon_verified }}<br>#}
+                                            {#                                                        {{ new_obs_form.identity }}<br>#}
+                                            {#                                                        {{ new_obs_form.identity_is_representative }}<br>#}
+                                            {#                                                        {{ new_obs_form.orientation }}<br>#}
+                                            {##}
+                                            {#                                                        <!-- bbox jako hidden inputy -->#}
+                                            {#                                                                    {{ obs_form.bbox_x_center.as_hidden }}#}
+                                            {#                                                                    {{ obs_form.bbox_y_center.as_hidden }}#}
+                                            {#                                                                    {{ obs_form.bbox_width.as_hidden }}#}
+                                            {#                                                                    {{ obs_form.bbox_height.as_hidden }}#}
+                                            {#                                                        {{ new_obs_form.bbox_x_center }}<br>#}
+                                            {#                                                        {{ new_obs_form.bbox_y_center }}<br>#}
+                                            {#                                                        {{ new_obs_form.bbox_width }}<br>#}
+                                            {#                                                        {{ new_obs_form.bbox_height }}<br>#}
+                                            {#                                                    {% endwith %}#}
+                                            {#                                                </div>#}
+                                            {#                                            </div>#}
+                                            <button type="button" id="add-observation-btn"
+                                                    class="btn btn-outline-primary">
+                                                Add Observation
+                                            </button>
                                         </div>
-
-
                                     </div>
 
 
@@ -293,8 +420,9 @@
 
 
                                 </form>
+                            </div>
 
-                                <div class="position-absolute bottom-0 end-0 p-3">
+                            <div class="position-absolute bottom-0 end-0 p-3">
                                     <span
                                             {#                                            data-bs-toggle="tooltip"#}
                                             {#                                            data-toggle="tooltip"#}
@@ -303,9 +431,8 @@ ID: {{ mediafile.id }}">
                                     <i class="bi bi-info-circle"></i>
                                     </span>
 
-                                </div>
-
                             </div>
+
                         </div>
                     </div>
                 </div>
@@ -326,28 +453,40 @@ ID: {{ mediafile.id }}">
 
                         {% else %}
                             <!-- Image with modal trigger -->
-                            <div class="position-relative d-inline-block m-1"
-                                 style="max-width: 100%; cursor: pointer;"
-                                 data-bs-toggle="modal" data-bs-target="#imageModal{{ mediafile.id }}">
 
-                                <img src="{{ mediafile.preview.url }}" class="img-fluid" alt="Camera trap image">
+                            <!-- Canvas -->
+                            <canvas id="annotCanvas"
+                                    {#                                style="max-width: 600px;"#}
 
-                                {% for obs in mediafile.observations.all %}
-                                    {% if obs.bbox_x_center %}
-                                        <div class="bbox-overlay"
-                                             style="
-                                                     position: absolute;
-                                                     border: 2px solid red;
-                                                     box-sizing: border-box;
-                                                     left: calc(({{ obs.bbox_x_center }} - {{ obs.bbox_width }}/2) * 100%);
-                                                     top: calc(({{ obs.bbox_y_center }} - {{ obs.bbox_height }}/2) * 100%);
-                                                     width: calc({{ obs.bbox_width }} * 100%);
-                                                     height: calc({{ obs.bbox_height }} * 100%);
-                                                     ">
-                                        </div>
-                                    {% endif %}
-                                {% endfor %}
-                            </div>
+                                    {#                                class="img-fluid"#}
+                                    style="border:1px solid #ccc; margin-top:10px;"></canvas>
+                            <img id="annotatable-image" src="{{ mediafile.preview.url }}" hidden>
+
+
+                            {#                            <img id="annotatable-image" src="{{ mediafile.preview.url }}" class="img-fluid"#}
+                            {#                                 alt="Camera trap image">#}
+                            {#                        <div class="position-relative d-inline-block m-1"#}
+                            {#                             style="max-width: 100%; cursor: pointer;"#}
+                            {#                             data-bs-toggle="modal" data-bs-target="#imageModal{{ mediafile.id }}">#}
+                            {##}
+                            {#                            <img src="{{ mediafile.preview.url }}" class="img-fluid" alt="Camera trap image">#}
+                            {##}
+                            {#                            {% for obs in mediafile.observations.all %}#}
+                            {#                                {% if obs.bbox_x_center %}#}
+                            {#                                    <div class="bbox-overlay"#}
+                            {#                                         style="#}
+                            {#                                                 position: absolute;#}
+                            {#                                                 border: 2px solid red;#}
+                            {#                                                 box-sizing: border-box;#}
+                            {#                                                 left: calc(({{ obs.bbox_x_center }} - {{ obs.bbox_width }}/2) * 100%);#}
+                            {#                                                 top: calc(({{ obs.bbox_y_center }} - {{ obs.bbox_height }}/2) * 100%);#}
+                            {#                                                 width: calc({{ obs.bbox_width }} * 100%);#}
+                            {#                                                 height: calc({{ obs.bbox_height }} * 100%);#}
+                            {#                                                 ">#}
+                            {#                                    </div>#}
+                            {#                                {% endif %}#}
+                            {#                            {% endfor %}#}
+                            {#                        </div>#}
 
 
 
@@ -384,9 +523,12 @@ ID: {{ mediafile.id }}">
         </div>
     {% endif %}
     {#</div>#}
+{% endblock %}
+{% block script %}
     <script>
         function setCategoryAndSubmit(predictedTaxon) {
-            const categoryDropdown = document.getElementById('id_taxon');
+            {#const categoryDropdown = document.getElementById('id_taxon');#}
+            const categoryDropdown = document.getElementById('id_observations-0-taxon');
             const options = categoryDropdown.options;
 
             // Loop through options to find and select the predicted taxon
@@ -399,4 +541,217 @@ ID: {{ mediafile.id }}">
         }
 
     </script>
+
+
+    <script>
+
+
+        function getColorForObsId(obsId) {
+            const palette = [
+                '#ff4d4d', '#4d94ff', '#4dff88', '#ffb84d',
+                '#ff4dff', '#b84dff', '#4dffff', '#ffd24d'
+            ];
+            // hash id → index v paletě
+            const index = Math.abs(
+                obsId.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0)
+            ) % palette.length;
+            return palette[index];
+        }
+
+        document.addEventListener("DOMContentLoaded", function () {
+            const canvas = new fabric.Canvas('annotCanvas');
+            const imgElement = document.getElementById("annotatable-image");
+
+            fabric.Image.fromURL(imgElement.src, function (img) {
+                const scale = 600 / img.width;
+                img.scale(scale);
+                canvas.setWidth(img.width * scale);
+                canvas.setHeight(img.height * scale);
+                canvas.setBackgroundImage(img, canvas.renderAll.bind(canvas));
+
+                // helper – přidání bboxu s barvou
+                function addObservationBox(obsId, xCenter, yCenter, width, height, color) {
+                    const absX = (xCenter - width / 2) * canvas.width;
+                    const absY = (yCenter - height / 2) * canvas.height;
+                    const absW = width * canvas.width;
+                    const absH = height * canvas.height;
+
+                    console.log(`Adding observation ${obsId} at (${absX}, ${absY}, ${absW}, ${absH}) with color ${color}`);
+
+
+                    const rect = new fabric.Rect({
+                        left: absX,
+                        top: absY,
+                        width: absW,
+                        height: absH,
+                        fill: 'rgba(0,0,0,0)',
+                        stroke: color,
+                        strokeWidth: 3,
+                        strokeUniform: true,
+                        lockRotation: true,
+                        objectCaching: false
+                    });
+
+
+                    rect.obsId = obsId;
+                    canvas.add(rect);
+                    console.log(`Created rect:`, rect);
+                    console.log(`left: ${rect.left}, top: ${rect.top}, width: ${rect.width}, height: ${rect.height}`);
+
+
+                    canvas.bringToFront(rect);
+                    canvas.renderAll();
+                    return rect;
+                }
+
+                function removeObservationBox(obsId) {
+                    const target = canvas.getObjects().find((o) => o.obsId === obsId);
+                    if (target) {
+                        canvas.remove(target);
+                        canvas.renderAll();
+                    }
+                }
+
+                // připravíme barvy
+                {#const palette = ["#ff3b3b", "#2ecc71", "#3498db", "#f39c12", "#9b59b6", "#1abc9c", "#e67e22", "#e84393"];#}
+                {# let colorIndex = 0;#}
+
+                // projdeme všechny formuláře a přidáme bboxy se stejnou barvou
+                document.querySelectorAll(".observation-form").forEach(formDiv => {
+                    const obsId = formDiv.dataset.obsId;
+                    console.log(`Loading existing observation ${obsId}`);
+                    const x = parseFloat(formDiv.querySelector('[name$="bbox_x_center"]').value);
+                    const y = parseFloat(formDiv.querySelector('[name$="bbox_y_center"]').value);
+                    const w = parseFloat(formDiv.querySelector('[name$="bbox_width"]').value);
+                    const h = parseFloat(formDiv.querySelector('[name$="bbox_height"]').value);
+                    {#const color = palette[colorIndex++ % palette.length];#}
+                    const color = getColorForObsId(obsId);
+
+                    formDiv.style.borderColor = color;
+
+                    if (!isNaN(x) && !isNaN(y) && !isNaN(w) && !isNaN(h)) {
+                        addObservationBox(obsId, x, y, w, h, color);
+                        formDiv.querySelector(".add-bbox-btn").classList.add("d-none");
+                        formDiv.querySelector(".remove-bbox-btn").classList.remove("d-none");
+                    }
+
+                });
+
+
+                // Přidání bboxu k pozorování
+                document.addEventListener("click", (e) => {
+                    if (e.target.classList.contains("add-bbox-btn")) {
+                        const formDiv = e.target.closest(".observation-form");
+                        const obsId = formDiv.dataset.obsId;
+                        const color = getColorForObsId(obsId);
+
+                        const rect = addObservationBox(obsId, 0.5, 0.5, 0.2, 0.2, color);
+                        formDiv.querySelector('[name$="bbox_x_center"]').value = 0.5;
+                        formDiv.querySelector('[name$="bbox_y_center"]').value = 0.5;
+                        formDiv.querySelector('[name$="bbox_width"]').value = 0.2;
+                        formDiv.querySelector('[name$="bbox_height"]').value = 0.2;
+
+                        e.target.classList.add("d-none");
+                        formDiv.querySelector(".remove-bbox-btn").classList.remove("d-none");
+                    }
+
+                    if (e.target.classList.contains("remove-bbox-btn")) {
+                        const formDiv = e.target.closest(".observation-form");
+                        const obsId = formDiv.dataset.obsId;
+                        removeObservationBox(obsId);
+
+                        // Vyčistit hodnoty
+                        formDiv.querySelector('[name$="bbox_x_center"]').value = "";
+                        formDiv.querySelector('[name$="bbox_y_center"]').value = "";
+                        formDiv.querySelector('[name$="bbox_width"]').value = "";
+                        formDiv.querySelector('[name$="bbox_height"]').value = "";
+
+                        e.target.classList.add("d-none");
+                        formDiv.querySelector(".add-bbox-btn").classList.remove("d-none");
+                    }
+                });
+
+
+                // aktualizace při posunu/změně
+                canvas.on('object:modified', function (e) {
+                    const rect = e.target;
+                    const formDiv = document.querySelector('.observation-form[data-obs-id="' + rect.obsId + '"]');
+                    if (!formDiv) return;
+
+                    console.log("{rect.left}, {rect.top}, {rect.width}, {rect.height}");
+                    console.log("Canvas size: ", canvas.width, canvas.height);
+                    console.log("Image size: ", img.width * scale, img.height * scale);
+                    console.log("left: ", rect.left)
+                    console.log("top: ", rect.top)
+                    console.log("width: ", rect.width)
+                    console.log("height: ", rect.height)
+
+                    const scaledWidth = rect.getScaledWidth();
+                    const scaledHeight = rect.getScaledHeight();
+
+                    const xCenter = (rect.left + scaledWidth / 2) / canvas.width;
+                    const yCenter = (rect.top + scaledHeight / 2) / canvas.height;
+                    const bbox_width = scaledWidth / canvas.width;
+                    const bbox_height = scaledHeight / canvas.height;
+
+
+                    formDiv.querySelector('[name$="bbox_x_center"]').value = xCenter;
+                    formDiv.querySelector('[name$="bbox_y_center"]').value = yCenter;
+                    formDiv.querySelector('[name$="bbox_width"]').value = bbox_width;
+                    formDiv.querySelector('[name$="bbox_height"]').value = bbox_height;
+                });
+
+                // zvýraznění – kliknutí na bbox nebo formulář
+                canvas.on("mouse:down", function (e) {
+                    if (!e.target) return;
+                    const id = e.target.obsId;
+                    document.querySelectorAll(".observation-form").forEach(f => f.classList.remove("bg-warning"));
+                    const formDiv = document.querySelector(`.observation-form[data-obs-id="${id}"]`);
+                    if (formDiv) formDiv.classList.add("bg-warning");
+                });
+
+                document.querySelectorAll(".observation-form").forEach(formDiv => {
+                    formDiv.addEventListener("mouseenter", () => {
+                        const id = formDiv.dataset.obsId;
+                        const rect = canvas.getObjects().find(o => o.obsId === id);
+                        if (rect) rect.set("strokeWidth", 6);
+                        canvas.renderAll();
+                    });
+                    formDiv.addEventListener("mouseleave", () => {
+                        const id = formDiv.dataset.obsId;
+                        const rect = canvas.getObjects().find(o => o.obsId === id);
+                        if (rect) rect.set("strokeWidth", 3);
+                        canvas.renderAll();
+                    });
+                });
+
+
+                {#// přidání nového bboxu#}
+                {#document.getElementById("add-bbox-btn").addEventListener("click", function () {#}
+                {#    const datenow = Date.now();#}
+                {#    const newId = "new-" + datenow;#}
+                {##}
+                {#    // naklonovat empty_form#}
+                {#    const emptyHtml = document.getElementById("empty-form").innerHTML.replace(/__prefix__/g, newId);#}
+                {#    const wrapper = document.createElement("div");#}
+                {#    wrapper.classList.add("observation-form");#}
+                {#    wrapper.dataset.obsId = newId;#}
+                {#    wrapper.innerHTML = emptyHtml;#}
+                {#    document.getElementById("observation-forms").appendChild(wrapper);#}
+                {#    const color = "#e84393"#}
+                {##}
+                {#    // přidat bbox na canvas#}
+                {#    addObservation(newId, 0.5, 0.5, 0.2, 0.2, "", "", color);#}
+                {#    const totalFormsInput = document.querySelector('[name="observations-TOTAL_FORMS"]');#}
+                {#    totalFormsInput.value = parseInt(totalFormsInput.value) + 1;#}
+                {# });#}
+
+
+            });
+
+
+        });
+
+    </script>
+
 {% endblock %}

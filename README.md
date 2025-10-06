@@ -59,3 +59,9 @@ docker exec -it carnivoreid-app-dev-api bash -ic 'python manage.py migrate'
 
 The sample data can be added by creating `ArchiveCollection` with name `sample_data` and selection of several 
 `UploadedArchive` instances into this collection.
+
+
+# License
+
+This project uses Annotorious (https://recogito.github.io/annotorious/),
+licensed under the BSD 3-Clause License.
