@@ -172,45 +172,6 @@
                                     {#                                    {{ form }}#}
                                     {#                                                    {{ form.as_p }}#}
                                     <div class="form-group">
-                                        {% if mediafile.is_for_suggestion %}
-                                            <div>
-
-                                                <i class="bi bi-question-circle"></i>
-                                                <a href="#"
-                                                   name="confirmTaxonSubmit"
-                                                   class="btn btn-secondary"
-                                                   id="confirmTaxonSubmit"
-                                                        {#                                                        type="submit"#}
-                                                   onclick="setCategoryAndSubmit('{{ mediafile.predicted_taxon }}')"
-                                                >
-                                                    Select
-                                                </a>
-
-                                                {{ mediafile.predicted_taxon }}
-                                                ({{ mediafile.predicted_taxon_confidence|mul:100|floor|floatformat:0 }}%)
-
-                                            </div>
-                                        {% endif %}
-                                        {% for field in form %}
-                                            <div>
-                                                <label for="{{ field.id_for_label }}"
-                                                       class="mt-1">{{ field.label }}</label><br>
-                                                <!-- Label on its own line -->
-                                                {{ field }}  <!-- Field on the next line -->
-                                                {% if field.id_for_label == "id_identity" %}
-                                                    <button type="button" class="btn btn-outline-primary btn-sm"
-                                                            onclick="window.location.href='{% url 'caidapp:individual_identity_create' mediafile.id %}?next={{ request.path }}'">
-                                                        <i class="bi-plus"></i></button>
-                                                {% endif %}
-                                                {% if field.help_text %}
-                                                    <small class="form-text text-muted">{{ field.help_text }}</small>
-                                                {% endif %}
-                                                {% for error in field.errors %}
-                                                    <div class="alert alert-danger"
-                                                         id="error_{{ field.id_for_label }}">{{ error }}</div>
-                                                {% endfor %}
-                                            </div>
-                                        {% endfor %}
 
 
                                         <h5>Observations</h5>
@@ -399,6 +360,29 @@
                                                 Add Observation
                                             </button>
                                         </div>
+
+
+                                        {% for field in form %}
+                                            <div>
+                                                <label for="{{ field.id_for_label }}"
+                                                       class="mt-1">{{ field.label }}</label><br>
+                                                <!-- Label on its own line -->
+                                                {{ field }}  <!-- Field on the next line -->
+                                                {% if field.id_for_label == "id_identity" %}
+                                                    <button type="button" class="btn btn-outline-primary btn-sm"
+                                                            onclick="window.location.href='{% url 'caidapp:individual_identity_create' mediafile.id %}?next={{ request.path }}'">
+                                                        <i class="bi-plus"></i></button>
+                                                {% endif %}
+                                                {% if field.help_text %}
+                                                    <small class="form-text text-muted">{{ field.help_text }}</small>
+                                                {% endif %}
+                                                {% for error in field.errors %}
+                                                    <div class="alert alert-danger"
+                                                         id="error_{{ field.id_for_label }}">{{ error }}</div>
+                                                {% endfor %}
+                                            </div>
+                                        {% endfor %}
+
                                     </div>
 
 
