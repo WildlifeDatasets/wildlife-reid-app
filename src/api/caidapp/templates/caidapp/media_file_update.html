@@ -104,7 +104,7 @@
             </div>
 
 
-            {% if mediafile.sequence.mediafile_set.all|length > 1 %}
+            {% if mediafile.sequence.mediafile_set.all|length > 1 and mediafile.media_type == 'image' %}
                 <div id="mediafileCarousel" class="carousel slide">
                     <div class="carousel-inner">
                         {% for chunk in mediafile.sequence.mediafile_set.all|chunk:5 %}
