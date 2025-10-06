@@ -383,15 +383,6 @@ class MediaFileUpdateView(LoginRequiredMixin, UpdateWithInlinesView):
     def get_success_url(self):
         return self.request.GET.get("next") or self.request.META.get("HTTP_REFERER", "/")
 
-    # def get_context_data(self, **kwargs):
-    #     # just for debug logs
-    #     # TODO remove later
-    #     context = super().get_context_data(**kwargs)
-    #     logger.debug("In get_context_data of MediaFileUpdateView")
-    #     for inline in context.get("inlines", []):
-    #         for form in inline:
-    #             print("Form instance:", form.instance, "PK:", form.instance.pk)
-    #     return context
 
     def form_valid(self, form):
         logger.debug("In form_valid of MediaFileUpdateView")
@@ -404,25 +395,6 @@ class MediaFileUpdateView(LoginRequiredMixin, UpdateWithInlinesView):
 
         return response
 
-    # def form_valid(self, form):
-    #     form.instance.updated_by = self.request.user.caiduser
-    #     form.instance.updated_at = django.utils.timezone.now()
-    #     self.object = form.save()  # uloží parent objekt
-    #
-    #     # uložit inlines s navázáním na uložený objekt
-    #     for formset in self.get_inlines():
-    #         formset.instance = self.object
-    #         if formset.is_valid():
-    #             instances = formset.save(commit=False)
-    #             for obj in instances:
-    #                 obj.mediafile = self.object
-    #                 obj.save()
-    #             for obj in formset.deleted_objects:
-    #                 obj.delete()
-    #         else:
-    #             messages.error(self.request, f"Inline formset error: {formset.errors}")
-
-        # return redirect(self.get_success_url())
 
 
 class ObservationDeleteView(LoginRequiredMixin, DeleteView):
