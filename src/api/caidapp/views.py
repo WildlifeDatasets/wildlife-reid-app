@@ -3992,6 +3992,7 @@ def suggest_merge_identities_view(request, limit:int=100):
         if suggestions_ids:
 
             from django.core.exceptions import ObjectDoesNotExist
+            logger.debug(f"{len(suggestions_ids)=}")
 
             suggestions = []
             for identity_a_id, identity_b_id, distance in suggestions_ids[:limit]:
