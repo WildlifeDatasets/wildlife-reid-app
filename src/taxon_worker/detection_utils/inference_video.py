@@ -239,6 +239,7 @@ def create_image_from_video(
                 row["image_path"] = os.path.basename(new_full_path)
                 row["full_image_path"] = new_full_path
                 row["suffix"] = f".{new_full_path.split('.')[-1]}"
+                row["static_detection_frame"] = 0
                 metadata.loc[row_idx] = row
                 continue
 
@@ -265,6 +266,7 @@ def create_image_from_video(
             row["image_path"] = os.path.basename(new_full_path)
             row["full_image_path"] = new_full_path
             row["suffix"] = f".{new_full_path.split('.')[-1]}"
+            row["static_detection_frame"] = prediction["frame"]
             metadata.loc[row_idx] = row
     logger.debug(f"Processed {process_counter} videos, skipped {no_detection_counter} "
                  f"videos with no detection and  {skip_counter} images.")
