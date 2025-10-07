@@ -3889,7 +3889,8 @@ def refresh_identities_suggestions_view(request):
 
 
 def refresh_identities_suggestions(request, limit:int=100, redirect:bool=True):
-    job = tasks.refresh_identities_suggestions_task.delay(request.user.id)
+    job = tasks.refresh_identities_suggestions_task.delay(request.user.caiduser.workgroup.id)
+    logger.debug(f"{job.id=}, {request.user.id=}, {request.user=}, {request.user.caiduser=}, {request.user.caiduser.workgroup=}")
     request.session["refresh_job_id"] = job.id
     request.session["refresh_job_started_at"] = timezone.now().isoformat()
 
@@ -3897,17 +3898,40 @@ def refresh_identities_suggestions(request, limit:int=100, redirect:bool=True):
 def get_identity_suggestions(request):
     job_id = request.session.get("refresh_job_id")
 
+    sugg_obj = models.IdentitySuggestionResult.objects.filter(workgroup=request.user.caiduser.workgroup).order_by("id").last()
+    suggestions = sugg_obj.suggestions if sugg_obj else None
+    created_at = sugg_obj.created_at if sugg_obj else None
+
     if not job_id:
-        return {"status": "no-job"}
+        status = "no-job"
+        job_started_at = None
 
-    job_started_at = request.session.get("refresh_job_started_at")
+        # return {"status": "no-job", "suggestions": suggestions, "created_at"}
+    else:
 
-    result = AsyncResult(job_id)
-    if result.successful():
-        result_id = result.result  # ID uloženého výsledku
-        suggestions = models.IdentitySuggestionResult.objects.get(id=result_id).suggestions
-        return {"status": "done", "suggestions": suggestions, 'started_at': job_started_at}
-    return {"status": result.status, 'started_at': job_started_at}
+        job_started_at = request.session.get("refresh_job_started_at")
+
+        result = AsyncResult(job_id)
+        status = result.status
+        if result.successful():
+            result_id = result.result  # ID uloženého výsledku
+            sugg_obj2 = models.IdentitySuggestionResult.objects.get(id=result_id)
+            if sugg_obj2.workgroup == request.user.caiduser.workgroup:
+                suggestions = sugg_obj2.suggestions
+                created_at = sugg_obj2.created_at
+                status = result.status
+            else:
+                logger.warning("Job result workgroup does not match user workgroup.")
+                messages.warning(request, "Job result workgroup does not match user workgroup.")
+
+        # return {"status": "done", "suggestions": suggestions, 'started_at': job_started_at}
+    # return {"status": result.status, 'started_at': job_started_at}
+    return dict(
+        status=status,
+        suggestions=suggestions,
+        started_at=job_started_at,
+        created_at=created_at,
+    )
 
 
 
@@ -3916,28 +3940,33 @@ def suggest_merge_identities_view(request, limit:int=100):
     """Suggest merge identities."""
     response = get_identity_suggestions(request)
 
-    if "started_at" in response:
+    if "started_at" in response and response["started_at"]:
         started_at = datetime.datetime.fromisoformat(response["started_at"])
         messages.info(request, f"Suggestion refreshed {timesince_now(started_at)} ago.")
-
-    elif response["status"] == "no-job":
+    if "created_at" in response and response["created_at"]:
+        created_at = response["created_at"]
+        messages.info(request, f"This data created {timesince_now(created_at)} ago.")
+    if (response["status"] == "no-job")  or (response["suggestions"] == None):
         refresh_identities_suggestions(request)
         return message_view(
             request,
             "Suggestions are being prepared. Please refresh this page later.",
-        )
-    if response["status"] != "done":
-        return message_view(
-            request,
-            f"Suggestions are being prepared. Job was started at {response['started_at']}. Please refresh this page later.",
+            headline="Suggestions are being prepared",
             link=reverse_lazy("caidapp:suggest_merge_identities"),
             button_label="Check now",
-            headline="Suggestions are being prepared",
-            link_secondary=reverse_lazy("caidapp:refresh_merge_identities_suggestions"),
-            button_label_secondary="Refresh suggestions",
-
         )
-
+    # if response["status"] != "done":
+    #     return message_view(
+    #         request,
+    #         f"Suggestions are being prepared. Job was started at {response['started_at']}. Please refresh this page later.",
+    #         link=reverse_lazy("caidapp:suggest_merge_identities"),
+    #         button_label="Check now",
+    #         headline="Suggestions are being prepared",
+    #         link_secondary=reverse_lazy("caidapp:refresh_merge_identities_suggestions"),
+    #         button_label_secondary="Refresh suggestions",
+    #
+    #     )
+    #
     suggestions_ids = response["suggestions"]
     try:
         # assert "merge_identity_suggestions_ids" in request.session

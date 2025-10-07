@@ -91,12 +91,14 @@ def prepare_dataframe_for_uploads_in_one_locality(locality_id: int) -> pd.DataFr
 
 
 
-def compute_identity_suggestions(user_id: int, limit: int = 100) -> int:
-    user = get_user_model().objects.get(id=user_id)
+def compute_identity_suggestions(workgroup_id: int, limit: int = 100) -> int:
+    # user = get_user_model().objects.get(id=user_id)
     suggestions = []
+    workgroup = models.WorkGroup.objects.get(id=workgroup_id)
+    print(f"Computing identity suggestions for workgroup {workgroup.name} ({workgroup.id})")
 
     all_identities = IndividualIdentity.objects.filter(
-        owner_workgroup=user.caiduser.workgroup,
+        owner_workgroup=workgroup,
     )
 
     for i, identity1 in enumerate(all_identities):
@@ -126,7 +128,7 @@ def compute_identity_suggestions(user_id: int, limit: int = 100) -> int:
 
     # uložit výsledek do DB
     result = IdentitySuggestionResult.objects.create(
-        user=user,
+        workgroup=workgroup,
         suggestions=suggestions,
     )
     return result.id

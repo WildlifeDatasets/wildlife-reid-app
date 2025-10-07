@@ -1749,6 +1749,6 @@ def assign_unidentified_to_identification(caiduser:CaIDUser):
 
 
 @shared_task
-def refresh_identities_suggestions_task(user_id, limit=100):
-    return compute_identity_suggestions(user_id, limit)
+def refresh_identities_suggestions_task(workgroup_id, limit=100):
+    return compute_identity_suggestions(workgroup_id, limit)
 

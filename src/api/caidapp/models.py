@@ -1526,7 +1526,7 @@ class Notification(models.Model):
 
 
 class IdentitySuggestionResult(models.Model):
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    workgroup = models.ForeignKey(WorkGroup, on_delete=models.CASCADE, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     suggestions = models.JSONField()  # uloží [(id1, id2, distance), ...]
 
