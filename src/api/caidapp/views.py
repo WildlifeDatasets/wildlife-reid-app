@@ -3475,17 +3475,17 @@ def merge_identities_helper(request, individual_from, individual_to):
         messages.warning(request, "Individual identity not found.")
         return
 
-    # TODO check if it has been finished already and show here time of last update
-    # remove individual_from and list of suggestion
-    if "merge_identity_suggestions_ids" not in request.session:
-        refresh_identities_suggestions(request)
-
-    assert "merge_identity_suggestions_ids" in request.session
-    suggestions_ids = request.session["merge_identity_suggestions_ids"]
-    suggestions_ids = [
-        (id_from, id_to, distance) for id_from, id_to, distance in suggestions_ids if id_from != individual_from.id and id_to != individual_from.id
-    ]
-    request.session["merge_identity_suggestions_ids"] = suggestions_ids
+    # # TODO check if it has been finished already and show here time of last update
+    # # remove individual_from and list of suggestion
+    # if "merge_identity_suggestions_ids" not in request.session:
+    #     refresh_identities_suggestions(request)
+    #
+    # assert "merge_identity_suggestions_ids" in request.session
+    # suggestions_ids = request.session["merge_identity_suggestions_ids"]
+    # suggestions_ids = [
+    #     (id_from, id_to, distance) for id_from, id_to, distance in suggestions_ids if id_from != individual_from.id and id_to != individual_from.id
+    # ]
+    # request.session["merge_identity_suggestions_ids"] = suggestions_ids
 
 
     suggestion, _= _prepare_merged_individual_identity_object(
@@ -3898,7 +3898,7 @@ def refresh_identities_suggestions(request, limit:int=100, redirect:bool=True):
 def get_identity_suggestions(request):
     job_id = request.session.get("refresh_job_id")
 
-    sugg_obj = models.IdentitySuggestionResult.objects.filter(workgroup=request.user.caiduser.workgroup).order_by("id").last()
+    sugg_obj = models.MergeIdentitySuggestionResult.objects.filter(workgroup=request.user.caiduser.workgroup).order_by("id").last()
     suggestions = sugg_obj.suggestions if sugg_obj else None
     created_at = sugg_obj.created_at if sugg_obj else None
 
@@ -3915,14 +3915,18 @@ def get_identity_suggestions(request):
         status = result.status
         if result.successful():
             result_id = result.result  # ID uloženého výsledku
-            sugg_obj2 = models.IdentitySuggestionResult.objects.get(id=result_id)
-            if sugg_obj2.workgroup == request.user.caiduser.workgroup:
-                suggestions = sugg_obj2.suggestions
-                created_at = sugg_obj2.created_at
-                status = result.status
-            else:
-                logger.warning("Job result workgroup does not match user workgroup.")
-                messages.warning(request, "Job result workgroup does not match user workgroup.")
+            try:
+                sugg_obj2 = models.MergeIdentitySuggestionResult.objects.get(id=result_id)
+                if sugg_obj2.workgroup == request.user.caiduser.workgroup:
+                    suggestions = sugg_obj2.suggestions
+                    created_at = sugg_obj2.created_at
+                    status = result.status
+                else:
+                    logger.warning("Job result workgroup does not match user workgroup.")
+                    messages.warning(request, "Job result workgroup does not match user workgroup.")
+            except Exception as e:
+                logger.warning("Could not fetch job result: " + str(e))
+                messages.warning(request, "Could not fetch job result: " + str(e))
 
         # return {"status": "done", "suggestions": suggestions, 'started_at': job_started_at}
     # return {"status": result.status, 'started_at': job_started_at}
@@ -3946,15 +3950,28 @@ def suggest_merge_identities_view(request, limit:int=100):
     if "created_at" in response and response["created_at"]:
         created_at = response["created_at"]
         messages.info(request, f"This data created {timesince_now(created_at)} ago.")
-    if (response["status"] == "no-job")  or (response["suggestions"] == None):
-        refresh_identities_suggestions(request)
+    if (response["status"] == "no-job"):
+        logger.debug("No job found for suggestions.")
+    if (response["suggestions"] == None):
+        messages.info(request, "No suggestions available. Check if they are generated now or regenerate suggestions.")
         return message_view(
-            request,
-            "Suggestions are being prepared. Please refresh this page later.",
-            headline="Suggestions are being prepared",
-            link=reverse_lazy("caidapp:suggest_merge_identities"),
-            button_label="Check now",
-        )
+                request,
+                f"No suggestions found. Check if the job is",
+                link=reverse_lazy("caidapp:suggest_merge_identities"),
+                button_label="Check now",
+                headline="No suggestions found",
+                link_secondary=reverse_lazy("caidapp:refresh_merge_identities_suggestions"),
+                button_label_secondary="Regenerate suggestions",
+
+            )
+        # refresh_identities_suggestions(request)
+        # return message_view(
+        #     request,
+        #     "Suggestions are being prepared. Please refresh this page later.",
+        #     headline="Suggestions are being prepared",
+        #     link=reverse_lazy("caidapp:suggest_merge_identities"),
+        #     button_label="Check now",
+        # )
     # if response["status"] != "done":
     #     return message_view(
     #         request,
@@ -3972,17 +3989,31 @@ def suggest_merge_identities_view(request, limit:int=100):
         # assert "merge_identity_suggestions_ids" in request.session
 
         # suggestions_ids = request.session["merge_identity_suggestions_ids"]
-        suggestions = [
-            (
-                IndividualIdentity.objects.get(id=identity_a_id),
-                IndividualIdentity.objects.get(id=identity_b_id),
-                distance
-              )
-            for identity_a_id, identity_b_id, distance in suggestions_ids
-        ]
+        if suggestions_ids:
 
-        if limit and limit > 0:
-            suggestions = suggestions[:limit]
+            from django.core.exceptions import ObjectDoesNotExist
+
+            suggestions = []
+            for identity_a_id, identity_b_id, distance in suggestions_ids:
+                try:
+                    identity_a = IndividualIdentity.objects.get(id=identity_a_id)
+                    identity_b = IndividualIdentity.objects.get(id=identity_b_id)
+                except ObjectDoesNotExist:
+                    continue  # přeskočí, pokud některý objekt neexistuje
+                suggestions.append((identity_a, identity_b, distance))
+            # suggestions = [
+            #     (
+            #         IndividualIdentity.objects.get(id=identity_a_id),
+            #         IndividualIdentity.objects.get(id=identity_b_id),
+            #         distance
+            #       )
+            #     for identity_a_id, identity_b_id, distance in suggestions_ids
+            # ]
+
+            if limit and limit > 0:
+                suggestions = suggestions[:limit]
+        else:
+            suggestions = None
 
         return render(request, "caidapp/suggest_merge_identities.html",
                       {"suggestions": suggestions})

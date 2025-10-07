@@ -1,10 +1,14 @@
 import pandas as pd
 import Levenshtein
 from django.contrib.auth import get_user_model
-from .models import IndividualIdentity, IdentitySuggestionResult
+from tqdm import tqdm
+from .models import IndividualIdentity, MergeIdentitySuggestionResult
 from .model_tools import order_identity_by_mediafile_count, remove_diacritics
 from .models import CaIDUser, Locality, MediaFile, UploadedArchive
 from . import models
+import logging
+
+logger = logging.getLogger(__name__)
 
 def user_has_access_to_uploadedarchives_filter_params(caiduser: CaIDUser):
     return models.user_has_access_filter_params(caiduser=caiduser, prefix="owner")
@@ -96,12 +100,16 @@ def compute_identity_suggestions(workgroup_id: int, limit: int = 100) -> int:
     suggestions = []
     workgroup = models.WorkGroup.objects.get(id=workgroup_id)
     print(f"Computing identity suggestions for workgroup {workgroup.name} ({workgroup.id})")
+    logger.debug(f"Computing identity suggestions for workgroup {workgroup.name} ({workgroup.id})")
 
     all_identities = IndividualIdentity.objects.filter(
         owner_workgroup=workgroup,
     )
+    total = all_identities.count()
+    print(f"Total identities: {total}")
 
-    for i, identity1 in enumerate(all_identities):
+
+    for i, identity1 in tqdm(enumerate(all_identities), total=total, desc="Computing identity suggestions"):
         for j in range(i + 1, len(all_identities)):
             identity2 = all_identities[j]
             if identity1 == identity2:
@@ -127,7 +135,7 @@ def compute_identity_suggestions(workgroup_id: int, limit: int = 100) -> int:
     suggestions.sort(key=lambda x: (x[2], -len(IndividualIdentity.objects.get(id=x[1]).name)))
 
     # uložit výsledek do DB
-    result = IdentitySuggestionResult.objects.create(
+    result = MergeIdentitySuggestionResult.objects.create(
         workgroup=workgroup,
         suggestions=suggestions,
     )

@@ -4,19 +4,19 @@
   <h1>Merge Identities Suggestion</h1>
   <form method="post" action="{% url 'caidapp:merge_selected_identities' %}">
     {% csrf_token %}
+      <div class="mt-3 mb-3 d-flex justify-content-between">
+          <button type="submit" class="btn btn-primary"
+                  onclick="return confirm('Are you sure you want to merge the selected suggestions?');">
+              Merge Selected
+          </button>
+
+          <a class="btn btn-secondary" href="{% url 'caidapp:refresh_merge_identities_suggestions' %}">
+              <i class="bi bi-arrow-clockwise"></i>
+              Regenerate Suggestions
+          </a>
+
+      </div>
     {% if suggestions %}
-        <div class="mt-3 mb-3 d-flex justify-content-between">
-            <button type="submit" class="btn btn-primary"
-                    onclick="return confirm('Are you sure you want to merge the selected suggestions?');">
-                Merge Selected
-            </button>
-
-            <a class="btn btn-secondary" href="{% url 'caidapp:refresh_merge_identities_suggestions' %}">
-                <i class="bi bi-arrow-clockwise"></i>
-                Refresh
-            </a>
-
-        </div>
       <ul class="list-group">
       {% for identity1, identity2, distance in suggestions %}
         <li class="list-group-item d-flex justify-content-between align-items-center">

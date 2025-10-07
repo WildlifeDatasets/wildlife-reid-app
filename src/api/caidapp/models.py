@@ -883,7 +883,7 @@ class IndividualIdentity(models.Model):
     sex = models.CharField(max_length=2, choices=SEX_CHOICES, default="U")
     coat_type = models.CharField(max_length=2, choices=COAT_TYPE_CHOICES, default="U")
     note = models.TextField(blank=True)
-    code = models.CharField(max_length=50, default=random_string12)
+    code = models.CharField(max_length=50, default="")
     juv_code = models.CharField("Juv. Code", max_length=50, default=random_string12)
     hash = models.CharField(max_length=50, blank=True)
     birth_date = models.DateField("Birth date", blank=True, null=True)
@@ -1525,10 +1525,10 @@ class Notification(models.Model):
         return self.BOOTSTRAP_CLASSES.get(self.level, "secondary")
 
 
-class IdentitySuggestionResult(models.Model):
+class MergeIdentitySuggestionResult(models.Model):
     workgroup = models.ForeignKey(WorkGroup, on_delete=models.CASCADE, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     suggestions = models.JSONField()  # uloží [(id1, id2, distance), ...]
 
     def __str__(self):
-        return f"Suggestions for {self.user} at {self.created_at}"
+        return f"Suggestions for {self.workgroup} at {self.created_at}"
