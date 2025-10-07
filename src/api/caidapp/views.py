@@ -3994,7 +3994,7 @@ def suggest_merge_identities_view(request, limit:int=100):
             from django.core.exceptions import ObjectDoesNotExist
 
             suggestions = []
-            for identity_a_id, identity_b_id, distance in suggestions_ids:
+            for identity_a_id, identity_b_id, distance in suggestions_ids[:limit]:
                 try:
                     identity_a = IndividualIdentity.objects.get(id=identity_a_id)
                     identity_b = IndividualIdentity.objects.get(id=identity_b_id)
@@ -4010,8 +4010,8 @@ def suggest_merge_identities_view(request, limit:int=100):
             #     for identity_a_id, identity_b_id, distance in suggestions_ids
             # ]
 
-            if limit and limit > 0:
-                suggestions = suggestions[:limit]
+            # if limit and limit > 0:
+            #     suggestions = suggestions[:limit]
         else:
             suggestions = None
 
