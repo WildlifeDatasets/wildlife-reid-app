@@ -38,16 +38,17 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
-scpath = Path(PRIVATE_DATA_PATH) / "secretkey.txt"
-if scpath.exists():
-    with open(scpath, "r") as f:
-        SECRET_KEY = f.read().strip()
-else:
-    logger.info("Secret key not found in 'secretkey.txt' generating new one.")
-    with open(scpath, "w") as f:
-        from django.core.management.utils import get_random_secret_key
-
-        SECRET_KEY = f.write(get_random_secret_key())
+# scpath = Path(PRIVATE_DATA_PATH) / "secretkey.txt"
+# if scpath.exists():
+#     with open(scpath, "r") as f:
+#         SECRET_KEY = f.read().strip()
+# else:
+#     logger.info("Secret key not found in 'secretkey.txt' generating new one.")
+#     with open(scpath, "w") as f:
+#         from django.core.management.utils import get_random_secret_key
+#
+#         SECRET_KEY = f.write(get_random_secret_key())
+SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", default="m9ba0d1&(82_=m=-l6b=j#6c2i2*3$&bpm+=n5udouc92-r2ek")
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get("DEBUG", False)

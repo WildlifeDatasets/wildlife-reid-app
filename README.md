@@ -54,6 +54,11 @@ docker exec -it carnivoreid-app-dev-api bash -ic 'python manage.py makemigration
 docker exec -it carnivoreid-app-dev-api bash -ic 'python manage.py migrate'
 ```
 
+### Run tests
+
+```bash 
+docker compose -f docker-compose.dev.yml exec api_dev python manage.py test
+```
 
 ### Sample data
 

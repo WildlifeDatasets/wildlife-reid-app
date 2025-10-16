@@ -241,9 +241,9 @@ class CaIDUser(models.Model):
     @receiver(post_save, sender=DjangoUser)
     def save_user_profile(sender, instance, **kwargs):  # NOSONAR
         """Save object when django user is saved."""
-        logger.debug(sender)
-        logger.debug(instance)
-        logger.debug(kwargs)
+        # logger.debug(sender)
+        # logger.debug(instance)
+        # logger.debug(kwargs)
         # pdb.set_trace()
 
         if not hasattr(instance, "caiduser"):

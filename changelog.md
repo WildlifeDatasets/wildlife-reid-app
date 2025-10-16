@@ -1,5 +1,8 @@
 # Changelog
 
+## 2025-10
+* [changed]  DJANGO_SECRET_KEY is now stored in `.env` file
+
 ## 2025-09
 * [added] Notification on finished identification
 * [changed] FGVC subset extracted from FGVC package
