@@ -216,25 +216,9 @@
                                         {# end of mediafile fields #}
 
                                         <h5>Observations</h5>
-                                        {#  {% for inline in inlines %}#}
-                                        {#      {{ inline.management_form }}#}
-                                        {#      <table class="table">#}
-                                        {#        {% for obs_form in inline %}#}
-                                        {#          <tr>#}
-                                        {#            <td>{{ obs_form.taxon }}</td>#}
-                                        {#            <td>{{ obs_form.identity }}</td>#}
-                                        {#            <td>{{ obs_form.bbox_x_center }} {{ obs_form.bbox_y_center }}</td>#}
-                                        {#            <td>{{ obs_form.DELETE }}</td>#}
-                                        {#          </tr>#}
-                                        {#        {% endfor %}#}
-                                        {#      </table>#}
-                                        {#  {% endfor %}#}
 
                                         <div>
 
-                                            {#                                            {% for obs in mediafile.observations.all %}#}
-                                            {#                                                {{ obs.pk }} → {{ obs.bbox_xywh_percent_as_str|default:"-" }}#}
-                                            {#                                            {% endfor %}#}
 
                                             <div id="observation-forms">
                                                 {% for inline in inlines %}
@@ -248,9 +232,19 @@
 
                                                             {#                                                            {{ obs_form.as_p }}#}
 
-                                                            {#                                                            {{ obs_form.initial.id|default:obs_form.instance.pk|default:'new' }}<br>#}
                                                             {{ obs_form.id }}
                                                         {% include 'caidapp/include_observation_fields_to_media_file_update.html' %}
+
+
+                                                               {% if obs_form.instance.pk %}
+            <button type="button"
+                    class="btn btn-outline-danger btn-sm delete-observation-btn">
+                <i class="bi bi-trash"></i> Delete
+            </button>
+        {% endif %}
+
+                                                        {{ obs_form.DELETE.as_hidden }}
+
 
 
 
@@ -674,6 +668,37 @@ ID: {{ mediafile.id }}">
         });
 });
 
+
+
+
+{#        document.addEventListener("click", function(e) {#}
+{#    if (e.target.closest(".delete-observation-btn")) {#}
+{#        const formDiv = e.target.closest(".observation-form");#}
+{#        if (confirm("Delete this observation?")) {#}
+{#            // Najdi DELETE checkbox a zaškrtni ho#}
+{#            const deleteInput = formDiv.querySelector('input[name$="-DELETE"]');#}
+{#            if (deleteInput) deleteInput.checked = true;#}
+{#            // Schovej formulář vizuálně (nepovinné)#}
+{#            formDiv.style.display = "none";#}
+{#        }#}
+{#    }#}
+{# });#}
+{##}
+
+        document.addEventListener("click", function(e) {
+    const btn = e.target.closest(".delete-observation-btn");
+    if (!btn) return;
+
+    const formDiv = btn.closest(".observation-form");
+    if (confirm("Delete this observation?")) {
+        const deleteInput = formDiv.querySelector('input[type="hidden"][name$="-DELETE"]');
+        if (deleteInput) {
+            deleteInput.value = "on";  // musí být "on", ne true
+        }
+        // volitelné – skryj formulář z UI
+        formDiv.style.display = "none";
+    }
+});
     </script>
 
 {% endblock %}
