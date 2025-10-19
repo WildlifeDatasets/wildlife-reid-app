@@ -420,3 +420,59 @@ class ColumnMappingForm(forms.Form):
             if field_name in column_choices:
                 self.initial[field_name] = field_name
 
+
+
+from django import forms
+from django.forms import HiddenInput
+from caidapp.models import AnimalObservation
+from django.urls import reverse
+from crispy_forms.helper import FormHelper
+from crispy_forms.layout import Layout, Row, Column, HTML
+
+# class AnimalObservationForm(forms.ModelForm):
+#     class Meta:
+#         model = AnimalObservation
+#         fields = [
+#             "taxon",
+#             "identity", "identity_is_representative",
+#             "bbox_x_center", "bbox_y_center", "bbox_width", "bbox_height",
+#         ]
+#
+#         widgets = {
+#             "bbox_x_center": HiddenInput(),
+#             "bbox_y_center": HiddenInput(),
+#             "bbox_width": HiddenInput(),
+#             "bbox_height": HiddenInput(),
+#         }
+
+    # def __init__(self, *args, **kwargs):
+    #     request = kwargs.pop("request", None)  # ← získáme request správně
+    #     super().__init__(*args, **kwargs)
+    #
+    #     # request = getattr(self, "request", None)
+    #     print("AnimalObservationForm __init__")
+    #     print(f"request: {request}")
+    #     if True:
+    #         # if request:
+    #         # next_url is the
+    #         # next_url = request.path
+    #         # we dont know the actual path, because we do not have request here
+    #         next_url = reverse("caidapp:media_file_update", args=[self.instance.mediafile.id])
+    #         create_url = reverse("caidapp:individual_identity_create",
+    #                              args=[self.instance.mediafile.id]) + f"?next={next_url}"
+    #         self.helper = FormHelper()
+    #         self.helper.layout = Layout(
+    #             "taxon",
+    #             Row(
+    #                 Column("identity", css_class="col-auto"),
+    #                 Column(
+    #                     HTML(f"""
+    #                         <a href="{create_url}" class="btn btn-outline-primary btn-sm" title="Add new identity">
+    #                             <i class="bi bi-plus"></i>
+    #                         </a>
+    #                     """),
+    #                     css_class="col-auto"
+    #                 ),
+    #             ),
+    #             "identity_is_representative",
+    #         )

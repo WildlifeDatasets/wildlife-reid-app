@@ -1,0 +1,87 @@
+{# --- běžná pole --- #}
+
+{#                                                            {% if mediafile.is_for_suggestion  and forloop.counter == 1 %}#}
+{#                                                                <div>#}
+{##}
+{#                                                                    <i class="bi bi-question-circle me-2"></i>#}
+{#                                                                    <a href="#"#}
+{#                                                                       name="confirmTaxonSubmit"#}
+{#                                                                       class="btn btn-secondary"#}
+{#                                                                       id="confirmTaxonSubmit"#}
+{#                                                        type="submit"#}
+{#                                                                       onclick="setCategoryAndSubmitInObservation('{{ mediafile.predicted_taxon }}')"#}
+{#                                                                    >#}
+{#                                                                        Select#}
+{#                                                                    </a>#}
+{##}
+{#                                                                    {{ mediafile.predicted_taxon }}#}
+{#                                                                    ({{ mediafile.predicted_taxon_confidence|mul:100|floor|floatformat:0 }}%)#}
+{##}
+{#                                                                </div>#}
+{#                                                            {% endif %}#}
+{#                                                            <div class="mt-1">#}
+{#                                                                {{ obs_form.taxon.label_tag }}<br>#}
+{#                                                                {{ obs_form.taxon }}#}
+{#                                                                {% for error in obs_form.taxon.errors %}#}
+{#                                                                    <div class="text-danger small">{{ error }}</div>#}
+{#                                                                {% endfor %}#}
+{#                                                            </div>#}
+{##}
+{#                                                            <div class="mt-1">#}
+{#                                                                {{ obs_form.taxon_verified.label_tag }}#}
+{#                                                                {{ obs_form.taxon_verified }}#}
+{#                                                                {% for error in obs_form.taxon_verified.errors %}#}
+{#                                                                    <div class="text-danger small">{{ error }}</div>#}
+{#                                                                {% endfor %}#}
+{#                                                            </div>#}
+{##}
+{##}
+<div class="mt-1">
+    {{ obs_form.identity.label_tag }}
+    {{ obs_form.identity }}
+    <button type="button"
+            class="btn btn-outline-primary btn-sm"
+            onclick="window.location.href='{% url 'caidapp:individual_identity_create' mediafile.id %}?next={{ request.path }}'">
+        <i class="bi-plus"></i></button>
+    {% for error in obs_form.identity.errors %}
+        <div class="text-danger small">{{ error }}</div>
+    {% endfor %}
+</div>
+
+<div class="mt-1">
+    {{ obs_form.identity_is_representative.label_tag }}
+    {{ obs_form.identity_is_representative }}
+    {% for error in obs_form.identity_is_representative.errors %}
+        <div class="text-danger small">{{ error }}</div>
+    {% endfor %}
+</div>
+
+<div class="mt-1">
+    {{ obs_form.orientation.label_tag }}
+    {{ obs_form.orientation }}
+    {% for error in obs_form.orientation.errors %}
+        <div class="text-danger small">{{ error }}</div>
+    {% endfor %}
+</div>
+
+{# --- bbox hidden fields --- #}
+{{ obs_form.bbox_x_center.as_hidden }}
+{{ obs_form.bbox_y_center.as_hidden }}
+{{ obs_form.bbox_width.as_hidden }}
+{{ obs_form.bbox_height.as_hidden }}
+
+{% for field in obs_form.hidden_fields %}
+    {% for error in field.errors %}
+        <div class="text-danger small">{{ error }}</div>
+    {% endfor %}
+{% endfor %}
+
+
+<button type="button"
+        class="btn btn-sm btn-outline-primary add-bbox-btn">
+    Add BBox
+</button>
+<button type="button"
+        class="btn btn-sm btn-outline-danger remove-bbox-btn d-none">
+    Remove BBox
+</button>

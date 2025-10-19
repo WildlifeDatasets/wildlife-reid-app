@@ -269,89 +269,90 @@ def confirm_prediction(request, mediafile_id: int) -> JsonResponse:
 
 
 # todo deprecated
-@login_required
-def media_file_update(
-    request, media_file_id, next_text="Save", next_url=None, skip_url=None, cancel_url=None
-):
-    """Show and update media file."""
-    # | Q(parent__owner=request.user.caiduser)
-    # | Q(parent__owner__workgroup=request.user.caiduser.workgroup)
-    mediafile = get_object_or_404(MediaFile, pk=media_file_id)
-    if (mediafile.parent.owner.id != request.user.id) and (
-        mediafile.parent.owner.workgroup != request.user.caiduser.workgroup
-    ):
-        return HttpResponseNotAllowed("Not allowed to see this media file.")
-
-    if request.method == "POST":
-
-        logger.debug(f"{next_url=}")
-        if next_url:
-            pass
-            # return HttpResponseRedirect(next_url)
-        else:
-            next_url = request.GET.get("next")
-
-            if next_url is None:
-                # next url is where i am comming from
-                next_url = request.META.get("HTTP_REFERER", "/")
-
-        form = MediaFileForm(request.POST, instance=mediafile)
-        logger.debug(f"Form in POST: {mediafile=}")
-        if form.is_valid():
-            logger.debug(f"Form is valid")
-
-            mediafile.updated_by = request.user.caiduser
-            mediafile.updated_at = django.utils.timezone.now()
-            # get uploaded archive
-            mediafile = form.save()
-            logger.debug(f"{mediafile.taxon=}")
-            logger.debug(f"{mediafile.mediafile.path=}")
-            logger.debug(f"{mediafile.updated_at=}")
-            logger.debug(f"{next_url=}")
-            return redirect(next_url)
-        else:
-            logger.error("Form is not valid.")
-            messages.error(request, "Form is not valid.")
-
-    else:
-        logger.debug(f"{next_url=}")
-        if next_url:
-            pass
-            # return HttpResponseRedirect(next_url)
-        else:
-            next_url = request.GET.get("next")
-
-            if next_url is None:
-                # next url is where i am comming from
-                next_url = request.META.get("HTTP_REFERER", "/")
-        cancel_url = next_url
-        logger.debug(f"{next_url=}")
-
-        form = MediaFileForm(instance=mediafile)
-    return render(
-        request,
-        "caidapp/media_file_update.html",
-        {
-            "form": form,
-            "headline": "Media File",
-            "button": next_text,
-            "mediafile": mediafile,
-            "skip_url": skip_url,
-            "cancel_url": cancel_url,
-        },
-    )
+# @login_required
+# def media_file_update(
+#     request, media_file_id, next_text="Save", next_url=None, skip_url=None, cancel_url=None
+# ):
+#     """Show and update media file."""
+#     # | Q(parent__owner=request.user.caiduser)
+#     # | Q(parent__owner__workgroup=request.user.caiduser.workgroup)
+#     mediafile = get_object_or_404(MediaFile, pk=media_file_id)
+#     if (mediafile.parent.owner.id != request.user.id) and (
+#         mediafile.parent.owner.workgroup != request.user.caiduser.workgroup
+#     ):
+#         return HttpResponseNotAllowed("Not allowed to see this media file.")
+#
+#     if request.method == "POST":
+#
+#         logger.debug(f"{next_url=}")
+#         if next_url:
+#             pass
+#             # return HttpResponseRedirect(next_url)
+#         else:
+#             next_url = request.GET.get("next")
+#
+#             if next_url is None:
+#                 # next url is where i am comming from
+#                 next_url = request.META.get("HTTP_REFERER", "/")
+#
+#         form = MediaFileForm(request.POST, instance=mediafile)
+#         logger.debug(f"Form in POST: {mediafile=}")
+#         if form.is_valid():
+#             logger.debug(f"Form is valid")
+#
+#             mediafile.updated_by = request.user.caiduser
+#             mediafile.updated_at = django.utils.timezone.now()
+#             # get uploaded archive
+#             mediafile = form.save()
+#             logger.debug(f"{mediafile.taxon=}")
+#             logger.debug(f"{mediafile.mediafile.path=}")
+#             logger.debug(f"{mediafile.updated_at=}")
+#             logger.debug(f"{next_url=}")
+#             return redirect(next_url)
+#         else:
+#             logger.error("Form is not valid.")
+#             messages.error(request, "Form is not valid.")
+#
+#     else:
+#         logger.debug(f"{next_url=}")
+#         if next_url:
+#             pass
+#             # return HttpResponseRedirect(next_url)
+#         else:
+#             next_url = request.GET.get("next")
+#
+#             if next_url is None:
+#                 # next url is where i am comming from
+#                 next_url = request.META.get("HTTP_REFERER", "/")
+#         cancel_url = next_url
+#         logger.debug(f"{next_url=}")
+#
+#         form = MediaFileForm(instance=mediafile)
+#     return render(
+#         request,
+#         "caidapp/media_file_update.html",
+#         {
+#             "form": form,
+#             "headline": "Media File",
+#             "button": next_text,
+#             "mediafile": mediafile,
+#             "skip_url": skip_url,
+#             "cancel_url": cancel_url,
+#         },
+#     )
 
 
 class ObservationInline(InlineFormSetFactory):
     model = AnimalObservation
+    # form_class = forms.AnimalObservationForm
+    # fields = forms.AnimalObservationForm.Meta.fields
     fields = [
         "taxon",
         "identity", "identity_is_representative",
         "bbox_x_center", "bbox_y_center", "bbox_width", "bbox_height",
         # "orientation"
     ]
-    # warning, the orientation is reqired field, if it is here it will fail if it will be not rendered while not filled.
-    can_delete = False
+    can_delete = True
     extra = 0
     fk_name = "mediafile"
     # widgets = {
@@ -364,14 +365,10 @@ class ObservationInline(InlineFormSetFactory):
     def get_factory_kwargs(self):
         kwargs = super().get_factory_kwargs()
         kwargs['extra'] = self.extra
+        kwargs['can_delete'] = self.can_delete
+
         return kwargs
 
-    # def get_formset(self, **kwargs):
-    #     formset = super().get_formset(**kwargs)
-    #     for form in formset.forms:
-    #         for field in ["bbox_x_center", "bbox_y_center", "bbox_width", "bbox_height"]:
-    #             form.fields[field].widget = HiddenInput()
-    #     return formset
 
 class MediaFileUpdateView(LoginRequiredMixin, UpdateWithInlinesView):
     model = MediaFile
