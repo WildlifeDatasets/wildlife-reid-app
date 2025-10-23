@@ -424,7 +424,6 @@ class ColumnMappingForm(forms.Form):
 
 from django import forms
 from django.forms import HiddenInput
-from caidapp.models import AnimalObservation
 from django.urls import reverse
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Layout, Row, Column, HTML

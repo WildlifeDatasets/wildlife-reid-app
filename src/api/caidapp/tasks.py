@@ -713,15 +713,16 @@ def _update_database_by_one_row_of_metadata(
                 # metadata_json=row["detection_results"],
                 # metadata_json=metadata_json,
             )
-            observation = mf.animalobservation_set.create(
-                mediafile=mf,
+            mf.save()
+            observation = mf.observations.create(
+                # mediafile=mf,
             )
 
             # logger.debug(f"{uploaded_archive.contains_identities=}")
             # logger.debug(f"{uploaded_archive.contains_single_taxon=}")
             if uploaded_archive.contains_identities and uploaded_archive.contains_single_taxon:
-                observation = True
-                mf.identity_is_representative = observation
+                identity_is_representative = True
+                mf.identity_is_representative = identity_is_representative
             if "original_path" in row:
                 mf.original_filename = row["original_path"]
             # if "media_type" in row:
@@ -729,7 +730,7 @@ def _update_database_by_one_row_of_metadata(
             # logger.debug(f"{mf.identity_is_representative}")
 
             mf.save()
-            observation.save()
+            # observation.save()
             # logger.debug(f"Created new Mediafile {mf}")
             status = "created"
         else:
@@ -754,6 +755,8 @@ def _update_database_by_one_row_of_metadata(
         # logger.debug(f"{row.keys()=}")
         # logger.debug(f"{uploaded_archive.contains_identities=}")
         # logger.debug(f"{row['predicted_category']=}")
+        predicted_taxon = None
+        predicted_taxon_confidence = None
 
         # if archive is uploaded with known taxon, then do not use the predicted taxon.
         if uploaded_archive.contains_single_taxon and uploaded_archive.taxon_for_identification:
@@ -765,27 +768,47 @@ def _update_database_by_one_row_of_metadata(
         if captured_at is not None:
             mf.captured_at = captured_at
         if "predicted_category_raw" in row:
-            mf.predicted_taxon = get_taxon(row["predicted_category_raw"])
-            mf.predicted_taxon_confidence = float(row["predicted_prob_raw"])
-        if len(mf.animalobservation_set.all()) == 0:
-            ao = mf.animalobservation_set.create(
-                mediafile=mf,
-                taxon=taxon,
-                # metadata_json=row.to_dict(),
-            )
-        else:
-            ao = mf.animalobservation_set.first()
-            # ao.metadata_json = row.to_dict()
-            ao.taxon = taxon
-            ao.save()
+            predicted_taxon = get_taxon(row["predicted_category_raw"])
+            predicted_taxon_confidence = float(row["predicted_prob_raw"])
+            mf.predicted_taxon = predicted_taxon
+            mf.predicted_taxon_confidence = predicted_taxon_confidence
+        # if len(mf.observations.all()) == 0:
+        #     ao = mf.observations.create(
+        #         mediafile=mf,
+        #         taxon=taxon,
+        #         # metadata_json=row.to_dict(),
+        #     )
+        # else:
+        #     ao = mf.observations.first()
+        #     # ao.metadata_json = row.to_dict()
+        #     ao.taxon = taxon
+        #     ao.save()
 
         try:
             if ("detection_results" in row) and (row["detection_results"] is not None):
                 detection_results = ast.literal_eval(row["detection_results"])
                 if len(detection_results) > 0:
                     kv = {'back': "B", 'front': "F", 'left': "F", 'right': "R", "unknown": "U"}
-                    orientation = detection_results[0]["orientation"]
-                    orientation_score = detection_results[0]["orientation_score"]
+                    if len(mf.first_observation) > 1:
+                        # remove all observations with the exception of the first one
+                        # todo probably we should map the observation results to observations
+                        mf.observations.exclude(id=mf.first_observation.id).delete()
+                    for i, one_detection_result in enumerate(detection_results):
+                        if len(mf.observations) > 0 and len(detection_results) > 0:
+                            ao = mf.observations.first()
+                        else:
+                            ao = mf.observations.create(
+                                # mediafile=mf,
+                                # metadata_json=row.to_dict(),
+                            )
+
+                        ao.taxon = taxon
+                        ao.predicted_taxon = taxon
+                        ao.predicted_taxon_confidence = taxon_confidence
+                        ao.save()
+
+                        orientation = detection_results[i]["orientation"]
+                        orientation_score = detection_results[i]["orientation_score"]
                     if orientation in kv:
                         if orientation_score < orientation_score_threshold:
                             orientation = "unknown"

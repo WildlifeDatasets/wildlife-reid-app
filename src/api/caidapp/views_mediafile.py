@@ -348,7 +348,8 @@ class ObservationInline(InlineFormSetFactory):
     # fields = forms.AnimalObservationForm.Meta.fields
     fields = [
         "taxon",
-        "identity", "identity_is_representative",
+        "identity", "identity_is_representative", 'orientation',
+        "taxon_verified",
         "bbox_x_center", "bbox_y_center", "bbox_width", "bbox_height",
         # "orientation"
     ]

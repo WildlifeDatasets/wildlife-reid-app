@@ -1,3 +1,4 @@
+{% load crispy_forms_tags %}
 {# --- běžná pole --- #}
 
 {#                                                            {% if mediafile.is_for_suggestion  and forloop.counter == 1 %}#}
@@ -36,6 +37,22 @@
 {#                                                            </div>#}
 {##}
 {##}
+<div class="mt-1">
+    {{ obs_form.taxon.label_tag }}
+    {{ obs_form.taxon}}
+    {% for error in obs_form.taxon.errors %}
+        <div class="text-danger small">{{ error }}</div>
+    {% endfor %}
+</div>
+
+<div class="mt-1">
+    {{ obs_form.taxon_verified.label_tag }}
+    {{ obs_form.taxon_verified }}
+    {% for error in obs_form.taxon_verified.errors %}
+        <div class="text-danger small">{{ error }}</div>
+    {% endfor %}
+</div>
+
 <div class="mt-1">
     {{ obs_form.identity.label_tag }}
     {{ obs_form.identity }}
@@ -77,11 +94,11 @@
 {% endfor %}
 
 
-<button type="button"
-        class="btn btn-sm btn-outline-primary add-bbox-btn">
-    Add BBox
-</button>
-<button type="button"
-        class="btn btn-sm btn-outline-danger remove-bbox-btn d-none">
-    Remove BBox
-</button>
+    <button type="button"
+            class="btn btn-sm btn-outline-primary add-bbox-btn">
+        Add BBox
+    </button>
+    <button type="button"
+            class="btn btn-sm btn-outline-danger remove-bbox-btn d-none">
+        Remove BBox
+    </button>
