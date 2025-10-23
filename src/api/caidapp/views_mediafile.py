@@ -222,8 +222,7 @@ def taxons_on_page_are_verified(request):
     mediafile_ids = request.session.get("mediafile_ids_page", [])
     mediafiles = MediaFile.objects.filter(id__in=mediafile_ids)
     for mediafile in mediafiles:
-        mediafile.taxon_verified = True
-        mediafile.save()
+        __verify_taxon_in_observations(mediafile, request.user.caiduser, commit=True)
 
     # get previous url
     next_url = request.META.get("HTTP_REFERER", "/")
@@ -245,23 +244,36 @@ def set_mediafiles_records_per_page(request, records_per_page: int):
 
     return redirect(request.META.get("HTTP_REFERER", "/"))
 
+def __verify_taxon_in_observations(mediafile:models.MediaFile, caiduser:models.CaIDUser, commit=True):
+    # Update the MediaFile instance
+    now = timezone.now()
+    mediafile.updated_at = now
+    # TODO make this in clever way
+    for ao in mediafile.observations.all():
+        ao.taxon_verified = True
+        ao.taxon_verified_at = now
+        ao.save()
+    mediafile.updated_by = caiduser
+    mediafile.taxon_verified = True
+    mediafile.taxon_verified_at = now
+
+    # mediafile.taxon_verified = True
+    if commit:
+        mediafile.save()
+
+
 
 @login_required
 def confirm_prediction(request, mediafile_id: int) -> JsonResponse:
     """Confirm prediction for media file with low confidence."""
     try:
         mediafile = get_object_or_404(MediaFile, id=mediafile_id)
+        mediafile.taxon = mediafile.predicted_taxon
         # user has rw access
         if model_extra.user_has_rw_access_to_mediafile(
-            request.user.caiduser, mediafile, accept_none=True
+                request.user.caiduser, mediafile, accept_none=True
         ):
-            # Update the MediaFile instance
-            mediafile.taxon = mediafile.predicted_taxon
-            mediafile.updated_at = timezone.now()
-            mediafile.updated_by = request.user.caiduser
-            # mediafile.taxon_verified = True
-            mediafile.save()
-
+            __verify_taxon_in_observations( mediafile, request.user.caiduser )
             return JsonResponse({"success": True, "message": "Prediction confirmed."})
         return JsonResponse({"success": False, "message": "No read/write access to the file"})
     except Exception:
