@@ -71,6 +71,18 @@
         {% endif %}
         <li>
             <a class="dropdown-item"
+               href="{{ uploadedarchive.metadata_csv_url }}">
+                <i class="bi bi-table"></i> Download internal taxon processing CSV
+            </a>
+        </li>
+{#        <li>#}
+{#            <a class="dropdown-item"#}
+{#               href="{{ uploadedarchive.outputdir.url }}/metadata.csv">#}
+{#                <i class="bi bi-table"></i> Download internal taxon processing CSV#}
+{#            </a>#}
+{#        </li>#}
+        <li>
+            <a class="dropdown-item"
                href="{% url 'caidapp:run_processing' uploadedarchive.id %}">
                 <i class="bi bi-arrow-clockwise"></i> Run taxon classification
             </a>

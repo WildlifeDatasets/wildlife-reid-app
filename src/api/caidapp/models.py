@@ -863,6 +863,11 @@ class UploadedArchive(models.Model):
             mediafile.sequence = sequence
             mediafile.save()
 
+    @property
+    def metadata_csv_url(self):
+        # relativní cesta vzhledem k MEDIA_ROOT
+        rel_path = (Path(self.outputdir) / 'metadata.csv').relative_to(settings.MEDIA_ROOT)
+        return f"{settings.MEDIA_URL}{rel_path}".replace('\\', '/')
 
 class IndividualIdentity(models.Model):
     SEX_CHOICES = (
