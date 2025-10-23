@@ -663,6 +663,8 @@ def _update_database_by_one_row_of_metadata(
     orientation_score_threshold=0.5,
 ) -> str:
     # rel_pth, _ = _get_rel_and_abs_paths_based_on_csv_row(row, output_dir)
+    logger.debug(f"Processing row {index}")
+    print(f"Processing row {index}")
     image_abs_pth = output_dir / "images" / row["image_path"]
     image_rel_pth = image_abs_pth.relative_to(settings.MEDIA_ROOT)
     media_abs_pth = Path(row["absolute_media_path"])
@@ -789,25 +791,28 @@ def _update_database_by_one_row_of_metadata(
                 row["unique_name"], workgroup=uploaded_archive.owner.workgroup
             )
             mf.identity = identity
+        logger.debug("  update mediafile in db with row of metadata")
 
         try:
             if ("detection_results" in row) and (row["detection_results"] is not None):
                 detection_results = ast.literal_eval(row["detection_results"])
+                logger.debug(f"detection_results={detection_results}")
                 if len(detection_results) > 0:
                     kv = {'back': "B", 'front': "F", 'left': "F", 'right': "R", "unknown": "U"}
-                    if len(mf.observations) > 1:
+                    if mf.observations.count() > 1:
                         # remove all observations with the exception of the first one
                         # todo probably we should map the observation results to observations
                         # this is porcessed only if the values are not changed by user.
                         mf.observations.exclude(id=mf.first_observation.id).delete()
                     for i, one_detection_result in enumerate(detection_results):
-                        if len(mf.observations) > 0 and len(detection_results) > 0:
+                        if mf.observations.exists() and len(detection_results) > 0:
                             ao = mf.observations.first()
                         else:
                             ao = mf.observations.create(
                                 # mediafile=mf,
                                 # metadata_json=row.to_dict(),
                             )
+                        logger.debug(f"i={i}, detection_result={one_detection_result}")
 
                         if i==0:
                             ao.identity = identity
@@ -815,6 +820,14 @@ def _update_database_by_one_row_of_metadata(
                         ao.taxon = taxon
                         ao.predicted_taxon = predicted_taxon
                         ao.predicted_taxon_confidence = predicted_taxon_confidence
+                        x_min, y_min, x_max, y_max = one_detection_result["bbox"]
+                        h, w = one_detection_result["size"]
+                        logger.debug(f"bbox: {x_min=}, {y_min=}, {x_max=}, {y_max=}")
+
+                        ao.bbox_x_center = ((x_min + x_max) / 2) / w
+                        ao.bbox_y_center = ((y_min + y_max) / 2) / h
+                        ao.bbox_width = (x_max - x_min) / w
+                        ao.bbox_height = (y_max - y_min) / h
 
                         orientation = detection_results[i]["orientation"]
                         orientation_score = detection_results[i]["orientation_score"]

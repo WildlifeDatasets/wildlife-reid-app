@@ -1403,55 +1403,143 @@ def auto_delete_file_on_delete(sender, instance, **kwargs):
         shutil.rmtree(instance.outputdir)
 
 
+# def get_mediafiles_with_missing_taxon(
+#     caiduser: CaIDUser, uploadedarchive: Optional[UploadedArchive] = None, **kwargs
+# ) -> QuerySet:
+#     """Return media files with missing taxon."""
+#     not_classified_taxon = get_taxon(TAXON_NOT_CLASSIFIED)
+#     animalia_taxon = get_taxon("Animalia")
+#
+#     kwargs_filter = user_has_access_filter_params(caiduser, "parent__owner")
+#     if uploadedarchive is not None:
+#         kwargs["parent"] = uploadedarchive
+#
+#     mediafiles = MediaFile.objects.filter(
+#         Q(taxon=None)
+#         | Q(taxon=not_classified_taxon)
+#         | (Q(taxon=animalia_taxon) & Q(taxon_verified=False)),
+#         **kwargs_filter,
+#         parent__contains_single_taxon=False,
+#         **kwargs,
+#     ).select_related(
+#         "parent",
+#         "taxon",
+#         "predicted_taxon",
+#         "locality",
+#         "identity",
+#         "updated_by",
+#         "sequence"
+#     )
+#     return mediafiles
+
+
+from django.db.models import Q, Exists, OuterRef
+
 def get_mediafiles_with_missing_taxon(
     caiduser: CaIDUser, uploadedarchive: Optional[UploadedArchive] = None, **kwargs
 ) -> QuerySet:
-    """Return media files with missing taxon."""
+    """Return MediaFiles whose observations have missing or unverified taxon."""
     not_classified_taxon = get_taxon(TAXON_NOT_CLASSIFIED)
     animalia_taxon = get_taxon("Animalia")
 
+    # přístupové omezení
     kwargs_filter = user_has_access_filter_params(caiduser, "parent__owner")
+
     if uploadedarchive is not None:
         kwargs["parent"] = uploadedarchive
 
-    mediafiles = MediaFile.objects.filter(
-        Q(taxon=None)
-        | Q(taxon=not_classified_taxon)
-        | (Q(taxon=animalia_taxon) & Q(taxon_verified=False)),
-        **kwargs_filter,
-        parent__contains_single_taxon=False,
-        **kwargs,
-    ).select_related(
-        "parent",
-        "taxon",
-        "predicted_taxon",
-        "locality",
-        "identity",
-        "updated_by",
-        "sequence"
+    # poddotaz: existuje nějaká observation s platným taxonem?
+    valid_obs = AnimalObservation.objects.filter(
+        mediafile=OuterRef("pk"),
+    ).filter(
+        ~Q(taxon=None),
+        ~Q(taxon=not_classified_taxon),
+        ~(Q(taxon=animalia_taxon) & Q(taxon_verified=False))
     )
+
+    # vyber mediafiles, které žádnou validní observation nemají
+    mediafiles = (
+        MediaFile.objects.annotate(has_valid_obs=Exists(valid_obs))
+        .filter(
+            has_valid_obs=False,
+            parent__contains_single_taxon=False,
+            **kwargs_filter,
+            **kwargs,
+        )
+        .select_related(
+            "parent",
+            "predicted_taxon",
+            "locality",
+            "identity",
+            "updated_by",
+            "sequence",
+        )
+    )
+
     return mediafiles
 
+
+
+# def get_mediafiles_with_missing_verification(
+#     caiduser: CaIDUser, uploadedarchive: Optional[UploadedArchive] = None, **kwargs
+# ) -> QuerySet:
+#     """Return media files with missing taxon verification."""
+#     kwargs_filter = user_has_access_filter_params(caiduser, "parent__owner")
+#     if uploadedarchive is not None:
+#         kwargs["parent"] = uploadedarchive
+#
+#     logger.debug(f"{caiduser=}, {uploadedarchive=}, {kwargs=}, {kwargs_filter=}")
+#     mediafiles = MediaFile.objects.filter(
+#         taxon_verified=False, **kwargs_filter, parent__contains_single_taxon=False, **kwargs
+#     ).select_related(
+#         "parent",
+#         "taxon",
+#         "predicted_taxon",
+#         "locality",
+#         "identity",
+#         "updated_by",
+#         "sequence"
+#     )
+#
+#     logger.debug(f"{mediafiles.count()=}")
+#     return mediafiles
+
+from django.db.models import Exists, OuterRef, Q
 
 def get_mediafiles_with_missing_verification(
     caiduser: CaIDUser, uploadedarchive: Optional[UploadedArchive] = None, **kwargs
 ) -> QuerySet:
-    """Return media files with missing taxon verification."""
+    """Return MediaFiles that have at least one observation without verified taxon."""
     kwargs_filter = user_has_access_filter_params(caiduser, "parent__owner")
     if uploadedarchive is not None:
         kwargs["parent"] = uploadedarchive
 
     logger.debug(f"{caiduser=}, {uploadedarchive=}, {kwargs=}, {kwargs_filter=}")
-    mediafiles = MediaFile.objects.filter(
-        taxon_verified=False, **kwargs_filter, parent__contains_single_taxon=False, **kwargs
-    ).select_related(
-        "parent",
-        "taxon",
-        "predicted_taxon",
-        "locality",
-        "identity",
-        "updated_by",
-        "sequence"
+
+    # Poddotaz: existuje nějaká observace, která není verifikovaná?
+    unverified_obs = AnimalObservation.objects.filter(
+        mediafile=OuterRef("pk")
+    ).filter(
+        Q(taxon_verified=False) | Q(taxon_verified__isnull=True)
+    )
+
+    # Vybereme MediaFiles, které mají alespoň jednu takovou observaci
+    mediafiles = (
+        MediaFile.objects.annotate(has_unverified_obs=Exists(unverified_obs))
+        .filter(
+            has_unverified_obs=True,
+            parent__contains_single_taxon=False,
+            **kwargs_filter,
+            **kwargs,
+        )
+        .select_related(
+            "parent",
+            "predicted_taxon",
+            "locality",
+            "identity",
+            "updated_by",
+            "sequence",
+        )
     )
 
     logger.debug(f"{mediafiles.count()=}")
