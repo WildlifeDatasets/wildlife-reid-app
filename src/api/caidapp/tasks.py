@@ -751,7 +751,7 @@ def _update_database_by_one_row_of_metadata(
 
     # if the mediafile was updated by user, we believe into users input
     if mf.updated_by is None:
-        status = status + " and updated by user"
+        status = status + " and not updated by user"
         # logger.debug(f"{row.keys()=}")
         # logger.debug(f"{uploaded_archive.contains_identities=}")
         # logger.debug(f"{row['predicted_category']=}")
@@ -783,15 +783,22 @@ def _update_database_by_one_row_of_metadata(
         #     # ao.metadata_json = row.to_dict()
         #     ao.taxon = taxon
         #     ao.save()
+        identity = None
+        if extract_identites:
+            identity = get_unique_name(
+                row["unique_name"], workgroup=uploaded_archive.owner.workgroup
+            )
+            mf.identity = identity
 
         try:
             if ("detection_results" in row) and (row["detection_results"] is not None):
                 detection_results = ast.literal_eval(row["detection_results"])
                 if len(detection_results) > 0:
                     kv = {'back': "B", 'front': "F", 'left': "F", 'right': "R", "unknown": "U"}
-                    if len(mf.first_observation) > 1:
+                    if len(mf.observations) > 1:
                         # remove all observations with the exception of the first one
                         # todo probably we should map the observation results to observations
+                        # this is porcessed only if the values are not changed by user.
                         mf.observations.exclude(id=mf.first_observation.id).delete()
                     for i, one_detection_result in enumerate(detection_results):
                         if len(mf.observations) > 0 and len(detection_results) > 0:
@@ -802,30 +809,29 @@ def _update_database_by_one_row_of_metadata(
                                 # metadata_json=row.to_dict(),
                             )
 
+                        if i==0:
+                            ao.identity = identity
+
                         ao.taxon = taxon
-                        ao.predicted_taxon = taxon
-                        ao.predicted_taxon_confidence = taxon_confidence
-                        ao.save()
+                        ao.predicted_taxon = predicted_taxon
+                        ao.predicted_taxon_confidence = predicted_taxon_confidence
 
                         orientation = detection_results[i]["orientation"]
                         orientation_score = detection_results[i]["orientation_score"]
-                    if orientation in kv:
-                        if orientation_score < orientation_score_threshold:
-                            orientation = "unknown"
+                        if orientation in kv:
+                            if orientation_score < orientation_score_threshold:
+                                orientation = "unknown"
 
-                        mf.orientation = kv[orientation]
-                        ao.orientation = kv[orientation]
-                    else:
-                        logger.warning(f"Unknown orientation: {orientation} in {mf.mediafile}")
+                            mf.orientation = kv[orientation]
+                            ao.orientation = kv[orientation]
+                        else:
+                            logger.warning(f"Unknown orientation: {orientation} in {mf.mediafile}")
+                        ao.save()
         except Exception as e:
             logger.warning(f"Error during setting orientation in media file {mf.mediafile}: {e}")
             logger.debug(traceback.format_exc())
 
 
-        if extract_identites:
-            mf.identity = get_unique_name(
-                row["unique_name"], workgroup=uploaded_archive.owner.workgroup
-            )
         mf.save()
         # logger.debug(f"identity={mf.identity}")
     return status
