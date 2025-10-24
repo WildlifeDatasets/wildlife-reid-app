@@ -93,6 +93,7 @@ from .models import (
     Taxon,
     UploadedArchive,
     WorkGroup,
+    AnimalObservation,
 )
 from .tasks import (
     _iterate_over_locality_checks,
@@ -1398,22 +1399,60 @@ def _get_mediafiles_for_train_or_init_identification(
 
 
     # set attribute media_file_used_for_init_identification
-    MediaFile.objects.filter(
-        parent__owner__workgroup=workgroup,
-    ).update(used_for_init_identification=False)
+    # MediaFile.objects.filter(
+    #     parent__owner__workgroup=workgroup,
+    # ).update(used_for_init_identification=False)
+    #
+    # kwargs = {}
+    # if workgroup.default_taxon_for_identification:
+    #     kwargs.update(dict(taxon=workgroup.default_taxon_for_identification))
+    #
+    # mediafiles_qs = MediaFile.objects.filter(
+    #     # taxon__name=taxon_str,
+    #     **kwargs,
+    #     identity__isnull=False,
+    #     parent__owner__workgroup=workgroup,
+    #     identity_is_representative=True,
+    # )
 
-    kwargs = {}
-    if workgroup.default_taxon_for_identification:
-        kwargs.update(dict(taxon=workgroup.default_taxon_for_identification))
-
+    # Nejprve resetuj všechny mediafiles v daném workgroupu
     mediafiles_qs = MediaFile.objects.filter(
-        # taxon__name=taxon_str,
-        **kwargs,
-        identity__isnull=False,
         parent__owner__workgroup=workgroup,
-        identity_is_representative=True,
     )
+    mediafiles_qs.update(used_for_init_identification=False)
 
+
+
+    # Pokud má workgroup nastavený výchozí taxon pro identifikaci
+    if workgroup.default_taxon_for_identification:
+        # Najdi ID všech mediafiles, které mají aspoň jednu observaci s daným taxonem
+        mf_ids = AnimalObservation.objects.filter(
+            taxon=workgroup.default_taxon_for_identification,
+            mediafile__parent__owner__workgroup=workgroup,
+        ).values_list("mediafile_id", flat=True).distinct()
+
+        # A těmto mediafiles nastav příznak
+        mediafiles_qs = MediaFile.objects.filter(
+            parent__owner__workgroup=workgroup,
+            id__in=mf_ids,
+            identity_is_representative=True,
+            identity__isnull=False,
+        )
+
+    else:
+        logger.warning(f"No default taxon for identification set in {workgroup=}. Nothing updated.")
+        mediafiles_qs = MediaFile.objects.filter(
+            parent__owner__workgroup=workgroup,
+            # id__in=mf_ids,
+            identity_is_representative=True,
+            identity__isnull=False,
+        )
+
+    logger.debug(f"Found {mediafiles_qs.count()} mediafiles for identification init.")
+    if mediafiles_qs.count() == 0:
+        logger.error("No mediafiles found for identification init.")
+
+     # mark these mediafiles as used for init identification
     mediafiles_qs.update(used_for_init_identification=True)
     return mediafiles_qs
 
@@ -1701,7 +1740,17 @@ def run_identification(uploaded_archive: UploadedArchive, workgroup: models.Work
         taxon_str = uploaded_archive.taxon_for_identification.name
     else:
         taxon_str = "Lynx lynx"
-    mediafiles = uploaded_archive.mediafile_set.filter(taxon__name=taxon_str).all()
+
+    # find media files with observations of the expected taxon
+    mf_ids = AnimalObservation.objects.filter(
+        taxon=workgroup.default_taxon_for_identification,
+        mediafile__parent=uploaded_archive,
+    ).values_list("mediafile_id", flat=True).distinct()
+
+    mediafiles = uploaded_archive.mediafile_set.filter(
+        id__in=mf_ids,
+        # taxon__name=taxon_str
+    ).all()
     logger.debug(f"Generating CSV for init_identification with {len(mediafiles)} records...")
     uploaded_archive.identification_status = "IAIP"
 
