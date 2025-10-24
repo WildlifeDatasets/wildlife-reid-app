@@ -39,5 +39,6 @@ def order_by(queryset, field):
 def get_verbose_name_plural(model):
     return model._meta.verbose_name_plural
 
+@register.filter
 def get_model_fields(model):
     return model._meta.fields

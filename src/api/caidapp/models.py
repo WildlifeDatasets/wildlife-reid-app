@@ -1166,6 +1166,29 @@ class MediaFile(models.Model):
         return obs
 
 
+    def mediafile_variant_url(self, variant: str="images") -> str:
+        # relativní cesta vzhledem k MEDIA_ROOT
+        rel_path = Path(self.parent.outputdir).relative_to(settings.MEDIA_ROOT)
+        rel_path = rel_path / variant / Path(self.mediafile.name).name
+        return f"{settings.MEDIA_URL}{rel_path}".replace('\\', '/')
+
+    @property
+    def detection_url(self):
+        return self.mediafile_variant_url("detection_images")
+
+    @property
+    def thumbnail_url(self):
+        return self.mediafile_variant_url("thumbnails")
+
+    @property
+    def static_thumbnail_url(self):
+        return self.mediafile_variant_url("static_thumbnails")
+
+    @property
+    def preview_url(self):
+        return self.mediafile_variant_url("previews")
+
+
 class AnimalObservation(models.Model):
     mediafile = models.ForeignKey(
         MediaFile, on_delete=models.CASCADE, related_name="observations",
