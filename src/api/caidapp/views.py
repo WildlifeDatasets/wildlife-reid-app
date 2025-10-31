@@ -753,63 +753,64 @@ def individual_identity_create(request, media_file_id:Optional[int]=None):
         {"form": form, "headline": "New Individual Identity", "button": "Create"},
     )
 
+class IndividualIdentityUpdateView(LoginRequiredMixin, UpdateView):
+    """Update individual identity."""
+    model = IndividualIdentity
+    form_class = IndividualIdentityForm
+    template_name = "caidapp/update_form.html"
+    context_object_name = "individual_identity"
 
-@login_required
-def individual_identity_update(request, individual_identity_id):
-    """Show and update media file."""
-    individual_identity = get_object_or_404(
-        IndividualIdentity,
-        pk=individual_identity_id,
-        owner_workgroup=request.user.caiduser.workgroup,
-    )
-    media_file = MediaFile.objects.filter(
-        identity=individual_identity, identity_is_representative=True
-    ).first()
-
-    if request.method == "POST":
-        form = IndividualIdentityForm(request.POST, instance=individual_identity)
-        if form.is_valid():
-
-            # get uploaded archive
-            individual_identity = form.save()
-            individual_identity.updated_by = request.user.caiduser
-            individual_identity.save()
-            return redirect("caidapp:individual_identities")
-    else:
-        form = IndividualIdentityForm(instance=individual_identity)
-
-    nav_dict = {}
-    if media_file and media_file.parent:
-        nav_dict["Media Files"] = reverse_lazy(
-            "caidapp:uploadedarchive_mediafiles",
-            kwargs={"uploadedarchive_id": media_file.parent.id}
-        )
-    right_nav = {"Localities": None}
-    for locality in individual_identity.localities():
-        right_nav[locality.name] = reverse_lazy(
-            "caidapp:update_locality",
-            kwargs={"locality_id": locality.id},
+    def get_queryset(self):
+        return IndividualIdentity.objects.filter(
+            owner_workgroup=self.request.user.caiduser.workgroup,
         )
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        individual_identity = self.get_object()
+        media_files = MediaFile.objects.filter(
+            identity=individual_identity, identity_is_representative=True
+        )
+        media_file = media_files.first()
 
+        nav_dict = {}
+        if individual_identity:
+            nav_dict["Identity Media Files"] = reverse_lazy(
+                "caidapp:individual_identity_mediafiles",
+                kwargs={"individual_identity_id": individual_identity.id }
+            )
+        right_nav = {"Localities": None}
+        for locality in individual_identity.localities():
+            right_nav[locality.name] = reverse_lazy(
+                "caidapp:update_locality",
+                kwargs={"locality_id": locality.id},
+            )
 
-    return render(
-        request,
-        "caidapp/update_form.html",
-        {
-            "form": form,
+        context.update({
             "headline": "Individual Identity",
             "button": "Save",
-            "individual_identity": individual_identity,
             "mediafile": media_file,
+            "mediafiles" : media_files[1:4],
             "delete_button_url": reverse_lazy(
                 "caidapp:delete_individual_identity",
-                kwargs={"individual_identity_id": individual_identity_id},
+                kwargs={"individual_identity_id": individual_identity.id},
             ),
             "nav_dict": nav_dict,
             "right_nav": right_nav,
-        },
-    )
+        })
+        return context
+
+    def get_success_url(self):
+        return reverse_lazy("caidapp:individual_identities")
+
+
+    #validation
+    def form_valid(self, form):
+        individual_identity = form.save(commit=False)
+        individual_identity.updated_by = self.request.user.caiduser
+        individual_identity.save()
+        return super().form_valid(form)
+
 
 
 @login_required

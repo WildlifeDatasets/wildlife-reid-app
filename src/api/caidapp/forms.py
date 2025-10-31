@@ -9,6 +9,17 @@ import logging
 logger = logging.getLogger(__name__)
 User = get_user_model()
 
+
+class SmallTextarea(forms.Textarea):
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault("attrs", {})
+        kwargs["attrs"].setdefault("rows", 3)
+        super().__init__(*args, **kwargs)
+
+# Nastav globálně jako výchozí Textarea
+forms.Textarea = SmallTextarea
+
+
 class CompareLocalitiesForm(forms.Form):
     locality = forms.ModelChoiceField(queryset=Locality.objects.all(), label="Locality")
 

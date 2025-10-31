@@ -327,7 +327,15 @@
                                             {#                                            data-bs-toggle="tooltip"#}
                                             {#                                            data-toggle="tooltip"#}
                                             title="File name: {{ mediafile }}
-ID: {{ mediafile.id }}">
+ID: {{ mediafile.id }}
+mediafile.taxon: {{ mediafile.taxon }}
+{% if mediafile.taxon %}Media file Taxon: {{ mediafile.taxon }}{% endif %}
+{% if mediafile.identity %}Media file Identity: {{ mediafile.identity }}{% endif %}
+{% if mediafile.uploaded_by %}Media file Uploaded by: {{ mediafile.uploaded_by }}{% endif %}
+{% if mediafile.updated_by %}Media file Updated by: {{ mediafile.updated_by }}{% endif %}
+{% if mediafile.created_at %}Media file Created at: {{ mediafile.created_at|date:'Y-m-d H:i' }}{% endif %}
+{% if mediafile.updated_at %}Media file Updated at: {{ mediafile.updated_at|date:'Y-m-d H:i' }}{% endif %}
+">
                                     <i class="bi bi-info-circle"></i>
                                     </span>
 

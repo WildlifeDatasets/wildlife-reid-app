@@ -888,7 +888,7 @@ class IndividualIdentity(models.Model):
     sex = models.CharField(max_length=2, choices=SEX_CHOICES, default="U")
     coat_type = models.CharField(max_length=2, choices=COAT_TYPE_CHOICES, default="U")
     note = models.TextField(blank=True)
-    code = models.CharField(max_length=50, default="")
+    code = models.CharField(max_length=50, default="", blank=True, null=True)
     juv_code = models.CharField("Juv. Code", max_length=50, default=random_string12)
     hash = models.CharField(max_length=50, blank=True)
     birth_date = models.DateField("Birth date", blank=True, null=True)

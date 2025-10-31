@@ -13,10 +13,13 @@ def trigger_error(request):
 app_name = "caidapp"
 urlpatterns = [
     path("", views.login, name="index"),
+    path("djangologin/", views.MyLoginView.as_view(), name="djangologin"),
+    path("logout/", views.logout_view, name="logout_view"),
+    path("user_settings/", views.CaIDUserSettingsView.as_view(), name="update_caiduser"),
+
     # path("rest_api/", include(router.urls)), # not used any more
     path("upload/", views.upload_archive, name="upload_archive"),
     # path("user_settings/", views.update_caiduser, name="update_caiduser"),
-    path("user_settings/", views.CaIDUserSettingsView.as_view(), name="update_caiduser"),
     path(
         "upload/contains_single_taxon/",
         views.upload_archive,
@@ -30,7 +33,9 @@ urlpatterns = [
         name="upload_archive_contains_identities",
     ),
     # path("login/", TemplateView.as_view(template_name="caidapp/login.html"), name="login"),
-    path("logout/", views.logout_view, name="logout_view"),
+
+
+    # Uploads
     path("uploads/", views.uploads_species, name="uploads"),
     path("uploads_identities/", views.uploads_identities, name="uploads_identities"),
     path("uploads_known_identities/", views.uploads_known_identities, name="uploads_known_identities"),
@@ -47,12 +52,7 @@ urlpatterns = [
         name="uploadedarchive_detail",
     ),
     # path("media_files/", views.media_files, name="media_files"),
-    path("media_files/", views.media_files_update, name="media_files"),
-    path(
-        "delete_mediafile/<int:mediafile_id>/",
-        views.delete_mediafile,
-        name="delete_mediafile",
-    ),
+
     path(
         "<int:uploadedarchive_id>/delete_upload/<str:next_page>/",
         views.delete_upload,
@@ -74,15 +74,10 @@ urlpatterns = [
         name="run_taxon_classification_force_init",
     ),
     path("refresh_data/", views.refresh_data, name="refresh_data"),
-    path("djangologin/", views.MyLoginView.as_view(), name="djangologin"),
-    path("mediafile/<int:pk>/update/", views_mediafile.MediaFileUpdateView.as_view(), name="media_file_update"),
-    # path(
-    #     "media_file_update/<int:media_file_id>/",
-    #     views_mediafile.media_file_update,
-    #     name="media_file_update",
-    # ),
 
-    path("observation/<int:pk>/delete/", views_mediafile.ObservationDeleteView.as_view(), name="observation_delete"),
+
+
+    # Localities
     path("manage_localities/", views_locality.manage_localities, name="manage_localities"),
     path(
         "delete_locality/<int:locality_id>/", views_locality.delete_locality, name="delete_locality"
@@ -97,9 +92,17 @@ urlpatterns = [
         views_locality.update_locality,
         name="update_locality",
     ),
-    path("albums/", views.albums, name="albums"),
-    path("album/<str:album_hash>", views.media_files_update, name="album"),
     path("taxon/<int:taxon_id>", views.media_files_update, name="taxon"),
+
+
+    # Media Files
+    path("media_files/", views.media_files_update, name="media_files"),
+    path("mediafile/<int:pk>/update/", views_mediafile.MediaFileUpdateView.as_view(), name="media_file_update"),
+    # path(
+    #     "media_file_update/<int:media_file_id>/",
+    #     views_mediafile.media_file_update,
+    #     name="media_file_update",
+    # ),
     path(
         "media_files/locality/<str:locality_hash>",
         views.media_files_update,
@@ -115,25 +118,34 @@ urlpatterns = [
         views.media_files_update,
         name="individual_identity_mediafiles",
     ),
-    path("identities/export_csv", views.export_identities_csv, name="export_identities_csv"),
-    path("identities/export_xlsx", views.export_identities_xlsx, name="export_identities_xlsx"),
-    path("identities/import", views.import_identities_view, name="import_identities"),
+    path(
+        "delete_mediafile/<int:mediafile_id>/",
+        views.delete_mediafile,
+        name="delete_mediafile",
+    ),
+    path("observation/<int:pk>/delete/", views_mediafile.ObservationDeleteView.as_view(), name="observation_delete"),
+
+    # Albums
+    path("albums/", views.albums, name="albums"),
+    path("album/<str:album_hash>", views.media_files_update, name="album"),
     path("album_update/<str:album_hash>/", views.album_update, name="album_update"),
     path("delete_album/<str:album_hash>/", views.delete_album, name="delete_album"),
     path("new_album/", views.new_album, name="new_album"),
+
+    # Identity
+    path("identities/export_csv", views.export_identities_csv, name="export_identities_csv"),
+    path("identities/export_xlsx", views.export_identities_xlsx, name="export_identities_xlsx"),
+    path("identities/import", views.import_identities_view, name="import_identities"),
+    path("individual_identity_create/", views.individual_identity_create, name="individual_identity_create", ),
+    path( "individual_identity_create/media_file/<int:media_file_id>", views.individual_identity_create, name="individual_identity_create", ),
+    # path(
+    #     "individual_identity_update/<int:individual_identity_id>",
+    #     views.individual_identity_update,
+    #     name="individual_identity_update",
+    # ),
     path(
-        "individual_identity_create/",
-        views.individual_identity_create,
-        name="individual_identity_create",
-    ),
-    path(
-        "individual_identity_create/media_file/<int:media_file_id>",
-        views.individual_identity_create,
-        name="individual_identity_create",
-    ),
-    path(
-        "individual_identity_update/<int:individual_identity_id>",
-        views.individual_identity_update,
+        "individual_identity_update/<int:pk>",
+        views.IndividualIdentityUpdateView.as_view(),
         name="individual_identity_update",
     ),
     path(
@@ -396,7 +408,7 @@ urlpatterns = [
     path("merge_identities/<int:individual_identity1_id>/",
          views.select_second_id_for_identification_merge, name="merge_identities"),
     path("suggest_merge_identities/", views.suggest_merge_identities_view, name="suggest_merge_identities"),
-    path("refresh_merge_identities_suggestions/", views.refresh_identities_suggestions_view, name="refresh_merge_identities_suggestions"),
+    # path("refresh_merge_identities_suggestions/", views.refresh_identities_suggestions_view, name="refresh_merge_identities_suggestions"),
     path("update_uploaded_archive_with_spreadsheet/<int:uploaded_archive_id>/",views.UpdateUploadedArchiveBySpreadsheetFile.as_view(), name="update_uploaded_archive_with_spreadsheet"),
     path("pygwalker/", include("djangoaddicts.pygwalker.urls")),
     path("pygwalker_mediafiles/", views.MyPygWalkerView.as_view(), name="pygwalker_mediafiles"),
