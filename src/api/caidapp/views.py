@@ -775,7 +775,7 @@ class IndividualIdentityUpdateView(LoginRequiredMixin, UpdateView):
 
         nav_dict = {}
         if individual_identity:
-            nav_dict["Identity Media Files"] = reverse_lazy(
+            nav_dict["Media Files"] = reverse_lazy(
                 "caidapp:individual_identity_mediafiles",
                 kwargs={"individual_identity_id": individual_identity.id }
             )
@@ -789,8 +789,12 @@ class IndividualIdentityUpdateView(LoginRequiredMixin, UpdateView):
         context.update({
             "headline": "Individual Identity",
             "button": "Save",
-            "mediafile": media_file,
-            "mediafiles" : media_files[1:4],
+            # "mediafile": media_file,
+            "mediafiles" : media_files[:4],
+            "mediafiles_url": reverse_lazy(
+                "caidapp:individual_identity_mediafiles", kwargs={"individual_identity_id": individual_identity.id}
+            ),
+
             "delete_button_url": reverse_lazy(
                 "caidapp:delete_individual_identity",
                 kwargs={"individual_identity_id": individual_identity.id},

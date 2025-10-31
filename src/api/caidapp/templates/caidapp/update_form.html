@@ -118,7 +118,13 @@
                             <div class="carousel-inner">
                                 {% for mf in mediafiles %}
                                     <div class="carousel-item {% if forloop.first %}active{% endif %}">
+                                    <a
+                                            {% if mediafiles_url %}
+                                            href="{{ mediafiles_url }}"
+                                            {% endif %}
+                                    >
                                         <img src="{{ mf.thumbnail.url }}" class="d-block w-100 img-thumbnail" alt="{{ mf.name }}">
+                                    </a>
                                     </div>
                                 {% endfor %}
                             </div>
