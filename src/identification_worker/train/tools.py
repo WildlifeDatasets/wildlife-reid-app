@@ -7,12 +7,12 @@ from PIL import Image
 
 
 def postprocess_image(image: torch.Tensor) -> np.ndarray:
-    transform = T.Compose([
-        T.Normalize(mean=[0., 0., 0.],
-                    std=[1 / 0.229, 1 / 0.224, 1 / 0.225]),
-        T.Normalize(mean=[-0.485, -0.456, -0.406],
-                    std=[1., 1., 1.])
-    ])
+    transform = T.Compose(
+        [
+            T.Normalize(mean=[0.0, 0.0, 0.0], std=[1 / 0.229, 1 / 0.224, 1 / 0.225]),
+            T.Normalize(mean=[-0.485, -0.456, -0.406], std=[1.0, 1.0, 1.0]),
+        ]
+    )
 
     image = transform(image)
     image = image.permute((1, 2, 0))

@@ -6,14 +6,13 @@ from . import models
 
 
 class LocalityFilter(django_filters.FilterSet):
-    search = django_filters.CharFilter(method='filter_search', label="Search")
-    area = django_filters.ModelChoiceFilter(
-        queryset=models.Area.objects.all().order_by('name')
-    )
+    search = django_filters.CharFilter(method="filter_search", label="Search")
+    area = django_filters.ModelChoiceFilter(queryset=models.Area.objects.all().order_by("name"))
+
     class Meta:
         model = models.Locality
         fields = {
-            "name": ['icontains'],
+            "name": ["icontains"],
             # "area": ['exact'],
         }
 
@@ -29,21 +28,23 @@ class LocalityFilter(django_filters.FilterSet):
         # Now filter on the annotated 'search' field.
         return queryset.filter(search__icontains=value)
 
+
 class IndividualIdentityFilter(django_filters.FilterSet):
     mediafile_count = django_filters.RangeFilter(label="Count of Media Files")
 
     last_seen = django_filters.DateFromToRangeFilter(
         label="Last Seen",
         help_text="Enter dates in YYYY-MM-DD format",
-        widget=django_filters.widgets.RangeWidget(attrs={'type': 'date'})
+        widget=django_filters.widgets.RangeWidget(attrs={"type": "date"}),
     )
-    search = django_filters.CharFilter(method='filter_search', label="Search")
+    search = django_filters.CharFilter(method="filter_search", label="Search")
+
     class Meta:
         model = models.IndividualIdentity
         fields = {
-            "name": ['icontains'],
-            "code": ['icontains'],
-            "juv_code": ['icontains'],
+            "name": ["icontains"],
+            "code": ["icontains"],
+            "juv_code": ["icontains"],
             "sex": ["exact"],
             "coat_type": ["exact"],
         }
@@ -61,6 +62,7 @@ class IndividualIdentityFilter(django_filters.FilterSet):
         )
         # Now filter on the annotated 'search' field.
         return queryset.filter(search__icontains=value)
+
 
 import django_filters
 from django.shortcuts import get_object_or_404
@@ -81,44 +83,40 @@ class MediaFileFilter(django_filters.FilterSet):
     # identity_is_representative = django_filters.BooleanFilter(field_name='identity_is_representative')
     # locality_hash = django_filters.CharFilter(method='filter_locality', label='Locality')
     # search = django_filters.CharFilter(label='Search')
-    request=None
-    taxon = django_filters.ModelChoiceFilter(
-        queryset=models.Taxon.objects.all().order_by('name')
-    )
+    request = None
+    taxon = django_filters.ModelChoiceFilter(queryset=models.Taxon.objects.all().order_by("name"))
     uploadedarchive = django_filters.ModelChoiceFilter(
         queryset=models.UploadedArchive.objects.none()
-
-
-            # .annotate(
-            #     name_extended=Concat(
-            #         'name',
-            #         Value(' ('),
-            #         Cast('uploaded_at', output_field=CharField()),
-            #         Value(')')
-            #     )
-            # )
-            .order_by('-uploaded_at'),
+        # .annotate(
+        #     name_extended=Concat(
+        #         'name',
+        #         Value(' ('),
+        #         Cast('uploaded_at', output_field=CharField()),
+        #         Value(')')
+        #     )
+        # )
+        .order_by("-uploaded_at"),
         # annotate(
-            # name_extended=Concat('name', Value(' ( asd'),  Value(')'))
+        # name_extended=Concat('name', Value(' ( asd'),  Value(')'))
         # ).order_by('-uploaded_at'),
         # label_from_instance=lambda obj: f"{obj.name} ({obj.uploaded_at.strftime('%Y-%m-%d')})",
-        label='Uploaded Archive',
+        label="Uploaded Archive",
         # label_from_instance=lambda obj: obj.name_extended
     )
     #
     captured_at = django_filters.DateFromToRangeFilter(
         label="Captured At",
         help_text="Enter dates in YYYY-MM-DD format",
-        widget=django_filters.widgets.RangeWidget(attrs={'type': 'date'}),
+        widget=django_filters.widgets.RangeWidget(attrs={"type": "date"}),
     )
-    search = django_filters.CharFilter(method='filter_search', label="Search")
+    search = django_filters.CharFilter(method="filter_search", label="Search")
 
     class Meta:
         model = models.MediaFile
         # Declare the fields you want to filter by.
-        taxon = Taxon.objects.all().order_by('name')
+        taxon = Taxon.objects.all().order_by("name")
         fields = {
-            "locality__name": ['icontains'],
+            "locality__name": ["icontains"],
             "identity__name": ["icontains"],
             "media_type": ["exact"],
             # "taxon" : ["exact"],
@@ -127,7 +125,6 @@ class MediaFileFilter(django_filters.FilterSet):
             # "search": ["icontains"],
             # "taxon_verified": ["exact"],
         }
-
 
     def filter_search(self, queryset, name, value):
         # Annotate the queryset with a computed 'search' field.
@@ -144,16 +141,18 @@ class MediaFileFilter(django_filters.FilterSet):
         return queryset.filter(search__icontains=value)
 
     def __init__(self, *args, **kwargs):
-        self.request = kwargs.pop('request', None)
+        self.request = kwargs.pop("request", None)
         if self.request is None:
             raise ValueError("request must be provided to MediaFileFilter")
         caiduser = self.request.user.caiduser
         super().__init__(*args, **kwargs)
 
         from .model_extra import user_has_access_to_uploadedarchives_filter_params
+
         self.filters["uploadedarchive"].queryset = UploadedArchive.objects.filter(
             **user_has_access_to_uploadedarchives_filter_params(caiduser)
-        ).order_by('-uploaded_at')
+        ).order_by("-uploaded_at")
+
 
 class NotificationFilter(django_filters.FilterSet):
     level = django_filters.NumberFilter(field_name="level")
@@ -161,7 +160,7 @@ class NotificationFilter(django_filters.FilterSet):
     created_after = django_filters.DateTimeFilter(field_name="created", lookup_expr="gte")
     created_before = django_filters.DateTimeFilter(field_name="created", lookup_expr="lte")
 
-    search = django_filters.CharFilter(method='filter_search', label="Search")
+    search = django_filters.CharFilter(method="filter_search", label="Search")
 
     class Meta:
         model = models.Notification
@@ -178,7 +177,6 @@ class NotificationFilter(django_filters.FilterSet):
         )
         # Now filter on the annotated 'search' field.
         return queryset.filter(search__icontains=value)
-
 
         # fields = {
         #     "name": ['icontains'],

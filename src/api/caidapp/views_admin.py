@@ -1,4 +1,3 @@
-
 from django.shortcuts import redirect
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
@@ -41,7 +40,7 @@ def clean_mediafiles_with_no_file_attached_view(request):
     # get all mediafiles with no file attached
     # n_mediafiles = len(mediafiles)
 
-    mediafiles_no_file = mediafiles.filter(Q(mediafile__isnull=True) | Q(mediafile=''))
+    mediafiles_no_file = mediafiles.filter(Q(mediafile__isnull=True) | Q(mediafile=""))
 
     # mediafiles_no_file = mediafiles.filter(mediafile__isnull=True)
     n_empty_mediafiles = len(mediafiles_no_file)
@@ -54,6 +53,7 @@ def clean_mediafiles_with_no_file_attached_view(request):
     # go back to referer
     return redirect(request.META.get("HTTP_REFERER", "/"))
 
+
 @staff_member_required
 def refresh_area(request):
 
@@ -61,6 +61,7 @@ def refresh_area(request):
         locality.set_closest_area()
 
     return redirect(request.META.get("HTTP_REFERER", "/"))
+
 
 @staff_member_required
 def refresh_thumbnails(request, force: bool = False):

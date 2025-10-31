@@ -22,17 +22,17 @@ def set_seed(seed=0):
 
 
 def set_random_states(states):
-    if 'os_rng_state' in states and states["os_rng_state"]:
+    if "os_rng_state" in states and states["os_rng_state"]:
         os.environ["PYTHONHASHSEED"] = states["os_rng_state"]
-    if 'random_rng_state' in states:
+    if "random_rng_state" in states:
         random.setstate(states["random_rng_state"])
-    if 'numpy_rng_state' in states:
+    if "numpy_rng_state" in states:
         np.random.set_state(states["numpy_rng_state"])
-    if 'torch_rng_state' in states:
+    if "torch_rng_state" in states:
         torch.set_rng_state(states["torch_rng_state"])
-    if 'torch_cuda_rng_state' in states:
+    if "torch_cuda_rng_state" in states:
         torch.cuda.set_rng_state(states["torch_cuda_rng_state"])
-    if 'torch_cuda_rng_state_all' in states:
+    if "torch_cuda_rng_state_all" in states:
         torch.cuda.set_rng_state_all(states["torch_cuda_rng_state_all"])
 
     torch.backends.cudnn.deterministic = True

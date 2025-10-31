@@ -291,7 +291,6 @@ def data_processing(
         num_cores=num_cores,
         contains_identities=contains_identities,
         sequence_time_limit_s=sequence_time_limit_s,
-
     )
     metadata, df_failing = keep_correctly_loaded_images(metadata)
     df_failing.to_csv(csv_path.with_suffix(".failed.csv"), encoding="utf-8-sig")
@@ -391,7 +390,7 @@ def keep_correctly_loaded_images(metadata) -> Tuple[pd.DataFrame, pd.DataFrame]:
 
 
 # TODO make preview on taxon worker
-def make_previews(metadata, output_dir, preview_width=1200, force:bool=False):
+def make_previews(metadata, output_dir, preview_width=1200, force: bool = False):
     """Create preview image for video."""
     output_dir = Path(output_dir)
     for i, row in tqdm(metadata.iterrows(), total=len(metadata), desc="Creating previews"):
@@ -410,8 +409,9 @@ def make_previews(metadata, output_dir, preview_width=1200, force:bool=False):
 
     return metadata
 
+
 class TempLogContext:
-    def __init__(self, logger_names:list, levels:list):
+    def __init__(self, logger_names: list, levels: list):
 
         self.logger_names = logger_names
         self.levels = levels
@@ -436,8 +436,7 @@ def make_thumbnail_from_file(image_path: Path, thumbnail_path: Path, width: int 
     """
     try:
         with log_tools.TempLogContext(
-                ["skimage.io", "PIL", "tifffile"],
-                [logging.WARNING, logging.WARNING, logging.WARNING]
+            ["skimage.io", "PIL", "tifffile"], [logging.WARNING, logging.WARNING, logging.WARNING]
         ):
             image = skimage.io.imread(image_path)
         scale = float(width) / image.shape[1]
@@ -460,10 +459,13 @@ def make_thumbnail_from_file(image_path: Path, thumbnail_path: Path, width: int 
         return False
 
 
-def convert_to_mp4(input_video_path: Union[str, Path], output_video_path: Union[str, Path], force: bool = False):
+def convert_to_mp4(
+    input_video_path: Union[str, Path], output_video_path: Union[str, Path], force: bool = False
+):
     """Convert video to MP4 format using H.264 video codec and AAC audio codec."""
     import os.path
     import subprocess
+
     input_video_path = str(input_video_path)
     output_video_path = str(output_video_path)
 
@@ -471,7 +473,9 @@ def convert_to_mp4(input_video_path: Union[str, Path], output_video_path: Union[
     if not os.path.exists(input_video_path):
         raise FileNotFoundError(f"The input file '{input_video_path}' does not exist.")
     if os.path.exists(output_video_path):
-        logger.warning(f"The output file '{output_video_path}' already exists. Force overwrite={force}.")
+        logger.warning(
+            f"The output file '{output_video_path}' already exists. Force overwrite={force}."
+        )
     Path(output_video_path).parent.mkdir(parents=True, exist_ok=True)
 
     # ffmpeg command to convert video to MP4 (H.264 + AAC)
@@ -501,16 +505,16 @@ def convert_to_mp4(input_video_path: Union[str, Path], output_video_path: Union[
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-                                # check=True
+            # check=True
         )
         if result.returncode != 0:
-            logger.error(
-                f"Error during conversion: {result.stderr}\nCommand: {' '.join(command)}"
-            )
+            logger.error(f"Error during conversion: {result.stderr}\nCommand: {' '.join(command)}")
             raise subprocess.CalledProcessError(
                 result.returncode, command, output=result.stdout, stderr=result.stderr
             )
         # logger.debug(f"Conversion successful! Output saved at '{output_video_path}'")
     except subprocess.CalledProcessError as e:
-        logger.error(f"Error during conversion of {str(input_video_path)} to {str(output_video_path)}: {e}")
+        logger.error(
+            f"Error during conversion of {str(input_video_path)} to {str(output_video_path)}: {e}"
+        )
         logger.debug(traceback.format_exc())

@@ -10,6 +10,7 @@ logger = logging.getLogger(__name__)
 
 User = get_user_model()
 
+
 class BasicFlowTest(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(
@@ -31,10 +32,6 @@ class BasicFlowTest(TestCase):
 
         response = self.client.get(reverse("caidapp:home"))
         self.assertEqual(response.status_code, 200)
-
-
-
-
 
     # def test_create_workstation(self):
     #     url = reverse("workstation-create")

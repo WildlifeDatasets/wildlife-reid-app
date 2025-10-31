@@ -34,7 +34,7 @@ MEDIA_DIR = Path("/shared_data/media")
 DETECTION_MODEL = None
 ORIENTATION_MODEL = None
 
-CLS_TO_ORIENTATION = {0: 'back', 1: 'front', 2: 'left', 3: 'right'}
+CLS_TO_ORIENTATION = {0: "back", 1: "front", 2: "left", 3: "right"}
 
 
 def download_file(url: str, output_file: str):
@@ -196,9 +196,9 @@ def detect_animals_in_one_image(image_rgb: np.ndarray) -> Optional[List[Dict[str
 
 
 def detect_animals_in_images(
-        images_rgb: np.ndarray,
-        batch_size: int = 1,
-        pbar: Optional[tqdm] = None,
+    images_rgb: np.ndarray,
+    batch_size: int = 1,
+    pbar: Optional[tqdm] = None,
 ) -> List[Optional[List[Dict[str, Any]]]]:
     """Detect animals in a list of images."""
     global DETECTION_MODEL
@@ -210,7 +210,7 @@ def detect_animals_in_images(
 
     # split images into batches
     for i in range(0, len(images_rgb), batch_size):
-        batch = list(images_rgb[i: i + batch_size])
+        batch = list(images_rgb[i : i + batch_size])
         # logger.debug(f"{len(batch)=}, {len(images_rgb)=}")
         # logger.debug(f"{batch.shape=}")
 
@@ -288,23 +288,22 @@ def human_annonymization(rgb_image: np.ndarray, bboxes: List[List[int]]) -> np.n
     return rgb_image
 
 
-def detect_animal_orientation(
-        image_rgb: np.array,
-        image_size: int = 176
-):
+def detect_animal_orientation(image_rgb: np.array, image_size: int = 176):
     """Detect animal orientation in cropped images."""
     global ORIENTATION_MODEL
 
     if ORIENTATION_MODEL is None:
         ORIENTATION_MODEL = get_orientation_model(
-            "hf-hub:strakajk/Lynx-Orientation-ResNet10t-176" #"resnet10t", "resources/resnet10_02-b-13-02_19-08-16_orientation.pth"
+            "hf-hub:strakajk/Lynx-Orientation-ResNet10t-176"  # "resnet10t", "resources/resnet10_02-b-13-02_19-08-16_orientation.pth"
         )
 
-    transforms = T.Compose([
-        T.Resize(size=(image_size, image_size)),
-        T.ToTensor(),
-        T.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
-    ])
+    transforms = T.Compose(
+        [
+            T.Resize(size=(image_size, image_size)),
+            T.ToTensor(),
+            T.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
+        ]
+    )
 
     image_rgb = Image.fromarray(image_rgb).convert("RGB")
     image = transforms(image_rgb)
@@ -332,8 +331,8 @@ def detect_animal_on_metadata(metadata: pd.DataFrame, border=0.0) -> pd.DataFram
         image_abs_path = row["full_image_path"]
         try:
             if (
-                    row["media_type"] == "video"
-                    and row["full_image_path"] == row["absolute_media_path"]
+                row["media_type"] == "video"
+                and row["full_image_path"] == row["absolute_media_path"]
             ):
                 # there are no detected animals in video
                 continue
@@ -357,7 +356,7 @@ def detect_animal_on_metadata(metadata: pd.DataFrame, border=0.0) -> pd.DataFram
                 # if result["class"] == "animal":
                 base_path = Path(image_abs_path).parent.parent / "detection_images"
                 save_path = base_path / (
-                        Path(image_abs_path).stem + f".{ii}" + Path(image_abs_path).suffix
+                    Path(image_abs_path).stem + f".{ii}" + Path(image_abs_path).suffix
                 )
                 base_path.mkdir(exist_ok=True, parents=True)
 

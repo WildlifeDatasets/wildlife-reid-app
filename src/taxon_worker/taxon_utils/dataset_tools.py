@@ -29,7 +29,10 @@ from tqdm import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
 
 from .inout import extract_archive
-from .sequence_identification import get_datetime_using_exif_or_ocr, add_datetime_from_exif_in_parallel
+from .sequence_identification import (
+    get_datetime_using_exif_or_ocr,
+    add_datetime_from_exif_in_parallel,
+)
 
 logger = logging.getLogger("app")
 
@@ -114,9 +117,9 @@ def get_species_substitution_latin(
 
     st = species_substitution_latin.copy()
     keys = list(st.keys())
-    species_substitution_latin[
-        species_substitution_latin.columns
-    ] = species_substitution_latin.apply(lambda x: x.str.strip())
+    species_substitution_latin[species_substitution_latin.columns] = (
+        species_substitution_latin.apply(lambda x: x.str.strip())
+    )
     species_substitution_latin.species_czech = species_substitution_latin.species_czech.map(
         strip_accents
     ).str.lower()
@@ -802,7 +805,9 @@ class SumavaInitialProcessing:
         else:
             return False
 
-    def get_paths_from_dir_parallel(self, mask, exclude: Optional[list] = None, exclude_dirs:bool=True) -> list:
+    def get_paths_from_dir_parallel(
+        self, mask, exclude: Optional[list] = None, exclude_dirs: bool = True
+    ) -> list:
         """Get list of paths in parallel way.
 
         Parameters
@@ -857,10 +862,11 @@ class SumavaInitialProcessing:
         ]
 
         if exclude_dirs:
-            original_paths = [str(original_path)
-                              for original_path in original_paths
-                              if (self.dataset_basedir / original_path).is_file()
-                              ]
+            original_paths = [
+                str(original_path)
+                for original_path in original_paths
+                if (self.dataset_basedir / original_path).is_file()
+            ]
         return original_paths
 
     def make_metadata_csv(self, path: Path):
@@ -917,12 +923,16 @@ class SumavaInitialProcessing:
 
         return df
 
-    def add_datetime_from_exif_in_parallel(self, original_paths: list[Path]) -> Tuple[list, list, list]:
+    def add_datetime_from_exif_in_parallel(
+        self, original_paths: list[Path]
+    ) -> Tuple[list, list, list]:
         """Get list of datetimes from EXIF.
 
         The EXIF information is extracted in single-core way but with the help of ExifTool.
         """
-        return  add_datetime_from_exif_in_parallel(original_paths, dataset_basedir=self.dataset_basedir, num_cores=self.num_cores)
+        return add_datetime_from_exif_in_parallel(
+            original_paths, dataset_basedir=self.dataset_basedir, num_cores=self.num_cores
+        )
 
 
 def add_column_with_lynx_id(df: pd.DataFrame, contain_identities: bool = False) -> pd.DataFrame:
@@ -1015,7 +1025,9 @@ def extract_information_from_dir_structure(
 
             data["annotated"].append(True if pthir.parts[0] == "TRIDENA" else False)
             # data["data_code"].append(pthir.parts[1])
-            data["data_code"].append(None)  # We do not use anymore the Lynx year information from dir structure
+            data["data_code"].append(
+                None
+            )  # We do not use anymore the Lynx year information from dir structure
             data["vanilla_location"].append(pthir.parts[2])
             data["date"].append(get_date_from_path_structure(str(pthir)))
             data["path_len"].append(len(pthir.parts))
@@ -1298,6 +1310,7 @@ def data_preprocessing(
     """
     # create temporary directory
     import tempfile
+
     post_update_csv_path = Path(post_update_csv_path)
 
     tmp_dir = Path(tempfile.gettempdir()) / str(uuid.uuid4())
@@ -1310,8 +1323,10 @@ def data_preprocessing(
     logger.debug(f"analyze dataset directory: {tmp_dir=}")
     # create metadata directory, hashing file names, datetime, sequences
     df, duplicates = analyze_dataset_directory(
-        tmp_dir, num_cores=num_cores,
-        contains_identities=contains_identities, sequence_time_limit_s=sequence_time_limit_s
+        tmp_dir,
+        num_cores=num_cores,
+        contains_identities=contains_identities,
+        sequence_time_limit_s=sequence_time_limit_s,
     )
     # post_update CSV is used for updating the metadata after all files are processed
 

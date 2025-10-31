@@ -6,10 +6,18 @@ from caidapp.models import IdentificationModel
 @receiver(post_migrate)
 def create_default_models(sender, **kwargs):
     defaults = [
-        {"name": "LynxV4-MegaDescriptor-v2-T-256", "description": "Default description for Model1", "public": True,
-         "model_path": "hf-hub:strakajk/LynxV4-MegaDescriptor-v2-T-256"},
-        {"name": "LynxV3-MegaDescriptor-T-224", "description": "strakajk/LynxV3-MegaDescriptor-T-224", "public": True,
-         "model_path": "hf-hub:strakajk/LynxV3-MegaDescriptor-T-224"},
+        {
+            "name": "LynxV4-MegaDescriptor-v2-T-256",
+            "description": "Default description for Model1",
+            "public": True,
+            "model_path": "hf-hub:strakajk/LynxV4-MegaDescriptor-v2-T-256",
+        },
+        {
+            "name": "LynxV3-MegaDescriptor-T-224",
+            "description": "strakajk/LynxV3-MegaDescriptor-T-224",
+            "public": True,
+            "model_path": "hf-hub:strakajk/LynxV3-MegaDescriptor-T-224",
+        },
     ]
 
     for default in defaults:

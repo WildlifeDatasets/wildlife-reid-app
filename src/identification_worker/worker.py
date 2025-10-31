@@ -6,6 +6,7 @@ import traceback
 from pathlib import Path
 
 import numpy as np
+
 print(f"numpy version: {np.__version__}")
 import pandas as pd
 import torch
@@ -44,13 +45,14 @@ identification_worker = Celery(
 )
 init_db_connection(db_url=config.POSTGRES_URL)
 
+
 @identification_worker.task(bind=True, name="train_identification")
 def train_identification(
-        self,
-        input_metadata_file: str,
-        organization_id: int,
-        identification_model: dict = None,
-        **kwargs,
+    self,
+    input_metadata_file: str,
+    organization_id: int,
+    identification_model: dict = None,
+    **kwargs,
 ):
     """Process and store Reference Image records in the database."""
     logger.debug(f"{identification_model=}")
@@ -58,7 +60,7 @@ def train_identification(
         identification_model = {
             "name": "derived from LynxV4-MegaDescriptor-v2-T-256",
             "source_path": "hf-hub:strakajk/LynxV4-MegaDescriptor-v2-T-256",
-            "path": "/models/model1/LynxV4-MegaDescriptor-v2-T-256.pth"
+            "path": "/models/model1/LynxV4-MegaDescriptor-v2-T-256.pth",
         }
     # outputdir = Path(identification_model["path"]).parent
     try:
@@ -68,7 +70,7 @@ def train_identification(
             input_metadata_file=input_metadata_file,
             organization_id=organization_id,
             identification_model=identification_model,
-            **kwargs
+            **kwargs,
         )
     except Exception as e:
         error = traceback.format_exc()
@@ -76,7 +78,6 @@ def train_identification(
         return {"status": "ERROR", "error": error}
 
     return {"status" "DONE"}
-
 
 
 @identification_worker.task(bind=True, name="init_identification")
@@ -92,9 +93,8 @@ def init(
     if identification_model is None:
         identification_model = {
             "name": "",
-            "path": "hf-hub:strakajk/LynxV4-MegaDescriptor-v2-T-256"
+            "path": "hf-hub:strakajk/LynxV4-MegaDescriptor-v2-T-256",
         }
-
 
     try:
         logger.info(f"Applying init task with args: {input_metadata_file=}, {organization_id=}.")
@@ -126,7 +126,9 @@ def init(
         )
         for i, _metadata in enumerate(metadata_splits):
             logger.debug(f"[{i + 1}/{target_num_splits}] - {len(_metadata)}")
-            _features = encode_images(_metadata, identification_model_path=identification_model['path'])
+            _features = encode_images(
+                _metadata, identification_model_path=identification_model["path"]
+            )
             _features = [json.dumps(e) for e in _features]
             _metadata["embedding"] = _features
 
@@ -207,9 +209,11 @@ def get_priority_pairs_from_parts(priority_parts: list, image_budget: int):
 
 
 def predict_full(
-    metadata: pd.DataFrame, db_connection: object, organization_id: int,
-        identification_model_path,
-        top_k: int = 1
+    metadata: pd.DataFrame,
+    db_connection: object,
+    organization_id: int,
+    identification_model_path,
+    top_k: int = 1,
 ):
     """Predict identification for all samples."""
     # load features from database
@@ -483,9 +487,8 @@ def predict(
     if identification_model is None:
         identification_model = {
             "name": "",
-            "path": "hf-hub:strakajk/LynxV4-MegaDescriptor-v2-T-256"
+            "path": "hf-hub:strakajk/LynxV4-MegaDescriptor-v2-T-256",
         }
-
 
     # identification_model["name"]
     # identification_model["path"]

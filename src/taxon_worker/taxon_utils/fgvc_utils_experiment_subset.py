@@ -18,7 +18,6 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-
 def get_model_target_size(model: nn.Module) -> Optional[int]:
     """Get target size (number of output classes) of a `timm` model.
 
@@ -163,7 +162,6 @@ def set_prediction_head(model: nn.Module, target_size: int, *, in_features: int 
         else:
             module = getattr(module, part_name)
     return model
-
 
 
 def load_model(

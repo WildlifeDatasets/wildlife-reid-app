@@ -21,7 +21,6 @@ IMAGENET_MEAN = (0.485, 0.456, 0.406)
 IMAGENET_STD = (0.229, 0.224, 0.225)
 
 
-
 def light_transforms(
     *, image_size: tuple, mean: tuple = IMAGENET_MEAN, std: tuple = IMAGENET_STD, **kwargs
 ) -> Tuple[A.Compose, A.Compose]:
@@ -144,6 +143,7 @@ def vit_heavy_transforms(
     )
     return train_tfms, val_tfms
 
+
 def tv_light_transforms(
     *, image_size: tuple, mean: tuple = IMAGENET_MEAN, std: tuple = IMAGENET_STD, **kwargs
 ) -> Tuple[T.Compose, T.Compose]:
@@ -176,7 +176,6 @@ default_tranforms = {
     "vit_medium": vit_medium_transforms,
     "vit_heavy": vit_heavy_transforms,
 }
-
 
 
 class ImageDataset(Dataset):
@@ -218,6 +217,7 @@ class ImageDataset(Dataset):
             else:
                 image = self.transform(image)
         return image
+
 
 def get_dataloaders(
     train_data: Optional[Union[pd.DataFrame, list, dict]],
@@ -326,6 +326,5 @@ def get_dataloaders(
         valloader = None
 
     return trainloader, valloader, (trainset, valset), (train_tfm, val_tfm)
-
 
     # return None, valloader, (None, None), (None, None)

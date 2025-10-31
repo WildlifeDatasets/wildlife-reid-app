@@ -170,7 +170,7 @@ def create_image_from_video(
     skip_counter = 0
     process_counter = 0
     no_detection_counter = 0
-    with (tqdm(total=len(metadata), desc=f"Mediafile to image [0 / {len(metadata)}]") as pbar):
+    with tqdm(total=len(metadata), desc=f"Mediafile to image [0 / {len(metadata)}]") as pbar:
         # for row_idx, row in tqdm(metadata.iterrows(), desc="Video to image"):
         for row_idx, row in metadata.iterrows():
             pbar.set_description(f"Mediafile to image [{row_idx} / {len(metadata)}]")
@@ -215,9 +215,10 @@ def create_image_from_video(
             ## end of old prr frame detection
             ## New batch detection
             detections_per_frame = inference_detection.detect_animals_in_images(
-                images, batch_size=64, pbar=pbar)
+                images, batch_size=64, pbar=pbar
+            )
             for frame_id, prediction in enumerate(detections_per_frame):
-            ## end of new batch detection
+                ## end of new batch detection
                 if prediction is not None:
                     # use only prediction with max confidence
                     # TODO: how to handle multiple detections in one image?
@@ -268,7 +269,9 @@ def create_image_from_video(
             row["suffix"] = f".{new_full_path.split('.')[-1]}"
             row["static_detection_frame"] = prediction["frame"]
             metadata.loc[row_idx] = row
-    logger.debug(f"Processed {process_counter} videos, skipped {no_detection_counter} "
-                 f"videos with no detection and  {skip_counter} images.")
+    logger.debug(
+        f"Processed {process_counter} videos, skipped {no_detection_counter} "
+        f"videos with no detection and  {skip_counter} images."
+    )
 
     return metadata

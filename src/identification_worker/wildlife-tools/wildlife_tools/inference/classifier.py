@@ -71,9 +71,7 @@ class KnnMatcher:
     def __init__(self, database, k=1):
         self.similarity = CosineSimilarity()
         self.database = database
-        self.classifier = KnnClassifier(
-            database_labels=self.database.labels_string, k=k
-        )
+        self.classifier = KnnClassifier(database_labels=self.database.labels_string, k=k)
 
     def __call__(self, query):
         if isinstance(query, list):

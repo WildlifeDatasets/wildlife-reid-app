@@ -287,7 +287,7 @@ def mask_images(metadata: pd.DataFrame, tqdm_desc="Masking images") -> pd.DataFr
     return metadata
 
 
-def encode_images(metadata: pd.DataFrame, identification_model_path:str, tqdm_desc="") -> list:
+def encode_images(metadata: pd.DataFrame, identification_model_path: str, tqdm_desc="") -> list:
     """Create feature vectors from given images."""
     global IDENTIFICATION_MODELS
     get_identification_model(identification_model_path)

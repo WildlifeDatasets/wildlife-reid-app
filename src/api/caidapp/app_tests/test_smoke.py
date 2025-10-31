@@ -3,15 +3,16 @@ from django.urls import get_resolver, reverse, NoReverseMatch, URLPattern, URLRe
 from django.contrib.auth import get_user_model
 
 from caidapp.models import (
-    WorkGroup, UploadedArchive, MediaFile, IndividualIdentity,
+    WorkGroup,
+    UploadedArchive,
+    MediaFile,
+    IndividualIdentity,
 )
 import logging
 
 logger = logging.getLogger(__name__)
 
 User = get_user_model()
-
-
 
 
 class UrlSmokeTest(TestCase):

@@ -87,17 +87,23 @@ class Taxon(models.Model):
     def __str__(self):
         return str(self.name)
 
+
 class IdentificationModel(models.Model):
     name = models.CharField(max_length=50)
     description = models.CharField(max_length=255, blank=True, default="")
     public = models.BooleanField(default=False)
     model_path = models.CharField(max_length=255, blank=True, default="")
-    workgroup = models.ForeignKey("WorkGroup", on_delete=models.CASCADE, null=True, blank=True,
-                                  related_name="identification_models"
-                                  )
+    workgroup = models.ForeignKey(
+        "WorkGroup",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="identification_models",
+    )
 
     def __str__(self):
         return str(self.name)
+
 
 def get_taxon(name: str) -> Optional[Taxon]:
     """Return taxon according to the name, create it if necessary."""
@@ -133,13 +139,19 @@ class WorkGroup(models.Model):
     identification_scheduled_run_task_id = models.CharField(max_length=255, null=True, blank=True)
     identification_scheduled_run_eta = models.DateTimeField(null=True, blank=True)
     default_taxon_for_identification = models.ForeignKey(
-        Taxon, on_delete=models.SET_NULL,
-        null=True, blank=True,
+        Taxon,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
     )
     identification_model = models.ForeignKey(
-        IdentificationModel, on_delete=models.SET_NULL, null=True, blank=True,
-        related_name="actual_workgroup_identification_model"
+        IdentificationModel,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="actual_workgroup_identification_model",
     )
+
     def save(self, *args, **kwargs):
         if not self.default_taxon_for_identification:
             self.default_taxon_for_identification = get_taxon("Lynx lynx")
@@ -152,7 +164,6 @@ class WorkGroup(models.Model):
     def __str__(self):
         return str(self.name)
 
-
     def number_of_uploaded_archives(self) -> int:
         """Return number of uploaded archives."""
         return UploadedArchive.objects.filter(owner__workgroup=self).count()
@@ -164,15 +175,13 @@ class WorkGroup(models.Model):
     def number_of_media_files_with_taxon_for_identification(self) -> int:
         """Return number of uploaded files with taxon for identification."""
         return MediaFile.objects.filter(
-            parent__owner__workgroup=self,
-            parent__taxon_for_identification__isnull=False
+            parent__owner__workgroup=self, parent__taxon_for_identification__isnull=False
         ).count()
 
     def number_of_uploaded_archives_with_taxon_for_identification(self) -> int:
         """Return number of uploaded archives with taxon for identification."""
         return UploadedArchive.objects.filter(
-            owner__workgroup=self,
-            taxon_for_identification__isnull=False
+            owner__workgroup=self, taxon_for_identification__isnull=False
         ).count()
 
     def number_of_media_files_with_missing_identity(self) -> int:
@@ -180,7 +189,7 @@ class WorkGroup(models.Model):
         return MediaFile.objects.filter(
             parent__owner__workgroup=self,
             identity__isnull=True,
-            parent__taxon_for_identification__isnull = False
+            parent__taxon_for_identification__isnull=False,
         ).count()
 
     def number_of_representative_media_files(self):
@@ -188,7 +197,7 @@ class WorkGroup(models.Model):
         return MediaFile.objects.filter(
             parent__owner__workgroup=self,
             identity_is_representative=True,
-            parent__taxon_for_identification__isnull=False
+            parent__taxon_for_identification__isnull=False,
         ).count()
 
     def number_of_uploaded_archives_ready_for_identification(self) -> int:
@@ -204,10 +213,8 @@ class WorkGroup(models.Model):
         return MediaFile.objects.filter(
             parent__owner__workgroup=self,
             parent__taxon_for_identification__isnull=False,
-            parent__identification_status = "IR",
+            parent__identification_status="IR",
         ).count()
-
-
 
 
 class CaIDUser(models.Model):
@@ -220,13 +227,17 @@ class CaIDUser(models.Model):
     import_dir = models.CharField(max_length=255, blank=True, default="")
     dir_import_status = models.CharField(max_length=255, blank=True, default="")
     dir_import_message = models.CharField(max_length=255, blank=True, default="")
-    identification_model = models.ForeignKey(IdentificationModel, on_delete=models.SET_NULL, null=True, blank=True)
+    identification_model = models.ForeignKey(
+        IdentificationModel, on_delete=models.SET_NULL, null=True, blank=True
+    )
     show_taxon_classification = models.BooleanField(default=True)
     show_wellcome_message_on_next_login = models.BooleanField(default=False)
     show_base_dataset = models.BooleanField(default=False)
     default_taxon_for_identification = models.ForeignKey(
-        Taxon, on_delete=models.SET_NULL,
-        null=True, blank=True,
+        Taxon,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
     )
     timezone = models.CharField(max_length=50, blank=True, default=settings.TIME_ZONE)
     ml_consent_given = models.BooleanField(default=False)
@@ -277,7 +288,6 @@ class CaIDUser(models.Model):
         """Return number of uploaded files with known taxon."""
         return MediaFile.objects.filter(parent__owner=self, taxon__isnull=False).count()
 
-
     def number_of_media_files_with_missing_taxa_general(self) -> int:
         """Return number of uploaded files with missing taxon.
 
@@ -300,9 +310,11 @@ class CaIDUser(models.Model):
 
         If possible, we use data for whole workgroup.
         """
-        return MediaFile.objects.filter(
-            **user_has_access_filter_params(self, "parent__owner")
-        ).filter(taxon_verified=False).count()
+        return (
+            MediaFile.objects.filter(**user_has_access_filter_params(self, "parent__owner"))
+            .filter(taxon_verified=False)
+            .count()
+        )
 
     def number_of_identities(self) -> int:
         """Return number of identities."""
@@ -332,7 +344,6 @@ class CaIDUser(models.Model):
         ).count()
 
 
-
 class Locality(models.Model):
     name = models.CharField(max_length=50)
     visible_name = models.CharField(max_length=255, blank=True, default=human_readable_hash)
@@ -352,8 +363,6 @@ class Locality(models.Model):
     def __str__(self):
         return str(self.name)
 
-
-
     # def set_location_from_str(self, order: int = 3):
     #     """Round location for anonymization."""
     #     if (self.location is None) or (self.location == ""):
@@ -364,7 +373,7 @@ class Locality(models.Model):
     #         self.set_location(lat, lon, order=order)
     #     else:
     #         logger.debug(f"Location {self.location} is not in format 'lat,lon'.")
-    def set_location_from_str(self, location_str:str, order: int = 3):
+    def set_location_from_str(self, location_str: str, order: int = 3):
         """Round location for anonymization."""
         if "," in location_str:
             lat, lon = location_str.split(",")
@@ -372,7 +381,7 @@ class Locality(models.Model):
         else:
             logger.debug(f"Location {location_str} is not in format 'lat,lon'.")
 
-    def set_location(self, lat:float, lon:float, order: int = 3):
+    def set_location(self, lat: float, lon: float, order: int = 3):
         lat = round(float(lat), order)
         lon = round(float(lon), order)
         self.location = f"{lat},{lon}"
@@ -404,7 +413,7 @@ class Locality(models.Model):
                     alat, alon = str(area.location).split(",")
                     alat = float(alat)
                     alon = float(alon)
-                    distance = np.sqrt((lat - alat)**2 + (lon - alon)**2)
+                    distance = np.sqrt((lat - alat) ** 2 + (lon - alon) ** 2)
 
                     if distance < closest_distance:
                         closest_distance = distance
@@ -429,7 +438,7 @@ class Locality(models.Model):
                     alat, alon = str(locality.location).split(",")
                     alat = float(alat)
                     alon = float(alon)
-                    distance = np.sqrt((lat - alat)**2 + (lon - alon)**2)
+                    distance = np.sqrt((lat - alat) ** 2 + (lon - alon) ** 2)
 
                     if distance < distance_threshold:
                         closest_localities.append(locality)
@@ -456,7 +465,7 @@ class Area(models.Model):
     def __str__(self):
         return str(self.name)
 
-    #on location change, update all localities
+    # on location change, update all localities
     def save(self, *args, **kwargs):
         super(Area, self).save(*args, **kwargs)
         localities = Locality.objects.all()
@@ -788,7 +797,6 @@ class UploadedArchive(models.Model):
             status_message = "All taxons are verified."
             status_style = "secondary"
 
-
         if status == "F":
             status_style = "danger"
 
@@ -866,8 +874,9 @@ class UploadedArchive(models.Model):
     @property
     def metadata_csv_url(self):
         # relativní cesta vzhledem k MEDIA_ROOT
-        rel_path = (Path(self.outputdir) / 'metadata.csv').relative_to(settings.MEDIA_ROOT)
-        return f"{settings.MEDIA_URL}{rel_path}".replace('\\', '/')
+        rel_path = (Path(self.outputdir) / "metadata.csv").relative_to(settings.MEDIA_ROOT)
+        return f"{settings.MEDIA_URL}{rel_path}".replace("\\", "/")
+
 
 class IndividualIdentity(models.Model):
     SEX_CHOICES = (
@@ -919,10 +928,11 @@ class IndividualIdentity(models.Model):
     def localities(self):
         """Return localities ordered by count of media files."""
         # return MediaFile.objects.filter(identity=self).values("locality").distinct().or
-        return Locality.objects.filter(mediafiles__identity=self).annotate(
-            count=Count("mediafiles")
-        ).order_by("-count")
-
+        return (
+            Locality.objects.filter(mediafiles__identity=self)
+            .annotate(count=Count("mediafiles"))
+            .order_by("-count")
+        )
 
     def __str__(self):
         return str(self.name)
@@ -977,19 +987,24 @@ class MediaFile(models.Model):
     #     ("U", "Unknown"),
     # )
     MEDIA_TYPE_CHOICES = (
-        ('image', 'Image'),
-        ('video', 'Video'),
+        ("image", "Image"),
+        ("video", "Video"),
     )
     parent = models.ForeignKey(UploadedArchive, on_delete=models.CASCADE, null=True)
-    taxon = models.ForeignKey(Taxon, blank=True, null=True, on_delete=models.CASCADE, verbose_name="Taxon")
+    taxon = models.ForeignKey(
+        Taxon, blank=True, null=True, on_delete=models.CASCADE, verbose_name="Taxon"
+    )
     # legacy_taxon = taxon
     predicted_taxon = models.ForeignKey(
         Taxon, blank=True, null=True, on_delete=models.SET_NULL, related_name="predicted_taxon"
     )
     predicted_taxon_confidence = models.FloatField(null=True, blank=True)
     locality = models.ForeignKey(
-        Locality, blank=True, null=True, on_delete=models.CASCADE,
-        related_name = "mediafiles",
+        Locality,
+        blank=True,
+        null=True,
+        on_delete=models.CASCADE,
+        related_name="mediafiles",
     )
     captured_at = models.DateTimeField("Captured at", blank=True, null=True)
     mediafile = models.FileField(
@@ -1017,7 +1032,9 @@ class MediaFile(models.Model):
     metadata_json = models.JSONField(blank=True, null=True)
     animal_number = models.IntegerField(null=True, blank=True)
     media_type = models.CharField(
-        max_length=255, blank=True, default="image" ,
+        max_length=255,
+        blank=True,
+        default="image",
         choices=MEDIA_TYPE_CHOICES,
     )
     orientation = models.CharField(max_length=2, choices=ORIENTATION_CHOICES, default="N")
@@ -1028,7 +1045,9 @@ class MediaFile(models.Model):
     sequence = models.ForeignKey(Sequence, on_delete=models.SET_NULL, null=True, blank=True)
     note = models.TextField(blank=True, default="")
     media_file_corrupted = models.BooleanField("Media file corrupted", default=False)
-    used_for_init_identification = models.BooleanField("Used for init identification", default=False)
+    used_for_init_identification = models.BooleanField(
+        "Used for init identification", default=False
+    )
 
     class Meta:
         ordering = ["-identity_is_representative", "captured_at"]
@@ -1049,11 +1068,10 @@ class MediaFile(models.Model):
             self.save()
         return self.original_filename
 
-    def get_static_thumbnail(self, force:bool=True, width:int=400) -> models.ImageField:
+    def get_static_thumbnail(self, force: bool = True, width: int = 400) -> models.ImageField:
         logger.debug(f"Getting static thumbnail for {self.mediafile.name=}")
 
-
-        if self.static_thumbnail :
+        if self.static_thumbnail:
             return self.static_thumbnail
         else:
             logger.debug(f"static_thumbnail Does not exist for {self.mediafile.name=}")
@@ -1066,21 +1084,21 @@ class MediaFile(models.Model):
     def is_for_suggestion(self):
         """Return True if mediafile is for suggestion."""
         return (self.predicted_taxon is not None) and (
-                (self.taxon is None)
-                or (self.taxon.name == TAXON_NOT_CLASSIFIED)
-                or ((self.taxon.name == "Animalia") and (self.taxon_verified is False))
+            (self.taxon is None)
+            or (self.taxon.name == TAXON_NOT_CLASSIFIED)
+            or ((self.taxon.name == "Animalia") and (self.taxon_verified is False))
         )
 
     def is_consistent_with_uploaded_archive_taxon_for_identification(self) -> bool:
         """Return True if mediafile is consistent with uploaded archive taxo for identification."""
         return self.taxon == self.parent.taxon_for_identification
 
-
     def make_thumbnail_for_mediafile_if_necessary(
-            self,
-            # mediafile: MediaFile,
-            thumbnail_width: int = 400, preview_width: int = 1200,
-            force=False
+        self,
+        # mediafile: MediaFile,
+        thumbnail_width: int = 400,
+        preview_width: int = 1200,
+        force=False,
     ):
         """Make small image representing the upload."""
         # logger.debug("Making thumbnail for mediafile")
@@ -1119,34 +1137,56 @@ class MediaFile(models.Model):
             if self.media_type == "video":
                 convert_to_mp4(mediafile_path, preview_abs_pth)
             else:
-                fs_data.make_thumbnail_from_file(mediafile_path, preview_abs_pth, width=preview_width)
+                fs_data.make_thumbnail_from_file(
+                    mediafile_path, preview_abs_pth, width=preview_width
+                )
             self.preview = str(preview_rel_pth)
             self.save()
 
-        if (not self.thumbnail) or (not self.thumbnail.name) or (not thumbnail_abs_pth.exists()) or force:
+        if (
+            (not self.thumbnail)
+            or (not self.thumbnail.name)
+            or (not thumbnail_abs_pth.exists())
+            or force
+        ):
             if not force:
                 logger.debug(f"thumbnail does not exist for {self.mediafile.name=}")
             thumbnail_abs_pth.parent.mkdir(exist_ok=True, parents=True)
             if self.media_type == "video":
-                fs_data.make_gif_from_video_file(mediafile_path, thumbnail_abs_pth, width=thumbnail_width)
+                fs_data.make_gif_from_video_file(
+                    mediafile_path, thumbnail_abs_pth, width=thumbnail_width
+                )
             else:
-                fs_data.make_thumbnail_from_file(mediafile_path, thumbnail_abs_pth, width=thumbnail_width)
+                fs_data.make_thumbnail_from_file(
+                    mediafile_path, thumbnail_abs_pth, width=thumbnail_width
+                )
             self.thumbnail = str(thumbnail_rel_pth)
             self.save()
 
-        if (not self.static_thumbnail) or (not self.static_thumbnail.name) or (not static_thumbnail_abs_pth.exists()) or force:
+        if (
+            (not self.static_thumbnail)
+            or (not self.static_thumbnail.name)
+            or (not static_thumbnail_abs_pth.exists())
+            or force
+        ):
             if not force:
                 logger.debug(f"static_thumbnail does not exist for {self.mediafile.name=}")
-            fs_data.make_thumbnail_from_file(mediafile_path, static_thumbnail_abs_pth, width=thumbnail_width)
+            fs_data.make_thumbnail_from_file(
+                mediafile_path, static_thumbnail_abs_pth, width=thumbnail_width
+            )
             self.static_thumbnail = str(static_thumbnail_rel_pth)
             self.save()
             # self.get_static_thumbnail(force=force)
+
     def save(self, *args, **kwargs):
         if self.pk:
             old = MediaFile.objects.get(pk=self.pk)
             if old.identity_is_representative != self.identity_is_representative:
                 from .tasks import schedule_init_identification_for_workgroup
-                schedule_init_identification_for_workgroup(self.parent.owner.workgroup, delay_minutes=40)
+
+                schedule_init_identification_for_workgroup(
+                    self.parent.owner.workgroup, delay_minutes=40
+                )
                 # and the reid will be started after the init
 
         super().save(*args, **kwargs)
@@ -1165,12 +1205,11 @@ class MediaFile(models.Model):
         obs, created = AnimalObservation.objects.get_or_create(mediafile=self)
         return obs
 
-
-    def mediafile_variant_url(self, variant: str="images") -> str:
+    def mediafile_variant_url(self, variant: str = "images") -> str:
         # relativní cesta vzhledem k MEDIA_ROOT
         rel_path = Path(self.parent.outputdir).relative_to(settings.MEDIA_ROOT)
         rel_path = rel_path / variant / Path(self.mediafile.name).name
-        return f"{settings.MEDIA_URL}{rel_path}".replace('\\', '/')
+        return f"{settings.MEDIA_URL}{rel_path}".replace("\\", "/")
 
     @property
     def detection_url(self):
@@ -1191,16 +1230,26 @@ class MediaFile(models.Model):
 
 class AnimalObservation(models.Model):
     mediafile = models.ForeignKey(
-        MediaFile, on_delete=models.CASCADE, related_name="observations",
+        MediaFile,
+        on_delete=models.CASCADE,
+        related_name="observations",
         # null=True, blank=True
-                                  )
+    )
     taxon = models.ForeignKey(Taxon, on_delete=models.SET_NULL, null=True, blank=True)
     taxon_verified = models.BooleanField("Taxon verified", default=False)
     taxon_verified_at = models.DateTimeField("Taxon verified at", blank=True, null=True)
-    predicted_taxon = models.ForeignKey(Taxon, on_delete=models.SET_NULL, null=True, blank=True, related_name="predicted_observations")
+    predicted_taxon = models.ForeignKey(
+        Taxon,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="predicted_observations",
+    )
     predicted_taxon_confidence = models.FloatField(null=True, blank=True)
 
-    identity = models.ForeignKey(IndividualIdentity, on_delete=models.SET_NULL, null=True, blank=True)
+    identity = models.ForeignKey(
+        IndividualIdentity, on_delete=models.SET_NULL, null=True, blank=True
+    )
     identity_is_representative = models.BooleanField(default=False)
 
     bbox_x_center = models.FloatField(null=True, blank=True)
@@ -1244,13 +1293,12 @@ class AnimalObservation(models.Model):
         if self.bbox_x_center is None:
             # return "nic"
             return None
-        x = self.bbox_x_center - self.bbox_width/2
-        y = self.bbox_y_center - self.bbox_height/2
+        x = self.bbox_x_center - self.bbox_width / 2
+        y = self.bbox_y_center - self.bbox_height / 2
         logger.debug(f"{x=}, {y=}, {self.bbox_width=}, {self.bbox_height=}")
 
         # return f"xywh=percent:{x:.4f},{y:.4f},{self.bbox_width:.4f},{self.bbox_height:.4f}"
         return f"xywh=percent:{x*100:.4f},{y*100:.4f},{self.bbox_width*100:.4f},{self.bbox_height*100:.4f}"
-
 
 
 class MediafilesForIdentification(models.Model):
@@ -1276,25 +1324,15 @@ class MediafilesForIdentification(models.Model):
 
 class MediafileIdentificationSuggestion(models.Model):
     for_identification = models.ForeignKey(
-        MediafilesForIdentification,
-        related_name="top_mediafiles",
-        on_delete=models.CASCADE
+        MediafilesForIdentification, related_name="top_mediafiles", on_delete=models.CASCADE
     )
-    mediafile = models.ForeignKey(
-        MediaFile,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True
-    )
+    mediafile = models.ForeignKey(MediaFile, on_delete=models.SET_NULL, null=True, blank=True)
     video_sequence_frame_super_id = models.IntegerField(default=0)
     score = models.FloatField(null=True, blank=True)
     name = models.CharField(max_length=255, blank=True, default="")
     paired_points = models.JSONField(blank=True, null=True)
     identity = models.ForeignKey(
-        IndividualIdentity,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True
+        IndividualIdentity, on_delete=models.SET_NULL, null=True, blank=True
     )
 
     class Meta:
@@ -1354,7 +1392,7 @@ class AlbumShareRole(models.Model):
         return str(self.album.name) + " " + str(self.user.user.username)
 
 
-class  CaptureDevice(models.Model):
+class CaptureDevice(models.Model):
     """Capture device model."""
 
     name = models.CharField(max_length=100, unique=True)
@@ -1362,11 +1400,15 @@ class  CaptureDevice(models.Model):
     owner = models.ForeignKey(CaIDUser, on_delete=models.CASCADE, null=True, blank=True)
 
     # JSON pole pro rozpoznávací znaky
-    exif_features = models.JSONField(blank=True, default=dict,
-                                     help_text="Dictionary of EXIF keys and expected values for identifying this device.")
+    exif_features = models.JSONField(
+        blank=True,
+        default=dict,
+        help_text="Dictionary of EXIF keys and expected values for identifying this device.",
+    )
 
     def __str__(self):
         return self.name
+
 
 def get_unique_name(name: str, workgroup: WorkGroup) -> Optional[IndividualIdentity]:
     """Return taxon according to the name, create it if necessary."""
@@ -1384,7 +1426,8 @@ def get_unique_name(name: str, workgroup: WorkGroup) -> Optional[IndividualIdent
         identity = objs[0]
     return identity
 
-def get_unique_code(code:str, workgroup: WorkGroup) -> Optional[IndividualIdentity]:
+
+def get_unique_code(code: str, workgroup: WorkGroup) -> Optional[IndividualIdentity]:
     """Return taxon according to the code, create it if necessary."""
     if (code is None) or (code == ""):
         return None
@@ -1401,14 +1444,12 @@ def get_unique_code(code:str, workgroup: WorkGroup) -> Optional[IndividualIdenti
     return identity
 
 
-def get_locality(caiduser: CaIDUser, name: str) -> Union[Locality,None]:
+def get_locality(caiduser: CaIDUser, name: str) -> Union[Locality, None]:
     """Return location according to the name, create it if necessary."""
     if (name is None) or (name == ""):
         return None
 
-    objs = Locality.objects.filter(
-        name=name,
-        **user_has_access_filter_params(caiduser, "owner"))
+    objs = Locality.objects.filter(name=name, **user_has_access_filter_params(caiduser, "owner"))
     if len(objs) == 0:
         location = Locality(name=name, owner=caiduser)
         location.save()
@@ -1458,6 +1499,7 @@ def auto_delete_file_on_delete(sender, instance, **kwargs):
 
 from django.db.models import Q, Exists, OuterRef
 
+
 def get_mediafiles_with_missing_taxon(
     caiduser: CaIDUser, uploadedarchive: Optional[UploadedArchive] = None, **kwargs
 ) -> QuerySet:
@@ -1477,7 +1519,7 @@ def get_mediafiles_with_missing_taxon(
     ).filter(
         ~Q(taxon=None),
         ~Q(taxon=not_classified_taxon),
-        ~(Q(taxon=animalia_taxon) & Q(taxon_verified=False))
+        ~(Q(taxon=animalia_taxon) & Q(taxon_verified=False)),
     )
 
     # vyber mediafiles, které žádnou validní observation nemají
@@ -1500,7 +1542,6 @@ def get_mediafiles_with_missing_taxon(
     )
 
     return mediafiles
-
 
 
 # def get_mediafiles_with_missing_verification(
@@ -1529,6 +1570,7 @@ def get_mediafiles_with_missing_taxon(
 
 from django.db.models import Exists, OuterRef, Q
 
+
 def get_mediafiles_with_missing_verification(
     caiduser: CaIDUser, uploadedarchive: Optional[UploadedArchive] = None, **kwargs
 ) -> QuerySet:
@@ -1540,9 +1582,7 @@ def get_mediafiles_with_missing_verification(
     logger.debug(f"{caiduser=}, {uploadedarchive=}, {kwargs=}, {kwargs_filter=}")
 
     # Poddotaz: existuje nějaká observace, která není verifikovaná?
-    unverified_obs = AnimalObservation.objects.filter(
-        mediafile=OuterRef("pk")
-    ).filter(
+    unverified_obs = AnimalObservation.objects.filter(mediafile=OuterRef("pk")).filter(
         Q(taxon_verified=False) | Q(taxon_verified__isnull=True)
     )
 
@@ -1576,8 +1616,7 @@ def get_all_relevant_localities(request):
     localities = (
         Locality.objects.filter(**params)
         # .annotate(mediafile_count=Count('uploadedarchive__mediafile'))
-        .annotate(mediafile_count=Count('mediafiles'))
-        .order_by("name")
+        .annotate(mediafile_count=Count("mediafiles")).order_by("name")
     )
     return localities
 
@@ -1601,8 +1640,6 @@ def user_has_access_filter_params(caiduser: CaIDUser, prefix: str) -> dict:
     return filter_params
 
 
-
-
 class Notification(models.Model):
     """Notification model."""
 
@@ -1620,11 +1657,11 @@ class Notification(models.Model):
         (CRITICAL, "Critical"),
     ]
     BOOTSTRAP_CLASSES = {
-        DEBUG: "secondary",   # šedá
-        INFO: "info",         # modrá
-        WARNING: "warning",   # žlutá
-        ERROR: "danger",      # červená
-        CRITICAL: "dark",     # tmavá (nebo taky danger, podle vkusu)
+        DEBUG: "secondary",  # šedá
+        INFO: "info",  # modrá
+        WARNING: "warning",  # žlutá
+        ERROR: "danger",  # červená
+        CRITICAL: "dark",  # tmavá (nebo taky danger, podle vkusu)
     }
 
     user = models.ForeignKey(CaIDUser, on_delete=models.CASCADE, null=True, blank=True)

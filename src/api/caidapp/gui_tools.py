@@ -216,5 +216,3 @@ def create_match_image_plotly(
     fig.write_html("fig1.html")
 
     # fig.show()
-
-

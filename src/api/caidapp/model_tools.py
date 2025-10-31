@@ -93,13 +93,13 @@ def get_zip_path_in_unique_folder(instance, filename):
     return f"./upload/{unique_id}/{filename}"
 
 
-
 # def remove_diacritics(text: str) -> str:
 #     """Odstraní diakritiku ze stringu."""
 #     return ''.join(
 #         c for c in unicodedata.normalize('NFD', text)
 #         if unicodedata.category(c) != 'Mn'
 #     )
+
 
 def remove_diacritics(input_str: str):
     """Removes diacritics (accents) from the given Unicode string.
@@ -116,6 +116,7 @@ def remove_diacritics(input_str: str):
     # Return the normalized string
     return unicodedata.normalize("NFC", filtered)
 
+
 def order_identity_by_mediafile_count(identity1, identity2):
     """Order identity by mediafile count.
 
@@ -130,6 +131,7 @@ def order_identity_by_mediafile_count(identity1, identity2):
         identity_a = identity2
         identity_b = identity1
     return identity_a, identity_b
+
 
 def timesince_now(started_at: datetime) -> str:
     if timezone.is_naive(started_at):

@@ -52,7 +52,6 @@ def predict(
         logger.debug(f"celery {self.request.id=}")
         num_cores = 1
 
-
         # prepare input and output file names
         input_archive_file = Path(input_archive_file)
         output_dir = Path(output_dir)
@@ -158,9 +157,9 @@ def post_update_with_spreadsheet(metadata, post_update_csv_path):
         # Perform an inner join to ensure only rows from metadata are retained
         merged_df = metadata.merge(
             metadata_post_update,
-            on='original_path',
-            how='left',  # Keeps all rows from `metadata`, matching only from `metadata_post_update`
-            suffixes=('', '_post_update')
+            on="original_path",
+            how="left",  # Keeps all rows from `metadata`, matching only from `metadata_post_update`
+            suffixes=("", "_post_update"),
         )
         logger.debug("Merging metadata with post_update_csv.")
         logger.debug(f"{merged_df.shape=}")
@@ -169,7 +168,7 @@ def post_update_with_spreadsheet(metadata, post_update_csv_path):
 
         # Overwrite columns from `metadata` with those from `metadata_post_update` if they exist
         for col in metadata_post_update.columns:
-            if col != 'original_path':  # Skip the join column
+            if col != "original_path":  # Skip the join column
                 if col in metadata.columns:  # Only overwrite common columns
                     merged_df[col] = merged_df[f"{col}_post_update"].combine_first(merged_df[col])
                     merged_df.drop(columns=[f"{col}_post_update"], inplace=True)

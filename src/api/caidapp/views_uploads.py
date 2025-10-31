@@ -122,7 +122,6 @@ def camera_trap_check_date_view(
     else:
         filter = dict(locality_check_at__date=date)
 
-
     queryset = views.get_filtered_mediafiles(
         request.user,
         contains_single_taxon=contains_single_taxon,

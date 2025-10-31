@@ -37,6 +37,7 @@ from .fgvc_subset.utils.wandb import log_progress
 SchedulerType = Union[ReduceLROnPlateau, CosineLRScheduler, CosineAnnealingLR]
 
 from typing import Callable
+
 # from .base_trainer import BaseTrainer
 # from .classification_trainer import ClassificationTrainer
 # from .training_outputs import PredictOutput
@@ -69,10 +70,6 @@ class PredictOutput(NamedTuple):
     targs: Optional[np.ndarray] = None
     avg_loss: Optional[float] = np.nan
     avg_scores: Optional[dict] = {}
-
-
-
-
 
 
 import torch
@@ -196,7 +193,6 @@ def get_gradient_norm(
         norms = torch.stack([torch.norm(g.detach(), norm_type) for g in grads])
         total_norm = torch.norm(norms, norm_type).item()
     return total_norm
-
 
 
 class BaseTrainer:
@@ -334,8 +330,6 @@ class BaseTrainer:
 # ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 
-
-
 # from ..models import get_model_target_size
 
 
@@ -376,6 +370,7 @@ def get_model_target_size(model: nn.Module) -> Optional[int]:
         )
 
     return target_size
+
 
 class MixupMixin:
     """Mixin class that adds LR scheduler functionality to the trainer class.
@@ -516,7 +511,6 @@ class EMAMixin:
             self.ema_model.update(self.model)
 
 
-
 class SchedulerMixin:
     """Mixin class that adds LR scheduler functionality to the trainer class.
 
@@ -596,6 +590,7 @@ class SchedulerMixin:
                     )
             else:
                 raise ValueError(f"Unsupported scheduler type: {self.scheduler}")
+
 
 from typing import Callable, Union
 
@@ -957,9 +952,9 @@ class TrainingState:
                 python_random_state=random.getstate(),
                 np_random_state=np.random.get_state(),
                 torch_random_state=torch.get_rng_state(),
-                torch_cuda_random_state=torch.cuda.get_rng_state()
-                if torch.cuda.is_available()
-                else None,
+                torch_cuda_random_state=(
+                    torch.cuda.get_rng_state() if torch.cuda.is_available() else None
+                ),
             )
 
             torch.save(
@@ -1085,6 +1080,7 @@ def set_random_seed(seed=777):
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
 
+
 class ClassificationTrainer(SchedulerMixin, MixupMixin, EMAMixin, BaseTrainer):
     """Class to perform training of a classification neural network and/or run inference.
 
@@ -1131,30 +1127,30 @@ class ClassificationTrainer(SchedulerMixin, MixupMixin, EMAMixin, BaseTrainer):
     """
 
     def __init__(
-            self,
-            model: nn.Module,
-            trainloader: DataLoader,
-            criterion: nn.Module,
-            optimizer: Optimizer,
-            *,
-            validloader: DataLoader = None,
-            scheduler: SchedulerType = None,
-            accumulation_steps: int = 1,
-            clip_grad: float = None,
-            device: torch.device = None,
-            train_scores_fn: Callable = None,
-            valid_scores_fn: Callable = None,
-            wandb_train_prefix: str = "Train. ",
-            wandb_valid_prefix: str = "Val. ",
-            # mixup parameters
-            mixup: float = None,
-            cutmix: float = None,
-            mixup_prob: float = None,
-            # ema parameters
-            apply_ema: bool = False,
-            ema_start_epoch: int = 0,
-            ema_decay: float = 0.9999,
-            **kwargs,
+        self,
+        model: nn.Module,
+        trainloader: DataLoader,
+        criterion: nn.Module,
+        optimizer: Optimizer,
+        *,
+        validloader: DataLoader = None,
+        scheduler: SchedulerType = None,
+        accumulation_steps: int = 1,
+        clip_grad: float = None,
+        device: torch.device = None,
+        train_scores_fn: Callable = None,
+        valid_scores_fn: Callable = None,
+        wandb_train_prefix: str = "Train. ",
+        wandb_valid_prefix: str = "Val. ",
+        # mixup parameters
+        mixup: float = None,
+        cutmix: float = None,
+        mixup_prob: float = None,
+        # ema parameters
+        apply_ema: bool = False,
+        ema_start_epoch: int = 0,
+        ema_decay: float = 0.9999,
+        **kwargs,
     ):
         if train_scores_fn is None:
 
@@ -1249,13 +1245,8 @@ class ClassificationTrainer(SchedulerMixin, MixupMixin, EMAMixin, BaseTrainer):
             loss_monitor.other_avg_losses,
         )
 
-
-
-
-
-
     def predict(
-            self, dataloader: DataLoader, return_preds: bool = True, *, model: nn.Module = None
+        self, dataloader: DataLoader, return_preds: bool = True, *, model: nn.Module = None
     ) -> PredictOutput:
         """Run inference.
 
@@ -1389,16 +1380,17 @@ class ClassificationTrainer(SchedulerMixin, MixupMixin, EMAMixin, BaseTrainer):
         # save last checkpoint, log best scores and total training time
         training_state.finish()
 
+
 def predict(
-        model: nn.Module,
-        testloader: DataLoader,
-        *,
-        criterion: nn.Module = None,
-        device: torch.device = None,
-        trainer_cls: Type[BaseTrainer] = ClassificationTrainer,
-        trainer_kws: dict = None,
-        predict_kws: dict = None,
-        **kwargs,
+    model: nn.Module,
+    testloader: DataLoader,
+    *,
+    criterion: nn.Module = None,
+    device: torch.device = None,
+    trainer_cls: Type[BaseTrainer] = ClassificationTrainer,
+    trainer_kws: dict = None,
+    predict_kws: dict = None,
+    **kwargs,
 ) -> PredictOutput:
     """Run inference.
 

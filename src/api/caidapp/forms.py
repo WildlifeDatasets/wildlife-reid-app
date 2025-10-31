@@ -2,7 +2,15 @@ from django import forms
 from django.contrib.auth import get_user_model
 
 from . import models
-from .models import Album, CaIDUser, IndividualIdentity, MediaFile, UploadedArchive, Locality, WorkGroup
+from .models import (
+    Album,
+    CaIDUser,
+    IndividualIdentity,
+    MediaFile,
+    UploadedArchive,
+    Locality,
+    WorkGroup,
+)
 import logging
 
 
@@ -15,6 +23,7 @@ class SmallTextarea(forms.Textarea):
         kwargs.setdefault("attrs", {})
         kwargs["attrs"].setdefault("rows", 3)
         super().__init__(*args, **kwargs)
+
 
 # Nastav globálně jako výchozí Textarea
 forms.Textarea = SmallTextarea
@@ -37,7 +46,6 @@ class WorkgroupUsersForm(forms.Form):
     )
 
 
-
 from django import forms
 
 # class WorkgroupForm(forms.ModelForm):
@@ -51,7 +59,7 @@ class WorkgroupForm(forms.ModelForm):
         queryset=CaIDUser.objects.all(),
         # widget=forms.CheckboxSelectMultiple,  # nebo forms.SelectMultiple
         widget=forms.SelectMultiple,
-        required=False
+        required=False,
     )
 
     class Meta:
@@ -68,6 +76,8 @@ class WorkgroupForm(forms.ModelForm):
         if commit:
             workgroup.caiduser_set.set(self.cleaned_data["caidusers"])
         return workgroup
+
+
 # class MergeIdentityForm(forms.Form):
 #     queryset = IndividualIdentity.objects.filter()
 #     models.get_content_owner_filter_params()
@@ -83,14 +93,16 @@ class TaxonForm(forms.ModelForm):
         model = models.Taxon
         fields = ("name", "parent")
 
+
 # class CaIDForm(forms.ModelForm):
 #     class Meta:
 #         model = models.CaIDUser
 #         fields = ("default_taxon_for_identification", "timezone", "ml_consent_given", )
 
-        # widgets = {
-        #     'locality': forms.TextInput(attrs={'class': 'autocomplete'}),
-        # }
+# widgets = {
+#     'locality': forms.TextInput(attrs={'class': 'autocomplete'}),
+# }
+
 
 class WellcomeForm(forms.ModelForm):
     # show_taxon_classification = forms.BooleanField(label="Taxon Classification", initial=True, required=False)
@@ -98,20 +110,26 @@ class WellcomeForm(forms.ModelForm):
     # show_wellcome_message_on_next_login = forms.BooleanField(label="Show this message next time", initial=False, required=False)
     class Meta:
         model = CaIDUser
-        fields = ("show_taxon_classification", "show_wellcome_message_on_next_login" )
-
+        fields = ("show_taxon_classification", "show_wellcome_message_on_next_login")
 
 
 class CaIDUserSettingsForm(forms.ModelForm):
     class Meta:
         model = CaIDUser
-        fields = ("show_taxon_classification", "default_taxon_for_identification", "timezone", "ml_consent_given", "show_wellcome_message_on_next_login" )
+        fields = (
+            "show_taxon_classification",
+            "default_taxon_for_identification",
+            "timezone",
+            "ml_consent_given",
+            "show_wellcome_message_on_next_login",
+        )
 
     # def __init__(self, *args, **kwargs):
     #     user = kwargs.pop("user", None)
     #     super().__init__(*args, **kwargs)
     #     if user:
     #         self.fields["ml_consent_given"].initial = user.caiduser.ml_consent_given
+
 
 class AlbumForm(forms.ModelForm):
     class Meta:
@@ -128,12 +146,22 @@ class LocalityForm(forms.ModelForm):
 class IndividualIdentityForm(forms.ModelForm):
     class Meta:
         model = IndividualIdentity
-        fields = ("name", "code", "juv_code", "sex", "coat_type", "note", "birth_date", "death_date")
+        fields = (
+            "name",
+            "code",
+            "juv_code",
+            "sex",
+            "coat_type",
+            "note",
+            "birth_date",
+            "death_date",
+        )
 
         widgets = {
-            'birth_date': forms.DateInput(attrs={'type': 'date'}),
-            'death_date': forms.DateInput(attrs={'type': 'date'}),
+            "birth_date": forms.DateInput(attrs={"type": "date"}),
+            "death_date": forms.DateInput(attrs={"type": "date"}),
         }
+
     # birth_date = forms.DateField(
     #     widget=forms.TextInput(attrs={'type': 'date'}),
     #     required=False,
@@ -143,15 +171,26 @@ class IndividualIdentityForm(forms.ModelForm):
     #     required=False,
     # )
 
+
 class MergeIdentitiesForm(forms.Form):
     class Meta:
         model = IndividualIdentity
-        fields = ("name", "code", "juv_code", "sex", "coat_type", "note", "birth_date", "death_date")
+        fields = (
+            "name",
+            "code",
+            "juv_code",
+            "sex",
+            "coat_type",
+            "note",
+            "birth_date",
+            "death_date",
+        )
 
         widgets = {
-            'birth_date': forms.DateInput(attrs={'type': 'date'}),
-            'death_date': forms.DateInput(attrs={'type': 'date'}),
+            "birth_date": forms.DateInput(attrs={"type": "date"}),
+            "death_date": forms.DateInput(attrs={"type": "date"}),
         }
+
     # birth_date = forms.DateField(
     #     widget=forms.TextInput(attrs={'placeholder': 'YYYY-MM-DD'}),
     #     required=False,
@@ -164,19 +203,20 @@ class MergeIdentitiesForm(forms.Form):
 
 class UploadedArchiveSelectTaxonForIdentificationForm(forms.ModelForm):
     taxon_for_identification = forms.ModelChoiceField(
-        queryset=models.Taxon.objects.all().order_by("name"),
-        required=True
+        queryset=models.Taxon.objects.all().order_by("name"), required=True
     )
+
     class Meta:
         model = UploadedArchive
         fields = ("taxon_for_identification",)
+
 
 class IndividualIdentitySelectSecondForMergeForm(forms.Form):
     def __init__(self, *args, identities=None, **kwargs):
         super().__init__(*args, **kwargs)
         if identities is not None:
             logger.debug(f"identities: {identities}")
-            self.fields['identity'] = forms.ModelChoiceField(queryset=identities, required=True)
+            self.fields["identity"] = forms.ModelChoiceField(queryset=identities, required=True)
 
 
 class UploadedArchiveUpdateBySpreadsheetForm(forms.Form):
@@ -185,15 +225,15 @@ class UploadedArchiveUpdateBySpreadsheetForm(forms.Form):
         super(UploadedArchiveUpdateBySpreadsheetForm, self).__init__(*args, **kwargs)
 
         # take only CSV or XLSX
-        self.fields['spreadsheet_file'] = forms.FileField(label="Spreadsheet File",
-                                                            required=True,
-                                                            help_text="Select a CSV or XLSX file with the following columns: "
-                                                                      "mediafile, locality_at_upload, locality_check_at, taxon_for_identification",
-                                                            widget=forms.FileInput(attrs={"accept": ".csv,.xlsx"}),
-
+        self.fields["spreadsheet_file"] = forms.FileField(
+            label="Spreadsheet File",
+            required=True,
+            help_text="Select a CSV or XLSX file with the following columns: "
+            "mediafile, locality_at_upload, locality_check_at, taxon_for_identification",
+            widget=forms.FileInput(attrs={"accept": ".csv,.xlsx"}),
             # "Spreadsheet File"
-                                                          # upload_to=upload_to
-                                                          )
+            # upload_to=upload_to
+        )
 
 
 class UploadedArchiveUpdateForm(forms.ModelForm):
@@ -210,7 +250,7 @@ class UploadedArchiveUpdateForm(forms.ModelForm):
             # "archivefile",
             "name",
             "locality_at_upload",
-            "locality_check_at"
+            "locality_check_at",
             # "contains_identities"
         )
 
@@ -223,7 +263,7 @@ class UploadedArchiveForm(forms.ModelForm):
     ml_consent = forms.BooleanField(
         widget=forms.CheckboxInput(),
         label="I agree to the use of my uploaded images and videos for training AI models.",
-            required=True
+        required=True,
     )
     locality_check_at = forms.DateField(
         widget=forms.DateInput(
@@ -232,7 +272,6 @@ class UploadedArchiveForm(forms.ModelForm):
         input_formats=["%Y-%m-%d"],
         # widget=forms.TextInput(attrs={'class': 'datepicker'})
     )
-
 
     class Meta:
         model = UploadedArchive
@@ -267,12 +306,15 @@ class UploadedArchiveFormWithTaxon(forms.ModelForm):
 
     ml_consent = forms.BooleanField(
         label="I agree to the use of my uploaded images and videos for training AI models.",
-        required=True
+        required=True,
     )
 
     class Meta:
         model = UploadedArchive
-        fields = ("archivefile", "locality_at_upload", )
+        fields = (
+            "archivefile",
+            "locality_at_upload",
+        )
 
     def __init__(self, *args, **kwargs):
         user = kwargs.pop("user", None)
@@ -281,6 +323,7 @@ class UploadedArchiveFormWithTaxon(forms.ModelForm):
         # if user and user.caiduser.ml_consent_given:
         #     # Don't show the checkbox if already agreed
         #     self.fields.pop("ml_consent")
+
 
 class CaIDUserForm(forms.ModelForm):
     class Meta:
@@ -295,7 +338,16 @@ class CaIDUserForm(forms.ModelForm):
 class MediaFileForm(forms.ModelForm):
     class Meta:
         model = MediaFile
-        fields = ("taxon", "taxon_verified", "locality", "identity", "identity_is_representative",  "captured_at" , "note", "orientation")
+        fields = (
+            "taxon",
+            "taxon_verified",
+            "locality",
+            "identity",
+            "identity_is_representative",
+            "captured_at",
+            "note",
+            "orientation",
+        )
 
     def __init__(self, *args, **kwargs):
         mediafile = kwargs.get("instance")
@@ -333,6 +385,7 @@ class MediaFileMissingTaxonForm(forms.ModelForm):
         ).order_by("name")
         self.fields["taxon"].queryset = models.Taxon.objects.order_by("name")
 
+
 class MediaFileBulkForm(forms.ModelForm):
     # select_all = forms.BooleanField(required=False)
     class Meta:
@@ -346,7 +399,9 @@ class MediaFileBulkForm(forms.ModelForm):
 
 class MediaFileSelectionForm(forms.ModelForm):
     selected = forms.BooleanField(
-        widget=forms.CheckboxInput(attrs={"class": "select-mediafile-checkbox"}), initial=False, required=False,
+        widget=forms.CheckboxInput(attrs={"class": "select-mediafile-checkbox"}),
+        initial=False,
+        required=False,
     )
 
     class Meta:
@@ -368,11 +423,10 @@ class MediaFileSetQueryForm(forms.Form):
             ("R", "Right"),
             ("F", "Front"),
             ("B", "Back"),
-            ("U", "Unknown")
+            ("U", "Unknown"),
         ),
         initial="all",
         required=False,
-
     )
 
 
@@ -395,11 +449,10 @@ class UserSelectForm(forms.Form):
         queryset=User.objects.all().order_by("username"), label="Select User"
     )
 
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.fields['user'].label_from_instance = lambda obj: (
+        self.fields["user"].label_from_instance = lambda obj: (
             f"{obj.first_name} {obj.last_name}".strip()
             if obj.first_name or obj.last_name
             else obj.username
@@ -415,8 +468,6 @@ class ColumnMappingForm(forms.Form):
     latitude = forms.ChoiceField(choices=[], required=False)
     longitude = forms.ChoiceField(choices=[], required=False)
 
-
-
     def __init__(self, *args, **kwargs):
         column_choices = kwargs.pop("column_choices", [])
         super().__init__(*args, **kwargs)
@@ -430,7 +481,6 @@ class ColumnMappingForm(forms.Form):
         for field_name in self.fields:
             if field_name in column_choices:
                 self.initial[field_name] = field_name
-
 
 
 from django import forms
@@ -455,34 +505,34 @@ from crispy_forms.layout import Layout, Row, Column, HTML
 #             "bbox_height": HiddenInput(),
 #         }
 
-    # def __init__(self, *args, **kwargs):
-    #     request = kwargs.pop("request", None)  # ← získáme request správně
-    #     super().__init__(*args, **kwargs)
-    #
-    #     # request = getattr(self, "request", None)
-    #     print("AnimalObservationForm __init__")
-    #     print(f"request: {request}")
-    #     if True:
-    #         # if request:
-    #         # next_url is the
-    #         # next_url = request.path
-    #         # we dont know the actual path, because we do not have request here
-    #         next_url = reverse("caidapp:media_file_update", args=[self.instance.mediafile.id])
-    #         create_url = reverse("caidapp:individual_identity_create",
-    #                              args=[self.instance.mediafile.id]) + f"?next={next_url}"
-    #         self.helper = FormHelper()
-    #         self.helper.layout = Layout(
-    #             "taxon",
-    #             Row(
-    #                 Column("identity", css_class="col-auto"),
-    #                 Column(
-    #                     HTML(f"""
-    #                         <a href="{create_url}" class="btn btn-outline-primary btn-sm" title="Add new identity">
-    #                             <i class="bi bi-plus"></i>
-    #                         </a>
-    #                     """),
-    #                     css_class="col-auto"
-    #                 ),
-    #             ),
-    #             "identity_is_representative",
-    #         )
+# def __init__(self, *args, **kwargs):
+#     request = kwargs.pop("request", None)  # ← získáme request správně
+#     super().__init__(*args, **kwargs)
+#
+#     # request = getattr(self, "request", None)
+#     print("AnimalObservationForm __init__")
+#     print(f"request: {request}")
+#     if True:
+#         # if request:
+#         # next_url is the
+#         # next_url = request.path
+#         # we dont know the actual path, because we do not have request here
+#         next_url = reverse("caidapp:media_file_update", args=[self.instance.mediafile.id])
+#         create_url = reverse("caidapp:individual_identity_create",
+#                              args=[self.instance.mediafile.id]) + f"?next={next_url}"
+#         self.helper = FormHelper()
+#         self.helper.layout = Layout(
+#             "taxon",
+#             Row(
+#                 Column("identity", css_class="col-auto"),
+#                 Column(
+#                     HTML(f"""
+#                         <a href="{create_url}" class="btn btn-outline-primary btn-sm" title="Add new identity">
+#                             <i class="bi bi-plus"></i>
+#                         </a>
+#                     """),
+#                     css_class="col-auto"
+#                 ),
+#             ),
+#             "identity_is_representative",
+#         )

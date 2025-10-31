@@ -10,7 +10,9 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 
-def get_torch_cuda_device_if_available(device: Union[None, int, str, torch.device] = 0) -> torch.device:
+def get_torch_cuda_device_if_available(
+    device: Union[None, int, str, torch.device] = 0,
+) -> torch.device:
     """Set and return a valid torch device."""
     logger.debug(f"requested device: {device}")
     print(f"requested device: {device}")
@@ -94,8 +96,8 @@ def wait_for_gpu_memory(required_memory_gb: float = 1.0, device: Union[int, str]
         return
 
     while True:
-        reserved = torch.cuda.memory_reserved(device) / 1024 ** 3
-        total = torch.cuda.get_device_properties(device).total_memory / 1024 ** 3
+        reserved = torch.cuda.memory_reserved(device) / 1024**3
+        total = torch.cuda.get_device_properties(device).total_memory / 1024**3
         free_memory_gb = total - reserved
         if free_memory_gb > required_memory_gb:
             logger.debug(f"Free memory: {free_memory_gb:.1f} GB > {required_memory_gb} GB")

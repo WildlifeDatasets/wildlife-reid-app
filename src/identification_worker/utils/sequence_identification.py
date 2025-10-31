@@ -82,6 +82,7 @@ class DatasetEventIdManager:
             self.event_id += int(1)
         return self.event_id
 
+
 def replace_colon_in_exif_datetime(exif_datetime: str) -> str:
     """Turn strange EXIF datetime format (containing ':' in date) into standard datetime.
 
@@ -109,7 +110,9 @@ def replace_colon_in_exif_datetime(exif_datetime: str) -> str:
     return replaced
 
 
-def get_datetime_from_exif_or_ocr(filename: typing.Union[Path, str], exiftool_metadata:dict) -> typing.Tuple[str, str, str]:
+def get_datetime_from_exif_or_ocr(
+    filename: typing.Union[Path, str], exiftool_metadata: dict
+) -> typing.Tuple[str, str, str]:
     """Extract datetime from EXIF in file and check if image is ok.
 
     Parameters
@@ -137,15 +140,15 @@ def get_datetime_from_exif_or_ocr(filename: typing.Union[Path, str], exiftool_me
     if filename.exists():
         try:
             checked_keys = [
-                    "QuickTime:MediaCreateDate",
-                    "QuickTime:CreateDate",
-                    "EXIF:CreateDate",
-                    "EXIF:ModifyDate",
-                    "EXIF:DateTimeOriginal",
-                    "EXIF:DateTimeCreated",
-                    # "File:FileModifyDate",
-                    # "File:FileCreateDate",
-                ]
+                "QuickTime:MediaCreateDate",
+                "QuickTime:CreateDate",
+                "EXIF:CreateDate",
+                "EXIF:ModifyDate",
+                "EXIF:DateTimeOriginal",
+                "EXIF:DateTimeCreated",
+                # "File:FileModifyDate",
+                # "File:FileCreateDate",
+            ]
 
             d = exiftool_metadata
             dt_str = ""
@@ -160,7 +163,6 @@ def get_datetime_from_exif_or_ocr(filename: typing.Union[Path, str], exiftool_me
             # if no key was found log the metadata
             if not is_ok:
                 logger.debug(f"date not found, exif: {str(d)=}")
-
 
             # dt_str, is_ok, dt_source = get_datetime_exiftool(filename)
             dt_str = replace_colon_in_exif_datetime(dt_str)
@@ -188,14 +190,14 @@ def get_datetime_from_exif_or_ocr(filename: typing.Union[Path, str], exiftool_me
         except Exception as e:
             return "", str(e), ""
     elif filename.suffix.lower() in (
-            ".mp4",
-            ".avi",
-            ".mov",
-            ".mkv",
-            ".webm",
-            ".flv",
-            ".wmv",
-            ".m4v",
+        ".mp4",
+        ".avi",
+        ".mov",
+        ".mkv",
+        ".webm",
+        ".flv",
+        ".wmv",
+        ".m4v",
     ):
         # import cv2
         try:
@@ -238,7 +240,9 @@ def get_datetime_from_exif_or_ocr(filename: typing.Union[Path, str], exiftool_me
     return dt_str, read_error, dt_source
 
 
-def get_datetime_exiftool(video_pth: Path, checked_keys: Optional[list]=None) -> typing.Tuple[str, bool, str]:
+def get_datetime_exiftool(
+    video_pth: Path, checked_keys: Optional[list] = None
+) -> typing.Tuple[str, bool, str]:
     """Get datetime from video using exiftool."""
     if checked_keys is None:
         checked_keys = [
@@ -374,6 +378,7 @@ def _check_if_it_is_cuddleback_corner(frame_bgr: np.array) -> Tuple[str, bool, s
         logger.debug(traceback.format_exc())
         logger.warning(f"Error while processing OCR result: {ocr_result}")
         return date_str, False, ""
+
 
 # TODO update to use with the exiftool
 def get_datetime_from_exif(filename: Path) -> typing.Tuple[str, str]:

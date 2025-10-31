@@ -32,8 +32,9 @@ EXIFTOOL_EXECUTABLE = None
 
 DATETIME_BLACKLIST = [
     # "0000-00-00 00:00:00",
-    '2015-05-21 15:29:12'
+    "2015-05-21 15:29:12"
 ]
+
 
 class DatasetEventIdManager:
     """
@@ -90,6 +91,7 @@ class DatasetEventIdManager:
             self.event_id += int(1)
         return self.event_id
 
+
 def replace_colon_in_exif_datetime(exif_datetime: str) -> str:
     """Turn strange EXIF datetime format (containing ':' in date) into standard datetime.
 
@@ -117,7 +119,9 @@ def replace_colon_in_exif_datetime(exif_datetime: str) -> str:
     return replaced
 
 
-def get_datetime_using_exif_or_ocr(filename: typing.Union[Path, str], exiftool_metadata:dict) -> typing.Tuple[str, str, str]:
+def get_datetime_using_exif_or_ocr(
+    filename: typing.Union[Path, str], exiftool_metadata: dict
+) -> typing.Tuple[str, str, str]:
     """Extract datetime from EXIF in file and check if image is ok.
 
     Parameters
@@ -176,7 +180,6 @@ def get_datetime_using_exif_or_ocr(filename: typing.Union[Path, str], exiftool_m
         # if no key was found log the metadata
         if not is_ok:
             logger.debug(f"date not found, exif: {str(d)=}")
-
 
         # dt_str, is_ok, dt_source = get_datetime_exiftool(filename)
         dt_str = replace_colon_in_exif_datetime(dt_str)
@@ -245,14 +248,14 @@ def check_file_by_opening(filename):
             opening_error = str(e)
             # return "", str(e), ""
     elif filename.suffix.lower() in (
-            ".mp4",
-            ".avi",
-            ".mov",
-            ".mkv",
-            ".webm",
-            ".flv",
-            ".wmv",
-            ".m4v",
+        ".mp4",
+        ".avi",
+        ".mov",
+        ".mkv",
+        ".webm",
+        ".flv",
+        ".wmv",
+        ".m4v",
     ):
         media_file_type = "video"
         # import cv2
@@ -267,7 +270,9 @@ def check_file_by_opening(filename):
     return opened_sucessfully, opening_error, media_file_type
 
 
-def get_datetime_exiftool(video_pth: Path, checked_keys: Optional[list]=None) -> typing.Tuple[str, bool, str]:
+def get_datetime_exiftool(
+    video_pth: Path, checked_keys: Optional[list] = None
+) -> typing.Tuple[str, bool, str]:
     """Get datetime from video using exiftool."""
     if checked_keys is None:
         checked_keys = [
@@ -338,7 +343,7 @@ def _check_if_it_is_cuddleback1(frame_bgr: np.nan) -> Tuple[str, bool, str]:
         # maybe, the thresholding is not necessary, but it works now
         _, processed_frame = cv2.threshold(gray_frame, 140, 255, cv2.THRESH_BINARY)
         # Crop the frame to the area where the date is expected
-        processed_frame = processed_frame[300:500,:]
+        processed_frame = processed_frame[300:500, :]
 
         # Use Tesseract to perform OCR on the processed frame
         ocr_result = pytesseract.image_to_string(processed_frame)
@@ -412,6 +417,7 @@ def _check_if_it_is_cuddleback_corner(frame_bgr: np.array) -> Tuple[str, bool, s
         logger.debug(traceback.format_exc())
         logger.warning(f"Error while processing OCR result: {ocr_result}")
         return date_str, False, ""
+
 
 # TODO update to use with the exiftool
 def get_datetime_from_exif(filename: Path) -> typing.Tuple[str, str]:
@@ -505,10 +511,11 @@ def extend_df_with_sequence_id(df: pd.DataFrame, time_limit: typing.Union[str, d
     return df
 
 
-
 def add_datetime_from_exif_in_parallel(
-        original_paths: List[Path], dataset_basedir: Optional[Path]=None,
-        exiftool_executable=None, num_cores:int=1
+    original_paths: List[Path],
+    dataset_basedir: Optional[Path] = None,
+    exiftool_executable=None,
+    num_cores: int = 1,
 ) -> Tuple[list, list, list]:
     """Get list of datetimes from EXIF.
 
@@ -517,7 +524,7 @@ def add_datetime_from_exif_in_parallel(
 
     logger.debug(f"Getting EXIFs from {len(original_paths)} files.")
     # Collect EXIF info
-    if  dataset_basedir:
+    if dataset_basedir:
         full_paths = [dataset_basedir / original_path for original_path in original_paths]
     else:
         full_paths = original_paths
@@ -544,22 +551,26 @@ def add_datetime_from_exif_in_parallel(
 
         exifs = [{} for _ in full_paths]
 
-    assert len(exifs) == len(full_paths), \
-        f"Number of EXIFs ({len(exifs)}) is not equal to number of files ({len(full_paths)}."
+    assert len(exifs) == len(
+        full_paths
+    ), f"Number of EXIFs ({len(exifs)}) is not equal to number of files ({len(full_paths)}."
     logger.debug("EXIFs collected")
 
     # Evaluate exif info and use OCR if necessary
     if num_cores > 1:
         datetime_list = Parallel(n_jobs=num_cores)(
             delayed(get_datetime_using_exif_or_ocr)(full_path, exif)
-            for full_path, exif in tqdm(list(zip(full_paths, exifs)), desc="datetime from EXIF or OCR parallel")
+            for full_path, exif in tqdm(
+                list(zip(full_paths, exifs)), desc="datetime from EXIF or OCR parallel"
+            )
         )
     else:
         datetime_list = [
             get_datetime_using_exif_or_ocr(full_path, exif)
-            for full_path, exif in tqdm(list(zip(full_paths, exifs)), desc="datetime from EXIF or OCR")
+            for full_path, exif in tqdm(
+                list(zip(full_paths, exifs)), desc="datetime from EXIF or OCR"
+            )
         ]
 
     datetime_list, error_list, source_list = zip(*datetime_list)
     return datetime_list, error_list, source_list
-
