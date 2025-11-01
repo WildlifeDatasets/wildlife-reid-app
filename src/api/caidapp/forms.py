@@ -6,13 +6,13 @@ from django.contrib.auth import get_user_model
 from . import models
 from .models import (
     Album,
+    AnimalObservation,
     CaIDUser,
     IndividualIdentity,
     Locality,
     MediaFile,
     UploadedArchive,
     WorkGroup,
-    AnimalObservation,
 )
 
 logger = logging.getLogger(__name__)
