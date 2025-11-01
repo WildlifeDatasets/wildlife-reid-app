@@ -12,6 +12,7 @@ from .models import (
     MediaFile,
     UploadedArchive,
     WorkGroup,
+    AnimalObservation,
 )
 
 logger = logging.getLogger(__name__)
@@ -318,14 +319,14 @@ class MediaFileForm(forms.ModelForm):
     class Meta:
         model = MediaFile
         fields = (
-            "taxon",
-            "taxon_verified",
+            # "taxon",
+            # "taxon_verified",
             "locality",
-            "identity",
-            "identity_is_representative",
+            # "identity",
+            # "identity_is_representative",
             "captured_at",
             "note",
-            "orientation",
+            # "orientation",
         )
 
     def __init__(self, *args, **kwargs):
@@ -333,19 +334,20 @@ class MediaFileForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         # Only show the identities accessible to the given user.
         caiduser = mediafile.parent.owner
-        if caiduser.workgroup is not None:
-            self.fields["identity"].queryset = IndividualIdentity.objects.filter(
-                # adjust this filter to however your user-Identity relationship is defined
-                owner_workgroup=caiduser.workgroup
-            )
-        else:
-            # fields identity is empty
-            self.fields["identity"].queryset = IndividualIdentity.objects.none()
+        if "identity" in self.fields:
+            if caiduser.workgroup is not None:
+                self.fields["identity"].queryset = IndividualIdentity.objects.filter(
+                    # adjust this filter to however your user-Identity relationship is defined
+                    owner_workgroup=caiduser.workgroup
+                )
+            else:
+                # fields identity is empty
+                self.fields["identity"].queryset = IndividualIdentity.objects.none()
 
         self.fields["locality"].queryset = models.Locality.objects.filter(
             **models.user_has_access_filter_params(caiduser, "owner")
         ).order_by("name")
-        self.fields["taxon"].queryset = models.Taxon.objects.order_by("name")
+        # self.fields["taxon"].queryset = models.Taxon.objects.order_by("name")
 
 
 class MediaFileMissingTaxonForm(forms.ModelForm):
@@ -459,6 +461,24 @@ class ColumnMappingForm(forms.Form):
 
 
 from django import forms
+
+
+class AnimalObservationForm(forms.ModelForm):
+    class Meta:
+        model = AnimalObservation
+        fields = "__all__"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # caiduser = self.instance.mediafile.parent.owner
+        if self.instance and self.instance.mediafile_id:
+            workgroup = self.instance.mediafile.parent.owner.workgroup
+            self.fields["identity"].queryset = (
+                self.fields["identity"].queryset.filter(owner_workgroup=workgroup)
+            )
+
+
+        self.fields["taxon"].queryset = models.Taxon.objects.order_by("name")
 
 # class AnimalObservationForm(forms.ModelForm):
 #     class Meta:

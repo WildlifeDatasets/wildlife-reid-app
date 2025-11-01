@@ -357,7 +357,7 @@ def confirm_prediction(request, mediafile_id: int) -> JsonResponse:
 
 class ObservationInline(InlineFormSetFactory):
     model = AnimalObservation
-    # form_class = forms.AnimalObservationForm
+    form_class = forms.AnimalObservationForm
     # fields = forms.AnimalObservationForm.Meta.fields
     fields = [
         "taxon",
