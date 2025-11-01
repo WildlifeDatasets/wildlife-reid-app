@@ -1063,9 +1063,9 @@ class MediaFile(models.Model):
             is_for_suggestion = True
             for obs in self.observations.all():
                 if (
-                        (obs.taxon is None)
-                        or (obs.taxon.name == TAXON_NOT_CLASSIFIED)
-                        or ((obs.taxon.name == "Animalia") and (obs.taxon_verified is False))
+                    (obs.taxon is None)
+                    or (obs.taxon.name == TAXON_NOT_CLASSIFIED)
+                    or ((obs.taxon.name == "Animalia") and (obs.taxon_verified is False))
                 ):
                     predicted_taxons.add(obs.taxon)
                 else:
@@ -1539,6 +1539,7 @@ def get_mediafiles_with_missing_taxon(
 #
 #     logger.debug(f"{mediafiles.count()=}")
 #     return mediafiles
+
 
 def get_mediafiles_with_missing_verification(
     caiduser: CaIDUser, uploadedarchive: Optional[UploadedArchive] = None, **kwargs

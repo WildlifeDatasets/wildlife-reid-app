@@ -473,12 +473,10 @@ class AnimalObservationForm(forms.ModelForm):
         # caiduser = self.instance.mediafile.parent.owner
         if self.instance and self.instance.mediafile_id:
             workgroup = self.instance.mediafile.parent.owner.workgroup
-            self.fields["identity"].queryset = (
-                self.fields["identity"].queryset.filter(owner_workgroup=workgroup)
-            )
-
+            self.fields["identity"].queryset = self.fields["identity"].queryset.filter(owner_workgroup=workgroup)
 
         self.fields["taxon"].queryset = models.Taxon.objects.order_by("name")
+
 
 # class AnimalObservationForm(forms.ModelForm):
 #     class Meta:
