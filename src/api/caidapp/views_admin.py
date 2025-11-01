@@ -1,13 +1,13 @@
-from django.shortcuts import redirect
+import logging
+
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
 from django.db.models import Q
-import logging
+from django.shortcuts import redirect
 from tqdm import tqdm
 
 from . import models
 from .models import MediaFile
-
 
 logger = logging.getLogger(__name__)
 

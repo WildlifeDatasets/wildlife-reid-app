@@ -1,25 +1,27 @@
-from django.urls import path, include
+from django.urls import include, path
 
 # from rest_framework import routers
-from django.views.generic import ListView, DetailView
+from django.views.generic import DetailView
 
 from . import (
+    models,
     views,
+    views_admin,
+    views_general,
     views_locality,
     views_mediafile,
     views_uploads,
-    models,
-    views_general,
-    views_admin,
 )
 
 
 def trigger_error(request):
     division_by_zero = 1 / 0
+    return division_by_zero
 
 
 # router = routers.DefaultRouter()
 # router.register(r"localities", views.LocalitiesViewSet)
+
 
 app_name = "caidapp"
 urlpatterns = [
@@ -46,9 +48,7 @@ urlpatterns = [
     # Uploads
     path("uploads/", views.uploads_species, name="uploads"),
     path("uploads_identities/", views.uploads_identities, name="uploads_identities"),
-    path(
-        "uploads_known_identities/", views.uploads_known_identities, name="uploads_known_identities"
-    ),
+    path("uploads_known_identities/", views.uploads_known_identities, name="uploads_known_identities"),
     path(
         "uploadedarchive_mediafiles/<int:uploadedarchive_id>",
         # views.uploadedarchive_mediafiles,
@@ -85,9 +85,7 @@ urlpatterns = [
     path("refresh_data/", views.refresh_data, name="refresh_data"),
     # Localities
     path("manage_localities/", views_locality.manage_localities, name="manage_localities"),
-    path(
-        "delete_locality/<int:locality_id>/", views_locality.delete_locality, name="delete_locality"
-    ),
+    path("delete_locality/<int:locality_id>/", views_locality.delete_locality, name="delete_locality"),
     path(
         "update_locality/<int:locality_id>/",
         views_locality.update_locality,
@@ -189,9 +187,7 @@ urlpatterns = [
     path("dash_identities/", views.dash_identities, name="dash_identities"),
     path("init_identification/", views.init_identification_view, name="init_identification"),
     path("train_identification/", views.train_identification, name="train_identification"),
-    path(
-        "stop_init_identification/", views.stop_init_identification, name="stop_init_identification"
-    ),
+    path("stop_init_identification/", views.stop_init_identification, name="stop_init_identification"),
     path(
         "run_identification/<int:uploadedarchive_id>/",
         views.run_identification_view,
@@ -238,8 +234,7 @@ urlpatterns = [
         name="remove_foridentification",
     ),
     path(
-        "set_individual_identity/"
-        + "<int:mediafiles_for_identification_id>/<int:individual_identity_id>",
+        "set_individual_identity/" + "<int:mediafiles_for_identification_id>/<int:individual_identity_id>",
         views.set_individual_identity,
         name="set_individual_identity",
     ),
@@ -271,7 +266,7 @@ urlpatterns = [
         name="missing_taxon_annotation_for_mediafile",
     ),
     path(
-        "missing_taxon_annotation_for_mediafile/mediafile_id/<int:mediafile_id>/uploaded_archive/<int:uploaded_archive_id>",
+        "missing_taxon_annotation_for_mf/mediafile_id/<int:mediafile_id>/uploaded_archive/<int:uploaded_archive_id>",
         views_mediafile.missing_taxon_annotation_for_mediafile,
         name="missing_taxon_annotation_for_mediafile",
     ),
@@ -449,7 +444,6 @@ urlpatterns = [
         views.suggest_merge_identities_view,
         name="suggest_merge_identities",
     ),
-    # path("refresh_merge_identities_suggestions/", views.refresh_identities_suggestions_view, name="refresh_merge_identities_suggestions"),
     path(
         "update_uploaded_archive_with_spreadsheet/<int:uploaded_archive_id>/",
         views.UpdateUploadedArchiveBySpreadsheetFile.as_view(),
@@ -463,9 +457,7 @@ urlpatterns = [
         name="pygwalker_localities",
     ),
     # path("generic/locality/", ListView.as_view(model=models.Locality), name="generic_localities"),
-    path(
-        "generic/locality/", views_locality.LocalityListView.as_view(), name="generic_locality_list"
-    ),
+    path("generic/locality/", views_locality.LocalityListView.as_view(), name="generic_locality_list"),
     path(
         "generic/locality/<int:pk>/",
         DetailView.as_view(model=models.Locality),
@@ -523,13 +515,9 @@ urlpatterns = [
         views.toggle_identity_representative,
         name="toggle_identity_representative",
     ),
-    path(
-        "workgroups/<int:pk>/update/", views.WorkgroupUpdateView.as_view(), name="workgroup-update"
-    ),
+    path("workgroups/<int:pk>/update/", views.WorkgroupUpdateView.as_view(), name="workgroup-update"),
     # notifications
-    path(
-        "notifications/create/", views.NotificationCreateView.as_view(), name="notification-create"
-    ),
+    path("notifications/create/", views.NotificationCreateView.as_view(), name="notification-create"),
     path("notifications/", views.NotificationListView.as_view(), name="notifications"),
     path(
         "notifications/<int:pk>/",

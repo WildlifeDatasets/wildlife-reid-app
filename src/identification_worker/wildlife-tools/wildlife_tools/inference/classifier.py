@@ -5,7 +5,6 @@ from collections import defaultdict
 import numpy as np
 import pandas as pd
 import torch
-
 from wildlife_tools.similarity import CosineSimilarity
 
 

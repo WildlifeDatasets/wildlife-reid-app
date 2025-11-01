@@ -1,9 +1,9 @@
+import logging
+
+from caidapp import models
+from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
-from django.contrib.auth import get_user_model
-from caidapp import models
-from caidapp.models import WorkGroup
-import logging
 
 logger = logging.getLogger(__name__)
 

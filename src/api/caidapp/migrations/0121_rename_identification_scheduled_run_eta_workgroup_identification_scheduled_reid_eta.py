@@ -6,13 +6,13 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0120_rename_identification_scheduled_run_task_id_workgroup_identification_scheduled_reid_task_id'),
+        ("caidapp", "0120_rename_identification_scheduled_run_task_id_workgroup_identification_scheduled_reid_task_id"),
     ]
 
     operations = [
         migrations.RenameField(
-            model_name='workgroup',
-            old_name='identification_scheduled_run_eta',
-            new_name='identification_scheduled_reid_eta',
+            model_name="workgroup",
+            old_name="identification_scheduled_run_eta",
+            new_name="identification_scheduled_reid_eta",
         ),
     ]

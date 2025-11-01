@@ -6,13 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0106_workgroup_identification_init_model_path'),
+        ("caidapp", "0106_workgroup_identification_init_model_path"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='caiduser',
-            name='show_taxon_classification',
+            model_name="caiduser",
+            name="show_taxon_classification",
             field=models.BooleanField(default=True),
         ),
     ]

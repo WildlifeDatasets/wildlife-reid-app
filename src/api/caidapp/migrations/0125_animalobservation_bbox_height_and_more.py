@@ -7,72 +7,75 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0124_identitysuggestionresult'),
+        ("caidapp", "0124_identitysuggestionresult"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='animalobservation',
-            name='bbox_height',
+            model_name="animalobservation",
+            name="bbox_height",
             field=models.FloatField(blank=True, null=True),
         ),
         migrations.AddField(
-            model_name='animalobservation',
-            name='bbox_width',
+            model_name="animalobservation",
+            name="bbox_width",
             field=models.FloatField(blank=True, null=True),
         ),
         migrations.AddField(
-            model_name='animalobservation',
-            name='bbox_x_center',
+            model_name="animalobservation",
+            name="bbox_x_center",
             field=models.FloatField(blank=True, null=True),
         ),
         migrations.AddField(
-            model_name='animalobservation',
-            name='bbox_y_center',
+            model_name="animalobservation",
+            name="bbox_y_center",
             field=models.FloatField(blank=True, null=True),
         ),
         migrations.AddField(
-            model_name='animalobservation',
-            name='identity',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to='caidapp.individualidentity'),
+            model_name="animalobservation",
+            name="identity",
+            field=models.ForeignKey(
+                blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to="caidapp.individualidentity"
+            ),
         ),
         migrations.AddField(
-            model_name='animalobservation',
-            name='identity_is_representative',
+            model_name="animalobservation",
+            name="identity_is_representative",
             field=models.BooleanField(default=False),
         ),
         migrations.AddField(
-            model_name='animalobservation',
-            name='predicted_taxon',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='predicted_observations', to='caidapp.taxon'),
+            model_name="animalobservation",
+            name="predicted_taxon",
+            field=models.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                related_name="predicted_observations",
+                to="caidapp.taxon",
+            ),
         ),
         migrations.AddField(
-            model_name='animalobservation',
-            name='predicted_taxon_confidence',
+            model_name="animalobservation",
+            name="predicted_taxon_confidence",
             field=models.FloatField(blank=True, null=True),
         ),
         migrations.AddField(
-            model_name='animalobservation',
-            name='taxon_verified',
-            field=models.BooleanField(default=False, verbose_name='Taxon verified'),
+            model_name="animalobservation",
+            name="taxon_verified",
+            field=models.BooleanField(default=False, verbose_name="Taxon verified"),
         ),
         migrations.AddField(
-            model_name='animalobservation',
-            name='taxon_verified_at',
-            field=models.DateTimeField(blank=True, null=True, verbose_name='Taxon verified at'),
+            model_name="animalobservation",
+            name="taxon_verified_at",
+            field=models.DateTimeField(blank=True, null=True, verbose_name="Taxon verified at"),
         ),
-        # migrations.AlterField(
-        #     model_name='animalobservation',
-        #     name='mediafile',
-        #     field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='observations', to='caidapp.mediafile'),
-        # ),
         migrations.AlterField(
-            model_name='animalobservation',
-            name='mediafile',
+            model_name="animalobservation",
+            name="mediafile",
             field=models.ForeignKey(
                 on_delete=django.db.models.deletion.CASCADE,
-                related_name='observations',
-                to='caidapp.mediafile',
+                related_name="observations",
+                to="caidapp.mediafile",
                 null=True,
                 blank=True,
             ),

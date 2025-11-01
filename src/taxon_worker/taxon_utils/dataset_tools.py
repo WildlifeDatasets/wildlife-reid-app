@@ -15,14 +15,8 @@ from hashlib import sha256
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-import cv2
-import exiftool
 import numpy as np
 import pandas as pd
-import pytesseract
-import scipy.stats
-import skimage
-import skimage.color
 from joblib import Parallel, delayed
 from PIL import Image
 from tqdm import tqdm
@@ -30,7 +24,6 @@ from tqdm.contrib.logging import logging_redirect_tqdm
 
 from .inout import extract_archive
 from .sequence_identification import (
-    get_datetime_using_exif_or_ocr,
     add_datetime_from_exif_in_parallel,
 )
 
@@ -117,12 +110,10 @@ def get_species_substitution_latin(
 
     st = species_substitution_latin.copy()
     keys = list(st.keys())
-    species_substitution_latin[species_substitution_latin.columns] = (
-        species_substitution_latin.apply(lambda x: x.str.strip())
+    species_substitution_latin[species_substitution_latin.columns] = species_substitution_latin.apply(
+        lambda x: x.str.strip()
     )
-    species_substitution_latin.species_czech = species_substitution_latin.species_czech.map(
-        strip_accents
-    ).str.lower()
+    species_substitution_latin.species_czech = species_substitution_latin.species_czech.map(strip_accents).str.lower()
     assert len(set(species_substitution_latin.species_czech)) == len(
         species_substitution_latin.species_czech
     ), "The keys are not unique"
@@ -153,9 +144,7 @@ def strip_accents(string: str) -> str:
         String with all accents substituted by ASCII-like character.
 
     """
-    return "".join(
-        c for c in unicodedata.normalize("NFD", string) if unicodedata.category(c) != "Mn"
-    )
+    return "".join(c for c in unicodedata.normalize("NFD", string) if unicodedata.category(c) != "Mn")
 
 
 # # TODO use from sequence_identification
@@ -642,9 +631,7 @@ def make_zipfile(output_filename: Path, source_dir: Path):
     source_dir = Path(source_dir)
     archive_type = "zip"
 
-    shutil.make_archive(
-        output_filename.parent / output_filename.stem, archive_type, root_dir=source_dir
-    )
+    shutil.make_archive(output_filename.parent / output_filename.stem, archive_type, root_dir=source_dir)
 
 
 def make_tarfile(output_filename, source_dir):
@@ -785,9 +772,7 @@ class SumavaInitialProcessing:
         self.cache = cache
 
         if not self.filelist_path.exists():
-            logger.warning(
-                f"The change of dataset detectet because {str(self.filelist_path)} does not exists."
-            )
+            logger.warning(f"The change of dataset detectet because {str(self.filelist_path)} does not exists.")
             return True
 
         elif "len_of_path_groups" not in cache:
@@ -805,9 +790,7 @@ class SumavaInitialProcessing:
         else:
             return False
 
-    def get_paths_from_dir_parallel(
-        self, mask, exclude: Optional[list] = None, exclude_dirs: bool = True
-    ) -> list:
+    def get_paths_from_dir_parallel(self, mask, exclude: Optional[list] = None, exclude_dirs: bool = True) -> list:
         """Get list of paths in parallel way.
 
         Parameters
@@ -849,11 +832,7 @@ class SumavaInitialProcessing:
                 get_relative_paths_in_dir(self.dataset_basedir, path_group, mask)
                 for path_group in tqdm(self.path_groups, desc="getting file list")
             ]
-        list_of_files = [
-            item.relative_to(self.dataset_basedir)
-            for item in list_of_files
-            if item.suffix not in exclude
-        ]
+        list_of_files = [item.relative_to(self.dataset_basedir) for item in list_of_files if item.suffix not in exclude]
         original_paths = list_of_files + [
             item
             for sublist in original_path_groups
@@ -923,9 +902,7 @@ class SumavaInitialProcessing:
 
         return df
 
-    def add_datetime_from_exif_in_parallel(
-        self, original_paths: list[Path]
-    ) -> Tuple[list, list, list]:
+    def add_datetime_from_exif_in_parallel(self, original_paths: list[Path]) -> Tuple[list, list, list]:
         """Get list of datetimes from EXIF.
 
         The EXIF information is extracted in single-core way but with the help of ExifTool.
@@ -977,9 +954,7 @@ def extract_information_from_dir_structure(
         czech_label=[],
         vanilla_species=[],
     )
-    species_substitution_latin = get_species_substitution_latin(
-        latin_to_taxonomy_csv_path=latin_to_taxonomy_csv_path
-    )
+    species_substitution_latin = get_species_substitution_latin(latin_to_taxonomy_csv_path=latin_to_taxonomy_csv_path)
     species_substitution_czech = list(species_substitution_latin.czech_label)
     with logging_redirect_tqdm():
         for pthistr in tqdm(
@@ -1025,9 +1000,7 @@ def extract_information_from_dir_structure(
 
             data["annotated"].append(True if pthir.parts[0] == "TRIDENA" else False)
             # data["data_code"].append(pthir.parts[1])
-            data["data_code"].append(
-                None
-            )  # We do not use anymore the Lynx year information from dir structure
+            data["data_code"].append(None)  # We do not use anymore the Lynx year information from dir structure
             data["vanilla_location"].append(pthir.parts[2])
             data["date"].append(get_date_from_path_structure(str(pthir)))
             data["path_len"].append(len(pthir.parts))
@@ -1067,11 +1040,7 @@ def extract_information_from_dir_structure(
                 species = strip_accents(pthir.parents[0].name).lower()
                 vanilla_species = pthir.parents[0].name
 
-            species = (
-                _species_czech_preprocessing[species]
-                if species in _species_czech_preprocessing
-                else species
-            )
+            species = _species_czech_preprocessing[species] if species in _species_czech_preprocessing else species
             species = species if species in species_substitution_czech else "nevime"
             data["czech_label"].append(species)
             data["vanilla_species"].append(vanilla_species)
@@ -1146,20 +1115,14 @@ def hash_file_content_for_list_of_files(basedir: Path, filelist: List[Path], num
     """Make hash from file."""
     if num_cores > 1:
         hashes = Parallel(n_jobs=num_cores)(
-            delayed(hash_file_content)(basedir / f)
-            for f in tqdm(filelist, desc="hashing file content parallel")
+            delayed(hash_file_content)(basedir / f) for f in tqdm(filelist, desc="hashing file content parallel")
         )
     else:
-        hashes = [
-            hash_file_content(basedir / f)
-            for f in tqdm(filelist, desc="hashing file content single core")
-        ]
+        hashes = [hash_file_content(basedir / f) for f in tqdm(filelist, desc="hashing file content single core")]
     return hashes
 
 
-def find_unique_names_between_duplicate_files(
-    metadata: pd.DataFrame, basedir: Path, num_cores: int = 1
-):
+def find_unique_names_between_duplicate_files(metadata: pd.DataFrame, basedir: Path, num_cores: int = 1):
     """Find unique_name in dataframe and extend it to all files with same hash.
 
     Parameters:
@@ -1179,9 +1142,7 @@ def find_unique_names_between_duplicate_files(
         Array of hashes for each file in metadata.
 
     """
-    hashes = hash_file_content_for_list_of_files(
-        basedir, metadata.original_path, num_cores=num_cores
-    )
+    hashes = hash_file_content_for_list_of_files(basedir, metadata.original_path, num_cores=num_cores)
     hashes = np.array(hashes)
     # metadata["content_hash"] = hashes
     # uns = metadata["unique_name"].unique()
@@ -1229,13 +1190,9 @@ def analyze_dataset_directory(
     if num_cores is None:
         num_cores = multiprocessing.cpu_count()
     init_processing = SumavaInitialProcessing(dataset_dir_path, num_cores=num_cores)
-    df0 = init_processing.make_paths_and_exifs_parallel(
-        mask="**/*.*", make_exifs=True, make_csv=False
-    )
+    df0 = init_processing.make_paths_and_exifs_parallel(mask="**/*.*", make_exifs=True, make_csv=False)
 
-    df = extract_information_from_dir_structure(
-        df0, latin_to_taxonomy_csv_path=latin_to_taxonomy_csv_path
-    )
+    df = extract_information_from_dir_structure(df0, latin_to_taxonomy_csv_path=latin_to_taxonomy_csv_path)
 
     df["datetime"] = pd.to_datetime(df0.datetime, errors="coerce")
     df["read_error"] = list(df0["read_error"])
@@ -1245,9 +1202,7 @@ def analyze_dataset_directory(
 
     df = add_column_with_lynx_id(df, contain_identities=contains_identities)
     # hashing file names
-    df, hashes = find_unique_names_between_duplicate_files(
-        df, basedir=Path(dataset_dir_path), num_cores=num_cores
-    )
+    df, hashes = find_unique_names_between_duplicate_files(df, basedir=Path(dataset_dir_path), num_cores=num_cores)
     df["content_hash"] = hashes
 
     sequence_time_limit_s = int(sequence_time_limit_s)
@@ -1271,9 +1226,7 @@ def analyze_dataset_directory(
     # df = df[df.delta_datetime != pd.Timedelta("0s")].reset_index(drop=True)
     # df = df.drop_duplicates(subset=["content_hash"], keep="first").reset_index(drop=True)
 
-    df = df.sort_values(
-        by=["annotated", "location", "datetime"], ascending=[False, False, True]
-    ).reset_index(drop=True)
+    df = df.sort_values(by=["annotated", "location", "datetime"], ascending=[False, False, True]).reset_index(drop=True)
     duplicates_bool = df.duplicated(subset=["content_hash"], keep="first")
     duplicates = df[duplicates_bool].copy().reset_index(drop=True)
     metadata = df[~duplicates_bool].copy().reset_index(drop=True)

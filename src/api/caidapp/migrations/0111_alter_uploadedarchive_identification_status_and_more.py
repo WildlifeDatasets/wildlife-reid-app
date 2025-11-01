@@ -6,18 +6,52 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0110_mediafile_used_for_init_identification'),
+        ("caidapp", "0110_mediafile_used_for_init_identification"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='uploadedarchive',
-            name='identification_status',
-            field=models.CharField(blank=True, choices=[('C', 'Created'), ('F', 'Failed'), ('TAIP', 'Importing'), ('TAID', 'Missing taxa'), ('TKN', 'Taxa known'), ('TV', 'Taxa verified'), ('IR', 'Ready for ID'), ('IAIP', 'ID processing'), ('IAID', 'ID AI done'), ('ID', 'Identified'), ('U', 'Unknown')], default='C', max_length=255),
+            model_name="uploadedarchive",
+            name="identification_status",
+            field=models.CharField(
+                blank=True,
+                choices=[
+                    ("C", "Created"),
+                    ("F", "Failed"),
+                    ("TAIP", "Importing"),
+                    ("TAID", "Missing taxa"),
+                    ("TKN", "Taxa known"),
+                    ("TV", "Taxa verified"),
+                    ("IR", "Ready for ID"),
+                    ("IAIP", "ID processing"),
+                    ("IAID", "ID AI done"),
+                    ("ID", "Identified"),
+                    ("U", "Unknown"),
+                ],
+                default="C",
+                max_length=255,
+            ),
         ),
         migrations.AlterField(
-            model_name='uploadedarchive',
-            name='taxon_status',
-            field=models.CharField(blank=True, choices=[('C', 'Created'), ('F', 'Failed'), ('TAIP', 'Importing'), ('TAID', 'Missing taxa'), ('TKN', 'Taxa known'), ('TV', 'Taxa verified'), ('IR', 'Ready for ID'), ('IAIP', 'ID processing'), ('IAID', 'ID AI done'), ('ID', 'Identified'), ('U', 'Unknown')], default='C', max_length=255),
+            model_name="uploadedarchive",
+            name="taxon_status",
+            field=models.CharField(
+                blank=True,
+                choices=[
+                    ("C", "Created"),
+                    ("F", "Failed"),
+                    ("TAIP", "Importing"),
+                    ("TAID", "Missing taxa"),
+                    ("TKN", "Taxa known"),
+                    ("TV", "Taxa verified"),
+                    ("IR", "Ready for ID"),
+                    ("IAIP", "ID processing"),
+                    ("IAID", "ID AI done"),
+                    ("ID", "Identified"),
+                    ("U", "Unknown"),
+                ],
+                default="C",
+                max_length=255,
+            ),
         ),
     ]

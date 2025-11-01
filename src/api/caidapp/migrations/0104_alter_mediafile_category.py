@@ -7,13 +7,19 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0103_alter_mediafile_media_type'),
+        ("caidapp", "0103_alter_mediafile_media_type"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='mediafile',
-            name='category',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to='caidapp.taxon', verbose_name='Taxon'),
+            model_name="mediafile",
+            name="category",
+            field=models.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.CASCADE,
+                to="caidapp.taxon",
+                verbose_name="Taxon",
+            ),
         ),
     ]

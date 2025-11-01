@@ -125,9 +125,7 @@ def create_match_image_plotly(
     colors = plotly.colors.qualitative.Set3
 
     # Add circles for keypoints and lines connecting them
-    for i, ((_kp0, _kp1), color) in enumerate(
-        zip(zip(kp0_normalized, kp1_normalized), colors[:num_kp])
-    ):
+    for i, ((_kp0, _kp1), color) in enumerate(zip(zip(kp0_normalized, kp1_normalized), colors[:num_kp])):
         x0, y0 = _kp0
         x1, y1 = _kp1
 

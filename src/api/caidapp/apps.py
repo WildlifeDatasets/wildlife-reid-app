@@ -6,4 +6,4 @@ class CaidappConfig(AppConfig):
     name = "caidapp"
 
     def ready(self):
-        import caidapp.signals
+        pass

@@ -11,9 +11,7 @@ from .tasks import make_thumbnail_for_uploaded_archive, update_metadata_csv_by_u
 logger = logging.getLogger(__file__)
 
 ROOT_DIR = Path(__file__).parent.parent.parent.parent
-CAID_DATASET_BASEDIR = Path(
-    os.getenv("CARNIVOREID_DATASET_BASEDIR", r"H:\biology\orig\CarnivoreID")
-)
+CAID_DATASET_BASEDIR = Path(os.getenv("CARNIVOREID_DATASET_BASEDIR", r"H:\biology\orig\CarnivoreID"))
 
 
 def test_prepare_thumbnail():

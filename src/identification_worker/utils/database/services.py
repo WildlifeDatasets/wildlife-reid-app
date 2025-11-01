@@ -61,9 +61,7 @@ class ReferenceImageService:
             # execute statement
             with Session(self.engine) as session:
                 count = session.execute(stmt).scalar()
-                logger.info(
-                    f"Total Reference Image records for organization {organization_id}: {count}"
-                )
+                logger.info(f"Total Reference Image records for organization {organization_id}: {count}")
             return count
         except Exception as e:
             # Handle database connection or missing database error
@@ -91,8 +89,7 @@ class ReferenceImageService:
             )
         elif rows:
             stmt = select(ReferenceImage).where(
-                (ReferenceImage.organization_id == organization_id)
-                & (ReferenceImage.order_idx.in_(rows))
+                (ReferenceImage.organization_id == organization_id) & (ReferenceImage.order_idx.in_(rows))
             )
 
         # execute statement

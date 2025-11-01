@@ -6,13 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0096_alter_individualidentity_name'),
+        ("caidapp", "0096_alter_individualidentity_name"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='mediafile',
-            name='media_file_corrupted',
-            field=models.BooleanField(default=False, verbose_name='Media file corrupted'),
+            model_name="mediafile",
+            name="media_file_corrupted",
+            field=models.BooleanField(default=False, verbose_name="Media file corrupted"),
         ),
     ]

@@ -1,1 +1,1 @@
-from .tools import load_data
+from .tools import load_data  # noqa: F401

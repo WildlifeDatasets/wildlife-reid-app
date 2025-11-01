@@ -1,23 +1,18 @@
 import logging
+import subprocess
 import traceback
 import zipfile
 from pathlib import Path
-from typing import Union
+from typing import Tuple, Union
 
 import cv2
+import numpy as np
 import pandas as pd
 import skimage.io
 import skimage.transform
-from typing import Tuple
-import subprocess
-import numpy as np
 from PIL import Image
 
-from .model_tools import remove_diacritics
-
 logger = logging.getLogger(__file__)
-
-import unicodedata
 
 
 # def remove_diacritics(input_str):
@@ -165,9 +160,7 @@ def get_frame_from_video(video_path: Path, frame_id: int = 0) -> np.ndarray:
     return frame
 
 
-def make_thumbnail_from_file(
-    image_path: Path, thumbnail_path: Path, width: int = 800, frame_id=0
-) -> bool:
+def make_thumbnail_from_file(image_path: Path, thumbnail_path: Path, width: int = 800, frame_id=0) -> bool:
     """Create small thumbnail image from input image.
 
     Returns:

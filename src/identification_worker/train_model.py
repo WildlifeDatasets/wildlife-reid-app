@@ -6,17 +6,16 @@ import numpy as np
 import pandas as pd
 import timm
 import torch
-
 from torch.optim import SGD, AdamW
+from train.callbacks import AccuracyCallback, EpochCheckpoint, FileEpochLog
+from train.data_split import split_data
+from train.tools import load_data, save_data
+from train.trainer import CarnivoreIDTrainer
 from wildlife_tools import realize
 from wildlife_tools.data import WildlifeDataset
 from wildlife_tools.train import ArcFaceLoss
 from wildlife_tools.train.callbacks import EpochCallbacks
 
-from train.tools import load_data, save_data
-from train.trainer import CarnivoreIDTrainer
-from train.data_split import split_data
-from train.callbacks import EpochCheckpoint, AccuracyCallback, FileEpochLog
 from utils import config
 from utils.log import setup_logging
 
@@ -125,7 +124,7 @@ def train_identification_model(
         status: dict = load_data(os.path.join(output_folder, "status.json"))
         config: dict = load_data(os.path.join(output_folder, "config.json"))
         if status["stage"] == "finished":
-            logger.info(f"Training already finished. Exiting...")
+            logger.info("Training already finished. Exiting...")
             return
         logger.info(
             f"Continuing training from folder: {output_folder}. "
@@ -133,9 +132,7 @@ def train_identification_model(
         )
 
     # Load model
-    model = load_model(
-        identification_model["init_path"], model_checkpoint=status["last_checkpoint_path"]
-    )
+    model = load_model(identification_model["init_path"], model_checkpoint=status["last_checkpoint_path"])
     io_size = get_io_size(model)
     if io_size is not None:
         image_size, embedding_size = io_size
@@ -174,7 +171,7 @@ def train_identification_model(
 
     # Check if the files exist
     exists_mask = metadata["path"].map(os.path.exists)
-    failed_paths = metadata.loc[~exists_mask, "path"].tolist()
+    # failed_paths = metadata.loc[~exists_mask, "path"].tolist()
     metadata = metadata.loc[exists_mask].reset_index(drop=True)
     logger.info(
         f"    Missing files filtration\n"
@@ -195,12 +192,8 @@ def train_identification_model(
     # Create datasets
     train_transforms, val_transforms = get_transforms(image_size)
     img_load = "full"  # crop_black - if not cropped
-    train_dataset = WildlifeDataset(
-        metadata=metadata_train, transform=train_transforms, img_load=img_load
-    )
-    val_dataset = WildlifeDataset(
-        metadata=metadata_val, transform=val_transforms, img_load=img_load
-    )
+    train_dataset = WildlifeDataset(metadata=metadata_train, transform=train_transforms, img_load=img_load)
+    val_dataset = WildlifeDataset(metadata=metadata_val, transform=val_transforms, img_load=img_load)
 
     # Create loss function
     objective = ArcFaceLoss(
@@ -222,9 +215,7 @@ def train_identification_model(
     scheduler = None
     if config["scheduler"] == "cos":
         lr_min = config["lr"] * 1e-3
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-            optimizer, T_max=config["epochs"], eta_min=lr_min
-        )
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=config["epochs"], eta_min=lr_min)
     elif config["scheduler"] == "wu_cos":
         scheduler = torch.optim.lr_scheduler.OneCycleLR(
             optimizer,
@@ -262,9 +253,7 @@ def train_identification_model(
     status["stage"] = "training"
     save_data(os.path.join(output_folder, "status.json"), status)
 
-    logger.info(
-        f"Starting training with {len(metadata)} images and {len(set(metadata['identity']))} identities."
-    )
+    logger.info(f"Starting training with {len(metadata)} images and {len(set(metadata['identity']))} identities.")
     # define trainer and start training
     trainer = CarnivoreIDTrainer(
         val_dataset=val_dataset,

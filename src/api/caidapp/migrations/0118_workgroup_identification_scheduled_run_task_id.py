@@ -6,13 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0117_workgroup_default_taxon_for_identification_and_more'),
+        ("caidapp", "0117_workgroup_default_taxon_for_identification_and_more"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='workgroup',
-            name='identification_scheduled_run_task_id',
+            model_name="workgroup",
+            name="identification_scheduled_run_task_id",
             field=models.CharField(blank=True, max_length=255, null=True),
         ),
     ]

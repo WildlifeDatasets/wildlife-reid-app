@@ -1,6 +1,6 @@
+from caidapp.models import IdentificationModel
 from django.db.models.signals import post_migrate
 from django.dispatch import receiver
-from caidapp.models import IdentificationModel
 
 
 @receiver(post_migrate)

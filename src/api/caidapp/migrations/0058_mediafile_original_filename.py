@@ -8,8 +8,7 @@ class Migration(migrations.Migration):
     dependencies = [
         (
             "caidapp",
-            "0057_rename_taxon_for_identification_on_upload_"
-            + "uploadedarchive_taxon_for_identification_at_upload",
+            "0057_rename_taxon_for_identification_on_upload_" + "uploadedarchive_taxon_for_identification_at_upload",
         ),
     ]
 

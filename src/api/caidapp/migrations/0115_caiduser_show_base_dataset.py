@@ -6,13 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0114_capturedevice'),
+        ("caidapp", "0114_capturedevice"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='caiduser',
-            name='show_base_dataset',
+            model_name="caiduser",
+            name="show_base_dataset",
             field=models.BooleanField(default=False),
         ),
     ]

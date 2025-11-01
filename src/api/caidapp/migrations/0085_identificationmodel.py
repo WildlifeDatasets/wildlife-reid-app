@@ -6,18 +6,18 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0084_auto_20241122_2222'),
+        ("caidapp", "0084_auto_20241122_2222"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='IdentificationModel',
+            name="IdentificationModel",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name', models.CharField(max_length=50)),
-                ('description', models.CharField(blank=True, default='', max_length=255)),
-                ('public', models.BooleanField(default=False)),
-                ('model_path', models.CharField(blank=True, default='', max_length=255)),
+                ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
+                ("name", models.CharField(max_length=50)),
+                ("description", models.CharField(blank=True, default="", max_length=255)),
+                ("public", models.BooleanField(default=False)),
+                ("model_path", models.CharField(blank=True, default="", max_length=255)),
             ],
         ),
     ]

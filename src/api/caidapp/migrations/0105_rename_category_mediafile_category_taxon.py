@@ -6,13 +6,13 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0104_alter_mediafile_category'),
+        ("caidapp", "0104_alter_mediafile_category"),
     ]
 
     operations = [
         migrations.RenameField(
-            model_name='mediafile',
-            old_name='category',
-            new_name='taxon',
+            model_name="mediafile",
+            old_name="category",
+            new_name="taxon",
         ),
     ]

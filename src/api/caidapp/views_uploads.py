@@ -5,7 +5,7 @@ from django.http import HttpResponse
 from django.shortcuts import render
 from django.utils import timezone
 
-from . import views, models
+from . import models, views
 from .models import UploadedArchive
 
 logger = logging.getLogger(__name__)
@@ -176,9 +176,7 @@ def uploadedarchive_detail(request, uploadedarchive_id: int) -> HttpResponse:
         request,
         "caidapp/message.html",
         context=dict(
-            headline="Uploaded Archive "
-            + f"{uarch.locality_at_upload_object} "
-            + f"{uarch.locality_check_at}",
+            headline="Uploaded Archive " + f"{uarch.locality_at_upload_object} " + f"{uarch.locality_check_at}",
             dictionary=dictionary,
         ),
     )

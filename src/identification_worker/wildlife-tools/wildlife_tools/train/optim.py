@@ -44,6 +44,4 @@ class SchedulerCosine:
     def from_config(cls, config, optimizer, epochs):
         lr = optimizer.defaults.get("lr")
         lr_min = lr * 1e-3 if lr is not None else 1e-5
-        return torch.optim.lr_scheduler.CosineAnnealingLR(
-            optimizer, T_max=epochs, eta_min=lr_min, **config
-        )
+        return torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs, eta_min=lr_min, **config)

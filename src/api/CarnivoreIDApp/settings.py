@@ -11,9 +11,10 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 
 import logging
-import sentry_sdk
 import os
 from pathlib import Path
+
+import sentry_sdk
 
 from .log import setup_logging
 
@@ -49,9 +50,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 #         from django.core.management.utils import get_random_secret_key
 #
 #         SECRET_KEY = f.write(get_random_secret_key())
-SECRET_KEY = os.getenv(
-    "DJANGO_SECRET_KEY", default="m9ba0d1&(82_=m=-l6b=j#6c2i2*3$&bpm+=n5udouc92-r2ek"
-)
+SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", default="m9ba0d1&(82_=m=-l6b=j#6c2i2*3$&bpm+=n5udouc92-r2ek")
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get("DEBUG", False)

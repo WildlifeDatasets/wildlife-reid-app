@@ -7,13 +7,15 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0101_area'),
+        ("caidapp", "0101_area"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='locality',
-            name='area',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to='caidapp.area'),
+            model_name="locality",
+            name="area",
+            field=models.ForeignKey(
+                blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to="caidapp.area"
+            ),
         ),
     ]

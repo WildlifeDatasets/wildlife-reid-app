@@ -1,6 +1,6 @@
 import django_filters
-from django.db.models import Value, CharField
-from django.db.models.functions import Concat, Cast
+from django.db.models import Value
+from django.db.models.functions import Concat
 
 from . import models
 
@@ -65,10 +65,8 @@ class IndividualIdentityFilter(django_filters.FilterSet):
 
 
 import django_filters
-from django.shortcuts import get_object_or_404
-from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector
-from django.db.models import Q
-from .models import MediaFile, Album, IndividualIdentity, Taxon, UploadedArchive, Locality
+
+from .models import Taxon, UploadedArchive
 
 
 class MediaFileFilter(django_filters.FilterSet):

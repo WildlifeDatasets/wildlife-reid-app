@@ -6,13 +6,17 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0099_alter_mediafile_orientation'),
+        ("caidapp", "0099_alter_mediafile_orientation"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='animalobservation',
-            name='orientation',
-            field=models.CharField(choices=[('L', 'Left'), ('R', 'Right'), ('F', 'Front'), ('B', 'Back'), ('N', 'None'), ('U', 'Unknown')], default='N', max_length=2),
+            model_name="animalobservation",
+            name="orientation",
+            field=models.CharField(
+                choices=[("L", "Left"), ("R", "Right"), ("F", "Front"), ("B", "Back"), ("N", "None"), ("U", "Unknown")],
+                default="N",
+                max_length=2,
+            ),
         ),
     ]

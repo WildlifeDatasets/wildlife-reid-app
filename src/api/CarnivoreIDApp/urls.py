@@ -31,7 +31,6 @@ urlpatterns = [
 ]
 
 if settings.DEBUG_TOOLBAR:
-    import debug_toolbar
 
     # urlpatterns = [
     #     *urlpatterns,

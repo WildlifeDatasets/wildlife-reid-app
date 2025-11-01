@@ -19,9 +19,7 @@ class CosineSimilarity(Similarity):
 
     """
 
-    def __call__(
-        self, query: FeatureDataset, database: FeatureDataset, pairs: tuple | None = None
-    ) -> np.ndarray:
+    def __call__(self, query: FeatureDataset, database: FeatureDataset, pairs: tuple | None = None) -> np.ndarray:
         """Calculate cosine similarity between query and database."""
         return self.cosine_similarity(query.features, database.features)
 

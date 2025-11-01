@@ -1,4 +1,5 @@
 import logging
+
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
@@ -79,9 +80,7 @@ def split_data(
 
     if remove_tail:
         logger.info("Removing tail:")
-        train_data, test_data = remove_data_tail(
-            train_data, test_data, remove_both_tails, remove_tail
-        )
+        train_data, test_data = remove_data_tail(train_data, test_data, remove_both_tails, remove_tail)
 
         num = len(train_data) + len(test_data)
         logger.info(

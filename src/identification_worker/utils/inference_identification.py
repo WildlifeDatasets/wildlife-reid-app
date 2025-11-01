@@ -12,7 +12,7 @@ import timm
 import torch
 import torchvision.transforms as T
 from PIL import Image
-from segment_anything import SamPredictor, sam_model_registry
+from segment_anything import Sam, SamPredictor, sam_model_registry
 from tqdm import tqdm
 from wildlife_tools import realize
 from wildlife_tools.data import FeatureDataset, WildlifeDataset
@@ -35,9 +35,12 @@ DEVICE = mem.get_torch_cuda_device_if_available(0)  # TODO set device to 1
 logger.setLevel(logging.DEBUG)
 logger.info(f"Using device: {DEVICE}")
 
-IDENTIFICATION_MODELS = None
-SAM = None
-SAM_PREDICTOR = None
+# IDENTIFICATION_MODELS = None
+# SAM: Optional[Sam] = None
+# SAM_PREDICTOR: Optional[SamPredictor] = None
+SAM: Sam | None = None
+SAM_PREDICTOR: SamPredictor | None = None
+IDENTIFICATION_MODELS: dict[str, SimilarityPipelineExtended] | None = None
 
 
 class CarnivoreDataset(WildlifeDataset):
@@ -85,6 +88,7 @@ def download_file_if_does_not_exists(url: str, output_file: str):
 
 def get_identification_model(model_name, model_checkpoint=""):
     """Load the model from the given model name and checkpoint."""
+    # no need of 'global' if only reading the variable
     global IDENTIFICATION_MODELS
 
     if IDENTIFICATION_MODELS is not None:
@@ -227,7 +231,7 @@ def pad_image(image: np.ndarray, bbox: Union[list, np.ndarray], border: float = 
 
 def segment_animal(image_path: str, bbox: list, border: float = 0.25) -> np.ndarray:
     """Segment an animal in a given image using SAM model."""
-    global SAM_PREDICTOR
+    # global SAM_PREDICTOR
 
     image = cv2.imread(image_path)
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
@@ -259,9 +263,7 @@ def mask_images(metadata: pd.DataFrame, tqdm_desc="Masking images") -> pd.DataFr
         # detection_results = ast.literal_eval(
         #    ast.literal_eval(row["detection_results"])["detection_results"])
         if row["detection_results"] is None:
-            logger.debug(
-                f"No detection results for image: {image_path}, row['detection_results'] is None."
-            )
+            logger.debug(f"No detection results for image: {image_path}, row['detection_results'] is None.")
             masked_paths.append(str(image_path))
             continue
         detection_results = ast.literal_eval(row["detection_results"])
@@ -289,7 +291,8 @@ def mask_images(metadata: pd.DataFrame, tqdm_desc="Masking images") -> pd.DataFr
 
 def encode_images(metadata: pd.DataFrame, identification_model_path: str, tqdm_desc="") -> list:
     """Create feature vectors from given images."""
-    global IDENTIFICATION_MODELS
+    # no need of 'global' if only reading the variable
+    # global IDENTIFICATION_MODELS
     get_identification_model(identification_model_path)
     metadata = mask_images(metadata, tqdm_desc=f"Masking images: {tqdm_desc}")
     logger.info("Creating DataLoaders.")
@@ -379,19 +382,13 @@ def calibrate_models(calibrated_features: list, calibration_metadata: pd.DataFra
     """Calibrate identification models."""
     logger.debug(f"Calibrating identification models with {len(calibrated_features)} images.")
     # prepare feature datasets
-    calibration_aliked_features, calibration_mega_features = prepare_feature_types(
-        calibrated_features
-    )
+    calibration_aliked_features, calibration_mega_features = prepare_feature_types(calibrated_features)
     calibration_mega_features = FeatureDataset(calibration_mega_features, calibration_metadata)
     calibration_aliked_features = FeatureDataset(calibration_aliked_features, calibration_metadata)
 
     # calibrate models before identification
-    IDENTIFICATION_MODELS["mega"].fit_calibration(
-        calibration_mega_features, calibration_mega_features
-    )
-    IDENTIFICATION_MODELS["aliked"].fit_calibration(
-        calibration_aliked_features, calibration_aliked_features
-    )
+    IDENTIFICATION_MODELS["mega"].fit_calibration(calibration_mega_features, calibration_mega_features)
+    IDENTIFICATION_MODELS["aliked"].fit_calibration(calibration_aliked_features, calibration_aliked_features)
 
 
 def compute_partial(
@@ -407,14 +404,11 @@ def compute_partial(
     assert len(query_features) == len(query_metadata)
     assert len(database_features) == len(database_metadata)
     valid_targets = ["priority", "scores"]
-    assert (
-        target in valid_targets
-    ), f"Invalid target: {target} for partial computation, valid targets: {valid_targets}"
+    assert target in valid_targets, f"Invalid target: {target} for partial computation, valid targets: {valid_targets}"
     if target == "scores":
         assert pairs is not None, "Pairs must be provided for scores computation"
     logger.info(f"Starting identification of {len(query_metadata)} images.")
 
-    global IDENTIFICATION_MODELS
     get_identification_model(identification_model_path)
 
     # gather features
@@ -538,24 +532,16 @@ def identify(
     query_aliked_features, query_mega_features = prepare_feature_types(query_features)
 
     # wrap features in feature dataset
-    calibration_mega_features = FeatureDataset(
-        database_mega_features[:cal_images], database_metadata[:cal_images]
-    )
-    calibration_aliked_features = FeatureDataset(
-        database_aliked_features[:cal_images], database_metadata[:cal_images]
-    )
+    calibration_mega_features = FeatureDataset(database_mega_features[:cal_images], database_metadata[:cal_images])
+    calibration_aliked_features = FeatureDataset(database_aliked_features[:cal_images], database_metadata[:cal_images])
     database_mega_features = FeatureDataset(database_mega_features, database_metadata)
     database_aliked_features = FeatureDataset(database_aliked_features, database_metadata)
     query_mega_features = FeatureDataset(query_mega_features, query_metadata)
     query_aliked_features = FeatureDataset(query_aliked_features, query_metadata)
 
     # calibrate models before identification
-    IDENTIFICATION_MODELS["mega"].fit_calibration(
-        calibration_mega_features, calibration_mega_features
-    )
-    IDENTIFICATION_MODELS["aliked"].fit_calibration(
-        calibration_aliked_features, calibration_aliked_features
-    )
+    IDENTIFICATION_MODELS["mega"].fit_calibration(calibration_mega_features, calibration_mega_features)
+    IDENTIFICATION_MODELS["aliked"].fit_calibration(calibration_aliked_features, calibration_aliked_features)
 
     database_features = {
         DeepFeatures: database_mega_features,
@@ -592,9 +578,7 @@ def identify(
             database_aliked_features.metadata.iloc[didx],
         )
 
-        _keypoints = get_keypoints(
-            keypoint_matcher, keypoint_query_features, keypoint_database_features, max_kp=max_kp
-        )
+        _keypoints = get_keypoints(keypoint_matcher, keypoint_query_features, keypoint_database_features, max_kp=max_kp)
         keypoints.append(_keypoints)
 
     output["keypoints"] = keypoints

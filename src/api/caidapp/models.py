@@ -7,24 +7,21 @@ from pathlib import Path
 from typing import Optional, Union
 
 import codenamize
+import numpy as np
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.db import models
-from django.db.models import Q, Count
+from django.db.models import Count, Q
 from django.db.models.query import QuerySet
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-from django.conf import settings
 from django.urls import reverse_lazy
 from location_field.models.plain import PlainLocationField
 from tqdm import tqdm
-import skimage.io
-import skimage.transform
-from PIL import Image
-import numpy as np
 
-from .fs_data import make_thumbnail_from_file, convert_to_mp4
 from . import fs_data
+from .fs_data import convert_to_mp4
 from .model_tools import (
     generate_sha1,
     get_output_dir,
@@ -122,15 +119,11 @@ class WorkGroup(models.Model):
     name = models.CharField(max_length=50)
     hash = models.CharField(max_length=50, default=random_string12)
     identification_init_at = models.DateTimeField("Identification init at", blank=True, null=True)
-    identification_init_status = models.CharField(
-        max_length=255, blank=True, default="Not initiated"
-    )
+    identification_init_status = models.CharField(max_length=255, blank=True, default="Not initiated")
     identification_init_model_path = models.CharField(max_length=512, blank=True, default="")
     identification_init_message = models.TextField(blank=True, default="")
     identification_reid_at = models.DateTimeField("Identification reid at", blank=True, null=True)
-    identification_reid_status = models.CharField(
-        max_length=255, blank=True, default="Not initiated"
-    )
+    identification_reid_status = models.CharField(max_length=255, blank=True, default="Not initiated")
     identification_reid_message = models.TextField(blank=True, default="")
     identification_train_status = models.CharField(max_length=255, blank=True, default="")
     sequence_time_limit = models.IntegerField("Sequence time limit [s]", default=120)
@@ -180,9 +173,7 @@ class WorkGroup(models.Model):
 
     def number_of_uploaded_archives_with_taxon_for_identification(self) -> int:
         """Return number of uploaded archives with taxon for identification."""
-        return UploadedArchive.objects.filter(
-            owner__workgroup=self, taxon_for_identification__isnull=False
-        ).count()
+        return UploadedArchive.objects.filter(owner__workgroup=self, taxon_for_identification__isnull=False).count()
 
     def number_of_media_files_with_missing_identity(self) -> int:
         """Return number of uploaded files with missing identity."""
@@ -227,9 +218,7 @@ class CaIDUser(models.Model):
     import_dir = models.CharField(max_length=255, blank=True, default="")
     dir_import_status = models.CharField(max_length=255, blank=True, default="")
     dir_import_message = models.CharField(max_length=255, blank=True, default="")
-    identification_model = models.ForeignKey(
-        IdentificationModel, on_delete=models.SET_NULL, null=True, blank=True
-    )
+    identification_model = models.ForeignKey(IdentificationModel, on_delete=models.SET_NULL, null=True, blank=True)
     show_taxon_classification = models.BooleanField(default=True)
     show_wellcome_message_on_next_login = models.BooleanField(default=False)
     show_base_dataset = models.BooleanField(default=False)
@@ -301,9 +290,7 @@ class CaIDUser(models.Model):
 
         If possible, we use data for whole workgroup.
         """
-        return MediaFile.objects.filter(
-            **user_has_access_filter_params(self, "parent__owner")
-        ).count()
+        return MediaFile.objects.filter(**user_has_access_filter_params(self, "parent__owner")).count()
 
     def number_of_media_files_with_missing_taxa_verification_general(self) -> int:
         """Return number of uploaded files with missing verification.
@@ -514,16 +501,12 @@ class UploadedArchive(models.Model):
     identification_started_at = models.DateTimeField("Started at", blank=True, null=True)
     identification_finished_at = models.DateTimeField("Finished at", blank=True, null=True)
     locality_at_upload = models.CharField(max_length=255, blank=True, default="")
-    locality_at_upload_object = models.ForeignKey(
-        Locality, on_delete=models.SET_NULL, null=True, blank=True
-    )
+    locality_at_upload_object = models.ForeignKey(Locality, on_delete=models.SET_NULL, null=True, blank=True)
     owner = models.ForeignKey(CaIDUser, on_delete=models.CASCADE, null=True, blank=True)
     contains_identities = models.BooleanField(default=False)
     contains_single_taxon = models.BooleanField(default=False)
     taxon_for_identification_at_upload = models.CharField(max_length=255, blank=True, default="")
-    taxon_for_identification = models.ForeignKey(
-        Taxon, on_delete=models.SET_NULL, null=True, blank=True
-    )
+    taxon_for_identification = models.ForeignKey(Taxon, on_delete=models.SET_NULL, null=True, blank=True)
     mediafiles_imported = models.BooleanField("Media Files Imported Correctly", default=False)
     earliest_captured_at = models.DateTimeField("Earliest Captured at", blank=True, null=True)
     latest_captured_at = models.DateTimeField("Latest Captured at", blank=True, null=True)
@@ -579,9 +562,7 @@ class UploadedArchive(models.Model):
                 "caidapp:missing_taxon_annotation", kwargs={"uploaded_archive_id": self.id}
             )
         elif self.taxon_status == "TKN":
-            return "Verify taxa", reverse_lazy(
-                "caidapp:verify_taxa", kwargs={"uploaded_archive_id": self.id}
-            )
+            return "Verify taxa", reverse_lazy("caidapp:verify_taxa", kwargs={"uploaded_archive_id": self.id})
         elif (self.taxon_status == "TV") and (self.owner.workgroup is not None):
             return "Go to identification", reverse_lazy(
                 "caidapp:select_taxon_for_identification", kwargs={"uploadedarchive_id": self.id}
@@ -621,9 +602,7 @@ class UploadedArchive(models.Model):
         if self.taxon_for_identification is None:
             return None
         else:
-            return MediaFile.objects.filter(
-                parent=self, taxon=self.taxon_for_identification
-            ).count()
+            return MediaFile.objects.filter(parent=self, taxon=self.taxon_for_identification).count()
 
     def update_location_in_mediafiles(self, location: Union[str, Locality]):
         """Update location in mediafiles."""
@@ -708,11 +687,7 @@ class UploadedArchive(models.Model):
         """Return percents of media files with verified taxon."""
         if self.count_of_mediafiles() == 0:
             return 0
-        return (
-            100
-            * (self.mediafile_set.filter(taxon_verified=True).count())
-            / self.count_of_mediafiles()
-        )
+        return 100 * (self.mediafile_set.filter(taxon_verified=True).count()) / self.count_of_mediafiles()
 
     def has_all_taxons(self):
         """Return True if all media files have taxon."""
@@ -720,21 +695,13 @@ class UploadedArchive(models.Model):
 
     def count_of_identities(self):
         """Return number of unique identities in the archive."""
-        return (
-            self.mediafile_set.filter(Q(identity__isnull=False))
-            .values("identity")
-            .distinct()
-            .count()
-        )
+        return self.mediafile_set.filter(Q(identity__isnull=False)).values("identity").distinct().count()
 
     def count_of_taxons(self):
         """Return number of unique taxons in the archive."""
         not_classified_taxon = Taxon.objects.get(name=TAXON_NOT_CLASSIFIED)
         return (
-            self.mediafile_set.filter(Q(taxon=None) | Q(taxon=not_classified_taxon))
-            .values("taxon")
-            .distinct()
-            .count()
+            self.mediafile_set.filter(Q(taxon=None) | Q(taxon=not_classified_taxon)).values("taxon").distinct().count()
         )
 
     def number_of_media_files_in_archive(self) -> dict:
@@ -769,12 +736,8 @@ class UploadedArchive(models.Model):
                 self.taxon_status = status
                 self.save()
         else:
-            status_message = f"Unknown status '{status}'. Prev. message: " + str(
-                self.status_message
-            )
-            logger.warning(
-                f"Status of {self} is unknown: {status}, status_message: {self.status_message}"
-            )
+            status_message = f"Unknown status '{status}'. Prev. message: " + str(self.status_message)
+            logger.warning(f"Status of {self} is unknown: {status}, status_message: {self.status_message}")
             status = "U"
             self.status_message = status_message
             self.taxon_status = status
@@ -897,8 +860,8 @@ class IndividualIdentity(models.Model):
     sex = models.CharField(max_length=2, choices=SEX_CHOICES, default="U")
     coat_type = models.CharField(max_length=2, choices=COAT_TYPE_CHOICES, default="U")
     note = models.TextField(blank=True)
-    code = models.CharField(max_length=50, default="", blank=True, null=True)
-    juv_code = models.CharField("Juv. Code", max_length=50, default=random_string12)
+    code = models.CharField(max_length=50, blank=True, null=True)
+    juv_code = models.CharField("Juv. Code", max_length=50, null=True, blank=True)
     hash = models.CharField(max_length=50, blank=True)
     birth_date = models.DateField("Birth date", blank=True, null=True)
     death_date = models.DateField("Death date", blank=True, null=True)
@@ -928,11 +891,7 @@ class IndividualIdentity(models.Model):
     def localities(self):
         """Return localities ordered by count of media files."""
         # return MediaFile.objects.filter(identity=self).values("locality").distinct().or
-        return (
-            Locality.objects.filter(mediafiles__identity=self)
-            .annotate(count=Count("mediafiles"))
-            .order_by("-count")
-        )
+        return Locality.objects.filter(mediafiles__identity=self).annotate(count=Count("mediafiles")).order_by("-count")
 
     def __str__(self):
         return str(self.name)
@@ -960,7 +919,7 @@ class IndividualIdentity(models.Model):
         code_match = re.search(r"B\d+", self.name)
         if code_match:
             code = code_match.group()
-            new_name = self.name.replace(code, "")
+            # new_name = self.name.replace(code, "")
         return code
 
     def suggested_name_without_code(self):
@@ -991,9 +950,7 @@ class MediaFile(models.Model):
         ("video", "Video"),
     )
     parent = models.ForeignKey(UploadedArchive, on_delete=models.CASCADE, null=True)
-    taxon = models.ForeignKey(
-        Taxon, blank=True, null=True, on_delete=models.CASCADE, verbose_name="Taxon"
-    )
+    taxon = models.ForeignKey(Taxon, blank=True, null=True, on_delete=models.CASCADE, verbose_name="Taxon")
     # legacy_taxon = taxon
     predicted_taxon = models.ForeignKey(
         Taxon, blank=True, null=True, on_delete=models.SET_NULL, related_name="predicted_taxon"
@@ -1023,9 +980,7 @@ class MediaFile(models.Model):
     thumbnail = models.ImageField(blank=True, null=True, max_length=500)
     static_thumbnail = models.ImageField(blank=True, null=True, max_length=500)
     preview = models.ImageField(blank=True, null=True, max_length=500)  # 1200 x 800 px preview
-    identity = models.ForeignKey(
-        IndividualIdentity, blank=True, null=True, on_delete=models.SET_NULL
-    )
+    identity = models.ForeignKey(IndividualIdentity, blank=True, null=True, on_delete=models.SET_NULL)
     identity_is_representative = models.BooleanField(default=False)
     updated_by = models.ForeignKey(CaIDUser, on_delete=models.SET_NULL, null=True, blank=True)
     updated_at = models.DateTimeField("Updated at", blank=True, null=True)
@@ -1045,9 +1000,7 @@ class MediaFile(models.Model):
     sequence = models.ForeignKey(Sequence, on_delete=models.SET_NULL, null=True, blank=True)
     note = models.TextField(blank=True, default="")
     media_file_corrupted = models.BooleanField("Media file corrupted", default=False)
-    used_for_init_identification = models.BooleanField(
-        "Used for init identification", default=False
-    )
+    used_for_init_identification = models.BooleanField("Used for init identification", default=False)
 
     class Meta:
         ordering = ["-identity_is_representative", "captured_at"]
@@ -1081,13 +1034,57 @@ class MediaFile(models.Model):
         """Return True if mediafile is preidentified."""
         return MediafilesForIdentification.objects.filter(mediafile=self).exists()
 
+    @property
+    def taxon_from_observations(self):
+        """Return taxon from observations."""
+        taxons = set()
+        for obs in self.observations.all():
+            if obs.taxon is not None:
+                taxons.add(obs.taxon)
+        if len(taxons) == 1:
+            return taxons.pop()
+        elif len(taxons) > 1:
+            return get_taxon("Mixed")
+        return None
+
+    @property
+    def is_verified_from_observations(self):
+        """Return True if taxon is verified from observations."""
+        for obs in self.observations.all():
+            if obs.taxon_verified is False:
+                return False
+        return True
+
     def is_for_suggestion(self):
         """Return True if mediafile is for suggestion."""
-        return (self.predicted_taxon is not None) and (
-            (self.taxon is None)
-            or (self.taxon.name == TAXON_NOT_CLASSIFIED)
-            or ((self.taxon.name == "Animalia") and (self.taxon_verified is False))
-        )
+        is_for_suggestion = False
+        predicted_taxons = set()
+        if self.predicted_taxon is not None:
+            is_for_suggestion = True
+            for obs in self.observations.all():
+                if (
+                        (obs.taxon is None)
+                        or (obs.taxon.name == TAXON_NOT_CLASSIFIED)
+                        or ((obs.taxon.name == "Animalia") and (obs.taxon_verified is False))
+                ):
+                    predicted_taxons.add(obs.taxon)
+                else:
+                    is_for_suggestion = False
+
+        if len(predicted_taxons) != 1:
+            is_for_suggestion = False
+
+        return is_for_suggestion
+
+        # if (self.predicted_taxon is not None):
+        #     if self.first_observation is not None:
+        #         if self.first_observation.taxon == self.first_observation.predicted_taxon:
+        #             return True
+        # return (self.predicted_taxon is not None) and (
+        #     (self.taxon is None)
+        #     or (self.taxon.name == TAXON_NOT_CLASSIFIED)
+        #     or ((self.taxon.name == "Animalia") and (self.taxon_verified is False))
+        # )
 
     def is_consistent_with_uploaded_archive_taxon_for_identification(self) -> bool:
         """Return True if mediafile is consistent with uploaded archive taxo for identification."""
@@ -1137,29 +1134,18 @@ class MediaFile(models.Model):
             if self.media_type == "video":
                 convert_to_mp4(mediafile_path, preview_abs_pth)
             else:
-                fs_data.make_thumbnail_from_file(
-                    mediafile_path, preview_abs_pth, width=preview_width
-                )
+                fs_data.make_thumbnail_from_file(mediafile_path, preview_abs_pth, width=preview_width)
             self.preview = str(preview_rel_pth)
             self.save()
 
-        if (
-            (not self.thumbnail)
-            or (not self.thumbnail.name)
-            or (not thumbnail_abs_pth.exists())
-            or force
-        ):
+        if (not self.thumbnail) or (not self.thumbnail.name) or (not thumbnail_abs_pth.exists()) or force:
             if not force:
                 logger.debug(f"thumbnail does not exist for {self.mediafile.name=}")
             thumbnail_abs_pth.parent.mkdir(exist_ok=True, parents=True)
             if self.media_type == "video":
-                fs_data.make_gif_from_video_file(
-                    mediafile_path, thumbnail_abs_pth, width=thumbnail_width
-                )
+                fs_data.make_gif_from_video_file(mediafile_path, thumbnail_abs_pth, width=thumbnail_width)
             else:
-                fs_data.make_thumbnail_from_file(
-                    mediafile_path, thumbnail_abs_pth, width=thumbnail_width
-                )
+                fs_data.make_thumbnail_from_file(mediafile_path, thumbnail_abs_pth, width=thumbnail_width)
             self.thumbnail = str(thumbnail_rel_pth)
             self.save()
 
@@ -1171,9 +1157,7 @@ class MediaFile(models.Model):
         ):
             if not force:
                 logger.debug(f"static_thumbnail does not exist for {self.mediafile.name=}")
-            fs_data.make_thumbnail_from_file(
-                mediafile_path, static_thumbnail_abs_pth, width=thumbnail_width
-            )
+            fs_data.make_thumbnail_from_file(mediafile_path, static_thumbnail_abs_pth, width=thumbnail_width)
             self.static_thumbnail = str(static_thumbnail_rel_pth)
             self.save()
             # self.get_static_thumbnail(force=force)
@@ -1184,9 +1168,7 @@ class MediaFile(models.Model):
             if old.identity_is_representative != self.identity_is_representative:
                 from .tasks import schedule_init_identification_for_workgroup
 
-                schedule_init_identification_for_workgroup(
-                    self.parent.owner.workgroup, delay_minutes=40
-                )
+                schedule_init_identification_for_workgroup(self.parent.owner.workgroup, delay_minutes=40)
                 # and the reid will be started after the init
 
         super().save(*args, **kwargs)
@@ -1247,9 +1229,7 @@ class AnimalObservation(models.Model):
     )
     predicted_taxon_confidence = models.FloatField(null=True, blank=True)
 
-    identity = models.ForeignKey(
-        IndividualIdentity, on_delete=models.SET_NULL, null=True, blank=True
-    )
+    identity = models.ForeignKey(IndividualIdentity, on_delete=models.SET_NULL, null=True, blank=True)
     identity_is_representative = models.BooleanField(default=False)
 
     bbox_x_center = models.FloatField(null=True, blank=True)
@@ -1304,15 +1284,9 @@ class AnimalObservation(models.Model):
 class MediafilesForIdentification(models.Model):
     mediafile = models.ForeignKey(MediaFile, on_delete=models.SET_NULL, null=True, blank=True)
 
-    top1mediafile = models.ForeignKey(
-        MediaFile, related_name="top1", on_delete=models.SET_NULL, null=True, blank=True
-    )
-    top2mediafile = models.ForeignKey(
-        MediaFile, related_name="top2", on_delete=models.SET_NULL, null=True, blank=True
-    )
-    top3mediafile = models.ForeignKey(
-        MediaFile, related_name="top3", on_delete=models.SET_NULL, null=True, blank=True
-    )
+    top1mediafile = models.ForeignKey(MediaFile, related_name="top1", on_delete=models.SET_NULL, null=True, blank=True)
+    top2mediafile = models.ForeignKey(MediaFile, related_name="top2", on_delete=models.SET_NULL, null=True, blank=True)
+    top3mediafile = models.ForeignKey(MediaFile, related_name="top3", on_delete=models.SET_NULL, null=True, blank=True)
     top1score = models.FloatField(null=True, blank=True)
     top2score = models.FloatField(null=True, blank=True)
     top3score = models.FloatField(null=True, blank=True)
@@ -1331,9 +1305,7 @@ class MediafileIdentificationSuggestion(models.Model):
     score = models.FloatField(null=True, blank=True)
     name = models.CharField(max_length=255, blank=True, default="")
     paired_points = models.JSONField(blank=True, null=True)
-    identity = models.ForeignKey(
-        IndividualIdentity, on_delete=models.SET_NULL, null=True, blank=True
-    )
+    identity = models.ForeignKey(IndividualIdentity, on_delete=models.SET_NULL, null=True, blank=True)
 
     class Meta:
         ordering = ["-score"]  # Order by score descending by default
@@ -1497,7 +1469,7 @@ def auto_delete_file_on_delete(sender, instance, **kwargs):
 #     return mediafiles
 
 
-from django.db.models import Q, Exists, OuterRef
+from django.db.models import Exists, OuterRef
 
 
 def get_mediafiles_with_missing_taxon(
@@ -1567,9 +1539,6 @@ def get_mediafiles_with_missing_taxon(
 #
 #     logger.debug(f"{mediafiles.count()=}")
 #     return mediafiles
-
-from django.db.models import Exists, OuterRef, Q
-
 
 def get_mediafiles_with_missing_verification(
     caiduser: CaIDUser, uploadedarchive: Optional[UploadedArchive] = None, **kwargs

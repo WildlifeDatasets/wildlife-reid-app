@@ -90,16 +90,12 @@ def feature_clustering(
     new_features = copy(features)
 
     # group oid data
-    iid_to_oid = {
-        row["mediafile_id"]: row["sequence_number"] for rid, row in features_data.iterrows()
-    }
+    iid_to_oid = {row["mediafile_id"]: row["sequence_number"] for rid, row in features_data.iterrows()}
     oids = set(list(iid_to_oid.values()))
     oid_score = {o: [] for o in oids}
     oid_representations = {o: [] for o in oids}
     oid_idx = {o: [] for o in oids}
-    for idx, (feature, iid, scr_row) in enumerate(
-        zip(features, features_data["mediafile_id"], similarity)
-    ):
+    for idx, (feature, iid, scr_row) in enumerate(zip(features, features_data["mediafile_id"], similarity)):
         scr = np.max(scr_row)
         oid = iid_to_oid[iid]
 
@@ -167,9 +163,7 @@ def feature_average(features: np.ndarray, features_data: pd.DataFrame):
     """Calculate average of features."""
     new_features = copy(features)
 
-    iid_to_oid = {
-        row["mediafile_id"]: row["sequence_number"] for rid, row in features_data.iterrows()
-    }
+    iid_to_oid = {row["mediafile_id"]: row["sequence_number"] for rid, row in features_data.iterrows()}
     oids = set(list(iid_to_oid.values()))
     oid_idx = {o: [] for o in oids}
     oid_representations = {o: [] for o in oids}
@@ -188,23 +182,17 @@ def feature_average(features: np.ndarray, features_data: pd.DataFrame):
     return new_features
 
 
-def feature_top(
-    features: np.ndarray, features_data: pd.DataFrame, similarity: np.ndarray, method: str
-):
+def feature_top(features: np.ndarray, features_data: pd.DataFrame, similarity: np.ndarray, method: str):
     """Returns feature with highiest similarity."""
     new_features = copy(features)
 
-    iid_to_oid = {
-        row["mediafile_id"]: row["sequence_number"] for rid, row in features_data.iterrows()
-    }
+    iid_to_oid = {row["mediafile_id"]: row["sequence_number"] for rid, row in features_data.iterrows()}
     oids = set(list(iid_to_oid.values()))
     oid_score = {o: [] for o in oids}
     oid_representations = {o: [] for o in oids}
     oid_idx = {o: [] for o in oids}
     oid_individual = {o: [] for o in oids}
-    for idx, (feature, iid, scr_row) in enumerate(
-        zip(features, features_data["mediafile_id"], similarity)
-    ):
+    for idx, (feature, iid, scr_row) in enumerate(zip(features, features_data["mediafile_id"], similarity)):
         scr = np.max(scr_row)
         individual = np.argmax(scr_row)
         oid = iid_to_oid[iid]
@@ -231,13 +219,9 @@ def feature_top(
             idx = np.argmax(counts)
             individual_id = unique[idx]
             individual_representations = [
-                r
-                for r, i in zip(oid_representations[oid], oid_individual[oid])
-                if individual_id == i
+                r for r, i in zip(oid_representations[oid], oid_individual[oid]) if individual_id == i
             ]
-            individual_scores = [
-                s for s, i in zip(oid_score[oid], oid_individual[oid]) if individual_id == i
-            ]
+            individual_scores = [s for s, i in zip(oid_score[oid], oid_individual[oid]) if individual_id == i]
             new_feature = individual_representations[np.argmax(individual_scores)]
 
         new_features = assign_feature(new_features, new_feature, oid_idx[oid])

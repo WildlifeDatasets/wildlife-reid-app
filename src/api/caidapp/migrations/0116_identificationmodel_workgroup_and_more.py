@@ -7,18 +7,20 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0115_caiduser_show_base_dataset'),
+        ("caidapp", "0115_caiduser_show_base_dataset"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='identificationmodel',
-            name='workgroup',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to='caidapp.workgroup'),
+            model_name="identificationmodel",
+            name="workgroup",
+            field=models.ForeignKey(
+                blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to="caidapp.workgroup"
+            ),
         ),
         migrations.AddField(
-            model_name='workgroup',
-            name='identification_train_status',
-            field=models.CharField(blank=True, default='', max_length=255),
+            model_name="workgroup",
+            name="identification_train_status",
+            field=models.CharField(blank=True, default="", max_length=255),
         ),
     ]

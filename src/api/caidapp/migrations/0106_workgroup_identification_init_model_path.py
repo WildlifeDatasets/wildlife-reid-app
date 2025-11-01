@@ -6,13 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0105_rename_category_mediafile_category_taxon'),
+        ("caidapp", "0105_rename_category_mediafile_category_taxon"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='workgroup',
-            name='identification_init_model_path',
-            field=models.CharField(blank=True, default='', max_length=512),
+            model_name="workgroup",
+            name="identification_init_model_path",
+            field=models.CharField(blank=True, default="", max_length=512),
         ),
     ]

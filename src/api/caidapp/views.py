@@ -1,89 +1,69 @@
 import datetime
 import logging
 import os
+import random
+import re
 import time
 import traceback
+from functools import wraps
 from io import BytesIO
 from pathlib import Path
-from typing import List, Optional, Tuple, Union, Dict
-import re
+from typing import Dict, List, Optional, Tuple, Union
+from zoneinfo import ZoneInfo
 
 import django
+import django.db
+import django.utils.timezone
+import numpy as np
 import pandas as pd
 import plotly.express as px
-import pytz
-from django.views.decorators.http import require_POST
-from zoneinfo import ZoneInfo
 from celery import signature
+from celery.result import AsyncResult
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth import login as auth_login
 from django.contrib.auth import logout
 from django.contrib.auth.decorators import login_required, user_passes_test
-from django.utils.decorators import method_decorator
-from django.contrib.auth.views import LoginView
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.views.generic import ListView
+
+# from django.contrib.auth.models import User
+from django.contrib.auth.views import LoginView
 from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector
-from django.core.paginator import Page, Paginator
-from django.db.models import Count, Min, Q, QuerySet, Max
-from django.forms import modelformset_factory
-from django.http import HttpResponseNotAllowed
-from django.shortcuts import Http404, HttpResponse
-from django.template.loader import render_to_string
-from django.db.models import OuterRef, Subquery
-from django.http import JsonResponse
-from django.utils import timezone
-from celery.result import AsyncResult
-from django.shortcuts import get_object_or_404, render
-from django.views import View
-from django.urls import reverse_lazy
-from functools import wraps
-from django.shortcuts import redirect
 from django.core.exceptions import PermissionDenied
-from django.forms.models import model_to_dict
-from django.db.models import F, Func, Value
+from django.core.paginator import Page, Paginator
+from django.db.models import Count, F, Func, Max, Min, OuterRef, Q, QuerySet, Subquery, Value
 from django.db.models.functions import Cast
-from django.urls import reverse
-from django.contrib import messages
-from django.shortcuts import redirect, get_object_or_404
-from django.contrib.auth.decorators import login_required
-from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView
-import django.db
-import django.utils.timezone
-from djangoaddicts.pygwalker.views import PygWalkerView
+from django.forms import modelformset_factory
+from django.forms.models import model_to_dict
+from django.http import HttpResponseNotAllowed, JsonResponse
+from django.shortcuts import Http404, HttpResponse, get_object_or_404, redirect, render
+from django.template.loader import render_to_string
+from django.urls import reverse, reverse_lazy
+from django.utils import timezone
+from django.utils.decorators import method_decorator
 from django.utils.translation import gettext_lazy as _
-
-from django.contrib.auth.models import Group, User
+from django.views import View
+from django.views.decorators.http import require_POST
+from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView
+from djangoaddicts.pygwalker.views import PygWalkerView
 from tqdm import tqdm
-import numpy as np
-from rest_framework import permissions, viewsets
-from celery.result import AsyncResult
-from .fs_data import remove_diacritics
-from .serializers import LocalitySerializer
-from .views_tools import add_querystring_to_context
-from .model_tools import timesince_now
-
-from .models import get_all_relevant_localities, user_has_access_filter_params
-
 
 from . import (
+    filters,
     forms,
     model_tools,
     models,
     tasks,
-    views_uploads,
-    views_locality,
     views_general,
-    filters,
+    views_locality,
+    views_uploads,
 )
 from .forms import (
     AlbumForm,
     IndividualIdentityForm,
     MediaFileBulkForm,
     MediaFileSelectionForm,
-    MediaFileSetQueryForm,
     UploadedArchiveForm,
     UploadedArchiveFormWithTaxon,
     UploadedArchiveSelectTaxonForIdentificationForm,
@@ -92,8 +72,10 @@ from .forms import (
     WorkgroupUsersForm,
 )
 from .model_extra import user_has_rw_acces_to_uploadedarchive, user_has_rw_access_to_mediafile
+from .model_tools import timesince_now
 from .models import (
     Album,
+    AnimalObservation,
     ArchiveCollection,
     IndividualIdentity,
     Locality,
@@ -102,7 +84,8 @@ from .models import (
     Taxon,
     UploadedArchive,
     WorkGroup,
-    AnimalObservation,
+    get_all_relevant_localities,
+    user_has_access_filter_params,
 )
 from .tasks import (
     _iterate_over_locality_checks,
@@ -110,15 +93,12 @@ from .tasks import (
     get_locality,
     identify_on_success,
     init_identification_on_error,
-    init_identification_on_success,
     on_error_in_upload_processing,
     run_species_prediction_async,
     update_metadata_csv_by_uploaded_archive,
 )
 from .views_locality import _set_localities_to_mediafiles_of_uploadedarchive
-from .views_uploads import uploadedarchive_detail
-import random
-
+from .views_tools import add_querystring_to_context
 
 logger = logging.getLogger("app")
 User = get_user_model()
@@ -466,9 +446,7 @@ def uploads_species(request) -> HttpResponse:
     )
     page_context = paginate_queryset(queryset, request)
 
-    dates = views_uploads._get_check_dates(
-        request, contains_single_taxon=False, taxon_for_identification__isnull=None
-    )
+    dates = views_uploads._get_check_dates(request, contains_single_taxon=False, taxon_for_identification__isnull=None)
     sorted_grouped_dates = views_uploads._get_grouped_dates(dates)
     # get list of years
     years = list(sorted_grouped_dates.keys())
@@ -540,13 +518,9 @@ def dash_identities(request) -> HttpResponse:
 
     # find the identity with minimum number of representative mediafiles
     identities = (
-        IndividualIdentity.objects.filter(
-            owner_workgroup=request.user.caiduser.workgroup, name__ne="nan"
-        )
+        IndividualIdentity.objects.filter(owner_workgroup=request.user.caiduser.workgroup, name__ne="nan")
         .annotate(
-            representative_mediafile_count=Count(
-                "mediafile", filter=Q(mediafile__identity_is_representative=True)
-            ),
+            representative_mediafile_count=Count("mediafile", filter=Q(mediafile__identity_is_representative=True)),
             non_representative_mediafile_count=Count(
                 "mediafile", filter=Q(mediafile__identity_is_representative=False)
             ),
@@ -603,10 +577,6 @@ def select_reid_model(request):
         if form.is_valid():
             request.user.caiduser.identification_model = form.cleaned_data["identification_model"]
             request.user.caiduser.save()
-            # if request.user.caiduser.workgroup.identification_init_model_path == request.user.caiduser.identification_model.model_path:
-            #     request.user.caiduser.workgroup.identification_init_status = "Initialized"
-            # else:
-            #     request.user.caiduser.workgroup.identification_init_status = "Finished"
 
             messages.info(request, "Identification model set.")
             return redirect("caidapp:uploads_identities")
@@ -629,16 +599,13 @@ def select_reid_model(request):
 def _multiple_species_button_style_and_tooltips(request) -> dict:
     models.user_has_access_filter_params(request.user.caiduser, "owner")
     n_non_classified_taxons = len(models.get_mediafiles_with_missing_taxon(request.user.caiduser))
-    n_missing_verifications = len(
-        models.get_mediafiles_with_missing_verification(request.user.caiduser)
-    )
+    n_missing_verifications = len(models.get_mediafiles_with_missing_verification(request.user.caiduser))
 
     some_missing_taxons = n_non_classified_taxons > 0
     some_missing_verifications = n_missing_verifications > 0
 
     btn_tooltips = {
-        "annotate_missing_taxa": f"Annotate {n_non_classified_taxons} media files "
-        + "with missing taxon.",
+        "annotate_missing_taxa": f"Annotate {n_non_classified_taxons} media files " + "with missing taxon.",
         "verify_taxa": f"Go to verification of {n_missing_verifications} media files.",
     }
     btn_styles = {
@@ -709,14 +676,10 @@ class IdentityListView(LoginRequiredMixin, ListView):
         class_prefix = "identities_" + self.request.GET.get("view", "cards")
 
         self.paginate_by = views_general.get_item_number_anything(self.request, class_prefix)
-        qs = IndividualIdentity.objects.filter(
-            Q(owner_workgroup=self.request.user.caiduser.workgroup) & ~Q(name="nan")
-        )
+        qs = IndividualIdentity.objects.filter(Q(owner_workgroup=self.request.user.caiduser.workgroup) & ~Q(name="nan"))
         qs = qs.annotate(
             mediafile_count=Count("mediafile"),
-            representative_mediafile_count=Count(
-                "mediafile", filter=Q(mediafile__identity_is_representative=True)
-            ),
+            representative_mediafile_count=Count("mediafile", filter=Q(mediafile__identity_is_representative=True)),
             locality_count=Count("mediafile__locality", distinct=True),
             last_seen=Max("mediafile__captured_at"),
         )
@@ -725,9 +688,7 @@ class IdentityListView(LoginRequiredMixin, ListView):
 
         # class_prefix = self.__class__.__name__.lower() # maybe this is more general
         # class_prefix = 'identities'
-        sort, direction = views_general.get_order_by_anything(
-            self.request, class_prefix, IndividualIdentity
-        )
+        sort, direction = views_general.get_order_by_anything(self.request, class_prefix, IndividualIdentity)
         list_of_fields = [f.name for f in self.model._meta.fields] + [
             "mediafile_count",
             "representative_mediafile_count",
@@ -781,12 +742,8 @@ def individual_identity_create(request, media_file_id: Optional[int] = None):
                 media_file.identity = individual_identity
                 media_file.save()
                 messages.success(request, "Individual identity created and linked to media file.")
-            url = request.META.get("HTTP_REFERER", "caidapp:individual_identities")
-            next_url = (
-                request.GET.get("next")
-                or request.POST.get("next")
-                or reverse("caidapp:individual_identities")
-            )
+            url = request.META.get("HTTP_REFERER", reverse("caidapp:individual_identities"))
+            next_url = request.GET.get("next") or request.POST.get("next") or url
             return redirect(next_url)
     else:
         form = IndividualIdentityForm()
@@ -813,10 +770,8 @@ class IndividualIdentityUpdateView(LoginRequiredMixin, UpdateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         individual_identity = self.get_object()
-        media_files = MediaFile.objects.filter(
-            identity=individual_identity, identity_is_representative=True
-        )
-        media_file = media_files.first()
+        media_files = MediaFile.objects.filter(identity=individual_identity, identity_is_representative=True)
+        # media_file = media_files.first()
 
         nav_dict = {}
         if individual_identity:
@@ -895,9 +850,7 @@ def delete_individual_identity(request, individual_identity_id):
 
 
 @login_required
-def get_individual_identity_zoomed_by_identity(
-    request, foridentification_id: int, identity_id: int
-):
+def get_individual_identity_zoomed_by_identity(request, foridentification_id: int, identity_id: int):
     foridentifications = MediafilesForIdentification.objects.filter(
         mediafile__parent__owner__workgroup=request.user.caiduser.workgroup
     ).order_by("?")
@@ -906,9 +859,7 @@ def get_individual_identity_zoomed_by_identity(
         return HttpResponseNotAllowed("Not allowed to work with this media file.")
 
     identity = IndividualIdentity.objects.get(id=identity_id)
-    top_mediafile = MediaFile.objects.filter(
-        identity=identity, identity_is_representative=True
-    ).first()
+    top_mediafile = MediaFile.objects.filter(identity=identity, identity_is_representative=True).first()
     top_name = identity.name
 
     btn_link = reverse_lazy(
@@ -937,19 +888,13 @@ def get_individual_identity_zoomed_by_identity(
 
 
 @login_required
-def get_individual_identity_zoomed_paired_points(
-    request, foridentification_id: int, reid_suggestion_id: int
-):
+def get_individual_identity_zoomed_paired_points(request, foridentification_id: int, reid_suggestion_id: int):
     """Show detail with paired points."""
-    return get_individual_identity_zoomed(
-        request, foridentification_id, reid_suggestion_id, points=True
-    )
+    return get_individual_identity_zoomed(request, foridentification_id, reid_suggestion_id, points=True)
 
 
 @login_required
-def get_individual_identity_zoomed(
-    request, foridentification_id: int, reid_suggestion_id: int, points=False
-):
+def get_individual_identity_zoomed(request, foridentification_id: int, reid_suggestion_id: int, points=False):
     """Show and update media file."""
     foridentifications = MediafilesForIdentification.objects.filter(
         mediafile__parent__owner__workgroup=request.user.caiduser.workgroup
@@ -981,9 +926,7 @@ def get_individual_identity_zoomed(
         )
         if foridentification.mediafile.media_type == "video":
             pth0 = pth0.with_suffix(".jpg")
-        pth1 = Path(settings.MEDIA_ROOT) / str(top_mediafile.mediafile.name).replace(
-            "/images/", "/masked_images/"
-        )
+        pth1 = Path(settings.MEDIA_ROOT) / str(top_mediafile.mediafile.name).replace("/images/", "/masked_images/")
         if top_mediafile.media_type == "video":
             pth1 = pth1.with_suffix(".jpg")
         pil_img0 = Image.open(pth0)
@@ -1062,9 +1005,7 @@ def get_individual_identity_zoomed(
 def not_identified_mediafiles(request):
     """View for mediafiles with individualities that are not identified."""
     foridentification_set = (
-        MediafilesForIdentification.objects.filter(
-            mediafile__parent__owner__workgroup=request.user.caiduser.workgroup
-        )
+        MediafilesForIdentification.objects.filter(mediafile__parent__owner__workgroup=request.user.caiduser.workgroup)
         .annotate(max_score=Max("top_mediafiles__score"))
         .order_by("-max_score")
     )
@@ -1110,9 +1051,7 @@ def get_best_representative_mediafiles(identity, orientation=None, max_count=5) 
             return candidates[:max_count]
         # fallback na reprezentativní bez orientace
         fallback = list(
-            identity.mediafile_set.filter(identity_is_representative=True).order_by("-captured_at")[
-                :max_count
-            ]
+            identity.mediafile_set.filter(identity_is_representative=True).order_by("-captured_at")[:max_count]
         )
         if fallback:
             return fallback
@@ -1150,9 +1089,7 @@ def get_individual_identity_from_foridentification(
 
     if foridentification is not None:
         # give me all identities in foridentification.top_mediafile_set.mediafile.identity
-        identity_ids = foridentification.top_mediafiles.values_list(
-            "mediafile__identity", flat=True
-        )
+        identity_ids = foridentification.top_mediafiles.values_list("mediafile__identity", flat=True)
         logger.debug(f"{identity_ids=}")
 
         identity_ids = [i for i in identity_ids if i is not None]
@@ -1215,9 +1152,7 @@ def get_individual_identity_from_foridentification(
         # for identity in related_identities:
         #     identity.representative_mediafiles = identity.mediafile_set.filter(identity_is_representative=True)
 
-        reid_suggestions = list(
-            foridentification.top_mediafiles.all().select_related("identity", "mediafile")
-        )
+        reid_suggestions = list(foridentification.top_mediafiles.all().select_related("identity", "mediafile"))
         for reid_suggestion in reid_suggestions:
             if reid_suggestion.identity is None:
                 # i.e. The identity was removed from the app
@@ -1225,13 +1160,12 @@ def get_individual_identity_from_foridentification(
                 try:
                     reid_suggestion.delete()
                     logger.warning(
-                        f"Missing identity for reid_suggestion. Removed one suggestion for {foridentification.mediafile.mediafile.name=}"
+                        "Missing identity for reid_suggestion. Removed one suggestion for "
+                        + f"{foridentification.mediafile.mediafile.name=}"
                     )
                 except Exception as e:
                     logger.debug(traceback.format_exc())
-                    logger.error(
-                        f"Error removing reid_suggestion from foridentification.top_mediafiles: {e}"
-                    )
+                    logger.error(f"Error removing reid_suggestion from foridentification.top_mediafiles: {e}")
             else:
                 representative_mediafiles: list = get_best_representative_mediafiles(
                     reid_suggestion.identity, orientation=orientation_of_unknown
@@ -1241,18 +1175,13 @@ def get_individual_identity_from_foridentification(
                     mf for mf in representative_mediafiles if mf != reid_suggestion.mediafile
                 ]
 
-                reid_suggestion.representative_mediafiles = representative_mediafiles[
-                    :max_representative_mediafiles
-                ]
+                reid_suggestion.representative_mediafiles = representative_mediafiles[:max_representative_mediafiles]
                 reid_suggestion.is_representative_dict = is_candidate_for_representative_mediafile(
                     reid_suggestion.mediafile, reid_suggestion.identity
                 )
 
         logger.debug(f"  2 {time.time() - t0=:.2f} [s]")
 
-        # for identity in remaining_identities:
-        #     identity.representative_mediafiles = get_best_representative_mediafiles(identity, orientation=orientation_of_unknown, max_count=max_representative_mediafiles)
-        # logger.debug(f"  2.1 {time.time() - t0=:.2f} [s]")
         for identity in remaining_identities:
             mf = identity.all_mediafiles_ordered
             identity.representative_mediafiles = mf[:3] if mf else []
@@ -1265,9 +1194,7 @@ def get_individual_identity_from_foridentification(
         logger.debug(f"   {remaining_identities[:10]=}")
 
         # max_score for current foridentification
-        current_max_score = (
-            foridentification.top_mediafiles.aggregate(max_score=Max("score"))["max_score"] or 0.0
-        )
+        current_max_score = foridentification.top_mediafiles.aggregate(max_score=Max("score"))["max_score"] or 0.0
 
         logger.debug(f"  4 {time.time() - t0=:.2f} [s]")
         # find the next foridentification with lower max_score
@@ -1318,9 +1245,7 @@ def get_individual_identity_remaining_card_content(
     mediafile = foridentification_id.mediafile
     is_representative_dict = is_candidate_for_representative_mediafile(mediafile, identity)
 
-    identity.representative_mediafiles = identity.mediafile_set.filter(
-        identity_is_representative=True
-    )
+    identity.representative_mediafiles = identity.mediafile_set.filter(identity_is_representative=True)
 
     html = render_to_string(
         "caidapp/get_individual_identity_remaining_card_content.html",
@@ -1355,21 +1280,19 @@ def is_candidate_for_representative_mediafile(
     animal_score = 0.0
     count_of_representative_mediafiles = identity.count_of_representative_mediafiles()
 
-    dr = "nic"
-    debug_info = "prdlajs"
+    # dr = "nic"
+    debug_info = ""
 
-    threshold = 1.0 - np.exp(
-        -count_of_representative_mediafiles / representative_count_coefficient
-    )  # i
+    threshold = 1.0 - np.exp(-count_of_representative_mediafiles / representative_count_coefficient)  # i
     meta = mediafile.metadata_json
     logger.debug(f"{mediafile.metadata_json=}")
     if "detection_results" in meta and len(meta["detection_results"]) > 0:
 
         debug_info += " detection_results found"
-        dr = meta["detection_results"]
+        # dr = meta["detection_results"]
         detection_results = meta["detection_results"]
         debug_info += f" detection_results (json) ={detection_results}"
-        if type(detection_results) == str:
+        if isinstance(detection_results, str):
             # it is probably not a json, but the python string representation of a list of dicts
             import ast
 
@@ -1391,7 +1314,7 @@ def is_candidate_for_representative_mediafile(
 
     is_candidate = ((animal_score + orientation_score) / 2.0) > threshold
     message = (
-        f"This is "
+        "This is "
         + ("not " if not is_candidate else "")
         + "a candidate for representative mediafile. "
         + "Actual count of representative media files for this individuality is: "
@@ -1433,13 +1356,9 @@ def remove_foridentification(request, foridentification_id: int):
 
 
 @login_required
-def set_individual_identity(
-    request, mediafiles_for_identification_id: int, individual_identity_id: int
-):
+def set_individual_identity(request, mediafiles_for_identification_id: int, individual_identity_id: int):
     """Set identity for mediafile."""
-    mediafiles_for_identification = get_object_or_404(
-        MediafilesForIdentification, id=mediafiles_for_identification_id
-    )
+    mediafiles_for_identification = get_object_or_404(MediafilesForIdentification, id=mediafiles_for_identification_id)
     representative = request.GET.get("representative") == "1"
     individual_identity = get_object_or_404(IndividualIdentity, id=individual_identity_id)
 
@@ -1447,10 +1366,7 @@ def set_individual_identity(
     #     return HttpResponseNotAllowed("Not allowed to work with this media file.")
     if request.user.caiduser.workgroup != individual_identity.owner_workgroup:
         return HttpResponseNotAllowed("Not allowed to work with this media file.")
-    if (
-        request.user.caiduser.workgroup
-        != mediafiles_for_identification.mediafile.parent.owner.workgroup
-    ):
+    if request.user.caiduser.workgroup != mediafiles_for_identification.mediafile.parent.owner.workgroup:
         return HttpResponseNotAllowed("Not allowed to work with this media file.")
 
     mediafiles_for_identification.mediafile.identity = individual_identity
@@ -1560,7 +1476,8 @@ def _get_mediafiles_for_train_or_init_identification(
 def str_bumpversion(version_str: str) -> str:
     """Add or increase version in the string.
 
-    Keep the first part of the string. If the string ends with a number, increase it by 1. Otherwise, append ".1" to the string.
+    Keep the first part of the string. If the string ends with a number, increase it by 1.
+    Otherwise, append ".1" to the string.
 
     """
     parts = version_str.rsplit(".", 1)
@@ -1753,13 +1670,11 @@ def _single_species_button_style(request) -> dict:
     exists_unidentified = n_unidentified > 0
 
     n_for_confirmation = len(
-        MediafilesForIdentification.objects.filter(
-            mediafile__parent__owner__workgroup=request.user.caiduser.workgroup
-        )
+        MediafilesForIdentification.objects.filter(mediafile__parent__owner__workgroup=request.user.caiduser.workgroup)
     )
     exists_for_confirmation = n_for_confirmation > 0
 
-    btn_tooltips = {}
+    # btn_tooltips = {}
     btn_styles = {}
 
     btn_styles["upload_identified"] = {
@@ -1770,28 +1685,16 @@ def _single_species_button_style(request) -> dict:
     }
     btn_styles["upload_unidentified"] = {
         "class": (
-            "primary"
-            if is_initiated and (not exists_unidentified) and (not exists_for_confirmation)
-            else "secondary"
+            "primary" if is_initiated and (not exists_unidentified) and (not exists_for_confirmation) else "secondary"
         )
     }
     btn_styles["run_identification"] = {
-        "class": (
-            "primary"
-            if is_initiated and exists_unidentified and (not exists_for_confirmation)
-            else "secondary"
-        )
+        "class": ("primary" if is_initiated and exists_unidentified and (not exists_for_confirmation) else "secondary")
     }
-    btn_styles["confirm_identification"] = {
-        "class": "primary" if exists_for_confirmation else "secondary"
-    }
+    btn_styles["confirm_identification"] = {"class": "primary" if exists_for_confirmation else "secondary"}
 
-    init_disabled = (not exists_representative) or (
-        workgroup.identification_reid_status == "Processing"
-    )
-    logger.debug(
-        f"{init_disabled=}, {workgroup.identification_reid_status=}, {exists_representative=}"
-    )
+    init_disabled = (not exists_representative) or (workgroup.identification_reid_status == "Processing")
+    logger.debug(f"{init_disabled=}, {workgroup.identification_reid_status=}, {exists_representative=}")
     btn_styles["init_identification"]["class"] += " disabled" if init_disabled else ""
     btn_styles["init_identification"][
         "tooltip"
@@ -1801,13 +1704,9 @@ def _single_species_button_style(request) -> dict:
     ] = f"Identification initialization with {n_representative} media files will take some time. Continue?"
 
     btn_styles["run_identification"]["class"] += (
-        " disabled"
-        if ((not is_initiated) or (workgroup.identification_init_status == "Processing"))
-        else ""
+        " disabled" if ((not is_initiated) or (workgroup.identification_init_status == "Processing")) else ""
     )
-    btn_styles["run_identification"][
-        "tooltip"
-    ] = f"Identification suggestion for {n_unidentified} archives."
+    btn_styles["run_identification"]["tooltip"] = f"Identification suggestion for {n_unidentified} archives."
     btn_styles["run_identification"][
         "confirm"
     ] = f"Identification of {n_unidentified} archives will take some time. Continue?"
@@ -1852,16 +1751,20 @@ def run_identification_view(request, uploadedarchive_id):
 
 def run_identification(uploaded_archive: UploadedArchive, workgroup: models.WorkGroup) -> bool:
     logger.debug("Generating CSV for run_identification...")
-    if uploaded_archive.taxon_for_identification:
-        taxon_str = uploaded_archive.taxon_for_identification.name
-    else:
-        taxon_str = "Lynx lynx"
+    # if uploaded_archive.taxon_for_identification:
+    #     taxon_str = uploaded_archive.taxon_for_identification.name
+    # else:
+    #     taxon_str = "Lynx lynx"
 
     # find media files with observations of the expected taxon
+    kwargs = {}
+    if workgroup.default_taxon_for_identification:
+        kwargs.update(dict(taxon=workgroup.default_taxon_for_identification))
+
     mf_ids = (
         AnimalObservation.objects.filter(
-            taxon=workgroup.default_taxon_for_identification,
             mediafile__parent=uploaded_archive,
+            **kwargs,
         )
         .values_list("mediafile_id", flat=True)
         .distinct()
@@ -1986,10 +1889,7 @@ def upload_archive(
         next = "caidapp:upload_archive_contains_single_taxon"
         next_url = reverse_lazy("caidapp:uploads_identities")
     if contains_identities:
-        text_note = (
-            "The archive contains identities (of single taxon). "
-            + "Each identity is in individual folder"
-        )
+        text_note = "The archive contains identities (of single taxon). " + "Each identity is in individual folder"
         next = "caidapp:upload_archive_contains_identities"
         next_url = reverse_lazy("caidapp:uploads_known_identities")
 
@@ -2012,9 +1912,7 @@ def upload_archive(
             if not caiduser.ml_consent_given:
                 if form.cleaned_data.get("ml_consent"):
                     caiduser.ml_consent_given = True
-                    caiduser.ml_consent_given_date = timezone.now().astimezone(
-                        ZoneInfo(request.user.caiduser.timezone)
-                    )
+                    caiduser.ml_consent_given_date = timezone.now().astimezone(ZoneInfo(request.user.caiduser.timezone))
                     caiduser.save()
                 else:
                     messages.error(
@@ -2027,7 +1925,7 @@ def upload_archive(
                                 "caidapp/partial_message.html",
                                 context={
                                     "headline": "Consent required",
-                                    "text": "Upload cancelled. Please agree to the use of your data for training AI models.",
+                                    "text": "Upload cancelled. Consent of AI training required.",
                                     "next": reverse_lazy("caidapp:uploads"),
                                     "next_text": "Back to uploads",
                                 },
@@ -2039,18 +1937,14 @@ def upload_archive(
             uploaded_archive = form.save()
             uploaded_archive_suffix = Path(uploaded_archive.archivefile.name).suffix.lower()
             if uploaded_archive_suffix not in (".tar", ".tar.gz", ".zip"):
-                logger.warning(
-                    f"Uploaded file with extension '{uploaded_archive_suffix}' is not an archive."
-                )
+                logger.warning(f"Uploaded file with extension '{uploaded_archive_suffix}' is not an archive.")
                 messages.warning(
                     request,
                     f"Uploaded file with extension '{uploaded_archive_suffix}' is not an archive.",
                 )
 
             if contains_single_taxon:
-                uploaded_archive.taxon_for_identification = form.cleaned_data[
-                    "taxon_for_identification"
-                ]
+                uploaded_archive.taxon_for_identification = form.cleaned_data["taxon_for_identification"]
                 # next_url = reverse_lazy("caidapp:uploads_identities")
             else:
                 # next_url = reverse_lazy("caidapp:uploads")
@@ -2084,9 +1978,7 @@ def upload_archive(
                 next_text="Back to uploads",
             )
 
-            html = render_to_string(
-                "caidapp/partial_message.html", context=context, request=request
-            )
+            html = render_to_string("caidapp/partial_message.html", context=context, request=request)
             return JsonResponse({"html": html})
         else:
             # Error
@@ -2096,9 +1988,7 @@ def upload_archive(
                 next=next_url,
                 next_text="Back to uploads",
             )
-            html = render_to_string(
-                "caidapp/partial_message.html", context=context, request=request
-            )
+            html = render_to_string("caidapp/partial_message.html", context=context, request=request)
             return JsonResponse({"html": html})
 
     else:
@@ -2221,9 +2111,7 @@ def do_cloud_import_view_single_taxon(request):
     # get list of available localities
     caiduser = request.user.caiduser
 
-    tasks.do_cloud_import_for_user_async(
-        caiduser, contains_identities=False, contains_single_taxon=True
-    )
+    tasks.do_cloud_import_for_user_async(caiduser, contains_identities=False, contains_single_taxon=True)
     # tasks.do_cloud_import_for_user(caiduser)
 
     return redirect("caidapp:cloud_import_preview")
@@ -2247,9 +2135,7 @@ def do_cloud_import_view_single_taxon_known_identities(request):
     # get list of available localities
     caiduser = request.user.caiduser
 
-    tasks.do_cloud_import_for_user_async(
-        caiduser, contains_identities=True, contains_single_taxon=True
-    )
+    tasks.do_cloud_import_for_user_async(caiduser, contains_identities=True, contains_single_taxon=True)
     # tasks.do_cloud_import_for_user(caiduser)
 
     return redirect("caidapp:cloud_import_preview")
@@ -2281,9 +2167,7 @@ def update_uploadedarchive(request, uploadedarchive_id):
             if uploaded_archive_locality_at_upload != cleaned_locality_at_upload:
                 logger.debug("Locality has been changed.")
                 locality = get_locality(request.user.caiduser, cleaned_locality_at_upload)
-                _set_localities_to_mediafiles_of_uploadedarchive(
-                    request, uploaded_archive, locality
-                )
+                _set_localities_to_mediafiles_of_uploadedarchive(request, uploaded_archive, locality)
                 uploaded_archive.locality_at_upload_object = locality
                 uploaded_archive.save()
 
@@ -2314,9 +2198,7 @@ def delete_upload(request, uploadedarchive_id, next_page="caidapp:uploads"):
     """Delete uploaded file."""
     uploadedarchive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
 
-    if user_has_rw_acces_to_uploadedarchive(
-        request.user.caiduser, uploadedarchive, accept_none=True
-    ):
+    if user_has_rw_acces_to_uploadedarchive(request.user.caiduser, uploadedarchive, accept_none=True):
         uploadedarchive.delete()
     else:
         messages.error(request, "Not allowed to delete this uploaded archive.")
@@ -2346,9 +2228,7 @@ def delete_mediafile(request, mediafile_id):
 def albums(request):
     """Show all albums."""
     albums = (
-        Album.objects.filter(
-            Q(albumsharerole__user=request.user.caiduser) | Q(owner=request.user.caiduser)
-        )
+        Album.objects.filter(Q(albumsharerole__user=request.user.caiduser) | Q(owner=request.user.caiduser))
         .distinct()
         .all()
         .order_by("created_at")
@@ -2430,11 +2310,7 @@ def _mediafiles_query(
     # logger.debug(f"{filter_kwargs=}")
     # order by mediafile__sequence__mediafile_set order by
     order_by_safe = order_by if order_by[0] != "-" else order_by[1:]
-    first_image_order_by = (
-        mediafiles.filter(sequence=OuterRef("sequence"))
-        .order_by(order_by)
-        .values(order_by_safe)[:1]
-    )
+    first_image_order_by = mediafiles.filter(sequence=OuterRef("sequence")).order_by(order_by).values(order_by_safe)[:1]
 
     # ownership filter params
     # Build the base query with the conditions that are always applied
@@ -2467,9 +2343,7 @@ def _mediafiles_query(
         vector = SearchVector("taxon__name", "locality__name")
         query = SearchQuery(query)
         logger.debug(str(query))
-        mediafiles = (
-            mediafiles.annotate(rank=SearchRank(vector, query)).filter(rank__gt=0).order_by("-rank")
-        )
+        mediafiles = mediafiles.annotate(rank=SearchRank(vector, query)).filter(rank__gt=0).order_by("-rank")
         # return mediafiles
     mediafiles = mediafiles.select_related(
         "parent", "taxon", "predicted_taxon", "locality", "identity", "updated_by", "sequence"
@@ -2513,9 +2387,7 @@ def _taxon_stats_for_mediafiles(mediafiles: Union[QuerySet, List[MediaFile]]) ->
     """Create taxon stats for mediafiles."""
     taxon_stats = ""
     if len(mediafiles) > 0:
-        taxon_stats = (
-            mediafiles.values("taxon__name").annotate(count=Count("taxon__name")).order_by("-count")
-        )
+        taxon_stats = mediafiles.values("taxon__name").annotate(count=Count("taxon__name")).order_by("-count")
         logger.debug(f"{taxon_stats=}")
         df = pd.DataFrame.from_records(taxon_stats)
         df.rename(columns={"taxon__name": "Taxon", "count": "Count"}, inplace=True)
@@ -2568,20 +2440,18 @@ def media_files_update(
 ) -> HttpResponse:
     """List of mediafiles based on query with bulk update of category."""
     # create list of mediafiles
-    logger.debug(f"Starting Media files view")
+    logger.debug("Starting Media files view")
     logger.debug(f"{request.GET=}")
 
-    page_number = 1
-    exclude_filter_kwargs = {}
-    form_filter_kwargs = {}
-    query = None
+    # page_number = 1
+    # exclude_filter_kwargs = {}
+    # form_filter_kwargs = {}
+    # query = None
     if records_per_page is None:
         records_per_page = request.session.get("mediafiles_records_per_page", 20)
 
     albums_available = (
-        Album.objects.filter(
-            Q(albumsharerole__user=request.user.caiduser) | Q(owner=request.user.caiduser)
-        )
+        Album.objects.filter(Q(albumsharerole__user=request.user.caiduser) | Q(owner=request.user.caiduser))
         .distinct()
         .order_by("created_at")
     )
@@ -2600,17 +2470,13 @@ def media_files_update(
         uploaded_archive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
         # datetime format YYYY-MM-DD HH:MM:SS
         if uploaded_archive.locality_check_at is not None:
-            locality_check_at = " - " + uploaded_archive.locality_check_at.strftime(
-                "%Y-%m-%d %H:%M:%S"
-            )
+            locality_check_at = " - " + uploaded_archive.locality_check_at.strftime("%Y-%m-%d %H:%M:%S")
         else:
             locality_check_at = ""
         page_title = f"Media files - {uploaded_archive.locality_at_upload}{locality_check_at}"
         # mediafiles = mediafiles.filter(parent=uploaded_archive)
         filter_kwargs["parent"] = uploaded_archive
-        mediafiles_name_suggestion = (
-            f"uploaded_archive_{uploaded_archive.locality_at_upload}{locality_check_at}"
-        )
+        mediafiles_name_suggestion = f"uploaded_archive_{uploaded_archive.locality_at_upload}{locality_check_at}"
 
     elif album_hash is not None:
         album = get_object_or_404(Album, hash=album_hash)
@@ -2702,7 +2568,7 @@ def media_files_update(
     MediaFileFormSet = modelformset_factory(MediaFile, form=MediaFileSelectionForm, extra=0)
     logger.debug("Processing POST or GET request")
     if (request.method == "POST") and (
-        any([(type(key) == str) and (key.startswith("btnBulkProcessing")) for key in request.POST])
+        any([(isinstance(key, str)) and (key.startswith("btnBulkProcessing")) for key in request.POST])
         # ("btnBulkProcessing" in request.POST) or ("btnBulkProcessingAlbum" in request.POST)
     ):
         logger.debug("btnBulkProcessing")
@@ -2733,9 +2599,7 @@ def media_files_update(
                 # selected all m media file processing
                 for mediafile in full_mediafiles:
 
-                    _single_mediafile_update(
-                        request, mediafile, form, form_bulk_processing, selected_album_hash
-                    )
+                    _single_mediafile_update(request, mediafile, form, form_bulk_processing, selected_album_hash)
                     album.cover = mediafile
                     album.save()
             else:
@@ -2748,9 +2612,7 @@ def media_files_update(
                             mediafileform.cleaned_data["selected"] = False
                             mediafileform.selected = False
                             instance: MediaFile = mediafileform.save(commit=False)
-                            _single_mediafile_update(
-                                request, instance, form, form_bulk_processing, selected_album_hash
-                            )
+                            _single_mediafile_update(request, instance, form, form_bulk_processing, selected_album_hash)
                             album.cover = instance
                             album.save()
 
@@ -2843,9 +2705,7 @@ def _single_mediafile_update(request, instance, form, form_bulk_processing, sele
         instance.save()
     elif "btnBulkProcessing_id_identity_is_representative" in form.data:
         observation = instance.first_observation_get_or_create
-        observation.identity_is_representative = form_bulk_processing.cleaned_data[
-            "identity_is_representative"
-        ]
+        observation.identity_is_representative = form_bulk_processing.cleaned_data["identity_is_representative"]
         instance.identity_is_representative = observation.identity_is_representative
         instance.updated_by = request.user.caiduser
         instance.updated_at = django.utils.timezone.now()
@@ -2991,8 +2851,8 @@ def create_new_album(request, name="New Album"):
     return album
 
 
-from django.views.generic import UpdateView
 from django.contrib.auth.mixins import UserPassesTestMixin
+from django.views.generic import UpdateView
 
 
 class WorkgroupAdminRequiredMixin(UserPassesTestMixin):
@@ -3075,9 +2935,7 @@ def _update_csv_by_uploadedarchive(request, uploadedarchive_id: int):
         logger.debug(f"{updated_at=}")
         if updated_at is None:
             # set updated_at to old date
-            updated_at = datetime.datetime(2000, 1, 1, 0, 0, 0, 0).replace(
-                tzinfo=ZoneInfo(settings.TIME_ZONE)
-            )
+            updated_at = datetime.datetime(2000, 1, 1, 0, 0, 0, 0).replace(tzinfo=ZoneInfo(settings.TIME_ZONE))
         # check if mediafiles are updated later than updated_at
 
         mediafiles = MediaFile.objects.filter(parent=uploaded_archive)
@@ -3211,9 +3069,7 @@ def download_xlsx_for_mediafiles_view(request, uploadedarchive_id: Optional[int]
     # Rewind the buffer
     output.seek(0)
 
-    response = HttpResponse(
-        output, content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
+    response = HttpResponse(output, content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     response["Content-Disposition"] = f"attachment; filename={fn}.xlsx"
     return response
 
@@ -3223,11 +3079,7 @@ def download_xlsx_for_mediafiles_view_NDOP(request, uploadedarchive_id: Optional
     """Download xlsx for media files."""
     logger.debug("download_xlsx_for_mediafiles_view_NDOP")
     mediafiles, name_suggestion = _get_mediafiles(request, uploadedarchive_id)
-    fn = (
-        ("metadata_CaID_NDOP_" + name_suggestion)
-        if name_suggestion is not None
-        else "metadata_CaID_NDOP"
-    )
+    fn = ("metadata_CaID_NDOP_" + name_suggestion) if name_suggestion is not None else "metadata_CaID_NDOP"
 
     try:
         df = tasks.create_dataframe_from_mediafiles_NDOP(mediafiles)
@@ -3247,17 +3099,13 @@ def download_xlsx_for_mediafiles_view_NDOP(request, uploadedarchive_id: Optional
     # Rewind the buffer
     output.seek(0)
 
-    response = HttpResponse(
-        output, content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
+    response = HttpResponse(output, content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     response["Content-Disposition"] = f"attachment; filename={fn}.xlsx"
     return response
 
 
 @login_required
-def download_zip_for_mediafiles_view(
-    request, uploadedarchive_id: Optional[int] = None
-) -> JsonResponse:
+def download_zip_for_mediafiles_view(request, uploadedarchive_id: Optional[int] = None) -> JsonResponse:
     """Download zip for media files."""
     mediafiles, name_suggestion = _get_mediafiles(request, uploadedarchive_id)
     # remove diacritics from name_suggestion
@@ -3278,17 +3126,13 @@ def download_zip_for_mediafiles_view(
     )
 
     # Prepare the mediafiles list for serialization (e.g., paths and output names)
-    mediafiles_data = [
-        {"path": mf.mediafile.name, "output_name": _make_output_name(mf)} for mf in mediafiles
-    ]
+    mediafiles_data = [{"path": mf.mediafile.name, "output_name": _make_output_name(mf)} for mf in mediafiles]
 
     # Start the Celery task
 
     task = tasks.create_mediafiles_zip.delay(user_hash, mediafiles_data, str(abs_zip_path))
 
-    task2 = tasks.clean_old_mediafile_zips.delay(
-        str(abs_zip_path.parent), glob_pattern="mediafiles_*.zip", max_age_days=7
-    )
+    _ = tasks.clean_old_mediafile_zips.delay(str(abs_zip_path.parent), glob_pattern="mediafiles_*.zip", max_age_days=7)
 
     # Return the task ID so the frontend can poll for completion
     return JsonResponse({"task_id": task.id})
@@ -3347,9 +3191,7 @@ def _make_output_name(mediafile: models.MediaFile):
     """
     locality = mediafile.locality.name if mediafile.locality else "no_locality"
     date = mediafile.captured_at.strftime("%Y-%m-%d") if mediafile.captured_at else "no_date"
-    original_name = (
-        mediafile.original_filename if mediafile.original_filename else "no_original_name"
-    )
+    original_name = mediafile.original_filename if mediafile.original_filename else "no_original_name"
     # remove extension
     original_name = Path(original_name).stem
     taxon = mediafile.taxon.name if mediafile.taxon else "no_taxon"
@@ -3373,10 +3215,7 @@ def refresh_data(request):
         uploaded_archive.update_earliest_and_latest_captured_at()
         uploaded_archive.make_sequences()
 
-        if (
-            uploaded_archive.contains_single_taxon
-            and uploaded_archive.taxon_for_identification is None
-        ):
+        if uploaded_archive.contains_single_taxon and uploaded_archive.taxon_for_identification is None:
             # this fixes the compatibility with the old version before 2024-05
             uploaded_archive.taxon_for_identification = models.get_taxon("Lynx lynx")
             uploaded_archive.save()
@@ -3472,9 +3311,7 @@ class ImageUploadGraphView(View):
     def get(self, request):
         """Render the image upload graph."""
         # Fetch data from MediaFile model
-        mediafiles = MediaFile.objects.all().values(
-            "parent__uploaded_at", "parent__owner__user__username"
-        )
+        mediafiles = MediaFile.objects.all().values("parent__uploaded_at", "parent__owner__user__username")
 
         # Convert to DataFrame
         df = pd.DataFrame(mediafiles)
@@ -3517,18 +3354,15 @@ def _prepare_merged_individual_identity_object(
     today_str = today.strftime("%Y-%m-%d")
 
     differences = generate_differences(individual_to, individual_from)
-    differences_str = (
-        f"merged: {individual_to.name} + {individual_from.name}, {today_str}\n"
-        + "\n  ".join(f"{key}: {value}" for key, value in differences.items())
+    differences_str = f"merged: {individual_to.name} + {individual_from.name}, {today_str}\n" + "\n  ".join(
+        f"{key}: {value}" for key, value in differences.items()
     )
 
     # Suggestion based on merging logic
     suggestion = IndividualIdentity(
         name=f"{individual_to.name}",
         sex=individual_to.sex if individual_to.sex != "U" else individual_from.sex,
-        coat_type=(
-            individual_to.coat_type if individual_to.coat_type != "U" else individual_from.coat_type
-        ),
+        coat_type=(individual_to.coat_type if individual_to.coat_type != "U" else individual_from.coat_type),
         birth_date=individual_to.birth_date or individual_from.birth_date,
         death_date=individual_to.death_date or individual_from.death_date,
         note=f"{individual_to.note}\n{individual_from.note}\n" + differences_str,
@@ -3551,9 +3385,7 @@ def generate_differences(individual1, individual2):
     return differences
 
 
-def get_individuals(
-    request, id1, id2
-) -> Tuple[models.IndividualIdentity, models.IndividualIdentity]:
+def get_individuals(request, id1, id2) -> Tuple[models.IndividualIdentity, models.IndividualIdentity]:
     """Fetch the individual identities."""
     individual_identity1 = get_object_or_404(
         IndividualIdentity,
@@ -3590,9 +3422,7 @@ class MergeIdentitiesWithPreview(View):
         # Differences for the right column
 
         form = IndividualIdentityForm(instance=suggestion)
-        media_file = MediaFile.objects.filter(
-            identity=individual_to, identity_is_representative=True
-        ).first()
+        media_file = MediaFile.objects.filter(identity=individual_to, identity_is_representative=True).first()
 
         return render(
             request,
@@ -3628,9 +3458,9 @@ class MergeIdentitiesWithPreview(View):
             # mediafiles of identity2 are reassigned to identity1
             individual_from.mediafile_set.update(identity=individual_to)
 
-            models.MediafileIdentificationSuggestion.objects.filter(
-                identity=individual_from
-            ).update(identity=individual_to)
+            models.MediafileIdentificationSuggestion.objects.filter(identity=individual_from).update(
+                identity=individual_to
+            )
 
             # remove old identity
 
@@ -3663,23 +3493,12 @@ def merge_identities_helper(request, individual_from, individual_to):
         return
 
     # # TODO check if it has been finished already and show here time of last update
-    # # remove individual_from and list of suggestion
-    # if "merge_identity_suggestions_ids" not in request.session:
-    #     refresh_identities_suggestions(request)
-    #
-    # assert "merge_identity_suggestions_ids" in request.session
-    # suggestions_ids = request.session["merge_identity_suggestions_ids"]
-    # suggestions_ids = [
-    #     (id_from, id_to, distance) for id_from, id_to, distance in suggestions_ids if id_from != individual_from.id and id_to != individual_from.id
-    # ]
-    # request.session["merge_identity_suggestions_ids"] = suggestions_ids
 
     suggestion, _ = _prepare_merged_individual_identity_object(
         individual_from,
         individual_to,
         # individual_identity_from_id, individual_identity_to_id
     )
-    # individual_from, individual_to, suggestion, _= _prepare_merged_individual_identity(request, individual_identity_from_id, individual_identity_to_id)
     # set individual_to to suggestion
     # Convert the suggestion to a dict, excluding the primary key (and any other fields you want to skip)
     suggestion_data = model_to_dict(
@@ -3690,9 +3509,7 @@ def merge_identities_helper(request, individual_from, individual_to):
         setattr(individual_to, field, value)
     # Reassign media files and identification suggestions from individual_from to individual_to.
     individual_from.mediafile_set.update(identity=individual_to)
-    models.MediafileIdentificationSuggestion.objects.filter(identity=individual_from).update(
-        identity=individual_to
-    )
+    models.MediafileIdentificationSuggestion.objects.filter(identity=individual_from).update(identity=individual_to)
     # Remove the redundant identity.
     individual_from.delete()
     individual_to.save()
@@ -3767,9 +3584,7 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
             self.prev_url = request.META.get("HTTP_REFERER", "/")
             if "original_path" not in df.columns:
                 logger.debug(f"{df.columns=}")
-                logger.warning(
-                    "The 'original_path' column is required in the uploaded spreadsheet."
-                )
+                logger.warning("The 'original_path' column is required in the uploaded spreadsheet.")
 
                 return message_view(
                     request,
@@ -3784,9 +3599,7 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
                 original_path = row["original_path"].replace("\\", "/").strip()
 
                 # get or None
-                mf = MediaFile.objects.filter(
-                    parent=uploaded_archive, original_filename=original_path
-                ).first()
+                mf = MediaFile.objects.filter(parent=uploaded_archive, original_filename=original_path).first()
                 if mf:
                     try:
                         # logger.debug(f"{mf=}")
@@ -3799,9 +3612,7 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
                         code = row["code"] if "code" in row else ""
                         unique_name = row["unique_name"] if "unique_name" in row else ""
                         if code:
-                            identity = models.get_unique_code(
-                                code, workgroup=uploaded_archive.owner.workgroup
-                            )
+                            identity = models.get_unique_code(code, workgroup=uploaded_archive.owner.workgroup)
                             if identity is None:
                                 logger.warning("Could not find identity with code: " + code)
                             counter_fields_updated += 1
@@ -3824,9 +3635,7 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
                             if locality_obj:
                                 mf.locality = locality_obj
                                 if ("latitude" in row) and ("longitude" in row):
-                                    mf.locality.set_location(
-                                        float(row["latitude"]), float(row["longitude"])
-                                    )
+                                    mf.locality.set_location(float(row["latitude"]), float(row["longitude"]))
                                     counter_fields_updated += 1
                                 counter_fields_updated += 1
                                 counter_locality += 1
@@ -3899,16 +3708,12 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
                 if sample_size > 0:
                     msg += (
                         "Sample of `original_path` in spreadsheet: "
-                        + ", ".join(
-                            df.sample(sample_size)["original_path"].dropna().astype(str).values
-                        )
+                        + ", ".join(df.sample(sample_size)["original_path"].dropna().astype(str).values)
                         + " ; "
                     )
                 # add example of up to 3 original filenames from uploaded archives
                 mfs = list(
-                    MediaFile.objects.filter(parent=uploaded_archive).values_list(
-                        "original_filename", flat=True
-                    )
+                    MediaFile.objects.filter(parent=uploaded_archive).values_list("original_filename", flat=True)
                 )
                 if mfs:
                     msg += "Sample of `original_filename` in uploaded archive: " + ", ".join(
@@ -3973,14 +3778,9 @@ class MyPygWalkerView(PygWalkerView):
     # mediafile_ids = request.session.get("mediafile_ids", [])
     # mediafiles = MediaFile.objects.filter(id__in=mediafile_ids)
 
-    # queryset = MediaFile.objects.annotate(
-    #     latitude=Cast(SplitPart(F('locality__location'), Value(','), Value(1)), output_field=django.db.models.FloatField()),
-    #     longitude=Cast(SplitPart(F('locality__location'), Value(','), Value(2)), output_field=django.db.models.FloatField())
-    # )
     title = "Media File Analysis"
     theme = "light"  # 'light', 'dark', 'media'
 
-    # field_list = ["name", "some_field", "some_other__related_field", "id", "created_at", "updated_at"]
     field_list = [
         "id",
         "captured_at",
@@ -4018,17 +3818,11 @@ class PygWalkerLocalitiesView(PygWalkerView):
     # mediafile_ids = request.session.get("mediafile_ids", [])
     # mediafiles = MediaFile.objects.filter(id__in=mediafile_ids)
 
-    # queryset = MediaFile.objects.annotate(
-    #     latitude=Cast(SplitPart(F('locality__location'), Value(','), Value(1)), output_field=django.db.models.FloatField()),
-    #     longitude=Cast(SplitPart(F('locality__location'), Value(','), Value(2)), output_field=django.db.models.FloatField())
-    # )
     title = "Localities"
     theme = "light"  # 'light', 'dark', 'media'
 
     # field_list = ["name", "some_field", "some_other__related_field", "id", "created_at", "updated_at"]
     field_list = ["name", "latitude", "longitude", "mediafile_count"]
-    # There is vis_spec option in pygwalker but it does not work in django-pygwalker
-    # vis_spec = r"""{"config":[{"config":{"defaultAggregated":true,"geoms":["poi"],"coordSystem":"geographic","limit":-1,"timezoneDisplayOffset":0},"encodings":{"dimensions":[{"fid":"name","name":"name","basename":"name","semanticType":"nominal","analyticType":"dimension","offset":0},{"fid":"latitude","name":"latitude","basename":"latitude","semanticType":"quantitative","analyticType":"dimension","offset":0},{"fid":"longitude","name":"longitude","basename":"longitude","semanticType":"quantitative","analyticType":"dimension","offset":0},{"fid":"mediafile_count","name":"mediafile_count","basename":"mediafile_count","semanticType":"quantitative","analyticType":"dimension","offset":0},{"fid":"gw_mea_key_fid","name":"Measure names","analyticType":"dimension","semanticType":"nominal"}],"measures":[{"fid":"gw_count_fid","name":"Row count","analyticType":"measure","semanticType":"quantitative","aggName":"sum","computed":true,"expression":{"op":"one","params":[],"as":"gw_count_fid"}},{"fid":"gw_mea_val_fid","name":"Measure values","analyticType":"measure","semanticType":"quantitative","aggName":"sum"}],"rows":[],"columns":[],"color":[],"opacity":[],"size":[],"shape":[],"radius":[],"theta":[],"longitude":[{"fid":"longitude","name":"longitude","basename":"longitude","semanticType":"quantitative","analyticType":"dimension","offset":0}],"latitude":[{"fid":"latitude","name":"latitude","basename":"latitude","semanticType":"quantitative","analyticType":"dimension","offset":0}],"geoId":[],"details":[],"filters":[],"text":[]},"layout":{"showActions":false,"showTableSummary":false,"stack":"stack","interactiveScale":false,"zeroScale":true,"size":{"mode":"auto","width":800,"height":600},"format":{},"geoKey":"name","resolve":{"x":false,"y":false,"color":false,"opacity":false,"shape":false,"size":false}},"visId":"gw_zMu4","name":"Chart 1"}],"chart_map":{},"workflow_list":[{"workflow":[{"type":"view","query":[{"op":"aggregate","groupBy":["longitude","latitude"],"measures":[]}]}]}],"version":"0.4.9.13"}"""
 
     def get(self, request):
         # Access mediafile_ids from the session
@@ -4042,27 +3836,11 @@ class PygWalkerLocalitiesView(PygWalkerView):
             **params
             # owner__workgroup=request.user.caiduser.workgroup
         ).annotate(
-            latitude=Cast(
-                SplitPart(F("location"), Value(","), 1), output_field=django.db.models.FloatField()
-            ),
-            longitude=Cast(
-                SplitPart(F("location"), Value(","), 2), output_field=django.db.models.FloatField()
-            ),
+            latitude=Cast(SplitPart(F("location"), Value(","), 1), output_field=django.db.models.FloatField()),
+            longitude=Cast(SplitPart(F("location"), Value(","), 2), output_field=django.db.models.FloatField()),
             # there is locality
             mediafile_count=Count("mediafiles"),
         )
-        # annotate(
-
-        # self.queryset = MediaFile.objects.filter(id__in=mediafile_ids).annotate(
-        #     latitude=Cast(
-        #         SplitPart(F('locality__location'), Value(','), 1),
-        #         output_field=django.db.models.FloatField()
-        #     ),
-        #     longitude=Cast(
-        #         SplitPart(F('locality__location'), Value(','), 2),
-        #         output_field=django.db.models.FloatField()
-        #     )
-        # )
         # Call the parent class's get method to maintain existing functionality
         return super().get(request)
 
@@ -4071,9 +3849,9 @@ class PygWalkerLocalitiesView(PygWalkerView):
 def select_second_id_for_identification_merge(request, individual_identity1_id: int):
     """Select taxon for identification."""
     individual_identity1 = get_object_or_404(IndividualIdentity, pk=individual_identity1_id)
-    identities = IndividualIdentity.objects.filter(
-        owner_workgroup=request.user.caiduser.workgroup
-    ).exclude(pk=individual_identity1_id)
+    identities = IndividualIdentity.objects.filter(owner_workgroup=request.user.caiduser.workgroup).exclude(
+        pk=individual_identity1_id
+    )
     if request.method == "POST":
         form = forms.IndividualIdentitySelectSecondForMergeForm(request.POST, identities=identities)
         logger.debug("we are in POST")
@@ -4116,9 +3894,7 @@ def get_identity_suggestions(request):
     job_id = request.session.get("refresh_job_id")
 
     sugg_obj = (
-        models.MergeIdentitySuggestionResult.objects.filter(
-            workgroup=request.user.caiduser.workgroup
-        )
+        models.MergeIdentitySuggestionResult.objects.filter(workgroup=request.user.caiduser.workgroup)
         .order_by("id")
         .last()
     )
@@ -4174,40 +3950,20 @@ def suggest_merge_identities_view(request, limit: int = 100):
         messages.info(request, f"This data created {timesince_now(created_at)} ago.")
     if response["status"] == "no-job":
         logger.debug("No job found for suggestions.")
-    if response["suggestions"] == None:
+    if response["suggestions"] is None:
         messages.info(
             request,
             "No suggestions available. Check if they are generated now or regenerate suggestions.",
         )
         return message_view(
             request,
-            f"No suggestions found. Check if the job is",
+            "No suggestions found. Check if the job is",
             link=reverse_lazy("caidapp:suggest_merge_identities"),
             button_label="Check now",
             headline="No suggestions found",
             link_secondary=reverse_lazy("caidapp:refresh_merge_identities_suggestions"),
             button_label_secondary="Regenerate suggestions",
         )
-        # refresh_identities_suggestions(request)
-        # return message_view(
-        #     request,
-        #     "Suggestions are being prepared. Please refresh this page later.",
-        #     headline="Suggestions are being prepared",
-        #     link=reverse_lazy("caidapp:suggest_merge_identities"),
-        #     button_label="Check now",
-        # )
-    # if response["status"] != "done":
-    #     return message_view(
-    #         request,
-    #         f"Suggestions are being prepared. Job was started at {response['started_at']}. Please refresh this page later.",
-    #         link=reverse_lazy("caidapp:suggest_merge_identities"),
-    #         button_label="Check now",
-    #         headline="Suggestions are being prepared",
-    #         link_secondary=reverse_lazy("caidapp:refresh_merge_identities_suggestions"),
-    #         button_label_secondary="Refresh suggestions",
-    #
-    #     )
-    #
     suggestions_ids = response["suggestions"]
     try:
         # assert "merge_identity_suggestions_ids" in request.session
@@ -4241,9 +3997,7 @@ def suggest_merge_identities_view(request, limit: int = 100):
         else:
             suggestions = None
 
-        return render(
-            request, "caidapp/suggest_merge_identities.html", {"suggestions": suggestions}
-        )
+        return render(request, "caidapp/suggest_merge_identities.html", {"suggestions": suggestions})
     except Exception as e:
 
         logger.warning(e)
@@ -4303,9 +4057,7 @@ def merge_selected_identities_view(request):
             except Exception:
                 logger.debug(f"{suggestion=}")
                 logger.debug(traceback.format_exc())
-                logger.warning(
-                    "Skipping this suggestion. Probably the identities were already merged."
-                )
+                logger.warning("Skipping this suggestion. Probably the identities were already merged.")
 
                 messages.debug(
                     request,
@@ -4329,25 +4081,18 @@ def show_identity_code_suggestions(request):
         # **user_has_access_filter_params(request.user.caiduser, "owner")
     )
 
-    return render(
-        request, "caidapp/suggest_identity_codes.html", {"identities": list(all_identities)}
-    )
+    return render(request, "caidapp/suggest_identity_codes.html", {"identities": list(all_identities)})
 
 
 @login_required
 def apply_identity_code_suggestion(request, identity_id: int, rename: bool = True):
     """Use the suggested individuality code."""
 
-    identity = get_object_or_404(
-        IndividualIdentity, pk=identity_id, owner_workgroup=request.user.caiduser.workgroup
-    )
+    identity = get_object_or_404(IndividualIdentity, pk=identity_id, owner_workgroup=request.user.caiduser.workgroup)
 
     code = identity.suggested_code_from_name()
     if code:
-        identity.note = (
-            identity.note
-            + f"\nformer code: {str(identity.code)} \nformer name: {str(identity.name)}"
-        )
+        identity.note = identity.note + f"\nformer code: {str(identity.code)} \nformer name: {str(identity.name)}"
         identity.code = code
         if rename:
             identity.name = identity.name.replace(code, "").strip()
@@ -4368,9 +4113,7 @@ def uploads_status_api(request, group: str):
         return JsonResponse({"error": "Unauthorized"}, status=401)
 
     # Získat archivy usera (dle vaší logiky, v příkladu jen pro demonstraci)
-    uploaded_archives = UploadedArchive.objects.filter(
-        **user_has_access_filter_params(user.caiduser, "owner")
-    )
+    uploaded_archives = UploadedArchive.objects.filter(**user_has_access_filter_params(user.caiduser, "owner"))
 
     data = []
     for ua in uploaded_archives:
@@ -4378,8 +4121,8 @@ def uploads_status_api(request, group: str):
             st = ua.get_status()
         else:
             st = ua.get_identification_status()
-        status = st["status"]
-        status_message = st["status_message"]
+        # status = st["status"]
+        # status_message = st["status_message"]
         data.append({"id": ua.id, **st})
 
     return JsonResponse({"archives": data})
@@ -4497,7 +4240,7 @@ def import_identities_view(request):
 
                 if "note" in row:
                     note = row["note"]
-                    if type(note) == str:
+                    if isinstance(note, str):
                         identity.note = note
 
                 if "juv_code" in row and len(row["juv_code"]) > 0:
@@ -4508,7 +4251,7 @@ def import_identities_view(request):
                 if "death_date" in row and not pd.isna(row["death_date"]):
                     identity.death_date = row["death_date"]
 
-                if identity.owner_workgroup == None:
+                if identity.owner_workgroup is None:
                     identity.owner_workgroup = request.user.caiduser.workgroup
 
                 identity.save()
@@ -4550,9 +4293,7 @@ def toggle_identity_representative(request, mediafile_id: int):
 
     # Povolení jen v rámci stejné workgroup + musí mít identitu
     if mf.identity is None:
-        return JsonResponse(
-            {"ok": False, "error": "Mediafile nemá přiřazenou identitu."}, status=400
-        )
+        return JsonResponse({"ok": False, "error": "Mediafile nemá přiřazenou identitu."}, status=400)
     if request.user.caiduser.workgroup != mf.parent.owner.workgroup:
         return HttpResponseNotAllowed("Not allowed")
 
@@ -4585,9 +4326,7 @@ class NotificationListView(ListView):
     title = "Notifications"
 
     def get_queryset(self):
-        return models.Notification.objects.filter(user=self.request.user.caiduser).order_by(
-            "-created_at"
-        )
+        return models.Notification.objects.filter(user=self.request.user.caiduser).order_by("-created_at")
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)

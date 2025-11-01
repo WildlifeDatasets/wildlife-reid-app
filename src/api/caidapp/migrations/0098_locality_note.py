@@ -6,13 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0097_mediafile_media_file_corrupted'),
+        ("caidapp", "0097_mediafile_media_file_corrupted"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='locality',
-            name='note',
-            field=models.TextField(blank=True, default=''),
+            model_name="locality",
+            name="note",
+            field=models.TextField(blank=True, default=""),
         ),
     ]

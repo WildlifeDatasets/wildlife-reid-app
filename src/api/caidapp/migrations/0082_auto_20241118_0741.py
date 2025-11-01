@@ -6,18 +6,18 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0081_mediafile_note'),
+        ("caidapp", "0081_mediafile_note"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='individualidentity',
-            name='birth_date',
-            field=models.DateField(blank=True, null=True, verbose_name='Birth date'),
+            model_name="individualidentity",
+            name="birth_date",
+            field=models.DateField(blank=True, null=True, verbose_name="Birth date"),
         ),
         migrations.AddField(
-            model_name='individualidentity',
-            name='death_date',
-            field=models.DateField(blank=True, null=True, verbose_name='Death date'),
+            model_name="individualidentity",
+            name="death_date",
+            field=models.DateField(blank=True, null=True, verbose_name="Death date"),
         ),
     ]

@@ -6,12 +6,12 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0131_remove_identitysuggestionresult_user'),
+        ("caidapp", "0131_remove_identitysuggestionresult_user"),
     ]
 
     operations = [
         migrations.RenameModel(
-            old_name='IdentitySuggestionResult',
-            new_name='MergeIdentitySuggestionResult',
+            old_name="IdentitySuggestionResult",
+            new_name="MergeIdentitySuggestionResult",
         ),
     ]

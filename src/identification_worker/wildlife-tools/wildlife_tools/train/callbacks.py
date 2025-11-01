@@ -2,7 +2,6 @@ import os
 from copy import deepcopy
 
 from torch.utils.tensorboard import SummaryWriter
-
 from wildlife_tools.tools import realize
 
 

@@ -5,9 +5,7 @@ from . import fs_data
 
 root_dir = Path(__file__).parent.parent.parent.parent
 
-CAID_DATASET_BASEDIR = Path(
-    os.getenv("CARNIVOREID_DATASET_BASEDIR", r"H:\biology\orig\CarnivoreID")
-)
+CAID_DATASET_BASEDIR = Path(os.getenv("CARNIVOREID_DATASET_BASEDIR", r"H:\biology\orig\CarnivoreID"))
 
 
 def test_thumbnail():

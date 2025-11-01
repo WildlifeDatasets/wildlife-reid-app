@@ -11,7 +11,6 @@ from PIL import Image
 from tqdm import tqdm
 
 from . import inference_detection
-from .inference_detection import detect_animals_in_one_image
 
 logger = logging.getLogger("app")
 
@@ -144,9 +143,7 @@ def save_gif(images, path: str):
     frame_one.save(jpg_path)
 
 
-def make_gif(
-    images: np.ndarray, path: str, center_frame_idx: int, num_frames: int = 48, height: int = 360
-):
+def make_gif(images: np.ndarray, path: str, center_frame_idx: int, num_frames: int = 48, height: int = 360):
     """Create gif from few frames of the video around center_frame_idx."""
     gif_frames = get_gif_frames(images, center_frame_idx, num_frames)
     if height > 0:
@@ -208,17 +205,10 @@ def create_image_from_video(
             # detect
             predictions = []
 
-            ## Old per frame detection
-            # for frame_id, image in enumerate(images):
-            #     prediction = detect_animals_in_one_image(image)
-            #     pbar.update(1.0 / len_images)
-            ## end of old prr frame detection
-            ## New batch detection
-            detections_per_frame = inference_detection.detect_animals_in_images(
-                images, batch_size=64, pbar=pbar
-            )
+            # New batch detection
+            detections_per_frame = inference_detection.detect_animals_in_images(images, batch_size=64, pbar=pbar)
             for frame_id, prediction in enumerate(detections_per_frame):
-                ## end of new batch detection
+                # end of new batch detection
                 if prediction is not None:
                     # use only prediction with max confidence
                     # TODO: how to handle multiple detections in one image?
@@ -245,9 +235,7 @@ def create_image_from_video(
                 continue
 
             # select
-            for selection_method_name, selection_threshold in zip(
-                selection_methods, selection_thresholds
-            ):
+            for selection_method_name, selection_threshold in zip(selection_methods, selection_thresholds):
                 if selection_method_name == "area":
                     selection_method = partial(area_selection, threshold=selection_threshold)
                 elif selection_method_name == "ratio":

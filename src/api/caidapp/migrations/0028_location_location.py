@@ -14,8 +14,6 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name="location",
             name="location",
-            field=location_field.models.plain.PlainLocationField(
-                blank=True, max_length=63, null=True
-            ),
+            field=location_field.models.plain.PlainLocationField(blank=True, max_length=63, null=True),
         ),
     ]

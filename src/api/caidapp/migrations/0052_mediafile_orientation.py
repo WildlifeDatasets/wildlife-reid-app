@@ -13,8 +13,6 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name="mediafile",
             name="orientation",
-            field=models.CharField(
-                choices=[("L", "Left"), ("R", "Right"), ("N", "None")], default="N", max_length=2
-            ),
+            field=models.CharField(choices=[("L", "Left"), ("R", "Right"), ("N", "None")], default="N", max_length=2),
         ),
     ]

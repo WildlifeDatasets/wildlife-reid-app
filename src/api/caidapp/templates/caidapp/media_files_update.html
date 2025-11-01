@@ -404,11 +404,22 @@
                                                     ></i>
                                                 {% endif %}
 {#                                                {% if mediafile.instance.category.name == "Not Classified" %} #}
+
+                                            Observation count {{ mediafile.instance.observations.count }}
                                                 {% if mediafile.instance.is_for_suggestion %}
                                                     <br>
                                                     <i class="bi bi-question-circle"></i>
-                                                    Is it {{ mediafile.instance.predicted_taxon  }} ({{ mediafile.instance.predicted_taxon_confidence|mul:100|floor|floatformat:0 }}%) ?
-                                                    <a href="#" class="btn btn-secondary confirm-prediction" data-id="{% url 'caidapp:confirm_prediction' mediafile.instance.id %}">Confirm</a>
+                                                    {% with count=mediafile.instance.observations.count %}
+        {% if count > 1 %}
+            Are these {{ count }} observations a {{ mediafile.instance.predicted_taxon }}
+            ({{ mediafile.instance.predicted_taxon_confidence|mul:100|floor|floatformat:0 }}%)?
+        {% else %}
+            Is this observation a {{ mediafile.instance.predicted_taxon }}
+            ({{ mediafile.instance.predicted_taxon_confidence|mul:100|floor|floatformat:0 }}%)?
+        {% endif %}
+    {% endwith %}
+{#                                                    Is it {{ mediafile.instance.predicted_taxon  }} ({{ mediafile.instance.predicted_taxon_confidence|mul:100|floor|floatformat:0 }}%) ?#}
+                                                    <a href="#" class="btn btn-sm btn-secondary confirm-prediction" data-id="{% url 'caidapp:confirm_prediction' mediafile.instance.id %}">Confirm</a>
                                                 {% endif %}
                                                 {% if mediafile.instance.parent.contains_single_taxon %}
                                                     {% if mediafile.instance.is_for_suggestion %}

@@ -6,18 +6,18 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0112_caiduser_timezone'),
+        ("caidapp", "0112_caiduser_timezone"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='caiduser',
-            name='ml_consent_given',
+            model_name="caiduser",
+            name="ml_consent_given",
             field=models.BooleanField(default=False),
         ),
         migrations.AddField(
-            model_name='caiduser',
-            name='ml_consent_given_date',
-            field=models.DateTimeField(blank=True, null=True, verbose_name='ML consent given date'),
+            model_name="caiduser",
+            name="ml_consent_given_date",
+            field=models.DateTimeField(blank=True, null=True, verbose_name="ML consent given date"),
         ),
     ]

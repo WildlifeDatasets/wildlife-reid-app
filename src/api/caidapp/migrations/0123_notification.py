@@ -7,20 +7,34 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0122_rename_identification_scheduled_reid_eta_workgroup_identification_scheduled_run_eta_and_more'),
+        (
+            "caidapp",
+            "0122_rename_identification_scheduled_reid_eta_workgroup_identification_scheduled_run_eta_and_more",
+        ),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='Notification',
+            name="Notification",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('message', models.TextField(blank=True, default='')),
-                ('json_message', models.JSONField(blank=True, null=True)),
-                ('created_at', models.DateTimeField(auto_now_add=True, verbose_name='Created at')),
-                ('read', models.BooleanField(default=False, verbose_name='Read')),
-                ('level', models.PositiveSmallIntegerField(choices=[(10, 'Debug'), (20, 'Info'), (30, 'Warning'), (40, 'Error'), (50, 'Critical')], default=20)),
-                ('user', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to='caidapp.caiduser')),
+                ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
+                ("message", models.TextField(blank=True, default="")),
+                ("json_message", models.JSONField(blank=True, null=True)),
+                ("created_at", models.DateTimeField(auto_now_add=True, verbose_name="Created at")),
+                ("read", models.BooleanField(default=False, verbose_name="Read")),
+                (
+                    "level",
+                    models.PositiveSmallIntegerField(
+                        choices=[(10, "Debug"), (20, "Info"), (30, "Warning"), (40, "Error"), (50, "Critical")],
+                        default=20,
+                    ),
+                ),
+                (
+                    "user",
+                    models.ForeignKey(
+                        blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to="caidapp.caiduser"
+                    ),
+                ),
             ],
         ),
     ]

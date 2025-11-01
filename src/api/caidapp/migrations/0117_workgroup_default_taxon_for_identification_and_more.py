@@ -7,33 +7,47 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0116_identificationmodel_workgroup_and_more'),
+        ("caidapp", "0116_identificationmodel_workgroup_and_more"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='workgroup',
-            name='default_taxon_for_identification',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to='caidapp.taxon'),
+            model_name="workgroup",
+            name="default_taxon_for_identification",
+            field=models.ForeignKey(
+                blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to="caidapp.taxon"
+            ),
         ),
         migrations.AddField(
-            model_name='workgroup',
-            name='identification_model',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='actual_workgroup_identification_model', to='caidapp.identificationmodel'),
+            model_name="workgroup",
+            name="identification_model",
+            field=models.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                related_name="actual_workgroup_identification_model",
+                to="caidapp.identificationmodel",
+            ),
         ),
         migrations.AddField(
-            model_name='workgroup',
-            name='identification_scheduled_init_eta',
+            model_name="workgroup",
+            name="identification_scheduled_init_eta",
             field=models.DateTimeField(blank=True, null=True),
         ),
         migrations.AddField(
-            model_name='workgroup',
-            name='identification_scheduled_init_task_id',
+            model_name="workgroup",
+            name="identification_scheduled_init_task_id",
             field=models.CharField(blank=True, max_length=255, null=True),
         ),
         migrations.AlterField(
-            model_name='identificationmodel',
-            name='workgroup',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='identification_models', to='caidapp.workgroup'),
+            model_name="identificationmodel",
+            name="workgroup",
+            field=models.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.CASCADE,
+                related_name="identification_models",
+                to="caidapp.workgroup",
+            ),
         ),
     ]

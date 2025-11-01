@@ -1,14 +1,11 @@
-from django.test import TestCase
-from django.urls import get_resolver, reverse, NoReverseMatch, URLPattern, URLResolver
-from django.contrib.auth import get_user_model
+import logging
 
 from caidapp.models import (
     WorkGroup,
-    UploadedArchive,
-    MediaFile,
-    IndividualIdentity,
 )
-import logging
+from django.contrib.auth import get_user_model
+from django.test import TestCase
+from django.urls import NoReverseMatch, URLPattern, URLResolver, reverse
 
 logger = logging.getLogger(__name__)
 

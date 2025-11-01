@@ -347,9 +347,7 @@ def get_merged_predictions(
 
     merged_predictions_ids = classifier(query, database, remove_masked=True)
     if identities:
-        merged_predictions_ids = top_identities(
-            merged_predictions_ids, database.labels_string, top_k
-        )
+        merged_predictions_ids = top_identities(merged_predictions_ids, database.labels_string, top_k)
     else:
         merged_predictions_ids = np.array(merged_predictions_ids)[:, :top_k]
     keypoints = get_keypoints(query, database, merged_predictions_ids, num_kp)

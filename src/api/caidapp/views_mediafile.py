@@ -1,28 +1,21 @@
 import os
-import random
 from typing import Optional
 
 import django
-from django.http import Http404, HttpResponseNotAllowed, JsonResponse, StreamingHttpResponse
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.http import Http404, JsonResponse, StreamingHttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
-from django.urls import reverse_lazy
+from django.urls import reverse, reverse_lazy
 from django.utils import timezone
-from django.contrib.auth.decorators import login_required, user_passes_test
-from django.contrib import messages
-from django.contrib.auth.mixins import LoginRequiredMixin
-from extra_views import UpdateWithInlinesView, InlineFormSetFactory
-from django.contrib import messages
-from django.urls import reverse
 from django.views.generic import DeleteView
-from django.contrib.auth.mixins import LoginRequiredMixin
-from django.forms import HiddenInput
+from extra_views import InlineFormSetFactory, UpdateWithInlinesView
 
-from . import model_extra, models, forms
-from .forms import MediaFileForm, MediaFileMissingTaxonForm
-from .models import MediaFile
-from .views import logger, media_files_update, message_view
-from .models import MediaFile, AnimalObservation
+from . import forms, model_extra, models
 from .forms import MediaFileForm
+from .models import AnimalObservation, MediaFile
+from .views import logger, media_files_update, message_view
 
 
 @login_required
@@ -74,10 +67,8 @@ def missing_taxon_annotation(
         uploadedarchive = None
 
     # pick random non-classified media file
-    mediafiles = models.get_mediafiles_with_missing_taxon(
-        request.user.caiduser, uploadedarchive=uploadedarchive
-    )
-    missing_count = mediafiles.count()
+    mediafiles = models.get_mediafiles_with_missing_taxon(request.user.caiduser, uploadedarchive=uploadedarchive)
+    # missing_count = mediafiles.count()
     last_ten_mediafiles = mediafiles.order_by("-parent__uploaded_at", "-captured_at")
     #
     # Select a random media file from the last 10
@@ -134,9 +125,7 @@ def get_next_in_queryset(queryset, instance):
 
 
 @login_required
-def missing_taxon_annotation_for_mediafile(
-    request, mediafile_id: int, uploaded_archive_id: Optional[int] = None
-):
+def missing_taxon_annotation_for_mediafile(request, mediafile_id: int, uploaded_archive_id: Optional[int] = None):
     """Do taxon annotation on selected media file."""
     # Načíst uploaded archive, pokud byl předán
     if uploaded_archive_id:
@@ -147,10 +136,8 @@ def missing_taxon_annotation_for_mediafile(
     mediafile = get_object_or_404(MediaFile, id=mediafile_id)
 
     # pick random non-classified media file
-    mediafiles = models.get_mediafiles_with_missing_taxon(
-        request.user.caiduser, uploadedarchive=uploadedarchive
-    )
-    missing_count = mediafiles.count()
+    mediafiles = models.get_mediafiles_with_missing_taxon(request.user.caiduser, uploadedarchive=uploadedarchive)
+    # missing_count = mediafiles.count()
     mediafiles_to_be_annotated = mediafiles.order_by("-parent__uploaded_at", "-captured_at")
     # find position of current mediafile and select the next one
     next_mediafile = get_next_in_queryset(mediafiles_to_be_annotated, mediafile)
@@ -255,9 +242,7 @@ def set_mediafiles_records_per_page(request, records_per_page: int):
     return redirect(request.META.get("HTTP_REFERER", "/"))
 
 
-def __verify_taxon_in_observations(
-    mediafile: models.MediaFile, caiduser: models.CaIDUser, commit=True
-):
+def __verify_taxon_in_observations(mediafile: models.MediaFile, caiduser: models.CaIDUser, commit=True):
     # Update the MediaFile instance
     now = timezone.now()
     mediafile.updated_at = now
@@ -280,14 +265,18 @@ def confirm_prediction(request, mediafile_id: int) -> JsonResponse:
     """Confirm prediction for media file with low confidence."""
     try:
         mediafile = get_object_or_404(MediaFile, id=mediafile_id)
-        mediafile.taxon = mediafile.predicted_taxon
-        # user has rw access
-        if model_extra.user_has_rw_access_to_mediafile(
-            request.user.caiduser, mediafile, accept_none=True
-        ):
-            __verify_taxon_in_observations(mediafile, request.user.caiduser)
-            return JsonResponse({"success": True, "message": "Prediction confirmed."})
-        return JsonResponse({"success": False, "message": "No read/write access to the file"})
+        # zkontrolovat přístup před změnami
+        if not model_extra.user_has_rw_access_to_mediafile(request.user.caiduser, mediafile, accept_none=True):
+            return JsonResponse({"success": False, "message": "No read/write access to the file"})
+
+        # nastavíme taxon mediafile i všech jeho observations na predicted_taxon
+        # mediafile.taxon = mediafile.predicted_taxon
+        for ao in mediafile.observations.all():
+            ao.taxon = mediafile.predicted_taxon
+            logger.debug(f"Confirming prediction for observation {ao.id} to taxon {ao.taxon}")
+            ao.save()
+        __verify_taxon_in_observations(mediafile, request.user.caiduser)
+        return JsonResponse({"success": True, "message": "Prediction confirmed."})
     except Exception:
         return JsonResponse({"success": False, "message": "Invalid request."})
 

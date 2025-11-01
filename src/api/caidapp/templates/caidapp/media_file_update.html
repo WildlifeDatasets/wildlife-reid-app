@@ -265,14 +265,43 @@
                     class="btn btn-outline-danger btn-sm delete-observation-btn">
                 <i class="bi bi-trash"></i> Delete
             </button>
+
+                                                                   <div class="dropdown d-inline-block mt-3">
+                                                                       {#                                <div class="dropdown d-inline-block">#}
+                                                                       <a class="btn btn-sm btn-outline-secondary dropdown-toggle" href="#" role="button"
+                                                                          data-bs-toggle="dropdown" aria-expanded="false">
+                                                                           <i class="bi bi-three-dots"></i>
+                                                                       </a>
+
+                                                                       <ul class="dropdown-menu">
+                                                                           {% if request.user.is_staff %}
+
+                                                                               <li>
+                                                                                   <a class="dropdown-item"
+                                                                                      href="{% url 'admin:caidapp_animalobservation_change' obs_form.instance.pk %}">
+                                                                                       <i class="bi bi-lock"></i>
+                                                                                       Edit in admin
+                                                                                   </a>
+                                                                               </li>
+                                                                           {% endif %}
+                                                                       </ul>
+                                                                   </div>
         {% endif %}
+                                                            <span
 
+                                                                    title="File name: {{ mediafile }}
+Observation ID: {{ obs_form.instance.id }}
+{% if obs_form.instance.taxon      %}Observation Taxon: {{ obs_form.instance.taxon }}{% endif %}
+{% if obs_form.instance.identity   %}Observation Identity: {{ obs_form.instance.identity }}{% endif %}
+{% if obs_form.instance.uploaded_by %}Observation Uploaded by: {{ obs_form.instance.uploaded_by }}{% endif %}
+{% if obs_form.instance.updated_by %}Observation Updated by: {{ obs_form.instance.updated_by }}{% endif %}
+{% if obs_form.instance.created_at %}Observation Created at: {{ obs_form.instance.created_at|date:'Y-m-d H:i' }}{% endif %}
+{% if obs_form.instance.updated_at %}Observation Updated at: {{ obs_form.instance.updated_at|date:'Y-m-d H:i' }}{% endif %}
+"
+                                                            >
+                                                                                                        <i class="bi bi-info-circle"></i>
+                                                                                                        </span>
                                                         {{ obs_form.DELETE.as_hidden }}
-
-
-
-
-
                                                         </div>
                                                     {% endfor %}
 

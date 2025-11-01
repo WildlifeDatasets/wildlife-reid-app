@@ -1,19 +1,13 @@
-import argparse
-import json
+import io
 import logging
 import os
-import io
-from typing import Callable, Tuple, Union, Optional
-from collections import OrderedDict
-import pandas as pd
-import torch.nn as nn
-import yaml
 import warnings
+from collections import OrderedDict
+from typing import Optional, Tuple, Union
+
 import timm
 import torch
 import torch.nn as nn
-
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -49,10 +43,7 @@ def get_model_target_size(model: nn.Module) -> Optional[int]:
         target_size = module.out_features
 
     if target_size is None:
-        warnings.warn(
-            "Could not find target size (number of classes) "
-            f"of the model {model.__class__.__name__}."
-        )
+        warnings.warn("Could not find target size (number of classes) " f"of the model {model.__class__.__name__}.")
 
     return target_size
 
@@ -164,9 +155,7 @@ def set_prediction_head(model: nn.Module, target_size: int, *, in_features: int 
     return model
 
 
-def load_model(
-    config: dict, checkpoint_path: str = None, strict: bool = True
-) -> Tuple[nn.Module, tuple, tuple]:
+def load_model(config: dict, checkpoint_path: str = None, strict: bool = True) -> Tuple[nn.Module, tuple, tuple]:
     """Load model with pre-trained checkpoint.
 
     Options from YAML configuration file:

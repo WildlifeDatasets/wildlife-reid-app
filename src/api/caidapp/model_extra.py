@@ -1,12 +1,12 @@
-import pandas as pd
-import Levenshtein
-from django.contrib.auth import get_user_model
-from tqdm import tqdm
-from .models import IndividualIdentity, MergeIdentitySuggestionResult
-from .model_tools import order_identity_by_mediafile_count, remove_diacritics
-from .models import CaIDUser, Locality, MediaFile, UploadedArchive
-from . import models
 import logging
+
+import Levenshtein
+import pandas as pd
+from tqdm import tqdm
+
+from . import models
+from .model_tools import order_identity_by_mediafile_count, remove_diacritics
+from .models import CaIDUser, IndividualIdentity, Locality, MediaFile, MergeIdentitySuggestionResult, UploadedArchive
 
 logger = logging.getLogger(__name__)
 
@@ -19,9 +19,7 @@ def user_has_access_to_mediafiles_filter_params(caiduser: CaIDUser):
     return models.user_has_access_filter_params(caiduser=caiduser, prefix="parent__owner")
 
 
-def user_has_rw_access_to_mediafile(
-    ciduser: CaIDUser, mediafile: MediaFile, accept_none: bool
-) -> bool:
+def user_has_rw_access_to_mediafile(ciduser: CaIDUser, mediafile: MediaFile, accept_none: bool) -> bool:
     """Check if user has access to mediafile."""
     if mediafile is None:
         if accept_none:
@@ -31,9 +29,7 @@ def user_has_rw_access_to_mediafile(
         if accept_none:
             return True
         return False
-    return (mediafile.parent.owner.id == ciduser.id) or (
-        mediafile.parent.owner.workgroup == ciduser.workgroup
-    )
+    return (mediafile.parent.owner.id == ciduser.id) or (mediafile.parent.owner.workgroup == ciduser.workgroup)
 
 
 def user_has_rw_acces_to_uploadedarchive(
@@ -49,18 +45,14 @@ def user_has_rw_acces_to_uploadedarchive(
             return True
         return False
 
-    return (uploadedarchive.owner.id == ciduser.id) or (
-        uploadedarchive.owner.workgroup == ciduser.workgroup
-    )
+    return (uploadedarchive.owner.id == ciduser.id) or (uploadedarchive.owner.workgroup == ciduser.workgroup)
 
 
 def prepare_dataframe_for_uploads_in_one_locality(locality_id: int) -> pd.DataFrame:
     """Prepare dataframe for uploads in one locality."""
     locality = Locality.objects.get(id=locality_id)
 
-    locality_uploads = UploadedArchive.objects.filter(locality_at_upload_object=locality).order_by(
-        "uploaded_at"
-    )
+    locality_uploads = UploadedArchive.objects.filter(locality_at_upload_object=locality).order_by("uploaded_at")
 
     df = pd.DataFrame.from_records(locality_uploads.values())
 
@@ -110,9 +102,7 @@ def compute_identity_suggestions(workgroup_id: int, limit: int = 100) -> int:
     total = all_identities.count()
     print(f"Total identities: {total}")
 
-    for i, identity1 in tqdm(
-        enumerate(all_identities), total=total, desc="Computing identity suggestions"
-    ):
+    for i, identity1 in tqdm(enumerate(all_identities), total=total, desc="Computing identity suggestions"):
         for j in range(i + 1, len(all_identities)):
             identity2 = all_identities[j]
             if identity1 == identity2:

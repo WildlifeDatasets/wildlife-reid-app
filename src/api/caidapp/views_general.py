@@ -1,11 +1,11 @@
-from django.shortcuts import redirect
-import re
-from django.http import HttpResponse
 import datetime
-import pandas as pd
-from io import BytesIO
-from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 import logging
+from io import BytesIO
+from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
+
+import pandas as pd
+from django.http import HttpResponse
+from django.shortcuts import redirect
 
 logger = logging.getLogger(__name__)
 
@@ -90,9 +90,7 @@ def excel_response(df, name):
 
     output.seek(0)
 
-    response = HttpResponse(
-        output, content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
+    response = HttpResponse(output, content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     response["Content-Disposition"] = f"attachment; filename={name}.{datetime_str}.xlsx"
     return response
 

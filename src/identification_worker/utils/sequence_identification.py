@@ -1,14 +1,10 @@
+import logging
 import re
+import traceback
 import typing
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional, Tuple
-import traceback
-
-import numpy as np
-import pandas as pd
-from PIL import Image, UnidentifiedImageError
-from tqdm import tqdm
 
 import cv2
 import exiftool
@@ -18,11 +14,8 @@ import pytesseract
 import scipy.stats
 import skimage
 import skimage.color
-from joblib import Parallel, delayed
-from PIL import Image
+from PIL import Image, UnidentifiedImageError
 from tqdm import tqdm
-from tqdm.contrib.logging import logging_redirect_tqdm
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -169,7 +162,7 @@ def get_datetime_from_exif_or_ocr(
             if dt_source.startswith("QuickTime"):
                 in_worst_case_dt = dt_str
                 in_worst_case_dt_source = dt_source
-                df_str = ""
+                # df_str = ""
                 dt_source = ""
             read_error = ""
         except Exception as e:
@@ -240,9 +233,7 @@ def get_datetime_from_exif_or_ocr(
     return dt_str, read_error, dt_source
 
 
-def get_datetime_exiftool(
-    video_pth: Path, checked_keys: Optional[list] = None
-) -> typing.Tuple[str, bool, str]:
+def get_datetime_exiftool(video_pth: Path, checked_keys: Optional[list] = None) -> typing.Tuple[str, bool, str]:
     """Get datetime from video using exiftool."""
     if checked_keys is None:
         checked_keys = [
@@ -286,9 +277,7 @@ def get_datetime_from_ocr(filename: Path) -> typing.Tuple[str, str]:
 
     date_str, is_cuddleback1, ocr_result = _check_if_it_is_cuddleback1(frame_bgr)
     if not is_cuddleback1:
-        date_str, is_cuddleback_corner, ocr_result_corner = _check_if_it_is_cuddleback_corner(
-            frame_bgr
-        )
+        date_str, is_cuddleback_corner, ocr_result_corner = _check_if_it_is_cuddleback_corner(frame_bgr)
         ocr_result += "; " + ocr_result_corner
         if not is_cuddleback_corner:
             date_str = ""
@@ -360,8 +349,8 @@ def _check_if_it_is_cuddleback_corner(frame_bgr: np.array) -> Tuple[str, bool, s
         if len(dates) == 0:
             date_str = ""
             is_ok = False
-            logger.debug(f"{np.mean(frame_hsv, axis=(0,1))=}")
-            logger.debug(f"{np.mean(frame_bgr, axis=(0,1))=}")
+            logger.debug(f"{np.mean(frame_hsv, axis=(0, 1))=}")
+            logger.debug(f"{np.mean(frame_bgr, axis=(0, 1))=}")
             logger.debug(f"{yellow_prototype_hsv=}")
             logger.debug(f"{scipy.stats.describe(frame_bgr.ravel())=}")
             logger.debug(f"OCR result: {ocr_result}")

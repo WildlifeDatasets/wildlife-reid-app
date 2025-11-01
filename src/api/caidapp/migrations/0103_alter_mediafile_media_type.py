@@ -6,13 +6,15 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0102_locality_area'),
+        ("caidapp", "0102_locality_area"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='mediafile',
-            name='media_type',
-            field=models.CharField(blank=True, choices=[('image', 'Image'), ('video', 'Video')], default='image', max_length=255),
+            model_name="mediafile",
+            name="media_type",
+            field=models.CharField(
+                blank=True, choices=[("image", "Image"), ("video", "Video")], default="image", max_length=255
+            ),
         ),
     ]

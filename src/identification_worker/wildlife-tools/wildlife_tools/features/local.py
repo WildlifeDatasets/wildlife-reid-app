@@ -68,9 +68,7 @@ class GlueFactoryExtractor(FeatureExtractor):
             features.append(output)
 
         self.model.to("cpu")
-        return FeatureDataset(
-            metadata=dataset.metadata, features=features, col_label=dataset.col_label
-        )
+        return FeatureDataset(metadata=dataset.metadata, features=features, col_label=dataset.col_label)
 
 
 class SuperPointExtractor(GlueFactoryExtractor):

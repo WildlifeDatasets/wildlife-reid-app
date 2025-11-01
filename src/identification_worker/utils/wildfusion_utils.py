@@ -16,9 +16,7 @@ def get_hits(dataset0, dataset1):
 
 
 class SimilarityPipelineExtended(SimilarityPipeline):
-    def get_feature_dataset(
-        self, dataset: Union[WildlifeDataset, dict]
-    ) -> Union[FeatureDataset, dict]:
+    def get_feature_dataset(self, dataset: Union[WildlifeDataset, dict]) -> Union[FeatureDataset, dict]:
         """Return dataset with features extracted by extractor."""
         if not isinstance(dataset, WildlifeDataset):
             return dataset
@@ -29,9 +27,7 @@ class SimilarityPipelineExtended(SimilarityPipeline):
         else:
             return dataset
 
-    def fit_calibration(
-        self, dataset0: Union[WildlifeDataset, dict], dataset1: Union[WildlifeDataset, dict]
-    ):
+    def fit_calibration(self, dataset0: Union[WildlifeDataset, dict], dataset1: Union[WildlifeDataset, dict]):
         """Fit calibration using scores from given two datasets."""
         super().fit_calibration(dataset0, dataset1)
 
@@ -53,9 +49,7 @@ class WildFusionExtended(WildFusion):
             _dataset = dataset[type(matcher.extractor)]
         return _dataset
 
-    def fit_calibration(
-        self, dataset0: Union[WildlifeDataset, dict], dataset1: Union[WildlifeDataset, dict]
-    ):
+    def fit_calibration(self, dataset0: Union[WildlifeDataset, dict], dataset1: Union[WildlifeDataset, dict]):
         """Fit calibration using scores from given two datasets."""
         for matcher in self.calibrated_matchers:
             _dataset0 = self.select_dataset(dataset0, matcher)

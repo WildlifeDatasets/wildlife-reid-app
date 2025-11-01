@@ -1,3 +1,5 @@
+import logging
+
 from django import forms
 from django.contrib.auth import get_user_model
 
@@ -6,13 +8,11 @@ from .models import (
     Album,
     CaIDUser,
     IndividualIdentity,
+    Locality,
     MediaFile,
     UploadedArchive,
-    Locality,
     WorkGroup,
 )
-import logging
-
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
@@ -34,16 +34,12 @@ class CompareLocalitiesForm(forms.Form):
 
 
 class UserIdentificationModelForm(forms.Form):
-    identification_model = forms.ModelChoiceField(
-        queryset=models.IdentificationModel.objects.all(), required=True
-    )
+    identification_model = forms.ModelChoiceField(queryset=models.IdentificationModel.objects.all(), required=True)
 
 
 # deprecated TODO remove
 class WorkgroupUsersForm(forms.Form):
-    workgroup_users = forms.ModelMultipleChoiceField(
-        queryset=CaIDUser.objects.all(), required=False
-    )
+    workgroup_users = forms.ModelMultipleChoiceField(queryset=CaIDUser.objects.all(), required=False)
 
 
 from django import forms
@@ -105,9 +101,6 @@ class TaxonForm(forms.ModelForm):
 
 
 class WellcomeForm(forms.ModelForm):
-    # show_taxon_classification = forms.BooleanField(label="Taxon Classification", initial=True, required=False)
-    # show_reidentification = forms.BooleanField(label="Identification", initial=False, required=False)
-    # show_wellcome_message_on_next_login = forms.BooleanField(label="Show this message next time", initial=False, required=False)
     class Meta:
         model = CaIDUser
         fields = ("show_taxon_classification", "show_wellcome_message_on_next_login")
@@ -123,12 +116,6 @@ class CaIDUserSettingsForm(forms.ModelForm):
             "ml_consent_given",
             "show_wellcome_message_on_next_login",
         )
-
-    # def __init__(self, *args, **kwargs):
-    #     user = kwargs.pop("user", None)
-    #     super().__init__(*args, **kwargs)
-    #     if user:
-    #         self.fields["ml_consent_given"].initial = user.caiduser.ml_consent_given
 
 
 class AlbumForm(forms.ModelForm):
@@ -240,9 +227,7 @@ class UploadedArchiveUpdateForm(forms.ModelForm):
 
     from .models import UploadedArchive
 
-    locality_at_upload = forms.CharField(
-        widget=forms.TextInput(attrs={"class": "autocomplete"}), required=False
-    )
+    locality_at_upload = forms.CharField(widget=forms.TextInput(attrs={"class": "autocomplete"}), required=False)
 
     class Meta:
         model = UploadedArchive
@@ -257,18 +242,14 @@ class UploadedArchiveUpdateForm(forms.ModelForm):
 
 class UploadedArchiveForm(forms.ModelForm):
 
-    locality_at_upload = forms.CharField(
-        widget=forms.TextInput(attrs={"class": "autocomplete"}), required=False
-    )
+    locality_at_upload = forms.CharField(widget=forms.TextInput(attrs={"class": "autocomplete"}), required=False)
     ml_consent = forms.BooleanField(
         widget=forms.CheckboxInput(),
         label="I agree to the use of my uploaded images and videos for training AI models.",
         required=True,
     )
     locality_check_at = forms.DateField(
-        widget=forms.DateInput(
-            attrs={"class": "datepicker", "placeholder": "yyyy-mm-dd"}, format="%Y-%m-%d"
-        ),
+        widget=forms.DateInput(attrs={"class": "datepicker", "placeholder": "yyyy-mm-dd"}, format="%Y-%m-%d"),
         input_formats=["%Y-%m-%d"],
         # widget=forms.TextInput(attrs={'class': 'datepicker'})
     )
@@ -297,9 +278,7 @@ class UploadedArchiveForm(forms.ModelForm):
 
 class UploadedArchiveFormWithTaxon(forms.ModelForm):
 
-    locality_at_upload = forms.CharField(
-        widget=forms.TextInput(attrs={"class": "autocomplete"}), required=False
-    )
+    locality_at_upload = forms.CharField(widget=forms.TextInput(attrs={"class": "autocomplete"}), required=False)
     taxon_for_identification = forms.ModelChoiceField(
         queryset=models.Taxon.objects.all().order_by("name"), required=True
     )
@@ -445,17 +424,13 @@ class UploadedArchiveFilterForm:
 
 
 class UserSelectForm(forms.Form):
-    user = forms.ModelChoiceField(
-        queryset=User.objects.all().order_by("username"), label="Select User"
-    )
+    user = forms.ModelChoiceField(queryset=User.objects.all().order_by("username"), label="Select User")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         self.fields["user"].label_from_instance = lambda obj: (
-            f"{obj.first_name} {obj.last_name}".strip()
-            if obj.first_name or obj.last_name
-            else obj.username
+            f"{obj.first_name} {obj.last_name}".strip() if obj.first_name or obj.last_name else obj.username
         )
 
 
@@ -484,10 +459,6 @@ class ColumnMappingForm(forms.Form):
 
 
 from django import forms
-from django.forms import HiddenInput
-from django.urls import reverse
-from crispy_forms.helper import FormHelper
-from crispy_forms.layout import Layout, Row, Column, HTML
 
 # class AnimalObservationForm(forms.ModelForm):
 #     class Meta:

@@ -6,13 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0095_mediafile_static_thumbnail'),
+        ("caidapp", "0095_mediafile_static_thumbnail"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='individualidentity',
-            name='name',
+            model_name="individualidentity",
+            name="name",
             field=models.CharField(max_length=100),
         ),
     ]

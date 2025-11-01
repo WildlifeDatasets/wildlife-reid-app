@@ -3,9 +3,8 @@
 
 # migration is bascally empty, because i forgot to add the code into the operations list
 
+
 from django.db import migrations
-import ast
-from tqdm import tqdm
 
 # def forwards(apps, schema_editor):
 #     MediaFile = apps.get_model("caidapp", "MediaFile")
@@ -34,7 +33,8 @@ from tqdm import tqdm
 #                 dets = ast.literal_eval(mf.metadata_json["detection_results"])
 #                 if dets:
 #                     if len(dets) > 1:
-#                         print(f"Warning: More than one ({len(dets)}) detection result for MediaFile {mf.id}, using the first one.")
+#                         print(f"Warning: More than one ({len(dets)})" +
+#                         "detection result for MediaFile {mf.id}, using the first one.")
 #                     det = dets[0]
 #                     x_min, y_min, x_max, y_max = det["bbox"]
 #                     h, w = det["size"]
@@ -55,8 +55,7 @@ from tqdm import tqdm
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0127_alter_animalobservation_mediafile'),
+        ("caidapp", "0127_alter_animalobservation_mediafile"),
     ]
 
-    operations = [
-    ]
+    operations = []

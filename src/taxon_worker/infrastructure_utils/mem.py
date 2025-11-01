@@ -54,12 +54,7 @@ def get_ram():
     total = mem.total / 1024**3
     total_cubes = 24
     free_cubes = int(total_cubes * free / total)
-    return (
-        f"RAM:  {total - free:.1f}/{total:.1f}GB  RAM: ["
-        + (total_cubes - free_cubes) * "▮"
-        + free_cubes * "▯"
-        + "]"
-    )
+    return f"RAM:  {total - free:.1f}/{total:.1f}GB  RAM: [" + (total_cubes - free_cubes) * "▮" + free_cubes * "▯" + "]"
 
 
 def get_vram(device: Optional[torch.device] = None):
@@ -75,7 +70,7 @@ def get_vram(device: Optional[torch.device] = None):
         total_cubes = 24
         free_cubes = int(total_cubes * free / total)
         return (
-            f"device:{device}    VRAM: {total - free:.1f}/{total:.1f}GB  VRAM:["
+            f"device:{device}    Used VRAM: {used:.1f}/{total:.1f}GB  VRAM:["
             + (total_cubes - free_cubes) * "▮"
             + free_cubes * "▯"
             + "]"

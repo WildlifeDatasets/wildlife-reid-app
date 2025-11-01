@@ -12,6 +12,10 @@ import skimage.io
 import wandb
 import yaml
 from scipy.special import softmax
+from tqdm import tqdm
+
+from .config import RESOURCES_DIR, WANDB_API_KEY, WANDB_ARTIFACT_PATH, WANDB_ARTIFACT_PATH_CROPPED
+from .dataset_tools import data_preprocessing
 
 # from fgvc.core.training import predict
 # from fgvc.datasets import get_dataloaders
@@ -19,17 +23,13 @@ from scipy.special import softmax
 from .fgvc_core_training_subset import predict
 from .fgvc_datasets_subset import get_dataloaders
 from .fgvc_utils_experiment_subset import load_model
-from tqdm import tqdm
-
-from .config import RESOURCES_DIR, WANDB_API_KEY, WANDB_ARTIFACT_PATH, WANDB_ARTIFACT_PATH_CROPPED
-from .dataset_tools import data_preprocessing
 from .prediction_dataset import PredictionDataset
 
 # from taxon_worker.infrastructure_utils import mem
 try:
-    from ..infrastructure_utils import mem, log_tools
+    from ..infrastructure_utils import log_tools, mem
 except ImportError:
-    from infrastructure_utils import mem, log_tools
+    from infrastructure_utils import log_tools, mem
 
 
 logger = logging.getLogger("app")
@@ -49,10 +49,7 @@ def get_model_config(is_cropped: bool = False) -> Tuple[dict, str, dict]:
         if model_meta["WANDB_ARTIFACT_PATH"] == WANDB_ARTIFACT_PATH:
             reset_model = False
         else:
-            logger.debug(
-                f"New model={WANDB_ARTIFACT_PATH}. "
-                + f"Old model={model_meta.get('artifact_path', 'None')}."
-            )
+            logger.debug(f"New model={WANDB_ARTIFACT_PATH}. " + f"Old model={model_meta.get('artifact_path', 'None')}.")
     if reset_model:
         logger.debug("Resetting model.")
         shutil.rmtree(RESOURCES_DIR, ignore_errors=True)
@@ -166,9 +163,7 @@ def load_model_and_predict_and_add_not_classified(
     # for k, v in id2label.items():
     #     logger.debug(f"{k=}, {v=}")
 
-    assert np.max(list(id2label.keys())) == (
-        len(id2label) - 1
-    ), "Some of the labels is missing in id2label."
+    assert np.max(list(id2label.keys())) == (len(id2label) - 1), "Some of the labels is missing in id2label."
 
     # Get values with no thresholding
     class_ids_raw, probs_top_raw = get_top_predictions(probs)
@@ -207,8 +202,7 @@ def get_taxon_classification_model():
             "config": config,
         }
         logger.debug(
-            f"model_mean={model_mean}, model_std={model_std}, "
-            + f"checkpoint_path={checkpoint_path}, config={config}"
+            f"model_mean={model_mean}, model_std={model_std}, " + f"checkpoint_path={checkpoint_path}, config={config}"
         )
     logger.debug(f"After taxon classification model load: {mem.get_vram()}     {mem.get_ram()}")
     return TAXON_CLASSIFICATION_MODEL_DICT
@@ -242,9 +236,7 @@ def do_thresholding_on_probs(probs: np.array, id2threshold: dict) -> Tuple[np.ar
         top_probs: Softmaxed probability. The not-classified is calculated as 1 - top_prob.
 
     """
-    assert probs.shape[1] == len(
-        id2threshold
-    ), "There should be the same number of columns as the number of classes."
+    assert probs.shape[1] == len(id2threshold), "There should be the same number of columns as the number of classes."
 
     top_probs = np.max(probs, 1)
     class_ids = np.argmax(probs, 1)
@@ -331,12 +323,8 @@ def run_taxon_classification_inference(metadata):
     metadata["predicted_category"] = np.nan
     metadata["predicted_category_raw"] = np.nan
     if id2label is not None:
-        metadata["predicted_category"] = metadata["predicted_class_id"].apply(
-            lambda x: id2label.get(x, np.nan)
-        )
-        metadata["predicted_category_raw"] = metadata["predicted_class_id_raw"].apply(
-            lambda x: id2label.get(x, np.nan)
-        )
+        metadata["predicted_category"] = metadata["predicted_class_id"].apply(lambda x: id2label.get(x, np.nan))
+        metadata["predicted_category_raw"] = metadata["predicted_class_id_raw"].apply(lambda x: id2label.get(x, np.nan))
 
 
 def use_detector_class_if_classification_fails(
@@ -375,9 +363,9 @@ def keep_correctly_loaded_images(metadata) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """Remove file from list if there is the error message."""
     # metadata = metadata[metadata["media_type"] == "image"].reset_index(drop=True)
     # keep media_type==image and media_type == video
-    metadata = metadata[
-        (metadata["media_type"] == "image") | (metadata["media_type"] == "video")
-    ].reset_index(drop=True)
+    metadata = metadata[(metadata["media_type"] == "image") | (metadata["media_type"] == "video")].reset_index(
+        drop=True
+    )
     # drop media_type== "unknown"
     # mediadata = metadata[metadata["media_type"] != "unknown"].reset_index(drop=True)
 
@@ -453,15 +441,11 @@ def make_thumbnail_from_file(image_path: Path, thumbnail_path: Path, width: int 
         skimage.io.imsave(thumbnail_path, image_rescaled, quality=quality)
         return True
     except Exception:
-        logger.warning(
-            f"Cannot create thumbnail from file '{image_path}'. Exception: {traceback.format_exc()}"
-        )
+        logger.warning(f"Cannot create thumbnail from file '{image_path}'. Exception: {traceback.format_exc()}")
         return False
 
 
-def convert_to_mp4(
-    input_video_path: Union[str, Path], output_video_path: Union[str, Path], force: bool = False
-):
+def convert_to_mp4(input_video_path: Union[str, Path], output_video_path: Union[str, Path], force: bool = False):
     """Convert video to MP4 format using H.264 video codec and AAC audio codec."""
     import os.path
     import subprocess
@@ -473,9 +457,7 @@ def convert_to_mp4(
     if not os.path.exists(input_video_path):
         raise FileNotFoundError(f"The input file '{input_video_path}' does not exist.")
     if os.path.exists(output_video_path):
-        logger.warning(
-            f"The output file '{output_video_path}' already exists. Force overwrite={force}."
-        )
+        logger.warning(f"The output file '{output_video_path}' already exists. Force overwrite={force}.")
     Path(output_video_path).parent.mkdir(parents=True, exist_ok=True)
 
     # ffmpeg command to convert video to MP4 (H.264 + AAC)
@@ -509,12 +491,8 @@ def convert_to_mp4(
         )
         if result.returncode != 0:
             logger.error(f"Error during conversion: {result.stderr}\nCommand: {' '.join(command)}")
-            raise subprocess.CalledProcessError(
-                result.returncode, command, output=result.stdout, stderr=result.stderr
-            )
+            raise subprocess.CalledProcessError(result.returncode, command, output=result.stdout, stderr=result.stderr)
         # logger.debug(f"Conversion successful! Output saved at '{output_video_path}'")
     except subprocess.CalledProcessError as e:
-        logger.error(
-            f"Error during conversion of {str(input_video_path)} to {str(output_video_path)}: {e}"
-        )
+        logger.error(f"Error during conversion of {str(input_video_path)} to {str(output_video_path)}: {e}")
         logger.debug(traceback.format_exc())

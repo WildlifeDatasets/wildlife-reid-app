@@ -1,5 +1,6 @@
-from django import template
 import logging
+
+from django import template
 
 logger = logging.getLogger(__name__)
 register = template.Library()
