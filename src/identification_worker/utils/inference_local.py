@@ -185,11 +185,13 @@ class WildFusionClassifier:
 
 
 def get_local_matcher(size=512, threshold=0.8):
-    """Prepare local LOFTR matcher."""
-    # extractor = lambda x: x
-    # use function instead of lambda x: x
+    """Prepare local LOFTR matcher."""  # noqa: D202
+
     def extractor(x):
         return x
+
+    # extractor = lambda x: x
+    # use function instead of lambda x: x
 
     matcher = MatchLOFTR(
         model=LOFTR_MODEL,
