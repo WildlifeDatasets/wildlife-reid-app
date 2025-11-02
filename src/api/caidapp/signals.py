@@ -5,6 +5,7 @@ from django.dispatch import receiver
 
 @receiver(post_migrate)
 def create_default_models(sender, **kwargs):
+    """Create default IdentificationModel entries after migrations."""
     defaults = [
         {
             "name": "LynxV4-MegaDescriptor-v2-T-256",

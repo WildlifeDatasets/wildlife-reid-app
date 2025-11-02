@@ -28,6 +28,7 @@ logger.debug(f"{config.POSTGRES_URL=}")
 
 
 def get_transforms(image_size):
+    """Get training and validation transforms."""
     config = {
         "method": "TransformTimm",
         "input_size": image_size,
@@ -53,6 +54,7 @@ def get_transforms(image_size):
 
 
 def get_io_size(model):
+    """Get input image size and embedding size from model."""
     if not hasattr(model, "default_cfg") or not hasattr(model, "feature_info"):
         return None
 
@@ -63,6 +65,7 @@ def get_io_size(model):
 
 
 def load_model(model_name, model_checkpoint=""):
+    """Load model from timm with optional checkpoint."""
     # load model checkpoint
     model = timm.create_model(model_name, num_classes=0, pretrained=True)
 
@@ -79,6 +82,7 @@ def train_identification_model(
     identification_model: dict,
     **kwargs,
 ):
+    """Train identification model based on provided metadata file and configuration."""
     config = {
         "lr": 0.0001,
         "device": "cuda",

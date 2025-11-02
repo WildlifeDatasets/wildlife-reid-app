@@ -146,8 +146,9 @@ class WorkGroup(models.Model):
     )
 
     def save(self, *args, **kwargs):
-        if not self.default_taxon_for_identification:
-            self.default_taxon_for_identification = get_taxon("Lynx lynx")
+        """Save workgroup and set default taxon and identification model if not set."""
+        # if not self.default_taxon_for_identification:
+        #     self.default_taxon_for_identification = get_taxon("Lynx lynx")
 
         if not self.identification_model:
             model = IdentificationModel.objects.filter(public=True).first()
@@ -253,6 +254,7 @@ class CaIDUser(models.Model):
         instance.caiduser.save()
 
     def save(self, *args, **kwargs):
+        """Save user and set default taxon if not set."""
         if not self.default_taxon_for_identification:
             self.default_taxon_for_identification = get_taxon("Lynx lynx")
         super().save(*args, **kwargs)
@@ -282,7 +284,6 @@ class CaIDUser(models.Model):
 
         If possible, we use data for whole workgroup.
         """
-
         return len(get_mediafiles_with_missing_taxon(self))
 
     def number_of_media_files_general(self) -> int:
@@ -369,6 +370,7 @@ class Locality(models.Model):
             logger.debug(f"Location {location_str} is not in format 'lat,lon'.")
 
     def set_location(self, lat: float, lon: float, order: int = 3):
+        """Round location for anonymization."""
         lat = round(float(lat), order)
         lon = round(float(lon), order)
         self.location = f"{lat},{lon}"
@@ -454,6 +456,7 @@ class Area(models.Model):
 
     # on location change, update all localities
     def save(self, *args, **kwargs):
+        """Save area and update localities."""
         super(Area, self).save(*args, **kwargs)
         localities = Locality.objects.all()
         for locality in localities:
@@ -836,6 +839,7 @@ class UploadedArchive(models.Model):
 
     @property
     def metadata_csv_url(self):
+        """Return URL to metadata CSV file."""
         # relativní cesta vzhledem k MEDIA_ROOT
         rel_path = (Path(self.outputdir) / "metadata.csv").relative_to(settings.MEDIA_ROOT)
         return f"{settings.MEDIA_URL}{rel_path}".replace("\\", "/")
@@ -913,7 +917,8 @@ class IndividualIdentity(models.Model):
     def suggested_code_from_name(self):
         """Find code in identity name.
 
-        If the name contains B character fallowed by a number, then the number is used as code."""
+        If the name contains B character fallowed by a number, then the number is used as code.
+        """
         # looking for B{number}
         code = None
         code_match = re.search(r"B\d+", self.name)
@@ -1022,6 +1027,7 @@ class MediaFile(models.Model):
         return self.original_filename
 
     def get_static_thumbnail(self, force: bool = True, width: int = 400) -> models.ImageField:
+        """Return static thumbnail for mediafile."""
         logger.debug(f"Getting static thumbnail for {self.mediafile.name=}")
 
         if self.static_thumbnail:
@@ -1163,6 +1169,7 @@ class MediaFile(models.Model):
             # self.get_static_thumbnail(force=force)
 
     def save(self, *args, **kwargs):
+        """Save object."""
         if self.pk:
             old = MediaFile.objects.get(pk=self.pk)
             if old.identity_is_representative != self.identity_is_representative:
@@ -1188,25 +1195,30 @@ class MediaFile(models.Model):
         return obs
 
     def mediafile_variant_url(self, variant: str = "images") -> str:
-        # relativní cesta vzhledem k MEDIA_ROOT
+        """Get mediafile variant URL."""
+        # relative path to MEDIA_ROOT
         rel_path = Path(self.parent.outputdir).relative_to(settings.MEDIA_ROOT)
         rel_path = rel_path / variant / Path(self.mediafile.name).name
         return f"{settings.MEDIA_URL}{rel_path}".replace("\\", "/")
 
     @property
     def detection_url(self):
+        """Get detection image URL."""
         return self.mediafile_variant_url("detection_images")
 
     @property
     def thumbnail_url(self):
+        """Get thumbnail URL."""
         return self.mediafile_variant_url("thumbnails")
 
     @property
     def static_thumbnail_url(self):
+        """Get static thumbnail URL."""
         return self.mediafile_variant_url("static_thumbnails")
 
     @property
     def preview_url(self):
+        """Get preview URL."""
         return self.mediafile_variant_url("previews")
 
 
@@ -1257,10 +1269,6 @@ class AnimalObservation(models.Model):
         x_max = int((self.bbox_x_center + self.bbox_width / 2) * img_w)
         y_max = int((self.bbox_y_center + self.bbox_height / 2) * img_h)
         return x_min, y_min, x_max, y_max
-
-    def get_message(self):
-        print("Getting message")
-        return "ahoj"
 
     @property
     def bbox_xywh_percent_as_str(self) -> Optional[str]:
@@ -1645,6 +1653,7 @@ class Notification(models.Model):
         return f"Notification for {self.user.user.username} at {self.created_at}"
 
     def bootstrap_class(self):
+        """Return bootstrap class for the notification level."""
         return self.BOOTSTRAP_CLASSES.get(self.level, "secondary")
 
 

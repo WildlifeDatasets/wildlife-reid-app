@@ -11,6 +11,7 @@ logger = logging.getLogger("app")
 
 
 def split_ratio(data: pd.DataFrame, train_split: float, test_split: float):
+    """Split data into train and test sets according to given ratio."""
     individuals_counts = dict(data["identity"].value_counts())
 
     train_counts = {k: int(np.ceil(v * train_split)) for k, v in individuals_counts.items()}
@@ -49,6 +50,7 @@ def split_ratio(data: pd.DataFrame, train_split: float, test_split: float):
 
 
 def remove_data_tail(train_data, test_data, both=False, min_occurrence=10):
+    """Remove individuals which are underrepresented in train set."""
     # remove from test set individuals which are underrepresented in train set
     train_counts = dict(train_data.identity.value_counts())
     low_occurrence_names = [n for n, c in train_counts.items() if c < min_occurrence]
@@ -65,7 +67,7 @@ def split_data(
     remove_tail: int = 5,
     remove_both_tails: bool = True,
 ):
-
+    """Split data into train and test sets."""
     train_split = train_split_ratio
     test_split = 1 - train_split_ratio
 

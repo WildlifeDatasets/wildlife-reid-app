@@ -15,6 +15,7 @@ from . import (
 
 
 def trigger_error(request):
+    """Trigger an error for Sentry testing purposes."""
     division_by_zero = 1 / 0
     return division_by_zero
 

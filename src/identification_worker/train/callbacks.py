@@ -16,6 +16,7 @@ class AccuracyCallback:
         self.dataset_query = val_dataset
 
     def __call__(self, trainer, epoch_data: dict[str, int], **kwargs):
+        """Calculates and logs accuracy on validation dataset."""
         if (trainer.epoch + 1) % self.log_period != 0:
             return
 
@@ -47,6 +48,7 @@ class FileEpochLog:
         self.status_path = status_path
 
     def __call__(self, trainer, epoch_data: dict[str, int], **kwargs):
+        """Logs epoch data to status file."""
         status: dict = load_data(self.status_path)
 
         _epoch_data = deepcopy(epoch_data)
@@ -64,10 +66,12 @@ class FileEpochLog:
 
 class EpochCheckpoint:
     def __init__(self, status_path: str = "", checkpoint_path: str = ""):
+        """Saves model checkpoint and updates status file."""
         self.status_path = status_path
         self.checkpoint_path = checkpoint_path
 
     def __call__(self, trainer, epoch_data: dict[str, int], **kwargs):
+        """Saves model checkpoint and updates status file."""
         status: dict = load_data(self.status_path)
         status["epochs_trained"] += 1
 

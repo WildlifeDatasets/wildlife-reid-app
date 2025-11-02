@@ -12,6 +12,7 @@ class CarnivoreIDTrainer(BasicTrainer):
         self.epoch = start_epoch
 
     def train(self):
+        """Main training loop."""
         loader = torch.utils.data.DataLoader(
             self.dataset, batch_size=self.batch_size, num_workers=self.num_workers, shuffle=True
         )
@@ -34,6 +35,7 @@ class CarnivoreIDTrainer(BasicTrainer):
             self.epoch += 1
 
     def train_epoch(self, loader):
+        """Train for one epoch."""
         model = self.model.train()
         losses = []
         for i, batch in enumerate(tqdm(loader, desc=f"Epoch {self.epoch}: ", mininterval=1)):
@@ -55,6 +57,7 @@ class CarnivoreIDTrainer(BasicTrainer):
         return {"train_loss_epoch_avg": np.mean(losses)}
 
     def val_epoch(self, loader):
+        """Evaluate on validation set."""
         model = self.model.eval()
         losses = []
         for i, batch in enumerate(tqdm(loader, desc=f"Epoch {self.epoch}: ", mininterval=1)):

@@ -192,6 +192,7 @@ def make_thumbnail_from_file(image_path: Path, thumbnail_path: Path, width: int 
 
 
 def save_thumbnail(image: np.array, thumbnail_path: Path, width: int = 800):
+    """Save thumbnail from image array."""
     thumbnail_path = Path(thumbnail_path)
     scale = float(width) / image.shape[1]
     scale = [scale, scale, 1]

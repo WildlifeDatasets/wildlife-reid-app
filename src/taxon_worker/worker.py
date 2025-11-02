@@ -134,6 +134,7 @@ def predict(
 
 
 def post_update_with_spreadsheet(metadata, post_update_csv_path):
+    """Update metadata dataframe with values from post_update_csv_path."""
     # this is not well tested
     metadata_post_update = pd.read_csv(post_update_csv_path, index_col=0)
     if "original_path" in metadata_post_update.columns:

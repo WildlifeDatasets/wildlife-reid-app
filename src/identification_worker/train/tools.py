@@ -8,6 +8,7 @@ from PIL import Image
 
 
 def postprocess_image(image: torch.Tensor) -> np.ndarray:
+    """Postprocess image tensor to numpy array."""
     transform = T.Compose(
         [
             T.Normalize(mean=[0.0, 0.0, 0.0], std=[1 / 0.229, 1 / 0.224, 1 / 0.225]),
@@ -22,17 +23,20 @@ def postprocess_image(image: torch.Tensor) -> np.ndarray:
 
 
 def load_data(path: str) -> Union[dict, list]:
+    """Load data from JSON file."""
     with open(path, "r") as f:
         data = json.load(f)
     return data
 
 
 def save_data(path: str, data):
+    """Save data to JSON file."""
     with open(path, "w") as f:
         json.dump(data, f, indent=4)
 
 
 def get_bbox(path: str) -> tuple[np.ndarray, np.ndarray]:
+    """Get bounding box from grayscale image."""
     img = np.asarray(Image.open(path))
     img_gray = img[..., 0]
 

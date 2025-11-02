@@ -131,7 +131,7 @@ def get_detection_model(force_reload: bool = False):
 
 
 def get_orientation_model(model_name="resnet10t", model_checkpoint=""):
-    """Load the orientation classification model"""
+    """Load the orientation classification model."""
     # create model
     model = timm.create_model(model_name, num_classes=4, pretrained=True)
 

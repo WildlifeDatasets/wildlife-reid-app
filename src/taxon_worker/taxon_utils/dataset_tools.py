@@ -1304,6 +1304,7 @@ def data_preprocessing(
 
 
 def find_any_spreadsheet_and_save_as_csv(tmp_dir, csv_path):
+    """Find any spreadsheet in directory and save it as CSV."""
     post_update_path = sorted(list(tmp_dir.glob("**/*.csv")) + list(tmp_dir.glob("**/*.xlsx")))
     post_update_path = post_update_path[-1] if len(post_update_path) > 0 else None
     logger.debug(f"{post_update_path=}")

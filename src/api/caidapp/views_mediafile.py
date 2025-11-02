@@ -114,6 +114,7 @@ def missing_taxon_annotation(
 
 
 def get_next_in_queryset(queryset, instance):
+    """Get next instance in queryset after given instance."""
     ids = list(queryset.values_list("id", flat=True))
     try:
         idx = ids.index(instance.id)
@@ -281,80 +282,6 @@ def confirm_prediction(request, mediafile_id: int) -> JsonResponse:
         return JsonResponse({"success": False, "message": "Invalid request."})
 
 
-# todo deprecated
-# @login_required
-# def media_file_update(
-#     request, media_file_id, next_text="Save", next_url=None, skip_url=None, cancel_url=None
-# ):
-#     """Show and update media file."""
-#     # | Q(parent__owner=request.user.caiduser)
-#     # | Q(parent__owner__workgroup=request.user.caiduser.workgroup)
-#     mediafile = get_object_or_404(MediaFile, pk=media_file_id)
-#     if (mediafile.parent.owner.id != request.user.id) and (
-#         mediafile.parent.owner.workgroup != request.user.caiduser.workgroup
-#     ):
-#         return HttpResponseNotAllowed("Not allowed to see this media file.")
-#
-#     if request.method == "POST":
-#
-#         logger.debug(f"{next_url=}")
-#         if next_url:
-#             pass
-#             # return HttpResponseRedirect(next_url)
-#         else:
-#             next_url = request.GET.get("next")
-#
-#             if next_url is None:
-#                 # next url is where i am comming from
-#                 next_url = request.META.get("HTTP_REFERER", "/")
-#
-#         form = MediaFileForm(request.POST, instance=mediafile)
-#         logger.debug(f"Form in POST: {mediafile=}")
-#         if form.is_valid():
-#             logger.debug(f"Form is valid")
-#
-#             mediafile.updated_by = request.user.caiduser
-#             mediafile.updated_at = django.utils.timezone.now()
-#             # get uploaded archive
-#             mediafile = form.save()
-#             logger.debug(f"{mediafile.taxon=}")
-#             logger.debug(f"{mediafile.mediafile.path=}")
-#             logger.debug(f"{mediafile.updated_at=}")
-#             logger.debug(f"{next_url=}")
-#             return redirect(next_url)
-#         else:
-#             logger.error("Form is not valid.")
-#             messages.error(request, "Form is not valid.")
-#
-#     else:
-#         logger.debug(f"{next_url=}")
-#         if next_url:
-#             pass
-#             # return HttpResponseRedirect(next_url)
-#         else:
-#             next_url = request.GET.get("next")
-#
-#             if next_url is None:
-#                 # next url is where i am comming from
-#                 next_url = request.META.get("HTTP_REFERER", "/")
-#         cancel_url = next_url
-#         logger.debug(f"{next_url=}")
-#
-#         form = MediaFileForm(instance=mediafile)
-#     return render(
-#         request,
-#         "caidapp/media_file_update.html",
-#         {
-#             "form": form,
-#             "headline": "Media File",
-#             "button": next_text,
-#             "mediafile": mediafile,
-#             "skip_url": skip_url,
-#             "cancel_url": cancel_url,
-#         },
-#     )
-
-
 class ObservationInline(InlineFormSetFactory):
     model = AnimalObservation
     form_class = forms.AnimalObservationForm
@@ -382,6 +309,7 @@ class ObservationInline(InlineFormSetFactory):
     # }
 
     def get_factory_kwargs(self):
+        """Pass extra kwargs to factory."""
         kwargs = super().get_factory_kwargs()
         kwargs["extra"] = self.extra
         kwargs["can_delete"] = self.can_delete
@@ -397,9 +325,11 @@ class MediaFileUpdateView(LoginRequiredMixin, UpdateWithInlinesView):
     context_object_name = "mediafile"
 
     def get_success_url(self):
+        """After successful update, return to previous page."""
         return self.request.GET.get("next") or self.request.META.get("HTTP_REFERER", "/")
 
     def form_valid(self, form):
+        """Set updated_by and updated_at on save."""
         logger.debug("In form_valid of MediaFileUpdateView")
         form.instance.updated_by = self.request.user.caiduser
         form.instance.updated_at = django.utils.timezone.now()
@@ -417,6 +347,7 @@ class ObservationDeleteView(LoginRequiredMixin, DeleteView):
     context_object_name = "observation"
 
     def get_success_url(self):
+        """After deletion, return to media file edit."""
         # po smazání se vrátíš na editaci mediafile
         mediafile = self.object.mediafile
         return reverse("caidapp:media_file_update", args=[mediafile.id])

@@ -69,6 +69,7 @@ class WorkgroupForm(forms.ModelForm):
             self.fields["caidusers"].initial = self.instance.caiduser_set.all()
 
     def save(self, commit=True):
+        """Save the WorkGroup and update the related CaIDUser instances."""
         workgroup = super().save(commit=commit)
         if commit:
             workgroup.caiduser_set.set(self.cleaned_data["caidusers"])

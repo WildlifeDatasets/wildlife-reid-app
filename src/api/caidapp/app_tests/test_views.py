@@ -13,6 +13,7 @@ User = get_user_model()
 
 class BasicFlowTest(TestCase):
     def setUp(self):
+        """Initial setup for tests."""
         self.user = User.objects.create_user(
             username="testuser",
             password="secret123",
@@ -21,6 +22,7 @@ class BasicFlowTest(TestCase):
         self.wg = models.WorkGroup.objects.create(name="WG1")
 
     def test_login_and_view(self):
+        """Do login and access to the home page."""
         # login
         login = self.client.login(username="testuser", password="secret123")
         self.assertTrue(login)  # ověř, že přihlášení fungovalo

@@ -418,6 +418,7 @@ class LocalityListView(LoginRequiredMixin, ListView):
 
     # paginate_by = views_general.get_item_number_anything(request, "localities")
     def get_template_names(self):
+        """Get template names based on view type."""
         view_type = self.request.GET.get("view", "cards")
         if view_type == "cards":
             return ["caidapp/localities.html"]
@@ -425,6 +426,7 @@ class LocalityListView(LoginRequiredMixin, ListView):
             return ["caidapp/localities_list.html"]
 
     def get_queryset(self):
+        """Get queryset with applied filters and ordering."""
         # params = user_has_access_filter_params(self.request.user.caiduser, "owner")
         self.paginate_by = views_general.get_item_number_anything(self.request, "localities")
         objects = get_all_relevant_localities(request=self.request)
@@ -444,10 +446,12 @@ class LocalityListView(LoginRequiredMixin, ListView):
         return qs
 
     def get_detail_url_name(self):
+        """Get detail url name."""
         return "caidapp:generic_locality_detail"
 
     # extend context
     def get_context_data(self, **kwargs):
+        """Extend context data."""
         context = super().get_context_data(**kwargs)
         # context["headline"] = "Localities"
         # context["filter_form"] = self.filterset.form
@@ -506,6 +510,7 @@ def suggest_merge_localities(request):
 
 @login_required
 def refresh_merge_localities_suggestions(request):
+    """Refresh merge localities suggestions."""
     suggest_merge_localities(request)
     # go back to the previous page
     return redirect("caidapp:suggest_merge_localities")
@@ -513,6 +518,7 @@ def refresh_merge_localities_suggestions(request):
 
 @login_required
 def suggest_merge_localities_view(request):
+    """Suggest merging localities."""
     try:
         if "merge_localities_suggestions" not in request.session:
             suggest_merge_localities(request)
@@ -552,7 +558,6 @@ def suggest_merge_localities_view(request):
 @login_required
 def merge_localities_view(request, locality_from_id, locality_to_id):
     """Merge localities."""
-
     # remove merged suggestion from the list
     if "merge_localities_suggestions" not in request.session:
         suggest_merge_localities(request)

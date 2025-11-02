@@ -12,10 +12,12 @@ logger = logging.getLogger(__name__)
 
 
 def user_has_access_to_uploadedarchives_filter_params(caiduser: CaIDUser):
+    """Check if user has access to uploadedarchives."""
     return models.user_has_access_filter_params(caiduser=caiduser, prefix="owner")
 
 
 def user_has_access_to_mediafiles_filter_params(caiduser: CaIDUser):
+    """Check if user has access to mediafiles."""
     return models.user_has_access_filter_params(caiduser=caiduser, prefix="parent__owner")
 
 
@@ -90,6 +92,7 @@ def prepare_dataframe_for_uploads_in_one_locality(locality_id: int) -> pd.DataFr
 
 
 def compute_identity_suggestions(workgroup_id: int, limit: int = 100) -> int:
+    """Compute identity suggestions for merging."""
     # user = get_user_model().objects.get(id=user_id)
     suggestions = []
     workgroup = models.WorkGroup.objects.get(id=workgroup_id)

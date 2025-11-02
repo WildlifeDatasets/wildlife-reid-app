@@ -142,6 +142,8 @@ def is_impersonating(request):
 
 
 def staff_or_impersonated_staff_required(view_func):
+    """Decorator to check if the user is staff or impersonating a staff member."""
+
     @wraps(view_func)
     def _wrapped_view(request, *args, **kwargs):
         # Check if the user is staff
@@ -166,6 +168,7 @@ def staff_or_impersonated_staff_required(view_func):
 
 
 def home_view(request):
+    """Render the home view."""
     return render(
         request,
         "caidapp/home.html",
@@ -354,10 +357,10 @@ class WellcomeView(View):
     # template_name = "caidapp/update_form.html"
 
     def get(self, request):
+        """Render the user settings page."""
         instance = request.user.caiduser
         instance.show_wellcome_message_on_next_login = False
         form = forms.WellcomeForm(instance=instance)
-        """Render the user settings page."""
         return render(
             request,
             self.template_name,
@@ -386,8 +389,8 @@ class CaIDUserSettingsView(View):
     template_name = "caidapp/update_form.html"
 
     def get(self, request):
-        form = forms.CaIDUserSettingsForm(instance=request.user.caiduser)
         """Render the user settings page."""
+        form = forms.CaIDUserSettingsForm(instance=request.user.caiduser)
         return render(
             request,
             self.template_name,
@@ -418,9 +421,7 @@ def get_filtered_mediafiles(
     contains_identities: Optional[bool] = None,
     **extra_filters,
 ):
-    """
-    Retrieve media files filtered by specific parameters.
-    """
+    """Retrieve media files filtered by specific parameters."""
     filter_params = {}
     if contains_single_taxon is not None:
         filter_params["contains_single_taxon"] = contains_single_taxon
@@ -541,9 +542,7 @@ def dash_identities(request) -> HttpResponse:
 
 
 def paginate_queryset(queryset, request):
-    """
-    Paginate a queryset and return page context.
-    """
+    """Paginate a queryset and return page context."""
     order_by = uploaded_archive_get_order_by(request)
     queryset = queryset.order_by(order_by)
 
@@ -673,6 +672,7 @@ class IdentityListView(LoginRequiredMixin, ListView):
     ordering = ["-name"]
 
     def get_queryset(self):
+        """Get queryset for the view."""
         class_prefix = "identities_" + self.request.GET.get("view", "cards")
 
         self.paginate_by = views_general.get_item_number_anything(self.request, class_prefix)
@@ -704,6 +704,7 @@ class IdentityListView(LoginRequiredMixin, ListView):
         return qs
 
     def get_template_names(self):
+        """Get template names based on view type."""
         view_type = self.request.GET.get("view", "cards")
         if view_type == "cards":
             return ["caidapp/individual_identities.html"]
@@ -711,6 +712,7 @@ class IdentityListView(LoginRequiredMixin, ListView):
             return ["caidapp/individual_identities_list.html"]
 
     def get_context_data(self, **kwargs):
+        """Get context data for the template."""
         context = super().get_context_data(**kwargs)
         # context["filter_form"] = self.filterset.form
         context["filter"] = self.filterset
@@ -763,11 +765,13 @@ class IndividualIdentityUpdateView(LoginRequiredMixin, UpdateView):
     context_object_name = "individual_identity"
 
     def get_queryset(self):
+        """Get queryset for the view."""
         return IndividualIdentity.objects.filter(
             owner_workgroup=self.request.user.caiduser.workgroup,
         )
 
     def get_context_data(self, **kwargs):
+        """Get context data for the template."""
         context = super().get_context_data(**kwargs)
         individual_identity = self.get_object()
         media_files = MediaFile.objects.filter(identity=individual_identity, identity_is_representative=True)
@@ -807,10 +811,12 @@ class IndividualIdentityUpdateView(LoginRequiredMixin, UpdateView):
         return context
 
     def get_success_url(self):
+        """Return to individual identities list."""
         return reverse_lazy("caidapp:individual_identities")
 
     # validation
     def form_valid(self, form):
+        """Set updated_by before saving."""
         individual_identity = form.save(commit=False)
         individual_identity.updated_by = self.request.user.caiduser
         individual_identity.save()
@@ -851,6 +857,7 @@ def delete_individual_identity(request, individual_identity_id):
 
 @login_required
 def get_individual_identity_zoomed_by_identity(request, foridentification_id: int, identity_id: int):
+    """Show detail by identity."""
     foridentifications = MediafilesForIdentification.objects.filter(
         mediafile__parent__owner__workgroup=request.user.caiduser.workgroup
     ).order_by("?")
@@ -1044,6 +1051,7 @@ def not_identified_mediafiles(request):
 
 
 def get_best_representative_mediafiles(identity, orientation=None, max_count=5) -> list[MediaFile]:
+    """Get best representative mediafiles for identity."""
     # Pokud máme předem načtené reprezentativní mediafiles
     candidates = getattr(identity, "representative_mediafiles_candidates", None)
     if candidates is not None:
@@ -1232,6 +1240,7 @@ def get_individual_identity_remaining_card_content(
     foridentification_id: int,
     identity_id: int,
 ) -> HttpResponse:
+    """Get remaining card content for individual identity."""
     identity = get_object_or_404(
         IndividualIdentity,
         id=identity_id,
@@ -1411,24 +1420,6 @@ def _get_mediafiles_for_train_or_init_identification(
     # workgroup, taxon=None, identity_is_representative=True
 ):
     """Get mediafiles for training or initialization of identification."""
-
-    # set attribute media_file_used_for_init_identification
-    # MediaFile.objects.filter(
-    #     parent__owner__workgroup=workgroup,
-    # ).update(used_for_init_identification=False)
-    #
-    # kwargs = {}
-    # if workgroup.default_taxon_for_identification:
-    #     kwargs.update(dict(taxon=workgroup.default_taxon_for_identification))
-    #
-    # mediafiles_qs = MediaFile.objects.filter(
-    #     # taxon__name=taxon_str,
-    #     **kwargs,
-    #     identity__isnull=False,
-    #     parent__owner__workgroup=workgroup,
-    #     identity_is_representative=True,
-    # )
-
     # Nejprve resetuj všechny mediafiles v daném workgroupu
     mediafiles_qs = MediaFile.objects.filter(
         parent__owner__workgroup=workgroup,
@@ -1750,6 +1741,7 @@ def run_identification_view(request, uploadedarchive_id):
 
 
 def run_identification(uploaded_archive: UploadedArchive, workgroup: models.WorkGroup) -> bool:
+    """Run identification of uploaded archive."""
     logger.debug("Generating CSV for run_identification...")
     # if uploaded_archive.taxon_for_identification:
     #     taxon_str = uploaded_archive.taxon_for_identification.name
@@ -2241,7 +2233,6 @@ class MyLoginView(LoginView):
 
     def get_success_url(self):
         """Return url of next page."""
-
         caid_user = self.request.user.caiduser
         if caid_user.show_wellcome_message_on_next_login:
             return reverse("caidapp:wellcome")
@@ -2256,7 +2247,6 @@ class MyLoginView(LoginView):
 
 def _mediafiles_annotate() -> dict:
     """Prepare annotations for mediafiles."""
-
     return dict()
 
 
@@ -2857,6 +2847,7 @@ from django.views.generic import UpdateView
 
 class WorkgroupAdminRequiredMixin(UserPassesTestMixin):
     def test_func(self):
+        """Check if user is workgroup admin."""
         return self.request.user.caiduser.workgroup_admin
 
 
@@ -2868,17 +2859,19 @@ class WorkgroupUpdateView(WorkgroupAdminRequiredMixin, UpdateView):
     success_url = reverse_lazy("caidapp:home")
 
     def get_object(self, queryset=None):
-
+        """Get the workgroup object to be updated."""
         # workgroup_hash = self.kwargs.get("workgroup_hash")
         # return get_object_or_404(WorkGroup, hash=workgroup_hash)
         return self.request.user.caiduser.workgroup
 
     def form_valid(self, form):
+        """If the form is valid, save the associated model."""
         response = super().form_valid(form)
         # Additional processing can be done here if needed
         return response
 
     def get_context_data(self, **kwargs):
+        """Get context data for the template."""
         context = super().get_context_data(**kwargs)
         context["headline"] = "Update workgroup"
         context["button"] = "Save"
@@ -3141,7 +3134,6 @@ def download_zip_for_mediafiles_view(request, uploadedarchive_id: Optional[int] 
 @login_required
 def check_zip_status_view(request, task_id):
     """Check the status of the zip creation task."""
-
     # find task based on task_id
     task = AsyncResult(task_id)
     logger.debug(f"Check status of the task: {task_id=}: {task.state=}")
@@ -3404,7 +3396,6 @@ class MergeIdentitiesWithPreview(View):
 
     def get(self, request, individual_identity_from_id, individual_identity_to_id):
         """Render the merge form."""
-
         individual_from, individual_to = get_individuals(
             request, individual_identity_from_id, individual_identity_to_id
         )
@@ -3475,6 +3466,7 @@ class MergeIdentitiesWithPreview(View):
 class MergeIdentitiesNoPreview(View):
 
     def get(self, request, individual_identity_from_id, individual_identity_to_id):
+        """Merge two individual identities without preview."""
         individual_from, individual_to = get_individuals(
             request, individual_identity_from_id, individual_identity_to_id
         )
@@ -3487,7 +3479,6 @@ class MergeIdentitiesNoPreview(View):
 
 def merge_identities_helper(request, individual_from, individual_to):
     """Merge two individual identities."""
-
     if individual_to is None or individual_from is None:
         messages.warning(request, "Individual identity not found.")
         return
@@ -3768,6 +3759,8 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
 
 
 class SplitPart(Func):
+    """Custom database function to split a string by a delimiter and return the N-th part."""
+
     function = "SPLIT_PART"
     arity = 3  # Number of arguments the function takes
 
@@ -3795,6 +3788,7 @@ class MyPygWalkerView(PygWalkerView):
     ]
 
     def get(self, request):
+        """Process GET request."""
         # Access mediafile_ids from the session
         mediafile_ids = request.session.get("mediafile_ids", [])
         # Filter MediaFile objects based on the retrieved IDs
@@ -3825,6 +3819,7 @@ class PygWalkerLocalitiesView(PygWalkerView):
     field_list = ["name", "latitude", "longitude", "mediafile_count"]
 
     def get(self, request):
+        """Process GET request."""
         # Access mediafile_ids from the session
         # mediafile_ids = request.session.get("mediafile_ids", [])
         # Filter MediaFile objects based on the retrieved IDs
@@ -3876,12 +3871,14 @@ def select_second_id_for_identification_merge(request, individual_identity1_id: 
 
 
 def refresh_identities_suggestions_view(request):
+    """Refresh identity suggestions view."""
     # call background task
     refresh_identities_suggestions(request)
     return redirect(request.META.get("HTTP_REFERER", "/"))
 
 
 def refresh_identities_suggestions(request, limit: int = 100, redirect: bool = True):
+    """Refresh identity suggestions."""
     job = tasks.refresh_identities_suggestions_task.delay(request.user.caiduser.workgroup.id)
     logger.debug(
         f"{job.id=}, {request.user.id=}, {request.user=}, {request.user.caiduser=}, {request.user.caiduser.workgroup=}"
@@ -3891,6 +3888,7 @@ def refresh_identities_suggestions(request, limit: int = 100, redirect: bool = T
 
 
 def get_identity_suggestions(request):
+    """Get identity suggestions status and data."""
     job_id = request.session.get("refresh_job_id")
 
     sugg_obj = (
@@ -4029,6 +4027,7 @@ def suggest_merge_identities_view(request, limit: int = 100):
 
 @login_required
 def merge_selected_identities_view(request):
+    """Merge selected identities based on suggestions."""
     if request.method == "POST":
         selected_suggestions = request.POST.getlist("suggestions")
         if not selected_suggestions:
@@ -4075,7 +4074,7 @@ def merge_selected_identities_view(request):
 
 @login_required
 def show_identity_code_suggestions(request):
-
+    """Show identity code suggestions."""
     all_identities = IndividualIdentity.objects.filter(
         owner_workgroup=request.user.caiduser.workgroup,
         # **user_has_access_filter_params(request.user.caiduser, "owner")
@@ -4087,7 +4086,6 @@ def show_identity_code_suggestions(request):
 @login_required
 def apply_identity_code_suggestion(request, identity_id: int, rename: bool = True):
     """Use the suggested individuality code."""
-
     identity = get_object_or_404(IndividualIdentity, pk=identity_id, owner_workgroup=request.user.caiduser.workgroup)
 
     code = identity.suggested_code_from_name()
@@ -4103,7 +4101,8 @@ def apply_identity_code_suggestion(request, identity_id: int, rename: bool = Tru
 
 @login_required
 def uploads_status_api(request, group: str):
-    """
+    """Get JSON with ingormation about statuses.
+
     Vrátí JSON s informacemi o statusech (např. pro všechny archivy daného uživatele).
     """
     species = True if group == "species" else False
@@ -4144,6 +4143,7 @@ def export_identities_csv(request):
 
 @login_required
 def export_identities_xlsx(request):
+    """Export identities to Excel."""
     all_identities = IndividualIdentity.objects.filter(
         owner_workgroup=request.user.caiduser.workgroup,
         # **user_has_access_filter_params(request.user.caiduser, "owner")
@@ -4277,6 +4277,7 @@ def import_identities_view(request):
 # create view which will be shown just before the identify to make sure that the user wants to identify
 @login_required
 def pre_identify_view(request):
+    """Show pre-identification confirmation page."""
     return render(
         request,
         "caidapp/pre_identify.html",
@@ -4289,6 +4290,7 @@ def pre_identify_view(request):
 @login_required
 @require_POST
 def toggle_identity_representative(request, mediafile_id: int):
+    """Toggle identity representative flag for a media file."""
     mf = get_object_or_404(models.MediaFile, id=mediafile_id)
 
     # Povolení jen v rámci stejné workgroup + musí mít identitu
@@ -4315,6 +4317,7 @@ class NotificationCreateView(CreateView):
     success_url = reverse_lazy("caidapp:notifications")
 
     def form_valid(self, form):
+        """Assign the current user to the notification before saving."""
         form.instance.user = self.request.user.caiduser
         return super().form_valid(form)
 
@@ -4326,9 +4329,11 @@ class NotificationListView(ListView):
     title = "Notifications"
 
     def get_queryset(self):
+        """Limit queryset to notifications of the current user."""
         return models.Notification.objects.filter(user=self.request.user.caiduser).order_by("-created_at")
 
     def get_context_data(self, **kwargs):
+        """Set up context data for the list view."""
         context = super().get_context_data(**kwargs)
         context["title"] = _("Issue")
         context["list_display"] = ["message", "user", "read", "created_at"]
@@ -4349,11 +4354,13 @@ class NotificationDetailView(DetailView):
     cancel_url = reverse_lazy("caidapp:notifications")
 
     def get_queryset(self):
+        """Limit queryset to notifications of the current user."""
         qs = super().get_queryset()
         # např. jen zprávy pro aktuálního uživatele
         return qs.filter(user=self.request.user.caiduser)
 
     def get(self, request, *args, **kwargs):
+        """Handle GET request and mark notification as read."""
         response = super().get(request, *args, **kwargs)
         # Mark as read when viewed
         if not self.object.read:
@@ -4362,6 +4369,7 @@ class NotificationDetailView(DetailView):
         return response
 
     def get_context_data(self, **kwargs):
+        """Set up context data for the detail view."""
         context = super().get_context_data(**kwargs)
         field_data = []
 

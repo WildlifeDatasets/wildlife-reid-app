@@ -270,6 +270,7 @@ INTERNAL_IPS = [
 
 
 def show_toolbar(request):
+    """Callback to decide whether to show the debug toolbar."""
     if DEBUG:
         return True
 

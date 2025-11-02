@@ -227,6 +227,7 @@ def get_datetime_using_exif_or_ocr(
 
 
 def check_file_by_opening(filename):
+    """Check if image or video file can be opened."""
     opened_sucessfully = False
     opening_error = None
     frame = None
@@ -511,7 +512,6 @@ def add_datetime_from_exif_in_parallel(
 
     The EXIF information is extracted in single-core way but with the help of ExifTool.
     """
-
     logger.debug(f"Getting EXIFs from {len(original_paths)} files.")
     # Collect EXIF info
     if dataset_basedir:

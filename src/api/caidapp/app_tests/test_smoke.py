@@ -14,6 +14,7 @@ User = get_user_model()
 
 class UrlSmokeTest(TestCase):
     def setUp(self):
+        """Initial data for tests."""
         # User
         self.user = User.objects.create_user(
             username="smoke",
@@ -56,6 +57,7 @@ class UrlSmokeTest(TestCase):
     #         )
 
     def test_all_named_caidapp_urls(self):
+        """Go over all named URLs in caidapp and try GET."""
         from caidapp import urls as caidapp_urls
 
         patterns = list(self._walk_patterns(caidapp_urls.urlpatterns))

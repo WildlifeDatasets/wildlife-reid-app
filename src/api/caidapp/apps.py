@@ -6,4 +6,5 @@ class CaidappConfig(AppConfig):
     name = "caidapp"
 
     def ready(self):
+        """The code run on application init is here."""
         pass

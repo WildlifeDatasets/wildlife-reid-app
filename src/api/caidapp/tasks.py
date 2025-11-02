@@ -202,7 +202,6 @@ def do_cloud_import_for_user(
     contains_identities: bool = False,
 ):
     """Import files from cloud storage."""
-
     from .models import CaIDUser
 
     # Retrieve the CaIDUser instance
@@ -1452,10 +1451,12 @@ def schedule_reid_identification_for_workgroup(workgroup: models.WorkGroup, dela
 
 @shared_task
 def run_identification_on_unidentified_for_workgroup_task(workgroup_id: int):
+    """Run identification on unidentified mediafiles for a workgroup (task wrapper)."""
     return run_identification_on_unidentified_for_workgroup.s(workgroup_id)
 
 
 def run_identification_on_unidentified_for_workgroup(workgroup_id: int, request=None):
+    """Run identification on unidentified mediafiles for a workgroup."""
     from .views import run_identification
 
     workgroup = WorkGroup.objects.get(pk=workgroup_id)
@@ -1487,8 +1488,8 @@ def run_identification_on_unidentified_for_workgroup(workgroup_id: int, request=
 
 
 def schedule_init_identification_for_workgroup(workgroup: models.WorkGroup, delay_minutes: int = 15):
-
-    # Zruš předchozí naplánovaný task
+    """Schedule initialization of identification for a workgroup."""
+    # Cancel previously scheduled task
     if workgroup.identification_scheduled_init_task_id:
         current_app.control.revoke(workgroup.identification_scheduled_init_task_id, terminate=True)
 
@@ -1512,6 +1513,7 @@ def schedule_init_identification_for_workgroup(workgroup: models.WorkGroup, dela
 
 @shared_task
 def init_identification(workgroup_id: int):
+    """Initialize identification for a workgroup."""
     from .views import _get_mediafiles_for_train_or_init_identification
 
     workgroup = WorkGroup.objects.get(pk=workgroup_id)
@@ -1692,6 +1694,7 @@ def _iterate_over_locality_checks(path: Path, caiduser: CaIDUser) -> Generator[S
 
 
 def assign_unidentified_to_identification(caiduser: CaIDUser):
+    """Assign unidentified media files to identification for the workgroup of the given user."""
     kwargs = {}
     taxon_str = ""
     if caiduser.workgroup is None:
@@ -1776,4 +1779,5 @@ def assign_unidentified_to_identification(caiduser: CaIDUser):
 
 @shared_task
 def refresh_identities_suggestions_task(workgroup_id, limit=100):
+    """Refresh identities suggestions task."""
     return compute_identity_suggestions(workgroup_id, limit)

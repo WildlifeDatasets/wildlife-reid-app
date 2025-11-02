@@ -17,6 +17,7 @@ class LocalityFilter(django_filters.FilterSet):
         }
 
     def filter_search(self, queryset, name, value):
+        """Search across 'name' and related 'area__name' fields."""
         # Annotate the queryset with a computed 'search' field.
         queryset = queryset.annotate(
             search=Concat(
@@ -50,6 +51,7 @@ class IndividualIdentityFilter(django_filters.FilterSet):
         }
 
     def filter_search(self, queryset, name, value):
+        """Search in name, code, and juv_code fields."""
         # Annotate the queryset with a computed 'search' field.
         queryset = queryset.annotate(
             search=Concat(
@@ -125,6 +127,7 @@ class MediaFileFilter(django_filters.FilterSet):
         }
 
     def filter_search(self, queryset, name, value):
+        """Search in taxon name, locality name, and identity name."""
         # Annotate the queryset with a computed 'search' field.
         queryset = queryset.annotate(
             search=Concat(
@@ -165,6 +168,7 @@ class NotificationFilter(django_filters.FilterSet):
         fields = ["level", "read"]
 
     def filter_search(self, queryset, name, value):
+        """Search in title and message fields."""
         # Annotate the queryset with a computed 'search' field.
         queryset = queryset.annotate(
             search=Concat(

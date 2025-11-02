@@ -7,6 +7,7 @@ from tqdm import tqdm
 
 
 def forwards(apps, schema_editor):
+    """Migrate data from MediaFile to AnimalObservation."""
     MediaFile = apps.get_model("caidapp", "MediaFile")
     AnimalObservation = apps.get_model("caidapp", "AnimalObservation")
     Taxon = apps.get_model("caidapp", "Taxon")
@@ -81,6 +82,7 @@ def forwards(apps, schema_editor):
 
 
 def backwards(apps, schema_editor):
+    """Delete all AnimalObservation entries."""
     AnimalObservation = apps.get_model("caidapp", "AnimalObservation")
     db_alias = schema_editor.connection.alias
     AnimalObservation.objects.using(db_alias).all().delete()

@@ -4,6 +4,7 @@ from django.db import migrations
 
 
 def delete_orphaned_observations(apps, schema_editor):
+    """Delete AnimalObservation instances where mediafile is null."""
     AnimalObservation = apps.get_model("caidapp", "AnimalObservation")
     # delete all AnimalObservation instances where mediafile is null
     AnimalObservation.objects.filter(mediafile__isnull=True).delete()

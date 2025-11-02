@@ -120,8 +120,8 @@ def remove_diacritics(input_str: str):
 def order_identity_by_mediafile_count(identity1, identity2):
     """Order identity by mediafile count.
 
-    The identity with fewer media files is the first one."""
-
+    The identity with fewer media files is the first one.
+    """
     count_media_files_identity1 = identity1.mediafile_set.count()
     count_media_files_identity2 = identity2.mediafile_set.count()
     if count_media_files_identity1 < count_media_files_identity2:
@@ -134,6 +134,7 @@ def order_identity_by_mediafile_count(identity1, identity2):
 
 
 def timesince_now(started_at: datetime) -> str:
+    """Returns a human-readable description of the time elapsed since started_at."""
     if timezone.is_naive(started_at):
         started_at = timezone.make_aware(started_at)
 

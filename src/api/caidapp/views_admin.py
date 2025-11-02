@@ -15,7 +15,6 @@ logger = logging.getLogger(__name__)
 @staff_member_required
 def do_admin_stuff(request, process_name: str):
     """Do admin stuff."""
-
     logger.debug(f"{process_name=}")
     if process_name == "clean_mediafiles_with_no_file_attached":
         return clean_mediafiles_with_no_file_attached_view(request)
@@ -56,7 +55,7 @@ def clean_mediafiles_with_no_file_attached_view(request):
 
 @staff_member_required
 def refresh_area(request):
-
+    """Refresh area for all localities."""
     for locality in tqdm(models.Locality.objects.all()):
         locality.set_closest_area()
 

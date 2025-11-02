@@ -3,7 +3,7 @@ name: code-quality-actions
 on: [push]
 
 env:
-  PYTHON_VERSION: 3.8
+  PYTHON_VERSION: 3.13
 
 jobs:
   black:
@@ -17,7 +17,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install black[jupyter]==22.3.0
+          pip install black[jupyter]==25.1.0
       - name: Analysing the code with black
         run: black --check .
   isort:
@@ -31,7 +31,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install isort==5.10.1
+          pip install isort==7.0.0
       - name: Analysing the code with isort
         run: isort --check .
   flake8:
@@ -45,6 +45,6 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install flake8==4.0.1 flake8-docstrings==1.6.0
+          pip install flake8==7.3.0 flake8-docstrings==1.7.0
       - name: Analysing the code with flake8
         run: flake8 .

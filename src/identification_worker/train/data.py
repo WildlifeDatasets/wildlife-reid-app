@@ -7,4 +7,5 @@ class CarnivoreDataset(WildlifeDataset):
 
     @property
     def image_paths(self):
+        """Return array of image paths as strings."""
         return self.metadata["path"].astype(str).values

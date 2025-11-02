@@ -80,6 +80,7 @@ def get_item_number_anything(request, name_plural: str):
 
 
 def excel_response(df, name):
+    """Return Excel HttpResponse from DataFrame."""
     datetime_str = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
     # Create a BytesIO buffer to save the Excel file
@@ -96,6 +97,7 @@ def excel_response(df, name):
 
 
 def csv_response(df, name):
+    """Return CSV HttpResponse from DataFrame."""
     datetime_str = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     response = HttpResponse(df.to_csv(encoding="utf-8"), content_type="text/csv")
     response["Content-Disposition"] = f"attachment; filename={name}.{datetime_str}.csv"
