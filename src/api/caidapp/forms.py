@@ -39,11 +39,9 @@ class UserIdentificationModelForm(forms.Form):
 
 
 # deprecated TODO remove
-class WorkgroupUsersForm(forms.Form):
-    workgroup_users = forms.ModelMultipleChoiceField(queryset=CaIDUser.objects.all(), required=False)
+# class WorkgroupUsersForm(forms.Form):
+#     workgroup_users = forms.ModelMultipleChoiceField(queryset=CaIDUser.objects.all(), required=False)
 
-
-from django import forms
 
 # class WorkgroupForm(forms.ModelForm):
 #     class Meta:
@@ -61,12 +59,23 @@ class WorkgroupForm(forms.ModelForm):
 
     class Meta:
         model = WorkGroup
-        fields = ["name", "default_taxon_for_identification"]
+        fields = [
+            "name",
+            "default_taxon_for_identification",
+            "sequence_time_limit",
+            "check_taxon_before_identification",
+            "caidusers",
+        ]
+        help_texts = {
+            "check_taxon_before_identification": "Do the identification only for media files "
+            + "and observations with the correct taxon. "
+            + "Ignore the other observations and media files.",
+        }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if self.instance.pk:
-            self.fields["caidusers"].initial = self.instance.caiduser_set.all()
+            self.fields["caidusers"].initial = self.instance.caiduser_set.all().order_by("user__username")
 
     def save(self, commit=True):
         """Save the WorkGroup and update the related CaIDUser instances."""
@@ -459,9 +468,6 @@ class ColumnMappingForm(forms.Form):
         for field_name in self.fields:
             if field_name in column_choices:
                 self.initial[field_name] = field_name
-
-
-from django import forms
 
 
 class AnimalObservationForm(forms.ModelForm):

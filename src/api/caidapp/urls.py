@@ -246,11 +246,11 @@ urlpatterns = [
     ),
     path("show_log/", views.show_log, name="show_log"),
     path("show_taxons/", views.show_taxons, name="show_taxons"),
-    path(
-        "workgroup_update/<str:workgroup_hash>/",
-        views.workgroup_update,
-        name="workgroup_update",
-    ),
+    # path(
+    #     "workgroup_update/<str:workgroup_hash>/",
+    #     views.workgroup_update,
+    #     name="workgroup_update",
+    # ),
     path(
         "missing_taxon_annotation",
         views_mediafile.missing_taxon_annotation,

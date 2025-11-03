@@ -385,10 +385,19 @@
                         {% endif %}
                         <li >
                             <a class="dropdown-item d-flex align-items-center" href="{% url 'caidapp:update_caiduser' %}">
-                                <i class="bi bi-gear"></i>
-                                Settings</a>
+                                <i class="bi bi-person-gear"></i>
+                                User Settings</a>
                             {#              <span>Web Designer</span>#}
                         </li>
+                        {% if user.caiduser.workgroup and user.caiduser.workgroup_admin %}
+                    <li>
+
+                        <a class="dropdown-item d-flex align-items-center" href="{% url 'caidapp:workgroup-update' user.caiduser.workgroup.id %}">
+                            <i class="bi bi-building-gear"></i>
+                            <span>Workgroup Settings</span>
+                        </a>
+                    </li>
+                            {% endif %}
 
                         <li>
                             <a class="dropdown-item d-flex align-items-center" href="{% url 'caidapp:logout_view' %}">

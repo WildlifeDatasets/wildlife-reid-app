@@ -131,6 +131,12 @@ class WorkGroup(models.Model):
     identification_scheduled_init_eta = models.DateTimeField(null=True, blank=True)
     identification_scheduled_run_task_id = models.CharField(max_length=255, null=True, blank=True)
     identification_scheduled_run_eta = models.DateTimeField(null=True, blank=True)
+    check_taxon_before_identification = models.BooleanField(
+        "Check taxon before identification",
+        default=True,
+        help_text="Do the identification only for media files and observations with the correct taxon. "
+        + "Ignore the other observations and media files.",
+    )
     default_taxon_for_identification = models.ForeignKey(
         Taxon,
         on_delete=models.SET_NULL,

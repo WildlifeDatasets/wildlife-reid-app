@@ -25,7 +25,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth import login as auth_login
 from django.contrib.auth import logout
 from django.contrib.auth.decorators import login_required, user_passes_test
-from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 
 # from django.contrib.auth.models import User
 from django.contrib.auth.views import LoginView
@@ -59,7 +59,7 @@ from . import (
     views_locality,
     views_uploads,
 )
-from .forms import (
+from .forms import (  # WorkgroupUsersForm,
     AlbumForm,
     IndividualIdentityForm,
     MediaFileBulkForm,
@@ -69,7 +69,6 @@ from .forms import (
     UploadedArchiveSelectTaxonForIdentificationForm,
     UploadedArchiveUpdateForm,
     UserSelectForm,
-    WorkgroupUsersForm,
 )
 from .model_extra import user_has_rw_acces_to_uploadedarchive, user_has_rw_access_to_mediafile
 from .model_tools import timesince_now
@@ -1750,7 +1749,7 @@ def run_identification(uploaded_archive: UploadedArchive, workgroup: models.Work
 
     # find media files with observations of the expected taxon
     kwargs = {}
-    if workgroup.default_taxon_for_identification:
+    if workgroup.default_taxon_for_identification and workgroup.check_taxon_before_identification:
         kwargs.update(dict(taxon=workgroup.default_taxon_for_identification))
 
     mf_ids = (
@@ -2841,10 +2840,6 @@ def create_new_album(request, name="New Album"):
     return album
 
 
-from django.contrib.auth.mixins import UserPassesTestMixin
-from django.views.generic import UpdateView
-
-
 class WorkgroupAdminRequiredMixin(UserPassesTestMixin):
     def test_func(self):
         """Check if user is workgroup admin."""
@@ -2878,46 +2873,46 @@ class WorkgroupUpdateView(WorkgroupAdminRequiredMixin, UpdateView):
         return context
 
 
-# TODO remove, depreceated
-@login_required
-def workgroup_update(request, workgroup_hash: str):
-    """Update workgroup."""
-    workgroup = get_object_or_404(WorkGroup, hash=workgroup_hash)
-    if request.method == "POST":
-        form = WorkgroupUsersForm(request.POST)
-        logger.debug(request.POST)
-        logger.debug(form)
-        if form.is_valid():
-            logger.debug(form.cleaned_data)
-            workgroup_users_all = workgroup.caiduser_set.all()
-            logger.debug(f"Former all users {workgroup_users_all}")
-            workgroup.caiduser_set.set(form.cleaned_data["workgroup_users"])
-
-            pass
-            # logger
-            # form.save()
-            # return redirect("workgroup_list")
-    else:
-
-        workgroup_users = workgroup.caiduser_set.all()
-        data = {
-            # 'id': dog_request_id,
-            # 'color': dog_color,
-            "workgroup_users": workgroup_users,
-        }
-        form = WorkgroupUsersForm(data)
-        # form = WorkgroupUsersForm(instance=workgroup.)
-    return render(
-        request,
-        "caidapp/update_form.html",
-        {
-            "form": form,
-            "headline": "Update workgroup",
-            "button": "Save",
-            # "user_is_staff": request.user.is_staff,
-        },
-    )
-    return render(request, "caidapp/update_form.html", {"form": workgroup_hash})
+# remove, depreceated
+# @login_required
+# def workgroup_update(request, workgroup_hash: str):
+#     """Update workgroup."""
+#     workgroup = get_object_or_404(WorkGroup, hash=workgroup_hash)
+#     if request.method == "POST":
+#         form = WorkgroupUsersForm(request.POST)
+#         logger.debug(request.POST)
+#         logger.debug(form)
+#         if form.is_valid():
+#             logger.debug(form.cleaned_data)
+#             workgroup_users_all = workgroup.caiduser_set.all()
+#             logger.debug(f"Former all users {workgroup_users_all}")
+#             workgroup.caiduser_set.set(form.cleaned_data["workgroup_users"])
+#
+#             pass
+#             # logger
+#             # form.save()
+#             # return redirect("workgroup_list")
+#     else:
+#
+#         workgroup_users = workgroup.caiduser_set.all()
+#         data = {
+#             # 'id': dog_request_id,
+#             # 'color': dog_color,
+#             "workgroup_users": workgroup_users,
+#         }
+#         form = WorkgroupUsersForm(data)
+#         # form = WorkgroupUsersForm(instance=workgroup.)
+#     return render(
+#         request,
+#         "caidapp/update_form.html",
+#         {
+#             "form": form,
+#             "headline": "Update workgroup",
+#             "button": "Save",
+#             # "user_is_staff": request.user.is_staff,
+#         },
+#     )
+#     return render(request, "caidapp/update_form.html", {"form": workgroup_hash})
 
 
 def _update_csv_by_uploadedarchive(request, uploadedarchive_id: int):
