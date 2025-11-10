@@ -669,15 +669,13 @@ def copy_and_transform_row(
 
         suffix = input_file_path.suffix.lower()
         is_image = suffix in (extensions or image_extensions)
-        is_video = suffix in video_extensions
+        # is_video = suffix in video_extensions
 
         if output_file_path.exists() and output_file_path.stat().st_mtime > input_file_path.stat().st_mtime:
             logger.debug(f"File {output_file_path} already exists and is up to date. Skipping.")
             return
 
         if mode == "convert" and is_image:
-
-
 
             try:
                 with Image.open(input_file_path) as img:
@@ -709,7 +707,7 @@ def make_dataset(
     tqdm_desc: typing.Optional[str] = None,
     # convert_to_webp: bool = True,
     n_jobs: int = 4,
-    mode:str = 'nothing',
+    mode: str = "nothing",
 ) -> pd.DataFrame:
     """Prepare the '.tar.gz' and '.csv' file based on the dataframe with list of the files.
 
@@ -737,7 +735,7 @@ def make_dataset(
     dataframe: DataFrame
         The original input dataframe extended by 'image_file' column.
     """
-    assert mode in ('copy', 'move', 'convert', 'nothing'), "Mode must be one of 'copy', 'move', or 'convert'"
+    assert mode in ("copy", "move", "convert", "nothing"), "Mode must be one of 'copy', 'move', or 'convert'"
     if tqdm_desc is None:
         tqdm_desc = dataset_name
 
@@ -747,7 +745,7 @@ def make_dataset(
         dataframe["image_path"] = dataframe["original_path"].apply(
             lambda filename: os.path.join(dataset_name, filename)
         )
-    if mode == 'convert':
+    if mode == "convert":
         dataframe["image_path"] = dataframe["image_path"].apply(
             lambda filename: str(Path(filename).with_suffix(".webp"))
         )
@@ -771,15 +769,15 @@ def make_dataset(
     #                 error = traceback.format_exception(e)
     #                 logger.critical(f"Error while copying/moving file:\n{error}")
 
-    if mode in ('copy', 'move', 'convert'):
-        Parallel(n_jobs=n_jobs,  prefer="threads")(
+    if mode in ("copy", "move", "convert"):
+        Parallel(n_jobs=n_jobs, prefer="threads")(
             delayed(copy_and_transform_row)(
                 row,
                 dataset_base_dir,
                 output_path,
                 # hash_filename,
                 # dataset_name,
-                mode = mode,
+                mode=mode,
                 quality=85,
                 method=5,
             )
@@ -1377,7 +1375,7 @@ def data_preprocessing(
         # move_files=True,
         create_csv=False,
         tqdm_desc="copying files",
-        mode='convert',
+        mode="convert",
     )
 
     shutil.rmtree(tmp_dir, ignore_errors=True)

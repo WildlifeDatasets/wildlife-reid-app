@@ -11,9 +11,9 @@ import pandas as pd
 import skimage.io
 import wandb
 import yaml
+from PIL import Image
 from scipy.special import softmax
 from tqdm import tqdm
-from PIL import Image
 
 from .config import RESOURCES_DIR, WANDB_API_KEY, WANDB_ARTIFACT_PATH, WANDB_ARTIFACT_PATH_CROPPED
 from .dataset_tools import data_preprocessing
@@ -416,7 +416,6 @@ class TempLogContext:
             logger.setLevel(level)
 
 
-
 def make_thumbnail_from_file(image_path: Path, thumbnail_path: Path, width: int = 800) -> bool:
     """Create a smaller thumbnail image from the input image.
 
@@ -463,6 +462,7 @@ def make_thumbnail_from_file(image_path: Path, thumbnail_path: Path, width: int 
     except Exception:
         logger.warning(f"Cannot create thumbnail from file '{image_path}'. Exception: {traceback.format_exc()}")
         return False
+
 
 # def make_thumbnail_from_file(image_path: Path, thumbnail_path: Path, width: int = 800) -> bool:
 #     """Create small thumbnail image from input image.
