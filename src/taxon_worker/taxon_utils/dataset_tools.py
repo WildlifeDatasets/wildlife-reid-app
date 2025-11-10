@@ -18,7 +18,7 @@ from typing import List, Optional, Tuple
 import numpy as np
 import pandas as pd
 from joblib import Parallel, delayed
-from PIL import Image
+from PIL import Image, ImageOps
 from tqdm import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
 
@@ -28,6 +28,10 @@ from .sequence_identification import (
 )
 
 logger = logging.getLogger("app")
+
+
+image_extensions = [".jpg", ".jpeg", ".png", ".tif", ".tiff", ".bmp"]
+video_extensions = [".mp4", ".avi", ".mov", ".mkv", ".webm", ".flv", ".wmv", ".m4v"]
 
 # this is first level preprocessing fixing the most obvious typos.
 _species_czech_preprocessing = {
@@ -640,6 +644,58 @@ def make_tarfile(output_filename, source_dir):
         tar.add(source_dir, arcname=os.path.basename(source_dir))
 
 
+def copy_and_transform_row(
+    row,
+    dataset_base_dir,
+    output_path,
+    # hash_filename,
+    # dataset_name,
+    mode: str = "copy",
+    quality=85,
+    method=6,
+    extensions=None,
+):
+    """Copy or move or convert a single file based on the row information.
+
+    mode: 'copy', 'move', 'convert'
+    """
+    try:
+        input_file_path = (dataset_base_dir / row["original_path"]).resolve()
+        output_file_path = (output_path / Path(row["image_path"])).resolve()
+        output_file_path.parent.mkdir(parents=True, exist_ok=True)
+
+        if not input_file_path.is_file():
+            return
+
+        suffix = input_file_path.suffix.lower()
+        is_image = suffix in (extensions or image_extensions)
+        is_video = suffix in video_extensions
+
+        if output_file_path.exists() and output_file_path.stat().st_mtime > input_file_path.stat().st_mtime:
+            logger.debug(f"File {output_file_path} already exists and is up to date. Skipping.")
+            return
+
+        if mode == "convert" and is_image:
+
+
+
+            try:
+                with Image.open(input_file_path) as img:
+                    img = ImageOps.exif_transpose(img)  # respektuje EXIF orientaci
+                    img.save(output_file_path, "WEBP", quality=quality, method=method)
+            except Exception as e:
+                logger.error(f"Error during conversion of {input_file_path}: {e}")
+                return
+        elif mode == "move":
+            shutil.copy2(input_file_path, output_file_path)
+        elif mode == "copy" or (not is_image and mode == "convert"):
+            shutil.move(input_file_path, output_file_path)
+
+    except Exception as e:
+        logger.error(f"Unexpected error in {row.get('original_path')}: {e}")
+        traceback.print_exc()
+
+
 def make_dataset(
     dataframe: typing.Optional[pd.DataFrame],
     dataset_name: typing.Optional[str],
@@ -647,10 +703,13 @@ def make_dataset(
     output_path: Path,
     hash_filename: bool = False,
     make_tar: bool = False,
-    copy_files: bool = False,
-    move_files: bool = False,
+    # copy_files: bool = False,
+    # move_files: bool = False,
     create_csv: bool = False,
     tqdm_desc: typing.Optional[str] = None,
+    # convert_to_webp: bool = True,
+    n_jobs: int = 4,
+    mode:str = 'nothing',
 ) -> pd.DataFrame:
     """Prepare the '.tar.gz' and '.csv' file based on the dataframe with list of the files.
 
@@ -678,7 +737,7 @@ def make_dataset(
     dataframe: DataFrame
         The original input dataframe extended by 'image_file' column.
     """
-    assert not (copy_files and move_files), "Onle one arg 'copy_files' or 'move_files' can be True."
+    assert mode in ('copy', 'move', 'convert', 'nothing'), "Mode must be one of 'copy', 'move', or 'convert'"
     if tqdm_desc is None:
         tqdm_desc = dataset_name
 
@@ -688,25 +747,44 @@ def make_dataset(
         dataframe["image_path"] = dataframe["original_path"].apply(
             lambda filename: os.path.join(dataset_name, filename)
         )
+    if mode == 'convert':
+        dataframe["image_path"] = dataframe["image_path"].apply(
+            lambda filename: str(Path(filename).with_suffix(".webp"))
+        )
 
     output_path.mkdir(parents=True, exist_ok=True)
     if create_csv:
         dataframe.to_csv(output_path / f"{dataset_name}.csv", encoding="utf-8-sig")
 
-    if copy_files or move_files:
-        for index, row in tqdm(dataframe.iterrows(), total=len(dataframe), desc=tqdm_desc):
-            input_file_path = (dataset_base_dir / row["original_path"]).resolve()
-            output_file_path = (output_path / Path(row["image_path"])).resolve()
-            output_file_path.parent.mkdir(parents=True, exist_ok=True)
-            if input_file_path.is_file():
-                try:
-                    if copy_files:
-                        shutil.copyfile(input_file_path, output_file_path)
-                    else:
-                        shutil.move(input_file_path, output_file_path)
-                except Exception as e:
-                    error = traceback.format_exception(e)
-                    logger.critical(f"Error while copying/moving file:\n{error}")
+    # if copy_files or move_files:
+    #     for index, row in tqdm(dataframe.iterrows(), total=len(dataframe), desc=tqdm_desc):
+    #         input_file_path = (dataset_base_dir / row["original_path"]).resolve()
+    #         output_file_path = (output_path / Path(row["image_path"])).resolve()
+    #         output_file_path.parent.mkdir(parents=True, exist_ok=True)
+    #         if input_file_path.is_file():
+    #             try:
+    #                 if copy_files:
+    #                     shutil.copyfile(input_file_path, output_file_path)
+    #                 else:
+    #                     shutil.move(input_file_path, output_file_path)
+    #             except Exception as e:
+    #                 error = traceback.format_exception(e)
+    #                 logger.critical(f"Error while copying/moving file:\n{error}")
+
+    if mode in ('copy', 'move', 'convert'):
+        Parallel(n_jobs=n_jobs,  prefer="threads")(
+            delayed(copy_and_transform_row)(
+                row,
+                dataset_base_dir,
+                output_path,
+                # hash_filename,
+                # dataset_name,
+                mode = mode,
+                quality=85,
+                method=5,
+            )
+            for _, row in tqdm(dataframe.iterrows(), total=len(dataframe), desc=tqdm_desc)
+        )
 
     if make_tar:
         logger.info("Creating '.tar.gz' archive.")
@@ -882,13 +960,14 @@ class SumavaInitialProcessing:
         output_dict["original_path"] = self.get_paths_from_dir_parallel(mask, exclude)
 
         if make_exifs:
-            datetime_list, read_error_list, source_list = self.add_datetime_from_exif_in_parallel(
+            datetime_list, read_error_list, source_list, exifs = self.add_datetime_from_exif_in_parallel(
                 output_dict["original_path"]
             )
 
             output_dict["datetime"] = datetime_list
             output_dict["read_error"] = read_error_list
             output_dict["datetime_source"] = source_list
+            output_dict["exif"] = exifs
 
         df = pd.DataFrame(output_dict)
         self.filelist_df = df
@@ -902,7 +981,7 @@ class SumavaInitialProcessing:
 
         return df
 
-    def add_datetime_from_exif_in_parallel(self, original_paths: list[Path]) -> Tuple[list, list, list]:
+    def add_datetime_from_exif_in_parallel(self, original_paths: list[Path]) -> Tuple[list, list, list, list]:
         """Get list of datetimes from EXIF.
 
         The EXIF information is extracted in single-core way but with the help of ExifTool.
@@ -964,9 +1043,9 @@ def extract_information_from_dir_structure(
         ):
             pthir = Path(pthistr)
 
-            if pthir.suffix.lower() in (".avi", ".m4v", ".mp4", ".mov"):
+            if pthir.suffix.lower() in video_extensions:
                 media_type = "video"
-            elif pthir.suffix.lower() in (".jpg", ".png", ".jpeg"):
+            elif pthir.suffix.lower() in image_extensions:
                 media_type = "image"
             else:
                 media_type = "unknown"
@@ -1197,6 +1276,8 @@ def analyze_dataset_directory(
     df["datetime"] = pd.to_datetime(df0.datetime, errors="coerce")
     df["read_error"] = list(df0["read_error"])
     df["datetime_source"] = list(df0["datetime_source"])
+    if "exif" in df0.columns:
+        df["exif"] = list(df0["exif"])
 
     df.loc[:, "sequence_number"] = None
 
@@ -1293,9 +1374,10 @@ def data_preprocessing(
         output_path=media_dir_path,
         hash_filename=True,
         make_tar=False,
-        move_files=True,
+        # move_files=True,
         create_csv=False,
         tqdm_desc="copying files",
+        mode='convert',
     )
 
     shutil.rmtree(tmp_dir, ignore_errors=True)

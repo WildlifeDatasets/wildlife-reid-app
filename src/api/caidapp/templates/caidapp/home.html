@@ -38,8 +38,13 @@
                                 <img src="{% static 'caidapp/taxon_classification.svg' %}" alt="taxon classification icon" class="img-fluid" style="max-height: 100px;">
                                 <br>Taxon</a>
                         </div>
-                        <div class="col">
-                            <a class="btn btn-primary btn-lg" href="{% url 'caidapp:dash_identities' %}">
+                        <div class="col"
+                                {% if not user.caiduser.workgroup %} title="No workgroup assigned. Ask admin to create it for you." {% endif %}
+                        >
+                            <a
+                                href="{% url 'caidapp:dash_identities' %}"
+                                    class="btn btn-primary btn-lg {% if not user.caiduser.workgroup %} disabled {% endif %}"
+                            >
                                 <img src="{% static 'caidapp/identification.svg' %}" alt="taxon classification icon" class="img-fluid" style="max-height: 100px;">
                                 <br>Indentity</a>
                         </div>

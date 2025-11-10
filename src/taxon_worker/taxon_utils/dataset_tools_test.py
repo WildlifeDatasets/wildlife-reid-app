@@ -96,7 +96,8 @@ def test_make_tar_dataset():
         output_path=output_test_dir,
         hash_filename=True,
         make_tar=True,
-        copy_files=True,
+        mode = 'copy',
+        # copy_files=True,
     )
     assert (output_test_dir / f"{dataset_name}.csv").exists(), "Output file does not exist"
 

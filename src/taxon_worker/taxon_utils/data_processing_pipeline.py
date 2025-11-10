@@ -13,6 +13,7 @@ import wandb
 import yaml
 from scipy.special import softmax
 from tqdm import tqdm
+from PIL import Image
 
 from .config import RESOURCES_DIR, WANDB_API_KEY, WANDB_ARTIFACT_PATH, WANDB_ARTIFACT_PATH_CROPPED
 from .dataset_tools import data_preprocessing
@@ -415,34 +416,82 @@ class TempLogContext:
             logger.setLevel(level)
 
 
+
 def make_thumbnail_from_file(image_path: Path, thumbnail_path: Path, width: int = 800) -> bool:
-    """Create small thumbnail image from input image.
+    """Create a smaller thumbnail image from the input image.
 
     Returns:
-        True if the processing is ok.
-
+        True if the processing succeeded, False otherwise.
     """
     try:
         with log_tools.TempLogContext(
             ["skimage.io", "PIL", "tifffile"], [logging.WARNING, logging.WARNING, logging.WARNING]
         ):
             image = skimage.io.imread(image_path)
+
+        if image is None:
+            raise ValueError("Image could not be read.")
+
+        # Rescale
         scale = float(width) / image.shape[1]
-        scale = [scale, scale, 1]
-        image_rescaled = cv2.resize(image, (0, 0), fx=scale[0], fy=scale[1])
-        # image_rescaled = skimage.transform.rescale(image, scale=scale, anti_aliasing=True)
-        # image_rescaled = (image_rescaled * 255).astype(np.uint8)
-        # logger.info(f"{image_rescaled.shape=}, {image_rescaled.dtype=}")
-        thumbnail_path.parent.mkdir(exist_ok=True, parents=True)
-        if thumbnail_path.suffix.lower() in (".jpg", ".jpeg"):
-            quality = 85
+        new_size = (int(image.shape[1] * scale), int(image.shape[0] * scale))
+        image_rescaled = cv2.resize(image, new_size)
+
+        # Convert to PIL Image for saving (better format support)
+        if image_rescaled.dtype != np.uint8:
+            image_rescaled = (image_rescaled * 255).astype(np.uint8)
+        if image_rescaled.ndim == 2:  # grayscale
+            pil_image = Image.fromarray(image_rescaled, mode="L")
         else:
-            quality = None
-        skimage.io.imsave(thumbnail_path, image_rescaled, quality=quality)
+            pil_image = Image.fromarray(image_rescaled)
+
+        thumbnail_path.parent.mkdir(exist_ok=True, parents=True)
+
+        # Choose quality
+        suffix = thumbnail_path.suffix.lower()
+        if suffix in (".jpg", ".jpeg"):
+            quality = 85
+            save_kwargs = {"quality": quality, "optimize": True}
+        elif suffix == ".webp":
+            save_kwargs = {"quality": 85, "method": 5}
+        else:
+            save_kwargs = {}
+
+        pil_image.save(thumbnail_path, **save_kwargs)
         return True
+
     except Exception:
         logger.warning(f"Cannot create thumbnail from file '{image_path}'. Exception: {traceback.format_exc()}")
         return False
+
+# def make_thumbnail_from_file(image_path: Path, thumbnail_path: Path, width: int = 800) -> bool:
+#     """Create small thumbnail image from input image.
+#
+#     Returns:
+#         True if the processing is ok.
+#
+#     """
+#     try:
+#         with log_tools.TempLogContext(
+#             ["skimage.io", "PIL", "tifffile"], [logging.WARNING, logging.WARNING, logging.WARNING]
+#         ):
+#             image = skimage.io.imread(image_path)
+#         scale = float(width) / image.shape[1]
+#         scale = [scale, scale, 1]
+#         image_rescaled = cv2.resize(image, (0, 0), fx=scale[0], fy=scale[1])
+#         # image_rescaled = skimage.transform.rescale(image, scale=scale, anti_aliasing=True)
+#         # image_rescaled = (image_rescaled * 255).astype(np.uint8)
+#         # logger.info(f"{image_rescaled.shape=}, {image_rescaled.dtype=}")
+#         thumbnail_path.parent.mkdir(exist_ok=True, parents=True)
+#         if thumbnail_path.suffix.lower() in (".jpg", ".jpeg"):
+#             quality = 85
+#         else:
+#             quality = None
+#         skimage.io.imsave(thumbnail_path, image_rescaled, quality=quality)
+#         return True
+#     except Exception:
+#         logger.warning(f"Cannot create thumbnail from file '{image_path}'. Exception: {traceback.format_exc()}")
+#         return False
 
 
 def convert_to_mp4(input_video_path: Union[str, Path], output_video_path: Union[str, Path], force: bool = False):
