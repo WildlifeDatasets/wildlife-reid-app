@@ -11,6 +11,10 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 from zoneinfo import ZoneInfo
 
+import zipfile
+from django.core.files.base import ContentFile
+import io
+
 import django
 import django.db
 import django.utils.timezone
@@ -36,7 +40,7 @@ from django.db.models import Count, F, Func, Max, Min, OuterRef, Q, QuerySet, Su
 from django.db.models.functions import Cast
 from django.forms import modelformset_factory
 from django.forms.models import model_to_dict
-from django.http import HttpResponseNotAllowed, JsonResponse
+from django.http import HttpResponseNotAllowed, JsonResponse, HttpRequest
 from django.shortcuts import Http404, HttpResponse, get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse, reverse_lazy
@@ -318,34 +322,6 @@ def update_taxon(request, taxon_id: Optional[int] = None):
         },
     )
 
-
-# @login_required
-# def update_caiduser(request):
-#     """Update species form. Create taxon if taxon_id is None."""
-#     caiduser = request.user.caiduser
-#     if request.method == "POST":
-#         form = forms.CaIDForm(request.POST, instance=caiduser)
-#         if form.is_valid():
-#             taxon = form.save(commit=False)
-#             # taxon.updated_by = request.user.caiduser
-#             taxon.save()
-#             # go back to prev url
-#             url = request.META.get("HTTP_REFERER", "/")
-#
-#             return redirect(url)
-#             # return
-#             # return redirect("caidapp:show_taxons")
-#     else:
-#         form = forms.CaIDForm(instance=caiduser)
-#     return render(
-#         request,
-#         "caidapp/update_form.html",
-#         {
-#             "form": form,
-#             "headline": "User settings",
-#             "button": "Save",
-#         },
-#     )
 
 
 @method_decorator(login_required, name="dispatch")
@@ -1865,6 +1841,36 @@ def delete_album(request, album_hash):
     return redirect("caidapp:albums")
 
 
+def _one_zip_from_request_FILES(request:HttpRequest) -> HttpRequest:
+    """Create one ZIP file from multiple uploaded files in request.FILES."""
+    files = request.FILES.getlist("archivefile")
+
+    if not files:
+        return request
+        # return JsonResponse({"error": "No files uploaded."}, status=400)
+
+    # if there is just one file and it is an archive → keep the original logic
+    if len(files) == 1 and files[0].name.lower().endswith((".zip", ".tar", ".tar.gz")):
+        # dále zpracování běží přes form.save(), viz níže
+        pass
+    else:
+        # 📦 Uživateli došlo více souborů → zabalíme je do ZIP sami
+
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zipf:
+            for f in files:
+                zipf.writestr(f.name, f.read())
+
+        buffer.seek(0)
+        now_str = django.utils.timezone.now().strftime("%Y%m%d-%H%M%S")
+        # create pseudo file for the form
+        zipped_file = ContentFile(buffer.read(), name=f"uploaded_multiple_files.{now_str}.zip")
+
+        # substitute the original request.FILES with the zip file
+        request.FILES.setlist("archivefile", [zipped_file])
+
+    return request
+
 @login_required
 def upload_archive(
     request,
@@ -1885,6 +1891,9 @@ def upload_archive(
         next_url = reverse_lazy("caidapp:uploads_known_identities")
 
     if request.method == "POST":
+
+        request = _one_zip_from_request_FILES(request)
+
         if contains_single_taxon:
             form = UploadedArchiveFormWithTaxon(
                 request.POST,

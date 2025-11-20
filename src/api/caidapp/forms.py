@@ -249,31 +249,71 @@ class UploadedArchiveUpdateForm(forms.ModelForm):
             "locality_check_at",
             # "contains_identities"
         )
+class MultipleFileInput(forms.ClearableFileInput):
+    allow_multiple_selected = True
 
+
+class MultipleFileField(forms.FileField):
+
+    def __init__(self, *args, **kwargs):
+        # Nastavíme náš vlastní widget automaticky
+        kwargs.setdefault("widget", MultipleFileInput())
+        super().__init__(*args, **kwargs)
+
+    def clean(self, data, initial=None):
+        # nejdřív použijeme defaultní validaci FileFieldu
+        single_clean = super().clean
+
+        # pokud je data list/tuple → zvalidujeme každý soubor
+        if isinstance(data, (list, tuple)):
+            return [single_clean(d, initial) for d in data]
+
+        # jinak zpracujeme jako jeden soubor
+        return single_clean(data, initial)
 
 class UploadedArchiveForm(forms.ModelForm):
 
-    locality_at_upload = forms.CharField(widget=forms.TextInput(attrs={"class": "autocomplete"}), required=False)
+    # archivefile = forms.FileField(
+    #     widget=forms.FileInput(
+    #         # attrs={'multiple': True}
+    #     ),
+    #     required=True,
+    #     label="Upload files",
+    #     help_text=(
+    #         "Select one or more files. If multiple files are uploaded, "
+    #         "they will automatically be zipped before processing."
+    #     ),
+    # )
+    archivefile = MultipleFileField(
+        required=True,
+        label="Upload files",
+        help_text="Select files; multiple files will be zipped."
+    )
+
+    locality_at_upload = forms.CharField(
+        widget=forms.TextInput(attrs={"class": "autocomplete"}),
+        required=False,
+    )
+
     ml_consent = forms.BooleanField(
         widget=forms.CheckboxInput(),
         label="I agree to the use of my uploaded images and videos for training AI models.",
         required=True,
     )
+
     locality_check_at = forms.DateField(
-        widget=forms.DateInput(attrs={"class": "datepicker", "placeholder": "yyyy-mm-dd"}, format="%Y-%m-%d"),
+        widget=forms.DateInput(
+            attrs={"class": "datepicker", "placeholder": "yyyy-mm-dd"},
+            format="%Y-%m-%d",
+        ),
         input_formats=["%Y-%m-%d"],
-        # widget=forms.TextInput(attrs={'class': 'datepicker'})
     )
 
     class Meta:
         model = UploadedArchive
-        fields = ("archivefile", "locality_at_upload", "locality_check_at")
-        help_texts = {
-            "archivefile": "Select a zip file. Date and locality should be detected automatically, "
-            "e.g., '2023-02-21_Horni Lukavice.zip', 'Horni Lukavice 20230221.zip'",
-        }
+        fields = ("locality_at_upload", "locality_check_at")
+        exclude = ("archivefile",)     # ← 🔥 přidat sem
         labels = {
-            "archivefile": "Upload Archive File",
             "locality_at_upload": "Locality at Upload",
             "locality_check_at": "Locality Check Date",
         }
@@ -282,37 +322,179 @@ class UploadedArchiveForm(forms.ModelForm):
         user = kwargs.pop("user", None)
         super().__init__(*args, **kwargs)
         self.fields["ml_consent"].initial = user.caiduser.ml_consent_given if user else False
-        # if user and user.caiduser.ml_consent_given:
-        #     # Don't show the checkbox if already agreed
-        #     self.fields.pop("ml_consent")
+
+
+# class UploadedArchiveForm(forms.ModelForm):
+#
+#     # 🔥 vlastní pole mimo Meta — to je klíčové
+#     archivefile = forms.FileField(
+#         widget=forms.FileInput(attrs={'multiple': True}),
+#         required=True,
+#         label="Upload files",
+#         help_text=(
+#             "Select one or more files. If multiple files are uploaded, "
+#             "they will automatically be zipped before processing."
+#         ),
+#     )
+#
+#     locality_at_upload = forms.CharField(
+#         widget=forms.TextInput(attrs={"class": "autocomplete"}),
+#         required=False,
+#     )
+#
+#     ml_consent = forms.BooleanField(
+#         widget=forms.CheckboxInput(),
+#         label="I agree to the use of my uploaded images and videos for training AI models.",
+#         required=True,
+#     )
+#
+#     locality_check_at = forms.DateField(
+#         widget=forms.DateInput(
+#             attrs={"class": "datepicker", "placeholder": "yyyy-mm-dd"},
+#             format="%Y-%m-%d",
+#         ),
+#         input_formats=["%Y-%m-%d"],
+#     )
+#
+#     class Meta:
+#         model = UploadedArchive
+#
+#         # 🔥 ARCHIVEFILE NESMÍ BÝT V fields
+#         fields = ("locality_at_upload", "locality_check_at")
+#
+#         # 🔥 taktéž nesmíš mít help_texts nebo labels pro archivefile
+#         labels = {
+#             "locality_at_upload": "Locality at Upload",
+#             "locality_check_at": "Locality Check Date",
+#         }
+#
+#     def __init__(self, *args, **kwargs):
+#         user = kwargs.pop("user", None)
+#         super().__init__(*args, **kwargs)
+#         self.fields["ml_consent"].initial = user.caiduser.ml_consent_given if user else False
 
 
 class UploadedArchiveFormWithTaxon(forms.ModelForm):
 
-    locality_at_upload = forms.CharField(widget=forms.TextInput(attrs={"class": "autocomplete"}), required=False)
+    # archivefile = forms.FileField(
+    #     widget=forms.FileInput(
+    #         # attrs={'multiple': True}
+    #     ),
+    #     required=True,
+    #     label="Upload files",
+    # )
+    archivefile = MultipleFileField(
+        required=True,
+        label="Upload files",
+        help_text="Select files; multiple files will be zipped."
+    )
+
+    locality_at_upload = forms.CharField(
+        widget=forms.TextInput(attrs={"class": "autocomplete"}),
+        required=False
+    )
+
     taxon_for_identification = forms.ModelChoiceField(
-        queryset=models.Taxon.objects.all().order_by("name"), required=True
+        queryset=models.Taxon.objects.all().order_by("name"),
+        required=True,
     )
 
     ml_consent = forms.BooleanField(
+        widget=forms.CheckboxInput(),
         label="I agree to the use of my uploaded images and videos for training AI models.",
         required=True,
     )
 
     class Meta:
         model = UploadedArchive
-        fields = (
-            "archivefile",
-            "locality_at_upload",
-        )
 
-    def __init__(self, *args, **kwargs):
-        user = kwargs.pop("user", None)
-        super().__init__(*args, **kwargs)
-        self.fields["ml_consent"].initial = user.caiduser.ml_consent_given if user else False
-        # if user and user.caiduser.ml_consent_given:
-        #     # Don't show the checkbox if already agreed
-        #     self.fields.pop("ml_consent")
+        fields = ("locality_at_upload", "taxon_for_identification")
+        exclude = ("archivefile",)   # <– pořád nutné!
+
+        # again NO archivefile here
+
+# class UploadedArchiveForm(forms.ModelForm):
+#
+#     locality_at_upload = forms.CharField(widget=forms.TextInput(attrs={"class": "autocomplete"}), required=False)
+#     ml_consent = forms.BooleanField(
+#         widget=forms.CheckboxInput(),
+#         label="I agree to the use of my uploaded images and videos for training AI models.",
+#         required=True,
+#     )
+#     locality_check_at = forms.DateField(
+#         widget=forms.DateInput(
+#             attrs={"class": "datepicker", "placeholder": "yyyy-mm-dd"},
+#             format="%Y-%m-%d",
+#         ),
+#         input_formats=["%Y-%m-%d"],
+#         # widget=forms.TextInput(attrs={'class': 'datepicker'})
+#     )
+#     archivefile = forms.FileField(
+#         widget=forms.FileInput(attrs={'multiple': True}),
+#         required=True
+#     )
+#
+#     class Meta:
+#         model = UploadedArchive
+#         fields = (
+#             # "archivefile",
+#                   "locality_at_upload", "locality_check_at")
+#         help_texts = {
+#             "archivefile": "Select a zip file. Date and locality should be detected automatically, "
+#             "e.g., '2023-02-21_Horni Lukavice.zip', 'Horni Lukavice 20230221.zip'",
+#         }
+#         labels = {
+#             "archivefile": "Upload Archive File",
+#             "locality_at_upload": "Locality at Upload",
+#             "locality_check_at": "Locality Check Date",
+#         }
+#         # widgets = {
+#         #     "archivefile": forms.FileInput(attrs={"multiple": True}),
+#         # }
+#
+#     def __init__(self, *args, **kwargs):
+#         user = kwargs.pop("user", None)
+#         super().__init__(*args, **kwargs)
+#         self.fields["ml_consent"].initial = user.caiduser.ml_consent_given if user else False
+#         # if user and user.caiduser.ml_consent_given:
+#         #     # Don't show the checkbox if already agreed
+#         #     self.fields.pop("ml_consent")
+
+
+# class UploadedArchiveFormWithTaxon(forms.ModelForm):
+#
+#     locality_at_upload = forms.CharField(widget=forms.TextInput(attrs={"class": "autocomplete"}), required=False)
+#     taxon_for_identification = forms.ModelChoiceField(
+#         queryset=models.Taxon.objects.all().order_by("name"), required=True
+#     )
+#
+#     ml_consent = forms.BooleanField(
+#         label="I agree to the use of my uploaded images and videos for training AI models.",
+#         required=True,
+#     )
+#     archivefile = forms.FileField(
+#         widget=forms.FileInput(attrs={'multiple': True}),
+#         required=True
+#     )
+#
+#     class Meta:
+#         model = UploadedArchive
+#         # widgets = {
+#         #     "archivefile": forms.FileInput(attrs={"multiple": True}),
+#         # }
+#         fields = (
+#             # "archivefile",
+#             "locality_at_upload",
+#         )
+#
+#     def __init__(self, *args, **kwargs):
+#         user = kwargs.pop("user", None)
+#         super().__init__(*args, **kwargs)
+#         self.fields["ml_consent"].initial = user.caiduser.ml_consent_given if user else False
+#         # if user and user.caiduser.ml_consent_given:
+#         #     # Don't show the checkbox if already agreed
+#         #     self.fields.pop("ml_consent")
+
 
 
 class CaIDUserForm(forms.ModelForm):
