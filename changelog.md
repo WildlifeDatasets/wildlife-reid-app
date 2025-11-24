@@ -6,6 +6,7 @@
 * [changed] the media file update use observations now
 * [changed] the media files are converted to `.webp` on upload
 * [changed] the media file import procedure respect the orientation now
+* [added] Upload several media files instead of archive
 
 ## 2025-10
 * [changed]  DJANGO_SECRET_KEY is now stored in `.env` file

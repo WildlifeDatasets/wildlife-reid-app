@@ -291,6 +291,7 @@ class UploadedArchiveForm(forms.ModelForm):
     )
 
     locality_at_upload = forms.CharField(
+        label="Locality",
         widget=forms.TextInput(attrs={"class": "autocomplete"}),
         required=False,
     )
@@ -390,6 +391,7 @@ class UploadedArchiveFormWithTaxon(forms.ModelForm):
     )
 
     locality_at_upload = forms.CharField(
+        label="Locality",
         widget=forms.TextInput(attrs={"class": "autocomplete"}),
         required=False
     )
@@ -412,6 +414,12 @@ class UploadedArchiveFormWithTaxon(forms.ModelForm):
         exclude = ("archivefile",)   # <– pořád nutné!
 
         # again NO archivefile here
+
+
+    def __init__(self, *args, **kwargs):
+        user = kwargs.pop("user", None)
+        super().__init__(*args, **kwargs)
+        self.fields["ml_consent"].initial = user.caiduser.ml_consent_given if user else False
 
 # class UploadedArchiveForm(forms.ModelForm):
 #

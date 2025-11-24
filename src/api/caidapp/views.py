@@ -1864,12 +1864,15 @@ def _one_zip_from_request_FILES(request:HttpRequest) -> HttpRequest:
         buffer.seek(0)
         now_str = django.utils.timezone.now().strftime("%Y%m%d-%H%M%S")
         # create pseudo file for the form
-        zipped_file = ContentFile(buffer.read(), name=f"uploaded_multiple_files.{now_str}.zip")
+        zipped_file = ContentFile(
+            buffer.read(), name=f"uploaded_multiple_files.{now_str}.zip"
+        )
 
         # substitute the original request.FILES with the zip file
         request.FILES.setlist("archivefile", [zipped_file])
 
     return request
+
 
 @login_required
 def upload_archive(
@@ -1891,8 +1894,9 @@ def upload_archive(
         next_url = reverse_lazy("caidapp:uploads_known_identities")
 
     if request.method == "POST":
-
+        # logger.debug(f" before: {request.FILES}")
         request = _one_zip_from_request_FILES(request)
+        # logger.debug(f"  after: {request.FILES}")
 
         if contains_single_taxon:
             form = UploadedArchiveFormWithTaxon(
@@ -1907,7 +1911,6 @@ def upload_archive(
                 user=request.user,
             )
         if form.is_valid():
-
             caiduser = request.user.caiduser
             if not caiduser.ml_consent_given:
                 if form.cleaned_data.get("ml_consent"):
@@ -1934,7 +1937,22 @@ def upload_archive(
                         }
                     )
             # get uploaded archive
-            uploaded_archive = form.save()
+            uploaded_archive = form.save(commit=False)
+
+            # Získáme ZIP, který vytvořil _one_zip_from_request_FILES
+            files = request.FILES.getlist("archivefile")
+            if not files:
+                raise ValueError("No uploaded file found")
+
+            zip_file = files[0]
+
+            # uložíme ho do modelu
+            uploaded_archive.archivefile.save(zip_file.name, zip_file, save=False)
+
+            # uploaded_archive.owner = request.user.caiduser
+            # uploaded_archive.contains_identities = contains_identities
+            # uploaded_archive.contains_single_taxon = contains_single_taxon
+            uploaded_archive.save()
             uploaded_archive_suffix = Path(uploaded_archive.archivefile.name).suffix.lower()
             if uploaded_archive_suffix not in (".tar", ".tar.gz", ".zip"):
                 logger.warning(f"Uploaded file with extension '{uploaded_archive_suffix}' is not an archive.")
