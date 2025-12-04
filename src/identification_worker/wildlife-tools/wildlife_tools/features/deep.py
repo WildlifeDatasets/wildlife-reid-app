@@ -52,9 +52,7 @@ class DeepFeatures(FeatureExtractor):
         self.model = self.model.to("cpu")
         features = torch.cat(outputs).numpy()
 
-        return FeatureDataset(
-            metadata=dataset.metadata, features=features, col_label=dataset.col_label
-        )
+        return FeatureDataset(metadata=dataset.metadata, features=features, col_label=dataset.col_label)
 
 
 class ClipFeatures:
@@ -116,6 +114,4 @@ class ClipFeatures:
                 outputs.append(output.cpu())
         features = torch.cat(outputs).numpy()
 
-        return FeatureDataset(
-            metadata=dataset.metadata, features=features, col_label=dataset.col_label
-        )
+        return FeatureDataset(metadata=dataset.metadata, features=features, col_label=dataset.col_label)

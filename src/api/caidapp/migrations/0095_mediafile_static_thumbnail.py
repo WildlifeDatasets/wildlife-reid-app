@@ -6,13 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0094_workgroup_sequence_time_limit'),
+        ("caidapp", "0094_workgroup_sequence_time_limit"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='mediafile',
-            name='static_thumbnail',
-            field=models.ImageField(blank=True, max_length=500, null=True, upload_to=''),
+            model_name="mediafile",
+            name="static_thumbnail",
+            field=models.ImageField(blank=True, max_length=500, null=True, upload_to=""),
         ),
     ]

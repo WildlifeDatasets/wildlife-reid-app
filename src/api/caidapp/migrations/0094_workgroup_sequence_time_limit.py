@@ -6,13 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0093_alter_mediafile_locality'),
+        ("caidapp", "0093_alter_mediafile_locality"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='workgroup',
-            name='sequence_time_limit',
-            field=models.IntegerField(default=120, verbose_name='Sequence time limit [s]'),
+            model_name="workgroup",
+            name="sequence_time_limit",
+            field=models.IntegerField(default=120, verbose_name="Sequence time limit [s]"),
         ),
     ]

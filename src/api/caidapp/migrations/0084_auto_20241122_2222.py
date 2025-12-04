@@ -6,23 +6,23 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0083_mediafileidentificationsuggestion'),
+        ("caidapp", "0083_mediafileidentificationsuggestion"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='workgroup',
-            name='identification_reid_at',
-            field=models.DateTimeField(blank=True, null=True, verbose_name='Identification reid at'),
+            model_name="workgroup",
+            name="identification_reid_at",
+            field=models.DateTimeField(blank=True, null=True, verbose_name="Identification reid at"),
         ),
         migrations.AddField(
-            model_name='workgroup',
-            name='identification_reid_message',
-            field=models.TextField(blank=True, default=''),
+            model_name="workgroup",
+            name="identification_reid_message",
+            field=models.TextField(blank=True, default=""),
         ),
         migrations.AddField(
-            model_name='workgroup',
-            name='identification_reid_status',
-            field=models.CharField(blank=True, default='Not initiated', max_length=255),
+            model_name="workgroup",
+            name="identification_reid_status",
+            field=models.CharField(blank=True, default="Not initiated", max_length=255),
         ),
     ]

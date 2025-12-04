@@ -1,33 +1,31 @@
-import copy
 import ast
+import copy
 import datetime
 import json
 import logging
 import os
 import os.path
 import shutil
-import subprocess
+import tempfile
+import traceback
+from datetime import timedelta
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Generator
-import tempfile
-import traceback
-import tqdm
+from zoneinfo import ZoneInfo
 
 import django
 import numpy as np
 import pandas as pd
-from celery import chain, shared_task, signature, current_app
+import tqdm
+from celery import current_app, shared_task, signature
 from django.conf import settings
-from zoneinfo import ZoneInfo
+from django.utils.timezone import now
 
-from . import fs_data, model_tools, views
+from . import fs_data, model_tools, models
 from .fs_data import make_thumbnail_from_file
 from .log_tools import StatusCounts
-import Levenshtein
-from django.contrib.auth import get_user_model
 from .model_extra import compute_identity_suggestions
-from . import models
 from .models import (
     CaIDUser,
     IndividualIdentity,
@@ -38,7 +36,8 @@ from .models import (
     WorkGroup,
     get_locality,
     get_taxon,
-    get_unique_name, user_has_access_filter_params,
+    get_unique_name,
+    user_has_access_filter_params,
 )
 
 # from joblib import Parallel, delayed
@@ -197,14 +196,12 @@ def _prepare_dataframe_for_identification(mediafiles) -> dict:
 
 @shared_task(bind=True)
 def do_cloud_import_for_user(
-        self, caiduser_id: int,
-        contains_single_taxon: bool = False,
-        contains_identities: bool = False,
-
+    self,
+    caiduser_id: int,
+    contains_single_taxon: bool = False,
+    contains_identities: bool = False,
 ):
     """Import files from cloud storage."""
-
-
     from .models import CaIDUser
 
     # Retrieve the CaIDUser instance
@@ -232,9 +229,7 @@ def do_cloud_import_for_user(
             taxon_status="C",
             uploaded_at=django.utils.timezone.now(),
         )
-        logger.debug(
-            f"{yield_dict.path_of_locality_check=}, {yield_dict.path_of_locality_check.exists()=}"
-        )
+        logger.debug(f"{yield_dict.path_of_locality_check=}, {yield_dict.path_of_locality_check.exists()=}")
         uploaded_archive.save()
         zip_path = model_tools.get_zip_path_in_unique_folder(uploaded_archive, yield_dict.zip_name)
         zip_path_absolute = Path(settings.MEDIA_ROOT) / zip_path
@@ -268,24 +263,27 @@ def do_cloud_import_for_user(
     caiduser.dir_import_status = "Finished"
     caiduser.save()
 
+
 # @shared_task(bind=True)
-def do_cloud_import_for_user_async(caiduser: CaIDUser,
-    contains_identities: bool = False,
-    contains_single_taxon: bool = False
-                                   ):
+def do_cloud_import_for_user_async(
+    caiduser: CaIDUser, contains_identities: bool = False, contains_single_taxon: bool = False
+):
     """Run cloud import asynchronously."""
     # sig = do_cloud_import_for_user.s(caiduser=caiduser)
     # run async
     # sig.apply_async()
     caiduser.dir_import_status = "Processing"
     caiduser.save()
-    sig = signature("caidapp.tasks.do_cloud_import_for_user",
-                    kwargs={
-                        "caiduser_id": caiduser.id,
-                        "contains_single_taxon": contains_single_taxon,
-                        "contains_identities": contains_identities,
-                    })
+    sig = signature(
+        "caidapp.tasks.do_cloud_import_for_user",
+        kwargs={
+            "caiduser_id": caiduser.id,
+            "contains_single_taxon": contains_single_taxon,
+            "contains_identities": contains_identities,
+        },
+    )
     sig.apply_async()
+
 
 @shared_task
 def create_mediafiles_zip(user_hash, mediafiles, abs_zip_path):
@@ -306,8 +304,9 @@ def create_mediafiles_zip(user_hash, mediafiles, abs_zip_path):
     logger.debug(f"Zip file created: {abs_zip_path}")
     return str(abs_zip_path)
 
+
 @shared_task
-def clean_old_mediafile_zips(dirpath:str, glob_pattern: str = "mediafiles_*.zip", max_age_days: int = 7):
+def clean_old_mediafile_zips(dirpath: str, glob_pattern: str = "mediafiles_*.zip", max_age_days: int = 7):
     """Clean up zpped mediafiles older than a week files in the specified directory."""
     logger.debug(f"Cleaning up old mediafile zips in {dirpath}")
     dirpath = Path(dirpath)
@@ -339,9 +338,7 @@ def make_zipfile(output_filename: Path, source_dir: Path):
     source_dir = Path(source_dir)
     archive_type = "zip"
 
-    shutil.make_archive(
-        output_filename.parent / output_filename.stem, archive_type, root_dir=source_dir
-    )
+    shutil.make_archive(output_filename.parent / output_filename.stem, archive_type, root_dir=source_dir)
 
 
 # remove this function. The 'detect' function does not exist anymore.
@@ -391,6 +388,7 @@ def make_zipfile(output_filename: Path, source_dir: Path):
 #         ),
 #     )
 #
+
 
 @shared_task(bind=True)
 def on_error_with_uploaded_archive(self, task_id: str, *args, uploaded_archive_id: int, **kwargs):
@@ -487,15 +485,13 @@ def run_species_prediction_async(
     sig = signature(
         "predict",
         kwargs={
-            "input_archive_file": str(
-                Path(settings.MEDIA_ROOT) / uploaded_archive.archivefile.name
-            ),
+            "input_archive_file": str(Path(settings.MEDIA_ROOT) / uploaded_archive.archivefile.name),
             "output_dir": str(output_dir),
             "output_archive_file": str(output_archive_file),
             "output_metadata_file": str(output_metadata_file),
             "contains_identities": uploaded_archive.contains_identities,
             "force_init": force_init,
-            "sequence_time_limit_s": sequence_time_limit_s
+            "sequence_time_limit_s": sequence_time_limit_s,
         },
     )
 
@@ -547,9 +543,7 @@ def _estimate_time_for_taxon_classification_of_uploaded_archive(
     time_per_image = datetime.timedelta(seconds=0.5)  # detection 0.1, exif 0.25, taxon 0.01
     time_per_video = datetime.timedelta(seconds=60)
 
-    time_to_process = datetime.timedelta(seconds=10) + (
-        (time_per_image * image_count) + (time_per_video * video_count)
-    )
+    time_to_process = datetime.timedelta(seconds=10) + ((time_per_image * image_count) + (time_per_video * video_count))
     logger.debug(f"{time_to_process=}, {file_count_dict=}")
     return time_to_process
 
@@ -620,7 +614,7 @@ def update_uploaded_archive_by_metadata_csv(
                 uploaded_archive,
             )
             status_counts.increment(status)
-        except:
+        except Exception:
             logger.error(f"Error during processing row {index}: {row}")
             logger.error(traceback.format_exc())
             status_counts.increment("error")
@@ -663,6 +657,8 @@ def _update_database_by_one_row_of_metadata(
     orientation_score_threshold=0.5,
 ) -> str:
     # rel_pth, _ = _get_rel_and_abs_paths_based_on_csv_row(row, output_dir)
+    logger.debug(f"Processing row {index}")
+    print(f"Processing row {index}")
     image_abs_pth = output_dir / "images" / row["image_path"]
     image_rel_pth = image_abs_pth.relative_to(settings.MEDIA_ROOT)
     media_abs_pth = Path(row["absolute_media_path"])
@@ -714,9 +710,6 @@ def _update_database_by_one_row_of_metadata(
                 # metadata_json=metadata_json,
             )
             mf.save()
-            observation = mf.observations.create(
-                # mediafile=mf,
-            )
 
             # logger.debug(f"{uploaded_archive.contains_identities=}")
             # logger.debug(f"{uploaded_archive.contains_single_taxon=}")
@@ -785,36 +778,45 @@ def _update_database_by_one_row_of_metadata(
         #     ao.save()
         identity = None
         if extract_identites:
-            identity = get_unique_name(
-                row["unique_name"], workgroup=uploaded_archive.owner.workgroup
-            )
+            identity = get_unique_name(row["unique_name"], workgroup=uploaded_archive.owner.workgroup)
             mf.identity = identity
+        logger.debug("  update mediafile in db with row of metadata")
 
         try:
             if ("detection_results" in row) and (row["detection_results"] is not None):
                 detection_results = ast.literal_eval(row["detection_results"])
+                logger.debug(f"detection_results={detection_results}")
                 if len(detection_results) > 0:
-                    kv = {'back': "B", 'front': "F", 'left': "F", 'right': "R", "unknown": "U"}
-                    if len(mf.observations) > 1:
+                    kv = {"back": "B", "front": "F", "left": "F", "right": "R", "unknown": "U"}
+                    if mf.observations.count() > 1:
                         # remove all observations with the exception of the first one
                         # todo probably we should map the observation results to observations
                         # this is porcessed only if the values are not changed by user.
                         mf.observations.exclude(id=mf.first_observation.id).delete()
                     for i, one_detection_result in enumerate(detection_results):
-                        if len(mf.observations) > 0 and len(detection_results) > 0:
+                        if mf.observations.exists() and len(detection_results) > 0:
                             ao = mf.observations.first()
                         else:
                             ao = mf.observations.create(
                                 # mediafile=mf,
                                 # metadata_json=row.to_dict(),
                             )
+                        logger.debug(f"i={i}, detection_result={one_detection_result}")
 
-                        if i==0:
+                        if i == 0:
                             ao.identity = identity
 
                         ao.taxon = taxon
                         ao.predicted_taxon = predicted_taxon
                         ao.predicted_taxon_confidence = predicted_taxon_confidence
+                        x_min, y_min, x_max, y_max = one_detection_result["bbox"]
+                        h, w = one_detection_result["size"]
+                        logger.debug(f"bbox: {x_min=}, {y_min=}, {x_max=}, {y_max=}")
+
+                        ao.bbox_x_center = ((x_min + x_max) / 2) / w
+                        ao.bbox_y_center = ((y_min + y_max) / 2) / h
+                        ao.bbox_width = (x_max - x_min) / w
+                        ao.bbox_height = (y_max - y_min) / h
 
                         orientation = detection_results[i]["orientation"]
                         orientation_score = detection_results[i]["orientation_score"]
@@ -830,7 +832,6 @@ def _update_database_by_one_row_of_metadata(
         except Exception as e:
             logger.warning(f"Error during setting orientation in media file {mf.mediafile}: {e}")
             logger.debug(traceback.format_exc())
-
 
         mf.save()
         # logger.debug(f"identity={mf.identity}")
@@ -876,10 +877,7 @@ def metadata_json_are_consistent(mediafiles: Generator[MediaFile, None, None]) -
         metadata_row = copy.copy(mf.metadata_json)
         logger.debug(f"{metadata_row=}, {type(metadata_row)=}")
         if (metadata_row is None) or ("predicted_category" not in metadata_row):
-            logger.debug(
-                "No enough information stored in webapp. "
-                "The CSV file will be removed to be recreated."
-            )
+            logger.debug("No enough information stored in webapp. " "The CSV file will be removed to be recreated.")
             return False
     return True
 
@@ -918,7 +916,10 @@ def create_dataframe_from_mediafiles(mediafiles: Generator[MediaFile, None, None
     df = pd.DataFrame.from_records(records)
     return df
 
-def create_dataframe_from_mediafiles_NDOP(mediafiles: Generator[MediaFile, None, None]) -> pd.DataFrame:
+
+def create_dataframe_from_mediafiles_NDOP(
+    mediafiles: Generator[MediaFile, None, None],
+) -> pd.DataFrame:
     """Create DataFrame from MediaFiles for NDOP and AOPK.
 
     NDOP = Nálezová databáze ochrany přírody
@@ -988,10 +989,13 @@ def create_dataframe_from_mediafiles_NDOP(mediafiles: Generator[MediaFile, None,
 def _sync_metadata_by_checking_enlisted_mediafiles(csv_file, output_dir, uploaded_archive):
     update_csv = False
     df = pd.read_csv(csv_file, index_col=0)
-    df.rename(columns={
-        "locality_name": "locality name",
-        "locality_coordinates": "locality coordinates",
-    }, inplace=True)
+    df.rename(
+        columns={
+            "locality_name": "locality name",
+            "locality_coordinates": "locality coordinates",
+        },
+        inplace=True,
+    )
     logger.debug(f"{len(df)=}")
     df["deleted"] = True
     df["locality name"] = ""
@@ -1219,7 +1223,6 @@ def identify_on_success(self, output: dict, *args, **kwargs):
     owner = uploaded_archive.owner
     workgroup = owner.workgroup
 
-
     try:
         if "status" not in output:
             msg = f"Unexpected error {output=} is missing 'status' field."
@@ -1284,7 +1287,6 @@ def identify_on_success(self, output: dict, *args, **kwargs):
         logger.error(f"Error during identification: {e}")
         logger.error(traceback.format_exc())
 
-
         # TODO - should the app return some error response to the user?
 
 
@@ -1315,9 +1317,7 @@ def _prepare_mediafile_for_identification(data, i, media_root, mediafile_id):
             + "No need of manual confirmation."
         )
         if unknown_mediafile.identity.name != reid_top_k_labels[0]:  # top-1
-            logger.warning(
-                f"Identity name mismatch: {unknown_mediafile.identity.name} != {reid_top_k_labels[0]}"
-            )
+            logger.warning(f"Identity name mismatch: {unknown_mediafile.identity.name} != {reid_top_k_labels[0]}")
 
         unknown_mediafile.save()
 
@@ -1339,8 +1339,6 @@ def _prepare_mediafile_for_identification(data, i, media_root, mediafile_id):
             top3_relpath = top3_abspath.relative_to(media_root)
             top3_mediafile = MediaFile.objects.get(mediafile=str(top3_relpath))
 
-
-
             mfi.top1mediafile = top1_mediafile
             mfi.top1score = reid_top_k_scores[0]
             mfi.top1name = reid_top_k_labels[0] or "Unknown"
@@ -1358,7 +1356,6 @@ def _prepare_mediafile_for_identification(data, i, media_root, mediafile_id):
             # logger.debug(traceback.format_exc())
             logger.error(f"Error during identification of {unknown_mediafile}: {e}")
 
-
         # new processing
         # delete mediafile suggestions related to mediafile for identification - mfi
         models.MediafileIdentificationSuggestion.objects.filter(for_identification=mfi).delete()
@@ -1371,7 +1368,11 @@ def _prepare_mediafile_for_identification(data, i, media_root, mediafile_id):
         paired_points_for_k_images = data["keypoints"][i]
 
         for identity_id, top_score, top_name, top_path, top_paired_points in zip(
-                reid_top_k_class_ids, reid_top_k_scores, reid_top_k_labels, reid_top_k_image_paths, paired_points_for_k_images
+            reid_top_k_class_ids,
+            reid_top_k_scores,
+            reid_top_k_labels,
+            reid_top_k_image_paths,
+            paired_points_for_k_images,
         ):
             try:
                 top_abspath = Path(top_path)
@@ -1379,12 +1380,9 @@ def _prepare_mediafile_for_identification(data, i, media_root, mediafile_id):
                 top_mediafile = MediaFile.objects.get(image_file=str(top_relpath))
                 # top_mediafile = MediaFile.objects.get(mediafile=str(top_relpath))
 
-
                 identity = IndividualIdentity.objects.get(id=identity_id)
                 if identity.name != top_name:
-                    logger.warning(
-                        f"Identity name mismatch: {identity.name} != {top_name} for {unknown_mediafile=}"
-                    )
+                    logger.warning(f"Identity name mismatch: {identity.name} != {top_name} for {unknown_mediafile=}")
 
                 mfi_suggestion = models.MediafileIdentificationSuggestion(
                     for_identification=mfi,
@@ -1427,9 +1425,6 @@ def simple_log(self, *args, **kwargs):
     logger.info(f"Applying simple log task with args: {args=}, {kwargs=}.")
     return {"status": "DONE"}
 
-from django.utils.timezone import now
-from datetime import timedelta
-from caidapp.models import WorkGroup
 
 def schedule_reid_identification_for_workgroup(workgroup: models.WorkGroup, delay_minutes: int = 15):
     """Schedule reiidentification suggestions for a workgroup."""
@@ -1445,19 +1440,25 @@ def schedule_reid_identification_for_workgroup(workgroup: models.WorkGroup, dela
         workgroup.identification_scheduled_run_task_id = task.id
         workgroup.identification_scheduled_run_eta = eta
         workgroup.identification_reid_status = "Scheduled"
-        workgroup.save(update_fields=[
-            "identification_scheduled_run_task_id",
-            "identification_scheduled_run_eta",
-            "identification_reid_status"
-        ])
+        workgroup.save(
+            update_fields=[
+                "identification_scheduled_run_task_id",
+                "identification_scheduled_run_eta",
+                "identification_reid_status",
+            ]
+        )
 
 
 @shared_task
 def run_identification_on_unidentified_for_workgroup_task(workgroup_id: int):
+    """Run identification on unidentified mediafiles for a workgroup (task wrapper)."""
     return run_identification_on_unidentified_for_workgroup.s(workgroup_id)
 
+
 def run_identification_on_unidentified_for_workgroup(workgroup_id: int, request=None):
+    """Run identification on unidentified mediafiles for a workgroup."""
     from .views import run_identification
+
     workgroup = WorkGroup.objects.get(pk=workgroup_id)
 
     workgroup.identification_reid_status = "Processing"
@@ -1475,45 +1476,51 @@ def run_identification_on_unidentified_for_workgroup(workgroup_id: int, request=
         status_ok = run_identification(uploaded_archive, workgroup=workgroup)
         if request:
             from django.contrib import messages
+
             if status_ok:
                 messages.info(request, f"Identification started for {uploaded_archive.name}.")
             else:
                 # message is generated in run identification
-                messages.error(request, f"No records for identification with the expected taxon for {uploaded_archive.name}.")
+                messages.error(
+                    request,
+                    f"No records for identification with the expected taxon for {uploaded_archive.name}.",
+                )
+
 
 def schedule_init_identification_for_workgroup(workgroup: models.WorkGroup, delay_minutes: int = 15):
-
-    # Zruš předchozí naplánovaný task
+    """Schedule initialization of identification for a workgroup."""
+    # Cancel previously scheduled task
     if workgroup.identification_scheduled_init_task_id:
         current_app.control.revoke(workgroup.identification_scheduled_init_task_id, terminate=True)
 
     eta = now() + timedelta(minutes=delay_minutes)
     task = init_identification.apply_async(args=[workgroup.id], eta=eta)
 
-
     workgroup.identification_scheduled_init_task_id = task.id
     workgroup.identification_scheduled_init_eta = eta
     workgroup.identification_init_status = "Scheduled"
 
-    workgroup.save(update_fields=[
-        "identification_scheduled_init_task_id",
-        "identification_scheduled_init_eta",
-        "identification_init_status"
-    ])
+    workgroup.save(
+        update_fields=[
+            "identification_scheduled_init_task_id",
+            "identification_scheduled_init_eta",
+            "identification_init_status",
+        ]
+    )
 
-    schedule_reid_identification_for_workgroup(workgroup, delay_minutes=delay_minutes+50)
+    schedule_reid_identification_for_workgroup(workgroup, delay_minutes=delay_minutes + 50)
 
 
 @shared_task
 def init_identification(workgroup_id: int):
+    """Initialize identification for a workgroup."""
     from .views import _get_mediafiles_for_train_or_init_identification
+
     workgroup = WorkGroup.objects.get(pk=workgroup_id)
 
     process_for_message = "initialization"
     called_function_name = "init_identification"
-    mediafiles_qs = _get_mediafiles_for_train_or_init_identification(
-        workgroup
-    )
+    mediafiles_qs = _get_mediafiles_for_train_or_init_identification(workgroup)
     # set attribute media_file_used_for_init_identification
     logger.debug("Generating CSV for init_identification...")
     output_dir = Path(settings.MEDIA_ROOT) / workgroup.name
@@ -1526,8 +1533,7 @@ def init_identification(workgroup_id: int):
     workgroup.identification_init_status = "Processing"
     workgroup.identification_init_model_path = str(workgroup.identification_model.model_path)
     workgroup.identification_init_message = (
-            f"Using {len(csv_data['image_path'])}"
-            + f"representative images for identification {process_for_message}."
+        f"Using {len(csv_data['image_path'])}" + f"representative images for identification {process_for_message}."
     )
     workgroup.save()
     logger.debug(f"Calling {process_for_message} identification...")
@@ -1541,7 +1547,7 @@ def init_identification(workgroup_id: int):
             "identification_model": {
                 "name": workgroup.identification_model.name,
                 "path": workgroup.identification_model.model_path,
-            }
+            },
         },
     )
     # task =
@@ -1556,6 +1562,7 @@ def init_identification(workgroup_id: int):
             # uploaded_archive_id=uploaded_archive.id
         ),
     )
+
 
 def _find_mediafiles_for_identification(
     mediafile_paths: list,
@@ -1576,9 +1583,7 @@ def _ensure_date_format(date_str: str) -> str:
     return date
 
 
-def _iterate_over_locality_checks(
-    path: Path, caiduser: CaIDUser
-) -> Generator[SimpleNamespace, None, None]:
+def _iterate_over_locality_checks(path: Path, caiduser: CaIDUser) -> Generator[SimpleNamespace, None, None]:
     import re
     from itertools import chain
 
@@ -1652,10 +1657,7 @@ def _iterate_over_locality_checks(
             # continue
         else:
             logger.debug(f"Path withouth the suffix: {pth_no_suffix=}")
-            logger.debug(
-                "Name of the directory or file is not in format {YYYY-MM-DD}_{locality_name}."
-                + "Skipping."
-            )
+            logger.debug("Name of the directory or file is not in format {YYYY-MM-DD}_{locality_name}." + "Skipping.")
             error_message = "Name of the directory or file is not in correct format. " + "Skipping."
             locality = ""
             date = ""
@@ -1690,7 +1692,9 @@ def _iterate_over_locality_checks(
 
         yield yield_dict
 
-def assign_unidentified_to_identification(caiduser:CaIDUser):
+
+def assign_unidentified_to_identification(caiduser: CaIDUser):
+    """Assign unidentified media files to identification for the workgroup of the given user."""
     kwargs = {}
     taxon_str = ""
     if caiduser.workgroup is None:
@@ -1702,35 +1706,32 @@ def assign_unidentified_to_identification(caiduser:CaIDUser):
         logger.error("Workgroup has no default taxon for identification assigned. Using all media files.")
         # kwargs = {}
 
-    from django.db.models import Subquery
-
-    logger.debug(f"Assigning unidentified media files to identification for {caiduser.workgroup} and taxon {taxon_str}.")
+    logger.debug(
+        f"Assigning unidentified media files to identification for {caiduser.workgroup} and taxon {taxon_str}."
+    )
     # unused_mediafiles
     logger.debug(f"{models.MediaFile.objects.filter(identity__isnull=True).count()=}")
     logger.debug(f"{models.MediaFile.objects.filter(taxon__name=taxon_str).count()=}")
     logger.debug(f"{models.MediaFile.objects.filter(parent__owner__workgroup=caiduser.workgroup).count()=}")
-    logger.debug(f"{models.MediaFile.objects.filter(parent__owner__workgroup=caiduser.workgroup, taxon__name=taxon_str).count()=}")
-    logger.debug(f"{models.MediaFile.objects.filter(parent__owner__workgroup=caiduser.workgroup, identity__isnull=True).count()=}")
-    logger.debug(f"{models.MediaFile.objects.filter(parent__owner__workgroup=caiduser.workgroup, identity__isnull=True, taxon__name=taxon_str).count()=}")
+    mf_taxon = models.MediaFile.objects.filter(parent__owner__workgroup=caiduser.workgroup, taxon__name=taxon_str)
+    logger.debug(f"{mf_taxon.count()=}")
+    mf_no_identity = models.MediaFile.objects.filter(parent__owner__workgroup=caiduser.workgroup, identity__isnull=True)
+    logger.debug(f"{mf_no_identity.count()=}")
+    mf_taxon_and_no_identity = models.MediaFile.objects.filter(
+        parent__owner__workgroup=caiduser.workgroup, identity__isnull=True, taxon__name=taxon_str
+    )
+    logger.debug(f"{mf_taxon_and_no_identity.count()=}")
 
-    existing_mfi_ids = MediafilesForIdentification.objects.values_list('mediafile_id', flat=True)
+    existing_mfi_ids = MediafilesForIdentification.objects.values_list("mediafile_id", flat=True)
     logger.debug(f"Number of Mediafiles already in identification: {existing_mfi_ids.count()}")
 
     base_qs = models.MediaFile.objects.filter(
-        parent__owner__workgroup=caiduser.workgroup,
-        identity__isnull=True,
-        **kwargs
+        parent__owner__workgroup=caiduser.workgroup, identity__isnull=True, **kwargs
     )
     logger.debug(f"Base queryset count (before exclude): {base_qs.count()}")
 
     mediafiles = base_qs.exclude(id__in=list(existing_mfi_ids)).select_related(
-        "parent",
-        "taxon",
-        "predicted_taxon",
-        "locality",
-        "identity",
-        "updated_by",
-        "sequence"
+        "parent", "taxon", "predicted_taxon", "locality", "identity", "updated_by", "sequence"
     )
 
     # mediafiles = models.MediaFile.objects.filter(
@@ -1743,7 +1744,6 @@ def assign_unidentified_to_identification(caiduser:CaIDUser):
 
     identities = models.IndividualIdentity.objects.filter(
         owner_workgroup=caiduser.workgroup,
-
     )
 
     for unknown_mediafile in mediafiles:
@@ -1779,5 +1779,5 @@ def assign_unidentified_to_identification(caiduser:CaIDUser):
 
 @shared_task
 def refresh_identities_suggestions_task(workgroup_id, limit=100):
+    """Refresh identities suggestions task."""
     return compute_identity_suggestions(workgroup_id, limit)
-

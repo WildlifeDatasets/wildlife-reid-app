@@ -8,6 +8,20 @@
                 <span>Log</span>
             </a>
         </li>
+        {% if request.user.is_superuser %}
+            <li>
+                <a class="dropdown-item d-flex align-items-center" href="{% url 'caidapp:impersonate_user' %}">
+                    <i class="bi bi-person"></i>
+                    Impersonate User</a>
+            </li>
+        {% endif %}
+        {% if request.session.impersonate_user_id %}
+            <li>
+                <a class="dropdown-item d-flex align-items-center" href="{% url 'caidapp:stop_impersonation' %}">
+                    <i class="bi bi-person-x"></i>
+                    Stop Impersonation</a>
+            </li>
+        {% endif %}
         <li>
             <a class="dropdown-item d-flex align-items-center" href="{% url 'caidapp:refresh_data' %}#logend"
                title="Make old data compatible with new functionalities" data-bs-toggle="tooltip"
@@ -49,6 +63,20 @@
                 <i class="bi bi-images"></i>
                 Force refresh thumbnails</a>
         </li>
+        {% if request.user.is_superuser %}
+            <li>
+                <a class="dropdown-item d-flex align-items-center" href="{% url 'caidapp:impersonate_user' %}">
+                    <i class="bi bi-person"></i>
+                    Impersonate User</a>
+            </li>
+        {% endif %}
+        {% if request.session.impersonate_user_id %}
+            <li>
+                <a class="dropdown-item d-flex align-items-center" href="{% url 'caidapp:stop_impersonation' %}">
+                    <i class="bi bi-person-x"></i>
+                    Stop Impersonation</a>
+            </li>
+        {% endif %}
 <li>
 
     <a class="dropdown-item d-flex align-items-center" href="{% url 'caidapp:assign_unidentified_to_identification' %}"

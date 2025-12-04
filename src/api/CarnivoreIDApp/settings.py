@@ -9,10 +9,12 @@ https://docs.djangoproject.com/en/4.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.2/ref/settings/
 """
+
 import logging
-import sentry_sdk
 import os
 from pathlib import Path
+
+import sentry_sdk
 
 from .log import setup_logging
 
@@ -70,16 +72,15 @@ ALLOWED_HOSTS = [
 ]
 ALLOWED_HOSTS.extend(CAID_HOST.split(","))
 
-CAID_CSRF_TRUSTED_ORIGINS=os.getenv("CAID_CSRF_TRUSTED_ORIGINS", default="")
+CAID_CSRF_TRUSTED_ORIGINS = os.getenv("CAID_CSRF_TRUSTED_ORIGINS", default="")
 CSRF_TRUSTED_ORIGINS = [
-    'http://127.0.0.1',
-    'http://localhost',
-    'http://localhost:13680',
-    'http://127.0.0.1:13680'
+    "http://127.0.0.1",
+    "http://localhost",
+    "http://localhost:13680",
+    "http://127.0.0.1:13680",
     # 'http://caid.kky.zcu.cz:13680',
     # 'https://caid.kky.zcu.cz:13680',
     # 'https://localhost:13680',
-
 ]
 logger.debug(f"{CAID_CSRF_TRUSTED_ORIGINS=}")
 if len(CAID_CSRF_TRUSTED_ORIGINS) > 0:
@@ -102,13 +103,13 @@ INSTALLED_APPS = [
     "widget_tweaks",
     "location_field.apps.DefaultConfig",
     "django.db.migrations",
-    'djangoaddicts.pygwalker',
-    'handyhelpers',
+    "djangoaddicts.pygwalker",
+    "handyhelpers",
     "compressor",
     "django_filters",
     "crispy_forms",
     "crispy_bootstrap5",
-    'extra_views',
+    "extra_views",
     "django_extensions",
     # "debug_toolbar"
     # 'pagination',
@@ -127,9 +128,9 @@ MIDDLEWARE = [
 ]
 
 STATICFILES_FINDERS = [
-    'django.contrib.staticfiles.finders.FileSystemFinder',
-    'django.contrib.staticfiles.finders.AppDirectoriesFinder',
-    'compressor.finders.CompressorFinder',
+    "django.contrib.staticfiles.finders.FileSystemFinder",
+    "django.contrib.staticfiles.finders.AppDirectoriesFinder",
+    "compressor.finders.CompressorFinder",
 ]
 
 # COMPRESS_ENABLED = True  # aktivuje kompresi i v debug režimu (obvykle jen v produkci)
@@ -263,15 +264,19 @@ IDENTITY_MANUAL_CONFIRMATION_THRESHOLD = 20.0
 INTERNAL_IPS = [
     # ...
     "127.0.0.1",
-    "localhost"
+    "localhost",
     # ...
 ]
+
+
 def show_toolbar(request):
+    """Callback to decide whether to show the debug toolbar."""
     if DEBUG:
         return True
 
+
 DEBUG_TOOLBAR_CONFIG = {
-    'SHOW_TOOLBAR_CALLBACK': show_toolbar,
+    "SHOW_TOOLBAR_CALLBACK": show_toolbar,
 }
 
 SENTRY_DSN = os.getenv("SENTRY_DSN", default=None)

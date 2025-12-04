@@ -6,28 +6,28 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0087_rename_actual_model_caiduser_identification_model'),
+        ("caidapp", "0087_rename_actual_model_caiduser_identification_model"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='uploadedarchive',
-            name='files_at_upload',
-            field=models.IntegerField(default=0, verbose_name='Files at Upload'),
+            model_name="uploadedarchive",
+            name="files_at_upload",
+            field=models.IntegerField(default=0, verbose_name="Files at Upload"),
         ),
         migrations.AddField(
-            model_name='uploadedarchive',
-            name='images_at_upload',
-            field=models.IntegerField(default=0, verbose_name='Images at Upload'),
+            model_name="uploadedarchive",
+            name="images_at_upload",
+            field=models.IntegerField(default=0, verbose_name="Images at Upload"),
         ),
         migrations.AddField(
-            model_name='uploadedarchive',
-            name='mediafiles_at_upload',
-            field=models.IntegerField(default=0, verbose_name='Media Files at Upload'),
+            model_name="uploadedarchive",
+            name="mediafiles_at_upload",
+            field=models.IntegerField(default=0, verbose_name="Media Files at Upload"),
         ),
         migrations.AddField(
-            model_name='uploadedarchive',
-            name='videos_at_upload',
-            field=models.IntegerField(default=0, verbose_name='Videos at Upload'),
+            model_name="uploadedarchive",
+            name="videos_at_upload",
+            field=models.IntegerField(default=0, verbose_name="Videos at Upload"),
         ),
     ]

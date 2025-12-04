@@ -96,7 +96,8 @@ def test_make_tar_dataset():
         output_path=output_test_dir,
         hash_filename=True,
         make_tar=True,
-        copy_files=True,
+        mode="copy",
+        # copy_files=True,
     )
     assert (output_test_dir / f"{dataset_name}.csv").exists(), "Output file does not exist"
 
@@ -119,9 +120,7 @@ def test_species_preprocessing():
 
     txt = "jelen"
     replaced_str = (
-        dataset_tools._species_czech_preprocessing[txt]
-        if txt in dataset_tools._species_czech_preprocessing
-        else txt
+        dataset_tools._species_czech_preprocessing[txt] if txt in dataset_tools._species_czech_preprocessing else txt
     )
     assert replaced_str == "jelen evropsky"
 
@@ -135,9 +134,7 @@ def test_hash():
     )
 
 
-@pytest.mark.parametrize(
-    "dataset", ["DATA_SUNAP_tiny_test_subset_smaller", "DUHA_tiny_test_subset_smaller"]
-)
+@pytest.mark.parametrize("dataset", ["DATA_SUNAP_tiny_test_subset_smaller", "DUHA_tiny_test_subset_smaller"])
 def test_analyze_dir(dataset):
     """Test dataset directory analysis."""
     dir_path = CAID_DATASET_BASEDIR / dataset
@@ -152,9 +149,7 @@ def test_analyze_dir(dataset):
 def test_analyze_dir_unique_names_as_parent_name():
     """Test dataset directory analysis."""
     dir_path = CAID_DATASET_BASEDIR / "lynx_ids_FeCuMa_smaller"
-    metadata, duplicates = dataset_tools.analyze_dataset_directory(
-        dir_path, num_cores=2, contains_identities=True
-    )
+    metadata, duplicates = dataset_tools.analyze_dataset_directory(dir_path, num_cores=2, contains_identities=True)
 
     metadata.to_csv("test_metadata.csv", encoding="utf-8-sig")
     duplicates.to_csv("test_duplicates.csv", encoding="utf-8-sig")
@@ -196,13 +191,9 @@ def test_data_preprocessing_parallel():
     csv_path.unlink(missing_ok=True)
     assert not media_dir_path.exists()
 
-    metadata, duplicates = dataset_tools.data_preprocessing(
-        tarfile_path, media_dir_path, num_cores=1
-    )
+    metadata, duplicates = dataset_tools.data_preprocessing(tarfile_path, media_dir_path, num_cores=1)
     logger.debug(metadata)
-    assert (
-        len(list(media_dir_path.glob("**/*"))) > 0
-    ), "There should be some files in media dir path"
+    assert len(list(media_dir_path.glob("**/*"))) > 0, "There should be some files in media dir path"
 
 
 def test_make_input_tarfile():

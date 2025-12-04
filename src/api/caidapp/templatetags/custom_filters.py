@@ -27,17 +27,22 @@ def floor(value):
 def chunk(queryset, size):
     """Split a queryset into chunks of the specified size."""
     for i in range(0, len(queryset), size):
-        yield queryset[i:i+size]
+        yield queryset[i : i + size]
 
 
 @register.filter
 def order_by(queryset, field):
+    """Order a queryset by the specified field."""
     return queryset.order_by(field)
 
 
 @register.filter
 def get_verbose_name_plural(model):
+    """Return the plural verbose name of a model."""
     return model._meta.verbose_name_plural
 
+
+@register.filter
 def get_model_fields(model):
+    """Return the fields of a model."""
     return model._meta.fields

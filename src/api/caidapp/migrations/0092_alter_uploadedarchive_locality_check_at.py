@@ -6,13 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0091_rename_location_mediafile_locality_and_more'),
+        ("caidapp", "0091_rename_location_mediafile_locality_and_more"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='uploadedarchive',
-            name='locality_check_at',
-            field=models.DateTimeField(blank=True, null=True, verbose_name='Locality Check at'),
+            model_name="uploadedarchive",
+            name="locality_check_at",
+            field=models.DateTimeField(blank=True, null=True, verbose_name="Locality Check at"),
         ),
     ]

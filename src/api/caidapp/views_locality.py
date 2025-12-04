@@ -1,39 +1,40 @@
 import logging
+import traceback
 from io import BytesIO
 from pathlib import Path
-from typing import Union, List
+from typing import List, Union
 
+import Levenshtein
 import pandas as pd
+
+# from torch.serialization import locality_tag
+import plotly.graph_objects as go
+from caidapp.model_tools import remove_diacritics
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.db.models import QuerySet
 from django.forms import modelformset_factory
 from django.http import HttpResponseNotAllowed
 from django.shortcuts import HttpResponse, get_object_or_404, redirect, render
 from django.urls import reverse_lazy
-from django.db.models import QuerySet
-from django.contrib.auth.decorators import login_required, user_passes_test
-from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views.generic import ListView
-import django.db
-# from torch.serialization import locality_tag
-import plotly.graph_objects as go
 
-from . import forms, model_tools, views_general
+from . import forms, model_tools, models, views_general
+from .filters import LocalityFilter
 from .forms import LocalityForm
 from .model_extra import (
     prepare_dataframe_for_uploads_in_one_locality,
-    user_has_rw_acces_to_uploadedarchive, )
-from .models import Locality, UploadedArchive, MediaFile, user_has_access_filter_params, get_all_relevant_localities
-from . import models
-import Levenshtein
-from django.shortcuts import render, redirect
-from django.contrib import messages
-from .forms import CompareLocalitiesForm
-from .models import Locality
-from .fs_data import remove_diacritics
-from .filters import LocalityFilter
+    user_has_rw_acces_to_uploadedarchive,
+)
+from .models import (
+    Locality,
+    MediaFile,
+    UploadedArchive,
+    get_all_relevant_localities,
+    user_has_access_filter_params,
+)
 from .views_tools import add_querystring_to_context
-
-import logging
-import traceback
 
 logger = logging.getLogger("app")
 
@@ -87,9 +88,7 @@ def update_locality(request, locality_id=None):
     if locality_id is None:
         delete_button_url = None
     else:
-        delete_button_url = reverse_lazy(
-            "caidapp:delete_locality", kwargs={"locality_id": locality_id}
-        )
+        delete_button_url = reverse_lazy("caidapp:delete_locality", kwargs={"locality_id": locality_id})
 
     return render(
         request,
@@ -106,9 +105,7 @@ def update_locality(request, locality_id=None):
 
 def manage_localities(request):
     """Add new locality or update names of localities."""
-    LocalityFormSet = modelformset_factory(
-        Locality, fields=("name",), can_delete=False, can_order=False
-    )
+    LocalityFormSet = modelformset_factory(Locality, fields=("name",), can_delete=False, can_order=False)
     params = user_has_access_filter_params(request.user.caiduser, "owner")
     formset = LocalityFormSet(queryset=Locality.objects.filter(**params))
 
@@ -128,9 +125,7 @@ def manage_localities(request):
     )
 
 
-def _set_localities_to_mediafiles_of_uploadedarchive(
-    request, uploaded_archive: UploadedArchive, locality: Locality
-):
+def _set_localities_to_mediafiles_of_uploadedarchive(request, uploaded_archive: UploadedArchive, locality: Locality):
     """Set locality to mediafiles of uploaded archive."""
     if not user_has_rw_acces_to_uploadedarchive(request.user.caiduser, uploaded_archive):
         return HttpResponseNotAllowed("Not allowed to edit this uploaded archive.")
@@ -142,18 +137,14 @@ def _set_localities_to_mediafiles_of_uploadedarchive(
 
 def export_localities_view(request):
     """Export localities."""
-    localities = Locality.objects.filter(
-        **user_has_access_filter_params(request.user.caiduser, "owner")
-    )
+    localities = Locality.objects.filter(**user_has_access_filter_params(request.user.caiduser, "owner"))
     df = pd.DataFrame.from_records(localities.values())[["name", "location"]]
     return views_general.csv_response(df, "localities")
 
 
 def export_localities_view_xls(request):
     """Export localities."""
-    localities = Locality.objects.filter(
-        **user_has_access_filter_params(request.user.caiduser, "owner")
-    )
+    localities = Locality.objects.filter(**user_has_access_filter_params(request.user.caiduser, "owner"))
     df = pd.DataFrame.from_records(localities.values())[["name", "location"]]
 
     return views_general.excel_response(df, "localities")
@@ -179,7 +170,6 @@ def import_localities_view(request):
                 "Lat": "latitude",
                 "Lon": "longitude",
             }
-
 
             if file_ext == ".xlsx":
                 df = pd.read_excel(BytesIO(file_content))
@@ -267,9 +257,7 @@ def download_records_from_locality_xls_view(request, locality_hash):
     # Rewind the buffer
     output.seek(0)
 
-    response = HttpResponse(
-        output, content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
+    response = HttpResponse(output, content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     response["Content-Disposition"] = "attachment; filename=location_checks.xlsx"
     return response
 
@@ -285,20 +273,14 @@ def create_map_from_mediafiles(mediafiles: Union[QuerySet, List[MediaFile]]):
     logger.debug(f"{df.shape=}")
     data = []
     for mediafile in mediafiles:
-        if (
-                mediafile.locality
-                and mediafile.locality.location
-                and mediafile.locality.location.count(",") == 1
-        ):
+        if mediafile.locality and mediafile.locality.location and mediafile.locality.location.count(",") == 1:
             row = {
                 "id": mediafile.id,
                 "taxon": mediafile.taxon.name if mediafile.taxon else None,
                 "taxon_id": mediafile.taxon.id if mediafile.taxon else None,
-                'captured_at': mediafile.captured_at if mediafile.captured_at else None,
+                "captured_at": mediafile.captured_at if mediafile.captured_at else None,
                 "locality": mediafile.locality.name if mediafile.locality else None,
-                "locality__location": mediafile.locality.location
-                if mediafile.locality.location
-                else None,
+                "locality__location": (mediafile.locality.location if mediafile.locality.location else None),
             }
             data.append(row)
 
@@ -311,16 +293,10 @@ def create_map_from_mediafiles(mediafiles: Union[QuerySet, List[MediaFile]]):
     df2 = df2.sort_values("captured_at")
 
     # Assign colors based on sequence
-    df2["color"] = pd.cut(
-        df2.index, bins=len(df2), labels=range(len(df2)), include_lowest=True
-    )
-    step_r = 255 / len(df2)
-    step_g = 155 / len(df2)
-    step_b = 105 / len(df2)
-    # color_scale = [f"rgba({int(255 - i*step_r)}, {int(100 + i*step_g)}, {int(150 + i*step_b)}, 160)" for i in range(len(df2))]
-    color_scale = [f"rgba(10,100,100, 160)" for i in range(len(df2))]
-
-
+    df2["color"] = pd.cut(df2.index, bins=len(df2), labels=range(len(df2)), include_lowest=True)
+    # step_r = 255 / len(df2)
+    # step_g = 155 / len(df2)
+    # step_b = 105 / len(df2)
 
     logger.debug(f"{list(df2.keys())}")
     # if len(df2) > 10:
@@ -334,7 +310,7 @@ def create_map_from_mediafiles(mediafiles: Union[QuerySet, List[MediaFile]]):
 
     # Set an appropriate zoom level based on the maximum range
     max_range = max(lat_range, lon_range)
-    zoom = 0  # Set a default zoom level
+    # zoom = 0  # Set a default zoom level
     if max_range < 10:
         zoom = 6
     elif max_range < 30:
@@ -364,7 +340,7 @@ def create_map_from_mediafiles(mediafiles: Union[QuerySet, List[MediaFile]]):
             lon=df2.lon,
             radius=10,
             showscale=False,
-            name = 'Density Map',
+            name="Density Map",
         )
     )
 
@@ -373,12 +349,12 @@ def create_map_from_mediafiles(mediafiles: Union[QuerySet, List[MediaFile]]):
         go.Scattermapbox(
             lat=df2.lat,
             lon=df2.lon,
-            mode='lines+markers',  # Shows both lines and markers
+            mode="lines+markers",  # Shows both lines and markers
             marker=dict(size=7),  # Adjust marker size
             # line=dict(width=2, color=[color_scale[i] for i in range(len(df2))]),  # Adjust line style
             line=dict(width=2, color="blue"),  # Adjust line style
-            name = 'Path',  # Legend label
-            visible = True  # Default visibility
+            name="Path",  # Legend label
+            visible=True,  # Default visibility
         )
     )
 
@@ -388,10 +364,10 @@ def create_map_from_mediafiles(mediafiles: Union[QuerySet, List[MediaFile]]):
             go.Scattermapbox(
                 lat=df2.lat.iloc[-2:],  # Last two points
                 lon=df2.lon.iloc[-2:],
-                mode='lines+markers',
-                line=dict(width=3, color='red'),  # Arrow color
-                marker=dict(size=10, symbol='arrow-bar'),  # Arrowhead
-                name='Last Segment',
+                mode="lines+markers",
+                line=dict(width=3, color="red"),  # Arrow color
+                marker=dict(size=10, symbol="arrow-bar"),  # Arrowhead
+                name="Last Segment",
             )
         )
 
@@ -409,9 +385,8 @@ def create_map_from_mediafiles(mediafiles: Union[QuerySet, List[MediaFile]]):
             yanchor="top",  # Align to the top of the legend
             y=-0.1,  # Place below the map (negative value for outside the map area)
             xanchor="center",  # Center align horizontally
-            x=0.5  # Position at the center
-        )
-
+            x=0.5,  # Position at the center
+        ),
     )
 
     map_html = fig.to_html()
@@ -441,9 +416,9 @@ class LocalityListView(LoginRequiredMixin, ListView):
 
     # order by
 
-
     # paginate_by = views_general.get_item_number_anything(request, "localities")
     def get_template_names(self):
+        """Get template names based on view type."""
         view_type = self.request.GET.get("view", "cards")
         if view_type == "cards":
             return ["caidapp/localities.html"]
@@ -451,6 +426,7 @@ class LocalityListView(LoginRequiredMixin, ListView):
             return ["caidapp/localities_list.html"]
 
     def get_queryset(self):
+        """Get queryset with applied filters and ordering."""
         # params = user_has_access_filter_params(self.request.user.caiduser, "owner")
         self.paginate_by = views_general.get_item_number_anything(self.request, "localities")
         objects = get_all_relevant_localities(request=self.request)
@@ -470,26 +446,32 @@ class LocalityListView(LoginRequiredMixin, ListView):
         return qs
 
     def get_detail_url_name(self):
+        """Get detail url name."""
         return "caidapp:generic_locality_detail"
 
     # extend context
     def get_context_data(self, **kwargs):
+        """Extend context data."""
         context = super().get_context_data(**kwargs)
         # context["headline"] = "Localities"
         # context["filter_form"] = self.filterset.form
         context["filter"] = self.filterset
         context = add_querystring_to_context(self.request, context)
         # query_params = self.request.GET.copy()
-        context["list_display"] = ["name", "area", ]
+        context["list_display"] = [
+            "name",
+            "area",
+        ]
         # query_params.pop('page', None)
         # context['query_string'] = query_params.urlencode()
         # context['object_detail_url'] = 'shift-report-detail'
         # context['object_update_url'] = 'shift-report-update'
-        context['object_update_url'] = 'caidapp:update_locality'
+        context["object_update_url"] = "caidapp:update_locality"
         # context['object_delete_url'] = 'caidapp:delete_locality'
         # context['object_delete_url'] = 'shift-report-delete'
         # context['object_create_url'] = 'shift-report-create'
         return context
+
 
 def suggest_merge_localities(request):
     """Suggest merging localities."""
@@ -507,7 +489,7 @@ def suggest_merge_localities(request):
             locality2_name = remove_diacritics(locality2.name)
             distance = Levenshtein.distance(locality1_name, locality2_name)
 
-            if distance < (len(locality1_name) / 4. + len(locality2_name) / 4.):
+            if distance < (len(locality1_name) / 4.0 + len(locality2_name) / 4.0):
                 # count media files of locality
                 count_media_files_locality1 = locality1.mediafile_set.count()
                 count_media_files_locality2 = locality2.mediafile_set.count()
@@ -525,53 +507,70 @@ def suggest_merge_localities(request):
     # suggestions.sort(key=lambda x: (x[2], len(x[1])))  # Sort by distance
     request.session["merge_localities_suggestions"] = [(loc_a.id, loc_b.id, dist) for loc_a, loc_b, dist in suggestions]
 
+
 @login_required
 def refresh_merge_localities_suggestions(request):
+    """Refresh merge localities suggestions."""
     suggest_merge_localities(request)
     # go back to the previous page
     return redirect("caidapp:suggest_merge_localities")
 
 
-
 @login_required
 def suggest_merge_localities_view(request):
+    """Suggest merging localities."""
     try:
-        if "merge_localities_suggestions" not in  request.session:
+        if "merge_localities_suggestions" not in request.session:
             suggest_merge_localities(request)
 
         suggestions = request.session["merge_localities_suggestions"]
         # decode locality ids into locality objects
-        suggestions = [(get_object_or_404(Locality, pk=loc_a_id), get_object_or_404(Locality, pk=loc_b_id), dist) for loc_a_id, loc_b_id, dist in suggestions]
+        suggestions = [
+            (
+                get_object_or_404(Locality, pk=loc_a_id),
+                get_object_or_404(Locality, pk=loc_b_id),
+                dist,
+            )
+            for loc_a_id, loc_b_id, dist in suggestions
+        ]
 
-        return render(request, "caidapp/suggest_merge_localities.html",
-                      {"suggestions": suggestions})
+        return render(request, "caidapp/suggest_merge_localities.html", {"suggestions": suggestions})
     except Exception as e:
         # If some of the ids in the session are not valid, the session is cleared
         logger.warning(f"{e=}")
         logger.debug(traceback.format_exc())
 
-
         suggest_merge_localities(request)
         suggestions = request.session["merge_localities_suggestions"]
         # decode locality ids into locality objects
-        suggestions = [(get_object_or_404(Locality, pk=loc_a_id), get_object_or_404(Locality, pk=loc_b_id), dist) for loc_a_id, loc_b_id, dist in suggestions]
+        suggestions = [
+            (
+                get_object_or_404(Locality, pk=loc_a_id),
+                get_object_or_404(Locality, pk=loc_b_id),
+                dist,
+            )
+            for loc_a_id, loc_b_id, dist in suggestions
+        ]
 
-        return render(request, "caidapp/suggest_merge_localities.html",
-                      {"suggestions": suggestions})
+        return render(request, "caidapp/suggest_merge_localities.html", {"suggestions": suggestions})
 
 
 @login_required
 def merge_localities_view(request, locality_from_id, locality_to_id):
     """Merge localities."""
-
     # remove merged suggestion from the list
-    if "merge_localities_suggestions" not in  request.session:
+    if "merge_localities_suggestions" not in request.session:
         suggest_merge_localities(request)
     suggestions_ids = request.session["merge_localities_suggestions"]
-    suggestions_ids = [(loc_a_id, loc_b_id, dist) for loc_a_id, loc_b_id, dist in suggestions_ids if loc_a_id != locality_from_id and loc_b_id != locality_from_id and loc_a_id != locality_to_id and loc_b_id != locality_to_id]
+    suggestions_ids = [
+        (loc_a_id, loc_b_id, dist)
+        for loc_a_id, loc_b_id, dist in suggestions_ids
+        if loc_a_id != locality_from_id
+        and loc_b_id != locality_from_id
+        and loc_a_id != locality_to_id
+        and loc_b_id != locality_to_id
+    ]
     request.session["merge_localities_suggestions"] = suggestions_ids
-
-
 
     locality_from = get_object_or_404(
         Locality,

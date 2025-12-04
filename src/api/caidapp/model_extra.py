@@ -1,24 +1,27 @@
-import pandas as pd
-import Levenshtein
-from django.contrib.auth import get_user_model
-from tqdm import tqdm
-from .models import IndividualIdentity, MergeIdentitySuggestionResult
-from .model_tools import order_identity_by_mediafile_count, remove_diacritics
-from .models import CaIDUser, Locality, MediaFile, UploadedArchive
-from . import models
 import logging
+
+import Levenshtein
+import pandas as pd
+from tqdm import tqdm
+
+from . import models
+from .model_tools import order_identity_by_mediafile_count, remove_diacritics
+from .models import CaIDUser, IndividualIdentity, Locality, MediaFile, MergeIdentitySuggestionResult, UploadedArchive
 
 logger = logging.getLogger(__name__)
 
+
 def user_has_access_to_uploadedarchives_filter_params(caiduser: CaIDUser):
+    """Check if user has access to uploadedarchives."""
     return models.user_has_access_filter_params(caiduser=caiduser, prefix="owner")
 
+
 def user_has_access_to_mediafiles_filter_params(caiduser: CaIDUser):
+    """Check if user has access to mediafiles."""
     return models.user_has_access_filter_params(caiduser=caiduser, prefix="parent__owner")
 
-def user_has_rw_access_to_mediafile(
-    ciduser: CaIDUser, mediafile: MediaFile, accept_none: bool
-) -> bool:
+
+def user_has_rw_access_to_mediafile(ciduser: CaIDUser, mediafile: MediaFile, accept_none: bool) -> bool:
     """Check if user has access to mediafile."""
     if mediafile is None:
         if accept_none:
@@ -28,9 +31,7 @@ def user_has_rw_access_to_mediafile(
         if accept_none:
             return True
         return False
-    return (mediafile.parent.owner.id == ciduser.id) or (
-        mediafile.parent.owner.workgroup == ciduser.workgroup
-    )
+    return (mediafile.parent.owner.id == ciduser.id) or (mediafile.parent.owner.workgroup == ciduser.workgroup)
 
 
 def user_has_rw_acces_to_uploadedarchive(
@@ -46,18 +47,14 @@ def user_has_rw_acces_to_uploadedarchive(
             return True
         return False
 
-    return (uploadedarchive.owner.id == ciduser.id) or (
-        uploadedarchive.owner.workgroup == ciduser.workgroup
-    )
+    return (uploadedarchive.owner.id == ciduser.id) or (uploadedarchive.owner.workgroup == ciduser.workgroup)
 
 
 def prepare_dataframe_for_uploads_in_one_locality(locality_id: int) -> pd.DataFrame:
     """Prepare dataframe for uploads in one locality."""
     locality = Locality.objects.get(id=locality_id)
 
-    locality_uploads = UploadedArchive.objects.filter(locality_at_upload_object=locality).order_by(
-        "uploaded_at"
-    )
+    locality_uploads = UploadedArchive.objects.filter(locality_at_upload_object=locality).order_by("uploaded_at")
 
     df = pd.DataFrame.from_records(locality_uploads.values())
 
@@ -79,12 +76,12 @@ def prepare_dataframe_for_uploads_in_one_locality(locality_id: int) -> pd.DataFr
     # add columns for locality
     for upload in locality_uploads:
         df.loc[df["id"] == upload.id, "count_of_mediafiles"] = upload.count_of_mediafiles()
-        df.loc[
-            df["id"] == upload.id, "count_of_representative_mediafiles"
-        ] = upload.count_of_representative_mediafiles()
-        df.loc[
-            df["id"] == upload.id, "count_of_mediafiles_with_taxon_for_identification"
-        ] = upload.count_of_mediafiles_with_taxon_for_identification()
+        df.loc[df["id"] == upload.id, "count_of_representative_mediafiles"] = (
+            upload.count_of_representative_mediafiles()
+        )
+        df.loc[df["id"] == upload.id, "count_of_mediafiles_with_taxon_for_identification"] = (
+            upload.count_of_mediafiles_with_taxon_for_identification()
+        )
         df.loc[df["id"] == upload.id, "earliest_captured_taxon"] = upload.earliest_captured_taxon()
         df.loc[df["id"] == upload.id, "latest_captured_taxon"] = upload.latest_captured_taxon()
     #
@@ -94,8 +91,8 @@ def prepare_dataframe_for_uploads_in_one_locality(locality_id: int) -> pd.DataFr
     return df
 
 
-
 def compute_identity_suggestions(workgroup_id: int, limit: int = 100) -> int:
+    """Compute identity suggestions for merging."""
     # user = get_user_model().objects.get(id=user_id)
     suggestions = []
     workgroup = models.WorkGroup.objects.get(id=workgroup_id)
@@ -107,7 +104,6 @@ def compute_identity_suggestions(workgroup_id: int, limit: int = 100) -> int:
     )
     total = all_identities.count()
     print(f"Total identities: {total}")
-
 
     for i, identity1 in tqdm(enumerate(all_identities), total=total, desc="Computing identity suggestions"):
         for j in range(i + 1, len(all_identities)):
@@ -127,7 +123,7 @@ def compute_identity_suggestions(workgroup_id: int, limit: int = 100) -> int:
             identity2_name = remove_diacritics(identity2.name)
             distance = Levenshtein.distance(identity1_name, identity2_name)
 
-            if distance < (len(identity1_name) / 4. + len(identity2_name) / 4.):
+            if distance < (len(identity1_name) / 4.0 + len(identity2_name) / 4.0):
                 identity_a, identity_b = order_identity_by_mediafile_count(identity1, identity2)
                 suggestions.append((identity_a.id, identity_b.id, distance))
 
@@ -140,4 +136,3 @@ def compute_identity_suggestions(workgroup_id: int, limit: int = 100) -> int:
         suggestions=suggestions,
     )
     return result.id
-

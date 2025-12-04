@@ -6,12 +6,12 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0130_identitysuggestionresult_workgroup'),
+        ("caidapp", "0130_identitysuggestionresult_workgroup"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='identitysuggestionresult',
-            name='user',
+            model_name="identitysuggestionresult",
+            name="user",
         ),
     ]

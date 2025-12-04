@@ -7,13 +7,15 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0129_auto_20250927_1225'),
+        ("caidapp", "0129_auto_20250927_1225"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='identitysuggestionresult',
-            name='workgroup',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to='caidapp.workgroup'),
+            model_name="identitysuggestionresult",
+            name="workgroup",
+            field=models.ForeignKey(
+                blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to="caidapp.workgroup"
+            ),
         ),
     ]

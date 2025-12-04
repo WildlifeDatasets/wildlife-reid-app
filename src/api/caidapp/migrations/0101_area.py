@@ -8,19 +8,22 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0100_animalobservation_orientation'),
+        ("caidapp", "0100_animalobservation_orientation"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='Area',
+            name="Area",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name', models.CharField(max_length=50)),
-                ('visible_name', models.CharField(blank=True, default=caidapp.models.human_readable_hash, max_length=255)),
-                ('location', location_field.models.plain.PlainLocationField(blank=True, max_length=63, null=True)),
-                ('hash', models.CharField(default=caidapp.models.get_hash8, max_length=50)),
-                ('note', models.TextField(blank=True, default='')),
+                ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
+                ("name", models.CharField(max_length=50)),
+                (
+                    "visible_name",
+                    models.CharField(blank=True, default=caidapp.models.human_readable_hash, max_length=255),
+                ),
+                ("location", location_field.models.plain.PlainLocationField(blank=True, max_length=63, null=True)),
+                ("hash", models.CharField(default=caidapp.models.get_hash8, max_length=50)),
+                ("note", models.TextField(blank=True, default="")),
             ],
         ),
     ]

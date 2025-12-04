@@ -6,13 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0132_rename_identitysuggestionresult_mergeidentitysuggestionresult'),
+        ("caidapp", "0132_rename_identitysuggestionresult_mergeidentitysuggestionresult"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='individualidentity',
-            name='code',
-            field=models.CharField(default='', max_length=50),
+            model_name="individualidentity",
+            name="code",
+            field=models.CharField(default="", max_length=50),
         ),
     ]

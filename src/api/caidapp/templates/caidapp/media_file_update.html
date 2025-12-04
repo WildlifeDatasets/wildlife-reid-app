@@ -80,6 +80,30 @@
                                     </a>
                                 </li>
                                 <li>
+                                    <a class="dropdown-item"
+                                       href="{{ mediafile.detection_url }}">
+                                        Get detection image
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item"
+                                       href="{{ mediafile.thumbnail_url }}">
+                                        Get thumbnail image
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item"
+                                       href="{{ mediafile.static_thumbnail_url }}">
+                                        Get static thumbnail image
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item"
+                                       href="{{ mediafile.preview_url }}">
+                                        Get preview image
+                                    </a>
+                                </li>
+                                <li>
                                     <hr class="dropdown-divider">
                                 </li>
                             {% endif %}
@@ -173,25 +197,117 @@
                                     {#                                    {{ form }}#}
                                     {#                                                    {{ form.as_p }}#}
                                     <div class="form-group">
-                                        {% if mediafile.is_for_suggestion  and forloop.counter == 1 %}
-                                            <div>
 
-                                                <i class="bi bi-question-circle me-2"></i>
-                                                <a href="#"
-                                                   name="confirmTaxonSubmit"
-                                                   class="btn btn-secondary"
-                                                   id="confirmTaxonSubmit"
-                                                        {#                                                        type="submit"#}
-                                                   onclick="setCategoryAndSubmit('{{ mediafile.predicted_taxon }}')"
-                                                >
-                                                    Select
-                                                </a>
+                                        <h5>Observations</h5>
 
-                                                {{ mediafile.predicted_taxon }}
-                                                ({{ mediafile.predicted_taxon_confidence|mul:100|floor|floatformat:0 }}%)
+                                        <div>
 
+
+                                            <div id="observation-forms">
+                                                {% for inline in inlines %}
+                                                    {{ inline.management_form }}
+
+                                                    {% for obs_form in inline %}
+                                                        <div class="mb-2 border rounded p-2 observation-form"
+                                                             data-obs-id="{{ obs_form.instance.pk|default:'new' }}">
+                                                            {#                                                            Observation {{ forloop.counter }},#}
+                                                            {#                                                            pk: {{ obs_form.instance.pk }}: <br>#}
+
+                                                            {#                                                            {{ obs_form.as_p }}#}
+
+                                                            {{ obs_form.id }}
+                                                            {% if mediafile.is_for_suggestion  and forloop.counter == 1 %}
+                                                                {#                                                            {% if mediafile.is_for_suggestion  %}#}
+                                                                <div>
+
+                                                                    <i class="bi bi-question-circle me-2"></i>
+                                                                    {{ obs_form.instance.predicted_taxon }}
+                                                                    ({{ obs_form.instance.predicted_taxon_confidence|mul:100|floor|floatformat:0 }}%)
+                                                                    <a href="#"
+                                                                       name="confirmTaxonSubmit"
+                                                                       class="btn btn-sm btn-outline-secondary"
+                                                                       id="confirmTaxonSubmit"
+                                                                            {#                                                        type="submit"#}
+                                                                       onclick="setCategoryAndSubmitInObservation('{{ obs_form.instance.predicted_taxon }}', {{ forloop.counter|add:'-1' }});"
+                                                                    >
+                                                                        Select
+                                                                    </a>
+
+
+                                                                </div>
+                                                            {% endif %}
+                                                            {% include 'caidapp/include_observation_fields_to_media_file_update.html' %}
+
+
+                                                            {% if obs_form.instance.pk %}
+                                                                <button type="button"
+                                                                        class="btn btn-outline-danger btn-sm delete-observation-btn">
+                                                                    <i class="bi bi-trash"></i> Delete
+                                                                </button>
+
+                                                                <div class="dropdown d-inline-block mt-3">
+                                                                    {#                                <div class="dropdown d-inline-block">#}
+                                                                    <a class="btn btn-sm btn-outline-secondary dropdown-toggle"
+                                                                       href="#" role="button"
+                                                                       data-bs-toggle="dropdown" aria-expanded="false">
+                                                                        <i class="bi bi-three-dots"></i>
+                                                                    </a>
+
+                                                                    <ul class="dropdown-menu">
+                                                                        {% if request.user.is_staff %}
+
+                                                                            <li>
+                                                                                <a class="dropdown-item"
+                                                                                   href="{% url 'admin:caidapp_animalobservation_change' obs_form.instance.pk %}">
+                                                                                    <i class="bi bi-lock"></i>
+                                                                                    Edit in admin
+                                                                                </a>
+                                                                            </li>
+                                                                        {% endif %}
+                                                                    </ul>
+                                                                </div>
+                                                            {% endif %}
+                                                            <span
+
+                                                                    title="File name: {{ mediafile }}
+Observation ID: {{ obs_form.instance.id }}
+{% if obs_form.instance.taxon %}Observation Taxon: {{ obs_form.instance.taxon }}{% endif %}
+{% if obs_form.instance.identity %}Observation Identity: {{ obs_form.instance.identity }}{% endif %}
+{% if obs_form.instance.uploaded_by %}Observation Uploaded by: {{ obs_form.instance.uploaded_by }}{% endif %}
+{% if obs_form.instance.updated_by %}Observation Updated by: {{ obs_form.instance.updated_by }}{% endif %}
+{% if obs_form.instance.created_at %}Observation Created at: {{ obs_form.instance.created_at|date:'Y-m-d H:i' }}{% endif %}
+{% if obs_form.instance.updated_at %}Observation Updated at: {{ obs_form.instance.updated_at|date:'Y-m-d H:i' }}{% endif %}
+"
+                                                            >
+                                                                                                        <i class="bi bi-info-circle"></i>
+                                                                                                        </span>
+                                                            {{ obs_form.DELETE.as_hidden }}
+                                                        </div>
+                                                    {% endfor %}
+
+                                                {% endfor %}
+                                            </div> <!-- end of observation-forms -->
+                                            <!-- Hidden empty form for cloning -->
+                                            <div id="empty-form" class="d-none">
+                                                {#    {{ inlines.0.empty_form|crispy }}#}
+                                                {% with inlines.0.empty_form as obs_form %}
+                                                    {{ obs_form.id }}
+                                                    {% include 'caidapp/include_observation_fields_to_media_file_update.html' %}
+                                                {% endwith %}
+                                                {#    {{ inlines.0.empty_form.as_p }}#}
                                             </div>
-                                        {% endif %}
+
+                                            <button type="button" id="add-observation-btn"
+                                                    class="btn btn-outline-primary mt-2">
+                                                <i class="bi bi-plus-circle"></i> Add Observation
+                                            </button>
+                                            {#                                            <button type="button" id="add-observation-btn"#}
+                                            {#                                                    class="btn btn-outline-primary">#}
+                                            {#                                                Add Observation#}
+                                            {#                                            </button>#}
+                                        </div>
+                                        {# end of observations #}
+                                        <h5 class="mt-2">Media File</h5>
 
                                         {% for field in form %}
                                             <div>
@@ -214,65 +330,6 @@
                                             </div>
                                         {% endfor %}
                                         {# end of mediafile fields #}
-
-                                        <h5>Observations</h5>
-
-                                        <div>
-
-
-                                            <div id="observation-forms">
-                                                {% for inline in inlines %}
-                                                    {{ inline.management_form }}
-
-                                                    {% for obs_form in inline %}
-                                                        <div class="mb-2 border rounded p-2 observation-form"
-                                                             data-obs-id="{{ obs_form.instance.pk|default:'new' }}">
-{#                                                            Observation {{ forloop.counter }},#}
-{#                                                            pk: {{ obs_form.instance.pk }}: <br>#}
-
-                                                            {#                                                            {{ obs_form.as_p }}#}
-
-                                                            {{ obs_form.id }}
-                                                        {% include 'caidapp/include_observation_fields_to_media_file_update.html' %}
-
-
-                                                               {% if obs_form.instance.pk %}
-            <button type="button"
-                    class="btn btn-outline-danger btn-sm delete-observation-btn">
-                <i class="bi bi-trash"></i> Delete
-            </button>
-        {% endif %}
-
-                                                        {{ obs_form.DELETE.as_hidden }}
-
-
-
-
-
-                                                        </div>
-                                                    {% endfor %}
-
-                                                {% endfor %}
-                                                </div> <!-- end of observation-forms -->
-                                        <!-- Hidden empty form for cloning -->
-<div id="empty-form" class="d-none">
-{#    {{ inlines.0.empty_form|crispy }}#}
-    {% with inlines.0.empty_form as obs_form %}
-        {{ obs_form.id }}
-        {% include 'caidapp/include_observation_fields_to_media_file_update.html' %}
-    {% endwith %}
-{#    {{ inlines.0.empty_form.as_p }}#}
-</div>
-
-<button type="button" id="add-observation-btn" class="btn btn-outline-primary mt-2">
-    <i class="bi bi-plus-circle"></i> Add Observation
-</button>
-                                            {#                                            <button type="button" id="add-observation-btn"#}
-                                            {#                                                    class="btn btn-outline-primary">#}
-                                            {#                                                Add Observation#}
-                                            {#                                            </button>#}
-                                        </div>
-                                        {# end of observations #}
 
 
                                     </div>
@@ -303,7 +360,15 @@
                                             {#                                            data-bs-toggle="tooltip"#}
                                             {#                                            data-toggle="tooltip"#}
                                             title="File name: {{ mediafile }}
-ID: {{ mediafile.id }}">
+ID: {{ mediafile.id }}
+mediafile.taxon: {{ mediafile.taxon }}
+{% if mediafile.taxon %}Media file Taxon: {{ mediafile.taxon }}{% endif %}
+{% if mediafile.identity %}Media file Identity: {{ mediafile.identity }}{% endif %}
+{% if mediafile.uploaded_by %}Media file Uploaded by: {{ mediafile.uploaded_by }}{% endif %}
+{% if mediafile.updated_by %}Media file Updated by: {{ mediafile.updated_by }}{% endif %}
+{% if mediafile.created_at %}Media file Created at: {{ mediafile.created_at|date:'Y-m-d H:i' }}{% endif %}
+{% if mediafile.updated_at %}Media file Updated at: {{ mediafile.updated_at|date:'Y-m-d H:i' }}{% endif %}
+">
                                     <i class="bi bi-info-circle"></i>
                                     </span>
 
@@ -321,17 +386,17 @@ ID: {{ mediafile.id }}">
                             </video>
 
                             <!-- Thumbnail with modal trigger -->
-{#                            <img src="{{ mediafile.thumbnail.url }}" class="img-fluid m-1" alt="Camera trap image"#}
-{#                                 style="max-width: 320px;" data-bs-toggle="modal"#}
-{#                                 data-bs-target="#imageModal{{ mediafile.id }}"#}
-{#                                 fetchpriority="high"#}
-{#                            >#}
-{#                            <canvas id="annotCanvas"#}
-                                    {#                                style="max-width: 600px;"#}
-{##}
-                                    {#                                class="img-fluid"#}
-{#                                    style="border:1px solid #ccc; margin-top:10px;"></canvas>#}
-{#                                <img id="annotatable-image" src="{{ mediafile.static_thumbnail.url }}" hidden>#}
+                            {#                            <img src="{{ mediafile.thumbnail.url }}" class="img-fluid m-1" alt="Camera trap image"#}
+                            {#                                 style="max-width: 320px;" data-bs-toggle="modal"#}
+                            {#                                 data-bs-target="#imageModal{{ mediafile.id }}"#}
+                            {#                                 fetchpriority="high"#}
+                            {#                            >#}
+                            {#                            <canvas id="annotCanvas"#}
+                            {#                                style="max-width: 600px;"#}
+                            {##}
+                            {#                                class="img-fluid"#}
+                            {#                                    style="border:1px solid #ccc; margin-top:10px;"></canvas>#}
+                            {#                                <img id="annotatable-image" src="{{ mediafile.static_thumbnail.url }}" hidden>#}
 
                         {% else %}
                             <!-- Image with modal trigger -->
@@ -408,9 +473,9 @@ ID: {{ mediafile.id }}">
 {% endblock %}
 {% block script %}
     <script>
-        function setCategoryAndSubmitInObservation(predictedTaxon) {
-            {#const categoryDropdown = document.getElementById('id_taxon');#}
-            const categoryDropdown = document.getElementById('id_observations-0-taxon');
+        function setCategoryAndSubmitInObservation(predictedTaxon, observationIndex) {
+            {#const categoryDropdown = document.getElementById('id_observations-0-taxon');#}
+            const categoryDropdown = document.getElementById('id_observations-' + observationIndex + '-taxon');
             const options = categoryDropdown.options;
 
             // Loop through options to find and select the predicted taxon
@@ -649,56 +714,54 @@ ID: {{ mediafile.id }}">
         });
 
 
-        document.addEventListener("DOMContentLoaded", function() {
-    const addBtn = document.getElementById("add-observation-btn");
-    const container = document.getElementById("observation-forms");
-    const emptyFormDiv = document.getElementById("empty-form");
-    const totalFormsInput = document.querySelector('[name$="TOTAL_FORMS"]');
+        document.addEventListener("DOMContentLoaded", function () {
+            const addBtn = document.getElementById("add-observation-btn");
+            const container = document.getElementById("observation-forms");
+            const emptyFormDiv = document.getElementById("empty-form");
+            const totalFormsInput = document.querySelector('[name$="TOTAL_FORMS"]');
 
-    addBtn.addEventListener("click", function() {
-        const formIndex = parseInt(totalFormsInput.value);
-        const newFormHtml = emptyFormDiv.innerHTML.replace(/__prefix__/g, formIndex);
-        const wrapper = document.createElement("div");
-        wrapper.classList.add("mb-2", "border", "rounded", "p-2", "observation-form");
-        wrapper.dataset.obsId = `new-${formIndex}`;
-        wrapper.innerHTML = newFormHtml;
-        container.appendChild(wrapper);
+            addBtn.addEventListener("click", function () {
+                const formIndex = parseInt(totalFormsInput.value);
+                const newFormHtml = emptyFormDiv.innerHTML.replace(/__prefix__/g, formIndex);
+                const wrapper = document.createElement("div");
+                wrapper.classList.add("mb-2", "border", "rounded", "p-2", "observation-form");
+                wrapper.dataset.obsId = `new-${formIndex}`;
+                wrapper.innerHTML = newFormHtml;
+                container.appendChild(wrapper);
 
-        totalFormsInput.value = formIndex + 1; // update management form count
+                totalFormsInput.value = formIndex + 1; // update management form count
+            });
         });
-});
 
 
+        {#        document.addEventListener("click", function(e) {#}
+        {#    if (e.target.closest(".delete-observation-btn")) {#}
+        {#        const formDiv = e.target.closest(".observation-form");#}
+        {#        if (confirm("Delete this observation?")) {#}
+        {#            // Najdi DELETE checkbox a zaškrtni ho#}
+        {#            const deleteInput = formDiv.querySelector('input[name$="-DELETE"]');#}
+        {#            if (deleteInput) deleteInput.checked = true;#}
+        {#            // Schovej formulář vizuálně (nepovinné)#}
+        {#            formDiv.style.display = "none";#}
+        {#        }#}
+        {#    }#}
+        {# });#}
+        {##}
 
+        document.addEventListener("click", function (e) {
+            const btn = e.target.closest(".delete-observation-btn");
+            if (!btn) return;
 
-{#        document.addEventListener("click", function(e) {#}
-{#    if (e.target.closest(".delete-observation-btn")) {#}
-{#        const formDiv = e.target.closest(".observation-form");#}
-{#        if (confirm("Delete this observation?")) {#}
-{#            // Najdi DELETE checkbox a zaškrtni ho#}
-{#            const deleteInput = formDiv.querySelector('input[name$="-DELETE"]');#}
-{#            if (deleteInput) deleteInput.checked = true;#}
-{#            // Schovej formulář vizuálně (nepovinné)#}
-{#            formDiv.style.display = "none";#}
-{#        }#}
-{#    }#}
-{# });#}
-{##}
-
-        document.addEventListener("click", function(e) {
-    const btn = e.target.closest(".delete-observation-btn");
-    if (!btn) return;
-
-    const formDiv = btn.closest(".observation-form");
-    if (confirm("Delete this observation?")) {
-        const deleteInput = formDiv.querySelector('input[type="hidden"][name$="-DELETE"]');
-        if (deleteInput) {
-            deleteInput.value = "on";  // musí být "on", ne true
-        }
-        // volitelné – skryj formulář z UI
-        formDiv.style.display = "none";
-    }
-});
+            const formDiv = btn.closest(".observation-form");
+            if (confirm("Delete this observation?")) {
+                const deleteInput = formDiv.querySelector('input[type="hidden"][name$="-DELETE"]');
+                if (deleteInput) {
+                    deleteInput.value = "on";  // musí být "on", ne true
+                }
+                // volitelné – skryj formulář z UI
+                formDiv.style.display = "none";
+            }
+        });
     </script>
 
 {% endblock %}

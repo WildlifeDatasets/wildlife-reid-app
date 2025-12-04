@@ -7,13 +7,15 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0108_caiduser_show_wellcome_message_on_next_login'),
+        ("caidapp", "0108_caiduser_show_wellcome_message_on_next_login"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='caiduser',
-            name='default_taxon_for_identification',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to='caidapp.taxon'),
+            model_name="caiduser",
+            name="default_taxon_for_identification",
+            field=models.ForeignKey(
+                blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to="caidapp.taxon"
+            ),
         ),
     ]

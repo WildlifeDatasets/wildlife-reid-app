@@ -7,10 +7,15 @@ import pandas as pd
 from celery import Celery
 from detection_utils import inference_detection
 from detection_utils.inference_video import create_image_from_video
-from taxon_utils import data_processing_pipeline, dataset_tools
-from taxon_utils.config import RABBITMQ_URL, REDIS_URL
-from taxon_utils.log import setup_logging
-from typing import Optional
+
+try:
+    from taxon_utils import data_processing_pipeline, dataset_tools
+    from taxon_utils.config import RABBITMQ_URL, REDIS_URL
+    from taxon_utils.log import setup_logging
+except ModuleNotFoundError:
+    from .taxon_utils import data_processing_pipeline, dataset_tools
+    from .taxon_utils.config import RABBITMQ_URL, REDIS_URL
+    from .taxon_utils.log import setup_logging
 
 setup_logging()
 logger = logging.getLogger("app")
@@ -52,7 +57,6 @@ def predict(
         logger.debug(f"celery {self.request.id=}")
         num_cores = 1
 
-
         # prepare input and output file names
         input_archive_file = Path(input_archive_file)
         output_dir = Path(output_dir)
@@ -80,9 +84,7 @@ def predict(
             )
             metadata, df_failing0 = data_processing_pipeline.keep_correctly_loaded_images(metadata)
             # image_path is now relative to output_images_dir
-            metadata["full_image_path"] = metadata["image_path"].apply(
-                lambda x: str(output_images_dir / x)
-            )
+            metadata["full_image_path"] = metadata["image_path"].apply(lambda x: str(output_images_dir / x))
             metadata["absolute_media_path"] = [pth for pth in metadata["full_image_path"]]
             metadata["detection_results"] = [None] * len(metadata)
             metadata = create_image_from_video(metadata)
@@ -92,29 +94,21 @@ def predict(
             )
         else:
             logger.debug(
-                f"Using existing metadata file: {output_metadata_file}. "
-                + f"{output_metadata_file.exists()=}"
+                f"Using existing metadata file: {output_metadata_file}. " + f"{output_metadata_file.exists()=}"
             )
             # print size of file in bytes
             logger.debug(f"{output_metadata_file=}, {output_metadata_file.stat().st_size=}")
             # read file as str
             metadata = pd.read_csv(output_metadata_file, index_col=0)
-            metadata["full_image_path"] = metadata["image_path"].apply(
-                lambda x: str(output_images_dir / x)
-            )
+            metadata["full_image_path"] = metadata["image_path"].apply(lambda x: str(output_images_dir / x))
             metadata["absolute_media_path"] = [pth for pth in metadata["full_image_path"]]
             metadata["detection_results"] = [None] * len(metadata)
 
         logger.debug(f"Metadata file: {output_metadata_file}. {output_metadata_file.exists()=}")
         logger.debug(f"{len(metadata['image_path'])=}")
         if len(metadata["image_path"]) > 0:
-            logger.debug(
-                f"{metadata['image_path'][0]=}, {Path(metadata['image_path'][0]).exists()=}"
-            )
-            logger.debug(
-                f"{metadata['full_image_path'][0]=}, "
-                f"{Path(metadata['full_image_path'][0]).exists()=}"
-            )
+            logger.debug(f"{metadata['image_path'][0]=}, {Path(metadata['image_path'][0]).exists()=}")
+            logger.debug(f"{metadata['full_image_path'][0]=}, " f"{Path(metadata['full_image_path'][0]).exists()=}")
 
         metadata = inference_detection.detect_animal_on_metadata(metadata)
         data_processing_pipeline.run_taxon_classification_inference(metadata)
@@ -146,6 +140,7 @@ def predict(
 
 
 def post_update_with_spreadsheet(metadata, post_update_csv_path):
+    """Update metadata dataframe with values from post_update_csv_path."""
     # this is not well tested
     metadata_post_update = pd.read_csv(post_update_csv_path, index_col=0)
     if "original_path" in metadata_post_update.columns:
@@ -158,9 +153,9 @@ def post_update_with_spreadsheet(metadata, post_update_csv_path):
         # Perform an inner join to ensure only rows from metadata are retained
         merged_df = metadata.merge(
             metadata_post_update,
-            on='original_path',
-            how='left',  # Keeps all rows from `metadata`, matching only from `metadata_post_update`
-            suffixes=('', '_post_update')
+            on="original_path",
+            how="left",  # Keeps all rows from `metadata`, matching only from `metadata_post_update`
+            suffixes=("", "_post_update"),
         )
         logger.debug("Merging metadata with post_update_csv.")
         logger.debug(f"{merged_df.shape=}")
@@ -169,7 +164,7 @@ def post_update_with_spreadsheet(metadata, post_update_csv_path):
 
         # Overwrite columns from `metadata` with those from `metadata_post_update` if they exist
         for col in metadata_post_update.columns:
-            if col != 'original_path':  # Skip the join column
+            if col != "original_path":  # Skip the join column
                 if col in metadata.columns:  # Only overwrite common columns
                     merged_df[col] = merged_df[f"{col}_post_update"].combine_first(merged_df[col])
                     merged_df.drop(columns=[f"{col}_post_update"], inplace=True)

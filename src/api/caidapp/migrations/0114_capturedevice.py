@@ -7,18 +7,30 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0113_caiduser_ml_consent_given_and_more'),
+        ("caidapp", "0113_caiduser_ml_consent_given_and_more"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='CaptureDevice',
+            name="CaptureDevice",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name', models.CharField(max_length=100, unique=True)),
-                ('description', models.TextField(blank=True, default='')),
-                ('exif_features', models.JSONField(blank=True, default=dict, help_text='Dictionary of EXIF keys and expected values for identifying this device.')),
-                ('owner', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to='caidapp.caiduser')),
+                ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
+                ("name", models.CharField(max_length=100, unique=True)),
+                ("description", models.TextField(blank=True, default="")),
+                (
+                    "exif_features",
+                    models.JSONField(
+                        blank=True,
+                        default=dict,
+                        help_text="Dictionary of EXIF keys and expected values for identifying this device.",
+                    ),
+                ),
+                (
+                    "owner",
+                    models.ForeignKey(
+                        blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to="caidapp.caiduser"
+                    ),
+                ),
             ],
         ),
     ]

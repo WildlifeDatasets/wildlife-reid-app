@@ -1,23 +1,18 @@
 import logging
+import subprocess
 import traceback
 import zipfile
 from pathlib import Path
-from typing import Union
+from typing import Tuple, Union
 
 import cv2
+import numpy as np
 import pandas as pd
 import skimage.io
 import skimage.transform
-from typing import Tuple
-import subprocess
-import numpy as np
 from PIL import Image
 
-from .model_tools import remove_diacritics
-
 logger = logging.getLogger(__file__)
-
-import unicodedata
 
 
 # def remove_diacritics(input_str):
@@ -35,6 +30,7 @@ import unicodedata
 #     # Return the normalized string
 #     return unicodedata.normalize("NFC", filtered)
 
+
 def resize_images(input_image: np.ndarray, new_height: int = 360) -> np.ndarray:
     """Resize image to match new height and conserve aspect ratio."""
     org_height = input_image.shape[0]
@@ -43,7 +39,7 @@ def resize_images(input_image: np.ndarray, new_height: int = 360) -> np.ndarray:
     return resized_image
 
 
-def save_gif(images, path: str, fps:float):
+def save_gif(images, path: str, fps: float):
     """Save frames as gif using PIL library."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -94,7 +90,13 @@ def save_gif(images, path: str, fps:float):
 #         return False
 
 
-def make_gif_from_video_file(video_path: Path, gif_path: Path, width: int = 800, num_frames:int=30, start_frame_id:int=0) -> bool:
+def make_gif_from_video_file(
+    video_path: Path,
+    gif_path: Path,
+    width: int = 800,
+    num_frames: int = 30,
+    start_frame_id: int = 0,
+) -> bool:
     """Create small gif image from input video.
 
     Returns:
@@ -134,15 +136,13 @@ def make_gif_from_video_file(video_path: Path, gif_path: Path, width: int = 800,
 
         gif_path.parent.mkdir(exist_ok=True, parents=True)
         # the whole video is shorten to 3 seconds per 10 frames
-        fps = 10.
+        fps = 10.0
         save_gif(frames, str(gif_path), fps=fps)
         return True
     except Exception:
         logger.debug("Problem in video creation.")
         logger.warning(traceback.format_exc())
-        logger.warning(
-            f"aaaa Cannot create thumbnail from video file '{video_path}'."
-        )
+        logger.warning(f"aaaa Cannot create thumbnail from video file '{video_path}'.")
         return False
 
 
@@ -170,7 +170,16 @@ def make_thumbnail_from_file(image_path: Path, thumbnail_path: Path, width: int 
     image_path = Path(image_path)
     try:
         # if input is video get first frame
-        if image_path.suffix.lower() in (".mp4", ".avi", ".mov", ".mkv", ".webm", ".flv", ".wmv", ".m4v"):
+        if image_path.suffix.lower() in (
+            ".mp4",
+            ".avi",
+            ".mov",
+            ".mkv",
+            ".webm",
+            ".flv",
+            ".wmv",
+            ".m4v",
+        ):
             image = get_frame_from_video(image_path, frame_id)
         else:
             image = skimage.io.imread(image_path)
@@ -178,13 +187,12 @@ def make_thumbnail_from_file(image_path: Path, thumbnail_path: Path, width: int 
         return True
     except Exception:
         logger.warning(traceback.format_exc())
-        logger.warning(
-            f"Cannot create thumbnail from file '{image_path}'."
-        )
+        logger.warning(f"Cannot create thumbnail from file '{image_path}'.")
         return False
 
 
-def save_thumbnail(image:np.array, thumbnail_path:Path, width:int=800):
+def save_thumbnail(image: np.ndarray, thumbnail_path: Path, width: int = 800):
+    """Save thumbnail from image array."""
     thumbnail_path = Path(thumbnail_path)
     scale = float(width) / image.shape[1]
     scale = [scale, scale, 1]
@@ -244,6 +252,7 @@ def count_files_in_archive(zip_path: Union[str, Path]) -> dict:
                 video_coung += 1
         return {"file_count": file_count, "image_count": image_count, "video_count": video_coung}
 
+
 def is_string_date(date: str) -> bool:
     """Check if the string is a valid date.
 
@@ -283,7 +292,6 @@ def get_date_and_locality_from_filename(filename: Union[Path, str]) -> Tuple[str
     return date, locality
 
 
-
 def convert_to_mp4(input_video_path: Path, output_video_path, force_rewrite=False) -> None:
     """Convert video to MP4 format."""
     input_video_path = Path(input_video_path)
@@ -318,4 +326,3 @@ def convert_to_mp4(input_video_path: Path, output_video_path, force_rewrite=Fals
         logger.debug(f"Conversion successful! Output saved at '{str(output_video_path)}'")
     except subprocess.CalledProcessError as e:
         logger.error(f"Error during conversion: {e}")
-

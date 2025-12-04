@@ -13,9 +13,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name="workgroup",
             name="identification_init_at",
-            field=models.DateTimeField(
-                blank=True, null=True, verbose_name="Identification init at"
-            ),
+            field=models.DateTimeField(blank=True, null=True, verbose_name="Identification init at"),
         ),
         migrations.AddField(
             model_name="workgroup",

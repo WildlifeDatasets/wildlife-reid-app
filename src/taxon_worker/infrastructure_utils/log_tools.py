@@ -2,7 +2,7 @@ import logging
 
 
 class TempLogContext:
-    def __init__(self, logger_names:list, levels:list):
+    def __init__(self, logger_names: list, levels: list):
 
         self.logger_names = logger_names
         self.levels = levels

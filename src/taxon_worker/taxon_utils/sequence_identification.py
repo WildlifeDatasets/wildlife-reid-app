@@ -1,14 +1,10 @@
+import logging
 import re
+import traceback
 import typing
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Optional, Tuple, List
-import traceback
-
-import numpy as np
-import pandas as pd
-from PIL import Image, UnidentifiedImageError
-from tqdm import tqdm
+from typing import List, Optional, Tuple
 
 import cv2
 import exiftool
@@ -19,10 +15,8 @@ import scipy.stats
 import skimage
 import skimage.color
 from joblib import Parallel, delayed
-from PIL import Image
+from PIL import Image, UnidentifiedImageError
 from tqdm import tqdm
-from tqdm.contrib.logging import logging_redirect_tqdm
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -32,8 +26,9 @@ EXIFTOOL_EXECUTABLE = None
 
 DATETIME_BLACKLIST = [
     # "0000-00-00 00:00:00",
-    '2015-05-21 15:29:12'
+    "2015-05-21 15:29:12"
 ]
+
 
 class DatasetEventIdManager:
     """
@@ -90,6 +85,7 @@ class DatasetEventIdManager:
             self.event_id += int(1)
         return self.event_id
 
+
 def replace_colon_in_exif_datetime(exif_datetime: str) -> str:
     """Turn strange EXIF datetime format (containing ':' in date) into standard datetime.
 
@@ -117,7 +113,9 @@ def replace_colon_in_exif_datetime(exif_datetime: str) -> str:
     return replaced
 
 
-def get_datetime_using_exif_or_ocr(filename: typing.Union[Path, str], exiftool_metadata:dict) -> typing.Tuple[str, str, str]:
+def get_datetime_using_exif_or_ocr(
+    filename: typing.Union[Path, str], exiftool_metadata: dict
+) -> typing.Tuple[str, str, str, dict]:
     """Extract datetime from EXIF in file and check if image is ok.
 
     Parameters
@@ -177,13 +175,12 @@ def get_datetime_using_exif_or_ocr(filename: typing.Union[Path, str], exiftool_m
         if not is_ok:
             logger.debug(f"date not found, exif: {str(d)=}")
 
-
         # dt_str, is_ok, dt_source = get_datetime_exiftool(filename)
         dt_str = replace_colon_in_exif_datetime(dt_str)
         if dt_source.startswith("QuickTime"):
             in_worst_case_dt = dt_str
             in_worst_case_dt_source = dt_source
-            df_str = ""
+            # df_str = ""
             dt_source = ""
         if dt_str in DATETIME_BLACKLIST:
             logger.debug("blacklisted datetime")
@@ -230,6 +227,7 @@ def get_datetime_using_exif_or_ocr(filename: typing.Union[Path, str], exiftool_m
 
 
 def check_file_by_opening(filename):
+    """Check if image or video file can be opened."""
     opened_sucessfully = False
     opening_error = None
     frame = None
@@ -245,14 +243,14 @@ def check_file_by_opening(filename):
             opening_error = str(e)
             # return "", str(e), ""
     elif filename.suffix.lower() in (
-            ".mp4",
-            ".avi",
-            ".mov",
-            ".mkv",
-            ".webm",
-            ".flv",
-            ".wmv",
-            ".m4v",
+        ".mp4",
+        ".avi",
+        ".mov",
+        ".mkv",
+        ".webm",
+        ".flv",
+        ".wmv",
+        ".m4v",
     ):
         media_file_type = "video"
         # import cv2
@@ -267,7 +265,7 @@ def check_file_by_opening(filename):
     return opened_sucessfully, opening_error, media_file_type
 
 
-def get_datetime_exiftool(video_pth: Path, checked_keys: Optional[list]=None) -> typing.Tuple[str, bool, str]:
+def get_datetime_exiftool(video_pth: Path, checked_keys: Optional[list] = None) -> typing.Tuple[str, bool, str]:
     """Get datetime from video using exiftool."""
     if checked_keys is None:
         checked_keys = [
@@ -314,9 +312,7 @@ def get_datetime_from_ocr(filename: Path) -> typing.Tuple[str, str]:
     # plt.show()
     date_str, is_cuddleback1, ocr_result = _check_if_it_is_cuddleback1(frame_bgr)
     if not is_cuddleback1:
-        date_str, is_cuddleback_corner, ocr_result_corner = _check_if_it_is_cuddleback_corner(
-            frame_bgr
-        )
+        date_str, is_cuddleback_corner, ocr_result_corner = _check_if_it_is_cuddleback_corner(frame_bgr)
         ocr_result += "; " + ocr_result_corner
         if not is_cuddleback_corner:
             date_str = ""
@@ -338,7 +334,7 @@ def _check_if_it_is_cuddleback1(frame_bgr: np.nan) -> Tuple[str, bool, str]:
         # maybe, the thresholding is not necessary, but it works now
         _, processed_frame = cv2.threshold(gray_frame, 140, 255, cv2.THRESH_BINARY)
         # Crop the frame to the area where the date is expected
-        processed_frame = processed_frame[300:500,:]
+        processed_frame = processed_frame[300:500, :]
 
         # Use Tesseract to perform OCR on the processed frame
         ocr_result = pytesseract.image_to_string(processed_frame)
@@ -394,8 +390,8 @@ def _check_if_it_is_cuddleback_corner(frame_bgr: np.array) -> Tuple[str, bool, s
         if len(dates) == 0:
             date_str = ""
             is_ok = False
-            logger.debug(f"{np.mean(frame_hsv, axis=(0,1))=}")
-            logger.debug(f"{np.mean(frame_bgr, axis=(0,1))=}")
+            logger.debug(f"{np.mean(frame_hsv, axis=(0, 1))=}")
+            logger.debug(f"{np.mean(frame_bgr, axis=(0, 1))=}")
             logger.debug(f"{yellow_prototype_hsv=}")
             logger.debug(f"{scipy.stats.describe(frame_bgr.ravel())=}")
             logger.debug(f"OCR result: {ocr_result}")
@@ -412,6 +408,7 @@ def _check_if_it_is_cuddleback_corner(frame_bgr: np.array) -> Tuple[str, bool, s
         logger.debug(traceback.format_exc())
         logger.warning(f"Error while processing OCR result: {ocr_result}")
         return date_str, False, ""
+
 
 # TODO update to use with the exiftool
 def get_datetime_from_exif(filename: Path) -> typing.Tuple[str, str]:
@@ -505,19 +502,19 @@ def extend_df_with_sequence_id(df: pd.DataFrame, time_limit: typing.Union[str, d
     return df
 
 
-
 def add_datetime_from_exif_in_parallel(
-        original_paths: List[Path], dataset_basedir: Optional[Path]=None,
-        exiftool_executable=None, num_cores:int=1
-) -> Tuple[list, list, list]:
+    original_paths: List[Path],
+    dataset_basedir: Optional[Path] = None,
+    exiftool_executable=None,
+    num_cores: int = 1,
+) -> Tuple[list, list, list, list]:
     """Get list of datetimes from EXIF.
 
     The EXIF information is extracted in single-core way but with the help of ExifTool.
     """
-
     logger.debug(f"Getting EXIFs from {len(original_paths)} files.")
     # Collect EXIF info
-    if  dataset_basedir:
+    if dataset_basedir:
         full_paths = [dataset_basedir / original_path for original_path in original_paths]
     else:
         full_paths = original_paths
@@ -525,7 +522,7 @@ def add_datetime_from_exif_in_parallel(
         with exiftool.ExifToolHelper(executable=exiftool_executable) as et:
             # Your code to interact with ExifTool
             exifs = et.get_metadata(full_paths)
-    except exiftool.exceptions.ExifToolExecuteError as e:
+    except exiftool.exceptions.ExifToolExecuteError:
         logger.debug(traceback.format_exc())
         logger.warning(f"Error while batch reading EXIFs from {full_paths}.")
         logger.info("Trying to process per file (slow).")
@@ -537,15 +534,16 @@ def add_datetime_from_exif_in_parallel(
                 with exiftool.ExifToolHelper(executable=None) as et:
                     exif = et.get_metadata(path)
                 exifs.append(exif)
-            except exiftool.exceptions.ExifToolExecuteError as e:
+            except exiftool.exceptions.ExifToolExecuteError:
                 logger.debug(traceback.format_exc())
                 logger.error(f"Error while reding EXIF from {str(path)}")
                 exifs.append({})
 
         exifs = [{} for _ in full_paths]
 
-    assert len(exifs) == len(full_paths), \
-        f"Number of EXIFs ({len(exifs)}) is not equal to number of files ({len(full_paths)}."
+    assert len(exifs) == len(
+        full_paths
+    ), f"Number of EXIFs ({len(exifs)}) is not equal to number of files ({len(full_paths)}."
     logger.debug("EXIFs collected")
 
     # Evaluate exif info and use OCR if necessary
@@ -561,5 +559,4 @@ def add_datetime_from_exif_in_parallel(
         ]
 
     datetime_list, error_list, source_list = zip(*datetime_list)
-    return datetime_list, error_list, source_list
-
+    return datetime_list, error_list, source_list, exifs

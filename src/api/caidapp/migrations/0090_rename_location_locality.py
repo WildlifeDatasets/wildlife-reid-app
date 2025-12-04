@@ -6,12 +6,12 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0089_uploadedarchive_import_error_spreadsheet'),
+        ("caidapp", "0089_uploadedarchive_import_error_spreadsheet"),
     ]
 
     operations = [
         migrations.RenameModel(
-            old_name='Location',
-            new_name='Locality',
+            old_name="Location",
+            new_name="Locality",
         ),
     ]

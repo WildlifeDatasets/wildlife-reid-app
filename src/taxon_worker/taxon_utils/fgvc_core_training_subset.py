@@ -1,46 +1,29 @@
-from typing import Type
 import os
 import random
 import time
-
-import torch
-import torch.nn as nn
-from torch.optim import Optimizer
-from torch.utils.data import DataLoader
-
-from typing import NamedTuple, Optional, Union
-
 import warnings
-from typing import Tuple
+from typing import NamedTuple, Optional, Tuple, Type, Union
 
+import numpy as np
 import torch
 import torch.nn as nn
 from timm.data.mixup import Mixup
-from torch.utils.data import DataLoader
-
-import numpy as np
-from tqdm.auto import tqdm
-
-import warnings
-from typing import Union
-
-from timm.utils import ModelEmaV2
-from torch.utils.data import DataLoader
-
 from timm.scheduler import CosineLRScheduler
+from timm.utils import ModelEmaV2
+from torch.optim import Optimizer
 from torch.optim.lr_scheduler import CosineAnnealingLR, ReduceLROnPlateau
 from torch.utils.data import DataLoader
-
+from tqdm.auto import tqdm
 
 from .fgvc_subset.utils.wandb import log_progress
 
 SchedulerType = Union[ReduceLROnPlateau, CosineLRScheduler, CosineAnnealingLR]
 
-from typing import Callable
 # from .base_trainer import BaseTrainer
 # from .classification_trainer import ClassificationTrainer
 # from .training_outputs import PredictOutput
 import logging
+from typing import Callable
 
 logger = logging.getLogger(__name__)
 
@@ -71,26 +54,14 @@ class PredictOutput(NamedTuple):
     avg_scores: Optional[dict] = {}
 
 
-
-
-
-
-import torch
-import torch.nn as nn
-from torch.optim import Optimizer
-from torch.utils.data import DataLoader
-
 # from .training_outputs import BatchOutput, PredictOutput, TrainEpochOutput
 # from .training_utils import to_device, to_numpy
 from typing import Iterable, List, Optional, Union
 
 import numpy as np
-import torch
 
 
-def to_device(
-    *tensors: List[Union[torch.Tensor, dict]], device: torch.device
-) -> List[Union[torch.Tensor, dict]]:
+def to_device(*tensors: List[Union[torch.Tensor, dict]], device: torch.device) -> List[Union[torch.Tensor, dict]]:
     """Convert pytorch tensors to device.
 
     Parameters
@@ -136,9 +107,7 @@ def to_numpy(*tensors: List[Union[torch.Tensor, dict]]) -> List[Union[np.ndarray
     return out if len(out) > 1 else out[0]
 
 
-def concat_arrays(
-    *lists: List[List[Union[np.ndarray, dict]]]
-) -> List[Optional[List[Union[np.ndarray, dict]]]]:
+def concat_arrays(*lists: List[List[Union[np.ndarray, dict]]]) -> List[Optional[List[Union[np.ndarray, dict]]]]:
     """Concatenate lists of numpy arrays with predictions and targets to numpy arrays.
 
     Parameters
@@ -173,9 +142,7 @@ def concat_arrays(
     return out if len(out) > 1 else out[0]
 
 
-def get_gradient_norm(
-    model_params: Union[torch.Tensor, Iterable[torch.Tensor]], norm_type: float = 2.0
-) -> float:
+def get_gradient_norm(model_params: Union[torch.Tensor, Iterable[torch.Tensor]], norm_type: float = 2.0) -> float:
     """Compute norm of model parameter gradients.
 
     Parameters
@@ -196,7 +163,6 @@ def get_gradient_norm(
         norms = torch.stack([torch.norm(g.detach(), norm_type) for g in grads])
         total_norm = torch.norm(norms, norm_type).item()
     return total_norm
-
 
 
 class BaseTrainer:
@@ -334,8 +300,6 @@ class BaseTrainer:
 # ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 
-
-
 # from ..models import get_model_target_size
 
 
@@ -370,12 +334,10 @@ def get_model_target_size(model: nn.Module) -> Optional[int]:
         target_size = module.out_features
 
     if target_size is None:
-        warnings.warn(
-            "Could not find target size (number of classes) "
-            f"of the model {model.__class__.__name__}."
-        )
+        warnings.warn("Could not find target size (number of classes) " f"of the model {model.__class__.__name__}.")
 
     return target_size
+
 
 class MixupMixin:
     """Mixin class that adds LR scheduler functionality to the trainer class.
@@ -437,9 +399,7 @@ class MixupMixin:
         # call parent class to initialize trainer
         super().__init__(*args, model=model, trainloader=trainloader, **kwargs)
 
-    def apply_mixup(
-        self, imgs: torch.Tensor, targs: torch.Tensor
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    def apply_mixup(self, imgs: torch.Tensor, targs: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """Apply mixup or cutmix method if arguments `mixup` or `cutmix` were used in Trainer."""
         if self.mixup_fn is not None:
             imgs, targs = self.mixup_fn(imgs, targs)
@@ -516,7 +476,6 @@ class EMAMixin:
             self.ema_model.update(self.model)
 
 
-
 class SchedulerMixin:
     """Mixin class that adds LR scheduler functionality to the trainer class.
 
@@ -581,23 +540,19 @@ class SchedulerMixin:
                 if valid_loss is not None:
                     self.scheduler.step(valid_loss)  # pytorch implementation
                 else:
-                    warnings.warn(
-                        "Scheduler ReduceLROnPlateau requires validation set "
-                        "to update learning rate."
-                    )
+                    warnings.warn("Scheduler ReduceLROnPlateau requires validation set " "to update learning rate.")
             elif isinstance(self.scheduler, CosineAnnealingLR):
                 self.scheduler.step()  # pytorch implementation
             elif isinstance(self.scheduler, CosineLRScheduler):
                 if epoch is not None:
                     self.scheduler.step(epoch)  # timm implementation
                 else:
-                    warnings.warn(
-                        "Scheduler CosineLRScheduler requires epoch number to update learning rate."
-                    )
+                    warnings.warn("Scheduler CosineLRScheduler requires epoch number to update learning rate.")
             else:
                 raise ValueError(f"Unsupported scheduler type: {self.scheduler}")
 
-from typing import Callable, Union
+
+from typing import Union
 
 import numpy as np
 
@@ -789,7 +744,6 @@ class LossMonitor:
 
 import logging
 import logging.config
-import os
 from typing import Optional
 
 import yaml
@@ -823,9 +777,7 @@ def setup_training_logger(training_log_file: Optional[str]) -> logging.Logger:
     assert (
         training_handler_name in config["handlers"]
     ), f"Logging configuration file is missing field '{training_handler_name}'."
-    assert (
-        len(config["loggers"]) == 1
-    ), "Logging configuration file should contain only one training logger."
+    assert len(config["loggers"]) == 1, "Logging configuration file should contain only one training logger."
 
     # update configuration
     config["handlers"][training_handler_name]["filename"] = training_log_file
@@ -889,9 +841,7 @@ class TrainingState:
         os.makedirs(self.path, exist_ok=True)
 
         # setup training logger
-        self.t_logger = setup_training_logger(
-            training_log_file=os.path.join(self.path, "training.log")
-        )
+        self.t_logger = setup_training_logger(training_log_file=os.path.join(self.path, "training.log"))
 
         if resume:
             self.resume_training()
@@ -921,9 +871,7 @@ class TrainingState:
         # restore state variables of this class' instance (TrainingState)
         for variable in self.STATE_VARIABLES:
             if variable not in checkpoint["training_state"]:
-                raise ValueError(
-                    f"Training checkpoint '{checkpoint_path} is missing variable '{variable}'."
-                )
+                raise ValueError(f"Training checkpoint '{checkpoint_path} is missing variable '{variable}'.")
         for k, v in checkpoint["training_state"].items():
             setattr(self, k, v)
 
@@ -957,9 +905,7 @@ class TrainingState:
                 python_random_state=random.getstate(),
                 np_random_state=np.random.get_state(),
                 torch_random_state=torch.get_rng_state(),
-                torch_cuda_random_state=torch.cuda.get_rng_state()
-                if torch.cuda.is_available()
-                else None,
+                torch_cuda_random_state=(torch.cuda.get_rng_state() if torch.cuda.is_available() else None),
             )
 
             torch.save(
@@ -988,8 +934,7 @@ class TrainingState:
         """
         metric_name = metric_name.lower()
         self.t_logger.info(
-            f"Epoch {epoch} - "
-            f"Save checkpoint with best validation {metric_name}: {metric_value:.6f}"
+            f"Epoch {epoch} - " f"Save checkpoint with best validation {metric_name}: {metric_value:.6f}"
         )
         torch.save(
             self.model.state_dict(),
@@ -1085,6 +1030,7 @@ def set_random_seed(seed=777):
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
 
+
 class ClassificationTrainer(SchedulerMixin, MixupMixin, EMAMixin, BaseTrainer):
     """Class to perform training of a classification neural network and/or run inference.
 
@@ -1131,36 +1077,36 @@ class ClassificationTrainer(SchedulerMixin, MixupMixin, EMAMixin, BaseTrainer):
     """
 
     def __init__(
-            self,
-            model: nn.Module,
-            trainloader: DataLoader,
-            criterion: nn.Module,
-            optimizer: Optimizer,
-            *,
-            validloader: DataLoader = None,
-            scheduler: SchedulerType = None,
-            accumulation_steps: int = 1,
-            clip_grad: float = None,
-            device: torch.device = None,
-            train_scores_fn: Callable = None,
-            valid_scores_fn: Callable = None,
-            wandb_train_prefix: str = "Train. ",
-            wandb_valid_prefix: str = "Val. ",
-            # mixup parameters
-            mixup: float = None,
-            cutmix: float = None,
-            mixup_prob: float = None,
-            # ema parameters
-            apply_ema: bool = False,
-            ema_start_epoch: int = 0,
-            ema_decay: float = 0.9999,
-            **kwargs,
+        self,
+        model: nn.Module,
+        trainloader: DataLoader,
+        criterion: nn.Module,
+        optimizer: Optimizer,
+        *,
+        validloader: DataLoader = None,
+        scheduler: SchedulerType = None,
+        accumulation_steps: int = 1,
+        clip_grad: float = None,
+        device: torch.device = None,
+        train_scores_fn: Callable = None,
+        valid_scores_fn: Callable = None,
+        wandb_train_prefix: str = "Train. ",
+        wandb_valid_prefix: str = "Val. ",
+        # mixup parameters
+        mixup: float = None,
+        cutmix: float = None,
+        mixup_prob: float = None,
+        # ema parameters
+        apply_ema: bool = False,
+        ema_start_epoch: int = 0,
+        ema_decay: float = 0.9999,
+        **kwargs,
     ):
         if train_scores_fn is None:
 
             def _train_scores_fn(preds, targs):
                 return Exception("Not implemented in fgvc subset")
-                return classification_scores(preds, targs, top_k=None, return_dict=True)
+                # return classification_scores(preds, targs, top_k=None, return_dict=True)
 
             train_scores_fn = _train_scores_fn
         if valid_scores_fn is None:
@@ -1249,14 +1195,7 @@ class ClassificationTrainer(SchedulerMixin, MixupMixin, EMAMixin, BaseTrainer):
             loss_monitor.other_avg_losses,
         )
 
-
-
-
-
-
-    def predict(
-            self, dataloader: DataLoader, return_preds: bool = True, *, model: nn.Module = None
-    ) -> PredictOutput:
+    def predict(self, dataloader: DataLoader, return_preds: bool = True, *, model: nn.Module = None) -> PredictOutput:
         """Run inference.
 
         Parameters
@@ -1345,9 +1284,7 @@ class ClassificationTrainer(SchedulerMixin, MixupMixin, EMAMixin, BaseTrainer):
             if self.validloader is not None:
                 predict_output = self.predict(self.validloader, return_preds=False)
                 if getattr(self, "ema_model") is not None:
-                    ema_predict_output = self.predict(
-                        self.validloader, return_preds=False, model=self.get_ema_model()
-                    )
+                    ema_predict_output = self.predict(self.validloader, return_preds=False, model=self.get_ema_model())
             elapsed_epoch_time = time.time() - start_epoch_time
 
             # make a scheduler step
@@ -1373,10 +1310,7 @@ class ClassificationTrainer(SchedulerMixin, MixupMixin, EMAMixin, BaseTrainer):
             _scores = {
                 "avg_train_loss": f"{train_output.avg_loss:.4f}",
                 "avg_val_loss": f"{predict_output.avg_loss:.4f}",
-                **{
-                    s: f"{predict_output.avg_scores.get(s, np.nan):.2%}"
-                    for s in ["F1", "Accuracy", "Recall@3"]
-                },
+                **{s: f"{predict_output.avg_scores.get(s, np.nan):.2%}" for s in ["F1", "Accuracy", "Recall@3"]},
                 "time": f"{elapsed_epoch_time:.0f}s",
             }
             training_state.step(
@@ -1389,16 +1323,17 @@ class ClassificationTrainer(SchedulerMixin, MixupMixin, EMAMixin, BaseTrainer):
         # save last checkpoint, log best scores and total training time
         training_state.finish()
 
+
 def predict(
-        model: nn.Module,
-        testloader: DataLoader,
-        *,
-        criterion: nn.Module = None,
-        device: torch.device = None,
-        trainer_cls: Type[BaseTrainer] = ClassificationTrainer,
-        trainer_kws: dict = None,
-        predict_kws: dict = None,
-        **kwargs,
+    model: nn.Module,
+    testloader: DataLoader,
+    *,
+    criterion: nn.Module = None,
+    device: torch.device = None,
+    trainer_cls: Type[BaseTrainer] = ClassificationTrainer,
+    trainer_kws: dict = None,
+    predict_kws: dict = None,
+    **kwargs,
 ) -> PredictOutput:
     """Run inference.
 

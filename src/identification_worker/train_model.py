@@ -6,17 +6,16 @@ import numpy as np
 import pandas as pd
 import timm
 import torch
-
 from torch.optim import SGD, AdamW
+from train.callbacks import AccuracyCallback, EpochCheckpoint, FileEpochLog
+from train.data_split import split_data
+from train.tools import load_data, save_data
+from train.trainer import CarnivoreIDTrainer
 from wildlife_tools import realize
 from wildlife_tools.data import WildlifeDataset
 from wildlife_tools.train import ArcFaceLoss
 from wildlife_tools.train.callbacks import EpochCallbacks
 
-from train.tools import load_data, save_data
-from train.trainer import CarnivoreIDTrainer
-from train.data_split import split_data
-from train.callbacks import EpochCheckpoint, AccuracyCallback, FileEpochLog
 from utils import config
 from utils.log import setup_logging
 
@@ -29,6 +28,7 @@ logger.debug(f"{config.POSTGRES_URL=}")
 
 
 def get_transforms(image_size):
+    """Get training and validation transforms."""
     config = {
         "method": "TransformTimm",
         "input_size": image_size,
@@ -54,6 +54,7 @@ def get_transforms(image_size):
 
 
 def get_io_size(model):
+    """Get input image size and embedding size from model."""
     if not hasattr(model, "default_cfg") or not hasattr(model, "feature_info"):
         return None
 
@@ -64,6 +65,7 @@ def get_io_size(model):
 
 
 def load_model(model_name, model_checkpoint=""):
+    """Load model from timm with optional checkpoint."""
     # load model checkpoint
     model = timm.create_model(model_name, num_classes=0, pretrained=True)
 
@@ -75,11 +77,12 @@ def load_model(model_name, model_checkpoint=""):
 
 
 def train_identification_model(
-        input_metadata_file: str,
-        organization_id: int,
-        identification_model: dict,
-        **kwargs,
+    input_metadata_file: str,
+    organization_id: int,
+    identification_model: dict,
+    **kwargs,
 ):
+    """Train identification model based on provided metadata file and configuration."""
     config = {
         "lr": 0.0001,
         "device": "cuda",
@@ -92,7 +95,7 @@ def train_identification_model(
         "image_size": 256,
         "embedding_size": 768,
         "identification_model": identification_model,
-        "organization_id": organization_id
+        "organization_id": organization_id,
     }
 
     # logger.debug(f"{input_metadata_file=}")
@@ -103,7 +106,8 @@ def train_identification_model(
     output_folder = os.path.dirname(output_model_path)
     resume = False
     if os.path.exists(os.path.join(output_folder, "config.json")) and os.path.exists(
-            os.path.join(output_folder, "status.json")):
+        os.path.join(output_folder, "status.json")
+    ):
         resume = True
 
     logger.debug(f"{output_folder=}")
@@ -123,11 +127,13 @@ def train_identification_model(
     else:
         status: dict = load_data(os.path.join(output_folder, "status.json"))
         config: dict = load_data(os.path.join(output_folder, "config.json"))
-        if status['stage'] == "finished":
-            logger.info(f"Training already finished. Exiting...")
+        if status["stage"] == "finished":
+            logger.info("Training already finished. Exiting...")
             return
-        logger.info(f"Continuing training from folder: {output_folder}. "
-                    f"Starting from epoch: {status['epochs_trained']}, target epochs: {config['epochs']}")
+        logger.info(
+            f"Continuing training from folder: {output_folder}. "
+            f"Starting from epoch: {status['epochs_trained']}, target epochs: {config['epochs']}"
+        )
 
     # Load model
     model = load_model(identification_model["init_path"], model_checkpoint=status["last_checkpoint_path"])
@@ -140,8 +146,8 @@ def train_identification_model(
     # Load necessary metadata
     metadata = pd.read_csv(input_metadata_file)
     logger.debug(f"{metadata.sequence_number=}")
-    metadata['path'] = metadata['image_path'].apply(lambda p: p.replace('images', 'masked_images'))
-    metadata['identity'] = metadata['label']
+    metadata["path"] = metadata["image_path"].apply(lambda p: p.replace("images", "masked_images"))
+    metadata["identity"] = metadata["label"]
 
     # logger.debug(f"{metadata.columns=}")
     # TODO: check if metadata contain observation_id
@@ -151,24 +157,30 @@ def train_identification_model(
     metadata = metadata.loc[:, ["path", "identity"]]
 
     if "observation_id" not in metadata.columns:
-        metadata['observation_id'] = list(range(len(metadata)))
-    
+        metadata["observation_id"] = list(range(len(metadata)))
+
     # Data filtration
     logger.info("Starting training metadata filtration")
-    logger.info(f"    Initialization\n"
-                f"    {'    '*15}-> file counts: {len(metadata)}, identity counts: {len(set(metadata['identity']))}")
+    logger.info(
+        f"    Initialization\n"
+        f"    {'    '*15}-> file counts: {len(metadata)}, identity counts: {len(set(metadata['identity']))}"
+    )
 
     # Remove identities that occur only once
-    metadata = metadata[metadata['identity'].duplicated(keep=False)].reset_index(drop=True)
-    logger.info(f"    Single file identities filtration\n"
-                f"    {'    '*15}-> file counts: {len(metadata)}, identity counts: {len(set(metadata['identity']))}")
+    metadata = metadata[metadata["identity"].duplicated(keep=False)].reset_index(drop=True)
+    logger.info(
+        f"    Single file identities filtration\n"
+        f"    {'    '*15}-> file counts: {len(metadata)}, identity counts: {len(set(metadata['identity']))}"
+    )
 
     # Check if the files exist
-    exists_mask = metadata['path'].map(os.path.exists)
-    failed_paths = metadata.loc[~exists_mask, 'path'].tolist()
+    exists_mask = metadata["path"].map(os.path.exists)
+    # failed_paths = metadata.loc[~exists_mask, "path"].tolist()
     metadata = metadata.loc[exists_mask].reset_index(drop=True)
-    logger.info(f"    Missing files filtration\n"
-                f"    {'    '*15}-> file counts: {len(metadata)}, identity counts: {len(set(metadata['identity']))}")
+    logger.info(
+        f"    Missing files filtration\n"
+        f"    {'    '*15}-> file counts: {len(metadata)}, identity counts: {len(set(metadata['identity']))}"
+    )
 
     if len(metadata) <= 1:
         logger.info("Cancelling training, not enough representativ images.")
@@ -207,9 +219,7 @@ def train_identification_model(
     scheduler = None
     if config["scheduler"] == "cos":
         lr_min = config["lr"] * 1e-3
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-            optimizer, T_max=config["epochs"], eta_min=lr_min
-        )
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=config["epochs"], eta_min=lr_min)
     elif config["scheduler"] == "wu_cos":
         scheduler = torch.optim.lr_scheduler.OneCycleLR(
             optimizer,
@@ -223,8 +233,10 @@ def train_identification_model(
     # Load checkpoint if resume is True and checkpoint exists
     if resume and os.path.exists(status["last_checkpoint_path"]):
         checkpoint = torch.load(status["last_checkpoint_path"])
-        logger.info(f"Resuming training from checkpoint: {status['last_checkpoint_path']}\n"
-                    f"Starting from epoch: {checkpoint['epoch']}/{config['epochs']}")
+        logger.info(
+            f"Resuming training from checkpoint: {status['last_checkpoint_path']}\n"
+            f"Starting from epoch: {checkpoint['epoch']}/{config['epochs']}"
+        )
 
         model.load_state_dict(checkpoint["model"])
         optimizer.load_state_dict(checkpoint["optimizer"])
@@ -233,16 +245,12 @@ def train_identification_model(
 
     # Define callbacks
     callbacks = [
-        AccuracyCallback(
-            train_dataset,
-            val_dataset,
-            log_period=10
-        ),
+        AccuracyCallback(train_dataset, val_dataset, log_period=10),
         EpochCheckpoint(
             status_path=os.path.join(output_folder, "status.json"),
-            checkpoint_path=output_model_path
+            checkpoint_path=output_model_path,
         ),
-        FileEpochLog(status_path=os.path.join(output_folder, "status.json"))
+        FileEpochLog(status_path=os.path.join(output_folder, "status.json")),
     ]
     epoch_callback = EpochCallbacks(callbacks)
 
@@ -264,7 +272,7 @@ def train_identification_model(
         num_workers=config["num_workers"],
         batch_size=config["batch_size"],
         accumulation_steps=config["accumulation_steps"],
-        start_epoch=status["epochs_trained"]
+        start_epoch=status["epochs_trained"],
     )
     trainer.train()
 

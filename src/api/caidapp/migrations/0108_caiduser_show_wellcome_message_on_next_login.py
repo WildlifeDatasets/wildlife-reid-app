@@ -6,13 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0107_caiduser_show_taxon_classification'),
+        ("caidapp", "0107_caiduser_show_taxon_classification"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='caiduser',
-            name='show_wellcome_message_on_next_login',
+            model_name="caiduser",
+            name="show_wellcome_message_on_next_login",
             field=models.BooleanField(default=False),
         ),
     ]

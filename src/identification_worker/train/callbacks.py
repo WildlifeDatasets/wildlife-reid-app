@@ -10,29 +10,27 @@ from .tools import load_data, save_data
 
 
 class AccuracyCallback:
-    def __init__(
-            self,
-            train_dataset,
-            val_dataset,
-            log_period: int = 10
-    ):
+    def __init__(self, train_dataset, val_dataset, log_period: int = 10):
         self.log_period = log_period
         self.dataset_database = train_dataset
         self.dataset_query = val_dataset
 
     def __call__(self, trainer, epoch_data: dict[str, int], **kwargs):
+        """Calculates and logs accuracy on validation dataset."""
         if (trainer.epoch + 1) % self.log_period != 0:
             return
 
         # calculate and log accuracy
-        extractor = DeepFeatures(trainer.model,
-                                 batch_size=trainer.batch_size,
-                                 num_workers=trainer.num_workers,
-                                 device=trainer.device, )
+        extractor = DeepFeatures(
+            trainer.model,
+            batch_size=trainer.batch_size,
+            num_workers=trainer.num_workers,
+            device=trainer.device,
+        )
         query, database = extractor(self.dataset_query), extractor(self.dataset_database)
 
         similarity = CosineSimilarity()
-        sim = similarity(query, database)#['cosine']
+        sim = similarity(query, database)  # ['cosine']
         classifier = KnnClassifier(k=1, database_labels=self.dataset_database.labels_string)
         preds = classifier(sim)
         acc = sum(preds == self.dataset_query.labels_string) / len(self.dataset_query.labels_string)
@@ -50,6 +48,7 @@ class FileEpochLog:
         self.status_path = status_path
 
     def __call__(self, trainer, epoch_data: dict[str, int], **kwargs):
+        """Logs epoch data to status file."""
         status: dict = load_data(self.status_path)
 
         _epoch_data = deepcopy(epoch_data)
@@ -57,30 +56,32 @@ class FileEpochLog:
             if isinstance(v, (np.float32, np.float16)):
                 _epoch_data[k] = float(v)
 
-        _epoch_data['epoch'] = trainer.epoch
+        _epoch_data["epoch"] = trainer.epoch
         if "history" in status:
-            status['history'].append(_epoch_data)
+            status["history"].append(_epoch_data)
         else:
-            status['history'] = [_epoch_data]
+            status["history"] = [_epoch_data]
         save_data(self.status_path, status)
 
 
 class EpochCheckpoint:
     def __init__(self, status_path: str = "", checkpoint_path: str = ""):
+        """Saves model checkpoint and updates status file."""
         self.status_path = status_path
         self.checkpoint_path = checkpoint_path
 
     def __call__(self, trainer, epoch_data: dict[str, int], **kwargs):
+        """Saves model checkpoint and updates status file."""
         status: dict = load_data(self.status_path)
-        status['epochs_trained'] += 1
+        status["epochs_trained"] += 1
 
         checkpoint = {
             "model": trainer.model.state_dict(),
             "optimizer": trainer.optimizer.state_dict(),
             "scheduler": trainer.scheduler.state_dict(),
-            "epoch": trainer.epoch
+            "epoch": trainer.epoch,
         }
 
         torch.save(checkpoint, self.checkpoint_path)
-        status['last_checkpoint_path'] = self.checkpoint_path
+        status["last_checkpoint_path"] = self.checkpoint_path
         save_data(self.status_path, status)

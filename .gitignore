@@ -159,4 +159,7 @@ cache.json
 *.pt
 *.swp
 
+src/api/caidapp/static/assets_
+src/api/static
+caid_import
 

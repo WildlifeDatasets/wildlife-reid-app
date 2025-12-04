@@ -6,10 +6,12 @@ import traceback
 from pathlib import Path
 
 import numpy as np
+
 print(f"numpy version: {np.__version__}")
 import pandas as pd
 import torch
 from celery import Celery, shared_task
+from train_model import train_identification_model
 from wildlife_tools.data import FeatureDataset
 from wildlife_tools.similarity.pairwise.collectors import CollectAll
 from wildlife_tools.similarity.pairwise.lightglue import MatchLightGlue
@@ -29,8 +31,6 @@ from utils.inference_identification import (
 )
 from utils.log import setup_logging
 from utils.sequence_identification import extend_df_with_datetime, extend_df_with_sequence_id
-from train_model import train_identification_model
-
 
 setup_logging()
 logger = logging.getLogger("app")
@@ -39,18 +39,17 @@ logger.debug(f"{config.RABBITMQ_URL=}")
 logger.debug(f"{config.REDIS_URL=}")
 logger.debug(f"{config.POSTGRES_URL=}")
 
-identification_worker = Celery(
-    "identification_worker", broker=config.RABBITMQ_URL, backend=config.REDIS_URL
-)
+identification_worker = Celery("identification_worker", broker=config.RABBITMQ_URL, backend=config.REDIS_URL)
 init_db_connection(db_url=config.POSTGRES_URL)
+
 
 @identification_worker.task(bind=True, name="train_identification")
 def train_identification(
-        self,
-        input_metadata_file: str,
-        organization_id: int,
-        identification_model: dict = None,
-        **kwargs,
+    self,
+    input_metadata_file: str,
+    organization_id: int,
+    identification_model: dict = None,
+    **kwargs,
 ):
     """Process and store Reference Image records in the database."""
     logger.debug(f"{identification_model=}")
@@ -58,7 +57,7 @@ def train_identification(
         identification_model = {
             "name": "derived from LynxV4-MegaDescriptor-v2-T-256",
             "source_path": "hf-hub:strakajk/LynxV4-MegaDescriptor-v2-T-256",
-            "path": "/models/model1/LynxV4-MegaDescriptor-v2-T-256.pth"
+            "path": "/models/model1/LynxV4-MegaDescriptor-v2-T-256.pth",
         }
     # outputdir = Path(identification_model["path"]).parent
     try:
@@ -68,15 +67,14 @@ def train_identification(
             input_metadata_file=input_metadata_file,
             organization_id=organization_id,
             identification_model=identification_model,
-            **kwargs
+            **kwargs,
         )
-    except Exception as e:
+    except Exception:
         error = traceback.format_exc()
         logger.critical(f"Returning unexpected error output: '{error}'.")
         return {"status": "ERROR", "error": error}
 
     return {"status" "DONE"}
-
 
 
 @identification_worker.task(bind=True, name="init_identification")
@@ -92,9 +90,8 @@ def init(
     if identification_model is None:
         identification_model = {
             "name": "",
-            "path": "hf-hub:strakajk/LynxV4-MegaDescriptor-v2-T-256"
+            "path": "hf-hub:strakajk/LynxV4-MegaDescriptor-v2-T-256",
         }
-
 
     try:
         logger.info(f"Applying init task with args: {input_metadata_file=}, {organization_id=}.")
@@ -121,12 +118,11 @@ def init(
         target_num_splits = math.ceil(len(metadata) / encoding_batch_size)
         metadata_splits = np.array_split(metadata, target_num_splits)
         logger.info(
-            f"Starting embedding images: {len(metadata)}, "
-            f"data will be processed in {len(metadata_splits)} batches"
+            f"Starting embedding images: {len(metadata)}, " f"data will be processed in {len(metadata_splits)} batches"
         )
         for i, _metadata in enumerate(metadata_splits):
             logger.debug(f"[{i + 1}/{target_num_splits}] - {len(_metadata)}")
-            _features = encode_images(_metadata, identification_model_path=identification_model['path'])
+            _features = encode_images(_metadata, identification_model_path=identification_model["path"])
             _features = [json.dumps(e) for e in _features]
             _metadata["embedding"] = _features
 
@@ -163,9 +159,7 @@ def shared_simple_log(self, *args, **kwargs):
     return {"status": "DONE"}
 
 
-def load_features(
-    db_connection, organization_id, *, start: int = -1, end: int = -1, rows: tuple = ()
-):
+def load_features(db_connection, organization_id, *, start: int = -1, end: int = -1, rows: tuple = ()):
     """Loads specific or all rows from database."""
     # logger.debug("Started loading features from database")
 
@@ -207,9 +201,11 @@ def get_priority_pairs_from_parts(priority_parts: list, image_budget: int):
 
 
 def predict_full(
-    metadata: pd.DataFrame, db_connection: object, organization_id: int,
-        identification_model_path,
-        top_k: int = 1
+    metadata: pd.DataFrame,
+    db_connection: object,
+    organization_id: int,
+    identification_model_path,
+    top_k: int = 1,
 ):
     """Predict identification for all samples."""
     # load features from database
@@ -266,9 +262,7 @@ def predict_batch(
 
     # initialize and calibrate models
     init_models(identification_model_path)
-    calibration_features, reference_images = load_features(
-        db_connection, organization_id, start=0, end=cal_images
-    )
+    calibration_features, reference_images = load_features(db_connection, organization_id, start=0, end=cal_images)
     calibration_metadata = pd.DataFrame(
         {
             "path": reference_images["image_path"],
@@ -283,9 +277,7 @@ def predict_batch(
     metadata_splits = np.array_split(metadata, target_num_splits)
 
     # prepare database split indexes
-    database_split_idx = (
-        np.arange(np.ceil(database_size // database_batch_size + 1)) * database_batch_size
-    )
+    database_split_idx = np.arange(np.ceil(database_size // database_batch_size + 1)) * database_batch_size
     database_split_idx = list(database_split_idx.astype(int))
     if database_split_idx[-1] != database_size:
         database_split_idx.append(database_size)
@@ -346,9 +338,7 @@ def predict_batch(
         full_database_metadata = pd.concat(full_database_metadata).reset_index(drop=True)
 
         # get priority pairs and database idx
-        pairs, database_idx = get_priority_pairs_from_parts(
-            priority_matrix, image_budget=image_budget
-        )
+        pairs, database_idx = get_priority_pairs_from_parts(priority_matrix, image_budget=image_budget)
         database_idx = [int(i) for i in database_idx]
         database_idx.sort()
 
@@ -359,13 +349,9 @@ def predict_batch(
 
         # score calculation
         num_local_descriptors = 2
-        scores = [
-            np.zeros([len(query_features), database_size]) for _ in range(num_local_descriptors)
-        ]
+        scores = [np.zeros([len(query_features), database_size]) for _ in range(num_local_descriptors)]
 
-        split_idx = (
-            np.arange(np.ceil(len(database_idx) // database_batch_size + 1)) * database_batch_size
-        )
+        split_idx = np.arange(np.ceil(len(database_idx) // database_batch_size + 1)) * database_batch_size
         split_idx = list(split_idx.astype(int))
         if split_idx[-1] != len(database_idx):
             split_idx.append(len(database_idx))
@@ -381,9 +367,7 @@ def predict_batch(
                 _pairs[pi][1] = dbidx_to_idx[_pairs[pi][1]]
 
             # get features
-            database_features, reference_images = load_features(
-                db_connection, organization_id, rows=_database_idx
-            )
+            database_features, reference_images = load_features(db_connection, organization_id, rows=_database_idx)
 
             # prepare database metadata
             database_metadata = pd.DataFrame(
@@ -418,9 +402,7 @@ def predict_batch(
         similarity = np.where(similarity == 0, -np.inf, similarity)
 
         # calculate and merge results
-        _identification_output, result_idx = identify_from_similarity(
-            similarity, full_database_metadata, top_k
-        )
+        _identification_output, result_idx = identify_from_similarity(similarity, full_database_metadata, top_k)
 
         # calculate keypoints
         collector = CollectAll()
@@ -429,13 +411,9 @@ def predict_batch(
         keypoints = []
         for qidx, didx in result_idx.items():
             query_aliked_features, _ = prepare_feature_types([query_features[qidx]])
-            keypoint_query_features = FeatureDataset(
-                query_aliked_features, query_metadata.iloc[[qidx]]
-            )
+            keypoint_query_features = FeatureDataset(query_aliked_features, query_metadata.iloc[[qidx]])
 
-            database_features, reference_images = load_features(
-                db_connection, organization_id, rows=didx
-            )
+            database_features, reference_images = load_features(db_connection, organization_id, rows=didx)
             database_metadata = pd.DataFrame(
                 {
                     "path": reference_images["image_path"],
@@ -447,9 +425,7 @@ def predict_batch(
             database_aliked_features, _ = prepare_feature_types(database_features)
             keypoint_database_features = FeatureDataset(database_aliked_features, database_metadata)
 
-            _keypoints = get_keypoints(
-                keypoint_matcher, keypoint_query_features, keypoint_database_features, max_kp=10
-            )
+            _keypoints = get_keypoints(keypoint_matcher, keypoint_query_features, keypoint_database_features, max_kp=10)
             keypoints.append(_keypoints)
 
         _identification_output["keypoints"] = keypoints
@@ -483,16 +459,13 @@ def predict(
     if identification_model is None:
         identification_model = {
             "name": "",
-            "path": "hf-hub:strakajk/LynxV4-MegaDescriptor-v2-T-256"
+            "path": "hf-hub:strakajk/LynxV4-MegaDescriptor-v2-T-256",
         }
-
 
     # identification_model["name"]
     # identification_model["path"]
     try:
-        logger.info(
-            f"Applying init task with args: {input_metadata_file_path=}, {organization_id=}."
-        )
+        logger.info(f"Applying init task with args: {input_metadata_file_path=}, {organization_id=}.")
         logger.debug(f"celery {self.request.id=}")
 
         # read metadata file
@@ -510,15 +483,10 @@ def predict(
             # fetch embeddings of reference samples from the database
             logger.info("Loading reference feature vectors from the database.")
             db_connection = get_db_connection()
-            database_size = db_connection.reference_image.get_reference_images_count(
-                organization_id
-            )
+            database_size = db_connection.reference_image.get_reference_images_count(organization_id)
 
             if database_size == 0:
-                logger.info(
-                    f"Identification worker was not initialized for {organization_id=}. "
-                    "Finishing the job."
-                )
+                logger.info(f"Identification worker was not initialized for {organization_id=}. " "Finishing the job.")
                 out = {
                     "status": "ERROR",
                     "error": "Identification worker was not initialized.",
@@ -531,20 +499,14 @@ def predict(
                     metadata["locality"] = metadata["locality_name"]
                     metadata = extend_df_with_datetime(metadata)
                     metadata = extend_df_with_sequence_id(metadata, sequence_time)
-                    metadata["sequence_number"] = np.where(
-                        metadata["locality"].isna(), -1, metadata["sequence_number"]
-                    )
+                    metadata["sequence_number"] = np.where(metadata["locality"].isna(), -1, metadata["sequence_number"])
                 query_image_path = list(metadata.image_path)
-                query_masked_path = [
-                    p.replace("/images/", "/masked_images/") for p in query_image_path
-                ]
+                query_masked_path = [p.replace("/images/", "/masked_images/") for p in query_image_path]
 
                 database_batch_size = int(os.environ["DATABASE_BATCH_SIZE"])
                 encoding_batch_size = int(os.environ["ENCODING_BATCH_SIZE"])
 
-                if (database_batch_size >= database_size) and (
-                    encoding_batch_size >= len(metadata)
-                ):
+                if (database_batch_size >= database_size) and (encoding_batch_size >= len(metadata)):
                     logger.info("Starting full identification.")
                     identification_output, id2label = predict_full(
                         metadata,
@@ -564,9 +526,7 @@ def predict(
                         top_k=top_k,
                     )
 
-                pred_labels = [
-                    [id2label[x] for x in row] for row in identification_output["pred_class_ids"]
-                ]
+                pred_labels = [[id2label[x] for x in row] for row in identification_output["pred_class_ids"]]
                 identification_output["mediafile_ids"] = metadata["mediafile_id"].tolist()
                 identification_output["pred_labels"] = pred_labels
                 identification_output["query_image_path"] = query_image_path

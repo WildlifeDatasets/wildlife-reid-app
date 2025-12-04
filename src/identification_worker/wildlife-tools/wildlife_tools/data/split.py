@@ -1,4 +1,5 @@
 """Split metadata to a subset."""
+
 from copy import deepcopy
 
 import numpy as np

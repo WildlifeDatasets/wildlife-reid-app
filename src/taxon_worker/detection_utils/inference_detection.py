@@ -3,16 +3,16 @@ import os
 import traceback
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
-import timm
 
 import cv2
 import numpy as np
 import pandas as pd
+import timm
 import torch
-from PIL import Image
-from tqdm import tqdm
 import torchvision.transforms as T
+from PIL import Image
 from torch.nn import functional as F
+from tqdm import tqdm
 
 try:
     from ..infrastructure_utils import mem
@@ -34,7 +34,7 @@ MEDIA_DIR = Path("/shared_data/media")
 DETECTION_MODEL = None
 ORIENTATION_MODEL = None
 
-CLS_TO_ORIENTATION = {0: 'back', 1: 'front', 2: 'left', 3: 'right'}
+CLS_TO_ORIENTATION = {0: "back", 1: "front", 2: "left", 3: "right"}
 
 
 def download_file(url: str, output_file: str):
@@ -131,7 +131,7 @@ def get_detection_model(force_reload: bool = False):
 
 
 def get_orientation_model(model_name="resnet10t", model_checkpoint=""):
-    """Load the orientation classification model"""
+    """Load the orientation classification model."""
     # create model
     model = timm.create_model(model_name, num_classes=4, pretrained=True)
 
@@ -196,9 +196,9 @@ def detect_animals_in_one_image(image_rgb: np.ndarray) -> Optional[List[Dict[str
 
 
 def detect_animals_in_images(
-        images_rgb: np.ndarray,
-        batch_size: int = 1,
-        pbar: Optional[tqdm] = None,
+    images_rgb: np.ndarray,
+    batch_size: int = 1,
+    pbar: Optional[tqdm] = None,
 ) -> List[Optional[List[Dict[str, Any]]]]:
     """Detect animals in a list of images."""
     global DETECTION_MODEL
@@ -210,7 +210,7 @@ def detect_animals_in_images(
 
     # split images into batches
     for i in range(0, len(images_rgb), batch_size):
-        batch = list(images_rgb[i: i + batch_size])
+        batch = list(images_rgb[i : i + batch_size])
         # logger.debug(f"{len(batch)=}, {len(images_rgb)=}")
         # logger.debug(f"{batch.shape=}")
 
@@ -281,30 +281,28 @@ def human_annonymization(rgb_image: np.ndarray, bboxes: List[List[int]]) -> np.n
         pad_w += border
         pad_h += border
 
-        padded_image = np.pad(
-            cropped_image, ((pad_h, pad_h), (pad_w, pad_w), (0, 0)), mode="constant"
-        )
+        padded_image = np.pad(cropped_image, ((pad_h, pad_h), (pad_w, pad_w), (0, 0)), mode="constant")
         rgb_image[y0:y1, x0:x1] = padded_image
     return rgb_image
 
 
-def detect_animal_orientation(
-        image_rgb: np.array,
-        image_size: int = 176
-):
+def detect_animal_orientation(image_rgb: np.array, image_size: int = 176):
     """Detect animal orientation in cropped images."""
     global ORIENTATION_MODEL
 
     if ORIENTATION_MODEL is None:
         ORIENTATION_MODEL = get_orientation_model(
-            "hf-hub:strakajk/Lynx-Orientation-ResNet10t-176" #"resnet10t", "resources/resnet10_02-b-13-02_19-08-16_orientation.pth"
+            "hf-hub:strakajk/Lynx-Orientation-ResNet10t-176"
+            # "resnet10t", "resources/resnet10_02-b-13-02_19-08-16_orientation.pth"
         )
 
-    transforms = T.Compose([
-        T.Resize(size=(image_size, image_size)),
-        T.ToTensor(),
-        T.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
-    ])
+    transforms = T.Compose(
+        [
+            T.Resize(size=(image_size, image_size)),
+            T.ToTensor(),
+            T.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
+        ]
+    )
 
     image_rgb = Image.fromarray(image_rgb).convert("RGB")
     image = transforms(image_rgb)
@@ -331,10 +329,7 @@ def detect_animal_on_metadata(metadata: pd.DataFrame, border=0.0) -> pd.DataFram
     for row_idx, row in tqdm(metadata.iterrows(), total=len(metadata), desc="Animal detection"):
         image_abs_path = row["full_image_path"]
         try:
-            if (
-                    row["media_type"] == "video"
-                    and row["full_image_path"] == row["absolute_media_path"]
-            ):
+            if row["media_type"] == "video" and row["full_image_path"] == row["absolute_media_path"]:
                 # there are no detected animals in video
                 continue
 
@@ -356,9 +351,7 @@ def detect_animal_on_metadata(metadata: pd.DataFrame, border=0.0) -> pd.DataFram
             for ii, result in enumerate(results):
                 # if result["class"] == "animal":
                 base_path = Path(image_abs_path).parent.parent / "detection_images"
-                save_path = base_path / (
-                        Path(image_abs_path).stem + f".{ii}" + Path(image_abs_path).suffix
-                )
+                save_path = base_path / (Path(image_abs_path).stem + f".{ii}" + Path(image_abs_path).suffix)
                 base_path.mkdir(exist_ok=True, parents=True)
 
                 padded_image = pad_image(image, result["bbox"], border=border)
@@ -369,7 +362,7 @@ def detect_animal_on_metadata(metadata: pd.DataFrame, border=0.0) -> pd.DataFram
                     orientation, score = detect_animal_orientation(image_rgb=padded_image)
                     row["detection_results"][ii]["orientation"] = orientation
                     row["detection_results"][ii]["orientation_score"] = score
-                except:
+                except Exception:
                     row["detection_results"][ii]["orientation"] = "unknown"
                     row["detection_results"][ii]["orientation_score"] = -1.0
 
@@ -380,8 +373,6 @@ def detect_animal_on_metadata(metadata: pd.DataFrame, border=0.0) -> pd.DataFram
 
             metadata.loc[row_idx] = row
         except Exception:
-            logger.warning(
-                f"Cannot process image '{image_abs_path}'. Exception: {traceback.format_exc()}"
-            )
+            logger.warning(f"Cannot process image '{image_abs_path}'. Exception: {traceback.format_exc()}")
     del_detection_model()
     return metadata

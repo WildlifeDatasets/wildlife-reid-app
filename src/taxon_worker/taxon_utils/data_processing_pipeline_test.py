@@ -40,9 +40,7 @@ def test_data_processing():
     assert not media_dir_path.exists()
 
     data_processing_pipeline.data_processing(tarfile_path, media_dir_path, csv_path)
-    assert (
-        len(list(media_dir_path.glob("**/*"))) > 0
-    ), "There should be some files in media dir path"
+    assert len(list(media_dir_path.glob("**/*"))) > 0, "There should be some files in media dir path"
 
     assert csv_path.exists()
     metadata = pd.read_csv(csv_path)
@@ -62,9 +60,7 @@ def test_confidence_thresholding():
     targs = np.random.random_integers(low=0, high=n_classes - 1, size=n_samples)
     targs.sort()
 
-    uncertain_samples = np.random.random_integers(
-        low=0, high=n_samples - 1, size=n_uncertain_samples
-    )
+    uncertain_samples = np.random.random_integers(low=0, high=n_samples - 1, size=n_uncertain_samples)
     uncertain_samples[0] = 0
 
     _values = np.random.uniform(0.5, 1, size=[n_classes])

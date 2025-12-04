@@ -1,15 +1,15 @@
 import logging
-import unicodedata
 import secrets
 import string
+import unicodedata
 from datetime import datetime
 from hashlib import sha1 as sha_constructor
 from pathlib import Path
-from django.utils.timesince import timesince
-from django.utils import timezone
 
 import pandas as pd
 from django.conf import settings
+from django.utils import timezone
+from django.utils.timesince import timesince
 
 logger = logging.getLogger("database")
 
@@ -93,13 +93,13 @@ def get_zip_path_in_unique_folder(instance, filename):
     return f"./upload/{unique_id}/{filename}"
 
 
-
 # def remove_diacritics(text: str) -> str:
 #     """Odstraní diakritiku ze stringu."""
 #     return ''.join(
 #         c for c in unicodedata.normalize('NFD', text)
 #         if unicodedata.category(c) != 'Mn'
 #     )
+
 
 def remove_diacritics(input_str: str):
     """Removes diacritics (accents) from the given Unicode string.
@@ -116,11 +116,12 @@ def remove_diacritics(input_str: str):
     # Return the normalized string
     return unicodedata.normalize("NFC", filtered)
 
+
 def order_identity_by_mediafile_count(identity1, identity2):
     """Order identity by mediafile count.
 
-    The identity with fewer media files is the first one."""
-
+    The identity with fewer media files is the first one.
+    """
     count_media_files_identity1 = identity1.mediafile_set.count()
     count_media_files_identity2 = identity2.mediafile_set.count()
     if count_media_files_identity1 < count_media_files_identity2:
@@ -131,7 +132,9 @@ def order_identity_by_mediafile_count(identity1, identity2):
         identity_b = identity1
     return identity_a, identity_b
 
+
 def timesince_now(started_at: datetime) -> str:
+    """Returns a human-readable description of the time elapsed since started_at."""
     if timezone.is_naive(started_at):
         started_at = timezone.make_aware(started_at)
 

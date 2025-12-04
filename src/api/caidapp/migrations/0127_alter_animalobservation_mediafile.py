@@ -7,13 +7,15 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0126_auto_20250926_2029'),
+        ("caidapp", "0126_auto_20250926_2029"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='animalobservation',
-            name='mediafile',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='observations', to='caidapp.mediafile'),
+            model_name="animalobservation",
+            name="mediafile",
+            field=models.ForeignKey(
+                on_delete=django.db.models.deletion.CASCADE, related_name="observations", to="caidapp.mediafile"
+            ),
         ),
     ]

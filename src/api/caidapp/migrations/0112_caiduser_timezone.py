@@ -6,13 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0111_alter_uploadedarchive_identification_status_and_more'),
+        ("caidapp", "0111_alter_uploadedarchive_identification_status_and_more"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='caiduser',
-            name='timezone',
-            field=models.CharField(blank=True, default='Europe/Prague', max_length=50),
+            model_name="caiduser",
+            name="timezone",
+            field=models.CharField(blank=True, default="Europe/Prague", max_length=50),
         ),
     ]

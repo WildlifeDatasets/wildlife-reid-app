@@ -7,13 +7,17 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0088_uploadedarchive_files_at_upload_and_more'),
+        ("caidapp", "0088_uploadedarchive_files_at_upload_and_more"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='uploadedarchive',
-            name='import_error_spreadsheet',
-            field=models.FileField(blank=True, null=True, upload_to=models.CharField(blank=True, default=caidapp.model_tools.get_output_dir, max_length=255)),
+            model_name="uploadedarchive",
+            name="import_error_spreadsheet",
+            field=models.FileField(
+                blank=True,
+                null=True,
+                upload_to=models.CharField(blank=True, default=caidapp.model_tools.get_output_dir, max_length=255),
+            ),
         ),
     ]

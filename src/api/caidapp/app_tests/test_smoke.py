@@ -1,21 +1,20 @@
-from django.test import TestCase
-from django.urls import get_resolver, reverse, NoReverseMatch, URLPattern, URLResolver
-from django.contrib.auth import get_user_model
+import logging
 
 from caidapp.models import (
-    WorkGroup, UploadedArchive, MediaFile, IndividualIdentity,
+    WorkGroup,
 )
-import logging
+from django.contrib.auth import get_user_model
+from django.test import TestCase
+from django.urls import NoReverseMatch, URLPattern, URLResolver, reverse
 
 logger = logging.getLogger(__name__)
 
 User = get_user_model()
 
 
-
-
 class UrlSmokeTest(TestCase):
     def setUp(self):
+        """Initial data for tests."""
         # User
         self.user = User.objects.create_user(
             username="smoke",
@@ -58,6 +57,7 @@ class UrlSmokeTest(TestCase):
     #         )
 
     def test_all_named_caidapp_urls(self):
+        """Go over all named URLs in caidapp and try GET."""
         from caidapp import urls as caidapp_urls
 
         patterns = list(self._walk_patterns(caidapp_urls.urlpatterns))

@@ -1,17 +1,19 @@
+import logging
+
+from caidapp import models
+from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
-from django.contrib.auth import get_user_model
-from caidapp import models
-from caidapp.models import WorkGroup
-import logging
 
 logger = logging.getLogger(__name__)
 
 
 User = get_user_model()
 
+
 class BasicFlowTest(TestCase):
     def setUp(self):
+        """Initial setup for tests."""
         self.user = User.objects.create_user(
             username="testuser",
             password="secret123",
@@ -20,6 +22,7 @@ class BasicFlowTest(TestCase):
         self.wg = models.WorkGroup.objects.create(name="WG1")
 
     def test_login_and_view(self):
+        """Do login and access to the home page."""
         # login
         login = self.client.login(username="testuser", password="secret123")
         self.assertTrue(login)  # ověř, že přihlášení fungovalo
@@ -31,10 +34,6 @@ class BasicFlowTest(TestCase):
 
         response = self.client.get(reverse("caidapp:home"))
         self.assertEqual(response.status_code, 200)
-
-
-
-
 
     # def test_create_workstation(self):
     #     url = reverse("workstation-create")

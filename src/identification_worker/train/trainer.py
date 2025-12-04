@@ -12,18 +12,16 @@ class CarnivoreIDTrainer(BasicTrainer):
         self.epoch = start_epoch
 
     def train(self):
+        """Main training loop."""
         loader = torch.utils.data.DataLoader(
-            self.dataset,
-            batch_size=self.batch_size,
-            num_workers=self.num_workers,
-            shuffle=True
+            self.dataset, batch_size=self.batch_size, num_workers=self.num_workers, shuffle=True
         )
 
         val_loader = torch.utils.data.DataLoader(
             self.val_dataset,
             batch_size=self.batch_size,
             num_workers=self.num_workers,
-            shuffle=False
+            shuffle=False,
         )
 
         for e in range(self.start_epoch, self.epochs):
@@ -37,9 +35,10 @@ class CarnivoreIDTrainer(BasicTrainer):
             self.epoch += 1
 
     def train_epoch(self, loader):
+        """Train for one epoch."""
         model = self.model.train()
         losses = []
-        for i, batch in enumerate(tqdm(loader, desc=f'Epoch {self.epoch}: ', mininterval=1)):
+        for i, batch in enumerate(tqdm(loader, desc=f"Epoch {self.epoch}: ", mininterval=1)):
             x, y = batch
             x, y = x.to(self.device), y.to(self.device)
 
@@ -55,12 +54,13 @@ class CarnivoreIDTrainer(BasicTrainer):
         if self.scheduler:
             self.scheduler.step()
 
-        return {'train_loss_epoch_avg': np.mean(losses)}
+        return {"train_loss_epoch_avg": np.mean(losses)}
 
     def val_epoch(self, loader):
+        """Evaluate on validation set."""
         model = self.model.eval()
         losses = []
-        for i, batch in enumerate(tqdm(loader, desc=f'Epoch {self.epoch}: ', mininterval=1)):
+        for i, batch in enumerate(tqdm(loader, desc=f"Epoch {self.epoch}: ", mininterval=1)):
             x, y = batch
             x, y = x.to(self.device), y.to(self.device)
 
@@ -68,5 +68,4 @@ class CarnivoreIDTrainer(BasicTrainer):
             loss = self.objective(out, y)
             losses.append(loss.detach().cpu())
 
-        return {'val_loss_epoch_avg': np.mean(losses)}
-
+        return {"val_loss_epoch_avg": np.mean(losses)}

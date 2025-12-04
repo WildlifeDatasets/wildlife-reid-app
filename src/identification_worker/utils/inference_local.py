@@ -185,11 +185,13 @@ class WildFusionClassifier:
 
 
 def get_local_matcher(size=512, threshold=0.8):
-    """Prepare local LOFTR matcher."""
-    # extractor = lambda x: x
-    # use function instead of lambda x: x
+    """Prepare local LOFTR matcher."""  # noqa: D202
+
     def extractor(x):
         return x
+
+    # extractor = lambda x: x
+    # use function instead of lambda x: x
 
     matcher = MatchLOFTR(
         model=LOFTR_MODEL,
@@ -346,9 +348,7 @@ def get_merged_predictions(
 
     merged_predictions_ids = classifier(query, database, remove_masked=True)
     if identities:
-        merged_predictions_ids = top_identities(
-            merged_predictions_ids, database.labels_string, top_k
-        )
+        merged_predictions_ids = top_identities(merged_predictions_ids, database.labels_string, top_k)
     else:
         merged_predictions_ids = np.array(merged_predictions_ids)[:, :top_k]
     keypoints = get_keypoints(query, database, merged_predictions_ids, num_kp)

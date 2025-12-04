@@ -1,5 +1,5 @@
 [tool.black]
-line-length = 100
+line-length = 120
 extend-exclude = '''
 (
   \.tox
@@ -7,7 +7,7 @@ extend-exclude = '''
 '''
 
 [tool.isort]
-line_length = 100
+line_length = 120
 profile = "black"
 # known_third_party = []
 known_first_party = ["fgvc"]

@@ -6,13 +6,17 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0098_locality_note'),
+        ("caidapp", "0098_locality_note"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='mediafile',
-            name='orientation',
-            field=models.CharField(choices=[('L', 'Left'), ('R', 'Right'), ('F', 'Front'), ('B', 'Back'), ('N', 'None'), ('U', 'Unknown')], default='N', max_length=2),
+            model_name="mediafile",
+            name="orientation",
+            field=models.CharField(
+                choices=[("L", "Left"), ("R", "Right"), ("F", "Front"), ("B", "Back"), ("N", "None"), ("U", "Unknown")],
+                default="N",
+                max_length=2,
+            ),
         ),
     ]

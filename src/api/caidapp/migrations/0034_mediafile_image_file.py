@@ -13,8 +13,6 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name="mediafile",
             name="image_file",
-            field=models.FileField(
-                blank=True, max_length=500, null=True, upload_to="", verbose_name="Image File"
-            ),
+            field=models.FileField(blank=True, max_length=500, null=True, upload_to="", verbose_name="Image File"),
         ),
     ]

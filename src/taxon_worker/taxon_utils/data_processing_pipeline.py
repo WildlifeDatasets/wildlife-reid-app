@@ -11,7 +11,12 @@ import pandas as pd
 import skimage.io
 import wandb
 import yaml
+from PIL import Image
 from scipy.special import softmax
+from tqdm import tqdm
+
+from .config import RESOURCES_DIR, WANDB_API_KEY, WANDB_ARTIFACT_PATH, WANDB_ARTIFACT_PATH_CROPPED
+from .dataset_tools import data_preprocessing
 
 # from fgvc.core.training import predict
 # from fgvc.datasets import get_dataloaders
@@ -19,17 +24,13 @@ from scipy.special import softmax
 from .fgvc_core_training_subset import predict
 from .fgvc_datasets_subset import get_dataloaders
 from .fgvc_utils_experiment_subset import load_model
-from tqdm import tqdm
-
-from .config import RESOURCES_DIR, WANDB_API_KEY, WANDB_ARTIFACT_PATH, WANDB_ARTIFACT_PATH_CROPPED
-from .dataset_tools import data_preprocessing
 from .prediction_dataset import PredictionDataset
 
 # from taxon_worker.infrastructure_utils import mem
 try:
-    from ..infrastructure_utils import mem, log_tools
+    from ..infrastructure_utils import log_tools, mem
 except ImportError:
-    from infrastructure_utils import mem, log_tools
+    from infrastructure_utils import log_tools, mem
 
 
 logger = logging.getLogger("app")
@@ -49,10 +50,7 @@ def get_model_config(is_cropped: bool = False) -> Tuple[dict, str, dict]:
         if model_meta["WANDB_ARTIFACT_PATH"] == WANDB_ARTIFACT_PATH:
             reset_model = False
         else:
-            logger.debug(
-                f"New model={WANDB_ARTIFACT_PATH}. "
-                + f"Old model={model_meta.get('artifact_path', 'None')}."
-            )
+            logger.debug(f"New model={WANDB_ARTIFACT_PATH}. " + f"Old model={model_meta.get('artifact_path', 'None')}.")
     if reset_model:
         logger.debug("Resetting model.")
         shutil.rmtree(RESOURCES_DIR, ignore_errors=True)
@@ -166,9 +164,7 @@ def load_model_and_predict_and_add_not_classified(
     # for k, v in id2label.items():
     #     logger.debug(f"{k=}, {v=}")
 
-    assert np.max(list(id2label.keys())) == (
-        len(id2label) - 1
-    ), "Some of the labels is missing in id2label."
+    assert np.max(list(id2label.keys())) == (len(id2label) - 1), "Some of the labels is missing in id2label."
 
     # Get values with no thresholding
     class_ids_raw, probs_top_raw = get_top_predictions(probs)
@@ -207,8 +203,7 @@ def get_taxon_classification_model():
             "config": config,
         }
         logger.debug(
-            f"model_mean={model_mean}, model_std={model_std}, "
-            + f"checkpoint_path={checkpoint_path}, config={config}"
+            f"model_mean={model_mean}, model_std={model_std}, " + f"checkpoint_path={checkpoint_path}, config={config}"
         )
     logger.debug(f"After taxon classification model load: {mem.get_vram()}     {mem.get_ram()}")
     return TAXON_CLASSIFICATION_MODEL_DICT
@@ -242,9 +237,7 @@ def do_thresholding_on_probs(probs: np.array, id2threshold: dict) -> Tuple[np.ar
         top_probs: Softmaxed probability. The not-classified is calculated as 1 - top_prob.
 
     """
-    assert probs.shape[1] == len(
-        id2threshold
-    ), "There should be the same number of columns as the number of classes."
+    assert probs.shape[1] == len(id2threshold), "There should be the same number of columns as the number of classes."
 
     top_probs = np.max(probs, 1)
     class_ids = np.argmax(probs, 1)
@@ -291,7 +284,6 @@ def data_processing(
         num_cores=num_cores,
         contains_identities=contains_identities,
         sequence_time_limit_s=sequence_time_limit_s,
-
     )
     metadata, df_failing = keep_correctly_loaded_images(metadata)
     df_failing.to_csv(csv_path.with_suffix(".failed.csv"), encoding="utf-8-sig")
@@ -332,12 +324,8 @@ def run_taxon_classification_inference(metadata):
     metadata["predicted_category"] = np.nan
     metadata["predicted_category_raw"] = np.nan
     if id2label is not None:
-        metadata["predicted_category"] = metadata["predicted_class_id"].apply(
-            lambda x: id2label.get(x, np.nan)
-        )
-        metadata["predicted_category_raw"] = metadata["predicted_class_id_raw"].apply(
-            lambda x: id2label.get(x, np.nan)
-        )
+        metadata["predicted_category"] = metadata["predicted_class_id"].apply(lambda x: id2label.get(x, np.nan))
+        metadata["predicted_category_raw"] = metadata["predicted_class_id_raw"].apply(lambda x: id2label.get(x, np.nan))
 
 
 def use_detector_class_if_classification_fails(
@@ -376,9 +364,9 @@ def keep_correctly_loaded_images(metadata) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """Remove file from list if there is the error message."""
     # metadata = metadata[metadata["media_type"] == "image"].reset_index(drop=True)
     # keep media_type==image and media_type == video
-    metadata = metadata[
-        (metadata["media_type"] == "image") | (metadata["media_type"] == "video")
-    ].reset_index(drop=True)
+    metadata = metadata[(metadata["media_type"] == "image") | (metadata["media_type"] == "video")].reset_index(
+        drop=True
+    )
     # drop media_type== "unknown"
     # mediadata = metadata[metadata["media_type"] != "unknown"].reset_index(drop=True)
 
@@ -391,7 +379,7 @@ def keep_correctly_loaded_images(metadata) -> Tuple[pd.DataFrame, pd.DataFrame]:
 
 
 # TODO make preview on taxon worker
-def make_previews(metadata, output_dir, preview_width=1200, force:bool=False):
+def make_previews(metadata, output_dir, preview_width=1200, force: bool = False):
     """Create preview image for video."""
     output_dir = Path(output_dir)
     for i, row in tqdm(metadata.iterrows(), total=len(metadata), desc="Creating previews"):
@@ -410,8 +398,9 @@ def make_previews(metadata, output_dir, preview_width=1200, force:bool=False):
 
     return metadata
 
+
 class TempLogContext:
-    def __init__(self, logger_names:list, levels:list):
+    def __init__(self, logger_names: list, levels: list):
 
         self.logger_names = logger_names
         self.levels = levels
@@ -428,42 +417,88 @@ class TempLogContext:
 
 
 def make_thumbnail_from_file(image_path: Path, thumbnail_path: Path, width: int = 800) -> bool:
-    """Create small thumbnail image from input image.
+    """Create a smaller thumbnail image from the input image.
 
     Returns:
-        True if the processing is ok.
-
+        True if the processing succeeded, False otherwise.
     """
     try:
         with log_tools.TempLogContext(
-                ["skimage.io", "PIL", "tifffile"],
-                [logging.WARNING, logging.WARNING, logging.WARNING]
+            ["skimage.io", "PIL", "tifffile"], [logging.WARNING, logging.WARNING, logging.WARNING]
         ):
             image = skimage.io.imread(image_path)
+
+        if image is None:
+            raise ValueError("Image could not be read.")
+
+        # Rescale
         scale = float(width) / image.shape[1]
-        scale = [scale, scale, 1]
-        image_rescaled = cv2.resize(image, (0, 0), fx=scale[0], fy=scale[1])
-        # image_rescaled = skimage.transform.rescale(image, scale=scale, anti_aliasing=True)
-        # image_rescaled = (image_rescaled * 255).astype(np.uint8)
-        # logger.info(f"{image_rescaled.shape=}, {image_rescaled.dtype=}")
-        thumbnail_path.parent.mkdir(exist_ok=True, parents=True)
-        if thumbnail_path.suffix.lower() in (".jpg", ".jpeg"):
-            quality = 85
+        new_size = (int(image.shape[1] * scale), int(image.shape[0] * scale))
+        image_rescaled = cv2.resize(image, new_size)
+
+        # Convert to PIL Image for saving (better format support)
+        if image_rescaled.dtype != np.uint8:
+            image_rescaled = (image_rescaled * 255).astype(np.uint8)
+        if image_rescaled.ndim == 2:  # grayscale
+            pil_image = Image.fromarray(image_rescaled, mode="L")
         else:
-            quality = None
-        skimage.io.imsave(thumbnail_path, image_rescaled, quality=quality)
+            pil_image = Image.fromarray(image_rescaled)
+
+        thumbnail_path.parent.mkdir(exist_ok=True, parents=True)
+
+        # Choose quality
+        suffix = thumbnail_path.suffix.lower()
+        if suffix in (".jpg", ".jpeg"):
+            quality = 85
+            save_kwargs = {"quality": quality, "optimize": True}
+        elif suffix == ".webp":
+            save_kwargs = {"quality": 85, "method": 5}
+        else:
+            save_kwargs = {}
+
+        pil_image.save(thumbnail_path, **save_kwargs)
         return True
+
     except Exception:
-        logger.warning(
-            f"Cannot create thumbnail from file '{image_path}'. Exception: {traceback.format_exc()}"
-        )
+        logger.warning(f"Cannot create thumbnail from file '{image_path}'. Exception: {traceback.format_exc()}")
         return False
+
+
+# def make_thumbnail_from_file(image_path: Path, thumbnail_path: Path, width: int = 800) -> bool:
+#     """Create small thumbnail image from input image.
+#
+#     Returns:
+#         True if the processing is ok.
+#
+#     """
+#     try:
+#         with log_tools.TempLogContext(
+#             ["skimage.io", "PIL", "tifffile"], [logging.WARNING, logging.WARNING, logging.WARNING]
+#         ):
+#             image = skimage.io.imread(image_path)
+#         scale = float(width) / image.shape[1]
+#         scale = [scale, scale, 1]
+#         image_rescaled = cv2.resize(image, (0, 0), fx=scale[0], fy=scale[1])
+#         # image_rescaled = skimage.transform.rescale(image, scale=scale, anti_aliasing=True)
+#         # image_rescaled = (image_rescaled * 255).astype(np.uint8)
+#         # logger.info(f"{image_rescaled.shape=}, {image_rescaled.dtype=}")
+#         thumbnail_path.parent.mkdir(exist_ok=True, parents=True)
+#         if thumbnail_path.suffix.lower() in (".jpg", ".jpeg"):
+#             quality = 85
+#         else:
+#             quality = None
+#         skimage.io.imsave(thumbnail_path, image_rescaled, quality=quality)
+#         return True
+#     except Exception:
+#         logger.warning(f"Cannot create thumbnail from file '{image_path}'. Exception: {traceback.format_exc()}")
+#         return False
 
 
 def convert_to_mp4(input_video_path: Union[str, Path], output_video_path: Union[str, Path], force: bool = False):
     """Convert video to MP4 format using H.264 video codec and AAC audio codec."""
     import os.path
     import subprocess
+
     input_video_path = str(input_video_path)
     output_video_path = str(output_video_path)
 
@@ -501,15 +536,11 @@ def convert_to_mp4(input_video_path: Union[str, Path], output_video_path: Union[
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-                                # check=True
+            # check=True
         )
         if result.returncode != 0:
-            logger.error(
-                f"Error during conversion: {result.stderr}\nCommand: {' '.join(command)}"
-            )
-            raise subprocess.CalledProcessError(
-                result.returncode, command, output=result.stdout, stderr=result.stderr
-            )
+            logger.error(f"Error during conversion: {result.stderr}\nCommand: {' '.join(command)}")
+            raise subprocess.CalledProcessError(result.returncode, command, output=result.stdout, stderr=result.stderr)
         # logger.debug(f"Conversion successful! Output saved at '{output_video_path}'")
     except subprocess.CalledProcessError as e:
         logger.error(f"Error during conversion of {str(input_video_path)} to {str(output_video_path)}: {e}")

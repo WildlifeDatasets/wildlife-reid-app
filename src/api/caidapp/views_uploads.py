@@ -5,7 +5,7 @@ from django.http import HttpResponse
 from django.shortcuts import render
 from django.utils import timezone
 
-from . import views, models
+from . import models, views
 from .models import UploadedArchive
 
 logger = logging.getLogger(__name__)
@@ -122,7 +122,6 @@ def camera_trap_check_date_view(
     else:
         filter = dict(locality_check_at__date=date)
 
-
     queryset = views.get_filtered_mediafiles(
         request.user,
         contains_single_taxon=contains_single_taxon,
@@ -177,9 +176,7 @@ def uploadedarchive_detail(request, uploadedarchive_id: int) -> HttpResponse:
         request,
         "caidapp/message.html",
         context=dict(
-            headline="Uploaded Archive "
-            + f"{uarch.locality_at_upload_object} "
-            + f"{uarch.locality_check_at}",
+            headline="Uploaded Archive " + f"{uarch.locality_at_upload_object} " + f"{uarch.locality_check_at}",
             dictionary=dictionary,
         ),
     )

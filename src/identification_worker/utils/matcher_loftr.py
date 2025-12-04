@@ -94,9 +94,7 @@ class LoFTR(Module):
             if pretrained not in urls.keys():
                 raise ValueError(f"pretrained should be None or one of {urls.keys()}")
 
-            pretrained_dict = torch.hub.load_state_dict_from_url(
-                urls[pretrained], map_location=map_location_to_cpu
-            )
+            pretrained_dict = torch.hub.load_state_dict_from_url(urls[pretrained], map_location=map_location_to_cpu)
             self.load_state_dict(pretrained_dict["state_dict"])
         self.eval()
 
@@ -127,13 +125,9 @@ class LoFTR(Module):
 
         if _data["hw0_i"] == _data["hw1_i"]:  # faster & better BN convergence
             feats_c, feats_f = self.backbone(torch.cat([data["image0"], data["image1"]], dim=0))
-            (feat_c0, feat_c1), (feat_f0, feat_f1) = feats_c.split(_data["bs"]), feats_f.split(
-                _data["bs"]
-            )
+            (feat_c0, feat_c1), (feat_f0, feat_f1) = feats_c.split(_data["bs"]), feats_f.split(_data["bs"])
         else:  # handle different input shapes
-            (feat_c0, feat_f0), (feat_c1, feat_f1) = self.backbone(data["image0"]), self.backbone(
-                data["image1"]
-            )
+            (feat_c0, feat_f0), (feat_c1, feat_f1) = self.backbone(data["image0"]), self.backbone(data["image1"])
 
         _data.update(
             {
@@ -170,9 +164,7 @@ class LoFTR(Module):
         # Make fine-level optional
         if self.apply_fine:
             # 4. fine-level refinement
-            feat_f0_unfold, feat_f1_unfold = self.fine_preprocess(
-                feat_f0, feat_f1, feat_c0, feat_c1, _data
-            )
+            feat_f0_unfold, feat_f1_unfold = self.fine_preprocess(feat_f0, feat_f1, feat_c0, feat_c1, _data)
             if feat_f0_unfold.size(0) != 0:  # at least one coarse level predicted
                 feat_f0_unfold, feat_f1_unfold = self.loftr_fine(feat_f0_unfold, feat_f1_unfold)
 

@@ -107,9 +107,7 @@ class IsotonicCalibration:
         return y
 
 
-def reliability_diagram(
-    score, hits, ax=None, skip_plot=False, num_bins=10, title="Reliability Diagram"
-):
+def reliability_diagram(score, hits, ax=None, skip_plot=False, num_bins=10, title="Reliability Diagram"):
     """Plot reliability diagram for a given set of scores and hits."""
     df = pd.DataFrame({"score": score, "hits": hits})
     bins = np.linspace(0, 1, num_bins + 1)

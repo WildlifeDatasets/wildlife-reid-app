@@ -11,7 +11,6 @@ from PIL import Image
 from tqdm import tqdm
 
 from . import inference_detection
-from .inference_detection import detect_animals_in_one_image
 
 logger = logging.getLogger("app")
 
@@ -144,9 +143,7 @@ def save_gif(images, path: str):
     frame_one.save(jpg_path)
 
 
-def make_gif(
-    images: np.ndarray, path: str, center_frame_idx: int, num_frames: int = 48, height: int = 360
-):
+def make_gif(images: np.ndarray, path: str, center_frame_idx: int, num_frames: int = 48, height: int = 360):
     """Create gif from few frames of the video around center_frame_idx."""
     gif_frames = get_gif_frames(images, center_frame_idx, num_frames)
     if height > 0:
@@ -170,7 +167,7 @@ def create_image_from_video(
     skip_counter = 0
     process_counter = 0
     no_detection_counter = 0
-    with (tqdm(total=len(metadata), desc=f"Mediafile to image [0 / {len(metadata)}]") as pbar):
+    with tqdm(total=len(metadata), desc=f"Mediafile to image [0 / {len(metadata)}]") as pbar:
         # for row_idx, row in tqdm(metadata.iterrows(), desc="Video to image"):
         for row_idx, row in metadata.iterrows():
             pbar.set_description(f"Mediafile to image [{row_idx} / {len(metadata)}]")
@@ -208,16 +205,10 @@ def create_image_from_video(
             # detect
             predictions = []
 
-            ## Old per frame detection
-            # for frame_id, image in enumerate(images):
-            #     prediction = detect_animals_in_one_image(image)
-            #     pbar.update(1.0 / len_images)
-            ## end of old prr frame detection
-            ## New batch detection
-            detections_per_frame = inference_detection.detect_animals_in_images(
-                images, batch_size=64, pbar=pbar)
+            # New batch detection
+            detections_per_frame = inference_detection.detect_animals_in_images(images, batch_size=64, pbar=pbar)
             for frame_id, prediction in enumerate(detections_per_frame):
-            ## end of new batch detection
+                # end of new batch detection
                 if prediction is not None:
                     # use only prediction with max confidence
                     # TODO: how to handle multiple detections in one image?
@@ -244,9 +235,7 @@ def create_image_from_video(
                 continue
 
             # select
-            for selection_method_name, selection_threshold in zip(
-                selection_methods, selection_thresholds
-            ):
+            for selection_method_name, selection_threshold in zip(selection_methods, selection_thresholds):
                 if selection_method_name == "area":
                     selection_method = partial(area_selection, threshold=selection_threshold)
                 elif selection_method_name == "ratio":
@@ -268,7 +257,9 @@ def create_image_from_video(
             row["suffix"] = f".{new_full_path.split('.')[-1]}"
             row["static_detection_frame"] = prediction["frame"]
             metadata.loc[row_idx] = row
-    logger.debug(f"Processed {process_counter} videos, skipped {no_detection_counter} "
-                 f"videos with no detection and  {skip_counter} images.")
+    logger.debug(
+        f"Processed {process_counter} videos, skipped {no_detection_counter} "
+        f"videos with no detection and  {skip_counter} images."
+    )
 
     return metadata

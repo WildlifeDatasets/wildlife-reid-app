@@ -1,25 +1,18 @@
 from typing import Dict, Optional, Tuple, Type, Union
 
-import torchvision.transforms as T
-from PIL import ImageFile
-from torch.utils.data import DataLoader
-
-from typing import Tuple, Union
-
 import albumentations as A
-from albumentations.pytorch import ToTensorV2
 import numpy as np
 import pandas as pd
 import torch
 import torchvision.transforms as T
+from albumentations.pytorch import ToTensorV2
 from PIL import Image, ImageFile
-from torch.utils.data import Dataset
+from torch.utils.data import DataLoader, Dataset
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 IMAGENET_MEAN = (0.485, 0.456, 0.406)
 IMAGENET_STD = (0.229, 0.224, 0.225)
-
 
 
 def light_transforms(
@@ -144,6 +137,7 @@ def vit_heavy_transforms(
     )
     return train_tfms, val_tfms
 
+
 def tv_light_transforms(
     *, image_size: tuple, mean: tuple = IMAGENET_MEAN, std: tuple = IMAGENET_STD, **kwargs
 ) -> Tuple[T.Compose, T.Compose]:
@@ -176,7 +170,6 @@ default_tranforms = {
     "vit_medium": vit_medium_transforms,
     "vit_heavy": vit_heavy_transforms,
 }
-
 
 
 class ImageDataset(Dataset):
@@ -218,6 +211,7 @@ class ImageDataset(Dataset):
             else:
                 image = self.transform(image)
         return image
+
 
 def get_dataloaders(
     train_data: Optional[Union[pd.DataFrame, list, dict]],
@@ -290,13 +284,10 @@ def get_dataloaders(
     # create training and validation augmentations
     if augmentations in transforms_fns:
         transforms_fn = transforms_fns[augmentations]
-        train_tfm, val_tfm = transforms_fn(
-            image_size=image_size, mean=model_mean, std=model_std, **transforms_kws
-        )
+        train_tfm, val_tfm = transforms_fn(image_size=image_size, mean=model_mean, std=model_std, **transforms_kws)
     else:
         raise ValueError(
-            f"Augmentation {augmentations} is not recognized. "
-            f"Available options are {list(transforms_fns.keys())}."
+            f"Augmentation {augmentations} is not recognized. " f"Available options are {list(transforms_fns.keys())}."
         )
 
     # create training dataset and dataloader
@@ -305,9 +296,7 @@ def get_dataloaders(
         trainloader_kws = dataloader_kws.copy()
         if "shuffle" not in trainloader_kws:
             trainloader_kws["shuffle"] = True
-        trainloader = DataLoader(
-            trainset, batch_size=batch_size, num_workers=num_workers, **trainloader_kws
-        )
+        trainloader = DataLoader(trainset, batch_size=batch_size, num_workers=num_workers, **trainloader_kws)
     else:
         trainset = None
         trainloader = None
@@ -318,14 +307,11 @@ def get_dataloaders(
         valloader_kws = dataloader_kws.copy()
         if "shuffle" not in valloader_kws:
             valloader_kws["shuffle"] = False
-        valloader = DataLoader(
-            valset, batch_size=batch_size, num_workers=num_workers, **valloader_kws
-        )
+        valloader = DataLoader(valset, batch_size=batch_size, num_workers=num_workers, **valloader_kws)
     else:
         valset = None
         valloader = None
 
     return trainloader, valloader, (trainset, valset), (train_tfm, val_tfm)
-
 
     # return None, valloader, (None, None), (None, None)

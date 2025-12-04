@@ -87,7 +87,7 @@ class WildlifeDataset:
         img = self.get_image(img_path)
 
         if self.img_load in ["full_mask", "full_hide", "bbox_mask", "bbox_hide", "mask_crop"]:
-            if not ("segmentation" in data):
+            if "segmentation" not in data:
                 raise ValueError(f"{self.img_load} selected but no segmentation found.")
             if type(data["segmentation"]) == str:
                 segmentation = eval(data["segmentation"])
@@ -99,15 +99,14 @@ class WildlifeDataset:
                 rles = mask_coco.frPyObjects([segmentation], h, w)
                 segmentation = mask_coco.merge(rles)
             if isinstance(segmentation, dict) and (
-                isinstance(segmentation["counts"], list)
-                or isinstance(segmentation["counts"], np.ndarray)
+                isinstance(segmentation["counts"], list) or isinstance(segmentation["counts"], np.ndarray)
             ):
                 # Convert uncompressed RLE to compressed RLE
                 h, w = segmentation["size"]
                 segmentation = mask_coco.frPyObjects(segmentation, h, w)
 
         if self.img_load in ["bbox"]:
-            if not ("bbox" in data):
+            if "bbox" not in data:
                 raise ValueError(f"{self.img_load} selected but no bbox found.")
             if type(data["bbox"]) == str:
                 bbox = json.loads(data["bbox"])

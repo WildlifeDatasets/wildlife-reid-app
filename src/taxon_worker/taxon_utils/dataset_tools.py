@@ -15,23 +15,23 @@ from hashlib import sha256
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-import cv2
-import exiftool
 import numpy as np
 import pandas as pd
-import pytesseract
-import scipy.stats
-import skimage
-import skimage.color
 from joblib import Parallel, delayed
-from PIL import Image
+from PIL import Image, ImageOps
 from tqdm import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
 
 from .inout import extract_archive
-from .sequence_identification import get_datetime_using_exif_or_ocr, add_datetime_from_exif_in_parallel
+from .sequence_identification import (
+    add_datetime_from_exif_in_parallel,
+)
 
 logger = logging.getLogger("app")
+
+
+image_extensions = [".jpg", ".jpeg", ".png", ".tif", ".tiff", ".bmp"]
+video_extensions = [".mp4", ".avi", ".mov", ".mkv", ".webm", ".flv", ".wmv", ".m4v"]
 
 # this is first level preprocessing fixing the most obvious typos.
 _species_czech_preprocessing = {
@@ -114,12 +114,10 @@ def get_species_substitution_latin(
 
     st = species_substitution_latin.copy()
     keys = list(st.keys())
-    species_substitution_latin[
-        species_substitution_latin.columns
-    ] = species_substitution_latin.apply(lambda x: x.str.strip())
-    species_substitution_latin.species_czech = species_substitution_latin.species_czech.map(
-        strip_accents
-    ).str.lower()
+    species_substitution_latin[species_substitution_latin.columns] = species_substitution_latin.apply(
+        lambda x: x.str.strip()
+    )
+    species_substitution_latin.species_czech = species_substitution_latin.species_czech.map(strip_accents).str.lower()
     assert len(set(species_substitution_latin.species_czech)) == len(
         species_substitution_latin.species_czech
     ), "The keys are not unique"
@@ -150,9 +148,7 @@ def strip_accents(string: str) -> str:
         String with all accents substituted by ASCII-like character.
 
     """
-    return "".join(
-        c for c in unicodedata.normalize("NFD", string) if unicodedata.category(c) != "Mn"
-    )
+    return "".join(c for c in unicodedata.normalize("NFD", string) if unicodedata.category(c) != "Mn")
 
 
 # # TODO use from sequence_identification
@@ -639,15 +635,63 @@ def make_zipfile(output_filename: Path, source_dir: Path):
     source_dir = Path(source_dir)
     archive_type = "zip"
 
-    shutil.make_archive(
-        output_filename.parent / output_filename.stem, archive_type, root_dir=source_dir
-    )
+    shutil.make_archive(output_filename.parent / output_filename.stem, archive_type, root_dir=source_dir)
 
 
 def make_tarfile(output_filename, source_dir):
     """Create tar package from direcotry."""
     with tarfile.open(output_filename, "w:gz") as tar:
         tar.add(source_dir, arcname=os.path.basename(source_dir))
+
+
+def copy_and_transform_row(
+    row,
+    dataset_base_dir,
+    output_path,
+    # hash_filename,
+    # dataset_name,
+    mode: str = "copy",
+    quality=85,
+    method=6,
+    extensions=None,
+):
+    """Copy or move or convert a single file based on the row information.
+
+    mode: 'copy', 'move', 'convert'
+    """
+    try:
+        input_file_path = (dataset_base_dir / row["original_path"]).resolve()
+        output_file_path = (output_path / Path(row["image_path"])).resolve()
+        output_file_path.parent.mkdir(parents=True, exist_ok=True)
+
+        if not input_file_path.is_file():
+            return
+
+        suffix = input_file_path.suffix.lower()
+        is_image = suffix in (extensions or image_extensions)
+        # is_video = suffix in video_extensions
+
+        if output_file_path.exists() and output_file_path.stat().st_mtime > input_file_path.stat().st_mtime:
+            logger.debug(f"File {output_file_path} already exists and is up to date. Skipping.")
+            return
+
+        if mode == "convert" and is_image:
+
+            try:
+                with Image.open(input_file_path) as img:
+                    img = ImageOps.exif_transpose(img)  # respektuje EXIF orientaci
+                    img.save(output_file_path, "WEBP", quality=quality, method=method)
+            except Exception as e:
+                logger.error(f"Error during conversion of {input_file_path}: {e}")
+                return
+        elif mode == "move":
+            shutil.copy2(input_file_path, output_file_path)
+        elif mode == "copy" or (not is_image and mode == "convert"):
+            shutil.move(input_file_path, output_file_path)
+
+    except Exception as e:
+        logger.error(f"Unexpected error in {row.get('original_path')}: {e}")
+        traceback.print_exc()
 
 
 def make_dataset(
@@ -657,10 +701,13 @@ def make_dataset(
     output_path: Path,
     hash_filename: bool = False,
     make_tar: bool = False,
-    copy_files: bool = False,
-    move_files: bool = False,
+    # copy_files: bool = False,
+    # move_files: bool = False,
     create_csv: bool = False,
     tqdm_desc: typing.Optional[str] = None,
+    # convert_to_webp: bool = True,
+    n_jobs: int = 4,
+    mode: str = "nothing",
 ) -> pd.DataFrame:
     """Prepare the '.tar.gz' and '.csv' file based on the dataframe with list of the files.
 
@@ -688,7 +735,7 @@ def make_dataset(
     dataframe: DataFrame
         The original input dataframe extended by 'image_file' column.
     """
-    assert not (copy_files and move_files), "Onle one arg 'copy_files' or 'move_files' can be True."
+    assert mode in ("copy", "move", "convert", "nothing"), "Mode must be one of 'copy', 'move', or 'convert'"
     if tqdm_desc is None:
         tqdm_desc = dataset_name
 
@@ -698,25 +745,44 @@ def make_dataset(
         dataframe["image_path"] = dataframe["original_path"].apply(
             lambda filename: os.path.join(dataset_name, filename)
         )
+    if mode == "convert":
+        dataframe["image_path"] = dataframe["image_path"].apply(
+            lambda filename: str(Path(filename).with_suffix(".webp"))
+        )
 
     output_path.mkdir(parents=True, exist_ok=True)
     if create_csv:
         dataframe.to_csv(output_path / f"{dataset_name}.csv", encoding="utf-8-sig")
 
-    if copy_files or move_files:
-        for index, row in tqdm(dataframe.iterrows(), total=len(dataframe), desc=tqdm_desc):
-            input_file_path = (dataset_base_dir / row["original_path"]).resolve()
-            output_file_path = (output_path / Path(row["image_path"])).resolve()
-            output_file_path.parent.mkdir(parents=True, exist_ok=True)
-            if input_file_path.is_file():
-                try:
-                    if copy_files:
-                        shutil.copyfile(input_file_path, output_file_path)
-                    else:
-                        shutil.move(input_file_path, output_file_path)
-                except Exception as e:
-                    error = traceback.format_exception(e)
-                    logger.critical(f"Error while copying/moving file:\n{error}")
+    # if copy_files or move_files:
+    #     for index, row in tqdm(dataframe.iterrows(), total=len(dataframe), desc=tqdm_desc):
+    #         input_file_path = (dataset_base_dir / row["original_path"]).resolve()
+    #         output_file_path = (output_path / Path(row["image_path"])).resolve()
+    #         output_file_path.parent.mkdir(parents=True, exist_ok=True)
+    #         if input_file_path.is_file():
+    #             try:
+    #                 if copy_files:
+    #                     shutil.copyfile(input_file_path, output_file_path)
+    #                 else:
+    #                     shutil.move(input_file_path, output_file_path)
+    #             except Exception as e:
+    #                 error = traceback.format_exception(e)
+    #                 logger.critical(f"Error while copying/moving file:\n{error}")
+
+    if mode in ("copy", "move", "convert"):
+        Parallel(n_jobs=n_jobs, prefer="threads")(
+            delayed(copy_and_transform_row)(
+                row,
+                dataset_base_dir,
+                output_path,
+                # hash_filename,
+                # dataset_name,
+                mode=mode,
+                quality=85,
+                method=5,
+            )
+            for _, row in tqdm(dataframe.iterrows(), total=len(dataframe), desc=tqdm_desc)
+        )
 
     if make_tar:
         logger.info("Creating '.tar.gz' archive.")
@@ -782,9 +848,7 @@ class SumavaInitialProcessing:
         self.cache = cache
 
         if not self.filelist_path.exists():
-            logger.warning(
-                f"The change of dataset detectet because {str(self.filelist_path)} does not exists."
-            )
+            logger.warning(f"The change of dataset detectet because {str(self.filelist_path)} does not exists.")
             return True
 
         elif "len_of_path_groups" not in cache:
@@ -802,7 +866,7 @@ class SumavaInitialProcessing:
         else:
             return False
 
-    def get_paths_from_dir_parallel(self, mask, exclude: Optional[list] = None, exclude_dirs:bool=True) -> list:
+    def get_paths_from_dir_parallel(self, mask, exclude: Optional[list] = None, exclude_dirs: bool = True) -> list:
         """Get list of paths in parallel way.
 
         Parameters
@@ -844,11 +908,7 @@ class SumavaInitialProcessing:
                 get_relative_paths_in_dir(self.dataset_basedir, path_group, mask)
                 for path_group in tqdm(self.path_groups, desc="getting file list")
             ]
-        list_of_files = [
-            item.relative_to(self.dataset_basedir)
-            for item in list_of_files
-            if item.suffix not in exclude
-        ]
+        list_of_files = [item.relative_to(self.dataset_basedir) for item in list_of_files if item.suffix not in exclude]
         original_paths = list_of_files + [
             item
             for sublist in original_path_groups
@@ -857,10 +917,11 @@ class SumavaInitialProcessing:
         ]
 
         if exclude_dirs:
-            original_paths = [str(original_path)
-                              for original_path in original_paths
-                              if (self.dataset_basedir / original_path).is_file()
-                              ]
+            original_paths = [
+                str(original_path)
+                for original_path in original_paths
+                if (self.dataset_basedir / original_path).is_file()
+            ]
         return original_paths
 
     def make_metadata_csv(self, path: Path):
@@ -897,13 +958,14 @@ class SumavaInitialProcessing:
         output_dict["original_path"] = self.get_paths_from_dir_parallel(mask, exclude)
 
         if make_exifs:
-            datetime_list, read_error_list, source_list = self.add_datetime_from_exif_in_parallel(
+            datetime_list, read_error_list, source_list, exifs = self.add_datetime_from_exif_in_parallel(
                 output_dict["original_path"]
             )
 
             output_dict["datetime"] = datetime_list
             output_dict["read_error"] = read_error_list
             output_dict["datetime_source"] = source_list
+            output_dict["exif"] = exifs
 
         df = pd.DataFrame(output_dict)
         self.filelist_df = df
@@ -917,12 +979,14 @@ class SumavaInitialProcessing:
 
         return df
 
-    def add_datetime_from_exif_in_parallel(self, original_paths: list[Path]) -> Tuple[list, list, list]:
+    def add_datetime_from_exif_in_parallel(self, original_paths: list[Path]) -> Tuple[list, list, list, list]:
         """Get list of datetimes from EXIF.
 
         The EXIF information is extracted in single-core way but with the help of ExifTool.
         """
-        return  add_datetime_from_exif_in_parallel(original_paths, dataset_basedir=self.dataset_basedir, num_cores=self.num_cores)
+        return add_datetime_from_exif_in_parallel(
+            original_paths, dataset_basedir=self.dataset_basedir, num_cores=self.num_cores
+        )
 
 
 def add_column_with_lynx_id(df: pd.DataFrame, contain_identities: bool = False) -> pd.DataFrame:
@@ -967,9 +1031,7 @@ def extract_information_from_dir_structure(
         czech_label=[],
         vanilla_species=[],
     )
-    species_substitution_latin = get_species_substitution_latin(
-        latin_to_taxonomy_csv_path=latin_to_taxonomy_csv_path
-    )
+    species_substitution_latin = get_species_substitution_latin(latin_to_taxonomy_csv_path=latin_to_taxonomy_csv_path)
     species_substitution_czech = list(species_substitution_latin.czech_label)
     with logging_redirect_tqdm():
         for pthistr in tqdm(
@@ -979,9 +1041,9 @@ def extract_information_from_dir_structure(
         ):
             pthir = Path(pthistr)
 
-            if pthir.suffix.lower() in (".avi", ".m4v", ".mp4", ".mov"):
+            if pthir.suffix.lower() in video_extensions:
                 media_type = "video"
-            elif pthir.suffix.lower() in (".jpg", ".png", ".jpeg"):
+            elif pthir.suffix.lower() in image_extensions:
                 media_type = "image"
             else:
                 media_type = "unknown"
@@ -1055,11 +1117,7 @@ def extract_information_from_dir_structure(
                 species = strip_accents(pthir.parents[0].name).lower()
                 vanilla_species = pthir.parents[0].name
 
-            species = (
-                _species_czech_preprocessing[species]
-                if species in _species_czech_preprocessing
-                else species
-            )
+            species = _species_czech_preprocessing[species] if species in _species_czech_preprocessing else species
             species = species if species in species_substitution_czech else "nevime"
             data["czech_label"].append(species)
             data["vanilla_species"].append(vanilla_species)
@@ -1134,20 +1192,14 @@ def hash_file_content_for_list_of_files(basedir: Path, filelist: List[Path], num
     """Make hash from file."""
     if num_cores > 1:
         hashes = Parallel(n_jobs=num_cores)(
-            delayed(hash_file_content)(basedir / f)
-            for f in tqdm(filelist, desc="hashing file content parallel")
+            delayed(hash_file_content)(basedir / f) for f in tqdm(filelist, desc="hashing file content parallel")
         )
     else:
-        hashes = [
-            hash_file_content(basedir / f)
-            for f in tqdm(filelist, desc="hashing file content single core")
-        ]
+        hashes = [hash_file_content(basedir / f) for f in tqdm(filelist, desc="hashing file content single core")]
     return hashes
 
 
-def find_unique_names_between_duplicate_files(
-    metadata: pd.DataFrame, basedir: Path, num_cores: int = 1
-):
+def find_unique_names_between_duplicate_files(metadata: pd.DataFrame, basedir: Path, num_cores: int = 1):
     """Find unique_name in dataframe and extend it to all files with same hash.
 
     Parameters:
@@ -1167,9 +1219,7 @@ def find_unique_names_between_duplicate_files(
         Array of hashes for each file in metadata.
 
     """
-    hashes = hash_file_content_for_list_of_files(
-        basedir, metadata.original_path, num_cores=num_cores
-    )
+    hashes = hash_file_content_for_list_of_files(basedir, metadata.original_path, num_cores=num_cores)
     hashes = np.array(hashes)
     # metadata["content_hash"] = hashes
     # uns = metadata["unique_name"].unique()
@@ -1217,25 +1267,21 @@ def analyze_dataset_directory(
     if num_cores is None:
         num_cores = multiprocessing.cpu_count()
     init_processing = SumavaInitialProcessing(dataset_dir_path, num_cores=num_cores)
-    df0 = init_processing.make_paths_and_exifs_parallel(
-        mask="**/*.*", make_exifs=True, make_csv=False
-    )
+    df0 = init_processing.make_paths_and_exifs_parallel(mask="**/*.*", make_exifs=True, make_csv=False)
 
-    df = extract_information_from_dir_structure(
-        df0, latin_to_taxonomy_csv_path=latin_to_taxonomy_csv_path
-    )
+    df = extract_information_from_dir_structure(df0, latin_to_taxonomy_csv_path=latin_to_taxonomy_csv_path)
 
     df["datetime"] = pd.to_datetime(df0.datetime, errors="coerce")
     df["read_error"] = list(df0["read_error"])
     df["datetime_source"] = list(df0["datetime_source"])
+    if "exif" in df0.columns:
+        df["exif"] = list(df0["exif"])
 
     df.loc[:, "sequence_number"] = None
 
     df = add_column_with_lynx_id(df, contain_identities=contains_identities)
     # hashing file names
-    df, hashes = find_unique_names_between_duplicate_files(
-        df, basedir=Path(dataset_dir_path), num_cores=num_cores
-    )
+    df, hashes = find_unique_names_between_duplicate_files(df, basedir=Path(dataset_dir_path), num_cores=num_cores)
     df["content_hash"] = hashes
 
     sequence_time_limit_s = int(sequence_time_limit_s)
@@ -1259,9 +1305,7 @@ def analyze_dataset_directory(
     # df = df[df.delta_datetime != pd.Timedelta("0s")].reset_index(drop=True)
     # df = df.drop_duplicates(subset=["content_hash"], keep="first").reset_index(drop=True)
 
-    df = df.sort_values(
-        by=["annotated", "location", "datetime"], ascending=[False, False, True]
-    ).reset_index(drop=True)
+    df = df.sort_values(by=["annotated", "location", "datetime"], ascending=[False, False, True]).reset_index(drop=True)
     duplicates_bool = df.duplicated(subset=["content_hash"], keep="first")
     duplicates = df[duplicates_bool].copy().reset_index(drop=True)
     metadata = df[~duplicates_bool].copy().reset_index(drop=True)
@@ -1298,6 +1342,7 @@ def data_preprocessing(
     """
     # create temporary directory
     import tempfile
+
     post_update_csv_path = Path(post_update_csv_path)
 
     tmp_dir = Path(tempfile.gettempdir()) / str(uuid.uuid4())
@@ -1310,8 +1355,10 @@ def data_preprocessing(
     logger.debug(f"analyze dataset directory: {tmp_dir=}")
     # create metadata directory, hashing file names, datetime, sequences
     df, duplicates = analyze_dataset_directory(
-        tmp_dir, num_cores=num_cores,
-        contains_identities=contains_identities, sequence_time_limit_s=sequence_time_limit_s
+        tmp_dir,
+        num_cores=num_cores,
+        contains_identities=contains_identities,
+        sequence_time_limit_s=sequence_time_limit_s,
     )
     # post_update CSV is used for updating the metadata after all files are processed
 
@@ -1325,9 +1372,10 @@ def data_preprocessing(
         output_path=media_dir_path,
         hash_filename=True,
         make_tar=False,
-        move_files=True,
+        # move_files=True,
         create_csv=False,
         tqdm_desc="copying files",
+        mode="convert",
     )
 
     shutil.rmtree(tmp_dir, ignore_errors=True)
@@ -1336,6 +1384,7 @@ def data_preprocessing(
 
 
 def find_any_spreadsheet_and_save_as_csv(tmp_dir, csv_path):
+    """Find any spreadsheet in directory and save it as CSV."""
     post_update_path = sorted(list(tmp_dir.glob("**/*.csv")) + list(tmp_dir.glob("**/*.xlsx")))
     post_update_path = post_update_path[-1] if len(post_update_path) > 0 else None
     logger.debug(f"{post_update_path=}")

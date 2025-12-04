@@ -14,8 +14,6 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name="location",
             name="visible_name",
-            field=models.CharField(
-                blank=True, default=caidapp.models.human_readable_hash, max_length=255
-            ),
+            field=models.CharField(blank=True, default=caidapp.models.human_readable_hash, max_length=255),
         ),
     ]

@@ -6,13 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0109_caiduser_default_taxon_for_identification'),
+        ("caidapp", "0109_caiduser_default_taxon_for_identification"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='mediafile',
-            name='used_for_init_identification',
-            field=models.BooleanField(default=False, verbose_name='Used for init identification'),
+            model_name="mediafile",
+            name="used_for_init_identification",
+            field=models.BooleanField(default=False, verbose_name="Used for init identification"),
         ),
     ]
