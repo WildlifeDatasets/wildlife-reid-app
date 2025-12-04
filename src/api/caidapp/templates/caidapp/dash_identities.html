@@ -329,7 +329,11 @@
                                     {% if user.caiduser.workgroup.identification_scheduled_init_eta %}
                                         <br>
                                         <span title="Update at {{ user.caiduser.workgroup.identification_scheduled_init_eta|date:'Y-m-d H:i' }}">
-                                        Database update in {{ user.caiduser.workgroup.identification_scheduled_init_eta|timeuntil }}.
+                                        Database update in {{ user.caiduser.workgroup.identification_scheduled_init_eta|timeuntil }}
+
+                                            (
+                                        <a href="{% url 'caidapp:init_identification' %}" class="link-secondary">Update now</a>
+                                        ).
                                         </span>
                                     {% endif %}
 
