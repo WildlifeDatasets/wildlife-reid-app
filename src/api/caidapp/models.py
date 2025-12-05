@@ -1704,6 +1704,7 @@ class Notification(models.Model):
     }
 
     user = models.ForeignKey(CaIDUser, on_delete=models.CASCADE, null=True, blank=True)
+    # workgroup = models.ForeignKey(WorkGroup, on_delete=models.CASCADE, null=True, blank=True)
     message = models.TextField(blank=True, default="")
     json_message = models.JSONField(blank=True, null=True)
     created_at = models.DateTimeField("Created at", auto_now_add=True)
@@ -1715,14 +1716,49 @@ class Notification(models.Model):
         msg = f"{created_at}: {self.level}: "
         if self.user:
             msg += f"{self.user}: "
-        msg += self.message
+        if self.message:
+            msg += self.message[:50]
         return msg
 
 
     def bootstrap_class(self):
         """Return bootstrap class for the notification level."""
         return self.BOOTSTRAP_CLASSES.get(self.level, "secondary")
+    
+    @classmethod
+    def create_for(cls, *, message="", level=INFO, users=None, workgroups=None):
+        """
+        Vytvoří notifikaci a přidělí ji všem uvedeným uživatelům / workgroupám.
+        """
+        notif = cls.objects.create(message=message, level=level)
 
+        final_users = set()
+
+        # Uživatelé
+        if users:
+            for u in users:
+                final_users.add(u)
+
+        # Workgroup uživatelé
+        if workgroups:
+            for wg in workgroups:
+                for u in wg.caidusers.all():
+                    final_users.add(u)
+
+        # Vytvoření vazeb NotificationRecipient
+        for user in final_users:
+            NotificationRecipient.objects.create(notification=notif, user=user)
+
+        return notif
+
+class NotificationRecipient(models.Model):
+    notification = models.ForeignKey(Notification, on_delete=models.CASCADE)
+    user = models.ForeignKey(CaIDUser, on_delete=models.CASCADE)
+    read = models.BooleanField(default=False)
+    read_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        unique_together = ('notification', 'user')  # aby nedošlo k duplicitám
 
 class MergeIdentitySuggestionResult(models.Model):
     workgroup = models.ForeignKey(WorkGroup, on_delete=models.CASCADE, null=True, blank=True)
