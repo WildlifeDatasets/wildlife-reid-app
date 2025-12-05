@@ -89,6 +89,7 @@ from .models import (
     WorkGroup,
     get_all_relevant_localities,
     user_has_access_filter_params,
+    Notification
 )
 from .tasks import (
     _iterate_over_locality_checks,
@@ -1755,6 +1756,12 @@ def run_identification(uploaded_archive: UploadedArchive, workgroup: models.Work
     # if no records in df
     if df.shape[0] == 0:
         logger.warning("No records for identification with the expected taxon. ")
+        notification = Notification.objects.create(
+            message="No records for identification with the expected taxon. ",
+            level=Notification.LevelChoices.WARNING,
+        )
+
+
         return False
         # return redirect(request.META.get("HTTP_REFERER", "/"))
 
@@ -2458,6 +2465,7 @@ def media_files_update(
     # create list of mediafiles
     logger.debug("Starting Media files view")
     logger.debug(f"{request.GET=}")
+    album = None
 
     # page_number = 1
     # exclude_filter_kwargs = {}
@@ -2616,8 +2624,8 @@ def media_files_update(
                 for mediafile in full_mediafiles:
 
                     _single_mediafile_update(request, mediafile, form, form_bulk_processing, selected_album_hash)
-                    album.cover = mediafile
-                    album.save()
+                    # album.cover = mediafile
+                    # album.save()
             else:
                 for mediafileform in form:
                     # go over selected mediafiles
@@ -2629,8 +2637,13 @@ def media_files_update(
                             mediafileform.selected = False
                             instance: MediaFile = mediafileform.save(commit=False)
                             _single_mediafile_update(request, instance, form, form_bulk_processing, selected_album_hash)
-                            album.cover = instance
-                            album.save()
+                            # album.cover = instance
+                            # album.save()
+
+            if "btnBulkProcessingAlbum" in form.data:
+                if selected_album_hash == "new":
+                    album.cover = album.medifile_set.first()
+                    album.save()
 
                     # mediafileform.save()
             # form.save()

@@ -1452,7 +1452,7 @@ def schedule_reid_identification_for_workgroup(workgroup: models.WorkGroup, dela
 @shared_task
 def run_identification_on_unidentified_for_workgroup_task(workgroup_id: int):
     """Run identification on unidentified mediafiles for a workgroup (task wrapper)."""
-    return run_identification_on_unidentified_for_workgroup.s(workgroup_id)
+    return run_identification_on_unidentified_for_workgroup(workgroup_id)
 
 
 def run_identification_on_unidentified_for_workgroup(workgroup_id: int, request=None):
@@ -1485,10 +1485,12 @@ def run_identification_on_unidentified_for_workgroup(workgroup_id: int, request=
                     request,
                     f"No records for identification with the expected taxon for {uploaded_archive.name}.",
                 )
+        logger.debug(f"Identification started for {uploaded_archive} with status {status_ok}.")
 
 
 def schedule_init_identification_for_workgroup(workgroup: models.WorkGroup, delay_minutes: int = 15):
     """Schedule initialization of identification for a workgroup."""
+    logger.debug(f"Scheduling init_identification for {workgroup=} in {delay_minutes} minutes.")
     # Cancel previously scheduled task
     if workgroup.identification_scheduled_init_task_id:
         current_app.control.revoke(workgroup.identification_scheduled_init_task_id, terminate=True)
@@ -1508,7 +1510,9 @@ def schedule_init_identification_for_workgroup(workgroup: models.WorkGroup, dela
         ]
     )
 
-    schedule_reid_identification_for_workgroup(workgroup, delay_minutes=delay_minutes + 50)
+    schedule_reid_identification_for_workgroup(
+        workgroup, delay_minutes=delay_minutes + 50
+    )
 
 
 @shared_task
@@ -1537,18 +1541,20 @@ def init_identification(workgroup_id: int):
     )
     workgroup.save()
     logger.debug(f"Calling {process_for_message} identification...")
+    kwargs = {
+        "input_metadata_file": str(identity_metadata_file),
+        "organization_id": workgroup.id,
+        # csv file should contain image_path, class_id, label
+        "identification_model": {
+            "name": workgroup.identification_model.name,
+            "path": workgroup.identification_model.model_path,
+        },
+    }
+    logger.debug(f"{kwargs=}")
     sig = signature(
         called_function_name,
         # "init_identification",
-        kwargs={
-            # csv file should contain image_path, class_id, label
-            "input_metadata_file": str(identity_metadata_file),
-            "organization_id": workgroup.id,
-            "identification_model": {
-                "name": workgroup.identification_model.name,
-                "path": workgroup.identification_model.model_path,
-            },
-        },
+        kwargs=kwargs,
     )
     # task =
     sig.apply_async(
