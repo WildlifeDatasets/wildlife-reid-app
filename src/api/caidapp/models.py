@@ -1711,7 +1711,13 @@ class Notification(models.Model):
     level = models.PositiveSmallIntegerField(choices=LEVEL_CHOICES, default=INFO)
 
     def __str__(self):
-        return f"Notification for {self.user.user.username} at {self.created_at}"
+        created_at = self.created_at.strftime("%Y-%m-%d %H:%M:%S")
+        msg = f"{created_at}: {self.level}: "
+        if self.user:
+            msg += f"{self.user}: "
+        msg += self.message
+        return msg
+
 
     def bootstrap_class(self):
         """Return bootstrap class for the notification level."""
