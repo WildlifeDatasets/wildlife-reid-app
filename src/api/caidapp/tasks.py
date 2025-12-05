@@ -1451,12 +1451,14 @@ def schedule_reid_identification_for_workgroup(workgroup: models.WorkGroup, dela
 
 @shared_task
 def run_identification_on_unidentified_for_workgroup_task(workgroup_id: int):
-    """Run identification on unidentified mediafiles for a workgroup (task wrapper)."""
+    """Run identification on unidentified media files for a workgroup (task wrapper)."""
     return run_identification_on_unidentified_for_workgroup(workgroup_id)
 
 
 def run_identification_on_unidentified_for_workgroup(workgroup_id: int, request=None):
-    """Run identification on unidentified mediafiles for a workgroup."""
+    """Run identification on unidentified media files for a workgroup."""
+    logger.debug(f"Running identification on unidentified media files for workgroup {workgroup_id}...")
+    models.Notification.objects.create(message=f"Starting identification for workgroup {workgroup_id}...")
     from .views import run_identification
 
     workgroup = WorkGroup.objects.get(pk=workgroup_id)
