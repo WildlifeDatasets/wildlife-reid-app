@@ -15,6 +15,7 @@ RUN apt-get update --yes && \
     libxext6 \
     tesseract-ocr \
     exiftool \
+    libwebp-dev \
     && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
@@ -29,7 +30,6 @@ WORKDIR $APP_DIR
 RUN pip install --no-cache-dir --upgrade pip build && \
     pip install --no-cache-dir --compile -r requirements.txt && \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/* /tmp/* /var/tmp/*
-
 
 RUN echo "------- pip list 1 --------"
 RUN pip list
@@ -58,6 +58,8 @@ RUN pip install numpy==1.26.4
 RUN echo "------- pip list 1 --------"
 RUN echo pip list
 RUN pip list
+
+
 
 # expose ports and run application
 WORKDIR $APP_DIR

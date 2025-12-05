@@ -15,6 +15,7 @@ RUN apt-get update --yes && \
     libxext6 \
     tesseract-ocr \
     exiftool \
+    libwebp-dev \
     && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 

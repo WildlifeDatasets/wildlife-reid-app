@@ -31,7 +31,7 @@ RUN ls /root/resources
 ENV APP_DIR='/taxon_worker'
 WORKDIR $APP_DIR
 RUN pip install --no-cache-dir --upgrade pip build && \
-    pip install --no-cache-dir --compile timm==0.9.12  && \
+    pip install --no-cache-dir --compile timm==0.9.12 && \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/* /tmp/* /var/tmp/*
 RUN pip install https://github.com/BohemianVRA/FGVC/releases/download/v1.5.4-dev/fgvc-1.5.4.dev0-py3-none-any.whl
 
