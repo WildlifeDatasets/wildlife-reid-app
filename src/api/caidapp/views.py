@@ -1390,54 +1390,53 @@ def run_taxon_classification(request, uploadedarchive_id, force_init=False):
 #     return redirect("/caidapp/uploads")
 
 
-def _get_mediafiles_for_train_or_init_identification(
-    workgroup: models.WorkGroup,
-    # request,
-    # workgroup, taxon=None, identity_is_representative=True
-):
-    """Get mediafiles for training or initialization of identification."""
-    # Nejprve resetuj všechny mediafiles v daném workgroupu
-    mediafiles_qs = MediaFile.objects.filter(
-        parent__owner__workgroup=workgroup,
-    )
-    mediafiles_qs.update(used_for_init_identification=False)
 
-    # Pokud má workgroup nastavený výchozí taxon pro identifikaci
-    if workgroup.default_taxon_for_identification:
-        # Najdi ID všech mediafiles, které mají aspoň jednu observaci s daným taxonem
-        mf_ids = (
-            AnimalObservation.objects.filter(
-                taxon=workgroup.default_taxon_for_identification,
-                mediafile__parent__owner__workgroup=workgroup,
-            )
-            .values_list("mediafile_id", flat=True)
-            .distinct()
-        )
-
-        # A těmto mediafiles nastav příznak
-        mediafiles_qs = MediaFile.objects.filter(
-            parent__owner__workgroup=workgroup,
-            id__in=mf_ids,
-            identity_is_representative=True,
-            identity__isnull=False,
-        )
-
-    else:
-        logger.warning(f"No default taxon for identification set in {workgroup=}. Nothing updated.")
-        mediafiles_qs = MediaFile.objects.filter(
-            parent__owner__workgroup=workgroup,
-            # id__in=mf_ids,
-            identity_is_representative=True,
-            identity__isnull=False,
-        )
-
-    logger.debug(f"Found {mediafiles_qs.count()} mediafiles for identification init.")
-    if mediafiles_qs.count() == 0:
-        logger.error("No mediafiles found for identification init.")
-
-    # mark these mediafiles as used for init identification
-    mediafiles_qs.update(used_for_init_identification=True)
-    return mediafiles_qs
+# def _get_mediafiles_for_train_or_init_identification(
+#     workgroup: models.WorkGroup,
+#     # request,
+#     # workgroup, taxon=None, identity_is_representative=True
+# ):
+#     """Get mediafiles for training or initialization of identification."""
+#     # Nejprve resetuj všechny mediafiles v daném workgroupu
+#     mediafiles_qs = MediaFile.objects.filter(
+#         parent__owner__workgroup=workgroup,
+#     )
+#     mediafiles_qs.update(used_for_init_identification=False)
+#
+#     # Pokud má workgroup nastavený výchozí taxon pro identifikaci
+#     if workgroup.check_taxon_before_identification and workgroup.default_taxon_for_identification:
+#         # Najdi ID všech mediafiles, které mají aspoň jednu observaci s daným taxonem
+#         mf_ids = (
+#             AnimalObservation.objects.filter(
+#                 taxon=workgroup.default_taxon_for_identification,
+#                 mediafile__parent__owner__workgroup=workgroup,
+#             )
+#             .values_list("mediafile_id", flat=True)
+#             .distinct()
+#         )
+#
+#         # A těmto mediafiles nastav příznak
+#         mediafiles_qs = MediaFile.objects.filter(
+#             parent__owner__workgroup=workgroup,
+#             id__in=mf_ids,
+#             identity_is_representative=True,
+#             identity__isnull=False,
+#         )
+#
+#     else:
+#         logger.warning(f"No default taxon for identification set in {workgroup=}. Nothing updated.")
+#         mediafiles_qs = MediaFile.objects.filter(
+#             parent__owner__workgroup=workgroup,
+#             # id__in=mf_ids,
+#             identity_is_representative=True,
+#             identity__isnull=False,
+#         )
+#
+#     logger.debug(f"Found {mediafiles_qs.count()} mediafiles for identification init.")
+#     if mediafiles_qs.count() == 0:
+#         logger.error("No mediafiles found for identification init.")
+#
+#     return mediafiles_qs
 
 
 def str_bumpversion(version_str: str) -> str:
@@ -1471,7 +1470,7 @@ def train_identification(
         link = request.META.get("HTTP_REFERER", "/")
         return message_view(request, "No identification model set.", link=link)
     caiduser = request.user.caiduser
-    mediafiles_qs = _get_mediafiles_for_train_or_init_identification(caiduser.workgroup)
+    mediafiles_qs = caiduser.workgroup.mediafiles_for_train_or_init_identification()
 
     logger.debug("Generating CSV for init_identification...")
 
@@ -1580,19 +1579,32 @@ def init_identification_view(
 ):
     """Run processing of uploaded archive."""
     # check if user is workgroup admin
+    caiduser = request.user.caiduser
     if not request.user.caiduser.workgroup_admin:
         return HttpResponseNotAllowed("Identification init is for workgroup admins only.")
-    if not request.user.caiduser.identification_model:
-        # go back to the page
-        link = request.META.get("HTTP_REFERER", "/")
-        return message_view(request, "No identification model set.", link=link)
 
-    caiduser = request.user.caiduser
+
+    # reset mediafiles in workgroup
+    mediafiles_qs = MediaFile.objects.filter(
+        parent__owner__workgroup=caiduser.workgroup,
+    )
+    mediafiles_qs.update(used_for_init_identification=False)
+    mediafiles_qs = caiduser.workgroup.mediafiles_for_train_or_init_identification()
+    mf_count = mediafiles_qs.count()
+    messages.info(request, f"Scheduling identification initialization for workgroup {caiduser.workgroup.name} with {mf_count} media files.")
+
+    if not request.user.caiduser.identification_model:
+
+        caiduser.workgroup.identification_model = models.IdentificationModel.objects.filter(public=True).first()
+        messages.warning(request, f"Setting default identification model: {caiduser.workgroup.identification_model.name}")
+
     from .tasks import schedule_init_identification_for_workgroup
+
+
 
     schedule_init_identification_for_workgroup(caiduser.workgroup, delay_minutes=0)
     # return redirect("caidapp:individual_identities")
-    return redirect("caidapp:uploads_known_identities")
+    return redirect("caidapp:dash_identities")
 
 
 def stop_init_identification(request):
@@ -1756,9 +1768,15 @@ def run_identification(uploaded_archive: UploadedArchive, workgroup: models.Work
     # if no records in df
     if df.shape[0] == 0:
         logger.warning("No records for identification with the expected taxon. ")
-        notification = Notification.objects.create(
-            message="No records for identification with the expected taxon. ",
+
+        expected_taxon_string = ""
+        if workgroup.default_taxon_for_identification:
+            expected_taxon_string = f"(with the expected taxon {workgroup.default_taxon_for_identification.name}) "
+
+        models.Notification.create_for(
+            message=f"No records for identification {expected_taxon_string} in {uploaded_archive=}. ",
             level=Notification.LevelChoices.WARNING,
+            workgroups=[workgroup]
         )
 
 
@@ -4365,7 +4383,13 @@ class NotificationListView(ListView):
 
     def get_queryset(self):
         """Limit queryset to notifications of the current user."""
-        return models.Notification.objects.filter(user=self.request.user.caiduser).order_by("-created_at")
+        # return models.Notification.objects.filter(user=self.request.user.caiduser).order_by("-created_at")
+        return (
+            models.NotificationRecipient.objects
+            .filter(user=self.request.user.caiduser)
+            .select_related("notification")
+            .order_by("-notification__created_at")
+        )
 
     def get_context_data(self, **kwargs):
         """Set up context data for the list view."""

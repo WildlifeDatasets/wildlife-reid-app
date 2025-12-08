@@ -1040,9 +1040,14 @@ def init_identification_on_success(*args, **kwargs):
     """Callback invoked after running init_identification function in inference worker."""
     logger.debug(f"{args=}")
     logger.debug(f"{kwargs=}")
-    models.Notification(message=f"Identification initialization finished. {args=} {kwargs=}").save()
+    # models.Notification(message=f"Identification initialization finished. {args=} {kwargs=}").save()
     workgroup_id = kwargs.pop("workgroup_id")
     workgroup = WorkGroup.objects.get(id=workgroup_id)
+    models.Notification.create_for(
+        message=f"Identification initialization finished. {args=} {kwargs=}",
+        workgroups=[workgroup],
+        level=models.Notification.INFO
+    )
     output: dict = args[0]
     status = output["status"]
     status = "Finished" if status == "DONE" else status
@@ -1076,10 +1081,11 @@ def train_identification_on_success(*args, **kwargs):
     if "user_id" in kwargs:
         caiduser_id = kwargs.pop("caiduser_id")
         caiduser = models.CaIDUser.objects.get(id=caiduser_id)
-    models.Notification(
-        user=caiduser,
+    models.Notification.create_for(
         message=f"Task finished with error. {args=} {kwargs=}",
-    ).save()
+        users=[caiduser],
+        level=models.Notification.INFO
+    )
     workgroup_id = kwargs.pop("workgroup_id")
     workgroup = WorkGroup.objects.get(id=workgroup_id)
     output: dict = args[0]
@@ -1108,12 +1114,17 @@ def train_identification_on_success(*args, **kwargs):
 def init_identification_on_error(*args, **kwargs):
     """Callback invoked after failing init_identification function in inference worker."""
     caiduser = None
+    kwargs = dict(
+        message=f"Task finished with error. {args=} {kwargs=}",
+        level=models.Notification.ERROR,
+    )
     if "user_id" in kwargs:
         caiduser_id = kwargs.pop("caiduser_id")
         caiduser = models.CaIDUser.objects.get(id=caiduser_id)
-    models.Notification(
-        user=caiduser,
-        message=f"Task finished with error. {args=} {kwargs=}",
+        kwargs["users"] = [caiduser]
+
+    models.Notification.create_for(
+        **kwargs
     ).save()
     logger.error("init_identification done with error.")
 
@@ -1143,6 +1154,15 @@ def on_error_in_upload_processing(self, uuid, *args, **kwargs):
     logger.debug(f"self={self}")
     logger.debug(f"args={args}")
     logger.debug(f"kwargs={kwargs}")
+    kwargs = dict(
+        message=f"Upload processing finished with error. {self} {args=} {kwargs=}",
+        level=models.Notification.ERROR,
+        json_message=dict(self=self, args=args, kwargs=kwargs),
+    )
+    models.Notification(
+        **kwargs
+
+    )
     # logger.debug(f"dir(self)={dir(self)}")
 
 
@@ -1458,13 +1478,17 @@ def run_identification_on_unidentified_for_workgroup_task(workgroup_id: int):
 def run_identification_on_unidentified_for_workgroup(workgroup_id: int, request=None):
     """Run identification on unidentified media files for a workgroup."""
     logger.debug(f"Running identification on unidentified media files for workgroup {workgroup_id}...")
-    models.Notification.objects.create(message=f"Starting identification for workgroup {workgroup_id}...")
     from .views import run_identification
 
     workgroup = WorkGroup.objects.get(pk=workgroup_id)
 
     workgroup.identification_reid_status = "Processing"
     workgroup.save()
+    models.Notification.create_for(
+        message=f"Starting identification for workgroup {workgroup_id}...",
+        workgroups=[workgroup],
+        level=models.Notification.DEBUG
+    )
 
     uploaded_archives = UploadedArchive.objects.filter(
         owner__workgroup=workgroup,
@@ -1487,6 +1511,14 @@ def run_identification_on_unidentified_for_workgroup(workgroup_id: int, request=
                     request,
                     f"No records for identification with the expected taxon for {uploaded_archive.name}.",
                 )
+        if status_ok:
+            pass
+        else:
+            models.Notification.create_for(
+                message=f"No records for identification with the expected taxon for {uploaded_archive}.",
+                workgroups=[workgroup],
+                level=models.Notification.ERROR
+            )
         logger.debug(f"Identification started for {uploaded_archive} with status {status_ok}.")
 
 
@@ -1520,13 +1552,16 @@ def schedule_init_identification_for_workgroup(workgroup: models.WorkGroup, dela
 @shared_task
 def init_identification(workgroup_id: int):
     """Initialize identification for a workgroup."""
-    from .views import _get_mediafiles_for_train_or_init_identification
 
     workgroup = WorkGroup.objects.get(pk=workgroup_id)
 
     process_for_message = "initialization"
     called_function_name = "init_identification"
-    mediafiles_qs = _get_mediafiles_for_train_or_init_identification(workgroup)
+    mediafiles_qs = workgroup.mediafiles_for_train_or_init_identification()
+
+    # mark these mediafiles as used for init identification
+    mediafiles_qs.update(used_for_init_identification=True)
+
     # set attribute media_file_used_for_init_identification
     logger.debug("Generating CSV for init_identification...")
     output_dir = Path(settings.MEDIA_ROOT) / workgroup.name

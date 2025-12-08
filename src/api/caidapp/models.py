@@ -240,6 +240,48 @@ class WorkGroup(models.Model):
             parent__identification_status="IR",
         ).count()
 
+    def mediafiles_for_train_or_init_identification(
+            self
+            # request,
+            # workgroup, taxon=None, identity_is_representative=True
+    ):
+        """Get mediafiles for training or initialization of identification."""
+
+        # Pokud má workgroup nastavený výchozí taxon pro identifikaci
+        if self.check_taxon_before_identification and self.default_taxon_for_identification:
+            # Najdi ID všech mediafiles, které mají aspoň jednu observaci s daným taxonem
+            mf_ids = (
+                AnimalObservation.objects.filter(
+                    taxon=self.default_taxon_for_identification,
+                    mediafile__parent__owner__workgroup=self,
+                )
+                .values_list("mediafile_id", flat=True)
+                .distinct()
+            )
+
+            # A těmto mediafiles nastav příznak
+            mediafiles_qs = MediaFile.objects.filter(
+                parent__owner__workgroup=self,
+                id__in=mf_ids,
+                identity_is_representative=True,
+                identity__isnull=False,
+            )
+
+        else:
+            logger.warning(f"No default taxon for identification set in {self=}. Nothing updated.")
+            mediafiles_qs = MediaFile.objects.filter(
+                parent__owner__workgroup=self,
+                # id__in=mf_ids,
+                identity_is_representative=True,
+                identity__isnull=False,
+            )
+
+        logger.debug(f"Found {mediafiles_qs.count()} mediafiles for identification init.")
+        if mediafiles_qs.count() == 0:
+            logger.error("No mediafiles found for identification init.")
+
+        return mediafiles_qs
+
 
 class CaIDUser(models.Model):
     DjangoUser = get_user_model()
@@ -533,6 +575,7 @@ class UploadedArchive(models.Model):
         choices=UA_STATUS_CHOICES,
         default="C",
     )
+    is_for_identification = models.BooleanField(default=False)  # never used, remove? it is duplicit with condains_...
     identification_started_at = models.DateTimeField("Started at", blank=True, null=True)
     identification_finished_at = models.DateTimeField("Finished at", blank=True, null=True)
     locality_at_upload = models.CharField(max_length=255, blank=True, default="")
@@ -1208,7 +1251,7 @@ class MediaFile(models.Model):
             if old.identity_is_representative != self.identity_is_representative:
                 from .tasks import schedule_init_identification_for_workgroup
 
-                schedule_init_identification_for_workgroup(self.parent.owner.workgroup, delay_minutes=40)
+                schedule_init_identification_for_workgroup(self.parent.owner.workgroup, delay_minutes=20)
                 # and the reid will be started after the init
 
         super().save(*args, **kwargs)
@@ -1726,11 +1769,11 @@ class Notification(models.Model):
         return self.BOOTSTRAP_CLASSES.get(self.level, "secondary")
     
     @classmethod
-    def create_for(cls, *, message="", level=INFO, users=None, workgroups=None):
+    def create_for(cls, *, message="", level=INFO, users=None, workgroups=None, json_message=None):
+        """ Create notification and send it to users and workgroups.
+
         """
-        Vytvoří notifikaci a přidělí ji všem uvedeným uživatelům / workgroupám.
-        """
-        notif = cls.objects.create(message=message, level=level)
+        notif = cls.objects.create(message=message, level=level, json_message=json_message)
 
         final_users = set()
 
@@ -1742,12 +1785,13 @@ class Notification(models.Model):
         # Workgroup uživatelé
         if workgroups:
             for wg in workgroups:
-                for u in wg.caidusers.all():
+                for u in wg.caiduser_set.all():
                     final_users.add(u)
 
         # Vytvoření vazeb NotificationRecipient
         for user in final_users:
-            NotificationRecipient.objects.create(notification=notif, user=user)
+            NotificationRecipient.objects.create(
+                notification=notif, user=user)
 
         return notif
 
