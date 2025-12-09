@@ -188,9 +188,16 @@ def get_taxon_classification_model():
 
     if TAXON_CLASSIFICATION_MODEL_DICT is None:
         mem.wait_for_gpu_memory(0.5)
-        config, checkpoint_path, artifact_config = get_model_config(
-            # is_cropped=False
-        )
+        try:
+            config, checkpoint_path, artifact_config = get_model_config(
+                # is_cropped=False
+            )
+        except Exception as e:
+            logger.error("Error loading model configuration from W&B.")
+            logger.debug(f"{WANDB_API_KEY[:4]}...")  # log only part of the API key
+            logger.debug(f"{WANDB_ARTIFACT_PATH=}, {RESOURCES_DIR=}")
+            raise e
+
         logger.info("Creating model and loading fine-tuned checkpoint.")
 
         model, model_mean, model_std = load_model(config, checkpoint_path)

@@ -125,6 +125,18 @@ def on_success_predict_taxon(
             if "error" in output:
                 logger.error(f"{output['error']=}")
                 uploaded_archive.status_message = output["error"]
+
+                nt_kwargs = dict(
+                    message=f"Taxon classification failed: {output['error']}",
+                    level=models.Notification.ERROR,
+                )
+
+                if uploaded_archive.owner.workgroup:
+                    nt_kwargs["workgroups"] = [uploaded_archive.owner.workgroup]
+
+                else:
+                    nt_kwargs["users"] = [uploaded_archive.owner]
+                models.Notification.create_for(nt_kwargs)
             uploaded_archive.save()
     except Exception as e:
         logger.debug(str(traceback.format_exc()))
