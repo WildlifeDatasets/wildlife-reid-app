@@ -8,6 +8,7 @@ from typing import Optional, Tuple, Union
 import cv2
 import numpy as np
 import pandas as pd
+import requests.exceptions
 import skimage.io
 import wandb
 import yaml
@@ -69,9 +70,33 @@ def get_model_config(is_cropped: bool = False) -> Tuple[dict, str, dict]:
     try:
         api = wandb.Api(api_key=WANDB_API_KEY)
         artifact = api.artifact(wandb_artifact_path)
-        run = artifact.logged_by()
-        config = run.config
-        # save model config locally for later use without internet
+        # run = artifact.logged_by()
+        # config = run.config
+        # # save model config locally for later use without internet
+        # model_config_path.parent.mkdir(exist_ok=True, parents=True)
+        # with open(model_config_path, "w") as f:
+        #     json.dump(config, f)
+
+        # Try primary method: read config.yaml from artifact
+        try:
+            cfg_path = artifact.get_path("config.yaml").download(root=RESOURCES_DIR)
+            with open(cfg_path) as f:
+                config = yaml.safe_load(f)
+        except Exception as e:
+            logger.warning(f"Failed to load config.yaml from artifact: {e}")
+            # Fallback: try wandb-metadata.json
+            try:
+                meta_path = artifact.get_path("wandb-metadata.json").download(
+                    root=RESOURCES_DIR
+                )
+                with open(meta_path) as f:
+                    meta = json.load(f)
+                config = meta.get("config", {})
+            except Exception as e:
+                logger.error("Could not load any config from artifact.")
+                raise
+
+        # Save model config locally for offline use
         model_config_path.parent.mkdir(exist_ok=True, parents=True)
         with open(model_config_path, "w") as f:
             json.dump(config, f)
@@ -90,6 +115,10 @@ def get_model_config(is_cropped: bool = False) -> Tuple[dict, str, dict]:
         artifact_files = [fn.relative_to(RESOURCES_DIR) for fn in Path(RESOURCES_DIR).glob("*")]
         with open(model_config_path) as f:
             config = json.load(f)
+
+    except requests.exceptions.HTTPError:
+        logger.debug(f"{wandb_artifact_path} artifact not found on W&B server.")
+        logger.debug(f"{WANDB_API_KEY[:4]}...")  # log only part of the API key
 
     # get artifact contents
     assert (
