@@ -2,12 +2,12 @@
 {% load static %}
 {% block head %}
     <style>
-    .card-btn {
-        background-repeat: no-repeat;
-        background-position-x: right;
-        background-position-y: center;
-        background-size: cover;
-    }
+        .card-btn {
+            background-repeat: no-repeat;
+            background-position-x: right;
+            background-position-y: center;
+            background-size: cover;
+        }
 
     </style>
     <!--refresh every 120 s-->
@@ -22,7 +22,8 @@
 
             <div>
                 <ol class="breadcrumb">
-                    <li class="breadcrumb-item"><a href="{% url 'caidapp:home' %}"><i class="fa fa-home"></i> Home</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'caidapp:home' %}"><i class="fa fa-home"></i> Home</a>
+                    </li>
                     {#                    {% if uploadedarchive.contains_single_taxon %}#}
                     {#                    <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads_identities' %}">Identities Uploads </a></li>#}
                     {#                    {% else %}#}
@@ -46,14 +47,15 @@
                     <ul class="dropdown-menu">
                         <li>
 
-                            <a class="dropdown-item" href="{% url 'caidapp:representative_mediafiles' %}"><i class="bi bi-eye"></i> Check representative images </a>
+                            <a class="dropdown-item" href="{% url 'caidapp:representative_mediafiles' %}"><i
+                                    class="bi bi-eye"></i> Check representative images </a>
                         </li>
                         <li>
                             <a class="dropdown-item {{ btn_styles.init_identification.class }}"
                                href="{% url 'caidapp:init_identification' %}"
                                     {% if user.caiduser.workgroup.identification_init_status %}
                                data-bs-toggle="tooltip"
-                               title="Initiated at: {{ user.caiduser.workgroup.identification_init_at|date:'Y-m-d H:i' }}, {{ user.caiduser.workgroup.identification_init_status}}, {{ user.caiduser.workgroup.identification_init_message }}"
+                               title="Initiated at: {{ user.caiduser.workgroup.identification_init_at|date:'Y-m-d H:i' }}, {{ user.caiduser.workgroup.identification_init_status }}, {{ user.caiduser.workgroup.identification_init_message }}"
                                     {% endif %}
                                onclick="return confirm('{{ btn_styles.init_identification.confirm }}')"
                             ><i class="fas fa-fingerprint"></i> Init identification
@@ -79,7 +81,8 @@
                         </li>
                         <li>
 
-                            <a class="dropdown-item {{ btn_styles.run_identification.class }}" href="{% url 'caidapp:pre_identify' %}"
+                            <a class="dropdown-item {{ btn_styles.run_identification.class }}"
+                               href="{% url 'caidapp:pre_identify' %}"
                                data-bs-toggle="tooltip" title="{{ btn_styles.run_identification.tooltip }}"
                                onclick="return confirm('{{ btn_styles.run_identification.confirm }}')"
                             >
@@ -96,9 +99,11 @@
                     <i class="fa fa-spinner fa-spin"></i>
                 {% endif %}
                 {% if user.caiduser.workgroup.identification_init_status == "Processing" or  user.caiduser.workgroup.identification_init_status == "Processing" %}
-                    <a class="btn btn-danger" href="{% url 'caidapp:stop_init_identification' %}"><i class="bi bi-stop-fill "></i> Stop </a>
+                    <a class="btn btn-danger" href="{% url 'caidapp:stop_init_identification' %}"><i
+                            class="bi bi-stop-fill "></i> Stop </a>
                 {% endif %}
-                <a class="btn btn-secondary bs-1" href="{% url 'caidapp:select_reid_model' %}"><i class="bi bi-gear"></i></a>
+                <a class="btn btn-secondary bs-1" href="{% url 'caidapp:select_reid_model' %}"><i
+                        class="bi bi-gear"></i></a>
             </div>
         </div>
         <div class="row">
@@ -120,7 +125,8 @@
 
                         <div class="card-text">
                             <p class="mt-1">
-                                If you have existing organized database it can be uploaded here. The uploaded archive must contain directories with the name of the identity.
+                                If you have existing organized database it can be uploaded here. The uploaded archive
+                                must contain directories with the name of the identity.
                             </p>
 
                             <a href="{% url 'caidapp:upload_archive_contains_identities' %}"
@@ -128,17 +134,20 @@
                                 Upload identified media files
                             </a>
                             <p class="mt-4">
-                                Upload media files and later identify them. You can upload media files with known identity or unidentified media files of a single species.
+                                Upload media files and later identify them. You can upload media files with known
+                                identity or unidentified media files of a single species.
                             </p>
                             <a class="btn btn-{{ btn_styles.upload_unidentified.class }}"
-                               href="{% url 'caidapp:upload_archive_contains_single_taxon' %}"><i class="bi bi-upload"></i>
+                               href="{% url 'caidapp:upload_archive_contains_single_taxon' %}"><i
+                                    class="bi bi-upload"></i>
                                 Upload</a>
 
 
                             <div class="position-absolute top-0 end-0 p-3">
-                                <a href="https://mjirik.github.io/CarnivoreID-doc/identification_upload/" title="Help: Upload media files" data-bs-toggle="tooltip" class="link-secondary"><i class="bi bi-book"></i></a>
+                                <a href="https://mjirik.github.io/CarnivoreID-doc/identification_upload/"
+                                   title="Help: Upload media files" data-bs-toggle="tooltip" class="link-secondary"><i
+                                        class="bi bi-book"></i></a>
                             </div>
-
 
 
                         </div>
@@ -147,277 +156,297 @@
             </div>
 
 
-        <div class="col-md-4">
-            <div class="card card-btn text-reset bg-light shadow border"
+            <div class="col-md-4">
+                <div class="card card-btn text-reset bg-light shadow border"
 
-                 style="
-                         background-image: linear-gradient(to left, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.9)),
-                         {#url('https://cdn.pixabay.com/photo/2020/10/22/10/28/cow-5675684_960_720.jpg');#}
-                         url('https://cdn.pixabay.com/photo/2015/10/15/21/25/label-990091_960_720.jpg');
-                         "
-            >
-                <div class="card-body">
-                    <h3 class="card-title">
-                        Confirm identification
-                    </h3>
-                    <div class="card-text">
-                        <p>
-                            Confirm the identity of media files. Suggestions are generated automatically.
-                        </p>
-                        <a class="btn btn-{{ btn_styles.confirm_identification.class }} {% if btn_styles.n_for_confirmation == 0 %} disabled {% endif %}"
-                           href="{% url 'caidapp:not_identified_mediafiles' %}"><i class="bi bi-question-circle"></i>
-                            Confirm identification</a>
+                     style="
+                             background-image: linear-gradient(to left, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.9)),
+                             {#url('https://cdn.pixabay.com/photo/2020/10/22/10/28/cow-5675684_960_720.jpg');#}
+                             url('https://cdn.pixabay.com/photo/2015/10/15/21/25/label-990091_960_720.jpg');
+                             "
+                >
+                    <div class="card-body">
+                        <h3 class="card-title">
+                            Confirm identification
+                        </h3>
+                        <div class="card-text">
+                            <p>
+                                Confirm the identity of media files. Suggestions are generated automatically.
+                            </p>
+                            <a class="btn btn-{{ btn_styles.confirm_identification.class }} {% if btn_styles.n_for_confirmation == 0 %} disabled {% endif %}"
+                               href="{% url 'caidapp:not_identified_mediafiles' %}"><i
+                                    class="bi bi-question-circle"></i>
+                                Confirm identification</a>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
+
+
+        <div>
+
         </div>
+        <h1 class="mt-4">Additional information</h1>
 
-
-            <div>
-
-            </div>
-            <h1 class="mt-4">Additional information</h1>
-
-{#        <div  class="container-fluid">#}
-            <div class="row">
+        {#        <div  class="container-fluid">#}
+        <div class="row">
 
 
             <div class="col-md-4">
 
-                    <div class="card card-btn"
-                         style="
-                                 background-image:
-                                 linear-gradient(to left, rgba(255, 255, 255, 0.93), rgba(255, 255, 255, 0.93)),
-                                 {#url('https://cdn.pixabay.com/photo/2020/10/22/10/28/cow-5675684_960_720.jpg');#}
-                                 {#url('https://cdn.pixabay.com/photo/2015/10/15/21/25/label-990091_960_720.jpg');#}
-                                 {#url('https://cdn.pixabay.com/photo/2015/10/15/21/25/label-990091_960_720.jpg');#}
-                                 url({% static 'caidapp/pexels-anna-nekrashevich-6801648.jpg' %});
-                                 "
-                    >
-                        <div class="card-body">
-                            <h3 class="card-title">Identification data</h3>
+                <div class="card card-btn"
+                     style="
+                             background-image:
+                             linear-gradient(to left, rgba(255, 255, 255, 0.93), rgba(255, 255, 255, 0.93)),
+                             {#url('https://cdn.pixabay.com/photo/2020/10/22/10/28/cow-5675684_960_720.jpg');#}
+                             {#url('https://cdn.pixabay.com/photo/2015/10/15/21/25/label-990091_960_720.jpg');#}
+                             {#url('https://cdn.pixabay.com/photo/2015/10/15/21/25/label-990091_960_720.jpg');#}
+                             url({% static 'caidapp/pexels-anna-nekrashevich-6801648.jpg' %});
+                             "
+                >
+                    <div class="card-body">
+                        <h3 class="card-title">Identification data</h3>
 
-                            Number of identities: {{ user.caiduser.number_of_identities }}<br>
-                            Number of media files in identification: {{ user.caiduser.number_of_media_files_for_identification }}<br>
-                            Number of media files with known identity: {{ user.caiduser.number_of_media_files_with_known_identity }}<br>
-                            Number of representative media files: {{ user.caiduser.workgroup.number_of_representative_media_files }}<br>
-                            Number of media files with missing identity: {{ user.caiduser.number_of_media_files_with_missing_identity }}<br>
-                            Number of media files for identification initialization: {{ user.caiduser.workgroup.mediafiles_for_train_or_init_identification.count }}<br>
+                        Number of identities: {{ user.caiduser.number_of_identities }}<br>
+                        Number of media files in
+                        identification: {{ user.caiduser.number_of_media_files_for_identification }}<br>
+                        Number of media files with known
+                        identity: {{ user.caiduser.number_of_media_files_with_known_identity }}<br>
+                        Number of representative media
+                        files: {{ user.caiduser.workgroup.number_of_representative_media_files }}<br>
+                        Number of media files with missing
+                        identity: {{ user.caiduser.number_of_media_files_with_missing_identity }}<br>
+                        Number of media files for identification
+                        initialization: {{ user.caiduser.workgroup.mediafiles_for_train_or_init_identification.count }}<br>
 
-                            <br>
-                            {% if not user.caiduser.workgroup.default_taxon_for_identification %}
-                                <div class="alert alert-warning">
-                                    No identification taxon selected.
-                                    {% if user.caiduser.workgroup_admin %}
-                                        You might want to select the default taxon in
-                                        the <a href="{% url 'caidapp:workgroup-update' user.caiduser.workgroup.id %}"> WorkGroup settings</a>
-                                        or <a href="{% url 'caidapp:add_taxon' %}"> Add taxon </a> if your taxon is missing.
-                                    {% else %}
-                                        Ask the WorkGroup admin to set the identification taxon in WorkGroup settings.
-                                    {% endif %}
-
-                                </div>
+                        <br>
+                        {% if not user.caiduser.workgroup.default_taxon_for_identification %}
+                            <div class="alert alert-warning">
+                                No identification taxon selected.
+                                {% if user.caiduser.workgroup_admin %}
+                                    You might want to select the default taxon in
+                                    the
+                                    <a href="{% url 'caidapp:workgroup-update' user.caiduser.workgroup.id %}"> WorkGroup
+                                        settings</a>
+                                    or <a href="{% url 'caidapp:add_taxon' %}"> Add taxon </a> if your taxon is missing.
                                 {% else %}
-                            {% if user.caiduser.number_of_media_files_for_identification == 0 %}
-                                <p>You might want to <a href="{% url 'caidapp:upload_archive_contains_single_taxon' %}">upload unidentified single species</a> or <a href="{% url 'caidapp:upload_archive_contains_single_taxon' %}">upload identified archive</a>.</p>
-                            {% else %}
-                                    {% if user.caiduser.workgroup.number_of_representative_media_files == 0 %}
-                                        <p>
-                                            You might want to select representative images (marked with <i class="bi bi-star-fill"></i>>) for the identification process.
-                                        </p>
-                                    {% else %}
-                                        {% if  user.caiduser.workgroup.mediafiles_for_train_or_init_identification.count == 0 %}
-                                            {%  if user.caiduser.workgroup.default_taxon_for_identification %}
+                                    Ask the WorkGroup admin to set the identification taxon in WorkGroup settings.
+                                {% endif %}
 
-                                                <div class="alert alert-warning">
-                                                Taxon of representative media files is not {{ user.caiduser.workgroup.default_taxon_for_identification.name }}.
+                            </div>
+                        {% else %}
+                            {% if user.caiduser.number_of_media_files_for_identification == 0 %}
+                                <p>You might want to <a href="{% url 'caidapp:upload_archive_contains_single_taxon' %}">upload
+                                    unidentified single species</a> or <a
+                                        href="{% url 'caidapp:upload_archive_contains_single_taxon' %}">upload
+                                    identified archive</a>.</p>
+                            {% else %}
+                                {% if user.caiduser.workgroup.number_of_representative_media_files == 0 %}
+                                    <p>
+                                        You might want to select representative images (marked with <i
+                                            class="bi bi-star-fill"></i>>) for the identification process.
+                                    </p>
+                                {% else %}
+                                    {% if  user.caiduser.workgroup.mediafiles_for_train_or_init_identification.count == 0 %}
+                                        {% if user.caiduser.workgroup.default_taxon_for_identification %}
+
+                                            <div class="alert alert-warning">
+                                                Taxon of representative media files is
+                                                not {{ user.caiduser.workgroup.default_taxon_for_identification.name }}.
                                                 You might want to or set the correct taxon in
-                                                <a class="" href="{% url 'caidapp:representative_mediafiles' %}">representative media files</a>
-                                                    {% if user.caiduser.workgroup_admin %}
-                                                        or  turn of the checking in the <a href="{% url 'caidapp:workgroup-update' user.caiduser.workgroup.id %}"> WorkGroup settings</a>
-                                                    {% endif %}
+                                                <a class="" href="{% url 'caidapp:representative_mediafiles' %}">representative
+                                                    media files</a>
+                                                {% if user.caiduser.workgroup_admin %}
+                                                    or  turn of the checking in the
+                                                    <a href="{% url 'caidapp:workgroup-update' user.caiduser.workgroup.id %}">
+                                                        WorkGroup settings</a>
+                                                {% endif %}
                                                 .
-                                                </div>
-                                            {% else %}
-                                            {% endif %}
+                                            </div>
+                                        {% else %}
                                         {% endif %}
                                     {% endif %}
+                                {% endif %}
 
 
                                 {% if user.caiduser.number_of_media_files_with_missing_identity > 0 %}
                                     <p>
-                                    You might want to <a href="{% url 'caidapp:not_identified_mediafiles' %}">do the identification on uploaded images</a>.
+                                        You might want to <a href="{% url 'caidapp:not_identified_mediafiles' %}">do the
+                                        identification on uploaded images</a>.
                                     </p>
                                 {% endif %}
                             {% endif %}
-                            {% endif %}
-                            {#                Number of media files: {{ user.caiduser.number_of_media_files_general }}<br>#}
-                            {#                Number of media files with missing taxa: {{ user.caiduser.number_of_media_files_with_missing_taxa_general }}<br>#}
-                            {#                Number of media files with missing taxa verification: {{ user.caiduser.number_of_media_files_with_missing_taxa_verification_general }}<br>#}
+                        {% endif %}
+                        {#                Number of media files: {{ user.caiduser.number_of_media_files_general }}<br>#}
+                        {#                Number of media files with missing taxa: {{ user.caiduser.number_of_media_files_with_missing_taxa_general }}<br>#}
+                        {#                Number of media files with missing taxa verification: {{ user.caiduser.number_of_media_files_with_missing_taxa_verification_general }}<br>#}
 
 
-
-
-                        </div>
                     </div>
-
-
                 </div>
 
 
-                <div class="col-md-4">
-                    <div class="card card-btn text-reset bg-light"
-{#                         href="{% url 'caidapp:representative_mediafiles' %}"#}
+            </div>
 
-                         style="
-                                 background-image: linear-gradient(to left, rgba(255, 255, 255, 0.96), rgba(255, 255, 255, 0.96)),
-                                 {#url('https://cdn.pixabay.com/photo/2020/10/22/10/28/cow-5675684_960_720.jpg');#}
-                                 {#url('https://cdn.pixabay.com/photo/2015/10/15/21/25/label-990091_960_720.jpg');#}
-                                 url({% static 'caidapp/pexels-jessbaileydesign-735277.jpg' %});
-                                 "
-                         >
-                        <div class="card-body">
-                            <h3 class="card-title">Representative images</h3>
-                            <div class="card-text">
+
+            <div class="col-md-4">
+                <div class="card card-btn text-reset bg-light"
+                        {#                         href="{% url 'caidapp:representative_mediafiles' %}"#}
+
+                     style="
+                             background-image: linear-gradient(to left, rgba(255, 255, 255, 0.96), rgba(255, 255, 255, 0.96)),
+                             {#url('https://cdn.pixabay.com/photo/2020/10/22/10/28/cow-5675684_960_720.jpg');#}
+                             {#url('https://cdn.pixabay.com/photo/2015/10/15/21/25/label-990091_960_720.jpg');#}
+                             url({% static 'caidapp/pexels-jessbaileydesign-735277.jpg' %});
+                             "
+                >
+                    <div class="card-body">
+                        <h3 class="card-title">Representative images</h3>
+                        <div class="card-text">
                             <p>
 
-                                Representative media files (marked with <i class="bi bi-star-fill"></i>) are used for the identification of the species. They are used in the identification process and in the identification results.
+                                Representative media files (marked with <i class="bi bi-star-fill"></i>) are used for
+                                the identification of the species. They are used in the identification process and in
+                                the identification results.
                             </p>
                             <p>
                                 {% if not user.caiduser.workgroup.number_of_representative_media_files or user.caiduser.workgroup.number_of_representative_media_files == 0 %}
                                     No representative images found.
                                 {% else %}
-                                    Number of representative images: {{ user.caiduser.workgroup.number_of_representative_media_files }}
+                                    Number of representative images:
+                                    {{ user.caiduser.workgroup.number_of_representative_media_files }}
 
                                     ( <a
-                                            href="{% url 'caidapp:representative_mediafiles' %}"
-                                            class="">
-                                        check them
-                                    </a> )
+                                        href="{% url 'caidapp:representative_mediafiles' %}"
+                                        class="">
+                                    check them
+                                </a> )
                                 {% endif %}
                             </p>
-                            </div>
-
-                                <!-- Viditelné tlačítko (volitelné) -->
-
-
-                                {% if identities_by_representative_mediafiles %}
-                                    {% if identities_by_representative_mediafiles.count == 0 %}
-                                        <p>
-                                        There is nothing you can do here. All identities have representative media files.
-                                        </p>
-                                    {% else  %}
-                                        <p class="mt-2">
-                                            Number of identities without representative mediafile: {{ identities_by_representative_mediafiles|length }}
-                                        </p>
-                                        <p>
-                                        Identity {{ identities_by_representative_mediafiles.0.name }} has {{ identities_by_representative_mediafiles.0.representative_mediafile_count }} representative media files.
-
-                                        </p>
-                                        <a
-                                                href="{% url 'caidapp:individual_identity_mediafiles' identities_by_representative_mediafiles.0.id %}"
-                                                class="btn btn-outline-secondary">
-
-                                        Select representative media files for
-                                        {{  identities_by_representative_mediafiles.0.name  }}
-                                        </a>
-
-                                    {% endif %}
-{#                                    <a href="{% url 'caidapp:identity'  %}">Check them</a>.#}
-
-                                {% endif %}
-
-                                <!-- Neviditelný klikací překryv celé karty -->
-{#                                <a#}
-{#                                        href="{% url 'caidapp:representative_mediafiles' %}"#}
-{#                                        class="stretched-link"#}
-{#                                        aria-label="Upload archive with known identities"></a>#}
-
-
                         </div>
+
+                        <!-- Viditelné tlačítko (volitelné) -->
+
+
+                        {% if identities_by_representative_mediafiles %}
+                            {% if identities_by_representative_mediafiles.count == 0 %}
+                                <p>
+                                    There is nothing you can do here. All identities have representative media files.
+                                </p>
+                            {% else %}
+                                <p class="mt-2">
+                                    Number of identities without representative
+                                    mediafile: {{ identities_by_representative_mediafiles|length }}
+                                </p>
+                                <p>
+                                    Identity {{ identities_by_representative_mediafiles.0.name }}
+                                    has {{ identities_by_representative_mediafiles.0.representative_mediafile_count }}
+                                    representative media files.
+
+                                </p>
+                                <a
+                                        href="{% url 'caidapp:individual_identity_mediafiles' identities_by_representative_mediafiles.0.id %}"
+                                        class="btn btn-outline-secondary">
+
+                                    Select representative media files for
+                                    {{ identities_by_representative_mediafiles.0.name }}
+                                </a>
+
+                            {% endif %}
+                            {#                                    <a href="{% url 'caidapp:identity'  %}">Check them</a>.#}
+
+                        {% endif %}
+
+                        <!-- Neviditelný klikací překryv celé karty -->
+                        {#                                <a#}
+                        {#                                        href="{% url 'caidapp:representative_mediafiles' %}"#}
+                        {#                                        class="stretched-link"#}
+                        {#                                        aria-label="Upload archive with known identities"></a>#}
+
+
                     </div>
                 </div>
+            </div>
 
 
+            <div class="col-md-4">
+                <div class="card card-btn text-reset bg-light"
+                        {#                         href="{% url 'caidapp:representative_mediafiles' %}"#}
+
+                     style="
+                             background-image: linear-gradient(to left, rgba(255, 255, 255, 0.96), rgba(255, 255, 255, 0.90)),
+                             {#url('https://cdn.pixabay.com/photo/2020/10/22/10/28/cow-5675684_960_720.jpg');#}
+                             {#url('https://cdn.pixabay.com/photo/2015/10/15/21/25/label-990091_960_720.jpg');#}
+                             {#url({% static 'caidapp/pexels-jessbaileydesign-735277.jpg' %});#}
+                             url('https://images.pexels.com/photos/3785932/pexels-photo-3785932.jpeg');
+                             "
+                >
+                    <div class="card-body">
+                        <h3 class="card-title">Identity suggestion</h3>
+                        <div class="card-text">
+                            <p>
+                                The identity suggestion is based on the comparison of the uploaded images with the
+                                representative images of known identities.
+                                The reference identity database is updated automatically when the set of representative
+                                images is changed.
+                                The suggestion generation is done automatically in the background when new media files
+                                are uploaded.
+                            </p>
+                            <p>
+                                {#                                    {% if user.caiduser.workgroup.identification_scheduled_init_eta %}#}
+                                {#                                        <br>#}
+                                {#                                        <span title="Update at {{ user.caiduser.workgroup.identification_scheduled_init_eta|date:'Y-m-d H:i' }}">#}
+                                {#                                        Database update in {{ user.caiduser.workgroup.identification_scheduled_init_eta|timeuntil }}#}
+                                {##}
+                                {#                                            (#}
+                                {#                                        <a href="{% url 'caidapp:init_identification' %}" class="link-secondary">Update now</a>#}
+                                {#                                        ).#}
+                                {#                                        </span>#}
+                                {#                                    {% endif %}#}
+                                {##}
+                                {##}
+                                {#                                    {%  if user.caiduser.workgroup.identification_scheduled_run_eta %}#}
+                                {#                                        <br>#}
+                                {#                                        <span title="Suggestion generation at {{ user.caiduser.workgroup.identification_scheduled_run_eta|date:'Y-m-d H:i' }}">#}
+                                {#                                        Suggestion generation#}
+                                {#                                        in {{ user.caiduser.workgroup.identification_scheduled_run_eta|timeuntil }}.#}
+                                {#                                        </span>#}
+                                {#                                    {% endif %}#}
+
+                                {% if user.caiduser.workgroup.identification_scheduled_init_eta %}
+                                    {% now "Y-m-d H:i" as now %}
+
+                                    {% if user.caiduser.workgroup.identification_scheduled_init_eta > now %}
+                                        <span title="Update at {{ user.caiduser.workgroup.identification_scheduled_init_eta|date:'Y-m-d H:i' }}">
+                                            Database update in {{ user.caiduser.workgroup.identification_scheduled_init_eta|timeuntil }}
+                                            (<a href="{% url 'caidapp:init_identification' %}" class="link-secondary">Update now</a>).
+                                        </span>
+                                    {% else %}
+                                        <span>
+                                            Database updated at {{ user.caiduser.workgroup.identification_scheduled_init_eta|date:'Y-m-d H:i' }}
+                                            (<a href="{% url 'caidapp:init_identification' %}" class="link-secondary">Update now</a>).
+                                        </span>
+                                    {% endif %}
+                                {% endif %}
+                                <br>
+                                {% if user.caiduser.workgroup.identification_scheduled_run_eta %}
+                                    {% now "Y-m-d H:i" as now %}
+                                    {% if user.caiduser.workgroup.identification_scheduled_run_eta > now %}
+                                        <span title="Suggestion generation at {{ user.caiduser.workgroup.identification_scheduled_run_eta|date:'Y-m-d H:i' }}">
+                                            Suggestion generation in {{ user.caiduser.workgroup.identification_scheduled_run_eta|timeuntil }}.
+                                        </span>
+                                    {% else %}
+                                        <span>
+                                            Suggestion generated at {{ user.caiduser.workgroup.identification_scheduled_run_eta|date:'Y-m-d H:i' }}.
+                                        </span>
+                                    {% endif %}
+                                {% endif %}
 
 
-                <div class="col-md-4">
-                    <div class="card card-btn text-reset bg-light"
-                            {#                         href="{% url 'caidapp:representative_mediafiles' %}"#}
+                            </p>
 
-                         style="
-                                 background-image: linear-gradient(to left, rgba(255, 255, 255, 0.96), rgba(255, 255, 255, 0.90)),
-                                 {#url('https://cdn.pixabay.com/photo/2020/10/22/10/28/cow-5675684_960_720.jpg');#}
-                                 {#url('https://cdn.pixabay.com/photo/2015/10/15/21/25/label-990091_960_720.jpg');#}
-                                 {#url({% static 'caidapp/pexels-jessbaileydesign-735277.jpg' %});#}
-                                 url('https://images.pexels.com/photos/3785932/pexels-photo-3785932.jpeg');
-                                 "
-                    >
-                        <div class="card-body">
-                            <h3 class="card-title">Identity suggestion</h3>
-                            <div class="card-text">
-                                <p>
-                                    The identity suggestion is based on the comparison of the uploaded images with the representative images of known identities.
-                                    The reference identity database is updated automatically when the set of representative images is changed.
-                                    The suggestion generation is done automatically in the background when new media files are uploaded.
-                                </p>
-                                <p>
-{#                                    {% if user.caiduser.workgroup.identification_scheduled_init_eta %}#}
-{#                                        <br>#}
-{#                                        <span title="Update at {{ user.caiduser.workgroup.identification_scheduled_init_eta|date:'Y-m-d H:i' }}">#}
-{#                                        Database update in {{ user.caiduser.workgroup.identification_scheduled_init_eta|timeuntil }}#}
-{##}
-{#                                            (#}
-{#                                        <a href="{% url 'caidapp:init_identification' %}" class="link-secondary">Update now</a>#}
-{#                                        ).#}
-{#                                        </span>#}
-{#                                    {% endif %}#}
-{##}
-{##}
-{#                                    {%  if user.caiduser.workgroup.identification_scheduled_run_eta %}#}
-{#                                        <br>#}
-{#                                        <span title="Suggestion generation at {{ user.caiduser.workgroup.identification_scheduled_run_eta|date:'Y-m-d H:i' }}">#}
-{#                                        Suggestion generation#}
-{#                                        in {{ user.caiduser.workgroup.identification_scheduled_run_eta|timeuntil }}.#}
-{#                                        </span>#}
-{#                                    {% endif %}#}
-
-{% if user.caiduser.workgroup.identification_scheduled_init_eta %}
-    {% now "Y-m-d H:i" as now %}
-
-    {% if user.caiduser.workgroup.identification_scheduled_init_eta > now %}
-        <span title="Update at {{ user.caiduser.workgroup.identification_scheduled_init_eta|date:'Y-m-d H:i' }}">
-            Database update in {{ user.caiduser.workgroup.identification_scheduled_init_eta|timeuntil }}
-            (<a href="{% url 'caidapp:init_identification' %}" class="link-secondary">Update now</a>).
-        </span>
-    {% else %}
-        <span>
-            Database updated at {{ user.caiduser.workgroup.identification_scheduled_init_eta|date:'Y-m-d H:i' }}
-            (<a href="{% url 'caidapp:init_identification' %}" class="link-secondary">Update now</a>).
-        </span>
-    {% endif %}
-{% endif %}
-
-{% if user.caiduser.workgroup.identification_scheduled_run_eta %}
-    {% now "Y-m-d H:i" as now %}
-    {% if user.caiduser.workgroup.identification_scheduled_run_eta > now %}
-        <span title="Suggestion generation at {{ user.caiduser.workgroup.identification_scheduled_run_eta|date:'Y-m-d H:i' }}">
-            Suggestion generation in {{ user.caiduser.workgroup.identification_scheduled_run_eta|timeuntil }}.
-        </span>
-    {% else %}
-        <span>
-            Suggestion generated at {{ user.caiduser.workgroup.identification_scheduled_run_eta|date:'Y-m-d H:i' }}.
-        </span>
-    {% endif %}
-{% endif %}
-
-
-
-
-                                </p>
-
-                                <div class="position-absolute bottom-0 end-0 p-3">
+                            <div class="position-absolute bottom-0 end-0 p-3">
                                     <span
                                             {#                                            data-bs-toggle="tooltip"#}
                                             {#                                            data-toggle="tooltip"#}
@@ -429,32 +458,32 @@ Run ({{ user.caiduser.workgroup.identification_reid_status }} {{ user.caiduser.w
                                             <i class="bi bi-info-circle"></i>
                                         </span>
 
-                                </div>
                             </div>
-
-                            <!-- Viditelné tlačítko (volitelné) -->
-
-
-{#                            <a#}
-{#                                    href="{% url 'caidapp:representative_mediafiles' %}"#}
-{#                                    class="btn btn-outline-secondary mt-2">#}
-{#                                Check representative media files#}
-{#                            </a>#}
-
-                            <!-- Neviditelný klikací překryv celé karty -->
-                            {#                                <a#}
-                            {#                                        href="{% url 'caidapp:representative_mediafiles' %}"#}
-                            {#                                        class="stretched-link"#}
-                            {#                                        aria-label="Upload archive with known identities"></a>#}
-
-
                         </div>
+
+                        <!-- Viditelné tlačítko (volitelné) -->
+
+
+                        {#                            <a#}
+                        {#                                    href="{% url 'caidapp:representative_mediafiles' %}"#}
+                        {#                                    class="btn btn-outline-secondary mt-2">#}
+                        {#                                Check representative media files#}
+                        {#                            </a>#}
+
+                        <!-- Neviditelný klikací překryv celé karty -->
+                        {#                                <a#}
+                        {#                                        href="{% url 'caidapp:representative_mediafiles' %}"#}
+                        {#                                        class="stretched-link"#}
+                        {#                                        aria-label="Upload archive with known identities"></a>#}
+
+
                     </div>
                 </div>
-
-
             </div>
-{#        </div>#}
+
+
+        </div>
+        {#        </div>#}
     {% endif %}
 
 
