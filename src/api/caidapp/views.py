@@ -4395,7 +4395,7 @@ class NotificationListView(ListView):
             models.Notification.objects
             .filter(notificationrecipient__user=user)
             .annotate(
-                recipient=Subquery(recipient_qs.values("user__username")[:1]),
+                recipient=Subquery(recipient_qs.values("user")[:1]),
                 read=Subquery(recipient_qs.values("read")[:1]),
             )
             .order_by("-created_at")
