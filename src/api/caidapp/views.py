@@ -4379,9 +4379,7 @@ class NotificationListView(ListView):
     model = models.Notification
     template_name = "caidapp/generic_list_table.html"
     context_object_name = "notifications"
-    title = "Notifications"
-
-
+    # title = "Notifications"
 
     def get_queryset(self):
         """Limit queryset to notifications of the current user."""
@@ -4395,7 +4393,7 @@ class NotificationListView(ListView):
             models.Notification.objects
             .filter(notificationrecipient__user=user)
             .annotate(
-                recipient=Subquery(recipient_qs.values("user")[:1]),
+                recipient=Subquery(recipient_qs.values("user__user__username")[:1]),
                 read=Subquery(recipient_qs.values("read")[:1]),
             )
             .order_by("-created_at")
@@ -4415,12 +4413,17 @@ class NotificationListView(ListView):
     def get_context_data(self, **kwargs):
         """Set up context data for the list view."""
         context = super().get_context_data(**kwargs)
-        context["title"] = _("Issue")
-        context["list_display"] = ["created_at", "message", "recipient",  "read"]
-        context["object_detail_url"] = "caidapp:notification-detail"
-        context["object_update_url"] = "caidapp:notification-update"
-        context["object_delete_url"] = "caidapp:notification-delete"
-        context["object_create_url"] = "caidapp:notification-create"
+        context["title"] = _("Notifications")
+        context["list_display"] = ["created_at",
+                                   # "level",
+                                   "message",
+                                   # "recipient",
+                                   # "read",
+                                   ]
+        # context["object_detail_url"] = "caidapp:notification-detail"
+        # context["object_update_url"] = "caidapp:notification-update"
+        # context["object_delete_url"] = "caidapp:notification-delete"
+        # context["object_create_url"] = "caidapp:notification-create"
         return context
 
 

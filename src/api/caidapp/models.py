@@ -1751,7 +1751,6 @@ class Notification(models.Model):
     message = models.TextField(blank=True, default="")
     json_message = models.JSONField(blank=True, null=True)
     created_at = models.DateTimeField("Created at", auto_now_add=True)
-    read = models.BooleanField("Read", default=False)
     level = models.PositiveSmallIntegerField(choices=LEVEL_CHOICES, default=INFO)
 
     def __str__(self):
