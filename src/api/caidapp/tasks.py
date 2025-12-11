@@ -1815,7 +1815,7 @@ def assign_unidentified_to_identification(caiduser: CaIDUser):
                 score = 0
                 if identity.name.lower() in orig_fn:
                     score += 0.1
-                if identity.code.lower() in orig_fn:
+                if identity.code and (identity.code.lower() in orig_fn):
                     score += 0.1
                 if score > 0:
                     identity_mediafile = identity.mediafile_set.filter(

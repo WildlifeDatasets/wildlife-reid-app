@@ -43,7 +43,16 @@ def predict(
     sequence_time_limit_s: int = 120,
     **kwargs,
 ):
-    """Main method called by Celery broker.
+    """Prepare import data and species classification inference.
+
+    What it does:
+    - unzips input_archive_file
+    - prepares metadata dataframe
+    - extract date/time from EXIF if possible
+    - runs species classification inference
+    - save images into .webp format
+    - creates preview images
+    - saves output archive and metadata
 
     If the output_metadata_file does not exist, the metadata is
     created based on the content of input_archive_file and saved to output_metadata_file.
