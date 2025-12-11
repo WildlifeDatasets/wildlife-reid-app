@@ -507,6 +507,7 @@ def run_species_prediction_async(
         },
     )
 
+    logger.debug(f"{link=}, {link_error=}")
     task = sig.apply_async(
         link=link,
         link_error=link_error,
