@@ -70,36 +70,7 @@ def get_model_config(is_cropped: bool = False) -> Tuple[dict, str, dict]:
     try:
         api = wandb.Api(api_key=WANDB_API_KEY)
         artifact = api.artifact(wandb_artifact_path)
-        # run = artifact.logged_by()
-        # config = run.config
-        # # save model config locally for later use without internet
-        # model_config_path.parent.mkdir(exist_ok=True, parents=True)
-        # with open(model_config_path, "w") as f:
-        #     json.dump(config, f)
 
-        # Try primary method: read config.yaml from artifact
-        try:
-            cfg_path = artifact.get_path("config.yaml").download(root=RESOURCES_DIR)
-            with open(cfg_path) as f:
-                config = yaml.safe_load(f)
-        except Exception as e:
-            logger.warning(f"Failed to load config.yaml from artifact: {e}")
-            # Fallback: try wandb-metadata.json
-            try:
-                meta_path = artifact.get_path("wandb-metadata.json").download(
-                    root=RESOURCES_DIR
-                )
-                with open(meta_path) as f:
-                    meta = json.load(f)
-                config = meta.get("config", {})
-            except Exception as e:
-                logger.error("Could not load any config from artifact.")
-                raise
-
-        # Save model config locally for offline use
-        model_config_path.parent.mkdir(exist_ok=True, parents=True)
-        with open(model_config_path, "w") as f:
-            json.dump(config, f)
 
         logger.debug(f"Downloading artifact {wandb_artifact_path}.")
         artifact_files = [x.name for x in artifact.files()]
@@ -110,6 +81,71 @@ def get_model_config(is_cropped: bool = False) -> Tuple[dict, str, dict]:
         if not all_files_downloaded:
             logger.debug("Downloading artifact files.")
             artifact.download(root=RESOURCES_DIR)
+
+        # get artifact contents
+        assert sum([Path(x).suffix.lower() == ".pth" for x in artifact_files]) == 1, (
+            "Only one '.pth' file expected in the W&B artifact."
+        )
+        _suffix2name = {Path(x).suffix.lower(): x for x in artifact_files}
+        checkpoint_path = Path(RESOURCES_DIR) / _suffix2name[".pth"]
+        artifact_config_path = Path(RESOURCES_DIR) / "config.yaml"
+        with open(artifact_config_path) as f:
+            artifact_config = yaml.safe_load(f)
+
+
+        config = {}
+        try:
+            run = artifact.logged_by()
+            config = run.config
+
+        except Exception as e:
+            logger.warning(f"Failed to get run config from W&B artifact: {e}")
+
+            if wandb_artifact_path in (
+                "zcu_cv/CarnivoreID-Classification/swin_small_patch4_window7_224-CrossEntropyLoss-vit_heavy:v3",
+                "zcu_cv/CarnivoreID-Classification/swin_small_patch4_window7_224-CrossEntropyLoss-vit_heavy:latest",
+            ):
+                config = {}
+                config["number_of_classes"] = len(artifact_config["id2label"])
+                config["architecture"] = "swin_small_patch4_window7_224"
+                config["augmentations"] = "vit_heavy"
+                config["image_size"] = [224, 224]
+                config["batch_size"] = 64
+            else:
+                logger.error(f"Could not get run config from W&B artifact: {e}")
+                raise e
+
+
+        # save model config locally for later use without internet
+        model_config_path.parent.mkdir(exist_ok=True, parents=True)
+        with open(model_config_path, "w") as f:
+            json.dump(config, f)
+
+        # # Try primary method: read config.yaml from artifact
+        # try:
+        #     cfg_path = artifact.get_path("config.yaml").download(root=RESOURCES_DIR)
+        #     with open(cfg_path) as f:
+        #         config = yaml.safe_load(f)
+        # except Exception as e:
+        #     logger.warning(f"Failed to load config.yaml from artifact: {e}")
+        #     # Fallback: try wandb-metadata.json
+        #     try:
+        #         meta_path = artifact.get_path("wandb-metadata.json").download(
+        #             root=RESOURCES_DIR
+        #         )
+        #         with open(meta_path) as f:
+        #             meta = json.load(f)
+        #         config = meta.get("config", {})
+        #     except Exception as e:
+        #         logger.error("Could not load any config from artifact.")
+        #         raise
+
+        # # Save model config locally for offline use
+        # model_config_path.parent.mkdir(exist_ok=True, parents=True)
+        # with open(model_config_path, "w") as f:
+        #     json.dump(config, f)
+
+
     except (wandb.CommError, ConnectionError):
         logger.error("Connection Error. Cannot reach W&B server. Trying previous configuration.")
         artifact_files = [fn.relative_to(RESOURCES_DIR) for fn in Path(RESOURCES_DIR).glob("*")]
@@ -120,15 +156,6 @@ def get_model_config(is_cropped: bool = False) -> Tuple[dict, str, dict]:
         logger.debug(f"{wandb_artifact_path} artifact not found on W&B server.")
         logger.debug(f"{WANDB_API_KEY[:4]}...")  # log only part of the API key
 
-    # get artifact contents
-    assert (
-        sum([Path(x).suffix.lower() == ".pth" for x in artifact_files]) == 1
-    ), "Only one '.pth' file expected in the W&B artifact."
-    _suffix2name = {Path(x).suffix.lower(): x for x in artifact_files}
-    checkpoint_path = Path(RESOURCES_DIR) / _suffix2name[".pth"]
-    artifact_config_path = Path(RESOURCES_DIR) / "config.yaml"
-    with open(artifact_config_path) as f:
-        artifact_config = yaml.safe_load(f)
 
     return config, checkpoint_path, artifact_config
 
