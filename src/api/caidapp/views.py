@@ -3646,11 +3646,20 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
                 mf = MediaFile.objects.filter(parent=uploaded_archive, original_filename=original_path).first()
                 if mf:
                     try:
+                        ao = mf.observations.first()
+                        if ao is None:
+                            ao = models.Observation()
+                            ao.mediafile = mf
+                            ao.owner = uploaded_archive.owner
+                            ao.owner_workgroup = uploaded_archive.owner.workgroup
+                            ao.save()
+                            mf.observations.add(ao)
+                            mf.save()
                         # logger.debug(f"{mf=}")
                         counter0 += 1
                         # mf.category = row['category']
                         if "predicted_category" in row:
-                            mf.taxon = models.get_taxon(row["predicted_category"])  # remove this
+                            ao.taxon = models.get_taxon(row["predicted_category"])  # remove this
                             counter_fields_updated += 1
 
                         code = row["code"] if "code" in row else ""
@@ -3662,11 +3671,11 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
                             counter_fields_updated += 1
                             counter_individuality += 1
                             if unique_name:
-                                mf.identity.name = unique_name.strip()
+                                ao.identity.name = unique_name.strip()
                                 counter_fields_updated += 1
-                                mf.identity.save()
+                                ao.identity.save()
                         elif unique_name:
-                            mf.identity = models.get_unique_name(
+                            ao.identity = models.get_unique_name(
                                 row["unique_name"], workgroup=uploaded_archive.owner.workgroup
                             )
                             counter_fields_updated += 1
@@ -3706,7 +3715,7 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
                             coat_type = row["coat_type"]
                             if coat_type:
                                 counter_fields_updated += 1
-                                mf.identity.coat_type = coat_type
+                                ao.identity.coat_type = coat_type
 
                         if "orientation" in row:
                             orientation = row["orientation"]
@@ -3722,7 +3731,8 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
                                 orientation = orientation.upper().strip()
                                 orientation = orientation[0]
                                 counter_fields_updated += 1
-                                mf.orientation = orientation
+                                ao.orientation = orientation
+                        ao.save()
                         mf.save()
 
                     except Exception as e:

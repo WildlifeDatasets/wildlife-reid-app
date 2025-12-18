@@ -807,6 +807,7 @@ def _update_database_by_one_row_of_metadata(
                         # this is porcessed only if the values are not changed by user.
                         mf.observations.exclude(id=mf.first_observation.id).delete()
                     for i, one_detection_result in enumerate(detection_results):
+                        ao:models.AnimalObservation
                         if mf.observations.exists() and len(detection_results) > 0:
                             ao = mf.observations.first()
                         else:
@@ -1029,12 +1030,14 @@ def _sync_metadata_by_checking_enlisted_mediafiles(csv_file, output_dir, uploade
         # generate thumbnail if necessary
         mf.make_thumbnail_for_mediafile_if_necessary()
 
-        if mf.taxon:
-            df.loc[index, "predicted_category"] = mf.taxon.name
-            update_csv = True
-        if mf.identity:
-            df.loc[index, "unique_name"] = mf.identity.name
-            update_csv = True
+        ao = mf.observations.first()
+        if ao:
+            if mf.taxon:
+                df.loc[index, "predicted_category"] = ao.taxon.name
+                update_csv = True
+            if mf.identity:
+                df.loc[index, "unique_name"] = ao.identity.name
+                update_csv = True
         if mf.locality:
             df.loc[index, "locality name"] = mf.locality.name
             if mf.locality.location:

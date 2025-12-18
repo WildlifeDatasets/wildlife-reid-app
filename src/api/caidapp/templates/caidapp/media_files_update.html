@@ -388,12 +388,17 @@
                                     <div class="card-body mt-1" >
                                         <p class="card-text">
 
-                                        {% if mediafile.instance.taxon %}
+{#                                        Observations#}
+{#                                        {{ mediafile.instance.observations.first.taxon }}#}
+
+                                        {% if mediafile.instance.taxons %}
                                                 Taxon:
-                                                <a class="link-secondary"
-                                                   href="{% url 'caidapp:taxon' mediafile.instance.taxon.id %}">
-                                                    {{ mediafile.instance.taxon }}
-                                                </a>
+                                                {% for taxon in mediafile.instance.taxons %}
+                                                    <a class="link-secondary"
+                                                       href="{% url 'caidapp:taxon' taxon.id %}">
+                                                        {{ taxon }}
+                                                    </a>
+                                                {% endfor %}
 
 
                                                 {% if mediafile.instance.taxon_verified %}
@@ -402,7 +407,7 @@
                                                        data-bs-toggle="tooltip"
                                                        title="Taxon verified"
                                                     ></i>
-                                                {% endif %}
+                                                {% endif %}<br>
 {#                                                {% if mediafile.instance.category.name == "Not Classified" %} #}
 
                                             Observation count {{ mediafile.instance.observations.count }}

@@ -259,7 +259,7 @@ urlpatterns = [
     path(
         "missing_taxon_annotation/uploaded_archive/<int:uploaded_archive_id>",
         views_mediafile.missing_taxon_annotation,
-        name="missing_taxon_annotation",
+        name="missing_taxon_annotation_in_uploadedarchive",
     ),
     path(
         "missing_taxon_annotation_for_mediafile/mediafile_id/<int:mediafile_id>",
@@ -269,7 +269,7 @@ urlpatterns = [
     path(
         "missing_taxon_annotation_for_mf/mediafile_id/<int:mediafile_id>/uploaded_archive/<int:uploaded_archive_id>",
         views_mediafile.missing_taxon_annotation_for_mediafile,
-        name="missing_taxon_annotation_for_mediafile",
+        name="missing_taxon_annotation_for_mediafile_in_uploadedarchive",
     ),
     path("sample_data/", views.sample_data, name="sample_data"),
     path("cloud_import_preview/", views.cloud_import_preview_view, name="cloud_import_preview"),

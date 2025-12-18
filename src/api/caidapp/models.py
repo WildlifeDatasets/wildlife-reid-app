@@ -637,7 +637,7 @@ class UploadedArchive(models.Model):
             return None
         elif self.taxon_status == "TAID":
             return "Annotate taxa", reverse_lazy(
-                "caidapp:missing_taxon_annotation_for_mediafile", kwargs={"uploaded_archive_id": self.id}
+                "caidapp:missing_taxon_annotation_in_uploadedarchive", kwargs={"uploaded_archive_id": self.id}
             )
         elif self.taxon_status == "TKN":
             return "Verify taxa", reverse_lazy("caidapp:verify_taxa", kwargs={"uploaded_archive_id": self.id})
@@ -667,7 +667,9 @@ class UploadedArchive(models.Model):
 
     def count_of_mediafiles(self):
         """Return number of mediafiles in the archive."""
-        if self.taxon_status in ("C", "TAIP", "TAID"):
+        if self.taxon_status in ("C", "TAIP",
+            # "TAID"
+                                 ):
             return self.mediafiles_at_upload
         return MediaFile.objects.filter(parent=self).count()
 
@@ -1115,6 +1117,21 @@ class MediaFile(models.Model):
     def is_preidentified(self):
         """Return True if mediafile is preidentified."""
         return MediafilesForIdentification.objects.filter(mediafile=self).exists()
+
+
+    @property
+    def taxons(self):
+        """Return list of taxons from observations."""
+        taxons = set()
+        for obs in self.observations.all():
+            if obs.taxon is not None:
+                taxons.add(obs.taxon)
+        taxons = list(taxons)
+        if len(taxons) == 0:
+            return None
+        else:
+            return taxons
+
 
     @property
     def taxon_from_observations(self):

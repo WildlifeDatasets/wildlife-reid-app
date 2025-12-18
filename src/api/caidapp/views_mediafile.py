@@ -49,68 +49,71 @@ def stream_video(request, mediafile_id):
     return response
 
 
-@login_required
-def missing_taxon_annotation(
-    request,
-    uploaded_archive_id: Optional[int] = None,
-    # prev_mediafile_id: Optional[int] = None
-):
-    """List of uploads."""
-    # get uploadeda archive or None
-    if uploaded_archive_id is not None:
-        uploadedarchive = get_object_or_404(
-            models.UploadedArchive,
-            id=uploaded_archive_id,
-            # **get_content_owner_filter_params(request.user.caiduser, "owner"),
-        )
-    else:
-        uploadedarchive = None
-
-    # pick random non-classified media file
-    mediafiles = models.get_mediafiles_with_missing_taxon(request.user.caiduser, uploadedarchive=uploadedarchive)
-    # missing_count = mediafiles.count()
-    last_ten_mediafiles = mediafiles.order_by("-parent__uploaded_at", "-captured_at")
-    #
-    # Select a random media file from the last 10
-    if len(list(last_ten_mediafiles)) > 0:
-        mediafile = last_ten_mediafiles.first()
-    else:
-        mediafile = None  # Handle the case when there are no media files
-    #
-    if uploadedarchive is not None:
-        # kwargs = {"uploaded_archive_id": uploadedarchive.id}
-        # # if mediafile:
-        # #     kwargs["prev_mediafile_id"] = mediafile.id
-        # next_url = reverse_lazy( "caidapp:missing_taxon_annotation", kwargs=kwargs )
-        # if missing_count > 1:
-        #     skip_url = reverse_lazy( "caidapp:missing_taxon_annotation", kwargs=kwargs )
-        # else:
-        #     skip_url = None
-        cancel_url = reverse_lazy(
-            "caidapp:uploadedarchive_mediafiles", kwargs={"uploadedarchive_id": uploadedarchive.id}
-        )
-    else:
-        # kwargs = {"prev_mediafile_id": prev_mediafile_id}
-        # next_url = reverse_lazy( "caidapp:missing_taxon_annotation", kwargs={})
-        # skip_url = next_url
-        cancel_url = reverse_lazy("caidapp:taxon_processing")
-    #
-    #     # Everything done
-    if mediafile is None:
-        if uploadedarchive is not None:
-            message = f"All taxa known for {uploadedarchive.name}"
-        else:
-            message = "All taxa known"
-        return message_view(request, message, link=cancel_url, headline="No missing taxa")
-
-    if uploaded_archive_id:
-        return redirect(
-            "caidapp:missing_taxon_annotation_for_mediafile",
-            mediafile_id=mediafile.id,
-            uploaded_archive_id=uploaded_archive_id,
-        )
-    else:
-        return redirect("caidapp:missing_taxon_annotation_for_mediafile", mediafile_id=mediafile.id)
+# @login_required
+# def missing_taxon_annotation(
+#     request,
+#     uploaded_archive_id: Optional[int] = None,
+#     # prev_mediafile_id: Optional[int] = None
+# ):
+#     """List of uploads."""
+#     # get uploadeda archive or None
+#     if uploaded_archive_id is not None:
+#         uploadedarchive = get_object_or_404(
+#             models.UploadedArchive,
+#             id=uploaded_archive_id,
+#             # **get_content_owner_filter_params(request.user.caiduser, "owner"),
+#         )
+#     else:
+#         uploadedarchive = None
+#
+#     # pick random non-classified media file
+#     mediafiles = models.get_mediafiles_with_missing_taxon(request.user.caiduser, uploadedarchive=uploadedarchive)
+#     mediafile = mediafiles.order_by("-parent__uploaded_at", "-captured_at").first()
+#     # missing_count = mediafiles.count()
+#     # last_ten_mediafiles = mediafiles.order_by("-parent__uploaded_at", "-captured_at")
+#     # #
+#     # # Select a random media file from the last 10
+#     # if len(list(last_ten_mediafiles)) > 0:
+#     #     mediafile = last_ten_mediafiles.first()
+#     # else:
+#     #     mediafile = None  # Handle the case when there are no media files
+#     #
+#     if uploadedarchive is not None:
+#         # kwargs = {"uploaded_archive_id": uploadedarchive.id}
+#         # # if mediafile:
+#         # #     kwargs["prev_mediafile_id"] = mediafile.id
+#         # next_url = reverse_lazy( "caidapp:missing_taxon_annotation", kwargs=kwargs )
+#         # if missing_count > 1:
+#         #     skip_url = reverse_lazy( "caidapp:missing_taxon_annotation", kwargs=kwargs )
+#         # else:
+#         #     skip_url = None
+#         cancel_url = reverse_lazy(
+#             "caidapp:uploadedarchive_mediafiles", kwargs={"uploadedarchive_id": uploadedarchive.id}
+#         )
+#     else:
+#         # kwargs = {"prev_mediafile_id": prev_mediafile_id}
+#         # next_url = reverse_lazy( "caidapp:missing_taxon_annotation", kwargs={})
+#         # skip_url = next_url
+#         cancel_url = reverse_lazy("caidapp:taxon_processing")
+#     #
+#     #     # Everything done
+#     if mediafile is None:
+#         if uploadedarchive is not None:
+#             message = f"All taxa known for {uploadedarchive.name}"
+#         else:
+#             message = "All taxa known"
+#         return message_view(request, message, link=cancel_url, headline="No missing taxa")
+#
+#     logger.debug(f'Redirecting to mediafile {mediafile.id} for taxon annotation')
+#     logger.debug(f'{uploaded_archive_id=}')
+#     if uploaded_archive_id:
+#         return redirect(
+#             "caidapp:missing_taxon_annotation_for_mediafile",
+#             mediafile_id=mediafile.id,
+#             uploaded_archive_id=uploaded_archive_id,
+#         )
+#     else:
+#         return redirect("caidapp:missing_taxon_annotation_for_mediafile", mediafile_id=mediafile.id)
 
 
 def get_next_in_queryset(queryset, instance):
@@ -136,13 +139,15 @@ def missing_taxon_annotation_for_mediafile(request, mediafile_id: int, uploaded_
 
     mediafile = get_object_or_404(MediaFile, id=mediafile_id)
 
-    # pick random non-classified media file
-    mediafiles = models.get_mediafiles_with_missing_taxon(request.user.caiduser, uploadedarchive=uploadedarchive)
-    # missing_count = mediafiles.count()
-    mediafiles_to_be_annotated = mediafiles.order_by("-parent__uploaded_at", "-captured_at")
-    # find position of current mediafile and select the next one
-    next_mediafile = get_next_in_queryset(mediafiles_to_be_annotated, mediafile)
+    # # pick random non-classified media file
+    # mediafiles = models.get_mediafiles_with_missing_taxon(request.user.caiduser, uploadedarchive=uploadedarchive)
+    # # missing_count = mediafiles.count()
+    # mediafiles_to_be_annotated = mediafiles.order_by("-parent__uploaded_at", "-captured_at")
+    # # find position of current mediafile and select the next one
+    # next_mediafile = get_next_in_queryset(mediafiles_to_be_annotated, mediafile)
 
+
+    next_mediafile = get_next_missing_taxon_mediafile(request.user.caiduser, uploadedarchive=uploadedarchive, current=mediafile)
     kwargs = {}
     if next_mediafile:
         kwargs = {"mediafile_id": next_mediafile.id}
@@ -158,7 +163,9 @@ def missing_taxon_annotation_for_mediafile(request, mediafile_id: int, uploaded_
             # Po uložení se přesměrujeme na další mediafile s chybějícím taxonem
             if uploadedarchive:
                 kwargs["uploaded_archive_id"] = uploadedarchive.id
-            return redirect(reverse_lazy("caidapp:missing_taxon_annotation", kwargs=kwargs))
+                return redirect(reverse_lazy("caidapp:missing_taxon_annotation_in_uploadedarchive", kwargs=kwargs))
+            else:
+                return redirect(reverse_lazy("caidapp:missing_taxon_annotation", kwargs=kwargs))
         else:
             messages.error(request, "Form is not valid")
     else:
@@ -168,9 +175,15 @@ def missing_taxon_annotation_for_mediafile(request, mediafile_id: int, uploaded_
     # Nastavit URL pro další načtení / přeskočení
     if uploadedarchive:
         kwargs["uploaded_archive_id"] = uploadedarchive.id
-        next_url = reverse_lazy("caidapp:missing_taxon_annotation", kwargs=kwargs)
+        if next_mediafile:
+            next_url = reverse_lazy(
+                "caidapp:missing_taxon_annotation_for_mediafile_in_uploadedarchive", kwargs=kwargs
+            )
+        else:
+            next_url = reverse_lazy("caidapp:missing_taxon_annotation_in_uploadedarchive", kwargs=kwargs)
         # Pokud je k dispozici více než jeden soubor, můžeme nabídnout možnost přeskočení
-        skip_url = next_url if mediafiles.count() > 1 else None
+        if next_mediafile:
+            skip_url = next_url
         cancel_url = reverse_lazy(
             "caidapp:uploadedarchive_mediafiles", kwargs={"uploadedarchive_id": uploadedarchive.id}
         )
@@ -196,6 +209,90 @@ def missing_taxon_annotation_for_mediafile(request, mediafile_id: int, uploaded_
             "next_url": next_url,
         },
     )
+
+
+
+
+def resolve_missing_taxon_context(request):
+    uploaded_archive_id = (
+        request.POST.get("uploaded_archive_id")
+        or request.GET.get("uploaded_archive_id")
+    )
+
+    uploadedarchive = None
+    if uploaded_archive_id:
+        uploadedarchive = get_object_or_404(
+            models.UploadedArchive,
+            id=uploaded_archive_id,
+        )
+
+    return uploadedarchive
+
+
+def get_next_missing_taxon_mediafile(
+    caiduser: models.CaIDUser,
+    uploadedarchive: Optional[models.UploadedArchive] = None,
+    current: Optional[models.MediaFile] = None,
+) -> Optional[models.MediaFile]:
+    from django.db.models.query import QuerySet
+
+    qs: "QuerySet[models.MediaFile]" = models.get_mediafiles_with_missing_taxon(
+        caiduser,
+        uploadedarchive=uploadedarchive,
+    ).order_by("-parent__uploaded_at", "-captured_at")
+
+    if current:
+        return get_next_in_queryset(qs, current)
+
+    return qs.first()
+
+
+@login_required
+def missing_taxon_annotation(request,
+    uploaded_archive_id: Optional[int] = None,
+    # prev_mediafile_id: Optional[int] = None
+):
+    """List of uploads."""
+    # get uploadeda archive or None
+    if uploaded_archive_id is not None:
+        uploadedarchive = get_object_or_404(
+            models.UploadedArchive,
+            id=uploaded_archive_id,
+        # **get_content_owner_filter_params(request.user.caiduser, "owner"),
+        )
+    else:
+        uploadedarchive = None
+
+    mediafile = get_next_missing_taxon_mediafile(
+        request.user.caiduser,
+        uploadedarchive=uploadedarchive,
+    )
+
+    if mediafile is None:
+        return message_view(
+            request,
+            "All taxa known",
+            link=reverse("caidapp:taxon_processing"),
+        )
+
+    if uploadedarchive:
+        url = reverse(
+            "caidapp:missing_taxon_annotation_for_mediafile_in_uploadedarchive",
+            kwargs={
+                "mediafile_id": mediafile.id,
+                "uploaded_archive_id": uploadedarchive.id,
+            },
+        )
+    else:
+        url = reverse(
+            "caidapp:missing_taxon_annotation_for_mediafile",
+            kwargs={"mediafile_id": mediafile.id},
+        )
+        # url += f"?uploaded_archive_id={uploadedarchive.id}"
+
+    return redirect(url)
+
+
 
 
 @login_required
