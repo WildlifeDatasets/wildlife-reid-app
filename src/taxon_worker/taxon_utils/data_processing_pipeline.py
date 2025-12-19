@@ -95,6 +95,7 @@ def get_model_config(is_cropped: bool = False) -> Tuple[dict, str, dict]:
 
         config = {}
         try:
+            # this is not working since 2025-12
             run = artifact.logged_by()
             config = run.config
 
