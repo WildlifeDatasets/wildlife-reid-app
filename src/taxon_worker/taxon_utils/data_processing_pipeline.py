@@ -101,19 +101,18 @@ def get_model_config(is_cropped: bool = False) -> Tuple[dict, str, dict]:
         except Exception as e:
             logger.warning(f"Failed to get run config from W&B artifact: {e}")
 
-            if wandb_artifact_path in (
-                "zcu_cv/CarnivoreID-Classification/swin_small_patch4_window7_224-CrossEntropyLoss-vit_heavy:v3",
-                "zcu_cv/CarnivoreID-Classification/swin_small_patch4_window7_224-CrossEntropyLoss-vit_heavy:latest",
-            ):
-                config = {}
-                config["number_of_classes"] = len(artifact_config["id2label"])
-                config["architecture"] = "swin_small_patch4_window7_224"
-                config["augmentations"] = "vit_heavy"
-                config["image_size"] = [224, 224]
-                config["batch_size"] = 64
-            else:
-                logger.error(f"Could not get run config from W&B artifact: {e}")
-                raise e
+            "zcu_cv/CarnivoreID-Classification/swin_small_patch4_window7_224-CrossEntropyLoss-vit_heavy:v3",
+            "zcu_cv/CarnivoreID-Classification/swin_small_patch4_window7_224-CrossEntropyLoss-vit_heavy:latest",
+            # logger.error(f"Could not get run config from W&B artifact: {e}")
+
+            config = {}
+            config["number_of_classes"] = len(artifact_config["id2label"])
+            config["architecture"] = "swin_small_patch4_window7_224"
+            config["augmentations"] = "vit_heavy"
+            config["image_size"] = [224, 224]
+            config["batch_size"] = 64
+            logger.debug(f"Using default config: {config}")
+
 
 
         # save model config locally for later use without internet
