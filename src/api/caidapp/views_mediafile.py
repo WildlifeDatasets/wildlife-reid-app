@@ -163,9 +163,15 @@ def missing_taxon_annotation_for_mediafile(request, mediafile_id: int, uploaded_
             # Po uložení se přesměrujeme na další mediafile s chybějícím taxonem
             if uploadedarchive:
                 kwargs["uploaded_archive_id"] = uploadedarchive.id
-                return redirect(reverse_lazy("caidapp:missing_taxon_annotation_in_uploadedarchive", kwargs=kwargs))
+                if next_mediafile:
+                    return redirect(reverse_lazy("caidapp:missing_taxon_annotation_for_mediafile_in_uploadedarchive", kwargs=kwargs))
+                else:
+                    return redirect(reverse_lazy("caidapp:missing_taxon_annotation_in_uploadedarchive", kwargs=kwargs))
             else:
-                return redirect(reverse_lazy("caidapp:missing_taxon_annotation", kwargs=kwargs))
+                if next_mediafile:
+                    return redirect(reverse_lazy("caidapp:missing_taxon_annotation_for_mediafile", kwargs=kwargs))
+                else:
+                    return redirect(reverse_lazy("caidapp:missing_taxon_annotation", kwargs=kwargs))
         else:
             messages.error(request, "Form is not valid")
     else:
@@ -173,6 +179,7 @@ def missing_taxon_annotation_for_mediafile(request, mediafile_id: int, uploaded_
         pass
 
     # Nastavit URL pro další načtení / přeskočení
+    skip_url=None
     if uploadedarchive:
         kwargs["uploaded_archive_id"] = uploadedarchive.id
         if next_mediafile:
