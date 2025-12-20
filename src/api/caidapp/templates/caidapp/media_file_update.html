@@ -340,7 +340,7 @@ Observation ID: {{ obs_form.instance.id }}
                                     </button>
                                     {% if save_and_continue_button %}
                                         <button class="btn btn-primary mt-1" id="btnSaveAndContinue" type="submit">
-                                            {{ save }}
+                                            {{ save_and_continue_label|default:"Save and continue" }}
                                         </button>
 
                                     {% endif %}
@@ -348,7 +348,9 @@ Observation ID: {{ obs_form.instance.id }}
                                         <a href="{{ skip_url }}" class="btn btn-secondary mt-1 ">Skip</a>
                                     {% endif %}
                                     {% if  cancel_url %}
-                                        <a href="{{ cancel_url }}" class="btn btn-secondary mt-1 ">Cancel</a>
+                                        <a href="{{ cancel_url }}" class="btn btn-secondary mt-1 ">
+                                            {{ cancel_label|default:"Cancel" }}
+                                        </a>
                                     {% endif %}
 
 

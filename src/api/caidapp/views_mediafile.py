@@ -48,6 +48,75 @@ def stream_video(request, mediafile_id):
 
     return response
 
+class ObservationInline(InlineFormSetFactory):
+    model = AnimalObservation
+    form_class = forms.AnimalObservationForm
+    # fields = forms.AnimalObservationForm.Meta.fields
+    fields = [
+        "taxon",
+        "identity",
+        "identity_is_representative",
+        "orientation",
+        "taxon_verified",
+        "bbox_x_center",
+        "bbox_y_center",
+        "bbox_width",
+        "bbox_height",
+        # "orientation"
+    ]
+    can_delete = True
+    extra = 0
+    fk_name = "mediafile"
+    # widgets = {
+    #     "bbox_x_center": HiddenInput(),
+    #     "bbox_y_center": HiddenInput(),
+    #     "bbox_width": HiddenInput(),
+    #     "bbox_height": HiddenInput(),
+    # }
+
+    def get_factory_kwargs(self):
+        """Pass extra kwargs to factory."""
+        kwargs = super().get_factory_kwargs()
+        kwargs["extra"] = self.extra
+        kwargs["can_delete"] = self.can_delete
+
+        return kwargs
+
+
+class MediaFileUpdateView(LoginRequiredMixin, UpdateWithInlinesView):
+    model = MediaFile
+    form_class = MediaFileForm
+    inlines = [ObservationInline]
+    template_name = "caidapp/media_file_update.html"
+    context_object_name = "mediafile"
+
+    def get_success_url(self):
+        """After successful update, return to previous page."""
+        return self.request.GET.get("next") or self.request.META.get("HTTP_REFERER", "/")
+
+    def form_valid(self, form):
+        """Set updated_by and updated_at on save."""
+        logger.debug("In form_valid of MediaFileUpdateView")
+        form.instance.updated_by = self.request.user.caiduser
+        form.instance.updated_at = django.utils.timezone.now()
+        response = super().form_valid(form)
+        # Save all valid inline formsets
+        inlines = self.get_inlines()
+        logger.debug(f"{len(inlines)=}")
+
+        return response
+
+
+class ObservationDeleteView(LoginRequiredMixin, DeleteView):
+    model = AnimalObservation
+    template_name = "caidapp/generic_form.html"
+    context_object_name = "observation"
+
+    def get_success_url(self):
+        """After deletion, return to media file edit."""
+        # po smazání se vrátíš na editaci mediafile
+        mediafile = self.object.mediafile
+        return reverse("caidapp:media_file_update", args=[mediafile.id])
 
 # @login_required
 # def missing_taxon_annotation(
@@ -119,6 +188,8 @@ def stream_video(request, mediafile_id):
 def get_next_in_queryset(queryset, instance):
     """Get next instance in queryset after given instance."""
     ids = list(queryset.values_list("id", flat=True))
+    logger.debug(f"Getting next in queryset for instance {instance.id}")
+    logger.debug(f"IDs in queryset: {ids}")
     try:
         idx = ids.index(instance.id)
     except ValueError:
@@ -128,94 +199,285 @@ def get_next_in_queryset(queryset, instance):
     return None
 
 
-@login_required
-def missing_taxon_annotation_for_mediafile(request, mediafile_id: int, uploaded_archive_id: Optional[int] = None):
-    """Do taxon annotation on selected media file."""
-    # Načíst uploaded archive, pokud byl předán
-    if uploaded_archive_id:
-        uploadedarchive = get_object_or_404(models.UploadedArchive, id=uploaded_archive_id)
-    else:
-        uploadedarchive = None
-
-    mediafile = get_object_or_404(MediaFile, id=mediafile_id)
-
-    # # pick random non-classified media file
-    # mediafiles = models.get_mediafiles_with_missing_taxon(request.user.caiduser, uploadedarchive=uploadedarchive)
-    # # missing_count = mediafiles.count()
-    # mediafiles_to_be_annotated = mediafiles.order_by("-parent__uploaded_at", "-captured_at")
-    # # find position of current mediafile and select the next one
-    # next_mediafile = get_next_in_queryset(mediafiles_to_be_annotated, mediafile)
 
 
-    next_mediafile = get_next_missing_taxon_mediafile(request.user.caiduser, uploadedarchive=uploadedarchive, current=mediafile)
-    kwargs = {}
-    if next_mediafile:
-        kwargs = {"mediafile_id": next_mediafile.id}
+def _mta_get_next_url(
+    request,
+    current_mediafile: Optional[models.MediaFile],
+    uploadedarchive: Optional[models.UploadedArchive],
+) -> Optional[str]:
+    """Get next URL for missing taxon annotation."""
 
-    if request.method == "POST":
-        # Očekáváme, že formulář obsahuje hidden input "mediafile_id"
-        form = forms.MediaFileMissingTaxonForm(request.POST, instance=mediafile)
-        if form.is_valid():
-            mediafile = form.save(commit=False)
-            mediafile.updated_by = request.user.caiduser
-            mediafile.updated_at = django.utils.timezone.now()
-            mediafile.save()
-            # Po uložení se přesměrujeme na další mediafile s chybějícím taxonem
-            if uploadedarchive:
-                kwargs["uploaded_archive_id"] = uploadedarchive.id
-                if next_mediafile:
-                    return redirect(reverse_lazy("caidapp:missing_taxon_annotation_for_mediafile_in_uploadedarchive", kwargs=kwargs))
-                else:
-                    return redirect(reverse_lazy("caidapp:missing_taxon_annotation_in_uploadedarchive", kwargs=kwargs))
-            else:
-                if next_mediafile:
-                    return redirect(reverse_lazy("caidapp:missing_taxon_annotation_for_mediafile", kwargs=kwargs))
-                else:
-                    return redirect(reverse_lazy("caidapp:missing_taxon_annotation", kwargs=kwargs))
-        else:
-            messages.error(request, "Form is not valid")
-    else:
-        # GET: vybrat náhodný media file z dostupných
-        pass
-
-    # Nastavit URL pro další načtení / přeskočení
-    skip_url=None
-    if uploadedarchive:
-        kwargs["uploaded_archive_id"] = uploadedarchive.id
-        if next_mediafile:
-            next_url = reverse_lazy(
-                "caidapp:missing_taxon_annotation_for_mediafile_in_uploadedarchive", kwargs=kwargs
-            )
-        else:
-            next_url = reverse_lazy("caidapp:missing_taxon_annotation_in_uploadedarchive", kwargs=kwargs)
-        # Pokud je k dispozici více než jeden soubor, můžeme nabídnout možnost přeskočení
-        if next_mediafile:
-            skip_url = next_url
-        cancel_url = reverse_lazy(
-            "caidapp:uploadedarchive_mediafiles", kwargs={"uploadedarchive_id": uploadedarchive.id}
-        )
-    else:
-        next_url = reverse_lazy("caidapp:missing_taxon_annotation", kwargs={})
-        skip_url = next_url
-        cancel_url = reverse_lazy("caidapp:taxon_processing")
-
-    # Připravíme formulář s instancí mediafile
-    form = forms.MediaFileMissingTaxonForm(instance=mediafile)
-    # Pozor: V šabloně je vhodné mít hidden input s hodnotou mediafile.id,
-    # aby bylo možné při POST identifikovat, který soubor se upravuje.
-    return render(
-        request,
-        "caidapp/media_file_set_taxon.html",
-        {
-            "form": form,
-            "headline": "Media File",
-            "button": "Save and continue",
-            "mediafile": mediafile,
-            "skip_url": skip_url,
-            "cancel_url": cancel_url,
-            "next_url": next_url,
-        },
+    caiduser = request.user.caiduser
+    next_mediafile = get_next_missing_taxon_mediafile(
+        caiduser,
+        uploadedarchive=uploadedarchive,
+        current=current_mediafile,
     )
+
+    if current_mediafile and (next_mediafile is None):
+        return None
+    if next_mediafile:
+        url_name = "caidapp:missing_taxon_annotation_for_mediafile"
+        kwargs = {"pk": next_mediafile.id}
+    else:
+        url_name = "caidapp:missing_taxon_annotation"
+        kwargs = {}
+
+    if uploadedarchive:
+        url = reverse_lazy(url_name, kwargs=kwargs) + f"?uploadedarchive_id={uploadedarchive.id}"
+    else:
+        url = reverse_lazy(url_name, kwargs=kwargs)
+
+    return url
+
+
+
+# class FinishMissingTaxonAnnotationView(LoginRequiredMixin, django.views.TemplateView):
+#     """View to finish missing taxon annotation process."""
+#     template_name = "caidapp/message.html"
+#
+#     def get_context_data(self, **kwargs):
+#         context = super().get_context_data(**kwargs)
+#
+#         uploadedarchive_id = self.request.GET.get("uploadedarchive_id")
+#         uploadedarchive = None
+#
+#         if uploadedarchive_id:
+#             uploadedarchive = get_object_or_404(
+#                 models.UploadedArchive, id=uploadedarchive_id
+#             )
+#
+#         if uploadedarchive:
+#             context.update({
+#                 "headline": "All taxa known",
+#                 "message": f"No missing taxa for {uploadedarchive.name}",
+#                 "link": reverse("caidapp:uploads"),
+#                 "button_label": "Ok",
+#             })
+#         else:
+#             context.update({
+#                 "headline": "All taxa known",
+#                 "message": "No missing taxa",
+#                 "link": reverse("caidapp:taxon_processing"),
+#                 "button_label": "Ok",
+#             })
+#
+#         return context
+#
+#
+# class FinishMissingTaxonAnnotationView(LoginRequiredMixin, django.views.View):
+#     template_name = "caidapp/finish_taxon_annotation.html"
+#
+#
+#     def get(self, request, *args, **kwargs):
+#         # uploadedarchive_id from GET
+#         uploadedarchive_id = request.GET.get("uploadedarchive_id")
+#
+#         if uploadedarchive_id:
+#             uploadedarchive = get_object_or_404(models.UploadedArchive, id=uploadedarchive_id)
+#         else:
+#             uploadedarchive = None
+#
+#         if uploadedarchive:
+#             return message_view(
+#                 request,
+#                 f"No missing taxa for {uploadedarchive.name}",
+#                 link=reverse_lazy("caidapp:uploads"),
+#                 headline="All taxa known",
+#             )
+#         else:
+#             return message_view(
+#                 request,
+#                 "No missing taxa",
+#                 link=reverse_lazy("caidapp:taxon_processing"),
+#                 headline="All taxa known",
+#             )
+#
+
+
+
+class MediaFileGetMissingTaxonView(LoginRequiredMixin, UpdateWithInlinesView):
+    model = MediaFile
+    form_class = MediaFileForm
+    inlines = [ObservationInline]
+    template_name = "caidapp/media_file_update.html"
+    context_object_name = "mediafile"
+
+    def get_uploadedarchive(self) -> Optional[models.UploadedArchive]:
+        ua_id = self.request.GET.get("uploadedarchive_id")
+        logger.debug(f"{ua_id=}")
+        if not ua_id:
+            return None
+        return get_object_or_404(models.UploadedArchive, id=ua_id)
+
+    def dispatch(self, request, *args, **kwargs):
+        return super().dispatch(request, *args, **kwargs)
+
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        uploadedarchive = self.get_uploadedarchive()
+        # context["uploadedarchive"] = uploadedarchive
+
+        messages.debug(self.request, f"In get_context_data of MediaFileGetMissingTaxonView {uploadedarchive=}")
+
+        skip_url = _mta_get_next_url(
+            self.request,
+            current_mediafile=self.object,
+            uploadedarchive=uploadedarchive,
+        )
+
+        if uploadedarchive:
+            cancel_url = reverse_lazy("caidapp:uploads")
+        else:
+            cancel_url = reverse_lazy("caidapp:taxon_processing")
+        logger.debug(f"{cancel_url=}")
+        logger.debug(f"{skip_url=}")
+
+
+        context["button"] = "Save and continue"
+        context["skip_url"] = skip_url
+        context["cancel_url"] = cancel_url,
+        # uploadedarchive["next_url"] = next_url,
+        return context
+
+
+    def get_success_url(self):
+        """After successful update, return to previous page."""
+        uploadedarchive = self.get_uploadedarchive()
+        next_url = _mta_get_next_url(
+            self.request,
+            current_mediafile=self.object,
+            uploadedarchive=self.get_uploadedarchive(),
+        )
+
+        if next_url is None:
+            if uploadedarchive:
+                messages.info(self.request, f"All taxa known for {uploadedarchive.name}")
+                next_url = reverse_lazy("caidapp:uploads")
+
+                # return message_view(
+                #     request,
+                #     f"No missing taxa for {uploadedarchive.name}",
+                #     link=reverse_lazy("caidapp:uploads"),
+                #     headline="All taxa known",
+                # )
+            else:
+                messages.info(self.request, "All taxa known")
+                next_url = reverse_lazy("caidapp:taxon_processing")
+                # return message_view(
+                #     request,
+                #     "No missing taxa",
+                #     link=reverse_lazy("caidapp:taxon_processing"),
+                #     headline="All taxa known",
+                # )
+
+        return next_url
+        # return self.request.GET.get("next") or self.request.META.get("HTTP_REFERER", "/")
+
+    def form_valid(self, form):
+        """Set updated_by and updated_at on save."""
+        logger.debug("In form_valid of MediaFileUpdateView")
+        form.instance.updated_by = self.request.user.caiduser
+        form.instance.updated_at = django.utils.timezone.now()
+        response = super().form_valid(form)
+        # Save all valid inline formsets
+        inlines = self.get_inlines()
+        logger.debug(f"{len(inlines)=}")
+
+        return response
+
+#
+# @login_required
+# def missing_taxon_annotation_for_mediafile(request, mediafile_id: int, uploaded_archive_id: Optional[int] = None):
+#     """Do taxon annotation on selected media file."""
+#     # Načíst uploaded archive, pokud byl předán
+#     if uploaded_archive_id:
+#         uploadedarchive = get_object_or_404(models.UploadedArchive, id=uploaded_archive_id)
+#     else:
+#         uploadedarchive = None
+#
+#     mediafile = get_object_or_404(MediaFile, id=mediafile_id)
+#
+#     next_mediafile = get_next_missing_taxon_mediafile(request.user.caiduser, uploadedarchive=uploadedarchive, current=mediafile)
+#     kwargs = {}
+#     if next_mediafile:
+#         kwargs = {"mediafile_id": next_mediafile.id}
+#
+#     if request.method == "POST":
+#         # Očekáváme, že formulář obsahuje hidden input "mediafile_id"
+#         form = forms.MediaFileMissingTaxonForm(request.POST, instance=mediafile)
+#         if form.is_valid():
+#             mediafile = form.save(commit=False)
+#             mediafile.updated_by = request.user.caiduser
+#             mediafile.updated_at = django.utils.timezone.now()
+#             mediafile.save()
+#             # Po uložení se přesměrujeme na další mediafile s chybějícím taxonem
+#
+#
+#             redirect(_mta_get_next_url(request, mediafile, uploadedarchive))
+#             # if uploadedarchive:
+#             #     kwargs["uploaded_archive_id"] = uploadedarchive.id
+#             #     if next_mediafile:
+#             #         return redirect(reverse_lazy("caidapp:missing_taxon_annotation_for_mediafile_in_uploadedarchive", kwargs=kwargs))
+#             #     else:
+#             #         return redirect(reverse_lazy("caidapp:missing_taxon_annotation_in_uploadedarchive", kwargs=kwargs))
+#             # else:
+#             #     if next_mediafile:
+#             #         return redirect(reverse_lazy("caidapp:missing_taxon_annotation_for_mediafile", kwargs=kwargs))
+#             #     else:
+#             #         return redirect(reverse_lazy("caidapp:missing_taxon_annotation", kwargs=kwargs))
+#         else:
+#             messages.error(request, "Form is not valid")
+#     else:
+#         # GET: vybrat náhodný media file z dostupných
+#         pass
+#
+#     # Nastavit URL pro další načtení / přeskočení
+#     skip_url=None
+#     # if uploadedarchive:
+#     #     kwargs["uploaded_archive_id"] = uploadedarchive.id
+#     #     if next_mediafile:
+#     #         next_url = reverse_lazy(
+#     #             "caidapp:missing_taxon_annotation_for_mediafile_in_uploadedarchive", kwargs=kwargs
+#     #         )
+#     #     else:
+#     #         next_url = reverse_lazy("caidapp:missing_taxon_annotation_in_uploadedarchive", kwargs=kwargs)
+#     #     # Pokud je k dispozici více než jeden soubor, můžeme nabídnout možnost přeskočení
+#     #     if next_mediafile:
+#     #         skip_url = next_url
+#     # else:
+#     #     next_url = reverse_lazy("caidapp:missing_taxon_annotation", kwargs={})
+#     #     skip_url = next_url
+#
+#     next_url = _mta_get_next_url(request, mediafile, uploadedarchive)
+#
+#     if uploadedarchive:
+#         cancel_url = reverse_lazy(
+#             "caidapp:uploadedarchive_mediafiles", kwargs={"uploadedarchive_id": uploadedarchive.id}
+#         )
+#     else:
+#         cancel_url = reverse_lazy("caidapp:taxon_processing")
+#     skip_url = next_url
+#
+#     # Připravíme formulář s instancí mediafile
+#     form = forms.MediaFileMissingTaxonForm(instance=mediafile)
+#     # Pozor: V šabloně je vhodné mít hidden input s hodnotou mediafile.id,
+#     # aby bylo možné při POST identifikovat, který soubor se upravuje.
+#     return render(
+#         request,
+#         "caidapp/media_file_set_taxon.html",
+#         {
+#             "form": form,
+#             "headline": "Media File",
+#             "button": "Save and continue",
+#             "mediafile": mediafile,
+#             "skip_url": skip_url,
+#             "cancel_url": cancel_url,
+#             "next_url": next_url,
+#         },
+#     )
 
 
 
@@ -255,11 +517,12 @@ def get_next_missing_taxon_mediafile(
 
 
 @login_required
-def missing_taxon_annotation(request,
-    uploaded_archive_id: Optional[int] = None,
-    # prev_mediafile_id: Optional[int] = None
-):
-    """List of uploads."""
+def start_missing_taxon_annotation(
+        request,
+        uploaded_archive_id: Optional[int] = None,
+        # prev_mediafile_id: Optional[int] = None
+    ):
+    """Entry point for missing taxon annotation - redirect to first mediafile."""
     # get uploadeda archive or None
     if uploaded_archive_id is not None:
         uploadedarchive = get_object_or_404(
@@ -270,35 +533,28 @@ def missing_taxon_annotation(request,
     else:
         uploadedarchive = None
 
-    mediafile = get_next_missing_taxon_mediafile(
-        request.user.caiduser,
+    #
+    # mediafile = get_next_missing_taxon_mediafile(
+    #     request.user.caiduser,
+    #     uploadedarchive=uploadedarchive,
+    # )
+    #
+    # if mediafile is None:
+    #     return message_view(
+    #         request,
+    #         "All taxa known",
+    #         link=reverse("caidapp:taxon_processing"),
+    #     )
+
+    # if no mediafile found, show message and go back
+    url = _mta_get_next_url(
+        request,
+        None,
+        # mediafile,
         uploadedarchive=uploadedarchive,
     )
 
-    if mediafile is None:
-        return message_view(
-            request,
-            "All taxa known",
-            link=reverse("caidapp:taxon_processing"),
-        )
-
-    if uploadedarchive:
-        url = reverse(
-            "caidapp:missing_taxon_annotation_for_mediafile_in_uploadedarchive",
-            kwargs={
-                "mediafile_id": mediafile.id,
-                "uploaded_archive_id": uploadedarchive.id,
-            },
-        )
-    else:
-        url = reverse(
-            "caidapp:missing_taxon_annotation_for_mediafile",
-            kwargs={"mediafile_id": mediafile.id},
-        )
-        # url += f"?uploaded_archive_id={uploadedarchive.id}"
-
     return redirect(url)
-
 
 
 
@@ -386,72 +642,3 @@ def confirm_prediction(request, mediafile_id: int) -> JsonResponse:
         return JsonResponse({"success": False, "message": "Invalid request."})
 
 
-class ObservationInline(InlineFormSetFactory):
-    model = AnimalObservation
-    form_class = forms.AnimalObservationForm
-    # fields = forms.AnimalObservationForm.Meta.fields
-    fields = [
-        "taxon",
-        "identity",
-        "identity_is_representative",
-        "orientation",
-        "taxon_verified",
-        "bbox_x_center",
-        "bbox_y_center",
-        "bbox_width",
-        "bbox_height",
-        # "orientation"
-    ]
-    can_delete = True
-    extra = 0
-    fk_name = "mediafile"
-    # widgets = {
-    #     "bbox_x_center": HiddenInput(),
-    #     "bbox_y_center": HiddenInput(),
-    #     "bbox_width": HiddenInput(),
-    #     "bbox_height": HiddenInput(),
-    # }
-
-    def get_factory_kwargs(self):
-        """Pass extra kwargs to factory."""
-        kwargs = super().get_factory_kwargs()
-        kwargs["extra"] = self.extra
-        kwargs["can_delete"] = self.can_delete
-
-        return kwargs
-
-
-class MediaFileUpdateView(LoginRequiredMixin, UpdateWithInlinesView):
-    model = MediaFile
-    form_class = MediaFileForm
-    inlines = [ObservationInline]
-    template_name = "caidapp/media_file_update.html"
-    context_object_name = "mediafile"
-
-    def get_success_url(self):
-        """After successful update, return to previous page."""
-        return self.request.GET.get("next") or self.request.META.get("HTTP_REFERER", "/")
-
-    def form_valid(self, form):
-        """Set updated_by and updated_at on save."""
-        logger.debug("In form_valid of MediaFileUpdateView")
-        form.instance.updated_by = self.request.user.caiduser
-        form.instance.updated_at = django.utils.timezone.now()
-        response = super().form_valid(form)
-        # Save all valid inline formsets
-        inlines = self.get_inlines()
-        logger.debug(f"{len(inlines)=}")
-
-        return response
-
-
-class ObservationDeleteView(LoginRequiredMixin, DeleteView):
-    model = AnimalObservation
-    template_name = "caidapp/generic_form.html"
-    context_object_name = "observation"
-
-    def get_success_url(self):
-        """After deletion, return to media file edit."""
-        # po smazání se vrátíš na editaci mediafile
-        mediafile = self.object.mediafile
-        return reverse("caidapp:media_file_update", args=[mediafile.id])

@@ -1,7 +1,12 @@
 # Changelog
 
 
-## 2026-11
+## 2025-12
+
+* [fixed] Error on taxon classification yolo from W&B
+* [fixed] Taxon annotation procedure with new AnimalObservation model
+
+## 2025-11
 
 * [changed] the media file update use observations now
 * [changed] the media files are converted to `.webp` on upload
