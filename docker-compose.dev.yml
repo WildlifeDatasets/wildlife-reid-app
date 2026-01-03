@@ -2,7 +2,7 @@ services:
 
   broker_dev:
     image: rabbitmq:3.8.34-management-alpine
-    container_name: caid-dev-message-broker
+#    container_name: caid-dev-message-broker
     restart: "no"
     environment:
       RABBITMQ_DEFAULT_USER: user
@@ -17,7 +17,7 @@ services:
 
   redis_dev:
     image: redis:7.0.11-alpine
-    container_name: caid-dev-redis
+#    container_name: caid-dev-redis
     restart: "no"
     command: >
       --loglevel warning
@@ -37,7 +37,7 @@ services:
 
   django_db_dev:
     image: postgres:14.4-alpine
-    container_name: caid-dev-django_db
+#    container_name: caid-dev-django_db
     restart: "no"
 #    ports:
 #      - "5432:5432" # maybe limit to localhost
@@ -60,7 +60,7 @@ services:
       - db-data-dev:/var/lib/postgresql/data
 
   api_dev:
-    container_name: caid-dev-api
+#    container_name: caid-dev-api
     image: caid/api:dev
     build:
       context: .
@@ -96,7 +96,7 @@ services:
     build:
       context: .
       dockerfile: src/taxon_worker/Dockerfile_dev
-    container_name: caid-dev-taxon-worker
+#    container_name: caid-dev-taxon-worker
     restart: "no"
     env_file:
       - "src/variables.env"
@@ -127,7 +127,7 @@ services:
     build:
       context: .
       dockerfile: src/identification_worker/Dockerfile_dev
-    container_name: caid-dev-identification-worker
+#    container_name: caid-dev-identification-worker
     restart: "no"
     environment:
       POSTGRES_DB: identification_worker
@@ -167,7 +167,7 @@ services:
 
   identification_worker_db_dev:
     image: postgres:14.4-alpine
-    container_name: caid-dev-identification-worker-db
+#    container_name: caid-dev-identification-worker-db
     restart: "no"
 #    ports:
 #      - "5433:5432"
@@ -191,7 +191,7 @@ services:
     image: nginx:latest
     # image: ${NGINX_IMAGE:-custom_nginx}${TAG:-:latest}
 #    build: src/nginx  # we use the original build
-    container_name: caid-dev-nginx
+#    container_name: caid-dev-nginx
     volumes:
       - shared-data:/shared_data
       - ./src/nginx/nginx_dev.conf:/etc/nginx/nginx.conf:ro

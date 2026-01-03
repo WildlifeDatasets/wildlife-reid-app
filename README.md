@@ -15,7 +15,7 @@ echo "CAID_HOST=147.228..." >> .env
 export CAID_HOST="147.228..."
 ```
 
-Optianally, you can add `DATA_IMPORT_DIR` to your environment variables.
+Optionally, you can add `DATA_IMPORT_DIR` to your environment variables.
 
 ```bash
 echo "CAID_IMPORT=/mnt/caid_import" >> .env
@@ -29,8 +29,31 @@ mv NiceAdmin/assets src/api/static/
 ```
 
 
+```bash
+docker compose up --build -d
+```
+
+or restart existing containers:
+```bash
+date && docker compose down && git pull && docker compose up -d --build && date
+```
+
+
+## Advanced setup
+
+Optionally, you can add `DATA_IMPORT_DIR` to your environment variables.
+Set project name (default is dir name) to shorten container name and distinguish between development and production.
+```bash
+echo "CAID_IMPORT=/mnt/caid_import" >> .env
+echo "COMPOSE_PROJECT_NAME=caid_prod" >> .env
+```
+
+
+
 ### Development
 Run the following commands to build and start the application in the development mode.
+
+
 ```bash
 docker compose -f docker-compose.dev.yml build
 docker compose -f docker-compose.dev.yml up
@@ -53,6 +76,8 @@ Make migrations and migrate, if needed:
 docker exec -it carnivoreid-app-dev-api bash -ic 'python manage.py makemigrations'
 docker exec -it carnivoreid-app-dev-api bash -ic 'python manage.py migrate'
 ```
+
+
 
 ### Run tests
 
