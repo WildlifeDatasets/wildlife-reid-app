@@ -108,9 +108,9 @@ services:
       resources:
         reservations:
           devices:
-            - driver: nvidia
-              device_ids: ['1']
-              capabilities: [gpu]
+            - capabilities: [gpu]
+    environment:
+      NVIDIA_VISIBLE_DEVICES: "${TAXON_GPU_ID:-1}"
     volumes:
       - taxon-worker-data:/data  # data used only by Worker
       # - shared-data:/shared_data  # shared data with API, Workers, and Nginx
@@ -143,6 +143,7 @@ services:
       RABBITMQ_URL: "amqp://user:22pmDB%c@broker:5672"
       REDIS_HOST: redis
       REDIS_URL: "redis://:password@redis:6379/0"
+      NVIDIA_VISIBLE_DEVICES: "${IDENTIFICATION_GPU_ID:-0}"
     env_file:
       - "src/variables.env"
       - ".env"
@@ -150,9 +151,7 @@ services:
       resources:
         reservations:
           devices:
-            - driver: nvidia
-              device_ids: ['0']
-              capabilities: [gpu]
+            - capabilities: [gpu]
     volumes:
       - identification-worker-data:/data  # data used only by Worker
       # - shared-data:/shared_data  # shared data with API, Workers, and Nginx
