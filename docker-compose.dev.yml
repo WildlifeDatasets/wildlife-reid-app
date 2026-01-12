@@ -134,7 +134,7 @@ services:
       POSTGRES_HOST: identification_worker_db_dev
       POSTGRES_PORT: 5432
       POSTGRES_USER: user
-      POSTGRES_PASS: password
+      POSTGRES_PASSWORD: password
       TZ: Europe/Prague
       RABBITMQ_HOST: broker_dev
       RABBITMQ_URL: "amqp://user:22pmDB%c@broker_dev:5672"
