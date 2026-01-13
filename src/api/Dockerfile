@@ -8,6 +8,7 @@ RUN apt-get update --yes &&  \
     unzip \
     ffmpeg \
     curl \
+    mc \
     gdal-bin && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
