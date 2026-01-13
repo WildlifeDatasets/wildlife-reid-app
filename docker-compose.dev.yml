@@ -45,10 +45,10 @@ services:
         - "src/variables.env"
         - "src/variables.dev.env"
     environment:
-      TZ: Europe/Prague
-      POSTGRES_DB: main_database
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
+#      TZ: Europe/Prague
+#      POSTGRES_DB: main_database
+#      POSTGRES_USER: user
+#      POSTGRES_PASSWORD: password
       PGDATA: /var/lib/postgresql/data/pgdata
     expose:
       - 5432
