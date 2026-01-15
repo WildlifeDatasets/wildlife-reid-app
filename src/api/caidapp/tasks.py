@@ -1726,7 +1726,8 @@ def _iterate_over_locality_checks(path: Path, caiduser: CaIDUser) -> Generator[S
         # logger.debug(f"{path_of_locality_check.parts=}")
 
         # remove diacritics and spaces from zip_name
-        zip_name = fs_data.remove_diacritics(f"{locality}_{date}.zip").replace(" ", "_")
+
+        zip_name = model_tools.remove_diacritics(f"{locality}_{date}.zip").replace(" ", "_")
 
         relative_path = path_of_locality_check.relative_to(path)
         is_already_processed = relative_path.parts[0] in (
