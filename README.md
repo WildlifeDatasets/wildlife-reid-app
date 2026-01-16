@@ -45,7 +45,7 @@ Optionally, you can add `DATA_IMPORT_DIR` to your environment variables.
 Set project name (default is dir name) to shorten container name and distinguish between development and production.
 ```bash
 echo "CAID_IMPORT=/mnt/caid_import" >> .env
-echo "COMPOSE_PROJECT_NAME=caid_prod" >> .env
+echo "COMPOSE_PROJECT_NAME=caid_local" >> .env
 ```
 
 
@@ -55,8 +55,7 @@ Run the following commands to build and start the application in the development
 
 
 ```bash
-docker compose -f docker-compose.dev.yml build
-docker compose -f docker-compose.dev.yml up
+docker compose -f docker-compose.dev.yml up -d --build
 ```
 
 Run the following commands to view the final development mode configuration with overrides from `docker-compose.dev.yml`. 
