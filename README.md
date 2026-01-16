@@ -1,26 +1,93 @@
-# Carnivore ID
+# 📚 Documentation for WildLife ReID App
 
-The project aims to research and develop new technologies related to a deep understanding of data from camera traps. The technology will greatly increase annotation effectivity, will help to reduce reaction time to urgent situations, e.g. the occurrence of a conflict species in new areas or a harmed animal, will help to improve and simplify the identification of the individuals and to refine population estimates of endangered species, and will help to find new relations in the indexed data across time and diverse locations. The developed methods and tools will improve the monitoring of invasive species. The technologies will streamline activities of public administration, namely AOPK ČR responsible for reporting species status according to Art. 17 of Habitats Directive (92/43/EEC).
+This directory contains the **MkDocs**-powered documentation for the WildLife ReID App.  
+It uses the [Material for MkDocs](https://squidfunk.github.io/mkdocs-material/) theme for a modern, searchable, and easy-to-navigate documentation site.
 
-The project is funded by the Technology Agency of the Czech Republic (TAČR) under the project number [SS05010008-V9](https://starfos.tacr.cz/en/projekty/SS05010008).
+---
 
-More information about project can be found on the [web presentation of the project](https://sites.google.com/view/caid-zcu/).
+## 🚀 Quickstart
 
+### 1. Install MkDocs and Dependencies
 
+First, make sure you have **Python >=3.7**.
 
-The user do
-[workflows](workflows.md)
-
-
-# Build the documentation
-
-```bash
-pdm install
-pdm run mkdocs build
-```
-
-## Run the documentation server
+We recommend creating a virtual environment (optional, but best practice):
 
 ```bash
-pdm run mkdocs serve
+python -m venv venv
+source venv/bin/activate   # On Linux/macOS
 ```
+
+Now install MkDocs and the Material theme:
+
+```bash
+pip install mkdocs-material pymdown-extensions
+```
+
+---
+
+### 2. Preview the Documentation Locally
+
+From the root directory of the repository (where `mkdocs.yml` is located), run:
+
+```bash
+mkdocs serve
+```
+
+Then open your browser and go to [http://localhost:8000](http://localhost:8000).  
+The site will automatically reload as you edit Markdown files in the `docs/` folder.
+
+---
+
+### 3. Build the Documentation
+
+To generate a static site in the `site/` directory:
+
+```bash
+mkdocs build
+```
+
+---
+
+### 4. Publish to GitHub Pages
+
+You can deploy your docs to GitHub Pages in a single command:
+
+```bash
+mkdocs gh-deploy
+```
+
+This will:
+
+- Build the documentation.
+- Push the result to a `gh-pages` branch.
+- Serve your site at:  
+  `https://<your-username>.github.io/<repo-name>/`
+
+You may need to enable GitHub Pages in your repo settings (set the source to `gh-pages`).
+
+---
+
+## 🛠️ Editing the Docs
+
+- All documentation pages are Markdown files in the `docs/` folder.
+- The structure and navigation is defined in `mkdocs.yml`.
+- Edit the `.md` files, save, and your site will update on the next build or serve.
+
+---
+
+## 🧰 Troubleshooting
+
+- If `mkdocs` is not found, ensure your virtual environment is activated and installed in the right Python.
+- For theme/extension problems, see the [Material for MkDocs documentation](https://squidfunk.github.io/mkdocs-material/).
+- For more help, open a [GitHub Issue](https://github.com/WildlifeDatasets/wildlife-reid-app/issues).
+
+---
+
+## 🔗 Useful Links
+
+- [MkDocs documentation](https://www.mkdocs.org/)
+- [Material for MkDocs documentation](https://squidfunk.github.io/mkdocs-material/)
+---
+
+Happy documenting!
