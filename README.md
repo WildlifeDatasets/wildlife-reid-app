@@ -21,7 +21,7 @@ source venv/bin/activate   # On Linux/macOS
 Now install MkDocs and the Material theme:
 
 ```bash
-pip install mkdocs-material pymdown-extensions
+pip install -r requirements.txt
 ```
 
 ---

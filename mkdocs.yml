@@ -1,11 +1,14 @@
 site_name: WildLife ReID App
 theme:
   name: material
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - toc.integrate
   #ogo: media/project_top_image.png
   #icon:
   #  repo: material/github
-#repo_url: https://github.com/mjirik/CarnivoreID-doc
-#repo_name: Carnivore-ID-Doc
+#repo_name: WildLife ReID App
 nav:
   - Introduction: index.md
   - User Guide:
