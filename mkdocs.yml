@@ -1,0 +1,25 @@
+site_name: Carnivore-ID App
+theme:
+  name: material
+#  features:
+#    - navigation.tabs
+  logo: media/project_top_image.png
+  icon:
+    repo: material/github
+repo_url: https://github.com/mjirik/CarnivoreID-doc
+repo_name: Carnivore-ID-Doc
+
+nav:
+  - Introduction: index.md
+  - User Guide:
+    - Getting Started: first_steps.md
+    - Taxon classification: taxon_classification.md
+    - Identification: identification.md
+    - Cloud import: cloud_import.md
+  - Install: install.md
+  - Build the docs: build_docs.md
+  - Contact: contact.md
+
+markdown_extensions:
+  - toc:
+      permalink: true
