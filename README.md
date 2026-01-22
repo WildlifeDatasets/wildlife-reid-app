@@ -1,4 +1,4 @@
-# CarnivoreID-App
+# Wildlife-ReID-App
 
 ## Run Application
 The application is orchestrated using `docker-compose` - a tool for defining and running multi-container Docker application.
