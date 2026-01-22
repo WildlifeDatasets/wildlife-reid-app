@@ -16,7 +16,10 @@ nav:
     - Taxon classification: taxon_classification.md
     - Identification: identification.md
     - Cloud import: cloud_import.md
-  - Install: install.md
+  - Technical Documentation:
+    - Architecture: architecture.md
+    - Installation: install.md
+    - Configuration: configuration.md
   - Build the docs: build_docs.md
   - Contact: contact.md
 
