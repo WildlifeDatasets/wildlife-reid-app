@@ -1,4 +1,4 @@
-## The Carnivore ID application
+## The WildLife ReID App application
 
 The application is created to help categorize images according to the species and identify animals in camera trap
 images.
@@ -6,14 +6,13 @@ Here are some useful links to get you started:
 
 1. [I want to classify species in media files](taxon_classification.md)
 2. [I want to identify individuals in media files](identification.md)
-3. [I want to go to the Carnivore ID application](https://caid.kky.zcu.cz/)
-4. [I want to see the web presentation of the project](https://sites.google.com/view/caid-zcu/)
-5. [I want to install the application](install.md)
-6. [I want to contact the developers](contact.md)
+3. [I want to go to the CWildLife ReID Application](https://caid.kky.zcu.cz/)
+4. [I want to install the application](install.md)
+5. [I want to contact the developers](contact.md)
 
-## What is Carnivore ID application?
+## What is WildLife ReID App?
 
-The Carnivore ID application is a web-based tool designed to assist researchers
+The WildLife ReID App is a web-based tool designed to assist researchers
 and wildlife enthusiasts in classifying and identifying carnivorous animals captured
 in camera trap images. The application leverages advanced machine learning
 algorithms to automate the process of species classification and individual

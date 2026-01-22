@@ -1,7 +1,7 @@
 # Building Documentation with MkDocs
 
 
-Project is built automatically using [MkDocs](https://www.mkdocs.org) and hosted on [GitHub Pages](https://mjirik.github.io/CarnivoreID-doc/).
+Project is built automatically using [MkDocs](https://www.mkdocs.org) and hosted on [GitHub Pages](https://wildlifedatasets.github.io/wildlife-reid-app/).
 
 
 ## Project layout

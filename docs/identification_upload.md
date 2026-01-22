@@ -49,9 +49,9 @@ upload.zip
    | imgs/im2.jpg    | Lynx lynx            | Luna          | Za kopcem       | 49.27921   | 13.8219     | 2023-10-01 15:00:00 |
    | video1.mp4      | Lynx lynx            | Bastien       | Pod dubem       | 49.28031   | 13.1819     | 2023-10-01 16:00:00 |
 
-## Update metadata of media files in CarnivoreID database
+## Update metadata of media files in WildLife ReID App database
 
-If your data are already in the CarnivoreID database, you can update metadata of ZIP file using the spreadsheet file in 
+If your data are already in the WildLife ReID App database, you can update metadata of ZIP file using the spreadsheet file in 
   format mentioned above. The spreadsheet is uploaded from the menu shown blow.
 
   ![upload_update_metadata](media/upload_update_metadata.png)
