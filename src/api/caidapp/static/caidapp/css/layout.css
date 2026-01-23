@@ -42,10 +42,12 @@ body {
 /* Main Content Area */
 .content-wrapper {
     transition: margin-left 0.25s ease;
-    overflow-y: auto; /* Content scrolls independently */
+    /*overflow-y: auto; !* Content scrolls independently *!*/
     height: 100%;
     flex: 1; /* Takes remaining width */
     padding: 1.5rem;
+    min-width: 0; /* Prevents overflow issues */
+
 }
 
 /* Navigation Links */
