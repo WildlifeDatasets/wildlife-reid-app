@@ -9,6 +9,10 @@
       
       
       
+        <link rel="prev" href="../cloud_import/">
+      
+      
+        <link rel="next" href="../install/">
       
       
         
@@ -19,7 +23,7 @@
     
     
       
-        <title>Upload data for identification - WildLife ReID App</title>
+        <title>Architecture - WildLife ReID App</title>
       
     
     
@@ -60,7 +64,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#upload-data-for-identification" class="md-skip">
+        <a href="#system-architecture" class="md-skip">
           Skip to content
         </a>
       
@@ -94,7 +98,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Upload data for identification
+              Architecture
             
           </span>
         </div>
@@ -204,18 +208,21 @@
   
   
   
-  
-    <li class="md-tabs__item">
-      <a href="../install/" class="md-tabs__link">
-        
+    
   
   
     
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="./" class="md-tabs__link">
+          
   
-  Install
+  
+  Technical Documentation
 
-      </a>
-    </li>
+        </a>
+      </li>
+    
   
 
       
@@ -494,6 +501,221 @@
       
   
   
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Technical Documentation
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Technical Documentation
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#high-level-overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        High-Level Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#service-components" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Service Components
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Service Components">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-web-api-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Web API (api)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-workers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Workers
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-infrastructure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Infrastructure
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#data-flow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data Flow
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#storage-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Storage Architecture
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
   
   
     <li class="md-nav__item">
@@ -504,7 +726,7 @@
   <span class="md-ellipsis">
     
   
-    Install
+    Installation
   
 
     
@@ -513,6 +735,42 @@
   
 
       </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
     </li>
   
 
@@ -588,87 +846,84 @@
 
 
 
-<h1 id="upload-data-for-identification">Upload data for identification</h1>
-<p>There are several ways how to upload media files and metadata to the identification process.</p>
-<h2 id="no-oranized-database-just-images-and-videos">No oranized database, just images and videos</h2>
-<p>If you have no existing organized database, you can upload a ZIP archive with images and videos into
-the application and the representatives of the individuals will be then selected manually in the web interface.
-  <img alt="upload_unknown" src="../media/upload_unknown.png" /></p>
-<h2 id="identities-organized-in-directories">Identities organized in directories</h2>
-<p>If you have existing organized database in directories with the name of the identity,
-  you can upload a ZIP archive with this structure into the application.
-  The uploaded archive must contain directories with the name of the identity. The images and videos of the 
-  individuals must be inside these directories.</p>
-<pre><code class="language-aiignore">upload.zip
-├── Bastien/
-│   ├── image1.jpg
-│   ├── image2.jpg
-│   └── video1.mp4
-├── Luna/
-│   ├── image1.png
-│   └── image2.jpg
-└── Max/
-   ├── video1.webp
-   └── video2.mp4
-</code></pre>
-<h2 id="metadata-in-spreadsheet">Metadata in spreadsheet</h2>
+<h1 id="system-architecture">System Architecture</h1>
+<p>The Wildlife ReID App is built as a microservices application orchestrated using Docker Compose. It separates the user-facing web interface from the resource-intensive machine learning tasks required for image analysis.</p>
+<h2 id="high-level-overview">High-Level Overview</h2>
+<p>The system consists of three main logic components:
+1.  <strong>API (Django):</strong> Handles user interactions, data management, and orchestration.
+2.  <strong>Taxon Worker:</strong> Performs species classification (ML inference).
+3.  <strong>Identification Worker:</strong> Performs individual re-identification (ML inference).</p>
+<p>These components communicate asynchronously via a message broker (RabbitMQ) and share data through a database and file storage.</p>
+<h2 id="service-components">Service Components</h2>
+<h3 id="1-web-api-api">1. Web API (<code>api</code>)</h3>
 <ul>
-<li>If your metadata are more complex, you can prepare a CSV or XLSX file with the metadata and a ZIP archive with images and videos.
-  The <code>original_path</code> is required in the uploaded spreadsheet. The <code>predicted_category</code>, <code>unique_name</code>, <code>locality name</code>, <code>latitude</code>, <code>longitude</code>, <code>datetime</code> are optional.</li>
+<li><strong>Technology:</strong> Python, Django, Django REST Framework.</li>
+<li><strong>Role:</strong><ul>
+<li>Serves the web frontend and REST API.</li>
+<li>Manages user authentication (including OAuth).</li>
+<li>Handles file uploads.</li>
+<li>Dispatches tasks to workers via Celery.</li>
 </ul>
-<pre><code class="language-aiignore">upload.zip
- ├── imgs/
- │   ├── im1.jpg
- │   └── im2.jpg
- ├── video1.mp4
- └── metadata.csv
-</code></pre>
-<table>
-<thead>
-<tr>
-<th><code>original_path</code></th>
-<th><code>predicted_category</code></th>
-<th><code>unique_name</code></th>
-<th><code>locality name</code></th>
-<th><code>latitude</code></th>
-<th><code>longitude</code></th>
-<th><code>datetime</code></th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>imgs/im1.jpg</td>
-<td>Lynx lynx</td>
-<td>Bastien</td>
-<td>Pod dubem</td>
-<td>49.28021</td>
-<td>13.1819</td>
-<td>2023-10-01 14:30:00</td>
-</tr>
-<tr>
-<td>imgs/im2.jpg</td>
-<td>Lynx lynx</td>
-<td>Luna</td>
-<td>Za kopcem</td>
-<td>49.27921</td>
-<td>13.8219</td>
-<td>2023-10-01 15:00:00</td>
-</tr>
-<tr>
-<td>video1.mp4</td>
-<td>Lynx lynx</td>
-<td>Bastien</td>
-<td>Pod dubem</td>
-<td>49.28031</td>
-<td>13.1819</td>
-<td>2023-10-01 16:00:00</td>
-</tr>
-</tbody>
-</table>
-<h2 id="update-metadata-of-media-files-in-wildlife-reid-app-database">Update metadata of media files in WildLife ReID App database</h2>
-<p>If your data are already in the WildLife ReID App database, you can update metadata of ZIP file using the spreadsheet file in 
-  format mentioned above. The spreadsheet is uploaded from the menu shown blow.</p>
-<p><img alt="upload_update_metadata" src="../media/upload_update_metadata.png" /></p>
+</li>
+<li><strong>Dependencies:</strong> Connects to the Main Database, Redis, and RabbitMQ.</li>
+</ul>
+<h3 id="2-workers">2. Workers</h3>
+<p>These services run in the background, typically on hardware with GPU acceleration.</p>
+<ul>
+<li><strong>Taxon Worker (<code>taxon_worker</code>):</strong><ul>
+<li>Receives images from the queue.</li>
+<li>Classifies the species/taxon of the animal in the image.</li>
+<li>Returns the classification result to the API.</li>
+</ul>
+</li>
+<li><strong>Identification Worker (<code>identification_worker</code>):</strong><ul>
+<li>Receives cropped images of specific individuals.</li>
+<li>Computes embeddings (feature vectors) to identify unique individuals.</li>
+<li>Uses its own dedicated database (<code>identification_worker_db</code>) to store vector embeddings for fast retrieval.</li>
+</ul>
+</li>
+</ul>
+<h3 id="3-infrastructure">3. Infrastructure</h3>
+<ul>
+<li><strong>Nginx (<code>nginx</code>):</strong><ul>
+<li>Acts as a reverse proxy.</li>
+<li>Serves static files (images, CSS, JS).</li>
+<li>Forwards application requests to the API container.</li>
+</ul>
+</li>
+<li><strong>Message Broker (<code>broker</code>):</strong><ul>
+<li><strong>Technology:</strong> RabbitMQ.</li>
+<li>Distributes tasks from the API to the workers.</li>
+</ul>
+</li>
+<li><strong>Cache &amp; Result Backend (<code>redis</code>):</strong><ul>
+<li><strong>Technology:</strong> Redis.</li>
+<li>Stores Celery task results and handles application caching.</li>
+</ul>
+</li>
+<li><strong>Databases:</strong><ul>
+<li><strong>Main DB (<code>db</code>):</strong> PostgreSQL. Stores application data (users, metadata, file paths).</li>
+<li><strong>Identification DB (<code>identification_worker_db</code>):</strong> PostgreSQL. Dedicated to the identification worker for efficient handling of identification data.</li>
+</ul>
+</li>
+</ul>
+<h2 id="data-flow">Data Flow</h2>
+<ol>
+<li><strong>Upload:</strong> A user uploads a batch of images via the Web UI.</li>
+<li><strong>Storage:</strong> Images are stored in the shared volume (<code>api-data</code> or external storage).</li>
+<li><strong>Task Dispatch:</strong> The API creates metadata in the Main DB and sends a classification task to the <code>broker</code>.</li>
+<li><strong>Classification:</strong> The <code>taxon_worker</code> picks up the task, processes the image (GPU), and updates the classification result in the Main DB.</li>
+<li><strong>Identification:</strong> If confirmed, the API sends a task to the <code>identification_worker</code>.</li>
+<li><strong>Matching:</strong> The <code>identification_worker</code> compares the image against known individuals in <code>identification_worker_db</code> and returns potential matches.</li>
+</ol>
+<h2 id="storage-architecture">Storage Architecture</h2>
+<p>The application uses several Docker volumes to persist data:</p>
+<ul>
+<li><code>api-data</code>: Stores uploaded media files.</li>
+<li><code>db-data</code>: Persists the main PostgreSQL database.</li>
+<li><code>identification-worker-db-data</code>: Persists the identification worker's database.</li>
+<li><code>caid_import</code>: A bind-mount used for importing large datasets from the local filesystem.</li>
+</ul>
 
 
 

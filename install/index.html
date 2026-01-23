@@ -9,10 +9,10 @@
       
       
       
-        <link rel="prev" href="../cloud_import/">
+        <link rel="prev" href="../architecture/">
       
       
-        <link rel="next" href="../build_docs/">
+        <link rel="next" href="../configuration/">
       
       
         
@@ -23,7 +23,7 @@
     
     
       
-        <title>Install - WildLife ReID App</title>
+        <title>Installation - WildLife ReID App</title>
       
     
     
@@ -64,7 +64,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#install-guide" class="md-skip">
+        <a href="#installation" class="md-skip">
           Skip to content
         </a>
       
@@ -98,7 +98,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Install
+              Installation
             
           </span>
         </div>
@@ -211,17 +211,18 @@
     
   
   
-    <li class="md-tabs__item md-tabs__item--active">
-      <a href="./" class="md-tabs__link">
-        
-  
-  
     
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../architecture/" class="md-tabs__link">
+          
   
-  Install
+  
+  Technical Documentation
 
-      </a>
-    </li>
+        </a>
+      </li>
+    
   
 
       
@@ -504,22 +505,70 @@
   
   
   
-    <li class="md-nav__item md-nav__item--active">
+    
+    
+    
+    
       
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+        
+        
       
       
         
       
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
-      <a href="./" class="md-nav__link md-nav__link--active">
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Technical Documentation
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Technical Documentation
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Install
+    Architecture
   
 
     
@@ -528,6 +577,260 @@
   
 
       </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prerequisites
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1-clone-the-repository" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Clone the repository
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-create-env-with-required-secrets" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Create .env with required secrets
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Create .env with required secrets">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#optional-import-directory" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Optional: import directory
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-download-and-install-niceadmin-static-assets" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Download and install NiceAdmin static assets
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-run-in-development-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Run in development mode
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-first-time-setup-django-admin-db" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. First-time setup (Django admin + DB)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="5. First-time setup (Django admin + DB)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#create-a-superuser" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Create a superuser
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#if-needed-make-migrations-and-migrate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        (If needed) Make migrations and migrate
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-run-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Run tests
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-sample-data-optional" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Sample data (optional)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#license-note" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        License note
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
       
     </li>
   
@@ -604,7 +907,72 @@
 
 
 
-<h1 id="install-guide">Install guide</h1>
+<h1 id="installation">Installation</h1>
+<p>This app is designed to be run via <strong>Docker Compose</strong>.</p>
+<h2 id="prerequisites">Prerequisites</h2>
+<ul>
+<li><strong>Git</strong></li>
+<li><strong>Docker Engine</strong> + <strong>Docker Compose v2</strong> (<code>docker compose ...</code>)</li>
+<li><code>wget</code> and <code>unzip</code> (to fetch the NiceAdmin frontend assets)</li>
+</ul>
+<h2 id="1-clone-the-repository">1. Clone the repository</h2>
+<pre><code class="language-bash">git clone https://github.com/WildlifeDatasets/wildlife-reid-app.git
+cd wildlife-reid-app
+</code></pre>
+<h2 id="2-create-env-with-required-secrets">2. Create <code>.env</code> with required secrets</h2>
+<p>Create a <code>.env</code> file in the repository root and add the required variables:</p>
+<pre><code class="language-bash">echo &quot;WANDB_API_KEY=...&quot; &gt;&gt; .env
+echo &quot;ALLAUTH_GOOGLE_CLIENT_ID=...&quot; &gt;&gt; .env
+echo &quot;ALLAUTH_GOOGLE_CLIENT_SECRET=...&quot; &gt;&gt; .env
+echo &quot;CAID_HOST=147.228...&quot; &gt;&gt; .env
+</code></pre>
+<p>The README also exports <code>CAID_HOST</code> in the shell (optional, depending on your workflow):</p>
+<pre><code class="language-bash">export CAID_HOST=&quot;147.228...&quot;
+</code></pre>
+<h3 id="optional-import-directory">Optional: import directory</h3>
+<p>Optionally, add an import directory variable:</p>
+<pre><code class="language-bash">echo &quot;CAID_IMPORT=/mnt/caid_import&quot; &gt;&gt; .env
+</code></pre>
+<p>(Adjust paths to your environment.)</p>
+<h2 id="3-download-and-install-niceadmin-static-assets">3. Download and install NiceAdmin static assets</h2>
+<p>The repository expects NiceAdmin assets under <code>src/api/static/</code>:</p>
+<pre><code class="language-bash">wget https://bootstrapmade.com/content/templatefiles/NiceAdmin/NiceAdmin.zip
+unzip NiceAdmin.zip
+mkdir -p src/api/static
+mv NiceAdmin/assets src/api/static/
+</code></pre>
+<h2 id="4-run-in-development-mode">4. Run in development mode</h2>
+<p>Build and start using the development compose file:</p>
+<pre><code class="language-bash">docker compose -f docker-compose.dev.yml build
+docker compose -f docker-compose.dev.yml up
+</code></pre>
+<p>To see the fully expanded compose configuration:</p>
+<pre><code class="language-bash">docker compose -f docker-compose.dev.yml config
+</code></pre>
+<h2 id="5-first-time-setup-django-admin-db">5. First-time setup (Django admin + DB)</h2>
+<h3 id="create-a-superuser">Create a superuser</h3>
+<pre><code class="language-bash">docker exec -it carnivoreid-app-dev-api bash -ic 'python manage.py createsuperuser'
+</code></pre>
+<p>After that, in the <strong>admin panel</strong>:</p>
+<ul>
+<li>Create a new <strong>Workgroup</strong></li>
+<li>Then, in <code>ciduser</code>, add this workgroup to the user</li>
+</ul>
+<h3 id="if-needed-make-migrations-and-migrate">(If needed) Make migrations and migrate</h3>
+<pre><code class="language-bash">docker exec -it carnivoreid-app-dev-api bash -ic 'python manage.py makemigrations'
+docker exec -it carnivoreid-app-dev-api bash -ic 'python manage.py migrate'
+</code></pre>
+<h2 id="6-run-tests">6. Run tests</h2>
+<pre><code class="language-bash">docker compose -f docker-compose.dev.yml exec api_dev python manage.py test
+</code></pre>
+<h2 id="7-sample-data-optional">7. Sample data (optional)</h2>
+<p>To add sample data:</p>
+<ul>
+<li>Create an <code>ArchiveCollection</code> named <code>sample_data</code></li>
+<li>Select multiple <code>UploadedArchive</code> instances and add them into that collection</li>
+</ul>
+<h2 id="license-note">License note</h2>
+<p>This project uses <strong>Annotorious</strong>, licensed under the <strong>BSD 3-Clause License</strong>.</p>
 
 
 
