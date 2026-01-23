@@ -1,6 +1,11 @@
 # Changelog
 
 
+## 2026-01
+
+* [changed] Pure bootstrap % layout
+
+
 ## 2025-12
 
 * [fixed] Error on taxon classification yolo from W&B

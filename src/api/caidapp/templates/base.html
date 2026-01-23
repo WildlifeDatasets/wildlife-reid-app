@@ -4,12 +4,10 @@
 {% load compress %}
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-    <meta charset="utf-8">
+    <meta charset="UTF-8">
+    <title>{% block title %}CarnivoreID{% endblock %}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-
-    <title>Wildlife Re-identification App</title>
     <meta content="" name="description">
     <meta content="" name="keywords">
 
@@ -19,737 +17,322 @@
 
     <!-- Google Fonts -->
     <link href="https://fonts.gstatic.com" rel="preconnect">
-    <link href="https://fonts.googleapis.com/css?family=Open+Sans:300,300i,400,400i,600,600i,700,700i|Nunito:300,300i,400,400i,600,600i,700,700i|Poppins:300,300i,400,400i,500,500i,600,600i,700,700i"
-          rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css?family=Open+Sans:300,300i,400,400i,600,600i,700,700i|Nunito:300,300i,400,400i,600,600i,700,700i|Poppins:300,300i,400,400i,500,500i,600,600i,700,700i" rel="stylesheet">
 
-    <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet"
-          integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
-
-{#    New code #}
+    <!-- jQuery -->
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
-     <!-- Popper.js for Bootstrap tooltips and popovers -->
-    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js" integrity="sha384-I7E8VVD/ismYTF4hNIPjVp/Zjvgyol6VFvRkX/vR+Vc4jQkC+hVqc2pM8ODewa9r" crossorigin="anonymous"></script>
 
+    <!-- Bootstrap 5.3 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <script src="https://kit.fontawesome.com/b3fe7a968a.js" crossorigin="anonymous"></script>
 
-    <!-- Bootstrap JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"
-            integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p"
-            crossorigin="anonymous"></script>
-{# end New code #}
+    <!-- Annotorious -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@annotorious/annotorious@latest/dist/annotorious.css">
+    <script src="https://cdn.jsdelivr.net/npm/@annotorious/annotorious@latest/dist/annotorious.js"></script>
 
-
-    {%  compress css %}
-    <!-- Vendor CSS Files -->
-    <link href="{% static 'assets/vendor/bootstrap-icons/bootstrap-icons.css' %}" rel="stylesheet">
-    <link href="{% static 'assets/vendor/boxicons/css/boxicons.min.css' %}" rel="stylesheet">
-    <link href="{% static 'assets/vendor/quill/quill.snow.css' %}" rel="stylesheet">
-    <link href="{% static 'assets/vendor/quill/quill.bubble.css' %}" rel="stylesheet">
-    <link href="{% static 'assets/vendor/remixicon/remixicon.css' %}" rel="stylesheet">
-    <link href="{% static 'assets/vendor/simple-datatables/style.css' %}" rel="stylesheet">
-
-    <!-- Template Main CSS File -->
-    <link href="{% static 'assets/css/style.css' %}" rel="stylesheet">
+    <!-- App layout CSS -->
+    <link href="{% static 'caidapp/css/layout.css' %}" rel="stylesheet">
+    
+    <!-- Custom app styles -->
+    {% compress css %}
     <link href="{% static 'caidapp/style.css' %}" rel="stylesheet">
-    {%  endcompress %}
+    {% endcompress %}
 
-    {#  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-9ndCyUaIbzAi2FUVXJi0CjmCapSmO7SnpJef0486qhLnuZ2cdeRhO02iuK6FUUVM" crossorigin="anonymous">#}
-
-    <!--    icons  maybe it can be removed -->
-    <!-- Font Awesome -->
-    <script type="text/javascript"> (function() { var css = document.createElement('link'); css.href = 'https://use.fontawesome.com/releases/v5.1.0/css/all.css'; css.rel = 'stylesheet'; css.type = 'text/css'; document.getElementsByTagName('head')[0].appendChild(css); })(); </script>
-
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.min.css">
-
-  <!-- Annotorious for image annotation -->
-  <link
-    rel="stylesheet"
-    href="https://cdn.jsdelivr.net/npm/@annotorious/annotorious@latest/dist/annotorious.css">
-  <script
-    src="https://cdn.jsdelivr.net/npm/@annotorious/annotorious@latest/dist/annotorious.js"></script>
-
-
-    <meta name='viewport' content='width=device-width, initial-scale=1'>
-    <!-- =======================================================
-    * Template Name: NiceAdmin
-    * Updated: Mar 09 2023 with Bootstrap v5.2.3
-    * Template URL: https://bootstrapmade.com/nice-admin-bootstrap-admin-html-template/
-    * Author: BootstrapMade.com
-    * License: https://bootstrapmade.com/license/
-    ======================================================== -->
-    {% block head %}
-    {% endblock %}
+    {% block head %}{% endblock %}
 </head>
 
-<body
-        {% if user.is_authenticated %}
-        {% else %}
-            class="toggle-sidebar"
-        {% endif %}
-        >
+<body>
 
-<!-- ======= Header ======= -->
-<header id="header" class="header fixed-top d-flex align-items-center">
+<!-- ===================== -->
+<!-- NAVBAR               -->
+<!-- ===================== -->
+<nav class="navbar navbar-dark bg-dark fixed-top px-3 border-bottom">
 
-    <div class="d-flex align-items-center justify-content-between">
-        <a href="/" class="logo d-flex align-items-center">
-            {#        <img src="{% static 'assets/img/logo.png' %}" alt="">#}
-            <span class="d-none d-lg-block">CarnivoreID</span>
-        </a>
-        {% if user.is_authenticated %}
-            <i class="bi bi-list toggle-sidebar-btn"></i>
-        {% endif %}
-    </div><!-- End Logo -->
+    <!-- Mobile toggle -->
+    {% if user.is_authenticated %}
+    <button class="btn btn-outline-light me-2 d-lg-none" 
+            type="button" 
+            data-bs-toggle="offcanvas" 
+            data-bs-target="#sidebar">
+        <i class="bi bi-list"></i>
+    </button>
 
-    {#    <div class="search-bar">#}
-    {#      <form class="search-form d-flex align-items-center" method="POST" action="#">#}
-    {#        <input type="text" name="query" placeholder="Search" title="Enter search keyword">#}
-    {#        <button type="submit" title="Search"><i class="bi bi-search"></i></button>#}
-    {#      </form>#}
-    {#    </div><!-- End Search Bar -->#}
-
-    <nav class="header-nav ms-auto">
-        <ul class="d-flex align-items-center">
-
-            {#        <li class="nav-item d-block d-lg-none">#}
-            {#          <a class="nav-link nav-icon search-bar-toggle " href="#">#}
-            {#            <i class="bi bi-search"></i>#}
-            {#          </a>#}
-            {#        </li><!-- End Search Icon-->#}
-            {##}
-            {#        <li class="nav-item dropdown">#}
-            {##}
-            {#          <a class="nav-link nav-icon" href="#" data-bs-toggle="dropdown">#}
-            {#            <i class="bi bi-bell"></i>#}
-            {#            <span class="badge bg-primary badge-number">4</span>#}
-            {#          </a><!-- End Notification Icon -->#}
-            {##}
-            {#          <ul class="dropdown-menu dropdown-menu-end dropdown-menu-arrow notifications">#}
-            {#            <li class="dropdown-header">#}
-            {#              You have 4 new notifications#}
-            {#              <a href="#"><span class="badge rounded-pill bg-primary p-2 ms-2">View all</span></a>#}
-            {#            </li>#}
-            {#            <li>#}
-            {#              <hr class="dropdown-divider">#}
-            {#            </li>#}
-            {##}
-            {#            <li class="notification-item">#}
-            {#              <i class="bi bi-exclamation-circle text-warning"></i>#}
-            {#              <div>#}
-            {#                <h4>Lorem Ipsum</h4>#}
-            {#                <p>Quae dolorem earum veritatis oditseno</p>#}
-            {#                <p>30 min. ago</p>#}
-            {#              </div>#}
-            {#            </li>#}
-            {##}
-            {#            <li>#}
-            {#              <hr class="dropdown-divider">#}
-            {#            </li>#}
-            {##}
-            {#            <li class="notification-item">#}
-            {#              <i class="bi bi-x-circle text-danger"></i>#}
-            {#              <div>#}
-            {#                <h4>Atque rerum nesciunt</h4>#}
-            {#                <p>Quae dolorem earum veritatis oditseno</p>#}
-            {#                <p>1 hr. ago</p>#}
-            {#              </div>#}
-            {#            </li>#}
-            {##}
-            {#            <li>#}
-            {#              <hr class="dropdown-divider">#}
-            {#            </li>#}
-            {##}
-            {#            <li class="notification-item">#}
-            {#              <i class="bi bi-check-circle text-success"></i>#}
-            {#              <div>#}
-            {#                <h4>Sit rerum fuga</h4>#}
-            {#                <p>Quae dolorem earum veritatis oditseno</p>#}
-            {#                <p>2 hrs. ago</p>#}
-            {#              </div>#}
-            {#            </li>#}
-            {##}
-            {#            <li>#}
-            {#              <hr class="dropdown-divider">#}
-            {#            </li>#}
-            {##}
-            {#            <li class="notification-item">#}
-            {#              <i class="bi bi-info-circle text-primary"></i>#}
-            {#              <div>#}
-            {#                <h4>Dicta reprehenderit</h4>#}
-            {#                <p>Quae dolorem earum veritatis oditseno</p>#}
-            {#                <p>4 hrs. ago</p>#}
-            {#              </div>#}
-            {#            </li>#}
-            {##}
-            {#            <li>#}
-            {#              <hr class="dropdown-divider">#}
-            {#            </li>#}
-            {#            <li class="dropdown-footer">#}
-            {#              <a href="#">Show all notifications</a>#}
-            {#            </li>#}
-            {##}
-            {#          </ul><!-- End Notification Dropdown Items -->#}
-            {##}
-            {#        </li><!-- End Notification Nav -->#}
-            {##}
-            {#        <li class="nav-item dropdown">#}
-            {##}
-            {#          <a class="nav-link nav-icon" href="#" data-bs-toggle="dropdown">#}
-            {#            <i class="bi bi-chat-left-text"></i>#}
-            {#            <span class="badge bg-success badge-number">3</span>#}
-            {#          </a><!-- End Messages Icon -->#}
-            {##}
-            {#          <ul class="dropdown-menu dropdown-menu-end dropdown-menu-arrow messages">#}
-            {#            <li class="dropdown-header">#}
-            {#              You have 3 new messages#}
-            {#              <a href="#"><span class="badge rounded-pill bg-primary p-2 ms-2">View all</span></a>#}
-            {#            </li>#}
-            {#            <li>#}
-            {#              <hr class="dropdown-divider">#}
-            {#            </li>#}
-            {##}
-            {#            <li class="message-item">#}
-            {#              <a href="#">#}
-            {#                <img src="{% static 'assets/img/messages-1.jpg ' %}" alt="" class="rounded-circle">#}
-            {#                <div>#}
-            {#                  <h4>Maria Hudson</h4>#}
-            {#                  <p>Velit asperiores et ducimus soluta repudiandae labore officia est ut...</p>#}
-            {#                  <p>4 hrs. ago</p>#}
-            {#                </div>#}
-            {#              </a>#}
-            {#            </li>#}
-            {#            <li>#}
-            {#              <hr class="dropdown-divider">#}
-            {#            </li>#}
-            {##}
-            {#            <li class="message-item">#}
-            {#              <a href="#">#}
-            {#                <img src="{% static 'assets/img/messages-2.jpg' %}" alt="" class="rounded-circle">#}
-            {#                <div>#}
-            {#                  <h4>Anna Nelson</h4>#}
-            {#                  <p>Velit asperiores et ducimus soluta repudiandae labore officia est ut...</p>#}
-            {#                  <p>6 hrs. ago</p>#}
-            {#                </div>#}
-            {#              </a>#}
-            {#            </li>#}
-            {#            <li>#}
-            {#              <hr class="dropdown-divider">#}
-            {#            </li>#}
-            {##}
-            {#            <li class="message-item">#}
-            {#              <a href="#">#}
-            {#                <img src="{% static 'assets/img/messages-3.jpg' %}" alt="" class="rounded-circle">#}
-            {#                <div>#}
-            {#                  <h4>David Muldon</h4>#}
-            {#                  <p>Velit asperiores et ducimus soluta repudiandae labore officia est ut...</p>#}
-            {#                  <p>8 hrs. ago</p>#}
-            {#                </div>#}
-            {#              </a>#}
-            {#            </li>#}
-            {#            <li>#}
-            {#              <hr class="dropdown-divider">#}
-            {#            </li>#}
-            {##}
-            {#            <li class="dropdown-footer">#}
-            {#              <a href="#">Show all messages</a>#}
-            {#            </li>#}
-            {##}
-            {#          </ul><!-- End Messages Dropdown Items -->#}
-            {##}
-            {#        </li><!-- End Messages Nav -->#}
-
-
-            <li class="nav-item pe-3">
-                <a class="nav-link nav-profile d-flex align-items-center  me-0 " href="https://mjirik.github.io/CarnivoreID-doc/">
-                    <i class="bi bi-book me-1"></i>
-                    <span>Docs</span>
-                </a>
-            </li>
-            {% if user.is_authenticated %}
-                {% if request.user.is_superuser %}
-                    <li class="nav-item dropdown pe-3">
-                    <a class="nav-link nav-profile d-flex align-items-center pe-0" href="#" data-bs-toggle="dropdown">
-                        {#            <img src="{% static 'assets/img/profile-img.jpg' %}" alt="Profile" class="rounded-circle">#}
-                        <span class="d-none d-md-block dropdown-toggle ps-2">
-                            <i class="bi bi-tools"></i>
-                            Admin tools
-                        </span>
-                    </a><!-- End Profile Iamge Icon -->
-
-                    <ul class="dropdown-menu dropdown-menu-end dropdown-menu-arrow profile">
-                        <li class="dropdown-header">
-                            <h6>Admin tools</h6>
-                            {#              <span>Web Designer</span>#}
-                        </li>
-{#                    <li>#}
-{#                        <a class="dropdown-item d-flex align-items-center" href="{% url 'caidapp:sample_data' %}">#}
-{#                            <i class="fa-solid fa-vial"></i>#}
-{#                            <span>Sample data</span>#}
-{#                        </a>#}
-{#                    </li>#}
-                        {% if user.is_staff %}
-                            {% include 'caidapp/do_admin_stuff.html' %}
-                        {% endif %}
-                    </ul>
-                {% endif %}
-
-            <li class="nav-item dropdown pe-3">
-
-                <a class="nav-link nav-profile d-flex align-items-center pe-0" href="#" data-bs-toggle="dropdown">
-                    {#            <img src="{% static 'assets/img/profile-img.jpg' %}" alt="Profile" class="rounded-circle">#}
-                    <span class="d-none d-md-block dropdown-toggle ps-2">
-                                {% if user.first_name or user.last_name %}
-                                    {{ user.first_name }} {{ user.last_name }}
-                                {% else %}
-                                    {{ user.username }}
-                                {% endif %}
-                    </span>
-                </a><!-- End Profile Iamge Icon -->
-
-                    <ul class="dropdown-menu dropdown-menu-end dropdown-menu-arrow profile">
-                        <li class="dropdown-header">
-                            <h6 data-bs-toggle="tooltip" data-bs-placement="top" title="{{ user.username}}
-                            {% if user.email %}
-                                ({{ user.email }})
-                            {% endif %}
-                            "
-                            >
-                                {% if user.first_name or user.last_name %}
-                                    {{ user.first_name }} {{ user.last_name }}
-                                {% else %}
-                                    {{ user.username }}
-                                {% endif %}
-                            </h6>
-                        </li>
-                        <li>
-                            <p class="dropdown-item-text">
-                                <i class="bi bi-people"></i> {{ user.caiduser.workgroup }}</p>
-                        </li>
-                        {% if request.user.is_superuser %}
-                            <li>
-                            <a class="dropdown-item d-flex align-items-center" href="{% url 'caidapp:impersonate_user' %}">
-                                <i class="bi bi-person"></i>
-                                Impersonate User</a>
-                            </li>
-                        {% endif %}
-                        {% if request.session.impersonate_user_id %}
-                            <li>
-                                <a class="dropdown-item d-flex align-items-center" href="{% url 'caidapp:stop_impersonation' %}">
-                                    <i class="bi bi-person-x"></i>
-                                    Stop Impersonation</a>
-                            </li>
-                        {% endif %}
-
-                        <li>
-                            <a class="dropdown-item d-flex align-items-center" href="{% url 'caidapp:switch_private_mode' %}">
-                                <span data-bs-toggle="tooltip" title="In private mode the locality names are hidden.">
-                                {%  if request.session.private_mode %}
-                                    <i class="bi bi-eye-slash"></i>
-                                    <span>Turn off private mode</span>
-                                {% else %}
-                                    <i class="bi bi-eye"></i>
-                                    <span>Turn on private mode</span>
-                                {% endif %}
-                                </span>
-                            </a>
-                        </li>
-
-                        <li>
-                            <hr class="dropdown-divider">
-                        </li>
-
-                            <li>
-                                <a class="dropdown-item d-flex align-items-center" href="{% url 'caidapp:sample_data' %}">
-                                    <i class="fa-solid fa-vial"></i>
-                                    <span>Sample data</span>
-                                </a>
-                            </li>
-                    <li>
-                        <a class="dropdown-item d-flex align-items-center" href="{% url 'caidapp:notifications' %}">
-                            <i class="bi bi-bell"></i>
-                            <span>Notifications</span>
-                        </a>
-
-                    </li>
-                        {% if user.is_staff %}
-                            <li>
-                                <hr class="dropdown-divider">
-                            </li>
-                            <li>
-                                <a class="dropdown-item d-flex align-items-center" href="{% url 'admin:index' %}">
-                                    <i class="bi bi-lock"></i>
-                                    <span>Admin</span>
-                                </a>
-                            </li>
-{#                            {% include 'caidapp/do_admin_stuff.html' %}#}
-                        {% endif %}
-                        <li >
-                            <a class="dropdown-item d-flex align-items-center" href="{% url 'caidapp:update_caiduser' %}">
-                                <i class="bi bi-person-gear"></i>
-                                User Settings</a>
-                            {#              <span>Web Designer</span>#}
-                        </li>
-                        {% if user.caiduser.workgroup and user.caiduser.workgroup_admin %}
-                    <li>
-
-                        <a class="dropdown-item d-flex align-items-center" href="{% url 'caidapp:workgroup-update' user.caiduser.workgroup.id %}">
-                            <i class="bi bi-building-gear"></i>
-                            <span>Workgroup Settings</span>
-                        </a>
-                    </li>
-                            {% endif %}
-
-                        <li>
-                            <a class="dropdown-item d-flex align-items-center" href="{% url 'caidapp:logout_view' %}">
-                                <i class="bi bi-box-arrow-right"></i>
-                                <span>Sign Out</span>
-                            </a>
-                        </li>
-
-                    </ul><!-- End Profile Dropdown Items -->
-            </li><!-- End Profile Nav -->
-                {% endif %}
-
-        </ul>
-    </nav><!-- End Icons Navigation -->
-
-</header><!-- End Header -->
-
-{#{% if user.is_authenticated %}{% else %}{{ collapse }}{% endif %}#}
-<!-- ======= Sidebar ======= -->
-{% if user.is_authenticated %}
-<aside id="sidebar" class="sidebar
-">
-        <ul class="sidebar-nav" id="sidebar-nav">
-
-            <li class="nav-item">
-                <a class="nav-link collapsed" href="{% url 'caidapp:home' %}">
-                    <i class="bi bi-house"></i>
-{#                    <i class="bi bi-dash"></i>#}
-{#                    <i class="ri-dashboard-line"></i>#}
-                    <span>Home</span>
-                </a>
-            </li>
-{#            <li class="nav-item">#}
-{#                <a class="nav-link collapsed" href="{% url 'caidapp:uploads' %}">#}
-{#                    <i class="fa-solid fa-hippo"></i>#}
-{#                    <span>Taxon</span>#}
-{#                </a>#}
-{#            </li>#}
-            {% if user.caiduser.show_taxon_classification %}
-            <li class="nav-item">
-                <a class="nav-link collapsed" data-bs-target="#icons-nav1" data-bs-toggle="collapse" href="#" aria-expanded="true">
-                    <i class="fa-solid fa-hippo"></i>
-                    <span>Taxon</span><i class="bi bi-chevron-down ms-auto"></i>
-                </a>
-                <ul id="icons-nav1" class="nav-content collapse show" data-bs-parent="#sidebar-nav" style="">
-                    <li>
-                        <a class="nav-link collapsed" href="{% url 'caidapp:taxon_processing' %}">
-                            <i class="bi bi-circle"></i>
-                            <span>Taxon classification</span>
-                        </a>
-                    </li>
-                    <li>
-                        <a class="nav-link collapsed" href="{% url 'caidapp:uploads' %}">
-                            <i class="bi bi-circle"></i>
-                            <span>Camera Trap Checks</span>
-                        </a>
-                    </li>
-                    <li>
-                        <a class="nav-link collapsed" href="{% url 'caidapp:show_taxons' %}">
-                            <i class="bi bi-circle"></i>
-                            <span>Taxons</span>
-                        </a>
-                    </li>
-{#                    <li>#}
-{#                        <a class="nav-link collapsed" href="{% url 'caidapp:check_dates' %}">#}
-{#                            <i class="bi bi-calendar"></i>#}
-{#                            <span>Dates</span>#}
-{#                        </a>#}
-{#                    </li>#}
-                    {% if user.caiduser.import_dir|length > 0 %}
-                    <li>
-                            <a class="nav-link collapsed" href="{% url 'caidapp:cloud_import_preview' %}">
-                                <i class="bi bi-circle"></i>
-{#                                <i class="bi bi-cloud-arrow-up"></i> #}
-                                Cloud upload
-                            </a>
-                    </li>
-                    {% endif %}
-                </ul>
-            </li>
-            {% endif %}
-{#            <li class="nav-item">#}
-{#                <a class="nav-link collapsed" href="{% url 'caidapp:uploads_identities' %}">#}
-{#                    <i class="fas fa-fingerprint"></i>#}
-{#                    <span>Identities Uploads</span>#}
-{#                </a>#}
-{#            </li>#}
-
-
-            {% if user.caiduser.workgroup %}
-            <li class="nav-item">
-                <a class="nav-link collapsed" data-bs-target="#icons-nav" data-bs-toggle="collapse" href="#" aria-expanded="true">
-                    <i class="fas fa-fingerprint"></i>
-                    <span>Individuality</span><i class="bi bi-chevron-down ms-auto"></i>
-                </a>
-                <ul id="icons-nav" class="nav-content collapse show" data-bs-parent="#sidebar-nav" style="">
-                    <li>
-                        <a class="nav-link collapsed" href="{% url 'caidapp:dash_identities' %}">
-{#                            <i class="bi bi-dash"></i>#}
-                            <i class="bi bi-circle"></i>
-                            <span>Re-identification</span>
-                        </a>
-                    </li>
-                    <li>
-                        <a class="nav-link collapsed" href="{% url 'caidapp:uploads_identities' %}">
-                            <i class="bi bi-circle"></i>
-                            <span>Uploads</span>
-                        </a>
-                    </li>
-                    <li>
-                        <a class="nav-link collapsed" href="{% url 'caidapp:individual_identities' %}">
-                            <i class="bi bi-circle"></i>
-                            <span>Identities</span>
-                        </a>
-                    </li>
-
-
-{#                    <li class="nav-item">#}
-{#                        <a class="nav-link collapsed" data-bs-target="#icons-nav" data-bs-toggle="collapse" href="#" aria-expanded="true">#}
-                            {#                        <i class="fas fa-fingerprint"></i>#}
-{#                            <i class="bi bi-circle"></i>#}
-{#                            <span>Data</span><i class="bi bi-chevron-down ms-auto"></i>#}
-{#                        </a>#}
-{#                        <ul>#}
-{#                            <li>#}
-{#                                <a class="nav-link collapsed" href="{% url 'caidapp:uploads_identities' %}">#}
-{#                                    <i class="bi bi-circle"></i>#}
-{#                                    <span>Recognition</span>#}
-{#                                </a>#}
-{#                            </li>#}
-{#                            <li>#}
-{#                                <a class="nav-link collapsed" href="{% url 'caidapp:individual_identities' %}">#}
-{#                                    <i class="bi bi-circle"></i>#}
-{#                                    <span>Identities</span>#}
-{#                                </a>#}
-{#                            </li>#}
-{##}
-{#                        </ul>#}
-{#                    </li>#}
-
-                    {% if user.caiduser.workgroup and user.caiduser.workgroup_admin  and user.caiduser.show_base_dataset %}
-                            <li>
-                                <a class="nav-link collapsed" href="{% url 'caidapp:uploads_known_identities' %}">
-                                    <i class="bi bi-circle"></i>
-                                    <span>Base dataset</span>
-{#                                    <span>Uploads</span>#}
-                                </a>
-                            </li>
-
-                    {% endif %}
-                </ul>
-            </li>
-            {% endif %}
-            <li class="nav-item">
-                <a class="nav-link collapsed" href="{% url 'caidapp:media_files' %}">
-                    <i class="bi bi-images"></i>
-                    <span>Media files</span>
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link collapsed" href="{% url 'caidapp:localities' %}">
-{#                    <i class="bi bi-map"></i>#}
-                    <i class="fa-solid fa-location-pin"></i>
-                    <span>Localities</span>
-                </a>
-            </li>
-
-            <li class="nav-item">
-                <a class="nav-link collapsed" href="{% url 'caidapp:albums' %}">
-                    <i class="bi bi-inboxes"></i>
-                    <span>Albums</span>
-                </a>
-            </li>
-
-            {% if user.caiduser.workgroup and user.caiduser.workgroup_admin %}
-            <li class="nav-item">
-{#                <a class="nav-link collapsed" href="{% url 'caidapp:workgroup_update' user.caiduser.workgroup.hash %}">#}
-{#                    <i class="bi bi-gear"></i>#}
-{#                    <span>Workgroup Admin</span>#}
-{#                </a>#}
-                <a class="nav-link collapsed" href="{% url 'caidapp:workgroup-update' user.caiduser.workgroup.id %}">
-                    <i class="bi bi-gear"></i>
-                    <span>Workgroup Admin</span>
-                </a>
-            </li>
-            {% endif %}
-            <!-- End Contact Page Nav -->
-
-            <!-- End Contact Page Nav -->
-
-            <!-- End Contact Page Nav -->
-
-
-            {#      <li class="nav-item">#}
-            {#        <a class="nav-link collapsed" href="pages-login.html">#}
-            {#          <i class="bi bi-box-arrow-in-right"></i>#}
-            {#          <span>Login</span>#}
-            {#        </a>#}
-            {#      </li><!-- End Login Page Nav -->#}
-            {##}
-            {#      <li class="nav-item">#}
-            {#        <a class="nav-link collapsed" href="pages-error-404.html">#}
-            {#          <i class="bi bi-dash-circle"></i>#}
-            {#          <span>Error 404</span>#}
-            {#        </a>#}
-            {#      </li><!-- End Error 404 Page Nav -->#}
-
-            <div class="sidebar-logos ">
-                <img src="{% static 'caidapp/FAV_cmyk_english.png' %}" alt="logo FAV" height="40px">
-                <img src="{% static 'caidapp/logo_cvut_en.jpg' %}" alt="logo CVUT" height="40px"><br>
-                <img src="{% static 'caidapp/Mendelu_LDF_logo-ENG_rgb.png' %}" alt="logo Mendelu" height="40px">
-                <img src="{% static 'caidapp/prostredi_pro_zivot_programme_red.png' %}" alt="logo TAČR" height="40px"><br>
-            </div>
-        </ul>
-
-</aside><!-- End Sidebar-->
+    <!-- Desktop toggle -->
+    <button class="btn btn-outline-light me-2 d-none d-lg-inline" 
+            id="sidebarToggle" 
+            type="button">
+        <i class="bi bi-list"></i>
+    </button>
     {% endif %}
 
-<main id="main" class="main">
-    <div id="appbody">
+    <a class="navbar-brand fw-semibold" href="/">CarnivoreID</a>
 
-        {% if messages %}
-            <div class="alert alert-warning" role="alert">
-                <ul class="messages">
-                    {% for message in messages %}
-                        <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
-                    {% endfor %}
+    <div class="ms-auto d-flex align-items-center gap-3">
+        <a class="nav-link text-light" href="https://mjirik.github.io/CarnivoreID-doc/">
+            <i class="bi bi-book"></i>
+        </a>
+
+        {% if user.is_authenticated %}
+            {% if request.user.is_superuser %}
+            <div class="dropdown">
+                <a class="nav-link dropdown-toggle text-light"
+                   href="#"
+               data-bs-toggle="dropdown">
+                    <i class="bi bi-tools"></i>
+                    <span class="d-none d-md-inline ms-1">Admin Tools</span>
+                </a>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li><h6 class="dropdown-header">Admin Tools</h6></li>
+                    {% if user.is_staff %}
+                        {% include 'caidapp/do_admin_stuff.html' %}
+                    {% endif %}
                 </ul>
             </div>
+            {% endif %}
 
+        <div class="dropdown">
+            <a class="nav-link dropdown-toggle text-light"
+               href="#"
+               data-bs-toggle="dropdown">
+                <i class="bi bi-person-circle"></i>
+                <span class="d-none d-md-inline ms-1">
+                    {% if user.first_name or user.last_name %}
+                        {{ user.first_name }} {{ user.last_name }}
+                    {% else %}
+                        {{ user.username }}
+                    {% endif %}
+                </span>
+            </a>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li><h6 class="dropdown-header">{{ user.username }}</h6></li>
+                
+                {% if user.caiduser.workgroup %}
+                <li><span class="dropdown-item-text small"><i class="bi bi-people"></i> {{ user.caiduser.workgroup }}</span></li>
+                {% endif %}
+                
+                <li><hr class="dropdown-divider"></li>
+
+                {% if request.user.is_superuser %}
+                <li><a class="dropdown-item" href="{% url 'caidapp:impersonate_user' %}">Impersonate User</a></li>
+                {% endif %}
+                
+                {% if request.session.impersonate_user_id %}
+                <li><a class="dropdown-item" href="{% url 'caidapp:stop_impersonation' %}">Stop Impersonation</a></li>
+                {% endif %}
+
+                <li><a class="dropdown-item" href="{% url 'caidapp:switch_private_mode' %}">
+                    {% if request.session.private_mode %}Turn off private mode{% else %}Turn on private mode{% endif %}
+                </a></li>
+
+                <li><a class="dropdown-item" href="{% url 'caidapp:update_caiduser' %}">User Settings</a></li>
+                <li><a class="dropdown-item" href="{% url 'caidapp:logout_view' %}">Sign Out</a></li>
+            </ul>
+        </div>
         {% endif %}
+    </div>
+</nav>
 
-        <!-- Loading Modal -->
-        <div class="modal fade" id="loadingModal" tabindex="-1" aria-labelledby="loadingModalLabel" aria-hidden="true">
-            <div class="modal-dialog modal-dialog-centered">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="loadingModalLabel">Loading</h5>
+<!-- ===================== -->
+<!-- APP LAYOUT           -->
+<!-- ===================== -->
+<div class="app-layout">
+
+    {% if user.is_authenticated %}
+    <!-- SIDEBAR -->
+    <div class="offcanvas offcanvas-start" id="sidebar" tabindex="-1">
+        
+        <div class="offcanvas-header d-lg-none">
+            <h5 class="offcanvas-title">Menu</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+        </div>
+
+        <div class="sidebar-nav flex-grow-1 overflow-y-auto">
+            <ul class="nav nav-pills flex-column gap-1 p-2">
+                
+                <!-- Home -->
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'caidapp:home' %}">
+                        <i class="bi bi-house"></i> <span>Home</span>
+                    </a>
+                </li>
+
+                <!-- Taxon Section -->
+                {% if user.caiduser.show_taxon_classification %}
+                <li class="nav-item">
+                    <a class="nav-link collapsed d-flex align-items-center justify-content-between" 
+                       data-bs-toggle="collapse" href="#menu-taxon" role="button" aria-expanded="false">
+                       <div class="d-flex align-items-center">
+                           <i class="fa-solid fa-hippo"></i> <span>Taxon</span>
+                       </div>
+                       <i class="bi bi-chevron-down ms-auto"></i>
+                    </a>
+                    <div class="collapse" id="menu-taxon">
+                        <ul class="nav flex-column ms-3">
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'caidapp:taxon_processing' %}">Processing</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'caidapp:uploads' %}">Camera Trap Checks</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'caidapp:show_taxons' %}">Taxons</a>
+                            </li>
+                            {% if user.caiduser.import_dir|length > 0 %}
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'caidapp:cloud_import_preview' %}">Cloud Upload</a>
+                            </li>
+                            {% endif %}
+                        </ul>
                     </div>
-                    <div class="modal-body">
-                        Please wait while your request is being processed...
+                </li>
+                {% endif %}
+
+                <!-- Individuality Section -->
+                {% if user.caiduser.workgroup %}
+                <li class="nav-item">
+                    <a class="nav-link collapsed d-flex align-items-center justify-content-between" 
+                       data-bs-toggle="collapse" href="#menu-identity" role="button" aria-expanded="false">
+                       <div class="d-flex align-items-center">
+                           <i class="fas fa-fingerprint"></i> <span>Individuality</span>
+                       </div>
+                       <i class="bi bi-chevron-down ms-auto"></i>
+                    </a>
+                    <div class="collapse" id="menu-identity">
+                        <ul class="nav flex-column ms-3">
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'caidapp:dash_identities' %}">Re-identification</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'caidapp:uploads_identities' %}">Uploads</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'caidapp:individual_identities' %}">Identities</a>
+                            </li>
+                            {% if user.caiduser.workgroup and user.caiduser.workgroup_admin and user.caiduser.show_base_dataset %}
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'caidapp:uploads_known_identities' %}">Base dataset</a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </div>
+                </li>
+                {% endif %}
+
+                <!-- Standard Links -->
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'caidapp:media_files' %}">
+                        <i class="bi bi-images"></i> <span>Media files</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'caidapp:localities' %}">
+                        <i class="fa-solid fa-location-pin"></i> <span>Localities</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'caidapp:albums' %}">
+                        <i class="bi bi-inboxes"></i> <span>Albums</span>
+                    </a>
+                </li>
+
+                <!-- Admin Section -->
+                {% if user.caiduser.workgroup and user.caiduser.workgroup_admin %}
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'caidapp:workgroup-update' user.caiduser.workgroup.id %}">
+                        <i class="bi bi-gear"></i> <span>Workgroup Admin</span>
+                    </a>
+                </li>
+                {% endif %}
+                
+                {% if user.is_staff %}
+                <li class="nav-item mt-3">
+                    <hr class="my-1">
+                    <a class="nav-link" href="{% url 'admin:index' %}">
+                        <i class="bi bi-lock"></i> <span>Django Admin</span>
+                    </a>
+                </li>
+                {% endif %}
+
+            </ul>
+        </div>
+
+        <!-- Sidebar Footer (Logos) -->
+        <div class="sidebar-footer mt-auto p-3 text-center border-top">
+            <div class="row g-2 align-items-center">
+                <div class="col-6"><img src="{% static 'caidapp/FAV_cmyk_english.png' %}" class="img-fluid" alt="FAV" style="max-height: 40px;"></div>
+                <div class="col-6"><img src="{% static 'caidapp/logo_cvut_en.jpg' %}" class="img-fluid" alt="CVUT" style="max-height: 40px;"></div>
+                <div class="col-6"><img src="{% static 'caidapp/Mendelu_LDF_logo-ENG_rgb.png' %}" class="img-fluid" alt="Mendelu" style="max-height: 40px;"></div>
+                <div class="col-6"><img src="{% static 'caidapp/prostredi_pro_zivot_programme_red.png' %}" class="img-fluid" alt="TACR" style="max-height: 40px;"></div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- CONTENT -->
+    <main class="content-wrapper">
+        <div id="appbody">
+            {% if messages %}
+                <div class="alert alert-warning mb-4" role="alert">
+                    <ul class="messages mb-0 ps-3">
+                        {% for message in messages %}
+                            <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            {% endif %}
+
+            <!-- Loading Modal -->
+            <div class="modal fade" id="loadingModal" tabindex="-1" aria-labelledby="loadingModalLabel" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="loadingModalLabel">Loading</h5>
+                        </div>
+                        <div class="modal-body text-center py-4">
+                            <div class="spinner-border text-primary mb-3" role="status"></div>
+                            <p class="mb-0">Please wait while your request is being processed...</p>
+                        </div>
                     </div>
                 </div>
             </div>
+
+            {% block body %}{% endblock %}
+            {% block content %}{% endblock %}
         </div>
+    </main>
 
+</div>
 
-        {% block body %}
-        {% endblock %}
-        {% block content %}
-        {% endblock %}
-    </div>
+<!-- Scroll to Top -->
+<a href="#" class="btn btn-primary rounded-circle position-fixed bottom-0 end-0 m-4 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px; z-index: 1050;" onclick="window.scrollTo({top: 0, behavior: 'smooth'}); return false;">
+    <i class="bi bi-arrow-up-short text-white"></i>
+</a>
 
-</main><!-- End #main -->
+<!-- Scripts -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js"></script>
 
-<!-- ======= Footer ======= -->
-{#<footer id="footer" class="footer">#}
-{#    <div class="copyright">#}
-{#        &copy; Copyright <strong><span>NiceAdmin</span></strong>. All Rights Reserved#}
-{#    </div>#}
-{#    <div class="credits">#}
-{#        <img src="{% static 'caidapp/FAV_cmyk_english.png' %}" alt="logo FAV" height="100px">#}
-{#        <img src="{% static 'caidapp/logo_cvut_en.jpg' %}" alt="logo FAV" height="100px">#}
-{#        <img src="{% static 'caidapp/Mendelu_LDF_logo-ENG_rgb.png' %}" alt="logo FAV" height="100px">#}
-{#        <img src="{% static 'caidapp/prostredi_pro_zivot_programme_red.png' %}" alt="logo TAČR" height="100px">#}
-{##}
-{#    </div>#}
-{#</footer><!-- End Footer -->#}
-
-<a href="#" class="back-to-top d-flex align-items-center justify-content-center"><i
-        class="bi bi-arrow-up-short"></i></a>
-
-{#  popper is for dropdown buttons #}
-{#  <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js" integrity="sha384-I7E8VVD/ismYTF4hNIPjVp/Zjvgyol6VFvRkX/vR+Vc4jQkC+hVqc2pM8ODewa9r" crossorigin="anonymous"></script>#}
-{#  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.min.js" integrity="sha384-fbbOQedDUMZZ5KreZpsbe1LCZPVmfTnH7ois6mU1QK+m14rQ1l2bGBq41eYeM/fS" crossorigin="anonymous"></script>#}
-{#  Added to make dropdown work #}
-{#  <script type="text/javascript" src="Scripts/jquery-2.1.1.min.js"></script>#}
-{#  <script type="text/javascript" src="Scripts/bootstrap.min.js"></script>#}
+<!-- Layout Control JS -->
+<script src="{% static 'caidapp/js/layout.js' %}"></script>
 
 {% compress js %}
-<!-- Vendor JS Files -->
-<script src="{% static 'assets/vendor/apexcharts/apexcharts.min.js' %}"></script>
-{#  <script src="{% static 'assets/vendor/bootstrap/js/bootstrap.bundle.min.js' %}"></script>#}
-{#<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"#}
-{#        integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p"#}
-{#        crossorigin="anonymous"></script>#}
-<script src="{% static 'assets/vendor/chart.js/chart.umd.js' %}"></script>
-<script src="{% static 'assets/vendor/echarts/echarts.min.js' %}"></script>
-<script src="{% static 'assets/vendor/quill/quill.min.js' %}"></script>
-<script src="{% static 'assets/vendor/simple-datatables/simple-datatables.js' %}"></script>
-<script src="{% static 'assets/vendor/tinymce/tinymce.min.js' %}"></script>
-<script src="{% static 'assets/vendor/php-email-form/validate.js' %}"></script>
-<script src="{% static 'caidapp/main.js' %}"></script>
-{% endcompress %}
-
-<!-- Template Main JS File -->
-<script src="{% static 'assets/js/main.js' %}"></script>
-<script src="https://kit.fontawesome.com/b3fe7a968a.js" crossorigin="anonymous"></script>
-{%  compress css %}
-<style>
-
-.sidebar-logos {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    padding: 10px;
-    background-color: rgba(255, 255, 255, 0.8); /* Semi-transparent background, adjust as needed */
-    text-align: center;
-}
-
-.sidebar-logos img {
-    margin: 5px;
-}
-
-</style>
-{%  endcompress %}
-{%  compress js %}
 <script>
-
     document.addEventListener('DOMContentLoaded', function() {
         // Add click event listener to links with the specific class
         document.querySelectorAll('.trigger-loading-modal').forEach(function (link) {
             link.addEventListener('click', function (event) {
-                // Show the loading modal
-                console.log('Showing loading modal');
                 var loadingModal = new bootstrap.Modal(document.getElementById('loadingModal'));
                 loadingModal.show();
             });
         });
     });
-
-    {# The fallowing function fix modal for screen-readers. Modal window should be focusable only if visible. #}
-    document.addEventListener('DOMContentLoaded', function() {
-        const loadingModal = document.getElementById('loadingModal');
-
-        loadingModal.addEventListener('show.bs.modal', function() {
-            loadingModal.removeAttribute('inert');
-        });
-
-        loadingModal.addEventListener('hide.bs.modal', function() {
-            loadingModal.setAttribute('inert', '');
-        });
-    });
-
 </script>
 {% endcompress %}
 
-{% block script %}
-{% endblock %}
-{% block scrips %}
-{% endblock %}
-</body>
+{% block script %}{% endblock %}
 
+</body>
 </html>

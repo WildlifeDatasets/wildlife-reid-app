@@ -65,7 +65,7 @@ docker compose -f docker-compose.dev.yml config
 
 Create superuser:
 ```bash
-docker exec -it carnivoreid-app-dev-api bash -ic 'python manage.py createsuperuser'
+docker compose -f docker-compose.dev.yml exec api_dev python manage.py createsuperuser
 ```
 
 In admin panel create new Workgroup and then in `ciduser` add this workgroup to user.
