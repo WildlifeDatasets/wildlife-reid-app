@@ -42,3 +42,11 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 });
+
+function toggleTheme() {
+    const html = document.documentElement;
+    html.dataset.bsTheme =
+        html.dataset.bsTheme === "dark" ? "light" : "dark";
+}
+
+console.log("114 LAYOUT JS VERSION 789");

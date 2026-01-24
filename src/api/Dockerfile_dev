@@ -29,13 +29,13 @@ COPY --from=ghcr.io/astral-sh/uv:0.5.2 /uv /uvx /bin/
 RUN uv venv /code/.venv
 ENV PATH="/code/.venv/bin:$PATH"
 
-COPY ./src/api/requirements.txt /api/requirements.txt
+COPY ./src/api/requirements.txt /tmp/requirements.txt
 
 # install python dependencies
 ENV APP_DIR='/api'
 WORKDIR $APP_DIR
 RUN uv pip install --no-cache-dir --upgrade pip build && \
-    uv pip install --no-cache-dir --compile --prerelease=allow -r requirements.txt && \
+    uv pip install --no-cache-dir --compile --prerelease=allow -r /tmp/requirements.txt && \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/* /tmp/* /var/tmp/*
 # RUN uv pip install https://github.com/BohemianVRA/FGVC/releases/download/v1.5.4-dev/fgvc-1.5.4.dev0-py3-none-any.whl
 

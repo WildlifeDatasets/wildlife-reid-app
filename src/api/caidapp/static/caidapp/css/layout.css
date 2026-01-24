@@ -10,7 +10,6 @@
 body {
     overflow-x: hidden;
     padding-top: 0; /* Reset previous padding */
-    background-color: #f8f9fa;
 }
 
 .navbar {
@@ -21,47 +20,64 @@ body {
 /* ===================== */
 /* LAYOUT WRAPPER        */
 /* ===================== */
+/* .app-layout {*/
+/*    margin-top: var(--navbar-height);*/
+/*    height: calc(100vh - var(--navbar-height));*/
+/*    !* Ensures the layout takes full remaining height *!*/
+/*    display: flex;*/
+/*    !*width: 100%;*!*/
+/*}*/
+
+/*!* ===================== *!*/
+/*!* SIDEBAR BASE          *!*/
+/*!* ===================== *!*/
+/*#sidebar {*/
+/*    background-color: #fff;*/
+/*    transition: width 0.25s ease;*/
+/*    border-right: 1px solid #dee2e6;*/
+/*    display: flex;*/
+/*    flex-direction: column;*/
+/*}*/
+
+/*!* Main Content Area *!*/
+/* .content-wrapper {*/
+/*    transition: margin-left 0.25s ease;*/
+/*    overflow-y: auto; !* Content scrolls independently *!*/
+/*    height: 100%;*/
+/*    flex: 1; !* Takes remaining width *!*/
+/*    min-width: 0; !* Prevents overflow issues in flex container *!*/
+/*    !* Padding is handled by container-fluid inside *!*/
+/*}*/
+
+
 .app-layout {
     margin-top: var(--navbar-height);
-    height: calc(100vh - var(--navbar-height));
-    /* Ensures the layout takes full remaining height */
     display: flex;
+    min-height: calc(100vh - var(--navbar-height));
 }
 
-/* ===================== */
-/* SIDEBAR BASE          */
-/* ===================== */
 #sidebar {
-    background-color: #fff;
-    transition: width 0.25s ease;
-    border-right: 1px solid #dee2e6;
-    display: flex;
-    flex-direction: column;
+    width: var(--sidebar-width);
+    flex-shrink: 0;
 }
 
-/* Main Content Area */
 .content-wrapper {
-    transition: margin-left 0.25s ease;
-    /*overflow-y: auto; !* Content scrolls independently *!*/
-    height: 100%;
-    flex: 1; /* Takes remaining width */
-    padding: 1.5rem;
-    min-width: 0; /* Prevents overflow issues */
-
+    flex: 1;
+    min-width: 0;
 }
 
 /* Navigation Links */
 .nav-link {
     white-space: nowrap;
-    color: #333;
+    /*color: #333;*/
     padding: 0.75rem 1rem;
     font-weight: 500;
 }
 
 .nav-link:hover,
 .nav-link.active {
-    color: #0d6efd;
-    background-color: #e9ecef;
+    /*color: #0d6efd;*/
+    /*background-color: #e9ecef;*/
 }
 
 .nav-link i {
@@ -80,7 +96,7 @@ body {
 .sidebar-footer {
     padding: 1rem;
     border-top: 1px solid #dee2e6;
-    background-color: #f8f9fa;
+    /*background-color: #f8f9fa;*/
 }
 
 /* ===================== */
@@ -144,23 +160,40 @@ body {
 /* ===================== */
 /* MOBILE BEHAVIOR       */
 /* ===================== */
+/*@media (max-width: 991.98px) {*/
+/*    #sidebar {*/
+/*        !* Standard Offcanvas behavior on mobile *!*/
+/*        position: fixed;*/
+/*        top: var(--navbar-height); !* Starts below navbar *!*/
+/*        bottom: 0;*/
+/*        z-index: 1045;*/
+/*        width: 100%; !* Full width or standard offcanvas width *!*/
+/*        height: calc(100vh - var(--navbar-height));*/
+/*        !* Offcanvas class handles transform/visibility *!*/
+/*    }*/
+/*    */
+/*    !* Adjust offcanvas-start to account for top spacing if needed *!*/
+/*    .offcanvas-start {*/
+/*        top: var(--navbar-height); */
+/*    }*/
+/*}*/
+
 @media (max-width: 991.98px) {
-    #sidebar {
-        /* Standard Offcanvas behavior on mobile */
-        position: fixed;
-        top: var(--navbar-height); /* Starts below navbar */
-        bottom: 0;
-        z-index: 1045;
-        width: 100%; /* Full width or standard offcanvas width */
-        height: calc(100vh - var(--navbar-height));
-        /* Offcanvas class handles transform/visibility */
+    .app-layout {
+        flex-direction: column;
     }
-    
-    /* Adjust offcanvas-start to account for top spacing if needed */
-    .offcanvas-start {
-        top: var(--navbar-height); 
+
+    #sidebar {
+        width: 100%;
+        border-right: none;
+        border-bottom: 1px solid #dee2e6;
+    }
+
+    .content-wrapper {
+        width: 100%;
     }
 }
+
 
 /* Loading Modal */
 #loadingModal .modal-content {

@@ -1,0 +1,57 @@
+{% if user.is_authenticated %}
+    {% if request.user.is_superuser %}
+        <div class="dropdown">
+            <a class="nav-link dropdown-toggle text-light"
+               href="#"
+               data-bs-toggle="dropdown">
+                <i class="bi bi-tools"></i>
+                <span class="d-none d-md-inline ms-1">Admin Tools</span>
+            </a>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li><h6 class="dropdown-header">Admin Tools</h6></li>
+                {% if user.is_staff %}
+                    {% include 'caidapp/do_admin_stuff.html' %}
+                {% endif %}
+            </ul>
+        </div>
+    {% endif %}
+
+    <div class="dropdown">
+        <a class="nav-link dropdown-toggle text-light"
+           href="#"
+           data-bs-toggle="dropdown">
+            <i class="bi bi-person-circle"></i>
+            <span class="d-none d-md-inline ms-1">
+                    {% if user.first_name or user.last_name %}
+                        {{ user.first_name }} {{ user.last_name }}
+                    {% else %}
+                        {{ user.username }}
+                    {% endif %}
+                </span>
+        </a>
+        <ul class="dropdown-menu dropdown-menu-end">
+            <li><h6 class="dropdown-header">{{ user.username }}</h6></li>
+
+            {% if user.caiduser.workgroup %}
+                <li><span class="dropdown-item-text small"><i class="bi bi-people"></i> {{ user.caiduser.workgroup }}</span></li>
+            {% endif %}
+
+            <li><hr class="dropdown-divider"></li>
+
+            {% if request.user.is_superuser %}
+                <li><a class="dropdown-item" href="{% url 'caidapp:impersonate_user' %}">Impersonate User</a></li>
+            {% endif %}
+
+            {% if request.session.impersonate_user_id %}
+                <li><a class="dropdown-item" href="{% url 'caidapp:stop_impersonation' %}">Stop Impersonation</a></li>
+            {% endif %}
+
+            <li><a class="dropdown-item" href="{% url 'caidapp:switch_private_mode' %}">
+                {% if request.session.private_mode %}Turn off private mode{% else %}Turn on private mode{% endif %}
+            </a></li>
+
+            <li><a class="dropdown-item" href="{% url 'caidapp:update_caiduser' %}">User Settings</a></li>
+            <li><a class="dropdown-item" href="{% url 'caidapp:logout_view' %}">Sign Out</a></li>
+        </ul>
+    </div>
+{% endif %}

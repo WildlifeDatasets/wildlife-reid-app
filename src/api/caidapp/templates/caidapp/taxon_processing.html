@@ -1,47 +1,47 @@
 {% extends 'base.html' %}
 {% load static %}
-{% block head %}
-    <!--refresh every 120 s-->
+{#{% block head %}#}
+{#    <!--refresh every 120 s-->#}
     {#<meta http-equiv="refresh" content="120">#}
-    <style>
-        /* Custom breakpoint for screens larger than 1920px (you can adjust the value as needed) */
-        @media (min-width: 1920px) {
-            .col-xxxl-1 {
-                flex: 0 0 auto;
-                width: 8.33%; /* 1/12th of the width */
-            }
-            .col-xxxl-2 {
-                flex: 0 0 auto;
-                width: 16.66%; /* 2/12th of the width */
-            }
-            .col-xxxl-3 {
-                flex: 0 0 auto;
-                width: 25%; /* 3/12th of the width */
-            }
-            .col-xxxl-4 {
-                flex: 0 0 auto;
-                width: 33.33%; /* 4/12th of the width */
-            }
-            .col-xxxl-6 {
-                flex: 0 0 auto;
-                width: 50%; /* 6/12th of the width */
-            }
-        }
-
-
-
-        .card {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .card-body {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-        }
-    </style>
-{% endblock %}
+{#    <style>#}
+{#        /* Custom breakpoint for screens larger than 1920px (you can adjust the value as needed) */#}
+{#        @media (min-width: 1920px) {#}
+{#            .col-xxxl-1 {#}
+{#                flex: 0 0 auto;#}
+{#                width: 8.33%; /* 1/12th of the width */#}
+{#            }#}
+{#            .col-xxxl-2 {#}
+{#                flex: 0 0 auto;#}
+{#                width: 16.66%; /* 2/12th of the width */#}
+{#            }#}
+{#            .col-xxxl-3 {#}
+{#                flex: 0 0 auto;#}
+{#                width: 25%; /* 3/12th of the width */#}
+{#            }#}
+{#            .col-xxxl-4 {#}
+{#                flex: 0 0 auto;#}
+{#                width: 33.33%; /* 4/12th of the width */#}
+{#            }#}
+{#            .col-xxxl-6 {#}
+{#                flex: 0 0 auto;#}
+{#                width: 50%; /* 6/12th of the width */#}
+{#            }#}
+{#        }#}
+{##}
+{##}
+{##}
+{#        .card {#}
+{#            display: flex;#}
+{#            flex-direction: column;#}
+{#        }#}
+{##}
+{#        .card-body {#}
+{#            flex: 1;#}
+{#            display: flex;#}
+{#            flex-direction: column;#}
+{#        }#}
+{#    </style>#}
+{#{% endblock %}#}
 {% block body %}
     {% if user.is_authenticated %}
         <div class="pagetitle">
@@ -52,6 +52,7 @@
 {#                    <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li>#}
                 </ol>
             </nav>
+        </div>
 {#                <div class="d-flex justify-content-between">#}
                 <div class="row">
 
@@ -71,7 +72,7 @@
                     <div class="col-xl-2 d-flex align-items-center justify-content-center">
                             <i class="bi bi-arrow-right-short fa-2x" style="vertical-align: middle;"></i>
                     </div>
-                    <div class="col-xl-5">
+                    <div class="col-xl-5 mb-2">
                         <div class="card">
                             <div class="card-body">
                                 <h3 class="card-title">Annotate</h3>
@@ -104,6 +105,5 @@
             </div>
 
 
-        </div><!-- End Page Title -->
     {% endif %}
 {% endblock %}

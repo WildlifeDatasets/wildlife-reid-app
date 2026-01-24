@@ -53,9 +53,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", default="m9ba0d1&(82_=m=-l6b=j#6c2i2*3$&bpm+=n5udouc92-r2ek")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get("DEBUG", False)
-if isinstance(DEBUG, str):
-    DEBUG = DEBUG.lower() == "true"
+DEBUG = os.environ.get("DEBUG", "false").lower() in ("1", "true", "yes", "on")
+
 logger.info(f"Setting environment variable {DEBUG=}.")
 
 # DEBUG_TOOLBAR = DEBUG
@@ -78,6 +77,10 @@ CSRF_TRUSTED_ORIGINS = [
     "http://localhost",
     "http://localhost:13680",
     "http://127.0.0.1:13680",
+    "http://localhost:8080",
+    "http://127.0.0.1:8080",
+    "http://localhost:22280",
+    "http://127.0.0.1:22280",
     # 'http://caid.kky.zcu.cz:13680',
     # 'https://caid.kky.zcu.cz:13680',
     # 'https://localhost:13680',
@@ -117,6 +120,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",  # MUSÍ být hned za SecurityMiddleware
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -133,8 +137,44 @@ STATICFILES_FINDERS = [
     "compressor.finders.CompressorFinder",
 ]
 
+
+# if not DEBUG:
+#     INSTALLED_APPS += ["compressor"]
+#     STATICFILES_FINDERS += ["compressor.finders.CompressorFinder"]
+
+# if DEBUG:
+#     STATICFILES_STORAGE = "django.contrib.staticfiles.storage.StaticFilesStorage"
+#     COMPRESS_ENABLED = False
+# else:
+#     STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+#     COMPRESS_ENABLED = True
+
+COMPRESS_ENABLED = False
+COMPRESS_OFFLINE = False
+# STATICFILES_STORAGE = "django.contrib.staticfiles.storage.StaticFilesStorage"
+# STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+if DEBUG:
+    # vývoj: žádné hashe, žádná cache
+    STATICFILES_STORAGE = "django.contrib.staticfiles.storage.StaticFilesStorage"
+    WHITENOISE_MAX_AGE = 0
+else:
+    # produkce: hash + gzip + brotli
+    STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+    WHITENOISE_MAX_AGE = 31536000  # 1 rok
+
+
 # COMPRESS_ENABLED = True  # aktivuje kompresi i v debug režimu (obvykle jen v produkci)
 # COMPRESS_OUTPUT_DIR = 'CACHE'  # kam se uloží zkomprimované soubory
+# COMPRESS_OFFLINE = False
+
+# umožní WhiteNoise najít soubory přes Django finders
+WHITENOISE_USE_FINDERS = True
+
+# automaticky přidá Cache-Control: immutable k hashovaným souborům
+WHITENOISE_IMMUTABLE_FILE_TEST = lambda path, url: "static/" in url and "." in url
+
+
+
 
 if DEBUG_TOOLBAR:
     INSTALLED_APPS += ["debug_toolbar"]
@@ -228,6 +268,13 @@ MEDIA_URL = "/media/"
 MEDIA_ROOT = Path(SHARED_DATA_PATH) / "media"
 # use python manage.py collectstatic
 STATIC_ROOT = Path(SHARED_DATA_PATH) / "static"
+
+if DEBUG:
+    STATICFILES_DIRS = [
+        BASE_DIR / "caidapp" / "static",        # app statika (volitelné)
+        # Path(SHARED_DATA_PATH) / "static",      # NiceAdmin assets
+    ]
+    # STATIC_ROOT = None
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field

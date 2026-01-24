@@ -66,6 +66,8 @@ services:
       context: .
       dockerfile: ./src/api/Dockerfile_dev
     restart: "no"
+    ports:
+      - "22280:22280"  # direct access to API for development purposes (with auto-reload of static files)
     env_file:
       - "src/variables.env"
       - "src/variables.dev.env"
@@ -79,8 +81,8 @@ services:
       - private-data-dev:/private_data  # private keys that should not be automatically backed up
       - ${CAID_IMPORT:-./caid_import}:/caid_import
       - shared-data:/shared_data
-    expose:
-      - 8080  # this should be accessible through inner nginx
+#    expose:
+#      - 22280  # this limit access to the inner nginx only
 #    depends_on:
 #      - taxon_worker_dev
 #      - identification_worker_dev
@@ -198,7 +200,7 @@ services:
     depends_on:
       - api_dev
     ports:
-      - "13680:8080"  # this should be input point from the outer nginx. Inner nginx will redirect static files
+      - "13680:22280"  # Nginx will redirect static files from collectstatics (no auto-reload)
     labels:
       com.piva-ai.group: "applications"
     environment:

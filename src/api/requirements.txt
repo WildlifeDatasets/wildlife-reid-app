@@ -35,3 +35,4 @@ tqdm==4.62.3
 joblib==1.4.0
 numpy==1.26
 python-Levenshtein==0.26.1
+whitenoise==6.4.0
