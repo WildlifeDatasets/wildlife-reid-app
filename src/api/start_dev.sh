@@ -14,7 +14,7 @@ fi
 python manage.py migrate --noinput --verbosity 2
 
 # collect static in the production only
-# python manage.py collectstatic --noinput --verbosity 2
+python manage.py collectstatic --noinput --verbosity 2
 
 # start "local" celery worker
 C_FORCE_ROOT=false celery -A caidapp.celery_app worker --pool threads --concurrency 4 --loglevel info &
