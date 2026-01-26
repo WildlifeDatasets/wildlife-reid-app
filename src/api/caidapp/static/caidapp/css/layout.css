@@ -127,32 +127,32 @@ body {
     }
 
     /* 2. Hide text labels */
-    body.sidebar-collapsed .nav-link span,
-    body.sidebar-collapsed .offcanvas-title,
-    body.sidebar-collapsed .bi-chevron-down {
+    body.sidebar-collapsed #sidebar .nav-link span,
+    body.sidebar-collapsed #sidebar .offcanvas-title,
+    body.sidebar-collapsed #sidebar .bi-chevron-down {
         display: none;
         opacity: 0;
         pointer-events: none;
     }
 
     /* 3. Hide footer content or adjust it */
-    body.sidebar-collapsed .sidebar-footer {
+    body.sidebar-collapsed #sidebar .sidebar-footer {
         display: none; /* Or adjust to show icons only */
     }
     
     /* 4. Center icons */
-    body.sidebar-collapsed .nav-link {
+    body.sidebar-collapsed #sidebar .nav-link {
         justify-content: center;
         padding-left: 0;
         padding-right: 0;
     }
     
-    body.sidebar-collapsed .nav-link i {
+    body.sidebar-collapsed #sidebar .nav-link i {
         margin-right: 0;
     }
 
     /* 5. Hide submenus in collapsed state to prevent layout breaking */
-    body.sidebar-collapsed .collapse.show {
+    body.sidebar-collapsed #sidebar .collapse.show {
         display: none !important;
     }
 }
