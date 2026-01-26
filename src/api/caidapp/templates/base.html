@@ -49,7 +49,7 @@
 <!-- ===================== -->
 <!-- NAVBAR               -->
 <!-- ===================== -->
-<nav class="navbar navbar-dark bg-dark fixed-top px-3 border-bottom">
+<nav class="navbar navbar-dark bg-dark fixed-top px-3 border-bottom mt-0">
 
     <!-- Mobile toggle -->
     {% if user.is_authenticated %}
@@ -89,7 +89,7 @@
 
     {% if user.is_authenticated %}
     <!-- SIDEBAR -->
-    <div class="offcanvas offcanvas-start" id="sidebar" tabindex="-1">
+    <div class="offcanvas offcanvas-start d-flex flex-column" id="sidebar" tabindex="-1">
         
         <div class="offcanvas-header d-lg-none">
             <h5 class="offcanvas-title">Menu</h5>
