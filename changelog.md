@@ -4,6 +4,8 @@
 ## 2026-01
 
 * [changed] Pure bootstrap % layout
+* [added] Default workgroup for new users
+* [added] Workgroup invitation link
 
 
 ## 2025-12

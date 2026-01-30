@@ -330,7 +330,7 @@ class CaIDUser(models.Model):
     def save(self, *args, **kwargs):
         """Save user and set default taxon if not set."""
         if not self.default_taxon_for_identification:
-            self.default_taxon_for_identification = get_taxon("Lynx lynx")
+            self.default_taxon_for_identification = get_taxon("Animalia")
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -404,6 +404,43 @@ class CaIDUser(models.Model):
             parent__owner__workgroup=self.workgroup,
             parent__taxon_for_identification__isnull=False,
         ).count()
+
+
+class WorkGroupInvitation(models.Model):
+    invited_user = models.ForeignKey(
+        CaIDUser,
+        on_delete=models.CASCADE,
+        related_name="workgroup_invitations"
+    )
+    target_workgroup = models.ForeignKey(
+        WorkGroup,
+        on_delete=models.CASCADE,
+        related_name="invitations"
+    )
+
+    invited_by = models.ForeignKey(
+        CaIDUser,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="sent_workgroup_invitations"
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    status = models.CharField(
+        max_length=20,
+        choices=[
+            ("pending", "Pending"),
+            ("accepted", "Accepted"),
+            ("rejected", "Rejected"),
+        ],
+        default="pending",
+    )
+
+    responded_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        unique_together = ("invited_user", "target_workgroup")
 
 
 class Locality(models.Model):

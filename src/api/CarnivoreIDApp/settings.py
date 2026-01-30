@@ -61,7 +61,7 @@ logger.info(f"Setting environment variable {DEBUG=}.")
 DEBUG_TOOLBAR = False
 
 # A list of strings representing the host/domain names that this Django site can serve
-CAID_HOST = os.getenv("CAID_ALLOWED_HOSTS", default="")
+CAID_ALLOWED_HOSTS = os.getenv("CAID_ALLOWED_HOSTS", default="")
 ALLOWED_HOSTS = [
     "127.0.0.1",
     ".localhost",  # '.' allows to match both 'www.localhost' and 'localhost'
@@ -69,7 +69,7 @@ ALLOWED_HOSTS = [
     # ".caid.kky.zcu.cz",
     # ".kky.zcu.cz",
 ]
-ALLOWED_HOSTS.extend(CAID_HOST.split(","))
+ALLOWED_HOSTS.extend(CAID_ALLOWED_HOSTS.split(","))
 
 CAID_CSRF_TRUSTED_ORIGINS = os.getenv("CAID_CSRF_TRUSTED_ORIGINS", default="")
 CSRF_TRUSTED_ORIGINS = [

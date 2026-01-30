@@ -1,0 +1,9 @@
+<nav aria-label="breadcrumb">
+    {% if nav_dict %}
+        <ol class="breadcrumb">
+            {% for key, value in nav_dict.items %}
+                <li class="breadcrumb-item"><a href="{{ value }}">{{ key }}</a></li>
+            {% endfor %}
+        </ol>
+    {% endif %}
+</nav>

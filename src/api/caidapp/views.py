@@ -1,4 +1,8 @@
 import datetime
+
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import get_object_or_404, redirect
+from django.core.exceptions import PermissionDenied
 import logging
 import os
 import random
@@ -367,14 +371,18 @@ class CaIDUserSettingsView(View):
     def get(self, request):
         """Render the user settings page."""
         form = forms.CaIDUserSettingsForm(instance=request.user.caiduser)
+        context = {
+            "form": form,
+            "headline": "User settings",
+            "button": "Save",
+        }
+        context["nav_dict"] = {
+            "Invitations": reverse("caidapp:workgroup_invitations_for_user"),
+        }
         return render(
             request,
             self.template_name,
-            {
-                "form": form,
-                "headline": "User settings",
-                "button": "Save",
-            },
+            context
         )
 
     def post(self, request):
@@ -387,7 +395,16 @@ class CaIDUserSettingsView(View):
             return redirect(url)
         else:
             messages.error(request, "Please correct the errors below.")
-        return render(request, self.template_name, {"form": form})
+        context = {"form": form, }
+        context["nav_dict"] = {
+            "Invitations": reverse("caidapp:workgroup_invitations_for_user"),
+        }
+        return render(request, self.template_name, context)
+
+    # def get_context_data(self, **kwargs):
+    #     context = super().get_context_data(**kwargs)
+    #     context['title'] = 'User Settings'
+    #     return context
 
 
 def get_filtered_mediafiles(
@@ -2045,7 +2062,7 @@ def upload_archive(
             if request.user.caiduser.default_taxon_for_identification:
                 default_taxon = request.user.caiduser.default_taxon_for_identification
             else:
-                default_taxon = models.get_taxon("Lynx lynx")
+                default_taxon = models.get_taxon("Animalia")
             initial_data["taxon_for_identification"] = default_taxon
             logger.debug(f"{initial_data=}")
             form = UploadedArchiveFormWithTaxon(initial=initial_data, user=request.user)
@@ -2931,6 +2948,10 @@ class WorkgroupUpdateView(WorkgroupAdminRequiredMixin, UpdateView):
         context = super().get_context_data(**kwargs)
         context["headline"] = "Update workgroup"
         context["button"] = "Save"
+        context["nav_dict"] = {
+            "Invitations": reverse_lazy("caidapp:workgroup_invitations"),
+            "Invite User": reverse_lazy("caidapp:workgroup_invitation"),
+        }
         return context
 
 
@@ -3265,7 +3286,7 @@ def refresh_data(request):
 
         if uploaded_archive.contains_single_taxon and uploaded_archive.taxon_for_identification is None:
             # this fixes the compatibility with the old version before 2024-05
-            uploaded_archive.taxon_for_identification = models.get_taxon("Lynx lynx")
+            uploaded_archive.taxon_for_identification = models.get_taxon("Animalia")
             uploaded_archive.save()
 
         # uploaded_archive.refresh_status_after_migration(request)
@@ -4496,3 +4517,204 @@ class NotificationDeleteView(DeleteView):
     template_name = "caidapp/generic_form.html"
     success_url = reverse_lazy("caidapp:notifications")
     title = "Delete Notification"
+
+
+
+
+class WorkGroupInvitationCreateView(LoginRequiredMixin, CreateView):
+    model = models.WorkGroupInvitation
+    template_name = "caidapp/generic_form.html"
+    fields = ["invited_user"]
+    success_url = reverse_lazy("caidapp:workgroup_invitations")
+
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.caiduser.workgroup_admin:
+            raise PermissionDenied
+
+        self.target_workgroup = request.user.caiduser.workgroup
+        return super().dispatch(request, *args, **kwargs)
+
+    def form_valid(self, form):
+        form.instance.invited_by = self.request.user.caiduser
+        form.instance.target_workgroup = self.target_workgroup
+        return super().form_valid(form)
+
+class WorkGroupInvitationListView(LoginRequiredMixin, ListView):
+    model = models.WorkGroupInvitation
+    template_name = "caidapp/generic_list_table.html"
+    context_object_name = "WorkGroupInvitation"
+    title = "Workgroup Invitations"
+
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.caiduser.workgroup_admin:
+            raise PermissionDenied
+
+        self.target_workgroup = request.user.caiduser.workgroup
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_queryset(self):
+        logger.debug(f"{self.target_workgroup=}")
+        invs = models.WorkGroupInvitation.objects.filter(target_workgroup=self.target_workgroup)
+        logger.debug(f"{invs.count()=}")
+        return invs.order_by("-created_at")
+
+    def get_context_data(self, **kwargs):
+        """Set up context data for the list view."""
+        context = super().get_context_data(**kwargs)
+        context["title"] = _("Workgroup Invitations")
+        context["list_display"] = ["invited_user", "invited_by", "created_at", "status",]
+        context["object_detail_url"] = "caidapp:workgroup_invitation_detail"
+        return context
+
+class WorkGroupInvitationForUserListView(LoginRequiredMixin, ListView):
+    model = models.WorkGroupInvitation
+    template_name = "caidapp/generic_list_table.html"
+    context_object_name = "workgroup_invitations"
+    title = "Your Workgroup Invitations"
+
+
+    def get_queryset(self):
+        return models.WorkGroupInvitation.objects.filter(invited_user=self.request.user.caiduser).order_by("-created_at")
+
+    def get_context_data(self, **kwargs):
+        """Set up context data for the list view."""
+        context = super().get_context_data(**kwargs)
+        context["title"] = _("Your Workgroup Invitations")
+        context["list_display"] = ["invited_by", "target_workgroup", "created_at", "status",]
+        context["object_detail_url"] = "caidapp:workgroup_invitation_detail"
+
+        return context
+
+class WorkGroupInvitationDetailView(LoginRequiredMixin, DetailView):
+    model = models.WorkGroupInvitation
+    template_name = "caidapp/generic_detail.html"
+    context_object_name = "workgroup_invitation"
+    title = "Workgroup Invitation Detail"
+    fields = ["invited_user", "invited_by", "target_workgroup", "created_at", "status", ]
+    cancel_url = reverse_lazy("caidapp:workgroup_invitations")
+
+    def dispatch(self, request, *args, **kwargs):
+        invitation_id = kwargs.get("pk")
+        invitation = get_object_or_404(models.WorkGroupInvitation, pk=invitation_id)
+        self.invitation = invitation
+
+        if request.user.caiduser.workgroup_admin and invitation.target_workgroup == request.user.caiduser.workgroup:
+            pass
+        elif invitation.invited_user == request.user.caiduser:
+            pass
+        else:
+            raise PermissionDenied
+        return super().dispatch(request, *args, **kwargs)
+
+
+    def get_context_data(self, **kwargs):
+        """Set up context data for the detail view."""
+        context = super().get_context_data(**kwargs)
+        field_data = []
+
+        for field_name in self.fields:
+            field = self.model._meta.get_field(field_name)
+            value = getattr(self.object, field_name)
+            field_data.append(
+                {
+                    "name": field_name,
+                    "verbose_name": field.verbose_name,
+                    "value": value,
+                }
+            )
+        context["fields"] = field_data
+        logger.debug(f"{self.request.user=}, {self.invitation.invited_user=}, {self.invitation.status=}")
+        if self.request.user.caiduser == self.invitation.invited_user and self.invitation.status == "pending":
+            context["bottom_button_list"] = [
+                {
+                    "label": "Accept Invitation",
+                    "style": "primary",
+                    "url": reverse_lazy(
+                        "caidapp:workgroup_invitation_accept",
+                        args=[self.object.pk],
+                    ),
+                    "method": "post",
+                },
+                {
+                    "label": "Decline Invitation",
+                    "style": "danger",
+                    "url": reverse_lazy(
+                        "caidapp:workgroup_invitation_decline",
+                        args=[self.object.pk],
+                    ),
+                    "method": "post",
+                },
+            ]
+        return context
+
+class WorkGroupInvitationDeclineView(LoginRequiredMixin, UpdateView):
+    model = models.WorkGroupInvitation
+    fields = []
+    template_name = "caidapp/generic_form.html"
+
+    title = "Decline Workgroup Invitation"
+    description = "This invitation will be declined."
+
+    cancel_url = reverse_lazy("caidapp:workgroup_invitations")
+
+    def get_queryset(self):
+        return models.WorkGroupInvitation.objects.filter(
+            invited_user=self.request.user.caiduser,
+            status="pending",
+        )
+
+    def form_valid(self, form):
+        invitation = self.object
+
+        if invitation.invited_user != self.request.user.caiduser:
+            raise PermissionDenied
+
+        invitation.status = "rejected"
+        invitation.responded_at = timezone.now()
+        invitation.save(update_fields=["status", "responded_at"])
+
+        return redirect(self.get_success_url())
+
+from django.utils import timezone
+from django.shortcuts import redirect
+from django.core.exceptions import PermissionDenied
+from django.views.generic import UpdateView
+from .services.workgroup_migration import migrate_user_to_workgroup
+
+class WorkGroupInvitationAcceptView(LoginRequiredMixin, UpdateView):
+    model = models.WorkGroupInvitation
+    fields = []  # žádná pole ve formuláři
+    template_name = "caidapp/generic_form.html"
+
+    title = "Accept Workgroup Invitation"
+    description = (
+        "By accepting this invitation, you will be moved to the new workgroup "
+        "together with all your data."
+    )
+    cancel_url = reverse_lazy("caidapp:workgroup_invitations")
+
+    def get_queryset(self):
+        return models.WorkGroupInvitation.objects.filter(
+            invited_user=self.request.user.caiduser,
+            status="pending",
+        )
+
+    def form_valid(self, form):
+        invitation = self.object
+
+        # 🔐 bezpečnost – ještě jednou pro jistotu
+        if invitation.invited_user != self.request.user.caiduser:
+            raise PermissionDenied
+
+        # 🔥 migrace uživatele
+        migrate_user_to_workgroup(
+            user=invitation.invited_user,
+            target_workgroup=invitation.target_workgroup,
+            approved_by=invitation.invited_by,
+        )
+
+        invitation.status = "accepted"
+        invitation.responded_at = timezone.now()
+        invitation.save(update_fields=["status", "responded_at"])
+
+        return redirect(self.get_success_url())

@@ -3,7 +3,7 @@
 
 {% block content %}
   <h2>{{ view.title|default:"Detail" }}</h2>
-
+    {% include "caidapp/include_breadcrumb_nav.html" %}
   <div class="card my-3">
     <div class="card-body">
       <dl class="row">
@@ -16,4 +16,9 @@
   </div>
 
   <a href="{{ view.cancel_url|default:'/' }}" class="btn btn-secondary">{% trans "Back" %}</a>
+    {% if bottom_button_list %}
+        {% for button in bottom_button_list %}
+            <a href="{{ button.url }}" class="btn btn-{{ button.style|default:"primary" }}">{{ button.label }}</a>
+        {% endfor %}
+    {% endif %}
 {% endblock %}
