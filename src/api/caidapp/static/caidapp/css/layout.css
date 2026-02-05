@@ -2,32 +2,17 @@
     --navbar-height: 56px;
     --sidebar-width: 260px;
     --sidebar-collapsed-width: 40px;
-    /*--bs-navbar-padding-y: 0.0rem;*/
-  --bs-body-bg: #fbfdf8;
-  --bs-body-color: #2b2c2b;
+  /*--bs-body-bg: #fbfdf8;*/
+  /*--bs-body-color: #2b2c2b;*/
 
-  /*--bs-primary: #b9f64d;*/
-  /*--bs-secondary: #4198e4;*/
-  /*--bs-body-bg: #f0f0f0;*/
-  /*--bs-body-color: #4e492c;*/
-
-  /*--bs-primary: #f1f4ea;*/
-  /*--bs-primary-rgb: 185, 246, 77;*/
-
-  /*--bs-secondary: #4198e4;*/
-  /*--bs-secondary-rgb: 65, 152, 228;*/
 }
 
 
-[data-bs-theme="dark"] {
-    /*--bs-body-color: #dcf3c9;*/
-    /*--bs-body-bg: #2c291c;*/
-  --bs-body-bg: #464744;
-  --bs-body-color: #e4eadf;
+/*[data-bs-theme="dark"] {*/
+/*  --bs-body-bg: #464744;*/
+/*  --bs-body-color: #e4eadf;*/
 
-  /*--bs-primary: #38bdf8;*/
-  /*--bs-secondary: #94a3b8;*/
-}
+/*}*/
 
 
 /* ===================== */

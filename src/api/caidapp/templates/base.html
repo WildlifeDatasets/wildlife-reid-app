@@ -35,10 +35,11 @@
 
     <!-- App layout CSS -->
     <link href="{% static 'caidapp/css/layout.css' %}" rel="stylesheet">
-    
+    <link href="{% static 'caidapp/css/color_scheme.css' %}" rel="stylesheet">
+
     <!-- Custom app styles -->
     {% compress css %}
-    <link href="{% static 'caidapp/style.css' %}" rel="stylesheet">
+        <link href="{% static 'caidapp/style.css' %}" rel="stylesheet">
     {% endcompress %}
 
     {% block head %}{% endblock %}
