@@ -174,13 +174,13 @@ class WorkGroup(models.Model):
             if old_default != self.default_taxon_for_identification:
                 # aktualizace UploadedArchive
                 UploadedArchive.objects.filter(owner__workgroup=self).update(
-                    taxon_for_identification=self.default_taxon_for_identification
+                    default_taxon_for_identification=self.default_taxon_for_identification
                 )
 
                 CaIDUser.objects.filter(
                     workgroup=self
                 ).update(
-                    taxon_for_identification=self.default_taxon_for_identification
+                    default_taxon_for_identification=self.default_taxon_for_identification
                 )
 
         except Exception as e:
