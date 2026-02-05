@@ -9,6 +9,70 @@
             background-size: cover;
         }
 
+
+
+        .reid-dash-upload-card {
+            background-image:
+                linear-gradient(
+                    to left,
+                    rgba(var(--bs-body-bg-rgb), 0.8),
+                    rgba(var(--bs-body-bg-rgb), 0.9)
+                ),
+                url('https://images.pexels.com/photos/2619707/pexels-photo-2619707.jpeg');
+
+            background-size: cover;
+            background-position: center;
+        }
+
+        .reid-dash-confirm-card {
+            background-image:
+                    linear-gradient(
+                            to left,
+                            rgba(var(--bs-body-bg-rgb), 0.8),
+                            rgba(var(--bs-body-bg-rgb), 0.9)
+                    ),
+                    url('https://cdn.pixabay.com/photo/2015/10/15/21/25/label-990091_960_720.jpg');
+
+            background-size: cover;
+            background-position: center;
+        }
+        .reid-dash-data-card {
+            background-image:
+                    linear-gradient(
+                            to left,
+                            rgba(var(--bs-body-bg-rgb), 0.93),
+                            rgba(var(--bs-body-bg-rgb), 0.93)
+                    ),
+                    url({% static 'caidapp/pexels-anna-nekrashevich-6801648.jpg' %});
+
+            background-size: cover;
+            background-position: center;
+        }
+        .reid-dash-representative-card {
+            background-image:
+                    linear-gradient(
+                            to left,
+                            rgba(var(--bs-body-bg-rgb), 0.93),
+                            rgba(var(--bs-body-bg-rgb), 0.93)
+                    ),
+                    url({% static 'caidapp/pexels-jessbaileydesign-735277.jpg' %});
+
+            background-size: cover;
+            background-position: center;
+        }
+        .reid-dash-suggestion-card {
+            background-image:
+                    linear-gradient(
+                            to left,
+                            rgba(var(--bs-body-bg-rgb), 0.96),
+                            rgba(var(--bs-body-bg-rgb), 0.90)
+                    ),
+                    url('https://images.pexels.com/photos/3785932/pexels-photo-3785932.jpeg');
+
+            background-size: cover;
+            background-position: center;
+        }
+
     </style>
     <!--refresh every 120 s-->
     {#<meta http-equiv="refresh" content="120">#}
@@ -108,16 +172,7 @@
         </div>
         <div class="row">
             <div class="col-md-4">
-                <div class="card card-btn text-reset bg-light shadow border"
-
-                     style="
-                             background-image: linear-gradient(to left, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.9)),
-                             {#url('https://cdn.pixabay.com/photo/2020/10/22/10/28/cow-5675684_960_720.jpg');#}
-                             {#url('https://images.pexels.com/photos/13735956/pexels-photo-13735956.jpeg');#}
-                             url('https://images.pexels.com/photos/2619707/pexels-photo-2619707.jpeg');
-                             "
-                        {#                       href="{% url 'caidapp:upload_archive_contains_identities' %}"#}
-                >
+                <div class="card card-btn text-reset shadow border-0 reid-dash-upload-card">
                     <div class="card-body">
                         <h3 class="card-title">
                             Upload media files
@@ -157,14 +212,7 @@
 
 
             <div class="col-md-4">
-                <div class="card card-btn text-reset bg-light shadow border"
-
-                     style="
-                             background-image: linear-gradient(to left, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.9)),
-                             {#url('https://cdn.pixabay.com/photo/2020/10/22/10/28/cow-5675684_960_720.jpg');#}
-                             url('https://cdn.pixabay.com/photo/2015/10/15/21/25/label-990091_960_720.jpg');
-                             "
-                >
+                <div class="card card-btn text-reset  border-0 shadow reid-dash-confirm-card" >
                     <div class="card-body">
                         <h3 class="card-title">
                             Confirm identification
@@ -195,16 +243,7 @@
 
             <div class="col-md-4">
 
-                <div class="card card-btn"
-                     style="
-                             background-image:
-                             linear-gradient(to left, rgba(255, 255, 255, 0.93), rgba(255, 255, 255, 0.93)),
-                             {#url('https://cdn.pixabay.com/photo/2020/10/22/10/28/cow-5675684_960_720.jpg');#}
-                             {#url('https://cdn.pixabay.com/photo/2015/10/15/21/25/label-990091_960_720.jpg');#}
-                             {#url('https://cdn.pixabay.com/photo/2015/10/15/21/25/label-990091_960_720.jpg');#}
-                             url({% static 'caidapp/pexels-anna-nekrashevich-6801648.jpg' %});
-                             "
-                >
+                <div class="card card-btn  text-reset border-0 shadow reid-dash-data-card" >
                     <div class="card-body">
                         <h3 class="card-title">Identification data</h3>
 
@@ -291,15 +330,15 @@
 
 
             <div class="col-md-4">
-                <div class="card card-btn text-reset bg-light"
+                <div class="card card-btn text-reset shadow border-0 reid-dash-representative-card"
                         {#                         href="{% url 'caidapp:representative_mediafiles' %}"#}
 
-                     style="
-                             background-image: linear-gradient(to left, rgba(255, 255, 255, 0.96), rgba(255, 255, 255, 0.96)),
+{#                     style="#}
+{#                             background-image: linear-gradient(to left, rgba(255, 255, 255, 0.96), rgba(255, 255, 255, 0.96)),#}
                              {#url('https://cdn.pixabay.com/photo/2020/10/22/10/28/cow-5675684_960_720.jpg');#}
                              {#url('https://cdn.pixabay.com/photo/2015/10/15/21/25/label-990091_960_720.jpg');#}
-                             url({% static 'caidapp/pexels-jessbaileydesign-735277.jpg' %});
-                             "
+{#                             url({% static 'caidapp/pexels-jessbaileydesign-735277.jpg' %});#}
+{#                             "#}
                 >
                     <div class="card-body">
                         <h3 class="card-title">Representative images</h3>
@@ -371,16 +410,12 @@
 
 
             <div class="col-md-4">
-                <div class="card card-btn text-reset bg-light"
-                        {#                         href="{% url 'caidapp:representative_mediafiles' %}"#}
+                <div class="card card-btn text-reset border-0 shadow reid-dash-suggestion-card"
 
-                     style="
-                             background-image: linear-gradient(to left, rgba(255, 255, 255, 0.96), rgba(255, 255, 255, 0.90)),
-                             {#url('https://cdn.pixabay.com/photo/2020/10/22/10/28/cow-5675684_960_720.jpg');#}
-                             {#url('https://cdn.pixabay.com/photo/2015/10/15/21/25/label-990091_960_720.jpg');#}
-                             {#url({% static 'caidapp/pexels-jessbaileydesign-735277.jpg' %});#}
-                             url('https://images.pexels.com/photos/3785932/pexels-photo-3785932.jpeg');
-                             "
+{#                     style="#}
+{#                             background-image: linear-gradient(to left, rgba(255, 255, 255, 0.96), rgba(255, 255, 255, 0.90)),#}
+{#                             url('https://images.pexels.com/photos/3785932/pexels-photo-3785932.jpeg');#}
+{#                             "#}
                 >
                     <div class="card-body">
                         <h3 class="card-title">Identity suggestion</h3>
