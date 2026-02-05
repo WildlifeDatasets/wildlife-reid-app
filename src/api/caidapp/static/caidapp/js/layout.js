@@ -43,10 +43,19 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
+// function toggleTheme() {
+//     const html = document.documentElement;
+//     html.dataset.bsTheme =
+//         html.dataset.bsTheme === "dark" ? "light" : "dark";
+// }
 function toggleTheme() {
     const html = document.documentElement;
-    html.dataset.bsTheme =
-        html.dataset.bsTheme === "dark" ? "light" : "dark";
+    const current = html.getAttribute('data-bs-theme') || 'light';
+    const next = current === 'dark' ? 'light' : 'dark';
+
+    html.setAttribute('data-bs-theme', next);
+    localStorage.setItem('theme', next);
 }
+
 
 console.log("114 LAYOUT JS VERSION 789");

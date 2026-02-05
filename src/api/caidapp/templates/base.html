@@ -3,9 +3,27 @@
 {% load widget_tweaks %}
 {% load compress %}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-bs-theme="light">
 <head>
     <meta charset="UTF-8">
+    <script>
+    (function () {
+        const storedTheme = localStorage.getItem('theme');
+
+        if (storedTheme) {
+            document.documentElement.setAttribute('data-bs-theme', storedTheme);
+        } else {
+            // fallback – můžeš dát vždy light, nebo respektovat OS
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            document.documentElement.setAttribute(
+                'data-bs-theme',
+                prefersDark ? 'dark' : 'light'
+            );
+        }
+    })();
+    </script>
+
+
     <title>{% block title %}Wildelife ReID{% endblock %}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta content="" name="description">
