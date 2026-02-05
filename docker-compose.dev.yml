@@ -141,7 +141,7 @@ services:
       RABBITMQ_HOST: broker_dev
       RABBITMQ_URL: "amqp://user:22pmDB%c@broker_dev:5672"
       REDIS_HOST: redis_dev
-      REDIS_URL: "redis://:password@redis_dev:6379/0"
+      REDIS_URL: "redis://:password@redis_dev:6379/1"
     env_file:
       - "src/variables.env"
       - ".env"

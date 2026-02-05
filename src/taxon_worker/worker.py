@@ -139,6 +139,7 @@ def predict(
 
         # dataset_tools.make_zipfile(output_archive_file, output_images_dir)
 
+        logger.debug(f"{self.request.id=}")
         logger.info("Finished processing.")
         out = {"status": "DONE"}
     except Exception:

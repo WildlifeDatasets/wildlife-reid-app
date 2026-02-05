@@ -88,6 +88,8 @@ def on_success_predict_taxon(
     print(f"Taxon classification finished with status {status}")
     logger.info(f"Taxon classification finished with status '{status}'. Updating database record.")
     uploaded_archive = UploadedArchive.objects.get(id=uploaded_archive_id)
+    # task id
+    logger.debug(f"Worker task id: '{self.request.id}'")
 
     try:
         if "status" not in output:
