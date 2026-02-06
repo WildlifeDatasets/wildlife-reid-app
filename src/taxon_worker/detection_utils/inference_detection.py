@@ -165,7 +165,10 @@ def detect_animals_in_one_image(image_rgb: np.ndarray) -> Optional[List[Dict[str
 
     if DETECTION_MODEL is None:
         DETECTION_MODEL = get_detection_model()
-    results = DETECTION_MODEL(image_rgb)
+        results = DETECTION_MODEL(image_rgb)
+        logger.debug("Model loaded for the first time.")
+    else:
+        results = DETECTION_MODEL(image_rgb)
     id2label = results.names
 
     batch_idx = 0

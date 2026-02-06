@@ -54,6 +54,15 @@ RUN pip install --no-cache-dir --upgrade pip build && \
 
 RUN pip install numpy==1.26.4
 
+RUN python - <<EOF
+import timm
+timm.create_model(
+    "hf-hub:strakajk/Lynx-Orientation-ResNet10t-176",
+    pretrained=True,
+    num_classes=4
+)
+EOF
+
 COPY ./src/taxon_worker /taxon_worker
 
 # expose ports and run application
