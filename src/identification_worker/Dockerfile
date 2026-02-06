@@ -22,6 +22,8 @@ RUN apt-get update --yes && \
 RUN mkdir -p /root/resources
 RUN wget https://dl.fbaipublicfiles.com/segment_anything/sam_vit_l_0b3195.pth -P /root/resources
 RUN wget https://dl.fbaipublicfiles.com/segment_anything/sam_vit_b_01ec64.pth -P /root/resources
+RUN mkdir -p /root/.cache/torch/hub/checkpoints && \
+wget https://github.com/cvg/LightGlue/releases/download/v0.1_arxiv/aliked_lightglue.pth  -O /root/.cache/torch/hub/checkpoints/aliked_lightglue_v0-1_arxiv.pth
 
 COPY ./src/identification_worker/requirements.txt /root/resources/requirements.txt
 
