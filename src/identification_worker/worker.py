@@ -467,7 +467,7 @@ def predict(
     # identification_model["path"]
     try:
         logger.info(f"Applying init task with args: {input_metadata_file_path=}, {organization_id=}.")
-        logger.debug(f"celery {self.request.id=}")
+        logger.debug(f"celery task id={self.request.id=}")
 
         # read metadata file
         metadata = pd.read_csv(input_metadata_file_path)

@@ -21,14 +21,15 @@ RUN apt-get update --yes && \
 
 RUN mkdir -p /root/resources
 RUN wget https://dl.fbaipublicfiles.com/segment_anything/sam_vit_l_0b3195.pth -P /root/resources
+RUN wget https://dl.fbaipublicfiles.com/segment_anything/sam_vit_b_01ec64.pth -P /root/resources
 
-COPY ./src/identification_worker/requirements.txt /identification_worker/requirements.txt
+COPY ./src/identification_worker/requirements.txt /root/resources/requirements.txt
 
 # install python dependencies
 ENV APP_DIR='/identification_worker'
 WORKDIR $APP_DIR
 RUN pip install --no-cache-dir --upgrade pip build && \
-    pip install --no-cache-dir --compile -r requirements.txt && \
+    pip install --no-cache-dir --compile -r /root/resources/requirements.txt && \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/* /tmp/* /var/tmp/*
 
 RUN echo "------- pip list 1 --------"

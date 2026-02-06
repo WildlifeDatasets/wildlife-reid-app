@@ -1,6 +1,11 @@
 # Changelog
 
 
+## 2026-02
+* [added] Dark mode
+* [added] Test via `python manage.py healthcheck_inference`
+* [changed] Reduced downloads in runtime
+
 ## 2026-01
 
 * [changed] Pure bootstrap % layout
