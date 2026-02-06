@@ -5,6 +5,10 @@ from django.contrib.auth import get_user_model
 from caidapp.models import UploadedArchive
 from caidapp.tasks import run_species_prediction_async
 
+class InferenceHealthcheckError(Exception):
+    """Custom exception to trigger Sentry alert on healthcheck failure."""
+    pass
+
 class Command(BaseCommand):
     help = 'End-to-end production healthcheck of the inference pipeline (Taxon + Identification).'
 
@@ -18,11 +22,9 @@ class Command(BaseCommand):
             user = User.objects.get(username=username)
             caiduser = user.caiduser
         except User.DoesNotExist:
-            self.stderr.write(self.style.ERROR(f"Error: User '{username}' not found."))
-            sys.exit(1)
+            raise InferenceHealthcheckError(f"Error: User '{username}' not found.")
         except Exception as e:
-            self.stderr.write(self.style.ERROR(f"Error getting CaIDUser profile for '{username}': {e}"))
-            sys.exit(1)
+            raise InferenceHealthcheckError(f"Error getting CaIDUser profile for '{username}': {e}")
 
         # --- PART 1: Taxon Classification Healthcheck ---
         self.stdout.write("\n--- [PART 1] Taxon Classification Healthcheck ---")
@@ -41,30 +43,23 @@ class Command(BaseCommand):
         ).order_by('-uploaded_at').first()
         
         if not ua_id:
-            self.stderr.write(self.style.ERROR("Error: No UploadedArchive found for identification healthcheck (contains_single_taxon=True, contains_identities=False)."))
-            sys.exit(1)
+            raise InferenceHealthcheckError("Error: No UploadedArchive found for identification healthcheck (contains_single_taxon=True, contains_identities=False).")
         
         if not caiduser.workgroup or not caiduser.workgroup.identification_model:
-            self.stderr.write(self.style.ERROR(f"Error: Workgroup '{caiduser.workgroup}' has no identification_model assigned. Cannot run identification."))
-            sys.exit(1)
+            raise InferenceHealthcheckError(f"Error: Workgroup '{caiduser.workgroup}' has no identification_model assigned. Cannot run identification.")
 
         self.run_identification_check(ua_id, caiduser.workgroup)
 
         self.stdout.write(self.style.SUCCESS("\nAll inference healthchecks passed!"))
-        sys.exit(0)
 
     def run_taxon_check(self, ua):
         self.stdout.write(f"Using UploadedArchive ID: {ua.id} for Taxon Classification.")
         self.stdout.write("Triggering taxon inference task (force_init=True)...")
-        try:
-            run_species_prediction_async(uploaded_archive=ua, force_init=True)
-        except Exception as e:
-            self.stderr.write(self.style.ERROR(f"Error triggering taxon inference: {e}"))
-            sys.exit(1)
         
-        if not self.poll_status(ua, 'taxon_status', ["TAID", "TKN", "TV", "IR"]):
-            self.stderr.write(self.style.ERROR("Taxon Classification healthcheck failed."))
-            sys.exit(1)
+        # Let exceptions (e.g. Redis connection error) propagate to Sentry
+        run_species_prediction_async(uploaded_archive=ua, force_init=True)
+        
+        self.poll_status(ua, 'taxon_status', ["TAID", "TKN", "TV", "IR"])
         self.stdout.write(self.style.SUCCESS("Taxon Classification passed."))
 
     def run_identification_check(self, ua, workgroup):
@@ -77,20 +72,12 @@ class Command(BaseCommand):
         ua.identification_status = "IR"
         ua.save()
 
-        try:
-            success = run_identification(ua, workgroup)
-            if not success:
-                self.stderr.write(self.style.ERROR("Failed to trigger identification (run_identification returned False - possibly no observations found)."))
-                sys.exit(1)
-        except Exception as e:
-            self.stderr.write(self.style.ERROR(f"Error calling run_identification: {e}"))
-            import traceback
-            self.stderr.write(traceback.format_exc())
-            sys.exit(1)
+        # Let exceptions propagate to Sentry
+        success = run_identification(ua, workgroup)
+        if not success:
+            raise InferenceHealthcheckError("Failed to trigger identification (run_identification returned False - possibly no observations found).")
 
-        if not self.poll_status(ua, 'identification_status', ["IAID"]):
-            self.stderr.write(self.style.ERROR("Identification healthcheck failed."))
-            sys.exit(1)
+        self.poll_status(ua, 'identification_status', ["IAID"])
         self.stdout.write(self.style.SUCCESS("Identification passed."))
 
     def poll_status(self, ua, field_name, success_statuses, timeout_seconds=900):
@@ -105,20 +92,16 @@ class Command(BaseCommand):
             
             if status in success_statuses:
                 self.stdout.write(f"Status reached: {status}")
-                return True
+                return
             
             if status == "F":
-                 self.stderr.write(self.style.ERROR(f"Task failed. {field_name} is 'F'. Message: {ua.status_message}"))
-                 return False
+                 raise InferenceHealthcheckError(f"Task failed. {field_name} is 'F'. Message: {ua.status_message}")
             
             elapsed = int(time.time() - start_time)
-            if elapsed > 0 and (elapsed // poll_interval) % 3 == 0: # Every 30s approx
-                 # We use // and % to avoid multiple writes in the same 10s window if we wanted, 
-                 # but elapsed % 30 is simpler if we only call sleep at the end.
+            if elapsed > 0 and (elapsed // poll_interval) % 3 == 0:
                  if elapsed % 30 < poll_interval:
                     self.stdout.write(f"Still waiting... {field_name}: {status} ({elapsed}s elapsed)")
 
             time.sleep(poll_interval)
             
-        self.stderr.write(self.style.ERROR(f"Timeout waiting for {field_name}. Current status: {getattr(ua, field_name)}"))
-        return False
+        raise InferenceHealthcheckError(f"Timeout waiting for {field_name}. Current status: {getattr(ua, field_name)}")
