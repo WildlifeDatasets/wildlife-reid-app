@@ -1056,6 +1056,22 @@ class Sequence(models.Model):
     local_id = models.IntegerField(null=True, blank=True)
 
 
+class WorkgroupAccessQuerySet(models.QuerySet):
+    def for_user(self, caiduser: CaIDUser, owner_path: str):
+        if caiduser.workgroup:
+            return self.filter(**{f"{owner_path}__workgroup": caiduser.workgroup})
+        return self.filter(**{owner_path: caiduser})
+
+
+class MediaFileManager(models.Manager):
+    def get_queryset(self):
+        return WorkgroupAccessQuerySet(self.model, using=self._db)
+
+    def for_user(self, caiduser: CaIDUser):
+        return self.get_queryset().for_user(caiduser, "parent__owner")
+
+
+
 class MediaFile(models.Model):
     # ORIENTATION_CHOICES = (
     #     ("L", "Left"),
@@ -1065,6 +1081,7 @@ class MediaFile(models.Model):
     #     ("N", "None"),
     #     ("U", "Unknown"),
     # )
+    objects = MediaFileManager()
     MEDIA_TYPE_CHOICES = (
         ("image", "Image"),
         ("video", "Video"),

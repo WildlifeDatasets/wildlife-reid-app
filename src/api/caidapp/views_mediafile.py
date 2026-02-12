@@ -90,6 +90,10 @@ class MediaFileUpdateView(LoginRequiredMixin, UpdateWithInlinesView):
     template_name = "caidapp/media_file_update.html"
     context_object_name = "mediafile"
 
+    def get_queryset(self):
+        # user or his workgroup can access to mediafiles
+        return MediaFile.objects.for_user(self.request.user.caiduser)
+
     def get_success_url(self):
         """After successful update, return to previous page."""
         return self.request.GET.get("next") or self.request.META.get("HTTP_REFERER", "/")

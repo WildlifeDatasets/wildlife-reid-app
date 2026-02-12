@@ -3,8 +3,10 @@
 
 ## 2026-02
 * [added] Dark mode
-* [added] Test via `python manage.py healthcheck_inference`
+* [added] Test via `python manage.py healthcheck_inference` (ready for cron job)
 * [changed] Reduced downloads in runtime
+* [changed] Default taxon (Animalia) and default model for every user
+* [fixed] Limit access to media files to owners and workgroup only
 
 ## 2026-01
 
