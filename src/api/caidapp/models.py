@@ -295,6 +295,7 @@ class CaIDUser(models.Model):
     dir_import_message = models.CharField(max_length=255, blank=True, default="")
     identification_model = models.ForeignKey(IdentificationModel, on_delete=models.SET_NULL, null=True, blank=True)
     show_taxon_classification = models.BooleanField(default=True)
+    show_reid = models.BooleanField(default=True)
     show_wellcome_message_on_next_login = models.BooleanField(default=False)
     show_base_dataset = models.BooleanField(default=False)
     default_taxon_for_identification = models.ForeignKey(
