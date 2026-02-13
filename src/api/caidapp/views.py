@@ -275,24 +275,30 @@ def show_log(request):
 def show_taxons(request):
     """List of taxons."""
     all_taxons = Taxon.objects.all().order_by("name")
+    # logger.debug(f"Found {len(all_taxons)} taxa in total.")
     taxons = []
     taxons_mediafiles = []
-    # todo use here new function
     if request.user.caiduser.workgroup:
         filter_params = dict(parent__owner__workgroup=request.user.caiduser.workgroup)
     else:
         filter_params = dict(parent__owner=request.user.caiduser)
 
     for taxon in all_taxons:
-        mediafiles_of_taxon = taxon.mediafile_set.filter(**filter_params).all()
+        mediafiles_of_taxon = MediaFile.objects.filter(observations__taxon=taxon, **filter_params).order_by("-captured_at")
+        # logger.debug(f"Taxon '{taxon.name}' has {len(mediafiles_of_taxon)} media files.")
         if len(mediafiles_of_taxon) > 0:
+            # taxon.image = mediafiles_of_taxon.first().image
             taxons.append(taxon)
             taxons_mediafiles.append(mediafiles_of_taxon)
+            # logger.debug(f"{mediafiles_of_taxon=}")
 
     return render(
         request,
         "caidapp/show_taxons.html",
-        {"taxons": taxons, "taxons_with_mediafiles": zip(taxons, taxons_mediafiles)},
+        {
+            "taxons": taxons,
+            "taxons_with_mediafiles": zip(taxons, taxons_mediafiles),
+        },
     )
 
 
