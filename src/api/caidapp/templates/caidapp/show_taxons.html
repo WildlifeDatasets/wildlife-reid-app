@@ -97,7 +97,8 @@
                                 <div class="mt-2">
                                     <a
                                             class="btn btn-primary"
-                                            href="{% url 'caidapp:taxon' taxon.id %}"
+{#                                            href="{% url 'caidapp:taxon' taxon.id %}"#}
+                                            href="{% url 'caidapp:media_files' %}?taxon={{ taxon.id }}"
                                     >View</a>
                                     <div class="dropdown d-inline-block">
                                         <a class="btn btn-secondary dropdown-toggle" href="#" role="button"

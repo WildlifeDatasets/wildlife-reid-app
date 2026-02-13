@@ -112,7 +112,7 @@ path(
         views_locality.update_locality,
         name="update_locality",
     ),
-    path("taxon/<int:taxon_id>", views.media_files_update, name="taxon"),
+    # path("taxon/<int:taxon_id>", views.media_files_update, name="taxon"),
     # Media Files
     path("media_files/", views.media_files_update, name="media_files"),
     path(

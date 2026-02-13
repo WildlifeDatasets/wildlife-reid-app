@@ -2491,7 +2491,6 @@ def media_files_update(
     records_per_page: Optional[int] = None,
     album_hash=None,
     individual_identity_id=None,
-    taxon_id=None,
     uploadedarchive_id=None,
     identity_is_representative=None,
     locality_hash=None,
@@ -2512,6 +2511,12 @@ def media_files_update(
     # query = None
     if records_per_page is None:
         records_per_page = request.session.get("mediafiles_records_per_page", 20)
+
+    if request.GET.get("taxon"):
+        taxon = Taxon.objects.get(pk=request.GET["taxon"])
+        page_title = f"Media files - {taxon.name}"
+    else:
+        page_title = "Media files"
 
     albums_available = (
         Album.objects.filter(Q(albumsharerole__user=request.user.caiduser) | Q(owner=request.user.caiduser))
@@ -2553,12 +2558,6 @@ def media_files_update(
         # mediafiles = mediafiles.filter(identity=individual_identity)
         filter_kwargs = {"identity": individual_identity}
         mediafiles_name_suggestion = f"individual_identity_{individual_identity.name}"
-    elif taxon_id is not None:
-        taxon = get_object_or_404(Taxon, pk=taxon_id)
-        page_title = f"Media files - {taxon.name}"
-        # mediafiles = mediafiles.filter(taxon=taxon)
-        filter_kwargs = {"taxon": taxon}
-        mediafiles_name_suggestion = f"taxon_{taxon.name}"
     elif locality_hash is not None:
         locality = get_object_or_404(Locality, hash=locality_hash)
         page_title = f"Media files - {locality.name}"
@@ -2570,8 +2569,6 @@ def media_files_update(
         # mediafiles = mediafiles.filter(identity_is_representative=identity_is_representative)
         filter_kwargs = {"identity_is_representative": identity_is_representative}
         mediafiles_name_suggestion = f"representative_identity_{str(identity_is_representative)}"
-    else:
-        page_title = "Media files"
 
     # logger.debug(f"{len(mediafiles)=}")
     # if request.user.caiduser.workgroup:
@@ -2596,7 +2593,7 @@ def media_files_update(
     mediafile_filter = filters.MediaFileFilter(request.GET, queryset=mediafiles, request=request)
 
     # The filtered queryset is available as .qs
-    full_mediafiles = mediafile_filter.qs
+    full_mediafiles = mediafile_filter.qs.distinct()
 
     if show_overview_button and not full_mediafiles.exists():
         return message_view(

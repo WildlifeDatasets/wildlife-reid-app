@@ -395,7 +395,8 @@
                                                 Taxon:
                                                 {% for taxon in mediafile.instance.taxons %}
                                                     <a class="link-secondary"
-                                                       href="{% url 'caidapp:taxon' taxon.id %}">
+                                                       href="{% url 'caidapp:media_files' %}?taxon={{ taxon.id }}"
+                                                    >
                                                         {{ taxon }}
                                                     </a>
                                                 {% endfor %}
