@@ -61,7 +61,6 @@ path(
         {"contains_identities": True, "contains_single_taxon": True},
         name="upload_archive_contains_identities",
     ),
-    # path("login/", TemplateView.as_view(template_name="caidapp/login.html"), name="login"),
     # Uploads
     path("uploads/", views.uploads_species, name="uploads"),
     path("uploads_identities/", views.uploads_identities, name="uploads_identities"),

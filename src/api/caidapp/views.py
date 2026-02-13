@@ -188,10 +188,8 @@ def login(request):
     if request.user.is_authenticated:
         return redirect("caidapp:home")
     else:
-        return render(
-            request,
-            "caidapp/login.html",
-        )
+        # redirect to allauth login page
+        return redirect("/accounts/login")
 
 
 def message_view(
