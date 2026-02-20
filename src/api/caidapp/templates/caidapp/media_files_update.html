@@ -450,6 +450,14 @@
                                                 </a>
                                                 <br>
                                         {% endif %}
+                                            {% if mediafile.instance.sequence.mediafile_set.count > 1 %}
+                                                Sequence:
+                                                <a class="link-secondary"
+                                                   href="{% url 'caidapp:media_files'%}?sequence={{ mediafile.instance.sequence.id }}">
+                                                    {{ mediafile.instance.sequence.mediafile_set.count }} media files in sequence
+                                                </a>
+                                                <br>
+                                        {% endif %}
 
                                         {% if mediafile.instance.identity %}
                                             Identity:

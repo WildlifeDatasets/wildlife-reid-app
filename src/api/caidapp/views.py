@@ -2518,6 +2518,12 @@ def media_files_update(
     else:
         page_title = "Media files"
 
+    if request.GET.get("sequence"):
+        sequence_id = request.GET.get("sequence", None)
+        sequence = get_object_or_404(models.Sequence, pk=sequence_id)
+    else:
+        sequence = None
+
     albums_available = (
         Album.objects.filter(Q(albumsharerole__user=request.user.caiduser) | Q(owner=request.user.caiduser))
         .distinct()
@@ -2592,8 +2598,10 @@ def media_files_update(
     # Instantiate the filter with GET parameters and your base queryset
     mediafile_filter = filters.MediaFileFilter(request.GET, queryset=mediafiles, request=request)
 
+
     # The filtered queryset is available as .qs
-    full_mediafiles = mediafile_filter.qs.distinct()
+    full_mediafiles = mediafile_filter.qs.filter(sequence=sequence) if sequence else mediafile_filter.qs
+    full_mediafiles = full_mediafiles.distinct()
 
     if show_overview_button and not full_mediafiles.exists():
         return message_view(
