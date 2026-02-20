@@ -164,6 +164,7 @@ def detect_animals_in_one_image(image_rgb: np.ndarray) -> Optional[List[Dict[str
     global DETECTION_MODEL
 
     if DETECTION_MODEL is None:
+        logger.debug("Detection model is not loaded. Loading the model.")
         DETECTION_MODEL = get_detection_model()
         results = DETECTION_MODEL(image_rgb)
         logger.debug("Model loaded for the first time.")
