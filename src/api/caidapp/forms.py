@@ -65,6 +65,7 @@ class WorkgroupForm(forms.ModelForm):
             "sequence_time_limit",
             "check_taxon_before_identification",
             "caidusers",
+            "identification_model",
         ]
         help_texts = {
             "check_taxon_before_identification": "Do the identification only for media files "

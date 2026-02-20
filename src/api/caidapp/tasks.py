@@ -1540,7 +1540,7 @@ def run_identification_on_unidentified_for_workgroup(workgroup_id: int, request=
         logger.debug(f"Identification started for {uploaded_archive} with status {status_ok}.")
 
 
-def schedule_init_identification_for_workgroup(workgroup: models.WorkGroup, delay_minutes: int = 15):
+def schedule_init_identification_for_workgroup(workgroup: models.WorkGroup, delay_minutes: int = 10):
     """Schedule initialization of identification for a workgroup."""
     logger.debug(f"Scheduling init_identification for {workgroup=} in {delay_minutes} minutes.")
     # Cancel previously scheduled task

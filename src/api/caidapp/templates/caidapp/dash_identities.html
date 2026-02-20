@@ -88,14 +88,6 @@
                 <ol class="breadcrumb">
                     <li class="breadcrumb-item"><a href="{% url 'caidapp:home' %}"><i class="fa fa-home"></i> Home</a>
                     </li>
-                    {#                    {% if uploadedarchive.contains_single_taxon %}#}
-                    {#                    <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads_identities' %}">Identities Uploads </a></li>#}
-                    {#                    {% else %}#}
-                    {#                        <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li>#}
-                    {#                    {%  endif %}#}
-                    {#                <li class="breadcrumb-item"><a href="{% url 'caidapp:uploadedarchive_mediafiles' mediafile.parent.id %}"> Uploaded#}
-                    {#                    Archive: {{ mediafile.parent }}</a></li>#}
-                    {##}
                 </ol>
 
 
@@ -166,8 +158,10 @@
                     <a class="btn btn-danger" href="{% url 'caidapp:stop_init_identification' %}"><i
                             class="bi bi-stop-fill "></i> Stop </a>
                 {% endif %}
-                <a class="btn btn-secondary bs-1" href="{% url 'caidapp:select_reid_model' %}"><i
+                <a class="btn btn-secondary bs-1" href="{% url 'caidapp:workgroup-update' user.caiduser.workgroup.id %}"><i
                         class="bi bi-gear"></i></a>
+{#                <a class="btn btn-secondary bs-1" href="{% url 'caidapp:select_reid_model' %}"><i#}
+{#                        class="bi bi-gear"></i></a>#}
             </div>
         </div>
         <div class="row">

@@ -293,7 +293,7 @@ class CaIDUser(models.Model):
     import_dir = models.CharField(max_length=255, blank=True, default="")
     dir_import_status = models.CharField(max_length=255, blank=True, default="")
     dir_import_message = models.CharField(max_length=255, blank=True, default="")
-    identification_model = models.ForeignKey(IdentificationModel, on_delete=models.SET_NULL, null=True, blank=True)
+    # identification_model = models.ForeignKey(IdentificationModel, on_delete=models.SET_NULL, null=True, blank=True)
     show_taxon_classification = models.BooleanField(default=True)
     show_reid = models.BooleanField(default=True)
     show_wellcome_message_on_next_login = models.BooleanField(default=False)
@@ -1323,7 +1323,7 @@ class MediaFile(models.Model):
             if old.identity_is_representative != self.identity_is_representative:
                 from .tasks import schedule_init_identification_for_workgroup
 
-                schedule_init_identification_for_workgroup(self.parent.owner.workgroup, delay_minutes=20)
+                schedule_init_identification_for_workgroup(self.parent.owner.workgroup, delay_minutes=10)
                 # and the reid will be started after the init
 
         super().save(*args, **kwargs)

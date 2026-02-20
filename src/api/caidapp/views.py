@@ -513,6 +513,9 @@ def dash_identities(request) -> HttpResponse:
     #     taxon_for_identification__isnull=False,
     # )
     # page_context = paginate_queryset(queryset, request)
+    workgroup = request.user.caiduser.workgroup
+    if workgroup.identification_model is None:
+        messages.error(request, "No identification model for workgroup. Please set it before running identification.")
 
     # find the identity with minimum number of representative mediafiles
     identities = (
@@ -564,32 +567,33 @@ def _uploads_general_order_annotation():
     )
 
 
-@login_required
-def select_reid_model(request):
-    """Select reid model."""
-    form = forms.UserIdentificationModelForm()
-    if request.method == "POST":
-        form = forms.UserIdentificationModelForm(request.POST)
-        if form.is_valid():
-            request.user.caiduser.identification_model = form.cleaned_data["identification_model"]
-            request.user.caiduser.save()
-
-            messages.info(request, "Identification model set.")
-            return redirect("caidapp:uploads_identities")
-
-    else:
-
-        initial = {"identification_model": request.user.caiduser.identification_model}
-        form = forms.UserIdentificationModelForm(initial=initial)
-    return render(
-        request,
-        "caidapp/update_form.html",
-        {
-            "form": form,
-            "headline": "Select identification model",
-            "button": "Save",
-        },
-    )
+# TODO remove because we do not use the caiduser.identification model anymore, but only the workgroup.identification_model
+# @login_required
+# def select_reid_model(request):
+#     """Select reid model."""
+#     form = forms.UserIdentificationModelForm()
+#     if request.method == "POST":
+#         form = forms.UserIdentificationModelForm(request.POST)
+#         if form.is_valid():
+#             request.user.caiduser.identification_model = form.cleaned_data["identification_model"]
+#             request.user.caiduser.save()
+#
+#             messages.info(request, "Identification model set.")
+#             return redirect("caidapp:uploads_identities")
+#
+#     else:
+#
+#         initial = {"identification_model": request.user.caiduser.identification_model}
+#         form = forms.UserIdentificationModelForm(initial=initial)
+#     return render(
+#         request,
+#         "caidapp/update_form.html",
+#         {
+#             "form": form,
+#             "headline": "Select identification model",
+#             "button": "Save",
+#         },
+#     )
 
 
 def _multiple_species_button_style_and_tooltips(request) -> dict:
@@ -1486,7 +1490,7 @@ def train_identification(
 
     if not request.user.caiduser.workgroup_admin:
         return HttpResponseNotAllowed("Identification init is for workgroup admins only.")
-    if not request.user.caiduser.identification_model:
+    if not request.user.caiduser.workgroup.identification_model:
         # go back to the page
         link = request.META.get("HTTP_REFERER", "/")
         return message_view(request, "No identification model set.", link=link)
@@ -1614,7 +1618,7 @@ def init_identification_view(
     mf_count = mediafiles_qs.count()
     messages.info(request, f"Scheduling identification initialization for workgroup {caiduser.workgroup.name} with {mf_count} media files.")
 
-    if not request.user.caiduser.identification_model:
+    if not request.user.caiduser.workgroup.identification_model:
 
         caiduser.workgroup.identification_model = models.IdentificationModel.objects.filter(public=True).first()
         messages.warning(request, f"Setting default identification model: {caiduser.workgroup.identification_model.name}")
@@ -1739,8 +1743,14 @@ def run_identification_view(request, uploadedarchive_id):
     """Run identification of uploaded archive."""
     uploaded_archive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
     # check if user is owner member of the workgroup
+
     if uploaded_archive.owner.workgroup != request.user.caiduser.workgroup:
         return HttpResponseNotAllowed("Identification is for workgroup members only.")
+    workgroup = request.user.caiduser.workgroup
+    if workgroup.identification_model is None:
+        messages.error(request, "No identification model for workgroup. Please set it before running identification.")
+        return redirect(request.META.get("HTTP_REFERER", "/"))
+
     status_ok = run_identification(uploaded_archive, workgroup=request.user.caiduser.workgroup)
     if status_ok:
         messages.info(request, f"Identification started for {uploaded_archive.name}.")
@@ -1813,6 +1823,17 @@ def run_identification(uploaded_archive: UploadedArchive, workgroup: models.Work
 
     uploaded_archive.identification_status = "IAIP"
     uploaded_archive.save()
+    if workgroup.identification_model is None:
+        logger.error("No identification model for workgroup. Selecting default model.")
+        model = models.IdentificationModel.objects.filter(public=True).first()
+        if model is None:
+            logger.error("No default identification model found. Using first available model.")
+            model = models.IdentificationModel.objects.first()
+            if model is None:
+                logger.error("No identification model found. Cannot run identification.")
+                return False
+        workgroup.identification_model = model
+        workgroup.save()
 
     identify_signature = signature(
         "identify",
