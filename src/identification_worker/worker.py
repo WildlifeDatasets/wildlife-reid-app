@@ -139,9 +139,10 @@ def init(
             "message": f"Identification initiated with {len(metadata['image_path'])} images.",
         }
     except Exception:
-        error = traceback.format_exc()
-        logger.critical(f"Returning unexpected error output: '{error}'.")
-        out = {"status": "ERROR", "error": error}
+        logger.debug(f"{identification_model=}")
+        err = traceback.format_exc()
+        logger.critical(f"Returning unexpected error output: '{err}'.")
+        out = {"status": "ERROR", "error": err}
     return out
 
 
@@ -466,7 +467,7 @@ def predict(
     # identification_model["path"]
     try:
         logger.info(f"Applying init task with args: {input_metadata_file_path=}, {organization_id=}.")
-        logger.debug(f"celery {self.request.id=}")
+        logger.debug(f"celery task id={self.request.id=}")
 
         # read metadata file
         metadata = pd.read_csv(input_metadata_file_path)

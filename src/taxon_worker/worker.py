@@ -7,9 +7,15 @@ import pandas as pd
 from celery import Celery
 from detection_utils import inference_detection
 from detection_utils.inference_video import create_image_from_video
-from taxon_utils import data_processing_pipeline, dataset_tools
-from taxon_utils.config import RABBITMQ_URL, REDIS_URL
-from taxon_utils.log import setup_logging
+
+try:
+    from taxon_utils import data_processing_pipeline, dataset_tools
+    from taxon_utils.config import RABBITMQ_URL, REDIS_URL
+    from taxon_utils.log import setup_logging
+except ModuleNotFoundError:
+    from .taxon_utils import data_processing_pipeline, dataset_tools
+    from .taxon_utils.config import RABBITMQ_URL, REDIS_URL
+    from .taxon_utils.log import setup_logging
 
 setup_logging()
 logger = logging.getLogger("app")
@@ -35,14 +41,29 @@ def predict(
     contains_identities: bool = False,
     force_init: bool = False,
     sequence_time_limit_s: int = 120,
+    detection_model_path: str = None,
+    detection_model_architecture: str = None,
     **kwargs,
 ):
-    """Main method called by Celery broker.
+    """Prepare import data and species classification inference.
+
+    What it does:
+    - unzips input_archive_file
+    - prepares metadata dataframe
+    - extract date/time from EXIF if possible
+    - runs species classification inference
+    - save images into .webp format
+    - creates preview images
+    - saves output archive and metadata
 
     If the output_metadata_file does not exist, the metadata is
     created based on the content of input_archive_file and saved to output_metadata_file.
     If the output_metadata_file exists, it is directly used as input for the inference.
     """
+    # TODO implement detection_model_path and detection_model_architecture parameters
+    # if empty string is given, select whole media file for detection.
+    # detection_model_path=r"https://github.com/ecologize/CameraTraps/releases/download/v5.0/md_v5a.0.0.pt",
+    # detection_model_architecture="ultralytics/yolov5:915bbf2",
     try:
         logger.info(
             "Applying species identification task with args: "
@@ -124,6 +145,7 @@ def predict(
 
         # dataset_tools.make_zipfile(output_archive_file, output_images_dir)
 
+        logger.debug(f"{self.request.id=}")
         logger.info("Finished processing.")
         out = {"status": "DONE"}
     except Exception:

@@ -4,7 +4,11 @@
 
 
 {% block content %}
-<h2>{{ view.title|default:"Formulář" }}</h2>
+<h2>{{ view.title|default:"Form" }}</h2>
+    {% include "caidapp/include_breadcrumb_nav.html" %}
+    <p>
+    {{ description }}
+    </p>
 <form method="post">
     {% csrf_token %}
             {{ form|crispy }}

@@ -131,6 +131,12 @@ class WorkGroup(models.Model):
     identification_scheduled_init_eta = models.DateTimeField(null=True, blank=True)
     identification_scheduled_run_task_id = models.CharField(max_length=255, null=True, blank=True)
     identification_scheduled_run_eta = models.DateTimeField(null=True, blank=True)
+    check_taxon_before_identification = models.BooleanField(
+        "Check taxon before identification",
+        default=True,
+        help_text="Do the identification only for media files and observations with the correct taxon. "
+        + "Ignore the other observations and media files.",
+    )
     default_taxon_for_identification = models.ForeignKey(
         Taxon,
         on_delete=models.SET_NULL,
@@ -144,16 +150,50 @@ class WorkGroup(models.Model):
         blank=True,
         related_name="actual_workgroup_identification_model",
     )
+    detection_model_path = models.CharField(
+        max_length=512, blank=True,
+        default=r"https://github.com/ecologize/CameraTraps/releases/download/v5.0/md_v5a.0.0.pt",
+        help_text="Model compatible with 'ultralytics/yolov5:915bbf2'. Leave empty to use whole media file for analysis."
+    )
+    detection_model_architecture = models.CharField(
+        max_length=255, blank=True, default="ultralytics/yolov5:915bbf2",
+    )
 
     def save(self, *args, **kwargs):
-        """Save workgroup and set default taxon and identification model if not set."""
-        # if not self.default_taxon_for_identification:
-        #     self.default_taxon_for_identification = get_taxon("Lynx lynx")
+        """Save workgroup and set default taxon and identification model if not set.
+        Propagate changes of default_taxon_for_identification into users and their UploadedArchive.
+        """
+        old_default = None
+        if self.pk:
+            try:
+                old = WorkGroup.objects.get(pk=self.pk)
+                old_default = old.default_taxon_for_identification
+            except WorkGroup.DoesNotExist:
+                old_default = None
 
         if not self.identification_model:
             model = IdentificationModel.objects.filter(public=True).first()
             self.identification_model = model
+
         super().save(*args, **kwargs)
+
+        # pokud došlo ke změně default taxonu, aktualizuj uživatele a uploaded archives
+        try:
+            if old_default != self.default_taxon_for_identification:
+                # aktualizace UploadedArchive
+                UploadedArchive.objects.filter(owner__workgroup=self).update(
+                    default_taxon_for_identification=self.default_taxon_for_identification
+                )
+
+                CaIDUser.objects.filter(
+                    workgroup=self
+                ).update(
+                    default_taxon_for_identification=self.default_taxon_for_identification
+                )
+
+        except Exception as e:
+            logger.exception("Error propagating default_taxon_for_identification: %s", e)
+
 
     def __str__(self):
         return str(self.name)
@@ -208,6 +248,48 @@ class WorkGroup(models.Model):
             parent__identification_status="IR",
         ).count()
 
+    def mediafiles_for_train_or_init_identification(
+            self
+            # request,
+            # workgroup, taxon=None, identity_is_representative=True
+    ):
+        """Get mediafiles for training or initialization of identification."""
+
+        # Pokud má workgroup nastavený výchozí taxon pro identifikaci
+        if self.check_taxon_before_identification and self.default_taxon_for_identification:
+            # Najdi ID všech mediafiles, které mají aspoň jednu observaci s daným taxonem
+            mf_ids = (
+                AnimalObservation.objects.filter(
+                    taxon=self.default_taxon_for_identification,
+                    mediafile__parent__owner__workgroup=self,
+                )
+                .values_list("mediafile_id", flat=True)
+                .distinct()
+            )
+
+            # A těmto mediafiles nastav příznak
+            mediafiles_qs = MediaFile.objects.filter(
+                parent__owner__workgroup=self,
+                id__in=mf_ids,
+                identity_is_representative=True,
+                identity__isnull=False,
+            )
+
+        else:
+            logger.warning(f"No default taxon for identification set in {self=}. Nothing updated.")
+            mediafiles_qs = MediaFile.objects.filter(
+                parent__owner__workgroup=self,
+                # id__in=mf_ids,
+                identity_is_representative=True,
+                identity__isnull=False,
+            )
+
+        logger.debug(f"Found {mediafiles_qs.count()} mediafiles for identification init.")
+        if mediafiles_qs.count() == 0:
+            logger.error("No mediafiles found for identification init.")
+
+        return mediafiles_qs
+
 
 class CaIDUser(models.Model):
     DjangoUser = get_user_model()
@@ -219,8 +301,9 @@ class CaIDUser(models.Model):
     import_dir = models.CharField(max_length=255, blank=True, default="")
     dir_import_status = models.CharField(max_length=255, blank=True, default="")
     dir_import_message = models.CharField(max_length=255, blank=True, default="")
-    identification_model = models.ForeignKey(IdentificationModel, on_delete=models.SET_NULL, null=True, blank=True)
+    # identification_model = models.ForeignKey(IdentificationModel, on_delete=models.SET_NULL, null=True, blank=True)
     show_taxon_classification = models.BooleanField(default=True)
+    show_reid = models.BooleanField(default=True)
     show_wellcome_message_on_next_login = models.BooleanField(default=False)
     show_base_dataset = models.BooleanField(default=False)
     default_taxon_for_identification = models.ForeignKey(
@@ -256,7 +339,7 @@ class CaIDUser(models.Model):
     def save(self, *args, **kwargs):
         """Save user and set default taxon if not set."""
         if not self.default_taxon_for_identification:
-            self.default_taxon_for_identification = get_taxon("Lynx lynx")
+            self.default_taxon_for_identification = get_taxon("Animalia")
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -330,6 +413,43 @@ class CaIDUser(models.Model):
             parent__owner__workgroup=self.workgroup,
             parent__taxon_for_identification__isnull=False,
         ).count()
+
+
+class WorkGroupInvitation(models.Model):
+    invited_user = models.ForeignKey(
+        CaIDUser,
+        on_delete=models.CASCADE,
+        related_name="workgroup_invitations"
+    )
+    target_workgroup = models.ForeignKey(
+        WorkGroup,
+        on_delete=models.CASCADE,
+        related_name="invitations"
+    )
+
+    invited_by = models.ForeignKey(
+        CaIDUser,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="sent_workgroup_invitations"
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    status = models.CharField(
+        max_length=20,
+        choices=[
+            ("pending", "Pending"),
+            ("accepted", "Accepted"),
+            ("rejected", "Rejected"),
+        ],
+        default="pending",
+    )
+
+    responded_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        unique_together = ("invited_user", "target_workgroup")
 
 
 class Locality(models.Model):
@@ -501,6 +621,7 @@ class UploadedArchive(models.Model):
         choices=UA_STATUS_CHOICES,
         default="C",
     )
+    is_for_identification = models.BooleanField(default=False)  # never used, remove? it is duplicit with condains_...
     identification_started_at = models.DateTimeField("Started at", blank=True, null=True)
     identification_finished_at = models.DateTimeField("Finished at", blank=True, null=True)
     locality_at_upload = models.CharField(max_length=255, blank=True, default="")
@@ -562,7 +683,7 @@ class UploadedArchive(models.Model):
             return None
         elif self.taxon_status == "TAID":
             return "Annotate taxa", reverse_lazy(
-                "caidapp:missing_taxon_annotation", kwargs={"uploaded_archive_id": self.id}
+                "caidapp:missing_taxon_annotation_in_uploadedarchive", kwargs={"uploaded_archive_id": self.id}
             )
         elif self.taxon_status == "TKN":
             return "Verify taxa", reverse_lazy("caidapp:verify_taxa", kwargs={"uploaded_archive_id": self.id})
@@ -592,20 +713,23 @@ class UploadedArchive(models.Model):
 
     def count_of_mediafiles(self):
         """Return number of mediafiles in the archive."""
-        if self.taxon_status in ("C", "TAIP", "TAID"):
+        if self.taxon_status in ("C", "TAIP",
+            # "TAID"
+                                 ):
             return self.mediafiles_at_upload
         return MediaFile.objects.filter(parent=self).count()
 
     def count_of_representative_mediafiles(self):
         """Return number of representative mediafiles in the archive."""
-        return MediaFile.objects.filter(parent=self, identity_is_representative=True).count()
+        return MediaFile.objects.filter(parent=self, observations__identity_is_representative=True).count()
 
     def count_of_mediafiles_with_taxon_for_identification(self):
         """Return number of mediafiles with taxon for identification in the archive."""
         if self.taxon_for_identification is None:
             return None
-        else:
-            return MediaFile.objects.filter(parent=self, taxon=self.taxon_for_identification).count()
+        return MediaFile.objects.filter(
+            parent=self, observations__taxon=self.taxon_for_identification
+        ).distinct().count()
 
     def update_location_in_mediafiles(self, location: Union[str, Locality]):
         """Update location in mediafiles."""
@@ -941,6 +1065,22 @@ class Sequence(models.Model):
     local_id = models.IntegerField(null=True, blank=True)
 
 
+class WorkgroupAccessQuerySet(models.QuerySet):
+    def for_user(self, caiduser: CaIDUser, owner_path: str):
+        if caiduser.workgroup:
+            return self.filter(**{f"{owner_path}__workgroup": caiduser.workgroup})
+        return self.filter(**{owner_path: caiduser})
+
+
+class MediaFileManager(models.Manager):
+    def get_queryset(self):
+        return WorkgroupAccessQuerySet(self.model, using=self._db)
+
+    def for_user(self, caiduser: CaIDUser):
+        return self.get_queryset().for_user(caiduser, "parent__owner")
+
+
+
 class MediaFile(models.Model):
     # ORIENTATION_CHOICES = (
     #     ("L", "Left"),
@@ -950,6 +1090,7 @@ class MediaFile(models.Model):
     #     ("N", "None"),
     #     ("U", "Unknown"),
     # )
+    objects = MediaFileManager()
     MEDIA_TYPE_CHOICES = (
         ("image", "Image"),
         ("video", "Video"),
@@ -1039,6 +1180,21 @@ class MediaFile(models.Model):
     def is_preidentified(self):
         """Return True if mediafile is preidentified."""
         return MediafilesForIdentification.objects.filter(mediafile=self).exists()
+
+
+    @property
+    def taxons(self):
+        """Return list of taxons from observations."""
+        taxons = set()
+        for obs in self.observations.all():
+            if obs.taxon is not None:
+                taxons.add(obs.taxon)
+        taxons = list(taxons)
+        if len(taxons) == 0:
+            return None
+        else:
+            return taxons
+
 
     @property
     def taxon_from_observations(self):
@@ -1175,7 +1331,7 @@ class MediaFile(models.Model):
             if old.identity_is_representative != self.identity_is_representative:
                 from .tasks import schedule_init_identification_for_workgroup
 
-                schedule_init_identification_for_workgroup(self.parent.owner.workgroup, delay_minutes=40)
+                schedule_init_identification_for_workgroup(self.parent.owner.workgroup, delay_minutes=10)
                 # and the reid will be started after the init
 
         super().save(*args, **kwargs)
@@ -1480,37 +1636,24 @@ def auto_delete_file_on_delete(sender, instance, **kwargs):
 from django.db.models import Exists, OuterRef
 
 
-def get_mediafiles_with_missing_taxon(
-    caiduser: CaIDUser, uploadedarchive: Optional[UploadedArchive] = None, **kwargs
-) -> QuerySet:
-    """Return MediaFiles whose observations have missing or unverified taxon."""
-    not_classified_taxon = get_taxon(TAXON_NOT_CLASSIFIED)
-    animalia_taxon = get_taxon("Animalia")
-
-    # přístupové omezení
+def get_mediafiles_with_missing_taxon(caiduser: CaIDUser, uploadedarchive: Optional[UploadedArchive] = None, **kwargs) -> QuerySet:
+    """Return media files with missing taxon (taxon stored in AnimalObservation)."""
+    # Filtr přístupu uživatele
     kwargs_filter = user_has_access_filter_params(caiduser, "parent__owner")
-
     if uploadedarchive is not None:
         kwargs["parent"] = uploadedarchive
 
-    # poddotaz: existuje nějaká observation s platným taxonem?
-    valid_obs = AnimalObservation.objects.filter(
-        mediafile=OuterRef("pk"),
-    ).filter(
-        ~Q(taxon=None),
-        ~Q(taxon=not_classified_taxon),
-        ~(Q(taxon=animalia_taxon) & Q(taxon_verified=False)),
+    # Dotaz, který najde validní pozorování (obs.taxon je platný)
+    valid_obs_qs = AnimalObservation.objects.filter(mediafile=OuterRef("pk")).exclude(
+        Q(taxon__isnull=True)
+        | Q(taxon__name=TAXON_NOT_CLASSIFIED)
+        | (Q(taxon__name="Animalia") & Q(taxon_verified=False))
     )
 
-    # vyber mediafiles, které žádnou validní observation nemají
+    # Označí mediafile, které mají alespoň jedno validní pozorování
     mediafiles = (
-        MediaFile.objects.annotate(has_valid_obs=Exists(valid_obs))
-        .filter(
-            has_valid_obs=False,
-            parent__contains_single_taxon=False,
-            **kwargs_filter,
-            **kwargs,
-        )
+        MediaFile.objects.annotate(has_valid_obs=Exists(valid_obs_qs))
+        .filter(has_valid_obs=False, parent__contains_single_taxon=False, **kwargs_filter, **kwargs)
         .select_related(
             "parent",
             "predicted_taxon",
@@ -1520,8 +1663,49 @@ def get_mediafiles_with_missing_taxon(
             "sequence",
         )
     )
-
     return mediafiles
+
+#     caiduser: CaIDUser, uploadedarchive: Optional[UploadedArchive] = None, **kwargs
+# ) -> QuerySet:
+#     """Return MediaFiles whose observations have missing or unverified taxon."""
+#     not_classified_taxon = get_taxon(TAXON_NOT_CLASSIFIED)
+#     animalia_taxon = get_taxon("Animalia")
+#
+#     # přístupové omezení
+#     kwargs_filter = user_has_access_filter_params(caiduser, "parent__owner")
+#
+#     if uploadedarchive is not None:
+#         kwargs["parent"] = uploadedarchive
+#
+#     # poddotaz: existuje nějaká observation s platným taxonem?
+#     valid_obs = AnimalObservation.objects.filter(
+#         mediafile=OuterRef("pk"),
+#     ).filter(
+#         ~Q(taxon=None),
+#         ~Q(taxon=not_classified_taxon),
+#         ~(Q(taxon=animalia_taxon) & Q(taxon_verified=False)),
+#     )
+#
+#     # vyber mediafiles, které žádnou validní observation nemají
+#     mediafiles = (
+#         MediaFile.objects.annotate(has_valid_obs=Exists(valid_obs))
+#         .filter(
+#             has_valid_obs=False,
+#             parent__contains_single_taxon=False,
+#             **kwargs_filter,
+#             **kwargs,
+#         )
+#         .select_related(
+#             "parent",
+#             "predicted_taxon",
+#             "locality",
+#             "identity",
+#             "updated_by",
+#             "sequence",
+#         )
+#     )
+#
+#     return mediafiles
 
 
 # def get_mediafiles_with_missing_verification(
@@ -1643,19 +1827,61 @@ class Notification(models.Model):
     }
 
     user = models.ForeignKey(CaIDUser, on_delete=models.CASCADE, null=True, blank=True)
+    # workgroup = models.ForeignKey(WorkGroup, on_delete=models.CASCADE, null=True, blank=True)
     message = models.TextField(blank=True, default="")
     json_message = models.JSONField(blank=True, null=True)
     created_at = models.DateTimeField("Created at", auto_now_add=True)
-    read = models.BooleanField("Read", default=False)
     level = models.PositiveSmallIntegerField(choices=LEVEL_CHOICES, default=INFO)
 
     def __str__(self):
-        return f"Notification for {self.user.user.username} at {self.created_at}"
+        created_at = self.created_at.strftime("%Y-%m-%d %H:%M:%S")
+        msg = f"{created_at}: {self.level}: "
+        if self.user:
+            msg += f"{self.user}: "
+        if self.message:
+            msg += self.message[:50]
+        return msg
+
 
     def bootstrap_class(self):
         """Return bootstrap class for the notification level."""
         return self.BOOTSTRAP_CLASSES.get(self.level, "secondary")
+    
+    @classmethod
+    def create_for(cls, *, message="", level=INFO, users=None, workgroups=None, json_message=None):
+        """ Create notification and send it to users and workgroups.
 
+        """
+        notif = cls.objects.create(message=message, level=level, json_message=json_message)
+
+        final_users = set()
+
+        # Uživatelé
+        if users:
+            for u in users:
+                final_users.add(u)
+
+        # Workgroup uživatelé
+        if workgroups:
+            for wg in workgroups:
+                for u in wg.caiduser_set.all():
+                    final_users.add(u)
+
+        # Vytvoření vazeb NotificationRecipient
+        for user in final_users:
+            NotificationRecipient.objects.create(
+                notification=notif, user=user)
+
+        return notif
+
+class NotificationRecipient(models.Model):
+    notification = models.ForeignKey(Notification, on_delete=models.CASCADE)
+    user = models.ForeignKey(CaIDUser, on_delete=models.CASCADE)
+    read = models.BooleanField(default=False)
+    read_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        unique_together = ('notification', 'user')  # aby nedošlo k duplicitám
 
 class MergeIdentitySuggestionResult(models.Model):
     workgroup = models.ForeignKey(WorkGroup, on_delete=models.CASCADE, null=True, blank=True)

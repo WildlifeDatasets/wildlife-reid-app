@@ -1,4 +1,8 @@
 import datetime
+
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import get_object_or_404, redirect
+from django.core.exceptions import PermissionDenied
 import logging
 import os
 import random
@@ -10,6 +14,10 @@ from io import BytesIO
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 from zoneinfo import ZoneInfo
+
+import zipfile
+from django.core.files.base import ContentFile
+import io
 
 import django
 import django.db
@@ -25,7 +33,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth import login as auth_login
 from django.contrib.auth import logout
 from django.contrib.auth.decorators import login_required, user_passes_test
-from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 
 # from django.contrib.auth.models import User
 from django.contrib.auth.views import LoginView
@@ -36,7 +44,7 @@ from django.db.models import Count, F, Func, Max, Min, OuterRef, Q, QuerySet, Su
 from django.db.models.functions import Cast
 from django.forms import modelformset_factory
 from django.forms.models import model_to_dict
-from django.http import HttpResponseNotAllowed, JsonResponse
+from django.http import HttpResponseNotAllowed, JsonResponse, HttpRequest
 from django.shortcuts import Http404, HttpResponse, get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse, reverse_lazy
@@ -59,7 +67,7 @@ from . import (
     views_locality,
     views_uploads,
 )
-from .forms import (
+from .forms import (  # WorkgroupUsersForm,
     AlbumForm,
     IndividualIdentityForm,
     MediaFileBulkForm,
@@ -69,7 +77,6 @@ from .forms import (
     UploadedArchiveSelectTaxonForIdentificationForm,
     UploadedArchiveUpdateForm,
     UserSelectForm,
-    WorkgroupUsersForm,
 )
 from .model_extra import user_has_rw_acces_to_uploadedarchive, user_has_rw_access_to_mediafile
 from .model_tools import timesince_now
@@ -86,6 +93,7 @@ from .models import (
     WorkGroup,
     get_all_relevant_localities,
     user_has_access_filter_params,
+    Notification
 )
 from .tasks import (
     _iterate_over_locality_checks,
@@ -180,10 +188,8 @@ def login(request):
     if request.user.is_authenticated:
         return redirect("caidapp:home")
     else:
-        return render(
-            request,
-            "caidapp/login.html",
-        )
+        # redirect to allauth login page
+        return redirect("/accounts/login")
 
 
 def message_view(
@@ -267,24 +273,30 @@ def show_log(request):
 def show_taxons(request):
     """List of taxons."""
     all_taxons = Taxon.objects.all().order_by("name")
+    # logger.debug(f"Found {len(all_taxons)} taxa in total.")
     taxons = []
     taxons_mediafiles = []
-    # todo use here new function
     if request.user.caiduser.workgroup:
         filter_params = dict(parent__owner__workgroup=request.user.caiduser.workgroup)
     else:
         filter_params = dict(parent__owner=request.user.caiduser)
 
     for taxon in all_taxons:
-        mediafiles_of_taxon = taxon.mediafile_set.filter(**filter_params).all()
+        mediafiles_of_taxon = MediaFile.objects.filter(observations__taxon=taxon, **filter_params).order_by("-captured_at")
+        # logger.debug(f"Taxon '{taxon.name}' has {len(mediafiles_of_taxon)} media files.")
         if len(mediafiles_of_taxon) > 0:
+            # taxon.image = mediafiles_of_taxon.first().image
             taxons.append(taxon)
             taxons_mediafiles.append(mediafiles_of_taxon)
+            # logger.debug(f"{mediafiles_of_taxon=}")
 
     return render(
         request,
         "caidapp/show_taxons.html",
-        {"taxons": taxons, "taxons_with_mediafiles": zip(taxons, taxons_mediafiles)},
+        {
+            "taxons": taxons,
+            "taxons_with_mediafiles": zip(taxons, taxons_mediafiles),
+        },
     )
 
 
@@ -319,34 +331,6 @@ def update_taxon(request, taxon_id: Optional[int] = None):
         },
     )
 
-
-# @login_required
-# def update_caiduser(request):
-#     """Update species form. Create taxon if taxon_id is None."""
-#     caiduser = request.user.caiduser
-#     if request.method == "POST":
-#         form = forms.CaIDForm(request.POST, instance=caiduser)
-#         if form.is_valid():
-#             taxon = form.save(commit=False)
-#             # taxon.updated_by = request.user.caiduser
-#             taxon.save()
-#             # go back to prev url
-#             url = request.META.get("HTTP_REFERER", "/")
-#
-#             return redirect(url)
-#             # return
-#             # return redirect("caidapp:show_taxons")
-#     else:
-#         form = forms.CaIDForm(instance=caiduser)
-#     return render(
-#         request,
-#         "caidapp/update_form.html",
-#         {
-#             "form": form,
-#             "headline": "User settings",
-#             "button": "Save",
-#         },
-#     )
 
 
 @method_decorator(login_required, name="dispatch")
@@ -391,14 +375,18 @@ class CaIDUserSettingsView(View):
     def get(self, request):
         """Render the user settings page."""
         form = forms.CaIDUserSettingsForm(instance=request.user.caiduser)
+        context = {
+            "form": form,
+            "headline": "User settings",
+            "button": "Save",
+        }
+        context["nav_dict"] = {
+            "Invitations": reverse("caidapp:workgroup_invitations_for_user"),
+        }
         return render(
             request,
             self.template_name,
-            {
-                "form": form,
-                "headline": "User settings",
-                "button": "Save",
-            },
+            context
         )
 
     def post(self, request):
@@ -411,7 +399,11 @@ class CaIDUserSettingsView(View):
             return redirect(url)
         else:
             messages.error(request, "Please correct the errors below.")
-        return render(request, self.template_name, {"form": form})
+        context = {"form": form, }
+        context["nav_dict"] = {
+            "Invitations": reverse("caidapp:workgroup_invitations_for_user"),
+        }
+        return render(request, self.template_name, context)
 
 
 def get_filtered_mediafiles(
@@ -516,6 +508,9 @@ def dash_identities(request) -> HttpResponse:
     #     taxon_for_identification__isnull=False,
     # )
     # page_context = paginate_queryset(queryset, request)
+    workgroup = request.user.caiduser.workgroup
+    if workgroup.identification_model is None:
+        messages.error(request, "No identification model for workgroup. Please set it before running identification.")
 
     # find the identity with minimum number of representative mediafiles
     identities = (
@@ -564,34 +559,6 @@ def _uploads_general_order_annotation():
             "mediafile", filter=Q(mediafile__taxon=F("taxon_for_identification"))
         ),  # Count of MediaFiles with a specific taxon
         earliest_mediafile_captured_at=Min("mediafile__captured_at"),  # Earliest capture date
-    )
-
-
-@login_required
-def select_reid_model(request):
-    """Select reid model."""
-    form = forms.UserIdentificationModelForm()
-    if request.method == "POST":
-        form = forms.UserIdentificationModelForm(request.POST)
-        if form.is_valid():
-            request.user.caiduser.identification_model = form.cleaned_data["identification_model"]
-            request.user.caiduser.save()
-
-            messages.info(request, "Identification model set.")
-            return redirect("caidapp:uploads_identities")
-
-    else:
-
-        initial = {"identification_model": request.user.caiduser.identification_model}
-        form = forms.UserIdentificationModelForm(initial=initial)
-    return render(
-        request,
-        "caidapp/update_form.html",
-        {
-            "form": form,
-            "headline": "Select identification model",
-            "button": "Save",
-        },
     )
 
 
@@ -685,6 +652,7 @@ class IdentityListView(LoginRequiredMixin, ListView):
         )
 
         self.filterset = filters.IndividualIdentityFilter(self.request.GET, queryset=qs)
+        qs = self.filterset.qs
 
         # class_prefix = self.__class__.__name__.lower() # maybe this is more general
         # class_prefix = 'identities'
@@ -1414,54 +1382,53 @@ def run_taxon_classification(request, uploadedarchive_id, force_init=False):
 #     return redirect("/caidapp/uploads")
 
 
-def _get_mediafiles_for_train_or_init_identification(
-    workgroup: models.WorkGroup,
-    # request,
-    # workgroup, taxon=None, identity_is_representative=True
-):
-    """Get mediafiles for training or initialization of identification."""
-    # Nejprve resetuj všechny mediafiles v daném workgroupu
-    mediafiles_qs = MediaFile.objects.filter(
-        parent__owner__workgroup=workgroup,
-    )
-    mediafiles_qs.update(used_for_init_identification=False)
 
-    # Pokud má workgroup nastavený výchozí taxon pro identifikaci
-    if workgroup.default_taxon_for_identification:
-        # Najdi ID všech mediafiles, které mají aspoň jednu observaci s daným taxonem
-        mf_ids = (
-            AnimalObservation.objects.filter(
-                taxon=workgroup.default_taxon_for_identification,
-                mediafile__parent__owner__workgroup=workgroup,
-            )
-            .values_list("mediafile_id", flat=True)
-            .distinct()
-        )
-
-        # A těmto mediafiles nastav příznak
-        mediafiles_qs = MediaFile.objects.filter(
-            parent__owner__workgroup=workgroup,
-            id__in=mf_ids,
-            identity_is_representative=True,
-            identity__isnull=False,
-        )
-
-    else:
-        logger.warning(f"No default taxon for identification set in {workgroup=}. Nothing updated.")
-        mediafiles_qs = MediaFile.objects.filter(
-            parent__owner__workgroup=workgroup,
-            # id__in=mf_ids,
-            identity_is_representative=True,
-            identity__isnull=False,
-        )
-
-    logger.debug(f"Found {mediafiles_qs.count()} mediafiles for identification init.")
-    if mediafiles_qs.count() == 0:
-        logger.error("No mediafiles found for identification init.")
-
-    # mark these mediafiles as used for init identification
-    mediafiles_qs.update(used_for_init_identification=True)
-    return mediafiles_qs
+# def _get_mediafiles_for_train_or_init_identification(
+#     workgroup: models.WorkGroup,
+#     # request,
+#     # workgroup, taxon=None, identity_is_representative=True
+# ):
+#     """Get mediafiles for training or initialization of identification."""
+#     # Nejprve resetuj všechny mediafiles v daném workgroupu
+#     mediafiles_qs = MediaFile.objects.filter(
+#         parent__owner__workgroup=workgroup,
+#     )
+#     mediafiles_qs.update(used_for_init_identification=False)
+#
+#     # Pokud má workgroup nastavený výchozí taxon pro identifikaci
+#     if workgroup.check_taxon_before_identification and workgroup.default_taxon_for_identification:
+#         # Najdi ID všech mediafiles, které mají aspoň jednu observaci s daným taxonem
+#         mf_ids = (
+#             AnimalObservation.objects.filter(
+#                 taxon=workgroup.default_taxon_for_identification,
+#                 mediafile__parent__owner__workgroup=workgroup,
+#             )
+#             .values_list("mediafile_id", flat=True)
+#             .distinct()
+#         )
+#
+#         # A těmto mediafiles nastav příznak
+#         mediafiles_qs = MediaFile.objects.filter(
+#             parent__owner__workgroup=workgroup,
+#             id__in=mf_ids,
+#             identity_is_representative=True,
+#             identity__isnull=False,
+#         )
+#
+#     else:
+#         logger.warning(f"No default taxon for identification set in {workgroup=}. Nothing updated.")
+#         mediafiles_qs = MediaFile.objects.filter(
+#             parent__owner__workgroup=workgroup,
+#             # id__in=mf_ids,
+#             identity_is_representative=True,
+#             identity__isnull=False,
+#         )
+#
+#     logger.debug(f"Found {mediafiles_qs.count()} mediafiles for identification init.")
+#     if mediafiles_qs.count() == 0:
+#         logger.error("No mediafiles found for identification init.")
+#
+#     return mediafiles_qs
 
 
 def str_bumpversion(version_str: str) -> str:
@@ -1490,12 +1457,12 @@ def train_identification(
 
     if not request.user.caiduser.workgroup_admin:
         return HttpResponseNotAllowed("Identification init is for workgroup admins only.")
-    if not request.user.caiduser.identification_model:
+    if not request.user.caiduser.workgroup.identification_model:
         # go back to the page
         link = request.META.get("HTTP_REFERER", "/")
         return message_view(request, "No identification model set.", link=link)
     caiduser = request.user.caiduser
-    mediafiles_qs = _get_mediafiles_for_train_or_init_identification(caiduser.workgroup)
+    mediafiles_qs = caiduser.workgroup.mediafiles_for_train_or_init_identification()
 
     logger.debug("Generating CSV for init_identification...")
 
@@ -1604,19 +1571,32 @@ def init_identification_view(
 ):
     """Run processing of uploaded archive."""
     # check if user is workgroup admin
+    caiduser = request.user.caiduser
     if not request.user.caiduser.workgroup_admin:
         return HttpResponseNotAllowed("Identification init is for workgroup admins only.")
-    if not request.user.caiduser.identification_model:
-        # go back to the page
-        link = request.META.get("HTTP_REFERER", "/")
-        return message_view(request, "No identification model set.", link=link)
 
-    caiduser = request.user.caiduser
+
+    # reset mediafiles in workgroup
+    mediafiles_qs = MediaFile.objects.filter(
+        parent__owner__workgroup=caiduser.workgroup,
+    )
+    mediafiles_qs.update(used_for_init_identification=False)
+    mediafiles_qs = caiduser.workgroup.mediafiles_for_train_or_init_identification()
+    mf_count = mediafiles_qs.count()
+    messages.info(request, f"Scheduling identification initialization for workgroup {caiduser.workgroup.name} with {mf_count} media files.")
+
+    if not request.user.caiduser.workgroup.identification_model:
+
+        caiduser.workgroup.identification_model = models.IdentificationModel.objects.filter(public=True).first()
+        messages.warning(request, f"Setting default identification model: {caiduser.workgroup.identification_model.name}")
+
     from .tasks import schedule_init_identification_for_workgroup
+
+
 
     schedule_init_identification_for_workgroup(caiduser.workgroup, delay_minutes=0)
     # return redirect("caidapp:individual_identities")
-    return redirect("caidapp:uploads_known_identities")
+    return redirect("caidapp:dash_identities")
 
 
 def stop_init_identification(request):
@@ -1730,8 +1710,14 @@ def run_identification_view(request, uploadedarchive_id):
     """Run identification of uploaded archive."""
     uploaded_archive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
     # check if user is owner member of the workgroup
+
     if uploaded_archive.owner.workgroup != request.user.caiduser.workgroup:
         return HttpResponseNotAllowed("Identification is for workgroup members only.")
+    workgroup = request.user.caiduser.workgroup
+    if workgroup.identification_model is None:
+        messages.error(request, "No identification model for workgroup. Please set it before running identification.")
+        return redirect(request.META.get("HTTP_REFERER", "/"))
+
     status_ok = run_identification(uploaded_archive, workgroup=request.user.caiduser.workgroup)
     if status_ok:
         messages.info(request, f"Identification started for {uploaded_archive.name}.")
@@ -1750,7 +1736,7 @@ def run_identification(uploaded_archive: UploadedArchive, workgroup: models.Work
 
     # find media files with observations of the expected taxon
     kwargs = {}
-    if workgroup.default_taxon_for_identification:
+    if workgroup.default_taxon_for_identification and workgroup.check_taxon_before_identification:
         kwargs.update(dict(taxon=workgroup.default_taxon_for_identification))
 
     mf_ids = (
@@ -1780,6 +1766,18 @@ def run_identification(uploaded_archive: UploadedArchive, workgroup: models.Work
     # if no records in df
     if df.shape[0] == 0:
         logger.warning("No records for identification with the expected taxon. ")
+
+        expected_taxon_string = ""
+        if workgroup.default_taxon_for_identification:
+            expected_taxon_string = f"(with the expected taxon {workgroup.default_taxon_for_identification.name}) "
+
+        models.Notification.create_for(
+            message=f"No records for identification {expected_taxon_string} in {uploaded_archive=}. ",
+            level=Notification.LevelChoices.WARNING,
+            workgroups=[workgroup]
+        )
+
+
         return False
         # return redirect(request.META.get("HTTP_REFERER", "/"))
 
@@ -1792,6 +1790,17 @@ def run_identification(uploaded_archive: UploadedArchive, workgroup: models.Work
 
     uploaded_archive.identification_status = "IAIP"
     uploaded_archive.save()
+    if workgroup.identification_model is None:
+        logger.error("No identification model for workgroup. Selecting default model.")
+        model = models.IdentificationModel.objects.filter(public=True).first()
+        if model is None:
+            logger.error("No default identification model found. Using first available model.")
+            model = models.IdentificationModel.objects.first()
+            if model is None:
+                logger.error("No identification model found. Cannot run identification.")
+                return False
+        workgroup.identification_model = model
+        workgroup.save()
 
     identify_signature = signature(
         "identify",
@@ -1866,6 +1875,39 @@ def delete_album(request, album_hash):
     return redirect("caidapp:albums")
 
 
+def _one_zip_from_request_FILES(request:HttpRequest) -> HttpRequest:
+    """Create one ZIP file from multiple uploaded files in request.FILES."""
+    files = request.FILES.getlist("archivefile")
+
+    if not files:
+        return request
+        # return JsonResponse({"error": "No files uploaded."}, status=400)
+
+    # if there is just one file and it is an archive → keep the original logic
+    if len(files) == 1 and files[0].name.lower().endswith((".zip", ".tar", ".tar.gz")):
+        # dále zpracování běží přes form.save(), viz níže
+        pass
+    else:
+        # 📦 Uživateli došlo více souborů → zabalíme je do ZIP sami
+
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zipf:
+            for f in files:
+                zipf.writestr(f.name, f.read())
+
+        buffer.seek(0)
+        now_str = django.utils.timezone.now().strftime("%Y%m%d-%H%M%S")
+        # create pseudo file for the form
+        zipped_file = ContentFile(
+            buffer.read(), name=f"uploaded_multiple_files.{now_str}.zip"
+        )
+
+        # substitute the original request.FILES with the zip file
+        request.FILES.setlist("archivefile", [zipped_file])
+
+    return request
+
+
 @login_required
 def upload_archive(
     request,
@@ -1886,6 +1928,10 @@ def upload_archive(
         next_url = reverse_lazy("caidapp:uploads_known_identities")
 
     if request.method == "POST":
+        # logger.debug(f" before: {request.FILES}")
+        request = _one_zip_from_request_FILES(request)
+        # logger.debug(f"  after: {request.FILES}")
+
         if contains_single_taxon:
             form = UploadedArchiveFormWithTaxon(
                 request.POST,
@@ -1899,7 +1945,6 @@ def upload_archive(
                 user=request.user,
             )
         if form.is_valid():
-
             caiduser = request.user.caiduser
             if not caiduser.ml_consent_given:
                 if form.cleaned_data.get("ml_consent"):
@@ -1926,7 +1971,22 @@ def upload_archive(
                         }
                     )
             # get uploaded archive
-            uploaded_archive = form.save()
+            uploaded_archive = form.save(commit=False)
+
+            # Získáme ZIP, který vytvořil _one_zip_from_request_FILES
+            files = request.FILES.getlist("archivefile")
+            if not files:
+                raise ValueError("No uploaded file found")
+
+            zip_file = files[0]
+
+            # uložíme ho do modelu
+            uploaded_archive.archivefile.save(zip_file.name, zip_file, save=False)
+
+            # uploaded_archive.owner = request.user.caiduser
+            # uploaded_archive.contains_identities = contains_identities
+            # uploaded_archive.contains_single_taxon = contains_single_taxon
+            uploaded_archive.save()
             uploaded_archive_suffix = Path(uploaded_archive.archivefile.name).suffix.lower()
             if uploaded_archive_suffix not in (".tar", ".tar.gz", ".zip"):
                 logger.warning(f"Uploaded file with extension '{uploaded_archive_suffix}' is not an archive.")
@@ -1994,7 +2054,7 @@ def upload_archive(
             if request.user.caiduser.default_taxon_for_identification:
                 default_taxon = request.user.caiduser.default_taxon_for_identification
             else:
-                default_taxon = models.get_taxon("Lynx lynx")
+                default_taxon = models.get_taxon("Animalia")
             initial_data["taxon_for_identification"] = default_taxon
             logger.debug(f"{initial_data=}")
             form = UploadedArchiveFormWithTaxon(initial=initial_data, user=request.user)
@@ -2419,7 +2479,6 @@ def media_files_update(
     records_per_page: Optional[int] = None,
     album_hash=None,
     individual_identity_id=None,
-    taxon_id=None,
     uploadedarchive_id=None,
     identity_is_representative=None,
     locality_hash=None,
@@ -2432,6 +2491,7 @@ def media_files_update(
     # create list of mediafiles
     logger.debug("Starting Media files view")
     logger.debug(f"{request.GET=}")
+    album = None
 
     # page_number = 1
     # exclude_filter_kwargs = {}
@@ -2439,6 +2499,18 @@ def media_files_update(
     # query = None
     if records_per_page is None:
         records_per_page = request.session.get("mediafiles_records_per_page", 20)
+
+    if request.GET.get("taxon"):
+        taxon = Taxon.objects.get(pk=request.GET["taxon"])
+        page_title = f"Media files - {taxon.name}"
+    else:
+        page_title = "Media files"
+
+    if request.GET.get("sequence"):
+        sequence_id = request.GET.get("sequence", None)
+        sequence = get_object_or_404(models.Sequence, pk=sequence_id)
+    else:
+        sequence = None
 
     albums_available = (
         Album.objects.filter(Q(albumsharerole__user=request.user.caiduser) | Q(owner=request.user.caiduser))
@@ -2480,12 +2552,6 @@ def media_files_update(
         # mediafiles = mediafiles.filter(identity=individual_identity)
         filter_kwargs = {"identity": individual_identity}
         mediafiles_name_suggestion = f"individual_identity_{individual_identity.name}"
-    elif taxon_id is not None:
-        taxon = get_object_or_404(Taxon, pk=taxon_id)
-        page_title = f"Media files - {taxon.name}"
-        # mediafiles = mediafiles.filter(taxon=taxon)
-        filter_kwargs = {"taxon": taxon}
-        mediafiles_name_suggestion = f"taxon_{taxon.name}"
     elif locality_hash is not None:
         locality = get_object_or_404(Locality, hash=locality_hash)
         page_title = f"Media files - {locality.name}"
@@ -2497,8 +2563,6 @@ def media_files_update(
         # mediafiles = mediafiles.filter(identity_is_representative=identity_is_representative)
         filter_kwargs = {"identity_is_representative": identity_is_representative}
         mediafiles_name_suggestion = f"representative_identity_{str(identity_is_representative)}"
-    else:
-        page_title = "Media files"
 
     # logger.debug(f"{len(mediafiles)=}")
     # if request.user.caiduser.workgroup:
@@ -2522,8 +2586,10 @@ def media_files_update(
     # Instantiate the filter with GET parameters and your base queryset
     mediafile_filter = filters.MediaFileFilter(request.GET, queryset=mediafiles, request=request)
 
+
     # The filtered queryset is available as .qs
-    full_mediafiles = mediafile_filter.qs
+    full_mediafiles = mediafile_filter.qs.filter(sequence=sequence) if sequence else mediafile_filter.qs
+    full_mediafiles = full_mediafiles.distinct()
 
     if show_overview_button and not full_mediafiles.exists():
         return message_view(
@@ -2590,8 +2656,8 @@ def media_files_update(
                 for mediafile in full_mediafiles:
 
                     _single_mediafile_update(request, mediafile, form, form_bulk_processing, selected_album_hash)
-                    album.cover = mediafile
-                    album.save()
+                    # album.cover = mediafile
+                    # album.save()
             else:
                 for mediafileform in form:
                     # go over selected mediafiles
@@ -2603,8 +2669,13 @@ def media_files_update(
                             mediafileform.selected = False
                             instance: MediaFile = mediafileform.save(commit=False)
                             _single_mediafile_update(request, instance, form, form_bulk_processing, selected_album_hash)
-                            album.cover = instance
-                            album.save()
+                            # album.cover = instance
+                            # album.save()
+
+            if "btnBulkProcessingAlbum" in form.data:
+                if selected_album_hash == "new":
+                    album.cover = album.medifile_set.first()
+                    album.save()
 
                     # mediafileform.save()
             # form.save()
@@ -2711,8 +2782,11 @@ def _single_mediafile_update(request, instance, form, form_bulk_processing, sele
         instance.save()
 
     elif "btnBulkProcessing_set_taxon_verified" in form.data:
-        observation = instance.first_observation_get_or_create
-        observation.taxon_verified = True
+        for observation in instance.observations.all():
+            observation.taxon_verified = True
+            observation.save()
+        # observation = instance.first_observation_get_or_create
+        # observation.taxon_verified = True
         instance.taxon_verified = observation.taxon_verified
         instance.updated_by = request.user.caiduser
         instance.updated_at = django.utils.timezone.now()
@@ -2841,10 +2915,6 @@ def create_new_album(request, name="New Album"):
     return album
 
 
-from django.contrib.auth.mixins import UserPassesTestMixin
-from django.views.generic import UpdateView
-
-
 class WorkgroupAdminRequiredMixin(UserPassesTestMixin):
     def test_func(self):
         """Check if user is workgroup admin."""
@@ -2875,49 +2945,53 @@ class WorkgroupUpdateView(WorkgroupAdminRequiredMixin, UpdateView):
         context = super().get_context_data(**kwargs)
         context["headline"] = "Update workgroup"
         context["button"] = "Save"
+        context["nav_dict"] = {
+            "Invitations": reverse_lazy("caidapp:workgroup_invitations"),
+            "Invite User": reverse_lazy("caidapp:workgroup_invitation"),
+        }
         return context
 
 
-# TODO remove, depreceated
-@login_required
-def workgroup_update(request, workgroup_hash: str):
-    """Update workgroup."""
-    workgroup = get_object_or_404(WorkGroup, hash=workgroup_hash)
-    if request.method == "POST":
-        form = WorkgroupUsersForm(request.POST)
-        logger.debug(request.POST)
-        logger.debug(form)
-        if form.is_valid():
-            logger.debug(form.cleaned_data)
-            workgroup_users_all = workgroup.caiduser_set.all()
-            logger.debug(f"Former all users {workgroup_users_all}")
-            workgroup.caiduser_set.set(form.cleaned_data["workgroup_users"])
-
-            pass
-            # logger
-            # form.save()
-            # return redirect("workgroup_list")
-    else:
-
-        workgroup_users = workgroup.caiduser_set.all()
-        data = {
-            # 'id': dog_request_id,
-            # 'color': dog_color,
-            "workgroup_users": workgroup_users,
-        }
-        form = WorkgroupUsersForm(data)
-        # form = WorkgroupUsersForm(instance=workgroup.)
-    return render(
-        request,
-        "caidapp/update_form.html",
-        {
-            "form": form,
-            "headline": "Update workgroup",
-            "button": "Save",
-            # "user_is_staff": request.user.is_staff,
-        },
-    )
-    return render(request, "caidapp/update_form.html", {"form": workgroup_hash})
+# remove, depreceated
+# @login_required
+# def workgroup_update(request, workgroup_hash: str):
+#     """Update workgroup."""
+#     workgroup = get_object_or_404(WorkGroup, hash=workgroup_hash)
+#     if request.method == "POST":
+#         form = WorkgroupUsersForm(request.POST)
+#         logger.debug(request.POST)
+#         logger.debug(form)
+#         if form.is_valid():
+#             logger.debug(form.cleaned_data)
+#             workgroup_users_all = workgroup.caiduser_set.all()
+#             logger.debug(f"Former all users {workgroup_users_all}")
+#             workgroup.caiduser_set.set(form.cleaned_data["workgroup_users"])
+#
+#             pass
+#             # logger
+#             # form.save()
+#             # return redirect("workgroup_list")
+#     else:
+#
+#         workgroup_users = workgroup.caiduser_set.all()
+#         data = {
+#             # 'id': dog_request_id,
+#             # 'color': dog_color,
+#             "workgroup_users": workgroup_users,
+#         }
+#         form = WorkgroupUsersForm(data)
+#         # form = WorkgroupUsersForm(instance=workgroup.)
+#     return render(
+#         request,
+#         "caidapp/update_form.html",
+#         {
+#             "form": form,
+#             "headline": "Update workgroup",
+#             "button": "Save",
+#             # "user_is_staff": request.user.is_staff,
+#         },
+#     )
+#     return render(request, "caidapp/update_form.html", {"form": workgroup_hash})
 
 
 def _update_csv_by_uploadedarchive(request, uploadedarchive_id: int):
@@ -3209,7 +3283,7 @@ def refresh_data(request):
 
         if uploaded_archive.contains_single_taxon and uploaded_archive.taxon_for_identification is None:
             # this fixes the compatibility with the old version before 2024-05
-            uploaded_archive.taxon_for_identification = models.get_taxon("Lynx lynx")
+            uploaded_archive.taxon_for_identification = models.get_taxon("Animalia")
             uploaded_archive.save()
 
         # uploaded_archive.refresh_status_after_migration(request)
@@ -3593,11 +3667,20 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
                 mf = MediaFile.objects.filter(parent=uploaded_archive, original_filename=original_path).first()
                 if mf:
                     try:
+                        ao = mf.observations.first()
+                        if ao is None:
+                            ao = models.Observation()
+                            ao.mediafile = mf
+                            ao.owner = uploaded_archive.owner
+                            ao.owner_workgroup = uploaded_archive.owner.workgroup
+                            ao.save()
+                            mf.observations.add(ao)
+                            mf.save()
                         # logger.debug(f"{mf=}")
                         counter0 += 1
                         # mf.category = row['category']
                         if "predicted_category" in row:
-                            mf.taxon = models.get_taxon(row["predicted_category"])  # remove this
+                            ao.taxon = models.get_taxon(row["predicted_category"])  # remove this
                             counter_fields_updated += 1
 
                         code = row["code"] if "code" in row else ""
@@ -3609,11 +3692,11 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
                             counter_fields_updated += 1
                             counter_individuality += 1
                             if unique_name:
-                                mf.identity.name = unique_name.strip()
+                                ao.identity.name = unique_name.strip()
                                 counter_fields_updated += 1
-                                mf.identity.save()
+                                ao.identity.save()
                         elif unique_name:
-                            mf.identity = models.get_unique_name(
+                            ao.identity = models.get_unique_name(
                                 row["unique_name"], workgroup=uploaded_archive.owner.workgroup
                             )
                             counter_fields_updated += 1
@@ -3653,7 +3736,7 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
                             coat_type = row["coat_type"]
                             if coat_type:
                                 counter_fields_updated += 1
-                                mf.identity.coat_type = coat_type
+                                ao.identity.coat_type = coat_type
 
                         if "orientation" in row:
                             orientation = row["orientation"]
@@ -3669,7 +3752,8 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
                                 orientation = orientation.upper().strip()
                                 orientation = orientation[0]
                                 counter_fields_updated += 1
-                                mf.orientation = orientation
+                                ao.orientation = orientation
+                        ao.save()
                         mf.save()
 
                     except Exception as e:
@@ -4326,21 +4410,51 @@ class NotificationListView(ListView):
     model = models.Notification
     template_name = "caidapp/generic_list_table.html"
     context_object_name = "notifications"
-    title = "Notifications"
+    # title = "Notifications"
 
     def get_queryset(self):
         """Limit queryset to notifications of the current user."""
-        return models.Notification.objects.filter(user=self.request.user.caiduser).order_by("-created_at")
+        user = self.request.user.caiduser
+
+        recipient_qs = models.NotificationRecipient.objects.filter(
+            notification=OuterRef("pk"), user=user
+        )
+
+        return (
+            models.Notification.objects
+            .filter(notificationrecipient__user=user)
+            .annotate(
+                recipient=Subquery(recipient_qs.values("user__user__username")[:1]),
+                read=Subquery(recipient_qs.values("read")[:1]),
+            )
+            .order_by("-created_at")
+        )
+
+
+
+
+        # return models.Notification.objects.filter(user=self.request.user.caiduser).order_by("-created_at")
+        # return (
+        #     models.Notification.objects
+        #     .filter(notificationrecipient__user=self.request.user.caiduser)
+        #     .distinct()
+        #     .order_by("-notification__created_at")
+        # )
 
     def get_context_data(self, **kwargs):
         """Set up context data for the list view."""
         context = super().get_context_data(**kwargs)
-        context["title"] = _("Issue")
-        context["list_display"] = ["message", "user", "read", "created_at"]
-        context["object_detail_url"] = "caidapp:notification-detail"
-        context["object_update_url"] = "caidapp:notification-update"
-        context["object_delete_url"] = "caidapp:notification-delete"
-        context["object_create_url"] = "caidapp:notification-create"
+        context["title"] = _("Notifications")
+        context["list_display"] = ["created_at",
+                                   # "level",
+                                   "message",
+                                   # "recipient",
+                                   # "read",
+                                   ]
+        # context["object_detail_url"] = "caidapp:notification-detail"
+        # context["object_update_url"] = "caidapp:notification-update"
+        # context["object_delete_url"] = "caidapp:notification-delete"
+        # context["object_create_url"] = "caidapp:notification-create"
         return context
 
 
@@ -4400,3 +4514,204 @@ class NotificationDeleteView(DeleteView):
     template_name = "caidapp/generic_form.html"
     success_url = reverse_lazy("caidapp:notifications")
     title = "Delete Notification"
+
+
+
+
+class WorkGroupInvitationCreateView(LoginRequiredMixin, CreateView):
+    model = models.WorkGroupInvitation
+    template_name = "caidapp/generic_form.html"
+    fields = ["invited_user"]
+    success_url = reverse_lazy("caidapp:workgroup_invitations")
+
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.caiduser.workgroup_admin:
+            raise PermissionDenied
+
+        self.target_workgroup = request.user.caiduser.workgroup
+        return super().dispatch(request, *args, **kwargs)
+
+    def form_valid(self, form):
+        form.instance.invited_by = self.request.user.caiduser
+        form.instance.target_workgroup = self.target_workgroup
+        return super().form_valid(form)
+
+class WorkGroupInvitationListView(LoginRequiredMixin, ListView):
+    model = models.WorkGroupInvitation
+    template_name = "caidapp/generic_list_table.html"
+    context_object_name = "WorkGroupInvitation"
+    title = "Workgroup Invitations"
+
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.caiduser.workgroup_admin:
+            raise PermissionDenied
+
+        self.target_workgroup = request.user.caiduser.workgroup
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_queryset(self):
+        logger.debug(f"{self.target_workgroup=}")
+        invs = models.WorkGroupInvitation.objects.filter(target_workgroup=self.target_workgroup)
+        logger.debug(f"{invs.count()=}")
+        return invs.order_by("-created_at")
+
+    def get_context_data(self, **kwargs):
+        """Set up context data for the list view."""
+        context = super().get_context_data(**kwargs)
+        context["title"] = _("Workgroup Invitations")
+        context["list_display"] = ["invited_user", "invited_by", "created_at", "status",]
+        context["object_detail_url"] = "caidapp:workgroup_invitation_detail"
+        return context
+
+class WorkGroupInvitationForUserListView(LoginRequiredMixin, ListView):
+    model = models.WorkGroupInvitation
+    template_name = "caidapp/generic_list_table.html"
+    context_object_name = "workgroup_invitations"
+    title = "Your Workgroup Invitations"
+
+
+    def get_queryset(self):
+        return models.WorkGroupInvitation.objects.filter(invited_user=self.request.user.caiduser).order_by("-created_at")
+
+    def get_context_data(self, **kwargs):
+        """Set up context data for the list view."""
+        context = super().get_context_data(**kwargs)
+        context["title"] = _("Your Workgroup Invitations")
+        context["list_display"] = ["invited_by", "target_workgroup", "created_at", "status",]
+        context["object_detail_url"] = "caidapp:workgroup_invitation_detail"
+
+        return context
+
+class WorkGroupInvitationDetailView(LoginRequiredMixin, DetailView):
+    model = models.WorkGroupInvitation
+    template_name = "caidapp/generic_detail.html"
+    context_object_name = "workgroup_invitation"
+    title = "Workgroup Invitation Detail"
+    fields = ["invited_user", "invited_by", "target_workgroup", "created_at", "status", ]
+    cancel_url = reverse_lazy("caidapp:workgroup_invitations")
+
+    def dispatch(self, request, *args, **kwargs):
+        invitation_id = kwargs.get("pk")
+        invitation = get_object_or_404(models.WorkGroupInvitation, pk=invitation_id)
+        self.invitation = invitation
+
+        if request.user.caiduser.workgroup_admin and invitation.target_workgroup == request.user.caiduser.workgroup:
+            pass
+        elif invitation.invited_user == request.user.caiduser:
+            pass
+        else:
+            raise PermissionDenied
+        return super().dispatch(request, *args, **kwargs)
+
+
+    def get_context_data(self, **kwargs):
+        """Set up context data for the detail view."""
+        context = super().get_context_data(**kwargs)
+        field_data = []
+
+        for field_name in self.fields:
+            field = self.model._meta.get_field(field_name)
+            value = getattr(self.object, field_name)
+            field_data.append(
+                {
+                    "name": field_name,
+                    "verbose_name": field.verbose_name,
+                    "value": value,
+                }
+            )
+        context["fields"] = field_data
+        logger.debug(f"{self.request.user=}, {self.invitation.invited_user=}, {self.invitation.status=}")
+        if self.request.user.caiduser == self.invitation.invited_user and self.invitation.status == "pending":
+            context["bottom_button_list"] = [
+                {
+                    "label": "Accept Invitation",
+                    "style": "primary",
+                    "url": reverse_lazy(
+                        "caidapp:workgroup_invitation_accept",
+                        args=[self.object.pk],
+                    ),
+                    "method": "post",
+                },
+                {
+                    "label": "Decline Invitation",
+                    "style": "danger",
+                    "url": reverse_lazy(
+                        "caidapp:workgroup_invitation_decline",
+                        args=[self.object.pk],
+                    ),
+                    "method": "post",
+                },
+            ]
+        return context
+
+class WorkGroupInvitationDeclineView(LoginRequiredMixin, UpdateView):
+    model = models.WorkGroupInvitation
+    fields = []
+    template_name = "caidapp/generic_form.html"
+
+    title = "Decline Workgroup Invitation"
+    description = "This invitation will be declined."
+
+    cancel_url = reverse_lazy("caidapp:workgroup_invitations")
+
+    def get_queryset(self):
+        return models.WorkGroupInvitation.objects.filter(
+            invited_user=self.request.user.caiduser,
+            status="pending",
+        )
+
+    def form_valid(self, form):
+        invitation = self.object
+
+        if invitation.invited_user != self.request.user.caiduser:
+            raise PermissionDenied
+
+        invitation.status = "rejected"
+        invitation.responded_at = timezone.now()
+        invitation.save(update_fields=["status", "responded_at"])
+
+        return redirect(self.get_success_url())
+
+from django.utils import timezone
+from django.shortcuts import redirect
+from django.core.exceptions import PermissionDenied
+from django.views.generic import UpdateView
+from .services.workgroup_migration import migrate_user_to_workgroup
+
+class WorkGroupInvitationAcceptView(LoginRequiredMixin, UpdateView):
+    model = models.WorkGroupInvitation
+    fields = []  # žádná pole ve formuláři
+    template_name = "caidapp/generic_form.html"
+
+    title = "Accept Workgroup Invitation"
+    description = (
+        "By accepting this invitation, you will be moved to the new workgroup "
+        "together with all your data."
+    )
+    cancel_url = reverse_lazy("caidapp:workgroup_invitations")
+
+    def get_queryset(self):
+        return models.WorkGroupInvitation.objects.filter(
+            invited_user=self.request.user.caiduser,
+            status="pending",
+        )
+
+    def form_valid(self, form):
+        invitation = self.object
+
+        # 🔐 bezpečnost – ještě jednou pro jistotu
+        if invitation.invited_user != self.request.user.caiduser:
+            raise PermissionDenied
+
+        # 🔥 migrace uživatele
+        migrate_user_to_workgroup(
+            user=invitation.invited_user,
+            target_workgroup=invitation.target_workgroup,
+            approved_by=invitation.invited_by,
+        )
+
+        invitation.status = "accepted"
+        invitation.responded_at = timezone.now()
+        invitation.save(update_fields=["status", "responded_at"])
+
+        return redirect(self.get_success_url())

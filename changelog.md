@@ -1,5 +1,34 @@
 # Changelog
 
+
+## 2026-02
+* [added] Dark mode
+* [added] Test via `python manage.py healthcheck_inference` (ready for cron job)
+* [changed] Reduced downloads in runtime
+* [changed] Default taxon (Animalia) and default model for every user
+* [fixed] Limit access to media files to owners and workgroup only
+* [added] Show sequences of media files
+* [added] Set Taxon for whole sequence of media files
+
+## 2026-01
+
+* [changed] Pure bootstrap % layout
+* [added] Default workgroup for new users
+* [added] Workgroup invitation link
+
+
+## 2025-12
+
+* [fixed] Error on taxon classification yolo from W&B
+* [fixed] Taxon annotation procedure with new AnimalObservation model
+
+## 2025-11
+
+* [changed] the media file update use observations now
+* [changed] the media files are converted to `.webp` on upload
+* [changed] the media file import procedure respect the orientation now
+* [added] Upload several media files instead of archive
+
 ## 2025-10
 * [changed]  DJANGO_SECRET_KEY is now stored in `.env` file
 
