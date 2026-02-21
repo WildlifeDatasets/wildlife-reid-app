@@ -63,9 +63,9 @@ def download_file(url: str, output_file: str):
 
 def download_file_if_does_not_exists(url: str, output_file: str):
     """Download file from url."""
-    logger.debug("Checking if file does not exists.")
+    logger.debug(f"Checking if file ({output_file}) does not exists.")
     if not os.path.exists(output_file):
-        logger.debug("File does not exists. Downloading.")
+        logger.debug(f"File does not exists. Downloading from url: {url} to {output_file}.")
         Path(output_file).parent.mkdir(parents=True, exist_ok=True)
         download_file(url, output_file)
 
