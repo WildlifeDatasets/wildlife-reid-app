@@ -6,13 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0140_workgroupinvitation'),
+        ("caidapp", "0140_workgroupinvitation"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='caiduser',
-            name='show_reid',
+            model_name="caiduser",
+            name="show_reid",
             field=models.BooleanField(default=True),
         ),
     ]

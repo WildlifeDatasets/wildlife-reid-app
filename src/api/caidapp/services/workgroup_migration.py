@@ -1,8 +1,11 @@
-from django.db import transaction
 import logging
+
+from django.db import transaction
+
 from .. import models
 
 logger = logging.getLogger(__name__)
+
 
 @transaction.atomic
 def migrate_user_to_workgroup(
@@ -17,7 +20,6 @@ def migrate_user_to_workgroup(
     All user-owned data are moved together with the user.
     This operation is transactional.
     """
-
     source_workgroup = user.workgroup
 
     if source_workgroup == target_workgroup:

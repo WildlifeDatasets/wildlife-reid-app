@@ -7,26 +7,35 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0136_workgroup_check_taxon_before_identification'),
+        ("caidapp", "0136_workgroup_check_taxon_before_identification"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='workgroup',
-            name='check_taxon_before_identification',
-            field=models.BooleanField(default=True, help_text='Do the identification only for media files and observations with the correct taxon. Ignore the other observations and media files.', verbose_name='Check taxon before identification'),
+            model_name="workgroup",
+            name="check_taxon_before_identification",
+            field=models.BooleanField(
+                default=True,
+                help_text="Do the identification only for media files"
+                + " and observations with the correct taxon. "
+                + "Ignore the other observations and media files.",
+                verbose_name="Check taxon before identification",
+            ),
         ),
         migrations.CreateModel(
-            name='NotificationRecipient',
+            name="NotificationRecipient",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('read', models.BooleanField(default=False)),
-                ('read_at', models.DateTimeField(blank=True, null=True)),
-                ('notification', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='caidapp.notification')),
-                ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='caidapp.caiduser')),
+                ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
+                ("read", models.BooleanField(default=False)),
+                ("read_at", models.DateTimeField(blank=True, null=True)),
+                (
+                    "notification",
+                    models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to="caidapp.notification"),
+                ),
+                ("user", models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to="caidapp.caiduser")),
             ],
             options={
-                'unique_together': {('notification', 'user')},
+                "unique_together": {("notification", "user")},
             },
         ),
     ]

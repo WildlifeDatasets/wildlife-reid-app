@@ -1,8 +1,6 @@
 import logging
 
-from caidapp.models import (
-    WorkGroup,
-)
+from caidapp.models import WorkGroup
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import NoReverseMatch, URLPattern, URLResolver, reverse

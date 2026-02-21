@@ -23,9 +23,7 @@ from tqdm import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
 
 from .inout import extract_archive
-from .sequence_identification import (
-    add_datetime_from_exif_in_parallel,
-)
+from .sequence_identification import add_datetime_from_exif_in_parallel
 
 logger = logging.getLogger("app")
 

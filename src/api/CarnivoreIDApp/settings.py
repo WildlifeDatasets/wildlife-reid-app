@@ -170,11 +170,13 @@ else:
 # umožní WhiteNoise najít soubory přes Django finders
 WHITENOISE_USE_FINDERS = True
 
-# automaticky přidá Cache-Control: immutable k hashovaným souborům
-WHITENOISE_IMMUTABLE_FILE_TEST = lambda path, url: "static/" in url and "." in url
+
+def _immutable_file_test(path, url):
+    """Add cache-control: immutable to files with a hash in their name."""
+    return "static/" in url and "." in url
 
 
-
+WHITENOISE_IMMUTABLE_FILE_TEST = _immutable_file_test
 
 if DEBUG_TOOLBAR:
     INSTALLED_APPS += ["debug_toolbar"]
@@ -271,7 +273,7 @@ STATIC_ROOT = Path(SHARED_DATA_PATH) / "static"
 
 if DEBUG:
     STATICFILES_DIRS = [
-        BASE_DIR / "caidapp" / "static",        # app statika (volitelné)
+        BASE_DIR / "caidapp" / "static",  # app statika (volitelné)
         # Path(SHARED_DATA_PATH) / "static",      # NiceAdmin assets
     ]
     # STATIC_ROOT = None

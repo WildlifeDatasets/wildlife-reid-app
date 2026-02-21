@@ -1,6 +1,7 @@
 from caidapp.models import IdentificationModel
 from django.db.models.signals import post_migrate, post_save
 from django.dispatch import receiver
+
 from . import models
 
 
@@ -31,6 +32,7 @@ def create_default_models(sender, **kwargs):
 
 @receiver(post_save, sender=models.CaIDUser)
 def create_personal_workgroup(sender, instance, created, **kwargs):
+    """Automatically create a personal workgroup for each new user."""
     if not created:
         return
 
