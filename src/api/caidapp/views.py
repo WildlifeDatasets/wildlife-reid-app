@@ -567,35 +567,6 @@ def _uploads_general_order_annotation():
     )
 
 
-# TODO remove because we do not use the caiduser.identification model anymore, but only the workgroup.identification_model
-# @login_required
-# def select_reid_model(request):
-#     """Select reid model."""
-#     form = forms.UserIdentificationModelForm()
-#     if request.method == "POST":
-#         form = forms.UserIdentificationModelForm(request.POST)
-#         if form.is_valid():
-#             request.user.caiduser.identification_model = form.cleaned_data["identification_model"]
-#             request.user.caiduser.save()
-#
-#             messages.info(request, "Identification model set.")
-#             return redirect("caidapp:uploads_identities")
-#
-#     else:
-#
-#         initial = {"identification_model": request.user.caiduser.identification_model}
-#         form = forms.UserIdentificationModelForm(initial=initial)
-#     return render(
-#         request,
-#         "caidapp/update_form.html",
-#         {
-#             "form": form,
-#             "headline": "Select identification model",
-#             "button": "Save",
-#         },
-#     )
-
-
 def _multiple_species_button_style_and_tooltips(request) -> dict:
     models.user_has_access_filter_params(request.user.caiduser, "owner")
     n_non_classified_taxons = len(models.get_mediafiles_with_missing_taxon(request.user.caiduser))
