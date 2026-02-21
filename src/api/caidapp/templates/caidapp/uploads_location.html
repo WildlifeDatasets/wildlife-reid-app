@@ -34,17 +34,10 @@
                     {% for uploadedarchive in page_obj %}
                         <div class="col-xl-3">
 {#                        <div class="col" style="-ms-flex: 0 0 200; flex: 0 0 200;">#}
-                            <div class="card"
+                            <div class="card border shadow archive-card
+                                {% if uploadedarchive.thumbnail %} has-bg {% endif %}"
                                     {% if uploadedarchive.thumbnail %}
-                                 style="
-
-                                         background-image: linear-gradient(to left, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 1.0)), url({{ uploadedarchive.thumbnail.url }});
-                                         background-repeat: no-repeat;
-                                         background-position-x: right;
-                                         background-position-y: center;
-                                         background-size: cover;
-                                         "
-
+                                 style="--archive-bg: url('{{ uploadedarchive.thumbnail.url }}');"
                                     {% endif %}
                             >
                                 <div class="card-body"
