@@ -11,11 +11,12 @@ from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.views.generic import DeleteView
 from extra_views import InlineFormSetFactory, UpdateWithInlinesView
+from django.db import transaction
 
 from . import forms, model_extra, models
 from .forms import MediaFileForm
 from .models import AnimalObservation, MediaFile
-from .views import logger, media_files_update, message_view
+from .views import logger, media_files_update
 
 
 @login_required
@@ -47,6 +48,35 @@ def stream_video(request, mediafile_id):
     response["Accept-Ranges"] = "bytes"
 
     return response
+
+
+def _set_taxon_for_sequence(mediafile: MediaFile, taxon, caiduser, commit=True):
+    """Set given taxon for all AnimalObservation in the same sequence as mediafile.
+
+    Uses bulk update for performance. Returns number of observations updated.
+    """
+    logger.debug(f"{taxon=}")
+    now = timezone.now()
+    # If mediafile has sequence, get all mediafiles in it; otherwise only this mediafile
+    if mediafile.sequence is not None:
+        obs_qs = AnimalObservation.objects.filter(mediafile__sequence=mediafile.sequence)
+    else:
+        obs_qs = AnimalObservation.objects.filter(mediafile=mediafile)
+
+    logger.debug(f"{len(obs_qs)=}")
+
+    # Restrict to observations user can access? We assume view permission checked earlier.
+    if taxon is not None:
+        taxon_id = taxon.id
+    else:
+        taxon_id = None
+
+    with transaction.atomic():
+        # bulk update
+        updated_count = obs_qs.update(taxon_id=taxon_id, updated_by=caiduser, updated_at=now)
+
+    return updated_count
+
 
 class ObservationInline(InlineFormSetFactory):
     model = AnimalObservation
@@ -98,6 +128,34 @@ class MediaFileUpdateView(LoginRequiredMixin, UpdateWithInlinesView):
         """After successful update, return to previous page."""
         return self.request.GET.get("next") or self.request.META.get("HTTP_REFERER", "/")
 
+    # def _get_taxon_from_inilne_observations(self, inlines):
+    #     """Get taxon from inline observations, prefer first non-null."""
+    #     taxa = []
+    #     for inline in inlines:
+    #         for form in inline.forms:
+    #             if form.cleaned_data and not form.cleaned_data.get("DELETE", False):
+    #                 taxon = form.cleaned_data.get("taxon")
+    #                 taxa.append(taxon)
+    #     if len(np.unique(taxa)) == 1:
+    #         return taxa[0]
+    #     else:
+    #         messages.error(self.request, "Conflicting taxa in observations, cannot set taxon for sequence.")
+    #     return None
+
+    def _get_taxon_from_inline_observations(self):
+        """Get taxon from inline observations, prefer first non-null."""
+        taxon_id_str = self.request.POST.get("observations-0-taxon", None)
+        logger.debug(f"{taxon_id_str=}")
+        if taxon_id_str:
+            try:
+                taxon_id = int(taxon_id_str[0])
+                taxon = models.Taxon.objects.get(id=taxon_id)
+                return taxon
+            except (ValueError, models.Taxon.DoesNotExist):
+                pass
+
+
+
     def form_valid(self, form):
         """Set updated_by and updated_at on save."""
         logger.debug("In form_valid of MediaFileUpdateView")
@@ -107,6 +165,38 @@ class MediaFileUpdateView(LoginRequiredMixin, UpdateWithInlinesView):
         # Save all valid inline formsets
         inlines = self.get_inlines()
         logger.debug(f"{len(inlines)=}")
+        logger.debug(f"{self.request.POST=}")
+        for inline in inlines:
+            logger.debug(f"{inline=}")
+
+        # If the user clicked "save and set taxon for sequence", set the taxon on all observations
+        if self.request.POST.get("save_set_taxon_sequence"):
+            logger.debug(f"User clicked save and set taxon for sequence")
+            try:
+                # Prefer taxon set on an observation form (first non-null), fallback to mediafile.taxon
+                # obs_qs = form.instance.observations.all()
+                # first observation that has taxon set
+                # obs = obs_qs.filter(taxon__isnull=False).first()
+                taxon = form.instance.taxon
+                # vezmi první observation s vyplněným taxonem
+                obs_with_taxon = AnimalObservation.objects.filter(
+                    mediafile=form.instance,
+                    taxon__isnull=False
+                ).first()
+
+                taxon = self._get_taxon_from_inline_observations()
+                # observations jsou v inlines
+                # získej taxon z první observace
+
+                logger.debug(f"{taxon=}")
+                updated = _set_taxon_for_sequence(form.instance, taxon, self.request.user.caiduser)
+                if taxon is not None:
+                    messages.success(self.request, f"Updated taxon on {updated} observations in sequence (using observation taxon).")
+                else:
+                    messages.success(self.request, f"Cleared taxon on {updated} observations in sequence.")
+            except Exception as e:
+                logger.exception("Failed to set taxon for sequence")
+                messages.error(self.request, "Failed to set taxon for sequence.")
 
         return response
 
@@ -390,6 +480,30 @@ class MediaFileGetMissingTaxonView(LoginRequiredMixin, UpdateWithInlinesView):
         inlines = self.get_inlines()
         logger.debug(f"{len(inlines)=}")
 
+        # Handle "save and set taxon for sequence" here as well when using missing-taxons flow
+        if self.request.POST.get("save_set_taxon_sequence"):
+            try:
+                # Prefer taxon set on an observation form (first non-null), fallback to mediafile.taxon
+                taxon = None
+                try:
+                    obs_qs = form.instance.observations.all()
+                    obs_with_taxon = obs_qs.filter(taxon__isnull=False).first()
+                    if obs_with_taxon:
+                        taxon = obs_with_taxon.taxon
+                    else:
+                        taxon = form.instance.taxon
+                except Exception:
+                    taxon = form.instance.taxon
+
+                updated = _set_taxon_for_sequence(form.instance, taxon, self.request.user.caiduser)
+                if taxon is not None:
+                    messages.success(self.request, f"Updated taxon on {updated} observations in sequence (using observation taxon).")
+                else:
+                    messages.success(self.request, f"Cleared taxon on {updated} observations in sequence.")
+            except Exception as e:
+                logger.exception("Failed to set taxon for sequence")
+                messages.error(self.request, "Failed to set taxon for sequence.")
+
         return response
 
 #
@@ -451,39 +565,50 @@ class MediaFileGetMissingTaxonView(LoginRequiredMixin, UpdateWithInlinesView):
 #     #     # Pokud je k dispozici více než jeden soubor, můžeme nabídnout možnost přeskočení
 #     #     if next_mediafile:
 #     #         skip_url = next_url
-#     # else:
-#     #     next_url = reverse_lazy("caidapp:missing_taxon_annotation", kwargs={})
-#     #     skip_url = next_url
+#    # else:
+#    #     next_url = reverse_lazy("caidapp:missing_taxon_annotation", kwargs={})
+#    #     skip_url = next_url
 #
-#     next_url = _mta_get_next_url(request, mediafile, uploadedarchive)
+#    next_url = _mta_get_next_url(request, mediafile, uploadedarchive)
 #
-#     if uploadedarchive:
-#         cancel_url = reverse_lazy(
-#             "caidapp:uploadedarchive_mediafiles", kwargs={"uploadedarchive_id": uploadedarchive.id}
-#         )
-#     else:
-#         cancel_url = reverse_lazy("caidapp:taxon_processing")
-#     skip_url = next_url
+#    if uploadedarchive:
+#        cancel_url = reverse_lazy(
+#            "caidapp:uploadedarchive_mediafiles", kwargs={"uploadedarchive_id": uploadedarchive.id}
+#        )
+#    else:
+#        cancel_url = reverse_lazy("caidapp:taxon_processing")
+#    skip_url = next_url
 #
-#     # Připravíme formulář s instancí mediafile
-#     form = forms.MediaFileMissingTaxonForm(instance=mediafile)
-#     # Pozor: V šabloně je vhodné mít hidden input s hodnotou mediafile.id,
-#     # aby bylo možné při POST identifikovat, který soubor se upravuje.
-#     return render(
-#         request,
-#         "caidapp/media_file_set_taxon.html",
-#         {
-#             "form": form,
-#             "headline": "Media File",
-#             "button": "Save and continue",
-#             "mediafile": mediafile,
-#             "skip_url": skip_url,
-#             "cancel_url": cancel_url,
-#             "next_url": next_url,
-#         },
-#     )
-
-
+#    # Připravíme formulář s instancí mediafile
+#    form = forms.MediaFileMissingTaxonForm(instance=mediafile)
+#    # Pozor: V šabloně je vhodné mít hidden input s hodnotou mediafile.id,
+#    # aby bylo možné při POST identifikovat, který soubor se upravuje.
+#    return render(
+#        request,
+#        "caidapp/media_file_set_taxon.html",
+#        {
+#            "form": form,
+#            "headline": "Media File",
+#            "button": "Save and continue",
+#            "mediafile": mediafile,
+#            "skip_url": skip_url,
+#            "cancel_url": cancel_url,
+#            "next_url": next_url,
+#        },
+#    )
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
 
 
 def resolve_missing_taxon_context(request):
@@ -644,5 +769,6 @@ def confirm_prediction(request, mediafile_id: int) -> JsonResponse:
         return JsonResponse({"success": True, "message": "Prediction confirmed."})
     except Exception:
         return JsonResponse({"success": False, "message": "Invalid request."})
+
 
 

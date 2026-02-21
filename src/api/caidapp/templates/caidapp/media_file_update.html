@@ -344,6 +344,10 @@ Observation ID: {{ obs_form.instance.id }}
                                         </button>
 
                                     {% endif %}
+                                    {# Nové tlačítko: uložit a nastavit taxon pro celou sekvenci #}
+                                    <button class="btn btn-primary mt-1" id="btnSaveSetTaxonSequence" name="save_set_taxon_sequence" value="1" type="submit" title="Save and set taxon for all observations in the sequence">
+                                        <i class="bi bi-save"></i>
+                                    </button>
                                     {% if  skip_url %}
                                         <a href="{{ skip_url }}" class="btn btn-secondary mt-1 ">Skip</a>
                                     {% endif %}
@@ -395,7 +399,7 @@ mediafile.taxon: {{ mediafile.taxon }}
                             {#                            >#}
                             {#                            <canvas id="annotCanvas"#}
                             {#                                style="max-width: 600px;"#}
-                            {##}
+                            {# #}
                             {#                                class="img-fluid"#}
                             {#                                    style="border:1px solid #ccc; margin-top:10px;"></canvas>#}
                             {#                                <img id="annotatable-image" src="{{ mediafile.static_thumbnail.url }}" hidden>#}
@@ -767,3 +771,4 @@ mediafile.taxon: {{ mediafile.taxon }}
     </script>
 
 {% endblock %}
+

@@ -8,6 +8,7 @@
 * [changed] Default taxon (Animalia) and default model for every user
 * [fixed] Limit access to media files to owners and workgroup only
 * [added] Show sequences of media files
+* [added] Set Taxon for whole sequence of media files
 
 ## 2026-01
 
