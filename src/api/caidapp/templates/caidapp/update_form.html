@@ -26,19 +26,7 @@
     {% if user.is_authenticated %}
         <div class="pagetitle">
             <h1>{{ headline }}</h1>
-            <nav>
-                {% if nav_dict %}
-                    <ol class="breadcrumb">
-                        {% for key, value in nav_dict.items %}
-                            <li class="breadcrumb-item"><a href="{{ value }}">{{ key }}</a></li>
-                        {% endfor %}
-                    </ol>
-                {% endif %}
-{#                    <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li>#}
-{#                    <li class="breadcrumb-item"><a href="{% url 'caidapp:uploadedarchive_mediafiles' mediafile.parent.id %}"> Uploaded#}
-{#                        Archive: {{ mediafile.parent }}</a></li>#}
-{#                </ol>#}
-            </nav>
+        {% include "caidapp/include_breadcrumb_nav.html" %}
         </div><!-- End Page Title -->
         <div class="section">
 

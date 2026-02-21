@@ -12,6 +12,8 @@ fi
 # prepare django
 # python manage.py makemigrations --noinput --verbosity 2
 python manage.py migrate --noinput --verbosity 2
+
+# collect static in the production only
 python manage.py collectstatic --noinput --verbosity 2
 
 # start "local" celery worker
@@ -19,7 +21,7 @@ C_FORCE_ROOT=false celery -A caidapp.celery_app worker --pool threads --concurre
 
 # start django
 
-python manage.py runserver 0.0.0.0:8080
+python manage.py runserver 0.0.0.0:22280
 
 # this is not reloading the page when changes are made
 # uvicorn CarnivoreIDApp.asgi:application \

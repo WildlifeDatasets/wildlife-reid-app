@@ -12,7 +12,8 @@ import timm
 import torch
 import torchvision.transforms as T
 from PIL import Image
-from segment_anything import Sam, SamPredictor, sam_model_registry
+from segment_anything import SamPredictor, sam_model_registry
+from segment_anything.modeling import Sam
 from tqdm import tqdm
 from wildlife_tools import realize
 from wildlife_tools.data import FeatureDataset, WildlifeDataset

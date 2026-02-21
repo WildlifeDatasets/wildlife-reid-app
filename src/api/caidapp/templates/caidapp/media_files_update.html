@@ -388,12 +388,18 @@
                                     <div class="card-body mt-1" >
                                         <p class="card-text">
 
-                                        {% if mediafile.instance.taxon %}
+{#                                        Observations#}
+{#                                        {{ mediafile.instance.observations.first.taxon }}#}
+
+                                        {% if mediafile.instance.taxons %}
                                                 Taxon:
-                                                <a class="link-secondary"
-                                                   href="{% url 'caidapp:taxon' mediafile.instance.taxon.id %}">
-                                                    {{ mediafile.instance.taxon }}
-                                                </a>
+                                                {% for taxon in mediafile.instance.taxons %}
+                                                    <a class="link-secondary"
+                                                       href="{% url 'caidapp:media_files' %}?taxon={{ taxon.id }}"
+                                                    >
+                                                        {{ taxon }}
+                                                    </a>
+                                                {% endfor %}
 
 
                                                 {% if mediafile.instance.taxon_verified %}
@@ -402,7 +408,7 @@
                                                        data-bs-toggle="tooltip"
                                                        title="Taxon verified"
                                                     ></i>
-                                                {% endif %}
+                                                {% endif %}<br>
 {#                                                {% if mediafile.instance.category.name == "Not Classified" %} #}
 
                                             Observation count {{ mediafile.instance.observations.count }}
@@ -441,6 +447,14 @@
                                                       title="Locality: {{ mediafile.locality.name }}">
                                                     {{ mediafile.locality.visible_name }}
                                                 </span>
+                                                </a>
+                                                <br>
+                                        {% endif %}
+                                            {% if mediafile.instance.sequence.mediafile_set.count > 1 %}
+                                                Sequence:
+                                                <a class="link-secondary"
+                                                   href="{% url 'caidapp:media_files'%}?sequence={{ mediafile.instance.sequence.id }}">
+                                                    {{ mediafile.instance.sequence.mediafile_set.count }} media files in sequence
                                                 </a>
                                                 <br>
                                         {% endif %}

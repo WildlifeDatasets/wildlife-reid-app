@@ -8,9 +8,11 @@ from typing import Optional, Tuple, Union
 import cv2
 import numpy as np
 import pandas as pd
+import requests.exceptions
 import skimage.io
 import wandb
 import yaml
+from PIL import Image
 from scipy.special import softmax
 from tqdm import tqdm
 
@@ -68,12 +70,6 @@ def get_model_config(is_cropped: bool = False) -> Tuple[dict, str, dict]:
     try:
         api = wandb.Api(api_key=WANDB_API_KEY)
         artifact = api.artifact(wandb_artifact_path)
-        run = artifact.logged_by()
-        config = run.config
-        # save model config locally for later use without internet
-        model_config_path.parent.mkdir(exist_ok=True, parents=True)
-        with open(model_config_path, "w") as f:
-            json.dump(config, f)
 
         logger.debug(f"Downloading artifact {wandb_artifact_path}.")
         artifact_files = [x.name for x in artifact.files()]
@@ -84,21 +80,76 @@ def get_model_config(is_cropped: bool = False) -> Tuple[dict, str, dict]:
         if not all_files_downloaded:
             logger.debug("Downloading artifact files.")
             artifact.download(root=RESOURCES_DIR)
+
+        # get artifact contents
+        assert (
+            sum([Path(x).suffix.lower() == ".pth" for x in artifact_files]) == 1
+        ), "Only one '.pth' file expected in the W&B artifact."
+        _suffix2name = {Path(x).suffix.lower(): x for x in artifact_files}
+        checkpoint_path = Path(RESOURCES_DIR) / _suffix2name[".pth"]
+        artifact_config_path = Path(RESOURCES_DIR) / "config.yaml"
+        with open(artifact_config_path) as f:
+            artifact_config = yaml.safe_load(f)
+
+        config = {}
+        try:
+            # this is not working since 2025-12
+            run = artifact.logged_by()
+            config = run.config
+
+        except Exception as e:
+            logger.warning(f"Failed to get run config from W&B artifact: {e}")
+
+            # "zcu_cv/CarnivoreID-Classification/swin_small_patch4_window7_224-CrossEntropyLoss-vit_heavy:v3",
+            # "zcu_cv/CarnivoreID-Classification/swin_small_patch4_window7_224-CrossEntropyLoss-vit_heavy:latest",
+            # logger.error(f"Could not get run config from W&B artifact: {e}")
+
+            config = {}
+            config["number_of_classes"] = len(artifact_config["id2label"])
+            config["architecture"] = "swin_small_patch4_window7_224"
+            config["augmentations"] = "vit_heavy"
+            config["image_size"] = [224, 224]
+            config["batch_size"] = 64
+            logger.debug(f"Using default config: {config}")
+
+        # save model config locally for later use without internet
+        model_config_path.parent.mkdir(exist_ok=True, parents=True)
+        with open(model_config_path, "w") as f:
+            json.dump(config, f)
+
+        # # Try primary method: read config.yaml from artifact
+        # try:
+        #     cfg_path = artifact.get_path("config.yaml").download(root=RESOURCES_DIR)
+        #     with open(cfg_path) as f:
+        #         config = yaml.safe_load(f)
+        # except Exception as e:
+        #     logger.warning(f"Failed to load config.yaml from artifact: {e}")
+        #     # Fallback: try wandb-metadata.json
+        #     try:
+        #         meta_path = artifact.get_path("wandb-metadata.json").download(
+        #             root=RESOURCES_DIR
+        #         )
+        #         with open(meta_path) as f:
+        #             meta = json.load(f)
+        #         config = meta.get("config", {})
+        #     except Exception as e:
+        #         logger.error("Could not load any config from artifact.")
+        #         raise
+
+        # # Save model config locally for offline use
+        # model_config_path.parent.mkdir(exist_ok=True, parents=True)
+        # with open(model_config_path, "w") as f:
+        #     json.dump(config, f)
+
     except (wandb.CommError, ConnectionError):
         logger.error("Connection Error. Cannot reach W&B server. Trying previous configuration.")
         artifact_files = [fn.relative_to(RESOURCES_DIR) for fn in Path(RESOURCES_DIR).glob("*")]
         with open(model_config_path) as f:
             config = json.load(f)
 
-    # get artifact contents
-    assert (
-        sum([Path(x).suffix.lower() == ".pth" for x in artifact_files]) == 1
-    ), "Only one '.pth' file expected in the W&B artifact."
-    _suffix2name = {Path(x).suffix.lower(): x for x in artifact_files}
-    checkpoint_path = Path(RESOURCES_DIR) / _suffix2name[".pth"]
-    artifact_config_path = Path(RESOURCES_DIR) / "config.yaml"
-    with open(artifact_config_path) as f:
-        artifact_config = yaml.safe_load(f)
+    except requests.exceptions.HTTPError:
+        logger.debug(f"{wandb_artifact_path} artifact not found on W&B server.")
+        logger.debug(f"{WANDB_API_KEY[:4]}...")  # log only part of the API key
 
     return config, checkpoint_path, artifact_config
 
@@ -187,9 +238,16 @@ def get_taxon_classification_model():
 
     if TAXON_CLASSIFICATION_MODEL_DICT is None:
         mem.wait_for_gpu_memory(0.5)
-        config, checkpoint_path, artifact_config = get_model_config(
-            # is_cropped=False
-        )
+        try:
+            config, checkpoint_path, artifact_config = get_model_config(
+                # is_cropped=False
+            )
+        except Exception as e:
+            logger.error("Error loading model configuration from W&B.")
+            logger.debug(f"{WANDB_API_KEY[:4]}...")  # log only part of the API key
+            logger.debug(f"{WANDB_ARTIFACT_PATH=}, {RESOURCES_DIR=}")
+            raise e
+
         logger.info("Creating model and loading fine-tuned checkpoint.")
 
         model, model_mean, model_std = load_model(config, checkpoint_path)
@@ -416,33 +474,81 @@ class TempLogContext:
 
 
 def make_thumbnail_from_file(image_path: Path, thumbnail_path: Path, width: int = 800) -> bool:
-    """Create small thumbnail image from input image.
+    """Create a smaller thumbnail image from the input image.
 
     Returns:
-        True if the processing is ok.
-
+        True if the processing succeeded, False otherwise.
     """
     try:
         with log_tools.TempLogContext(
             ["skimage.io", "PIL", "tifffile"], [logging.WARNING, logging.WARNING, logging.WARNING]
         ):
             image = skimage.io.imread(image_path)
+
+        if image is None:
+            raise ValueError("Image could not be read.")
+
+        # Rescale
         scale = float(width) / image.shape[1]
-        scale = [scale, scale, 1]
-        image_rescaled = cv2.resize(image, (0, 0), fx=scale[0], fy=scale[1])
-        # image_rescaled = skimage.transform.rescale(image, scale=scale, anti_aliasing=True)
-        # image_rescaled = (image_rescaled * 255).astype(np.uint8)
-        # logger.info(f"{image_rescaled.shape=}, {image_rescaled.dtype=}")
-        thumbnail_path.parent.mkdir(exist_ok=True, parents=True)
-        if thumbnail_path.suffix.lower() in (".jpg", ".jpeg"):
-            quality = 85
+        new_size = (int(image.shape[1] * scale), int(image.shape[0] * scale))
+        image_rescaled = cv2.resize(image, new_size)
+
+        # Convert to PIL Image for saving (better format support)
+        if image_rescaled.dtype != np.uint8:
+            image_rescaled = (image_rescaled * 255).astype(np.uint8)
+        if image_rescaled.ndim == 2:  # grayscale
+            pil_image = Image.fromarray(image_rescaled, mode="L")
         else:
-            quality = None
-        skimage.io.imsave(thumbnail_path, image_rescaled, quality=quality)
+            pil_image = Image.fromarray(image_rescaled)
+
+        thumbnail_path.parent.mkdir(exist_ok=True, parents=True)
+
+        # Choose quality
+        suffix = thumbnail_path.suffix.lower()
+        if suffix in (".jpg", ".jpeg"):
+            quality = 85
+            save_kwargs = {"quality": quality, "optimize": True}
+        elif suffix == ".webp":
+            save_kwargs = {"quality": 85, "method": 5}
+        else:
+            save_kwargs = {}
+
+        pil_image.save(thumbnail_path, **save_kwargs)
         return True
+
     except Exception:
         logger.warning(f"Cannot create thumbnail from file '{image_path}'. Exception: {traceback.format_exc()}")
         return False
+
+
+# def make_thumbnail_from_file(image_path: Path, thumbnail_path: Path, width: int = 800) -> bool:
+#     """Create small thumbnail image from input image.
+#
+#     Returns:
+#         True if the processing is ok.
+#
+#     """
+#     try:
+#         with log_tools.TempLogContext(
+#             ["skimage.io", "PIL", "tifffile"], [logging.WARNING, logging.WARNING, logging.WARNING]
+#         ):
+#             image = skimage.io.imread(image_path)
+#         scale = float(width) / image.shape[1]
+#         scale = [scale, scale, 1]
+#         image_rescaled = cv2.resize(image, (0, 0), fx=scale[0], fy=scale[1])
+#         # image_rescaled = skimage.transform.rescale(image, scale=scale, anti_aliasing=True)
+#         # image_rescaled = (image_rescaled * 255).astype(np.uint8)
+#         # logger.info(f"{image_rescaled.shape=}, {image_rescaled.dtype=}")
+#         thumbnail_path.parent.mkdir(exist_ok=True, parents=True)
+#         if thumbnail_path.suffix.lower() in (".jpg", ".jpeg"):
+#             quality = 85
+#         else:
+#             quality = None
+#         skimage.io.imsave(thumbnail_path, image_rescaled, quality=quality)
+#         return True
+#     except Exception:
+#         logger.warning(f"Cannot create thumbnail from file '{image_path}'. Exception: {traceback.format_exc()}")
+#         return False
 
 
 def convert_to_mp4(input_video_path: Union[str, Path], output_video_path: Union[str, Path], force: bool = False):

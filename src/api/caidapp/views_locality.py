@@ -23,17 +23,8 @@ from django.views.generic import ListView
 from . import forms, model_tools, models, views_general
 from .filters import LocalityFilter
 from .forms import LocalityForm
-from .model_extra import (
-    prepare_dataframe_for_uploads_in_one_locality,
-    user_has_rw_acces_to_uploadedarchive,
-)
-from .models import (
-    Locality,
-    MediaFile,
-    UploadedArchive,
-    get_all_relevant_localities,
-    user_has_access_filter_params,
-)
+from .model_extra import prepare_dataframe_for_uploads_in_one_locality, user_has_rw_acces_to_uploadedarchive
+from .models import Locality, MediaFile, UploadedArchive, get_all_relevant_localities, user_has_access_filter_params
 from .views_tools import add_querystring_to_context
 
 logger = logging.getLogger("app")
