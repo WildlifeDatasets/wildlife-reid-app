@@ -686,6 +686,7 @@ class IdentityListView(LoginRequiredMixin, ListView):
         )
 
         self.filterset = filters.IndividualIdentityFilter(self.request.GET, queryset=qs)
+        qs = self.filterset.qs
 
         # class_prefix = self.__class__.__name__.lower() # maybe this is more general
         # class_prefix = 'identities'

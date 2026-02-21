@@ -1,8 +1,13 @@
 import django_filters
 from django.db.models import Value, Q
 from django.db.models.functions import Concat
+import logging
+
+from .models import Taxon, UploadedArchive
 
 from . import models
+
+logger = logging.getLogger(__name__)
 
 
 class LocalityFilter(django_filters.FilterSet):
@@ -16,18 +21,31 @@ class LocalityFilter(django_filters.FilterSet):
             # "area": ['exact'],
         }
 
+    # def filter_search(self, queryset, name, value):
+    #     """Search across 'name' and related 'area__name' fields."""
+    #     # Annotate the queryset with a computed 'search' field.
+    #     queryset = queryset.annotate(
+    #         search=Concat(
+    #             "name",
+    #             Value(" "),
+    #             "area__name",
+    #         )
+    #     )
+    #     # Now filter on the annotated 'search' field.
+    #     return queryset.filter(search__icontains=value)
+
     def filter_search(self, queryset, name, value):
-        """Search across 'name' and related 'area__name' fields."""
+        """Search in taxon name, locality name, and identity name."""
         # Annotate the queryset with a computed 'search' field.
-        queryset = queryset.annotate(
-            search=Concat(
-                "name",
-                Value(" "),
-                "area__name",
-            )
+        if not value:
+            return queryset
+        return queryset.filter(
+            Q(name__icontains=value)
+            | Q(area__name__icontains=value)
+            # | Q(observations__identity__name__icontains=value)
+            # | Q(observations__taxon__name__icontains=value)
+            # | Q(observations__identity__name__icontains=value)
         )
-        # Now filter on the annotated 'search' field.
-        return queryset.filter(search__icontains=value)
 
 
 class IndividualIdentityFilter(django_filters.FilterSet):
@@ -43,9 +61,9 @@ class IndividualIdentityFilter(django_filters.FilterSet):
     class Meta:
         model = models.IndividualIdentity
         fields = {
-            "name": ["icontains"],
-            "code": ["icontains"],
-            "juv_code": ["icontains"],
+            # "name": ["icontains"],
+            # "code": ["icontains"],
+            # "juv_code": ["icontains"],
             "sex": ["exact"],
             "coat_type": ["exact"],
         }
@@ -53,22 +71,30 @@ class IndividualIdentityFilter(django_filters.FilterSet):
     def filter_search(self, queryset, name, value):
         """Search in name, code, and juv_code fields."""
         # Annotate the queryset with a computed 'search' field.
-        queryset = queryset.annotate(
-            search=Concat(
-                "name",
-                Value(" "),
-                "code",
-                Value(" "),
-                "juv_code",
-            )
+        logger.debug(f"Filtering IndividualIdentity with search value: {value}")
+        if not value:
+            return queryset
+        return queryset.filter(
+            Q(name__icontains=value)
+            | Q(code__icontains=value)
+            | Q(juv_code__icontains=value)
+            # | Q(observations__identity__name__icontains=value)
+            # | Q(observations__taxon__name__icontains=value)
+            # | Q(observations__identity__name__icontains=value)
         )
-        # Now filter on the annotated 'search' field.
-        return queryset.filter(search__icontains=value)
+        # queryset = queryset.annotate(
+        #     search=Concat(
+        #         "name",
+        #         Value(" "),
+        #         "code",
+        #         Value(" "),
+        #         "juv_code",
+        #     )
+        # )
+        # # Now filter on the annotated 'search' field.
+        # return queryset.filter(search__icontains=value)
 
 
-import django_filters
-
-from .models import Taxon, UploadedArchive
 
 
 class MediaFileFilter(django_filters.FilterSet):
