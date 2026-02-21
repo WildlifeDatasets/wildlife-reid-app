@@ -32,8 +32,16 @@
                                     {#                                <h5 class="card-title">{{ mediafile }}</h5>#}
                                     <p class="card-text">
                                         Top score: {{ mediafileforidentification.max_score|mul:100|floatformat:0 }} %<br>
-                                        {% if mediafile.taxon %}
-                                        Category: <a class="link-secondary" href="{%  url 'caidapp:taxon' mediafile.taxon.id %}">{{ mediafile.taxon}}</a><br>
+                                        {% if mediafile.taxons %}
+                                            Category:
+                                            {% for mf_taxon in mediafile.taxons %}
+                                                <a class="link-secondary"
+                                                   href="{% url 'caidapp:media_files' %}?taxon={{ mf_taxon.id }}"
+                                                >
+                                                    {{ mf_taxon.name }}
+                                                </a>
+                                            {% endfor %}
+                                            <br>
                                         {% endif %}
                                         {% if mediafile.locality %}
                                         Locality: <a class="link-secondary" href="{%  url 'caidapp:media_files_locality' mediafile.locality.id %}">{{ mediafile.locality }}</a><br>

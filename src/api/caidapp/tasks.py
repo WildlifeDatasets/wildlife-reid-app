@@ -88,6 +88,8 @@ def on_success_predict_taxon(
     print(f"Taxon classification finished with status {status}")
     logger.info(f"Taxon classification finished with status '{status}'. Updating database record.")
     uploaded_archive = UploadedArchive.objects.get(id=uploaded_archive_id)
+    # task id
+    logger.debug(f"Worker task id: '{self.request.id}'")
 
     try:
         if "status" not in output:
@@ -125,6 +127,18 @@ def on_success_predict_taxon(
             if "error" in output:
                 logger.error(f"{output['error']=}")
                 uploaded_archive.status_message = output["error"]
+
+                nt_kwargs = dict(
+                    message=f"Taxon classification failed: {output['error']}",
+                    level=models.Notification.ERROR,
+                )
+
+                if uploaded_archive.owner.workgroup:
+                    nt_kwargs["workgroups"] = [uploaded_archive.owner.workgroup]
+
+                else:
+                    nt_kwargs["users"] = [uploaded_archive.owner]
+                models.Notification.create_for(nt_kwargs)
             uploaded_archive.save()
     except Exception as e:
         logger.debug(str(traceback.format_exc()))
@@ -476,8 +490,12 @@ def run_species_prediction_async(
 
     if uploaded_archive.owner.workgroup is not None:
         sequence_time_limit_s = uploaded_archive.owner.workgroup.sequence_time_limit
+        detection_model_path = uploaded_archive.owner.workgroup.detection_model_path
+        detection_model_architecture = uploaded_archive.owner.workgroup.detection_model_architecture
     else:
         sequence_time_limit_s = 120
+        detection_model_path = None
+        detection_model_architecture = None
 
     # send celery message to the data worker
     logger.info("Sending request to inference worker.")
@@ -492,9 +510,12 @@ def run_species_prediction_async(
             "contains_identities": uploaded_archive.contains_identities,
             "force_init": force_init,
             "sequence_time_limit_s": sequence_time_limit_s,
+            "detection_model_path": detection_model_path,
+            "detection_model_architecture": detection_model_architecture,
         },
     )
 
+    logger.debug(f"{link=}, {link_error=}")
     task = sig.apply_async(
         link=link,
         link_error=link_error,
@@ -794,6 +815,7 @@ def _update_database_by_one_row_of_metadata(
                         # this is porcessed only if the values are not changed by user.
                         mf.observations.exclude(id=mf.first_observation.id).delete()
                     for i, one_detection_result in enumerate(detection_results):
+                        ao: models.AnimalObservation
                         if mf.observations.exists() and len(detection_results) > 0:
                             ao = mf.observations.first()
                         else:
@@ -1016,12 +1038,14 @@ def _sync_metadata_by_checking_enlisted_mediafiles(csv_file, output_dir, uploade
         # generate thumbnail if necessary
         mf.make_thumbnail_for_mediafile_if_necessary()
 
-        if mf.taxon:
-            df.loc[index, "predicted_category"] = mf.taxon.name
-            update_csv = True
-        if mf.identity:
-            df.loc[index, "unique_name"] = mf.identity.name
-            update_csv = True
+        ao = mf.observations.first()
+        if ao:
+            if mf.taxon:
+                df.loc[index, "predicted_category"] = ao.taxon.name
+                update_csv = True
+            if mf.identity:
+                df.loc[index, "unique_name"] = ao.identity.name
+                update_csv = True
         if mf.locality:
             df.loc[index, "locality name"] = mf.locality.name
             if mf.locality.location:
@@ -1040,9 +1064,14 @@ def init_identification_on_success(*args, **kwargs):
     """Callback invoked after running init_identification function in inference worker."""
     logger.debug(f"{args=}")
     logger.debug(f"{kwargs=}")
-    models.Notification(message=f"Identification initialization finished. {args=} {kwargs=}").save()
+    # models.Notification(message=f"Identification initialization finished. {args=} {kwargs=}").save()
     workgroup_id = kwargs.pop("workgroup_id")
     workgroup = WorkGroup.objects.get(id=workgroup_id)
+    models.Notification.create_for(
+        message=f"Identification initialization finished. {args=} {kwargs=}",
+        workgroups=[workgroup],
+        level=models.Notification.INFO,
+    )
     output: dict = args[0]
     status = output["status"]
     status = "Finished" if status == "DONE" else status
@@ -1076,10 +1105,9 @@ def train_identification_on_success(*args, **kwargs):
     if "user_id" in kwargs:
         caiduser_id = kwargs.pop("caiduser_id")
         caiduser = models.CaIDUser.objects.get(id=caiduser_id)
-    models.Notification(
-        user=caiduser,
-        message=f"Task finished with error. {args=} {kwargs=}",
-    ).save()
+    models.Notification.create_for(
+        message=f"Task finished with error. {args=} {kwargs=}", users=[caiduser], level=models.Notification.INFO
+    )
     workgroup_id = kwargs.pop("workgroup_id")
     workgroup = WorkGroup.objects.get(id=workgroup_id)
     output: dict = args[0]
@@ -1108,13 +1136,16 @@ def train_identification_on_success(*args, **kwargs):
 def init_identification_on_error(*args, **kwargs):
     """Callback invoked after failing init_identification function in inference worker."""
     caiduser = None
+    kwargs = dict(
+        message=f"Task finished with error. {args=} {kwargs=}",
+        level=models.Notification.ERROR,
+    )
     if "user_id" in kwargs:
         caiduser_id = kwargs.pop("caiduser_id")
         caiduser = models.CaIDUser.objects.get(id=caiduser_id)
-    models.Notification(
-        user=caiduser,
-        message=f"Task finished with error. {args=} {kwargs=}",
-    ).save()
+        kwargs["users"] = [caiduser]
+
+    models.Notification.create_for(**kwargs).save()
     logger.error("init_identification done with error.")
 
 
@@ -1143,6 +1174,12 @@ def on_error_in_upload_processing(self, uuid, *args, **kwargs):
     logger.debug(f"self={self}")
     logger.debug(f"args={args}")
     logger.debug(f"kwargs={kwargs}")
+    kwargs = dict(
+        message=f"Upload processing finished with error. {self} {args=} {kwargs=}",
+        level=models.Notification.ERROR,
+        json_message=dict(self=self, args=args, kwargs=kwargs),
+    )
+    models.Notification(**kwargs)
     # logger.debug(f"dir(self)={dir(self)}")
 
 
@@ -1451,18 +1488,24 @@ def schedule_reid_identification_for_workgroup(workgroup: models.WorkGroup, dela
 
 @shared_task
 def run_identification_on_unidentified_for_workgroup_task(workgroup_id: int):
-    """Run identification on unidentified mediafiles for a workgroup (task wrapper)."""
-    return run_identification_on_unidentified_for_workgroup.s(workgroup_id)
+    """Run identification on unidentified media files for a workgroup (task wrapper)."""
+    return run_identification_on_unidentified_for_workgroup(workgroup_id)
 
 
 def run_identification_on_unidentified_for_workgroup(workgroup_id: int, request=None):
-    """Run identification on unidentified mediafiles for a workgroup."""
+    """Run identification on unidentified media files for a workgroup."""
+    logger.debug(f"Running identification on unidentified media files for workgroup {workgroup_id}...")
     from .views import run_identification
 
     workgroup = WorkGroup.objects.get(pk=workgroup_id)
 
     workgroup.identification_reid_status = "Processing"
     workgroup.save()
+    models.Notification.create_for(
+        message=f"Starting identification for workgroup {workgroup_id}...",
+        workgroups=[workgroup],
+        level=models.Notification.DEBUG,
+    )
 
     uploaded_archives = UploadedArchive.objects.filter(
         owner__workgroup=workgroup,
@@ -1485,10 +1528,20 @@ def run_identification_on_unidentified_for_workgroup(workgroup_id: int, request=
                     request,
                     f"No records for identification with the expected taxon for {uploaded_archive.name}.",
                 )
+        if status_ok:
+            pass
+        else:
+            models.Notification.create_for(
+                message=f"No records for identification with the expected taxon for {uploaded_archive}.",
+                workgroups=[workgroup],
+                level=models.Notification.ERROR,
+            )
+        logger.debug(f"Identification started for {uploaded_archive} with status {status_ok}.")
 
 
-def schedule_init_identification_for_workgroup(workgroup: models.WorkGroup, delay_minutes: int = 15):
+def schedule_init_identification_for_workgroup(workgroup: models.WorkGroup, delay_minutes: int = 10):
     """Schedule initialization of identification for a workgroup."""
+    logger.debug(f"Scheduling init_identification for {workgroup=} in {delay_minutes} minutes.")
     # Cancel previously scheduled task
     if workgroup.identification_scheduled_init_task_id:
         current_app.control.revoke(workgroup.identification_scheduled_init_task_id, terminate=True)
@@ -1514,13 +1567,15 @@ def schedule_init_identification_for_workgroup(workgroup: models.WorkGroup, dela
 @shared_task
 def init_identification(workgroup_id: int):
     """Initialize identification for a workgroup."""
-    from .views import _get_mediafiles_for_train_or_init_identification
-
     workgroup = WorkGroup.objects.get(pk=workgroup_id)
 
     process_for_message = "initialization"
     called_function_name = "init_identification"
-    mediafiles_qs = _get_mediafiles_for_train_or_init_identification(workgroup)
+    mediafiles_qs = workgroup.mediafiles_for_train_or_init_identification()
+
+    # mark these mediafiles as used for init identification
+    mediafiles_qs.update(used_for_init_identification=True)
+
     # set attribute media_file_used_for_init_identification
     logger.debug("Generating CSV for init_identification...")
     output_dir = Path(settings.MEDIA_ROOT) / workgroup.name
@@ -1537,18 +1592,20 @@ def init_identification(workgroup_id: int):
     )
     workgroup.save()
     logger.debug(f"Calling {process_for_message} identification...")
+    kwargs = {
+        "input_metadata_file": str(identity_metadata_file),
+        "organization_id": workgroup.id,
+        # csv file should contain image_path, class_id, label
+        "identification_model": {
+            "name": workgroup.identification_model.name,
+            "path": workgroup.identification_model.model_path,
+        },
+    }
+    logger.debug(f"{kwargs=}")
     sig = signature(
         called_function_name,
         # "init_identification",
-        kwargs={
-            # csv file should contain image_path, class_id, label
-            "input_metadata_file": str(identity_metadata_file),
-            "organization_id": workgroup.id,
-            "identification_model": {
-                "name": workgroup.identification_model.name,
-                "path": workgroup.identification_model.model_path,
-            },
-        },
+        kwargs=kwargs,
     )
     # task =
     sig.apply_async(
@@ -1667,7 +1724,8 @@ def _iterate_over_locality_checks(path: Path, caiduser: CaIDUser) -> Generator[S
         # logger.debug(f"{path_of_locality_check.parts=}")
 
         # remove diacritics and spaces from zip_name
-        zip_name = fs_data.remove_diacritics(f"{locality}_{date}.zip").replace(" ", "_")
+
+        zip_name = model_tools.remove_diacritics(f"{locality}_{date}.zip").replace(" ", "_")
 
         relative_path = path_of_locality_check.relative_to(path)
         is_already_processed = relative_path.parts[0] in (
@@ -1760,7 +1818,7 @@ def assign_unidentified_to_identification(caiduser: CaIDUser):
                 score = 0
                 if identity.name.lower() in orig_fn:
                     score += 0.1
-                if identity.code.lower() in orig_fn:
+                if identity.code and (identity.code.lower() in orig_fn):
                     score += 0.1
                 if score > 0:
                     identity_mediafile = identity.mediafile_set.filter(

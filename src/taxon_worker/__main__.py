@@ -30,6 +30,8 @@ def predict(
     output_metadata_file: str,
     contains_identities: bool = False,
     force_init: bool = False,
+    detection_model_path: str = None,
+    detection_model_architecture: str = None,
     **kwargs,
 ):
     """Main method called by Celery broker.

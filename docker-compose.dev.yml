@@ -2,7 +2,7 @@ services:
 
   broker_dev:
     image: rabbitmq:3.8.34-management-alpine
-    container_name: caid-dev-message-broker
+#    container_name: caid-dev-message-broker
     restart: "no"
     environment:
       RABBITMQ_DEFAULT_USER: user
@@ -17,7 +17,7 @@ services:
 
   redis_dev:
     image: redis:7.0.11-alpine
-    container_name: caid-dev-redis
+#    container_name: caid-dev-redis
     restart: "no"
     command: >
       --loglevel warning
@@ -37,7 +37,7 @@ services:
 
   django_db_dev:
     image: postgres:14.4-alpine
-    container_name: caid-dev-django_db
+#    container_name: caid-dev-django_db
     restart: "no"
 #    ports:
 #      - "5432:5432" # maybe limit to localhost
@@ -45,10 +45,10 @@ services:
         - "src/variables.env"
         - "src/variables.dev.env"
     environment:
-      TZ: Europe/Prague
-      POSTGRES_DB: main_database
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
+#      TZ: Europe/Prague
+#      POSTGRES_DB: main_database
+#      POSTGRES_USER: user
+#      POSTGRES_PASSWORD: password
       PGDATA: /var/lib/postgresql/data/pgdata
     expose:
       - 5432
@@ -60,12 +60,14 @@ services:
       - db-data-dev:/var/lib/postgresql/data
 
   api_dev:
-    container_name: caid-dev-api
+#    container_name: caid-dev-api
     image: caid/api:dev
     build:
       context: .
       dockerfile: ./src/api/Dockerfile_dev
     restart: "no"
+    ports:
+      - "22280:22280"  # direct access to API for development purposes (with auto-reload of static files)
     env_file:
       - "src/variables.env"
       - "src/variables.dev.env"
@@ -79,8 +81,8 @@ services:
       - private-data-dev:/private_data  # private keys that should not be automatically backed up
       - ${CAID_IMPORT:-./caid_import}:/caid_import
       - shared-data:/shared_data
-    expose:
-      - 8080  # this should be accessible through inner nginx
+#    expose:
+#      - 22280  # this limit access to the inner nginx only
 #    depends_on:
 #      - taxon_worker_dev
 #      - identification_worker_dev
@@ -96,7 +98,7 @@ services:
     build:
       context: .
       dockerfile: src/taxon_worker/Dockerfile_dev
-    container_name: caid-dev-taxon-worker
+#    container_name: caid-dev-taxon-worker
     restart: "no"
     env_file:
       - "src/variables.env"
@@ -127,19 +129,19 @@ services:
     build:
       context: .
       dockerfile: src/identification_worker/Dockerfile_dev
-    container_name: caid-dev-identification-worker
+#    container_name: caid-dev-identification-worker
     restart: "no"
     environment:
       POSTGRES_DB: identification_worker
       POSTGRES_HOST: identification_worker_db_dev
       POSTGRES_PORT: 5432
       POSTGRES_USER: user
-      POSTGRES_PASS: password
+      POSTGRES_PASSWORD: password
       TZ: Europe/Prague
       RABBITMQ_HOST: broker_dev
       RABBITMQ_URL: "amqp://user:22pmDB%c@broker_dev:5672"
       REDIS_HOST: redis_dev
-      REDIS_URL: "redis://:password@redis_dev:6379/0"
+      REDIS_URL: "redis://:password@redis_dev:6379/1"
     env_file:
       - "src/variables.env"
       - ".env"
@@ -167,7 +169,7 @@ services:
 
   identification_worker_db_dev:
     image: postgres:14.4-alpine
-    container_name: caid-dev-identification-worker-db
+#    container_name: caid-dev-identification-worker-db
     restart: "no"
 #    ports:
 #      - "5433:5432"
@@ -191,14 +193,14 @@ services:
     image: nginx:latest
     # image: ${NGINX_IMAGE:-custom_nginx}${TAG:-:latest}
 #    build: src/nginx  # we use the original build
-    container_name: caid-dev-nginx
+#    container_name: caid-dev-nginx
     volumes:
       - shared-data:/shared_data
       - ./src/nginx/nginx_dev.conf:/etc/nginx/nginx.conf:ro
     depends_on:
       - api_dev
     ports:
-      - "13680:8080"  # this should be input point from the outer nginx. Inner nginx will redirect static files
+      - "13680:22280"  # Nginx will redirect static files from collectstatics (no auto-reload)
     labels:
       com.piva-ai.group: "applications"
     environment:

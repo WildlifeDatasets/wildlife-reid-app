@@ -115,7 +115,7 @@ def replace_colon_in_exif_datetime(exif_datetime: str) -> str:
 
 def get_datetime_using_exif_or_ocr(
     filename: typing.Union[Path, str], exiftool_metadata: dict
-) -> typing.Tuple[str, str, str]:
+) -> typing.Tuple[str, str, str, dict]:
     """Extract datetime from EXIF in file and check if image is ok.
 
     Parameters
@@ -507,7 +507,7 @@ def add_datetime_from_exif_in_parallel(
     dataset_basedir: Optional[Path] = None,
     exiftool_executable=None,
     num_cores: int = 1,
-) -> Tuple[list, list, list]:
+) -> Tuple[list, list, list, list]:
     """Get list of datetimes from EXIF.
 
     The EXIF information is extracted in single-core way but with the help of ExifTool.
@@ -559,4 +559,4 @@ def add_datetime_from_exif_in_parallel(
         ]
 
     datetime_list, error_list, source_list = zip(*datetime_list)
-    return datetime_list, error_list, source_list
+    return datetime_list, error_list, source_list, exifs

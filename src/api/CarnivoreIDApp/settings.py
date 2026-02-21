@@ -25,7 +25,7 @@ POSTGRES_DB = os.environ["POSTGRES_DB"]
 POSTGRES_HOST = os.environ["POSTGRES_HOST"]
 POSTGRES_PORT = os.environ["POSTGRES_PORT"]
 POSTGRES_USER = os.environ["POSTGRES_USER"]
-POSTGRES_PASS = os.environ["POSTGRES_PASS"]
+POSTGRES_PASSWORD = os.environ["POSTGRES_PASSWORD"]
 
 ALLAUTH_GOOGLE_CLIENT_ID = os.getenv("ALLAUTH_GOOGLE_CLIENT_ID", default="")
 ALLAUTH_GOOGLE_CLIENT_SECRET = os.getenv("ALLAUTH_GOOGLE_CLIENT_SECRET", default="")
@@ -53,16 +53,15 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", default="m9ba0d1&(82_=m=-l6b=j#6c2i2*3$&bpm+=n5udouc92-r2ek")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get("DEBUG", False)
-if isinstance(DEBUG, str):
-    DEBUG = DEBUG.lower() == "true"
+DEBUG = os.environ.get("DEBUG", "false").lower() in ("1", "true", "yes", "on")
+
 logger.info(f"Setting environment variable {DEBUG=}.")
 
 # DEBUG_TOOLBAR = DEBUG
 DEBUG_TOOLBAR = False
 
 # A list of strings representing the host/domain names that this Django site can serve
-CAID_HOST = os.getenv("CAID_ALLOWED_HOSTS", default="")
+CAID_ALLOWED_HOSTS = os.getenv("CAID_ALLOWED_HOSTS", default="")
 ALLOWED_HOSTS = [
     "127.0.0.1",
     ".localhost",  # '.' allows to match both 'www.localhost' and 'localhost'
@@ -70,7 +69,7 @@ ALLOWED_HOSTS = [
     # ".caid.kky.zcu.cz",
     # ".kky.zcu.cz",
 ]
-ALLOWED_HOSTS.extend(CAID_HOST.split(","))
+ALLOWED_HOSTS.extend(CAID_ALLOWED_HOSTS.split(","))
 
 CAID_CSRF_TRUSTED_ORIGINS = os.getenv("CAID_CSRF_TRUSTED_ORIGINS", default="")
 CSRF_TRUSTED_ORIGINS = [
@@ -78,6 +77,10 @@ CSRF_TRUSTED_ORIGINS = [
     "http://localhost",
     "http://localhost:13680",
     "http://127.0.0.1:13680",
+    "http://localhost:8080",
+    "http://127.0.0.1:8080",
+    "http://localhost:22280",
+    "http://127.0.0.1:22280",
     # 'http://caid.kky.zcu.cz:13680',
     # 'https://caid.kky.zcu.cz:13680',
     # 'https://localhost:13680',
@@ -117,6 +120,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",  # MUSÍ být hned za SecurityMiddleware
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -133,8 +137,46 @@ STATICFILES_FINDERS = [
     "compressor.finders.CompressorFinder",
 ]
 
+
+# if not DEBUG:
+#     INSTALLED_APPS += ["compressor"]
+#     STATICFILES_FINDERS += ["compressor.finders.CompressorFinder"]
+
+# if DEBUG:
+#     STATICFILES_STORAGE = "django.contrib.staticfiles.storage.StaticFilesStorage"
+#     COMPRESS_ENABLED = False
+# else:
+#     STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+#     COMPRESS_ENABLED = True
+
+COMPRESS_ENABLED = False
+COMPRESS_OFFLINE = False
+# STATICFILES_STORAGE = "django.contrib.staticfiles.storage.StaticFilesStorage"
+# STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+if DEBUG:
+    # vývoj: žádné hashe, žádná cache
+    STATICFILES_STORAGE = "django.contrib.staticfiles.storage.StaticFilesStorage"
+    WHITENOISE_MAX_AGE = 0
+else:
+    # produkce: hash + gzip + brotli
+    STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+    WHITENOISE_MAX_AGE = 31536000  # 1 rok
+
+
 # COMPRESS_ENABLED = True  # aktivuje kompresi i v debug režimu (obvykle jen v produkci)
 # COMPRESS_OUTPUT_DIR = 'CACHE'  # kam se uloží zkomprimované soubory
+# COMPRESS_OFFLINE = False
+
+# umožní WhiteNoise najít soubory přes Django finders
+WHITENOISE_USE_FINDERS = True
+
+
+def _immutable_file_test(path, url):
+    """Add cache-control: immutable to files with a hash in their name."""
+    return "static/" in url and "." in url
+
+
+WHITENOISE_IMMUTABLE_FILE_TEST = _immutable_file_test
 
 if DEBUG_TOOLBAR:
     INSTALLED_APPS += ["debug_toolbar"]
@@ -178,7 +220,7 @@ DATABASES = {
         "ENGINE": "django.db.backends.postgresql",
         "NAME": POSTGRES_DB,
         "USER": POSTGRES_USER,
-        "PASSWORD": POSTGRES_PASS,
+        "PASSWORD": POSTGRES_PASSWORD,
         "HOST": POSTGRES_HOST,
         "PORT": POSTGRES_PORT,
         # "OPTIONS": {
@@ -223,11 +265,18 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
-STATIC_URL = "static/"
+STATIC_URL = "/static/"
 MEDIA_URL = "/media/"
 MEDIA_ROOT = Path(SHARED_DATA_PATH) / "media"
 # use python manage.py collectstatic
 STATIC_ROOT = Path(SHARED_DATA_PATH) / "static"
+
+if DEBUG:
+    STATICFILES_DIRS = [
+        BASE_DIR / "caidapp" / "static",  # app statika (volitelné)
+        # Path(SHARED_DATA_PATH) / "static",      # NiceAdmin assets
+    ]
+    # STATIC_ROOT = None
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field

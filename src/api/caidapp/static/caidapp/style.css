@@ -48,3 +48,18 @@
     height: 200px;
 }
 
+.archive-card.has-bg {
+    background-repeat: no-repeat;
+    background-position: right center;
+    background-size: cover;
+}
+
+.archive-card.has-bg {
+    background-image:
+        linear-gradient(
+            to left,
+            rgba(var(--bs-body-bg-rgb), 0.7),
+            rgba(var(--bs-body-bg-rgb), 1)
+        ),
+        var(--archive-bg);
+}

@@ -3,15 +3,7 @@ from django.urls import include, path
 # from rest_framework import routers
 from django.views.generic import DetailView
 
-from . import (
-    models,
-    views,
-    views_admin,
-    views_general,
-    views_locality,
-    views_mediafile,
-    views_uploads,
-)
+from . import models, views, views_admin, views_general, views_locality, views_mediafile, views_uploads
 
 
 def trigger_error(request):
@@ -31,6 +23,28 @@ urlpatterns = [
     path("logout/", views.logout_view, name="logout_view"),
     path("user_settings/", views.CaIDUserSettingsView.as_view(), name="update_caiduser"),
     # path("rest_api/", include(router.urls)), # not used any more
+    path("workgroup-invitations/create/", views.WorkGroupInvitationCreateView.as_view(), name="workgroup_invitation"),
+    path("workgroup-invitations/", views.WorkGroupInvitationListView.as_view(), name="workgroup_invitations"),
+    path(
+        "workgroup-invitations/for_user/",
+        views.WorkGroupInvitationForUserListView.as_view(),
+        name="workgroup_invitations_for_user",
+    ),
+    path(
+        "workgroup-invitations/<int:pk>/",
+        views.WorkGroupInvitationDetailView.as_view(),
+        name="workgroup_invitation_detail",
+    ),
+    path(
+        "workgroup-invitations/<int:pk>/accept/",
+        views.WorkGroupInvitationAcceptView.as_view(),
+        name="workgroup_invitation_accept",
+    ),
+    path(
+        "workgroup-invitations/<int:pk>/decline/",
+        views.WorkGroupInvitationDeclineView.as_view(),
+        name="workgroup_invitation_decline",
+    ),
     path("upload/", views.upload_archive, name="upload_archive"),
     # path("user_settings/", views.update_caiduser, name="update_caiduser"),
     path(
@@ -45,7 +59,6 @@ urlpatterns = [
         {"contains_identities": True, "contains_single_taxon": True},
         name="upload_archive_contains_identities",
     ),
-    # path("login/", TemplateView.as_view(template_name="caidapp/login.html"), name="login"),
     # Uploads
     path("uploads/", views.uploads_species, name="uploads"),
     path("uploads_identities/", views.uploads_identities, name="uploads_identities"),
@@ -97,7 +110,7 @@ urlpatterns = [
         views_locality.update_locality,
         name="update_locality",
     ),
-    path("taxon/<int:taxon_id>", views.media_files_update, name="taxon"),
+    # path("taxon/<int:taxon_id>", views.media_files_update, name="taxon"),
     # Media Files
     path("media_files/", views.media_files_update, name="media_files"),
     path(
@@ -246,31 +259,32 @@ urlpatterns = [
     ),
     path("show_log/", views.show_log, name="show_log"),
     path("show_taxons/", views.show_taxons, name="show_taxons"),
-    path(
-        "workgroup_update/<str:workgroup_hash>/",
-        views.workgroup_update,
-        name="workgroup_update",
-    ),
+    # path(
+    #     "workgroup_update/<str:workgroup_hash>/",
+    #     views.workgroup_update,
+    #     name="workgroup_update",
+    # ),
     path(
         "missing_taxon_annotation",
-        views_mediafile.missing_taxon_annotation,
+        views_mediafile.start_missing_taxon_annotation,
         name="missing_taxon_annotation",
     ),
     path(
         "missing_taxon_annotation/uploaded_archive/<int:uploaded_archive_id>",
-        views_mediafile.missing_taxon_annotation,
-        name="missing_taxon_annotation",
+        views_mediafile.start_missing_taxon_annotation,
+        name="missing_taxon_annotation_in_uploadedarchive",
     ),
     path(
-        "missing_taxon_annotation_for_mediafile/mediafile_id/<int:mediafile_id>",
-        views_mediafile.missing_taxon_annotation_for_mediafile,
+        "missing_taxon_annotation_for_mediafile/mediafile/<int:pk>",
+        # views_mediafile.missing_taxon_annotation_for_mediafile,
+        views_mediafile.MediaFileGetMissingTaxonView.as_view(),
         name="missing_taxon_annotation_for_mediafile",
     ),
-    path(
-        "missing_taxon_annotation_for_mf/mediafile_id/<int:mediafile_id>/uploaded_archive/<int:uploaded_archive_id>",
-        views_mediafile.missing_taxon_annotation_for_mediafile,
-        name="missing_taxon_annotation_for_mediafile",
-    ),
+    # path(
+    #     "missing_taxon_annotation_for_mf/mediafile/<int:mediafile_id>/uploaded_archive/<int:uploaded_archive_id>",
+    #     views_mediafile.missing_taxon_annotation_for_mediafile,
+    #     name="missing_taxon_annotation_for_mediafile_in_uploadedarchive",
+    # ),
     path("sample_data/", views.sample_data, name="sample_data"),
     path("cloud_import_preview/", views.cloud_import_preview_view, name="cloud_import_preview"),
     path("do_cloud_import/", views.do_cloud_import_view, name="do_cloud_import"),
@@ -424,7 +438,7 @@ urlpatterns = [
     path("check_date/", views_uploads.camera_trap_check_date_view, name="check_date_empty"),
     # urls.py
     path("users_stats/", views.ImageUploadGraphView.as_view(), name="users_stats"),
-    path("select_reid_model/", views.select_reid_model, name="select_reid_model"),
+    # path("select_reid_model/", views.select_reid_model, name="select_reid_model"),
     path(
         "merge_identities/<int:individual_identity_from_id>/<int:individual_identity_to_id>/",
         views.MergeIdentitiesWithPreview.as_view(),

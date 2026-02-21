@@ -63,9 +63,9 @@ def download_file(url: str, output_file: str):
 
 def download_file_if_does_not_exists(url: str, output_file: str):
     """Download file from url."""
-    logger.debug("Checking if file does not exists.")
+    logger.debug(f"Checking if file ({output_file}) does not exists.")
     if not os.path.exists(output_file):
-        logger.debug("File does not exists. Downloading.")
+        logger.debug(f"File does not exists. Downloading from url: {url} to {output_file}.")
         Path(output_file).parent.mkdir(parents=True, exist_ok=True)
         download_file(url, output_file)
 
@@ -108,7 +108,8 @@ def get_detection_model(force_reload: bool = False):
     logger.debug(f"{mem.get_vram(DEVICE)}     {mem.get_ram()}")
     if DETECTION_MODEL is None:
         model_url = r"https://github.com/ecologize/CameraTraps/releases/download/v5.0/md_v5a.0.0.pt"
-        model_file = Path("/root/resources/md_v5a.0.0.pt")
+        filename = model_url.split("/")[-1]
+        model_file = Path("/root/resources/") / filename
         download_file_if_does_not_exists(model_url, model_file)
 
         logger.debug(f"Loading model from file: {model_file}. {model_file.exists()=}")
@@ -164,8 +165,12 @@ def detect_animals_in_one_image(image_rgb: np.ndarray) -> Optional[List[Dict[str
     global DETECTION_MODEL
 
     if DETECTION_MODEL is None:
+        logger.debug("Detection model is not loaded. Loading the model.")
         DETECTION_MODEL = get_detection_model()
-    results = DETECTION_MODEL(image_rgb)
+        results = DETECTION_MODEL(image_rgb)
+        logger.debug("Model loaded for the first time.")
+    else:
+        results = DETECTION_MODEL(image_rgb)
     id2label = results.names
 
     batch_idx = 0
