@@ -108,7 +108,8 @@ def get_detection_model(force_reload: bool = False):
     logger.debug(f"{mem.get_vram(DEVICE)}     {mem.get_ram()}")
     if DETECTION_MODEL is None:
         model_url = r"https://github.com/ecologize/CameraTraps/releases/download/v5.0/md_v5a.0.0.pt"
-        model_file = Path("/root/resources/md_v5a.0.0.pt")
+        filename = model_url.split("/")[-1]
+        model_file = Path("/root/resources/") / filename
         download_file_if_does_not_exists(model_url, model_file)
 
         logger.debug(f"Loading model from file: {model_file}. {model_file.exists()=}")

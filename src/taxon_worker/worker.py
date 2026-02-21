@@ -41,6 +41,8 @@ def predict(
     contains_identities: bool = False,
     force_init: bool = False,
     sequence_time_limit_s: int = 120,
+    detection_model_path: str = None,
+    detection_model_architecture: str = None,
     **kwargs,
 ):
     """Prepare import data and species classification inference.
@@ -58,6 +60,10 @@ def predict(
     created based on the content of input_archive_file and saved to output_metadata_file.
     If the output_metadata_file exists, it is directly used as input for the inference.
     """
+    # TODO implement detection_model_path and detection_model_architecture parameters
+    # if empty string is given, select whole media file for detection.
+    # detection_model_path=r"https://github.com/ecologize/CameraTraps/releases/download/v5.0/md_v5a.0.0.pt",
+    # detection_model_architecture="ultralytics/yolov5:915bbf2",
     try:
         logger.info(
             "Applying species identification task with args: "

@@ -490,8 +490,12 @@ def run_species_prediction_async(
 
     if uploaded_archive.owner.workgroup is not None:
         sequence_time_limit_s = uploaded_archive.owner.workgroup.sequence_time_limit
+        detection_model_path = uploaded_archive.owner.workgroup.detection_model_path
+        detection_model_architecture = uploaded_archive.owner.workgroup.detection_model_architecture
     else:
         sequence_time_limit_s = 120
+        detection_model_path = None
+        detection_model_architecture = None
 
     # send celery message to the data worker
     logger.info("Sending request to inference worker.")
@@ -506,6 +510,8 @@ def run_species_prediction_async(
             "contains_identities": uploaded_archive.contains_identities,
             "force_init": force_init,
             "sequence_time_limit_s": sequence_time_limit_s,
+            "detection_model_path": detection_model_path,
+            "detection_model_architecture": detection_model_architecture,
         },
     )
 

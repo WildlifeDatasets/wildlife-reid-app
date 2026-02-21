@@ -150,6 +150,14 @@ class WorkGroup(models.Model):
         blank=True,
         related_name="actual_workgroup_identification_model",
     )
+    detection_model_path = models.CharField(
+        max_length=512, blank=True,
+        default=r"https://github.com/ecologize/CameraTraps/releases/download/v5.0/md_v5a.0.0.pt",
+        help_text="Model compatible with 'ultralytics/yolov5:915bbf2'. Leave empty to use whole media file for analysis."
+    )
+    detection_model_architecture = models.CharField(
+        max_length=255, blank=True, default="ultralytics/yolov5:915bbf2",
+    )
 
     def save(self, *args, **kwargs):
         """Save workgroup and set default taxon and identification model if not set.
