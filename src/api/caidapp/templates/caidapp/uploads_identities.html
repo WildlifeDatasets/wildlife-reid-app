@@ -1,24 +1,5 @@
 {% extends 'base.html' %}
 {% load static %}
-{% block head %}
- <style>
-{##}
-{#     .archive-card.has-bg {#}
-{#         background-repeat: no-repeat;#}
-{#         background-position: right center;#}
-{#         background-size: cover;#}
-{#     }#}
-{##}
-{#     .archive-card.has-bg {#}
-{#         background-image:#}
-{#                 linear-gradient(#}
-{#                         to left,#}
-{#                         rgba(var(--bs-body-bg-rgb), 0.7),#}
-{#                         rgba(var(--bs-body-bg-rgb), 1)#}
-{#                 ),#}
-{#                 var(--archive-bg);#}
-{#     }#}
- </style>
 
 {% endblock %}
 {% block body %}
@@ -27,14 +8,8 @@
             <h1>Identification uploaded archives</h1>
             <nav>
                 <ol class="breadcrumb">
-                    {#                    {% if uploadedarchive.contains_single_taxon %}#}
                     <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads_identities' %}">Identities Uploads </a>
                     </li>
-                    {#                    {% else %}#}
-                    {#                        <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li>#}
-                    {#                    {%  endif %}#}
-                    {#                <li class="breadcrumb-item"><a href="{% url 'caidapp:uploadedarchive_mediafiles' mediafile.parent.id %}"> Uploaded#}
-                    {#                    Archive: {{ mediafile.parent }}</a></li>#}
 
                 </ol>
             </nav>
