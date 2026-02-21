@@ -815,7 +815,7 @@ def _update_database_by_one_row_of_metadata(
                         # this is porcessed only if the values are not changed by user.
                         mf.observations.exclude(id=mf.first_observation.id).delete()
                     for i, one_detection_result in enumerate(detection_results):
-                        ao:models.AnimalObservation
+                        ao: models.AnimalObservation
                         if mf.observations.exists() and len(detection_results) > 0:
                             ao = mf.observations.first()
                         else:
@@ -1070,7 +1070,7 @@ def init_identification_on_success(*args, **kwargs):
     models.Notification.create_for(
         message=f"Identification initialization finished. {args=} {kwargs=}",
         workgroups=[workgroup],
-        level=models.Notification.INFO
+        level=models.Notification.INFO,
     )
     output: dict = args[0]
     status = output["status"]
@@ -1106,9 +1106,7 @@ def train_identification_on_success(*args, **kwargs):
         caiduser_id = kwargs.pop("caiduser_id")
         caiduser = models.CaIDUser.objects.get(id=caiduser_id)
     models.Notification.create_for(
-        message=f"Task finished with error. {args=} {kwargs=}",
-        users=[caiduser],
-        level=models.Notification.INFO
+        message=f"Task finished with error. {args=} {kwargs=}", users=[caiduser], level=models.Notification.INFO
     )
     workgroup_id = kwargs.pop("workgroup_id")
     workgroup = WorkGroup.objects.get(id=workgroup_id)
@@ -1147,9 +1145,7 @@ def init_identification_on_error(*args, **kwargs):
         caiduser = models.CaIDUser.objects.get(id=caiduser_id)
         kwargs["users"] = [caiduser]
 
-    models.Notification.create_for(
-        **kwargs
-    ).save()
+    models.Notification.create_for(**kwargs).save()
     logger.error("init_identification done with error.")
 
 
@@ -1183,10 +1179,7 @@ def on_error_in_upload_processing(self, uuid, *args, **kwargs):
         level=models.Notification.ERROR,
         json_message=dict(self=self, args=args, kwargs=kwargs),
     )
-    models.Notification(
-        **kwargs
-
-    )
+    models.Notification(**kwargs)
     # logger.debug(f"dir(self)={dir(self)}")
 
 
@@ -1511,7 +1504,7 @@ def run_identification_on_unidentified_for_workgroup(workgroup_id: int, request=
     models.Notification.create_for(
         message=f"Starting identification for workgroup {workgroup_id}...",
         workgroups=[workgroup],
-        level=models.Notification.DEBUG
+        level=models.Notification.DEBUG,
     )
 
     uploaded_archives = UploadedArchive.objects.filter(
@@ -1541,7 +1534,7 @@ def run_identification_on_unidentified_for_workgroup(workgroup_id: int, request=
             models.Notification.create_for(
                 message=f"No records for identification with the expected taxon for {uploaded_archive}.",
                 workgroups=[workgroup],
-                level=models.Notification.ERROR
+                level=models.Notification.ERROR,
             )
         logger.debug(f"Identification started for {uploaded_archive} with status {status_ok}.")
 
@@ -1568,15 +1561,12 @@ def schedule_init_identification_for_workgroup(workgroup: models.WorkGroup, dela
         ]
     )
 
-    schedule_reid_identification_for_workgroup(
-        workgroup, delay_minutes=delay_minutes + 50
-    )
+    schedule_reid_identification_for_workgroup(workgroup, delay_minutes=delay_minutes + 50)
 
 
 @shared_task
 def init_identification(workgroup_id: int):
     """Initialize identification for a workgroup."""
-
     workgroup = WorkGroup.objects.get(pk=workgroup_id)
 
     process_for_message = "initialization"

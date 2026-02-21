@@ -22,13 +22,7 @@ from tqdm import tqdm
 
 from . import fs_data
 from .fs_data import convert_to_mp4
-from .model_tools import (
-    generate_sha1,
-    get_output_dir,
-    get_zip_path_in_unique_folder,
-    random_string,
-    random_string12,
-)
+from .model_tools import generate_sha1, get_output_dir, get_zip_path_in_unique_folder, random_string, random_string12
 
 # Create your models here.
 logger = logging.getLogger("database")
@@ -151,16 +145,21 @@ class WorkGroup(models.Model):
         related_name="actual_workgroup_identification_model",
     )
     detection_model_path = models.CharField(
-        max_length=512, blank=True,
+        max_length=512,
+        blank=True,
         default=r"https://github.com/ecologize/CameraTraps/releases/download/v5.0/md_v5a.0.0.pt",
-        help_text="Model compatible with 'ultralytics/yolov5:915bbf2'. Leave empty to use whole media file for analysis."
+        help_text="Model compatible with 'ultralytics/yolov5:915bbf2'. "
+        "Leave empty to use whole media file for analysis.",
     )
     detection_model_architecture = models.CharField(
-        max_length=255, blank=True, default="ultralytics/yolov5:915bbf2",
+        max_length=255,
+        blank=True,
+        default="ultralytics/yolov5:915bbf2",
     )
 
     def save(self, *args, **kwargs):
         """Save workgroup and set default taxon and identification model if not set.
+
         Propagate changes of default_taxon_for_identification into users and their UploadedArchive.
         """
         old_default = None
@@ -185,15 +184,12 @@ class WorkGroup(models.Model):
                     default_taxon_for_identification=self.default_taxon_for_identification
                 )
 
-                CaIDUser.objects.filter(
-                    workgroup=self
-                ).update(
+                CaIDUser.objects.filter(workgroup=self).update(
                     default_taxon_for_identification=self.default_taxon_for_identification
                 )
 
         except Exception as e:
             logger.exception("Error propagating default_taxon_for_identification: %s", e)
-
 
     def __str__(self):
         return str(self.name)
@@ -249,12 +245,11 @@ class WorkGroup(models.Model):
         ).count()
 
     def mediafiles_for_train_or_init_identification(
-            self
-            # request,
-            # workgroup, taxon=None, identity_is_representative=True
+        self,
+        # request,
+        # workgroup, taxon=None, identity_is_representative=True
     ):
         """Get mediafiles for training or initialization of identification."""
-
         # Pokud má workgroup nastavený výchozí taxon pro identifikaci
         if self.check_taxon_before_identification and self.default_taxon_for_identification:
             # Najdi ID všech mediafiles, které mají aspoň jednu observaci s daným taxonem
@@ -416,22 +411,11 @@ class CaIDUser(models.Model):
 
 
 class WorkGroupInvitation(models.Model):
-    invited_user = models.ForeignKey(
-        CaIDUser,
-        on_delete=models.CASCADE,
-        related_name="workgroup_invitations"
-    )
-    target_workgroup = models.ForeignKey(
-        WorkGroup,
-        on_delete=models.CASCADE,
-        related_name="invitations"
-    )
+    invited_user = models.ForeignKey(CaIDUser, on_delete=models.CASCADE, related_name="workgroup_invitations")
+    target_workgroup = models.ForeignKey(WorkGroup, on_delete=models.CASCADE, related_name="invitations")
 
     invited_by = models.ForeignKey(
-        CaIDUser,
-        on_delete=models.SET_NULL,
-        null=True,
-        related_name="sent_workgroup_invitations"
+        CaIDUser, on_delete=models.SET_NULL, null=True, related_name="sent_workgroup_invitations"
     )
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -713,9 +697,11 @@ class UploadedArchive(models.Model):
 
     def count_of_mediafiles(self):
         """Return number of mediafiles in the archive."""
-        if self.taxon_status in ("C", "TAIP",
+        if self.taxon_status in (
+            "C",
+            "TAIP",
             # "TAID"
-                                 ):
+        ):
             return self.mediafiles_at_upload
         return MediaFile.objects.filter(parent=self).count()
 
@@ -727,9 +713,9 @@ class UploadedArchive(models.Model):
         """Return number of mediafiles with taxon for identification in the archive."""
         if self.taxon_for_identification is None:
             return None
-        return MediaFile.objects.filter(
-            parent=self, observations__taxon=self.taxon_for_identification
-        ).distinct().count()
+        return (
+            MediaFile.objects.filter(parent=self, observations__taxon=self.taxon_for_identification).distinct().count()
+        )
 
     def update_location_in_mediafiles(self, location: Union[str, Locality]):
         """Update location in mediafiles."""
@@ -1067,6 +1053,7 @@ class Sequence(models.Model):
 
 class WorkgroupAccessQuerySet(models.QuerySet):
     def for_user(self, caiduser: CaIDUser, owner_path: str):
+        """Filter queryset for user based on workgroup access or ownership."""
         if caiduser.workgroup:
             return self.filter(**{f"{owner_path}__workgroup": caiduser.workgroup})
         return self.filter(**{owner_path: caiduser})
@@ -1074,11 +1061,12 @@ class WorkgroupAccessQuerySet(models.QuerySet):
 
 class MediaFileManager(models.Manager):
     def get_queryset(self):
+        """Return queryset with workgroup access filtering."""
         return WorkgroupAccessQuerySet(self.model, using=self._db)
 
     def for_user(self, caiduser: CaIDUser):
+        """Filter media files for user based on workgroup access or ownership."""
         return self.get_queryset().for_user(caiduser, "parent__owner")
-
 
 
 class MediaFile(models.Model):
@@ -1181,7 +1169,6 @@ class MediaFile(models.Model):
         """Return True if mediafile is preidentified."""
         return MediafilesForIdentification.objects.filter(mediafile=self).exists()
 
-
     @property
     def taxons(self):
         """Return list of taxons from observations."""
@@ -1194,7 +1181,6 @@ class MediaFile(models.Model):
             return None
         else:
             return taxons
-
 
     @property
     def taxon_from_observations(self):
@@ -1636,7 +1622,9 @@ def auto_delete_file_on_delete(sender, instance, **kwargs):
 from django.db.models import Exists, OuterRef
 
 
-def get_mediafiles_with_missing_taxon(caiduser: CaIDUser, uploadedarchive: Optional[UploadedArchive] = None, **kwargs) -> QuerySet:
+def get_mediafiles_with_missing_taxon(
+    caiduser: CaIDUser, uploadedarchive: Optional[UploadedArchive] = None, **kwargs
+) -> QuerySet:
     """Return media files with missing taxon (taxon stored in AnimalObservation)."""
     # Filtr přístupu uživatele
     kwargs_filter = user_has_access_filter_params(caiduser, "parent__owner")
@@ -1664,6 +1652,7 @@ def get_mediafiles_with_missing_taxon(caiduser: CaIDUser, uploadedarchive: Optio
         )
     )
     return mediafiles
+
 
 #     caiduser: CaIDUser, uploadedarchive: Optional[UploadedArchive] = None, **kwargs
 # ) -> QuerySet:
@@ -1842,16 +1831,13 @@ class Notification(models.Model):
             msg += self.message[:50]
         return msg
 
-
     def bootstrap_class(self):
         """Return bootstrap class for the notification level."""
         return self.BOOTSTRAP_CLASSES.get(self.level, "secondary")
-    
+
     @classmethod
     def create_for(cls, *, message="", level=INFO, users=None, workgroups=None, json_message=None):
-        """ Create notification and send it to users and workgroups.
-
-        """
+        """Create notification and send it to users and workgroups."""
         notif = cls.objects.create(message=message, level=level, json_message=json_message)
 
         final_users = set()
@@ -1869,10 +1855,10 @@ class Notification(models.Model):
 
         # Vytvoření vazeb NotificationRecipient
         for user in final_users:
-            NotificationRecipient.objects.create(
-                notification=notif, user=user)
+            NotificationRecipient.objects.create(notification=notif, user=user)
 
         return notif
+
 
 class NotificationRecipient(models.Model):
     notification = models.ForeignKey(Notification, on_delete=models.CASCADE)
@@ -1881,7 +1867,8 @@ class NotificationRecipient(models.Model):
     read_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
-        unique_together = ('notification', 'user')  # aby nedošlo k duplicitám
+        unique_together = ("notification", "user")  # aby nedošlo k duplicitám
+
 
 class MergeIdentitySuggestionResult(models.Model):
     workgroup = models.ForeignKey(WorkGroup, on_delete=models.CASCADE, null=True, blank=True)

@@ -221,7 +221,6 @@ class IndividualIdentitySelectSecondForMergeForm(forms.Form):
 
 
 class UploadedArchiveUpdateBySpreadsheetForm(forms.Form):
-
     def __init__(self, *args, upload_to=None, **kwargs):
         super(UploadedArchiveUpdateBySpreadsheetForm, self).__init__(*args, **kwargs)
 
@@ -252,27 +251,28 @@ class UploadedArchiveUpdateForm(forms.ModelForm):
             "locality_check_at",
             # "contains_identities"
         )
+
+
 class MultipleFileInput(forms.ClearableFileInput):
     allow_multiple_selected = True
 
 
 class MultipleFileField(forms.FileField):
-
     def __init__(self, *args, **kwargs):
-        # Nastavíme náš vlastní widget automaticky
+        # Automatically use our custom widget
         kwargs.setdefault("widget", MultipleFileInput())
         super().__init__(*args, **kwargs)
 
     def clean(self, data, initial=None):
-        # nejdřív použijeme defaultní validaci FileFieldu
+        """User-friendly validation for multiple files."""
         single_clean = super().clean
 
-        # pokud je data list/tuple → zvalidujeme každý soubor
+        # validate every file if multiple files are uploaded
         if isinstance(data, (list, tuple)):
             return [single_clean(d, initial) for d in data]
 
-        # jinak zpracujeme jako jeden soubor
         return single_clean(data, initial)
+
 
 class UploadedArchiveForm(forms.ModelForm):
 
@@ -288,9 +288,7 @@ class UploadedArchiveForm(forms.ModelForm):
     #     ),
     # )
     archivefile = MultipleFileField(
-        required=True,
-        label="Upload files",
-        help_text="Select files; multiple files will be zipped."
+        required=True, label="Upload files", help_text="Select files; multiple files will be zipped."
     )
 
     locality_at_upload = forms.CharField(
@@ -316,7 +314,7 @@ class UploadedArchiveForm(forms.ModelForm):
     class Meta:
         model = UploadedArchive
         fields = ("locality_at_upload", "locality_check_at")
-        exclude = ("archivefile",)     # ← 🔥 přidat sem
+        exclude = ("archivefile",)  # ← 🔥 přidat sem
         labels = {
             "locality_at_upload": "Locality at Upload",
             "locality_check_at": "Locality Check Date",
@@ -388,15 +386,11 @@ class UploadedArchiveFormWithTaxon(forms.ModelForm):
     #     label="Upload files",
     # )
     archivefile = MultipleFileField(
-        required=True,
-        label="Upload files",
-        help_text="Select files; multiple files will be zipped."
+        required=True, label="Upload files", help_text="Select files; multiple files will be zipped."
     )
 
     locality_at_upload = forms.CharField(
-        label="Locality",
-        widget=forms.TextInput(attrs={"class": "autocomplete"}),
-        required=False
+        label="Locality", widget=forms.TextInput(attrs={"class": "autocomplete"}), required=False
     )
 
     taxon_for_identification = forms.ModelChoiceField(
@@ -414,15 +408,15 @@ class UploadedArchiveFormWithTaxon(forms.ModelForm):
         model = UploadedArchive
 
         fields = ("locality_at_upload", "taxon_for_identification")
-        exclude = ("archivefile",)   # <– pořád nutné!
+        exclude = ("archivefile",)  # <– pořád nutné!
 
         # again NO archivefile here
-
 
     def __init__(self, *args, **kwargs):
         user = kwargs.pop("user", None)
         super().__init__(*args, **kwargs)
         self.fields["ml_consent"].initial = user.caiduser.ml_consent_given if user else False
+
 
 # class UploadedArchiveForm(forms.ModelForm):
 #
@@ -505,7 +499,6 @@ class UploadedArchiveFormWithTaxon(forms.ModelForm):
 #         # if user and user.caiduser.ml_consent_given:
 #         #     # Don't show the checkbox if already agreed
 #         #     self.fields.pop("ml_consent")
-
 
 
 class CaIDUserForm(forms.ModelForm):

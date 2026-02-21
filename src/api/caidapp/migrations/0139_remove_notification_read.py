@@ -6,12 +6,12 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0138_uploadedarchive_is_for_identification'),
+        ("caidapp", "0138_uploadedarchive_is_for_identification"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='notification',
-            name='read',
+            model_name="notification",
+            name="read",
         ),
     ]

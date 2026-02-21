@@ -1,11 +1,11 @@
-import django_filters
-from django.db.models import Value, Q
-from django.db.models.functions import Concat
 import logging
 
-from .models import Taxon, UploadedArchive
+import django_filters
+from django.db.models import Q, Value
+from django.db.models.functions import Concat
 
 from . import models
+from .models import Taxon, UploadedArchive
 
 logger = logging.getLogger(__name__)
 
@@ -93,8 +93,6 @@ class IndividualIdentityFilter(django_filters.FilterSet):
         # )
         # # Now filter on the annotated 'search' field.
         # return queryset.filter(search__icontains=value)
-
-
 
 
 class MediaFileFilter(django_filters.FilterSet):

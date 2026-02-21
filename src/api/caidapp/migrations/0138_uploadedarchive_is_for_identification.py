@@ -6,13 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0137_alter_workgroup_check_taxon_before_identification_and_more'),
+        ("caidapp", "0137_alter_workgroup_check_taxon_before_identification_and_more"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='uploadedarchive',
-            name='is_for_identification',
+            model_name="uploadedarchive",
+            name="is_for_identification",
             field=models.BooleanField(default=False),
         ),
     ]

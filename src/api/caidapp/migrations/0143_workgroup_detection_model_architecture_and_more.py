@@ -6,18 +6,24 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0142_remove_caiduser_identification_model'),
+        ("caidapp", "0142_remove_caiduser_identification_model"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='workgroup',
-            name='detection_model_architecture',
-            field=models.CharField(blank=True, default='ultralytics/yolov5:915bbf2', max_length=255),
+            model_name="workgroup",
+            name="detection_model_architecture",
+            field=models.CharField(blank=True, default="ultralytics/yolov5:915bbf2", max_length=255),
         ),
         migrations.AddField(
-            model_name='workgroup',
-            name='detection_model_path',
-            field=models.CharField(blank=True, default='https://github.com/ecologize/CameraTraps/releases/download/v5.0/md_v5a.0.0.pt', help_text="Model compatible with 'ultralytics/yolov5:915bbf2'. Leave empty to use whole media file for analysis.", max_length=512),
+            model_name="workgroup",
+            name="detection_model_path",
+            field=models.CharField(
+                blank=True,
+                default="https://github.com/ecologize/CameraTraps/releases/download/v5.0/md_v5a.0.0.pt",
+                help_text="Model compatible with 'ultralytics/yolov5:915bbf2'."
+                + " Leave empty to use whole media file for analysis.",
+                max_length=512,
+            ),
         ),
     ]

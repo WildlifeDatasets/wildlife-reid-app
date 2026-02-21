@@ -7,5 +7,6 @@ class CaidappConfig(AppConfig):
 
     def ready(self):
         """The code run on application init is here."""
-        import caidapp.signals
+        import caidapp.signals  # noqa: F401
+
         pass

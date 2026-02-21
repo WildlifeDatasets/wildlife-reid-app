@@ -1,23 +1,17 @@
 import datetime
-
-from django.contrib.auth.decorators import login_required
-from django.shortcuts import get_object_or_404, redirect
-from django.core.exceptions import PermissionDenied
+import io
 import logging
 import os
 import random
 import re
 import time
 import traceback
+import zipfile
 from functools import wraps
 from io import BytesIO
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 from zoneinfo import ZoneInfo
-
-import zipfile
-from django.core.files.base import ContentFile
-import io
 
 import django
 import django.db
@@ -39,12 +33,13 @@ from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib.auth.views import LoginView
 from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector
 from django.core.exceptions import PermissionDenied
+from django.core.files.base import ContentFile
 from django.core.paginator import Page, Paginator
 from django.db.models import Count, F, Func, Max, Min, OuterRef, Q, QuerySet, Subquery, Value
 from django.db.models.functions import Cast
 from django.forms import modelformset_factory
 from django.forms.models import model_to_dict
-from django.http import HttpResponseNotAllowed, JsonResponse, HttpRequest
+from django.http import HttpRequest, HttpResponseNotAllowed, JsonResponse
 from django.shortcuts import Http404, HttpResponse, get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse, reverse_lazy
@@ -57,16 +52,7 @@ from django.views.generic import CreateView, DeleteView, DetailView, ListView, U
 from djangoaddicts.pygwalker.views import PygWalkerView
 from tqdm import tqdm
 
-from . import (
-    filters,
-    forms,
-    model_tools,
-    models,
-    tasks,
-    views_general,
-    views_locality,
-    views_uploads,
-)
+from . import filters, forms, model_tools, models, tasks, views_general, views_locality, views_uploads
 from .forms import (  # WorkgroupUsersForm,
     AlbumForm,
     IndividualIdentityForm,
@@ -88,13 +74,14 @@ from .models import (
     Locality,
     MediaFile,
     MediafilesForIdentification,
+    Notification,
     Taxon,
     UploadedArchive,
     WorkGroup,
     get_all_relevant_localities,
     user_has_access_filter_params,
-    Notification
 )
+from .services.workgroup_migration import migrate_user_to_workgroup
 from .tasks import (
     _iterate_over_locality_checks,
     _prepare_dataframe_for_identification,
@@ -282,7 +269,9 @@ def show_taxons(request):
         filter_params = dict(parent__owner=request.user.caiduser)
 
     for taxon in all_taxons:
-        mediafiles_of_taxon = MediaFile.objects.filter(observations__taxon=taxon, **filter_params).order_by("-captured_at")
+        mediafiles_of_taxon = MediaFile.objects.filter(observations__taxon=taxon, **filter_params).order_by(
+            "-captured_at"
+        )
         # logger.debug(f"Taxon '{taxon.name}' has {len(mediafiles_of_taxon)} media files.")
         if len(mediafiles_of_taxon) > 0:
             # taxon.image = mediafiles_of_taxon.first().image
@@ -330,7 +319,6 @@ def update_taxon(request, taxon_id: Optional[int] = None):
             "button": button_text,
         },
     )
-
 
 
 @method_decorator(login_required, name="dispatch")
@@ -383,11 +371,7 @@ class CaIDUserSettingsView(View):
         context["nav_dict"] = {
             "Invitations": reverse("caidapp:workgroup_invitations_for_user"),
         }
-        return render(
-            request,
-            self.template_name,
-            context
-        )
+        return render(request, self.template_name, context)
 
     def post(self, request):
         """Handle the form submission for user settings."""
@@ -399,7 +383,9 @@ class CaIDUserSettingsView(View):
             return redirect(url)
         else:
             messages.error(request, "Please correct the errors below.")
-        context = {"form": form, }
+        context = {
+            "form": form,
+        }
         context["nav_dict"] = {
             "Invitations": reverse("caidapp:workgroup_invitations_for_user"),
         }
@@ -1382,7 +1368,6 @@ def run_taxon_classification(request, uploadedarchive_id, force_init=False):
 #     return redirect("/caidapp/uploads")
 
 
-
 # def _get_mediafiles_for_train_or_init_identification(
 #     workgroup: models.WorkGroup,
 #     # request,
@@ -1575,7 +1560,6 @@ def init_identification_view(
     if not request.user.caiduser.workgroup_admin:
         return HttpResponseNotAllowed("Identification init is for workgroup admins only.")
 
-
     # reset mediafiles in workgroup
     mediafiles_qs = MediaFile.objects.filter(
         parent__owner__workgroup=caiduser.workgroup,
@@ -1583,16 +1567,20 @@ def init_identification_view(
     mediafiles_qs.update(used_for_init_identification=False)
     mediafiles_qs = caiduser.workgroup.mediafiles_for_train_or_init_identification()
     mf_count = mediafiles_qs.count()
-    messages.info(request, f"Scheduling identification initialization for workgroup {caiduser.workgroup.name} with {mf_count} media files.")
+    messages.info(
+        request,
+        f"Scheduling identification initialization for workgroup {caiduser.workgroup.name} "
+        f"with {mf_count} media files.",
+    )
 
     if not request.user.caiduser.workgroup.identification_model:
 
         caiduser.workgroup.identification_model = models.IdentificationModel.objects.filter(public=True).first()
-        messages.warning(request, f"Setting default identification model: {caiduser.workgroup.identification_model.name}")
+        messages.warning(
+            request, f"Setting default identification model: {caiduser.workgroup.identification_model.name}"
+        )
 
     from .tasks import schedule_init_identification_for_workgroup
-
-
 
     schedule_init_identification_for_workgroup(caiduser.workgroup, delay_minutes=0)
     # return redirect("caidapp:individual_identities")
@@ -1774,9 +1762,8 @@ def run_identification(uploaded_archive: UploadedArchive, workgroup: models.Work
         models.Notification.create_for(
             message=f"No records for identification {expected_taxon_string} in {uploaded_archive=}. ",
             level=Notification.LevelChoices.WARNING,
-            workgroups=[workgroup]
+            workgroups=[workgroup],
         )
-
 
         return False
         # return redirect(request.META.get("HTTP_REFERER", "/"))
@@ -1875,7 +1862,7 @@ def delete_album(request, album_hash):
     return redirect("caidapp:albums")
 
 
-def _one_zip_from_request_FILES(request:HttpRequest) -> HttpRequest:
+def _one_zip_from_request_FILES(request: HttpRequest) -> HttpRequest:
     """Create one ZIP file from multiple uploaded files in request.FILES."""
     files = request.FILES.getlist("archivefile")
 
@@ -1898,9 +1885,7 @@ def _one_zip_from_request_FILES(request:HttpRequest) -> HttpRequest:
         buffer.seek(0)
         now_str = django.utils.timezone.now().strftime("%Y%m%d-%H%M%S")
         # create pseudo file for the form
-        zipped_file = ContentFile(
-            buffer.read(), name=f"uploaded_multiple_files.{now_str}.zip"
-        )
+        zipped_file = ContentFile(buffer.read(), name=f"uploaded_multiple_files.{now_str}.zip")
 
         # substitute the original request.FILES with the zip file
         request.FILES.setlist("archivefile", [zipped_file])
@@ -2585,7 +2570,6 @@ def media_files_update(
 
     # Instantiate the filter with GET parameters and your base queryset
     mediafile_filter = filters.MediaFileFilter(request.GET, queryset=mediafiles, request=request)
-
 
     # The filtered queryset is available as .qs
     full_mediafiles = mediafile_filter.qs.filter(sequence=sequence) if sequence else mediafile_filter.qs
@@ -3467,7 +3451,6 @@ def get_individuals(request, id1, id2) -> Tuple[models.IndividualIdentity, model
 
 
 class MergeIdentitiesWithPreview(View):
-
     def get(self, request, individual_identity_from_id, individual_identity_to_id):
         """Render the merge form."""
         individual_from, individual_to = get_individuals(
@@ -3538,7 +3521,6 @@ class MergeIdentitiesWithPreview(View):
 
 
 class MergeIdentitiesNoPreview(View):
-
     def get(self, request, individual_identity_from_id, individual_identity_to_id):
         """Merge two individual identities without preview."""
         individual_from, individual_to = get_individuals(
@@ -3581,7 +3563,6 @@ def merge_identities_helper(request, individual_from, individual_to):
 
 
 class UpdateUploadedArchiveBySpreadsheetFile(View):
-
     def __init__(self):
         self.prev_url = None
 
@@ -4416,22 +4397,16 @@ class NotificationListView(ListView):
         """Limit queryset to notifications of the current user."""
         user = self.request.user.caiduser
 
-        recipient_qs = models.NotificationRecipient.objects.filter(
-            notification=OuterRef("pk"), user=user
-        )
+        recipient_qs = models.NotificationRecipient.objects.filter(notification=OuterRef("pk"), user=user)
 
         return (
-            models.Notification.objects
-            .filter(notificationrecipient__user=user)
+            models.Notification.objects.filter(notificationrecipient__user=user)
             .annotate(
                 recipient=Subquery(recipient_qs.values("user__user__username")[:1]),
                 read=Subquery(recipient_qs.values("read")[:1]),
             )
             .order_by("-created_at")
         )
-
-
-
 
         # return models.Notification.objects.filter(user=self.request.user.caiduser).order_by("-created_at")
         # return (
@@ -4445,12 +4420,13 @@ class NotificationListView(ListView):
         """Set up context data for the list view."""
         context = super().get_context_data(**kwargs)
         context["title"] = _("Notifications")
-        context["list_display"] = ["created_at",
-                                   # "level",
-                                   "message",
-                                   # "recipient",
-                                   # "read",
-                                   ]
+        context["list_display"] = [
+            "created_at",
+            # "level",
+            "message",
+            # "recipient",
+            # "read",
+        ]
         # context["object_detail_url"] = "caidapp:notification-detail"
         # context["object_update_url"] = "caidapp:notification-update"
         # context["object_delete_url"] = "caidapp:notification-delete"
@@ -4516,8 +4492,6 @@ class NotificationDeleteView(DeleteView):
     title = "Delete Notification"
 
 
-
-
 class WorkGroupInvitationCreateView(LoginRequiredMixin, CreateView):
     model = models.WorkGroupInvitation
     template_name = "caidapp/generic_form.html"
@@ -4525,6 +4499,7 @@ class WorkGroupInvitationCreateView(LoginRequiredMixin, CreateView):
     success_url = reverse_lazy("caidapp:workgroup_invitations")
 
     def dispatch(self, request, *args, **kwargs):
+        """Check if the user is a workgroup admin and set the target workgroup for the invitation."""
         if not request.user.caiduser.workgroup_admin:
             raise PermissionDenied
 
@@ -4532,9 +4507,11 @@ class WorkGroupInvitationCreateView(LoginRequiredMixin, CreateView):
         return super().dispatch(request, *args, **kwargs)
 
     def form_valid(self, form):
+        """Set the inviter and target workgroup before saving the form."""
         form.instance.invited_by = self.request.user.caiduser
         form.instance.target_workgroup = self.target_workgroup
         return super().form_valid(form)
+
 
 class WorkGroupInvitationListView(LoginRequiredMixin, ListView):
     model = models.WorkGroupInvitation
@@ -4543,6 +4520,7 @@ class WorkGroupInvitationListView(LoginRequiredMixin, ListView):
     title = "Workgroup Invitations"
 
     def dispatch(self, request, *args, **kwargs):
+        """Check if the user is a workgroup admin and set the target workgroup for filtering invitations."""
         if not request.user.caiduser.workgroup_admin:
             raise PermissionDenied
 
@@ -4550,6 +4528,7 @@ class WorkGroupInvitationListView(LoginRequiredMixin, ListView):
         return super().dispatch(request, *args, **kwargs)
 
     def get_queryset(self):
+        """Limit queryset to invitations for the current user's workgroup."""
         logger.debug(f"{self.target_workgroup=}")
         invs = models.WorkGroupInvitation.objects.filter(target_workgroup=self.target_workgroup)
         logger.debug(f"{invs.count()=}")
@@ -4559,9 +4538,15 @@ class WorkGroupInvitationListView(LoginRequiredMixin, ListView):
         """Set up context data for the list view."""
         context = super().get_context_data(**kwargs)
         context["title"] = _("Workgroup Invitations")
-        context["list_display"] = ["invited_user", "invited_by", "created_at", "status",]
+        context["list_display"] = [
+            "invited_user",
+            "invited_by",
+            "created_at",
+            "status",
+        ]
         context["object_detail_url"] = "caidapp:workgroup_invitation_detail"
         return context
+
 
 class WorkGroupInvitationForUserListView(LoginRequiredMixin, ListView):
     model = models.WorkGroupInvitation
@@ -4569,28 +4554,43 @@ class WorkGroupInvitationForUserListView(LoginRequiredMixin, ListView):
     context_object_name = "workgroup_invitations"
     title = "Your Workgroup Invitations"
 
-
     def get_queryset(self):
-        return models.WorkGroupInvitation.objects.filter(invited_user=self.request.user.caiduser).order_by("-created_at")
+        """Limit queryset to invitations for the current user."""
+        return models.WorkGroupInvitation.objects.filter(invited_user=self.request.user.caiduser).order_by(
+            "-created_at"
+        )
 
     def get_context_data(self, **kwargs):
         """Set up context data for the list view."""
         context = super().get_context_data(**kwargs)
         context["title"] = _("Your Workgroup Invitations")
-        context["list_display"] = ["invited_by", "target_workgroup", "created_at", "status",]
+        context["list_display"] = [
+            "invited_by",
+            "target_workgroup",
+            "created_at",
+            "status",
+        ]
         context["object_detail_url"] = "caidapp:workgroup_invitation_detail"
 
         return context
+
 
 class WorkGroupInvitationDetailView(LoginRequiredMixin, DetailView):
     model = models.WorkGroupInvitation
     template_name = "caidapp/generic_detail.html"
     context_object_name = "workgroup_invitation"
     title = "Workgroup Invitation Detail"
-    fields = ["invited_user", "invited_by", "target_workgroup", "created_at", "status", ]
+    fields = [
+        "invited_user",
+        "invited_by",
+        "target_workgroup",
+        "created_at",
+        "status",
+    ]
     cancel_url = reverse_lazy("caidapp:workgroup_invitations")
 
     def dispatch(self, request, *args, **kwargs):
+        """Check permissions and set the invitation object for later use in the view."""
         invitation_id = kwargs.get("pk")
         invitation = get_object_or_404(models.WorkGroupInvitation, pk=invitation_id)
         self.invitation = invitation
@@ -4602,7 +4602,6 @@ class WorkGroupInvitationDetailView(LoginRequiredMixin, DetailView):
         else:
             raise PermissionDenied
         return super().dispatch(request, *args, **kwargs)
-
 
     def get_context_data(self, **kwargs):
         """Set up context data for the detail view."""
@@ -4644,6 +4643,7 @@ class WorkGroupInvitationDetailView(LoginRequiredMixin, DetailView):
             ]
         return context
 
+
 class WorkGroupInvitationDeclineView(LoginRequiredMixin, UpdateView):
     model = models.WorkGroupInvitation
     fields = []
@@ -4655,12 +4655,14 @@ class WorkGroupInvitationDeclineView(LoginRequiredMixin, UpdateView):
     cancel_url = reverse_lazy("caidapp:workgroup_invitations")
 
     def get_queryset(self):
+        """Limit queryset to pending invitations for the current user."""
         return models.WorkGroupInvitation.objects.filter(
             invited_user=self.request.user.caiduser,
             status="pending",
         )
 
     def form_valid(self, form):
+        """Decline the invitation by updating its status to 'rejected'."""
         invitation = self.object
 
         if invitation.invited_user != self.request.user.caiduser:
@@ -4672,11 +4674,6 @@ class WorkGroupInvitationDeclineView(LoginRequiredMixin, UpdateView):
 
         return redirect(self.get_success_url())
 
-from django.utils import timezone
-from django.shortcuts import redirect
-from django.core.exceptions import PermissionDenied
-from django.views.generic import UpdateView
-from .services.workgroup_migration import migrate_user_to_workgroup
 
 class WorkGroupInvitationAcceptView(LoginRequiredMixin, UpdateView):
     model = models.WorkGroupInvitation
@@ -4684,19 +4681,18 @@ class WorkGroupInvitationAcceptView(LoginRequiredMixin, UpdateView):
     template_name = "caidapp/generic_form.html"
 
     title = "Accept Workgroup Invitation"
-    description = (
-        "By accepting this invitation, you will be moved to the new workgroup "
-        "together with all your data."
-    )
+    description = "By accepting this invitation, you will be moved to the new workgroup " "together with all your data."
     cancel_url = reverse_lazy("caidapp:workgroup_invitations")
 
     def get_queryset(self):
+        """Limit queryset to pending invitations for the current user."""
         return models.WorkGroupInvitation.objects.filter(
             invited_user=self.request.user.caiduser,
             status="pending",
         )
 
     def form_valid(self, form):
+        """Accept the invitation and migrate the user to the new workgroup."""
         invitation = self.object
 
         # 🔐 bezpečnost – ještě jednou pro jistotu

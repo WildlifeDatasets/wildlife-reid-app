@@ -3,15 +3,7 @@ from django.urls import include, path
 # from rest_framework import routers
 from django.views.generic import DetailView
 
-from . import (
-    models,
-    views,
-    views_admin,
-    views_general,
-    views_locality,
-    views_mediafile,
-    views_uploads,
-)
+from . import models, views, views_admin, views_general, views_locality, views_mediafile, views_uploads
 
 
 def trigger_error(request):
@@ -33,20 +25,26 @@ urlpatterns = [
     # path("rest_api/", include(router.urls)), # not used any more
     path("workgroup-invitations/create/", views.WorkGroupInvitationCreateView.as_view(), name="workgroup_invitation"),
     path("workgroup-invitations/", views.WorkGroupInvitationListView.as_view(), name="workgroup_invitations"),
-    path("workgroup-invitations/for_user/", views.WorkGroupInvitationForUserListView.as_view(), name="workgroup_invitations_for_user"),
-    path("workgroup-invitations/<int:pk>/", views.WorkGroupInvitationDetailView.as_view(), name="workgroup_invitation_detail"),
-path(
-    "workgroup-invitations/<int:pk>/accept/",
-    views.WorkGroupInvitationAcceptView.as_view(),
-    name="workgroup_invitation_accept",
-),
-
-path(
-    "workgroup-invitations/<int:pk>/decline/",
-    views.WorkGroupInvitationDeclineView.as_view(),
-    name="workgroup_invitation_decline",
-),
-
+    path(
+        "workgroup-invitations/for_user/",
+        views.WorkGroupInvitationForUserListView.as_view(),
+        name="workgroup_invitations_for_user",
+    ),
+    path(
+        "workgroup-invitations/<int:pk>/",
+        views.WorkGroupInvitationDetailView.as_view(),
+        name="workgroup_invitation_detail",
+    ),
+    path(
+        "workgroup-invitations/<int:pk>/accept/",
+        views.WorkGroupInvitationAcceptView.as_view(),
+        name="workgroup_invitation_accept",
+    ),
+    path(
+        "workgroup-invitations/<int:pk>/decline/",
+        views.WorkGroupInvitationDeclineView.as_view(),
+        name="workgroup_invitation_decline",
+    ),
     path("upload/", views.upload_archive, name="upload_archive"),
     # path("user_settings/", views.update_caiduser, name="update_caiduser"),
     path(

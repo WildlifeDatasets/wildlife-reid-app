@@ -71,7 +71,6 @@ def get_model_config(is_cropped: bool = False) -> Tuple[dict, str, dict]:
         api = wandb.Api(api_key=WANDB_API_KEY)
         artifact = api.artifact(wandb_artifact_path)
 
-
         logger.debug(f"Downloading artifact {wandb_artifact_path}.")
         artifact_files = [x.name for x in artifact.files()]
         logger.debug(f"Artifact files: {artifact_files}")
@@ -83,15 +82,14 @@ def get_model_config(is_cropped: bool = False) -> Tuple[dict, str, dict]:
             artifact.download(root=RESOURCES_DIR)
 
         # get artifact contents
-        assert sum([Path(x).suffix.lower() == ".pth" for x in artifact_files]) == 1, (
-            "Only one '.pth' file expected in the W&B artifact."
-        )
+        assert (
+            sum([Path(x).suffix.lower() == ".pth" for x in artifact_files]) == 1
+        ), "Only one '.pth' file expected in the W&B artifact."
         _suffix2name = {Path(x).suffix.lower(): x for x in artifact_files}
         checkpoint_path = Path(RESOURCES_DIR) / _suffix2name[".pth"]
         artifact_config_path = Path(RESOURCES_DIR) / "config.yaml"
         with open(artifact_config_path) as f:
             artifact_config = yaml.safe_load(f)
-
 
         config = {}
         try:
@@ -113,8 +111,6 @@ def get_model_config(is_cropped: bool = False) -> Tuple[dict, str, dict]:
             config["image_size"] = [224, 224]
             config["batch_size"] = 64
             logger.debug(f"Using default config: {config}")
-
-
 
         # save model config locally for later use without internet
         model_config_path.parent.mkdir(exist_ok=True, parents=True)
@@ -145,7 +141,6 @@ def get_model_config(is_cropped: bool = False) -> Tuple[dict, str, dict]:
         # with open(model_config_path, "w") as f:
         #     json.dump(config, f)
 
-
     except (wandb.CommError, ConnectionError):
         logger.error("Connection Error. Cannot reach W&B server. Trying previous configuration.")
         artifact_files = [fn.relative_to(RESOURCES_DIR) for fn in Path(RESOURCES_DIR).glob("*")]
@@ -155,7 +150,6 @@ def get_model_config(is_cropped: bool = False) -> Tuple[dict, str, dict]:
     except requests.exceptions.HTTPError:
         logger.debug(f"{wandb_artifact_path} artifact not found on W&B server.")
         logger.debug(f"{WANDB_API_KEY[:4]}...")  # log only part of the API key
-
 
     return config, checkpoint_path, artifact_config
 
