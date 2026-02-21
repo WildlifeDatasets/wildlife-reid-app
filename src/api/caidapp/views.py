@@ -405,11 +405,6 @@ class CaIDUserSettingsView(View):
         }
         return render(request, self.template_name, context)
 
-    # def get_context_data(self, **kwargs):
-    #     context = super().get_context_data(**kwargs)
-    #     context['title'] = 'User Settings'
-    #     return context
-
 
 def get_filtered_mediafiles(
     user,
