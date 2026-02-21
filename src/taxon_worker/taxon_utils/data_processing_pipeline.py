@@ -102,8 +102,8 @@ def get_model_config(is_cropped: bool = False) -> Tuple[dict, str, dict]:
         except Exception as e:
             logger.warning(f"Failed to get run config from W&B artifact: {e}")
 
-            "zcu_cv/CarnivoreID-Classification/swin_small_patch4_window7_224-CrossEntropyLoss-vit_heavy:v3",
-            "zcu_cv/CarnivoreID-Classification/swin_small_patch4_window7_224-CrossEntropyLoss-vit_heavy:latest",
+            # "zcu_cv/CarnivoreID-Classification/swin_small_patch4_window7_224-CrossEntropyLoss-vit_heavy:v3",
+            # "zcu_cv/CarnivoreID-Classification/swin_small_patch4_window7_224-CrossEntropyLoss-vit_heavy:latest",
             # logger.error(f"Could not get run config from W&B artifact: {e}")
 
             config = {}
