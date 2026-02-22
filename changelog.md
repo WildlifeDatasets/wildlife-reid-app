@@ -11,6 +11,7 @@
 * [fixed] Limit access to media files to owners and workgroup only
 * [added] Show sequences of media files
 * [added] Set Taxon for whole sequence of media files
+* [fixed] Go to prev page after edit media file
 
 ## 2026-01
 

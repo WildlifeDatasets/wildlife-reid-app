@@ -315,13 +315,17 @@
                             >
 {#    same-sized cards (but with a lot emtpy space on bottom of the card are done by:  card h-100 , <style> of .card  and row g-2#}
 {#                                <div class="card h-100">#}
-                                <div class="card width-300"
+                                <div class="card width-300 mt-2"
                                 >
                                     {% for hidden in mediafile.hidden_fields %}
                                         {{ hidden }}
                                     {% endfor %}
                                     {% if mediafile.instance.thumbnail %}
-                                         <a href="{% url 'caidapp:media_file_update' mediafile.instance.id %}?next={{ request.get_full_path }}">
+                                         <a
+{#                                                 href="{% url 'caidapp:media_file_update' mediafile.instance.id %}?next={{ request.get_full_path }}"#}
+                                                 href="{% url 'caidapp:media_file_update' mediafile.instance.id %}?next={{ request.get_full_path|urlencode }}"
+
+                                         >
             <div class="position-relative">
                 <img class="card-img-top" src="{{ mediafile.instance.thumbnail.url }}" alt="Camera trap">
 
@@ -476,18 +480,6 @@
       title="Representative identity">
     <i class="bi {% if mediafile.instance.identity_is_representative %}bi-star-fill{% else %}bi-star{% endif %}"></i>
   </button>
-{#                                                <i#}
-{#                                                        class="bi bi-person"#}
-{#                                                        class="bi bi-bookmark"#}
-{#                                                        {% if mediafile.instance.identity_is_representative %}#}
-{#                                                        class="bi bi-star-fill"#}
-{#                                                        {% else %}#}
-{#                                                        class="bi bi-star"#}
-{#                                                        {% endif %}#}
-{#                                                   data-bs-toggle="tooltip"#}
-{#                                                        title="Representative identity"#}
-{#                                                   title="Identity confirmed by {{ user }}."#}
-{#                                                ></i>#}
 
                                             <br>
                                         {% endif %}
@@ -497,7 +489,8 @@
                                         </p>
                                         <div class="">
                                             <a class="btn btn-secondary"
-                                               href="{% url 'caidapp:media_file_update' mediafile.instance.id %}?next={{ request.get_full_path }}">
+{#                                                href="{% url 'caidapp:media_file_update' mediafile.instance.id %}?next={{ request.get_full_path }}">#}
+                                                href="{% url 'caidapp:media_file_update' mediafile.instance.id %}?next={{ request.get_full_path|urlencode }}">
                                                 <i class="bi bi-pencil"></i> Detail
                                             </a>
 

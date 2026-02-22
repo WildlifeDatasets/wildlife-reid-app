@@ -1,3 +1,4 @@
+import logging
 import os
 from typing import Optional
 
@@ -8,16 +9,19 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import transaction
 from django.db.models.query import QuerySet
 from django.http import Http404, JsonResponse, StreamingHttpResponse
-from django.shortcuts import get_object_or_404, redirect
+from django.shortcuts import get_object_or_404, redirect, resolve_url
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.generic import DeleteView
 from extra_views import InlineFormSetFactory, UpdateWithInlinesView
 
 from . import forms, model_extra, models
 from .forms import MediaFileForm
 from .models import AnimalObservation, MediaFile
-from .views import logger, media_files_update
+from .views import media_files_update
+
+logger = logging.getLogger(__name__)
 
 
 @login_required
@@ -128,21 +132,16 @@ class MediaFileUpdateView(LoginRequiredMixin, UpdateWithInlinesView):
 
     def get_success_url(self):
         """After successful update, return to previous page."""
-        return self.request.GET.get("next") or self.request.META.get("HTTP_REFERER", "/")
+        next_url = self.request.POST.get("next") or self.request.GET.get("next")
 
-    # def _get_taxon_from_inilne_observations(self, inlines):
-    #     """Get taxon from inline observations, prefer first non-null."""
-    #     taxa = []
-    #     for inline in inlines:
-    #         for form in inline.forms:
-    #             if form.cleaned_data and not form.cleaned_data.get("DELETE", False):
-    #                 taxon = form.cleaned_data.get("taxon")
-    #                 taxa.append(taxon)
-    #     if len(np.unique(taxa)) == 1:
-    #         return taxa[0]
-    #     else:
-    #         messages.error(self.request, "Conflicting taxa in observations, cannot set taxon for sequence.")
-    #     return None
+        if next_url and url_has_allowed_host_and_scheme(
+            next_url,
+            allowed_hosts={self.request.get_host()},
+        ):
+            return next_url
+
+        # return self.request.GET.get("next") or self.request.META.get("HTTP_REFERER", "/")
+        return resolve_url("caidapp:media_files")
 
     def _get_taxon_from_inline_observations(self):
         """Get taxon from inline observations, prefer first non-null."""
@@ -158,16 +157,11 @@ class MediaFileUpdateView(LoginRequiredMixin, UpdateWithInlinesView):
 
     def form_valid(self, form):
         """Set updated_by and updated_at on save."""
-        logger.debug("In form_valid of MediaFileUpdateView")
         form.instance.updated_by = self.request.user.caiduser
         form.instance.updated_at = django.utils.timezone.now()
         response = super().form_valid(form)
         # Save all valid inline formsets
-        inlines = self.get_inlines()
-        logger.debug(f"{len(inlines)=}")
-        logger.debug(f"{self.request.POST=}")
-        for inline in inlines:
-            logger.debug(f"{inline=}")
+        # inlines = self.get_inlines()
 
         # If the user clicked "save and set taxon for sequence", set the taxon on all observations
         if self.request.POST.get("save_set_taxon_sequence"):
@@ -196,6 +190,14 @@ class MediaFileUpdateView(LoginRequiredMixin, UpdateWithInlinesView):
                 messages.error(self.request, "Failed to set taxon for sequence.")
 
         return response
+
+    def get_context_data(self, **kwargs):
+        """Add next URL to context."""
+        context = super().get_context_data(**kwargs)
+        next_url = self.request.POST.get("next") or self.request.GET.get("next")
+        next_url = self.request.GET.get("next", "")
+        context["next"] = next_url
+        return context
 
 
 class ObservationDeleteView(LoginRequiredMixin, DeleteView):
