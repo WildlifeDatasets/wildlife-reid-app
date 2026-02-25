@@ -24,6 +24,10 @@ from wildlife_tools.similarity.pairwise.collectors import CollectAll
 from wildlife_tools.similarity.pairwise.lightglue import MatchLightGlue
 
 from .wildfusion_utils import SimilarityPipelineExtended, WildFusionExtended
+from .postprocessing import _sequence_voting, _sequence_weighted_voting, _sequence_max_conf
+
+from dataclasses import dataclass
+from typing import Union, List, Optional
 
 try:
     from ..infrastructure_utils import mem
@@ -43,6 +47,13 @@ SAM: Sam | None = None
 SAM_PREDICTOR: SamPredictor | None = None
 IDENTIFICATION_MODELS: dict[str, SimilarityPipelineExtended] | None = None
 
+
+@dataclass
+class Prediction:
+    name: str
+    db_idx: int
+    score: float
+    path: str
 
 class CarnivoreDataset(WildlifeDataset):
     def __init__(self, *args, **kwargs):
@@ -233,7 +244,6 @@ def pad_image(image: np.ndarray, bbox: Union[list, np.ndarray], border: float = 
 def segment_animal(image_path: str, bbox: list, border: float = 0.25) -> np.ndarray:
     """Segment an animal in a given image using SAM model."""
     # global SAM_PREDICTOR
-
     image = cv2.imread(image_path)
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
@@ -333,41 +343,6 @@ def encode_images(metadata: pd.DataFrame, identification_model_path: str, tqdm_d
     return features
 
 
-def _get_top_predictions(similarity: np.ndarray, paths: list, identities: list, top_k: int = 1):
-    """Get top-k predictions from similarity matrix."""
-    top_results = []
-    for row_idx, row in enumerate(similarity):
-        top_names = []
-        top_paths = []
-        top_scores = []
-        top_idx = []
-
-        sort_idx = np.argsort(row)[::-1]
-        names_sorted = identities[sort_idx]
-        paths_sorted = paths[sort_idx]
-        scores_sorted = row[sort_idx]
-
-        for i, (s, n, p) in enumerate(zip(scores_sorted, names_sorted, paths_sorted)):
-            if n in top_names:
-                continue
-            top_names.append(n)
-            top_paths.append(p)
-            top_scores.append(s)
-            top_idx.append(sort_idx[i])
-            if len(top_names) == top_k:
-                break
-
-        if len(top_names) < top_k:
-            diff = top_k - len(top_names)
-            top_names.extend([top_names[-1]] * diff)
-            top_paths.extend([top_paths[-1]] * diff)
-            top_scores.extend([top_scores[-1]] * diff)
-            top_idx.extend([top_idx[-1]] * diff)
-        top_results.append((top_names, top_paths, top_scores, top_idx))
-
-    return top_results
-
-
 def prepare_feature_types(features):
     """Prepare feature types for identification."""
     mega_features = []
@@ -443,23 +418,128 @@ def compute_partial(
         return scores
 
 
-def identify_from_similarity(similarity, database_metadata, top_k):
+def _get_top_predictions(similarity, database_metadata, top_k: int = 1):
+    """
+    Returns:
+        List[List[Prediction]]
+    """
+    predictions_all = []
+    database_labels = np.array(database_metadata["identity"])
+    database_paths = np.array(database_metadata["path"])
+
+    for row in similarity:
+        sort_idx = np.argsort(row)[::-1]
+        seen_names = set()
+        image_predictions = []
+
+        for idx in sort_idx:
+            name = database_labels[idx]
+            path = database_paths[idx]
+
+            if name in seen_names:
+                continue
+            seen_names.add(name)
+
+            pred = Prediction(
+                name=name,
+                db_idx=int(idx),
+                score=float(row[idx]),
+                path=path
+            )
+
+            image_predictions.append(pred)
+            if len(image_predictions) == top_k:
+                break
+
+        predictions_all.append(image_predictions)
+    return predictions_all
+
+
+def _post_process_sequence(
+    predictions: List[List[Prediction]],
+    query_metadata: pd.DataFrame,
+    top_k: int,
+    method: Optional[str] = None,
+    ignore_seq_ids: list = [],
+):
+    if method is None:
+        return predictions
+
+    if "sequence_number" not in query_metadata.columns:
+        raise ValueError("query_metadata must contain 'sequence_number' column")
+
+    # Group images by sequence
+    sequence_to_indices = {}
+    for idx, seq_id in enumerate(query_metadata["sequence_number"]):
+        sequence_to_indices.setdefault(seq_id, []).append(idx)
+
+    sequence_to_predictions = {}
+
+    for seq_id, indices in sequence_to_indices.items():
+        seq_preds = [predictions[i] for i in indices]
+
+        if seq_id in ignore_seq_ids:
+            for idx in indices:
+                sequence_to_predictions[idx] = predictions[idx]
+            continue
+
+        if method == "voting":
+            aggregated = _sequence_voting(seq_preds, top_k)
+        elif method == "weighted_voting":
+            aggregated = _sequence_weighted_voting(seq_preds, top_k)
+        elif method == "max_conf":
+            aggregated = _sequence_max_conf(seq_preds, top_k)
+        else:
+            raise ValueError(f"Unknown post-processing method: {method}")
+
+        for idx in indices:
+            sequence_to_predictions[idx] = aggregated
+
+    # Map back
+    final = []
+    for idx in range(len(query_metadata)):
+        final.append(sequence_to_predictions[idx])
+
+    return final
+
+
+def identify_from_similarity(
+        similarity: np.ndarray,
+        database_metadata: pd.DataFrame,
+        query_metadata: pd.DataFrame,
+        top_k: int,
+        post_process: str = ""
+):
     """Get top-k predictions from similarity matrix."""
-    # get top k predictions
-    top_predictions = _get_top_predictions(
-        similarity, database_metadata["path"], database_metadata["identity"], top_k=top_k
+    logger.info(f"Predicting top-{top_k}, with post-processing: {post_process}")
+
+    predictions = _get_top_predictions(
+        similarity,
+        database_metadata,
+        top_k=top_k
     )
+
+    # Apply sequence post-processing
+    if post_process and post_process is not None:
+        predictions = _post_process_sequence(
+            predictions,
+            query_metadata,
+            top_k,
+            method=post_process,
+            ignore_seq_ids=[]
+        )
 
     # reformat results
     pred_image_paths = []
     pred_class_ids = []
     scores = []
     result_idx = {}
-    for qidx, row in enumerate(top_predictions):
-        pred_class_ids.append(row[0])
-        pred_image_paths.append(row[1])
-        scores.append(np.clip(row[2], 0, 1).tolist())
-        result_idx[qidx] = row[3]
+    for qidx, row in enumerate(predictions):
+        pred_class_ids.append([int(pred.name) for pred in row])
+        pred_image_paths.append([pred.path for pred in row])
+        scores.append(np.clip([pred.score for pred in row], 0, 1).tolist())
+        result_idx[qidx] = [pred.db_idx for pred in row]
+    print(scores)
 
     # return path to original image
     masked_image_paths = pred_image_paths
@@ -559,7 +639,13 @@ def identify(
     logger.debug(f"{similarity.shape=}")
     IDENTIFICATION_MODELS = None
 
-    output, result_idx = identify_from_similarity(similarity, database_metadata, top_k)
+    output, result_idx = identify_from_similarity(
+        similarity,
+        database_metadata,
+        query_metadata,
+        top_k,
+        post_process=os.environ.get("POST_PROCESS", None)
+    )
 
     # calculate keypoints
     max_kp = int(os.environ.get("VISUALIZATION_KEYPOINTS", 10))

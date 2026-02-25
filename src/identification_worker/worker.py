@@ -221,6 +221,7 @@ def predict_full(
             "path": metadata["image_path"],
             "identity": [-1] * len(metadata["image_path"]),
             "split": ["test"] * len(metadata["image_path"]),
+            "sequence_number": metadata["sequence_number"] if "sequence_number" in metadata else None,
         }
     )
     database_metadata = pd.DataFrame(
@@ -228,6 +229,7 @@ def predict_full(
             "path": reference_images["image_path"],
             "identity": reference_images["class_id"],
             "split": ["train"] * len(reference_images["class_id"]),
+            "sequence_number": reference_images["sequence_number"] if "sequence_number" in reference_images else None,
         }
     )
 
@@ -276,6 +278,7 @@ def predict_batch(
     # prepare query metadata splits
     target_num_splits = math.ceil(len(metadata) / encoding_batch_size)
     metadata_splits = np.array_split(metadata, target_num_splits)
+    # TODO: split by sequence_id
 
     # prepare database split indexes
     database_split_idx = np.arange(np.ceil(database_size // database_batch_size + 1)) * database_batch_size
@@ -295,6 +298,7 @@ def predict_batch(
                 "path": _metadata["image_path"],
                 "identity": [-1] * len(_metadata["image_path"]),
                 "split": ["test"] * len(_metadata["image_path"]),
+                "sequence_number": _metadata["sequence_number"] if "sequence_number" in _metadata else None,
             }
         )
 
@@ -319,6 +323,7 @@ def predict_batch(
                     "identity": reference_images["class_id"],
                     "split": ["train"] * len(reference_images["class_id"]),
                     "label": reference_images["label"],
+                    "sequence_number": reference_images["sequence_number"] if "sequence_number" in reference_images else None,
                 }
             )
 
@@ -376,6 +381,7 @@ def predict_batch(
                     "path": reference_images["image_path"],
                     "identity": reference_images["class_id"],
                     "split": ["train"] * len(reference_images["class_id"]),
+                    "sequence_number": reference_images["sequence_number"] if "sequence_number" in reference_images else None,
                 }
             )
 
@@ -403,7 +409,13 @@ def predict_batch(
         similarity = np.where(similarity == 0, -np.inf, similarity)
 
         # calculate and merge results
-        _identification_output, result_idx = identify_from_similarity(similarity, full_database_metadata, top_k)
+        _identification_output, result_idx = identify_from_similarity(
+            similarity,
+            full_database_metadata,
+            query_metadata,
+            top_k = top_k,
+            post_process = os.environ.get("POST_PROCESS", None)
+        )
 
         # calculate keypoints
         collector = CollectAll()
@@ -420,6 +432,7 @@ def predict_batch(
                     "path": reference_images["image_path"],
                     "identity": reference_images["class_id"],
                     "split": ["train"] * len(reference_images["class_id"]),
+                    "sequence_number": reference_images["sequence_number"] if "sequence_number" in reference_images else None,
                 }
             )
 
