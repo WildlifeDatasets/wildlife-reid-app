@@ -1863,7 +1863,10 @@ class Notification(models.Model):
 
 
 class NotificationRecipient(models.Model):
-    notification = models.ForeignKey(Notification, on_delete=models.CASCADE)
+    notification = models.ForeignKey(
+        Notification, on_delete=models.CASCADE,
+        related_name = "recipients",
+    )
     user = models.ForeignKey(CaIDUser, on_delete=models.CASCADE)
     read = models.BooleanField(default=False)
     read_at = models.DateTimeField(null=True, blank=True)

@@ -11,6 +11,7 @@ from caidapp.app_tests.factories import (
     WorkGroupInvitationFactory,
     UploadedArchiveFactory,
     MediaFileFactory, AnimalObservationFactory, IndividualIdentityFactory, LocalityFactory,
+    NotificationFactory, NotificationRecipientFactory
 )
 
 logger = logging.getLogger(__name__)
@@ -89,6 +90,12 @@ class UrlSmokeTest(TestCase):
         MediaFileFactory.create_batch(3, parent=self.archive, identity=self.identity)
         self.identities = IndividualIdentityFactory.create_batch(3, owner_workgroup=self.workgroup)
         self.locality = LocalityFactory(owner=self.caiduser)
+        self.notification = NotificationFactory()
+
+        self.recipient = NotificationRecipientFactory(
+            notification=self.notification,
+            user=self.caiduser
+        )
         # self.locality = LocalityFactory(owner_workgroup=self.workgroup)
 
 

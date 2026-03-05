@@ -4376,7 +4376,7 @@ def toggle_identity_representative(request, mediafile_id: int):
 
 class NotificationCreateView(CreateView):
     model = models.Notification
-    fields = ["message", "read", "level"]
+    fields = ["message", "level"]
     # could use a form class instead
     title = "Create Notification"
     # form_class = forms.NotificationForm
@@ -4402,7 +4402,7 @@ class NotificationListView(ListView):
         recipient_qs = models.NotificationRecipient.objects.filter(notification=OuterRef("pk"), user=user)
 
         return (
-            models.Notification.objects.filter(notificationrecipient__user=user)
+            models.Notification.objects.filter(recipients__user=user)
             .annotate(
                 recipient=Subquery(recipient_qs.values("user__user__username")[:1]),
                 read=Subquery(recipient_qs.values("read")[:1]),
@@ -4441,23 +4441,37 @@ class NotificationDetailView(DetailView):
     template_name = "caidapp/generic_detail.html"
     context_object_name = "notification"
     title = "Notification Detail"
-    paginate_by = 20
-    fields = ["message", "read", "level", "created_at"]
+    # paginate_by = 20
+    fields = ["message",  "level", "created_at"]
     cancel_url = reverse_lazy("caidapp:notifications")
 
+    # def get_queryset(self):
+    #     """Limit queryset to notifications of the current user."""
+    #     qs = super().get_queryset()
+    #     # např. jen zprávy pro aktuálního uživatele
+    #     return qs.filter(user=self.request.user.caiduser)
+
     def get_queryset(self):
-        """Limit queryset to notifications of the current user."""
-        qs = super().get_queryset()
-        # např. jen zprávy pro aktuálního uživatele
-        return qs.filter(user=self.request.user.caiduser)
+        user = self.request.user.caiduser
+        return (
+            super()
+            .get_queryset()
+            .filter(recipients__user=user)
+            .prefetch_related("recipients")
+            .distinct()
+        )
 
     def get(self, request, *args, **kwargs):
         """Handle GET request and mark notification as read."""
         response = super().get(request, *args, **kwargs)
         # Mark as read when viewed
-        if not self.object.read:
-            self.object.read = True
-            self.object.save(update_fields=["read"])
+        me_as_recipient = self.object.recipients.filter(user=request.user.caiduser).first()
+        if me_as_recipient and not me_as_recipient.read:
+            me_as_recipient.read = True
+            me_as_recipient.save(update_fields=["read"])
+        # if not self.object.read:
+        #     self.object.read = True
+        #     self.object.save(update_fields=["read"])
         return response
 
     def get_context_data(self, **kwargs):
@@ -4481,7 +4495,7 @@ class NotificationDetailView(DetailView):
 
 class NotificationUpdateView(UpdateView):
     model = models.Notification
-    fields = ["message", "read", "level"]
+    fields = ["message", "level"]
     template_name = "caidapp/generic_form.html"
     success_url = reverse_lazy("caidapp:notifications")
     title = "Update Notification"

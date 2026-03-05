@@ -145,3 +145,34 @@ class AlbumFactory(factory.django.DjangoModelFactory):
 
     name = factory.Sequence(lambda n: f"album{n}")
     owner = factory.SubFactory(CaidUserFactory)
+
+
+
+# class NotificationFactory(factory.django.DjangoModelFactory):
+#     class Meta:
+#         model = models.Notification
+#
+#     recipients = factory.RelatedFactoryList(
+#         "caidapp.models.NotificationRecipient",
+#         factory_related_name="notification",
+#         size=1,
+#     )
+#     message = factory.Sequence(lambda n: f"Notification message {n}")
+#     read = False
+
+class NotificationFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = models.Notification
+
+    message = factory.Sequence(lambda n: f"Notification message {n}")
+    level = models.Notification.INFO
+
+
+class NotificationRecipientFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = models.NotificationRecipient
+
+    notification = factory.SubFactory(NotificationFactory)
+    user = factory.SubFactory(CaidUserFactory)
+
+    read = False
