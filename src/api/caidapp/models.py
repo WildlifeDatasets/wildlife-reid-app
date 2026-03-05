@@ -169,6 +169,8 @@ class WorkGroup(models.Model):
                 old_default = old.default_taxon_for_identification
             except WorkGroup.DoesNotExist:
                 old_default = None
+        if not self.default_taxon_for_identification:
+            self.default_taxon_for_identification = get_taxon("Animalia")
 
         if not self.identification_model:
             model = IdentificationModel.objects.filter(public=True).first()
@@ -180,9 +182,9 @@ class WorkGroup(models.Model):
         try:
             if old_default != self.default_taxon_for_identification:
                 # aktualizace UploadedArchive
-                UploadedArchive.objects.filter(owner__workgroup=self).update(
-                    default_taxon_for_identification=self.default_taxon_for_identification
-                )
+                # UploadedArchive.objects.filter(owner__workgroup=self).update(
+                #     default_taxon_for_identification=self.default_taxon_for_identification
+                # )
 
                 CaIDUser.objects.filter(workgroup=self).update(
                     default_taxon_for_identification=self.default_taxon_for_identification

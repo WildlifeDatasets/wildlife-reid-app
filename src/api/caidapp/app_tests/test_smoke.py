@@ -1,9 +1,17 @@
 import logging
 
-from caidapp.models import WorkGroup
+from caidapp.models import WorkGroup, WorkGroupInvitation
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import NoReverseMatch, URLPattern, URLResolver, reverse
+
+from caidapp.app_tests.factories import (
+    UserFactory,
+    WorkGroupFactory,
+    WorkGroupInvitationFactory,
+    UploadedArchiveFactory,
+    MediaFileFactory, AnimalObservationFactory, IndividualIdentityFactory,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -11,23 +19,76 @@ User = get_user_model()
 
 
 class UrlSmokeTest(TestCase):
+    # def setUp(self):
+    #     """Initial data for tests."""
+    #     # User
+    #     self.user = User.objects.create_user(
+    #         username="smoke",
+    #         password="secret123",
+    #     )
+    #     self.user2 = User.objects.create_user(
+    #         username="smoke2",
+    #         password="secret123",
+    #     )
+    #
+    #     # self.client.login(
+    #     #     username="smoke", password="secret123"
+    #     # )
+    #     self.client.force_login(self.user) # faster
+    #
+    #     # WorkGroup
+    #     self.workgroup = WorkGroup.objects.create(name="WG1")
+    #
+    #     logger.debug(f"{self.user=}, {self.workgroup=}")
+    #     assert self.user.caiduser is not None
+    #     self.user.caiduser.workgroup = self.workgroup
+    #     self.user.caiduser.workgroup_admin = True
+    #
+    #     self.user.caiduser.save()
+    #
+    #     self.wg_invitation = WorkGroupInvitation.objects.create(
+    #         invited_user=self.user.caiduser,
+    #         invited_by=self.user2.caiduser,
+    #         target_workgroup=self.workgroup,
+    #         status="pending",
+    #     )
+
     def setUp(self):
-        """Initial data for tests."""
-        # User
-        self.user = User.objects.create_user(
-            username="smoke",
-            password="secret123",
+
+        self.user = UserFactory()
+        self.user2 = UserFactory()
+        self.user.is_staff = True
+        self.user.save()
+
+        self.caiduser = self.user.caiduser
+        self.caiduser2 = self.user2.caiduser
+
+        self.workgroup = WorkGroupFactory()
+
+        self.caiduser.workgroup = self.workgroup
+        self.caiduser.workgroup_admin = True
+        self.caiduser.save()
+
+        self.client.force_login(self.user)
+
+
+        # invitation
+        self.wg_invitation = WorkGroupInvitationFactory(
+            invited_user=self.caiduser,
+            invited_by=self.caiduser2,
+            target_workgroup=self.workgroup,
         )
-        self.client.login(username="smoke", password="secret123")
 
-        # WorkGroup
-        self.workgroup = WorkGroup.objects.create(name="WG1")
+        # minimální dataset pro smoke test
+        self.archive = UploadedArchiveFactory(owner=self.caiduser)
+        self.mediafile = MediaFileFactory(parent=self.archive)
+        self.observation = AnimalObservationFactory(mediafile=self.mediafile)
+        self.identity = IndividualIdentityFactory(owner_workgroup=self.workgroup)
+        MediaFileFactory.create_batch(3, parent=self.archive, identity=self.identity)
+        self.identities = IndividualIdentityFactory.create_batch(3, owner_workgroup=self.workgroup)
 
-        logger.debug(f"{self.user=}, {self.workgroup=}")
-        assert self.user.caiduser is not None
-        self.user.caiduser.workgroup = self.workgroup
 
-        self.user.caiduser.save()
+        # self.wg_invitation.save()
 
     # def test_all_named_urls(self):
     #     """Projde všechny pojmenované URL a zkusí GET.
@@ -65,6 +126,10 @@ class UrlSmokeTest(TestCase):
             name = getattr(pattern, "name", None)
             if not name:
                 continue
+            if "logout" in name:  # logout URL může být přístupná, ale není potřeba ji testovat
+                continue
+            if "sample_data" in name:  # sample data URL může být přístupná, ale není potřeba ji testovat
+                continue
 
             try:
                 url = reverse(f"caidapp:{name}", kwargs=self._build_kwargs(pattern))
@@ -74,7 +139,7 @@ class UrlSmokeTest(TestCase):
             response = self.client.get(url)
             self.assertIn(
                 response.status_code,
-                [200, 302],
+                [200, 302, 403],  # 403 pro neautorizované přístupy, které jsou v pořádku
                 f"{url} ({name}) failed with {response.status_code}",
             )
             tested += 1

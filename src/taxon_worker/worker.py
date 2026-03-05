@@ -19,6 +19,7 @@ except ModuleNotFoundError:
 
 setup_logging()
 logger = logging.getLogger("app")
+logger = logging.getLogger(__file__)
 logger.debug(f"{RABBITMQ_URL=}")
 logger.debug(f"{REDIS_URL=}")
 logger.debug("--------------------worker.py------------------logger.debug-------------")

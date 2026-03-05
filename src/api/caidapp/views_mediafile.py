@@ -130,18 +130,22 @@ class MediaFileUpdateView(LoginRequiredMixin, UpdateWithInlinesView):
         # user or his workgroup can access to mediafiles
         return MediaFile.objects.for_user(self.request.user.caiduser)
 
-    def get_success_url(self):
-        """After successful update, return to previous page."""
+    def _get_next_url(self):
+        """Get next URL from GET or POST parameters, or fallback to referer or media files list."""
         next_url = self.request.POST.get("next") or self.request.GET.get("next")
 
         if next_url and url_has_allowed_host_and_scheme(
-            next_url,
-            allowed_hosts={self.request.get_host()},
+                next_url,
+                allowed_hosts={self.request.get_host()},
         ):
             return next_url
 
         # return self.request.GET.get("next") or self.request.META.get("HTTP_REFERER", "/")
         return resolve_url("caidapp:media_files")
+
+    def get_success_url(self):
+        """After successful update, return to previous page."""
+        return self._get_next_url()
 
     def _get_taxon_from_inline_observations(self):
         """Get taxon from inline observations, prefer first non-null."""
@@ -167,6 +171,7 @@ class MediaFileUpdateView(LoginRequiredMixin, UpdateWithInlinesView):
         if self.request.POST.get("save_set_taxon_sequence"):
             logger.debug("User clicked save and set taxon for sequence")
             try:
+
                 # Prefer taxon set on an observation form (first non-null), fallback to mediafile.taxon
                 # obs_qs = form.instance.observations.all()
                 # first observation that has taxon set

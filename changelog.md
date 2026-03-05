@@ -3,6 +3,9 @@
 
 ## Release v0.5.0 – identification workflow overhaul
 
+## 2026-03
+* [changed] Better smoke test with factory
+
 ## 2026-02
 * [added] Dark mode
 * [added] Test via `python manage.py healthcheck_inference` (ready for cron job)

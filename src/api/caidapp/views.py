@@ -577,6 +577,7 @@ def _multiple_species_button_style_and_tooltips(request) -> dict:
 
 def sample_data(request):
     """Sample data."""
+    # TODO do we need page with sample data from our database? Maybe a link to public dataset would be enough?
     sample_data_collection = get_object_or_404(ArchiveCollection, name="sample_data")
     return render(
         request,
@@ -4195,6 +4196,7 @@ def uploads_status_api(request, group: str):
 @login_required
 def export_identities_csv(request):
     """Export identities to CSV."""
+
     all_identities = IndividualIdentity.objects.filter(
         owner_workgroup=request.user.caiduser.workgroup,
         # **user_has_access_filter_params(request.user.caiduser, "owner")
@@ -4492,19 +4494,23 @@ class NotificationDeleteView(DeleteView):
     title = "Delete Notification"
 
 
-class WorkGroupInvitationCreateView(LoginRequiredMixin, CreateView):
+class WorkGroupInvitationCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
     model = models.WorkGroupInvitation
     template_name = "caidapp/generic_form.html"
     fields = ["invited_user"]
     success_url = reverse_lazy("caidapp:workgroup_invitations")
 
-    def dispatch(self, request, *args, **kwargs):
-        """Check if the user is a workgroup admin and set the target workgroup for the invitation."""
-        if not request.user.caiduser.workgroup_admin:
-            raise PermissionDenied
+    def test_func(self):
+        return self.request.user.caiduser.workgroup_admin
 
-        self.target_workgroup = request.user.caiduser.workgroup
-        return super().dispatch(request, *args, **kwargs)
+    # def dispatch(self, request, *args, **kwargs):
+    #     """Check if the user is a workgroup admin and set the target workgroup for the invitation."""
+    #     response
+    #     if not request.user.caiduser.workgroup_admin:
+    #         raise PermissionDenied
+    #
+    #     self.target_workgroup = request.user.caiduser.workgroup
+    #     return super().dispatch(request, *args, **kwargs)
 
     def form_valid(self, form):
         """Set the inviter and target workgroup before saving the form."""
@@ -4520,8 +4526,9 @@ class WorkGroupInvitationListView(LoginRequiredMixin, ListView):
     title = "Workgroup Invitations"
 
     def dispatch(self, request, *args, **kwargs):
+        user = request.user
         """Check if the user is a workgroup admin and set the target workgroup for filtering invitations."""
-        if not request.user.caiduser.workgroup_admin:
+        if not user.caiduser or not user.caiduser.workgroup_admin or not user.caiduser.workgroup_admin:
             raise PermissionDenied
 
         self.target_workgroup = request.user.caiduser.workgroup
