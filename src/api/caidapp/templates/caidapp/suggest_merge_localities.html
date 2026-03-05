@@ -8,17 +8,17 @@
         </ol>
     </nav>
 
-  {% if suggestions %}
-      <div class="d-flex justify-content-between align-items-center">
+    <div class="d-flex justify-content-between align-items-center">
         <div>
         </div>
-      <div>
-        <a class="btn btn-secondary" href="{% url 'caidapp:refresh_merge_localities_suggestions' %}">
-          <i class="bi bi-arrow-clockwise"></i>
-          Refresh
-        </a>
-      </div>
-      </div>
+        <div>
+            <a class="btn btn-secondary" href="{% url 'caidapp:refresh_merge_localities_suggestions' %}">
+                <i class="bi bi-arrow-clockwise"></i>
+                Refresh
+            </a>
+        </div>
+    </div>
+  {% if suggestions %}
       <ul class="list-group mt-2">
       {% for locality1, locality2, distance in suggestions %}
         <li class="list-group-item d-flex justify-content-between align-items-center">

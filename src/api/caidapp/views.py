@@ -3383,7 +3383,7 @@ class ImageUploadGraphView(View):
         )
 
         # Customize x-axis to show dates properly
-        fig.update_xaxes(type="taxon", title_text="Upload Date")
+        fig.update_xaxes(type="category", title_text="Upload Date")
         fig.update_yaxes(title_text="Number of Uploads")
 
         # Convert Plotly figure to HTML
@@ -4025,8 +4025,8 @@ def suggest_merge_identities_view(request, limit: int = 100):
             link=reverse_lazy("caidapp:suggest_merge_identities"),
             button_label="Check now",
             headline="No suggestions found",
-            link_secondary=reverse_lazy("caidapp:refresh_merge_identities_suggestions"),
-            button_label_secondary="Regenerate suggestions",
+            # link_secondary=reverse_lazy("caidapp:refresh_merge_identities_suggestions"),
+            # button_label_secondary="Regenerate suggestions",
         )
     suggestions_ids = response["suggestions"]
     try:

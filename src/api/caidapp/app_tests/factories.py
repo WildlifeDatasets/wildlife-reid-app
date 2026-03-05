@@ -32,6 +32,7 @@ class WorkGroupFactory(factory.django.DjangoModelFactory):
 class CaidUserFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = models.CaIDUser
+        django_get_or_create = ("user",)
 
     user = factory.SubFactory(UserFactory)
     workgroup = factory.SubFactory(WorkGroupFactory)
@@ -55,6 +56,7 @@ class LocalityFactory(factory.django.DjangoModelFactory):
         model = models.Locality
 
     name = factory.Sequence(lambda n: f"Locality{n}")
+
     owner = factory.SubFactory(CaidUserFactory)
 
 

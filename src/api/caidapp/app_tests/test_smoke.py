@@ -10,7 +10,7 @@ from caidapp.app_tests.factories import (
     WorkGroupFactory,
     WorkGroupInvitationFactory,
     UploadedArchiveFactory,
-    MediaFileFactory, AnimalObservationFactory, IndividualIdentityFactory,
+    MediaFileFactory, AnimalObservationFactory, IndividualIdentityFactory, LocalityFactory,
 )
 
 logger = logging.getLogger(__name__)
@@ -63,10 +63,12 @@ class UrlSmokeTest(TestCase):
         self.caiduser = self.user.caiduser
         self.caiduser2 = self.user2.caiduser
 
+
         self.workgroup = WorkGroupFactory()
 
         self.caiduser.workgroup = self.workgroup
         self.caiduser.workgroup_admin = True
+        self.caiduser.import_dir = "/tmp/caid_import"  # nastavit import_dir pro testy
         self.caiduser.save()
 
         self.client.force_login(self.user)
@@ -86,6 +88,8 @@ class UrlSmokeTest(TestCase):
         self.identity = IndividualIdentityFactory(owner_workgroup=self.workgroup)
         MediaFileFactory.create_batch(3, parent=self.archive, identity=self.identity)
         self.identities = IndividualIdentityFactory.create_batch(3, owner_workgroup=self.workgroup)
+        self.locality = LocalityFactory(owner=self.caiduser)
+        # self.locality = LocalityFactory(owner_workgroup=self.workgroup)
 
 
         # self.wg_invitation.save()

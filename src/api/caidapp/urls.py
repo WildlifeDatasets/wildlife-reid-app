@@ -98,7 +98,10 @@ urlpatterns = [
     ),
     path("refresh_data/", views.refresh_data, name="refresh_data"),
     # Localities
-    path("manage_localities/", views_locality.manage_localities, name="manage_localities"),
+    #TODO remove manage_localities
+    # path("manage_localities/", views_locality.manage_localities, name="manage_localities"),
+
+    # TODO turn id into pk because of generic views
     path("delete_locality/<int:locality_id>/", views_locality.delete_locality, name="delete_locality"),
     path(
         "update_locality/<int:locality_id>/",
@@ -108,7 +111,7 @@ urlpatterns = [
     path(
         "update_locality/",
         views_locality.update_locality,
-        name="update_locality",
+        name="update_locality",  ## TODO rename to locality_create
     ),
     # path("taxon/<int:taxon_id>", views.media_files_update, name="taxon"),
     # Media Files
@@ -472,12 +475,12 @@ urlpatterns = [
         name="pygwalker_localities",
     ),
     # path("generic/locality/", ListView.as_view(model=models.Locality), name="generic_localities"),
-    path("generic/locality/", views_locality.LocalityListView.as_view(), name="generic_locality_list"),
-    path(
-        "generic/locality/<int:pk>/",
-        DetailView.as_view(model=models.Locality),
-        name="generic_locality_detail",
-    ),
+    # path("generic/locality/", views_locality.LocalityListView.as_view(), name="generic_locality_list"),
+    # path(
+    #     "generic/locality/<int:pk>/",
+    #     DetailView.as_view(model=models.Locality, template_name="caidapp/generic_detail.html"),
+    #     name="generic_locality_detail",
+    # ),
     path(
         "suggest_merge_localities/",
         views_locality.suggest_merge_localities_view,
