@@ -2421,17 +2421,29 @@ def update_mediafile_is_representative(request, mediafile_hash: str, is_represen
 
 def _taxon_stats_for_mediafiles(mediafiles: Union[QuerySet, List[MediaFile]]) -> str:
     """Create taxon stats for mediafiles."""
-    taxon_stats = ""
-    if len(mediafiles) > 0:
-        taxon_stats = mediafiles.values("taxon__name").annotate(count=Count("taxon__name")).order_by("-count")
-        logger.debug(f"{taxon_stats=}")
-        df = pd.DataFrame.from_records(taxon_stats)
-        df.rename(columns={"taxon__name": "Taxon", "count": "Count"}, inplace=True)
-        fig = px.bar(df, x="Taxon", y="Count", height=300)
-        taxon_stats_html = fig.to_html()
+    if isinstance(mediafiles, QuerySet):
+        mediafile_ids = mediafiles.values_list("id", flat=True)
     else:
-        taxon_stats_html = None
-    return taxon_stats_html
+        mediafile_ids = [mediafile.id for mediafile in mediafiles]
+
+    if not mediafile_ids:
+        return None
+
+    taxon_stats = (
+        AnimalObservation.objects.filter(mediafile_id__in=mediafile_ids, taxon__isnull=False)
+        .values("taxon__name")
+        .annotate(count=Count("mediafile_id", distinct=True))
+        .order_by("-count", "taxon__name")
+    )
+    logger.debug(f"{taxon_stats=}")
+
+    df = pd.DataFrame.from_records(taxon_stats)
+    if df.empty:
+        return None
+
+    df.rename(columns={"taxon__name": "Taxon", "count": "Count"}, inplace=True)
+    fig = px.bar(df, x="Taxon", y="Count", height=300)
+    return fig.to_html()
 
 
 def _merge_form_filter_kwargs_with_filter_kwargs(
