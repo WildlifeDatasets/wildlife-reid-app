@@ -2471,6 +2471,137 @@ def _merge_form_filter_kwargs_with_filter_kwargs(
     return filter_kwargs, exclude_filter_kwargs
 
 
+def _parse_bool_query_param(value: Optional[str]) -> Optional[bool]:
+    """Parse boolean-like query parameter values."""
+    if value is None:
+        return None
+
+    value = str(value).strip().lower()
+    if value in {"1", "true", "yes", "on"}:
+        return True
+    if value in {"0", "false", "no", "off"}:
+        return False
+    return None
+
+
+def _build_mediafiles_scope_query_string(
+    request,
+    uploadedarchive_id: Optional[int] = None,
+    album_hash: Optional[str] = None,
+    individual_identity_id: Optional[int] = None,
+    identity_is_representative: Optional[bool] = None,
+    locality_hash: Optional[str] = None,
+    show_overview_button: bool = False,
+    taxon_verified: Optional[bool] = None,
+) -> str:
+    """Build a query string preserving the active mediafiles scope."""
+    query_params = request.GET.copy()
+
+    if uploadedarchive_id is not None:
+        query_params["uploadedarchive_id"] = str(uploadedarchive_id)
+    if album_hash is not None:
+        query_params["album_hash"] = album_hash
+    if individual_identity_id is not None:
+        query_params["individual_identity_id"] = str(individual_identity_id)
+    if identity_is_representative is not None:
+        query_params["identity_is_representative"] = str(identity_is_representative).lower()
+    if locality_hash is not None:
+        query_params["locality_hash"] = locality_hash
+    if show_overview_button:
+        query_params["show_overview_button"] = "true"
+    if taxon_verified is not None:
+        query_params["taxon_verified"] = str(taxon_verified).lower()
+
+    return query_params.urlencode()
+
+
+def _get_filtered_mediafiles_queryset(
+    request,
+    uploadedarchive_id: Optional[int] = None,
+    album_hash: Optional[str] = None,
+    individual_identity_id: Optional[int] = None,
+    identity_is_representative: Optional[bool] = None,
+    locality_hash: Optional[str] = None,
+    show_overview_button: bool = False,
+    taxon_verified: Optional[bool] = None,
+    extra_filter_kwargs: Optional[dict] = None,
+) -> Tuple[QuerySet, filters.MediaFileFilter, str, Optional[str]]:
+    """Build the filtered mediafiles queryset shared by multiple views."""
+    filter_kwargs = dict(extra_filter_kwargs or {})
+
+    if uploadedarchive_id is None and request.GET.get("uploadedarchive_id"):
+        uploadedarchive_id = int(request.GET["uploadedarchive_id"])
+    if album_hash is None:
+        album_hash = request.GET.get("album_hash")
+    if individual_identity_id is None and request.GET.get("individual_identity_id"):
+        individual_identity_id = int(request.GET["individual_identity_id"])
+    if identity_is_representative is None:
+        identity_is_representative = _parse_bool_query_param(request.GET.get("identity_is_representative"))
+    if locality_hash is None:
+        locality_hash = request.GET.get("locality_hash")
+    if not show_overview_button:
+        show_overview_button = bool(_parse_bool_query_param(request.GET.get("show_overview_button")))
+    if taxon_verified is None:
+        taxon_verified = _parse_bool_query_param(request.GET.get("taxon_verified"))
+
+    if request.GET.get("taxon"):
+        taxon = Taxon.objects.get(pk=request.GET["taxon"])
+        page_title = f"Media files - {taxon.name}"
+    else:
+        page_title = "Media files"
+
+    sequence_id = request.GET.get("sequence")
+    sequence = get_object_or_404(models.Sequence, pk=sequence_id) if sequence_id else None
+
+    mediafiles_name_suggestion = None
+    if taxon_verified is not None:
+        filter_kwargs["taxon_verified"] = taxon_verified
+
+    if show_overview_button:
+        filter_kwargs["taxon_verified"] = False
+        mediafiles_name_suggestion = "taxon_not_verified"
+
+    if uploadedarchive_id is not None:
+        uploaded_archive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
+        if uploaded_archive.locality_check_at is not None:
+            locality_check_at = " - " + uploaded_archive.locality_check_at.strftime("%Y-%m-%d %H:%M:%S")
+        else:
+            locality_check_at = ""
+        page_title = f"Media files - {uploaded_archive.locality_at_upload}{locality_check_at}"
+        filter_kwargs["parent"] = uploaded_archive
+        mediafiles_name_suggestion = f"uploaded_archive_{uploaded_archive.locality_at_upload}{locality_check_at}"
+    elif album_hash is not None:
+        album = get_object_or_404(Album, hash=album_hash)
+        page_title = f"Media files - {album.name}"
+        filter_kwargs["album"] = album
+        mediafiles_name_suggestion = f"album_{album.name}"
+    elif individual_identity_id is not None:
+        individual_identity = get_object_or_404(IndividualIdentity, pk=individual_identity_id)
+        page_title = f"Media files - {individual_identity.name}"
+        filter_kwargs["identity"] = individual_identity
+        mediafiles_name_suggestion = f"individual_identity_{individual_identity.name}"
+    elif locality_hash is not None:
+        locality = get_object_or_404(Locality, hash=locality_hash)
+        page_title = f"Media files - {locality.name}"
+        filter_kwargs["locality"] = locality
+        mediafiles_name_suggestion = f"locality_{locality.name}"
+    elif identity_is_representative is not None:
+        page_title = "Media files - representative"
+        filter_kwargs["identity_is_representative"] = identity_is_representative
+        mediafiles_name_suggestion = f"representative_identity_{str(identity_is_representative)}"
+
+    mediafiles = MediaFile.objects.filter(
+        Q(album__albumsharerole__user=request.user.caiduser)
+        | Q(**models.user_has_access_filter_params(request.user.caiduser, "parent__owner")),
+        **filter_kwargs,
+    )
+    mediafile_filter = filters.MediaFileFilter(request.GET, queryset=mediafiles, request=request)
+    full_mediafiles = mediafile_filter.qs.filter(sequence=sequence) if sequence else mediafile_filter.qs
+    full_mediafiles = full_mediafiles.distinct()
+
+    return full_mediafiles, mediafile_filter, page_title, mediafiles_name_suggestion
+
+
 @login_required
 def media_files_update(
     request,
@@ -2489,82 +2620,14 @@ def media_files_update(
     # create list of mediafiles
     logger.debug("Starting Media files view")
     logger.debug(f"{request.GET=}")
-    album = None
-
-    # page_number = 1
-    # exclude_filter_kwargs = {}
-    # form_filter_kwargs = {}
-    # query = None
     if records_per_page is None:
         records_per_page = request.session.get("mediafiles_records_per_page", 20)
-
-    if request.GET.get("taxon"):
-        taxon = Taxon.objects.get(pk=request.GET["taxon"])
-        page_title = f"Media files - {taxon.name}"
-    else:
-        page_title = "Media files"
-
-    if request.GET.get("sequence"):
-        sequence_id = request.GET.get("sequence", None)
-        sequence = get_object_or_404(models.Sequence, pk=sequence_id)
-    else:
-        sequence = None
 
     albums_available = (
         Album.objects.filter(Q(albumsharerole__user=request.user.caiduser) | Q(owner=request.user.caiduser))
         .distinct()
         .order_by("created_at")
     )
-
-    filter_kwargs = {}
-
-    mediafiles_name_suggestion = None
-    if show_overview_button:
-        # mediafiles = mediafiles.filter(taxon_verified=False)
-        filter_kwargs["taxon_verified"] = False
-        mediafiles_name_suggestion = "taxon_not_verified"
-
-        # page_title = "Media files - verification"
-
-    if uploadedarchive_id is not None:
-        uploaded_archive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
-        # datetime format YYYY-MM-DD HH:MM:SS
-        if uploaded_archive.locality_check_at is not None:
-            locality_check_at = " - " + uploaded_archive.locality_check_at.strftime("%Y-%m-%d %H:%M:%S")
-        else:
-            locality_check_at = ""
-        page_title = f"Media files - {uploaded_archive.locality_at_upload}{locality_check_at}"
-        # mediafiles = mediafiles.filter(parent=uploaded_archive)
-        filter_kwargs["parent"] = uploaded_archive
-        mediafiles_name_suggestion = f"uploaded_archive_{uploaded_archive.locality_at_upload}{locality_check_at}"
-
-    elif album_hash is not None:
-        album = get_object_or_404(Album, hash=album_hash)
-        page_title = f"Media files - {album.name}"
-        # mediafiles = mediafiles.filter(album=album)
-        filter_kwargs = {"album": album}
-        mediafiles_name_suggestion = f"album_{album.name}"
-    elif individual_identity_id is not None:
-        individual_identity = get_object_or_404(IndividualIdentity, pk=individual_identity_id)
-        page_title = f"Media files - {individual_identity.name}"
-        # mediafiles = mediafiles.filter(identity=individual_identity)
-        filter_kwargs = {"identity": individual_identity}
-        mediafiles_name_suggestion = f"individual_identity_{individual_identity.name}"
-    elif locality_hash is not None:
-        locality = get_object_or_404(Locality, hash=locality_hash)
-        page_title = f"Media files - {locality.name}"
-        # mediafiles = mediafiles.filter(locality=locality)
-        filter_kwargs = {"locality": locality}
-        mediafiles_name_suggestion = f"locality_{locality.name}"
-    elif identity_is_representative is not None:
-        page_title = "Media files - representative"
-        # mediafiles = mediafiles.filter(identity_is_representative=identity_is_representative)
-        filter_kwargs = {"identity_is_representative": identity_is_representative}
-        mediafiles_name_suggestion = f"representative_identity_{str(identity_is_representative)}"
-
-    # logger.debug(f"{len(mediafiles)=}")
-    # if request.user.caiduser.workgroup:
-    #     mediafiles = mediafiles.filter(Q(parent__owner__workgroup=request.user.caiduser.workgroup))
 
     # Order the queryset according to your session or default preference
     order_by = request.session.get("mediafiles_order_by", "-parent__uploaded_at")
@@ -2574,19 +2637,17 @@ def media_files_update(
 
     # mediafiles = MediaFile.objects.annotate(**_mediafiles_annotate())
     # Apply always-on filters (for example, access control)
-    mediafiles = MediaFile.objects.filter(
-        Q(album__albumsharerole__user=request.user.caiduser)
-        | Q(**models.user_has_access_filter_params(request.user.caiduser, "parent__owner")),
-        **filter_kwargs,
+    full_mediafiles, mediafile_filter, page_title, mediafiles_name_suggestion = _get_filtered_mediafiles_queryset(
+        request,
+        uploadedarchive_id=uploadedarchive_id,
+        album_hash=album_hash,
+        individual_identity_id=individual_identity_id,
+        identity_is_representative=identity_is_representative,
+        locality_hash=locality_hash,
+        show_overview_button=show_overview_button,
+        taxon_verified=taxon_verified,
+        extra_filter_kwargs=filter_kwargs,
     )
-    logger.debug(f"{request.GET=}")
-
-    # Instantiate the filter with GET parameters and your base queryset
-    mediafile_filter = filters.MediaFileFilter(request.GET, queryset=mediafiles, request=request)
-
-    # The filtered queryset is available as .qs
-    full_mediafiles = mediafile_filter.qs.filter(sequence=sequence) if sequence else mediafile_filter.qs
-    full_mediafiles = full_mediafiles.distinct()
 
     if show_overview_button and not full_mediafiles.exists():
         return message_view(
@@ -2601,7 +2662,7 @@ def media_files_update(
         "parent", "taxon", "predicted_taxon", "locality", "identity", "updated_by", "sequence"
     )
 
-    number_of_mediafiles = mediafile_filter.qs.count()
+    number_of_mediafiles = full_mediafiles.count()
     logger.debug(f"{number_of_mediafiles=}")
 
     mediafiles_ids = list(full_mediafiles.values_list("id", flat=True))
@@ -2704,6 +2765,16 @@ def media_files_update(
         "number_of_mediafiles": number_of_mediafiles,
         "show_overview_button": show_overview_button,
         "filter": mediafile_filter,
+        "mediafiles_stats_query_string": _build_mediafiles_scope_query_string(
+            request,
+            uploadedarchive_id=uploadedarchive_id,
+            album_hash=album_hash,
+            individual_identity_id=individual_identity_id,
+            identity_is_representative=identity_is_representative,
+            locality_hash=locality_hash,
+            show_overview_button=show_overview_button,
+            taxon_verified=taxon_verified,
+        ),
         # "map_html": map_html,
         # "taxon_stats_html": taxon_stats_html,
     }
@@ -2855,8 +2926,7 @@ def change_mediafiles_datetime(request):
 @login_required
 def mediafiles_stats_view(request):
     """Show mediafiles stats."""
-    mediafile_ids = request.session.get("mediafile_ids", [])
-    mediafiles = MediaFile.objects.filter(id__in=mediafile_ids)
+    mediafiles, _, _, _ = _get_filtered_mediafiles_queryset(request)
 
     map_html = views_locality.create_map_from_mediafiles(mediafiles)
     # logger.debug(f"{map_html=}")
