@@ -1362,36 +1362,6 @@ def _prepare_mediafile_for_identification(data, i, media_root, mediafile_id):
         mfi, _ = MediafilesForIdentification.objects.get_or_create(
             mediafile=unknown_mediafile,
         )
-        # this try - except could be deleted
-        try:
-            top1_abspath = Path(reid_top_k_image_paths[0])
-            top1_relpath = top1_abspath.relative_to(media_root)
-            top1_mediafile = MediaFile.objects.get(mediafile=str(top1_relpath))
-
-            top2_abspath = Path(reid_top_k_image_paths[1])
-            top2_relpath = top2_abspath.relative_to(media_root)
-            top2_mediafile = MediaFile.objects.get(mediafile=str(top2_relpath))
-
-            top3_abspath = Path(reid_top_k_image_paths[2])
-            top3_relpath = top3_abspath.relative_to(media_root)
-            top3_mediafile = MediaFile.objects.get(mediafile=str(top3_relpath))
-
-            mfi.top1mediafile = top1_mediafile
-            mfi.top1score = reid_top_k_scores[0]
-            mfi.top1name = reid_top_k_labels[0] or "Unknown"
-            mfi.top2mediafile = top2_mediafile
-            mfi.top2score = reid_top_k_scores[1]
-            mfi.top2name = reid_top_k_labels[1] or "Unknown"
-            mfi.top3mediafile = top3_mediafile
-            mfi.top3score = reid_top_k_scores[2]
-            mfi.top3name = reid_top_k_labels[2] or "Unknown"
-            mfi.paired_points = data["keypoints"][i]
-            # identification_output["query_image_path"] = query_image_path
-            # identification_output["query_masked_path"] = query_masked_path
-        except Exception as e:
-            # logger.debug(f"{reid_top_k_image_paths=}")
-            # logger.debug(traceback.format_exc())
-            logger.error(f"Error during identification of {unknown_mediafile}: {e}")
 
         # new processing
         # delete mediafile suggestions related to mediafile for identification - mfi
@@ -1436,9 +1406,6 @@ def _prepare_mediafile_for_identification(data, i, media_root, mediafile_id):
                 logger.debug(f"{top_path=}")
                 logger.debug(traceback.format_exc())
                 logger.error(f"Error during identification of {unknown_mediafile}: {e}: {traceback.format_exc()}")
-
-        mfi.save()
-        # _identity_mismatch_waning(top1_mediafile, top2_mediafile, top3_mediafile, top_k_labels)
 
 
 # def _identity_mismatch_waning(

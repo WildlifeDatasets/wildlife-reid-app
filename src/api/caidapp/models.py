@@ -1440,16 +1440,6 @@ class AnimalObservation(models.Model):
 class MediafilesForIdentification(models.Model):
     mediafile = models.ForeignKey(MediaFile, on_delete=models.SET_NULL, null=True, blank=True)
 
-    # TODO remove these top1-3 fields, they should be not necessary now
-    top1mediafile = models.ForeignKey(MediaFile, related_name="top1", on_delete=models.SET_NULL, null=True, blank=True)
-    top2mediafile = models.ForeignKey(MediaFile, related_name="top2", on_delete=models.SET_NULL, null=True, blank=True)
-    top3mediafile = models.ForeignKey(MediaFile, related_name="top3", on_delete=models.SET_NULL, null=True, blank=True)
-    top1score = models.FloatField(null=True, blank=True)
-    top2score = models.FloatField(null=True, blank=True)
-    top3score = models.FloatField(null=True, blank=True)
-    top1name = models.CharField(max_length=255, blank=True, default="")
-    top2name = models.CharField(max_length=255, blank=True, default="")
-    top3name = models.CharField(max_length=255, blank=True, default="")
     paired_points = models.JSONField(blank=True, null=True)
 
 
