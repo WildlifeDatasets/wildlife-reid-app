@@ -177,6 +177,10 @@ class WorkGroup(models.Model):
         help_text="Regular expression used to detect identity code suggestions in identity names.",
     )
 
+    # next_step_text = models.CharField(max_length=255, blank=True, default="")
+    # next_step_link = models.CharField(max_length=255, blank=True, default="")
+    # next_step_updated_at = models.DateTimeField("Next step updated at", blank=True, null=True)
+
     def get_identity_code_regex(self) -> str:
         pattern = self.identity_code_regex or DEFAULT_IDENTITY_CODE_REGEX
         try:

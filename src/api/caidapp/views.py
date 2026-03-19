@@ -19,7 +19,7 @@ import django.utils.timezone
 import numpy as np
 import pandas as pd
 import plotly.express as px
-from celery import signature
+from celery import current_app, signature
 from celery.result import AsyncResult
 from django.conf import settings
 from django.contrib import messages
@@ -64,7 +64,7 @@ from .forms import (  # WorkgroupUsersForm,
     UploadedArchiveUpdateForm,
     UserSelectForm,
 )
-from .model_extra import user_has_rw_acces_to_uploadedarchive, user_has_rw_access_to_mediafile
+from .model_extra import compute_identity_suggestions, user_has_rw_acces_to_uploadedarchive, user_has_rw_access_to_mediafile
 from .model_tools import timesince_now
 from .models import (
     Album,
@@ -82,6 +82,7 @@ from .models import (
     user_has_access_filter_params,
 )
 from .services.workgroup_migration import migrate_user_to_workgroup
+from .services.workgroup_next_steps import build_next_steps
 from .tasks import (
     _iterate_over_locality_checks,
     _prepare_dataframe_for_identification,
@@ -510,6 +511,7 @@ def dash_identities(request) -> HttpResponse:
         .filter(non_representative_mediafile_count__gt=0)
         .order_by("representative_mediafile_count", "-non_representative_mediafile_count")
     )
+    next_step_candidates = build_next_steps(workgroup)
 
     return render(
         request,
@@ -518,6 +520,8 @@ def dash_identities(request) -> HttpResponse:
             # **page_context,
             btn_styles=_single_species_button_style(request),
             identities_by_representative_mediafiles=identities,
+            next_step_candidates=next_step_candidates,
+            primary_next_step=next_step_candidates[0] if next_step_candidates else None,
         ),
     )
 
@@ -4027,17 +4031,33 @@ def refresh_identities_suggestions_view(request):
 
 def refresh_identities_suggestions(request, limit: int = 100, redirect: bool = True):
     """Refresh identity suggestions."""
+    inspect = current_app.control.inspect(timeout=1.0)
+    worker_stats = inspect.stats() if inspect else None
+    if not worker_stats:
+        result_id = compute_identity_suggestions(request.user.caiduser.workgroup.id, limit)
+        request.session.pop("refresh_job_id", None)
+        request.session["refresh_job_started_at"] = timezone.now().isoformat()
+        request.session["refresh_result_id"] = result_id
+        logger.debug(
+            "No Celery worker available for merge suggestions. Computed synchronously for workgroup %s.",
+            request.user.caiduser.workgroup_id,
+        )
+        return result_id
+
     job = tasks.refresh_identities_suggestions_task.delay(request.user.caiduser.workgroup.id)
     logger.debug(
         f"{job.id=}, {request.user.id=}, {request.user=}, {request.user.caiduser=}, {request.user.caiduser.workgroup=}"
     )
     request.session["refresh_job_id"] = job.id
     request.session["refresh_job_started_at"] = timezone.now().isoformat()
+    request.session.pop("refresh_result_id", None)
+    return None
 
 
 def get_identity_suggestions(request):
     """Get identity suggestions status and data."""
     job_id = request.session.get("refresh_job_id")
+    sync_result_id = request.session.get("refresh_result_id")
 
     sugg_obj = (
         models.MergeIdentitySuggestionResult.objects.filter(workgroup=request.user.caiduser.workgroup)
@@ -4047,7 +4067,18 @@ def get_identity_suggestions(request):
     suggestions = sugg_obj.suggestions if sugg_obj else None
     created_at = sugg_obj.created_at if sugg_obj else None
 
-    if not job_id:
+    if sync_result_id and not job_id:
+        status = "SUCCESS"
+        job_started_at = request.session.get("refresh_job_started_at")
+        try:
+            sugg_obj2 = models.MergeIdentitySuggestionResult.objects.get(id=sync_result_id)
+            if sugg_obj2.workgroup == request.user.caiduser.workgroup:
+                suggestions = sugg_obj2.suggestions
+                created_at = sugg_obj2.created_at
+        except Exception as e:
+            logger.warning("Could not fetch sync job result: " + str(e))
+            messages.warning(request, "Could not fetch sync job result: " + str(e))
+    elif not job_id:
         status = "no-job"
         job_started_at = None
 
@@ -4087,6 +4118,18 @@ def get_identity_suggestions(request):
 def suggest_merge_identities_view(request, limit: int = 100):
     """Suggest merge identities."""
     response = get_identity_suggestions(request)
+    if response["status"] == "no-job" and response["suggestions"] is None:
+        refresh_identities_suggestions(request)
+        messages.info(request, "Generation of merge suggestions has started. Check back in a moment.")
+        return message_view(
+            request,
+            "Generation of merge suggestions has started.",
+            link=reverse_lazy("caidapp:suggest_merge_identities"),
+            button_label="Check now",
+            headline="Generating suggestions",
+            link_secondary=reverse_lazy("caidapp:refresh_merge_identities_suggestions"),
+            button_label_secondary="Start again",
+        )
 
     if "started_at" in response and response["started_at"]:
         started_at = datetime.datetime.fromisoformat(response["started_at"])
@@ -4107,8 +4150,8 @@ def suggest_merge_identities_view(request, limit: int = 100):
             link=reverse_lazy("caidapp:suggest_merge_identities"),
             button_label="Check now",
             headline="No suggestions found",
-            # link_secondary=reverse_lazy("caidapp:refresh_merge_identities_suggestions"),
-            # button_label_secondary="Regenerate suggestions",
+            link_secondary=reverse_lazy("caidapp:refresh_merge_identities_suggestions"),
+            button_label_secondary="Regenerate suggestions",
         )
     suggestions_ids = response["suggestions"]
     try:

@@ -111,7 +111,7 @@ def compute_identity_suggestions(workgroup_id: int, limit: int = 100) -> int:
             if identity1 == identity2:
                 continue
 
-            if identity1.code == identity2.code:
+            if identity1.code and identity2.code and identity1.code == identity2.code:
                 identity_a, identity_b = order_identity_by_mediafile_count(identity1, identity2)
                 suggestions.append((identity_a.id, identity_b.id, 0))
                 continue
