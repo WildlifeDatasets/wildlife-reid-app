@@ -12,7 +12,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.db import models
-from django.db.models import Count, Q
+from django.db.models import Count, Q, Exists, OuterRef
 from django.db.models.query import QuerySet
 from django.db.models.signals import post_save
 from django.dispatch import receiver
@@ -1052,6 +1052,9 @@ class Sequence(models.Model):
     uploaded_archive = models.ForeignKey(UploadedArchive, on_delete=models.CASCADE, null=True)
     local_id = models.IntegerField(null=True, blank=True)
 
+class BBoxSequence(models.Model):
+    local_id = models.IntegerField(null=True, blank=True)
+
 
 class WorkgroupAccessQuerySet(models.QuerySet):
     def for_user(self, caiduser: CaIDUser, owner_path: str):
@@ -1117,6 +1120,7 @@ class MediaFile(models.Model):
     static_thumbnail = models.ImageField(blank=True, null=True, max_length=500)
     preview = models.ImageField(blank=True, null=True, max_length=500)  # 1200 x 800 px preview
     identity = models.ForeignKey(IndividualIdentity, blank=True, null=True, on_delete=models.SET_NULL)
+    # TODO remove Observation properties
     identity_is_representative = models.BooleanField(default=False)
     updated_by = models.ForeignKey(CaIDUser, on_delete=models.SET_NULL, null=True, blank=True)
     updated_at = models.DateTimeField("Updated at", blank=True, null=True)
@@ -1436,6 +1440,7 @@ class AnimalObservation(models.Model):
 class MediafilesForIdentification(models.Model):
     mediafile = models.ForeignKey(MediaFile, on_delete=models.SET_NULL, null=True, blank=True)
 
+    # TODO remove these top1-3 fields, they should be not necessary now
     top1mediafile = models.ForeignKey(MediaFile, related_name="top1", on_delete=models.SET_NULL, null=True, blank=True)
     top2mediafile = models.ForeignKey(MediaFile, related_name="top2", on_delete=models.SET_NULL, null=True, blank=True)
     top3mediafile = models.ForeignKey(MediaFile, related_name="top3", on_delete=models.SET_NULL, null=True, blank=True)
@@ -1449,6 +1454,7 @@ class MediafilesForIdentification(models.Model):
 
 
 class MediafileIdentificationSuggestion(models.Model):
+    # TODO Ise Observation
     for_identification = models.ForeignKey(
         MediafilesForIdentification, related_name="top_mediafiles", on_delete=models.CASCADE
     )
@@ -1591,39 +1597,6 @@ def auto_delete_file_on_delete(sender, instance, **kwargs):
         shutil.rmtree(instance.outputdir)
 
 
-# def get_mediafiles_with_missing_taxon(
-#     caiduser: CaIDUser, uploadedarchive: Optional[UploadedArchive] = None, **kwargs
-# ) -> QuerySet:
-#     """Return media files with missing taxon."""
-#     not_classified_taxon = get_taxon(TAXON_NOT_CLASSIFIED)
-#     animalia_taxon = get_taxon("Animalia")
-#
-#     kwargs_filter = user_has_access_filter_params(caiduser, "parent__owner")
-#     if uploadedarchive is not None:
-#         kwargs["parent"] = uploadedarchive
-#
-#     mediafiles = MediaFile.objects.filter(
-#         Q(taxon=None)
-#         | Q(taxon=not_classified_taxon)
-#         | (Q(taxon=animalia_taxon) & Q(taxon_verified=False)),
-#         **kwargs_filter,
-#         parent__contains_single_taxon=False,
-#         **kwargs,
-#     ).select_related(
-#         "parent",
-#         "taxon",
-#         "predicted_taxon",
-#         "locality",
-#         "identity",
-#         "updated_by",
-#         "sequence"
-#     )
-#     return mediafiles
-
-
-from django.db.models import Exists, OuterRef
-
-
 def get_mediafiles_with_missing_taxon(
     caiduser: CaIDUser, uploadedarchive: Optional[UploadedArchive] = None, **kwargs
 ) -> QuerySet:
@@ -1655,73 +1628,6 @@ def get_mediafiles_with_missing_taxon(
     )
     return mediafiles
 
-
-#     caiduser: CaIDUser, uploadedarchive: Optional[UploadedArchive] = None, **kwargs
-# ) -> QuerySet:
-#     """Return MediaFiles whose observations have missing or unverified taxon."""
-#     not_classified_taxon = get_taxon(TAXON_NOT_CLASSIFIED)
-#     animalia_taxon = get_taxon("Animalia")
-#
-#     # přístupové omezení
-#     kwargs_filter = user_has_access_filter_params(caiduser, "parent__owner")
-#
-#     if uploadedarchive is not None:
-#         kwargs["parent"] = uploadedarchive
-#
-#     # poddotaz: existuje nějaká observation s platným taxonem?
-#     valid_obs = AnimalObservation.objects.filter(
-#         mediafile=OuterRef("pk"),
-#     ).filter(
-#         ~Q(taxon=None),
-#         ~Q(taxon=not_classified_taxon),
-#         ~(Q(taxon=animalia_taxon) & Q(taxon_verified=False)),
-#     )
-#
-#     # vyber mediafiles, které žádnou validní observation nemají
-#     mediafiles = (
-#         MediaFile.objects.annotate(has_valid_obs=Exists(valid_obs))
-#         .filter(
-#             has_valid_obs=False,
-#             parent__contains_single_taxon=False,
-#             **kwargs_filter,
-#             **kwargs,
-#         )
-#         .select_related(
-#             "parent",
-#             "predicted_taxon",
-#             "locality",
-#             "identity",
-#             "updated_by",
-#             "sequence",
-#         )
-#     )
-#
-#     return mediafiles
-
-
-# def get_mediafiles_with_missing_verification(
-#     caiduser: CaIDUser, uploadedarchive: Optional[UploadedArchive] = None, **kwargs
-# ) -> QuerySet:
-#     """Return media files with missing taxon verification."""
-#     kwargs_filter = user_has_access_filter_params(caiduser, "parent__owner")
-#     if uploadedarchive is not None:
-#         kwargs["parent"] = uploadedarchive
-#
-#     logger.debug(f"{caiduser=}, {uploadedarchive=}, {kwargs=}, {kwargs_filter=}")
-#     mediafiles = MediaFile.objects.filter(
-#         taxon_verified=False, **kwargs_filter, parent__contains_single_taxon=False, **kwargs
-#     ).select_related(
-#         "parent",
-#         "taxon",
-#         "predicted_taxon",
-#         "locality",
-#         "identity",
-#         "updated_by",
-#         "sequence"
-#     )
-#
-#     logger.debug(f"{mediafiles.count()=}")
-#     return mediafiles
 
 
 def get_mediafiles_with_missing_verification(
