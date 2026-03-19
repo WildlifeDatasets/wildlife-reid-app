@@ -64,6 +64,7 @@ class WorkgroupForm(forms.ModelForm):
             "default_taxon_for_identification",
             "sequence_time_limit",
             "check_taxon_before_identification",
+            "identity_code_regex",
             "caidusers",
             "identification_model",
             "detection_model_path",
@@ -73,6 +74,7 @@ class WorkgroupForm(forms.ModelForm):
             "check_taxon_before_identification": "Do the identification only for media files "
             + "and observations with the correct taxon. "
             + "Ignore the other observations and media files.",
+            "identity_code_regex": "Regex used to extract identity codes from identity names, for example B75.",
         }
 
     def __init__(self, *args, **kwargs):

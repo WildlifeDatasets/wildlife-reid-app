@@ -51,6 +51,19 @@ ORIENTATION_CHOICES = (
     ("U", "Unknown"),
 )
 TAXON_NOT_CLASSIFIED = "Not Classified"
+DEFAULT_IDENTITY_CODE_REGEX = r"B\d+"
+
+
+def validate_identity_code_regex(value: str):
+    """Validate the workgroup regex used for identity code extraction."""
+    if value in (None, ""):
+        return
+    try:
+        re.compile(value)
+    except re.error as exc:
+        from django.core.exceptions import ValidationError
+
+        raise ValidationError(f"Invalid regular expression: {exc}") from exc
 
 
 def get_hash():
@@ -156,6 +169,22 @@ class WorkGroup(models.Model):
         blank=True,
         default="ultralytics/yolov5:915bbf2",
     )
+    identity_code_regex = models.CharField(
+        max_length=128,
+        blank=True,
+        default=DEFAULT_IDENTITY_CODE_REGEX,
+        validators=[validate_identity_code_regex],
+        help_text="Regular expression used to detect identity code suggestions in identity names.",
+    )
+
+    def get_identity_code_regex(self) -> str:
+        pattern = self.identity_code_regex or DEFAULT_IDENTITY_CODE_REGEX
+        try:
+            re.compile(pattern)
+        except re.error:
+            logger.warning("Invalid identity_code_regex for workgroup %s. Falling back to default.", self.pk)
+            return DEFAULT_IDENTITY_CODE_REGEX
+        return pattern
 
     def save(self, *args, **kwargs):
         """Save workgroup and set default taxon and identification model if not set.
@@ -1029,14 +1058,16 @@ class IndividualIdentity(models.Model):
     def suggested_code_from_name(self):
         """Find code in identity name.
 
-        If the name contains B character fallowed by a number, then the number is used as code.
+        The code is extracted using the regex configured on the owning workgroup.
         """
-        # looking for B{number}
+        pattern = DEFAULT_IDENTITY_CODE_REGEX
+        if self.owner_workgroup is not None:
+            pattern = self.owner_workgroup.get_identity_code_regex()
+
         code = None
-        code_match = re.search(r"B\d+", self.name)
+        code_match = re.search(pattern, self.name or "")
         if code_match:
             code = code_match.group()
-            # new_name = self.name.replace(code, "")
         return code
 
     def suggested_name_without_code(self):
@@ -1044,7 +1075,7 @@ class IndividualIdentity(models.Model):
         code = self.suggested_code_from_name()
         name = None
         if code:
-            name = self.name.replace(code, "")
+            name = self.name.replace(code, "").strip()
         return name
 
 

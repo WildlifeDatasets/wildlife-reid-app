@@ -4227,8 +4227,25 @@ def show_identity_code_suggestions(request):
         owner_workgroup=request.user.caiduser.workgroup,
         # **user_has_access_filter_params(request.user.caiduser, "owner")
     )
+    suggestions = []
+    for identity in all_identities:
+        suggested_code = identity.suggested_code_from_name()
+        if suggested_code:
+            identity.suggested_code = suggested_code
+            identity.suggested_name = identity.suggested_name_without_code()
+            suggestions.append(identity)
 
-    return render(request, "caidapp/suggest_identity_codes.html", {"identities": list(all_identities)})
+    workgroup = request.user.caiduser.workgroup
+    active_regex = workgroup.get_identity_code_regex() if workgroup else models.DEFAULT_IDENTITY_CODE_REGEX
+
+    return render(
+        request,
+        "caidapp/suggest_identity_codes.html",
+        {
+            "identities": suggestions,
+            "active_regex": active_regex,
+        },
+    )
 
 
 @login_required
