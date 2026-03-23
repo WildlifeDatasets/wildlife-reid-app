@@ -10,6 +10,7 @@ import zipfile
 from functools import wraps
 from io import BytesIO
 from pathlib import Path
+from string import Formatter
 from typing import Dict, List, Optional, Tuple, Union
 from zoneinfo import ZoneInfo
 
@@ -98,6 +99,13 @@ from .views_tools import add_querystring_to_context
 
 logger = logging.getLogger("app")
 User = get_user_model()
+
+
+MEDIAFILE_EXPORT_SCHEMAS = {
+    "species_identity": "{species}/{identity}/{hash}_{species}_{identity}{dotext}",
+    "identity_dirs": "{identity}/{hash}_{species}_{identity}{dotext}",
+    "flat": "{hash}_{species}_{identity}{dotext}",
+}
 
 
 @user_passes_test(lambda u: u.is_superuser)
@@ -2779,6 +2787,16 @@ def media_files_update(
             show_overview_button=show_overview_button,
             taxon_verified=taxon_verified,
         ),
+        "mediafiles_download_query_string": _build_mediafiles_scope_query_string(
+            request,
+            uploadedarchive_id=uploadedarchive_id,
+            album_hash=album_hash,
+            individual_identity_id=individual_identity_id,
+            identity_is_representative=identity_is_representative,
+            locality_hash=locality_hash,
+            show_overview_button=show_overview_button,
+            taxon_verified=taxon_verified,
+        ),
         # "map_html": map_html,
         # "taxon_stats_html": taxon_stats_html,
     }
@@ -3142,32 +3160,135 @@ def download_uploadedarchive_csv(request, uploadedarchive_id: int):
         return redirect("/caidapp/uploads")
 
 
-def _get_mediafiles(request, uploadedarchive_id: Optional[int]) -> Tuple[QuerySet, Optional[str]]:
-    """Get mediafiles based on uploadedarchive_id or session."""
-    name_suggestion = None
-    if uploadedarchive_id is not None:
-        uploaded_archive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
-        if (
-            uploaded_archive.owner == request.user.caiduser
-            or uploaded_archive.owner.workgroup == request.user.caiduser.workgroup
-        ):
-            mediafiles = MediaFile.objects.filter(parent=uploaded_archive)
-            name_suggestion = uploaded_archive.name
-            logger.debug(f"{name_suggestion=}")
-        else:
-            messages.error(request, "Only the owner or work group member can access the data.")
-    else:
-        mediafile_ids = request.session.get("mediafile_ids", [])
-        mediafiles = MediaFile.objects.filter(id__in=mediafile_ids)
-        name_suggestion = request.session.get("mediafiles_name_suggestion", None)
-
+def _get_mediafiles_for_export(request, uploadedarchive_id: Optional[int]) -> Tuple[QuerySet, Optional[str]]:
+    """Get mediafiles for export based on explicit URL scope and filters."""
+    mediafiles, _, _, name_suggestion = _get_filtered_mediafiles_queryset(
+        request,
+        uploadedarchive_id=uploadedarchive_id,
+    )
+    mediafiles = mediafiles.select_related("parent", "locality").prefetch_related("observations__taxon", "observations__identity")
     return mediafiles, name_suggestion
+
+
+def _sanitize_export_component(value: Optional[object], default: str = "unknown") -> str:
+    """Sanitize a single path component used in exported filenames."""
+    text = str(value).strip() if value is not None else ""
+    if not text:
+        text = default
+    text = model_tools.remove_diacritics(text)
+    text = re.sub(r'[<>:"/\\\\|?*\x00-\x1f]+', "_", text)
+    text = re.sub(r"\s+", "_", text)
+    text = re.sub(r"_+", "_", text).strip(" ._")
+    if text in {"", ".", ".."}:
+        return default
+    return text
+
+
+def _build_export_value(unique_values: List[str], unknown_label: str, mixed_label: str) -> Tuple[str, str]:
+    """Return aggregate export value and joined list representation."""
+    sanitized_values = sorted({_sanitize_export_component(value, default=unknown_label) for value in unique_values if value})
+    if not sanitized_values:
+        return unknown_label, unknown_label
+    if len(sanitized_values) == 1:
+        return sanitized_values[0], sanitized_values[0]
+    return mixed_label, "+".join(sanitized_values)
+
+
+def _get_mediafile_export_context(mediafile: models.MediaFile) -> Dict[str, str]:
+    """Return filename template context based on mediafile and its observations."""
+    observation_taxa = []
+    observation_identities = []
+    for observation in mediafile.observations.all():
+        if observation.taxon_id and observation.taxon:
+            observation_taxa.append(observation.taxon.name)
+        if observation.identity_id and observation.identity:
+            observation_identities.append(observation.identity.name)
+
+    if not observation_taxa and mediafile.taxon_id and mediafile.taxon:
+        observation_taxa.append(mediafile.taxon.name)
+    if not observation_identities and mediafile.identity_id and mediafile.identity:
+        observation_identities.append(mediafile.identity.name)
+
+    species, species_list = _build_export_value(observation_taxa, "unknown_species", "mixed_species")
+    identity, identity_list = _build_export_value(observation_identities, "unknown_identity", "mixed_identity")
+
+    mediafile_name = Path(mediafile.mediafile.name) if mediafile.mediafile else Path(str(mediafile.pk))
+    original_stem = Path(mediafile.original_filename).stem if mediafile.original_filename else mediafile_name.stem
+    extension = mediafile_name.suffix or Path(mediafile.original_filename).suffix
+    locality = _sanitize_export_component(mediafile.locality.name if mediafile.locality else None, default="unknown_locality")
+    captured_date = mediafile.captured_at.strftime("%Y-%m-%d") if mediafile.captured_at else "unknown_date"
+
+    return {
+        "hash": _sanitize_export_component(mediafile_name.stem or mediafile.pk, default=str(mediafile.pk)),
+        "species": species,
+        "identity": identity,
+        "species_list": species_list,
+        "identity_list": identity_list,
+        "ext": extension.lstrip("."),
+        "dotext": extension,
+        "original_name": _sanitize_export_component(original_stem, default="original"),
+        "locality": locality,
+        "date": captured_date,
+        "mediafile_id": str(mediafile.pk),
+    }
+
+
+def _render_mediafile_export_path(template: str, mediafile: models.MediaFile) -> str:
+    """Render and sanitize export path for a single mediafile."""
+    formatter = Formatter()
+    context = _get_mediafile_export_context(mediafile)
+    try:
+        rendered = formatter.vformat(template, args=(), kwargs=context)
+    except KeyError as exc:
+        raise ValueError(f"Unknown export placeholder: {exc.args[0]}") from exc
+
+    normalized_parts = []
+    for part in rendered.replace("\\", "/").split("/"):
+        if not part or part == ".":
+            continue
+        normalized_parts.append(_sanitize_export_component(part, default="item"))
+
+    if not normalized_parts:
+        raise ValueError("Export template produced an empty path.")
+    return "/".join(normalized_parts)
+
+
+def _get_mediafile_export_template(request: HttpRequest) -> str:
+    """Resolve export template from predefined schema or explicit custom template."""
+    export_scheme = request.GET.get("export_scheme", "species_identity")
+    export_path_template = request.GET.get("export_path_template", "").strip().replace("{.ext}", "{dotext}")
+
+    if export_path_template:
+        return export_path_template
+    if export_scheme == "custom":
+        raise ValueError("Custom export template is empty.")
+    if export_scheme in MEDIAFILE_EXPORT_SCHEMAS:
+        return MEDIAFILE_EXPORT_SCHEMAS[export_scheme]
+    raise ValueError(f"Unknown export scheme: {export_scheme}")
+
+
+def _build_export_mediafiles_data(request: HttpRequest, mediafiles: QuerySet) -> List[Dict[str, str]]:
+    """Prepare mediafiles list for ZIP export with unique output paths."""
+    template = _get_mediafile_export_template(request)
+    seen_paths: Dict[str, int] = {}
+    mediafiles_data = []
+    for mediafile in mediafiles:
+        output_name = _render_mediafile_export_path(template, mediafile)
+        count = seen_paths.get(output_name, 0)
+        seen_paths[output_name] = count + 1
+        if count:
+            output_path = Path(output_name)
+            output_name = str(output_path.with_name(f"{output_path.stem}__{count + 1}{output_path.suffix}")).replace(
+                "\\", "/"
+            )
+        mediafiles_data.append({"path": mediafile.mediafile.name, "output_name": output_name})
+    return mediafiles_data
 
 
 @login_required
 def download_csv_for_mediafiles_view(request, uploadedarchive_id: Optional[int] = None):
     """Download csv for media files."""
-    mediafiles, name_suggestion = _get_mediafiles(request, uploadedarchive_id)
+    mediafiles, name_suggestion = _get_mediafiles_for_export(request, uploadedarchive_id)
     fn = ("metadata_" + name_suggestion) if name_suggestion is not None else "metadata"
 
     try:
@@ -3186,7 +3307,7 @@ def download_csv_for_mediafiles_view(request, uploadedarchive_id: Optional[int] 
 @login_required
 def download_xlsx_for_mediafiles_view(request, uploadedarchive_id: Optional[int] = None):
     """Download xlsx for media files."""
-    mediafiles, name_suggestion = _get_mediafiles(request, uploadedarchive_id)
+    mediafiles, name_suggestion = _get_mediafiles_for_export(request, uploadedarchive_id)
     fn = ("metadata_" + name_suggestion) if name_suggestion is not None else "metadata"
 
     try:
@@ -3216,7 +3337,7 @@ def download_xlsx_for_mediafiles_view(request, uploadedarchive_id: Optional[int]
 def download_xlsx_for_mediafiles_view_NDOP(request, uploadedarchive_id: Optional[int] = None):
     """Download xlsx for media files."""
     logger.debug("download_xlsx_for_mediafiles_view_NDOP")
-    mediafiles, name_suggestion = _get_mediafiles(request, uploadedarchive_id)
+    mediafiles, name_suggestion = _get_mediafiles_for_export(request, uploadedarchive_id)
     fn = ("metadata_CaID_NDOP_" + name_suggestion) if name_suggestion is not None else "metadata_CaID_NDOP"
 
     try:
@@ -3245,7 +3366,7 @@ def download_xlsx_for_mediafiles_view_NDOP(request, uploadedarchive_id: Optional
 @login_required
 def download_zip_for_mediafiles_view(request, uploadedarchive_id: Optional[int] = None) -> JsonResponse:
     """Download zip for media files."""
-    mediafiles, name_suggestion = _get_mediafiles(request, uploadedarchive_id)
+    mediafiles, name_suggestion = _get_mediafiles_for_export(request, uploadedarchive_id)
     # remove diacritics from name_suggestion
     if name_suggestion is not None:
         name_suggestion = model_tools.remove_diacritics(name_suggestion)
@@ -3263,8 +3384,13 @@ def download_zip_for_mediafiles_view(request, uploadedarchive_id: Optional[int] 
         / f"{fn}.{datetime_str}.zip"
     )
 
-    # Prepare the mediafiles list for serialization (e.g., paths and output names)
-    mediafiles_data = [{"path": mf.mediafile.name, "output_name": _make_output_name(mf)} for mf in mediafiles]
+    try:
+        mediafiles_data = _build_export_mediafiles_data(request, mediafiles)
+    except ValueError as exc:
+        return JsonResponse({"message": str(exc)}, status=400)
+
+    if not mediafiles_data:
+        return JsonResponse({"message": "No media files matched the selected filters."}, status=400)
 
     # Start the Celery task
 
@@ -3319,23 +3445,6 @@ def check_zip_status_view(request, task_id):
 
     logger.debug(f"{response=}")
     return JsonResponse(response)
-
-
-def _make_output_name(mediafile: models.MediaFile):
-    """Create output name.
-
-    pattern: {locality}_{date}_{original_name}_{taxon}_{identity}
-    """
-    locality = mediafile.locality.name if mediafile.locality else "no_locality"
-    date = mediafile.captured_at.strftime("%Y-%m-%d") if mediafile.captured_at else "no_date"
-    original_name = mediafile.original_filename if mediafile.original_filename else "no_original_name"
-    # remove extension
-    original_name = Path(original_name).stem
-    taxon = mediafile.taxon.name if mediafile.taxon else "no_taxon"
-    identity = mediafile.identity.name if mediafile.identity else "no_identity"
-    suffix = Path(mediafile.mediafile.name).suffix
-    output_name = f"{locality}_{date}_{original_name}_{taxon}_{identity}.{suffix}"
-    return output_name
 
 
 def _generate_new_hash_for_localities():

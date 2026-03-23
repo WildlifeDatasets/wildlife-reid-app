@@ -311,6 +311,7 @@ def create_mediafiles_zip(user_hash, mediafiles, abs_zip_path):
         for mediafile in tqdm.tqdm(mediafiles):
             src = Path(settings.MEDIA_ROOT) / mediafile["path"]
             dst = mediafiles_dir / mediafile["output_name"]
+            dst.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy(src, dst)
         # Assume `make_zipfile` is your custom function to create a zip
         logger.debug(f"Creating zip file {abs_zip_path}")

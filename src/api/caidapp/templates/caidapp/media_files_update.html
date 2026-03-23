@@ -164,31 +164,45 @@
 
                                 <ul class="dropdown-menu">
                                     <li>
-                                        <a class="dropdown-item" href="{% url 'caidapp:download_csv_for_mediafiles' %}">
+                                        <a class="dropdown-item" href="{% url 'caidapp:download_csv_for_mediafiles' %}?{{ mediafiles_download_query_string }}">
                                             <i class="bi bi-table"></i> Download CSV
                                         </a>
                                     </li>
                                     <li>
                                         <a class="dropdown-item"
-                                           href="{% url 'caidapp:download_xlsx_for_mediafiles' %}">
+                                           href="{% url 'caidapp:download_xlsx_for_mediafiles' %}?{{ mediafiles_download_query_string }}">
                                             <i class="fas fa-file-excel"></i>
                                             Download XLSX
                                         </a>
                                     </li>
                                     <li>
-{#                                        <a class="dropdown-item download-mediafiles-button trigger-loading-modal"#}
-                                        <a class="dropdown-item download-mediafiles-button"
-                                             href="/media/users/{{ user.caiduser.hash }}/mediafiles.zip"
-
-{#                                           href="{% url 'caidapp:download_zip_for_mediafiles' %}"#}
-                                           >
-                                            <i class="bi bi-archive"></i> Download media files
-                                        </a>
-
+                                        <div class="dropdown-item-text">
+                                            <label class="form-label small mb-1" for="downloadExportScheme">ZIP schema</label>
+                                            <select id="downloadExportScheme" class="form-select form-select-sm mb-2">
+                                                <option value="species_identity" selected>Species / identity</option>
+                                                <option value="identity_dirs">Identity folders</option>
+                                                <option value="flat">Flat files</option>
+                                                <option value="custom">Custom template</option>
+                                            </select>
+                                            <input
+                                                id="downloadExportTemplate"
+                                                class="form-control form-control-sm mb-2"
+                                                type="text"
+                                                placeholder="{species}/{identity}/{hash}_{species}_{identity}{.ext}"
+                                            />
+                                            <button
+                                                type="button"
+                                                class="btn btn-sm btn-secondary w-100 download-mediafiles-button"
+                                                data-base-url="{% url 'caidapp:download_zip_for_mediafiles' %}"
+                                                data-query-string="{{ mediafiles_download_query_string }}"
+                                            >
+                                                <i class="bi bi-archive"></i> Download media files
+                                            </button>
+                                        </div>
                                     </li>
                                     <li>
                                         <a class="dropdown-item"
-                                           href="{% url 'caidapp:download_xlsx_for_mediafiles_NDOP' %}">
+                                           href="{% url 'caidapp:download_xlsx_for_mediafiles_NDOP' %}?{{ mediafiles_download_query_string }}">
                                             <i class="fas fa-file-excel"></i>
                                             Download XLSX for NDOP
                                         </a>

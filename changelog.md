@@ -7,6 +7,7 @@
 * [changed] Better smoke test with factory
 * [added] Identity code can be defined by regex in the work group settings
 * [added] Next step button with suggested next step in the workflow
+* [added] Download structured media files
 
 ## 2026-02
 * [added] Dark mode
