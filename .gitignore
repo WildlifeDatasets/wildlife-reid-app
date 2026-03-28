@@ -162,3 +162,7 @@ cache.json
 src/api/caidapp/static/assets_
 src/api/static
 caid_import
+
+.env
+.idea/
+frontend/node_modules
