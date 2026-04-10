@@ -163,3 +163,4 @@ src/api/caidapp/static/assets_
 src/api/static
 caid_import
 
+node_modules/*
