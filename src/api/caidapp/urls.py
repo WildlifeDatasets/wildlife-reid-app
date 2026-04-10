@@ -116,6 +116,7 @@ urlpatterns = [
     # path("taxon/<int:taxon_id>", views.media_files_update, name="taxon"),
     # Media Files
     path("media_files/", views.media_files_update, name="media_files"),
+    path("sequences/", views.sequences, name="sequences"),
     path(
         "mediafile/<int:pk>/update/",
         views_mediafile.MediaFileUpdateView.as_view(),

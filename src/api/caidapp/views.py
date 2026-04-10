@@ -36,7 +36,7 @@ from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector
 from django.core.exceptions import PermissionDenied
 from django.core.files.base import ContentFile
 from django.core.paginator import Page, Paginator
-from django.db.models import Count, F, Func, Max, Min, OuterRef, Q, QuerySet, Subquery, Value
+from django.db.models import Count, F, Func, Max, Min, OuterRef, Prefetch, Q, QuerySet, Subquery, Value
 from django.db.models.functions import Cast
 from django.forms import modelformset_factory
 from django.forms.models import model_to_dict
@@ -2612,6 +2612,191 @@ def _get_filtered_mediafiles_queryset(
     full_mediafiles = full_mediafiles.distinct()
 
     return full_mediafiles, mediafile_filter, page_title, mediafiles_name_suggestion
+
+
+def _build_sequence_scope_query_string(
+    request,
+    uploadedarchive_id: Optional[int] = None,
+    album_hash: Optional[str] = None,
+    individual_identity_id: Optional[int] = None,
+    identity_is_representative: Optional[bool] = None,
+    locality_hash: Optional[str] = None,
+    show_overview_button: bool = False,
+    taxon_verified: Optional[bool] = None,
+) -> str:
+    """Build a query string preserving the active sequence scope."""
+    return _build_mediafiles_scope_query_string(
+        request,
+        uploadedarchive_id=uploadedarchive_id,
+        album_hash=album_hash,
+        individual_identity_id=individual_identity_id,
+        identity_is_representative=identity_is_representative,
+        locality_hash=locality_hash,
+        show_overview_button=show_overview_button,
+        taxon_verified=taxon_verified,
+    )
+
+
+def _get_sequences_queryset_from_mediafiles(full_mediafiles: QuerySet) -> QuerySet:
+    """Return sequences derived from a filtered mediafile queryset."""
+    scoped_mediafiles = full_mediafiles.exclude(sequence__isnull=True)
+    first_captured_at = scoped_mediafiles.filter(sequence=OuterRef("pk")).order_by("captured_at", "id").values("captured_at")[:1]
+    first_mediafile_id = scoped_mediafiles.filter(sequence=OuterRef("pk")).order_by("captured_at", "id").values("id")[:1]
+    sequence_ids = scoped_mediafiles.values("sequence_id")
+
+    sequences = (
+        models.Sequence.objects.filter(id__in=Subquery(sequence_ids))
+        .annotate(
+            first_captured_at=Subquery(first_captured_at),
+            first_mediafile_id=Subquery(first_mediafile_id),
+            mediafile_count=Count("mediafile"),
+        )
+        .order_by("first_captured_at", "first_mediafile_id", "pk")
+    )
+    return sequences
+
+
+def _resolve_selected_mediafile_ids_from_post(request) -> List[int]:
+    """Resolve bulk-selected mediafiles from sequence and mediafile checkboxes."""
+    selected_sequence_ids = [int(v) for v in request.POST.getlist("selected_sequence_ids") if str(v).isdigit()]
+    selected_mediafile_ids = {int(v) for v in request.POST.getlist("selected_mediafile_ids") if str(v).isdigit()}
+    deselected_mediafile_ids = {int(v) for v in request.POST.getlist("deselected_mediafile_ids") if str(v).isdigit()}
+
+    if selected_sequence_ids:
+        sequence_mediafile_ids = MediaFile.objects.filter(sequence_id__in=selected_sequence_ids).values_list("id", flat=True)
+        selected_mediafile_ids.update(sequence_mediafile_ids)
+
+    selected_mediafile_ids.difference_update(deselected_mediafile_ids)
+    return sorted(selected_mediafile_ids)
+
+
+@login_required
+def sequences(
+    request,
+    records_per_page: Optional[int] = None,
+    album_hash=None,
+    individual_identity_id=None,
+    uploadedarchive_id=None,
+    identity_is_representative=None,
+    locality_hash=None,
+    show_overview_button=False,
+    taxon_verified: Optional[bool] = None,
+    **filter_kwargs,
+) -> HttpResponse:
+    """List sequences with inline mediafile expansion."""
+    logger.debug("Starting Sequence view")
+    if records_per_page is None:
+        records_per_page = request.session.get("mediafiles_records_per_page", 20)
+
+    albums_available = (
+        Album.objects.filter(Q(albumsharerole__user=request.user.caiduser) | Q(owner=request.user.caiduser))
+        .distinct()
+        .order_by("created_at")
+    )
+
+    full_mediafiles, mediafile_filter, page_title, mediafiles_name_suggestion = _get_filtered_mediafiles_queryset(
+        request,
+        uploadedarchive_id=uploadedarchive_id,
+        album_hash=album_hash,
+        individual_identity_id=individual_identity_id,
+        identity_is_representative=identity_is_representative,
+        locality_hash=locality_hash,
+        show_overview_button=show_overview_button,
+        taxon_verified=taxon_verified,
+        extra_filter_kwargs=filter_kwargs,
+    )
+
+    sequence_queryset = _get_sequences_queryset_from_mediafiles(full_mediafiles)
+    paginator = Paginator(sequence_queryset, per_page=records_per_page)
+    page_with_sequences, _, page_context = _prepare_page(
+        paginator,
+        request=request,
+    )
+
+    page_sequence_ids = [obj.id for obj in page_with_sequences.object_list]
+    sequence_mediafiles = (
+        MediaFile.objects.filter(sequence_id__in=page_sequence_ids)
+        .select_related("parent", "taxon", "predicted_taxon", "locality", "identity", "updated_by", "sequence")
+        .prefetch_related("observations")
+        .order_by("captured_at", "id")
+    )
+    page_sequences = (
+        models.Sequence.objects.filter(id__in=page_sequence_ids)
+        .annotate(
+            first_captured_at=Subquery(
+                full_mediafiles.exclude(sequence__isnull=True)
+                .filter(sequence=OuterRef("pk"))
+                .order_by("captured_at", "id")
+                .values("captured_at")[:1]
+            ),
+            first_mediafile_id=Subquery(
+                full_mediafiles.exclude(sequence__isnull=True)
+                .filter(sequence=OuterRef("pk"))
+                .order_by("captured_at", "id")
+                .values("id")[:1]
+            ),
+            mediafile_count=Count("mediafile"),
+        )
+        .prefetch_related(Prefetch("mediafile_set", queryset=sequence_mediafiles))
+        .order_by("first_captured_at", "first_mediafile_id", "pk")
+    )
+    sequence_by_id = {sequence.id: sequence for sequence in page_sequences}
+    ordered_sequences = [sequence_by_id[sequence_id] for sequence_id in page_sequence_ids if sequence_id in sequence_by_id]
+
+    sequence_lookup = {sequence.id: sequence for sequence in ordered_sequences}
+    for sequence in ordered_sequences:
+        mediafiles_in_sequence = list(sequence.mediafile_set.all())
+        sequence.cover_mediafile = mediafiles_in_sequence[0] if mediafiles_in_sequence else None
+        sequence.has_multiple_taxa = len({mf.taxon_id for mf in mediafiles_in_sequence if mf.taxon_id}) > 1
+        sequence.has_multiple_identities = len({mf.identity_id for mf in mediafiles_in_sequence if mf.identity_id}) > 1
+        sequence.has_multiple_localities = len({mf.locality_id for mf in mediafiles_in_sequence if mf.locality_id}) > 1
+
+    form_bulk_processing = MediaFileBulkForm(request.POST or None)
+
+    if request.method == "POST" and any(
+        (isinstance(key, str)) and key.startswith("btnBulkProcessing") for key in request.POST
+    ):
+        if form_bulk_processing.is_valid():
+            selected_mediafile_ids = _resolve_selected_mediafile_ids_from_post(request)
+            request.session["mediafile_ids"] = selected_mediafile_ids
+            request.session["mediafiles_name_suggestion"] = mediafiles_name_suggestion
+            selected_mediafiles = MediaFile.objects.filter(id__in=selected_mediafile_ids)
+            selected_album_hash = request.POST.get("selectAlbum", "")
+            for mediafile in selected_mediafiles:
+                _single_mediafile_update(
+                    request,
+                    mediafile,
+                    form_bulk_processing,
+                    form_bulk_processing,
+                    selected_album_hash,
+                )
+            return redirect(request.get_full_path())
+
+    context = {
+        **page_context,
+        "page_title": page_title.replace("Media files", "Sequences"),
+        "user_is_staff": request.user.is_staff,
+        "form_bulk_processing": form_bulk_processing,
+        "albums_available": albums_available,
+        "number_of_sequences": sequence_queryset.count(),
+        "number_of_mediafiles": full_mediafiles.count(),
+        "show_overview_button": show_overview_button,
+        "filter": mediafile_filter,
+        "sequence_objects": ordered_sequences,
+        "sequence_lookup": sequence_lookup,
+        "sequences_stats_query_string": _build_sequence_scope_query_string(
+            request,
+            uploadedarchive_id=uploadedarchive_id,
+            album_hash=album_hash,
+            individual_identity_id=individual_identity_id,
+            identity_is_representative=identity_is_representative,
+            locality_hash=locality_hash,
+            show_overview_button=show_overview_button,
+            taxon_verified=taxon_verified,
+        ),
+    }
+    context = add_querystring_to_context(request, context)
+    return render(request, "caidapp/sequences.html", context)
 
 
 @login_required

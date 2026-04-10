@@ -14,6 +14,7 @@ from .factories import (
     IndividualIdentityFactory,
     LocalityFactory,
     MediaFileFactory,
+    SequenceFactory,
     TaxonFactory,
     UploadedArchiveFactory,
 )
@@ -96,6 +97,41 @@ class MediafileExportTest(TestCase):
         self.assertIn("Canis_lupus", path)
         self.assertIn("Alpha_Female", path)
         self.assertTrue(path.endswith(".jpg"))
+
+
+class SequenceViewTest(TestCase):
+    def setUp(self):
+        self.caiduser = CaidUserFactory()
+        self.user = self.caiduser.user
+        self.client.login(username=self.user.username, password="test123")
+
+    def test_sequence_view_groups_mediafiles_by_sequence(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        locality = LocalityFactory(owner=self.caiduser)
+        sequence = SequenceFactory(uploaded_archive=archive)
+        first_mediafile = MediaFileFactory(
+            parent=archive,
+            locality=locality,
+            sequence=sequence,
+            original_filename="first.jpg",
+            captured_at=pd.Timestamp("2024-01-01T10:00:00Z").to_pydatetime(),
+        )
+        second_mediafile = MediaFileFactory(
+            parent=archive,
+            locality=locality,
+            sequence=sequence,
+            original_filename="second.jpg",
+            captured_at=pd.Timestamp("2024-01-01T10:01:00Z").to_pydatetime(),
+        )
+        AnimalObservationFactory(mediafile=first_mediafile)
+        AnimalObservationFactory(mediafile=second_mediafile)
+
+        response = self.client.get(reverse("caidapp:sequences"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Sequence")
+        self.assertContains(response, "first.jpg")
+        self.assertContains(response, "second.jpg")
 
     # def test_create_workstation(self):
     #     url = reverse("workstation-create")
