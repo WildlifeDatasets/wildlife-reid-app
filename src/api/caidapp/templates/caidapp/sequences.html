@@ -88,6 +88,12 @@
         color: #fff;
     }
 
+    .bbox-overlay {
+        border: 2px solid red;
+        background-color: rgba(255, 0, 0, 0.01);
+        pointer-events: none;
+    }
+
     .sequence-collapsed-content {
         display: block;
     }
@@ -167,6 +173,19 @@
                                 {% if sequence.cover_mediafile and sequence.cover_mediafile.thumbnail %}
                                     <a href="{% url 'caidapp:media_file_update' sequence.cover_mediafile.id %}?next={{ request.get_full_path|urlencode }}">
                                         <img class="sequence-cover card-img-top" src="{{ sequence.cover_mediafile.thumbnail.url }}" alt="Sequence cover">
+                                        {% for obs in sequence.cover_mediafile.observations.all %}
+                                            {% if obs.bbox_x_center %}
+                                                <div class="bbox-overlay"
+                                                     style="
+                                                        position: absolute;
+                                                        left: calc(({{ obs.bbox_x_center }} - {{ obs.bbox_width }}/2) * 100%);
+                                                        top: calc(({{ obs.bbox_y_center }} - {{ obs.bbox_height }}/2) * 100%);
+                                                        width: calc({{ obs.bbox_width }} * 100%);
+                                                        height: calc({{ obs.bbox_height }} * 100%);
+                                                     ">
+                                                </div>
+                                            {% endif %}
+                                        {% endfor %}
                                     </a>
                                 {% else %}
                                     <div class="sequence-cover card-img-top"></div>
@@ -200,27 +219,44 @@
                                         <i class="bi bi-images"></i>
                                     </button>
                                 </div>
+
+                                <div class="position-absolute bottom-0 end-0 p-2">
+                                    <span
+                                        class="sequence-overlay-badge"
+                                        data-bs-toggle-tooltip="true"
+                                        data-bs-title="{% if sequence.taxons_display %}Taxon: {{ sequence.taxons_display }}&#10;{% endif %}{% if sequence.identities_display %}Identity: {{ sequence.identities_display }}&#10;{% endif %}{% if sequence.captured_at_start %}Captured: {{ sequence.captured_at_start|date:'Y-m-d H:i' }}{% if sequence.captured_at_end and sequence.captured_at_end != sequence.captured_at_start %} - {{ sequence.captured_at_end|date:'Y-m-d H:i' }}{% endif %}{% endif %}"
+                                        title="{% if sequence.taxons_display %}Taxon: {{ sequence.taxons_display }}&#10;{% endif %}{% if sequence.identities_display %}Identity: {{ sequence.identities_display }}&#10;{% endif %}{% if sequence.captured_at_start %}Captured: {{ sequence.captured_at_start|date:'Y-m-d H:i' }}{% if sequence.captured_at_end and sequence.captured_at_end != sequence.captured_at_start %} - {{ sequence.captured_at_end|date:'Y-m-d H:i' }}{% endif %}{% endif %}"
+                                    >
+                                        <i class="bi bi-info-circle"></i>
+                                    </span>
+                                </div>
                             </div>
 
                             <div class="card-body">
                                 <div class="sequence-collapsed-content">
                                     <div class="sequence-summary-meta">
                                         <div><strong>Count:</strong> {{ sequence.mediafile_count }}</div>
-                                        <div><strong>First captured:</strong> {{ sequence.first_captured_at|date:'Y-m-d H:i' }}</div>
-                                        {% if sequence.has_multiple_taxa %}
-                                            <div><strong>Taxon:</strong> Mixed taxa</div>
-                                        {% elif sequence.cover_mediafile and sequence.cover_mediafile.taxon %}
-                                            <div><strong>Taxon:</strong> {{ sequence.cover_mediafile.taxon }}</div>
+                                        <div><strong>Captured:</strong> {{ sequence.captured_at_start|date:'Y-m-d H:i' }}</div>
+                                        {% if sequence.taxons %}
+                                            <div>
+                                                <strong>Taxon:</strong>
+                                                {% for taxon in sequence.taxons %}
+                                                    <a class="link-secondary" href="{% url 'caidapp:media_files' %}?taxon={{ taxon.id }}">{{ taxon }}</a>{% if not forloop.last %}, {% endif %}
+                                                {% endfor %}
+                                            </div>
                                         {% endif %}
                                         {% if sequence.has_multiple_localities %}
                                             <div><strong>Locality:</strong> Multiple localities</div>
                                         {% elif sequence.cover_mediafile and sequence.cover_mediafile.locality %}
                                             <div><strong>Locality:</strong> {{ sequence.cover_mediafile.locality.visible_name }}</div>
                                         {% endif %}
-                                        {% if sequence.has_multiple_identities %}
-                                            <div><strong>Identity:</strong> Mixed identities</div>
-                                        {% elif sequence.cover_mediafile and sequence.cover_mediafile.identity %}
-                                            <div><strong>Identity:</strong> {{ sequence.cover_mediafile.identity }}</div>
+                                        {% if sequence.identities %}
+                                            <div>
+                                                <strong>Identity:</strong>
+                                                {% for identity in sequence.identities %}
+                                                    <a class="link-secondary" href="{% url 'caidapp:individual_identity_mediafiles' identity.id %}">{{ identity }}</a>{% if not forloop.last %}, {% endif %}
+                                                {% endfor %}
+                                            </div>
                                         {% endif %}
                                     </div>
                                 </div>
@@ -246,21 +282,27 @@
                                         <div class="sequence-summary-meta">
                                             <div class="fw-semibold">Sequence {{ sequence.local_id|default:sequence.id }}</div>
                                             <div><strong>Count:</strong> {{ sequence.mediafile_count }}</div>
-                                            <div><strong>First captured:</strong> {{ sequence.first_captured_at|date:'Y-m-d H:i' }}</div>
-                                            {% if sequence.has_multiple_taxa %}
-                                                <div><strong>Taxon:</strong> Mixed taxa</div>
-                                            {% elif sequence.cover_mediafile and sequence.cover_mediafile.taxon %}
-                                                <div><strong>Taxon:</strong> {{ sequence.cover_mediafile.taxon }}</div>
+                                            <div><strong>Captured:</strong> {{ sequence.captured_at_start|date:'Y-m-d H:i' }}</div>
+                                            {% if sequence.taxons %}
+                                                <div>
+                                                    <strong>Taxon:</strong>
+                                                    {% for taxon in sequence.taxons %}
+                                                        <a class="link-secondary" href="{% url 'caidapp:media_files' %}?taxon={{ taxon.id }}">{{ taxon }}</a>{% if not forloop.last %}, {% endif %}
+                                                    {% endfor %}
+                                                </div>
                                             {% endif %}
                                             {% if sequence.has_multiple_localities %}
                                                 <div><strong>Locality:</strong> Multiple localities</div>
                                             {% elif sequence.cover_mediafile and sequence.cover_mediafile.locality %}
                                                 <div><strong>Locality:</strong> {{ sequence.cover_mediafile.locality.visible_name }}</div>
                                             {% endif %}
-                                            {% if sequence.has_multiple_identities %}
-                                                <div><strong>Identity:</strong> Mixed identities</div>
-                                            {% elif sequence.cover_mediafile and sequence.cover_mediafile.identity %}
-                                                <div><strong>Identity:</strong> {{ sequence.cover_mediafile.identity }}</div>
+                                            {% if sequence.identities %}
+                                                <div>
+                                                    <strong>Identity:</strong>
+                                                    {% for identity in sequence.identities %}
+                                                        <a class="link-secondary" href="{% url 'caidapp:individual_identity_mediafiles' identity.id %}">{{ identity }}</a>{% if not forloop.last %}, {% endif %}
+                                                    {% endfor %}
+                                                </div>
                                             {% endif %}
                                         </div>
                                         <div class="d-flex align-items-start gap-2">

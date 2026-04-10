@@ -1,9 +1,19 @@
 <div class="small text-muted">{{ mediafile.captured_at|date:'Y-m-d H:i' }}</div>
-{% if mediafile.taxon %}
-    <div class="small">Taxon: {{ mediafile.taxon }}</div>
+{% if mediafile.taxons %}
+    <div class="small">
+        Taxon:
+        {% for taxon in mediafile.taxons %}
+            <a class="link-secondary" href="{% url 'caidapp:media_files' %}?taxon={{ taxon.id }}">{{ taxon }}</a>{% if not forloop.last %}, {% endif %}
+        {% endfor %}
+    </div>
 {% endif %}
-{% if mediafile.identity %}
-    <div class="small">Identity: {{ mediafile.identity }}</div>
+{% if mediafile.identities %}
+    <div class="small">
+        Identity:
+        {% for identity in mediafile.identities %}
+            <a class="link-secondary" href="{% url 'caidapp:individual_identity_mediafiles' identity.id %}">{{ identity }}</a>{% if not forloop.last %}, {% endif %}
+        {% endfor %}
+    </div>
 {% endif %}
 {% if mediafile.locality and show_locality %}
     <div class="small">Locality: {{ mediafile.locality.visible_name }}</div>

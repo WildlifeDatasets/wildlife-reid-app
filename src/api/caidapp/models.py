@@ -122,6 +122,19 @@ def get_taxon(name: str) -> Optional[Taxon]:
     return taxon
 
 
+def _unique_sorted_model_objects(objects):
+    """Return unique model instances sorted by their string representation."""
+    unique_objects = {obj for obj in objects if obj is not None}
+    return sorted(unique_objects, key=lambda obj: str(obj))
+
+
+def _join_model_names(objects) -> Optional[str]:
+    """Return comma-separated names for a list of model instances."""
+    if not objects:
+        return None
+    return ", ".join(str(obj) for obj in objects)
+
+
 class WorkGroup(models.Model):
     name = models.CharField(max_length=50)
     hash = models.CharField(max_length=50, default=random_string12)
@@ -1087,6 +1100,46 @@ class Sequence(models.Model):
     uploaded_archive = models.ForeignKey(UploadedArchive, on_delete=models.CASCADE, null=True)
     local_id = models.IntegerField(null=True, blank=True)
 
+    @property
+    def taxons(self):
+        """Return unique taxons aggregated from all observations in the sequence."""
+        return _unique_sorted_model_objects(
+            observation.taxon for mediafile in self.mediafile_set.all() for observation in mediafile.observations.all()
+        )
+
+    @property
+    def identities(self):
+        """Return unique identities aggregated from all observations in the sequence."""
+        return _unique_sorted_model_objects(
+            observation.identity for mediafile in self.mediafile_set.all() for observation in mediafile.observations.all()
+        )
+
+    @property
+    def taxons_display(self) -> Optional[str]:
+        """Return human-readable taxon list aggregated from observations in the sequence."""
+        return _join_model_names(self.taxons)
+
+    @property
+    def identities_display(self) -> Optional[str]:
+        """Return human-readable identity list aggregated from observations in the sequence."""
+        return _join_model_names(self.identities)
+
+    @property
+    def captured_at_start(self):
+        """Return earliest capture time in the sequence."""
+        mediafiles = [mediafile for mediafile in self.mediafile_set.all() if mediafile.captured_at is not None]
+        if not mediafiles:
+            return None
+        return min(mediafile.captured_at for mediafile in mediafiles)
+
+    @property
+    def captured_at_end(self):
+        """Return latest capture time in the sequence."""
+        mediafiles = [mediafile for mediafile in self.mediafile_set.all() if mediafile.captured_at is not None]
+        if not mediafiles:
+            return None
+        return max(mediafile.captured_at for mediafile in mediafiles)
+
 class BBoxSequence(models.Model):
     local_id = models.IntegerField(null=True, blank=True)
 
@@ -1213,15 +1266,30 @@ class MediaFile(models.Model):
     @property
     def taxons(self):
         """Return list of taxons from observations."""
-        taxons = set()
-        for obs in self.observations.all():
-            if obs.taxon is not None:
-                taxons.add(obs.taxon)
-        taxons = list(taxons)
+        taxons = _unique_sorted_model_objects(obs.taxon for obs in self.observations.all())
         if len(taxons) == 0:
             return None
         else:
             return taxons
+
+    @property
+    def identities(self):
+        """Return unique identities from observations."""
+        identities = _unique_sorted_model_objects(obs.identity for obs in self.observations.all())
+        if len(identities) == 0:
+            return None
+        else:
+            return identities
+
+    @property
+    def taxons_display(self) -> Optional[str]:
+        """Return human-readable taxon list from observations."""
+        return _join_model_names(self.taxons)
+
+    @property
+    def identities_display(self) -> Optional[str]:
+        """Return human-readable identity list from observations."""
+        return _join_model_names(self.identities)
 
     @property
     def taxon_from_observations(self):
@@ -1234,6 +1302,17 @@ class MediaFile(models.Model):
             return taxons.pop()
         elif len(taxons) > 1:
             return get_taxon("Mixed")
+        return None
+
+    @property
+    def identity_from_observations(self):
+        """Return identity from observations."""
+        identities = set()
+        for obs in self.observations.all():
+            if obs.identity is not None:
+                identities.add(obs.identity)
+        if len(identities) == 1:
+            return identities.pop()
         return None
 
     @property
