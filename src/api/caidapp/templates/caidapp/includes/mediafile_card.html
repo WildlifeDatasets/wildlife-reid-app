@@ -1,0 +1,37 @@
+<div class="card sequence-mediafile-card">
+    {% if mediafile.thumbnail %}
+        <a href="{% url 'caidapp:media_file_update' mediafile.id %}?next={{ request.get_full_path|urlencode }}">
+            <img src="{{ mediafile.thumbnail.url }}" alt="Media file thumbnail">
+        </a>
+    {% endif %}
+    <div class="card-body">
+        {% if selectable %}
+            <div class="form-check mb-2">
+                <input
+                    class="form-check-input js-mediafile-checkbox"
+                    type="checkbox"
+                    name="selected_mediafile_ids"
+                    value="{{ mediafile.id }}"
+                    data-sequence-id="{{ sequence.id }}"
+                    id="mediafile-checkbox-{{ mediafile.id }}"
+                >
+                <label class="form-check-label" for="mediafile-checkbox-{{ mediafile.id }}">
+                    {{ mediafile.original_filename|default:mediafile.id }}
+                </label>
+            </div>
+            <input
+                type="hidden"
+                name="deselected_mediafile_ids"
+                value="{{ mediafile.id }}"
+                class="js-deselected-mediafile-marker"
+                data-sequence-id="{{ sequence.id }}"
+                data-mediafile-id="{{ mediafile.id }}"
+                disabled
+            >
+        {% else %}
+            <div class="fw-semibold mb-2">{{ mediafile.original_filename|default:mediafile.id }}</div>
+        {% endif %}
+
+        {% include "caidapp/includes/mediafile_card_meta.html" with mediafile=mediafile show_locality=show_locality only %}
+    </div>
+</div>

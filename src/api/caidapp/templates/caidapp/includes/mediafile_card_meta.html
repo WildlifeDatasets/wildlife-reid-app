@@ -1,0 +1,10 @@
+<div class="small text-muted">{{ mediafile.captured_at|date:'Y-m-d H:i' }}</div>
+{% if mediafile.taxon %}
+    <div class="small">Taxon: {{ mediafile.taxon }}</div>
+{% endif %}
+{% if mediafile.identity %}
+    <div class="small">Identity: {{ mediafile.identity }}</div>
+{% endif %}
+{% if mediafile.locality and show_locality %}
+    <div class="small">Locality: {{ mediafile.locality.visible_name }}</div>
+{% endif %}

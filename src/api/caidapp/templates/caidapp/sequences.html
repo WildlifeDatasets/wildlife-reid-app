@@ -1,0 +1,272 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load widget_tweaks %}
+{% load custom_filters %}
+{% block head %}
+<style>
+    .sequence-card {
+        border: 1px solid rgba(0, 0, 0, 0.12);
+    }
+
+    .sequence-cover {
+        object-fit: contain;
+        aspect-ratio: 4/3;
+        width: 100%;
+        background: #f5f5f5;
+    }
+
+    .sequence-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 1rem;
+        align-items: start;
+    }
+
+    .sequence-card-expanded {
+        grid-column: 1 / -1;
+    }
+
+    .sequence-summary {
+        display: grid;
+        grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+        gap: 1rem;
+        align-items: start;
+    }
+
+    .sequence-summary-meta {
+        min-width: 0;
+    }
+
+    .sequence-mediafiles {
+        border-top: 1px solid rgba(0, 0, 0, 0.08);
+        padding-top: 1rem;
+    }
+
+    .sequence-mediafiles[hidden] {
+        display: none !important;
+    }
+
+    .sequence-mediafile-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(240px, 280px));
+        gap: 0.75rem;
+        justify-content: start;
+    }
+
+    .sequence-mediafile-card img {
+        object-fit: contain;
+        aspect-ratio: 4/3;
+        width: 100%;
+        background: #f5f5f5;
+    }
+
+    @media (max-width: 767px) {
+        .sequence-summary {
+            grid-template-columns: 1fr;
+        }
+
+        .sequence-mediafile-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+{% block body %}
+    {% if user.is_authenticated %}
+        <div class="pagetitle">
+            <h1>{{ page_title }}</h1>
+            <nav>
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li>
+                    <li class="breadcrumb-item active">Sequences</li>
+                </ol>
+            </nav>
+        </div>
+
+        <section class="section">
+            {% include "caidapp/filter_collapse.html" %}
+
+            <form method="POST">
+                {% csrf_token %}
+
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <div class="d-flex flex-wrap gap-3 align-items-end">
+                            {% for field in form_bulk_processing %}
+                                <div>
+                                    <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                                    {{ field|add_class:"form-select" }}
+                                    <button
+                                        class="btn btn-primary mt-2"
+                                        name="btnBulkProcessing_{{ field.id_for_label }}"
+                                        type="submit"
+                                    >
+                                        Apply to selection
+                                    </button>
+                                </div>
+                            {% endfor %}
+                        </div>
+                        <div class="mt-3 text-muted small">
+                            {{ number_of_sequences }} sequences, {{ number_of_mediafiles }} media files in current filter.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    {% include "caidapp/pagination_a.html" %}
+                </div>
+
+                <div class="sequence-grid">
+                    {% for sequence in sequence_objects %}
+                        <div class="card sequence-card" id="sequence-card-{{ sequence.id }}">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <div class="form-check">
+                                        <input
+                                            class="form-check-input js-sequence-checkbox"
+                                            type="checkbox"
+                                            name="selected_sequence_ids"
+                                            value="{{ sequence.id }}"
+                                            id="sequence-checkbox-{{ sequence.id }}"
+                                        >
+                                        <label class="form-check-label" for="sequence-checkbox-{{ sequence.id }}">
+                                            Sequence {{ sequence.local_id|default:sequence.id }}
+                                        </label>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        class="btn btn-sm btn-outline-secondary js-toggle-sequence"
+                                        data-sequence-id="{{ sequence.id }}"
+                                        aria-expanded="false"
+                                    >
+                                        Show media files
+                                    </button>
+                                </div>
+
+                                <div class="sequence-summary">
+                                    <div>
+                                        {% if sequence.cover_mediafile and sequence.cover_mediafile.thumbnail %}
+                                            <a href="{% url 'caidapp:media_file_update' sequence.cover_mediafile.id %}?next={{ request.get_full_path|urlencode }}">
+                                                <img class="sequence-cover rounded" src="{{ sequence.cover_mediafile.thumbnail.url }}" alt="Sequence cover">
+                                            </a>
+                                        {% else %}
+                                            <div class="sequence-cover rounded"></div>
+                                        {% endif %}
+                                    </div>
+
+                                    <div class="sequence-summary-meta">
+                                        <div><strong>Count:</strong> {{ sequence.mediafile_count }}</div>
+                                        <div><strong>First captured:</strong> {{ sequence.first_captured_at|date:'Y-m-d H:i' }}</div>
+                                        {% if sequence.has_multiple_taxa %}
+                                            <div><strong>Taxon:</strong> Mixed taxa</div>
+                                        {% elif sequence.cover_mediafile and sequence.cover_mediafile.taxon %}
+                                            <div><strong>Taxon:</strong> {{ sequence.cover_mediafile.taxon }}</div>
+                                        {% endif %}
+                                        {% if sequence.has_multiple_localities %}
+                                            <div><strong>Locality:</strong> Multiple localities</div>
+                                        {% elif sequence.cover_mediafile and sequence.cover_mediafile.locality %}
+                                            <div><strong>Locality:</strong> {{ sequence.cover_mediafile.locality.visible_name }}</div>
+                                        {% endif %}
+                                        {% if sequence.has_multiple_identities %}
+                                            <div><strong>Identity:</strong> Mixed identities</div>
+                                        {% elif sequence.cover_mediafile and sequence.cover_mediafile.identity %}
+                                            <div><strong>Identity:</strong> {{ sequence.cover_mediafile.identity }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+
+                                <div class="mt-3 sequence-mediafiles" id="sequence-mediafiles-{{ sequence.id }}" hidden>
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <div class="form-check">
+                                            <input
+                                                class="form-check-input js-sequence-select-all"
+                                                type="checkbox"
+                                                data-sequence-id="{{ sequence.id }}"
+                                                id="sequence-select-all-{{ sequence.id }}"
+                                            >
+                                            <label class="form-check-label" for="sequence-select-all-{{ sequence.id }}">
+                                                Select all media files in sequence
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="sequence-mediafile-grid">
+                                        {% for mediafile in sequence.mediafile_set.all %}
+                                            {% include "caidapp/includes/mediafile_card.html" with mediafile=mediafile sequence=sequence selectable=True show_locality=False request=request only %}
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% empty %}
+                        <div class="alert alert-secondary">No sequences matched the current filter.</div>
+                    {% endfor %}
+                </div>
+            </form>
+        </section>
+
+        <script>
+            document.addEventListener("DOMContentLoaded", function() {
+                document.querySelectorAll(".js-toggle-sequence").forEach(function(button) {
+                    button.addEventListener("click", function() {
+                        const sequenceId = this.dataset.sequenceId;
+                        const panel = document.getElementById(`sequence-mediafiles-${sequenceId}`);
+                        const card = document.getElementById(`sequence-card-${sequenceId}`);
+                        const isExpanded = !panel.hasAttribute("hidden");
+                        if (isExpanded) {
+                            panel.setAttribute("hidden", "");
+                            card.classList.remove("sequence-card-expanded");
+                            this.setAttribute("aria-expanded", "false");
+                            this.textContent = "Show media files";
+                        } else {
+                            panel.removeAttribute("hidden");
+                            card.classList.add("sequence-card-expanded");
+                            this.setAttribute("aria-expanded", "true");
+                            this.textContent = "Hide media files";
+                        }
+                    });
+                });
+
+                document.querySelectorAll(".js-sequence-select-all").forEach(function(toggle) {
+                    toggle.addEventListener("change", function() {
+                        const sequenceId = this.dataset.sequenceId;
+                        document.querySelectorAll(`.js-mediafile-checkbox[data-sequence-id="${sequenceId}"]`).forEach(function(checkbox) {
+                            checkbox.checked = toggle.checked;
+                            checkbox.dispatchEvent(new Event("change"));
+                        });
+                    });
+                });
+
+                document.querySelectorAll(".js-sequence-checkbox").forEach(function(checkbox) {
+                    checkbox.addEventListener("change", function() {
+                        const sequenceId = this.value;
+                        const card = document.getElementById(`sequence-card-${sequenceId}`);
+                        if (this.checked) {
+                            const panel = document.getElementById(`sequence-mediafiles-${sequenceId}`);
+                            panel.removeAttribute("hidden");
+                            card.classList.add("sequence-card-expanded");
+                        }
+                        document.querySelectorAll(`.js-mediafile-checkbox[data-sequence-id="${sequenceId}"]`).forEach(function(mediafileCheckbox) {
+                            mediafileCheckbox.dispatchEvent(new Event("change"));
+                        });
+                    });
+                });
+
+                document.querySelectorAll(".js-mediafile-checkbox").forEach(function(checkbox) {
+                    checkbox.addEventListener("change", function() {
+                        const sequenceId = this.dataset.sequenceId;
+                        const sequenceCheckbox = document.getElementById(`sequence-checkbox-${sequenceId}`);
+                        const marker = document.querySelector(
+                            `.js-deselected-mediafile-marker[data-mediafile-id="${this.value}"]`
+                        );
+
+                        if (sequenceCheckbox && sequenceCheckbox.checked && !this.checked) {
+                            marker.disabled = false;
+                        } else {
+                            marker.disabled = true;
+                        }
+                    });
+                });
+            });
+        </script>
+    {% endif %}
+{% endblock %}
