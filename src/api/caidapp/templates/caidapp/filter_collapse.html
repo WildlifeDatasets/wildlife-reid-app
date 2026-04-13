@@ -2,6 +2,11 @@
 {% load custom_filters %}
 
 <form method="GET">
+    {% for key, value in request.GET.items %}
+        {% if key != "page" and key not in filter.form.fields %}
+            <input type="hidden" name="{{ key }}" value="{{ value }}">
+        {% endif %}
+    {% endfor %}
     <div class="d-flex align-items-center mt-2">
         <a class="btn btn-secondary" data-bs-toggle="collapse" href="#collapseFilterProcessing"
            role="button"

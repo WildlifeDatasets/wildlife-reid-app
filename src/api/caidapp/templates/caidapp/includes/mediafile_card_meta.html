@@ -16,5 +16,14 @@
     </div>
 {% endif %}
 {% if mediafile.locality and show_locality %}
-    <div class="small">Locality: {{ mediafile.locality.visible_name }}</div>
+    <div class="small">
+        Locality:
+        <a class="link-secondary" href="{% url 'caidapp:media_files_locality' mediafile.locality.hash %}">
+            {% if request.session.private_mode %}
+                {{ mediafile.locality.visible_name }}
+            {% else %}
+                {{ mediafile.locality.name }}
+            {% endif %}
+        </a>
+    </div>
 {% endif %}

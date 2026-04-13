@@ -2656,6 +2656,37 @@ def _get_sequences_queryset_from_mediafiles(full_mediafiles: QuerySet) -> QueryS
     return sequences
 
 
+SEQUENCE_PER_PAGE_OPTIONS = [12, 24, 48, 96, 192]
+SEQUENCE_SORT_OPTIONS = {
+    "captured_desc": {"label": "Newest first", "order_by": ("-first_captured_at", "-first_mediafile_id", "-pk")},
+    "captured_asc": {"label": "Oldest first", "order_by": ("first_captured_at", "first_mediafile_id", "pk")},
+    "count_desc": {"label": "Most files first", "order_by": ("-mediafile_count", "-first_captured_at", "-pk")},
+    "count_asc": {"label": "Fewest files first", "order_by": ("mediafile_count", "first_captured_at", "pk")},
+    "sequence_asc": {"label": "Sequence number ascending", "order_by": ("local_id", "first_captured_at", "pk")},
+    "sequence_desc": {"label": "Sequence number descending", "order_by": ("-local_id", "-first_captured_at", "-pk")},
+}
+
+
+def _get_sequence_records_per_page(request, explicit_value: Optional[int] = None) -> int:
+    """Return validated per-page value for sequence view."""
+    raw_value = explicit_value if explicit_value is not None else request.GET.get("per_page")
+    try:
+        value = int(raw_value) if raw_value is not None else request.session.get("mediafiles_records_per_page", 24)
+    except (TypeError, ValueError):
+        value = 24
+    if value not in SEQUENCE_PER_PAGE_OPTIONS:
+        value = 24
+    return value
+
+
+def _get_sequence_sort(request) -> str:
+    """Return validated sort key for sequence view."""
+    sort = request.GET.get("sort", "captured_desc")
+    if sort not in SEQUENCE_SORT_OPTIONS:
+        return "captured_desc"
+    return sort
+
+
 def _resolve_selected_mediafile_ids_from_post(request) -> List[int]:
     """Resolve bulk-selected mediafiles from sequence and mediafile checkboxes."""
     selected_sequence_ids = [int(v) for v in request.POST.getlist("selected_sequence_ids") if str(v).isdigit()]
@@ -2685,8 +2716,11 @@ def sequences(
 ) -> HttpResponse:
     """List sequences with inline mediafile expansion."""
     logger.debug("Starting Sequence view")
-    if records_per_page is None:
-        records_per_page = request.session.get("mediafiles_records_per_page", 20)
+    view_mode = request.GET.get("view", "cards")
+    if view_mode not in {"cards", "list"}:
+        view_mode = "cards"
+    records_per_page = _get_sequence_records_per_page(request, records_per_page)
+    sort_key = _get_sequence_sort(request)
 
     albums_available = (
         Album.objects.filter(Q(albumsharerole__user=request.user.caiduser) | Q(owner=request.user.caiduser))
@@ -2706,7 +2740,9 @@ def sequences(
         extra_filter_kwargs=filter_kwargs,
     )
 
-    sequence_queryset = _get_sequences_queryset_from_mediafiles(full_mediafiles)
+    sequence_queryset = _get_sequences_queryset_from_mediafiles(full_mediafiles).order_by(
+        *SEQUENCE_SORT_OPTIONS[sort_key]["order_by"]
+    )
     paginator = Paginator(sequence_queryset, per_page=records_per_page)
     page_with_sequences, _, page_context = _prepare_page(
         paginator,
@@ -2782,6 +2818,11 @@ def sequences(
         "number_of_mediafiles": full_mediafiles.count(),
         "show_overview_button": show_overview_button,
         "filter": mediafile_filter,
+        "view_mode": view_mode,
+        "records_per_page": records_per_page,
+        "sort_key": sort_key,
+        "sequence_sort_options": SEQUENCE_SORT_OPTIONS,
+        "sequence_per_page_options": SEQUENCE_PER_PAGE_OPTIONS,
         "sequence_objects": ordered_sequences,
         "sequence_lookup": sequence_lookup,
         "sequences_stats_query_string": _build_sequence_scope_query_string(
