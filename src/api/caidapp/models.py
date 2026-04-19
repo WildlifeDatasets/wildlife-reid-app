@@ -1209,6 +1209,11 @@ class MediaFile(models.Model):
         on_delete=models.CASCADE,
         related_name="mediafiles",
     )
+    location = PlainLocationField(
+        zoom=7,
+        null=True,
+        blank=True,
+    )
     captured_at = models.DateTimeField("Captured at", blank=True, null=True)
     mediafile = models.FileField(
         "Media File",
@@ -1254,6 +1259,24 @@ class MediaFile(models.Model):
 
     def __str__(self):
         return str(self.original_filename)
+
+    @property
+    def effective_location(self):
+        """Return explicit mediafile location or fallback to locality location."""
+        if self.location:
+            return self.location
+        if self.locality and self.locality.location:
+            return self.locality.location
+        return None
+
+    @property
+    def effective_location_source(self) -> Optional[str]:
+        """Return source of effective location."""
+        if self.location:
+            return "mediafile"
+        if self.locality and self.locality.location:
+            return "locality"
+        return None
 
     def extract_original_filename(self, commit=True):
         """Extract original filename from metadata_json or mediafile."""

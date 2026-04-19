@@ -173,7 +173,7 @@ def _prepare_dataframe_for_identification(mediafiles) -> dict:
         csv_data["locality_id"][i] = int(mediafile.locality.id) if mediafile.locality else None
         csv_data["locality_name"][i] = str(mediafile.locality.name) if mediafile.locality else ""
         csv_data["locality_coordinates"][i] = (
-            str(mediafile.locality.location) if (mediafile.locality and mediafile.locality.location) else None
+            str(mediafile.effective_location) if mediafile.effective_location else None
         )
         csv_data["sequence_number"][i] = mediafile.sequence.local_id if mediafile.sequence else None
         # logger.debug(f"{mediafile.metadata_json=}")

@@ -520,6 +520,7 @@ class MediaFileForm(forms.ModelForm):
             # "taxon",
             # "taxon_verified",
             "locality",
+            "location",
             # "identity",
             # "identity_is_representative",
             "captured_at",

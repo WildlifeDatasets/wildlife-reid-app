@@ -202,6 +202,8 @@ class MediaFileUpdateView(LoginRequiredMixin, UpdateWithInlinesView):
         next_url = self.request.POST.get("next") or self.request.GET.get("next")
         next_url = self.request.GET.get("next", "")
         context["next"] = next_url
+        context["effective_location"] = self.object.effective_location
+        context["effective_location_source"] = self.object.effective_location_source
         return context
 
 

@@ -3,6 +3,11 @@
 
 ## Release v0.5.0 – identification workflow overhaul
 
+
+## 2026-04
+* [added] Location can be set for media file
+* [added] Outlayer detection almost ready
+
 ## 2026-03
 * [changed] Better smoke test with factory
 * [added] Identity code can be defined by regex in the work group settings

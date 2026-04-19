@@ -3,6 +3,7 @@
 {% load crispy_forms_tags %}
 {# add style #}
 {% block head %}
+    {{ form.media }}
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js"></script>
     <style>
         /* Increase the size of the carousel control icons */
@@ -312,10 +313,52 @@ Observation ID: {{ obs_form.instance.id }}
 
                                         {% for field in form %}
                                             <div>
-                                                <label for="{{ field.id_for_label }}"
-                                                       class="mt-1">{{ field.label }}</label><br>
-                                                <!-- Label on its own line -->
-                                                {{ field }}  <!-- Field on the next line -->
+                                                {% if field.name == "locality" %}
+                                                    <div class="d-flex align-items-center gap-2 mt-1">
+                                                        <label for="{{ field.id_for_label }}" class="mb-0">{{ field.label }}</label>
+                                                        <button type="button"
+                                                                class="btn btn-link p-0 border-0 {% if mediafile.location %}text-primary{% else %}text-secondary{% endif %}"
+                                                                data-bs-toggle="collapse"
+                                                                data-bs-target="#mediafile-location-collapse"
+                                                                aria-expanded="false"
+                                                                aria-controls="mediafile-location-collapse"
+                                                                title="Show or hide map location editor">
+                                                            <i class="bi bi-geo-alt-fill"></i>
+                                                        </button>
+                                                    </div>
+                                                    {{ field }}
+                                                    {% if effective_location %}
+                                                        <small class="form-text text-muted">
+                                                            Effective location:
+{#                                                            {{ effective_location }}#}
+                                                            {% if effective_location_source == "mediafile" %}
+                                                                (from media file)
+                                                            {% elif effective_location_source == "locality" %}
+                                                                (from locality)
+                                                            {% endif %}
+                                                        </small>
+                                                    {% else %}
+                                                        <small class="form-text text-muted">No location available.</small>
+                                                    {% endif %}
+                                                {% elif field.name == "location" %}
+                                                    <div id="mediafile-location-collapse"
+                                                         class="collapse{% if field.errors %} show{% endif %}">
+                                                        <label for="{{ field.id_for_label }}" class="mt-1">{{ field.label }}</label><br>
+                                                        {{ field }}
+                                                        <div class="mt-1 d-flex align-items-center gap-2 flex-wrap">
+                                                            <button type="button"
+                                                                    class="btn btn-outline-secondary btn-sm"
+                                                                    onclick="clearMediaFileLocationField()">
+                                                                <i class="bi bi-geo-alt"></i>
+                                                                Remove explicit location
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                {% else %}
+                                                    <label for="{{ field.id_for_label }}"
+                                                           class="mt-1">{{ field.label }}</label><br>
+                                                    {{ field }}
+                                                {% endif %}
                                                 {% if field.id_for_label == "id_identity" %}
                                                     <button type="button" class="btn btn-outline-primary btn-sm"
                                                             onclick="window.location.href='{% url 'caidapp:individual_identity_create' mediafile.id %}?next={{ request.path }}'">
@@ -481,6 +524,13 @@ mediafile.taxon: {{ mediafile.taxon }}
 {% endblock %}
 {% block script %}
     <script>
+        function clearMediaFileLocationField() {
+            const field = document.getElementById("id_location");
+            if (!field) return;
+            field.value = "";
+            field.dispatchEvent(new Event("change", {bubbles: true}));
+        }
+
         function setCategoryAndSubmitInObservation(predictedTaxon, observationIndex) {
             {#const categoryDropdown = document.getElementById('id_observations-0-taxon');#}
             const categoryDropdown = document.getElementById('id_observations-' + observationIndex + '-taxon');
