@@ -531,6 +531,12 @@ mediafile.taxon: {{ mediafile.taxon }}
             field.dispatchEvent(new Event("change", {bubbles: true}));
         }
 
+        function refreshCollapsedLocationMap() {
+            window.dispatchEvent(new Event("resize"));
+            setTimeout(() => window.dispatchEvent(new Event("resize")), 150);
+            setTimeout(() => window.dispatchEvent(new Event("resize")), 400);
+        }
+
         function setCategoryAndSubmitInObservation(predictedTaxon, observationIndex) {
             {#const categoryDropdown = document.getElementById('id_observations-0-taxon');#}
             const categoryDropdown = document.getElementById('id_observations-' + observationIndex + '-taxon');
@@ -777,6 +783,7 @@ mediafile.taxon: {{ mediafile.taxon }}
             const container = document.getElementById("observation-forms");
             const emptyFormDiv = document.getElementById("empty-form");
             const totalFormsInput = document.querySelector('[name$="TOTAL_FORMS"]');
+            const locationCollapse = document.getElementById("mediafile-location-collapse");
 
             addBtn.addEventListener("click", function () {
                 const formIndex = parseInt(totalFormsInput.value);
@@ -789,6 +796,10 @@ mediafile.taxon: {{ mediafile.taxon }}
 
                 totalFormsInput.value = formIndex + 1; // update management form count
             });
+
+            if (locationCollapse) {
+                locationCollapse.addEventListener("shown.bs.collapse", refreshCollapsedLocationMap);
+            }
         });
 
 

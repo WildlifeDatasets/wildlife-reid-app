@@ -131,6 +131,10 @@ MIDDLEWARE = [
     "caidapp.middleware.ImpersonateMiddleware",
 ]
 
+# OpenStreetMap tiles now require a Referer header for web apps.
+# Keep a privacy-preserving but non-empty policy so Leaflet tile requests work.
+SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
+
 STATICFILES_FINDERS = [
     "django.contrib.staticfiles.finders.FileSystemFinder",
     "django.contrib.staticfiles.finders.AppDirectoriesFinder",
