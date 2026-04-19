@@ -511,6 +511,12 @@ def add_datetime_from_exif_in_parallel(
     """Get list of datetimes from EXIF.
 
     The EXIF information is extracted in single-core way but with the help of ExifTool.
+
+    return:
+       datetime_list:
+       error_list: str describing the error
+       source_list: list with description of the source of the date time information (EXIF, OCR, file system)
+       exifs: dicts with the original EXIF data
     """
     logger.debug(f"Getting EXIFs from {len(original_paths)} files.")
     # Collect EXIF info
