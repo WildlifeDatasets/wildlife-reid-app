@@ -16,6 +16,7 @@ from django.db.models import Count, Q, Exists, OuterRef
 from django.db.models.query import QuerySet
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from django.utils.text import slugify
 from django.urls import reverse_lazy
 from location_field.models.plain import PlainLocationField
 from tqdm import tqdm
@@ -332,6 +333,24 @@ class WorkGroup(models.Model):
             logger.error("No mediafiles found for identification init.")
 
         return mediafiles_qs
+
+
+    def file_path(self, filename:str):
+        workgroup = self
+        # turn workgroup name into url firendly string
+        pth = Path(settings.MEDIA_ROOT) / f"workgroups/{slugify(workgroup.name)}/{workgroup.hash}/{str(filename)}"
+        logger.debug(f"{pth=}")
+        logger.debug(f"{pth.exists()=}")
+        return pth
+
+    def file_url(self, filename:str):
+        workgroup = self
+        download_url = settings.MEDIA_URL + f"workgroups/{slugify(workgroup.name)}/{workgroup.hash}/{str(filename)}"
+        # wrapp into url
+        logger.debug(f"{download_url=}")
+
+        return download_url
+
 
 
 class CaIDUser(models.Model):
@@ -1892,3 +1911,14 @@ class MergeIdentitySuggestionResult(models.Model):
 
     def __str__(self):
         return f"Suggestions for {self.workgroup} at {self.created_at}"
+
+
+class IdentificationOutlierSuggestionResult(models.Model):
+    workgroup = models.ForeignKey(WorkGroup, on_delete=models.CASCADE, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    status = models.CharField(max_length=32, default="pending")
+    message = models.TextField(blank=True, default="")
+    suggestions = models.JSONField(default=list, blank=True)
+
+    def __str__(self):
+        return f"Identification outliers for {self.workgroup} at {self.created_at}"

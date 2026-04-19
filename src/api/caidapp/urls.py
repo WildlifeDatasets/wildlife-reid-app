@@ -469,6 +469,26 @@ urlpatterns = [
         name="refresh_merge_identities_suggestions",
     ),
     path(
+        "identification_outliers/run/",
+        views.run_identification_outlier_detection_view,
+        name="run_identification_outlier_detection",
+    ),
+    path(
+        "identification_outliers/",
+        views.identification_outlier_suggestions_view,
+        name="identification_outlier_suggestions",
+    ),
+    path(
+        "identification_outliers/<int:result_id>/",
+        views.identification_outlier_suggestions_view,
+        name="identification_outlier_suggestions_result",
+    ),
+    path(
+        "identification_outliers/accept/",
+        views.accept_identification_outlier_suggestion_view,
+        name="accept_identification_outlier_suggestion",
+    ),
+    path(
         "update_uploaded_archive_with_spreadsheet/<int:uploaded_archive_id>/",
         views.UpdateUploadedArchiveBySpreadsheetFile.as_view(),
         name="update_uploaded_archive_with_spreadsheet",

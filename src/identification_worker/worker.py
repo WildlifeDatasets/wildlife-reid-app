@@ -557,3 +557,83 @@ def predict(
         logger.critical(f"Returning unexpected error output: '{error}'.")
         out = {"status": "ERROR", "error": error}
     return out
+
+
+@identification_worker.task(bind=True, name="detect_identification_outliers")
+def detect_identification_outliers(
+    self,
+    organization_id: int,
+    input_metadata_file: str = "",
+    # mediafile_paths=None,
+    **kwargs,
+):
+    """Demo contract for identification outlier detection.
+
+    This function is intentionally simple so the future implementation is easy to
+    replace. The web app currently needs mainly:
+    - which query image looks suspicious
+    - its current identity
+    - candidate identities with score
+    - a path to the candidate media file so API can resolve MediaFile id
+    """
+    # read metadata file
+    metadata = pd.read_csv(input_metadata_file)
+    assert "image_path" in metadata
+    assert "class_id" in metadata, "Identity id should be in `class_id` column"
+    assert "label" in metadata, "Label should be in `label` column"
+
+    # logger.debug(f"{mediafile_paths[:5]=}")
+    # logger.debug(f"{metadata['image_path'][:5]=}")
+    mediafile_paths = list(metadata["image_path"])
+    class_ids = list(metadata["class_id"])
+
+    logger.info(
+        "Starting identification outlier detection for organization_id=%s with %s explicit paths.",
+        organization_id,
+        0 if mediafile_paths is None else len(mediafile_paths),
+    )
+
+    # Demo output:
+    # - first suspicious query is mediafile_paths[0]
+    # - second suspicious query is mediafile_paths[1]
+    # - the two most similar examples are the last two media files from the input
+
+    suggestions = [
+
+            {
+                "query_idx": 0,
+                "suspicious_path": mediafile_paths[0],
+                "current_identity_id": int(class_ids[0]),
+                "reason": "Demo suggestion for the first query image.",
+                "suggestions": [
+                    {
+                        "identity_id": int(class_ids[-1]),
+                        "mediafile_path": mediafile_paths[-1],
+                        "score": 0.77,
+                        "reason": "Pretend the last media file is the closest match.",
+                    },
+                ],
+            },
+            {
+                "query_idx": 1,
+                "suspicious_path": mediafile_paths[1],
+                "current_identity_id": int(class_ids[1]),
+                "reason": "Demo suggestion for the second query image.",
+                "suggestions": [
+                    {
+                        "identity_id": int(class_ids[-2]) ,
+                        "mediafile_path": mediafile_paths[-2],
+                        "score": 0.74,
+                        "reason": "Pretend the last media file is the closest match.",
+                    },
+                ],
+            }
+        ]
+
+    return {
+        "status": "DONE",
+        "message": "Demo identification outlier output with suggestions for the first two media files.",
+        "suggestions": suggestions,
+        "organization_id": organization_id,
+        "input_metadata_file": input_metadata_file,
+    }

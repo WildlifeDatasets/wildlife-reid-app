@@ -1,9 +1,9 @@
 import logging
-
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
 from django.db.models import Q
 from django.shortcuts import redirect
+from django.urls import reverse
 from tqdm import tqdm
 
 from . import models
@@ -26,6 +26,10 @@ def do_admin_stuff(request, process_name: str):
     elif process_name == "force_refresh_thumbnails":
         refresh_thumbnails(request, force=True)
         return redirect(request.META.get("HTTP_REFERER", "/"))
+    elif process_name == "run_identification_outlier_detection":
+        return redirect(reverse("caidapp:run_identification_outlier_detection"))
+    elif process_name == "show_identification_outlier_detection":
+        return redirect(reverse("caidapp:identification_outlier_suggestions"))
     else:
         messages.error(request, f"Process name '{process_name}' not recognized.")
         return redirect(request.META.get("HTTP_REFERER", "/"))

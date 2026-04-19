@@ -84,5 +84,19 @@
         <i class="bi bi-images"></i>
         Assign unidentified </a>
 </li>
+<li>
+    <a class="dropdown-item d-flex align-items-center"
+       href="{% url 'caidapp:do_admin_stuff' 'run_identification_outlier_detection' %}"
+       title="Run detection of suspicious identity assignments in the current workgroup." data-bs-toggle="tooltip">
+        <i class="bi bi-search"></i>
+        Run ID outlier detection</a>
+</li>
+<li>
+    <a class="dropdown-item d-flex align-items-center"
+       href="{% url 'caidapp:do_admin_stuff' 'show_identification_outlier_detection' %}"
+       title="Show suspicious identity assignments and their suggested alternatives." data-bs-toggle="tooltip">
+        <i class="bi bi-grid"></i>
+        Show ID outliers</a>
+</li>
 {#    </ul>#}
 {#</li>#}

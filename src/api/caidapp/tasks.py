@@ -1807,3 +1807,146 @@ def assign_unidentified_to_identification(caiduser: CaIDUser):
 def refresh_identities_suggestions_task(workgroup_id, limit=100):
     """Refresh identities suggestions task."""
     return compute_identity_suggestions(workgroup_id, limit)
+
+
+def run_identification_outlier_detection_for_workgroup(
+    workgroup: WorkGroup,
+) -> models.IdentificationOutlierSuggestionResult:
+    """Prepare metadata and start identification outlier detection for a workgroup."""
+    mediafiles_qs = (
+        MediaFile.objects.filter(
+            parent__owner__workgroup=workgroup,
+            identity__isnull=False,
+        )
+        .select_related("identity", "locality", "sequence", "parent")
+        .order_by("id")
+    )
+
+    # output_dir = Path(settings.MEDIA_ROOT) / workgroup.name / workgroup.hash
+    # output_dir.mkdir(exist_ok=True, parents=True)
+    # metadata_file = output_dir / "identification_outliers.csv"
+    metadata_file = workgroup.file_path("identification_outliers.csv")
+    metadata_file.parent.mkdir(exist_ok=True, parents=True)
+
+    csv_data = _prepare_dataframe_for_identification(mediafiles_qs)
+    pd.DataFrame(csv_data).to_csv(metadata_file, index=False)
+
+    result = models.IdentificationOutlierSuggestionResult.objects.create(
+        workgroup=workgroup,
+        status="processing",
+        message=f"Prepared {len(csv_data['image_path'])} identified media files for outlier detection.",
+        suggestions=[],
+    )
+
+    media_root = Path(settings.MEDIA_ROOT)
+    mediafile_paths = [str(media_root / mf.image_file.name) for mf in mediafiles_qs]
+
+    sig = signature(
+        "detect_identification_outliers",
+        kwargs={
+            "organization_id": workgroup.id,
+            "input_metadata_file": str(metadata_file),
+            "mediafile_paths": mediafile_paths,
+            "identification_model": {
+                "name": workgroup.identification_model.name if workgroup.identification_model else "",
+                "path": (
+                    str(workgroup.identification_model.model_path)
+                    if workgroup.identification_model and workgroup.identification_model.model_path
+                    else "hf-hub:strakajk/LynxV4-MegaDescriptor-v2-T-256"
+                ),
+            },
+        },
+    )
+    sig.apply_async(
+        link=identification_outlier_detection_on_success.s(result_id=result.id),
+        link_error=identification_outlier_detection_on_error.s(result_id=result.id),
+    )
+    return result, metadata_file
+
+
+@shared_task
+def identification_outlier_detection_on_success(output: dict, *args, **kwargs):
+    """Persist worker output of identification outlier detection."""
+    result_id = kwargs.pop("result_id")
+    result = models.IdentificationOutlierSuggestionResult.objects.get(id=result_id)
+    workgroup = result.workgroup
+
+    status = output.get("status", "unknown")
+    result.status = "done" if status == "DONE" else str(status).lower()
+    result.message = output.get("message", "")
+    result.suggestions = _normalize_identification_outlier_suggestions(output.get("suggestions", []))
+    result.save(update_fields=["status", "message", "suggestions"])
+
+    if workgroup is not None:
+        models.Notification.create_for(
+            message=f"Identification outlier detection finished for workgroup {workgroup}.",
+            workgroups=[workgroup],
+            level=models.Notification.INFO,
+        )
+
+    return result.id
+
+
+def _resolve_mediafile_from_worker_path(path_str: str) -> MediaFile | None:
+    """Resolve worker image path back to MediaFile when possible."""
+    if not path_str:
+        return None
+
+    media_root = Path(settings.MEDIA_ROOT)
+    normalized_path_str = str(path_str).replace("/masked_images/", "/images/")
+    try:
+        relpath = Path(normalized_path_str).relative_to(media_root)
+    except Exception:
+        return None
+
+    return MediaFile.objects.filter(image_file=str(relpath)).first()
+
+
+def _normalize_identification_outlier_suggestions(raw_suggestions: list[dict]) -> list[dict]:
+    """Enrich worker suggestions with API-side mediafile ids for the current UI."""
+    normalized = []
+    for raw_item in raw_suggestions or []:
+        item = dict(raw_item)
+
+        if not item.get("suspicious_mediafile_id") and item.get("suspicious_path"):
+            suspicious_mediafile = _resolve_mediafile_from_worker_path(item["suspicious_path"])
+            if suspicious_mediafile is not None:
+                item["suspicious_mediafile_id"] = suspicious_mediafile.id
+
+        candidate_items = []
+        for raw_candidate in item.get("suggestions", []):
+            candidate = dict(raw_candidate)
+            if not candidate.get("mediafile_id"):
+                candidate_path = candidate.get("mediafile_path") or candidate.get("candidate_path")
+                if candidate_path:
+                    candidate_mediafile = _resolve_mediafile_from_worker_path(candidate_path)
+                    if candidate_mediafile is not None:
+                        candidate["mediafile_id"] = candidate_mediafile.id
+            candidate_items.append(candidate)
+
+        item["suggestions"] = candidate_items
+        normalized.append(item)
+
+    return normalized
+
+
+@shared_task(bind=True)
+def identification_outlier_detection_on_error(self, task_id: str, *args, **kwargs):
+    """Persist worker error of identification outlier detection."""
+    result_id = kwargs.pop("result_id")
+    result = models.IdentificationOutlierSuggestionResult.objects.get(id=result_id)
+    async_result = self.AsyncResult(task_id)
+    error_message = str(async_result.result) if async_result.failed() else "Unknown worker error."
+
+    result.status = "error"
+    result.message = error_message
+    result.save(update_fields=["status", "message"])
+
+    if result.workgroup is not None:
+        models.Notification.create_for(
+            message=f"Identification outlier detection failed for workgroup {result.workgroup}: {error_message}",
+            workgroups=[result.workgroup],
+            level=models.Notification.ERROR,
+        )
+
+    return result.id

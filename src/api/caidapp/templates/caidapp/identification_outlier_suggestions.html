@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <div>
+        <h1 class="h3 mb-1">Identification outlier suggestions</h1>
+        <p class="text-muted mb-0">
+          Status: <strong>{{ result.status }}</strong>
+          <br>Last run: <strong>{{ result.created_at|date:"Y-m-d H:i" }}</strong>
+          {% if result.message %}<br>{{ result.message }}{% endif %}
+        </p>
+      </div>
+      <div>
+          <a class="link-muted" href={{ csv_url }}>Download CSV</a>
+        <a class="btn btn-secondary" href="{% url 'caidapp:run_identification_outlier_detection' %}">Run again</a>
+      </div>
+    </div>
+
+    {% if suggestion_cards %}
+      {% for card in suggestion_cards %}
+        <div class="card shadow-sm mb-4">
+          <div class="card-body">
+            <div class="row g-5 mb-3">
+              <div class="col-lg-6">
+                <div class="small text-uppercase text-muted fw-semibold">Original assignment</div>
+              </div>
+              <div class="col-lg-6">
+                <div class="small text-uppercase text-muted fw-semibold">Suggested alternative</div>
+              </div>
+            </div>
+            <div class="row g-5">
+              <div class="col-lg-6">
+                  <div class="card border rounded-4 overflow-hidden">
+                {% if card.suspicious_mediafile %}
+                  {% with mediafile=card.suspicious_mediafile.object %}
+                      <div class="ratio ratio-4x3 bg-body-tertiary">
+                        {% if mediafile.thumbnail %}
+                          <a href="{% url 'caidapp:media_file_update' mediafile.id %}?next={{ request.get_full_path|urlencode }}">
+                            <img
+                              class="card-img-top w-100"
+                              style="object-fit: cover;"
+                              src="{{ mediafile.thumbnail.url }}"
+                              alt="Media file thumbnail"
+                            >
+                          </a>
+                        {% else %}
+                          <div class="d-flex align-items-center justify-content-center text-muted h-100">No thumbnail</div>
+                        {% endif %}
+                      </div>
+                      <div class="card-body position-relative">
+                        <span
+                          class="position-absolute top-0 end-0 mt-3 me-3 text-muted"
+                          title="{% if card.suspicious_mediafile.tooltip_text %}{{ card.suspicious_mediafile.tooltip_text }}{% endif %}{% if card.reason %}{% if card.suspicious_mediafile.tooltip_text %}&#10;{% endif %}Reason: {{ card.reason }}{% endif %}"
+                          data-bs-toggle="tooltip"
+                        >
+                          <i class="bi bi-info-circle"></i>
+                        </span>
+                        <p class="mb-2">
+                          <strong>Current identity:</strong>
+                          {% if card.current_identity %}
+                            <a href="{% url 'caidapp:individual_identity_update' card.current_identity.id %}" class="link-secondary">
+                              {{ card.current_identity }}
+                            </a>
+                          {% else %}
+                            <span class="text-muted">Unknown</span>
+                          {% endif %}
+                        </p>
+                        <div class="fw-semibold mb-2 text-truncate" title="{{ card.suspicious_mediafile.full_name }}">
+                          {{ card.suspicious_mediafile.display_name }}
+                        </div>
+                        <div class="mt-3">
+                          <a class="btn btn-secondary btn-sm" href="{% url 'caidapp:media_file_update' mediafile.id %}?next={{ request.get_full_path|urlencode }}">
+                            Detail
+                          </a>
+                        </div>
+                      </div>
+                  {% endwith %}
+                {% else %}
+                    <div class="card-body">
+                        <p class="text-muted mb-0">Media file could not be resolved from stored result.</p>
+                    </div>
+                {% endif %}
+                  </div>
+              </div>
+              <div class="col-lg-6">
+                {% if card.candidates %}
+                  <div class="row g-3">
+                    {% for candidate in card.candidates %}
+                      <div class="{% if card.candidates|length == 1 %}col-12{% else %}col-md-6{% endif %}">
+                        <div class="card border rounded-4 overflow-hidden h-100">
+                          {% if candidate.mediafile %}
+                            {% with mediafile=candidate.mediafile.object %}
+                              <div class="ratio ratio-4x3 bg-body-tertiary">
+                                {% if mediafile.thumbnail %}
+                                  <a href="{% url 'caidapp:media_file_update' mediafile.id %}?next={{ request.get_full_path|urlencode }}">
+                                    <img
+                                      class="card-img-top w-100 h-100"
+                                      style="object-fit: cover;"
+                                      src="{{ mediafile.thumbnail.url }}"
+                                      alt="Suggested media file thumbnail"
+                                    >
+                                  </a>
+                                {% else %}
+                                  <div class="d-flex align-items-center justify-content-center text-muted h-100">No thumbnail</div>
+                                {% endif %}
+                              </div>
+                            {% endwith %}
+                          {% endif %}
+                          <div class="card-body position-relative">
+                            <span
+                              class="position-absolute top-0 end-0 mt-3 me-3 text-muted"
+                              title="{% if candidate.mediafile and candidate.mediafile.tooltip_text %}{{ candidate.mediafile.tooltip_text }}{% endif %}{% if candidate.reason %}{% if candidate.mediafile and candidate.mediafile.tooltip_text %}&#10;{% endif %}Reason: {{ candidate.reason }}{% endif %}"
+                              data-bs-toggle="tooltip"
+                            >
+                              <i class="bi bi-info-circle"></i>
+                            </span>
+                            <p class="mb-2">
+                              <strong>Suggested identity:</strong>
+                              {% if candidate.identity %}
+                                <a href="{% url 'caidapp:individual_identity_update' candidate.identity.id %}" class="link-secondary">
+                                  {{ candidate.identity }}
+                                </a>
+                              {% else %}
+                                <span class="text-muted">Unknown identity</span>
+                              {% endif %}
+                            </p>
+                            {% if candidate.score %}
+                              <p class="text-muted mb-2">Score: {{ candidate.score }}</p>
+                            {% endif %}
+                            {% if candidate.mediafile %}
+                              {% with mediafile=candidate.mediafile.object %}
+                                <div class="fw-semibold mb-2 text-truncate" title="{{ candidate.mediafile.full_name }}">
+                                  {{ candidate.mediafile.display_name }}
+                                </div>
+                                <div class="mt-3">
+                                  {% if card.suspicious_mediafile and candidate.identity %}
+                                    <form method="post" action="{% url 'caidapp:accept_identification_outlier_suggestion' %}" class="d-inline">
+                                      {% csrf_token %}
+                                      <input type="hidden" name="suspicious_mediafile_id" value="{{ card.suspicious_mediafile.object.id }}">
+                                      <input type="hidden" name="suggested_identity_id" value="{{ candidate.identity.id }}">
+                                      <input type="hidden" name="result_id" value="{{ result.id }}">
+                                      <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                      <button type="submit" class="btn btn-primary btn-sm">Accept suggestion</button>
+                                    </form>
+                                  {% endif %}
+                                  <a class="btn btn-secondary btn-sm" href="{% url 'caidapp:media_file_update' mediafile.id %}?next={{ request.get_full_path|urlencode }}">
+                                    Detail
+                                  </a>
+                                </div>
+                              {% endwith %}
+                            {% else %}
+                              <p class="text-muted mb-0">Nearest media file not available yet.</p>
+                            {% endif %}
+                          </div>
+                        </div>
+                      </div>
+                    {% endfor %}
+                  </div>
+                {% else %}
+                  <p class="text-muted mb-0">No candidate alternatives stored yet.</p>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+    {% else %}
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <p class="mb-0">No suspicious media files were stored in this run yet.</p>
+        </div>
+      </div>
+    {% endif %}
+  </div>
+{% endblock %}

@@ -4552,6 +4552,164 @@ def suggest_merge_identities_view(request, limit: int = 100):
 
 
 @login_required
+def run_identification_outlier_detection_view(request):
+    """Start background detection of suspicious identity assignments for the current workgroup."""
+    if not (request.user.caiduser.workgroup_admin or request.user.is_staff):
+        raise PermissionDenied
+
+    workgroup = request.user.caiduser.workgroup
+    if workgroup is None:
+        return message_view(request, "No workgroup assigned.")
+
+    result, metadata_file = tasks.run_identification_outlier_detection_for_workgroup(workgroup)
+    messages.info(request, "Identification outlier detection has started.")
+    return redirect("caidapp:identification_outlier_suggestions_result", result_id=result.id)
+
+
+@login_required
+def identification_outlier_suggestions_view(request, result_id: int = None):
+    """Display latest suspicious identity assignments for the current workgroup."""
+    if not (request.user.caiduser.workgroup_admin or request.user.is_staff):
+        raise PermissionDenied
+
+    workgroup = request.user.caiduser.workgroup
+    if workgroup is None:
+        return message_view(request, "No workgroup assigned.")
+
+    queryset = models.IdentificationOutlierSuggestionResult.objects.filter(workgroup=workgroup).order_by("-id")
+    if result_id is not None:
+        result = get_object_or_404(queryset, id=result_id)
+    else:
+        result = queryset.first()
+
+    output_dir = Path(settings.MEDIA_ROOT) / workgroup.name
+    output_dir.mkdir(exist_ok=True, parents=True)
+    metadata_file = output_dir / "identification_outliers.csv"
+    # get download url of metadata_file
+
+
+    if result is None:
+        return message_view(
+            request,
+            "No identification outlier suggestions found yet.",
+            headline="No results yet",
+            link=reverse_lazy("caidapp:run_identification_outlier_detection"),
+            button_label="Start detection",
+        )
+
+    def _mediafile_card_data(mediafile: MediaFile | None) -> dict | None:
+        if mediafile is None:
+            return None
+        raw_name = str(mediafile.original_filename or mediafile.mediafile or mediafile.id)
+        short_name = Path(raw_name).name if raw_name else str(mediafile.id)
+        tooltip_parts = []
+        if mediafile.taxon:
+            tooltip_parts.append(f"Taxon: {mediafile.taxon}")
+        if mediafile.note:
+            tooltip_parts.append(f"Comments: {mediafile.note}")
+        return {
+            "object": mediafile,
+            "display_name": short_name,
+            "full_name": raw_name,
+            "tooltip_text": "\n".join(tooltip_parts),
+        }
+
+    suggestion_cards = []
+    for raw_item in result.suggestions or []:
+        suspicious_mediafile = None
+        current_identity = None
+        candidate_cards = []
+
+        suspicious_mediafile_id = raw_item.get("suspicious_mediafile_id")
+        current_identity_id = raw_item.get("current_identity_id")
+
+        if suspicious_mediafile_id:
+            suspicious_mediafile = MediaFile.objects.filter(id=suspicious_mediafile_id).first()
+        if current_identity_id:
+            current_identity = IndividualIdentity.objects.filter(id=current_identity_id).first()
+        elif suspicious_mediafile and suspicious_mediafile.identity_id:
+            current_identity = suspicious_mediafile.identity
+
+        for raw_candidate in raw_item.get("suggestions", []):
+            candidate_mediafile = MediaFile.objects.filter(id=raw_candidate.get("mediafile_id")).first()
+            candidate_cards.append(
+                {
+                    "identity": IndividualIdentity.objects.filter(id=raw_candidate.get("identity_id")).first(),
+                    "mediafile": _mediafile_card_data(candidate_mediafile),
+                    "score": raw_candidate.get("score"),
+                    "reason": raw_candidate.get("reason", ""),
+                }
+            )
+
+        suggestion_cards.append(
+            {
+                "suspicious_mediafile": _mediafile_card_data(suspicious_mediafile),
+                "current_identity": current_identity,
+                "reason": raw_item.get("reason", ""),
+                "candidates": candidate_cards,
+            }
+        )
+
+    csv_url = workgroup.file_url("identification_outliers.csv")
+    logger.debug(f"{csv_url=}")
+    return render(
+        request,
+        "caidapp/identification_outlier_suggestions.html",
+        {
+            "result": result,
+            "suggestion_cards": suggestion_cards,
+            "csv_url": csv_url,
+        },
+    )
+
+
+@login_required
+def accept_identification_outlier_suggestion_view(request):
+    """Accept one suggested identity for a suspicious media file."""
+    if request.method != "POST":
+        raise PermissionDenied
+
+    if not (request.user.caiduser.workgroup_admin or request.user.is_staff):
+        raise PermissionDenied
+
+    suspicious_mediafile_id = request.POST.get("suspicious_mediafile_id")
+    suggested_identity_id = request.POST.get("suggested_identity_id")
+    result_id = request.POST.get("result_id")
+    next_url = request.POST.get("next") or reverse_lazy("caidapp:identification_outlier_suggestions")
+
+    suspicious_mediafile = get_object_or_404(MediaFile, id=suspicious_mediafile_id)
+    suggested_identity = get_object_or_404(IndividualIdentity, id=suggested_identity_id)
+
+    if suspicious_mediafile.parent.owner.workgroup != request.user.caiduser.workgroup:
+        return HttpResponseNotAllowed("Not allowed to work with this media file.")
+    if suggested_identity.owner_workgroup != request.user.caiduser.workgroup:
+        return HttpResponseNotAllowed("Not allowed to use this identity.")
+
+    suspicious_mediafile.identity = suggested_identity
+    suspicious_mediafile.updated_by = request.user.caiduser
+    suspicious_mediafile.save(update_fields=["identity", "updated_by"])
+
+    if result_id:
+        result = models.IdentificationOutlierSuggestionResult.objects.filter(
+            id=result_id,
+            workgroup=request.user.caiduser.workgroup,
+        ).first()
+        if result is not None:
+            result.suggestions = [
+                item
+                for item in (result.suggestions or [])
+                if int(item.get("suspicious_mediafile_id") or -1) != suspicious_mediafile.id
+            ]
+            result.save(update_fields=["suggestions"])
+
+    messages.success(
+        request,
+        f"Identity for media file '{suspicious_mediafile}' was updated to '{suggested_identity}'.",
+    )
+    return redirect(next_url)
+
+
+@login_required
 def merge_selected_identities_view(request):
     """Merge selected identities based on suggestions."""
     if request.method == "POST":
