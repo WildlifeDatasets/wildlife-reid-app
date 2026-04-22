@@ -40,3 +40,6 @@ tzdata==2025.2
 
 # we need update because of .webp support
 pillow==12.0.0
+
+umap-learn
+protobuf==3.20.3
