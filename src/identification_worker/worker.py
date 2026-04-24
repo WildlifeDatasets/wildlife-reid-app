@@ -31,6 +31,7 @@ from utils.inference_identification import (
 )
 from utils.log import setup_logging
 from utils.sequence_identification import extend_df_with_datetime, extend_df_with_sequence_id
+from utils.embedding_processing import EmbeddingProcessing
 
 setup_logging()
 logger = logging.getLogger("app")
@@ -265,6 +266,8 @@ def predict_batch(
 
     # initialize and calibrate models
     init_models(identification_model_path)
+
+    # TODO: get random calibration images?
     calibration_features, reference_images = load_features(db_connection, organization_id, start=0, end=cal_images)
     calibration_metadata = pd.DataFrame(
         {
@@ -567,14 +570,14 @@ def detect_identification_outliers(
     # mediafile_paths=None,
     **kwargs,
 ):
-    """Demo contract for identification outlier detection.
+    """
+    Perform outlier detection and return suspicious database images and their candidate identities.
 
-    This function is intentionally simple so the future implementation is easy to
-    replace. The web app currently needs mainly:
-    - which query image looks suspicious
-    - its current identity
-    - candidate identities with score
-    - a path to the candidate media file so API can resolve MediaFile id
+    This function analyzes the provided metadata and available reference embeddings to detect which database images appear suspiciously labeled or potentially mislabeled. It identifies, for each such query image:
+      - the image index,
+      - its current (predicted) identity (`class_id`),
+      - candidate alternative identities with similarity scores,
+      - the file path to at least one candidate media file, allowing the API to resolve the corresponding MediaFile id.
     """
     # read metadata file
     metadata = pd.read_csv(input_metadata_file)
@@ -582,10 +585,13 @@ def detect_identification_outliers(
     assert "class_id" in metadata, "Identity id should be in `class_id` column"
     assert "label" in metadata, "Label should be in `label` column"
 
-    # logger.debug(f"{mediafile_paths[:5]=}")
-    # logger.debug(f"{metadata['image_path'][:5]=}")
+
     mediafile_paths = list(metadata["image_path"])
     class_ids = list(metadata["class_id"])
+
+    logger.info("Loading reference feature vectors from the database.")
+    db_connection = get_db_connection()
+    _, reference_images = load_features(db_connection, organization_id)
 
     logger.info(
         "Starting identification outlier detection for organization_id=%s with %s explicit paths.",
@@ -593,42 +599,95 @@ def detect_identification_outliers(
         0 if mediafile_paths is None else len(mediafile_paths),
     )
 
-    # Demo output:
-    # - first suspicious query is mediafile_paths[0]
-    # - second suspicious query is mediafile_paths[1]
-    # - the two most similar examples are the last two media files from the input
+    # Add embeddings from reference_images to metadata by matching image_path
+    metadata["image_name"] = metadata["image_path"].apply(lambda x: os.path.basename(x))
+    reference_images["image_name"] = reference_images["image_path"].apply(lambda x: os.path.basename(x))
+    if "embedding" not in metadata.columns:
+        path_to_embedding = dict(zip(reference_images["image_name"], reference_images["embedding"]))
+        metadata["embedding"] = metadata["image_name"].map(path_to_embedding)
 
-    suggestions = [
+    # Drop rows with missing embeddings
+    logger.info(f"Dropping rows with missing embeddings: {metadata.embedding.isna().sum()}")
+    metadata = metadata.dropna(subset=["embedding"])
+        
+    # Embeddings are saved as a string and contain megadescriptor and local descriptor features [[mega, local], ...]
+    embeddings = [json.loads(e) for e in metadata["embedding"]]
+    metadata["embedding"] = [r[0] for r in embeddings]
 
-            {
-                "query_idx": 0,
-                "suspicious_path": mediafile_paths[0],
-                "current_identity_id": int(class_ids[0]),
-                "reason": "Demo suggestion for the first query image.",
+    # Calculate the likely mislabeled embeddings
+    embeddings = np.array(list(metadata["embedding"]))
+    ep = EmbeddingProcessing(
+        embeddings,
+        metadata=metadata,
+        label_col="class_id",
+    )
+    suspects = ep.likely_mislabeled(margin=0.0)
+
+    # Get the best other metadata index and image path
+    best_other_metadata_idx = [
+        ep.best_other_member_index(row.idx, row.best_other_label)
+        for row in suspects.itertuples(index=False)
+    ]
+    best_other_image_path = [
+        None if idx is None else metadata.iloc[idx]["image_path"]
+        for idx in best_other_metadata_idx
+    ]
+
+    # Add the suspects data to the metadata
+    metadata['own_similarity'] = suspects['own_similarity']
+    metadata['best_other_similarity'] = suspects['best_other_similarity']
+    metadata['delta'] = suspects['delta']
+
+    metadata['best_other_label'] = suspects['best_other_label']
+    metadata['best_other_image_path'] = best_other_image_path
+
+    metadata['is_suspect'] = suspects['is_suspect']
+
+    # Add reduced embeddings to the metadata
+    try:
+        tsne_embeddings = ep.reduce_embeddings(method="tsne", n_components=2, random_state=0)
+    except Exception as e:
+        logger.error(f"Error in tsne embeddings: {e}")
+        tsne_embeddings = None
+    if tsne_embeddings is not None:
+        metadata['tsne_x'] = tsne_embeddings[:, 0]
+        metadata['tsne_y'] = tsne_embeddings[:, 1]
+
+    try:
+        umap_embeddings = ep.reduce_embeddings(method="umap", n_components=2, random_state=0)
+    except Exception as e:
+        logger.error(f"Error in umap embeddings: {e}")
+        umap_embeddings = None
+    if umap_embeddings is not None:
+        metadata['umap_x'] = umap_embeddings[:, 0]
+        metadata['umap_y'] = umap_embeddings[:, 1]
+
+    # Create suggestions
+    suggestions = []
+    for idx, row in metadata.iterrows():
+        if row['is_suspect']:
+            suggestions.append({
+                "query_idx": idx,
+                "suspicious_path": row['image_path'],
+                "current_identity_id": int(row['class_id']),
+                "reason": f"The embedding is likely to be mislabeled. The own similarity is {row['own_similarity']:.2f} and the best other similarity is {row['best_other_similarity']:.2f} and the.",
                 "suggestions": [
                     {
-                        "identity_id": int(class_ids[-1]),
-                        "mediafile_path": mediafile_paths[-1],
-                        "score": 0.77,
-                        "reason": "Pretend the last media file is the closest match.",
+                        "identity_id": int(row['best_other_label']),
+                        "mediafile_path": row['best_other_image_path'],
+                        "score": row['delta'],
+                        "reason": f"Delta is {row['delta']:.2f}. delta > 0 means the embedding is closer to the best other cluster cesnter than to the own center.",
                     },
                 ],
-            },
-            {
-                "query_idx": 1,
-                "suspicious_path": mediafile_paths[1],
-                "current_identity_id": int(class_ids[1]),
-                "reason": "Demo suggestion for the second query image.",
-                "suggestions": [
-                    {
-                        "identity_id": int(class_ids[-2]) ,
-                        "mediafile_path": mediafile_paths[-2],
-                        "score": 0.74,
-                        "reason": "Pretend the last media file is the closest match.",
-                    },
-                ],
-            }
-        ]
+            })
+
+    # Remove embeddings and save the metadata file in a new file with "extended" in the filename
+    if "embedding" in metadata.columns:
+        metadata = metadata.drop(columns=["embedding"])
+    extended_metadata_file = input_metadata_file.replace(".csv", "_extended.csv")
+    metadata.to_csv(extended_metadata_file, index=False)
+    logger.debug(f"Saved extended metadata file to {extended_metadata_file}")
+
 
     return {
         "status": "DONE",
