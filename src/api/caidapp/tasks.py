@@ -1672,13 +1672,25 @@ def schedule_init_identification_for_workgroup(workgroup: models.WorkGroup, dela
 
 
 @shared_task
-def init_identification(workgroup_id: int):
+def init_identification(workgroup_id: int, selection: dict | None = None):
     """Initialize identification for a workgroup."""
     workgroup = WorkGroup.objects.get(pk=workgroup_id)
 
     process_for_message = "initialization"
     called_function_name = "init_identification"
-    mediafiles_qs = workgroup.mediafiles_for_train_or_init_identification()
+    selection = selection or {}
+    mediafiles_qs = workgroup.mediafiles_for_identification(
+        uploaded_archive_ids=selection.get("uploaded_archive_ids"),
+        sequence_ids=selection.get("sequence_ids"),
+        mediafile_ids=selection.get("mediafile_ids"),
+        representative_only=selection.get("representative_only", True),
+        require_identity=selection.get("require_identity", True),
+        observation_taxon=selection.get(
+            "observation_taxon",
+            workgroup.default_taxon_for_identification if workgroup.check_taxon_before_identification else None,
+        ),
+        require_observations=selection.get("require_observations", False),
+    )
 
     # mark these mediafiles as used for init identification
     mediafiles_qs.update(used_for_init_identification=True)

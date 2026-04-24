@@ -1768,32 +1768,30 @@ def run_identification_view(request, uploadedarchive_id):
     return redirect(request.META.get("HTTP_REFERER", "/"))
 
 
-def run_identification(uploaded_archive: UploadedArchive, workgroup: models.WorkGroup) -> bool:
+def run_identification(
+    uploaded_archive: UploadedArchive,
+    workgroup: models.WorkGroup,
+    selection: dict | None = None,
+) -> bool:
     """Run identification of uploaded archive."""
     logger.debug("Generating CSV for run_identification...")
-    # if uploaded_archive.taxon_for_identification:
-    #     taxon_str = uploaded_archive.taxon_for_identification.name
-    # else:
-    #     taxon_str = "Lynx lynx"
+    selection = selection or {}
+    selection_uploaded_archive_ids = selection.get("uploaded_archive_ids")
+    if selection_uploaded_archive_ids is None:
+        selection_uploaded_archive_ids = [uploaded_archive.id]
 
-    # find media files with observations of the expected taxon
-    kwargs = {}
+    observation_taxon = None
     if workgroup.default_taxon_for_identification and workgroup.check_taxon_before_identification:
-        kwargs.update(dict(taxon=workgroup.default_taxon_for_identification))
+        observation_taxon = workgroup.default_taxon_for_identification
 
-    mf_ids = (
-        AnimalObservation.objects.filter(
-            mediafile__parent=uploaded_archive,
-            **kwargs,
-        )
-        .values_list("mediafile_id", flat=True)
-        .distinct()
+    mediafiles = workgroup.mediafiles_for_identification(
+        uploaded_archive_ids=selection_uploaded_archive_ids,
+        sequence_ids=selection.get("sequence_ids"),
+        mediafile_ids=selection.get("mediafile_ids"),
+        observation_taxon=selection.get("observation_taxon", observation_taxon),
+        require_identity=selection.get("require_identity", False),
+        require_observations=selection.get("require_observations", True),
     )
-
-    mediafiles = uploaded_archive.mediafile_set.filter(
-        id__in=mf_ids,
-        # taxon__name=taxon_str
-    ).all()
     logger.debug(f"Generating CSV for init_identification with {len(mediafiles)} records...")
     uploaded_archive.identification_status = "IAIP"
 

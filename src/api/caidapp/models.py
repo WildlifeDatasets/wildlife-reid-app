@@ -299,40 +299,67 @@ class WorkGroup(models.Model):
         # workgroup, taxon=None, identity_is_representative=True
     ):
         """Get mediafiles for training or initialization of identification."""
-        # Pokud má workgroup nastavený výchozí taxon pro identifikaci
+        observation_taxon = None
         if self.check_taxon_before_identification and self.default_taxon_for_identification:
-            # Najdi ID všech mediafiles, které mají aspoň jednu observaci s daným taxonem
-            mf_ids = (
-                AnimalObservation.objects.filter(
-                    taxon=self.default_taxon_for_identification,
-                    mediafile__parent__owner__workgroup=self,
-                )
-                .values_list("mediafile_id", flat=True)
-                .distinct()
-            )
+            observation_taxon = self.default_taxon_for_identification
+        elif self.check_taxon_before_identification:
+            logger.warning(f"No default taxon for identification set in {self=}. Filtering only by representative mediafiles.")
 
-            # A těmto mediafiles nastav příznak
-            mediafiles_qs = MediaFile.objects.filter(
-                parent__owner__workgroup=self,
-                id__in=mf_ids,
-                identity_is_representative=True,
-                identity__isnull=False,
-            )
-
-        else:
-            logger.warning(f"No default taxon for identification set in {self=}. Nothing updated.")
-            mediafiles_qs = MediaFile.objects.filter(
-                parent__owner__workgroup=self,
-                # id__in=mf_ids,
-                identity_is_representative=True,
-                identity__isnull=False,
-            )
+        mediafiles_qs = self.mediafiles_for_identification(
+            representative_only=True,
+            require_identity=True,
+            observation_taxon=observation_taxon,
+        )
 
         logger.debug(f"Found {mediafiles_qs.count()} mediafiles for identification init.")
         if mediafiles_qs.count() == 0:
             logger.error("No mediafiles found for identification init.")
 
         return mediafiles_qs
+
+    def mediafiles_for_identification(
+        self,
+        *,
+        uploaded_archive_ids: list[int] | int | None = None,
+        sequence_ids: list[int] | int | None = None,
+        mediafile_ids: list[int] | int | None = None,
+        representative_only: bool = False,
+        require_identity: bool | None = None,
+        observation_taxon: Taxon | None = None,
+        require_observations: bool = False,
+    ):
+        """Return mediafiles that match a reusable identification selection spec."""
+        qs = MediaFile.objects.filter(parent__owner__workgroup=self)
+
+        def _as_list(value):
+            if value is None:
+                return None
+            if isinstance(value, (list, tuple, set)):
+                return list(value)
+            return [value]
+
+        uploaded_archive_ids = _as_list(uploaded_archive_ids)
+        sequence_ids = _as_list(sequence_ids)
+        mediafile_ids = _as_list(mediafile_ids)
+
+        if uploaded_archive_ids:
+            qs = qs.filter(parent_id__in=uploaded_archive_ids)
+        if sequence_ids:
+            qs = qs.filter(sequence_id__in=sequence_ids)
+        if mediafile_ids:
+            qs = qs.filter(id__in=mediafile_ids)
+        if representative_only:
+            qs = qs.filter(identity_is_representative=True)
+        if require_identity is True:
+            qs = qs.filter(identity__isnull=False)
+        elif require_identity is False:
+            qs = qs.filter(identity__isnull=True)
+        if require_observations:
+            qs = qs.filter(observations__isnull=False)
+        if observation_taxon is not None:
+            qs = qs.filter(observations__taxon=observation_taxon)
+
+        return qs.distinct()
 
 
     def file_path(self, filename:str):
