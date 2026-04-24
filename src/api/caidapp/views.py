@@ -4623,12 +4623,6 @@ def identification_outlier_suggestions_view(request, result_id: int = None):
     else:
         result = queryset.first()
 
-    output_dir = Path(settings.MEDIA_ROOT) / workgroup.name
-    output_dir.mkdir(exist_ok=True, parents=True)
-    metadata_file = output_dir / "identification_outliers.csv"
-    # get download url of metadata_file
-
-
     if result is None:
         return message_view(
             request,
@@ -4692,7 +4686,95 @@ def identification_outlier_suggestions_view(request, result_id: int = None):
         )
 
     csv_url = workgroup.file_url("identification_outliers.csv")
+    extended_csv_path = workgroup.file_path("identification_outliers_extended.csv")
+    extended_csv_url = workgroup.file_url("identification_outliers_extended.csv")
     logger.debug(f"{csv_url=}")
+
+    similarity_plot_html = None
+    tsne_plot_html = None
+    umap_plot_html = None
+
+    if extended_csv_path.exists():
+        metadata = pd.read_csv(extended_csv_path)
+        metadata["class_label"] = metadata.get("label", metadata.get("class_id", "")).fillna("").astype(str)
+        hover_fields = [
+            col
+            for col in [
+                "mediafile_id",
+                "class_id",
+                "class_label",
+                "best_other_label",
+                "own_similarity",
+                "best_other_similarity",
+                "delta",
+            ]
+            if col in metadata.columns
+        ]
+
+        if {"own_similarity", "best_other_similarity", "is_suspect"}.issubset(metadata.columns):
+            suspect_labels = metadata["is_suspect"].fillna(False).astype(bool).map(
+                lambda value: "Suspect" if bool(value) else "Not suspect"
+            )
+            similarity_fig = px.scatter(
+                metadata,
+                x="own_similarity",
+                y="best_other_similarity",
+                color=suspect_labels,
+                color_discrete_map={"Suspect": "#d62728", "Not suspect": "#1f77b4"},
+                hover_name="class_label" if "class_label" in metadata.columns else None,
+                hover_data=hover_fields,
+                opacity=0.75,
+                title="Likely Mislabeled Candidates",
+                labels={
+                    "own_similarity": "Similarity to Own Center",
+                    "best_other_similarity": "Similarity to Best Other Center",
+                    "color": "",
+                },
+                render_mode="webgl",
+            )
+            similarity_fig.add_shape(
+                type="line",
+                x0=-1,
+                y0=-1,
+                x1=1,
+                y1=1,
+                line={"dash": "dash", "color": "gray", "width": 1},
+            )
+            similarity_fig.update_layout(template="plotly_white", legend_title_text="")
+            similarity_plot_html = similarity_fig.to_html(full_html=False, include_plotlyjs=False)
+
+        if {"tsne_x", "tsne_y"}.issubset(metadata.columns):
+            tsne_fig = px.scatter(
+                metadata,
+                x="tsne_x",
+                y="tsne_y",
+                color="class_label",
+                hover_name="class_label",
+                hover_data=hover_fields,
+                opacity=0.7,
+                title="t-SNE Embedding",
+                render_mode="webgl",
+            )
+            tsne_fig.update_traces(marker={"size": 7})
+            tsne_fig.update_layout(template="plotly_white", showlegend=False)
+            tsne_plot_html = tsne_fig.to_html(full_html=False, include_plotlyjs=False)
+
+        if {"umap_x", "umap_y"}.issubset(metadata.columns):
+            umap_fig = px.scatter(
+                metadata,
+                x="umap_x",
+                y="umap_y",
+                color="class_label",
+                hover_name="class_label",
+                hover_data=hover_fields,
+                opacity=0.7,
+                title="UMAP Embedding",
+                render_mode="webgl",
+            )
+            umap_fig.update_traces(marker={"size": 7})
+            umap_fig.update_layout(template="plotly_white", showlegend=False)
+            umap_plot_html = umap_fig.to_html(full_html=False, include_plotlyjs=False)
+
     return render(
         request,
         "caidapp/identification_outlier_suggestions.html",
@@ -4700,6 +4782,10 @@ def identification_outlier_suggestions_view(request, result_id: int = None):
             "result": result,
             "suggestion_cards": suggestion_cards,
             "csv_url": csv_url,
+            "extended_csv_url": extended_csv_url,
+            "similarity_plot_html": similarity_plot_html,
+            "tsne_plot_html": tsne_plot_html,
+            "umap_plot_html": umap_plot_html,
         },
     )
 

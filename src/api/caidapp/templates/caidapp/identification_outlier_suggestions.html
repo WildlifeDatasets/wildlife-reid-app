@@ -1,6 +1,33 @@
 {% extends "base.html" %}
 
 {% block content %}
+  {% if similarity_plot_html or tsne_plot_html or umap_plot_html %}
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        const collapseEl = document.getElementById("outlier-graphs-collapse");
+        if (!collapseEl || !window.Plotly) {
+          return;
+        }
+
+        function resizeOutlierPlots() {
+          collapseEl.querySelectorAll(".plotly-graph-div").forEach(function (graphEl) {
+            window.Plotly.Plots.resize(graphEl);
+          });
+        }
+
+        collapseEl.addEventListener("shown.bs.collapse", function () {
+          window.setTimeout(resizeOutlierPlots, 50);
+        });
+
+        window.addEventListener("resize", function () {
+          if (collapseEl.classList.contains("show")) {
+            resizeOutlierPlots();
+          }
+        });
+      });
+    </script>
+  {% endif %}
   <div class="container py-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
       <div>
@@ -12,10 +39,60 @@
         </p>
       </div>
       <div>
-          <a class="link-muted" href={{ csv_url }}>Download CSV</a>
+        <a class="btn btn-outline-secondary btn-sm" href="{{ csv_url }}">Input CSV</a>
+        <a class="btn btn-outline-secondary btn-sm" href="{{ extended_csv_url }}">Extended CSV</a>
         <a class="btn btn-secondary" href="{% url 'caidapp:run_identification_outlier_detection' %}">Run again</a>
       </div>
     </div>
+
+    {% if similarity_plot_html or tsne_plot_html or umap_plot_html %}
+      <div class="mb-4">
+        <button
+          class="btn btn-outline-secondary btn-sm"
+          type="button"
+          data-bs-toggle="collapse"
+          data-bs-target="#outlier-graphs-collapse"
+          aria-expanded="false"
+          aria-controls="outlier-graphs-collapse"
+        >
+          <i class="bi bi-bar-chart-line"></i>
+          Show graphs
+        </button>
+      </div>
+
+      <div class="collapse mb-4" id="outlier-graphs-collapse">
+        {% if similarity_plot_html %}
+          <div class="card shadow-sm mb-4">
+            <div class="card-body">
+              {{ similarity_plot_html|safe }}
+            </div>
+          </div>
+        {% endif %}
+
+        {% if tsne_plot_html or umap_plot_html %}
+          <div class="row g-4">
+            {% if tsne_plot_html %}
+              <div class="col-lg-6">
+                <div class="card shadow-sm h-100">
+                  <div class="card-body">
+                    {{ tsne_plot_html|safe }}
+                  </div>
+                </div>
+              </div>
+            {% endif %}
+            {% if umap_plot_html %}
+              <div class="col-lg-6">
+                <div class="card shadow-sm h-100">
+                  <div class="card-body">
+                    {{ umap_plot_html|safe }}
+                  </div>
+                </div>
+              </div>
+            {% endif %}
+          </div>
+        {% endif %}
+      </div>
+    {% endif %}
 
     {% if suggestion_cards %}
       {% for card in suggestion_cards %}

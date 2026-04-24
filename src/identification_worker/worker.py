@@ -2,6 +2,7 @@ import json
 import logging
 import math
 import os
+import time
 import traceback
 from pathlib import Path
 
@@ -644,49 +645,89 @@ def detect_identification_outliers(
     metadata['is_suspect'] = suspects['is_suspect']
 
     # Add reduced embeddings to the metadata
+    logger.info("Starting t-SNE reduction for %s embeddings.", len(metadata))
+    tsne_start = time.perf_counter()
     try:
         tsne_embeddings = ep.reduce_embeddings(method="tsne", n_components=2, random_state=0)
     except Exception as e:
         logger.error(f"Error in tsne embeddings: {e}")
         tsne_embeddings = None
+    logger.info("Finished t-SNE reduction in %.2f s.", time.perf_counter() - tsne_start)
     if tsne_embeddings is not None:
         metadata['tsne_x'] = tsne_embeddings[:, 0]
         metadata['tsne_y'] = tsne_embeddings[:, 1]
 
+    logger.info("Starting UMAP reduction for %s embeddings.", len(metadata))
+    umap_start = time.perf_counter()
     try:
         umap_embeddings = ep.reduce_embeddings(method="umap", n_components=2, random_state=0)
     except Exception as e:
         logger.error(f"Error in umap embeddings: {e}")
         umap_embeddings = None
+    logger.info("Finished UMAP reduction in %.2f s.", time.perf_counter() - umap_start)
     if umap_embeddings is not None:
         metadata['umap_x'] = umap_embeddings[:, 0]
         metadata['umap_y'] = umap_embeddings[:, 1]
 
     # Create suggestions
+    logger.info("Creating outlier suggestions.")
     suggestions = []
-    for idx, row in metadata.iterrows():
-        if row['is_suspect']:
-            suggestions.append({
-                "query_idx": idx,
-                "suspicious_path": row['image_path'],
-                "current_identity_id": int(row['class_id']),
-                "reason": f"The embedding is likely to be mislabeled. The own similarity is {row['own_similarity']:.2f} and the best other similarity is {row['best_other_similarity']:.2f} and the.",
-                "suggestions": [
-                    {
-                        "identity_id": int(row['best_other_label']),
-                        "mediafile_path": row['best_other_image_path'],
-                        "score": row['delta'],
-                        "reason": f"Delta is {row['delta']:.2f}. delta > 0 means the embedding is closer to the best other cluster cesnter than to the own center.",
-                    },
-                ],
-            })
+    try:
+        for idx, row in metadata.iterrows():
+            if not bool(row.get("is_suspect")):
+                continue
+
+            best_other_label = row.get("best_other_label")
+            best_other_image_path = row.get("best_other_image_path")
+            delta = row.get("delta")
+
+            if pd.isna(best_other_label):
+                logger.warning(
+                    "Skipping suspect idx=%s mediafile_id=%s image_path=%s class_id=%s because best_other_label is missing.",
+                    idx,
+                    row.get("mediafile_id"),
+                    row.get("image_path"),
+                    row.get("class_id"),
+                )
+                continue
+
+            suggestions.append(
+                {
+                    "query_idx": idx,
+                    "suspicious_path": row["image_path"],
+                    "current_identity_id": int(row["class_id"]),
+                    "reason": (
+                        f"The embedding is likely to be mislabeled. "
+                        f"The own similarity is {row['own_similarity']:.2f} "
+                        f"and the best other similarity is {row['best_other_similarity']:.2f}."
+                    ),
+                    "suggestions": [
+                        {
+                            "identity_id": int(best_other_label),
+                            "mediafile_path": None if pd.isna(best_other_image_path) else best_other_image_path,
+                            "score": None if pd.isna(delta) else float(delta),
+                            "reason": (
+                                f"Delta is {delta:.2f}. Delta > 0 means the embedding is closer "
+                                "to the best other cluster center than to its own center."
+                            )
+                            if not pd.isna(delta)
+                            else "No delta available.",
+                        },
+                    ],
+                }
+            )
+    except Exception:
+        logger.exception("Failed while creating outlier suggestions.")
+        raise
 
     # Remove embeddings and save the metadata file in a new file with "extended" in the filename
     if "embedding" in metadata.columns:
         metadata = metadata.drop(columns=["embedding"])
     extended_metadata_file = input_metadata_file.replace(".csv", "_extended.csv")
+    logger.info("Saving extended metadata to %s.", extended_metadata_file)
     metadata.to_csv(extended_metadata_file, index=False)
     logger.debug(f"Saved extended metadata file to {extended_metadata_file}")
+    logger.info("Prepared %s suspect suggestions.", len(suggestions))
 
 
     return {
