@@ -148,6 +148,22 @@
                                 {% endif %}
                             </a>
                         </li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
+                            <form method="post" action="{% url 'caidapp:clear_identity_suggestions' %}" class="m-0">
+                                {% csrf_token %}
+                                <button
+                                        type="submit"
+                                        class="dropdown-item text-danger"
+                                        onclick="return confirm('Delete the entire identification queue for this workgroup? This cannot be undone.')"
+                                        {% if identity_queue_count == 0 %}disabled{% endif %}
+                                >
+                                    <i class="bi bi-trash"></i>
+                                    Delete identification queue
+                                    <span class="text-body-secondary">({{ identity_queue_count }})</span>
+                                </button>
+                            </form>
+                        </li>
                     </ul>
                 </div>
 

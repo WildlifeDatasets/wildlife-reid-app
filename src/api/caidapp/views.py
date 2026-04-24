@@ -507,6 +507,13 @@ def dash_identities(request) -> HttpResponse:
     if workgroup.identification_model is None:
         messages.error(request, "No identification model for workgroup. Please set it before running identification.")
 
+    identity_queue_count = (
+        MediafilesForIdentification.objects.filter(mediafile__parent__owner__workgroup=workgroup)
+        .values("mediafile_id")
+        .distinct()
+        .count()
+    )
+
     # find the identity with minimum number of representative mediafiles
     identities = (
         IndividualIdentity.objects.filter(owner_workgroup=request.user.caiduser.workgroup, name__ne="nan")
@@ -530,8 +537,42 @@ def dash_identities(request) -> HttpResponse:
             identities_by_representative_mediafiles=identities,
             next_step_candidates=next_step_candidates,
             primary_next_step=next_step_candidates[0] if next_step_candidates else None,
+            identity_queue_count=identity_queue_count,
         ),
     )
+
+
+@login_required
+@require_POST
+def clear_identity_suggestions_view(request):
+    """Delete the entire identity suggestion queue for the current workgroup."""
+    caiduser = request.user.caiduser
+    workgroup = caiduser.workgroup
+    if workgroup is None:
+        return HttpResponseNotAllowed("No workgroup assigned.")
+    if not caiduser.workgroup_admin:
+        return HttpResponseNotAllowed("Only workgroup admins can clear identity suggestions.")
+
+    queue_qs = MediafilesForIdentification.objects.filter(mediafile__parent__owner__workgroup=workgroup)
+    deleted_queue_count = queue_qs.count()
+    deleted_suggestion_count = models.MediafileIdentificationSuggestion.objects.filter(
+        for_identification__in=queue_qs
+    ).count()
+    queue_qs.delete()
+
+    messages.success(
+        request,
+        f"Deleted identification queue for {deleted_queue_count} media files and "
+        + f"{deleted_suggestion_count} suggestions in workgroup {workgroup.name}.",
+    )
+    logger.info(
+        "Deleted identification queue for workgroup %s by user %s: mediafiles=%s suggestions=%s",
+        workgroup.id,
+        request.user.username,
+        deleted_queue_count,
+        deleted_suggestion_count,
+    )
+    return redirect("caidapp:dash_identities")
 
 
 def paginate_queryset(queryset, request):

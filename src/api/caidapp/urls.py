@@ -469,6 +469,11 @@ urlpatterns = [
         name="refresh_merge_identities_suggestions",
     ),
     path(
+        "clear_identity_suggestions/",
+        views.clear_identity_suggestions_view,
+        name="clear_identity_suggestions",
+    ),
+    path(
         "identification_outliers/run/",
         views.run_identification_outlier_detection_view,
         name="run_identification_outlier_detection",
