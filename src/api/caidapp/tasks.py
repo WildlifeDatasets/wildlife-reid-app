@@ -8,6 +8,7 @@ import os.path
 import shutil
 import tempfile
 import traceback
+import threading
 from datetime import timedelta
 from pathlib import Path
 from types import SimpleNamespace
@@ -44,6 +45,20 @@ from .models import (
 # from tqdm import tqdm
 
 logger = logging.getLogger("app")
+
+
+def _task_log_context(task_name: str, task_id: str | None = None, extra: dict | None = None) -> str:
+    """Build a compact task context string for debugging task handoffs."""
+    parts = [
+        f"task={task_name}",
+        f"pid={os.getpid()}",
+        f"thread={threading.get_ident()}",
+    ]
+    if task_id:
+        parts.append(f"task_id={task_id}")
+    if extra:
+        parts.extend(f"{key}={value!r}" for key, value in extra.items())
+    return " ".join(parts)
 
 
 """
@@ -85,42 +100,124 @@ def on_success_predict_taxon(
     This function is called after the taxon classification is finished. After this function the detection is called.
     """
     status = output.get("status", "unknown")
+    logger.info(
+        "Entering on_success_predict_taxon: %s",
+        _task_log_context(
+            "on_success_predict_taxon",
+            getattr(getattr(self, "request", None), "id", None),
+            {
+                "uploaded_archive_id": uploaded_archive_id,
+                "status": status,
+                "extract_identites": extract_identites,
+                "zip_file": zip_file,
+                "csv_file": csv_file,
+            },
+        ),
+    )
     print(f"Taxon classification finished with status {status}")
     logger.info(f"Taxon classification finished with status '{status}'. Updating database record.")
-    uploaded_archive = UploadedArchive.objects.get(id=uploaded_archive_id)
-    # task id
-    logger.debug(f"Worker task id: '{self.request.id}'")
-
     try:
+        logger.debug(
+            "Loading UploadedArchive for taxon callback: %s",
+            _task_log_context(
+                "on_success_predict_taxon",
+                getattr(getattr(self, "request", None), "id", None),
+                {"uploaded_archive_id": uploaded_archive_id},
+            ),
+        )
+        uploaded_archive = UploadedArchive.objects.get(id=uploaded_archive_id)
+        logger.debug(
+            "Loaded UploadedArchive for taxon callback: %s",
+            _task_log_context(
+                "on_success_predict_taxon",
+                getattr(getattr(self, "request", None), "id", None),
+                {
+                    "uploaded_archive_id": uploaded_archive_id,
+                    "current_taxon_status": uploaded_archive.taxon_status,
+                    "current_identification_status": uploaded_archive.identification_status,
+                },
+            ),
+        )
+
         if "status" not in output:
             logger.critical(f"Unexpected error {output=} is missing 'status' field.")
             uploaded_archive.taxon_status = "U"
             uploaded_archive.identification = "U"
         elif output["status"] == "DONE":
+            logger.debug(
+                "Taxon callback output is DONE: %s",
+                _task_log_context(
+                    "on_success_predict_taxon",
+                    getattr(getattr(self, "request", None), "id", None),
+                    {
+                        "uploaded_archive_id": uploaded_archive_id,
+                        "output_keys": sorted(output.keys()),
+                    },
+                ),
+            )
             uploaded_archive.zip_file = zip_file
             uploaded_archive.csv_file = csv_file
             uploaded_archive.import_error_spreadsheet = str(Path(csv_file).with_suffix(".failed.csv"))
+            logger.debug("Creating thumbnail for uploaded archive %s", uploaded_archive_id)
             make_thumbnail_for_uploaded_archive(uploaded_archive)
             # update_metadata_csv_by_uploaded_archive(uploaded_archive)
             # create missing take effect only if the processing is done for the first time
             # in other cases the file should be removed from CSV before the processing is run
             logger.debug(f"{uploaded_archive.contains_identities=}")
+            logger.debug(
+                "Updating UploadedArchive from metadata csv: %s",
+                _task_log_context(
+                    "on_success_predict_taxon",
+                    getattr(getattr(self, "request", None), "id", None),
+                    {
+                        "uploaded_archive_id": uploaded_archive_id,
+                        "create_missing": True,
+                        "extract_identites": extract_identites,
+                    },
+                ),
+            )
             update_uploaded_archive_by_metadata_csv(
                 uploaded_archive, create_missing=True, extract_identites=extract_identites
             )
             if uploaded_archive.taxon_for_identification:
+                logger.debug(
+                    "Assigning unidentified media for identification: %s",
+                    _task_log_context(
+                        "on_success_predict_taxon",
+                        getattr(getattr(self, "request", None), "id", None),
+                        {"uploaded_archive_id": uploaded_archive_id},
+                    ),
+                )
                 assign_unidentified_to_identification(caiduser=uploaded_archive.owner)
             uploaded_archive.mediafiles_imported = True
             uploaded_archive.taxon_status = "TAID"
             uploaded_archive.identification_status = "IR"  # Ready for identification
             uploaded_archive.status_message = "Taxon classification finished."
             uploaded_archive.finished_at = django.utils.timezone.now()
+            logger.debug(
+                "Saving UploadedArchive after taxon callback: %s",
+                _task_log_context(
+                    "on_success_predict_taxon",
+                    getattr(getattr(self, "request", None), "id", None),
+                    {"uploaded_archive_id": uploaded_archive_id},
+                ),
+            )
             uploaded_archive.save()
+            logger.debug("Updating capture time range for uploaded archive %s", uploaded_archive_id)
             uploaded_archive.update_earliest_and_latest_captured_at()
+            logger.debug("Creating sequences for uploaded archive %s", uploaded_archive_id)
             uploaded_archive.make_sequences()
             logger.debug("Running async detection on success taxon classification")
             # run_detection_async(uploaded_archive)  # this is probably not necessary
         else:
+            logger.warning(
+                "Taxon callback received non-DONE status: %s",
+                _task_log_context(
+                    "on_success_predict_taxon",
+                    getattr(getattr(self, "request", None), "id", None),
+                    {"uploaded_archive_id": uploaded_archive_id, "status": output.get("status")},
+                ),
+            )
             uploaded_archive.taxon_status = "F"
             uploaded_archive.identification_status = "F"
             uploaded_archive.finished_at = django.utils.timezone.now()
@@ -142,7 +239,15 @@ def on_success_predict_taxon(
             uploaded_archive.save()
     except Exception as e:
         logger.debug(str(traceback.format_exc()))
-        logger.error(f"Error during on_success_predict_taxon: {e}")
+        logger.error(
+            "Error during on_success_predict_taxon: %s | %s",
+            e,
+            _task_log_context(
+                "on_success_predict_taxon",
+                getattr(getattr(self, "request", None), "id", None),
+                {"uploaded_archive_id": uploaded_archive_id, "status": status},
+            ),
+        )
         uploaded_archive.taxon_status = "F"
         uploaded_archive.finished_at = django.utils.timezone.now()
         uploaded_archive.status_message = str(traceback.format_exc())
@@ -446,6 +551,18 @@ def run_species_prediction_async(
 ):
     """Run species prediction asynchronously."""
     try:
+        logger.info(
+            "Initializing taxon prediction: %s",
+            _task_log_context(
+                "run_species_prediction_async",
+                extra={
+                    "uploaded_archive_id": uploaded_archive.id,
+                    "force_init": force_init,
+                    "extract_identites": extract_identites,
+                    "contains_identities": uploaded_archive.contains_identities,
+                },
+            ),
+        )
         _run_taxon_classification_init_message(uploaded_archive, commit=False)
         output_archive_file, output_dir, output_metadata_file = _run_taxon_classification_init(
             uploaded_archive, commit=True
@@ -468,6 +585,17 @@ def run_species_prediction_async(
     if Path(output_metadata_file).exists():
         df = pd.read_csv(output_metadata_file, index_col=0)
         logger.debug(f"{len(df)=}")
+    else:
+        logger.warning(
+            "Output metadata file does not exist before dispatch: %s",
+            _task_log_context(
+                "run_species_prediction_async",
+                extra={
+                    "uploaded_archive_id": uploaded_archive.id,
+                    "output_metadata_file": str(output_metadata_file),
+                },
+            ),
+        )
 
     if link is None:
         logger.debug("setting default link for run_species_prediction_async to ")
@@ -521,7 +649,18 @@ def run_species_prediction_async(
         link=link,
         link_error=link_error,
     )
-    logger.info(f"Created worker task with id '{task.task_id}'.")
+    logger.info(
+        "Created worker task: %s",
+        _task_log_context(
+            "run_species_prediction_async",
+            task.task_id,
+            {
+                "uploaded_archive_id": uploaded_archive.id,
+                "queue_task": "predict",
+                "output_dir": str(output_dir),
+            },
+        ),
+    )
 
 
 def _run_taxon_classification_init_message(uploaded_archive: UploadedArchive, commit: bool = False):
