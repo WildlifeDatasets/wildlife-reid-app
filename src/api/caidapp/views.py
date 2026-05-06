@@ -514,6 +514,40 @@ def dash_identities(request) -> HttpResponse:
         .count()
     )
 
+    finished_archives = list(
+        UploadedArchive.objects.filter(owner__workgroup=workgroup, import_finished=True, contains_identities=False)
+    )
+    suggestion_candidate_mediafile_count = 0
+    suggestion_candidate_archive_count = 0
+    suggestion_observation_taxon = None
+    if workgroup.check_taxon_before_identification and workgroup.default_taxon_for_identification:
+        suggestion_observation_taxon = workgroup.default_taxon_for_identification
+
+    for uploaded_archive in finished_archives:
+        observation_taxon = uploaded_archive.taxon_for_identification or suggestion_observation_taxon
+        require_observations = observation_taxon is not None
+        candidate_count = workgroup.mediafiles_for_identification(
+            uploaded_archive_ids=[uploaded_archive.id],
+            require_import_finished=True,
+            require_identity=False,
+            observation_taxon=observation_taxon,
+            require_observations=require_observations,
+        ).count()
+        if candidate_count > 0:
+            suggestion_candidate_archive_count += 1
+            suggestion_candidate_mediafile_count += candidate_count
+
+    if suggestion_candidate_mediafile_count > 0:
+        suggestion_run_info = (
+            f"Suggestions can be generated for {suggestion_candidate_mediafile_count} media files "
+            f"in {suggestion_candidate_archive_count} finished uploaded archives."
+        )
+    else:
+        suggestion_run_info = (
+            "No eligible media files found for suggestions. "
+            "Check whether the upload import is finished and whether the archive has the expected taxon."
+        )
+
     # find the identity with minimum number of representative mediafiles
     identities = (
         IndividualIdentity.objects.filter(owner_workgroup=request.user.caiduser.workgroup, name__ne="nan")
@@ -538,6 +572,9 @@ def dash_identities(request) -> HttpResponse:
             next_step_candidates=next_step_candidates,
             primary_next_step=next_step_candidates[0] if next_step_candidates else None,
             identity_queue_count=identity_queue_count,
+            suggestion_candidate_mediafile_count=suggestion_candidate_mediafile_count,
+            suggestion_candidate_archive_count=suggestion_candidate_archive_count,
+            suggestion_run_info=suggestion_run_info,
         ),
     )
 
@@ -1740,7 +1777,7 @@ def assign_unidentified_to_identification_view(request):
 
 @login_required
 def run_identification_on_unidentified(request):
-    """Run identification in all uploaded archives."""
+    """Run identification suggestions for all finished uploaded archives."""
     workgroup = request.user.caiduser.workgroup
 
     tasks.run_identification_on_unidentified_for_workgroup(workgroup.id)
@@ -1780,17 +1817,25 @@ def run_identification(
     if selection_uploaded_archive_ids is None:
         selection_uploaded_archive_ids = [uploaded_archive.id]
 
-    observation_taxon = None
-    if workgroup.default_taxon_for_identification and workgroup.check_taxon_before_identification:
+    observation_taxon = selection.get("observation_taxon")
+    if observation_taxon is None:
+        observation_taxon = uploaded_archive.taxon_for_identification
+    if observation_taxon is None and workgroup.default_taxon_for_identification and workgroup.check_taxon_before_identification:
         observation_taxon = workgroup.default_taxon_for_identification
+
+    require_observations = selection.get("require_observations")
+    if require_observations is None:
+        require_observations = observation_taxon is not None
 
     mediafiles = workgroup.mediafiles_for_identification(
         uploaded_archive_ids=selection_uploaded_archive_ids,
         sequence_ids=selection.get("sequence_ids"),
         mediafile_ids=selection.get("mediafile_ids"),
-        observation_taxon=selection.get("observation_taxon", observation_taxon),
+        # TODO select only mediafiles with finished import
+        require_import_finished=selection.get("require_import_finished", True),
+        observation_taxon=observation_taxon,
         require_identity=selection.get("require_identity", False),
-        require_observations=selection.get("require_observations", True),
+        require_observations=require_observations,
     )
     logger.debug(f"Generating CSV for init_identification with {len(mediafiles)} records...")
     uploaded_archive.identification_status = "IAIP"
@@ -2047,6 +2092,7 @@ def upload_archive(
             logger.debug(f"{request.build_absolute_uri()=}")
             uploaded_archive.contains_identities = contains_identities
             uploaded_archive.contains_single_taxon = contains_single_taxon
+            uploaded_archive.is_for_identification = contains_identities or contains_single_taxon
             uploaded_archive.name = Path(uploaded_archive.archivefile.name).stem
             # Done in number_of_media_files_in_archive
             # uploaded_archive.videos_at_upload = counts["video_count"]
@@ -3241,6 +3287,7 @@ def select_taxon_for_identification(request, uploadedarchive_id: int):
             taxon = form.cleaned_data["taxon_for_identification"]
             uploaded_archive.taxon_for_identification = taxon
             uploaded_archive.identification_status = "IR"  # Ready for identification
+            uploaded_archive.is_for_identification = True
             uploaded_archive.save()
             return redirect("caidapp:uploads_identities")
     else:

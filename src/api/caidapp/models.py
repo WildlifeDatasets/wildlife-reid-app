@@ -281,8 +281,9 @@ class WorkGroup(models.Model):
         """Return number of uploaded archives ready for identification."""
         return UploadedArchive.objects.filter(
             owner__workgroup=self,
-            taxon_for_identification__isnull=False,
+            # taxon_for_identification__isnull=False,
             identification_status="IR",
+            is_for_identification=True,
         ).count()
 
     def number_of_media_files_in_uploaded_archives_ready_for_identification(self) -> int:
@@ -323,6 +324,7 @@ class WorkGroup(models.Model):
         uploaded_archive_ids: list[int] | int | None = None,
         sequence_ids: list[int] | int | None = None,
         mediafile_ids: list[int] | int | None = None,
+        require_import_finished: bool = True,
         representative_only: bool = False,
         require_identity: bool | None = None,
         observation_taxon: Taxon | None = None,
@@ -348,6 +350,8 @@ class WorkGroup(models.Model):
             qs = qs.filter(sequence_id__in=sequence_ids)
         if mediafile_ids:
             qs = qs.filter(id__in=mediafile_ids)
+        if require_import_finished:
+            qs = qs.filter(parent__import_finished=True)
         if representative_only:
             qs = qs.filter(identity_is_representative=True)
         if require_identity is True:
@@ -709,7 +713,8 @@ class UploadedArchive(models.Model):
     contains_single_taxon = models.BooleanField(default=False)
     taxon_for_identification_at_upload = models.CharField(max_length=255, blank=True, default="")
     taxon_for_identification = models.ForeignKey(Taxon, on_delete=models.SET_NULL, null=True, blank=True)
-    mediafiles_imported = models.BooleanField("Media Files Imported Correctly", default=False)
+    import_finished = models.BooleanField("Media Files Import Finished Correctly", default=False) # TODO rename to import_finished
+
     earliest_captured_at = models.DateTimeField("Earliest Captured at", blank=True, null=True)
     latest_captured_at = models.DateTimeField("Latest Captured at", blank=True, null=True)
     locality_check_at = models.DateTimeField("Locality Check at", blank=True, null=True)

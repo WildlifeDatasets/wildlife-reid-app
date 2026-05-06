@@ -189,7 +189,13 @@ def on_success_predict_taxon(
                     ),
                 )
                 assign_unidentified_to_identification(caiduser=uploaded_archive.owner)
-            uploaded_archive.mediafiles_imported = True
+            uploaded_archive.import_finished = True
+            uploaded_archive.is_for_identification = (
+                (uploaded_archive.taxon_for_identification is not None) or
+                uploaded_archive.contains_single_taxon or
+                uploaded_archive.contains_identities or
+                uploaded_archive.is_for_identification
+            )
             uploaded_archive.taxon_status = "TAID"
             uploaded_archive.identification_status = "IR"  # Ready for identification
             uploaded_archive.status_message = "Taxon classification finished."
@@ -1600,8 +1606,8 @@ def run_identification_on_unidentified_for_workgroup_task(workgroup_id: int):
 
 
 def run_identification_on_unidentified_for_workgroup(workgroup_id: int, request=None):
-    """Run identification on unidentified media files for a workgroup."""
-    logger.debug(f"Running identification on unidentified media files for workgroup {workgroup_id}...")
+    """Run identification suggestions for finished uploads in a workgroup."""
+    logger.debug(f"Running identification suggestions for workgroup {workgroup_id}...")
     from .views import run_identification
 
     workgroup = WorkGroup.objects.get(pk=workgroup_id)
@@ -1622,6 +1628,7 @@ def run_identification_on_unidentified_for_workgroup(workgroup_id: int, request=
         contains_identities=False,
     ).all()
 
+    started_count = 0
     for uploaded_archive in uploaded_archives:
         status_ok = run_identification(uploaded_archive, workgroup=workgroup)
         if request:
@@ -1636,6 +1643,7 @@ def run_identification_on_unidentified_for_workgroup(workgroup_id: int, request=
                     f"No records for identification with the expected taxon for {uploaded_archive.name}.",
                 )
         if status_ok:
+            started_count += 1
             pass
         else:
             models.Notification.create_for(
@@ -1644,6 +1652,15 @@ def run_identification_on_unidentified_for_workgroup(workgroup_id: int, request=
                 level=models.Notification.ERROR,
             )
         logger.debug(f"Identification started for {uploaded_archive} with status {status_ok}.")
+
+    workgroup.identification_reid_status = "Finished"
+    workgroup.save(update_fields=["identification_reid_status"])
+    logger.info(
+        "Identification suggestions processed for workgroup %s: started=%s total=%s",
+        workgroup.id,
+        started_count,
+        uploaded_archives.count(),
+    )
 
 
 def schedule_init_identification_for_workgroup(workgroup: models.WorkGroup, delay_minutes: int = 10):
@@ -1683,6 +1700,8 @@ def init_identification(workgroup_id: int, selection: dict | None = None):
         uploaded_archive_ids=selection.get("uploaded_archive_ids"),
         sequence_ids=selection.get("sequence_ids"),
         mediafile_ids=selection.get("mediafile_ids"),
+        # TODO select only files with finished import
+        # require_import_finished=selection.get("require_import_finished", True),
         representative_only=selection.get("representative_only", True),
         require_identity=selection.get("require_identity", True),
         observation_taxon=selection.get(
