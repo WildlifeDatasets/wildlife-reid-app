@@ -70,7 +70,7 @@ class UploadedArchiveFactory(factory.django.DjangoModelFactory):
 
     taxon_status = "TV"
     identification_status = "C"
-    mediafiles_imported = True
+    import_finished = True
     contains_single_taxon = False
 
 

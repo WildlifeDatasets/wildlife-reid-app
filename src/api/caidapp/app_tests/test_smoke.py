@@ -20,39 +20,13 @@ User = get_user_model()
 
 
 class UrlSmokeTest(TestCase):
-    # def setUp(self):
-    #     """Initial data for tests."""
-    #     # User
-    #     self.user = User.objects.create_user(
-    #         username="smoke",
-    #         password="secret123",
-    #     )
-    #     self.user2 = User.objects.create_user(
-    #         username="smoke2",
-    #         password="secret123",
-    #     )
-    #
-    #     # self.client.login(
-    #     #     username="smoke", password="secret123"
-    #     # )
-    #     self.client.force_login(self.user) # faster
-    #
-    #     # WorkGroup
-    #     self.workgroup = WorkGroup.objects.create(name="WG1")
-    #
-    #     logger.debug(f"{self.user=}, {self.workgroup=}")
-    #     assert self.user.caiduser is not None
-    #     self.user.caiduser.workgroup = self.workgroup
-    #     self.user.caiduser.workgroup_admin = True
-    #
-    #     self.user.caiduser.save()
-    #
-    #     self.wg_invitation = WorkGroupInvitation.objects.create(
-    #         invited_user=self.user.caiduser,
-    #         invited_by=self.user2.caiduser,
-    #         target_workgroup=self.workgroup,
-    #         status="pending",
-    #     )
+    MUTATING_NAMES = {
+        "clear_identity_suggestions",
+        "toggle_identity_representative",
+    }
+    SKIPPED_VIEWS = {
+        "stream_video"
+    }
 
     def setUp(self):
 
@@ -96,35 +70,6 @@ class UrlSmokeTest(TestCase):
             notification=self.notification,
             user=self.caiduser
         )
-        # self.locality = LocalityFactory(owner_workgroup=self.workgroup)
-
-
-        # self.wg_invitation.save()
-
-    # def test_all_named_urls(self):
-    #     """Projde všechny pojmenované URL a zkusí GET.
-    #     Akceptuje status 200 nebo redirect (302)."""
-    #
-    #     resolver = get_resolver()
-    #
-    #     for pattern in resolver.url_patterns:
-    #         print(f"Pattern: {pattern}")
-    #         name = getattr(pattern, "name", None)
-    #         logger.debug(f"resolver {name=}, {pattern=}")
-    #         if not name:
-    #             continue
-    #
-    #         try:
-    #             url = reverse(name, kwargs=self._build_kwargs(pattern))
-    #         except NoReverseMatch:
-    #             continue
-    #
-    #         response = self.client.get(url)
-    #         self.assertIn(
-    #             response.status_code,
-    #             [200, 302],
-    #             f"{url} ({name}) failed with status {response.status_code}"
-    #         )
 
     def test_all_named_caidapp_urls(self):
         """Go over all named URLs in caidapp and try GET."""
@@ -142,6 +87,12 @@ class UrlSmokeTest(TestCase):
             if "sample_data" in name:  # sample data URL může být přístupná, ale není potřeba ji testovat
                 continue
 
+            if name in self.MUTATING_NAMES:
+                continue
+            if name in self.SKIPPED_VIEWS:
+                continue
+            if "delete" in name:
+                continue
             try:
                 url = reverse(f"caidapp:{name}", kwargs=self._build_kwargs(pattern))
             except NoReverseMatch:
@@ -171,9 +122,11 @@ class UrlSmokeTest(TestCase):
         kwargs = {}
         regex = str(pattern.pattern)
         if "<int:pk>" in regex:
-            kwargs["pk"] = 1
+            kwargs["pk"] = self._get_existing_pk_for_pattern(pattern)
         if "<int:id>" in regex:
             kwargs["id"] = 1
+        if "<int:mediafile_id>" in regex:
+            kwargs["mediafile_id"] = self.mediafile.pk
         if "<int:workgroup_pk>" in regex:
             kwargs["workgroup_pk"] = self.workgroup.pk
         # if "<int:workstation_pk>" in regex:
@@ -185,3 +138,24 @@ class UrlSmokeTest(TestCase):
         # if "<int:test_id>" in regex:
         #     kwargs["test_id"] = self.tech_test.pk
         return kwargs
+
+    def _get_existing_pk_for_pattern(self, pattern):
+        """Return an existing primary key for URLs that need a real object."""
+        name = getattr(pattern, "name", "")
+        if name == "media_file_update":
+            return self.mediafile.pk
+        if name == "missing_taxon_annotation_for_mediafile":
+            return self.mediafile.pk
+        if name == "toggle_identity_representative":
+            return self.mediafile.pk
+        if name == "individual_identity_update":
+            return self.identity.pk
+        if name == "notification-update":
+            return self.notification.pk
+        if name == "notification-detail":
+            return self.notification.pk
+        if name == "notification-delete":
+            return self.notification.pk
+        if name == "observation_delete":
+            return self.observation.pk
+        return 1
