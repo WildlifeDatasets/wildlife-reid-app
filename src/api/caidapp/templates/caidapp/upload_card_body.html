@@ -15,23 +15,23 @@
         <i class="bi bi-file-zip"></i>
         {{ uploadedarchive }}
     </div>
-    {% if uploadedarchive.locality_at_upload_object %}
-        <span data-bs-toggle="tooltip" title="Locality: {{ uploadedarchive.locality_at_upload_object.name }}">
+    {% if uploadedarchive.locality %}
+        <span data-bs-toggle="tooltip" title="Localities: {{ uploadedarchive.localities_display }}">
         <i class="bi bi-geo-alt"></i>
-        {#            {{ uploadedarchive.locality_at_upload_object.name }}#}
-        {#            {{ uploadedarchive.locality_at_upload_object.hash }}#}
 
         <a class="link-secondary"
-           href="{% url 'caidapp:uploads_of_locality' uploadedarchive.locality_at_upload_object.hash %}">
+           href="{% url 'caidapp:uploads_of_locality' uploadedarchive.locality.hash %}">
                     {% if request.session.private_mode %}
-                        {{ uploadedarchive.locality_at_upload_object.visible_name }}
+                        {{ uploadedarchive.locality.visible_name }}
                     {% else %}
-                        {{ uploadedarchive.locality_at_upload_object.name }}
+                        {{ uploadedarchive.locality.name }}
                     {% endif %}
             </a>
+        {% if uploadedarchive.localities|length > 1 %}
+            <span class="badge text-bg-secondary">+{{ uploadedarchive.localities|length|add:"-1" }}</span>
+        {% endif %}
         </span>
     {% else %}
-{#        {{ uploadedarchive.locality_at_upload_object.name }}#}
     {% endif %}
 
     {% if uploadedarchive.earliest_captured_at %}

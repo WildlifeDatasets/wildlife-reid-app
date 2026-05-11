@@ -109,6 +109,42 @@ docker build -t mjirik/wrid-mlbase:23.05 -f Dockerfile.wrid-mlbase .
 docker compose -f docker-compose.dev.yml exec api_dev python manage.py test
 ```
 
+Run the default fast subset and exclude tests tagged as `long`:
+
+```bash
+docker compose -f docker-compose.dev.yml exec api_dev python manage.py test_fast
+```
+
+Run only long Django tests:
+
+```bash
+docker compose -f docker-compose.dev.yml exec api_dev python manage.py test --tag=long
+```
+
+Run the normal Django suite but exclude long tests explicitly:
+
+```bash
+docker compose -f docker-compose.dev.yml exec api_dev python manage.py test --exclude-tag=long
+```
+
+### New upload smoke test
+
+To run the real new-upload integration healthcheck in development, mount your local test dataset into the dev containers:
+
+```bash
+echo "WRAP_TEST_DATA_HOST_DIR=C:/Users/mjirik/syno_bmc_home/my_bc_data/data/biology/orig/CarnivoreID" >> .env
+```
+
+Then rebuild the dev stack and run:
+
+```bash
+docker compose -f docker-compose.dev.yml exec api_dev python manage.py healthcheck_new_upload
+```
+
+This command uploads `2021-05-06_Tri_lokality_XYZ.zip` through the new upload endpoint, waits for async processing,
+and verifies that a new locality `Xandovice` is created for the dedicated healthcheck user.
+Unlike `manage.py test`, this is a live smoke check against the running development stack and its normal dev database.
+
 ### Sample data
 
 The sample data can be added by creating `ArchiveCollection` with name `sample_data` and selection of several 

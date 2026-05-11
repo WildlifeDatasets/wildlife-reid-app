@@ -723,6 +723,9 @@ class UploadedArchive(models.Model):
     videos_at_upload = models.IntegerField("Videos at Upload", default=0)
     files_at_upload = models.IntegerField("Files at Upload", default=0)
     import_error_spreadsheet = models.FileField(upload_to=outputdir, blank=True, null=True)
+    import_log = models.TextField(blank=True, default="")
+    import_mapping = models.JSONField(blank=True, default=dict)
+    path_structure_regex = models.TextField(blank=True, default="")
 
     def refresh_status_after_migration(self, request: Optional[object] = None):
         """Refresh possible old setup of object to 'migrated' one."""
@@ -823,8 +826,32 @@ class UploadedArchive(models.Model):
         mediafiles = MediaFile.objects.filter(parent=self)
         for mediafile in mediafiles:
             mediafile.locality = location
+            mediafile.save(update_fields=["locality"])
         self.locality_at_upload_object = location
-        self.location = location.name
+        self.locality_at_upload = location.name if location else ""
+        self.save(update_fields=["locality_at_upload_object", "locality_at_upload"])
+
+    def localities(self):
+        """Return unique localities used by media files in this upload."""
+        localities = Locality.objects.filter(mediafiles__parent=self).distinct().order_by("name")
+        if localities.exists():
+            return localities
+        if self.locality_at_upload_object_id:
+            return Locality.objects.filter(id=self.locality_at_upload_object_id)
+        return Locality.objects.none()
+
+    @property
+    def locality(self) -> Optional[Locality]:
+        """Compatibility accessor returning the first locality in the upload."""
+        return self.localities().first()
+
+    @property
+    def localities_display(self) -> Optional[str]:
+        """Return comma-separated locality names for templates and debugging."""
+        localities = list(self.localities())
+        if not localities:
+            return None
+        return ", ".join(locality.name for locality in localities)
 
     def earliest_captured_taxon(self):
         """Return earliest captured taxon in the archive."""

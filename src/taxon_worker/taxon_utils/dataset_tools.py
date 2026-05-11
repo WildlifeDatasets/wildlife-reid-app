@@ -990,11 +990,16 @@ class SumavaInitialProcessing:
 def add_column_with_lynx_id(df: pd.DataFrame, contain_identities: bool = False) -> pd.DataFrame:
     """Create column with lynx id based on directory structure."""
     if contain_identities:
-        df["unique_name"] = df["original_path"].apply(get_lynx_id_as_parent_name)
+        generated_unique_name = df["original_path"].apply(get_lynx_id_as_parent_name)
     else:
         # If we don't know about identity, we can check if the structure is similar to SUMAVA
         # Get ID of lynx from directories in basedir beside "TRIDENA" and "NETRIDENA"
-        df["unique_name"] = df["original_path"].apply(get_lynx_id_in_sumava)
+        generated_unique_name = df["original_path"].apply(get_lynx_id_in_sumava)
+    if "unique_name" in df.columns:
+        has_unique_name = df["unique_name"].notnull() & (df["unique_name"] != "")
+        df["unique_name"] = df["unique_name"].where(has_unique_name, generated_unique_name)
+    else:
+        df["unique_name"] = generated_unique_name
     return df
 
 
@@ -1246,6 +1251,8 @@ def analyze_dataset_directory(
     latin_to_taxonomy_csv_path: Optional[Path] = None,
     contains_identities: bool = False,
     sequence_time_limit_s: int = 120,
+    path_structure_regex: Optional[str] = None,
+    path_structure_mapping: Optional[dict] = None,
 ):
     """Get species, locality, datetime and sequence_id from directory with media files.
 
@@ -1266,8 +1273,14 @@ def analyze_dataset_directory(
         num_cores = multiprocessing.cpu_count()
     init_processing = SumavaInitialProcessing(dataset_dir_path, num_cores=num_cores)
     df0 = init_processing.make_paths_and_exifs_parallel(mask="**/*.*", make_exifs=True, make_csv=False)
+    logger.debug(f"{path_structure_regex=}")
+    logger.debug(f"{path_structure_mapping=}")
 
     df = extract_information_from_dir_structure(df0, latin_to_taxonomy_csv_path=latin_to_taxonomy_csv_path)
+    if path_structure_mapping:
+        df = apply_path_structure_mapping(df, path_structure_mapping)
+    if path_structure_regex:
+        df = apply_path_structure_regex(df, path_structure_regex)
 
     df["datetime"] = pd.to_datetime(df0.datetime, errors="coerce")
     df["read_error"] = list(df0["read_error"])
@@ -1311,6 +1324,83 @@ def analyze_dataset_directory(
     return metadata, duplicates
 
 
+def apply_path_structure_regex(df: pd.DataFrame, path_structure_regex: str) -> pd.DataFrame:
+    """Apply optional user-defined named-group regex to original paths.
+
+    Empty/invalid regex keeps the legacy directory parser behavior. Supported
+    groups map to columns already used later by the import pipeline.
+    """
+    try:
+        pattern = re.compile(path_structure_regex)
+    except re.error as exc:
+        logger.warning(f"Invalid path_structure_regex. Keeping legacy path parsing. Error: {exc}")
+        return df
+
+    group_to_column = {
+        "taxon": "vanilla_species",
+        "locality": "vanilla_location",
+        "identity": "unique_name",
+        "check_date": "date",
+    }
+    for index, original_path in enumerate(df["original_path"]):
+        match = pattern.search(str(original_path).replace("\\", "/"))
+        if not match:
+            continue
+        groups = match.groupdict()
+        for group_name, column in group_to_column.items():
+            value = groups.get(group_name)
+            if value:
+                df.loc[index, column] = value
+                if group_name == "locality":
+                    df.loc[index, "location"] = clean_location_name(value)
+    return df
+
+
+def clean_location_name(value: str) -> str:
+    """Normalize location similarly to the legacy Sumava parser."""
+    return (
+        strip_accents(str(value))
+        .lower()
+        .replace(" ", "")
+        .replace("druhy_", "")
+        .replace("_", "")
+        .replace("3l-", "")
+        .replace("-", "")
+    )
+
+
+def apply_path_structure_mapping(df: pd.DataFrame, path_structure_mapping: dict) -> pd.DataFrame:
+    """Apply simple directory role mapping from the new upload UI.
+
+    The mapping uses zero-based directory indexes, not filename indexes:
+    {"locality": 0} maps "Prachatice/img001.jpg" to locality "Prachatice".
+    """
+    role_to_columns = {
+        "taxon": ("vanilla_species",),
+        "locality": ("vanilla_location", "location"),
+        "identity": ("unique_name",),
+        "check_date": ("date",),
+    }
+    for index, original_path in enumerate(df["original_path"]):
+        path_parts = Path(str(original_path).replace("\\", "/")).parts
+        directory_parts = path_parts[:-1]
+        for role, raw_position in path_structure_mapping.items():
+            if role not in role_to_columns:
+                continue
+            try:
+                position = int(raw_position)
+            except (TypeError, ValueError):
+                continue
+            if position < 0 or position >= len(directory_parts):
+                continue
+            value = directory_parts[position]
+            if not value:
+                continue
+            for column in role_to_columns[role]:
+                df.loc[index, column] = clean_location_name(value) if column == "location" else value
+    return df
+
+
 def data_preprocessing(
     zip_path: Path,
     media_dir_path: Path,
@@ -1318,6 +1408,8 @@ def data_preprocessing(
     contains_identities: bool = False,
     post_update_csv_path: Path = Path("mediafile.post_update.csv"),
     sequence_time_limit_s: int = 120,
+    path_structure_regex: Optional[str] = None,
+    path_structure_mapping: Optional[dict] = None,
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """Preprocessing of data in zip file.
 
@@ -1357,6 +1449,8 @@ def data_preprocessing(
         num_cores=num_cores,
         contains_identities=contains_identities,
         sequence_time_limit_s=sequence_time_limit_s,
+        path_structure_regex=path_structure_regex,
+        path_structure_mapping=path_structure_mapping,
     )
     # post_update CSV is used for updating the metadata after all files are processed
 
@@ -1383,13 +1477,13 @@ def data_preprocessing(
 
 def find_any_spreadsheet_and_save_as_csv(tmp_dir, csv_path):
     """Find any spreadsheet in directory and save it as CSV."""
-    post_update_path = sorted(list(tmp_dir.glob("**/*.csv")) + list(tmp_dir.glob("**/*.xlsx")))
+    post_update_path = sorted(list(tmp_dir.glob("**/*.csv")) + list(tmp_dir.glob("**/*.xls")) + list(tmp_dir.glob("**/*.xlsx")))
     post_update_path = post_update_path[-1] if len(post_update_path) > 0 else None
     logger.debug(f"{post_update_path=}")
     if post_update_path is not None:
         if post_update_path.suffix == ".csv":
             df_post_update = pd.read_csv(post_update_path)
-        elif post_update_path.suffix == ".xlsx":
+        elif post_update_path.suffix in (".xls", ".xlsx"):
             df_post_update = pd.read_excel(post_update_path)
         else:
             df_post_update = None

@@ -133,6 +133,22 @@ class SequenceViewTest(TestCase):
         self.assertContains(response, "first.jpg")
         self.assertContains(response, "second.jpg")
 
+    def test_sequence_view_shows_primary_locality_and_expandable_extra_count(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        locality_primary = LocalityFactory(owner=self.caiduser, name="Xandovice")
+        locality_secondary = LocalityFactory(owner=self.caiduser, name="Ypovice")
+        sequence = SequenceFactory(uploaded_archive=archive)
+        MediaFileFactory(parent=archive, locality=locality_primary, sequence=sequence, original_filename="first.jpg")
+        MediaFileFactory(parent=archive, locality=locality_primary, sequence=sequence, original_filename="second.jpg")
+        MediaFileFactory(parent=archive, locality=locality_secondary, sequence=sequence, original_filename="third.jpg")
+
+        response = self.client.get(reverse("caidapp:sequences"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Xandovice")
+        self.assertContains(response, "+1")
+        self.assertContains(response, "Ypovice")
+
     # def test_create_workstation(self):
     #     url = reverse("workstation-create")
     #     data = {

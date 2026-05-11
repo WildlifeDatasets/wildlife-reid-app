@@ -9,7 +9,10 @@ import pytest
 try:
     from src.taxon_worker.taxon_utils import dataset_tools
 except ModuleNotFoundError:
-    from jupyter_notebooks.datasets.sumava import dataset_tools
+    try:
+        from taxon_utils import dataset_tools
+    except ModuleNotFoundError:
+        from jupyter_notebooks.datasets.sumava import dataset_tools
 
 logger = logging.getLogger(__file__)
 
@@ -20,6 +23,7 @@ CAID_DATASET_BASEDIR = Path(
         r"C:\Users\Jirik\my_bc_data\data\biology\orig\CarnivoreID",
     )
 )
+WRAP_TEST_DATA_DIR = os.getenv("WRAP_TEST_DATA_DIR")
 CI = os.getenv("CI", False)
 
 
@@ -194,6 +198,26 @@ def test_data_preprocessing_parallel():
     metadata, duplicates = dataset_tools.data_preprocessing(tarfile_path, media_dir_path, num_cores=1)
     logger.debug(metadata)
     assert len(list(media_dir_path.glob("**/*"))) > 0, "There should be some files in media dir path"
+
+
+@pytest.mark.skipif(not WRAP_TEST_DATA_DIR, reason="WRAP_TEST_DATA_DIR is not configured")
+def test_data_preprocessing_with_user_directory_locality_mapping(tmp_path):
+    """Import a small real-world ZIP and read locality from the inner directory."""
+    zip_path = Path(WRAP_TEST_DATA_DIR) / "2021-05-06_Tri_lokality_XYZ.zip"
+    if not zip_path.exists():
+        pytest.skip(f"Missing test ZIP: {zip_path}")
+
+    metadata, _ = dataset_tools.data_preprocessing(
+        zip_path,
+        media_dir_path=tmp_path / "media",
+        num_cores=1,
+        post_update_csv_path=tmp_path / "post_update.csv",
+        path_structure_mapping={"locality": 1},
+    )
+
+    assert len(metadata) == 11
+    assert set(metadata["vanilla_location"]) == {"Xandovice", "Ypovice", "Zářečí"}
+    assert set(metadata["location"]) == {"xandovice", "ypovice", "zareci"}
 
 
 def test_make_input_tarfile():

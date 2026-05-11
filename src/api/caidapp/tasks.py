@@ -647,6 +647,8 @@ def run_species_prediction_async(
             "sequence_time_limit_s": sequence_time_limit_s,
             "detection_model_path": detection_model_path,
             "detection_model_architecture": detection_model_architecture,
+            "path_structure_regex": uploaded_archive.path_structure_regex or None,
+            "path_structure_mapping": uploaded_archive.import_mapping.get("directory_mapping") or None,
         },
     )
 
@@ -807,8 +809,8 @@ def update_uploaded_archive_by_metadata_csv(
     # logger.debug(f"{starts_at=}, {ends_at=}")
     # uploaded_archive.starts_at = str(starts_at)
     # uploaded_archive.ends_at = str(ends_at)
-    uploaded_archive.locality_at_upload_object = locality
-    uploaded_archive.save()
+    uploaded_archive.locality_at_upload_object = uploaded_archive.locality
+    uploaded_archive.save(update_fields=["locality_at_upload_object"])
 
 
 def _update_database_by_one_row_of_metadata(
@@ -831,6 +833,7 @@ def _update_database_by_one_row_of_metadata(
     media_abs_pth = Path(row["absolute_media_path"])
     media_rel_pth = media_abs_pth.relative_to(settings.MEDIA_ROOT)
     captured_at = row["datetime"]
+    row_locality = get_locality_from_metadata_row(uploaded_archive, row, locality)
     # if no timzone is given, we assume it is the local time zone
     try:
         # captured_at = pd.to_datetime(captured_at, utc=True)
@@ -871,7 +874,7 @@ def _update_database_by_one_row_of_metadata(
                 mediafile=str(media_rel_pth),
                 image_file=str(image_rel_pth),
                 captured_at=captured_at,
-                locality=locality,
+                locality=row_locality,
                 media_type=row["media_type"],
                 # metadata_json=row["detection_results"],
                 # metadata_json=metadata_json,
@@ -927,6 +930,8 @@ def _update_database_by_one_row_of_metadata(
             # mf.first_observation.taxon = get_taxon(row["predicted_category"])  # remove this
         if captured_at is not None:
             mf.captured_at = captured_at
+        if row_locality is not None:
+            mf.locality = row_locality
         if "predicted_category_raw" in row:
             predicted_taxon = get_taxon(row["predicted_category_raw"])
             predicted_taxon_confidence = float(row["predicted_prob_raw"])
@@ -1006,6 +1011,18 @@ def _update_database_by_one_row_of_metadata(
     return status
 
     # logger.debug(f"{mf}")
+
+
+def get_locality_from_metadata_row(uploaded_archive: UploadedArchive, row, fallback_locality):
+    """Prefer per-media locality parsed from path/spreadsheet over upload-wide locality."""
+    for column in ("locality_name", "vanilla_location"):
+        if column not in row:
+            continue
+        value = row[column]
+        if value is None or pd.isna(value) or str(value).strip() == "":
+            continue
+        return get_locality(uploaded_archive.owner, str(value).strip())
+    return fallback_locality
 
 
 def update_metadata_csv_by_uploaded_archive(

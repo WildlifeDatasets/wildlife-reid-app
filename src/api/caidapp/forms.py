@@ -1,4 +1,5 @@
 import logging
+from pathlib import Path
 
 from django import forms
 from django.contrib.auth import get_user_model
@@ -501,6 +502,75 @@ class UploadedArchiveFormWithTaxon(forms.ModelForm):
 #         # if user and user.caiduser.ml_consent_given:
 #         #     # Don't show the checkbox if already agreed
 #         #     self.fields.pop("ml_consent")
+
+
+class NewUploadForm(forms.Form):
+    TAXON_MODE_CHOICES = (
+        ("recognize_taxa", "Recognize taxa"),
+        ("single_taxon", "Single known taxon"),
+    )
+
+    upload_files = MultipleFileField(
+        required=True,
+        label="Upload files",
+        help_text="Select a ZIP, media files, and optionally one spreadsheet.",
+    )
+    spreadsheet_file = forms.FileField(
+        required=False,
+        label="Spreadsheet",
+        widget=forms.FileInput(attrs={"accept": ".csv,.xls,.xlsx"}),
+    )
+    locality_at_upload = forms.CharField(
+        label="Locality",
+        widget=forms.TextInput(attrs={"class": "autocomplete"}),
+        required=False,
+    )
+    locality_check_at = forms.DateField(
+        required=False,
+        widget=forms.DateInput(attrs={"type": "date"}),
+        input_formats=["%Y-%m-%d"],
+    )
+    taxon_mode = forms.ChoiceField(choices=TAXON_MODE_CHOICES, initial="recognize_taxa")
+    taxon_for_identification = forms.ModelChoiceField(
+        queryset=models.Taxon.objects.all().order_by("name"),
+        required=False,
+    )
+    contains_identities = forms.BooleanField(required=False)
+    is_for_identification = forms.BooleanField(
+        required=False,
+        label="Use this upload for identification / re-identification",
+    )
+    directory_structure = forms.CharField(required=False, widget=forms.HiddenInput())
+    directory_mapping = forms.CharField(required=False, widget=forms.HiddenInput())
+    path_regex = forms.CharField(required=False, widget=forms.HiddenInput())
+    spreadsheet_column_mapping = forms.CharField(required=False, widget=forms.HiddenInput())
+    upload_relative_paths = forms.CharField(required=False, widget=forms.HiddenInput())
+    ml_consent = forms.BooleanField(
+        widget=forms.CheckboxInput(),
+        label="I agree to the use of my uploaded images and videos for training AI models.",
+        required=True,
+    )
+
+    def __init__(self, *args, **kwargs):
+        user = kwargs.pop("user", None)
+        super().__init__(*args, **kwargs)
+        self.fields["ml_consent"].initial = user.caiduser.ml_consent_given if user else False
+
+    def clean(self):
+        cleaned_data = super().clean()
+        taxon_mode = cleaned_data.get("taxon_mode")
+        taxon = cleaned_data.get("taxon_for_identification")
+        spreadsheet_file = cleaned_data.get("spreadsheet_file")
+
+        if taxon_mode == "single_taxon" and taxon is None:
+            self.add_error("taxon_for_identification", "Select a taxon for single-taxon upload.")
+
+        if spreadsheet_file:
+            suffix = Path(spreadsheet_file.name).suffix.lower()
+            if suffix not in (".csv", ".xls", ".xlsx"):
+                self.add_error("spreadsheet_file", "Only CSV, XLS and XLSX files are supported.")
+
+        return cleaned_data
 
 
 class CaIDUserForm(forms.ModelForm):

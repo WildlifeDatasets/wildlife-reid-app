@@ -53,7 +53,7 @@ from django.views.generic import CreateView, DeleteView, DetailView, ListView, U
 from djangoaddicts.pygwalker.views import PygWalkerView
 from tqdm import tqdm
 
-from . import filters, forms, model_tools, models, tasks, views_general, views_locality, views_uploads
+from . import filters, forms, model_tools, models, tasks, upload_services, views_general, views_locality, views_uploads
 from .forms import (  # WorkgroupUsersForm,
     AlbumForm,
     IndividualIdentityForm,
@@ -1990,6 +1990,163 @@ def _one_zip_from_request_FILES(request: HttpRequest) -> HttpRequest:
     return request
 
 
+def user_can_use_new_upload(user) -> bool:
+    if not user.is_authenticated:
+        return False
+    caiduser = getattr(user, "caiduser", None)
+    return user.is_staff or bool(caiduser and caiduser.workgroup_admin)
+
+
+class NewUploadView(LoginRequiredMixin, UserPassesTestMixin, View):
+    template_name = "caidapp/new_upload.html"
+
+    def test_func(self):
+        return user_can_use_new_upload(self.request.user)
+
+    def get(self, request):
+        form = forms.NewUploadForm(user=request.user)
+        return render(
+            request,
+            self.template_name,
+            {
+                "form": form,
+                "headline": "New Upload",
+                "localities": get_all_relevant_localities(request),
+            },
+        )
+
+    def post(self, request):
+        form = forms.NewUploadForm(request.POST, request.FILES, user=request.user)
+        if not form.is_valid():
+            html = render_to_string(
+                "caidapp/partial_message.html",
+                {
+                    "headline": "Upload failed",
+                    "text": "Upload form is not valid.",
+                    "next": reverse_lazy("caidapp:new_upload"),
+                    "next_text": "Back to new upload",
+                },
+                request=request,
+            )
+            return JsonResponse({"ok": False, "html": html, "errors": form.errors.get_json_data()}, status=400)
+
+        caiduser = request.user.caiduser
+        if not caiduser.ml_consent_given and form.cleaned_data.get("ml_consent"):
+            caiduser.ml_consent_given = True
+            caiduser.ml_consent_given_date = timezone.now().astimezone(ZoneInfo(caiduser.timezone))
+            caiduser.save()
+
+        upload_files = request.FILES.getlist("upload_files")
+        spreadsheet_file = form.cleaned_data.get("spreadsheet_file")
+        relative_path_manifest = upload_services.load_relative_path_manifest(
+            form.cleaned_data.get("upload_relative_paths", "")
+        )
+        directory_mapping = upload_services.parse_json_mapping(form.cleaned_data.get("directory_mapping", ""))
+        spreadsheet_column_mapping = upload_services.parse_json_mapping(
+            form.cleaned_data.get("spreadsheet_column_mapping", "")
+        )
+
+        try:
+            zip_result = upload_services.build_upload_zip(
+                upload_files,
+                spreadsheet_file=spreadsheet_file,
+                relative_path_manifest=relative_path_manifest,
+                directory_structure=form.cleaned_data.get("directory_structure", ""),
+                directory_mapping=directory_mapping,
+                path_regex=form.cleaned_data.get("path_regex", ""),
+                spreadsheet_column_mapping=spreadsheet_column_mapping,
+            )
+        except Exception as exc:
+            logger.warning("New upload preparation failed: %s", exc)
+            html = render_to_string(
+                "caidapp/partial_message.html",
+                {
+                    "headline": "Upload preparation failed",
+                    "text": str(exc),
+                    "next": reverse_lazy("caidapp:new_upload"),
+                    "next_text": "Back to new upload",
+                },
+                request=request,
+            )
+            return JsonResponse({"ok": False, "html": html}, status=400)
+
+        blocking_import_log = [
+            line
+            for line in zip_result.import_log.splitlines()
+            if "too shallow" in line or "no relative paths" in line
+        ]
+        if blocking_import_log:
+            html = render_to_string(
+                "caidapp/partial_message.html",
+                {
+                    "headline": "Directory mapping needs attention",
+                    "text": "\n".join(blocking_import_log),
+                    "next": reverse_lazy("caidapp:new_upload"),
+                    "next_text": "Back to new upload",
+                },
+                request=request,
+            )
+            return JsonResponse({"ok": False, "html": html, "import_log": blocking_import_log}, status=400)
+
+        uploaded_archive = UploadedArchive(
+            owner=caiduser,
+            locality_at_upload=form.cleaned_data.get("locality_at_upload", ""),
+            locality_check_at=form.cleaned_data.get("locality_check_at"),
+            contains_single_taxon=form.cleaned_data["taxon_mode"] == "single_taxon",
+            contains_identities=form.cleaned_data.get("contains_identities", False),
+            is_for_identification=form.cleaned_data.get("is_for_identification", False),
+            taxon_for_identification=form.cleaned_data.get("taxon_for_identification"),
+            import_log=zip_result.import_log,
+            import_mapping=zip_result.import_mapping,
+            path_structure_regex=form.cleaned_data.get("path_regex", ""),
+        )
+        uploaded_archive.archivefile.save(zip_result.filename, zip_result.file, save=False)
+        uploaded_archive.name = Path(uploaded_archive.archivefile.name).stem
+        if uploaded_archive.locality_at_upload:
+            uploaded_archive.locality_at_upload_object = models.get_locality(caiduser, uploaded_archive.locality_at_upload)
+        uploaded_archive.save()
+        counts = uploaded_archive.number_of_media_files_in_archive()
+
+        run_species_prediction_async(uploaded_archive, extract_identites=uploaded_archive.contains_identities)
+
+        next_url = reverse_lazy("caidapp:uploads")
+        if uploaded_archive.contains_identities:
+            next_url = reverse_lazy("caidapp:uploads_known_identities")
+        elif uploaded_archive.contains_single_taxon:
+            next_url = reverse_lazy("caidapp:uploads_identities")
+
+        summary_lines = [
+            f"Uploaded {counts['file_count']} files ({counts['image_count']} images and {counts['video_count']} videos).",
+        ]
+        if zip_result.spreadsheet_summary.filename:
+            summary_lines.append(
+                "Spreadsheet columns: " + ", ".join(zip_result.spreadsheet_summary.normalized_columns)
+            )
+        if zip_result.import_log:
+            summary_lines.append("Warnings: " + zip_result.import_log.replace("\n", " "))
+
+        html = render_to_string(
+            "caidapp/partial_message.html",
+            {
+                "headline": "Upload finished",
+                "text": "\n".join(summary_lines),
+                "next": next_url,
+                "next_text": "Back to uploads",
+            },
+            request=request,
+        )
+        return JsonResponse(
+            {
+                "ok": True,
+                "html": html,
+                "uploaded_archive_id": uploaded_archive.id,
+                "counts": counts,
+                "spreadsheet": zip_result.spreadsheet_summary.__dict__,
+                "import_log": zip_result.import_log,
+            }
+        )
+
+
 @login_required
 def upload_archive(
     request,
@@ -2664,9 +2821,10 @@ def _get_filtered_mediafiles_queryset(
             locality_check_at = " - " + uploaded_archive.locality_check_at.strftime("%Y-%m-%d %H:%M:%S")
         else:
             locality_check_at = ""
-        page_title = f"Media files - {uploaded_archive.locality_at_upload}{locality_check_at}"
+        locality_label = uploaded_archive.localities_display or uploaded_archive.locality_at_upload
+        page_title = f"Media files - {locality_label}{locality_check_at}"
         filter_kwargs["parent"] = uploaded_archive
-        mediafiles_name_suggestion = f"uploaded_archive_{uploaded_archive.locality_at_upload}{locality_check_at}"
+        mediafiles_name_suggestion = f"uploaded_archive_{locality_label}{locality_check_at}"
     elif album_hash is not None:
         album = get_object_or_404(Album, hash=album_hash)
         page_title = f"Media files - {album.name}"
@@ -2870,7 +3028,18 @@ def sequences(
         sequence.cover_mediafile = mediafiles_in_sequence[0] if mediafiles_in_sequence else None
         sequence.has_multiple_taxa = len({mf.taxon_id for mf in mediafiles_in_sequence if mf.taxon_id}) > 1
         sequence.has_multiple_identities = len({mf.identity_id for mf in mediafiles_in_sequence if mf.identity_id}) > 1
-        sequence.has_multiple_localities = len({mf.locality_id for mf in mediafiles_in_sequence if mf.locality_id}) > 1
+        locality_counts = {}
+        for mediafile in mediafiles_in_sequence:
+            if mediafile.locality is None:
+                continue
+            locality_counts[mediafile.locality] = locality_counts.get(mediafile.locality, 0) + 1
+        sequence.localities = [
+            locality
+            for locality, _count in sorted(locality_counts.items(), key=lambda item: (-item[1], item[0].name, item[0].id))
+        ]
+        sequence.primary_locality = sequence.localities[0] if sequence.localities else None
+        sequence.additional_localities = sequence.localities[1:]
+        sequence.has_multiple_localities = len(sequence.localities) > 1
 
     form_bulk_processing = MediaFileBulkForm(request.POST or None)
 

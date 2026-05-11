@@ -44,6 +44,8 @@ def predict(
     sequence_time_limit_s: int = 120,
     detection_model_path: str = None,
     detection_model_architecture: str = None,
+    path_structure_regex: str = None,
+    path_structure_mapping: dict = None,
     **kwargs,
 ):
     """Prepare import data and species classification inference.
@@ -97,6 +99,8 @@ def predict(
                 contains_identities=contains_identities,
                 post_update_csv_path=post_update_csv_path,
                 sequence_time_limit_s=sequence_time_limit_s,
+                path_structure_regex=path_structure_regex,
+                path_structure_mapping=path_structure_mapping,
             )
             metadata, df_failing0 = data_processing_pipeline.keep_correctly_loaded_images(metadata)
             # image_path is now relative to output_images_dir
