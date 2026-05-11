@@ -478,11 +478,12 @@ def uploads_known_identities(request) -> HttpResponse:
 @login_required
 def uploads_identities(request) -> HttpResponse:
     """View for mediafiles not in other categories."""
-    queryset = get_filtered_mediafiles(
-        request.user,
-        contains_identities=False,
-        is_for_identification=True,
-    )
+    filter_kwargs = {
+        "is_for_identification": True,
+    }
+    if request.user.caiduser.show_base_dataset:
+        filter_kwargs["contains_identities"] = False
+    queryset = get_filtered_mediafiles(request.user, **filter_kwargs)
     page_context = paginate_queryset(queryset, request)
 
     return render(

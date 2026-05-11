@@ -178,6 +178,55 @@ class IdentificationUploadsViewTest(TestCase):
         self.assertContains(response, visible_archive.name)
         self.assertNotContains(response, "Hidden non-identification upload")
 
+    def test_uploads_identities_include_base_dataset_when_show_base_dataset_is_disabled(self):
+        self.caiduser.show_base_dataset = False
+        self.caiduser.save()
+        UploadedArchiveFactory(
+            owner=self.caiduser,
+            name="Visible base dataset upload",
+            is_for_identification=True,
+            contains_identities=True,
+            taxon_for_identification=None,
+        )
+        UploadedArchiveFactory(
+            owner=self.caiduser,
+            name="Visible ordinary identification upload",
+            is_for_identification=True,
+            contains_identities=False,
+            taxon_for_identification=None,
+        )
+
+        response = self.client.get(reverse("caidapp:uploads_identities"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Visible base dataset upload")
+        self.assertContains(response, "Visible ordinary identification upload")
+        self.assertContains(response, "bi-star-fill")
+
+    def test_uploads_identities_hide_base_dataset_when_show_base_dataset_is_enabled(self):
+        self.caiduser.show_base_dataset = True
+        self.caiduser.save()
+        UploadedArchiveFactory(
+            owner=self.caiduser,
+            name="Hidden base dataset upload",
+            is_for_identification=True,
+            contains_identities=True,
+            taxon_for_identification=None,
+        )
+        UploadedArchiveFactory(
+            owner=self.caiduser,
+            name="Visible ordinary identification upload",
+            is_for_identification=True,
+            contains_identities=False,
+            taxon_for_identification=None,
+        )
+
+        response = self.client.get(reverse("caidapp:uploads_identities"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "Hidden base dataset upload")
+        self.assertContains(response, "Visible ordinary identification upload")
+
     def test_uploads_known_identities_uses_is_for_identification_without_taxon_requirement(self):
         visible_archive = UploadedArchiveFactory(
             owner=self.caiduser,

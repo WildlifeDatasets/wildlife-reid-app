@@ -7,8 +7,17 @@
 {#    {% endif %}#}
 {##}
 {#</h5>#}
-
-<div class="mt-2">
+<div class="mt-2 position-relative">
+    {% if uploadedarchive.contains_identities %}
+        <span
+            class="position-absolute top-0 end-0 text-warning"
+            style="font-size: 1.35rem; line-height: 1; transform: translate(-0.1rem, -0.45rem);"
+            data-bs-toggle="tooltip"
+            title="All files in this upload are identified and representative."
+        >
+            <i class="bi bi-star-fill"></i>
+        </span>
+    {% endif %}
     <div
 {#            data-bs-toggle="tooltip" title="Filename {{ uploadedarchive }}"#}
     >
