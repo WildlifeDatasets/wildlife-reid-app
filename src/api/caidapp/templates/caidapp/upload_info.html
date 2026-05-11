@@ -12,6 +12,7 @@ Media files: {{ uploadedarchive.count_of_mediafiles }}
   Missing taxon verification {{ uploadedarchive.count_of_mediafiles_with_unverified_taxon }}
   Media files with taxon for identification: {{ uploadedarchive.count_of_mediafiles_with_taxon_for_identification }}
   Representative media files: {{ uploadedarchive.count_of_representative_mediafiles }}
+File name: {{ uploadedarchive.get_name }}
 {#{% if mediafile.instance.category %}#}
 {#Taxon: {{ mediafile.instance.category }}#}
 {#{% endif %}#}

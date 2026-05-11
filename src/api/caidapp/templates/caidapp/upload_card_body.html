@@ -10,8 +10,8 @@
 <div class="mt-2 position-relative">
     {% if uploadedarchive.contains_identities %}
         <span
-            class="position-absolute top-0 end-0 text-warning"
-            style="font-size: 1.35rem; line-height: 1; transform: translate(-0.1rem, -0.45rem);"
+            class="position-absolute top-0 end-0 text-dark "
+            style="font-size: 1.6rem; width: 2rem; height: 2rem; line-height: 1; transform: translate(0.1rem, -2.45rem);"
             data-bs-toggle="tooltip"
             title="All files in this upload are identified and representative."
         >
@@ -94,14 +94,4 @@ Media Files with {{ uploadedarchive.taxon_for_identification }} /{% endif %}
 </div>
 
 
-    <div class="position-absolute bottom-0 end-0 p-3">
-                                    <span
-                                            {#                                            data-bs-toggle="tooltip"#}
-                                            {#                                            data-toggle="tooltip"#}
-                                            title="File name: {{ uploadedarchive.get_name }}"
-                                    >
-                                            <i class="bi bi-info-circle"></i>
-                                        </span>
-
-    </div>
 </div>
