@@ -33,11 +33,14 @@
                 <div class="section">
                     <p class="mt-4">What do you want to process?</p>
                     <div class="row">
+                        {% if user.caiduser.show_taxon_classification %}
                         <div class="col">
                             <a class="btn btn-primary btn-lg" href="{% url 'caidapp:taxon_processing' %}">
                                 <img src="{% static 'caidapp/taxon_classification.svg' %}" alt="taxon classification icon" class="img-fluid" style="max-height: 100px;">
                                 <br>Taxon</a>
                         </div>
+                        {% endif %}
+                        {% if user.caiduser.show_reid %}
                         <div class="col"
                                 {% if not user.caiduser.workgroup %} title="No workgroup assigned. Ask admin to create it for you." {% endif %}
                         >
@@ -48,7 +51,7 @@
                                 <img src="{% static 'caidapp/identification.svg' %}" alt="taxon classification icon" class="img-fluid" style="max-height: 100px;">
                                 <br>Indentity</a>
                         </div>
-
+                        {% endif %}
                     </div>
 
                 </div>

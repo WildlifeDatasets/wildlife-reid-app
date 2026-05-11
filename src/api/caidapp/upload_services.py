@@ -47,6 +47,7 @@ class SpreadsheetSummary:
 class ZipBuildResult:
     file: Any
     filename: str
+    archive_name: str
     import_mapping: dict[str, Any]
     import_log: str
     spreadsheet_summary: SpreadsheetSummary
@@ -145,6 +146,59 @@ def validate_directory_mapping(relative_paths: list[str], structure: str) -> lis
     return warnings
 
 
+def build_archive_name(has_single_zip_upload: bool, upload_files, relative_paths: list[str]) -> str:
+    timestamp = timezone.now().strftime("%Y%m%d-%H%M%S")
+    fallback_name = f"upload_{timestamp}"
+
+    if has_single_zip_upload and upload_files:
+        stem = PurePosixPath(upload_files[0].name).stem.strip()
+        return stem or fallback_name
+
+    top_level_parts = []
+    for path in relative_paths:
+        safe_path = _safe_zip_path(path)
+        path_parts = [part for part in safe_path.split("/") if part]
+        if len(path_parts) > 1:
+            top_level_parts.append(path_parts[0])
+
+    unique_top_level_parts = {part for part in top_level_parts if part}
+    if len(unique_top_level_parts) == 1:
+        return next(iter(unique_top_level_parts))
+
+    return fallback_name
+
+
+def build_path_regex_from_directory_mapping(directory_mapping: dict[str, Any]) -> str:
+    if not directory_mapping:
+        return ""
+
+    normalized_mapping: dict[str, int] = {}
+    for role, raw_position in directory_mapping.items():
+        try:
+            position = int(raw_position)
+        except (TypeError, ValueError):
+            continue
+        if position < 0:
+            continue
+        normalized_mapping[str(role)] = position
+
+    if not normalized_mapping:
+        return ""
+
+    role_patterns = {
+        "check_date": r"(?P<check_date>\d{4}-?\d{2}-?\d{2})",
+        "locality": r"(?P<locality>[^/]+)",
+        "taxon": r"(?P<taxon>[^/]+)",
+        "identity": r"(?P<identity>[^/]+)",
+    }
+    max_position = max(normalized_mapping.values())
+    parts = []
+    for position in range(max_position + 1):
+        role = next((name for name, mapped_position in normalized_mapping.items() if mapped_position == position), None)
+        parts.append(role_patterns.get(role, r"[^/]+"))
+    return "^" + "/".join(parts) + r"/[^/]+$"
+
+
 def build_upload_zip(
     upload_files,
     spreadsheet_file=None,
@@ -170,6 +224,8 @@ def build_upload_zip(
         for index, upload_file in enumerate(upload_files)
     ]
     directory_mapping = directory_mapping or {}
+    if not path_regex:
+        path_regex = build_path_regex_from_directory_mapping(directory_mapping)
     spreadsheet_column_mapping = spreadsheet_column_mapping or {}
     directory_warnings = [] if has_single_zip_upload else validate_directory_mapping(relative_paths, directory_structure)
     if directory_structure and not has_single_zip_upload and not any("/" in path for path in relative_paths):
@@ -197,9 +253,11 @@ def build_upload_zip(
         has_single_zip_upload
         and spreadsheet_file is None
     ):
+        archive_name = build_archive_name(has_single_zip_upload, upload_files, relative_paths)
         return ZipBuildResult(
             file=upload_files[0],
             filename=upload_files[0].name,
+            archive_name=archive_name,
             import_mapping=import_mapping,
             import_log="\n".join(log_messages),
             spreadsheet_summary=spreadsheet_summary,
@@ -225,10 +283,12 @@ def build_upload_zip(
             spreadsheet_file.seek(0)
 
     buffer.seek(0)
-    filename = f"new_upload_{timezone.now().strftime('%Y%m%d-%H%M%S')}.zip"
+    archive_name = build_archive_name(has_single_zip_upload, upload_files, relative_paths)
+    filename = f"{archive_name}.zip"
     return ZipBuildResult(
         file=ContentFile(buffer.read(), name=filename),
         filename=filename,
+        archive_name=archive_name,
         import_mapping=import_mapping,
         import_log="\n".join(log_messages),
         spreadsheet_summary=spreadsheet_summary,

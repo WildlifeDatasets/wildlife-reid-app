@@ -505,6 +505,10 @@ class UploadedArchiveFormWithTaxon(forms.ModelForm):
 
 
 class NewUploadForm(forms.Form):
+    UPLOAD_TARGET_CHOICES = (
+        ("taxon_processing", "Classify taxa first"),
+        ("identification", "Use for identification / re-identification"),
+    )
     TAXON_MODE_CHOICES = (
         ("recognize_taxa", "Recognize taxa"),
         ("single_taxon", "Single known taxon"),
@@ -530,7 +534,13 @@ class NewUploadForm(forms.Form):
         widget=forms.DateInput(attrs={"type": "date"}),
         input_formats=["%Y-%m-%d"],
     )
-    taxon_mode = forms.ChoiceField(choices=TAXON_MODE_CHOICES, initial="recognize_taxa")
+    upload_target = forms.ChoiceField(
+        choices=UPLOAD_TARGET_CHOICES,
+        required=False,
+        widget=forms.RadioSelect,
+        label="Where should this upload go?",
+    )
+    taxon_mode = forms.ChoiceField(choices=TAXON_MODE_CHOICES, initial="recognize_taxa", required=False)
     taxon_for_identification = forms.ModelChoiceField(
         queryset=models.Taxon.objects.all().order_by("name"),
         required=False,
@@ -555,15 +565,58 @@ class NewUploadForm(forms.Form):
         user = kwargs.pop("user", None)
         super().__init__(*args, **kwargs)
         self.fields["ml_consent"].initial = user.caiduser.ml_consent_given if user else False
+        self.can_use_taxon_classification = bool(user and user.caiduser.show_taxon_classification)
+        self.can_use_reid = bool(user and user.caiduser.show_reid)
+        self.show_upload_target_choice = self.can_use_taxon_classification and self.can_use_reid
+        self.can_choose_identified_dataset = bool(
+            user
+            and self.can_use_reid
+            and user.caiduser.show_base_dataset
+            and (user.is_staff or user.caiduser.workgroup_admin)
+        )
+        self.show_reid_options = self.can_use_reid and (self.show_upload_target_choice or not self.can_use_taxon_classification)
+
+        if self.show_upload_target_choice:
+            self.fields["upload_target"].required = True
+            self.fields["upload_target"].initial = "taxon_processing"
+        elif self.can_use_reid:
+            self.fields["upload_target"].initial = "identification"
+            self.fields["upload_target"].widget = forms.HiddenInput()
+        else:
+            self.fields["upload_target"].initial = "taxon_processing"
+            self.fields["upload_target"].widget = forms.HiddenInput()
+
+        self.fields["taxon_mode"].widget = forms.HiddenInput()
+        self.fields["taxon_for_identification"].widget = forms.HiddenInput()
+        self.fields["is_for_identification"].widget = forms.HiddenInput()
+        if not self.can_choose_identified_dataset:
+            self.fields["contains_identities"].widget = forms.HiddenInput()
 
     def clean(self):
         cleaned_data = super().clean()
-        taxon_mode = cleaned_data.get("taxon_mode")
-        taxon = cleaned_data.get("taxon_for_identification")
+        upload_target = cleaned_data.get("upload_target") or self.fields["upload_target"].initial
+        if not self.can_use_taxon_classification and self.can_use_reid:
+            upload_target = "identification"
+        elif self.can_use_taxon_classification and not self.can_use_reid:
+            upload_target = "taxon_processing"
+        cleaned_data["upload_target"] = upload_target
         spreadsheet_file = cleaned_data.get("spreadsheet_file")
 
-        if taxon_mode == "single_taxon" and taxon is None:
-            self.add_error("taxon_for_identification", "Select a taxon for single-taxon upload.")
+        if self.show_upload_target_choice and not upload_target:
+            self.add_error("upload_target", "Choose whether this upload should start in taxon processing or re-identification.")
+
+        if upload_target == "identification":
+            cleaned_data["is_for_identification"] = True
+            cleaned_data["contains_single_taxon"] = True
+            cleaned_data["taxon_mode"] = "single_taxon"
+            if not self.can_choose_identified_dataset:
+                cleaned_data["contains_identities"] = False
+        else:
+            cleaned_data["is_for_identification"] = False
+            cleaned_data["contains_single_taxon"] = False
+            cleaned_data["contains_identities"] = False
+            cleaned_data["taxon_mode"] = "recognize_taxa"
+        cleaned_data["taxon_for_identification"] = None
 
         if spreadsheet_file:
             suffix = Path(spreadsheet_file.name).suffix.lower()

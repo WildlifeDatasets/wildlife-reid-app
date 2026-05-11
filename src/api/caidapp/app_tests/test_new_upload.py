@@ -13,7 +13,7 @@ from django.urls import reverse
 
 from caidapp import models
 
-from .factories import CaidUserFactory, TaxonFactory
+from .factories import CaidUserFactory
 
 WRAP_TEST_DATA_DIR = os.getenv("WRAP_TEST_DATA_DIR")
 
@@ -30,10 +30,28 @@ class NewUploadViewTest(TestCase):
         self.user = self.caiduser.user
         self.client.login(username=self.user.username, password="test123")
 
+    def _set_capabilities(
+        self,
+        *,
+        show_taxon_classification=True,
+        show_reid=True,
+        show_base_dataset=False,
+        workgroup_admin=True,
+        is_staff=None,
+    ):
+        self.caiduser.show_taxon_classification = show_taxon_classification
+        self.caiduser.show_reid = show_reid
+        self.caiduser.show_base_dataset = show_base_dataset
+        self.caiduser.workgroup_admin = workgroup_admin
+        self.caiduser.save()
+        if is_staff is not None:
+            self.user.is_staff = is_staff
+            self.user.save()
+
     def _post_upload(self, extra_data=None, files=None):
         data = {
             "locality_at_upload": "Brdy",
-            "taxon_mode": "recognize_taxa",
+            "upload_target": "taxon_processing",
             "directory_structure": "",
             "ml_consent": "on",
             "upload_files": files
@@ -46,9 +64,11 @@ class NewUploadViewTest(TestCase):
             data.update(extra_data)
         return self.client.post(reverse("caidapp:new_upload"), data)
 
-    def test_get_requires_admin_access(self):
+    def test_get_requires_upload_capability(self):
         regular_caiduser = CaidUserFactory()
         regular_caiduser.workgroup_admin = False
+        regular_caiduser.show_taxon_classification = False
+        regular_caiduser.show_reid = False
         regular_caiduser.save()
         regular_caiduser.user.is_staff = False
         regular_caiduser.user.save()
@@ -60,10 +80,41 @@ class NewUploadViewTest(TestCase):
         self.assertEqual(response.status_code, 403)
 
     def test_get_renders_for_workgroup_admin(self):
+        self._set_capabilities(show_taxon_classification=True, show_reid=True, show_base_dataset=True)
+
         response = self.client.get(reverse("caidapp:new_upload"))
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "New Upload")
+        self.assertContains(response, "Where should this upload go?")
+        self.assertContains(response, "The upload contains identified individuals and should become part of the base dataset.")
+
+    def test_taxon_only_user_does_not_see_processing_choices(self):
+        self._set_capabilities(show_taxon_classification=True, show_reid=False)
+
+        response = self.client.get(reverse("caidapp:new_upload"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "Where should this upload go?")
+        self.assertNotContains(response, "base dataset")
+
+    def test_reid_only_non_admin_does_not_see_base_dataset_choice(self):
+        self._set_capabilities(show_taxon_classification=False, show_reid=True, workgroup_admin=False)
+
+        response = self.client.get(reverse("caidapp:new_upload"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "Where should this upload go?")
+        self.assertNotContains(response, "base dataset")
+
+    def test_reid_only_admin_with_dataset_access_sees_base_dataset_choice(self):
+        self._set_capabilities(show_taxon_classification=False, show_reid=True, show_base_dataset=True)
+
+        response = self.client.get(reverse("caidapp:new_upload"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "Where should this upload go?")
+        self.assertContains(response, "base dataset")
 
     @patch("caidapp.views.run_species_prediction_async")
     def test_multiple_media_files_are_packed_into_zip(self, run_processing):
@@ -72,6 +123,7 @@ class NewUploadViewTest(TestCase):
         self.assertEqual(response.status_code, 200)
         uploaded_archive = models.UploadedArchive.objects.get()
         self.assertTrue(uploaded_archive.archivefile.name.endswith(".zip"))
+        self.assertRegex(uploaded_archive.name, r"^upload_\d{8}-\d{6}$")
         with zipfile.ZipFile(uploaded_archive.archivefile.path) as archive:
             self.assertEqual(sorted(archive.namelist()), ["first.jpg", "second.jpg"])
         self.assertEqual(uploaded_archive.files_at_upload, 2)
@@ -96,6 +148,7 @@ class NewUploadViewTest(TestCase):
         uploaded_archive = models.UploadedArchive.objects.get()
         with zipfile.ZipFile(uploaded_archive.archivefile.path) as archive:
             self.assertIn("metadata.csv", archive.namelist())
+        self.assertRegex(uploaded_archive.name, r"^upload_\d{8}-\d{6}$")
         self.assertEqual(uploaded_archive.import_mapping["spreadsheet"]["normalized_columns"], ["original_path", "taxon"])
         run_processing.assert_called_once()
 
@@ -123,6 +176,7 @@ class NewUploadViewTest(TestCase):
         uploaded_archive = models.UploadedArchive.objects.get()
         with zipfile.ZipFile(uploaded_archive.archivefile.path) as archive:
             self.assertEqual(archive.namelist(), ["2026-05-01/Brdy/Lynx/A12/first.jpg"])
+        self.assertEqual(uploaded_archive.name, "2026-05-01")
         self.assertEqual(
             uploaded_archive.import_mapping["directory_structure"],
             "{check_date}/{locality}/{taxon}/{identity}",
@@ -156,6 +210,9 @@ class NewUploadViewTest(TestCase):
         uploaded_archive = models.UploadedArchive.objects.get()
         self.assertEqual(uploaded_archive.import_mapping["directory_structure"], "{taxon}")
         self.assertEqual(uploaded_archive.import_mapping["directory_mapping"], {"taxon": 0})
+        self.assertEqual(uploaded_archive.path_structure_regex, r"^(?P<taxon>[^/]+)/[^/]+$")
+        self.assertEqual(uploaded_archive.import_mapping["path_regex"], uploaded_archive.path_structure_regex)
+        self.assertEqual(uploaded_archive.name, "Lynx")
         run_processing.assert_called_once()
 
     @patch("caidapp.views.run_species_prediction_async")
@@ -175,8 +232,11 @@ class NewUploadViewTest(TestCase):
 
         self.assertEqual(response.status_code, 200)
         uploaded_archive = models.UploadedArchive.objects.get()
+        self.assertEqual(uploaded_archive.name, "Brdy_2026-05-01")
         self.assertEqual(uploaded_archive.import_mapping["path_source"], "archive_path")
         self.assertEqual(uploaded_archive.import_mapping["directory_mapping"], {"locality": 0, "taxon": 1})
+        self.assertEqual(uploaded_archive.path_structure_regex, r"^(?P<locality>[^/]+)/(?P<taxon>[^/]+)/[^/]+$")
+        self.assertEqual(uploaded_archive.import_mapping["path_regex"], uploaded_archive.path_structure_regex)
         run_processing.assert_called_once()
 
     @patch("caidapp.views.run_species_prediction_async")
@@ -206,12 +266,11 @@ class NewUploadViewTest(TestCase):
 
     @patch("caidapp.views.run_species_prediction_async")
     def test_single_taxon_metadata_is_stored(self, run_processing):
-        taxon = TaxonFactory(name="Lynx lynx")
+        self._set_capabilities(show_taxon_classification=True, show_reid=True, show_base_dataset=True)
 
         response = self._post_upload(
             extra_data={
-                "taxon_mode": "single_taxon",
-                "taxon_for_identification": taxon.id,
+                "upload_target": "identification",
                 "contains_identities": "on",
             }
         )
@@ -220,8 +279,52 @@ class NewUploadViewTest(TestCase):
         uploaded_archive = models.UploadedArchive.objects.get()
         self.assertTrue(uploaded_archive.contains_single_taxon)
         self.assertTrue(uploaded_archive.contains_identities)
+        self.assertTrue(uploaded_archive.is_for_identification)
+        self.assertIsNone(uploaded_archive.taxon_for_identification)
+        run_processing.assert_called_once_with(uploaded_archive, extract_identites=True)
+
+    @patch("caidapp.views.run_species_prediction_async")
+    def test_taxon_only_upload_stays_in_taxon_processing(self, run_processing):
+        self._set_capabilities(show_taxon_classification=True, show_reid=False)
+
+        response = self._post_upload(
+            extra_data={
+                "upload_target": "identification",
+                "contains_identities": "on",
+            }
+        )
+
+        self.assertEqual(response.status_code, 200)
+        uploaded_archive = models.UploadedArchive.objects.get()
+        self.assertFalse(uploaded_archive.contains_single_taxon)
+        self.assertFalse(uploaded_archive.contains_identities)
         self.assertFalse(uploaded_archive.is_for_identification)
-        self.assertEqual(uploaded_archive.taxon_for_identification, taxon)
+        run_processing.assert_called_once_with(uploaded_archive, extract_identites=False)
+
+    @patch("caidapp.views.run_species_prediction_async")
+    def test_reid_only_non_admin_upload_forces_single_taxon_without_base_dataset(self, run_processing):
+        self._set_capabilities(show_taxon_classification=False, show_reid=True, workgroup_admin=False)
+
+        response = self._post_upload()
+
+        self.assertEqual(response.status_code, 200)
+        uploaded_archive = models.UploadedArchive.objects.get()
+        self.assertTrue(uploaded_archive.contains_single_taxon)
+        self.assertFalse(uploaded_archive.contains_identities)
+        self.assertTrue(uploaded_archive.is_for_identification)
+        run_processing.assert_called_once_with(uploaded_archive, extract_identites=False)
+
+    @patch("caidapp.views.run_species_prediction_async")
+    def test_reid_only_admin_can_mark_upload_as_base_dataset(self, run_processing):
+        self._set_capabilities(show_taxon_classification=False, show_reid=True, show_base_dataset=True)
+
+        response = self._post_upload(extra_data={"contains_identities": "on"})
+
+        self.assertEqual(response.status_code, 200)
+        uploaded_archive = models.UploadedArchive.objects.get()
+        self.assertTrue(uploaded_archive.contains_single_taxon)
+        self.assertTrue(uploaded_archive.contains_identities)
+        self.assertTrue(uploaded_archive.is_for_identification)
         run_processing.assert_called_once_with(uploaded_archive, extract_identites=True)
 
     @patch("caidapp.views.run_species_prediction_async")

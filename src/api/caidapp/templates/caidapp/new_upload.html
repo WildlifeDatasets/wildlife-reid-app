@@ -1,0 +1,301 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load widget_tweaks %}
+
+{% block body %}
+    <style>
+        .upload-meta-icon {
+            min-width: 4.5rem;
+        }
+        .upload-meta-icon .bi,
+        .upload-meta-icon .fa-solid {
+            font-size: 1.4rem;
+        }
+        .border-dashed {
+            border-style: dashed !important;
+        }
+        .upload-section-toggle {
+            width: 100%;
+            border: 0;
+            border-top: 1px solid var(--bs-border-color);
+            background: transparent;
+            padding: 1rem 0;
+            text-align: left;
+        }
+        .upload-section-toggle:first-of-type {
+            border-top: 0;
+        }
+        .upload-section-toggle .bi,
+        .upload-section-toggle .fa-solid {
+            width: 1.6rem;
+        }
+        .upload-section-chevron {
+            transition: transform 0.15s ease-in-out;
+        }
+        .upload-section-toggle[aria-expanded="true"] .upload-section-chevron {
+            transform: rotate(180deg);
+        }
+    </style>
+
+    <div class="pagetitle">
+        <h1>{{ headline }}</h1>
+        <nav>
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li>
+                <li class="breadcrumb-item active">New Upload beta</li>
+            </ol>
+        </nav>
+    </div>
+
+    <section class="section">
+        <div class="alert alert-info">
+            This is a beta upload flow. Metadata is optional and collapsed by default.
+        </div>
+
+        <form method="post" enctype="multipart/form-data" id="new-upload-form" data-localities='[
+            {% for locality in localities %}
+                "{{ locality.name|escapejs }}"{% if not forloop.last %},{% endif %}
+            {% endfor %}
+        ]'>
+            {% csrf_token %}
+            {{ form.upload_relative_paths }}
+            {{ form.directory_structure }}
+            {{ form.directory_mapping }}
+            {{ form.path_regex }}
+            {{ form.spreadsheet_column_mapping }}
+            {% if not form.show_upload_target_choice %}
+                {{ form.upload_target }}
+            {% endif %}
+            {{ form.taxon_mode }}
+            {{ form.taxon_for_identification }}
+            {{ form.is_for_identification }}
+
+            <div class="card mb-3">
+                <div class="card-body">
+                    <h5 class="card-title">Files</h5>
+                    <div id="new-upload-dropzone" class="border border-2 border-dashed rounded p-4 text-center bg-body-tertiary">
+                        <p class="mb-2">Drag files, a directory, or a ZIP here.</p>
+                        <p class="text-muted small mb-3">Spreadsheet files can be selected together with media files.</p>
+                        {{ form.upload_files|add_class:"form-control" }}
+                    </div>
+                    <div class="form-text">{{ form.upload_files.help_text }}</div>
+                    <div class="text-danger">{{ form.upload_files.errors }}</div>
+                    <div class="mt-2 small" id="new-upload-file-summary">No files selected.</div>
+                    <div class="mt-1 small text-muted" id="new-upload-path-summary"></div>
+                    <div class="mt-1 small text-muted" id="new-upload-spreadsheet-summary"></div>
+                </div>
+            </div>
+
+            <div class="card mb-3">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+                        <h5 class="card-title mb-0">Metadata</h5>
+                        <span class="text-muted small">Click a row to open details.</span>
+                    </div>
+
+                    {% if form.show_upload_target_choice or form.show_reid_options %}
+                    <button class="upload-section-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#upload-target-panel" aria-expanded="true">
+                        <span class="d-flex align-items-center justify-content-between gap-2">
+                            <span><i class="bi bi-signpost-split me-2"></i>Processing</span>
+                            <span class="d-flex align-items-center gap-2">
+                                <span class="badge text-bg-primary" id="new-upload-target-badge">required</span>
+                                <i class="bi bi-chevron-down upload-section-chevron"></i>
+                            </span>
+                        </span>
+                    </button>
+                    <div class="collapse show" id="upload-target-panel">
+                        <div class="border rounded p-3 mb-2">
+                            {% if form.show_upload_target_choice %}
+                                <label class="form-label d-block mb-2">{{ form.upload_target.label }}</label>
+                                <div class="d-flex flex-column gap-2">
+                                    {% for radio in form.upload_target %}
+                                        <label class="border rounded p-3 d-flex align-items-start gap-2">
+                                            {{ radio.tag }}
+                                            <span>
+                                                <strong>{{ radio.choice_label }}</strong>
+                                                {% if radio.data.value == "taxon_processing" %}
+                                                    <span class="d-block small text-muted">Use this when the upload should go through taxon classification first.</span>
+                                                {% else %}
+                                                    <span class="d-block small text-muted">Use this when taxa are not the goal and the upload belongs directly to re-identification.</span>
+                                                {% endif %}
+                                            </span>
+                                        </label>
+                                    {% endfor %}
+                                </div>
+                                <div class="text-danger mt-2">{{ form.upload_target.errors }}</div>
+                            {% endif %}
+                            {% if form.can_choose_identified_dataset %}
+                                <div class="{% if form.show_upload_target_choice %}mt-3 {% endif %}d-none" id="new-upload-identified-dataset-option">
+                                    <div class="form-check">
+                                        {{ form.contains_identities|add_class:"form-check-input" }}
+                                        <label for="{{ form.contains_identities.id_for_label }}" class="form-check-label">
+                                            Select this when the upload contains identified individuals and the images are representative, so the upload should become part of the base dataset.
+                                        </label>
+                                    </div>
+                                </div>
+                            {% else %}
+                                {{ form.contains_identities }}
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% else %}
+                        {{ form.contains_identities }}
+                    {% endif %}
+
+                    <button class="upload-section-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#upload-location-panel" aria-expanded="false">
+                        <span class="d-flex align-items-center justify-content-between gap-2">
+                            <span><i class="bi bi-geo-alt me-2"></i>Place</span>
+                            <span class="d-flex align-items-center gap-2">
+                                <span class="badge text-bg-warning d-none" id="new-upload-place-badge">new locality</span>
+                                <i class="bi bi-chevron-down upload-section-chevron"></i>
+                            </span>
+                        </span>
+                    </button>
+                    <div class="collapse mt-3" id="upload-location-panel">
+                        <div class="border rounded p-3 mb-2">
+                            <label for="{{ form.locality_at_upload.id_for_label }}" class="form-label">
+                                <i class="bi bi-pin-map"></i>
+                                Locality name
+                            </label>
+                            {{ form.locality_at_upload|add_class:"form-control" }}
+                            <div class="text-warning small" id="new-upload-locality-warning"></div>
+                            <div class="form-text">GPS locality editing can be added here later.</div>
+                        </div>
+                    </div>
+
+                    <button class="upload-section-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#upload-date-panel" aria-expanded="false">
+                        <span class="d-flex align-items-center justify-content-between gap-2">
+                            <span><i class="bi bi-calendar-event me-2"></i>Checked at</span>
+                            <span class="d-flex align-items-center gap-2">
+                                <span class="badge text-bg-success d-none" id="new-upload-date-badge">set</span>
+                                <i class="bi bi-chevron-down upload-section-chevron"></i>
+                            </span>
+                        </span>
+                    </button>
+                    <div class="collapse" id="upload-date-panel">
+                        <div class="border rounded p-3 mb-2">
+                            <label for="{{ form.locality_check_at.id_for_label }}" class="form-label">
+                                <i class="bi bi-calendar-event"></i>
+                                Checked at
+                            </label>
+                            {{ form.locality_check_at|add_class:"form-control" }}
+                        </div>
+                    </div>
+
+                    <button class="upload-section-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#upload-directory-panel" id="new-upload-directory-button" aria-expanded="false">
+                        <span class="d-flex align-items-center justify-content-between gap-2">
+                            <span><i class="bi bi-folder-symlink me-2"></i>Paths</span>
+                            <span class="d-flex align-items-center gap-2">
+                                <span class="badge text-bg-info d-none" id="new-upload-directory-badge">relative path</span>
+                                <i class="bi bi-chevron-down upload-section-chevron"></i>
+                            </span>
+                        </span>
+                    </button>
+                    <div class="collapse" id="upload-directory-panel">
+                        <div class="border rounded p-3 mb-2">
+                            <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                                <div>
+                                    <h6 class="mb-1">Path structure</h6>
+                                    <div class="form-text">Assign meanings only to path parts that carry metadata.</div>
+                                </div>
+                                <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#upload-directory-advanced">
+                                    Advanced regex
+                                </button>
+                            </div>
+                            <div class="mt-3" id="new-upload-path-basic">
+                                <div id="new-upload-path-mapper">
+                                <div class="small text-muted">Upload a directory or files with relative paths to see an example here.</div>
+                                </div>
+                            </div>
+                            <div class="collapse mt-3" id="upload-directory-advanced">
+                                <label for="new-upload-path-regex" class="form-label">Advanced: pattern for full relative path</label>
+                                <input type="text" class="form-control" id="new-upload-path-regex" placeholder="Example: (?P&lt;taxon&gt;[^/]+)/(?P&lt;identity&gt;[^/]+)/.*">
+                                <div class="form-text">
+                                    Optional. This is for advanced cases, for example when identity is hidden in a filename like
+                                    <code>Karel__001.jpg</code>.
+                                </div>
+                                <div class="form-text">
+                                    If you already assigned path parts in the simple view, the regex here is filled automatically and you can refine it.
+                                </div>
+                                <div class="small text-muted mt-2">
+                                    <strong>What does the example mean?</strong>
+                                    <code>(?P&lt;taxon&gt;...)</code> names the captured value <code>taxon</code>.
+                                    <code>[^/]+</code> means "one or more characters until the next slash".
+                                    <code>.*</code> means "the rest of the path".
+                                </div>
+                                <div class="small text-muted mt-3">
+                                    <strong>Examples</strong>
+                                </div>
+                                <div class="small text-muted">
+                                    <code>^(?:.*/)?(?P&lt;locality&gt;[^/]+)/(?P&lt;identity&gt;[^/]+)/[^/]+$</code>
+                                    for a structure like <code>Brdy/Charles/IMG_001.jpg</code>, no matter how deep it is
+                                </div>
+                                <div class="small text-muted mt-1">
+                                    <code>^(?P&lt;taxon&gt;[^/]+)/(?P&lt;identity&gt;[^/]+)/[^/]+$</code>
+                                    for a structure like <code>lynx/Charles/IMG_001.jpg</code>
+                                </div>
+                                <div class="small text-muted mt-1">
+                                    <code>^(?:.*/)?(?P&lt;identity&gt;[^/_]+)_\d+\.[^/]+$</code>
+                                    for filenames like <code>Charles_001.jpg</code>, no matter how deep they are in directories
+                                </div>
+                                <a class="btn btn-sm btn-outline-primary mt-2"
+                                   id="new-upload-regex-chatgpt-link"
+                                   href="https://chatgpt.com/"
+                                   target="_blank"
+                                   rel="noopener">
+                                    Ask ChatGPT to suggest a pattern
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button class="upload-section-toggle d-none" type="button" data-bs-toggle="collapse" data-bs-target="#upload-spreadsheet-panel" id="new-upload-spreadsheet-button" aria-expanded="false">
+                        <span class="d-flex align-items-center justify-content-between gap-2">
+                            <span><i class="bi bi-table me-2"></i>Spreadsheet</span>
+                            <span class="d-flex align-items-center gap-2">
+                                <span class="badge text-bg-info" id="new-upload-spreadsheet-badge">columns</span>
+                                <i class="bi bi-chevron-down upload-section-chevron"></i>
+                            </span>
+                        </span>
+                    </button>
+                    <div class="collapse" id="upload-spreadsheet-panel">
+                        <div class="border rounded p-3">
+                            <h6>Spreadsheet columns</h6>
+                            <div class="small text-muted" id="new-upload-spreadsheet-columns">
+                                Upload a CSV to preview columns in the browser. XLS/XLSX columns are read on the server during preparation.
+                            </div>
+                            <div class="mt-3" id="new-upload-column-mapper"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-3">
+                <div class="card-body">
+                    <h5 class="card-title">Consent</h5>
+                    <p class="small text-muted">
+                        By uploading files to this platform, you confirm that you have the right to share the uploaded content and grant permission for research and development use, including machine-learning model training.
+                    </p>
+                    <div class="form-check">
+                        {{ form.ml_consent|add_class:"form-check-input" }}
+                        <label for="{{ form.ml_consent.id_for_label }}" class="form-check-label">{{ form.ml_consent.label }}</label>
+                    </div>
+                    <div class="text-danger">{{ form.ml_consent.errors }}</div>
+                </div>
+            </div>
+
+            <div class="progress d-none mb-3" id="new-upload-progress">
+                <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%">0%</div>
+            </div>
+
+            <button class="btn btn-primary" type="submit" id="new-upload-submit">
+                <i class="bi bi-cloud-arrow-up"></i>
+                Upload
+            </button>
+        </form>
+    </section>
+{% endblock %}
+
+{% block script %}
+    <script src="{% static 'caidapp/new_upload.js' %}"></script>
+{% endblock %}

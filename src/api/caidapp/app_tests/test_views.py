@@ -149,6 +149,57 @@ class SequenceViewTest(TestCase):
         self.assertContains(response, "+1")
         self.assertContains(response, "Ypovice")
 
+
+class IdentificationUploadsViewTest(TestCase):
+    def setUp(self):
+        self.caiduser = CaidUserFactory()
+        self.user = self.caiduser.user
+        self.client.login(username=self.user.username, password="test123")
+
+    def test_uploads_identities_uses_is_for_identification_without_taxon_requirement(self):
+        visible_archive = UploadedArchiveFactory(
+            owner=self.caiduser,
+            name="Visible identification upload",
+            is_for_identification=True,
+            contains_identities=False,
+            taxon_for_identification=None,
+        )
+        UploadedArchiveFactory(
+            owner=self.caiduser,
+            name="Hidden non-identification upload",
+            is_for_identification=False,
+            contains_identities=False,
+            taxon_for_identification=None,
+        )
+
+        response = self.client.get(reverse("caidapp:uploads_identities"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, visible_archive.name)
+        self.assertNotContains(response, "Hidden non-identification upload")
+
+    def test_uploads_known_identities_uses_is_for_identification_without_taxon_requirement(self):
+        visible_archive = UploadedArchiveFactory(
+            owner=self.caiduser,
+            name="Visible base dataset upload",
+            is_for_identification=True,
+            contains_identities=True,
+            taxon_for_identification=None,
+        )
+        UploadedArchiveFactory(
+            owner=self.caiduser,
+            name="Hidden taxonomy-only upload",
+            is_for_identification=False,
+            contains_identities=True,
+            taxon_for_identification=None,
+        )
+
+        response = self.client.get(reverse("caidapp:uploads_known_identities"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, visible_archive.name)
+        self.assertNotContains(response, "Hidden taxonomy-only upload")
+
     # def test_create_workstation(self):
     #     url = reverse("workstation-create")
     #     data = {

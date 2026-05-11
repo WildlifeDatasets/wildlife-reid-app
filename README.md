@@ -129,6 +129,14 @@ docker compose -f docker-compose.dev.yml exec api_dev python manage.py test --ex
 
 ### New upload smoke test
 
+The new upload entry is shown to users who can use taxon classification, re-identification, or who have admin access.
+Inside the form:
+
+- users with only taxon classification upload directly to taxon processing,
+- users with only re-id upload directly to re-identification,
+- users with both choose between taxon processing and re-id,
+- only users with base-dataset permission can mark a re-id upload as identified individuals for the base dataset.
+
 To run the real new-upload integration healthcheck in development, mount your local test dataset into the dev containers:
 
 ```bash

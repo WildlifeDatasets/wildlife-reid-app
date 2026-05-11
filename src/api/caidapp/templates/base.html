@@ -125,7 +125,7 @@
                     </a>
                 </li>
 
-                {% if user.is_staff or user.caiduser.workgroup_admin %}
+                {% if user.is_staff or user.caiduser.workgroup_admin or user.caiduser.show_taxon_classification or user.caiduser.show_reid %}
                 <li class="nav-item">
                     <a class="nav-link" href="{% url 'caidapp:new_upload' %}">
                         <i class="bi bi-cloud-arrow-up"></i> <span>New Upload</span>

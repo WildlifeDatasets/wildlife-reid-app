@@ -406,6 +406,7 @@ def get_filtered_mediafiles(
     contains_single_taxon: Optional[bool] = None,
     taxon_for_identification__isnull: Optional[bool] = None,
     contains_identities: Optional[bool] = None,
+    is_for_identification: Optional[bool] = None,
     **extra_filters,
 ):
     """Retrieve media files filtered by specific parameters."""
@@ -416,6 +417,8 @@ def get_filtered_mediafiles(
         filter_params["taxon_for_identification__isnull"] = taxon_for_identification__isnull
     if contains_identities is not None:
         filter_params["contains_identities"] = contains_identities
+    if is_for_identification is not None:
+        filter_params["is_for_identification"] = is_for_identification
 
     filter_params.update(extra_filters)
 
@@ -458,7 +461,7 @@ def uploads_known_identities(request) -> HttpResponse:
     queryset = get_filtered_mediafiles(
         request.user,
         contains_identities=True,
-        taxon_for_identification__isnull=False,
+        is_for_identification=True,
     )
     page_context = paginate_queryset(queryset, request)
 
@@ -477,9 +480,8 @@ def uploads_identities(request) -> HttpResponse:
     """View for mediafiles not in other categories."""
     queryset = get_filtered_mediafiles(
         request.user,
-        # contains_single_taxon=True,
         contains_identities=False,
-        taxon_for_identification__isnull=False,
+        is_for_identification=True,
     )
     page_context = paginate_queryset(queryset, request)
 
@@ -1994,7 +1996,17 @@ def user_can_use_new_upload(user) -> bool:
     if not user.is_authenticated:
         return False
     caiduser = getattr(user, "caiduser", None)
-    return user.is_staff or bool(caiduser and caiduser.workgroup_admin)
+    return bool(
+        user.is_staff
+        or (
+            caiduser
+            and (
+                caiduser.workgroup_admin
+                or caiduser.show_taxon_classification
+                or caiduser.show_reid
+            )
+        )
+    )
 
 
 class NewUploadView(LoginRequiredMixin, UserPassesTestMixin, View):
@@ -2098,10 +2110,10 @@ class NewUploadView(LoginRequiredMixin, UserPassesTestMixin, View):
             taxon_for_identification=form.cleaned_data.get("taxon_for_identification"),
             import_log=zip_result.import_log,
             import_mapping=zip_result.import_mapping,
-            path_structure_regex=form.cleaned_data.get("path_regex", ""),
+            path_structure_regex=zip_result.import_mapping.get("path_regex", ""),
         )
         uploaded_archive.archivefile.save(zip_result.filename, zip_result.file, save=False)
-        uploaded_archive.name = Path(uploaded_archive.archivefile.name).stem
+        uploaded_archive.name = zip_result.archive_name
         if uploaded_archive.locality_at_upload:
             uploaded_archive.locality_at_upload_object = models.get_locality(caiduser, uploaded_archive.locality_at_upload)
         uploaded_archive.save()
