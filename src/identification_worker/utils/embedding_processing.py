@@ -6,6 +6,8 @@ from typing import Any, Optional
 import numpy as np
 import pandas as pd
 from sklearn.manifold import TSNE
+from logging import getLogger
+logger = getLogger(__name__)
 
 
 
@@ -30,9 +32,11 @@ class EmbeddingProcessing:
         self.embeddings = self._l2_normalize(embeddings) if normalize else embeddings
         self.n_samples, self.n_features = self.embeddings.shape
         self.label_col = label_col
+        logger.debug("l2 norm done")
         self.metadata = metadata.copy().reset_index(drop=True)
 
         self._similarity_cache: Optional[np.ndarray] = None
+        logger.debug("init done")
 
     @staticmethod
     def _l2_normalize(x: np.ndarray, eps: float = 1e-12) -> np.ndarray:

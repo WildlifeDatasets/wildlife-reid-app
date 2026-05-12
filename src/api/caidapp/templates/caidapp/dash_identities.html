@@ -170,7 +170,7 @@
                 {% if user.caiduser.workgroup.identification_init_status == "Processing" %}
                     <i class="fa fa-spinner fa-spin"></i>
                 {% endif %}
-                {% if user.caiduser.workgroup.identification_init_status == "Processing" or  user.caiduser.workgroup.identification_init_status == "Processing" %}
+                {% if user.caiduser.workgroup.identification_init_status == "Processing" or user.caiduser.workgroup.identification_reid_status == "Processing" or user.caiduser.workgroup.identification_reid_status == "Scheduled" %}
                     <a class="btn btn-danger" href="{% url 'caidapp:stop_init_identification' %}"><i
                             class="bi bi-stop-fill "></i> Stop </a>
                 {% endif %}

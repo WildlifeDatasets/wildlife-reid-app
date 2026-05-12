@@ -1310,8 +1310,17 @@ def init_identification_on_success(*args, **kwargs):
     workgroup.identification_init_message = message
     now = django.utils.timezone.now()
     workgroup.identification_init_at = now
-    workgroup.identification_scheduled_run_eta = None
-    workgroup.save()
+    workgroup.identification_scheduled_init_task_id = None
+    workgroup.identification_scheduled_init_eta = None
+    workgroup.save(
+        update_fields=[
+            "identification_init_status",
+            "identification_init_message",
+            "identification_init_at",
+            "identification_scheduled_init_task_id",
+            "identification_scheduled_init_eta",
+        ]
+    )
     logger.debug(f"{message=}")
     logger.debug(f"{workgroup=}")
     logger.debug(f"{workgroup.identification_init_at=}")
@@ -1360,6 +1369,23 @@ def train_identification_on_success(*args, **kwargs):
 @shared_task
 def init_identification_on_error(*args, **kwargs):
     """Callback invoked after failing init_identification function in inference worker."""
+    workgroup_id = kwargs.pop("workgroup_id", None)
+    if workgroup_id is not None:
+        workgroup = WorkGroup.objects.get(id=workgroup_id)
+        workgroup.identification_init_status = "Failed"
+        workgroup.identification_init_at = django.utils.timezone.now()
+        workgroup.identification_init_message = f"Initialization failed. {args=} {kwargs=}"
+        workgroup.identification_scheduled_init_task_id = None
+        workgroup.identification_scheduled_init_eta = None
+        workgroup.save(
+            update_fields=[
+                "identification_init_status",
+                "identification_init_at",
+                "identification_init_message",
+                "identification_scheduled_init_task_id",
+                "identification_scheduled_init_eta",
+            ]
+        )
     caiduser = None
     kwargs = dict(
         message=f"Task finished with error. {args=} {kwargs=}",
@@ -1559,6 +1585,169 @@ def identify_on_success(self, output: dict, *args, **kwargs):
         # TODO - should the app return some error response to the user?
 
 
+@shared_task(bind=True)
+def identify_bulk_on_success(self, output: dict, *args, **kwargs):
+    """Callback invoked after running one bulk identification job for multiple uploads."""
+    status = output.get("status", "unknown")
+    logger.info("Bulk identification task finished with status '%s'.", status)
+
+    workgroup_id: int = kwargs.pop("workgroup_id")
+    uploaded_archive_ids: list[int] = kwargs.pop("uploaded_archive_ids")
+    workgroup = WorkGroup.objects.get(id=workgroup_id)
+    uploaded_archives = list(
+        UploadedArchive.objects.filter(id__in=uploaded_archive_ids, owner__workgroup=workgroup).order_by("id")
+    )
+
+    try:
+        if "status" not in output:
+            msg = f"Unexpected error {output=} is missing 'status' field."
+            logger.critical(msg)
+            for uploaded_archive in uploaded_archives:
+                uploaded_archive.identification_status = "U"
+                uploaded_archive.identification_message = msg
+                uploaded_archive.save(update_fields=["identification_status", "identification_message"])
+        elif output["status"] == "DONE":
+            output_json_file = output["output_json_file"]
+            with open(output_json_file, "r") as f:
+                data = json.load(f)
+            assert "mediafile_ids" in data
+            assert "pred_image_paths" in data
+            assert "pred_class_ids" in data
+            assert "pred_labels" in data
+            assert "scores" in data
+            assert "keypoints" in data
+
+            media_root = Path(settings.MEDIA_ROOT)
+            mediafile_ids = data["mediafile_ids"]
+            mediafiles = list(MediaFile.objects.filter(id__in=mediafile_ids).select_related("parent"))
+            count_by_archive_id = {}
+            for mediafile in mediafiles:
+                if mediafile.parent_id is None:
+                    continue
+                count_by_archive_id[mediafile.parent_id] = count_by_archive_id.get(mediafile.parent_id, 0) + 1
+
+            for uploaded_archive in uploaded_archives:
+                deleted_queue_count, deleted_suggestion_count = clear_identification_queue_for_uploaded_archive(uploaded_archive)
+                logger.info(
+                    "Cleared identification queue after successful bulk rerun for upload %s: mediafiles=%s suggestions=%s",
+                    uploaded_archive.id,
+                    deleted_queue_count,
+                    deleted_suggestion_count,
+                )
+
+            for i, mediafile_id in enumerate(mediafile_ids):
+                _prepare_mediafile_for_identification(data, i, media_root, mediafile_id)
+
+            for uploaded_archive in uploaded_archives:
+                processed_count = count_by_archive_id.get(uploaded_archive.id, 0)
+                uploaded_archive.identification_status = "IAID"
+                uploaded_archive.status_message = (
+                    f"Identification suggestions ready for {processed_count} media files."
+                )
+                uploaded_archive.save(update_fields=["identification_status", "status_message"])
+
+            workgroup.identification_reid_status = "Finished"
+            workgroup.identification_reid_at = now()
+            workgroup.identification_reid_message = (
+                f"Identification suggestions ready for {len(mediafile_ids)} media files "
+                f"across {len(uploaded_archives)} uploads."
+            )
+            workgroup.identification_scheduled_run_task_id = None
+            workgroup.identification_scheduled_run_eta = None
+            workgroup.save(
+                update_fields=[
+                    "identification_reid_status",
+                    "identification_reid_at",
+                    "identification_reid_message",
+                    "identification_scheduled_run_task_id",
+                    "identification_scheduled_run_eta",
+                ]
+            )
+        else:
+            message = "Identification failed. "
+            if "error" in output:
+                logger.error(f"{output['error']=}")
+                message += output["error"]
+                if output["error"] == "Input data is empty.":
+                    message += " Try to check the taxa in the input data."
+            for uploaded_archive in uploaded_archives:
+                uploaded_archive.identification_status = "F"
+                uploaded_archive.identification_message = output.get("error", "")
+                uploaded_archive.status_message = message
+                uploaded_archive.save(
+                    update_fields=["identification_status", "identification_message", "status_message"]
+                )
+            workgroup.identification_reid_status = "Finished"
+            workgroup.identification_reid_at = now()
+            workgroup.identification_reid_message = message
+            workgroup.identification_scheduled_run_task_id = None
+            workgroup.identification_scheduled_run_eta = None
+            workgroup.save(
+                update_fields=[
+                    "identification_reid_status",
+                    "identification_reid_at",
+                    "identification_reid_message",
+                    "identification_scheduled_run_task_id",
+                    "identification_scheduled_run_eta",
+                ]
+            )
+    except Exception as e:
+        for uploaded_archive in uploaded_archives:
+            uploaded_archive.identification_status = "F"
+            uploaded_archive.status_message = f"Error during identification. {str(e)}"
+            uploaded_archive.save(update_fields=["identification_status", "status_message"])
+        workgroup.identification_reid_status = "Finished"
+        workgroup.identification_reid_at = now()
+        workgroup.identification_reid_message = f"Error during identification. {str(e)}"
+        workgroup.identification_scheduled_run_task_id = None
+        workgroup.identification_scheduled_run_eta = None
+        workgroup.save(
+            update_fields=[
+                "identification_reid_status",
+                "identification_reid_at",
+                "identification_reid_message",
+                "identification_scheduled_run_task_id",
+                "identification_scheduled_run_eta",
+            ]
+        )
+        logger.error(f"Error during bulk identification: {e}")
+        logger.error(traceback.format_exc())
+
+
+@shared_task(bind=True)
+def identify_bulk_on_error(self, uuid, *args, **kwargs):
+    """Error callback for one bulk identification job serving multiple uploads."""
+    logger.error("Bulk identification finished with error.")
+    result = self.AsyncResult(uuid)
+    error_message = result.result if result.failed() else "No error message available"
+    logger.error(f"Bulk identification error: {error_message}")
+
+    workgroup_id: int = kwargs.pop("workgroup_id")
+    uploaded_archive_ids: list[int] = kwargs.pop("uploaded_archive_ids")
+    workgroup = WorkGroup.objects.get(id=workgroup_id)
+    uploaded_archives = UploadedArchive.objects.filter(id__in=uploaded_archive_ids, owner__workgroup=workgroup)
+    for uploaded_archive in uploaded_archives:
+        uploaded_archive.identification_status = "F"
+        uploaded_archive.identification_message = str(error_message)
+        uploaded_archive.status_message = f"Identification failed. {error_message}"
+        uploaded_archive.save(update_fields=["identification_status", "identification_message", "status_message"])
+
+    workgroup.identification_reid_status = "Finished"
+    workgroup.identification_reid_at = now()
+    workgroup.identification_reid_message = f"Identification failed. {error_message}"
+    workgroup.identification_scheduled_run_task_id = None
+    workgroup.identification_scheduled_run_eta = None
+    workgroup.save(
+        update_fields=[
+            "identification_reid_status",
+            "identification_reid_at",
+            "identification_reid_message",
+            "identification_scheduled_run_task_id",
+            "identification_scheduled_run_eta",
+        ]
+    )
+
+
 def _prepare_mediafile_for_identification(data, i, media_root, mediafile_id):
     """Prepare media files for i-th queried image."""
     reid_top_k_class_ids = data["pred_class_ids"][i]
@@ -1692,54 +1881,61 @@ def run_identification_on_unidentified_for_workgroup_task(workgroup_id: int):
 
 
 def run_identification_on_unidentified_for_workgroup(workgroup_id: int, request=None):
-    """Run identification suggestions for finished uploads in a workgroup."""
+    """Run identification suggestions in one batch for all eligible uploads in a workgroup."""
     logger.debug(f"Running identification suggestions for workgroup {workgroup_id}...")
-    from .views import run_identification
+    from .views import run_identification_bulk
 
     workgroup = WorkGroup.objects.get(pk=workgroup_id)
+    uploaded_archives = get_uploaded_archives_pending_identification(workgroup)
+    upload_count = uploaded_archives.count()
 
     workgroup.identification_reid_status = "Processing"
-    workgroup.save()
+    workgroup.identification_reid_at = now()
+    workgroup.identification_reid_message = (
+        f"Preparing identification batch for {upload_count} uploads."
+    )
+    workgroup.save(update_fields=["identification_reid_status", "identification_reid_at", "identification_reid_message"])
     models.Notification.create_for(
         message=f"Starting identification for workgroup {workgroup_id}...",
         workgroups=[workgroup],
         level=models.Notification.DEBUG,
     )
 
-    uploaded_archives = get_uploaded_archives_pending_identification(workgroup)
+    status_ok = run_identification_bulk(workgroup, uploaded_archives=uploaded_archives)
+    if request:
+        from django.contrib import messages
 
-    started_count = 0
-    for uploaded_archive in uploaded_archives:
-        status_ok = run_identification(uploaded_archive, workgroup=workgroup)
-        if request:
-            from django.contrib import messages
-
-            if status_ok:
-                messages.info(request, f"Identification started for {uploaded_archive.name}.")
-            else:
-                # message is generated in run identification
-                messages.error(
-                    request,
-                    f"No records for identification with the expected taxon for {uploaded_archive.name}.",
-                )
         if status_ok:
-            started_count += 1
-            pass
+            messages.info(request, f"Identification started for {upload_count} uploads.")
         else:
-            models.Notification.create_for(
-                message=f"No records for identification with the expected taxon for {uploaded_archive}.",
-                workgroups=[workgroup],
-                level=models.Notification.ERROR,
-            )
-        logger.debug(f"Identification started for {uploaded_archive} with status {status_ok}.")
+            messages.error(request, "No records for identification with the expected taxon.")
 
-    workgroup.identification_reid_status = "Finished"
-    workgroup.save(update_fields=["identification_reid_status"])
+    if not status_ok:
+        workgroup.identification_reid_status = "Finished"
+        workgroup.identification_reid_at = now()
+        workgroup.identification_reid_message = "No records available for identification."
+        workgroup.identification_scheduled_run_task_id = None
+        workgroup.identification_scheduled_run_eta = None
+        workgroup.save(
+            update_fields=[
+                "identification_reid_status",
+                "identification_reid_at",
+                "identification_reid_message",
+                "identification_scheduled_run_task_id",
+                "identification_scheduled_run_eta",
+            ]
+        )
+        models.Notification.create_for(
+            message=f"No records for identification in workgroup {workgroup}.",
+            workgroups=[workgroup],
+            level=models.Notification.ERROR,
+        )
+
     logger.info(
-        "Identification suggestions processed for workgroup %s: started=%s total=%s",
+        "Identification batch dispatched for workgroup %s: started=%s total=%s",
         workgroup.id,
-        started_count,
-        uploaded_archives.count(),
+        int(bool(status_ok)),
+        upload_count,
     )
 
 
@@ -1826,7 +2022,7 @@ def init_identification(workgroup_id: int, selection: dict | None = None):
         kwargs=kwargs,
     )
     # task =
-    sig.apply_async(
+    task = sig.apply_async(
         link=init_identification_on_success.s(
             workgroup_id=workgroup.id,
             # uploaded_archive_id=uploaded_archive.id,
@@ -1834,8 +2030,17 @@ def init_identification(workgroup_id: int, selection: dict | None = None):
             # csv_file=os.path.relpath(str(output_metadata_file), settings.MEDIA_ROOT),
         ),
         link_error=init_identification_on_error.s(
+            workgroup_id=workgroup.id,
             # uploaded_archive_id=uploaded_archive.id
         ),
+    )
+    workgroup.identification_scheduled_init_task_id = task.id
+    workgroup.identification_scheduled_init_eta = None
+    workgroup.save(
+        update_fields=[
+            "identification_scheduled_init_task_id",
+            "identification_scheduled_init_eta",
+        ]
     )
 
 

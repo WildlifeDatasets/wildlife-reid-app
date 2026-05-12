@@ -128,6 +128,7 @@ class CaIDUserSettingsForm(forms.ModelForm):
         model = CaIDUser
         fields = (
             "show_taxon_classification",
+            "show_base_between_regular_uploads",
             "default_taxon_for_identification",
             "timezone",
             "ml_consent_given",

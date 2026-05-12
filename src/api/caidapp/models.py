@@ -399,6 +399,7 @@ class CaIDUser(models.Model):
     show_reid = models.BooleanField(default=True)
     show_wellcome_message_on_next_login = models.BooleanField(default=False)
     show_base_dataset = models.BooleanField(default=False)
+    show_base_between_regular_uploads = models.BooleanField(default=False)
     default_taxon_for_identification = models.ForeignKey(
         Taxon,
         on_delete=models.SET_NULL,

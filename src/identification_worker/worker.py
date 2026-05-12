@@ -623,6 +623,7 @@ def detect_identification_outliers(
         label_col="class_id",
     )
     suspects = ep.likely_mislabeled(margin=0.0)
+    logger.debug(f"getting best other metadata index and image path")
 
     # Get the best other metadata index and image path
     best_other_metadata_idx = [
@@ -675,6 +676,7 @@ def detect_identification_outliers(
     try:
         for idx, row in metadata.iterrows():
             if not bool(row.get("is_suspect")):
+                logger.debug(f"getting best other metadata index and image path")
                 continue
 
             best_other_label = row.get("best_other_label")

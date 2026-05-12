@@ -182,8 +182,8 @@ class IdentificationUploadsViewTest(TestCase):
         self.assertContains(response, visible_archive.name)
         self.assertNotContains(response, "Hidden non-identification upload")
 
-    def test_uploads_identities_include_base_dataset_when_show_base_dataset_is_disabled(self):
-        self.caiduser.show_base_dataset = False
+    def test_uploads_identities_include_base_dataset_when_show_base_between_regular_uploads_is_enabled(self):
+        self.caiduser.show_base_between_regular_uploads = True
         self.caiduser.save()
         UploadedArchiveFactory(
             owner=self.caiduser,
@@ -207,8 +207,8 @@ class IdentificationUploadsViewTest(TestCase):
         self.assertContains(response, "Visible ordinary identification upload")
         self.assertContains(response, "bi-star-fill")
 
-    def test_uploads_identities_hide_base_dataset_when_show_base_dataset_is_enabled(self):
-        self.caiduser.show_base_dataset = True
+    def test_uploads_identities_hide_base_dataset_when_show_base_between_regular_uploads_is_disabled(self):
+        self.caiduser.show_base_between_regular_uploads = False
         self.caiduser.save()
         UploadedArchiveFactory(
             owner=self.caiduser,
@@ -270,9 +270,9 @@ class IdentificationRerunTest(TestCase):
         self.workgroup.check_taxon_before_identification = False
         self.workgroup.save()
 
-    @patch("caidapp.views.run_identification")
-    def test_bulk_rerun_processes_identification_uploads_with_missing_identity_regardless_of_status(self, run_identification_mock):
-        run_identification_mock.return_value = True
+    @patch("caidapp.views.run_identification_bulk")
+    def test_bulk_rerun_processes_identification_uploads_with_missing_identity_regardless_of_status(self, run_identification_bulk_mock):
+        run_identification_bulk_mock.return_value = True
 
         archive_ready = UploadedArchiveFactory(
             owner=self.caiduser,
@@ -281,6 +281,13 @@ class IdentificationRerunTest(TestCase):
             identification_status="C",
         )
         MediaFileFactory(parent=archive_ready, identity=None)
+        archive_ready_two = UploadedArchiveFactory(
+            owner=self.caiduser,
+            is_for_identification=True,
+            import_finished=True,
+            identification_status="IR",
+        )
+        MediaFileFactory(parent=archive_ready_two, identity=None)
 
         archive_with_identity = UploadedArchiveFactory(
             owner=self.caiduser,
@@ -308,9 +315,63 @@ class IdentificationRerunTest(TestCase):
 
         tasks.run_identification_on_unidentified_for_workgroup(self.workgroup.id)
 
-        run_identification_mock.assert_called_once()
-        called_archive = run_identification_mock.call_args.args[0]
-        self.assertEqual(called_archive.id, archive_ready.id)
+        run_identification_bulk_mock.assert_called_once()
+        called_workgroup = run_identification_bulk_mock.call_args.args[0]
+        called_archives = run_identification_bulk_mock.call_args.kwargs["uploaded_archives"]
+        self.assertEqual(called_workgroup.id, self.workgroup.id)
+        self.assertEqual({archive.id for archive in called_archives}, {archive_ready.id, archive_ready_two.id})
+
+    @patch("caidapp.views.signature")
+    @patch("caidapp.views._prepare_dataframe_for_identification")
+    def test_run_identification_bulk_dispatches_one_job_for_multiple_uploads(
+        self,
+        prepare_dataframe_mock,
+        signature_mock,
+    ):
+        archive_one = UploadedArchiveFactory(
+            owner=self.caiduser,
+            is_for_identification=True,
+            import_finished=True,
+            identification_status="IR",
+        )
+        mediafile_one = MediaFileFactory(parent=archive_one, identity=None)
+        archive_two = UploadedArchiveFactory(
+            owner=self.caiduser,
+            is_for_identification=True,
+            import_finished=True,
+            identification_status="C",
+        )
+        mediafile_two = MediaFileFactory(parent=archive_two, identity=None)
+        prepare_dataframe_mock.return_value = {
+            "image_path": ["one.jpg", "two.jpg"],
+            "class_id": [1, 2],
+            "label": ["one", "two"],
+        }
+
+        signature_result = Mock()
+        signature_mock.return_value = signature_result
+        identify_task = Mock()
+        identify_task.id = "bulk-identify-task-1"
+        signature_result.apply_async.return_value = identify_task
+
+        status_ok = views.run_identification_bulk(self.workgroup)
+
+        self.assertTrue(status_ok)
+        signature_mock.assert_called_once()
+        bulk_kwargs = signature_mock.call_args.kwargs["kwargs"]
+        self.assertEqual(bulk_kwargs["organization_id"], self.workgroup.id)
+        self.assertNotIn("uploaded_archive_id", bulk_kwargs)
+        signature_result.apply_async.assert_called_once()
+        callback_kwargs = signature_result.apply_async.call_args.kwargs["link"].kwargs
+        self.assertEqual(set(callback_kwargs["uploaded_archive_ids"]), {archive_one.id, archive_two.id})
+        archive_one.refresh_from_db()
+        archive_two.refresh_from_db()
+        self.workgroup.refresh_from_db()
+        self.assertEqual(archive_one.identification_status, "IAIP")
+        self.assertEqual(archive_two.identification_status, "IAIP")
+        self.assertEqual(self.workgroup.identification_reid_status, "Processing")
+        self.assertEqual(self.workgroup.identification_scheduled_run_task_id, identify_task.id)
+        self.assertIn("Running identification for 2 uploads", self.workgroup.identification_reid_message)
 
     @patch("caidapp.views.signature")
     @patch("caidapp.views._prepare_dataframe_for_identification")
@@ -391,6 +452,68 @@ class IdentificationRerunTest(TestCase):
             0,
         )
         prepare_mediafile_mock.assert_called_once()
+
+    @patch("caidapp.views.current_app.control.revoke")
+    def test_stop_init_identification_revokes_running_reid_task(self, revoke_mock):
+        self.workgroup.identification_reid_status = "Processing"
+        self.workgroup.identification_scheduled_run_task_id = "reid-task-123"
+        self.workgroup.save()
+
+        response = self.client.get(reverse("caidapp:stop_init_identification"))
+
+        self.assertEqual(response.status_code, 302)
+        revoke_mock.assert_called_once_with("reid-task-123", terminate=True)
+        self.workgroup.refresh_from_db()
+        self.assertEqual(self.workgroup.identification_reid_status, "Not initiated")
+        self.assertIsNone(self.workgroup.identification_scheduled_run_task_id)
+        self.assertIn("stopped manually", self.workgroup.identification_reid_message)
+
+    @patch("caidapp.views.current_app.control.revoke")
+    def test_stop_init_identification_revokes_running_init_task(self, revoke_mock):
+        self.workgroup.identification_init_status = "Processing"
+        self.workgroup.identification_scheduled_init_task_id = "init-task-456"
+        self.workgroup.save()
+
+        response = self.client.get(reverse("caidapp:stop_init_identification"))
+
+        self.assertEqual(response.status_code, 302)
+        revoke_mock.assert_called_once_with("init-task-456", terminate=True)
+        self.workgroup.refresh_from_db()
+        self.assertEqual(self.workgroup.identification_init_status, "Not initiated")
+        self.assertIsNone(self.workgroup.identification_scheduled_init_task_id)
+        self.assertIn("stopped manually", self.workgroup.identification_init_message)
+
+    @patch("caidapp.tasks.signature")
+    @patch("caidapp.tasks._prepare_dataframe_for_identification")
+    def test_init_identification_stores_running_worker_task_id(
+        self,
+        prepare_dataframe_mock,
+        signature_mock,
+    ):
+        representative_archive = UploadedArchiveFactory(owner=self.caiduser, is_for_identification=True, import_finished=True)
+        MediaFileFactory(
+            parent=representative_archive,
+            with_identity=True,
+            identity_is_representative=True,
+        )
+        prepare_dataframe_mock.return_value = {
+            "image_path": ["representative.jpg"],
+            "class_id": [1],
+            "label": ["known"],
+        }
+
+        signature_result = Mock()
+        signature_mock.return_value = signature_result
+        worker_task = Mock()
+        worker_task.id = "init-worker-task-1"
+        signature_result.apply_async.return_value = worker_task
+
+        tasks.init_identification(self.workgroup.id)
+
+        self.workgroup.refresh_from_db()
+        self.assertEqual(self.workgroup.identification_init_status, "Processing")
+        self.assertEqual(self.workgroup.identification_scheduled_init_task_id, worker_task.id)
+        self.assertIsNone(self.workgroup.identification_scheduled_init_eta)
 
     # def test_create_workstation(self):
     #     url = reverse("workstation-create")

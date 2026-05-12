@@ -481,7 +481,7 @@ def uploads_identities(request) -> HttpResponse:
     filter_kwargs = {
         "is_for_identification": True,
     }
-    if request.user.caiduser.show_base_dataset:
+    if not request.user.caiduser.show_base_between_regular_uploads:
         filter_kwargs["contains_identities"] = False
     queryset = get_filtered_mediafiles(request.user, **filter_kwargs)
     page_context = paginate_queryset(queryset, request)
@@ -1684,12 +1684,40 @@ def init_identification_view(
 def stop_init_identification(request):
     """Stop identification initialization."""
     workgroup = request.user.caiduser.workgroup
-    if workgroup.identification_init_status == "Processing":
+    if workgroup.identification_init_status in {"Processing", "Scheduled"}:
+        if workgroup.identification_scheduled_init_task_id:
+            current_app.control.revoke(workgroup.identification_scheduled_init_task_id, terminate=True)
         workgroup.identification_init_status = "Not initiated"
-        workgroup.save()
-    elif workgroup.identification_reid_status == "Processing":
+        workgroup.identification_init_at = django.utils.timezone.now()
+        workgroup.identification_init_message = "Initialization was stopped manually."
+        workgroup.identification_scheduled_init_task_id = None
+        workgroup.identification_scheduled_init_eta = None
+        workgroup.save(
+            update_fields=[
+                "identification_init_status",
+                "identification_init_at",
+                "identification_init_message",
+                "identification_scheduled_init_task_id",
+                "identification_scheduled_init_eta",
+            ]
+        )
+    elif workgroup.identification_reid_status in {"Processing", "Scheduled"}:
+        if workgroup.identification_scheduled_run_task_id:
+            current_app.control.revoke(workgroup.identification_scheduled_run_task_id, terminate=True)
         workgroup.identification_reid_status = "Not initiated"
-        workgroup.save()
+        workgroup.identification_reid_at = django.utils.timezone.now()
+        workgroup.identification_reid_message = "Identification run was stopped manually."
+        workgroup.identification_scheduled_run_task_id = None
+        workgroup.identification_scheduled_run_eta = None
+        workgroup.save(
+            update_fields=[
+                "identification_reid_status",
+                "identification_reid_at",
+                "identification_reid_message",
+                "identification_scheduled_run_task_id",
+                "identification_scheduled_run_eta",
+            ]
+        )
     return redirect("caidapp:uploads_known_identities")
 
 
@@ -1806,6 +1834,100 @@ def run_identification_view(request, uploadedarchive_id):
     else:
         messages.error(request, "No records for identification with the expected taxon.")
     return redirect(request.META.get("HTTP_REFERER", "/"))
+
+
+def run_identification_bulk(
+    workgroup: models.WorkGroup,
+    uploaded_archives=None,
+    selection: dict | None = None,
+) -> bool:
+    """Run one identification job for all eligible uploads in the workgroup."""
+    selection = selection or {}
+    if uploaded_archives is None:
+        uploaded_archives = tasks.get_uploaded_archives_pending_identification(workgroup)
+
+    uploaded_archives = list(uploaded_archives)
+    if not uploaded_archives:
+        return False
+
+    uploaded_archive_ids = [uploaded_archive.id for uploaded_archive in uploaded_archives]
+    bulk_selection = {**selection, "uploaded_archive_ids": uploaded_archive_ids}
+    mediafiles, _observation_taxon, _require_observations = tasks.resolve_identification_selection(
+        workgroup,
+        selection=bulk_selection,
+    )
+    logger.debug(f"Generating CSV for bulk identification with {len(mediafiles)} records...")
+
+    csv_data = _prepare_dataframe_for_identification(mediafiles)
+    df = pd.DataFrame(csv_data)
+    if df.shape[0] == 0:
+        logger.warning("No records found for bulk identification in workgroup %s.", workgroup.id)
+        return False
+
+    run_name = django.utils.timezone.now().strftime("%Y%m%d-%H%M%S")
+    output_dir = Path(settings.MEDIA_ROOT) / workgroup.name / "reid_runs" / run_name
+    output_dir.mkdir(parents=True, exist_ok=True)
+    identity_metadata_file = output_dir / "identification_metadata.csv"
+    output_json_file = output_dir / "identification_result.json"
+    df.to_csv(identity_metadata_file, index=False)
+
+    for uploaded_archive in uploaded_archives:
+        uploaded_archive.identification_status = "IAIP"
+        uploaded_archive.save(update_fields=["identification_status"])
+
+    if workgroup.identification_model is None:
+        logger.error("No identification model for workgroup. Selecting default model.")
+        model = models.IdentificationModel.objects.filter(public=True).first()
+        if model is None:
+            logger.error("No default identification model found. Using first available model.")
+            model = models.IdentificationModel.objects.first()
+            if model is None:
+                logger.error("No identification model found. Cannot run identification.")
+                return False
+        workgroup.identification_model = model
+        workgroup.save()
+
+    identify_signature = signature(
+        "identify",
+        kwargs=dict(
+            input_metadata_file_path=str(identity_metadata_file),
+            organization_id=workgroup.id,
+            output_json_file_path=str(output_json_file),
+            top_k=3,
+            identification_model={
+                "name": workgroup.identification_model.name,
+                "path": workgroup.identification_model.model_path,
+            },
+        ),
+    )
+    identify_task = identify_signature.apply_async(
+        link=tasks.identify_bulk_on_success.s(
+            workgroup_id=workgroup.id,
+            uploaded_archive_ids=uploaded_archive_ids,
+        ),
+        link_error=tasks.identify_bulk_on_error.s(
+            workgroup_id=workgroup.id,
+            uploaded_archive_ids=uploaded_archive_ids,
+        ),
+    )
+    workgroup.identification_reid_status = "Processing"
+    workgroup.identification_reid_at = django.utils.timezone.now()
+    workgroup.identification_reid_message = (
+        f"Running identification for {len(uploaded_archive_ids)} uploads and {df.shape[0]} media files."
+    )
+    workgroup.identification_scheduled_run_task_id = identify_task.id
+    workgroup.identification_scheduled_run_eta = None
+    workgroup.save(
+        update_fields=[
+            "identification_reid_status",
+            "identification_reid_at",
+            "identification_reid_message",
+            "identification_scheduled_run_task_id",
+            "identification_scheduled_run_eta",
+        ]
+    )
+    logger.debug(f"{identify_task=}")
+    return True
 
 
 def run_identification(
@@ -5701,3 +5823,4 @@ class WorkGroupInvitationAcceptView(LoginRequiredMixin, UpdateView):
         invitation.save(update_fields=["status", "responded_at"])
 
         return redirect(self.get_success_url())
+
