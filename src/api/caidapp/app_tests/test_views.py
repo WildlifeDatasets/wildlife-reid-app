@@ -1,8 +1,12 @@
 import logging
 from io import StringIO
+from pathlib import Path
+from unittest.mock import Mock, patch
 
 from caidapp import models
+from caidapp import tasks
 from caidapp import views
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
@@ -248,6 +252,145 @@ class IdentificationUploadsViewTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, visible_archive.name)
         self.assertNotContains(response, "Hidden taxonomy-only upload")
+
+
+class IdentificationRerunTest(TestCase):
+    def setUp(self):
+        self.caiduser = CaidUserFactory(admin=True)
+        self.user = self.caiduser.user
+        self.client.login(username=self.user.username, password="test123")
+        self.workgroup = self.caiduser.workgroup
+        self.identification_model = models.IdentificationModel.objects.create(
+            name="Test model",
+            public=True,
+            model_path="/tmp/test-model.pth",
+        )
+        self.workgroup.identification_model = self.identification_model
+        self.workgroup.default_taxon_for_identification = None
+        self.workgroup.check_taxon_before_identification = False
+        self.workgroup.save()
+
+    @patch("caidapp.views.run_identification")
+    def test_bulk_rerun_processes_identification_uploads_with_missing_identity_regardless_of_status(self, run_identification_mock):
+        run_identification_mock.return_value = True
+
+        archive_ready = UploadedArchiveFactory(
+            owner=self.caiduser,
+            is_for_identification=True,
+            import_finished=True,
+            identification_status="C",
+        )
+        MediaFileFactory(parent=archive_ready, identity=None)
+
+        archive_with_identity = UploadedArchiveFactory(
+            owner=self.caiduser,
+            is_for_identification=True,
+            import_finished=True,
+            identification_status="IR",
+        )
+        MediaFileFactory(parent=archive_with_identity, with_identity=True)
+
+        archive_importing = UploadedArchiveFactory(
+            owner=self.caiduser,
+            is_for_identification=True,
+            import_finished=False,
+            identification_status="IR",
+        )
+        MediaFileFactory(parent=archive_importing, identity=None)
+
+        archive_outside_identification = UploadedArchiveFactory(
+            owner=self.caiduser,
+            is_for_identification=False,
+            import_finished=True,
+            identification_status="IR",
+        )
+        MediaFileFactory(parent=archive_outside_identification, identity=None)
+
+        tasks.run_identification_on_unidentified_for_workgroup(self.workgroup.id)
+
+        run_identification_mock.assert_called_once()
+        called_archive = run_identification_mock.call_args.args[0]
+        self.assertEqual(called_archive.id, archive_ready.id)
+
+    @patch("caidapp.views.signature")
+    @patch("caidapp.views._prepare_dataframe_for_identification")
+    def test_run_identification_keeps_existing_queue_until_worker_success(
+        self,
+        prepare_dataframe_mock,
+        signature_mock,
+    ):
+        archive = UploadedArchiveFactory(
+            owner=self.caiduser,
+            is_for_identification=True,
+            import_finished=True,
+            identification_status="IAID",
+        )
+        mediafile = MediaFileFactory(parent=archive, identity=None)
+        prepare_dataframe_mock.return_value = {
+            "image_path": ["image.jpg"],
+            "class_id": [1],
+            "label": ["unknown"],
+        }
+
+        queue_item = models.MediafilesForIdentification.objects.create(mediafile=mediafile)
+        models.MediafileIdentificationSuggestion.objects.create(
+            for_identification=queue_item,
+            mediafile=mediafile,
+            name="old suggestion",
+            score=0.4,
+        )
+        (Path(settings.MEDIA_ROOT) / archive.outputdir).mkdir(parents=True, exist_ok=True)
+
+        signature_result = Mock()
+        signature_mock.return_value = signature_result
+        signature_result.apply_async.return_value = Mock()
+
+        status_ok = views.run_identification(archive, workgroup=self.workgroup)
+
+        self.assertTrue(status_ok)
+        self.assertTrue(models.MediafilesForIdentification.objects.filter(id=queue_item.id).exists())
+        self.assertEqual(
+            models.MediafileIdentificationSuggestion.objects.filter(for_identification=queue_item).count(),
+            1,
+        )
+        signature_result.apply_async.assert_called_once()
+
+    @patch("caidapp.tasks._prepare_mediafile_for_identification")
+    def test_identify_on_success_clears_existing_queue_for_upload_on_success(self, prepare_mediafile_mock):
+        archive = UploadedArchiveFactory(
+            owner=self.caiduser,
+            is_for_identification=True,
+            import_finished=True,
+            identification_status="IAIP",
+        )
+        mediafile = MediaFileFactory(parent=archive, identity=None)
+        queue_item = models.MediafilesForIdentification.objects.create(mediafile=mediafile)
+        models.MediafileIdentificationSuggestion.objects.create(
+            for_identification=queue_item,
+            mediafile=mediafile,
+            name="old suggestion",
+            score=0.4,
+        )
+        output_dir = Path(settings.MEDIA_ROOT) / archive.outputdir
+        output_dir.mkdir(parents=True, exist_ok=True)
+        output_json_file = output_dir / "identification_result.json"
+        output_json_file.write_text(
+            '{"mediafile_ids": [%d], "pred_image_paths": [[]], "pred_class_ids": [[]], "pred_labels": [[]], "scores": [[]], "keypoints": [[]]}'
+            % mediafile.id,
+            encoding="utf-8",
+        )
+
+        tasks.identify_on_success.run(
+            {"status": "DONE", "output_json_file": str(output_json_file)},
+            uploaded_archive_id=archive.id,
+        )
+
+        self.assertFalse(models.MediafilesForIdentification.objects.filter(id=queue_item.id).exists())
+        self.assertEqual(
+            models.MediafileIdentificationSuggestion.objects.filter(for_identification=queue_item).count(),
+            0,
+        )
+        prepare_mediafile_mock.assert_called_once()
 
     # def test_create_workstation(self):
     #     url = reverse("workstation-create")

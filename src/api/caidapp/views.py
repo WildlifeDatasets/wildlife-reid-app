@@ -1782,8 +1782,8 @@ def assign_unidentified_to_identification_view(request):
 def run_identification_on_unidentified(request):
     """Run identification suggestions for all finished uploaded archives."""
     workgroup = request.user.caiduser.workgroup
-
-    tasks.run_identification_on_unidentified_for_workgroup(workgroup.id)
+    tasks.run_identification_on_unidentified_for_workgroup_task.delay(workgroup.id)
+    messages.info(request, "Regeneration of identification suggestions has started.")
     return redirect(request.META.get("HTTP_REFERER", "/"))
 
 
@@ -1815,30 +1815,10 @@ def run_identification(
 ) -> bool:
     """Run identification of uploaded archive."""
     logger.debug("Generating CSV for run_identification...")
-    selection = selection or {}
-    selection_uploaded_archive_ids = selection.get("uploaded_archive_ids")
-    if selection_uploaded_archive_ids is None:
-        selection_uploaded_archive_ids = [uploaded_archive.id]
-
-    observation_taxon = selection.get("observation_taxon")
-    if observation_taxon is None:
-        observation_taxon = uploaded_archive.taxon_for_identification
-    if observation_taxon is None and workgroup.default_taxon_for_identification and workgroup.check_taxon_before_identification:
-        observation_taxon = workgroup.default_taxon_for_identification
-
-    require_observations = selection.get("require_observations")
-    if require_observations is None:
-        require_observations = observation_taxon is not None
-
-    mediafiles = workgroup.mediafiles_for_identification(
-        uploaded_archive_ids=selection_uploaded_archive_ids,
-        sequence_ids=selection.get("sequence_ids"),
-        mediafile_ids=selection.get("mediafile_ids"),
-        # TODO select only mediafiles with finished import
-        require_import_finished=selection.get("require_import_finished", True),
-        observation_taxon=observation_taxon,
-        require_identity=selection.get("require_identity", False),
-        require_observations=require_observations,
+    mediafiles, _observation_taxon, _require_observations = tasks.resolve_identification_selection(
+        workgroup,
+        uploaded_archive=uploaded_archive,
+        selection=selection,
     )
     logger.debug(f"Generating CSV for init_identification with {len(mediafiles)} records...")
     uploaded_archive.identification_status = "IAIP"
@@ -1870,8 +1850,8 @@ def run_identification(
 
     from celery import current_app
 
-    tasks = current_app.tasks.keys()
-    logger.debug(f"tasks={tasks}")
+    available_tasks = current_app.tasks.keys()
+    logger.debug(f"tasks={available_tasks}")
 
     logger.debug("Calling run_detection and run_identification ...")
 

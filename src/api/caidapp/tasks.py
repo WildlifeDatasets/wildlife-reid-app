@@ -47,6 +47,68 @@ from .models import (
 logger = logging.getLogger("app")
 
 
+def resolve_identification_selection(
+    workgroup: WorkGroup,
+    uploaded_archive: UploadedArchive | None = None,
+    selection: dict | None = None,
+):
+    """Return the queryset and resolved taxon settings for one identification run."""
+    selection = selection or {}
+
+    selection_uploaded_archive_ids = selection.get("uploaded_archive_ids")
+    if selection_uploaded_archive_ids is None and uploaded_archive is not None:
+        selection_uploaded_archive_ids = [uploaded_archive.id]
+
+    observation_taxon = selection.get("observation_taxon")
+    if observation_taxon is None and uploaded_archive is not None:
+        observation_taxon = uploaded_archive.taxon_for_identification
+    if observation_taxon is None and workgroup.default_taxon_for_identification and workgroup.check_taxon_before_identification:
+        observation_taxon = workgroup.default_taxon_for_identification
+
+    require_observations = selection.get("require_observations")
+    if require_observations is None:
+        require_observations = observation_taxon is not None
+
+    mediafiles = workgroup.mediafiles_for_identification(
+        uploaded_archive_ids=selection_uploaded_archive_ids,
+        sequence_ids=selection.get("sequence_ids"),
+        mediafile_ids=selection.get("mediafile_ids"),
+        require_import_finished=selection.get("require_import_finished", True),
+        observation_taxon=observation_taxon,
+        require_identity=selection.get("require_identity", False),
+        require_observations=require_observations,
+    )
+    return mediafiles, observation_taxon, require_observations
+
+
+def clear_identification_queue_for_uploaded_archive(uploaded_archive: UploadedArchive) -> tuple[int, int]:
+    """Delete queued manual identification items and suggestions for one upload."""
+    queue_qs = MediafilesForIdentification.objects.filter(mediafile__parent=uploaded_archive)
+    deleted_queue_count = queue_qs.count()
+    deleted_suggestion_count = models.MediafileIdentificationSuggestion.objects.filter(
+        for_identification__in=queue_qs
+    ).count()
+    queue_qs.delete()
+    return deleted_queue_count, deleted_suggestion_count
+
+
+def get_uploaded_archives_pending_identification(workgroup: WorkGroup):
+    """Return identification uploads that still have at least one eligible unidentified media file."""
+    candidate_archives = UploadedArchive.objects.filter(
+        owner__workgroup=workgroup,
+        is_for_identification=True,
+        import_finished=True,
+    ).order_by("uploaded_at", "id")
+
+    eligible_archive_ids = []
+    for uploaded_archive in candidate_archives:
+        mediafiles, _, _ = resolve_identification_selection(workgroup, uploaded_archive=uploaded_archive)
+        if mediafiles.exists():
+            eligible_archive_ids.append(uploaded_archive.id)
+
+    return candidate_archives.filter(id__in=eligible_archive_ids)
+
+
 def _task_log_context(task_name: str, task_id: str | None = None, extra: dict | None = None) -> str:
     """Build a compact task context string for debugging task handoffs."""
     parts = [
@@ -1446,6 +1508,13 @@ def identify_on_success(self, output: dict, *args, **kwargs):
             assert "keypoints" in data
 
             media_root = Path(settings.MEDIA_ROOT)
+            deleted_queue_count, deleted_suggestion_count = clear_identification_queue_for_uploaded_archive(uploaded_archive)
+            logger.info(
+                "Cleared identification queue after successful rerun for upload %s: mediafiles=%s suggestions=%s",
+                uploaded_archive.id,
+                deleted_queue_count,
+                deleted_suggestion_count,
+            )
 
             mediafile_ids = data["mediafile_ids"]
             len_mediafile_ids = len(mediafile_ids)
@@ -1637,13 +1706,7 @@ def run_identification_on_unidentified_for_workgroup(workgroup_id: int, request=
         level=models.Notification.DEBUG,
     )
 
-    uploaded_archives = UploadedArchive.objects.filter(
-        owner__workgroup=workgroup,
-        identification_status="IR",  # Ready for identification
-        # contains_single_taxon=True,
-        taxon_for_identification__isnull=False,
-        contains_identities=False,
-    ).all()
+    uploaded_archives = get_uploaded_archives_pending_identification(workgroup)
 
     started_count = 0
     for uploaded_archive in uploaded_archives:
