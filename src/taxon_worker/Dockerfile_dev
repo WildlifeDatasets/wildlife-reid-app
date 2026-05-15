@@ -24,7 +24,7 @@ RUN mkdir -p ~/resources && \
     -O /root/resources/md_v5a.0.0.pt
 
 # call torchub to load model into cache, 915bbf2 is v7.0 with no dependency on ultralytics
-RUN pip install pillow==10.3.0 tqdm==4.66.3 opencv-python==4.6.0.66
+RUN pip install pillow==10.3.0 tqdm==4.66.3 opencv-python-headless==4.6.0.66
 RUN python -c "import torch; torch.hub.load('ultralytics/yolov5:915bbf2', 'custom','/root/resources/md_v5a.0.0.pt', force_reload=True, trust_repo=True) and print('yolov5 loaded')"
 RUN ls /root/resources
 
@@ -65,6 +65,11 @@ timm.create_model(
 EOF
 
 COPY ./src/taxon_worker /taxon_worker
+
+RUN pip uninstall -y opencv-python opencv-python-headless opencv opencv-contrib-python cv2 && \
+    rm -rf /usr/local/lib/python3.10/dist-packages/cv2* && \
+    rm -rf /usr/local/lib/python3.10/site-packages/cv2* && \
+    pip install --no-cache-dir opencv-python-headless==4.8.1.78
 
 # expose ports and run application
 WORKDIR $APP_DIR

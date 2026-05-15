@@ -14,6 +14,7 @@ from datetime import datetime, timedelta
 from hashlib import sha256
 from pathlib import Path
 from typing import List, Optional, Tuple
+from time import time
 
 import numpy as np
 import pandas as pd
@@ -23,7 +24,7 @@ from tqdm import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
 
 from .inout import extract_archive
-from .sequence_identification import add_datetime_from_exif_in_parallel
+from .sequence_identification import add_datetime_from_exif_in_parallel, add_datetime
 
 logger = logging.getLogger("app")
 
@@ -982,9 +983,14 @@ class SumavaInitialProcessing:
 
         The EXIF information is extracted in single-core way but with the help of ExifTool.
         """
-        return add_datetime_from_exif_in_parallel(
-            original_paths, dataset_basedir=self.dataset_basedir, num_cores=self.num_cores
-        )
+
+        start_time = time()
+        results = add_datetime(original_paths, dataset_basedir=self.dataset_basedir, num_cores=self.num_cores)
+        end_time = time()
+
+        logger.info(f"++++++++++++++++++++++++++ Datetime extraction, time taken: {end_time - start_time} seconds")
+
+        return results
 
 
 def add_column_with_lynx_id(df: pd.DataFrame, contain_identities: bool = False) -> pd.DataFrame:

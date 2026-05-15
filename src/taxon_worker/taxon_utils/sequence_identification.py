@@ -4,7 +4,7 @@ import traceback
 import typing
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Union
 
 import cv2
 import exiftool
@@ -17,12 +17,19 @@ import skimage.color
 from joblib import Parallel, delayed
 from PIL import Image, UnidentifiedImageError
 from tqdm import tqdm
+import easyocr
+from torch.utils.data import DataLoader
 
-logger = logging.getLogger(__name__)
+from .datetime_identification_ocr import process_datetime_from_ocr, _process_datetime_without_spaces, OCRDataset
+
+# logger = logging.getLogger(__name__)
+logger = logging.getLogger("app")
+logger.setLevel(logging.INFO)
 
 
 # EXIFTOOL_EXECUTABLE = "/webapps/piglegsurgery/Image-ExifTool-13.00/exiftool"
 EXIFTOOL_EXECUTABLE = None
+EASYREADER = None
 
 DATETIME_BLACKLIST = [
     # "0000-00-00 00:00:00",
@@ -197,7 +204,8 @@ def get_datetime_using_exif_or_ocr(
     if read_error == "":
         if dt_str == "":
             try:
-                dt_str, dt_source = get_datetime_from_ocr(filename)
+                dt_str, dt_source = get_datetime_from_ocr_tesseract(filename)
+                # dt_str, dt_source = get_datetime_from_easyocr(filename)
                 read_error = ""
                 opened_sucessfully = True
             except Exception as e:
@@ -293,7 +301,7 @@ def get_datetime_exiftool(video_pth: Path, checked_keys: Optional[list] = None) 
     return "", False, ""
 
 
-def get_datetime_from_ocr(filename: Path) -> typing.Tuple[str, str]:
+def get_datetime_from_ocr_tesseract(filename: Path) -> typing.Tuple[str, str]:
     """Get datetime from image using OCR."""
     import cv2
 
@@ -319,6 +327,44 @@ def get_datetime_from_ocr(filename: Path) -> typing.Tuple[str, str]:
 
     # remove non printable characters
     ocr_result = "".join([c for c in ocr_result if c.isprintable()])
+    return date_str, f"OCR: {ocr_result}"
+
+
+def get_datetime_from_easyocr(file: Union[Path, np.ndarray]) -> typing.Tuple[str, str]:
+    """Get datetime from image using OCR."""
+    import cv2
+    global EASYREADER
+
+    if EASYREADER is None:
+        EASYREADER = easyocr.Reader(['en'])
+
+    if isinstance(file, (str, Path)):
+        if file.suffix.lower() in (".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff"):
+            frame_bgr = cv2.imread(str(file))
+        else:
+            # read video frame
+            cap = cv2.VideoCapture(str(file))
+            ret, frame_bgr = cap.read()
+            cap.release()
+        image_gray = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2GRAY)
+    elif isinstance(file, np.ndarray):
+        image_gray = file
+    else:
+        raise ValueError(f"Invalid filename: {file}")
+
+    # read text from image
+    batch = [image_gray]
+    text_raw = EASYREADER.readtext_batched(batch, detail = 0)  # [EASYREADER.readtext(image_gray, detail=0)]
+    results = [r["datetime"] for r in process_datetime_from_ocr(text_raw)]
+    # backup - run processing again but remove spaces before processing
+    results = _process_datetime_without_spaces(text_raw, results)
+
+    if isinstance(results[0], datetime):
+        date_str = results[0].strftime("%Y-%m-%d %H:%M:%S")
+    else:
+        date_str = ""
+
+    ocr_result = " ".join(text_raw[0])
     return date_str, f"OCR: {ocr_result}"
 
 
@@ -566,3 +612,196 @@ def add_datetime_from_exif_in_parallel(
 
     datetime_list, error_list, source_list = zip(*datetime_list)
     return datetime_list, error_list, source_list, exifs
+
+
+
+def get_datetime_from_exif(
+    original_paths: List[Path],
+    dataset_basedir: Optional[Path] = None,
+    exiftool_executable=None,
+) -> Tuple[list, list, list]:
+    """Extract datetimes from EXIF metadata for a list of files.
+
+    Returns
+    -------
+    datetime_list : list of str
+        Datetime strings in YYYY-MM-DD HH:MM:SS format, or empty string if unavailable.
+    error_list : list of str
+        Error descriptions, or empty string if no error.
+    source_list : list of str
+        EXIF key used as datetime source, or empty string if unavailable.
+    """
+    logger.info(f"Getting datetimes from EXIF for {len(original_paths)} files.")
+
+    checked_keys = [
+        "QuickTime:MediaCreateDate",
+        "QuickTime:CreateDate",
+        "EXIF:CreateDate",
+        "EXIF:ModifyDate",
+        "EXIF:DateTimeOriginal",
+        "EXIF:DateTimeCreated",
+    ]
+
+    # get full paths
+    if dataset_basedir:
+        full_paths = [dataset_basedir / original_path for original_path in original_paths]
+    else:
+        full_paths = original_paths
+
+    # get exif metadata
+    try:
+        with exiftool.ExifToolHelper(executable=exiftool_executable) as et:
+            exifs = et.get_metadata(full_paths)
+    except exiftool.exceptions.ExifToolExecuteError:
+        exifs = []
+        for path in full_paths:
+            try:
+                with exiftool.ExifToolHelper(executable=exiftool_executable) as et:
+                    exif = et.get_metadata(path)
+                exifs.extend(exif)
+            except exiftool.exceptions.ExifToolExecuteError:
+                logger.warning(f"Error while reading EXIF from {str(path)}\n{traceback.format_exc()}")
+                exifs.append({})
+
+    # process exif metadata
+    datetime_list = []
+    error_list = []
+    source_list = []
+    for path, exif_metadata in zip(full_paths, exifs):
+        dt_str = ""
+        dt_source = ""
+        error = ""
+        try:
+            for k in checked_keys:
+                if k in exif_metadata:
+                    dt_str = exif_metadata[k]
+                    dt_source = k
+                    break
+
+            dt_str = replace_colon_in_exif_datetime(dt_str)
+            if dt_str in DATETIME_BLACKLIST:
+                logger.debug(f"blacklisted datetime for {path}")
+                dt_str = ""
+                dt_source = ""
+        except Exception as e:
+            dt_str = ""
+            dt_source = ""
+            error = str(e)
+            logger.warning(f"Error while processing EXIF from {path}\n{traceback.format_exc()}")
+
+        datetime_list.append(dt_str)
+        error_list.append(error)
+        source_list.append(dt_source)
+
+    logger.info(f"Datetimes from EXIF collected for {len(datetime_list)} files with errors: {len(error_list)}.")
+    return datetime_list, error_list, source_list, exifs
+
+
+def get_datetime_from_ocr(
+    original_paths: List[Path],
+    dataset_basedir: Optional[Path] = None,
+    use_loader: bool = False,
+    num_workers: int = 4,
+) -> Tuple[list, list, list]:
+    """Extract datetimes from images using OCR for a list of files.
+
+    Returns
+    -------
+    datetime_list : list of str
+        Datetime strings in YYYY-MM-DD HH:MM:SS format, or empty string if unavailable.
+    error_list : list of str
+        Error descriptions, or empty string if no error.
+    source_list : list of str
+        OCR source description, or empty string if unavailable.
+    """
+    logger.info(f"Getting datetimes from OCR for {len(original_paths)} files.")
+
+    # get full paths
+    if dataset_basedir:
+        full_paths = [dataset_basedir / original_path for original_path in original_paths]
+    else:
+        full_paths = original_paths
+
+    if use_loader:
+        dataset = OCRDataset(full_paths)
+        dataloader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=num_workers, collate_fn=lambda x: x, prefetch_factor=8)
+
+    # process ocr
+    datetime_list = []
+    error_list = []
+    source_list = []
+
+    iterator = dataloader if use_loader else full_paths
+    for file in tqdm(iterator, desc="OCR"):
+        if use_loader:
+            file = file[0]
+        
+        dt_str = ""
+        dt_source = ""
+        error = ""
+        try:
+            dt_str, dt_source = get_datetime_from_easyocr(file)
+        except Exception as e:
+            dt_str = ""
+            dt_source = ""
+            error = "OCR failed"
+            logger.warning(f"Error while reading OCR from \n{traceback.format_exc()}")
+            logger.warning(e)
+
+        datetime_list.append(dt_str)
+        error_list.append(error)
+        source_list.append(dt_source)
+
+    logger.info(f"Datetimes from OCR collected for {len(datetime_list)} files with errors: {len(error_list)}.")
+    return datetime_list, error_list, source_list
+
+
+
+def add_datetime(
+    original_paths: List[Path],
+    dataset_basedir: Optional[Path] = None,
+    exiftool_executable=None,
+    num_cores: int = 1,
+) -> Tuple[list, list, list, list]:
+    # get full paths
+    if dataset_basedir:
+        full_paths = [dataset_basedir / original_path for original_path in original_paths]
+    else:
+        full_paths = original_paths
+    
+    # Extract datetimes using both EXIF and OCR methods
+    exif_datetime_list, exif_error_list, exif_source_list, exifs = get_datetime_from_exif(
+        original_paths, dataset_basedir, exiftool_executable
+    )
+    ocr_datetime_list, ocr_error_list, ocr_source_list = get_datetime_from_ocr(
+        original_paths, dataset_basedir
+    )
+
+    # Prepare final output lists
+    datetime_list = []
+    error_list = []
+    source_list = []
+
+    # Iterate over results and combine: prefer OCR, then EXIF, else file system
+    for path, exif_dt, exif_err, exif_src, \
+              ocr_dt, ocr_err, ocr_src in zip(
+        full_paths, exif_datetime_list, exif_error_list, exif_source_list, \
+                    ocr_datetime_list, ocr_error_list, ocr_source_list
+    ):
+        if ocr_dt:
+            datetime_list.append(ocr_dt)
+            error_list.append(ocr_err)
+            source_list.append(ocr_src)
+        elif exif_dt:
+            datetime_list.append(exif_dt)
+            error_list.append(exif_err)
+            source_list.append(exif_src)
+        else:
+            dtm = min(path.stat().st_mtime, path.stat().st_ctime, path.stat().st_atime)
+            dt_str = datetime.fromtimestamp(dtm).strftime("%Y-%m-%d %H:%M:%S")
+
+            datetime_list.append(dt_str)
+            error_list.append("")
+            source_list.append("File system")
+
+    return datetime_list, error_list, source_list, exifs     
