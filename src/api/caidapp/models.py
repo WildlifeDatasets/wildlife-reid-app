@@ -281,8 +281,9 @@ class WorkGroup(models.Model):
         """Return number of uploaded archives ready for identification."""
         return UploadedArchive.objects.filter(
             owner__workgroup=self,
-            taxon_for_identification__isnull=False,
+            # taxon_for_identification__isnull=False,
             identification_status="IR",
+            is_for_identification=True,
         ).count()
 
     def number_of_media_files_in_uploaded_archives_ready_for_identification(self) -> int:
@@ -323,6 +324,7 @@ class WorkGroup(models.Model):
         uploaded_archive_ids: list[int] | int | None = None,
         sequence_ids: list[int] | int | None = None,
         mediafile_ids: list[int] | int | None = None,
+        require_import_finished: bool = True,
         representative_only: bool = False,
         require_identity: bool | None = None,
         observation_taxon: Taxon | None = None,
@@ -348,6 +350,8 @@ class WorkGroup(models.Model):
             qs = qs.filter(sequence_id__in=sequence_ids)
         if mediafile_ids:
             qs = qs.filter(id__in=mediafile_ids)
+        if require_import_finished:
+            qs = qs.filter(parent__import_finished=True)
         if representative_only:
             qs = qs.filter(identity_is_representative=True)
         if require_identity is True:
@@ -709,7 +713,8 @@ class UploadedArchive(models.Model):
     contains_single_taxon = models.BooleanField(default=False)
     taxon_for_identification_at_upload = models.CharField(max_length=255, blank=True, default="")
     taxon_for_identification = models.ForeignKey(Taxon, on_delete=models.SET_NULL, null=True, blank=True)
-    mediafiles_imported = models.BooleanField("Media Files Imported Correctly", default=False)
+    import_finished = models.BooleanField("Media Files Import Finished Correctly", default=False) # TODO rename to import_finished
+
     earliest_captured_at = models.DateTimeField("Earliest Captured at", blank=True, null=True)
     latest_captured_at = models.DateTimeField("Latest Captured at", blank=True, null=True)
     locality_check_at = models.DateTimeField("Locality Check at", blank=True, null=True)
@@ -718,6 +723,9 @@ class UploadedArchive(models.Model):
     videos_at_upload = models.IntegerField("Videos at Upload", default=0)
     files_at_upload = models.IntegerField("Files at Upload", default=0)
     import_error_spreadsheet = models.FileField(upload_to=outputdir, blank=True, null=True)
+    import_log = models.TextField(blank=True, default="")
+    import_mapping = models.JSONField(blank=True, default=dict)
+    path_structure_regex = models.TextField(blank=True, default="")
 
     def refresh_status_after_migration(self, request: Optional[object] = None):
         """Refresh possible old setup of object to 'migrated' one."""
@@ -818,8 +826,32 @@ class UploadedArchive(models.Model):
         mediafiles = MediaFile.objects.filter(parent=self)
         for mediafile in mediafiles:
             mediafile.locality = location
+            mediafile.save(update_fields=["locality"])
         self.locality_at_upload_object = location
-        self.location = location.name
+        self.locality_at_upload = location.name if location else ""
+        self.save(update_fields=["locality_at_upload_object", "locality_at_upload"])
+
+    def localities(self):
+        """Return unique localities used by media files in this upload."""
+        localities = Locality.objects.filter(mediafiles__parent=self).distinct().order_by("name")
+        if localities.exists():
+            return localities
+        if self.locality_at_upload_object_id:
+            return Locality.objects.filter(id=self.locality_at_upload_object_id)
+        return Locality.objects.none()
+
+    @property
+    def locality(self) -> Optional[Locality]:
+        """Compatibility accessor returning the first locality in the upload."""
+        return self.localities().first()
+
+    @property
+    def localities_display(self) -> Optional[str]:
+        """Return comma-separated locality names for templates and debugging."""
+        localities = list(self.localities())
+        if not localities:
+            return None
+        return ", ".join(locality.name for locality in localities)
 
     def earliest_captured_taxon(self):
         """Return earliest captured taxon in the archive."""

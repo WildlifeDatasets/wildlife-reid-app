@@ -54,7 +54,7 @@ def prepare_dataframe_for_uploads_in_one_locality(locality_id: int) -> pd.DataFr
     """Prepare dataframe for uploads in one locality."""
     locality = Locality.objects.get(id=locality_id)
 
-    locality_uploads = UploadedArchive.objects.filter(locality_at_upload_object=locality).order_by("uploaded_at")
+    locality_uploads = UploadedArchive.objects.filter(mediafile__locality=locality).distinct().order_by("uploaded_at")
 
     df = pd.DataFrame.from_records(locality_uploads.values())
 

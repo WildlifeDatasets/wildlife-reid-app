@@ -46,6 +46,7 @@ urlpatterns = [
         name="workgroup_invitation_decline",
     ),
     path("upload/", views.upload_archive, name="upload_archive"),
+    path("upload/new/", views.NewUploadView.as_view(), name="new_upload"),
     # path("user_settings/", views.update_caiduser, name="update_caiduser"),
     path(
         "upload/contains_single_taxon/",

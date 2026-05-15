@@ -208,7 +208,7 @@ def uploads_of_locality(request, locality_hash):
         hash=locality_hash,
         **user_has_access_filter_params(request.user.caiduser, "owner"),
     )
-    uploaded_archives = locality.uploadedarchive_set.all()
+    uploaded_archives = UploadedArchive.objects.filter(mediafile__locality=locality).distinct()
     return render(
         request,
         "caidapp/uploads_location.html",
@@ -583,11 +583,6 @@ def merge_localities_view(request, locality_from_id, locality_to_id):
     for mediafile in mediafiles:
         mediafile.locality = locality_to
         mediafile.save()
-
-    uploaded_archives = UploadedArchive.objects.filter(locality_at_upload_object=locality_from)
-    for uploaded_archive in uploaded_archives:
-        uploaded_archive.locality_at_upload_object = locality_to
-        uploaded_archive.save()
 
     locality_to.note += f"\n\nMerged from {locality_from.name}:\n  {locality_from.note}"
 

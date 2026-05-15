@@ -151,7 +151,7 @@ def uploadedarchive_detail(request, uploadedarchive_id: int) -> HttpResponse:
     # fmt: off
     dictionary = {
         "Uploaded at": uarch.uploaded_at,
-        "Locality": uarch.locality_at_upload_object,
+        "Localities": uarch.localities_display,
         "Locality check at": uarch.locality_check_at,
         "Status": uarch.taxon_status,
         "Status message": uarch.status_message,
@@ -176,7 +176,7 @@ def uploadedarchive_detail(request, uploadedarchive_id: int) -> HttpResponse:
         request,
         "caidapp/message.html",
         context=dict(
-            headline="Uploaded Archive " + f"{uarch.locality_at_upload_object} " + f"{uarch.locality_check_at}",
+            headline="Uploaded Archive " + f"{uarch.localities_display or '-'} " + f"{uarch.locality_check_at}",
             dictionary=dictionary,
         ),
     )

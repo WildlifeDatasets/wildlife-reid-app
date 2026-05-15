@@ -47,6 +47,68 @@ from .models import (
 logger = logging.getLogger("app")
 
 
+def resolve_identification_selection(
+    workgroup: WorkGroup,
+    uploaded_archive: UploadedArchive | None = None,
+    selection: dict | None = None,
+):
+    """Return the queryset and resolved taxon settings for one identification run."""
+    selection = selection or {}
+
+    selection_uploaded_archive_ids = selection.get("uploaded_archive_ids")
+    if selection_uploaded_archive_ids is None and uploaded_archive is not None:
+        selection_uploaded_archive_ids = [uploaded_archive.id]
+
+    observation_taxon = selection.get("observation_taxon")
+    if observation_taxon is None and uploaded_archive is not None:
+        observation_taxon = uploaded_archive.taxon_for_identification
+    if observation_taxon is None and workgroup.default_taxon_for_identification and workgroup.check_taxon_before_identification:
+        observation_taxon = workgroup.default_taxon_for_identification
+
+    require_observations = selection.get("require_observations")
+    if require_observations is None:
+        require_observations = observation_taxon is not None
+
+    mediafiles = workgroup.mediafiles_for_identification(
+        uploaded_archive_ids=selection_uploaded_archive_ids,
+        sequence_ids=selection.get("sequence_ids"),
+        mediafile_ids=selection.get("mediafile_ids"),
+        require_import_finished=selection.get("require_import_finished", True),
+        observation_taxon=observation_taxon,
+        require_identity=selection.get("require_identity", False),
+        require_observations=require_observations,
+    )
+    return mediafiles, observation_taxon, require_observations
+
+
+def clear_identification_queue_for_uploaded_archive(uploaded_archive: UploadedArchive) -> tuple[int, int]:
+    """Delete queued manual identification items and suggestions for one upload."""
+    queue_qs = MediafilesForIdentification.objects.filter(mediafile__parent=uploaded_archive)
+    deleted_queue_count = queue_qs.count()
+    deleted_suggestion_count = models.MediafileIdentificationSuggestion.objects.filter(
+        for_identification__in=queue_qs
+    ).count()
+    queue_qs.delete()
+    return deleted_queue_count, deleted_suggestion_count
+
+
+def get_uploaded_archives_pending_identification(workgroup: WorkGroup):
+    """Return identification uploads that still have at least one eligible unidentified media file."""
+    candidate_archives = UploadedArchive.objects.filter(
+        owner__workgroup=workgroup,
+        is_for_identification=True,
+        import_finished=True,
+    ).order_by("uploaded_at", "id")
+
+    eligible_archive_ids = []
+    for uploaded_archive in candidate_archives:
+        mediafiles, _, _ = resolve_identification_selection(workgroup, uploaded_archive=uploaded_archive)
+        if mediafiles.exists():
+            eligible_archive_ids.append(uploaded_archive.id)
+
+    return candidate_archives.filter(id__in=eligible_archive_ids)
+
+
 def _task_log_context(task_name: str, task_id: str | None = None, extra: dict | None = None) -> str:
     """Build a compact task context string for debugging task handoffs."""
     parts = [
@@ -189,7 +251,13 @@ def on_success_predict_taxon(
                     ),
                 )
                 assign_unidentified_to_identification(caiduser=uploaded_archive.owner)
-            uploaded_archive.mediafiles_imported = True
+            uploaded_archive.import_finished = True
+            uploaded_archive.is_for_identification = (
+                (uploaded_archive.taxon_for_identification is not None) or
+                uploaded_archive.contains_single_taxon or
+                uploaded_archive.contains_identities or
+                uploaded_archive.is_for_identification
+            )
             uploaded_archive.taxon_status = "TAID"
             uploaded_archive.identification_status = "IR"  # Ready for identification
             uploaded_archive.status_message = "Taxon classification finished."
@@ -641,6 +709,8 @@ def run_species_prediction_async(
             "sequence_time_limit_s": sequence_time_limit_s,
             "detection_model_path": detection_model_path,
             "detection_model_architecture": detection_model_architecture,
+            "path_structure_regex": uploaded_archive.path_structure_regex or None,
+            "path_structure_mapping": uploaded_archive.import_mapping.get("directory_mapping") or None,
         },
     )
 
@@ -801,8 +871,8 @@ def update_uploaded_archive_by_metadata_csv(
     # logger.debug(f"{starts_at=}, {ends_at=}")
     # uploaded_archive.starts_at = str(starts_at)
     # uploaded_archive.ends_at = str(ends_at)
-    uploaded_archive.locality_at_upload_object = locality
-    uploaded_archive.save()
+    uploaded_archive.locality_at_upload_object = uploaded_archive.locality
+    uploaded_archive.save(update_fields=["locality_at_upload_object"])
 
 
 def _update_database_by_one_row_of_metadata(
@@ -825,6 +895,7 @@ def _update_database_by_one_row_of_metadata(
     media_abs_pth = Path(row["absolute_media_path"])
     media_rel_pth = media_abs_pth.relative_to(settings.MEDIA_ROOT)
     captured_at = row["datetime"]
+    row_locality = get_locality_from_metadata_row(uploaded_archive, row, locality)
     # if no timzone is given, we assume it is the local time zone
     try:
         # captured_at = pd.to_datetime(captured_at, utc=True)
@@ -865,7 +936,7 @@ def _update_database_by_one_row_of_metadata(
                 mediafile=str(media_rel_pth),
                 image_file=str(image_rel_pth),
                 captured_at=captured_at,
-                locality=locality,
+                locality=row_locality,
                 media_type=row["media_type"],
                 # metadata_json=row["detection_results"],
                 # metadata_json=metadata_json,
@@ -921,6 +992,8 @@ def _update_database_by_one_row_of_metadata(
             # mf.first_observation.taxon = get_taxon(row["predicted_category"])  # remove this
         if captured_at is not None:
             mf.captured_at = captured_at
+        if row_locality is not None:
+            mf.locality = row_locality
         if "predicted_category_raw" in row:
             predicted_taxon = get_taxon(row["predicted_category_raw"])
             predicted_taxon_confidence = float(row["predicted_prob_raw"])
@@ -1000,6 +1073,18 @@ def _update_database_by_one_row_of_metadata(
     return status
 
     # logger.debug(f"{mf}")
+
+
+def get_locality_from_metadata_row(uploaded_archive: UploadedArchive, row, fallback_locality):
+    """Prefer per-media locality parsed from path/spreadsheet over upload-wide locality."""
+    for column in ("locality_name", "vanilla_location"):
+        if column not in row:
+            continue
+        value = row[column]
+        if value is None or pd.isna(value) or str(value).strip() == "":
+            continue
+        return get_locality(uploaded_archive.owner, str(value).strip())
+    return fallback_locality
 
 
 def update_metadata_csv_by_uploaded_archive(
@@ -1423,6 +1508,13 @@ def identify_on_success(self, output: dict, *args, **kwargs):
             assert "keypoints" in data
 
             media_root = Path(settings.MEDIA_ROOT)
+            deleted_queue_count, deleted_suggestion_count = clear_identification_queue_for_uploaded_archive(uploaded_archive)
+            logger.info(
+                "Cleared identification queue after successful rerun for upload %s: mediafiles=%s suggestions=%s",
+                uploaded_archive.id,
+                deleted_queue_count,
+                deleted_suggestion_count,
+            )
 
             mediafile_ids = data["mediafile_ids"]
             len_mediafile_ids = len(mediafile_ids)
@@ -1600,8 +1692,8 @@ def run_identification_on_unidentified_for_workgroup_task(workgroup_id: int):
 
 
 def run_identification_on_unidentified_for_workgroup(workgroup_id: int, request=None):
-    """Run identification on unidentified media files for a workgroup."""
-    logger.debug(f"Running identification on unidentified media files for workgroup {workgroup_id}...")
+    """Run identification suggestions for finished uploads in a workgroup."""
+    logger.debug(f"Running identification suggestions for workgroup {workgroup_id}...")
     from .views import run_identification
 
     workgroup = WorkGroup.objects.get(pk=workgroup_id)
@@ -1614,14 +1706,9 @@ def run_identification_on_unidentified_for_workgroup(workgroup_id: int, request=
         level=models.Notification.DEBUG,
     )
 
-    uploaded_archives = UploadedArchive.objects.filter(
-        owner__workgroup=workgroup,
-        identification_status="IR",  # Ready for identification
-        # contains_single_taxon=True,
-        taxon_for_identification__isnull=False,
-        contains_identities=False,
-    ).all()
+    uploaded_archives = get_uploaded_archives_pending_identification(workgroup)
 
+    started_count = 0
     for uploaded_archive in uploaded_archives:
         status_ok = run_identification(uploaded_archive, workgroup=workgroup)
         if request:
@@ -1636,6 +1723,7 @@ def run_identification_on_unidentified_for_workgroup(workgroup_id: int, request=
                     f"No records for identification with the expected taxon for {uploaded_archive.name}.",
                 )
         if status_ok:
+            started_count += 1
             pass
         else:
             models.Notification.create_for(
@@ -1644,6 +1732,15 @@ def run_identification_on_unidentified_for_workgroup(workgroup_id: int, request=
                 level=models.Notification.ERROR,
             )
         logger.debug(f"Identification started for {uploaded_archive} with status {status_ok}.")
+
+    workgroup.identification_reid_status = "Finished"
+    workgroup.save(update_fields=["identification_reid_status"])
+    logger.info(
+        "Identification suggestions processed for workgroup %s: started=%s total=%s",
+        workgroup.id,
+        started_count,
+        uploaded_archives.count(),
+    )
 
 
 def schedule_init_identification_for_workgroup(workgroup: models.WorkGroup, delay_minutes: int = 10):
@@ -1683,6 +1780,8 @@ def init_identification(workgroup_id: int, selection: dict | None = None):
         uploaded_archive_ids=selection.get("uploaded_archive_ids"),
         sequence_ids=selection.get("sequence_ids"),
         mediafile_ids=selection.get("mediafile_ids"),
+        # TODO select only files with finished import
+        # require_import_finished=selection.get("require_import_finished", True),
         representative_only=selection.get("representative_only", True),
         require_identity=selection.get("require_identity", True),
         observation_taxon=selection.get(

@@ -503,7 +503,7 @@
                                 {% if user.caiduser.workgroup.identification_scheduled_run_eta %}
                                     {% now "Y-m-d H:i" as now %}
                                     {% if user.caiduser.workgroup.identification_scheduled_run_eta > now %}
-                                        <span title="Suggestion generation at {{ user.caiduser.workgroup.identification_scheduled_run_eta|date:'Y-m-d H:i' }}">
+                                        <span title="Suggestion generation at {{ user.caiduser.workgroup.identification_scheduled_run_eta|date:'Y-m-d H:i' }}. {{ suggestion_run_info }}">
                                             Suggestion generation in {{ user.caiduser.workgroup.identification_scheduled_run_eta|timeuntil }}
                                             {% if user.caiduser.workgroup_admin %}
                                             (<a href="{% url 'caidapp:run_identification_on_unidentified' %}" class="link-secondary">Do suggestions now</a>)
@@ -511,7 +511,7 @@
                                             .
                                         </span>
                                     {% else %}
-                                        <span>
+                                        <span title="{{ suggestion_run_info }}">
                                             Suggestion generated at {{ user.caiduser.workgroup.identification_scheduled_run_eta|date:'Y-m-d H:i' }}
                                             {% if user.caiduser.workgroup_admin %}
                                                 (<a href="{% url 'caidapp:run_identification_on_unidentified' %}" class="link-secondary">Do suggestions now</a>)

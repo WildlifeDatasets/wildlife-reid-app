@@ -32,6 +32,8 @@ def predict(
     force_init: bool = False,
     detection_model_path: str = None,
     detection_model_architecture: str = None,
+    path_structure_regex: str = None,
+    path_structure_mapping: dict = None,
     **kwargs,
 ):
     """Main method called by Celery broker.
@@ -65,6 +67,8 @@ def predict(
                 output_images_dir,
                 num_cores=num_cores,
                 contains_identities=contains_identities,
+                path_structure_regex=path_structure_regex,
+                path_structure_mapping=path_structure_mapping,
             )
             metadata = data_processing_pipeline.keep_correctly_loaded_images(metadata)
             # image_path is now relative to output_images_dir

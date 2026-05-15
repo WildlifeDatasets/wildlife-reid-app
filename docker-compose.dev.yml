@@ -75,11 +75,13 @@ services:
     environment:
       DEBUG: "True"
       CAID_HOST: ${CAID_HOST:-localhost}
+      WRAP_TEST_DATA_DIR: /wrap_test_data
     volumes:
       - ./src/api:/api
       - api-data-dev:/data  # data used only by API
       - private-data-dev:/private_data  # private keys that should not be automatically backed up
       - ${CAID_IMPORT:-./caid_import}:/caid_import
+      - ${WRAP_TEST_DATA_HOST_DIR:-./caid_import}:/wrap_test_data:ro
       - shared-data:/shared_data
 #    expose:
 #      - 22280  # this limit access to the inner nginx only
@@ -104,6 +106,8 @@ services:
       - "src/variables.env"
       - "src/variables.dev.env"
       - ".env"
+    environment:
+      WRAP_TEST_DATA_DIR: /wrap_test_data
     deploy:
       resources:
         reservations:
@@ -114,6 +118,7 @@ services:
     volumes:
       - ./src/taxon_worker:/taxon_worker
       - taxon-worker-data-dev:/data  # data used only by Worker
+      - ${WRAP_TEST_DATA_HOST_DIR:-./caid_import}:/wrap_test_data:ro
       - shared-data:/shared_data
     depends_on:
       - broker_dev

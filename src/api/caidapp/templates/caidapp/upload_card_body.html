@@ -7,31 +7,40 @@
 {#    {% endif %}#}
 {##}
 {#</h5>#}
-
-<div class="mt-2">
+<div class="mt-2 position-relative">
+    {% if uploadedarchive.contains_identities %}
+        <span
+            class="position-absolute top-0 end-0 text-dark "
+            style="font-size: 1.6rem; width: 2rem; height: 2rem; line-height: 1; transform: translate(0.1rem, -2.45rem);"
+            data-bs-toggle="tooltip"
+            title="All files in this upload are identified and representative."
+        >
+            <i class="bi bi-star-fill"></i>
+        </span>
+    {% endif %}
     <div
 {#            data-bs-toggle="tooltip" title="Filename {{ uploadedarchive }}"#}
     >
         <i class="bi bi-file-zip"></i>
         {{ uploadedarchive }}
     </div>
-    {% if uploadedarchive.locality_at_upload_object %}
-        <span data-bs-toggle="tooltip" title="Locality: {{ uploadedarchive.locality_at_upload_object.name }}">
+    {% if uploadedarchive.locality %}
+        <span data-bs-toggle="tooltip" title="Localities: {{ uploadedarchive.localities_display }}">
         <i class="bi bi-geo-alt"></i>
-        {#            {{ uploadedarchive.locality_at_upload_object.name }}#}
-        {#            {{ uploadedarchive.locality_at_upload_object.hash }}#}
 
         <a class="link-secondary"
-           href="{% url 'caidapp:uploads_of_locality' uploadedarchive.locality_at_upload_object.hash %}">
+           href="{% url 'caidapp:uploads_of_locality' uploadedarchive.locality.hash %}">
                     {% if request.session.private_mode %}
-                        {{ uploadedarchive.locality_at_upload_object.visible_name }}
+                        {{ uploadedarchive.locality.visible_name }}
                     {% else %}
-                        {{ uploadedarchive.locality_at_upload_object.name }}
+                        {{ uploadedarchive.locality.name }}
                     {% endif %}
             </a>
+        {% if uploadedarchive.localities|length > 1 %}
+            <span class="badge text-bg-secondary">+{{ uploadedarchive.localities|length|add:"-1" }}</span>
+        {% endif %}
         </span>
     {% else %}
-{#        {{ uploadedarchive.locality_at_upload_object.name }}#}
     {% endif %}
 
     {% if uploadedarchive.earliest_captured_at %}
@@ -85,14 +94,4 @@ Media Files with {{ uploadedarchive.taxon_for_identification }} /{% endif %}
 </div>
 
 
-    <div class="position-absolute bottom-0 end-0 p-3">
-                                    <span
-                                            {#                                            data-bs-toggle="tooltip"#}
-                                            {#                                            data-toggle="tooltip"#}
-                                            title="File name: {{ uploadedarchive.get_name }}"
-                                    >
-                                            <i class="bi bi-info-circle"></i>
-                                        </span>
-
-    </div>
 </div>
