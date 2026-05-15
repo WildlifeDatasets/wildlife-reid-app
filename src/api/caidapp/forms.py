@@ -572,7 +572,10 @@ class NewUploadForm(forms.Form):
         self.can_choose_identified_dataset = bool(
             user
             and self.can_use_reid
-            and user.caiduser.show_base_dataset
+            and (
+                user.caiduser.show_base_dataset
+                or user.caiduser.show_base_between_regular_uploads
+            )
             and (user.is_staff or user.caiduser.workgroup_admin)
         )
         self.show_reid_options = self.can_use_reid and (self.show_upload_target_choice or not self.can_use_taxon_classification)

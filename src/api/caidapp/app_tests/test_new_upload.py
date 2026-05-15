@@ -36,12 +36,14 @@ class NewUploadViewTest(TestCase):
         show_taxon_classification=True,
         show_reid=True,
         show_base_dataset=False,
+        show_base_between_regular_uploads=False,
         workgroup_admin=True,
         is_staff=None,
     ):
         self.caiduser.show_taxon_classification = show_taxon_classification
         self.caiduser.show_reid = show_reid
         self.caiduser.show_base_dataset = show_base_dataset
+        self.caiduser.show_base_between_regular_uploads = show_base_between_regular_uploads
         self.caiduser.workgroup_admin = workgroup_admin
         self.caiduser.save()
         if is_staff is not None:
@@ -87,7 +89,7 @@ class NewUploadViewTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "New Upload")
         self.assertContains(response, "Where should this upload go?")
-        self.assertContains(response, "The upload contains identified individuals and should become part of the base dataset.")
+        self.assertContains(response, "the upload contains identified individuals and the images are representative")
 
     def test_taxon_only_user_does_not_see_processing_choices(self):
         self._set_capabilities(show_taxon_classification=True, show_reid=False)
@@ -109,6 +111,19 @@ class NewUploadViewTest(TestCase):
 
     def test_reid_only_admin_with_dataset_access_sees_base_dataset_choice(self):
         self._set_capabilities(show_taxon_classification=False, show_reid=True, show_base_dataset=True)
+
+        response = self.client.get(reverse("caidapp:new_upload"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "Where should this upload go?")
+        self.assertContains(response, "base dataset")
+
+    def test_reid_only_admin_with_base_between_regular_uploads_sees_base_dataset_choice(self):
+        self._set_capabilities(
+            show_taxon_classification=False,
+            show_reid=True,
+            show_base_between_regular_uploads=True,
+        )
 
         response = self.client.get(reverse("caidapp:new_upload"))
 
