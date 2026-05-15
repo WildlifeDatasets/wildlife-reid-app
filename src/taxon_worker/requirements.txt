@@ -32,6 +32,7 @@ setuptools==75.2.0
 
 # for OCR
 pytesseract==0.3
+easyocr==1.7.1 
 
 # for exiftool
 pyexiftool==0.5.*
@@ -42,6 +43,5 @@ openpyxl==3.0.*
 # New install in production 2025-06-07
 # ultralytics==8.0.232
 timm==0.6.13
-opencv-python==4.5.5.64
 opencv-python-headless==4.5.5.64
 
