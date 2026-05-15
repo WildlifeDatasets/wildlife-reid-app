@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+
+{% block body %}
+{% if user.is_authenticated %}
+<div class="pagetitle">
+    <h1>Delete locality</h1>
+</div>
+
+<div class="section">
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-body">
+                    <div class="alert alert-warning mt-3" role="alert">
+                        <strong>Warning:</strong> You are about to delete locality <strong>{{ locality.name }}</strong>.
+                        This locality has <strong>{{ mediafile_count }}</strong> linked media files.
+                        The media files will stay in the database and their locality will be cleared.
+                    </div>
+
+                    <form method="post">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-danger">
+                            Delete locality
+                        </button>
+                        <a class="btn btn-secondary" href="{% url 'caidapp:update_locality' locality.id %}">
+                            Cancel
+                        </a>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Preview</h5>
+                    {% if cover and cover.thumbnail %}
+                        <img class="img-fluid rounded mb-3" src="{{ cover.thumbnail.url }}" alt="Locality cover">
+                    {% endif %}
+                    <p class="mb-1"><strong>Name:</strong> {{ locality.name }}</p>
+                    <p class="mb-1"><strong>Media files:</strong> {{ mediafile_count }}</p>
+                    {% if locality.location %}
+                        <p class="mb-0"><strong>Location:</strong> {{ locality.location }}</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

@@ -18,7 +18,7 @@ from django.forms import modelformset_factory
 from django.http import HttpResponseNotAllowed
 from django.shortcuts import HttpResponse, get_object_or_404, redirect, render
 from django.urls import reverse_lazy
-from django.views.generic import ListView
+from django.views.generic import DeleteView, ListView
 
 from . import forms, model_tools, models, views_general
 from .filters import LocalityFilter
@@ -43,14 +43,38 @@ def _round_location(locality: Locality, order: int = 3):
     return f"{lat},{lon}"
 
 
-def delete_locality(request, locality_id):
-    """Delete locality."""
-    get_object_or_404(
-        Locality,
-        pk=locality_id,
-        **user_has_access_filter_params(request.user.caiduser, "owner"),
-    ).delete()
-    return redirect("caidapp:manage_localities")
+class LocalityDeleteView(LoginRequiredMixin, DeleteView):
+    model = Locality
+    pk_url_kwarg = "locality_id"
+    template_name = "caidapp/locality_confirm_delete.html"
+    context_object_name = "locality"
+    success_url = reverse_lazy("caidapp:localities")
+
+    def get_queryset(self):
+        """Restrict deletable localities to the current user's owner scope."""
+        return Locality.objects.filter(**user_has_access_filter_params(self.request.user.caiduser, "owner"))
+
+    def get_context_data(self, **kwargs):
+        """Expose deletion warning context."""
+        context = super().get_context_data(**kwargs)
+        locality = self.object
+        context["mediafile_count"] = locality.mediafiles.count()
+        context["cover"] = locality.cover
+        return context
+
+    def form_valid(self, form):
+        """Delete the locality and report how many linked mediafiles were kept."""
+        locality_name = self.object.name
+        mediafile_count = self.object.mediafiles.count()
+        response = super().form_valid(form)
+        if mediafile_count:
+            messages.warning(
+                self.request,
+                f"Locality '{locality_name}' was deleted. {mediafile_count} media files kept their files and now have no locality assigned.",
+            )
+        else:
+            messages.info(self.request, f"Locality '{locality_name}' was deleted.")
+        return response
 
 
 def update_locality(request, locality_id=None):

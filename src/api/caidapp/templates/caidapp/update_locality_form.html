@@ -71,9 +71,7 @@
                                 {% endif %}
                                 {% if delete_button_url %}
                                     <a class="btn btn-danger mt-2"
-                                       href="{{ delete_button_url }}"
-                                            {#                               href="{% url 'caidapp:delete_upload' uploadedarchive.id %}"#}
-                                       onclick="return confirm('Delete {{ form.instance }}?')">
+                                       href="{{ delete_button_url }}">
                                         <i class="bi bi-trash"></i> Delete
                                     </a>
                                 {% endif %}

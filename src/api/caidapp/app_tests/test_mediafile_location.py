@@ -58,3 +58,16 @@ class UploadedArchiveLocalityCompatibilityTest(TestCase):
             list(uploaded_archive.localities().values_list("name", flat=True)),
             ["Legacy Place"],
         )
+
+
+class LocalityCoverTest(TestCase):
+    def setUp(self):
+        self.caiduser = CaidUserFactory(admin=True)
+
+    def test_cover_falls_back_to_first_mediafile(self):
+        locality = LocalityFactory(owner=self.caiduser, name="Cover Meadow")
+        self.assertIsNone(locality.cover)
+
+        first_mediafile = MediaFileFactory(parent__owner=self.caiduser, locality=locality)
+
+        self.assertEqual(locality.cover, first_mediafile)

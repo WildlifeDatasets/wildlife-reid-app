@@ -108,7 +108,8 @@
                         {% with locality=object %}
                             <tr>
                                 <td>
-                                    {% if locality.mediafile_set.count > 0 and locality.mediafile_set.all.0.image_file  %}
+                                    {% with cover=locality.cover %}
+                                    {% if cover and cover.image_file  %}
                                         <a href="{% url 'caidapp:update_locality' locality.id %}" class=""
                                                 {%  if request.session.private_mode %}
                                            onclick="return confirm('You are in private mode. In edit view you will reveal the locality. Do you want to continue?')"
@@ -118,7 +119,7 @@
                                                     class="card-img-top"
                                                     {#                                            src="{{ locality.uploadedarchive_set.all.0.thumbnail.url }}"#}
                                                     {#                                            src="{{ locality.mediafiles.all.0.image_file.url }}"#}
-                                                    src="{{ locality.mediafile_set.all.0.get_static_thumbnail.url }}"
+                                                    src="{{ cover.get_static_thumbnail.url }}"
                                                     alt="Camera trap image"
                                                     style="width:25px; height:45px; object-fit: cover;"
                                             >
@@ -131,11 +132,12 @@
 {#                                       href="{% url 'caidapp:locality' object.id %}"#}
 {#                                    >#}
 
-                                        {% if object.mediafile_set.first.thumbnail %}
-                                            <img class="img-fluid cover-image" src="{{ object.mediafile_set.first.thumbnail.url }}"
-                                                 style="height: 25px; width:45px; object-fit: cover;"
-                                                 alt="Camera trap locality image">
+                                        {% if cover.thumbnail %}
+                                            <img class="img-fluid cover-image" src="{{ cover.thumbnail.url }}"
+                                                  style="height: 25px; width:45px; object-fit: cover;"
+                                                  alt="Camera trap locality image">
                                         {% endif %}
+                                    {% endwith %}
 {#                                    </a>#}
                                 </td>
 {#                                <td>#}

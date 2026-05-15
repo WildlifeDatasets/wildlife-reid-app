@@ -585,6 +585,18 @@ class Locality(models.Model):
         """Return mediafiles."""
         return MediaFile.objects.filter(locality=self).all()
 
+    @property
+    def cover(self):
+        """Return preferred cover mediafile for the locality.
+
+        If a dedicated `mediafile` field is introduced later, prefer it.
+        Otherwise fall back to the first related mediafile.
+        """
+        explicit_cover = getattr(self, "mediafile", None)
+        if explicit_cover is not None:
+            return explicit_cover
+        return self.mediafiles.first()
+
     def identities(self):
         """Return identities."""
         return IndividualIdentity.objects.filter(mediafile__locality=self).all()
@@ -1266,7 +1278,7 @@ class MediaFile(models.Model):
         Locality,
         blank=True,
         null=True,
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
         related_name="mediafiles",
     )
     location = PlainLocationField(

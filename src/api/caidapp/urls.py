@@ -103,7 +103,7 @@ urlpatterns = [
     # path("manage_localities/", views_locality.manage_localities, name="manage_localities"),
 
     # TODO turn id into pk because of generic views
-    path("delete_locality/<int:locality_id>/", views_locality.delete_locality, name="delete_locality"),
+    path("delete_locality/<int:locality_id>/", views_locality.LocalityDeleteView.as_view(), name="delete_locality"),
     path(
         "update_locality/<int:locality_id>/",
         views_locality.update_locality,
