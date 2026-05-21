@@ -1,26 +1,31 @@
-import exiftool
-from pathlib import Path
-import datetime
-import pandas as pd
-from tqdm.auto import tqdm
-import os
 from datetime import datetime, time
-from PIL import Image
-
-from datetime import datetime
-
-import pandas as pd
+import os
+from pathlib import Path
+import re
 
 import cv2
+import pandas as pd
+from torch.utils.data import DataLoader, Dataset
+from tqdm.auto import tqdm
+
 import easyocr
-import numpy as np
-
-import re
-from datetime import datetime
-from torch.utils.data import Dataset, DataLoader
 
 
 
+def is_correct_datetime_format(date):
+    if isinstance(date, datetime):
+        date = date.strftime("%Y-%m-%d %H:%M:%S")
+    if date is None:
+        return False
+
+    try:
+        date = pd.to_datetime(date, format="%Y-%m-%d %H:%M:%S", errors="coerce")
+    except ValueError:
+        date = None
+
+    if date is None or pd.isnull(date):
+        return False
+    return True
 
 def normalize_tokens(tokens):
     text = " ".join(tokens)

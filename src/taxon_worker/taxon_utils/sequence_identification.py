@@ -20,7 +20,7 @@ from tqdm import tqdm
 import easyocr
 from torch.utils.data import DataLoader
 
-from .datetime_identification_ocr import process_datetime_from_ocr, _process_datetime_without_spaces, OCRDataset
+from .datetime_identification_ocr import process_datetime_from_ocr, _process_datetime_without_spaces, OCRDataset, is_correct_datetime_format
 
 # logger = logging.getLogger(__name__)
 logger = logging.getLogger("app")
@@ -356,8 +356,11 @@ def get_datetime_from_easyocr(file: Union[Path, np.ndarray]) -> typing.Tuple[str
     batch = [image_gray]
     text_raw = EASYREADER.readtext_batched(batch, detail = 0)  # [EASYREADER.readtext(image_gray, detail=0)]
     results = [r["datetime"] for r in process_datetime_from_ocr(text_raw)]
+    results = [r if is_correct_datetime_format(r) else None for r in results]
+
     # backup - run processing again but remove spaces before processing
     results = _process_datetime_without_spaces(text_raw, results)
+    results = [r if is_correct_datetime_format(r) else None for r in results]
 
     if isinstance(results[0], datetime):
         date_str = results[0].strftime("%Y-%m-%d %H:%M:%S")
