@@ -13,8 +13,8 @@ import uuid
 from datetime import datetime, timedelta
 from hashlib import sha256
 from pathlib import Path
-from typing import List, Optional, Tuple
 from time import time
+from typing import List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -24,7 +24,7 @@ from tqdm import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
 
 from .inout import extract_archive
-from .sequence_identification import add_datetime_from_exif_in_parallel, add_datetime
+from .sequence_identification import add_datetime
 
 logger = logging.getLogger("app")
 
@@ -1483,7 +1483,9 @@ def data_preprocessing(
 
 def find_any_spreadsheet_and_save_as_csv(tmp_dir, csv_path):
     """Find any spreadsheet in directory and save it as CSV."""
-    post_update_path = sorted(list(tmp_dir.glob("**/*.csv")) + list(tmp_dir.glob("**/*.xls")) + list(tmp_dir.glob("**/*.xlsx")))
+    post_update_path = sorted(
+        list(tmp_dir.glob("**/*.csv")) + list(tmp_dir.glob("**/*.xls")) + list(tmp_dir.glob("**/*.xlsx"))
+    )
     post_update_path = post_update_path[-1] if len(post_update_path) > 0 else None
     logger.debug(f"{post_update_path=}")
     if post_update_path is not None:

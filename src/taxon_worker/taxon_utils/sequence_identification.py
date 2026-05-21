@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import List, Optional, Tuple, Union
 
 import cv2
+import easyocr
 import exiftool
 import numpy as np
 import pandas as pd
@@ -15,12 +16,17 @@ import scipy.stats
 import skimage
 import skimage.color
 from joblib import Parallel, delayed
-from PIL import Image, UnidentifiedImageError
-from tqdm import tqdm
-import easyocr
+# from PIL import Image, UnidentifiedImageError
+from PIL import Image
 from torch.utils.data import DataLoader
+from tqdm import tqdm
 
-from .datetime_identification_ocr import process_datetime_from_ocr, _process_datetime_without_spaces, OCRDataset, is_correct_datetime_format
+from .datetime_identification_ocr import (
+    OCRDataset,
+    _process_datetime_without_spaces,
+    is_correct_datetime_format,
+    process_datetime_from_ocr,
+)
 
 # logger = logging.getLogger(__name__)
 logger = logging.getLogger("app")
@@ -332,11 +338,10 @@ def get_datetime_from_ocr_tesseract(filename: Path) -> typing.Tuple[str, str]:
 
 def get_datetime_from_easyocr(file: Union[Path, np.ndarray]) -> typing.Tuple[str, str]:
     """Get datetime from image using OCR."""
-    import cv2
     global EASYREADER
 
     if EASYREADER is None:
-        EASYREADER = easyocr.Reader(['en'])
+        EASYREADER = easyocr.Reader(["en"])
 
     if isinstance(file, (str, Path)):
         if file.suffix.lower() in (".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff"):
@@ -354,7 +359,7 @@ def get_datetime_from_easyocr(file: Union[Path, np.ndarray]) -> typing.Tuple[str
 
     # read text from image
     batch = [image_gray]
-    text_raw = EASYREADER.readtext_batched(batch, detail = 0)  # [EASYREADER.readtext(image_gray, detail=0)]
+    text_raw = EASYREADER.readtext_batched(batch, detail=0)  # [EASYREADER.readtext(image_gray, detail=0)]
     results = [r["datetime"] for r in process_datetime_from_ocr(text_raw)]
     results = [r if is_correct_datetime_format(r) else None for r in results]
 
@@ -460,47 +465,47 @@ def _check_if_it_is_cuddleback_corner(frame_bgr: np.array) -> Tuple[str, bool, s
 
 
 # TODO update to use with the exiftool
-def get_datetime_from_exif(filename: Path) -> typing.Tuple[str, str]:
-    """Extract datetime from EXIF in file and check if image is ok.
+# def get_datetime_from_exif(filename: Path) -> typing.Tuple[str, str]:
+#     """Extract datetime from EXIF in file and check if image is ok.
 
-    Parameters
-    ----------
-    filename : name of the file
+#     Parameters
+#     ----------
+#     filename : name of the file
 
-    Returns
-    -------
-    str1:
-        String with datetime or zero length string if no EXIF is available.
+#     Returns
+#     -------
+#     str1:
+#         String with datetime or zero length string if no EXIF is available.
 
-    str2:
-        Error type or zero length string if file is ok.
+#     str2:
+#         Error type or zero length string if file is ok.
 
 
-    """
-    if filename.exists() and filename.suffix.lower() in (".jpg", ".jpeg", ".png"):
-        try:
-            image = Image.open(filename)
-            image.verify()
-            if filename.suffix.lower() in (".jpg", ".jpeg"):
-                exifdata = image.getexif()
-                tag_id = 306  # DateTimeOriginal
-                dt_str = str(exifdata.get(tag_id))
-            else:
-                dt_str = ""
-            read_error = ""
-        except UnidentifiedImageError:
-            dt_str = ""
-            read_error = "UnidentifiedImageError"
-        except OSError:
-            dt_str = ""
-            read_error = "OSError"
-    #             logger.warning(traceback.format_exc())
-    else:
-        dt_str = ""
-        read_error = ""
+#     """
+#     if filename.exists() and filename.suffix.lower() in (".jpg", ".jpeg", ".png"):
+#         try:
+#             image = Image.open(filename)
+#             image.verify()
+#             if filename.suffix.lower() in (".jpg", ".jpeg"):
+#                 exifdata = image.getexif()
+#                 tag_id = 306  # DateTimeOriginal
+#                 dt_str = str(exifdata.get(tag_id))
+#             else:
+#                 dt_str = ""
+#             read_error = ""
+#         except UnidentifiedImageError:
+#             dt_str = ""
+#             read_error = "UnidentifiedImageError"
+#         except OSError:
+#             dt_str = ""
+#             read_error = "OSError"
+#     #             logger.warning(traceback.format_exc())
+#     else:
+#         dt_str = ""
+#         read_error = ""
 
-    dt_str = replace_colon_in_exif_datetime(dt_str)
-    return dt_str, read_error
+#     dt_str = replace_colon_in_exif_datetime(dt_str)
+#     return dt_str, read_error
 
 
 def extend_df_with_datetime(df: pd.DataFrame, exiftool_executable=None) -> pd.DataFrame:
@@ -617,7 +622,6 @@ def add_datetime_from_exif_in_parallel(
     return datetime_list, error_list, source_list, exifs
 
 
-
 def get_datetime_from_exif(
     original_paths: List[Path],
     dataset_basedir: Optional[Path] = None,
@@ -727,7 +731,9 @@ def get_datetime_from_ocr(
 
     if use_loader:
         dataset = OCRDataset(full_paths)
-        dataloader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=num_workers, collate_fn=lambda x: x, prefetch_factor=8)
+        dataloader = DataLoader(
+            dataset, batch_size=1, shuffle=False, num_workers=num_workers, collate_fn=lambda x: x, prefetch_factor=8
+        )
 
     # process ocr
     datetime_list = []
@@ -738,7 +744,7 @@ def get_datetime_from_ocr(
     for file in tqdm(iterator, desc="OCR"):
         if use_loader:
             file = file[0]
-        
+
         dt_str = ""
         dt_source = ""
         error = ""
@@ -759,7 +765,6 @@ def get_datetime_from_ocr(
     return datetime_list, error_list, source_list
 
 
-
 def add_datetime(
     original_paths: List[Path],
     dataset_basedir: Optional[Path] = None,
@@ -771,14 +776,12 @@ def add_datetime(
         full_paths = [dataset_basedir / original_path for original_path in original_paths]
     else:
         full_paths = original_paths
-    
+
     # Extract datetimes using both EXIF and OCR methods
     exif_datetime_list, exif_error_list, exif_source_list, exifs = get_datetime_from_exif(
         original_paths, dataset_basedir, exiftool_executable
     )
-    ocr_datetime_list, ocr_error_list, ocr_source_list = get_datetime_from_ocr(
-        original_paths, dataset_basedir
-    )
+    ocr_datetime_list, ocr_error_list, ocr_source_list = get_datetime_from_ocr(original_paths, dataset_basedir)
 
     # Prepare final output lists
     datetime_list = []
@@ -786,10 +789,14 @@ def add_datetime(
     source_list = []
 
     # Iterate over results and combine: prefer OCR, then EXIF, else file system
-    for path, exif_dt, exif_err, exif_src, \
-              ocr_dt, ocr_err, ocr_src in zip(
-        full_paths, exif_datetime_list, exif_error_list, exif_source_list, \
-                    ocr_datetime_list, ocr_error_list, ocr_source_list
+    for path, exif_dt, exif_err, exif_src, ocr_dt, ocr_err, ocr_src in zip(
+        full_paths,
+        exif_datetime_list,
+        exif_error_list,
+        exif_source_list,
+        ocr_datetime_list,
+        ocr_error_list,
+        ocr_source_list,
     ):
         if ocr_dt:
             datetime_list.append(ocr_dt)
@@ -807,4 +814,4 @@ def add_datetime(
             error_list.append("")
             source_list.append("File system")
 
-    return datetime_list, error_list, source_list, exifs     
+    return datetime_list, error_list, source_list, exifs

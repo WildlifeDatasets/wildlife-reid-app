@@ -1,18 +1,18 @@
-from datetime import datetime, time
 import os
-from pathlib import Path
 import re
+from datetime import datetime
+from pathlib import Path
 
 import cv2
+import easyocr
 import pandas as pd
 from torch.utils.data import DataLoader, Dataset
 from tqdm.auto import tqdm
 
-import easyocr
-
-
 
 def is_correct_datetime_format(date):
+    """Check if the date is in the correct format."""
+
     if isinstance(date, datetime):
         date = date.strftime("%Y-%m-%d %H:%M:%S")
     if date is None:
@@ -27,30 +27,34 @@ def is_correct_datetime_format(date):
         return False
     return True
 
+
 def normalize_tokens(tokens):
+    """Normalize the tokens."""
     text = " ".join(tokens)
 
     replacements = {
-        '*': ':',
-        'O': '0',
-        'o': '0',
-        'l': '1',
-        'I': '1',
+        "*": ":",
+        "O": "0",
+        "o": "0",
+        "l": "1",
+        "I": "1",
     }
 
     for k, v in replacements.items():
         text = text.replace(k, v)
 
     # fix weird spacing inside numbers
-    text = re.sub(r'(\d)\s+(\d)', r'\1:\2', text)
+    text = re.sub(r"(\d)\s+(\d)", r"\1:\2", text)
 
     return text
 
+
 def extract_datetime(text):
+    """Extract the datetime from the text."""
     patterns = [
-        r'(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4}).*?(\d{1,2})[:\.](\d{2})\s*(AM|PM)?',
-        r'(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2}).*?(\d{1,2})[:\.](\d{2})[:\.](\d{2}).*?(AM|PM)?',
-        r'(\d{1,2})[\.](\d{1,2})[\.](\d{4}).*?(\d{2})[:\.](\d{2})[:\.](\d{2})',
+        r"(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4}).*?(\d{1,2})[:\.](\d{2})\s*(AM|PM)?",
+        r"(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2}).*?(\d{1,2})[:\.](\d{2})[:\.](\d{2}).*?(AM|PM)?",
+        r"(\d{1,2})[\.](\d{1,2})[\.](\d{4}).*?(\d{2})[:\.](\d{2})[:\.](\d{2})",
     ]
 
     for p in patterns:
@@ -60,7 +64,9 @@ def extract_datetime(text):
 
     return None
 
+
 def validate_parsed_datetime(value):
+    """Validate the parsed datetime."""
     if value is None:
         return None
 
@@ -69,7 +75,9 @@ def validate_parsed_datetime(value):
 
     return value
 
+
 def parse_candidate(groups):
+    """Parse the candidate datetime."""
     try:
         # format: MM/DD/YYYY HH:MM AM/PM
         if len(groups) == 6:
@@ -112,24 +120,28 @@ def parse_candidate(groups):
 
             return validate_parsed_datetime(datetime(y, m, d, h, mi, s))
 
-    except:
+    except Exception as e:
+        print(e)
         return None
-    
+
+
 def parse_iso(tokens):
+    """Parse the ISO datetime."""
+
     def safe_int(x):
-        x = re.sub(r'[^0-9]', '', x)  # keep digits only
+        x = re.sub(r"[^0-9]", "", x)  # keep digits only
         return int(x) if x else 0
 
     for i in range(len(tokens) - 1):
-        if re.match(r'\d{4}-\d{1,2}-\d{1,2}', tokens[i]):
+        if re.match(r"\d{4}-\d{1,2}-\d{1,2}", tokens[i]):
             date_part = tokens[i]
             time_part = tokens[i + 1]
 
-            y, m, d = map(int, date_part.split('-'))
+            y, m, d = map(int, date_part.split("-"))
 
-            time_part = time_part.replace('*', ':').replace('.', ':')
+            time_part = time_part.replace("*", ":").replace(".", ":")
 
-            parts = time_part.split(':') + ['0', '0', '0']
+            parts = time_part.split(":") + ["0", "0", "0"]
 
             h = safe_int(parts[0])
             mi = safe_int(parts[1])
@@ -139,13 +151,16 @@ def parse_iso(tokens):
 
     return None
 
+
 def extract_best_datetime(tokens):
+    """Extract the best datetime from the tokens."""
     # 1. TRY ISO FIRST
     try:
         iso = parse_iso(tokens)
-    except:
+    except Exception as e:
+        print(e)
         iso = None
-        
+
     if iso:
         return iso
 
@@ -158,28 +173,29 @@ def extract_best_datetime(tokens):
 
     return parse_candidate(groups)
 
+
 def process_datetime_from_ocr(detections):
+    """Process the datetime from the OCR detections."""
     results = []
 
     for tokens in detections:
         dt = extract_best_datetime(tokens)
-        results.append({
-            "input": tokens,
-            "datetime": dt
-        })
+        results.append({"input": tokens, "datetime": dt})
 
     return results
 
 
 class OCRDataset(Dataset):
+    """OCR dataset."""
+
     def __init__(
         self,
         # metadata: pd.DataFrame,
         # root_path: str,
         # path_col: str = "_image_url",
         image_paths,
-        image_shape: tuple[int, int] = (720, 1920)
-        ):
+        image_shape: tuple[int, int] = (720, 1920),
+    ):
         # self.metadata = metadata
         # self.root_path = root_path
         # self.path_col = path_col
@@ -207,13 +223,15 @@ class OCRDataset(Dataset):
 
         return image_gray
 
+
 def _process_datetime_without_spaces(text_raw, results):
+    """Process the datetime without spaces."""
     _idxs = []
     _text_raw = []
     for idx, res in enumerate(results):
         if res is None:
             _idxs.append(idx)
-            _text_raw.append([t.replace(" ","") for t in text_raw[idx]])
+            _text_raw.append([t.replace(" ", "") for t in text_raw[idx]])
 
     if _idxs:
         _results = [r["datetime"] for r in process_datetime_from_ocr(_text_raw)]
@@ -222,42 +240,43 @@ def _process_datetime_without_spaces(text_raw, results):
                 results[idx] = res
     return results
 
-def get_datetime_from_ocr(
-    metadata: pd.DataFrame, 
-    root_path: str, 
-    path_col: str = "_image_url", 
-    batch_size: int = 1, 
-    num_workers: int = 8,
-    image_shape: tuple[int, int] = None
-) -> tuple[list, list]:
 
+def get_datetime_from_ocr(
+    metadata: pd.DataFrame,
+    root_path: str,
+    path_col: str = "_image_url",
+    batch_size: int = 1,
+    num_workers: int = 8,
+    image_shape: tuple[int, int] = None,
+) -> tuple[list, list]:
+    """Get the datetime from the OCR."""
     # create dataset
     dataset = OCRDataset(metadata, root_path, path_col, image_shape)
     dataloader = DataLoader(
-        dataset, 
-        batch_size=batch_size, 
-        shuffle=False, 
-        num_workers=num_workers, 
-        collate_fn=lambda batch: batch, 
-        prefetch_factor=8
+        dataset,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=num_workers,
+        collate_fn=lambda batch: batch,
+        prefetch_factor=8,
     )
 
     # create ocr reader
-    reader = easyocr.Reader(['en'])
+    reader = easyocr.Reader(["en"])
 
     results_raw = []
     results_clean = []
     for batch in tqdm(dataloader):
         # read text from image
-        text_raw = reader.readtext_batched(batch, detail = 0)
+        text_raw = reader.readtext_batched(batch, detail=0)
         # process text to datetime
         results = [r["datetime"] for r in process_datetime_from_ocr(text_raw)]
 
         # backup - run processing again but remove spaces before processing
-        results = _process_datetime_without_spaces(text_raw, results) 
-        
+        results = _process_datetime_without_spaces(text_raw, results)
+
         # save results
-        results_raw.extend(text_raw)    
-        results_clean.extend(results) 
+        results_raw.extend(text_raw)
+        results_clean.extend(results)
 
     return results_raw, results_clean

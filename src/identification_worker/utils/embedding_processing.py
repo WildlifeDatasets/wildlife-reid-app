@@ -1,14 +1,16 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import Any, Optional
 
 import numpy as np
 import pandas as pd
 from sklearn.manifold import TSNE
-import logging
+
 # logger = getLogger(__name__)
 from utils.log import setup_logging
+
 setup_logging()
 logger = logging.getLogger("app")
 
@@ -23,11 +25,11 @@ class EmbeddingProcessing:
     """Analyze embedding quality, similarity, and potential label noise."""
 
     def __init__(
-            self,
-            embeddings: np.ndarray,
-            metadata: pd.DataFrame,
-            label_col: Optional[str] = None,
-            normalize: bool = True,
+        self,
+        embeddings: np.ndarray,
+        metadata: pd.DataFrame,
+        label_col: Optional[str] = None,
+        normalize: bool = True,
     ) -> None:
 
         embeddings = np.asarray(embeddings, dtype=np.float32)
@@ -91,9 +93,7 @@ class EmbeddingProcessing:
             try:
                 import umap
             except ImportError as exc:
-                raise ImportError(
-                    "UMAP is not installed. Install it with: pip install umap-learn"
-                ) from exc
+                raise ImportError("UMAP is not installed. Install it with: pip install umap-learn") from exc
 
             umap_params: dict[str, Any] = {
                 "n_components": n_components,
@@ -119,8 +119,11 @@ class EmbeddingProcessing:
         # Find embeddings whose similarity to BOTH idx1 and idx2 is above the threshold
         sim_to_1 = cos_sim_matrix[idx1]
         sim_to_2 = cos_sim_matrix[idx2]
-        high_sim_indices = [i for i in range(len(embeddings)) if
-                            (sim_to_1[i] >= similarity_threshold and sim_to_2[i] >= similarity_threshold)]
+        high_sim_indices = [
+            i
+            for i in range(len(embeddings))
+            if (sim_to_1[i] >= similarity_threshold and sim_to_2[i] >= similarity_threshold)
+        ]
 
         # Always include the first two most similar (idx1, idx2)
         indices_to_select = set(high_sim_indices)
@@ -132,7 +135,7 @@ class EmbeddingProcessing:
         """Get the cluster centers for the embeddings."""
         lbl = self._get_labels()
         out = []
-        outlier_idx: set[int] = set()
+        # outlier_idx: set[int] = set()
 
         s = pd.Series(lbl).dropna().unique()
         for label in s:
@@ -173,15 +176,13 @@ class EmbeddingProcessing:
         d = pd.DataFrame(rows)
         if not d.empty:
             # Rank samples per label; rank 1 is the farthest from its own cluster center.
-            d["rank_within_label"] = (
-                d.groupby("label")["distance_to_center"].rank(method="dense", ascending=False)
-            )
+            d["rank_within_label"] = d.groupby("label")["distance_to_center"].rank(method="dense", ascending=False)
         return d.sort_values("distance_to_center", ascending=False).reset_index(drop=True)
 
     def filter_outliers(
-            self,
-            config: Optional[OutlierConfig] = None,
-            min_cluster_size: int = 3,
+        self,
+        config: Optional[OutlierConfig] = None,
+        min_cluster_size: int = 3,
     ) -> pd.DataFrame:
         """Flag per-label embedding outliers by distance to class center.
 
@@ -247,7 +248,11 @@ class EmbeddingProcessing:
                 )
         return pd.DataFrame(rows).sort_values("similarity", ascending=False).head(top_k).reset_index(drop=True)
 
-    def most_similar_embeddings(self, top_k: int = 20, cross_label_only: bool = False, ) -> pd.DataFrame:
+    def most_similar_embeddings(
+        self,
+        top_k: int = 20,
+        cross_label_only: bool = False,
+    ) -> pd.DataFrame:
         """Get the most similar embeddings for the embeddings."""
         sims = self.similarity_matrix()
         lbl = self._get_labels()
@@ -362,7 +367,7 @@ class EmbeddingProcessing:
         - query_idx: query embedding index
         - best_other_label: label of the nearest alternative cluster
         """
-        
+
         lbl = self._get_labels()
         other_members = np.where(lbl == best_other_label)[0]
         if len(other_members) == 0:

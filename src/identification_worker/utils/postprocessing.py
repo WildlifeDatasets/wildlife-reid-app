@@ -26,6 +26,7 @@ def _sequence_voting(seq_preds, top_k):
 
     return [c["best_pred"] for c in sorted_candidates[:top_k]]
 
+
 def _sequence_weighted_voting(seq_preds, top_k):
     candidate_stats = {}
 
@@ -49,6 +50,7 @@ def _sequence_weighted_voting(seq_preds, top_k):
     )
 
     return [c["best_pred"] for c in sorted_candidates[:top_k]]
+
 
 def _sequence_max_conf(seq_preds, top_k):
     best_image_preds = None
