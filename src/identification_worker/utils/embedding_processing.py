@@ -6,9 +6,11 @@ from typing import Any, Optional
 import numpy as np
 import pandas as pd
 from sklearn.manifold import TSNE
-from logging import getLogger
-logger = getLogger(__name__)
-
+import logging
+# logger = getLogger(__name__)
+from utils.log import setup_logging
+setup_logging()
+logger = logging.getLogger("app")
 
 
 @dataclass
@@ -32,11 +34,9 @@ class EmbeddingProcessing:
         self.embeddings = self._l2_normalize(embeddings) if normalize else embeddings
         self.n_samples, self.n_features = self.embeddings.shape
         self.label_col = label_col
-        logger.debug("l2 norm done")
         self.metadata = metadata.copy().reset_index(drop=True)
 
         self._similarity_cache: Optional[np.ndarray] = None
-        logger.debug("init done")
 
     @staticmethod
     def _l2_normalize(x: np.ndarray, eps: float = 1e-12) -> np.ndarray:
@@ -304,18 +304,18 @@ class EmbeddingProcessing:
         lbl = self._get_labels()
         c = self.cluster_centers()
         c = c[c["size"] >= min_cluster_size].reset_index(drop=True)
-        if len(c) < 2:
-            return pd.DataFrame(
-                columns=[
-                    "idx",
-                    "label",
-                    "own_similarity",
-                    "best_other_label",
-                    "best_other_similarity",
-                    "delta",
-                    "is_suspect",
-                ]
-            )
+        # if len(c) < 2:
+        #     return pd.DataFrame(
+        #         columns=[
+        #             "idx",
+        #             "label",
+        #             "own_similarity",
+        #             "best_other_label",
+        #             "best_other_similarity",
+        #             "delta",
+        #             "is_suspect",
+        #         ]
+        #     )
 
         centers = np.stack(c["center"].to_numpy())
         center_labels = c["label"].to_numpy()

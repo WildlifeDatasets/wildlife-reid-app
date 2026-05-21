@@ -568,6 +568,7 @@ def detect_identification_outliers(
     self,
     organization_id: int,
     input_metadata_file: str = "",
+    min_cluster_size: int = 3,
     # mediafile_paths=None,
     **kwargs,
 ):
@@ -585,7 +586,6 @@ def detect_identification_outliers(
     assert "image_path" in metadata
     assert "class_id" in metadata, "Identity id should be in `class_id` column"
     assert "label" in metadata, "Label should be in `label` column"
-
 
     mediafile_paths = list(metadata["image_path"])
     class_ids = list(metadata["class_id"])
@@ -610,6 +610,12 @@ def detect_identification_outliers(
     # Drop rows with missing embeddings
     logger.info(f"Dropping rows with missing embeddings: {metadata.embedding.isna().sum()}")
     metadata = metadata.dropna(subset=["embedding"])
+
+    # Drop class_ids that are underrepresented < min_cluster_size
+    class_ids = metadata['class_id'].value_counts()
+    class_ids = class_ids[class_ids < min_cluster_size]
+    logger.info(f"Dropping class_ids that are underrepresented < {min_cluster_size}: {list(class_ids.index)}")
+    metadata = metadata[~metadata['class_id'].isin(class_ids.index)].reset_index(drop=True).copy()
         
     # Embeddings are saved as a string and contain megadescriptor and local descriptor features [[mega, local], ...]
     embeddings = [json.loads(e) for e in metadata["embedding"]]
@@ -617,33 +623,29 @@ def detect_identification_outliers(
 
     # Calculate the likely mislabeled embeddings
     embeddings = np.array(list(metadata["embedding"]))
+    logger.info(f"Calculating likely mislabeled embeddings for {len(metadata)} embeddings.")
     ep = EmbeddingProcessing(
         embeddings,
         metadata=metadata,
         label_col="class_id",
     )
-    suspects = ep.likely_mislabeled(margin=0.0)
-    logger.debug(f"getting best other metadata index and image path")
-
-    # Get the best other metadata index and image path
-    best_other_metadata_idx = [
-        ep.best_other_member_index(row.idx, row.best_other_label)
-        for row in suspects.itertuples(index=False)
-    ]
-    best_other_image_path = [
-        None if idx is None else metadata.iloc[idx]["image_path"]
-        for idx in best_other_metadata_idx
-    ]
+    suspects = ep.likely_mislabeled(margin=0.0, min_cluster_size = min_cluster_size)
+    logger.debug("Calculated %s suspect rows for %s metadata rows.", len(suspects), len(metadata))
 
     # Add the suspects data to the metadata
-    metadata['own_similarity'] = suspects['own_similarity']
-    metadata['best_other_similarity'] = suspects['best_other_similarity']
-    metadata['delta'] = suspects['delta']
+    suspects_by_idx = suspects.set_index("idx").reindex(metadata.index)
+    best_other_image_path_by_idx = {}
+    for row in suspects.itertuples(index=False):
+        best_other_metadata_idx = ep.best_other_member_index(row.idx, row.best_other_label)
+        best_other_image_path_by_idx[row.idx] = (None if best_other_metadata_idx is None else metadata.iloc[best_other_metadata_idx]["image_path"])
 
-    metadata['best_other_label'] = suspects['best_other_label']
-    metadata['best_other_image_path'] = best_other_image_path
-
-    metadata['is_suspect'] = suspects['is_suspect']
+    best_other_image_path = pd.Series(best_other_image_path_by_idx).reindex(metadata.index)
+    metadata['own_similarity'] = suspects_by_idx['own_similarity'].to_numpy()
+    metadata['best_other_similarity'] = suspects_by_idx['best_other_similarity'].to_numpy()
+    metadata['delta'] = suspects_by_idx['delta'].to_numpy()
+    metadata['best_other_label'] = suspects_by_idx['best_other_label'].to_numpy()
+    metadata['best_other_image_path'] = best_other_image_path.to_numpy()
+    metadata['is_suspect'] = suspects_by_idx['is_suspect'].to_numpy()
 
     # Add reduced embeddings to the metadata
     logger.info("Starting t-SNE reduction for %s embeddings.", len(metadata))
@@ -676,7 +678,6 @@ def detect_identification_outliers(
     try:
         for idx, row in metadata.iterrows():
             if not bool(row.get("is_suspect")):
-                logger.debug(f"getting best other metadata index and image path")
                 continue
 
             best_other_label = row.get("best_other_label")
@@ -725,11 +726,13 @@ def detect_identification_outliers(
     # Remove embeddings and save the metadata file in a new file with "extended" in the filename
     if "embedding" in metadata.columns:
         metadata = metadata.drop(columns=["embedding"])
+    
+    # Save metadata with extended information
     extended_metadata_file = input_metadata_file.replace(".csv", "_extended.csv")
-    logger.info("Saving extended metadata to %s.", extended_metadata_file)
     metadata.to_csv(extended_metadata_file, index=False)
-    logger.debug(f"Saved extended metadata file to {extended_metadata_file}")
+    logger.info(f"Saved extended metadata file to {extended_metadata_file}")
     logger.info("Prepared %s suspect suggestions.", len(suggestions))
+
 
 
     return {
@@ -739,3 +742,4 @@ def detect_identification_outliers(
         "organization_id": organization_id,
         "input_metadata_file": input_metadata_file,
     }
+
