@@ -19,6 +19,7 @@ from wildlife_tools.similarity.pairwise.lightglue import MatchLightGlue
 
 from utils import config
 from utils.database import get_db_connection, init_db_connection
+from utils.embedding_processing import EmbeddingProcessing
 from utils.inference_identification import (
     calibrate_models,
     compute_partial,
@@ -32,7 +33,6 @@ from utils.inference_identification import (
 )
 from utils.log import setup_logging
 from utils.sequence_identification import extend_df_with_datetime, extend_df_with_sequence_id
-from utils.embedding_processing import EmbeddingProcessing
 
 setup_logging()
 logger = logging.getLogger("app")
@@ -327,7 +327,9 @@ def predict_batch(
                     "identity": reference_images["class_id"],
                     "split": ["train"] * len(reference_images["class_id"]),
                     "label": reference_images["label"],
-                    "sequence_number": reference_images["sequence_number"] if "sequence_number" in reference_images else None,
+                    "sequence_number": (
+                        reference_images["sequence_number"] if "sequence_number" in reference_images else None
+                    ),
                 }
             )
 
@@ -385,7 +387,9 @@ def predict_batch(
                     "path": reference_images["image_path"],
                     "identity": reference_images["class_id"],
                     "split": ["train"] * len(reference_images["class_id"]),
-                    "sequence_number": reference_images["sequence_number"] if "sequence_number" in reference_images else None,
+                    "sequence_number": (
+                        reference_images["sequence_number"] if "sequence_number" in reference_images else None
+                    ),
                 }
             )
 
@@ -417,8 +421,8 @@ def predict_batch(
             similarity,
             full_database_metadata,
             query_metadata,
-            top_k = top_k,
-            post_process = os.environ.get("POST_PROCESS", None)
+            top_k=top_k,
+            post_process=os.environ.get("POST_PROCESS", None),
         )
 
         # calculate keypoints
@@ -436,7 +440,9 @@ def predict_batch(
                     "path": reference_images["image_path"],
                     "identity": reference_images["class_id"],
                     "split": ["train"] * len(reference_images["class_id"]),
-                    "sequence_number": reference_images["sequence_number"] if "sequence_number" in reference_images else None,
+                    "sequence_number": (
+                        reference_images["sequence_number"] if "sequence_number" in reference_images else None
+                    ),
                 }
             )
 
@@ -568,115 +574,120 @@ def detect_identification_outliers(
     self,
     organization_id: int,
     input_metadata_file: str = "",
+    min_cluster_size: int = 3,
     # mediafile_paths=None,
     **kwargs,
 ):
     """
     Perform outlier detection and return suspicious database images and their candidate identities.
 
-    This function analyzes the provided metadata and available reference embeddings to detect which database images appear suspiciously labeled or potentially mislabeled. It identifies, for each such query image:
+    This function analyzes the provided metadata and available reference embeddings to detect which
+    database images appear suspiciously labeled or potentially mislabeled. It identifies, for each such query image:
       - the image index,
       - its current (predicted) identity (`class_id`),
       - candidate alternative identities with similarity scores,
       - the file path to at least one candidate media file, allowing the API to resolve the corresponding MediaFile id.
     """
-    # read metadata file
-    metadata = pd.read_csv(input_metadata_file)
-    assert "image_path" in metadata
-    assert "class_id" in metadata, "Identity id should be in `class_id` column"
-    assert "label" in metadata, "Label should be in `label` column"
-
-
-    mediafile_paths = list(metadata["image_path"])
-    class_ids = list(metadata["class_id"])
-
-    logger.info("Loading reference feature vectors from the database.")
-    db_connection = get_db_connection()
-    _, reference_images = load_features(db_connection, organization_id)
-
-    logger.info(
-        "Starting identification outlier detection for organization_id=%s with %s explicit paths.",
-        organization_id,
-        0 if mediafile_paths is None else len(mediafile_paths),
-    )
-
-    # Add embeddings from reference_images to metadata by matching image_path
-    metadata["image_name"] = metadata["image_path"].apply(lambda x: os.path.basename(x))
-    reference_images["image_name"] = reference_images["image_path"].apply(lambda x: os.path.basename(x))
-    if "embedding" not in metadata.columns:
-        path_to_embedding = dict(zip(reference_images["image_name"], reference_images["embedding"]))
-        metadata["embedding"] = metadata["image_name"].map(path_to_embedding)
-
-    # Drop rows with missing embeddings
-    logger.info(f"Dropping rows with missing embeddings: {metadata.embedding.isna().sum()}")
-    metadata = metadata.dropna(subset=["embedding"])
-        
-    # Embeddings are saved as a string and contain megadescriptor and local descriptor features [[mega, local], ...]
-    embeddings = [json.loads(e) for e in metadata["embedding"]]
-    metadata["embedding"] = [r[0] for r in embeddings]
-
-    # Calculate the likely mislabeled embeddings
-    embeddings = np.array(list(metadata["embedding"]))
-    ep = EmbeddingProcessing(
-        embeddings,
-        metadata=metadata,
-        label_col="class_id",
-    )
-    suspects = ep.likely_mislabeled(margin=0.0)
-    logger.debug(f"getting best other metadata index and image path")
-
-    # Get the best other metadata index and image path
-    best_other_metadata_idx = [
-        ep.best_other_member_index(row.idx, row.best_other_label)
-        for row in suspects.itertuples(index=False)
-    ]
-    best_other_image_path = [
-        None if idx is None else metadata.iloc[idx]["image_path"]
-        for idx in best_other_metadata_idx
-    ]
-
-    # Add the suspects data to the metadata
-    metadata['own_similarity'] = suspects['own_similarity']
-    metadata['best_other_similarity'] = suspects['best_other_similarity']
-    metadata['delta'] = suspects['delta']
-
-    metadata['best_other_label'] = suspects['best_other_label']
-    metadata['best_other_image_path'] = best_other_image_path
-
-    metadata['is_suspect'] = suspects['is_suspect']
-
-    # Add reduced embeddings to the metadata
-    logger.info("Starting t-SNE reduction for %s embeddings.", len(metadata))
-    tsne_start = time.perf_counter()
     try:
-        tsne_embeddings = ep.reduce_embeddings(method="tsne", n_components=2, random_state=0)
-    except Exception as e:
-        logger.error(f"Error in tsne embeddings: {e}")
-        tsne_embeddings = None
-    logger.info("Finished t-SNE reduction in %.2f s.", time.perf_counter() - tsne_start)
-    if tsne_embeddings is not None:
-        metadata['tsne_x'] = tsne_embeddings[:, 0]
-        metadata['tsne_y'] = tsne_embeddings[:, 1]
+        # read metadata file
+        metadata = pd.read_csv(input_metadata_file)
+        assert "image_path" in metadata
+        assert "class_id" in metadata, "Identity id should be in `class_id` column"
+        assert "label" in metadata, "Label should be in `label` column"
 
-    logger.info("Starting UMAP reduction for %s embeddings.", len(metadata))
-    umap_start = time.perf_counter()
-    try:
-        umap_embeddings = ep.reduce_embeddings(method="umap", n_components=2, random_state=0)
-    except Exception as e:
-        logger.error(f"Error in umap embeddings: {e}")
-        umap_embeddings = None
-    logger.info("Finished UMAP reduction in %.2f s.", time.perf_counter() - umap_start)
-    if umap_embeddings is not None:
-        metadata['umap_x'] = umap_embeddings[:, 0]
-        metadata['umap_y'] = umap_embeddings[:, 1]
+        mediafile_paths = list(metadata["image_path"])
+        class_ids = list(metadata["class_id"])
 
-    # Create suggestions
-    logger.info("Creating outlier suggestions.")
-    suggestions = []
-    try:
+        logger.info("Loading reference feature vectors from the database.")
+        db_connection = get_db_connection()
+        _, reference_images = load_features(db_connection, organization_id)
+
+        logger.info(
+            "Starting identification outlier detection for organization_id=%s with %s explicit paths.",
+            organization_id,
+            0 if mediafile_paths is None else len(mediafile_paths),
+        )
+
+        # Add embeddings from reference_images to metadata by matching image_path
+        metadata["image_name"] = metadata["image_path"].apply(lambda x: os.path.basename(x))
+        reference_images["image_name"] = reference_images["image_path"].apply(lambda x: os.path.basename(x))
+        if "embedding" not in metadata.columns:
+            path_to_embedding = dict(zip(reference_images["image_name"], reference_images["embedding"]))
+            metadata["embedding"] = metadata["image_name"].map(path_to_embedding)
+
+        # Drop rows with missing embeddings
+        logger.info(f"Dropping rows with missing embeddings: {metadata.embedding.isna().sum()}")
+        metadata = metadata.dropna(subset=["embedding"])
+
+        # Drop class_ids that are underrepresented < min_cluster_size
+        class_ids = metadata["class_id"].value_counts()
+        class_ids = class_ids[class_ids < min_cluster_size]
+        logger.info(f"Dropping class_ids that are underrepresented < {min_cluster_size}: {list(class_ids.index)}")
+        metadata = metadata[~metadata["class_id"].isin(class_ids.index)].reset_index(drop=True).copy()
+
+        # Embeddings are saved as a string and contain megadescriptor and local descriptor features [[mega, local], ...]
+        embeddings = [json.loads(e) for e in metadata["embedding"]]
+        metadata["embedding"] = [r[0] for r in embeddings]
+
+        # Calculate the likely mislabeled embeddings
+        embeddings = np.array(list(metadata["embedding"]))
+        logger.info(f"Calculating likely mislabeled embeddings for {len(metadata)} embeddings.")
+        ep = EmbeddingProcessing(
+            embeddings,
+            metadata=metadata,
+            label_col="class_id",
+        )
+        suspects = ep.likely_mislabeled(margin=0.0, min_cluster_size=min_cluster_size)
+        logger.debug("Calculated %s suspect rows for %s metadata rows.", len(suspects), len(metadata))
+
+        # Add the suspects data to the metadata
+        suspects_by_idx = suspects.set_index("idx").reindex(metadata.index)
+        best_other_image_path_by_idx = {}
+        for row in suspects.itertuples(index=False):
+            best_other_metadata_idx = ep.best_other_member_index(row.idx, row.best_other_label)
+            best_other_image_path_by_idx[row.idx] = (
+                None if best_other_metadata_idx is None else metadata.iloc[best_other_metadata_idx]["image_path"]
+            )
+
+        best_other_image_path = pd.Series(best_other_image_path_by_idx).reindex(metadata.index)
+        metadata["own_similarity"] = suspects_by_idx["own_similarity"].to_numpy()
+        metadata["best_other_similarity"] = suspects_by_idx["best_other_similarity"].to_numpy()
+        metadata["delta"] = suspects_by_idx["delta"].to_numpy()
+        metadata["best_other_label"] = suspects_by_idx["best_other_label"].to_numpy()
+        metadata["best_other_image_path"] = best_other_image_path.to_numpy()
+        metadata["is_suspect"] = suspects_by_idx["is_suspect"].to_numpy()
+
+        # Add reduced embeddings to the metadata
+        logger.info("Starting t-SNE reduction for %s embeddings.", len(metadata))
+        tsne_start = time.perf_counter()
+        try:
+            tsne_embeddings = ep.reduce_embeddings(method="tsne", n_components=2, random_state=0)
+        except Exception as e:
+            logger.error(f"Error in tsne embeddings: {e}")
+            tsne_embeddings = None
+        logger.info("Finished t-SNE reduction in %.2f s.", time.perf_counter() - tsne_start)
+        if tsne_embeddings is not None:
+            metadata["tsne_x"] = tsne_embeddings[:, 0]
+            metadata["tsne_y"] = tsne_embeddings[:, 1]
+
+        logger.info("Starting UMAP reduction for %s embeddings.", len(metadata))
+        umap_start = time.perf_counter()
+        try:
+            umap_embeddings = ep.reduce_embeddings(method="umap", n_components=2, random_state=0)
+        except Exception as e:
+            logger.error(f"Error in umap embeddings: {e}")
+            umap_embeddings = None
+        logger.info("Finished UMAP reduction in %.2f s.", time.perf_counter() - umap_start)
+        if umap_embeddings is not None:
+            metadata["umap_x"] = umap_embeddings[:, 0]
+            metadata["umap_y"] = umap_embeddings[:, 1]
+
+        # Create suggestions
+        logger.info("Creating outlier suggestions.")
+        suggestions = []
+        # try:
         for idx, row in metadata.iterrows():
             if not bool(row.get("is_suspect")):
-                logger.debug(f"getting best other metadata index and image path")
                 continue
 
             best_other_label = row.get("best_other_label")
@@ -685,7 +696,8 @@ def detect_identification_outliers(
 
             if pd.isna(best_other_label):
                 logger.warning(
-                    "Skipping suspect idx=%s mediafile_id=%s image_path=%s class_id=%s because best_other_label is missing.",
+                    "Skipping suspect idx=%s mediafile_id=%s image_path=%s \
+                    class_id=%s because best_other_label is missing.",
                     idx,
                     row.get("mediafile_id"),
                     row.get("image_path"),
@@ -709,28 +721,33 @@ def detect_identification_outliers(
                             "mediafile_path": None if pd.isna(best_other_image_path) else best_other_image_path,
                             "score": None if pd.isna(delta) else float(delta),
                             "reason": (
-                                f"Delta is {delta:.2f}. Delta > 0 means the embedding is closer "
-                                "to the best other cluster center than to its own center."
-                            )
-                            if not pd.isna(delta)
-                            else "No delta available.",
+                                (
+                                    f"Delta is {delta:.2f}. Delta > 0 means the embedding is closer "
+                                    "to the best other cluster center than to its own center."
+                                )
+                                if not pd.isna(delta)
+                                else "No delta available."
+                            ),
                         },
                     ],
                 }
             )
+
+        # Remove embeddings and save the metadata file in a new file with "extended" in the filename
+        if "embedding" in metadata.columns:
+            metadata = metadata.drop(columns=["embedding"])
+
+        # Save metadata with extended information
+        extended_metadata_file = input_metadata_file.replace(".csv", "_extended.csv")
+        metadata.to_csv(extended_metadata_file, index=False)
+        logger.info(f"Saved extended metadata file to {extended_metadata_file}")
+        logger.info("Prepared %s suspect suggestions.", len(suggestions))
+
     except Exception:
-        logger.exception("Failed while creating outlier suggestions.")
-        raise
-
-    # Remove embeddings and save the metadata file in a new file with "extended" in the filename
-    if "embedding" in metadata.columns:
-        metadata = metadata.drop(columns=["embedding"])
-    extended_metadata_file = input_metadata_file.replace(".csv", "_extended.csv")
-    logger.info("Saving extended metadata to %s.", extended_metadata_file)
-    metadata.to_csv(extended_metadata_file, index=False)
-    logger.debug(f"Saved extended metadata file to {extended_metadata_file}")
-    logger.info("Prepared %s suspect suggestions.", len(suggestions))
-
+        error = traceback.format_exc()
+        logger.critical(f"Returning unexpected error output: '{error}'.")
+        out = {"status": "ERROR", "error": error}
+        return out
 
     return {
         "status": "DONE",

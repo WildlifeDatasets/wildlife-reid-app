@@ -2,8 +2,9 @@ import ast
 import logging
 import os
 import traceback
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Union
+from typing import List, Optional, Union
 
 import cv2
 import numpy as np
@@ -23,11 +24,8 @@ from wildlife_tools.similarity.calibration import IsotonicCalibration
 from wildlife_tools.similarity.pairwise.collectors import CollectAll
 from wildlife_tools.similarity.pairwise.lightglue import MatchLightGlue
 
+from .postprocessing import _sequence_max_conf, _sequence_voting, _sequence_weighted_voting
 from .wildfusion_utils import SimilarityPipelineExtended, WildFusionExtended
-from .postprocessing import _sequence_voting, _sequence_weighted_voting, _sequence_max_conf
-
-from dataclasses import dataclass
-from typing import Union, List, Optional
 
 try:
     from ..infrastructure_utils import mem
@@ -54,6 +52,7 @@ class Prediction:
     db_idx: int
     score: float
     path: str
+
 
 class CarnivoreDataset(WildlifeDataset):
     def __init__(self, *args, **kwargs):
@@ -440,12 +439,7 @@ def _get_top_predictions(similarity, database_metadata, top_k: int = 1):
                 continue
             seen_names.add(name)
 
-            pred = Prediction(
-                name=name,
-                db_idx=int(idx),
-                score=float(row[idx]),
-                path=path
-            )
+            pred = Prediction(name=name, db_idx=int(idx), score=float(row[idx]), path=path)
 
             image_predictions.append(pred)
             if len(image_predictions) == top_k:
@@ -504,30 +498,20 @@ def _post_process_sequence(
 
 
 def identify_from_similarity(
-        similarity: np.ndarray,
-        database_metadata: pd.DataFrame,
-        query_metadata: pd.DataFrame,
-        top_k: int,
-        post_process: str = ""
+    similarity: np.ndarray,
+    database_metadata: pd.DataFrame,
+    query_metadata: pd.DataFrame,
+    top_k: int,
+    post_process: str = "",
 ):
     """Get top-k predictions from similarity matrix."""
     logger.info(f"Predicting top-{top_k}, with post-processing: {post_process}")
 
-    predictions = _get_top_predictions(
-        similarity,
-        database_metadata,
-        top_k=top_k
-    )
+    predictions = _get_top_predictions(similarity, database_metadata, top_k=top_k)
 
     # Apply sequence post-processing
     if post_process and post_process is not None:
-        predictions = _post_process_sequence(
-            predictions,
-            query_metadata,
-            top_k,
-            method=post_process,
-            ignore_seq_ids=[]
-        )
+        predictions = _post_process_sequence(predictions, query_metadata, top_k, method=post_process, ignore_seq_ids=[])
 
     # reformat results
     pred_image_paths = []
@@ -640,11 +624,7 @@ def identify(
     IDENTIFICATION_MODELS = None
 
     output, result_idx = identify_from_similarity(
-        similarity,
-        database_metadata,
-        query_metadata,
-        top_k,
-        post_process=os.environ.get("POST_PROCESS", None)
+        similarity, database_metadata, query_metadata, top_k, post_process=os.environ.get("POST_PROCESS", None)
     )
 
     # calculate keypoints
