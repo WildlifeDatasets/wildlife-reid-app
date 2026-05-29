@@ -299,10 +299,18 @@ Observation ID: {{ obs_form.instance.id }}
                                                 {#    {{ inlines.0.empty_form.as_p }}#}
                                             </div>
 
-                                            <button type="button" id="add-observation-btn"
-                                                    class="btn btn-outline-primary mt-2">
-                                                <i class="bi bi-plus-circle"></i> Add Observation
-                                            </button>
+                                            <div class="d-flex flex-wrap gap-2 align-items-center mt-2">
+                                                <button type="button" id="add-observation-btn"
+                                                        class="btn btn-outline-primary">
+                                                    <i class="bi bi-plus-circle"></i> Add Observation
+                                                </button>
+                                                <button type="button" class="btn btn-outline-warning"
+                                                        id="btnMarkEmptyImage"
+                                                        title="Replace all observations with a single Nothing observation without a bbox">
+                                                    <i class="bi bi-square"></i>
+                                                    Mark empty image
+                                                </button>
+                                            </div>
                                             {#                                            <button type="button" id="add-observation-btn"#}
                                             {#                                                    class="btn btn-outline-primary">#}
                                             {#                                                Add Observation#}
@@ -780,12 +788,13 @@ mediafile.taxon: {{ mediafile.taxon }}
 
         document.addEventListener("DOMContentLoaded", function () {
             const addBtn = document.getElementById("add-observation-btn");
+            const markEmptyImageBtn = document.getElementById("btnMarkEmptyImage");
             const container = document.getElementById("observation-forms");
             const emptyFormDiv = document.getElementById("empty-form");
             const totalFormsInput = document.querySelector('[name$="TOTAL_FORMS"]');
             const locationCollapse = document.getElementById("mediafile-location-collapse");
 
-            addBtn.addEventListener("click", function () {
+            function appendObservationForm() {
                 const formIndex = parseInt(totalFormsInput.value);
                 const newFormHtml = emptyFormDiv.innerHTML.replace(/__prefix__/g, formIndex);
                 const wrapper = document.createElement("div");
@@ -795,10 +804,65 @@ mediafile.taxon: {{ mediafile.taxon }}
                 container.appendChild(wrapper);
 
                 totalFormsInput.value = formIndex + 1; // update management form count
+                return wrapper;
+            }
+
+            function markAllCurrentObservationsForDeletion() {
+                let removedNewForms = 0;
+                document.querySelectorAll("#observation-forms .observation-form").forEach((formDiv) => {
+                    const deleteInput = formDiv.querySelector('input[type="hidden"][name$="-DELETE"]');
+                    if (deleteInput) {
+                        deleteInput.value = "on";
+                        formDiv.style.display = "none";
+                    } else {
+                        formDiv.remove();
+                        removedNewForms += 1;
+                    }
+                });
+
+                if (removedNewForms > 0) {
+                    totalFormsInput.value = Math.max(0, parseInt(totalFormsInput.value) - removedNewForms);
+                }
+            }
+
+            addBtn.addEventListener("click", function () {
+                appendObservationForm();
             });
 
             if (locationCollapse) {
                 locationCollapse.addEventListener("shown.bs.collapse", refreshCollapsedLocationMap);
+            }
+
+            if (markEmptyImageBtn) {
+                markEmptyImageBtn.addEventListener("click", function (e) {
+                    const observationCount = document.querySelectorAll("#observation-forms .observation-form").length;
+                    const proceed = observationCount === 0 || confirm(
+                        `This will delete ${observationCount} existing observation(s) and replace them with a single Nothing observation. Continue?`
+                    );
+                    if (!proceed) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        return;
+                    }
+
+                    markAllCurrentObservationsForDeletion();
+                    const newForm = appendObservationForm();
+                    const taxonSelect = newForm.querySelector('select[name$="-taxon"]');
+                    if (taxonSelect) {
+                        for (let i = 0; i < taxonSelect.options.length; i++) {
+                            if (taxonSelect.options[i].text === "Nothing") {
+                                taxonSelect.selectedIndex = i;
+                                taxonSelect.dispatchEvent(new Event("change", {bubbles: true}));
+                                break;
+                            }
+                        }
+                    }
+                    const taxonVerified = newForm.querySelector('input[name$="-taxon_verified"]');
+                    if (taxonVerified) {
+                        taxonVerified.checked = true;
+                        taxonVerified.dispatchEvent(new Event("change", {bubbles: true}));
+                    }
+                });
             }
         });
 

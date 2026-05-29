@@ -8,16 +8,42 @@
     const fileInput = document.getElementById("id_upload_files");
     const relativePathsInput = document.getElementById("id_upload_relative_paths");
     const fileSummary = document.getElementById("new-upload-file-summary");
+    const selectedFilesButton = document.getElementById("new-upload-selected-files-button");
+    const selectedFilesBadge = document.getElementById("new-upload-selected-files-badge");
+    const selectedFilesPanel = document.getElementById("new-upload-selected-files-panel");
+    const selectedFilesContainer = document.getElementById("new-upload-selected-files");
+    const wizardSteps = Array.from(document.querySelectorAll(".upload-wizard-step"));
+    const prevStepButton = document.getElementById("new-upload-prev");
+    const nextStepButton = document.getElementById("new-upload-next");
+    const submitButton = document.getElementById("new-upload-submit");
+    const stepLabel = document.getElementById("new-upload-step-label");
     const pathSummary = document.getElementById("new-upload-path-summary");
     const spreadsheetSummary = document.getElementById("new-upload-spreadsheet-summary");
+    const metadataCard = document.getElementById("new-upload-metadata-card");
+    const metadataEmptyState = document.getElementById("new-upload-metadata-empty-state");
+    const metadataContent = document.getElementById("new-upload-metadata-content");
     const spreadsheetColumns = document.getElementById("new-upload-spreadsheet-columns");
+    const spreadsheetPathCheck = document.getElementById("new-upload-spreadsheet-path-check");
     const spreadsheetButton = document.getElementById("new-upload-spreadsheet-button");
+    const pathAdjustmentButton = document.getElementById("new-upload-path-adjustment-button");
+    const pathAdjustmentBadge = document.getElementById("new-upload-path-adjustment-badge");
+    const pathAdjustmentPanel = document.getElementById("new-upload-path-adjustment-panel");
+    const columnMapperButton = document.getElementById("new-upload-column-mapper-button");
+    const columnMapperBadge = document.getElementById("new-upload-column-mapper-badge");
+    const columnMapperPanel = document.getElementById("new-upload-column-mapper-panel");
+    const pathHintMedia = document.getElementById("new-upload-path-hint-media");
+    const pathHintSpreadsheet = document.getElementById("new-upload-path-hint-spreadsheet");
+    const pathHintCommon = document.getElementById("new-upload-path-hint-common");
+    const pathHintSuggestion = document.getElementById("new-upload-path-hint-suggestion");
+    const applyPathAdjustmentButton = document.getElementById("new-upload-apply-path-adjustment");
+    const clearPathAdjustmentButton = document.getElementById("new-upload-clear-path-adjustment");
     const directoryButton = document.getElementById("new-upload-directory-button");
     const directoryBadge = document.getElementById("new-upload-directory-badge");
     const directoryStructure = document.getElementById("id_directory_structure");
     const directoryMappingInput = document.getElementById("id_directory_mapping");
     const pathRegexInput = document.getElementById("id_path_regex");
     const spreadsheetColumnMappingInput = document.getElementById("id_spreadsheet_column_mapping");
+    const spreadsheetPathAdjustmentInput = document.getElementById("id_spreadsheet_path_adjustment");
     const pathBasicPanel = document.getElementById("new-upload-path-basic");
     const pathMapper = document.getElementById("new-upload-path-mapper");
     const advancedRegexInput = document.getElementById("new-upload-path-regex");
@@ -37,7 +63,12 @@
     const targetBadge = document.getElementById("new-upload-target-badge");
     const localities = JSON.parse(form.dataset.localities || "[]");
     let isUploading = false;
-    let droppedManifest = [];
+    let currentStep = 0;
+    let selectedEntries = [];
+    let currentMediaPaths = [];
+    let currentSpreadsheetPreview = null;
+    let pathAdjustmentConfig = {remove_prefix: "", add_prefix: ""};
+    let pendingPathAdjustmentConfig = {remove_prefix: "", add_prefix: ""};
     const pathRoles = [
         ["", "Ignore"],
         ["locality", "Locality"],
@@ -50,6 +81,8 @@
         ["original_path", "Media path"],
         ["taxon", "Taxon"],
         ["unique_name", "Identity"],
+        ["code", "Identity code"],
+        ["juv_code", "Juv. code"],
         ["locality_name", "Locality"],
         ["datetime", "Datetime"],
         ["latitude", "Latitude"],
@@ -62,6 +95,7 @@
         identity: "(?P<identity>[^/]+)",
     };
     const identityLastDirectoryRegex = "^(?:.*/)?(?P<identity>[^/]+)/[^/]+$";
+    const normalizedSpreadsheetFilename = "mediafile.post_update.csv";
 
     function getSelectedUploadTarget() {
         if (!uploadTargetInputs.length) {
@@ -77,14 +111,369 @@
 
     function showPanel(id) {
         const element = document.getElementById(id);
-        if (element && window.bootstrap) {
+        if (!element) {
+            return;
+        }
+        if (window.bootstrap) {
             bootstrap.Collapse.getOrCreateInstance(element, {toggle: false}).show();
+        } else {
+            element.classList.add("show");
         }
     }
 
     function setSummaryText(element, text) {
         element.textContent = text;
         element.classList.toggle("d-none", !text);
+    }
+
+    function updateWizardUi() {
+        wizardSteps.forEach((step, index) => {
+            step.classList.toggle("is-active", index === currentStep);
+        });
+        if (prevStepButton) {
+            prevStepButton.disabled = currentStep === 0;
+        }
+        if (nextStepButton) {
+            nextStepButton.classList.toggle("d-none", currentStep === wizardSteps.length - 1);
+        }
+        if (submitButton) {
+            submitButton.classList.toggle("d-none", currentStep !== wizardSteps.length - 1);
+        }
+        if (stepLabel) {
+            stepLabel.textContent = `Step ${currentStep + 1} of ${wizardSteps.length}`;
+        }
+        window.scrollTo({top: 0, behavior: "smooth"});
+    }
+
+    function goToStep(stepIndex) {
+        currentStep = Math.max(0, Math.min(stepIndex, wizardSteps.length - 1));
+        updateWizardUi();
+    }
+
+    function buildSelectedEntryKey(file, relativePath) {
+        return [
+            relativePath || file.name,
+            file.name,
+            file.size,
+            file.lastModified,
+        ].join("::");
+    }
+
+    function createSelectedEntry(file, relativePath) {
+        const resolvedRelativePath = relativePath || file.webkitRelativePath || file.name;
+        return {
+            key: buildSelectedEntryKey(file, resolvedRelativePath),
+            file: file,
+            filename: file.name,
+            relative_path: resolvedRelativePath,
+        };
+    }
+
+    function syncSelectedEntriesToInput() {
+        const transfer = new DataTransfer();
+        for (const entry of selectedEntries) {
+            transfer.items.add(entry.file);
+        }
+        fileInput.files = transfer.files;
+    }
+
+    function renderSelectedFiles() {
+        if (!selectedFilesContainer) {
+            return;
+        }
+        selectedFilesContainer.replaceChildren();
+        if (selectedFilesButton) {
+            selectedFilesButton.classList.toggle("d-none", selectedEntries.length === 0);
+            selectedFilesButton.setAttribute("aria-expanded", "false");
+        }
+        if (selectedFilesBadge) {
+            selectedFilesBadge.textContent = String(selectedEntries.length);
+        }
+        selectedFilesContainer.classList.toggle("d-none", selectedEntries.length === 0);
+        if (!selectedEntries.length) {
+            if (selectedFilesPanel && window.bootstrap) {
+                bootstrap.Collapse.getOrCreateInstance(selectedFilesPanel, {toggle: false}).hide();
+            } else if (selectedFilesPanel) {
+                selectedFilesPanel.classList.remove("show");
+            }
+            return;
+        }
+
+        const list = document.createElement("div");
+        list.className = "d-flex flex-column gap-2";
+        for (const entry of selectedEntries) {
+            const row = document.createElement("div");
+            row.className = "d-flex align-items-start justify-content-between gap-2 border rounded p-2 bg-body-tertiary";
+
+            const info = document.createElement("div");
+            info.className = "small";
+
+            const title = document.createElement("div");
+            title.className = "fw-semibold";
+            title.textContent = entry.filename;
+            info.appendChild(title);
+
+            if (entry.relative_path && entry.relative_path !== entry.filename) {
+                const detail = document.createElement("div");
+                detail.className = "text-muted";
+                detail.textContent = entry.relative_path;
+                info.appendChild(detail);
+            }
+
+            const removeButton = document.createElement("button");
+            removeButton.type = "button";
+            removeButton.className = "btn-close";
+            removeButton.setAttribute("aria-label", `Remove ${entry.filename}`);
+            removeButton.addEventListener("click", async function () {
+                selectedEntries = selectedEntries.filter((item) => item.key !== entry.key);
+                syncSelectedEntriesToInput();
+                renderSelectedFiles();
+                await updateFileSummary();
+            });
+
+            row.appendChild(info);
+            row.appendChild(removeButton);
+            list.appendChild(row);
+        }
+        selectedFilesContainer.appendChild(list);
+    }
+
+    function mergeSelectedEntries(entries) {
+        const seenKeys = new Set(selectedEntries.map((entry) => entry.key));
+        for (const entry of entries) {
+            if (seenKeys.has(entry.key)) {
+                continue;
+            }
+            seenKeys.add(entry.key);
+            selectedEntries.push(entry);
+        }
+        syncSelectedEntriesToInput();
+        renderSelectedFiles();
+    }
+
+    function updateMetadataAvailability(hasFiles) {
+        if (!metadataCard || !metadataEmptyState || !metadataContent) {
+            return;
+        }
+        metadataCard.classList.toggle("upload-metadata-card-muted", !hasFiles);
+        metadataCard.classList.toggle("upload-metadata-card-active", hasFiles);
+        metadataEmptyState.classList.toggle("d-none", hasFiles);
+        metadataContent.classList.toggle("d-none", !hasFiles);
+    }
+
+    function setInfoText(element, text, className) {
+        element.textContent = text;
+        element.className = `small mt-2 ${className || ""}`.trim();
+        element.classList.toggle("d-none", !text);
+    }
+
+    function setInfoLines(element, lines, className) {
+        const normalizedLines = Array.isArray(lines)
+            ? lines.filter((line) => Boolean(line))
+            : (lines ? [lines] : []);
+        element.replaceChildren();
+        element.className = `small mt-2 ${className || ""}`.trim();
+        element.classList.toggle("d-none", normalizedLines.length === 0);
+        for (const line of normalizedLines) {
+            const row = document.createElement("div");
+            row.textContent = line;
+            element.appendChild(row);
+        }
+    }
+
+    function setPanelExpanded(panel, button, badge, expanded, expandedLabel, collapsedLabel, expandedBadgeClass, collapsedBadgeClass) {
+        if (!panel) {
+            return;
+        }
+        if (window.bootstrap) {
+            bootstrap.Collapse.getOrCreateInstance(panel, {toggle: false})[expanded ? "show" : "hide"]();
+        } else {
+            panel.classList.toggle("show", expanded);
+        }
+        if (button) {
+            button.setAttribute("aria-expanded", expanded ? "true" : "false");
+        }
+        if (badge) {
+            badge.textContent = expanded ? expandedLabel : collapsedLabel;
+            badge.className = expanded ? expandedBadgeClass : collapsedBadgeClass;
+        }
+    }
+
+    function setPathAdjustmentExpanded(expanded) {
+        setPanelExpanded(
+            pathAdjustmentPanel,
+            pathAdjustmentButton,
+            pathAdjustmentBadge,
+            expanded,
+            "open",
+            "review",
+            "badge text-bg-primary",
+            "badge text-bg-warning",
+        );
+    }
+
+    function setColumnMapperExpanded(expanded) {
+        setPanelExpanded(
+            columnMapperPanel,
+            columnMapperButton,
+            columnMapperBadge,
+            expanded,
+            "open",
+            "hidden",
+            "badge text-bg-primary",
+            "badge text-bg-secondary",
+        );
+    }
+
+    function updatePathAdjustmentHint(example) {
+        if (!pathAdjustmentButton || !pathHintMedia || !pathHintSpreadsheet || !pathHintCommon || !pathHintSuggestion) {
+            return;
+        }
+        if (!example) {
+            pathAdjustmentButton.classList.add("d-none");
+            setPathAdjustmentExpanded(false);
+            pathHintMedia.textContent = "";
+            pathHintSpreadsheet.textContent = "";
+            pathHintCommon.textContent = "";
+            pathHintSuggestion.textContent = "";
+            pendingPathAdjustmentConfig = {remove_prefix: "", add_prefix: ""};
+            if (applyPathAdjustmentButton) {
+                applyPathAdjustmentButton.classList.add("d-none");
+            }
+            if (clearPathAdjustmentButton) {
+                clearPathAdjustmentButton.classList.toggle(
+                    "d-none",
+                    !pathAdjustmentConfig.remove_prefix && !pathAdjustmentConfig.add_prefix,
+                );
+            }
+            return;
+        }
+
+        pathAdjustmentButton.classList.remove("d-none");
+        pathHintMedia.textContent = example.mediaPath;
+        pathHintSpreadsheet.textContent = example.spreadsheetPath;
+        pathHintCommon.textContent = example.commonSuffix;
+        pathHintSuggestion.textContent = example.suggestion;
+        pendingPathAdjustmentConfig = {
+            remove_prefix: example.removePrefix || "",
+            add_prefix: example.addPrefix || "",
+        };
+        const pendingMatchesApplied =
+            pendingPathAdjustmentConfig.remove_prefix === pathAdjustmentConfig.remove_prefix
+            && pendingPathAdjustmentConfig.add_prefix === pathAdjustmentConfig.add_prefix;
+        if (applyPathAdjustmentButton) {
+            applyPathAdjustmentButton.classList.toggle("d-none", pendingMatchesApplied);
+        }
+        if (clearPathAdjustmentButton) {
+            clearPathAdjustmentButton.classList.toggle(
+                "d-none",
+                !pathAdjustmentConfig.remove_prefix && !pathAdjustmentConfig.add_prefix,
+            );
+        }
+        setPathAdjustmentExpanded(true);
+    }
+
+    function syncSpreadsheetPathAdjustmentInput() {
+        if (spreadsheetPathAdjustmentInput) {
+            spreadsheetPathAdjustmentInput.value = JSON.stringify(pathAdjustmentConfig);
+        }
+        if (clearPathAdjustmentButton) {
+            clearPathAdjustmentButton.classList.toggle(
+                "d-none",
+                !pathAdjustmentConfig.remove_prefix && !pathAdjustmentConfig.add_prefix,
+            );
+        }
+    }
+
+    function adjustSpreadsheetPath(path) {
+        let adjustedPath = String(path || "");
+        const removePrefix = String(pathAdjustmentConfig.remove_prefix || "").replaceAll("\\", "/").trim();
+        const addPrefix = String(pathAdjustmentConfig.add_prefix || "").replaceAll("\\", "/").trim();
+        if (removePrefix) {
+            const normalizedRemovePrefix = removePrefix.replace(/^\/+|\/+$/g, "");
+            if (adjustedPath === normalizedRemovePrefix) {
+                adjustedPath = "";
+            } else if (adjustedPath.startsWith(`${normalizedRemovePrefix}/`)) {
+                adjustedPath = adjustedPath.slice(normalizedRemovePrefix.length + 1);
+            }
+        }
+        if (addPrefix) {
+            const normalizedAddPrefix = addPrefix.replace(/^\/+|\/+$/g, "");
+            adjustedPath = adjustedPath ? `${normalizedAddPrefix}/${adjustedPath}` : normalizedAddPrefix;
+        }
+        return adjustedPath;
+    }
+
+    function findSharedSuffixExample(mediaPaths, spreadsheetPaths) {
+        for (const spreadsheetPath of spreadsheetPaths) {
+            for (const mediaPath of mediaPaths) {
+                if (mediaPath === spreadsheetPath) {
+                    continue;
+                }
+                if (mediaPath.endsWith(`/${spreadsheetPath}`)) {
+                    const prefixToAdd = mediaPath.slice(0, -(spreadsheetPath.length + 1));
+                    return {
+                        mediaPath: mediaPath,
+                        spreadsheetPath: spreadsheetPath,
+                        commonSuffix: spreadsheetPath,
+                        removePrefix: "",
+                        addPrefix: prefixToAdd ? `${prefixToAdd}/` : "",
+                        suggestion: prefixToAdd
+                            ? `Try prefixing spreadsheet paths with "${prefixToAdd}/".`
+                            : "Spreadsheet paths likely need an additional leading directory.",
+                    };
+                }
+                if (spreadsheetPath.endsWith(`/${mediaPath}`)) {
+                    const prefixToRemove = spreadsheetPath.slice(0, -(mediaPath.length + 1));
+                    return {
+                        mediaPath: mediaPath,
+                        spreadsheetPath: spreadsheetPath,
+                        commonSuffix: mediaPath,
+                        removePrefix: prefixToRemove ? `${prefixToRemove}/` : "",
+                        addPrefix: "",
+                        suggestion: prefixToRemove
+                            ? `Try removing the leading prefix "${prefixToRemove}/" from spreadsheet paths.`
+                            : "Spreadsheet paths likely contain an extra leading directory.",
+                    };
+                }
+            }
+        }
+        return null;
+    }
+
+    function renderSpreadsheetPathCheck(summary) {
+        spreadsheetPathCheck.replaceChildren();
+        spreadsheetPathCheck.className = "small mt-2";
+        spreadsheetPathCheck.classList.toggle("d-none", !summary || !summary.lines.length);
+        if (!summary || !summary.lines.length) {
+            return;
+        }
+
+        for (const line of summary.lines) {
+            const row = document.createElement("div");
+            row.className = line.className || "";
+
+            if (line.icon) {
+                const icon = document.createElement("i");
+                icon.className = `${line.icon} me-1`;
+                row.appendChild(icon);
+            }
+
+            const text = document.createElement("span");
+            text.textContent = line.text;
+            row.appendChild(text);
+
+            if (line.actionLabel && line.actionHandler) {
+                const button = document.createElement("button");
+                button.type = "button";
+                button.className = "btn btn-link btn-sm p-0 ms-2 align-baseline";
+                button.textContent = line.actionLabel;
+                button.addEventListener("click", line.actionHandler);
+                row.appendChild(button);
+            }
+
+            spreadsheetPathCheck.appendChild(row);
+        }
     }
 
     function preventBrowserDropNavigation(event) {
@@ -101,7 +490,7 @@
     }
 
     function isSpreadsheet(file) {
-        return [".csv", ".xls", ".xlsx"].includes(fileSuffix(file.name));
+        return [".csv", ".xlsx"].includes(fileSuffix(file.name));
     }
 
     function isZip(file) {
@@ -194,6 +583,51 @@
             .filter(Boolean);
     }
 
+    function parseXlsxHeader(arrayBuffer) {
+        if (!window.XLSX) {
+            return [];
+        }
+        const workbook = window.XLSX.read(arrayBuffer, {type: "array"});
+        const firstSheetName = workbook.SheetNames[0];
+        if (!firstSheetName) {
+            return [];
+        }
+        const worksheet = workbook.Sheets[firstSheetName];
+        const rows = window.XLSX.utils.sheet_to_json(worksheet, {header: 1, raw: false});
+        const firstRow = rows[0] || [];
+        return firstRow.map((column) => String(column).trim()).filter(Boolean);
+    }
+
+    async function readSpreadsheetColumnsFromFile(file) {
+        const suffix = fileSuffix(file.name);
+        if (suffix === ".csv") {
+            const text = await file.text();
+            const columns = parseCsvHeader(text);
+            const rows = columns.length ? text.split(/\r?\n/).slice(1).filter(Boolean).map((line) => {
+                const values = line.split(",").map((value) => value.trim().replace(/^"|"$/g, ""));
+                return Object.fromEntries(columns.map((column, index) => [column, values[index] || ""]));
+            }) : [];
+            return {columns: columns, rows: rows};
+        }
+        if (suffix === ".xlsx") {
+            const buffer = await file.arrayBuffer();
+            const columns = parseXlsxHeader(buffer);
+            const workbook = window.XLSX.read(buffer, {type: "array"});
+            const firstSheetName = workbook.SheetNames[0];
+            const worksheet = firstSheetName ? workbook.Sheets[firstSheetName] : null;
+            const rows = worksheet ? window.XLSX.utils.sheet_to_json(worksheet, {defval: ""}) : [];
+            return {columns: columns, rows: rows};
+        }
+        return {columns: [], rows: []};
+    }
+
+    function describeSpreadsheetColumns(columns, spreadsheetLabel) {
+        if (!columns.length) {
+            return `${spreadsheetLabel} was detected, but no header row was recognized.`;
+        }
+        return `${spreadsheetLabel} was detected and is ready for mapping.`;
+    }
+
     function guessColumnRole(column) {
         const normalized = column.trim().toLowerCase().replaceAll(" ", "_");
         const aliases = {
@@ -205,6 +639,8 @@
             "category": "taxon",
             "unique_name": "unique_name",
             "identity": "unique_name",
+            "code": "code",
+            "juv_code": "juv_code",
             "locality_name": "locality_name",
             "location_name": "locality_name",
             "datetime": "datetime",
@@ -239,6 +675,9 @@
         columnMapper.innerHTML = "";
         if (!columns.length) {
             spreadsheetColumnMappingInput.value = "";
+            renderSpreadsheetPathCheck(null);
+            updatePathAdjustmentHint(null);
+            setColumnMapperExpanded(false);
             return;
         }
         const wrapper = document.createElement("div");
@@ -266,6 +705,135 @@
             }
         }
         spreadsheetColumnMappingInput.value = JSON.stringify(mapping);
+        updateSpreadsheetPathCheck(mapping);
+    }
+
+    function normalizePathForCompare(path) {
+        return String(path || "")
+            .replaceAll("\\", "/")
+            .replace(/^\.?\//, "")
+            .replace(/^\/+|\/+$/g, "")
+            .trim()
+            .toLowerCase();
+    }
+
+    function updateSpreadsheetPathCheck(mapping) {
+        if (!currentSpreadsheetPreview || !currentSpreadsheetPreview.rows.length || !currentMediaPaths.length) {
+            renderSpreadsheetPathCheck(null);
+            updatePathAdjustmentHint(null);
+            setColumnMapperExpanded(false);
+            return;
+        }
+
+        const originalPathColumn = mapping.original_path;
+        if (!originalPathColumn) {
+            renderSpreadsheetPathCheck({
+                lines: [
+                    {
+                        text: "Assign a spreadsheet column to Media path to verify whether spreadsheet paths match uploaded files.",
+                        className: "text-muted",
+                    },
+                ],
+            });
+            updatePathAdjustmentHint(null);
+            setColumnMapperExpanded(true);
+            return;
+        }
+
+        const spreadsheetPaths = currentSpreadsheetPreview.rows
+            .map((row) => normalizePathForCompare(adjustSpreadsheetPath(row[originalPathColumn])))
+            .filter(Boolean);
+
+        if (!spreadsheetPaths.length) {
+            renderSpreadsheetPathCheck({
+                lines: [
+                    {
+                        text: `Column "${originalPathColumn}" is mapped to Media path, but it does not contain any readable paths.`,
+                        className: "upload-pathcheck-warning",
+                    },
+                ],
+            });
+            updatePathAdjustmentHint(null);
+            setColumnMapperExpanded(true);
+            return;
+        }
+
+        const uniqueSpreadsheetPaths = [...new Set(spreadsheetPaths)];
+        const uniqueMediaPaths = [...new Set(currentMediaPaths.map(normalizePathForCompare).filter(Boolean))];
+        const mediaPathSet = new Set(uniqueMediaPaths);
+        const spreadsheetPathSet = new Set(uniqueSpreadsheetPaths);
+
+        let matchedMediaFiles = 0;
+        for (const mediaPath of uniqueMediaPaths) {
+            if (spreadsheetPathSet.has(mediaPath)) {
+                matchedMediaFiles += 1;
+            }
+        }
+
+        let extraSpreadsheetPaths = 0;
+        let suffixOnlyHints = 0;
+        for (const spreadsheetPath of uniqueSpreadsheetPaths) {
+            if (mediaPathSet.has(spreadsheetPath)) {
+                continue;
+            }
+            const suffixMatch = uniqueMediaPaths.some(
+                (mediaPath) => mediaPath.endsWith(`/${spreadsheetPath}`) || spreadsheetPath.endsWith(`/${mediaPath}`),
+            );
+            if (suffixMatch) {
+                suffixOnlyHints += 1;
+            } else {
+                extraSpreadsheetPaths += 1;
+            }
+        }
+
+        const missingMediaFiles = uniqueMediaPaths.length - matchedMediaFiles;
+        const suffixExample = suffixOnlyHints > 0
+            ? findSharedSuffixExample(uniqueMediaPaths, uniqueSpreadsheetPaths)
+            : null;
+
+        const lines = [];
+        if (matchedMediaFiles === uniqueMediaPaths.length && uniqueMediaPaths.length > 0) {
+            lines.push({
+                text: `Matched: ${matchedMediaFiles}/${uniqueMediaPaths.length} media files`,
+                className: "upload-pathcheck-success fw-semibold",
+                icon: "bi bi-check-circle-fill",
+            });
+        } else if (matchedMediaFiles === 0) {
+            lines.push({
+                text: `Matched: ${matchedMediaFiles}/${uniqueMediaPaths.length} media files`,
+                className: "upload-pathcheck-danger fw-semibold",
+            });
+        } else {
+            lines.push({
+                text: `Matched: ${matchedMediaFiles}/${uniqueMediaPaths.length} media files`,
+                className: "upload-pathcheck-warning fw-semibold",
+            });
+        }
+        if (missingMediaFiles > 0) {
+            lines.push({
+                text: `Missing in spreadsheet: ${missingMediaFiles}`,
+                className: "upload-pathcheck-warning",
+            });
+        }
+        if (extraSpreadsheetPaths > 0) {
+            lines.push({
+                text: `Extra in spreadsheet: ${extraSpreadsheetPaths}`,
+                className: "upload-pathcheck-warning",
+            });
+        }
+        if (suffixOnlyHints > 0) {
+            lines.push({
+                text: "Some unmatched paths look similar except for leading directories.",
+                className: "upload-pathcheck-warning",
+            });
+        }
+        renderSpreadsheetPathCheck({lines: lines});
+        updatePathAdjustmentHint(suffixExample);
+        const allMatched = matchedMediaFiles === uniqueMediaPaths.length && uniqueMediaPaths.length > 0;
+        setColumnMapperExpanded(!allMatched);
+        if (allMatched) {
+            setPathAdjustmentExpanded(false);
+        }
     }
 
     async function updateZipSpreadsheetPreview(zipFiles) {
@@ -273,10 +841,66 @@
         for (const file of zipFiles) {
             const filenames = await listZipFilenames(file);
             zipSpreadsheetNames.push(
-                ...filenames.filter((filename) => [".csv", ".xls", ".xlsx"].includes(fileSuffix(filename)))
+                ...filenames.filter((filename) => [".csv", ".xlsx"].includes(fileSuffix(filename)))
             );
         }
         return zipSpreadsheetNames;
+    }
+
+    async function readSpreadsheetColumnsFromZipFile(zipFile) {
+        if (!window.JSZip) {
+            return {filename: "", columns: [], rows: []};
+        }
+        const zip = await window.JSZip.loadAsync(zipFile);
+        const spreadsheetEntries = Object.values(zip.files)
+            .filter((entry) => !entry.dir && [".csv", ".xlsx"].includes(fileSuffix(entry.name)));
+
+        if (!spreadsheetEntries.length) {
+            return {filename: "", columns: [], rows: []};
+        }
+
+        spreadsheetEntries.sort((left, right) => {
+            const leftName = left.name.split("/").pop();
+            const rightName = right.name.split("/").pop();
+            if (leftName === normalizedSpreadsheetFilename && rightName !== normalizedSpreadsheetFilename) {
+                return -1;
+            }
+            if (rightName === normalizedSpreadsheetFilename && leftName !== normalizedSpreadsheetFilename) {
+                return 1;
+            }
+            if (fileSuffix(left.name) === ".csv" && fileSuffix(right.name) === ".xlsx") {
+                return -1;
+            }
+            if (fileSuffix(left.name) === ".xlsx" && fileSuffix(right.name) === ".csv") {
+                return 1;
+            }
+            return left.name.localeCompare(right.name);
+        });
+
+        const entry = spreadsheetEntries[0];
+        if (fileSuffix(entry.name) === ".csv") {
+            const text = await entry.async("text");
+            const columns = parseCsvHeader(text);
+            return {
+                filename: entry.name,
+                columns: columns,
+                rows: columns.length ? text.split(/\r?\n/).slice(1).filter(Boolean).map((line) => {
+                    const values = line.split(",").map((value) => value.trim().replace(/^"|"$/g, ""));
+                    return Object.fromEntries(columns.map((column, index) => [column, values[index] || ""]));
+                }) : [],
+            };
+        }
+
+        const arrayBuffer = await entry.async("arraybuffer");
+        const columns = parseXlsxHeader(arrayBuffer);
+        const workbook = window.XLSX.read(arrayBuffer, {type: "array"});
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = firstSheetName ? workbook.Sheets[firstSheetName] : null;
+        return {
+            filename: entry.name,
+            columns: columns,
+            rows: worksheet ? window.XLSX.utils.sheet_to_json(worksheet, {defval: ""}) : [],
+        };
     }
 
     async function listZipMediaPaths(zipFiles) {
@@ -293,35 +917,61 @@
         if (!spreadsheetFiles.length && !zipSpreadsheetNames.length) {
             spreadsheetButton.classList.add("d-none");
             setSummaryText(spreadsheetSummary, "");
-            spreadsheetColumns.textContent = "Upload a CSV to preview columns in the browser. XLS/XLSX columns are read on the server during preparation.";
+            spreadsheetColumns.textContent = "Upload a CSV or XLSX, or include one in ZIP, to preview columns and map them to expected fields.";
+            currentSpreadsheetPreview = null;
             renderColumnMapper([]);
+            updatePathAdjustmentHint(null);
+            setColumnMapperExpanded(false);
             return;
         }
 
         spreadsheetButton.classList.remove("d-none");
+        spreadsheetButton.setAttribute("aria-expanded", "true");
+        showPanel("upload-spreadsheet-panel");
         const spreadsheetNames = [
             ...spreadsheetFiles.map((file) => file.name),
             ...zipSpreadsheetNames.map((name) => `${name} inside ZIP`),
         ];
         setSummaryText(spreadsheetSummary, `Spreadsheet detected: ${spreadsheetNames.join(", ")}`);
-        const csvFile = spreadsheetFiles.find((file) => fileSuffix(file.name) === ".csv");
-        if (!csvFile) {
-            spreadsheetColumns.textContent = zipSpreadsheetNames.length
-                ? "Spreadsheet file found inside ZIP. Columns will be read on the server during upload preparation."
-                : "XLS/XLSX columns will be read on the server during upload preparation.";
+        const directSpreadsheet = spreadsheetFiles[0] || null;
+        const zipSpreadsheet = directSpreadsheet ? null : (zipFiles[0] || null);
+        try {
+            if (directSpreadsheet) {
+                currentSpreadsheetPreview = await readSpreadsheetColumnsFromFile(directSpreadsheet);
+                spreadsheetColumns.textContent = describeSpreadsheetColumns(
+                    currentSpreadsheetPreview.columns,
+                    directSpreadsheet.name,
+                );
+                renderColumnMapper(currentSpreadsheetPreview.columns);
+                return;
+            }
+            if (zipSpreadsheet) {
+                const zipSpreadsheetPreview = await readSpreadsheetColumnsFromZipFile(zipSpreadsheet);
+                if (zipSpreadsheetPreview.filename) {
+                    currentSpreadsheetPreview = zipSpreadsheetPreview;
+                    spreadsheetColumns.textContent =
+                        `${describeSpreadsheetColumns(currentSpreadsheetPreview.columns, `${zipSpreadsheetPreview.filename} inside ZIP`)} ` +
+                        "Expected fields such as media path, identity, taxon, locality, and datetime can be mapped below.";
+                    renderColumnMapper(currentSpreadsheetPreview.columns);
+                    return;
+                }
+            }
+        } catch (error) {
+            console.warn("Spreadsheet preview failed", error);
+            spreadsheetColumns.textContent = "Spreadsheet detected, but column preview failed in the browser. Try reselecting the file or using CSV.";
+            currentSpreadsheetPreview = null;
             renderColumnMapper([]);
+            updatePathAdjustmentHint(null);
+            setColumnMapperExpanded(false);
             return;
         }
 
-        const reader = new FileReader();
-        reader.onload = function () {
-            const columns = parseCsvHeader(String(reader.result || ""));
-            spreadsheetColumns.textContent = columns.length
-                ? `CSV columns: ${columns.join(", ")}`
-                : "CSV header was not detected.";
-            renderColumnMapper(columns);
-        };
-        reader.readAsText(csvFile.slice(0, 4096));
+        currentSpreadsheetPreview = null;
+        spreadsheetColumns.textContent = zipSpreadsheetNames.length
+            ? "Spreadsheet found in ZIP. Expected fields such as media path, identity, taxon, locality, and datetime can be mapped after upload preparation."
+            : "Spreadsheet detected, but preview is unavailable. You can still upload it and continue with mapping.";
+        renderColumnMapper([]);
+        updatePathAdjustmentHint(null);
     }
 
     function updateLocalityWarning() {
@@ -514,14 +1164,13 @@
     }
 
     async function updateFileSummary() {
-        const files = Array.from(fileInput.files || []);
-        const manifest = droppedManifest.length === files.length
-            ? droppedManifest
-            : files.map((file, index) => ({
-                index: index,
-                filename: file.name,
-                relative_path: file.webkitRelativePath || file.name,
-            }));
+        const files = selectedEntries.map((entry) => entry.file);
+        updateMetadataAvailability(files.length > 0);
+        const manifest = selectedEntries.map((entry, index) => ({
+            index: index,
+            filename: entry.filename,
+            relative_path: entry.relative_path,
+        }));
         relativePathsInput.value = JSON.stringify(manifest);
 
         const spreadsheetFiles = files.filter(isSpreadsheet);
@@ -533,6 +1182,10 @@
 
         const relativePaths = manifest.map((item) => item.relative_path);
         const zipMediaPaths = await listZipMediaPaths(zipFiles);
+        currentMediaPaths = [
+            ...relativePaths.filter(isMediaPath),
+            ...zipMediaPaths,
+        ];
         const pathsForMapping = [
             ...relativePaths.filter((path) => path.includes("/")),
             ...zipMediaPaths.filter((path) => path.includes("/")),
@@ -567,10 +1220,21 @@
         }
     }
 
-    fileInput.addEventListener("change", function () {
-        droppedManifest = [];
-        updateFileSummary();
+    fileInput.addEventListener("change", async function () {
+        const addedEntries = Array.from(fileInput.files || []).map((file) => createSelectedEntry(file));
+        mergeSelectedEntries(addedEntries);
+        await updateFileSummary();
     });
+    if (prevStepButton) {
+        prevStepButton.addEventListener("click", function () {
+            goToStep(currentStep - 1);
+        });
+    }
+    if (nextStepButton) {
+        nextStepButton.addEventListener("click", function () {
+            goToStep(currentStep + 1);
+        });
+    }
     localityInput.addEventListener("blur", updateLocalityWarning);
     localityInput.addEventListener("input", updateLocalityWarning);
     checkedAtInput.addEventListener("input", updateBadges);
@@ -595,6 +1259,25 @@
         pathBasicPanel.classList.remove("d-none");
         updateDirectoryMappingFromUi();
     });
+    if (applyPathAdjustmentButton) {
+        applyPathAdjustmentButton.addEventListener("click", function () {
+            pathAdjustmentConfig = {...pendingPathAdjustmentConfig};
+            syncSpreadsheetPathAdjustmentInput();
+            updateColumnMappingFromUi();
+        });
+    }
+    if (clearPathAdjustmentButton) {
+        clearPathAdjustmentButton.addEventListener("click", function () {
+            pathAdjustmentConfig = {remove_prefix: "", add_prefix: ""};
+            syncSpreadsheetPathAdjustmentInput();
+            updateColumnMappingFromUi();
+        });
+    }
+    if (spreadsheetPathAdjustmentInput) {
+        spreadsheetPathAdjustmentInput.value = JSON.stringify(pathAdjustmentConfig);
+    }
+    updateMetadataAvailability((fileInput.files || []).length > 0);
+    updateWizardUi();
 
     window.addEventListener("dragover", preventBrowserDropNavigation);
     window.addEventListener("drop", preventBrowserDropNavigation);
@@ -665,8 +1348,9 @@
         const hasDirectory = entries.some((entry) => entry.isDirectory);
 
         if (!hasDirectory) {
-            droppedManifest = [];
-            fileInput.files = dataTransfer.files;
+            mergeSelectedEntries(
+                Array.from(dataTransfer.files || []).map((file) => createSelectedEntry(file))
+            );
             await updateFileSummary();
             return;
         }
@@ -677,22 +1361,16 @@
         }
 
         if (!collected.length) {
-            droppedManifest = [];
-            fileInput.files = dataTransfer.files;
+            mergeSelectedEntries(
+                Array.from(dataTransfer.files || []).map((file) => createSelectedEntry(file))
+            );
             await updateFileSummary();
             return;
         }
 
-        const transfer = new DataTransfer();
-        droppedManifest = collected.map((item, index) => {
-            transfer.items.add(item.file);
-            return {
-                index: index,
-                filename: item.file.name,
-                relative_path: item.relative_path,
-            };
-        });
-        fileInput.files = transfer.files;
+        mergeSelectedEntries(
+            collected.map((item) => createSelectedEntry(item.file, item.relative_path))
+        );
         await updateFileSummary();
     }
 

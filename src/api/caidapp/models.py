@@ -2017,3 +2017,16 @@ class IdentificationOutlierSuggestionResult(models.Model):
 
     def __str__(self):
         return f"Identification outliers for {self.workgroup} at {self.created_at}"
+
+
+class HomeDashboardSnapshot(models.Model):
+    """Persisted dashboard aggregates for one workgroup home screen."""
+
+    workgroup = models.OneToOneField(WorkGroup, on_delete=models.CASCADE, null=True, blank=True)
+    payload = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        scope = self.workgroup.name if self.workgroup else "global"
+        return f"Home dashboard snapshot for {scope} at {self.updated_at}"

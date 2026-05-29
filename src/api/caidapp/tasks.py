@@ -37,6 +37,7 @@ from .models import (
     WorkGroup,
     get_locality,
     get_taxon,
+    get_unique_code,
     get_unique_name,
     user_has_access_filter_params,
 )
@@ -303,7 +304,7 @@ def on_success_predict_taxon(
 
                 else:
                     nt_kwargs["users"] = [uploaded_archive.owner]
-                models.Notification.create_for(nt_kwargs)
+                models.Notification.create_for(**nt_kwargs)
             uploaded_archive.save()
     except Exception as e:
         logger.debug(str(traceback.format_exc()))
@@ -920,6 +921,66 @@ def _update_database_by_one_row_of_metadata(
     # Pokud je captured_at prázdný řetězec, NaN nebo NaT, nastavíme na None
     if (captured_at == "") or (isinstance(captured_at, float) and np.isnan(captured_at)) or pd.isnull(captured_at):
         captured_at = None
+
+    def _get_row_value(column_name):
+        if column_name not in row:
+            return None
+        value = row[column_name]
+        if value is None or pd.isna(value):
+            return None
+        if isinstance(value, str):
+            value = value.strip()
+            if value == "":
+                return None
+        return value
+
+    def _parse_mediafile_location():
+        latitude = _get_row_value("latitude")
+        longitude = _get_row_value("longitude")
+        if latitude is None or longitude is None:
+            return None
+        try:
+            lat = round(float(latitude), 3)
+            lon = round(float(longitude), 3)
+        except (TypeError, ValueError):
+            logger.warning("Invalid latitude/longitude in row %s: lat=%s lon=%s", index, latitude, longitude)
+            return None
+        return f"{lat},{lon}"
+
+    def _resolve_identity():
+        unique_name = _get_row_value("unique_name")
+        code = _get_row_value("code")
+        juv_code = _get_row_value("juv_code")
+        if unique_name is None and code is None and juv_code is None:
+            return None
+
+        workgroup = uploaded_archive.owner.workgroup
+        identity = None
+        if code is not None:
+            identity = get_unique_code(code, workgroup=workgroup)
+        elif unique_name is not None:
+            identity = get_unique_name(str(unique_name), workgroup=workgroup)
+
+        if identity is None:
+            return None
+
+        identity_updated = False
+        if unique_name is not None and identity.name != str(unique_name):
+            identity.name = str(unique_name)[:100]
+            identity_updated = True
+        if code is not None and identity.code != str(code):
+            identity.code = str(code)[:50]
+            identity_updated = True
+        if juv_code is not None and identity.juv_code != str(juv_code):
+            identity.juv_code = str(juv_code)[:50]
+            identity_updated = True
+        if identity_updated:
+            identity.save()
+        return identity
+
+    identity = _resolve_identity()
+    mediafile_location = _parse_mediafile_location()
+
     try:
         mf = uploaded_archive.mediafile_set.get(mediafile=str(image_rel_pth))
         # logger.debug("Using Mediafile generated before")
@@ -994,6 +1055,8 @@ def _update_database_by_one_row_of_metadata(
             mf.captured_at = captured_at
         if row_locality is not None:
             mf.locality = row_locality
+        if mediafile_location is not None:
+            mf.location = mediafile_location
         if "predicted_category_raw" in row:
             predicted_taxon = get_taxon(row["predicted_category_raw"])
             predicted_taxon_confidence = float(row["predicted_prob_raw"])
@@ -1010,9 +1073,7 @@ def _update_database_by_one_row_of_metadata(
         #     # ao.metadata_json = row.to_dict()
         #     ao.taxon = taxon
         #     ao.save()
-        identity = None
-        if extract_identites:
-            identity = get_unique_name(row["unique_name"], workgroup=uploaded_archive.owner.workgroup)
+        if identity is not None:
             mf.identity = identity
         logger.debug("  update mediafile in db with row of metadata")
 
@@ -1132,6 +1193,17 @@ def metadata_json_are_consistent(mediafiles: Generator[MediaFile, None, None]) -
 def create_dataframe_from_mediafiles(mediafiles: Generator[MediaFile, None, None]) -> pd.DataFrame:
     """Create DataFrame from MediaFiles."""
     records = []
+    model_backed_export_fields = [
+        "unique_name",
+        "code",
+        "juv_code",
+        "locality name",
+        "locality coordinates",
+        "latitude",
+        "longitude",
+        "original_path",
+        "datetime",
+    ]
     # go over mediafiles in set
     for mf in mediafiles:
         # logger.debug(f"{mf.metadata_json=}, {type(mf.metadata_json)=}")
@@ -1139,6 +1211,8 @@ def create_dataframe_from_mediafiles(mediafiles: Generator[MediaFile, None, None
         # logger.debug(f"{metadata_row=}, {type(metadata_row)=}")
         if (metadata_row is None) or ("predicted_category" not in metadata_row):
             metadata_row = {}
+        for field_name in model_backed_export_fields:
+            metadata_row.pop(field_name, None)
 
         if mf.taxon:
             metadata_row["predicted_category"] = mf.taxon.name
@@ -1148,6 +1222,11 @@ def create_dataframe_from_mediafiles(mediafiles: Generator[MediaFile, None, None
             metadata_row["locality name"] = mf.locality.name
             if mf.locality.location:
                 metadata_row["locality coordinates"] = str(mf.locality.location)
+        effective_location = mf.effective_location
+        if effective_location and "," in str(effective_location):
+            latitude, longitude = [part.strip() for part in str(effective_location).split(",", 1)]
+            metadata_row["latitude"] = latitude
+            metadata_row["longitude"] = longitude
         if mf.original_filename:
             metadata_row["original_path"] = mf.original_filename
         if mf.identity:
@@ -1155,6 +1234,8 @@ def create_dataframe_from_mediafiles(mediafiles: Generator[MediaFile, None, None
                 metadata_row["code"] = mf.identity.code
             if mf.identity.juv_code:
                 metadata_row["juv_code"] = mf.identity.juv_code
+        if mf.captured_at:
+            metadata_row["datetime"] = mf.captured_at.isoformat()
         metadata_row["uploaded_archive"] = mf.parent.name
         if mf.parent.locality_check_at:
             metadata_row["locality_check_at"] = mf.parent.locality_check_at

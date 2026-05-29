@@ -2,6 +2,11 @@
 {% load static %}
 {% load widget_tweaks %}
 
+{% block head %}
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+{% endblock %}
+
 {% block body %}
     <style>
         .upload-meta-icon {
@@ -35,6 +40,39 @@
         .upload-section-toggle[aria-expanded="true"] .upload-section-chevron {
             transform: rotate(180deg);
         }
+        .upload-metadata-card-muted {
+            opacity: 0.72;
+            transition: opacity 0.2s ease-in-out;
+        }
+        .upload-metadata-card-active {
+            opacity: 1;
+        }
+        .upload-pathcheck-success {
+            color: #146c43;
+        }
+        .upload-pathcheck-warning {
+            color: #9a4d00;
+        }
+        .upload-pathcheck-danger {
+            color: #b02a37;
+        }
+        .upload-wizard-step {
+            display: none;
+        }
+        .upload-wizard-step.is-active {
+            display: block;
+        }
+        .upload-inline-toggle {
+            width: 100%;
+            border: 1px solid var(--bs-border-color);
+            border-radius: var(--bs-border-radius);
+            background: var(--bs-tertiary-bg);
+            padding: 0.65rem 0.85rem;
+            text-align: left;
+        }
+        .upload-inline-toggle[aria-expanded="true"] .upload-section-chevron {
+            transform: rotate(180deg);
+        }
     </style>
 
     <div class="pagetitle">
@@ -63,6 +101,7 @@
             {{ form.directory_mapping }}
             {{ form.path_regex }}
             {{ form.spreadsheet_column_mapping }}
+            {{ form.spreadsheet_path_adjustment }}
             {% if not form.show_upload_target_choice %}
                 {{ form.upload_target }}
             {% endif %}
@@ -70,28 +109,47 @@
             {{ form.taxon_for_identification }}
             {{ form.is_for_identification }}
 
+            <div class="upload-wizard-step is-active" data-step="0">
             <div class="card mb-3">
                 <div class="card-body">
                     <h5 class="card-title">Files</h5>
                     <div id="new-upload-dropzone" class="border border-2 border-dashed rounded p-4 text-center bg-body-tertiary">
                         <p class="mb-2">Drag files, a directory, or a ZIP here.</p>
-                        <p class="text-muted small mb-3">Spreadsheet files can be selected together with media files.</p>
+                        <p class="text-muted small mb-3">Spreadsheet files in CSV or XLSX can be selected together with media files.</p>
                         {{ form.upload_files|add_class:"form-control" }}
                     </div>
                     <div class="form-text">{{ form.upload_files.help_text }}</div>
                     <div class="text-danger">{{ form.upload_files.errors }}</div>
                     <div class="mt-2 small d-none" id="new-upload-file-summary"></div>
+                    <button class="upload-inline-toggle d-none" type="button" data-bs-toggle="collapse" data-bs-target="#new-upload-selected-files-panel" id="new-upload-selected-files-button" aria-expanded="false">
+                        <span class="d-flex align-items-center justify-content-between gap-2">
+                            <span class="small fw-semibold"><i class="bi bi-files me-2"></i>Show selected files</span>
+                            <span class="d-flex align-items-center gap-2">
+                                <span class="badge text-bg-secondary" id="new-upload-selected-files-badge">0</span>
+                                <i class="bi bi-chevron-down upload-section-chevron"></i>
+                            </span>
+                        </span>
+                    </button>
+                    <div class="collapse mt-2" id="new-upload-selected-files-panel">
+                        <div class="d-none" id="new-upload-selected-files"></div>
+                    </div>
                     <div class="mt-1 small text-muted d-none" id="new-upload-path-summary"></div>
                     <div class="mt-1 small text-muted d-none" id="new-upload-spreadsheet-summary"></div>
                 </div>
             </div>
+            </div>
 
-            <div class="card mb-3">
+            <div class="upload-wizard-step" data-step="1">
+            <div class="card mb-3 upload-metadata-card-muted" id="new-upload-metadata-card">
                 <div class="card-body">
                     <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
                         <h5 class="card-title mb-0">Metadata</h5>
                         <span class="text-muted small">Click a row to open details.</span>
                     </div>
+                    <div class="small text-muted mb-3" id="new-upload-metadata-empty-state">
+                        Metadata will become available after files are selected.
+                    </div>
+                    <div class="d-none" id="new-upload-metadata-content">
 
                     {% if form.show_upload_target_choice or form.show_reid_options %}
                     <button class="upload-section-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#upload-target-panel" aria-expanded="true">
@@ -262,14 +320,69 @@
                         <div class="border rounded p-3">
                             <h6>Spreadsheet columns</h6>
                             <div class="small text-muted" id="new-upload-spreadsheet-columns">
-                                Upload a CSV to preview columns in the browser. XLS/XLSX columns are read on the server during preparation.
+                                Upload a CSV or XLSX, or include one in ZIP, to preview columns and map them to expected fields.
                             </div>
-                            <div class="mt-3" id="new-upload-column-mapper"></div>
+                            <div class="small mt-2 d-none" id="new-upload-spreadsheet-path-check"></div>
+                            <button class="upload-section-toggle mt-3" type="button" data-bs-toggle="collapse" data-bs-target="#new-upload-column-mapper-panel" id="new-upload-column-mapper-button" aria-expanded="false">
+                                <span class="d-flex align-items-center justify-content-between gap-2">
+                                    <span><i class="bi bi-sliders me-2"></i>Column mapping</span>
+                                    <span class="d-flex align-items-center gap-2">
+                                        <span class="badge text-bg-secondary" id="new-upload-column-mapper-badge">hidden</span>
+                                        <i class="bi bi-chevron-down upload-section-chevron"></i>
+                                    </span>
+                                </span>
+                            </button>
+                            <div class="collapse mt-2" id="new-upload-column-mapper-panel">
+                                <div class="mt-2" id="new-upload-column-mapper"></div>
+                            </div>
+                            <button class="upload-section-toggle mt-3 d-none" type="button" data-bs-toggle="collapse" data-bs-target="#new-upload-path-adjustment-panel" id="new-upload-path-adjustment-button" aria-expanded="false">
+                                <span class="d-flex align-items-center justify-content-between gap-2">
+                                    <span><i class="bi bi-wrench-adjustable-circle me-2"></i>Path adjustment</span>
+                                    <span class="d-flex align-items-center gap-2">
+                                        <span class="badge text-bg-warning" id="new-upload-path-adjustment-badge">review</span>
+                                        <i class="bi bi-chevron-down upload-section-chevron"></i>
+                                    </span>
+                                </span>
+                            </button>
+                            <div class="collapse mt-2" id="new-upload-path-adjustment-panel">
+                                <div class="border rounded p-3 bg-body-tertiary">
+                                    <p class="small text-muted mb-3">
+                                        These unmatched paths look similar. Usually this means that one side contains an extra leading directory.
+                                    </p>
+                                    <div class="mb-3">
+                                        <div class="fw-semibold small">Uploaded media path</div>
+                                        <code class="d-block mt-1" id="new-upload-path-hint-media"></code>
+                                    </div>
+                                    <div class="mb-3">
+                                        <div class="fw-semibold small">Spreadsheet path</div>
+                                        <code class="d-block mt-1" id="new-upload-path-hint-spreadsheet"></code>
+                                    </div>
+                                    <div class="mb-3">
+                                        <div class="fw-semibold small">Shared suffix</div>
+                                        <code class="d-block mt-1" id="new-upload-path-hint-common"></code>
+                                    </div>
+                                    <div>
+                                        <div class="fw-semibold small">Suggested adjustment</div>
+                                        <div class="small mt-1" id="new-upload-path-hint-suggestion"></div>
+                                        <div class="mt-3 d-flex gap-2">
+                                            <button type="button" class="btn btn-sm btn-primary" id="new-upload-apply-path-adjustment">
+                                                Apply suggested adjustment
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary d-none" id="new-upload-clear-path-adjustment">
+                                                Clear applied adjustment
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
+                    </div>
                     </div>
                 </div>
             </div>
+            </div>
 
+            <div class="upload-wizard-step" data-step="2">
             <div class="card mb-3">
                 <div class="card-body">
                     <h5 class="card-title">Consent</h5>
@@ -287,11 +400,27 @@
             <div class="progress d-none mb-3" id="new-upload-progress">
                 <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%">0%</div>
             </div>
+            </div>
 
-            <button class="btn btn-primary" type="submit" id="new-upload-submit">
-                <i class="bi bi-cloud-arrow-up"></i>
-                Upload
-            </button>
+            <div class="card mb-3">
+                <div class="card-body d-flex align-items-center justify-content-between flex-wrap gap-2">
+                    <button class="btn btn-outline-secondary" type="button" id="new-upload-prev">
+                        <i class="bi bi-arrow-left"></i>
+                        Previous
+                    </button>
+                    <div class="small text-muted" id="new-upload-step-label">Step 1 of 3</div>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-primary" type="button" id="new-upload-next">
+                            Next
+                            <i class="bi bi-arrow-right"></i>
+                        </button>
+                        <button class="btn btn-primary d-none" type="submit" id="new-upload-submit">
+                            <i class="bi bi-cloud-arrow-up"></i>
+                            Upload
+                        </button>
+                    </div>
+                </div>
+            </div>
         </form>
     </section>
 {% endblock %}

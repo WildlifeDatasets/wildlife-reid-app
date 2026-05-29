@@ -83,6 +83,25 @@ def _set_taxon_for_sequence(mediafile: MediaFile, taxon, caiduser, commit=True):
     return updated_count
 
 
+def _replace_observations_with_nothing(mediafile: MediaFile, caiduser):
+    """Replace all observations for a mediafile with a single Nothing observation."""
+    now = timezone.now()
+    nothing_taxon = models.get_taxon("Nothing")
+
+    with transaction.atomic():
+        deleted_count, _ = AnimalObservation.objects.filter(mediafile=mediafile).delete()
+        AnimalObservation.objects.create(
+            mediafile=mediafile,
+            taxon=nothing_taxon,
+            taxon_verified=True,
+            taxon_verified_at=now,
+            updated_by=caiduser,
+            updated_at=now,
+        )
+
+    return deleted_count
+
+
 class ObservationInline(InlineFormSetFactory):
     model = AnimalObservation
     form_class = forms.AnimalObservationForm
@@ -145,6 +164,8 @@ class MediaFileUpdateView(LoginRequiredMixin, UpdateWithInlinesView):
 
     def get_success_url(self):
         """After successful update, return to previous page."""
+        if self.request.POST.get("mark_empty_image"):
+            return reverse("caidapp:media_file_update", args=[self.object.id])
         return self._get_next_url()
 
     def _get_taxon_from_inline_observations(self):
@@ -193,6 +214,20 @@ class MediaFileUpdateView(LoginRequiredMixin, UpdateWithInlinesView):
             except Exception as e:
                 logger.exception(f"Failed to set taxon for sequence, {e}")
                 messages.error(self.request, "Failed to set taxon for sequence.")
+
+        if self.request.POST.get("mark_empty_image"):
+            try:
+                deleted_count = _replace_observations_with_nothing(self.object, self.request.user.caiduser)
+                if deleted_count:
+                    messages.warning(
+                        self.request,
+                        f"Replaced {deleted_count} existing observations with a single empty-image observation.",
+                    )
+                else:
+                    messages.success(self.request, "Marked this media file as an empty image.")
+            except Exception:
+                logger.exception("Failed to mark mediafile as empty image")
+                messages.error(self.request, "Failed to mark this media file as an empty image.")
 
         return response
 
@@ -441,6 +476,8 @@ class MediaFileGetMissingTaxonView(LoginRequiredMixin, UpdateWithInlinesView):
 
     def get_success_url(self):
         """After successful update, return to previous page."""
+        if self.request.POST.get("mark_empty_image"):
+            return reverse("caidapp:media_file_update", args=[self.object.id])
         uploadedarchive = self.get_uploadedarchive()
         next_url = _mta_get_next_url(
             self.request,
@@ -507,6 +544,20 @@ class MediaFileGetMissingTaxonView(LoginRequiredMixin, UpdateWithInlinesView):
             except Exception as e:
                 logger.exception(f"Failed to set taxon for sequence {e}")
                 messages.error(self.request, "Failed to set taxon for sequence.")
+
+        if self.request.POST.get("mark_empty_image"):
+            try:
+                deleted_count = _replace_observations_with_nothing(self.object, self.request.user.caiduser)
+                if deleted_count:
+                    messages.warning(
+                        self.request,
+                        f"Replaced {deleted_count} existing observations with a single empty-image observation.",
+                    )
+                else:
+                    messages.success(self.request, "Marked this media file as an empty image.")
+            except Exception:
+                logger.exception("Failed to mark mediafile as empty image")
+                messages.error(self.request, "Failed to mark this media file as an empty image.")
 
         return response
 

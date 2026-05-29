@@ -8,6 +8,7 @@ from caidapp import tasks
 from caidapp import views
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.core.management import call_command
 from django.test import TestCase
 from django.urls import reverse
 import pandas as pd
@@ -52,6 +53,47 @@ class BasicFlowTest(TestCase):
 
         response = self.client.get(reverse("caidapp:home"))
         self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Dashboard")
+        self.assertContains(response, "Monthly Images vs Videos")
+
+
+class HomeDashboardSnapshotTest(TestCase):
+    def setUp(self):
+        self.caiduser = CaidUserFactory()
+        self.user = self.caiduser.user
+        self.client.login(username=self.user.username, password="test123")
+
+    def test_refresh_home_dashboard_command_creates_snapshot(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        wolf = TaxonFactory(name="Wolf")
+        image_mediafile = MediaFileFactory(parent=archive, media_type="image")
+        video_mediafile = MediaFileFactory(parent=archive, media_type="video", original_filename="clip.mp4")
+        AnimalObservationFactory(mediafile=image_mediafile, taxon=wolf, taxon_verified=True)
+        AnimalObservationFactory(mediafile=video_mediafile, taxon=wolf, taxon_verified=True)
+
+        output = StringIO()
+        call_command("refresh_home_dashboard_stats", workgroup_id=self.caiduser.workgroup.id, stdout=output)
+
+        snapshot = models.HomeDashboardSnapshot.objects.get(workgroup=self.caiduser.workgroup)
+        summary = snapshot.payload["summary"]
+        self.assertEqual(summary["total_mediafiles"], 2)
+        self.assertEqual(summary["images_count"], 1)
+        self.assertEqual(summary["videos_count"], 1)
+        self.assertIn("Refreshed 1 home dashboard snapshot", output.getvalue())
+
+    def test_home_view_uses_persisted_snapshot_when_available(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        wolf = TaxonFactory(name="Wolf")
+        mediafile = MediaFileFactory(parent=archive, media_type="image")
+        AnimalObservationFactory(mediafile=mediafile, taxon=wolf, taxon_verified=True)
+        call_command("refresh_home_dashboard_stats", workgroup_id=self.caiduser.workgroup.id)
+
+        response = self.client.get(reverse("caidapp:home"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "daily snapshot")
+        self.assertContains(response, "Top Taxa by Media Files")
+        self.assertContains(response, "Monthly Images vs Videos")
 
 
 class MediafileExportTest(TestCase):
@@ -101,6 +143,112 @@ class MediafileExportTest(TestCase):
         self.assertIn("Canis_lupus", path)
         self.assertIn("Alpha_Female", path)
         self.assertTrue(path.endswith(".jpg"))
+
+
+class MediaFileUpdateEmptyObservationTest(TestCase):
+    def setUp(self):
+        self.caiduser = CaidUserFactory()
+        self.user = self.caiduser.user
+        self.client.login(username=self.user.username, password="test123")
+
+    def _base_mediafile_update_post_data(self, mediafile, *, total_forms, initial_forms, extra_form_data=None):
+        data = {
+            "next": "",
+            "observations-TOTAL_FORMS": str(total_forms),
+            "observations-INITIAL_FORMS": str(initial_forms),
+            "observations-MIN_NUM_FORMS": "0",
+            "observations-MAX_NUM_FORMS": "1000",
+            "locality": "",
+            "location_0": "",
+            "location_1": "",
+            "captured_at": "",
+            "note": "",
+        }
+        if extra_form_data:
+            data.update(extra_form_data)
+        return data
+
+    def test_mark_empty_image_creates_nothing_observation_when_none_exist(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        mediafile = MediaFileFactory(parent=archive)
+
+        response = self.client.post(
+            reverse("caidapp:media_file_update", args=[mediafile.id]),
+            self._base_mediafile_update_post_data(
+                mediafile,
+                total_forms=0,
+                initial_forms=0,
+                extra_form_data={"mark_empty_image": "1"},
+            ),
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("caidapp:media_file_update", args=[mediafile.id]))
+        mediafile.refresh_from_db()
+        observations = list(mediafile.observations.all())
+        self.assertEqual(len(observations), 1)
+        self.assertEqual(observations[0].taxon.name, "Nothing")
+        self.assertTrue(observations[0].taxon_verified)
+        self.assertIsNone(observations[0].bbox_x_center)
+        self.assertIsNone(observations[0].bbox_y_center)
+        self.assertIsNone(observations[0].bbox_width)
+        self.assertIsNone(observations[0].bbox_height)
+
+    def test_mark_empty_image_replaces_existing_observations_with_nothing(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        mediafile = MediaFileFactory(parent=archive)
+        taxon_wolf = TaxonFactory(name="Wolf")
+        taxon_lynx = TaxonFactory(name="Lynx")
+        obs_one = AnimalObservationFactory(mediafile=mediafile, taxon=taxon_wolf)
+        obs_two = AnimalObservationFactory(mediafile=mediafile, taxon=taxon_lynx)
+
+        response = self.client.post(
+            reverse("caidapp:media_file_update", args=[mediafile.id]),
+            self._base_mediafile_update_post_data(
+                mediafile,
+                total_forms=2,
+                initial_forms=2,
+                extra_form_data={
+                    "observations-0-id": str(obs_one.id),
+                    "observations-0-mediafile": str(mediafile.id),
+                    "observations-0-taxon": str(taxon_wolf.id),
+                    "observations-0-taxon_verified": "on",
+                    "observations-0-identity": "",
+                    "observations-0-identity_is_representative": "",
+                    "observations-0-orientation": "N",
+                    "observations-0-bbox_x_center": "",
+                    "observations-0-bbox_y_center": "",
+                    "observations-0-bbox_width": "",
+                    "observations-0-bbox_height": "",
+                    "observations-0-DELETE": "",
+                    "observations-1-id": str(obs_two.id),
+                    "observations-1-mediafile": str(mediafile.id),
+                    "observations-1-taxon": str(taxon_lynx.id),
+                    "observations-1-taxon_verified": "on",
+                    "observations-1-identity": "",
+                    "observations-1-identity_is_representative": "",
+                    "observations-1-orientation": "N",
+                    "observations-1-bbox_x_center": "",
+                    "observations-1-bbox_y_center": "",
+                    "observations-1-bbox_width": "",
+                    "observations-1-bbox_height": "",
+                    "observations-1-DELETE": "",
+                    "mark_empty_image": "1",
+                },
+            ),
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("caidapp:media_file_update", args=[mediafile.id]))
+        mediafile.refresh_from_db()
+        observations = list(mediafile.observations.order_by("id"))
+        self.assertEqual(len(observations), 1)
+        self.assertEqual(observations[0].taxon.name, "Nothing")
+        self.assertTrue(observations[0].taxon_verified)
+        self.assertIsNone(observations[0].bbox_x_center)
+        self.assertIsNone(observations[0].bbox_y_center)
+        self.assertIsNone(observations[0].bbox_width)
+        self.assertIsNone(observations[0].bbox_height)
 
 
 class SequenceViewTest(TestCase):

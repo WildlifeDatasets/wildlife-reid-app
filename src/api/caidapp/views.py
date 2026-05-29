@@ -82,6 +82,7 @@ from .models import (
     get_all_relevant_localities,
     user_has_access_filter_params,
 )
+from .services.home_dashboard import render_home_dashboard_context
 from .services.workgroup_migration import migrate_user_to_workgroup
 from .services.workgroup_next_steps import build_next_steps
 from .tasks import (
@@ -173,9 +174,13 @@ def staff_or_impersonated_staff_required(view_func):
 
 def home_view(request):
     """Render the home view."""
+    context = {}
+    if request.user.is_authenticated:
+        context = render_home_dashboard_context(request.user.caiduser)
     return render(
         request,
         "caidapp/home.html",
+        context,
     )
 
 
@@ -2160,6 +2165,9 @@ class NewUploadView(LoginRequiredMixin, UserPassesTestMixin, View):
         spreadsheet_column_mapping = upload_services.parse_json_mapping(
             form.cleaned_data.get("spreadsheet_column_mapping", "")
         )
+        spreadsheet_path_adjustment = upload_services.parse_json_mapping(
+            form.cleaned_data.get("spreadsheet_path_adjustment", "")
+        )
 
         try:
             zip_result = upload_services.build_upload_zip(
@@ -2170,6 +2178,7 @@ class NewUploadView(LoginRequiredMixin, UserPassesTestMixin, View):
                 directory_mapping=directory_mapping,
                 path_regex=form.cleaned_data.get("path_regex", ""),
                 spreadsheet_column_mapping=spreadsheet_column_mapping,
+                spreadsheet_path_adjustment=spreadsheet_path_adjustment,
             )
         except Exception as exc:
             logger.warning("New upload preparation failed: %s", exc)
@@ -4404,6 +4413,9 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
                     "taxon": "taxon",
                     "category": "taxon",
                     "unique name": "unique_name",
+                    "identity code": "code",
+                    "juvenile code": "juv_code",
+                    "juv code": "juv_code",
                     "location_name": "locality_name",
                     "locality name": "locality_name",
                     "lat": "latitude",
@@ -4458,20 +4470,30 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
 
                         code = row["code"] if "code" in row else ""
                         unique_name = row["unique_name"] if "unique_name" in row else ""
+                        juv_code = row["juv_code"] if "juv_code" in row else ""
+                        identity = None
                         if code:
                             identity = models.get_unique_code(code, workgroup=uploaded_archive.owner.workgroup)
-                            if identity is None:
-                                logger.warning("Could not find identity with code: " + code)
-                            counter_fields_updated += 1
-                            counter_individuality += 1
-                            if unique_name:
-                                ao.identity.name = unique_name.strip()
-                                counter_fields_updated += 1
-                                ao.identity.save()
                         elif unique_name:
-                            ao.identity = models.get_unique_name(
+                            identity = models.get_unique_name(
                                 row["unique_name"], workgroup=uploaded_archive.owner.workgroup
                             )
+                        if identity is not None:
+                            identity_updated = False
+                            if unique_name and identity.name != unique_name.strip():
+                                identity.name = unique_name.strip()
+                                identity_updated = True
+                            if code and identity.code != str(code).strip():
+                                identity.code = str(code).strip()
+                                identity_updated = True
+                            if juv_code and identity.juv_code != str(juv_code).strip():
+                                identity.juv_code = str(juv_code).strip()
+                                identity_updated = True
+                            if identity_updated:
+                                identity.save()
+                                counter_fields_updated += 1
+                            ao.identity = identity
+                            mf.identity = identity
                             counter_fields_updated += 1
                             counter_individuality += 1
 
@@ -4481,11 +4503,14 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
                             )
                             if locality_obj:
                                 mf.locality = locality_obj
-                                if ("latitude" in row) and ("longitude" in row):
-                                    mf.locality.set_location(float(row["latitude"]), float(row["longitude"]))
-                                    counter_fields_updated += 1
                                 counter_fields_updated += 1
                                 counter_locality += 1
+                        if ("latitude" in row) and ("longitude" in row):
+                            latitude = row["latitude"]
+                            longitude = row["longitude"]
+                            if not pd.isna(latitude) and not pd.isna(longitude):
+                                mf.location = f"{round(float(latitude), 3)},{round(float(longitude), 3)}"
+                                counter_fields_updated += 1
                         if "datetime" in row:
                             # check if it is in django compatible datetime format
                             row_datetime = row["datetime"]
@@ -4587,8 +4612,8 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
                     "button": "Save",
                     "errors": form.errors,
                     "text_note": "The 'original_path' is required in the uploaded spreadsheet. "
-                    + "The 'predicted_category', 'unique_name', 'locality name', 'latitude', "
-                    + "'longitude', 'datetime' are optional.",
+                    + "The 'predicted_category', 'unique_name', 'code', 'juv_code', 'locality name', "
+                    + "'latitude', 'longitude', 'datetime' are optional.",
                 },
             )
 
@@ -4609,8 +4634,8 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
                 "button": "Save",
                 "next": prev_url,
                 "text_note": "The 'original_path' is required in the uploaded spreadsheet. "
-                + "The 'predicted_category', 'unique_name', 'locality name', 'latitude', "
-                + "'longitude', 'datetime' are optional.",
+                + "The 'predicted_category', 'unique_name', 'code', 'juv_code', 'locality name', "
+                + "'latitude', 'longitude', 'datetime' are optional.",
             },
         )
 

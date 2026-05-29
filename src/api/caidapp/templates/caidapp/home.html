@@ -3,14 +3,8 @@
 {% load widget_tweaks %}
 
 {% block head %}
-    {#    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>#}
-    <!-- Bootstrap JS -->
-    {#<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"#}
-    {#        integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p"#}
-    {#        crossorigin="anonymous"></script>#}
     {{ form.media }}
-    <!-- Include jQuery -->
-
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 {% endblock %}
 
 {% block body %}
@@ -75,6 +69,31 @@
                 {%  endif %}
 
 
+            </div>
+        </div>
+        <div class="card mt-3">
+            <div class="card-body">
+                <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-2 mb-3">
+                    <div>
+                        <h2 class="card-title mb-1">Dashboard</h2>
+                        <p class="text-muted mb-0">
+                            Updated {{ home_dashboard_updated_at|date:"Y-m-d H:i" }} from {{ home_dashboard_source }}.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="row g-3">
+                    <div class="col-xl-7">
+                        {% autoescape off %}
+                            {{ home_dashboard_charts.monthly_by_type_html }}
+                        {% endautoescape %}
+                    </div>
+                    <div class="col-xl-5">
+                        {% autoescape off %}
+                            {{ home_dashboard_charts.top_taxons_html }}
+                        {% endautoescape %}
+                    </div>
+                </div>
             </div>
         </div>
         </div><!-- End Page Title -->

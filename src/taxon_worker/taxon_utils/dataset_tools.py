@@ -1483,13 +1483,17 @@ def data_preprocessing(
 
 def find_any_spreadsheet_and_save_as_csv(tmp_dir, csv_path):
     """Find any spreadsheet in directory and save it as CSV."""
-    post_update_path = sorted(list(tmp_dir.glob("**/*.csv")) + list(tmp_dir.glob("**/*.xls")) + list(tmp_dir.glob("**/*.xlsx")))
-    post_update_path = post_update_path[-1] if len(post_update_path) > 0 else None
+    preferred_post_update_path = next(iter(sorted(tmp_dir.glob(f"**/{csv_path.name}"))), None)
+    if preferred_post_update_path is not None:
+        post_update_path = preferred_post_update_path
+    else:
+        post_update_path = sorted(list(tmp_dir.glob("**/*.csv")) + list(tmp_dir.glob("**/*.xlsx")))
+        post_update_path = post_update_path[-1] if len(post_update_path) > 0 else None
     logger.debug(f"{post_update_path=}")
     if post_update_path is not None:
         if post_update_path.suffix == ".csv":
             df_post_update = pd.read_csv(post_update_path)
-        elif post_update_path.suffix in (".xls", ".xlsx"):
+        elif post_update_path.suffix == ".xlsx":
             df_post_update = pd.read_excel(post_update_path)
         else:
             df_post_update = None
@@ -1523,6 +1527,7 @@ def make_zipfile_with_categories(
     metadata = metadata.copy(deep=True)
 
     # create category subdirectories and move images based on prediction
+    kept_rows = []
     new_image_paths = []
     for i, row in metadata.iterrows():
         if pd.notnull(row["predicted_category"]):
@@ -1530,12 +1535,27 @@ def make_zipfile_with_categories(
         else:
             predicted_category = f"class_{row['predicted_class_id']}"
 
-        image_path = Path(media_dir_path) / row["image_path"]
+        candidate_paths = [Path(media_dir_path) / row["image_path"]]
+        for extra_path_key in ("absolute_media_path", "full_image_path"):
+            extra_path = row.get(extra_path_key)
+            if pd.notnull(extra_path):
+                candidate_paths.append(Path(extra_path))
+
+        image_path = next((path for path in candidate_paths if path.is_file()), None)
+        if image_path is None:
+            logger.warning(
+                "Skipping missing media file while creating categorized ZIP: %s",
+                row.get("image_path"),
+            )
+            continue
+
         target_dir = Path(tmp_dir, predicted_category)
         target_dir.mkdir(parents=True, exist_ok=True)
         target_image_path = target_dir / row["image_path"]
         shutil.copy(image_path, target_image_path)
+        kept_rows.append(i)
         new_image_paths.append(os.path.join(predicted_category, row["image_path"]))
+    metadata = metadata.loc[kept_rows].copy()
     metadata["image_path"] = new_image_paths
 
     # save metadata file

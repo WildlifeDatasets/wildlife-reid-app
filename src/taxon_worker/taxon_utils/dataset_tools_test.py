@@ -220,6 +220,54 @@ def test_data_preprocessing_with_user_directory_locality_mapping(tmp_path):
     assert set(metadata["location"]) == {"xandovice", "ypovice", "zareci"}
 
 
+def test_find_any_spreadsheet_and_save_as_csv_prefers_normalized_csv(tmp_path):
+    tmp_dir = tmp_path / "input"
+    tmp_dir.mkdir()
+    pd.DataFrame([{"original path": "ignored.jpg"}]).to_excel(tmp_dir / "metadata.xlsx", index=False)
+    pd.DataFrame([{"original_path": "kept.jpg", "unique_name": "Charles"}]).to_csv(
+        tmp_dir / "mediafile.post_update.csv",
+        index=False,
+    )
+
+    output_csv_path = tmp_path / "output" / "mediafile.post_update.csv"
+    dataset_tools.find_any_spreadsheet_and_save_as_csv(tmp_dir, output_csv_path)
+
+    saved_df = pd.read_csv(output_csv_path)
+    assert "original_path" in saved_df.columns
+    assert saved_df["original_path"].iloc[0] == "kept.jpg"
+
+
+def test_make_zipfile_with_categories_skips_missing_media_files(tmp_path):
+    media_dir = tmp_path / "media"
+    media_dir.mkdir()
+    existing_file = media_dir / "existing.webp"
+    existing_file.write_bytes(b"test")
+
+    metadata = pd.DataFrame(
+        [
+            {
+                "image_path": "existing.webp",
+                "predicted_category": "lynx",
+                "predicted_class_id": 1,
+                "absolute_media_path": str(existing_file),
+            },
+            {
+                "image_path": "missing.webp",
+                "predicted_category": "lynx",
+                "predicted_class_id": 1,
+                "absolute_media_path": str(media_dir / "missing.webp"),
+            },
+        ]
+    )
+
+    zip_path = tmp_path / "categorized.zip"
+    updated_metadata = dataset_tools.make_zipfile_with_categories(zip_path, media_dir, metadata)
+
+    assert zip_path.exists()
+    assert len(updated_metadata) == 1
+    assert updated_metadata["image_path"].iloc[0] == "lynx/existing.webp"
+
+
 def test_make_input_tarfile():
     """Test create input tar file."""
     dir_path = CAID_DATASET_BASEDIR / "test_micro_data"

@@ -7,6 +7,7 @@ from io import BytesIO
 from pathlib import Path
 from unittest.mock import patch
 
+import pandas as pd
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings, tag
 from django.urls import reverse
@@ -65,6 +66,16 @@ class NewUploadViewTest(TestCase):
         if extra_data:
             data.update(extra_data)
         return self.client.post(reverse("caidapp:new_upload"), data)
+
+    def _make_xlsx_file(self, filename, records):
+        buffer = BytesIO()
+        pd.DataFrame(records).to_excel(buffer, index=False)
+        buffer.seek(0)
+        return SimpleUploadedFile(
+            filename,
+            buffer.read(),
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
 
     def test_get_requires_upload_capability(self):
         regular_caiduser = CaidUserFactory()
@@ -165,6 +176,140 @@ class NewUploadViewTest(TestCase):
             self.assertIn("metadata.csv", archive.namelist())
         self.assertRegex(uploaded_archive.name, r"^upload_\d{8}-\d{6}$")
         self.assertEqual(uploaded_archive.import_mapping["spreadsheet"]["normalized_columns"], ["original_path", "taxon"])
+        run_processing.assert_called_once()
+
+    @patch("caidapp.views.run_species_prediction_async")
+    def test_xlsx_spreadsheet_mapping_creates_normalized_csv_in_generated_zip(self, run_processing):
+        spreadsheet = self._make_xlsx_file(
+            "metadata.xlsx",
+            [{"image_name": "first.jpg", "animal_id": "Charles"}],
+        )
+
+        response = self._post_upload(
+            extra_data={
+                "spreadsheet_column_mapping": json.dumps(
+                    {"original_path": "image_name", "unique_name": "animal_id"}
+                )
+            },
+            files=[
+                SimpleUploadedFile("first.jpg", b"fake image 1", content_type="image/jpeg"),
+                spreadsheet,
+            ],
+        )
+
+        self.assertEqual(response.status_code, 200)
+        uploaded_archive = models.UploadedArchive.objects.get()
+        with zipfile.ZipFile(uploaded_archive.archivefile.path) as archive:
+            self.assertIn("metadata.xlsx", archive.namelist())
+            self.assertIn("mediafile.post_update.csv", archive.namelist())
+            normalized_csv = archive.read("mediafile.post_update.csv").decode("utf-8-sig")
+        self.assertIn("original_path,unique_name", normalized_csv)
+        self.assertIn("first.jpg,Charles", normalized_csv)
+        run_processing.assert_called_once()
+
+    @patch("caidapp.views.run_species_prediction_async")
+    def test_spreadsheet_path_adjustment_can_prepend_missing_prefix(self, run_processing):
+        spreadsheet = self._make_xlsx_file(
+            "metadata.xlsx",
+            [{"image_name": "first.jpg", "animal_id": "Charles"}],
+        )
+
+        response = self._post_upload(
+            extra_data={
+                "spreadsheet_column_mapping": json.dumps(
+                    {"original_path": "image_name", "unique_name": "animal_id"}
+                ),
+                "spreadsheet_path_adjustment": json.dumps(
+                    {"remove_prefix": "", "add_prefix": "Brdy/Lynx/"}
+                ),
+            },
+            files=[
+                SimpleUploadedFile("Brdy/Lynx/first.jpg", b"fake image 1", content_type="image/jpeg"),
+                spreadsheet,
+            ],
+        )
+
+        self.assertEqual(response.status_code, 200)
+        uploaded_archive = models.UploadedArchive.objects.get()
+        self.assertEqual(
+            uploaded_archive.import_mapping["spreadsheet"]["path_adjustment"],
+            {"remove_prefix": "", "add_prefix": "Brdy/Lynx/"},
+        )
+        with zipfile.ZipFile(uploaded_archive.archivefile.path) as archive:
+            normalized_csv = archive.read("mediafile.post_update.csv").decode("utf-8-sig")
+        self.assertIn("Brdy/Lynx/first.jpg,Charles", normalized_csv)
+        run_processing.assert_called_once()
+
+    @patch("caidapp.views.run_species_prediction_async")
+    def test_spreadsheet_path_adjustment_can_remove_extra_prefix(self, run_processing):
+        spreadsheet = self._make_xlsx_file(
+            "metadata.xlsx",
+            [{"image_name": "dataset/Brdy/Lynx/first.jpg", "animal_id": "Charles"}],
+        )
+
+        response = self._post_upload(
+            extra_data={
+                "spreadsheet_column_mapping": json.dumps(
+                    {"original_path": "image_name", "unique_name": "animal_id"}
+                ),
+                "spreadsheet_path_adjustment": json.dumps(
+                    {"remove_prefix": "dataset/", "add_prefix": ""}
+                ),
+            },
+            files=[
+                SimpleUploadedFile("Brdy/Lynx/first.jpg", b"fake image 1", content_type="image/jpeg"),
+                spreadsheet,
+            ],
+        )
+
+        self.assertEqual(response.status_code, 200)
+        uploaded_archive = models.UploadedArchive.objects.get()
+        self.assertEqual(
+            uploaded_archive.import_mapping["spreadsheet"]["path_adjustment"],
+            {"remove_prefix": "dataset/", "add_prefix": ""},
+        )
+        with zipfile.ZipFile(uploaded_archive.archivefile.path) as archive:
+            normalized_csv = archive.read("mediafile.post_update.csv").decode("utf-8-sig")
+        self.assertIn("Brdy/Lynx/first.jpg,Charles", normalized_csv)
+        self.assertNotIn("dataset/Brdy/Lynx/first.jpg,Charles", normalized_csv)
+        run_processing.assert_called_once()
+
+    @patch("caidapp.views.run_species_prediction_async")
+    def test_zip_internal_xlsx_mapping_creates_normalized_csv_in_archive(self, run_processing):
+        spreadsheet_buffer = BytesIO()
+        pd.DataFrame([{"file_ref": "Brdy/Lynx/first.jpg", "animal_id": "Charles"}]).to_excel(
+            spreadsheet_buffer,
+            index=False,
+        )
+        spreadsheet_buffer.seek(0)
+
+        zip_buffer = BytesIO()
+        with zipfile.ZipFile(zip_buffer, "w") as archive:
+            archive.writestr("Brdy/Lynx/first.jpg", b"fake image")
+            archive.writestr("metadata.xlsx", spreadsheet_buffer.read())
+        zip_buffer.seek(0)
+
+        response = self._post_upload(
+            extra_data={
+                "spreadsheet_column_mapping": json.dumps(
+                    {"original_path": "file_ref", "unique_name": "animal_id"}
+                )
+            },
+            files=[SimpleUploadedFile("Brdy_2026-05-01.zip", zip_buffer.read(), content_type="application/zip")],
+        )
+
+        self.assertEqual(response.status_code, 200)
+        uploaded_archive = models.UploadedArchive.objects.get()
+        with zipfile.ZipFile(uploaded_archive.archivefile.path) as archive:
+            self.assertIn("metadata.xlsx", archive.namelist())
+            self.assertIn("mediafile.post_update.csv", archive.namelist())
+            normalized_csv = archive.read("mediafile.post_update.csv").decode("utf-8-sig")
+        self.assertIn("original_path,unique_name", normalized_csv)
+        self.assertIn("Brdy/Lynx/first.jpg,Charles", normalized_csv)
+        self.assertEqual(
+            uploaded_archive.import_mapping["spreadsheet"]["normalized_csv_filename"],
+            "mediafile.post_update.csv",
+        )
         run_processing.assert_called_once()
 
     @patch("caidapp.views.run_species_prediction_async")

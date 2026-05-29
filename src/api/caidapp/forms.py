@@ -523,7 +523,7 @@ class NewUploadForm(forms.Form):
     spreadsheet_file = forms.FileField(
         required=False,
         label="Spreadsheet",
-        widget=forms.FileInput(attrs={"accept": ".csv,.xls,.xlsx"}),
+        widget=forms.FileInput(attrs={"accept": ".csv,.xlsx"}),
     )
     locality_at_upload = forms.CharField(
         label="Locality",
@@ -555,6 +555,7 @@ class NewUploadForm(forms.Form):
     directory_mapping = forms.CharField(required=False, widget=forms.HiddenInput())
     path_regex = forms.CharField(required=False, widget=forms.HiddenInput())
     spreadsheet_column_mapping = forms.CharField(required=False, widget=forms.HiddenInput())
+    spreadsheet_path_adjustment = forms.CharField(required=False, widget=forms.HiddenInput())
     upload_relative_paths = forms.CharField(required=False, widget=forms.HiddenInput())
     ml_consent = forms.BooleanField(
         widget=forms.CheckboxInput(),
@@ -624,8 +625,8 @@ class NewUploadForm(forms.Form):
 
         if spreadsheet_file:
             suffix = Path(spreadsheet_file.name).suffix.lower()
-            if suffix not in (".csv", ".xls", ".xlsx"):
-                self.add_error("spreadsheet_file", "Only CSV, XLS and XLSX files are supported.")
+            if suffix not in (".csv", ".xlsx"):
+                self.add_error("spreadsheet_file", "Only CSV and XLSX files are supported.")
 
         return cleaned_data
 
@@ -765,6 +766,8 @@ class UserSelectForm(forms.Form):
 class ColumnMappingForm(forms.Form):
     original_path = forms.ChoiceField(choices=[], required=True)
     unique_name = forms.ChoiceField(choices=[], required=False)
+    code = forms.ChoiceField(choices=[], required=False)
+    juv_code = forms.ChoiceField(choices=[], required=False)
     taxon = forms.ChoiceField(choices=[], required=False)
     locality_name = forms.ChoiceField(choices=[], required=False)
     datetime = forms.ChoiceField(choices=[], required=False)

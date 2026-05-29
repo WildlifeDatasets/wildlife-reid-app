@@ -12,8 +12,9 @@ from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
-SPREADSHEET_SUFFIXES = {".csv", ".xls", ".xlsx"}
+SPREADSHEET_SUFFIXES = {".csv", ".xlsx"}
 ARCHIVE_SUFFIXES = {".zip"}
+NORMALIZED_SPREADSHEET_FILENAME = "mediafile.post_update.csv"
 
 COLUMN_ALIASES = {
     "original path": "original_path",
@@ -32,6 +33,8 @@ COLUMN_ALIASES = {
     "lon": "longitude",
     "longitude": "longitude",
     "datetime": "datetime",
+    "code": "code",
+    "juv_code": "juv_code",
 }
 
 
@@ -51,6 +54,12 @@ class ZipBuildResult:
     import_mapping: dict[str, Any]
     import_log: str
     spreadsheet_summary: SpreadsheetSummary
+
+
+@dataclass
+class ZipSpreadsheetSource:
+    filename: str
+    bytes: bytes
 
 
 def load_relative_path_manifest(raw_manifest: str) -> list[dict[str, Any]]:
@@ -80,19 +89,17 @@ def _manifest_path_for_file(manifest: list[dict[str, Any]], index: int, filename
     return _safe_zip_path(filename)
 
 
-def read_spreadsheet_summary(spreadsheet_file) -> SpreadsheetSummary:
-    summary = SpreadsheetSummary(filename=spreadsheet_file.name)
-    suffix = PurePosixPath(spreadsheet_file.name).suffix.lower()
+def _read_spreadsheet_dataframe(spreadsheet_file, filename: str, nrows: int | None = 20) -> pd.DataFrame:
+    suffix = PurePosixPath(filename).suffix.lower()
     if suffix not in SPREADSHEET_SUFFIXES:
-        raise ValueError("Only CSV, XLS and XLSX spreadsheets are supported.")
-
-    spreadsheet_file.seek(0)
+        raise ValueError("Only CSV and XLSX spreadsheets are supported.")
     if suffix == ".csv":
-        df = pd.read_csv(spreadsheet_file, encoding="utf-8-sig", nrows=20)
-    else:
-        df = pd.read_excel(spreadsheet_file, nrows=20)
-    spreadsheet_file.seek(0)
+        return pd.read_csv(spreadsheet_file, encoding="utf-8-sig", nrows=nrows)
+    return pd.read_excel(spreadsheet_file, nrows=nrows)
 
+
+def _build_spreadsheet_summary(filename: str, df: pd.DataFrame) -> SpreadsheetSummary:
+    summary = SpreadsheetSummary(filename=filename)
     summary.columns = [str(column) for column in df.columns]
     summary.normalized_columns = [COLUMN_ALIASES.get(column.strip().lower(), column) for column in summary.columns]
     if "original_path" not in summary.normalized_columns:
@@ -100,16 +107,135 @@ def read_spreadsheet_summary(spreadsheet_file) -> SpreadsheetSummary:
     return summary
 
 
+def read_spreadsheet_summary(spreadsheet_file) -> SpreadsheetSummary:
+    spreadsheet_file.seek(0)
+    df = _read_spreadsheet_dataframe(spreadsheet_file, spreadsheet_file.name, nrows=20)
+    spreadsheet_file.seek(0)
+    return _build_spreadsheet_summary(spreadsheet_file.name, df)
+
+
+def _normalize_spreadsheet_columns(df: pd.DataFrame, spreadsheet_column_mapping: dict[str, Any]) -> pd.DataFrame:
+    rename_map: dict[str, str] = {}
+    for column in df.columns:
+        column_name = str(column)
+        normalized_name = COLUMN_ALIASES.get(column_name.strip().lower())
+        if normalized_name:
+            rename_map[column_name] = normalized_name
+
+    for target_name, source_name in spreadsheet_column_mapping.items():
+        if source_name:
+            rename_map[str(source_name)] = str(target_name)
+
+    if not rename_map:
+        return df.copy()
+    return df.rename(columns=rename_map)
+
+
+def _apply_path_adjustment(value: Any, spreadsheet_path_adjustment: dict[str, Any]) -> Any:
+    if value is None or pd.isna(value):
+        return value
+    normalized_value = str(value).replace("\\", "/").strip()
+    remove_prefix = str(spreadsheet_path_adjustment.get("remove_prefix") or "").replace("\\", "/")
+    add_prefix = str(spreadsheet_path_adjustment.get("add_prefix") or "").replace("\\", "/")
+
+    if remove_prefix:
+        normalized_remove_prefix = remove_prefix.strip("/")
+        if normalized_value == normalized_remove_prefix:
+            normalized_value = ""
+        elif normalized_value.startswith(f"{normalized_remove_prefix}/"):
+            normalized_value = normalized_value[len(normalized_remove_prefix) + 1 :]
+
+    if add_prefix:
+        normalized_add_prefix = add_prefix.strip("/")
+        if normalized_value:
+            normalized_value = f"{normalized_add_prefix}/{normalized_value}"
+        else:
+            normalized_value = normalized_add_prefix
+
+    return normalized_value
+
+
+def _apply_spreadsheet_path_adjustment(
+    df: pd.DataFrame,
+    spreadsheet_path_adjustment: dict[str, Any],
+) -> pd.DataFrame:
+    if "original_path" not in df.columns:
+        return df
+    if not spreadsheet_path_adjustment:
+        return df
+    adjusted_df = df.copy()
+    adjusted_df["original_path"] = adjusted_df["original_path"].apply(
+        lambda value: _apply_path_adjustment(value, spreadsheet_path_adjustment)
+    )
+    return adjusted_df
+
+
+def _build_normalized_spreadsheet_csv(
+    spreadsheet_file,
+    filename: str,
+    spreadsheet_column_mapping: dict[str, Any],
+    spreadsheet_path_adjustment: dict[str, Any],
+) -> bytes:
+    spreadsheet_file.seek(0)
+    df = _read_spreadsheet_dataframe(spreadsheet_file, filename, nrows=None)
+    spreadsheet_file.seek(0)
+    normalized_df = _normalize_spreadsheet_columns(df, spreadsheet_column_mapping)
+    normalized_df = _apply_spreadsheet_path_adjustment(normalized_df, spreadsheet_path_adjustment)
+    buffer = io.StringIO()
+    normalized_df.to_csv(buffer, index=False)
+    return buffer.getvalue().encode("utf-8-sig")
+
+
 def split_upload_files(upload_files):
     media_files = []
     spreadsheet_file = None
     for upload_file in upload_files:
         suffix = PurePosixPath(upload_file.name).suffix.lower()
+        if suffix == ".xls":
+            raise ValueError("XLS spreadsheets are no longer supported. Please convert them to XLSX or CSV.")
         if suffix in SPREADSHEET_SUFFIXES and spreadsheet_file is None:
             spreadsheet_file = upload_file
         else:
             media_files.append(upload_file)
     return media_files, spreadsheet_file
+
+
+def _preferred_zip_spreadsheet_name(names: list[str]) -> str | None:
+    normalized_candidates = [
+        name for name in names if PurePosixPath(name).name == NORMALIZED_SPREADSHEET_FILENAME
+    ]
+    if normalized_candidates:
+        return normalized_candidates[0]
+    for suffix in (".csv", ".xlsx"):
+        for name in names:
+            if PurePosixPath(name).suffix.lower() == suffix:
+                return name
+    return None
+
+
+def read_zip_spreadsheet_source(upload_file) -> ZipSpreadsheetSource | None:
+    upload_file.seek(0)
+    with zipfile.ZipFile(upload_file, "r") as source_zip:
+        names = [
+            name
+            for name in source_zip.namelist()
+            if PurePosixPath(name).suffix.lower() in SPREADSHEET_SUFFIXES
+        ]
+        preferred_name = _preferred_zip_spreadsheet_name(names)
+        if preferred_name is None:
+            upload_file.seek(0)
+            return None
+        spreadsheet_bytes = source_zip.read(preferred_name)
+    upload_file.seek(0)
+    return ZipSpreadsheetSource(filename=preferred_name, bytes=spreadsheet_bytes)
+
+
+def read_zip_spreadsheet_summary(upload_file) -> SpreadsheetSummary:
+    source = read_zip_spreadsheet_source(upload_file)
+    if source is None:
+        return SpreadsheetSummary()
+    df = _read_spreadsheet_dataframe(io.BytesIO(source.bytes), source.filename, nrows=20)
+    return _build_spreadsheet_summary(source.filename, df)
 
 
 def parse_json_mapping(raw_mapping: str) -> dict[str, Any]:
@@ -207,6 +333,7 @@ def build_upload_zip(
     directory_mapping=None,
     path_regex="",
     spreadsheet_column_mapping=None,
+    spreadsheet_path_adjustment=None,
 ):
     upload_files = list(upload_files)
     detected_media_files, detected_spreadsheet = split_upload_files(upload_files)
@@ -227,13 +354,34 @@ def build_upload_zip(
     if not path_regex:
         path_regex = build_path_regex_from_directory_mapping(directory_mapping)
     spreadsheet_column_mapping = spreadsheet_column_mapping or {}
+    spreadsheet_path_adjustment = spreadsheet_path_adjustment or {}
     directory_warnings = [] if has_single_zip_upload else validate_directory_mapping(relative_paths, directory_structure)
     if directory_structure and not has_single_zip_upload and not any("/" in path for path in relative_paths):
         directory_warnings.append("Directory structure was selected, but no relative paths were detected.")
 
     spreadsheet_summary = SpreadsheetSummary()
+    zip_spreadsheet_source = None
     if spreadsheet_file:
         spreadsheet_summary = read_spreadsheet_summary(spreadsheet_file)
+    elif has_single_zip_upload:
+        spreadsheet_summary = read_zip_spreadsheet_summary(upload_files[0])
+        zip_spreadsheet_source = read_zip_spreadsheet_source(upload_files[0])
+
+    normalized_spreadsheet_bytes = None
+    if spreadsheet_file:
+        normalized_spreadsheet_bytes = _build_normalized_spreadsheet_csv(
+            spreadsheet_file,
+            spreadsheet_file.name,
+            spreadsheet_column_mapping,
+            spreadsheet_path_adjustment,
+        )
+    elif zip_spreadsheet_source is not None:
+        normalized_spreadsheet_bytes = _build_normalized_spreadsheet_csv(
+            io.BytesIO(zip_spreadsheet_source.bytes),
+            zip_spreadsheet_source.filename,
+            spreadsheet_column_mapping,
+            spreadsheet_path_adjustment,
+        )
 
     import_mapping = {
         "spreadsheet": {
@@ -241,6 +389,8 @@ def build_upload_zip(
             "columns": spreadsheet_summary.columns,
             "normalized_columns": spreadsheet_summary.normalized_columns,
             "column_mapping": spreadsheet_column_mapping,
+            "path_adjustment": spreadsheet_path_adjustment,
+            "normalized_csv_filename": NORMALIZED_SPREADSHEET_FILENAME if normalized_spreadsheet_bytes else "",
         },
         "directory_structure": directory_structure,
         "directory_mapping": directory_mapping,
@@ -252,6 +402,7 @@ def build_upload_zip(
     if (
         has_single_zip_upload
         and spreadsheet_file is None
+        and normalized_spreadsheet_bytes is None
     ):
         archive_name = build_archive_name(has_single_zip_upload, upload_files, relative_paths)
         return ZipBuildResult(
@@ -269,6 +420,8 @@ def build_upload_zip(
             upload_files[0].seek(0)
             with zipfile.ZipFile(upload_files[0], "r") as source_zip:
                 for name in source_zip.namelist():
+                    if normalized_spreadsheet_bytes and PurePosixPath(name).name == NORMALIZED_SPREADSHEET_FILENAME:
+                        continue
                     zip_file.writestr(name, source_zip.read(name))
             upload_files[0].seek(0)
         else:
@@ -281,6 +434,9 @@ def build_upload_zip(
             spreadsheet_file.seek(0)
             zip_file.writestr(_safe_zip_path(spreadsheet_file.name), spreadsheet_file.read())
             spreadsheet_file.seek(0)
+
+        if normalized_spreadsheet_bytes:
+            zip_file.writestr(NORMALIZED_SPREADSHEET_FILENAME, normalized_spreadsheet_bytes)
 
     buffer.seek(0)
     archive_name = build_archive_name(has_single_zip_upload, upload_files, relative_paths)
