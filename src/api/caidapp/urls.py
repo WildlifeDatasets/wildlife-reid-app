@@ -119,6 +119,11 @@ urlpatterns = [
     path("media_files/", views.media_files_update, name="media_files"),
     path("sequences/", views.sequences, name="sequences"),
     path(
+        "media_files/apply_filename_metadata/",
+        views.apply_filename_metadata_to_mediafiles,
+        name="apply_filename_metadata_to_mediafiles",
+    ),
+    path(
         "mediafile/<int:pk>/update/",
         views_mediafile.MediaFileUpdateView.as_view(),
         name="media_file_update",

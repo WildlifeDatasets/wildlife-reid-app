@@ -20,6 +20,21 @@ logger = logging.getLogger(__name__)
 User = get_user_model()
 
 
+def normalize_regex_input(value: str) -> str:
+    """Accept regex pasted as a Python string literal, e.g. r"...", from chat tools."""
+    if not value:
+        return value
+    value = value.strip()
+    prefix = value[:1].lower()
+    quote_start = 1 if prefix == "r" and len(value) >= 2 and value[1] in ("'", '"') else 0
+    if value[quote_start : quote_start + 1] not in ("'", '"'):
+        return value
+    quote = value[quote_start]
+    if value.endswith(quote):
+        return value[quote_start + 1 : -1]
+    return value
+
+
 class SmallTextarea(forms.Textarea):
     def __init__(self, *args, **kwargs):
         kwargs.setdefault("attrs", {})
@@ -599,6 +614,7 @@ class NewUploadForm(forms.Form):
 
     def clean(self):
         cleaned_data = super().clean()
+        cleaned_data["path_regex"] = normalize_regex_input(cleaned_data.get("path_regex", ""))
         upload_target = cleaned_data.get("upload_target") or self.fields["upload_target"].initial
         if not self.can_use_taxon_classification and self.can_use_reid:
             upload_target = "identification"
@@ -736,6 +752,26 @@ class MediaFileSetQueryForm(forms.Form):
         initial="all",
         required=False,
     )
+
+
+class MediaFileFilenameMetadataForm(forms.Form):
+    path_regex = forms.CharField(
+        label="Path / filename regex",
+        required=True,
+        widget=forms.Textarea(attrs={"rows": 3}),
+        help_text=(
+            "Use named groups such as (?P<locality>...), (?P<taxon>...), "
+            "(?P<identity>...), (?P<code>...), (?P<juv_code>...), or (?P<check_date>...)."
+        ),
+    )
+    apply_to_manually_updated = forms.BooleanField(
+        label="Apply to manually updated files",
+        required=False,
+        help_text="When unchecked, media files with updated_by set are skipped.",
+    )
+
+    def clean_path_regex(self):
+        return normalize_regex_input(self.cleaned_data["path_regex"])
 
 
 class ChangeMediaFilesTimeForm(forms.Form):

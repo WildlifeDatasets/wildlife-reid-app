@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+{% load widget_tweaks %}
+
+{% block body %}
+<div class="pagetitle">
+  <h1>Extract Metadata From Filenames</h1>
+  <nav>
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'caidapp:sequences' %}">Sequences</a></li>
+      <li class="breadcrumb-item active">Filename metadata</li>
+    </ol>
+  </nav>
+</div>
+
+<section class="section">
+  {% if mediafile_count > 50 %}
+  <div class="alert alert-warning">
+    This action will process {{ mediafile_count }} media files. Review the pattern before applying it.
+  </div>
+  {% endif %}
+
+  <div class="card mb-3">
+    <div class="card-body">
+      <h5 class="card-title">Selection</h5>
+      <p class="mb-1">{{ mediafile_count }} media files selected.</p>
+      {% if manual_count %}
+      <p class="text-muted mb-0">{{ manual_count }} of them were manually updated and will be skipped unless enabled below.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <form method="post">
+    {% csrf_token %}
+    <div class="card mb-3">
+      <div class="card-body">
+        <h5 class="card-title">Path Pattern</h5>
+        <label for="{{ form.path_regex.id_for_label }}" class="form-label">{{ form.path_regex.label }}</label>
+        {{ form.path_regex|add_class:"form-control font-monospace" }}
+        <div class="form-text">{{ form.path_regex.help_text }}</div>
+        <div class="text-danger">{{ form.path_regex.errors }}</div>
+
+        <div class="small text-muted mt-3">
+          <div><code>^(?:.*/)?(?P&lt;locality&gt;[^/]+)/(?P&lt;identity&gt;[^/]+)/[^/]+$</code></div>
+          <div><code>^(?P&lt;taxon&gt;[^/]+)/(?P&lt;identity&gt;[^/]+)/[^/]+$</code></div>
+          <div><code>^(?:.*/)?(?P&lt;identity&gt;[^/_]+)_\d+\.[^/]+$</code></div>
+        </div>
+
+        <div class="form-check mt-3">
+          {{ form.apply_to_manually_updated|add_class:"form-check-input" }}
+          <label class="form-check-label" for="{{ form.apply_to_manually_updated.id_for_label }}">
+            {{ form.apply_to_manually_updated.label }}
+          </label>
+          <div class="form-text">{{ form.apply_to_manually_updated.help_text }}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-body">
+        <h5 class="card-title">Sample Files</h5>
+        <div class="small">
+          {% for mediafile in sample_mediafiles %}
+          <div><code>{{ mediafile.original_filename|default:mediafile.mediafile.name }}</code></div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <div class="d-flex gap-2">
+      <button class="btn btn-primary" type="submit">Apply Metadata</button>
+      <a class="btn btn-secondary" href="{{ return_url }}">Cancel</a>
+    </div>
+  </form>
+</section>
+{% endblock %}

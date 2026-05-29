@@ -348,6 +348,23 @@ class NewUploadViewTest(TestCase):
         run_processing.assert_called_once()
 
     @patch("caidapp.views.run_species_prediction_async")
+    def test_path_regex_python_raw_string_wrapper_is_accepted(self, run_processing):
+        response = self._post_upload(
+            extra_data={
+                "path_regex": r'r"^(?P<taxon>[^/]+)/(?P<identity>[^/]+)/[^/]+$"',
+            },
+            files=[
+                SimpleUploadedFile("Lynx/Charles/first.jpg", b"fake image", content_type="image/jpeg"),
+            ],
+        )
+
+        self.assertEqual(response.status_code, 200)
+        uploaded_archive = models.UploadedArchive.objects.get()
+        self.assertEqual(uploaded_archive.path_structure_regex, r"^(?P<taxon>[^/]+)/(?P<identity>[^/]+)/[^/]+$")
+        self.assertEqual(uploaded_archive.import_mapping["path_regex"], uploaded_archive.path_structure_regex)
+        run_processing.assert_called_once()
+
+    @patch("caidapp.views.run_species_prediction_async")
     def test_single_directory_layer_can_be_mapped_to_taxon(self, run_processing):
         manifest = [
             {

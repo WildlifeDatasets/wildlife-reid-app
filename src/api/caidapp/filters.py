@@ -108,6 +108,7 @@ class MediaFileFilter(django_filters.FilterSet):
         field_name="observations__taxon",
     )
     uploadedarchive = django_filters.ModelChoiceFilter(
+        field_name="parent",
         queryset=models.UploadedArchive.objects.none()
         # .annotate(
         #     name_extended=Concat(

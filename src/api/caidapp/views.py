@@ -3068,6 +3068,162 @@ def _resolve_selected_mediafile_ids_from_post(request) -> List[int]:
     return sorted(selected_mediafile_ids)
 
 
+def _parse_filename_metadata_date(value: str):
+    """Parse date captured from a filename/path regex."""
+    if not value:
+        return None
+    for date_format in ("%Y-%m-%d", "%Y%m%d"):
+        try:
+            parsed_date = datetime.datetime.strptime(str(value), date_format)
+            return parsed_date.replace(tzinfo=ZoneInfo(settings.TIME_ZONE))
+        except ValueError:
+            continue
+    return None
+
+
+def _apply_filename_metadata_to_mediafile(mediafile: MediaFile, regex, caiduser, apply_to_manually_updated: bool) -> str:
+    """Apply metadata captured from original_filename to a single mediafile."""
+    if mediafile.updated_by_id and not apply_to_manually_updated:
+        return "skipped_manual"
+
+    source_path = (mediafile.original_filename or mediafile.mediafile.name or "").replace("\\", "/")
+    match = regex.search(source_path)
+    if not match:
+        return "no_match"
+
+    groups = {key: value.strip() for key, value in match.groupdict().items() if value and value.strip()}
+    if not groups:
+        return "no_groups"
+
+    changed_fields = []
+    observation = mediafile.first_observation_get_or_create
+    taxon_name = groups.get("taxon")
+    if taxon_name:
+        taxon = models.get_taxon(taxon_name)
+        if mediafile.taxon_id != taxon.id:
+            mediafile.taxon = taxon
+            observation.taxon = taxon
+            changed_fields.append("taxon")
+
+    locality_name = groups.get("locality")
+    if locality_name:
+        locality = models.get_locality(caiduser, locality_name)
+        if locality and mediafile.locality_id != locality.id:
+            mediafile.locality = locality
+            changed_fields.append("locality")
+
+    code = groups.get("code")
+    identity_name = groups.get("identity") or groups.get("unique_name")
+    juv_code = groups.get("juv_code")
+    identity = None
+    if code:
+        identity = models.get_unique_code(code, workgroup=caiduser.workgroup)
+    elif identity_name:
+        identity = models.get_unique_name(identity_name, workgroup=caiduser.workgroup)
+    if identity is not None:
+        identity_changed = False
+        if identity_name and identity.name != identity_name:
+            identity.name = identity_name[:100]
+            identity_changed = True
+        if code and identity.code != code:
+            identity.code = code[:50]
+            identity_changed = True
+        if juv_code and identity.juv_code != juv_code:
+            identity.juv_code = juv_code[:50]
+            identity_changed = True
+        if identity_changed:
+            identity.save()
+        if mediafile.identity_id != identity.id:
+            mediafile.identity = identity
+            observation.identity = identity
+            changed_fields.append("identity")
+
+    captured_at = _parse_filename_metadata_date(groups.get("check_date") or groups.get("date"))
+    if captured_at and mediafile.captured_at != captured_at:
+        mediafile.captured_at = captured_at
+        changed_fields.append("captured_at")
+
+    if not changed_fields:
+        return "unchanged"
+
+    mediafile.save()
+    observation.save()
+    return "updated"
+
+
+@login_required
+def apply_filename_metadata_to_mediafiles(request) -> HttpResponse:
+    """Configure and apply filename/path metadata extraction to a selected mediafile set."""
+    caiduser = request.user.caiduser
+    mediafile_ids = request.session.get("filename_metadata_mediafile_ids", [])
+    return_url = request.session.get("filename_metadata_return_url") or reverse_lazy("caidapp:sequences")
+    mediafiles = MediaFile.objects.for_user(caiduser).filter(id__in=mediafile_ids).select_related("updated_by", "parent")
+    mediafile_count = mediafiles.count()
+
+    if mediafile_count == 0:
+        return message_view(
+            request,
+            "No media files were selected.",
+            headline="Extract metadata from filenames",
+            link=return_url,
+            button_label="Back",
+        )
+
+    if request.method == "POST":
+        form = forms.MediaFileFilenameMetadataForm(request.POST)
+        if form.is_valid():
+            try:
+                regex = re.compile(form.cleaned_data["path_regex"])
+            except re.error as exc:
+                form.add_error("path_regex", f"Invalid regex: {exc}")
+            else:
+                status_counts = {
+                    "updated": 0,
+                    "unchanged": 0,
+                    "skipped_manual": 0,
+                    "no_match": 0,
+                    "no_groups": 0,
+                }
+                for mediafile in mediafiles:
+                    status = _apply_filename_metadata_to_mediafile(
+                        mediafile,
+                        regex,
+                        caiduser,
+                        form.cleaned_data["apply_to_manually_updated"],
+                    )
+                    status_counts[status] = status_counts.get(status, 0) + 1
+
+                request.session.pop("filename_metadata_mediafile_ids", None)
+                request.session.pop("filename_metadata_return_url", None)
+                messages.success(
+                    request,
+                    (
+                        f"Filename metadata applied to {status_counts['updated']} media files. "
+                        f"Skipped manually updated: {status_counts['skipped_manual']}. "
+                        f"No regex match: {status_counts['no_match']}."
+                    ),
+                )
+                return redirect(return_url)
+    else:
+        form = forms.MediaFileFilenameMetadataForm(
+            initial={
+                "path_regex": r"^(?:.*/)?(?P<locality>[^/]+)/(?P<identity>[^/]+)/[^/]+$",
+            }
+        )
+
+    return render(
+        request,
+        "caidapp/mediafiles_filename_metadata.html",
+        {
+            "form": form,
+            "mediafile_count": mediafile_count,
+            "manual_count": mediafiles.exclude(updated_by__isnull=True).count(),
+            "return_url": return_url,
+            "sample_mediafiles": mediafiles.order_by("id")[:10],
+        },
+    )
+
+
 @login_required
 def sequences(
     request,
@@ -3185,6 +3341,14 @@ def sequences(
                     selected_album_hash,
                 )
             return redirect(request.get_full_path())
+
+    if request.method == "POST" and "btnExtractFilenameMetadata" in request.POST:
+        selected_mediafile_ids = _resolve_selected_mediafile_ids_from_post(request)
+        if not selected_mediafile_ids:
+            selected_mediafile_ids = list(full_mediafiles.values_list("id", flat=True))
+        request.session["filename_metadata_mediafile_ids"] = selected_mediafile_ids
+        request.session["filename_metadata_return_url"] = request.get_full_path()
+        return redirect("caidapp:apply_filename_metadata_to_mediafiles")
 
     context = {
         **page_context,

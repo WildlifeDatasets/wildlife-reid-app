@@ -1094,6 +1094,8 @@
         const prompt = [
             "Help me write a Python regular expression for parsing a wildlife dataset relative file path.",
             "The regex should use named groups only from: taxon, locality, identity, check_date.",
+            "If check_date is present, parse dates in YYYY-MM-DD format with (?P<check_date>\\d{4}-\\d{2}-\\d{2}).",
+            "Return the regex pattern only, without Python prefixes or quotes such as r\"...\".",
             "Explain the regex briefly for a non-programmer.",
             "Example path:",
             examplePath || "taxon/identity/Karel__001.jpg",
