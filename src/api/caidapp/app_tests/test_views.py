@@ -782,6 +782,41 @@ class SequenceViewTest(TestCase):
         self.assertEqual(mediafile.taxon.name, "Lynx")
         self.assertEqual(mediafile.identity.name, "Charles")
 
+    def test_filename_metadata_skips_observation_metadata_for_multiple_observations(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        sequence = SequenceFactory(uploaded_archive=archive)
+        mediafile = MediaFileFactory(
+            parent=archive,
+            sequence=sequence,
+            original_filename="Brdy/Lynx/Charles/first.jpg",
+        )
+        first_observation = AnimalObservationFactory(mediafile=mediafile, taxon=None, identity=None)
+        second_observation = AnimalObservationFactory(mediafile=mediafile, taxon=None, identity=None)
+        session = self.client.session
+        session["filename_metadata_mediafile_ids"] = [mediafile.id]
+        session["filename_metadata_return_url"] = reverse("caidapp:sequences")
+        session["filename_metadata_source_label"] = "Sequences"
+        session.save()
+
+        response = self.client.post(
+            reverse("caidapp:apply_filename_metadata_to_mediafiles"),
+            {
+                "path_regex": r"^(?P<locality>[^/]+)/(?P<taxon>[^/]+)/(?P<unique_name>[^/]+)/[^/]+$",
+            },
+        )
+
+        self.assertRedirects(response, reverse("caidapp:sequences"))
+        mediafile.refresh_from_db()
+        self.assertEqual(mediafile.locality.name, "Brdy")
+        self.assertIsNone(mediafile.taxon)
+        self.assertIsNone(mediafile.identity)
+        first_observation.refresh_from_db()
+        second_observation.refresh_from_db()
+        self.assertIsNone(first_observation.taxon)
+        self.assertIsNone(second_observation.taxon)
+        self.assertIsNone(first_observation.identity)
+        self.assertIsNone(second_observation.identity)
+
 
 class IdentificationUploadsViewTest(TestCase):
     def setUp(self):

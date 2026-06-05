@@ -3268,6 +3268,31 @@ def _can_apply_filename_metadata_value(current_value, force_rewrite_filled_data:
     return force_rewrite_filled_data or _metadata_value_is_empty(current_value)
 
 
+def _get_observation_for_filename_metadata(mediafile: MediaFile) -> Tuple[Optional[AnimalObservation], bool]:
+    """Return a single unambiguous observation and whether multiple observations exist."""
+    observations = list(mediafile.observations.all())
+    if len(observations) > 1:
+        return None, True
+    if observations:
+        return observations[0], False
+    return AnimalObservation.objects.create(mediafile=mediafile), False
+
+
+def _apply_value_to_observation(
+    observation: AnimalObservation,
+    field_name: str,
+    value,
+    force_rewrite_filled_data: bool,
+) -> bool:
+    """Apply a filename-derived value to one observation where it is allowed."""
+    value_id = getattr(value, "id", value)
+    current_id = getattr(observation, f"{field_name}_id", None)
+    if current_id != value_id and _can_apply_filename_metadata_value(current_id, force_rewrite_filled_data):
+        setattr(observation, field_name, value)
+        return True
+    return False
+
+
 def _apply_filename_metadata_to_mediafile(
     mediafile: MediaFile,
     regex,
@@ -3289,17 +3314,28 @@ def _apply_filename_metadata_to_mediafile(
         return "no_groups"
 
     changed_fields = []
-    observation = mediafile.first_observation_get_or_create
+    observation, has_multiple_observations = _get_observation_for_filename_metadata(mediafile)
+    skipped_observation_metadata = False
     taxon_name = groups.get("taxon")
     if taxon_name:
-        taxon = models.get_taxon(taxon_name)
-        if mediafile.taxon_id != taxon.id and _can_apply_filename_metadata_value(
-            mediafile.taxon_id,
-            force_rewrite_filled_data,
-        ):
-            mediafile.taxon = taxon
-            observation.taxon = taxon
-            changed_fields.append("taxon")
+        if has_multiple_observations:
+            skipped_observation_metadata = True
+        else:
+            taxon = models.get_taxon(taxon_name)
+            observation_changed = _apply_value_to_observation(
+                observation,
+                "taxon",
+                taxon,
+                force_rewrite_filled_data,
+            )
+            if mediafile.taxon_id != taxon.id and _can_apply_filename_metadata_value(
+                mediafile.taxon_id,
+                force_rewrite_filled_data,
+            ):
+                mediafile.taxon = taxon
+                changed_fields.append("taxon")
+            elif observation_changed:
+                changed_fields.append("taxon")
 
     locality_name = groups.get("locality")
     if locality_name:
@@ -3315,42 +3351,54 @@ def _apply_filename_metadata_to_mediafile(
     identity_name = groups.get("identity") or groups.get("unique_name")
     juv_code = groups.get("juv_code")
     identity = None
-    if mediafile.identity_id and not force_rewrite_filled_data:
+    identity_metadata_present = bool(code or identity_name or juv_code)
+    if has_multiple_observations and identity_metadata_present:
+        skipped_observation_metadata = True
+    elif mediafile.identity_id and not force_rewrite_filled_data:
         identity = mediafile.identity
     elif code:
         identity = models.get_unique_code(code, workgroup=caiduser.workgroup)
     elif identity_name:
         identity = models.get_unique_name(identity_name, workgroup=caiduser.workgroup)
     if identity is not None:
-        identity_changed = False
-        if identity_name and identity.name != identity_name and _can_apply_filename_metadata_value(
-            identity.name,
-            force_rewrite_filled_data,
-        ):
-            identity.name = identity_name[:100]
-            identity_changed = True
-        if code and identity.code != code and _can_apply_filename_metadata_value(
-            identity.code,
-            force_rewrite_filled_data,
-        ):
-            identity.code = code[:50]
-            identity_changed = True
-        if juv_code and identity.juv_code != juv_code and _can_apply_filename_metadata_value(
-            identity.juv_code,
-            force_rewrite_filled_data,
-        ):
-            identity.juv_code = juv_code[:50]
-            identity_changed = True
-        if identity_changed:
-            identity.save()
-            changed_fields.append("identity_fields")
-        if mediafile.identity_id != identity.id and _can_apply_filename_metadata_value(
-            mediafile.identity_id,
-            force_rewrite_filled_data,
-        ):
-            mediafile.identity = identity
-            observation.identity = identity
-            changed_fields.append("identity")
+        if has_multiple_observations:
+            skipped_observation_metadata = True
+        else:
+            identity_changed = False
+            if identity_name and identity.name != identity_name and _can_apply_filename_metadata_value(
+                identity.name,
+                force_rewrite_filled_data,
+            ):
+                identity.name = identity_name[:100]
+                identity_changed = True
+            if code and identity.code != code and _can_apply_filename_metadata_value(
+                identity.code,
+                force_rewrite_filled_data,
+            ):
+                identity.code = code[:50]
+                identity_changed = True
+            if juv_code and identity.juv_code != juv_code and _can_apply_filename_metadata_value(
+                identity.juv_code,
+                force_rewrite_filled_data,
+            ):
+                identity.juv_code = juv_code[:50]
+                identity_changed = True
+            if identity_changed:
+                identity.save()
+                changed_fields.append("identity_fields")
+            if mediafile.identity_id != identity.id and _can_apply_filename_metadata_value(
+                mediafile.identity_id,
+                force_rewrite_filled_data,
+            ):
+                mediafile.identity = identity
+                changed_fields.append("identity")
+            if _apply_value_to_observation(
+                observation,
+                "identity",
+                identity,
+                force_rewrite_filled_data,
+            ) and "identity" not in changed_fields:
+                changed_fields.append("identity")
 
     captured_at = _parse_filename_metadata_date(groups.get("check_date") or groups.get("date"))
     if captured_at and mediafile.captured_at != captured_at and _can_apply_filename_metadata_value(
@@ -3361,10 +3409,15 @@ def _apply_filename_metadata_to_mediafile(
         changed_fields.append("captured_at")
 
     if not changed_fields:
+        if skipped_observation_metadata:
+            return "skipped_multiple_observations"
         return "unchanged"
 
     mediafile.save()
-    observation.save()
+    if observation is not None:
+        observation.save()
+    if skipped_observation_metadata:
+        return "updated_skipped_multiple_observations"
     return "updated"
 
 
@@ -3448,8 +3501,10 @@ def apply_filename_metadata_to_mediafiles(request) -> HttpResponse:
             if regex is not None:
                 status_counts = {
                     "updated": 0,
+                    "updated_skipped_multiple_observations": 0,
                     "unchanged": 0,
                     "skipped_manual": 0,
+                    "skipped_multiple_observations": 0,
                     "no_match": 0,
                     "no_groups": 0,
                 }
@@ -3466,10 +3521,17 @@ def apply_filename_metadata_to_mediafiles(request) -> HttpResponse:
                 request.session.pop("filename_metadata_mediafile_ids", None)
                 request.session.pop("filename_metadata_return_url", None)
                 request.session.pop("filename_metadata_source_label", None)
+                updated_count = status_counts["updated"] + status_counts["updated_skipped_multiple_observations"]
+                skipped_multiple_observations = (
+                    status_counts["skipped_multiple_observations"]
+                    + status_counts["updated_skipped_multiple_observations"]
+                )
                 messages.success(
                     request,
                     (
-                        f"Filename metadata applied to {status_counts['updated']} media files. "
+                        f"Filename metadata applied to {updated_count} media files. "
+                        f"Skipped observation metadata for multiple-observation media files: "
+                        f"{skipped_multiple_observations}. "
                         f"Skipped manually updated: {status_counts['skipped_manual']}. "
                         f"No regex match: {status_counts['no_match']}."
                     ),

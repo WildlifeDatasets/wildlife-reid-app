@@ -1567,8 +1567,10 @@ class MediaFile(models.Model):
     @property
     def first_observation_get_or_create(self) -> "AnimalObservation":
         """Return the first AnimalObservation related to this MediaFile, or create one if none exists."""
-        obs, created = AnimalObservation.objects.get_or_create(mediafile=self)
-        return obs
+        obs = self.observations.order_by("id").first()
+        if obs is not None:
+            return obs
+        return AnimalObservation.objects.create(mediafile=self)
 
     def mediafile_variant_url(self, variant: str = "images") -> str:
         """Get mediafile variant URL."""
