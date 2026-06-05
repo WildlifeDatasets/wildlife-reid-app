@@ -20,11 +20,12 @@
             {% for album in albums %}
                 <div class="col-xl-3">
                 {#                        <div class="col" style="-ms-flex: 0 0 200; flex: 0 0 200;">#}
+                {% with cover_mediafile=album.mediafiles.all.0 %}
                 <div class="card"
-                        {% if album.mediafiles.all.0 %}
+                        {% if cover_mediafile and cover_mediafile.thumbnail %}
                      style="
 
-                             background-image: linear-gradient(to left, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 1.0)), url({{ album.mediafiles.all.0.thumbnail.url }});
+                             background-image: linear-gradient(to left, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 1.0)), url({{ cover_mediafile.thumbnail.url }});
                              background-repeat: no-repeat;
                              background-position-x: right;
                              background-position-y: center;
@@ -53,8 +54,13 @@
                            href="{% url 'caidapp:album_update' album.hash %}">
                             <i class="bi bi-images"></i> Edit
                         </a>
+                        <a class="btn btn-secondary"
+                           href="{% url 'caidapp:sequences' %}?album_hash={{ album.hash }}">
+                            <i class="bi bi-collection"></i> Sequences
+                        </a>
                     </div>
                 </div>
+                {% endwith %}
                 </div>
             {% endfor %}
         {% endif %}

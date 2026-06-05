@@ -19,6 +19,12 @@
     </li>
     <li>
         <a class="dropdown-item"
+           href="{% url 'caidapp:sequences' %}?uploadedarchive_id={{ uploadedarchive.id }}">
+            <i class="bi bi-collection"></i> Sequences
+        </a>
+    </li>
+    <li>
+        <a class="dropdown-item"
            href="{% url 'caidapp:update_uploadedarchive' uploadedarchive.id %}">
             <i class="bi bi-pencil"></i> Edit
         </a>

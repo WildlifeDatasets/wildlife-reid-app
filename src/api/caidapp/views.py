@@ -2929,6 +2929,110 @@ def _parse_bool_query_param(value: Optional[str]) -> Optional[bool]:
     return None
 
 
+def _parse_int_query_param_or_404(value: Optional[str], label: str) -> Optional[int]:
+    """Parse integer query parameter or raise 404 for malformed values."""
+    if value in (None, ""):
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError) as exc:
+        raise Http404(f"Invalid {label}.") from exc
+
+
+def _get_uploadedarchive_for_user_or_404(request: HttpRequest, uploadedarchive_id: int) -> UploadedArchive:
+    """Return an uploaded archive only when it is visible to the current user."""
+    return get_object_or_404(
+        UploadedArchive,
+        pk=uploadedarchive_id,
+        **models.user_has_access_filter_params(request.user.caiduser, "owner"),
+    )
+
+
+def _get_active_uploadedarchive_from_request(
+    request: HttpRequest,
+    uploadedarchive_id: Optional[int] = None,
+) -> Optional[UploadedArchive]:
+    """Resolve active uploaded archive scope from explicit arg or query string."""
+    if uploadedarchive_id is None:
+        uploadedarchive_id = _parse_int_query_param_or_404(
+            request.GET.get("uploadedarchive_id") or request.GET.get("uploadedarchive"),
+            "uploaded archive id",
+        )
+    if uploadedarchive_id is None:
+        return None
+    return _get_uploadedarchive_for_user_or_404(request, uploadedarchive_id)
+
+
+def _get_active_taxon_from_request(request: HttpRequest) -> Optional[Taxon]:
+    """Resolve active taxon scope from query string."""
+    taxon_id = _parse_int_query_param_or_404(request.GET.get("taxon"), "taxon id")
+    if taxon_id is None:
+        return None
+    return get_object_or_404(Taxon, pk=taxon_id)
+
+
+def _get_album_for_user_or_404(request: HttpRequest, album_hash: str) -> Album:
+    """Return an album only when it is visible to the current user."""
+    return get_object_or_404(
+        Album.objects.filter(Q(albumsharerole__user=request.user.caiduser) | Q(owner=request.user.caiduser)).distinct(),
+        hash=album_hash,
+    )
+
+
+def _get_active_album_from_request(request: HttpRequest, album_hash: Optional[str] = None) -> Optional[Album]:
+    """Resolve active album scope from explicit arg or query string."""
+    if album_hash is None:
+        album_hash = request.GET.get("album_hash")
+    if not album_hash:
+        return None
+    return _get_album_for_user_or_404(request, album_hash)
+
+
+def _get_identity_for_user_or_404(request: HttpRequest, individual_identity_id: int) -> IndividualIdentity:
+    """Return an identity only when it belongs to the current user's workgroup."""
+    return get_object_or_404(
+        IndividualIdentity,
+        pk=individual_identity_id,
+        owner_workgroup=request.user.caiduser.workgroup,
+    )
+
+
+def _get_active_identity_from_request(
+    request: HttpRequest,
+    individual_identity_id: Optional[int] = None,
+) -> Optional[IndividualIdentity]:
+    """Resolve active identity scope from explicit arg or query string."""
+    if individual_identity_id is None:
+        individual_identity_id = _parse_int_query_param_or_404(
+            request.GET.get("individual_identity_id"),
+            "individual identity id",
+        )
+    if individual_identity_id is None:
+        return None
+    return _get_identity_for_user_or_404(request, individual_identity_id)
+
+
+def _get_locality_for_user_or_404(request: HttpRequest, locality_hash: str) -> Locality:
+    """Return a locality only when it is visible to the current user's workgroup."""
+    return get_object_or_404(
+        Locality,
+        hash=locality_hash,
+        **models.user_has_access_filter_params(request.user.caiduser, "owner"),
+    )
+
+
+def _get_active_locality_from_request(
+    request: HttpRequest,
+    locality_hash: Optional[str] = None,
+) -> Optional[Locality]:
+    """Resolve active locality scope from explicit arg or query string."""
+    if locality_hash is None:
+        locality_hash = request.GET.get("locality_hash")
+    if not locality_hash:
+        return None
+    return _get_locality_for_user_or_404(request, locality_hash)
+
+
 def _build_mediafiles_scope_query_string(
     request,
     uploadedarchive_id: Optional[int] = None,
@@ -2975,11 +3079,14 @@ def _get_filtered_mediafiles_queryset(
     filter_kwargs = dict(extra_filter_kwargs or {})
 
     if uploadedarchive_id is None and request.GET.get("uploadedarchive_id"):
-        uploadedarchive_id = int(request.GET["uploadedarchive_id"])
+        uploadedarchive_id = _parse_int_query_param_or_404(request.GET.get("uploadedarchive_id"), "uploaded archive id")
     if album_hash is None:
         album_hash = request.GET.get("album_hash")
     if individual_identity_id is None and request.GET.get("individual_identity_id"):
-        individual_identity_id = int(request.GET["individual_identity_id"])
+        individual_identity_id = _parse_int_query_param_or_404(
+            request.GET.get("individual_identity_id"),
+            "individual identity id",
+        )
     if identity_is_representative is None:
         identity_is_representative = _parse_bool_query_param(request.GET.get("identity_is_representative"))
     if locality_hash is None:
@@ -2990,7 +3097,7 @@ def _get_filtered_mediafiles_queryset(
         taxon_verified = _parse_bool_query_param(request.GET.get("taxon_verified"))
 
     if request.GET.get("taxon"):
-        taxon = Taxon.objects.get(pk=request.GET["taxon"])
+        taxon = _get_active_taxon_from_request(request)
         page_title = f"Media files - {taxon.name}"
     else:
         page_title = "Media files"
@@ -3007,7 +3114,7 @@ def _get_filtered_mediafiles_queryset(
         mediafiles_name_suggestion = "taxon_not_verified"
 
     if uploadedarchive_id is not None:
-        uploaded_archive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
+        uploaded_archive = _get_uploadedarchive_for_user_or_404(request, uploadedarchive_id)
         if uploaded_archive.locality_check_at is not None:
             locality_check_at = " - " + uploaded_archive.locality_check_at.strftime("%Y-%m-%d %H:%M:%S")
         else:
@@ -3017,17 +3124,17 @@ def _get_filtered_mediafiles_queryset(
         filter_kwargs["parent"] = uploaded_archive
         mediafiles_name_suggestion = f"uploaded_archive_{locality_label}{locality_check_at}"
     elif album_hash is not None:
-        album = get_object_or_404(Album, hash=album_hash)
+        album = _get_album_for_user_or_404(request, album_hash)
         page_title = f"Media files - {album.name}"
         filter_kwargs["album"] = album
         mediafiles_name_suggestion = f"album_{album.name}"
     elif individual_identity_id is not None:
-        individual_identity = get_object_or_404(IndividualIdentity, pk=individual_identity_id)
+        individual_identity = _get_identity_for_user_or_404(request, individual_identity_id)
         page_title = f"Media files - {individual_identity.name}"
         filter_kwargs["identity"] = individual_identity
         mediafiles_name_suggestion = f"individual_identity_{individual_identity.name}"
     elif locality_hash is not None:
-        locality = get_object_or_404(Locality, hash=locality_hash)
+        locality = _get_locality_for_user_or_404(request, locality_hash)
         page_title = f"Media files - {locality.name}"
         filter_kwargs["locality"] = locality
         mediafiles_name_suggestion = f"locality_{locality.name}"
@@ -3443,6 +3550,11 @@ def sequences(
         taxon_verified=taxon_verified,
         extra_filter_kwargs=filter_kwargs,
     )
+    active_uploadedarchive = _get_active_uploadedarchive_from_request(request, uploadedarchive_id)
+    active_taxon = _get_active_taxon_from_request(request)
+    active_album = _get_active_album_from_request(request, album_hash)
+    active_identity = _get_active_identity_from_request(request, individual_identity_id)
+    active_locality = _get_active_locality_from_request(request, locality_hash)
 
     sequence_queryset = _get_sequences_queryset_from_mediafiles(full_mediafiles).order_by(
         *SEQUENCE_SORT_OPTIONS[sort_key]["order_by"]
@@ -3559,6 +3671,11 @@ def sequences(
         "sequence_per_page_options": SEQUENCE_PER_PAGE_OPTIONS,
         "sequence_objects": ordered_sequences,
         "sequence_lookup": sequence_lookup,
+        "active_uploadedarchive": active_uploadedarchive,
+        "active_taxon": active_taxon,
+        "active_album": active_album,
+        "active_identity": active_identity,
+        "active_locality": active_locality,
         "sequences_stats_query_string": _build_sequence_scope_query_string(
             request,
             uploadedarchive_id=uploadedarchive_id,

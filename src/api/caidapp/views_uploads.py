@@ -174,9 +174,10 @@ def uploadedarchive_detail(request, uploadedarchive_id: int) -> HttpResponse:
     # fmt: on
     return render(
         request,
-        "caidapp/message.html",
+        "caidapp/uploadedarchive_detail.html",
         context=dict(
             headline="Uploaded Archive " + f"{uarch.localities_display or '-'} " + f"{uarch.locality_check_at}",
             dictionary=dictionary,
+            uploadedarchive=uarch,
         ),
     )

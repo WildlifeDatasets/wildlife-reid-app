@@ -73,6 +73,12 @@
                                             </a>
 
                                             <ul class="dropdown-menu">
+                                                <li>
+                                                    <a class="dropdown-item"
+                                                       href="{% url 'caidapp:sequences' %}?uploadedarchive_id={{ uploadedarchive.id }}">
+                                                        <i class="bi bi-collection"></i> Sequences
+                                                    </a>
+                                                </li>
                                                 {% if request.user.is_staff or request.session.impersonate_user_id %}
                                                     <li>
                                                         <hr class="dropdown-divider">

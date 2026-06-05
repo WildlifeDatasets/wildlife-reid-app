@@ -96,8 +96,9 @@
                         {% for field in list_display %}
                             <th>{{ field|capfirst }}</th>
                         {% endfor %}
-                    <th>Camera trap checks</th>
                         <th>Camera trap checks</th>
+                        <th>Media files</th>
+                        <th>Sequences</th>
                         {% if object_detail_url or object_update_url or object_delete_url %}
                             <th>{% trans "Action" %}</th>
                         {% endif %}
@@ -163,6 +164,11 @@
                                 <td>
                                     <a href="{% url 'caidapp:media_files_locality' locality.hash %}" class="link-secondary" >
                                         {{ locality.mediafile_count }}
+                                    </a>
+                                </td>
+                                <td>
+                                    <a href="{% url 'caidapp:sequences' %}?locality_hash={{ locality.hash }}" class="link-secondary">
+                                        <i class="bi bi-collection"></i>
                                     </a>
                                 </td>
                                 {% if object_detail_url or object_update_url or object_delete_url %}

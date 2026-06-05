@@ -14,6 +14,7 @@ from django.urls import reverse
 import pandas as pd
 
 from .factories import (
+    AlbumFactory,
     AnimalObservationFactory,
     CaidUserFactory,
     IndividualIdentityFactory,
@@ -407,6 +408,161 @@ class SequenceViewTest(TestCase):
         self.assertContains(response, mediafile.original_filename)
         self.assertNotContains(response, "second.jpg")
 
+    def test_sequence_view_shows_active_uploadedarchive_link(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser, name="Visible upload")
+        sequence = SequenceFactory(uploaded_archive=archive)
+        MediaFileFactory(parent=archive, sequence=sequence, original_filename="first.jpg")
+
+        response = self.client.get(reverse("caidapp:sequences"), {"uploadedarchive_id": archive.id})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Filtered by:")
+        self.assertContains(response, "Upload: Visible upload")
+        self.assertContains(response, reverse("caidapp:uploadedarchive_detail", args=[archive.id]))
+
+    def test_sequence_view_rejects_uploadedarchive_outside_user_workgroup(self):
+        other_caiduser = CaidUserFactory()
+        other_archive = UploadedArchiveFactory(owner=other_caiduser, name="Private outside upload")
+        sequence = SequenceFactory(uploaded_archive=other_archive)
+        MediaFileFactory(parent=other_archive, sequence=sequence, original_filename="private.jpg")
+
+        response = self.client.get(reverse("caidapp:sequences"), {"uploadedarchive_id": other_archive.id})
+
+        self.assertEqual(response.status_code, 404)
+        self.assertNotContains(response, "Private outside upload", status_code=404)
+
+    def test_sequence_view_shows_active_taxon_link_and_filters_accessible_mediafiles(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        wolf = TaxonFactory(name="Wolf")
+        lynx = TaxonFactory(name="Lynx")
+        wolf_sequence = SequenceFactory(uploaded_archive=archive)
+        lynx_sequence = SequenceFactory(uploaded_archive=archive)
+        wolf_mediafile = MediaFileFactory(parent=archive, sequence=wolf_sequence, original_filename="wolf.jpg")
+        lynx_mediafile = MediaFileFactory(parent=archive, sequence=lynx_sequence, original_filename="lynx.jpg")
+        AnimalObservationFactory(mediafile=wolf_mediafile, taxon=wolf)
+        AnimalObservationFactory(mediafile=lynx_mediafile, taxon=lynx)
+
+        response = self.client.get(reverse("caidapp:sequences"), {"taxon": wolf.id})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Taxon: Wolf")
+        self.assertContains(response, f'{reverse("caidapp:media_files")}?taxon={wolf.id}')
+        self.assertContains(response, "wolf.jpg")
+        self.assertNotContains(response, "lynx.jpg")
+
+    def test_sequence_view_shows_active_identity_link(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Alpha")
+        other_identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Beta")
+        sequence = SequenceFactory(uploaded_archive=archive)
+        other_sequence = SequenceFactory(uploaded_archive=archive)
+        mediafile = MediaFileFactory(parent=archive, sequence=sequence, identity=identity, original_filename="alpha.jpg")
+        other_mediafile = MediaFileFactory(parent=archive, sequence=other_sequence, identity=other_identity, original_filename="beta.jpg")
+
+        response = self.client.get(reverse("caidapp:sequences"), {"individual_identity_id": identity.id})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Identity: Alpha")
+        self.assertContains(response, reverse("caidapp:individual_identity_mediafiles", args=[identity.id]))
+        self.assertContains(response, mediafile.original_filename)
+        self.assertNotContains(response, other_mediafile.original_filename)
+
+    def test_sequence_view_rejects_identity_outside_user_workgroup(self):
+        other_caiduser = CaidUserFactory()
+        identity = IndividualIdentityFactory(owner_workgroup=other_caiduser.workgroup, name="Private identity")
+
+        response = self.client.get(reverse("caidapp:sequences"), {"individual_identity_id": identity.id})
+
+        self.assertEqual(response.status_code, 404)
+        self.assertNotContains(response, "Private identity", status_code=404)
+
+    def test_sequence_view_shows_active_locality_link(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        locality = LocalityFactory(owner=self.caiduser, name="Visible locality")
+        other_locality = LocalityFactory(owner=self.caiduser, name="Other locality")
+        sequence = SequenceFactory(uploaded_archive=archive)
+        other_sequence = SequenceFactory(uploaded_archive=archive)
+        mediafile = MediaFileFactory(parent=archive, sequence=sequence, locality=locality, original_filename="locality.jpg")
+        other_mediafile = MediaFileFactory(parent=archive, sequence=other_sequence, locality=other_locality, original_filename="other-locality.jpg")
+
+        response = self.client.get(reverse("caidapp:sequences"), {"locality_hash": locality.hash})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Locality: Visible locality")
+        self.assertContains(response, reverse("caidapp:media_files_locality", args=[locality.hash]))
+        self.assertContains(response, mediafile.original_filename)
+        self.assertNotContains(response, other_mediafile.original_filename)
+
+    def test_sequence_view_rejects_locality_outside_user_workgroup(self):
+        other_caiduser = CaidUserFactory()
+        locality = LocalityFactory(owner=other_caiduser, name="Private locality")
+
+        response = self.client.get(reverse("caidapp:sequences"), {"locality_hash": locality.hash})
+
+        self.assertEqual(response.status_code, 404)
+        self.assertNotContains(response, "Private locality", status_code=404)
+
+    def test_sequence_view_shows_active_album_link(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        album = AlbumFactory(owner=self.caiduser, name="Visible album")
+        other_album = AlbumFactory(owner=self.caiduser, name="Other album")
+        sequence = SequenceFactory(uploaded_archive=archive)
+        other_sequence = SequenceFactory(uploaded_archive=archive)
+        mediafile = MediaFileFactory(parent=archive, sequence=sequence, original_filename="album.jpg")
+        other_mediafile = MediaFileFactory(parent=archive, sequence=other_sequence, original_filename="other-album.jpg")
+        album.mediafiles.add(mediafile)
+        other_album.mediafiles.add(other_mediafile)
+
+        response = self.client.get(reverse("caidapp:sequences"), {"album_hash": album.hash})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Album: Visible album")
+        self.assertContains(response, reverse("caidapp:album", args=[album.hash]))
+        self.assertContains(response, mediafile.original_filename)
+        self.assertNotContains(response, other_mediafile.original_filename)
+
+    def test_sequence_view_rejects_album_outside_user_access(self):
+        other_caiduser = CaidUserFactory()
+        album = AlbumFactory(owner=other_caiduser, name="Private album")
+
+        response = self.client.get(reverse("caidapp:sequences"), {"album_hash": album.hash})
+
+        self.assertEqual(response.status_code, 404)
+        self.assertNotContains(response, "Private album", status_code=404)
+
+    def test_taxon_list_links_to_sequences_for_taxon(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        wolf = TaxonFactory(name="Wolf")
+        sequence = SequenceFactory(uploaded_archive=archive)
+        mediafile = MediaFileFactory(parent=archive, sequence=sequence)
+        AnimalObservationFactory(mediafile=mediafile, taxon=wolf)
+
+        response = self.client.get(reverse("caidapp:show_taxons"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, f'{reverse("caidapp:sequences")}?taxon={wolf.id}')
+
+    def test_identity_locality_and_album_lists_link_to_sequences(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Alpha")
+        locality = LocalityFactory(owner=self.caiduser, name="Visible locality")
+        album = AlbumFactory(owner=self.caiduser, name="Visible album")
+        sequence = SequenceFactory(uploaded_archive=archive)
+        mediafile = MediaFileFactory(parent=archive, sequence=sequence, identity=identity, locality=locality)
+        album.mediafiles.add(mediafile)
+
+        response = self.client.get(reverse("caidapp:individual_identities"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, f'{reverse("caidapp:sequences")}?individual_identity_id={identity.id}')
+
+        response = self.client.get(reverse("caidapp:localities"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, f'{reverse("caidapp:sequences")}?locality_hash={locality.hash}')
+
+        response = self.client.get(reverse("caidapp:albums"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, f'{reverse("caidapp:sequences")}?album_hash={album.hash}')
+
     def test_sequence_filename_metadata_uses_selected_mediafiles(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)
         sequence = SequenceFactory(uploaded_archive=archive)
@@ -668,6 +824,48 @@ class IdentificationUploadsViewTest(TestCase):
             response,
             reverse("caidapp:apply_filename_metadata_to_uploadedarchive", args=[known_identity_archive.id]),
         )
+
+    def test_upload_lists_link_to_sequences_for_archive(self):
+        species_archive = UploadedArchiveFactory(
+            owner=self.caiduser,
+            contains_single_taxon=False,
+            taxon_for_identification=None,
+        )
+        identity_archive = UploadedArchiveFactory(
+            owner=self.caiduser,
+            is_for_identification=True,
+            contains_identities=False,
+        )
+        known_identity_archive = UploadedArchiveFactory(
+            owner=self.caiduser,
+            is_for_identification=True,
+            contains_identities=True,
+        )
+
+        response = self.client.get(reverse("caidapp:uploads"))
+        self.assertContains(response, f'{reverse("caidapp:sequences")}?uploadedarchive_id={species_archive.id}')
+
+        response = self.client.get(reverse("caidapp:uploads_identities"))
+        self.assertContains(response, f'{reverse("caidapp:sequences")}?uploadedarchive_id={identity_archive.id}')
+
+        response = self.client.get(reverse("caidapp:uploads_known_identities"))
+        self.assertContains(response, f'{reverse("caidapp:sequences")}?uploadedarchive_id={known_identity_archive.id}')
+
+    def test_uploadedarchive_detail_links_to_sequences_and_mediafiles(self):
+        TaxonFactory(name=models.TAXON_NOT_CLASSIFIED)
+        archive = UploadedArchiveFactory(
+            owner=self.caiduser,
+            contains_single_taxon=False,
+            taxon_for_identification=None,
+        )
+
+        response = self.client.get(reverse("caidapp:uploadedarchive_detail", args=[archive.id]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, archive.name)
+        self.assertContains(response, f'{reverse("caidapp:sequences")}?uploadedarchive_id={archive.id}')
+        self.assertContains(response, reverse("caidapp:uploadedarchive_mediafiles", args=[archive.id]))
+        self.assertContains(response, "bi-three-dots")
 
     def test_upload_filename_metadata_uses_all_mediafiles_in_archive(self):
         archive = UploadedArchiveFactory(owner=self.caiduser, is_for_identification=True, contains_identities=False)

@@ -109,6 +109,13 @@
                                         <ul class="dropdown-menu">
                                             <li>
                                                 <a class="dropdown-item"
+                                                   href="{% url 'caidapp:sequences' %}?taxon={{ taxon.id }}">
+                                                    <i class="bi bi-collection"></i>
+                                                    Sequences
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a class="dropdown-item"
                                                    href="{% url 'caidapp:update_taxon' taxon_id=taxon.id %}">
                                                     <i class="bi bi-pencil"></i>
                                                     Edit

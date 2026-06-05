@@ -146,6 +146,10 @@
                                     <a href="{% url 'caidapp:media_files_locality' locality.hash %}" class="link-secondary" >
                                         <i class="fas fa-images"></i> Media files: {{ locality.mediafile_count }}
                                     </a>
+                                    <br>
+                                    <a href="{% url 'caidapp:sequences' %}?locality_hash={{ locality.hash }}" class="link-secondary">
+                                        <i class="bi bi-collection"></i> Sequences
+                                    </a>
 
                                 </p>
                             </div>
