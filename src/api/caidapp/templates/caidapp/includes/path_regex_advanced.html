@@ -1,0 +1,52 @@
+{% load widget_tweaks %}
+
+{% if path_regex_chatgpt_prompt_prefix_lines %}
+  {{ path_regex_chatgpt_prompt_prefix_lines|json_script:"path-regex-chatgpt-prefix-lines" }}
+{% endif %}
+{% if path_regex_chatgpt_prompt_suffix %}
+  {{ path_regex_chatgpt_prompt_suffix|json_script:"path-regex-chatgpt-suffix" }}
+{% endif %}
+
+<label for="{% if regex_input_id %}{{ regex_input_id }}{% else %}{{ form.path_regex.id_for_label }}{% endif %}" class="form-label">
+  {% if regex_label %}{{ regex_label }}{% else %}{{ form.path_regex.label }}{% endif %}
+</label>
+{% if regex_input_id %}
+  <input type="text" class="form-control font-monospace" id="{{ regex_input_id }}" placeholder="Example: (?P&lt;taxon&gt;[^/]+)/(?P&lt;unique_name&gt;[^/]+)/.*">
+{% else %}
+  {{ form.path_regex|add_class:"form-control font-monospace" }}
+  <div class="text-danger">{{ form.path_regex.errors }}</div>
+{% endif %}
+<div class="form-text">
+  Optional. Use this when metadata is hidden in the filename or the simple path mapping is not enough.
+</div>
+<div class="form-text">
+  If you already assigned path parts in the simple view, the regex may be filled automatically and you can refine it.
+</div>
+<div class="small text-muted mt-2">
+  <strong>What does the example mean?</strong>
+  <code>(?P&lt;taxon&gt;...)</code> names the captured value <code>taxon</code>.
+  <code>[^/]+</code> means one or more characters until the next slash.
+  <code>.*</code> means the rest of the path.
+</div>
+<div class="small text-muted mt-3">
+  <strong>Examples</strong>
+</div>
+<div class="small text-muted">
+  <code>^(?:.*/)?(?P&lt;locality&gt;[^/]+)/(?P&lt;unique_name&gt;[^/]+)/[^/]+$</code>
+  for a structure like <code>Brdy/Charles/IMG_001.jpg</code>, no matter how deep it is
+</div>
+<div class="small text-muted mt-1">
+  <code>^(?P&lt;taxon&gt;[^/]+)/(?P&lt;unique_name&gt;[^/]+)/[^/]+$</code>
+  for a structure like <code>lynx/Charles/IMG_001.jpg</code>
+</div>
+<div class="small text-muted mt-1">
+  <code>^(?:.*/)?(?P&lt;unique_name&gt;[^/_]+)_\d+\.[^/]+$</code>
+  for filenames like <code>Charles_001.jpg</code>, no matter how deep they are in directories
+</div>
+<a class="btn btn-sm btn-outline-primary mt-3"
+   {% if chatgpt_link_id %}id="{{ chatgpt_link_id }}"{% endif %}
+   href="{% if chatgpt_url %}{{ chatgpt_url }}{% else %}https://chatgpt.com/{% endif %}"
+   target="_blank"
+   rel="noopener">
+  Ask ChatGPT
+</a>

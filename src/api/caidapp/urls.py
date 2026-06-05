@@ -335,6 +335,22 @@ urlpatterns = [
         views.download_xlsx_for_mediafiles_view,
         name="download_xlsx_for_mediafiles",
     ),
+    path("download_sequences/", views.download_sequences_view, name="download_sequences"),
+    path(
+        "download_csv_for_sequences/",
+        views.download_csv_for_sequences_view,
+        name="download_csv_for_sequences",
+    ),
+    path(
+        "download_xlsx_for_sequences/",
+        views.download_xlsx_for_sequences_view,
+        name="download_xlsx_for_sequences",
+    ),
+    path(
+        "download_zip_for_sequences/",
+        views.download_zip_for_sequences_view,
+        name="download_zip_for_sequences",
+    ),
     path(
         "download_uploadedarchive_csv/<int:uploadedarchive_id>",
         views.download_csv_for_mediafiles_view,

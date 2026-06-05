@@ -1,0 +1,90 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block body %}
+{% if user.is_authenticated %}
+<div class="pagetitle">
+  <h1>Download sequences</h1>
+  <nav><ol class="breadcrumb"><li class="breadcrumb-item"><a href="{% url 'caidapp:sequences' %}">Sequences</a></li><li class="breadcrumb-item active">Download</li></ol></nav>
+</div>
+
+<section class="section">
+  <div class="card">
+    <div class="card-body download-config">
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <div>
+          <h5 class="card-title mb-0">Export {{ mediafile_count }} media files</h5>
+          <div class="text-muted small">CSV and XLSX use one row per observation. Media files without observations keep one empty observation row.</div>
+        </div>
+        <a class="btn btn-outline-secondary" href="{{ return_url }}">
+          <i class="bi bi-arrow-left"></i> Back
+        </a>
+      </div>
+
+      <form method="get" id="sequence-download-form">
+        <div class="row g-4">
+          <div class="col-lg-7">
+            <h6>Metadata columns</h6>
+            <div class="row row-cols-1 row-cols-md-2 g-2">
+              {% for column, label in export_columns %}
+              <div class="col">
+                <div class="form-check">
+                  <input
+                    class="form-check-input download-export-column"
+                    type="checkbox"
+                    name="columns"
+                    value="{{ column }}"
+                    id="sequence-export-column-{{ forloop.counter }}"
+                    {% if column in default_export_columns %}checked{% endif %}
+                  >
+                  <label class="form-check-label" for="sequence-export-column-{{ forloop.counter }}">{{ label }}</label>
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+            <div class="d-flex flex-wrap gap-2 mt-3">
+              <button class="btn btn-primary" type="submit" formaction="{% url 'caidapp:download_csv_for_sequences' %}">
+                <i class="bi bi-table"></i> Download CSV
+              </button>
+              <button class="btn btn-primary" type="submit" formaction="{% url 'caidapp:download_xlsx_for_sequences' %}">
+                <i class="bi bi-file-earmark-excel"></i> Download XLSX
+              </button>
+            </div>
+          </div>
+
+          <div class="col-lg-5">
+            <h6>Media files ZIP</h6>
+            <label class="form-label" for="downloadExportScheme">ZIP schema</label>
+            <select id="downloadExportScheme" class="form-select mb-2">
+              <option value="species_identity" selected>Species / identity</option>
+              <option value="identity_dirs">Identity folders</option>
+              <option value="flat">Flat files</option>
+              <option value="custom">Custom template</option>
+            </select>
+            <label class="form-label" for="downloadExportTemplate">Advanced template</label>
+            <input
+              id="downloadExportTemplate"
+              class="form-control font-monospace mb-2"
+              type="text"
+              placeholder="{species}/{identity}/{hash}_{species}_{identity}{.ext}"
+            >
+            <div class="form-text mb-3">
+              Available placeholders: {hash}, {species}, {identity}, {species_list}, {identity_list}, {original_name}, {locality}, {date}, {mediafile_id}, {.ext}
+            </div>
+            <button
+              type="button"
+              class="btn btn-secondary download-mediafiles-button"
+              data-base-url="{% url 'caidapp:download_zip_for_sequences' %}"
+              data-query-string=""
+            >
+              <i class="bi bi-archive"></i> Prepare and download ZIP
+            </button>
+            <div class="text-muted small mt-2">ZIP also includes metadata.csv and metadata.xlsx.</div>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+</section>
+<script src="{% static 'caidapp/download_button.js' %}"></script>
+{% endif %}
+{% endblock %}

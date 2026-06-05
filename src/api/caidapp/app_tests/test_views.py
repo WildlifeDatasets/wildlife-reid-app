@@ -339,6 +339,48 @@ class SequenceViewTest(TestCase):
         self.assertContains(response, f"id=\"sequence-card-{three_file_sequence.id}\"")
         self.assertContains(response, "sequence-card-expanded-wide")
 
+    def test_sequence_download_starts_from_selected_sequences(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        selected_sequence = SequenceFactory(uploaded_archive=archive)
+        other_sequence = SequenceFactory(uploaded_archive=archive)
+        selected_mediafile = MediaFileFactory(parent=archive, sequence=selected_sequence, original_filename="selected.jpg")
+        other_mediafile = MediaFileFactory(parent=archive, sequence=other_sequence, original_filename="other.jpg")
+
+        response = self.client.post(
+            reverse("caidapp:sequences"),
+            {
+                "btnDownloadSequences": "1",
+                "selected_sequence_ids": [str(selected_sequence.id)],
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("caidapp:download_sequences"))
+        self.assertEqual(self.client.session["sequence_download_mediafile_ids"], [selected_mediafile.id])
+        self.assertNotIn(other_mediafile.id, self.client.session["sequence_download_mediafile_ids"])
+
+    def test_sequence_csv_export_uses_one_row_per_observation(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        sequence = SequenceFactory(uploaded_archive=archive)
+        taxon_wolf = TaxonFactory(name="Wolf")
+        taxon_lynx = TaxonFactory(name="Lynx")
+        observed_mediafile = MediaFileFactory(parent=archive, sequence=sequence, original_filename="observed.jpg")
+        empty_mediafile = MediaFileFactory(parent=archive, sequence=sequence, original_filename="empty.jpg")
+        AnimalObservationFactory(mediafile=observed_mediafile, taxon=taxon_wolf)
+        AnimalObservationFactory(mediafile=observed_mediafile, taxon=taxon_lynx)
+        session = self.client.session
+        session["sequence_download_mediafile_ids"] = [observed_mediafile.id, empty_mediafile.id]
+        session.save()
+
+        response = self.client.get(reverse("caidapp:download_csv_for_sequences"))
+
+        self.assertEqual(response.status_code, 200)
+        df = pd.read_csv(StringIO(response.content.decode()))
+        self.assertEqual(len(df), 3)
+        self.assertEqual(list(df["original_path"]), ["observed.jpg", "observed.jpg", "empty.jpg"])
+        self.assertEqual(set(df[df["original_path"] == "observed.jpg"]["predicted_category"]), {"Wolf", "Lynx"})
+        self.assertTrue(pd.isna(df[df["original_path"] == "empty.jpg"].iloc[0]["observation_id"]))
+
     def test_sequence_view_accepts_uploadedarchive_filter_alias(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)
         sequence = SequenceFactory(uploaded_archive=archive)

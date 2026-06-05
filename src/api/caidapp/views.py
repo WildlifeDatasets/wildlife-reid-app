@@ -109,6 +109,57 @@ MEDIAFILE_EXPORT_SCHEMAS = {
     "flat": "{hash}_{species}_{identity}{dotext}",
 }
 
+SEQUENCE_DOWNLOAD_SESSION_KEY = "sequence_download_mediafile_ids"
+SEQUENCE_DOWNLOAD_RETURN_URL_SESSION_KEY = "sequence_download_return_url"
+
+SEQUENCE_EXPORT_COLUMNS = [
+    ("unique_name", "Identity"),
+    ("code", "Identity code"),
+    ("juv_code", "Juvenile code"),
+    ("locality name", "Locality name"),
+    ("locality coordinates", "Locality coordinates"),
+    ("latitude", "Latitude"),
+    ("longitude", "Longitude"),
+    ("original_path", "Original path"),
+    ("export_path", "Export path"),
+    ("datetime", "Datetime"),
+    ("uploaded_archive", "Uploaded archive"),
+    ("locality_check_at", "Locality check at"),
+    ("mediafile_id", "Media file ID"),
+    ("sequence_id", "Sequence ID"),
+    ("observation_id", "Observation ID"),
+    ("predicted_category", "Taxon"),
+    ("media_type", "Media type"),
+    ("taxon_verified", "Taxon verified"),
+    ("predicted_taxon", "Predicted taxon"),
+    ("predicted_taxon_confidence", "Predicted taxon confidence"),
+    ("identity_is_representative", "Identity is representative"),
+    ("orientation", "Orientation"),
+    ("bbox_x_center", "BBox x center"),
+    ("bbox_y_center", "BBox y center"),
+    ("bbox_width", "BBox width"),
+    ("bbox_height", "BBox height"),
+    ("note", "Note"),
+]
+SEQUENCE_EXPORT_DEFAULT_COLUMNS = [
+    "unique_name",
+    "code",
+    "juv_code",
+    "locality name",
+    "locality coordinates",
+    "latitude",
+    "longitude",
+    "original_path",
+    "export_path",
+    "datetime",
+    "uploaded_archive",
+    "locality_check_at",
+    "mediafile_id",
+    "sequence_id",
+    "observation_id",
+    "predicted_category",
+]
+
 PATH_REGEX_CHATGPT_PROMPT_PREFIX_LINES = [
     "Help me write a Python regular expression for parsing wildlife dataset file paths.",
     "Use named groups only from: taxon, locality, unique_name, code, juv_code, check_date, date.",
@@ -3483,6 +3534,14 @@ def sequences(
             "Sequences",
         )
 
+    if request.method == "POST" and "btnDownloadSequences" in request.POST:
+        selected_mediafile_ids = _resolve_selected_mediafile_ids_from_post(request)
+        if not selected_mediafile_ids:
+            selected_mediafile_ids = list(full_mediafiles.values_list("id", flat=True))
+        request.session[SEQUENCE_DOWNLOAD_SESSION_KEY] = selected_mediafile_ids
+        request.session[SEQUENCE_DOWNLOAD_RETURN_URL_SESSION_KEY] = request.get_full_path()
+        return redirect("caidapp:download_sequences")
+
     context = {
         **page_context,
         "page_title": page_title.replace("Media files", "Sequences"),
@@ -4185,6 +4244,211 @@ def _build_export_mediafiles_data(request: HttpRequest, mediafiles: QuerySet) ->
             )
         mediafiles_data.append({"path": mediafile.mediafile.name, "output_name": output_name})
     return mediafiles_data
+
+
+def _get_sequence_download_mediafiles(request: HttpRequest) -> QuerySet:
+    """Return mediafiles selected for the sequence download workflow."""
+    mediafile_ids = request.session.get(SEQUENCE_DOWNLOAD_SESSION_KEY, [])
+    return (
+        MediaFile.objects.for_user(request.user.caiduser)
+        .filter(id__in=mediafile_ids)
+        .select_related("parent", "locality", "sequence", "taxon", "predicted_taxon", "identity")
+        .prefetch_related("observations__taxon", "observations__predicted_taxon", "observations__identity")
+        .order_by("sequence_id", "captured_at", "id")
+    )
+
+
+def _identity_export_values(identity: Optional[models.IndividualIdentity]) -> Dict[str, str]:
+    if identity is None:
+        return {"unique_name": "", "code": "", "juv_code": ""}
+    return {
+        "unique_name": identity.name or "",
+        "code": identity.code or "",
+        "juv_code": identity.juv_code or "",
+    }
+
+
+def _location_export_values(mediafile: models.MediaFile) -> Dict[str, str]:
+    effective_location = mediafile.effective_location
+    if effective_location and "," in str(effective_location):
+        latitude, longitude = [part.strip() for part in str(effective_location).split(",", 1)]
+    else:
+        latitude, longitude = "", ""
+    return {
+        "locality coordinates": str(effective_location) if effective_location else "",
+        "latitude": latitude,
+        "longitude": longitude,
+    }
+
+
+def _build_sequence_observation_export_records(
+    mediafiles: QuerySet,
+    request: Optional[HttpRequest] = None,
+    columns: Optional[List[str]] = None,
+    include_export_path: bool = True,
+) -> List[Dict[str, object]]:
+    """Build observation-level export records from mediafiles."""
+    selected_columns = columns or SEQUENCE_EXPORT_DEFAULT_COLUMNS
+    mediafile_export_paths = {}
+    if include_export_path and request is not None:
+        for mediafile in mediafiles:
+            mediafile_export_paths[mediafile.id] = _render_mediafile_export_path(_get_mediafile_export_template(request), mediafile)
+
+    records = []
+    for mediafile in mediafiles:
+        observations = list(mediafile.observations.all()) or [None]
+        mediafile_location_values = _location_export_values(mediafile)
+        for observation in observations:
+            taxon = observation.taxon if observation and observation.taxon_id else mediafile.taxon
+            predicted_taxon = (
+                observation.predicted_taxon
+                if observation and observation.predicted_taxon_id
+                else mediafile.predicted_taxon
+            )
+            identity = observation.identity if observation and observation.identity_id else mediafile.identity
+            row = {
+                "mediafile_id": mediafile.id,
+                "observation_id": observation.id if observation else "",
+                "original_path": mediafile.original_filename or mediafile.mediafile.name,
+                "export_path": mediafile_export_paths.get(mediafile.id, ""),
+                "uploaded_archive": mediafile.parent.name if mediafile.parent else "",
+                "sequence_id": mediafile.sequence_id or "",
+                "datetime": mediafile.captured_at.isoformat() if mediafile.captured_at else "",
+                "media_type": mediafile.media_type,
+                "locality name": mediafile.locality.name if mediafile.locality else "",
+                "predicted_category": taxon.name if taxon else "",
+                "taxon_verified": observation.taxon_verified if observation else mediafile.taxon_verified,
+                "predicted_taxon": predicted_taxon.name if predicted_taxon else "",
+                "predicted_taxon_confidence": (
+                    observation.predicted_taxon_confidence
+                    if observation and observation.predicted_taxon_confidence is not None
+                    else mediafile.predicted_taxon_confidence
+                ),
+                "identity_is_representative": (
+                    observation.identity_is_representative if observation else mediafile.identity_is_representative
+                ),
+                "orientation": observation.orientation if observation else mediafile.orientation,
+                "bbox_x_center": observation.bbox_x_center if observation else "",
+                "bbox_y_center": observation.bbox_y_center if observation else "",
+                "bbox_width": observation.bbox_width if observation else "",
+                "bbox_height": observation.bbox_height if observation else "",
+                "note": mediafile.note,
+                "locality_check_at": (
+                    mediafile.parent.locality_check_at.isoformat()
+                    if mediafile.parent and mediafile.parent.locality_check_at
+                    else ""
+                ),
+            }
+            row.update(mediafile_location_values)
+            row.update(_identity_export_values(identity))
+            records.append({column: row.get(column, "") for column in selected_columns})
+    return records
+
+
+def _sequence_export_dataframe(mediafiles: QuerySet, request: HttpRequest, columns: Optional[List[str]] = None) -> pd.DataFrame:
+    records = _build_sequence_observation_export_records(mediafiles, request=request, columns=columns)
+    return pd.DataFrame.from_records(records, columns=columns or SEQUENCE_EXPORT_DEFAULT_COLUMNS)
+
+
+def _get_sequence_export_columns(request: HttpRequest) -> List[str]:
+    requested_columns = request.GET.getlist("columns")
+    valid_columns = [column for column, _label in SEQUENCE_EXPORT_COLUMNS]
+    selected_columns = [column for column in valid_columns if column in requested_columns]
+    return selected_columns or SEQUENCE_EXPORT_DEFAULT_COLUMNS
+
+
+@login_required
+def download_sequences_view(request) -> HttpResponse:
+    """Configure downloads created from the current Sequences selection."""
+    mediafiles = _get_sequence_download_mediafiles(request)
+    mediafile_count = mediafiles.count()
+    return_url = request.session.get(SEQUENCE_DOWNLOAD_RETURN_URL_SESSION_KEY) or reverse_lazy("caidapp:sequences")
+    if mediafile_count == 0:
+        return message_view(
+            request,
+            "No media files were selected for download.",
+            headline="Download sequences",
+            link=return_url,
+            button_label="Back to sequences",
+        )
+
+    return render(
+        request,
+        "caidapp/sequences_download.html",
+        {
+            "mediafile_count": mediafile_count,
+            "return_url": return_url,
+            "export_columns": SEQUENCE_EXPORT_COLUMNS,
+            "default_export_columns": SEQUENCE_EXPORT_DEFAULT_COLUMNS,
+            "export_schemas": MEDIAFILE_EXPORT_SCHEMAS,
+        },
+    )
+
+
+@login_required
+def download_csv_for_sequences_view(request) -> HttpResponse:
+    """Download observation-level CSV from the current sequence download selection."""
+    mediafiles = _get_sequence_download_mediafiles(request)
+    columns = _get_sequence_export_columns(request)
+    df = _sequence_export_dataframe(mediafiles, request, columns)
+    if df.empty:
+        return HttpResponse("No data available to export.", content_type="text/plain")
+
+    response = HttpResponse(df.to_csv(index=False), content_type="text/csv")
+    response["Content-Disposition"] = "attachment; filename=sequence_metadata.csv"
+    return response
+
+
+@login_required
+def download_xlsx_for_sequences_view(request) -> HttpResponse:
+    """Download observation-level XLSX from the current sequence download selection."""
+    mediafiles = _get_sequence_download_mediafiles(request)
+    columns = _get_sequence_export_columns(request)
+    df = _sequence_export_dataframe(mediafiles, request, columns)
+    if df.empty:
+        return HttpResponse("No data available to export.", content_type="text/plain")
+
+    df = model_tools.convert_datetime_to_naive(df)
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        df.to_excel(writer, index=False, sheet_name="Media files")
+    output.seek(0)
+
+    response = HttpResponse(output, content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    response["Content-Disposition"] = "attachment; filename=sequence_metadata.xlsx"
+    return response
+
+
+@login_required
+def download_zip_for_sequences_view(request) -> JsonResponse:
+    """Prepare ZIP with selected sequence media files and observation-level metadata."""
+    mediafiles = _get_sequence_download_mediafiles(request)
+    if not mediafiles.exists():
+        return JsonResponse({"message": "No media files were selected for download."}, status=400)
+
+    try:
+        mediafiles_data = _build_export_mediafiles_data(request, mediafiles)
+    except ValueError as exc:
+        return JsonResponse({"message": str(exc)}, status=400)
+
+    mediafiles = _get_sequence_download_mediafiles(request)
+    export_path_by_mediafile_id = {}
+    for mediafile_data, mediafile in zip(mediafiles_data, mediafiles):
+        export_path_by_mediafile_id[mediafile.id] = mediafile_data["output_name"]
+    metadata_records = _build_sequence_observation_export_records(
+        mediafiles,
+        request=request,
+        columns=SEQUENCE_EXPORT_DEFAULT_COLUMNS,
+    )
+    for record in metadata_records:
+        record["export_path"] = export_path_by_mediafile_id.get(record["mediafile_id"], record.get("export_path", ""))
+
+    datetime_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+    user_hash = request.user.caiduser.hash
+    abs_zip_path = Path(settings.MEDIA_ROOT) / "users" / user_hash / f"sequence_mediafiles.{datetime_str}.zip"
+    task = tasks.create_mediafiles_zip_with_metadata.delay(user_hash, mediafiles_data, str(abs_zip_path), metadata_records)
+    _ = tasks.clean_old_mediafile_zips.delay(str(abs_zip_path.parent), glob_pattern="sequence_mediafiles.*.zip", max_age_days=7)
+    return JsonResponse({"task_id": task.id})
 
 
 @login_required
