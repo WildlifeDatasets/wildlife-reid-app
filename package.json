@@ -1,5 +1,11 @@
 {
+  "scripts": {
+    "build:css": "sass src/api/caidapp/static/caidapp/css/color_scheme.scss:src/api/caidapp/static/caidapp/css/color_scheme.css"
+  },
   "dependencies": {
     "bootstrap": "^5.3.8"
+  },
+  "devDependencies": {
+    "sass": "^1.97.3"
   }
 }
