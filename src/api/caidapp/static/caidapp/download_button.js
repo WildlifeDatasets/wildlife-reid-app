@@ -43,7 +43,7 @@ function buildDownloadZipUrl(button) {
             : "/caidapp/download_zip_for_mediafiles/";
     }
     const queryString = button.data("query-string") || "";
-    const container = button.closest(".dropdown-item-text");
+    const container = button.closest(".download-config, .dropdown-item-text");
     const exportScheme = container.find("#downloadExportScheme").val() || "species_identity";
     const exportTemplate = container.find("#downloadExportTemplate").val() || "";
 
@@ -58,6 +58,9 @@ function buildDownloadZipUrl(button) {
     } else {
         params.delete("export_path_template");
     }
+    container.find(".download-export-column:checked").each(function() {
+        params.append("columns", this.value);
+    });
 
     const serialized = params.toString();
     return serialized ? `${baseUrl}?${serialized}` : baseUrl;
