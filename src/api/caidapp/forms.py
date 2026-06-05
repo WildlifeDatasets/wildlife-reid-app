@@ -755,19 +755,26 @@ class MediaFileSetQueryForm(forms.Form):
 
 
 class MediaFileFilenameMetadataForm(forms.Form):
+    directory_mapping = forms.CharField(required=False, widget=forms.HiddenInput())
     path_regex = forms.CharField(
         label="Path / filename regex",
-        required=True,
+        required=False,
         widget=forms.Textarea(attrs={"rows": 3}),
         help_text=(
             "Use named groups such as (?P<locality>...), (?P<taxon>...), "
-            "(?P<identity>...), (?P<code>...), (?P<juv_code>...), or (?P<check_date>...)."
+            "(?P<unique_name>...), (?P<code>...), (?P<juv_code>...), or (?P<check_date>...). "
+            "(?P<identity>...) is accepted as a legacy alias for (?P<unique_name>...)."
         ),
     )
     apply_to_manually_updated = forms.BooleanField(
         label="Apply to manually updated files",
         required=False,
         help_text="When unchecked, media files with updated_by set are skipped.",
+    )
+    force_rewrite_filled_data = forms.BooleanField(
+        label="Force rewrite filled data",
+        required=False,
+        help_text="When unchecked, only empty fields are filled.",
     )
 
     def clean_path_regex(self):

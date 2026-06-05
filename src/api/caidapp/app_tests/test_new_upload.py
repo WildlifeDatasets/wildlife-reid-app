@@ -98,7 +98,9 @@ class NewUploadViewTest(TestCase):
         response = self.client.get(reverse("caidapp:new_upload"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "New Upload")
+        self.assertContains(response, "Upload")
+        self.assertNotContains(response, "New Upload")
+        self.assertNotContains(response, "This is a beta upload flow")
         self.assertContains(response, "Where should this upload go?")
         self.assertContains(response, "the upload contains identified individuals and the images are representative")
 
@@ -324,9 +326,9 @@ class NewUploadViewTest(TestCase):
 
         response = self._post_upload(
             extra_data={
-                "directory_structure": "{check_date}/{locality}/{taxon}/{identity}",
-                "directory_mapping": json.dumps({"check_date": 0, "locality": 1, "taxon": 2, "identity": 3}),
-                "path_regex": r"(?P<check_date>\d{4}-\d{2}-\d{2})/(?P<locality>[^/]+)/(?P<taxon>[^/]+)/(?P<identity>[^/]+)/.*",
+                "directory_structure": "{check_date}/{locality}/{taxon}/{unique_name}",
+                "directory_mapping": json.dumps({"check_date": 0, "locality": 1, "taxon": 2, "unique_name": 3}),
+                "path_regex": r"(?P<check_date>\d{4}-\d{2}-\d{2})/(?P<locality>[^/]+)/(?P<taxon>[^/]+)/(?P<unique_name>[^/]+)/.*",
                 "upload_relative_paths": json.dumps(manifest),
             },
             files=[SimpleUploadedFile("first.jpg", b"fake image", content_type="image/jpeg")],
@@ -339,7 +341,7 @@ class NewUploadViewTest(TestCase):
         self.assertEqual(uploaded_archive.name, "2026-05-01")
         self.assertEqual(
             uploaded_archive.import_mapping["directory_structure"],
-            "{check_date}/{locality}/{taxon}/{identity}",
+            "{check_date}/{locality}/{taxon}/{unique_name}",
         )
         self.assertEqual(uploaded_archive.import_mapping["path_source"], "relative_path")
         self.assertEqual(uploaded_archive.import_mapping["directory_mapping"]["taxon"], 2)
@@ -351,7 +353,7 @@ class NewUploadViewTest(TestCase):
     def test_path_regex_python_raw_string_wrapper_is_accepted(self, run_processing):
         response = self._post_upload(
             extra_data={
-                "path_regex": r'r"^(?P<taxon>[^/]+)/(?P<identity>[^/]+)/[^/]+$"',
+                "path_regex": r'r"^(?P<taxon>[^/]+)/(?P<unique_name>[^/]+)/[^/]+$"',
             },
             files=[
                 SimpleUploadedFile("Lynx/Charles/first.jpg", b"fake image", content_type="image/jpeg"),
@@ -360,7 +362,7 @@ class NewUploadViewTest(TestCase):
 
         self.assertEqual(response.status_code, 200)
         uploaded_archive = models.UploadedArchive.objects.get()
-        self.assertEqual(uploaded_archive.path_structure_regex, r"^(?P<taxon>[^/]+)/(?P<identity>[^/]+)/[^/]+$")
+        self.assertEqual(uploaded_archive.path_structure_regex, r"^(?P<taxon>[^/]+)/(?P<unique_name>[^/]+)/[^/]+$")
         self.assertEqual(uploaded_archive.import_mapping["path_regex"], uploaded_archive.path_structure_regex)
         run_processing.assert_called_once()
 

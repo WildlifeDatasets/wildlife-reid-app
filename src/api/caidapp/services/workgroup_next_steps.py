@@ -34,7 +34,7 @@ def build_next_steps(workgroup: models.WorkGroup | None) -> list[NextStepCandida
                 code="no_uploads",
                 priority=10,
                 text="Upload media files to start building the identification database.",
-                url=reverse("caidapp:upload_archive_contains_single_taxon"),
+                url=reverse("caidapp:new_upload"),
             )
         )
 
@@ -44,7 +44,7 @@ def build_next_steps(workgroup: models.WorkGroup | None) -> list[NextStepCandida
                 code="no_identities",
                 priority=20,
                 text="Create the first identity or upload identified media files.",
-                url=reverse("caidapp:upload_archive_contains_identities"),
+                url=reverse("caidapp:new_upload"),
             )
         )
         return sorted(candidates, key=lambda item: item.priority)

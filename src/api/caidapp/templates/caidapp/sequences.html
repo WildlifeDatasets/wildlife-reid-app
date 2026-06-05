@@ -3,7 +3,7 @@
 {% load custom_filters %}
 {% block head %}
 <style>
-.sequence-card{position:relative;border:1px solid rgba(0,0,0,.12);overflow:hidden}.sequence-card .card-body{position:relative}.sequence-card-footer-icon{position:absolute;right:.75rem;bottom:.75rem;z-index:2}.sequence-cover{object-fit:contain;aspect-ratio:4/3;width:100%;background:#f5f5f5;display:block;border-radius:0!important}.sequence-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:1rem;align-items:start}.sequence-card-expanded{grid-column:1/-1}.sequence-mediafiles{border-top:1px solid rgba(0,0,0,.08);padding-top:1rem;margin-top:1rem}.sequence-mediafile-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,280px));gap:.75rem;justify-content:start}.sequence-mediafile-card img{object-fit:contain;aspect-ratio:4/3;width:100%;background:#f5f5f5}.sequence-mediafile-image-placeholder{aspect-ratio:4/3;width:100%;background:#f0f0f0}.sequence-overlay-badge{background-color:rgba(200,200,200,.75);padding:2px 6px;border-radius:5px;color:#111;border:0}.sequence-toggle-icon{cursor:pointer;line-height:1}.sequence-toggle-icon.toggle-sequence-active{background-color:rgba(33,37,41,.75);color:#fff}.sequence-info-icon{color:var(--bs-secondary-color);font-size:.95rem;line-height:1;cursor:help;display:inline-flex;align-items:center;justify-content:center;text-decoration:none}.bbox-overlay{border:2px solid red;background-color:rgba(255,0,0,.01);pointer-events:none}.sequence-collapsed-content{display:block}.sequence-expanded-content{display:none}.sequence-card-expanded .sequence-collapsed-content{display:none}.sequence-card-expanded .sequence-expanded-content{display:block}.sequence-mini-icon{padding:.125rem .35rem;font-size:.8rem;line-height:1}.sequence-list-details{padding-top:0}.sequence-table-thumb{width:72px;height:54px;object-fit:contain;background:#f5f5f5;transition:opacity .2s ease,visibility .2s ease}.sequence-table-cell-lines>div+div{margin-top:.2rem}.sequence-table-action{width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center}.sequence-toolbar-label{font-size:.8rem;color:var(--bs-secondary-color)}.sequence-pagination-toolbar{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:.75rem}.sequence-pagination-toolbar .pagination{margin-bottom:0}.sequence-pagination-controls{display:flex;flex-wrap:wrap;align-items:flex-end;gap:.75rem}.sequence-list-row.sequence-card-expanded .sequence-table-thumb,.sequence-list-row.sequence-card-expanded .sequence-table-thumb-placeholder{opacity:0;visibility:hidden}.sequence-list-row.sequence-card-expanded td{border-bottom:0}.sequence-list-row.sequence-card-expanded .sequence-list-hide-on-expand{display:none}.sequence-list-row .sequence-list-show-on-expand{display:none}.sequence-list-row.sequence-card-expanded .sequence-list-show-on-expand{display:inline}.sequence-detail-row td{padding-top:0;padding-bottom:.75rem;border-top:0}.sequence-detail-table,.sequence-detail-table tbody,.sequence-detail-table tr,.sequence-detail-table td{background:transparent!important}.sequence-detail-table td{border-top:0}.sequence-detail-table .sequence-table-thumb{width:64px;height:48px}.sequence-table-thumb-placeholder{width:72px;height:54px;background:#f5f5f5;transition:opacity .2s ease,visibility .2s ease}@media (max-width:767px){.sequence-mediafile-grid{grid-template-columns:1fr}.sequence-table-thumb,.sequence-table-thumb-placeholder{width:60px;height:45px}.sequence-pagination-toolbar{align-items:flex-start}}
+.sequence-card{position:relative;border:1px solid rgba(0,0,0,.12);overflow:hidden}.sequence-card .card-body{position:relative}.sequence-card-footer-icon{position:absolute;right:.75rem;bottom:.75rem;z-index:2}.sequence-cover{object-fit:contain;aspect-ratio:4/3;width:100%;background:#f5f5f5;display:block;border-radius:0!important}.sequence-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:1rem;align-items:start}.sequence-card-expanded.sequence-card-expanded-medium{grid-column:span 2}.sequence-card-expanded.sequence-card-expanded-wide{grid-column:1/-1}.sequence-mediafiles{border-top:1px solid rgba(0,0,0,.08);padding-top:1rem;margin-top:1rem}.sequence-mediafile-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,280px));gap:.75rem;justify-content:start}.sequence-mediafile-card img{object-fit:contain;aspect-ratio:4/3;width:100%;background:#f5f5f5}.sequence-mediafile-image-placeholder{aspect-ratio:4/3;width:100%;background:#f0f0f0}.sequence-overlay-badge{background-color:rgba(200,200,200,.75);padding:2px 6px;border-radius:5px;color:#111;border:0}.sequence-toggle-icon{cursor:pointer;line-height:1}.sequence-toggle-icon.toggle-sequence-active{background-color:rgba(33,37,41,.75);color:#fff}.sequence-info-icon{color:var(--bs-secondary-color);font-size:.95rem;line-height:1;cursor:help;display:inline-flex;align-items:center;justify-content:center;text-decoration:none}.bbox-overlay{border:2px solid red;background-color:rgba(255,0,0,.01);pointer-events:none}.sequence-collapsed-content{display:block}.sequence-expanded-content{display:none}.sequence-card-expanded .sequence-collapsed-content{display:none}.sequence-card-expanded .sequence-expanded-content{display:block}.sequence-mini-icon{padding:.125rem .35rem;font-size:.8rem;line-height:1}.sequence-list-details{padding-top:0}.sequence-table-thumb{width:72px;height:54px;object-fit:contain;background:#f5f5f5;transition:opacity .2s ease,visibility .2s ease}.sequence-table-cell-lines>div+div{margin-top:.2rem}.sequence-table-action{width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center}.sequence-toolbar-label{font-size:.8rem;color:var(--bs-secondary-color)}.sequence-pagination-toolbar{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:.75rem}.sequence-pagination-toolbar .pagination{margin-bottom:0}.sequence-pagination-controls{display:flex;flex-wrap:wrap;align-items:flex-end;gap:.75rem}.sequence-list-row.sequence-card-expanded .sequence-table-thumb,.sequence-list-row.sequence-card-expanded .sequence-table-thumb-placeholder{opacity:0;visibility:hidden}.sequence-list-row.sequence-card-expanded td{border-bottom:0}.sequence-list-row.sequence-card-expanded .sequence-list-hide-on-expand{display:none}.sequence-list-row .sequence-list-show-on-expand{display:none}.sequence-list-row.sequence-card-expanded .sequence-list-show-on-expand{display:inline}.sequence-detail-row td{padding-top:0;padding-bottom:.75rem;border-top:0}.sequence-detail-table,.sequence-detail-table tbody,.sequence-detail-table tr,.sequence-detail-table td{background:transparent!important}.sequence-detail-table td{border-top:0}.sequence-detail-table .sequence-table-thumb{width:64px;height:48px}.sequence-table-thumb-placeholder{width:72px;height:54px;background:#f5f5f5;transition:opacity .2s ease,visibility .2s ease}@media (max-width:767px){.sequence-card-expanded.sequence-card-expanded-medium{grid-column:1/-1}.sequence-mediafile-grid{grid-template-columns:1fr}.sequence-table-thumb,.sequence-table-thumb-placeholder{width:60px;height:45px}.sequence-pagination-toolbar{align-items:flex-start}}
 .sequence-locality-extra-toggle{padding:0 .35rem;font-size:.75rem;line-height:1.4;text-decoration:none}.sequence-locality-extra-list{margin-top:.25rem}
 </style>
 {% endblock %}
@@ -18,6 +18,13 @@
   <form method="POST">
     {% csrf_token %}
     <div class="card mb-3"><div class="card-body">
+      <div class="d-flex flex-wrap justify-content-between gap-2 align-items-center">
+        <button class="btn btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#sequence-bulk-processing" aria-expanded="false" aria-controls="sequence-bulk-processing">
+          <i class="bi bi-sliders"></i> Bulk processing
+        </button>
+        <div class="text-muted small">{{ number_of_sequences }} sequences, {{ number_of_mediafiles }} media files in current filter.</div>
+      </div>
+      <div class="collapse mt-3" id="sequence-bulk-processing">
       <div class="d-flex flex-wrap justify-content-between gap-3 align-items-end">
         <div class="d-flex flex-wrap gap-3 align-items-end">
           {% for field in form_bulk_processing %}
@@ -41,7 +48,7 @@
           </button>
         </div>
       </div>
-      <div class="mt-3 text-muted small">{{ number_of_sequences }} sequences, {{ number_of_mediafiles }} media files in current filter.</div>
+      </div>
     </div></div>
     <div class="mb-3 sequence-pagination-toolbar">
       <div>{% include "caidapp/pagination_a.html" %}</div>
@@ -51,6 +58,13 @@
           <div class="d-flex gap-2 align-items-center">
             <a href="{% querystring request.GET view='cards' page=None %}" class="btn btn-sm {% if view_mode == 'cards' %}btn-primary{% else %}btn-outline-primary{% endif %}" title="Cards view"><i class="bi bi-grid"></i></a>
             <a href="{% querystring request.GET view='list' page=None %}" class="btn btn-sm {% if view_mode == 'list' %}btn-primary{% else %}btn-outline-primary{% endif %}" title="Rows view"><i class="bi bi-list-ul"></i></a>
+          </div>
+        </div>
+        <div>
+          <div class="sequence-toolbar-label mb-1">Sequences</div>
+          <div class="d-flex gap-2 align-items-center">
+            <button class="btn btn-sm btn-outline-secondary js-expand-all-sequences" type="button" title="Expand all sequences"><i class="bi bi-arrows-expand"></i></button>
+            <button class="btn btn-sm btn-outline-secondary js-collapse-all-sequences" type="button" title="Collapse all sequences"><i class="bi bi-arrows-collapse"></i></button>
           </div>
         </div>
         <div class="dropdown">
@@ -164,7 +178,7 @@
     {% else %}
     <div class="sequence-grid">
       {% for sequence in sequence_objects %}
-      <div class="card sequence-card" id="sequence-card-{{ sequence.id }}">
+      <div class="card sequence-card {% if sequence.mediafile_count > 2 %}sequence-card-expanded-wide{% elif sequence.mediafile_count > 1 %}sequence-card-expanded-medium{% endif %}" id="sequence-card-{{ sequence.id }}">
         <div class="sequence-collapsed-content position-relative">
           {% if sequence.cover_mediafile and sequence.cover_mediafile.thumbnail %}
           <a href="{% url 'caidapp:media_file_update' sequence.cover_mediafile.id %}?next={{ request.get_full_path|urlencode }}">
@@ -218,6 +232,13 @@
             <a href="{% querystring request.GET view='list' page=None %}" class="btn btn-sm {% if view_mode == 'list' %}btn-primary{% else %}btn-outline-primary{% endif %}" title="Rows view"><i class="bi bi-list-ul"></i></a>
           </div>
         </div>
+        <div>
+          <div class="sequence-toolbar-label mb-1">Sequences</div>
+          <div class="d-flex gap-2 align-items-center">
+            <button class="btn btn-sm btn-outline-secondary js-expand-all-sequences" type="button" title="Expand all sequences"><i class="bi bi-arrows-expand"></i></button>
+            <button class="btn btn-sm btn-outline-secondary js-collapse-all-sequences" type="button" title="Collapse all sequences"><i class="bi bi-arrows-collapse"></i></button>
+          </div>
+        </div>
         <div class="dropdown">
           <div class="sequence-toolbar-label mb-1">Sort</div>
           <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">Sort</button>
@@ -254,6 +275,14 @@ document.addEventListener("DOMContentLoaded", function() {
     });
   }
   document.querySelectorAll(".sequence-mediafiles.collapse").forEach(function(panel){ panel.addEventListener("show.bs.collapse", function(){ const sequenceId=this.id.replace("sequence-mediafiles-",""); const card=document.getElementById(`sequence-card-${sequenceId}`); if(card){ card.classList.add("sequence-card-expanded"); } syncSequenceButtons(sequenceId,true); }); panel.addEventListener("hide.bs.collapse", function(){ const sequenceId=this.id.replace("sequence-mediafiles-",""); const card=document.getElementById(`sequence-card-${sequenceId}`); if(card){ card.classList.remove("sequence-card-expanded"); } syncSequenceButtons(sequenceId,false); }); });
+  function setAllSequencesExpanded(expanded){
+    document.querySelectorAll(".sequence-mediafiles.collapse").forEach(function(panel){
+      const collapseInstance=bootstrap.Collapse.getOrCreateInstance(panel,{ toggle:false });
+      if(expanded){ collapseInstance.show(); } else { collapseInstance.hide(); }
+    });
+  }
+  document.querySelectorAll(".js-expand-all-sequences").forEach(function(button){ button.addEventListener("click", function(){ setAllSequencesExpanded(true); }); });
+  document.querySelectorAll(".js-collapse-all-sequences").forEach(function(button){ button.addEventListener("click", function(){ setAllSequencesExpanded(false); }); });
   document.querySelectorAll(".js-sequence-select-all").forEach(function(toggle){ toggle.addEventListener("change", function(){ const sequenceId=this.dataset.sequenceId; syncSequenceSelection(sequenceId,this.checked); }); });
   document.querySelectorAll(".js-sequence-checkbox").forEach(function(checkbox){ checkbox.addEventListener("change", function(){ const sequenceId=this.value; syncSequenceSelection(sequenceId,this.checked); if(this.checked){ const panel=document.getElementById(`sequence-mediafiles-${sequenceId}`); const collapseInstance=bootstrap.Collapse.getOrCreateInstance(panel,{ toggle:false }); collapseInstance.show(); } }); });
   document.querySelectorAll(".js-mediafile-checkbox").forEach(function(checkbox){ checkbox.addEventListener("change", function(){ const sequenceId=this.dataset.sequenceId; const marker=document.querySelector(`.js-deselected-mediafile-marker[data-mediafile-id="${this.value}"]`); if(marker){ marker.disabled=!(isSequenceSelected(sequenceId)&&!this.checked); } }); });

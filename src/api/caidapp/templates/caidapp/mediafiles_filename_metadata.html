@@ -2,17 +2,18 @@
 {% load widget_tweaks %}
 
 {% block body %}
-<div class="pagetitle">
-  <h1>Extract Metadata From Filenames</h1>
-  <nav>
-    <ol class="breadcrumb">
-      <li class="breadcrumb-item"><a href="{% url 'caidapp:sequences' %}">Sequences</a></li>
-      <li class="breadcrumb-item active">Filename metadata</li>
-    </ol>
-  </nav>
-</div>
+<div class="container-xl px-0">
+  <div class="pagetitle">
+    <h1>Extract Metadata From Filenames</h1>
+    <nav>
+      <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ return_url }}">{{ source_label }}</a></li>
+        <li class="breadcrumb-item active">Filename metadata</li>
+      </ol>
+    </nav>
+  </div>
 
-<section class="section">
+  <section class="section">
   {% if mediafile_count > 50 %}
   <div class="alert alert-warning">
     This action will process {{ mediafile_count }} media files. Review the pattern before applying it.
@@ -31,18 +32,51 @@
 
   <form method="post">
     {% csrf_token %}
+    {{ form.directory_mapping }}
     <div class="card mb-3">
       <div class="card-body">
-        <h5 class="card-title">Path Pattern</h5>
-        <label for="{{ form.path_regex.id_for_label }}" class="form-label">{{ form.path_regex.label }}</label>
-        {{ form.path_regex|add_class:"form-control font-monospace" }}
-        <div class="form-text">{{ form.path_regex.help_text }}</div>
-        <div class="text-danger">{{ form.path_regex.errors }}</div>
+        <div class="border rounded p-3 mb-2">
+          <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+            <div>
+              <h6 class="mb-1">Path structure</h6>
+              <div class="form-text">Assign meanings only to path parts that carry metadata.</div>
+            </div>
+            <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#filename-advanced-regex" aria-expanded="false">
+              Advanced regex
+            </button>
+          </div>
 
-        <div class="small text-muted mt-3">
-          <div><code>^(?:.*/)?(?P&lt;locality&gt;[^/]+)/(?P&lt;identity&gt;[^/]+)/[^/]+$</code></div>
-          <div><code>^(?P&lt;taxon&gt;[^/]+)/(?P&lt;identity&gt;[^/]+)/[^/]+$</code></div>
-          <div><code>^(?:.*/)?(?P&lt;identity&gt;[^/_]+)_\d+\.[^/]+$</code></div>
+          <div class="mt-3" id="filename-path-mapper">
+            {% if example_directory_parts %}
+            <div class="d-flex flex-wrap gap-2 align-items-end">
+              {% for index, part in example_directory_parts %}
+              <div class="border rounded p-2 bg-body-tertiary">
+                <div class="small text-muted mb-1">/{{ part }}</div>
+                <select class="form-select form-select-sm filename-path-role" data-index="{{ index }}">
+                  <option value="">Ignore</option>
+                  <option value="locality">Locality</option>
+                  <option value="taxon">Taxon</option>
+                  <option value="unique_name">Unique name</option>
+                  <option value="check_date">Check date</option>
+                </select>
+              </div>
+              {% endfor %}
+              {% if example_filename %}
+              <div class="border rounded p-2">
+                <div class="small text-muted mb-1">/{{ example_filename }}</div>
+                <span class="badge text-bg-secondary">filename</span>
+              </div>
+              {% endif %}
+            </div>
+            <div class="form-text mt-2">If metadata is inside filename, use Advanced regex for now.</div>
+            {% else %}
+            <div class="small text-muted">No directory parts were found in the sample path. Use advanced regex for filename-only patterns.</div>
+            {% endif %}
+          </div>
+
+          <div class="collapse mt-3" id="filename-advanced-regex">
+            {% include "caidapp/includes/path_regex_advanced.html" with form=form chatgpt_url=regex_chatgpt_url path_regex_chatgpt_prompt_prefix_lines=path_regex_chatgpt_prompt_prefix_lines path_regex_chatgpt_prompt_suffix=path_regex_chatgpt_prompt_suffix only %}
+          </div>
         </div>
 
         <div class="form-check mt-3">
@@ -51,6 +85,13 @@
             {{ form.apply_to_manually_updated.label }}
           </label>
           <div class="form-text">{{ form.apply_to_manually_updated.help_text }}</div>
+        </div>
+        <div class="form-check mt-3">
+          {{ form.force_rewrite_filled_data|add_class:"form-check-input" }}
+          <label class="form-check-label" for="{{ form.force_rewrite_filled_data.id_for_label }}">
+            {{ form.force_rewrite_filled_data.label }}
+          </label>
+          <div class="form-text">{{ form.force_rewrite_filled_data.help_text }}</div>
         </div>
       </div>
     </div>
@@ -71,5 +112,39 @@
       <a class="btn btn-secondary" href="{{ return_url }}">Cancel</a>
     </div>
   </form>
-</section>
+  </section>
+</div>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const form = document.querySelector("form");
+  const directoryMappingInput = document.getElementById("id_directory_mapping");
+  const pathRegexInput = document.getElementById("id_path_regex");
+  const roleSelects = Array.from(document.querySelectorAll(".filename-path-role"));
+
+  function updateDirectoryMapping() {
+    const mapping = {};
+    roleSelects.forEach(function (select) {
+      if (select.value) {
+        mapping[select.value] = Number(select.dataset.index);
+      }
+    });
+    if (directoryMappingInput) {
+      directoryMappingInput.value = JSON.stringify(mapping);
+    }
+  }
+
+  roleSelects.forEach(function (select) {
+    select.addEventListener("change", updateDirectoryMapping);
+  });
+  if (form) {
+    form.addEventListener("submit", function () {
+      updateDirectoryMapping();
+      if (pathRegexInput && pathRegexInput.value.trim()) {
+        directoryMappingInput.value = "{}";
+      }
+    });
+  }
+  updateDirectoryMapping();
+});
+</script>
 {% endblock %}

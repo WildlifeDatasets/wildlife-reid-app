@@ -315,6 +315,7 @@ def build_path_regex_from_directory_mapping(directory_mapping: dict[str, Any]) -
         "check_date": r"(?P<check_date>\d{4}-?\d{2}-?\d{2})",
         "locality": r"(?P<locality>[^/]+)",
         "taxon": r"(?P<taxon>[^/]+)",
+        "unique_name": r"(?P<unique_name>[^/]+)",
         "identity": r"(?P<identity>[^/]+)",
     }
     max_position = max(normalized_mapping.values())

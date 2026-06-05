@@ -6,6 +6,7 @@ import random
 import re
 import time
 import traceback
+import urllib.parse
 import zipfile
 from functools import wraps
 from io import BytesIO
@@ -107,6 +108,18 @@ MEDIAFILE_EXPORT_SCHEMAS = {
     "identity_dirs": "{identity}/{hash}_{species}_{identity}{dotext}",
     "flat": "{hash}_{species}_{identity}{dotext}",
 }
+
+PATH_REGEX_CHATGPT_PROMPT_PREFIX_LINES = [
+    "Help me write a Python regular expression for parsing wildlife dataset file paths.",
+    "Use named groups only from: taxon, locality, unique_name, code, juv_code, check_date, date.",
+    "Use unique_name for the individual identity name. The legacy group name identity is accepted, but do not use it unless the user asks for it.",
+    "If check_date or date is present, prefer YYYY-MM-DD with (?P<check_date>\\d{4}-\\d{2}-\\d{2}).",
+    "Return the regex pattern only, without Python prefixes or quotes such as r\"...\".",
+    "The regex should match these sample paths:",
+]
+PATH_REGEX_CHATGPT_PROMPT_SUFFIX = (
+    "The following is a description of the individual path parts and what I want to extract from the path:"
+)
 
 
 @user_passes_test(lambda u: u.is_superuser)
@@ -2130,8 +2143,10 @@ class NewUploadView(LoginRequiredMixin, UserPassesTestMixin, View):
             self.template_name,
             {
                 "form": form,
-                "headline": "New Upload",
+                "headline": "Upload",
                 "localities": get_all_relevant_localities(request),
+                "path_regex_chatgpt_prompt_prefix_lines": PATH_REGEX_CHATGPT_PROMPT_PREFIX_LINES,
+                "path_regex_chatgpt_prompt_suffix": PATH_REGEX_CHATGPT_PROMPT_SUFFIX,
             },
         )
 
@@ -2144,7 +2159,7 @@ class NewUploadView(LoginRequiredMixin, UserPassesTestMixin, View):
                     "headline": "Upload failed",
                     "text": "Upload form is not valid.",
                     "next": reverse_lazy("caidapp:new_upload"),
-                    "next_text": "Back to new upload",
+                    "next_text": "Back to upload",
                 },
                 request=request,
             )
@@ -2188,7 +2203,7 @@ class NewUploadView(LoginRequiredMixin, UserPassesTestMixin, View):
                     "headline": "Upload preparation failed",
                     "text": str(exc),
                     "next": reverse_lazy("caidapp:new_upload"),
-                    "next_text": "Back to new upload",
+                    "next_text": "Back to upload",
                 },
                 request=request,
             )
@@ -2206,7 +2221,7 @@ class NewUploadView(LoginRequiredMixin, UserPassesTestMixin, View):
                     "headline": "Directory mapping needs attention",
                     "text": "\n".join(blocking_import_log),
                     "next": reverse_lazy("caidapp:new_upload"),
-                    "next_text": "Back to new upload",
+                    "next_text": "Back to upload",
                 },
                 request=request,
             )
@@ -2278,6 +2293,7 @@ def upload_archive(
     contains_identities=False,
 ):
     """Process the uploaded zip file."""
+    # TODO remove this legacy upload flow after the new upload has been stable in production for one month.
     text_note = ""
     next = "caidapp:uploads"
     next_url = reverse_lazy("caidapp:uploads")
@@ -3081,7 +3097,26 @@ def _parse_filename_metadata_date(value: str):
     return None
 
 
-def _apply_filename_metadata_to_mediafile(mediafile: MediaFile, regex, caiduser, apply_to_manually_updated: bool) -> str:
+def _metadata_value_is_empty(value) -> bool:
+    """Return whether a model field value should be treated as empty for filename metadata fill."""
+    if value is None:
+        return True
+    if isinstance(value, str) and value.strip() == "":
+        return True
+    return False
+
+
+def _can_apply_filename_metadata_value(current_value, force_rewrite_filled_data: bool) -> bool:
+    return force_rewrite_filled_data or _metadata_value_is_empty(current_value)
+
+
+def _apply_filename_metadata_to_mediafile(
+    mediafile: MediaFile,
+    regex,
+    caiduser,
+    apply_to_manually_updated: bool,
+    force_rewrite_filled_data: bool,
+) -> str:
     """Apply metadata captured from original_filename to a single mediafile."""
     if mediafile.updated_by_id and not apply_to_manually_updated:
         return "skipped_manual"
@@ -3100,7 +3135,10 @@ def _apply_filename_metadata_to_mediafile(mediafile: MediaFile, regex, caiduser,
     taxon_name = groups.get("taxon")
     if taxon_name:
         taxon = models.get_taxon(taxon_name)
-        if mediafile.taxon_id != taxon.id:
+        if mediafile.taxon_id != taxon.id and _can_apply_filename_metadata_value(
+            mediafile.taxon_id,
+            force_rewrite_filled_data,
+        ):
             mediafile.taxon = taxon
             observation.taxon = taxon
             changed_fields.append("taxon")
@@ -3108,7 +3146,10 @@ def _apply_filename_metadata_to_mediafile(mediafile: MediaFile, regex, caiduser,
     locality_name = groups.get("locality")
     if locality_name:
         locality = models.get_locality(caiduser, locality_name)
-        if locality and mediafile.locality_id != locality.id:
+        if locality and mediafile.locality_id != locality.id and _can_apply_filename_metadata_value(
+            mediafile.locality_id,
+            force_rewrite_filled_data,
+        ):
             mediafile.locality = locality
             changed_fields.append("locality")
 
@@ -3116,30 +3157,48 @@ def _apply_filename_metadata_to_mediafile(mediafile: MediaFile, regex, caiduser,
     identity_name = groups.get("identity") or groups.get("unique_name")
     juv_code = groups.get("juv_code")
     identity = None
-    if code:
+    if mediafile.identity_id and not force_rewrite_filled_data:
+        identity = mediafile.identity
+    elif code:
         identity = models.get_unique_code(code, workgroup=caiduser.workgroup)
     elif identity_name:
         identity = models.get_unique_name(identity_name, workgroup=caiduser.workgroup)
     if identity is not None:
         identity_changed = False
-        if identity_name and identity.name != identity_name:
+        if identity_name and identity.name != identity_name and _can_apply_filename_metadata_value(
+            identity.name,
+            force_rewrite_filled_data,
+        ):
             identity.name = identity_name[:100]
             identity_changed = True
-        if code and identity.code != code:
+        if code and identity.code != code and _can_apply_filename_metadata_value(
+            identity.code,
+            force_rewrite_filled_data,
+        ):
             identity.code = code[:50]
             identity_changed = True
-        if juv_code and identity.juv_code != juv_code:
+        if juv_code and identity.juv_code != juv_code and _can_apply_filename_metadata_value(
+            identity.juv_code,
+            force_rewrite_filled_data,
+        ):
             identity.juv_code = juv_code[:50]
             identity_changed = True
         if identity_changed:
             identity.save()
-        if mediafile.identity_id != identity.id:
+            changed_fields.append("identity_fields")
+        if mediafile.identity_id != identity.id and _can_apply_filename_metadata_value(
+            mediafile.identity_id,
+            force_rewrite_filled_data,
+        ):
             mediafile.identity = identity
             observation.identity = identity
             changed_fields.append("identity")
 
     captured_at = _parse_filename_metadata_date(groups.get("check_date") or groups.get("date"))
-    if captured_at and mediafile.captured_at != captured_at:
+    if captured_at and mediafile.captured_at != captured_at and _can_apply_filename_metadata_value(
+        mediafile.captured_at,
+        force_rewrite_filled_data,
+    ):
         mediafile.captured_at = captured_at
         changed_fields.append("captured_at")
 
@@ -3151,12 +3210,54 @@ def _apply_filename_metadata_to_mediafile(mediafile: MediaFile, regex, caiduser,
     return "updated"
 
 
+def _build_filename_metadata_regex_prompt(sample_paths: List[str]) -> str:
+    """Build a ChatGPT prompt for suggesting a filename metadata regex."""
+    sample_lines = "\n".join(f"- {path}" for path in sample_paths) if sample_paths else "- taxon/unique_name/example.jpg"
+    return "\n".join([*PATH_REGEX_CHATGPT_PROMPT_PREFIX_LINES, sample_lines, "", PATH_REGEX_CHATGPT_PROMPT_SUFFIX])
+
+
+def _directory_parts_from_path(path: str) -> List[Tuple[int, str]]:
+    """Return indexed directory parts from a normalized media path."""
+    path_parts = [part for part in str(path or "").replace("\\", "/").split("/") if part]
+    return list(enumerate(path_parts[:-1]))
+
+
+def _start_filename_metadata_session(
+    request: HttpRequest,
+    mediafile_ids: List[int],
+    return_url: str,
+    source_label: str,
+) -> HttpResponse:
+    request.session["filename_metadata_mediafile_ids"] = mediafile_ids
+    request.session["filename_metadata_return_url"] = return_url
+    request.session["filename_metadata_source_label"] = source_label
+    return redirect("caidapp:apply_filename_metadata_to_mediafiles")
+
+
+@login_required
+def apply_filename_metadata_to_uploadedarchive(request, uploadedarchive_id: int) -> HttpResponse:
+    """Start filename/path metadata extraction for all media files in one upload."""
+    uploaded_archive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
+    if not user_has_rw_acces_to_uploadedarchive(request.user.caiduser, uploaded_archive):
+        return HttpResponseNotAllowed("Not allowed to work with this uploaded archive.")
+
+    return_url = request.GET.get("next") or reverse_lazy("caidapp:uploadedarchive_mediafiles", args=[uploaded_archive.id])
+    mediafile_ids = list(uploaded_archive.mediafile_set.values_list("id", flat=True))
+    return _start_filename_metadata_session(
+        request,
+        mediafile_ids,
+        return_url,
+        f"Upload: {uploaded_archive}",
+    )
+
+
 @login_required
 def apply_filename_metadata_to_mediafiles(request) -> HttpResponse:
     """Configure and apply filename/path metadata extraction to a selected mediafile set."""
     caiduser = request.user.caiduser
     mediafile_ids = request.session.get("filename_metadata_mediafile_ids", [])
     return_url = request.session.get("filename_metadata_return_url") or reverse_lazy("caidapp:sequences")
+    source_label = request.session.get("filename_metadata_source_label") or "Sequences"
     mediafiles = MediaFile.objects.for_user(caiduser).filter(id__in=mediafile_ids).select_related("updated_by", "parent")
     mediafile_count = mediafiles.count()
 
@@ -3172,11 +3273,21 @@ def apply_filename_metadata_to_mediafiles(request) -> HttpResponse:
     if request.method == "POST":
         form = forms.MediaFileFilenameMetadataForm(request.POST)
         if form.is_valid():
+            path_regex = form.cleaned_data["path_regex"]
+            if not path_regex:
+                directory_mapping = upload_services.parse_json_mapping(form.cleaned_data.get("directory_mapping", ""))
+                path_regex = upload_services.build_path_regex_from_directory_mapping(directory_mapping)
+            if not path_regex:
+                form.add_error("path_regex", "Choose path parts to extract, or enter an advanced regex.")
+                regex = None
+            else:
+                regex = None
             try:
-                regex = re.compile(form.cleaned_data["path_regex"])
+                if path_regex:
+                    regex = re.compile(path_regex)
             except re.error as exc:
                 form.add_error("path_regex", f"Invalid regex: {exc}")
-            else:
+            if regex is not None:
                 status_counts = {
                     "updated": 0,
                     "unchanged": 0,
@@ -3190,11 +3301,13 @@ def apply_filename_metadata_to_mediafiles(request) -> HttpResponse:
                         regex,
                         caiduser,
                         form.cleaned_data["apply_to_manually_updated"],
+                        form.cleaned_data["force_rewrite_filled_data"],
                     )
                     status_counts[status] = status_counts.get(status, 0) + 1
 
                 request.session.pop("filename_metadata_mediafile_ids", None)
                 request.session.pop("filename_metadata_return_url", None)
+                request.session.pop("filename_metadata_source_label", None)
                 messages.success(
                     request,
                     (
@@ -3207,9 +3320,18 @@ def apply_filename_metadata_to_mediafiles(request) -> HttpResponse:
     else:
         form = forms.MediaFileFilenameMetadataForm(
             initial={
-                "path_regex": r"^(?:.*/)?(?P<locality>[^/]+)/(?P<identity>[^/]+)/[^/]+$",
+                "path_regex": r"^(?:.*/)?(?P<locality>[^/]+)/(?P<unique_name>[^/]+)/[^/]+$",
             }
         )
+
+    sample_mediafiles = list(mediafiles.order_by("id")[:10])
+    sample_paths = [
+        (mediafile.original_filename or mediafile.mediafile.name or "").replace("\\", "/")
+        for mediafile in sample_mediafiles[:5]
+    ]
+    regex_chatgpt_prompt = _build_filename_metadata_regex_prompt(sample_paths)
+    example_path = sample_paths[0] if sample_paths else ""
+    example_filename = str(example_path or "").replace("\\", "/").split("/")[-1] if example_path else ""
 
     return render(
         request,
@@ -3219,7 +3341,15 @@ def apply_filename_metadata_to_mediafiles(request) -> HttpResponse:
             "mediafile_count": mediafile_count,
             "manual_count": mediafiles.exclude(updated_by__isnull=True).count(),
             "return_url": return_url,
-            "sample_mediafiles": mediafiles.order_by("id")[:10],
+            "source_label": source_label,
+            "sample_mediafiles": sample_mediafiles,
+            "example_path": example_path,
+            "example_filename": example_filename,
+            "example_directory_parts": _directory_parts_from_path(example_path),
+            "regex_chatgpt_prompt": regex_chatgpt_prompt,
+            "regex_chatgpt_url": f"https://chatgpt.com/?q={urllib.parse.quote(regex_chatgpt_prompt)}",
+            "path_regex_chatgpt_prompt_prefix_lines": PATH_REGEX_CHATGPT_PROMPT_PREFIX_LINES,
+            "path_regex_chatgpt_prompt_suffix": PATH_REGEX_CHATGPT_PROMPT_SUFFIX,
         },
     )
 
@@ -3346,9 +3476,12 @@ def sequences(
         selected_mediafile_ids = _resolve_selected_mediafile_ids_from_post(request)
         if not selected_mediafile_ids:
             selected_mediafile_ids = list(full_mediafiles.values_list("id", flat=True))
-        request.session["filename_metadata_mediafile_ids"] = selected_mediafile_ids
-        request.session["filename_metadata_return_url"] = request.get_full_path()
-        return redirect("caidapp:apply_filename_metadata_to_mediafiles")
+        return _start_filename_metadata_session(
+            request,
+            selected_mediafile_ids,
+            request.get_full_path(),
+            "Sequences",
+        )
 
     context = {
         **page_context,

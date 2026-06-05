@@ -301,6 +301,31 @@ class SequenceViewTest(TestCase):
         self.assertContains(response, "+1")
         self.assertContains(response, "Ypovice")
 
+    def test_sequence_view_has_collapsed_bulk_controls_and_expand_all_actions(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        one_file_sequence = SequenceFactory(uploaded_archive=archive)
+        two_file_sequence = SequenceFactory(uploaded_archive=archive)
+        three_file_sequence = SequenceFactory(uploaded_archive=archive)
+        MediaFileFactory(parent=archive, sequence=one_file_sequence, original_filename="one.jpg")
+        MediaFileFactory(parent=archive, sequence=two_file_sequence, original_filename="two-a.jpg")
+        MediaFileFactory(parent=archive, sequence=two_file_sequence, original_filename="two-b.jpg")
+        MediaFileFactory(parent=archive, sequence=three_file_sequence, original_filename="three-a.jpg")
+        MediaFileFactory(parent=archive, sequence=three_file_sequence, original_filename="three-b.jpg")
+        MediaFileFactory(parent=archive, sequence=three_file_sequence, original_filename="three-c.jpg")
+
+        response = self.client.get(reverse("caidapp:sequences"))
+        content = response.content.decode()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id="sequence-bulk-processing"')
+        self.assertContains(response, "js-expand-all-sequences")
+        self.assertContains(response, "js-collapse-all-sequences")
+        self.assertNotIn(f'id="sequence-card-{one_file_sequence.id}" class="sequence-card-expanded', content)
+        self.assertContains(response, f"id=\"sequence-card-{two_file_sequence.id}\"")
+        self.assertContains(response, "sequence-card-expanded-medium")
+        self.assertContains(response, f"id=\"sequence-card-{three_file_sequence.id}\"")
+        self.assertContains(response, "sequence-card-expanded-wide")
+
     def test_sequence_view_accepts_uploadedarchive_filter_alias(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)
         sequence = SequenceFactory(uploaded_archive=archive)
@@ -354,7 +379,7 @@ class SequenceViewTest(TestCase):
         response = self.client.post(
             reverse("caidapp:apply_filename_metadata_to_mediafiles"),
             {
-                "path_regex": r"^(?:.*/)?(?P<locality>[^/]+)/(?P<identity>[^/]+)/[^/]+$",
+                "path_regex": r"^(?:.*/)?(?P<locality>[^/]+)/(?P<unique_name>[^/]+)/[^/]+$",
             },
         )
 
@@ -364,6 +389,63 @@ class SequenceViewTest(TestCase):
         self.assertEqual(selected_mediafile.locality.name, "Brdy")
         self.assertEqual(selected_mediafile.identity.name, "Charles")
         self.assertIsNone(other_mediafile.identity)
+
+    def test_sequence_filename_metadata_uses_directory_mapping_without_regex(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        sequence = SequenceFactory(uploaded_archive=archive)
+        mediafile = MediaFileFactory(
+            parent=archive,
+            sequence=sequence,
+            original_filename="Brdy/Lynx/Charles/first.jpg",
+        )
+
+        self.client.post(
+            reverse("caidapp:sequences"),
+            {
+                "selected_mediafile_ids": [str(mediafile.id)],
+                "btnExtractFilenameMetadata": "1",
+            },
+        )
+        response = self.client.post(
+            reverse("caidapp:apply_filename_metadata_to_mediafiles"),
+            {
+                "directory_mapping": '{"locality": 0, "taxon": 1, "unique_name": 2}',
+                "path_regex": "",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        mediafile.refresh_from_db()
+        self.assertEqual(mediafile.locality.name, "Brdy")
+        self.assertEqual(mediafile.taxon.name, "Lynx")
+        self.assertEqual(mediafile.identity.name, "Charles")
+
+    def test_sequence_filename_metadata_chatgpt_prompt_includes_sample_paths(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        sequence = SequenceFactory(uploaded_archive=archive)
+        mediafiles = [
+            MediaFileFactory(parent=archive, sequence=sequence, original_filename=f"Locality/Identity/file_{index}.jpg")
+            for index in range(6)
+        ]
+
+        self.client.post(
+            reverse("caidapp:sequences"),
+            {
+                "selected_mediafile_ids": [str(mediafile.id) for mediafile in mediafiles],
+                "btnExtractFilenameMetadata": "1",
+            },
+        )
+        response = self.client.get(reverse("caidapp:apply_filename_metadata_to_mediafiles"))
+
+        self.assertEqual(response.status_code, 200)
+        prompt = response.context["regex_chatgpt_prompt"]
+        self.assertIn("Locality/Identity/file_0.jpg", prompt)
+        self.assertIn("Locality/Identity/file_4.jpg", prompt)
+        self.assertNotIn("Locality/Identity/file_5.jpg", prompt)
+        self.assertIn("Use named groups only from: taxon, locality, unique_name", prompt)
+        self.assertIn("The legacy group name identity is accepted", prompt)
+        self.assertIn("The following is a description of the individual path parts", prompt)
+        self.assertContains(response, "Ask ChatGPT")
 
     def test_sequence_filename_metadata_skips_manually_updated_mediafiles_by_default(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)
@@ -385,7 +467,7 @@ class SequenceViewTest(TestCase):
         self.client.post(
             reverse("caidapp:apply_filename_metadata_to_mediafiles"),
             {
-                "path_regex": r"^(?:.*/)?(?P<locality>[^/]+)/(?P<identity>[^/]+)/[^/]+$",
+                "path_regex": r"^(?:.*/)?(?P<locality>[^/]+)/(?P<unique_name>[^/]+)/[^/]+$",
             },
         )
 
@@ -403,7 +485,7 @@ class SequenceViewTest(TestCase):
         self.client.post(
             reverse("caidapp:apply_filename_metadata_to_mediafiles"),
             {
-                "path_regex": r"^(?:.*/)?(?P<locality>[^/]+)/(?P<identity>[^/]+)/[^/]+$",
+                "path_regex": r"^(?:.*/)?(?P<locality>[^/]+)/(?P<unique_name>[^/]+)/[^/]+$",
                 "apply_to_manually_updated": "on",
             },
         )
@@ -411,6 +493,56 @@ class SequenceViewTest(TestCase):
         mediafile.refresh_from_db()
         self.assertEqual(mediafile.locality.name, "Brdy")
         self.assertEqual(mediafile.identity.name, "Charles")
+
+    def test_sequence_filename_metadata_fills_only_empty_fields_by_default(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        sequence = SequenceFactory(uploaded_archive=archive)
+        old_locality = LocalityFactory(owner=self.caiduser, name="OldLocality")
+        old_identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="OldIdentity")
+        mediafile = MediaFileFactory(
+            parent=archive,
+            sequence=sequence,
+            locality=old_locality,
+            identity=old_identity,
+            original_filename="NewLocality/NewIdentity/first.jpg",
+        )
+
+        self.client.post(
+            reverse("caidapp:sequences"),
+            {
+                "selected_mediafile_ids": [str(mediafile.id)],
+                "btnExtractFilenameMetadata": "1",
+            },
+        )
+        self.client.post(
+            reverse("caidapp:apply_filename_metadata_to_mediafiles"),
+            {
+                "path_regex": r"^(?:.*/)?(?P<locality>[^/]+)/(?P<unique_name>[^/]+)/[^/]+$",
+            },
+        )
+
+        mediafile.refresh_from_db()
+        self.assertEqual(mediafile.locality, old_locality)
+        self.assertEqual(mediafile.identity, old_identity)
+
+        self.client.post(
+            reverse("caidapp:sequences"),
+            {
+                "selected_mediafile_ids": [str(mediafile.id)],
+                "btnExtractFilenameMetadata": "1",
+            },
+        )
+        self.client.post(
+            reverse("caidapp:apply_filename_metadata_to_mediafiles"),
+            {
+                "path_regex": r"^(?:.*/)?(?P<locality>[^/]+)/(?P<unique_name>[^/]+)/[^/]+$",
+                "force_rewrite_filled_data": "on",
+            },
+        )
+
+        mediafile.refresh_from_db()
+        self.assertEqual(mediafile.locality.name, "NewLocality")
+        self.assertEqual(mediafile.identity.name, "NewIdentity")
 
     def test_sequence_filename_metadata_uses_current_filter_when_nothing_is_selected(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)
@@ -445,6 +577,69 @@ class IdentificationUploadsViewTest(TestCase):
         self.caiduser = CaidUserFactory()
         self.user = self.caiduser.user
         self.client.login(username=self.user.username, password="test123")
+
+    def test_upload_lists_offer_filename_metadata_extraction(self):
+        species_archive = UploadedArchiveFactory(
+            owner=self.caiduser,
+            contains_single_taxon=False,
+            taxon_for_identification=None,
+        )
+        identity_archive = UploadedArchiveFactory(
+            owner=self.caiduser,
+            is_for_identification=True,
+            contains_identities=False,
+        )
+        known_identity_archive = UploadedArchiveFactory(
+            owner=self.caiduser,
+            is_for_identification=True,
+            contains_identities=True,
+        )
+
+        response = self.client.get(reverse("caidapp:uploads"))
+        self.assertContains(
+            response,
+            reverse("caidapp:apply_filename_metadata_to_uploadedarchive", args=[species_archive.id]),
+        )
+        self.assertContains(response, "Extract metadata from filenames")
+
+        response = self.client.get(reverse("caidapp:uploads_identities"))
+        self.assertContains(
+            response,
+            reverse("caidapp:apply_filename_metadata_to_uploadedarchive", args=[identity_archive.id]),
+        )
+
+        response = self.client.get(reverse("caidapp:uploads_known_identities"))
+        self.assertContains(
+            response,
+            reverse("caidapp:apply_filename_metadata_to_uploadedarchive", args=[known_identity_archive.id]),
+        )
+
+    def test_upload_filename_metadata_uses_all_mediafiles_in_archive(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser, is_for_identification=True, contains_identities=False)
+        other_archive = UploadedArchiveFactory(owner=self.caiduser, is_for_identification=True, contains_identities=False)
+        mediafile = MediaFileFactory(parent=archive, original_filename="Brdy/Charles/first.jpg")
+        other_mediafile = MediaFileFactory(parent=other_archive, original_filename="Brdy/Other/second.jpg")
+
+        response = self.client.get(
+            reverse("caidapp:apply_filename_metadata_to_uploadedarchive", args=[archive.id]),
+            {"next": reverse("caidapp:uploads_identities")},
+        )
+
+        self.assertRedirects(response, reverse("caidapp:apply_filename_metadata_to_mediafiles"))
+        response = self.client.post(
+            reverse("caidapp:apply_filename_metadata_to_mediafiles"),
+            {
+                "path_regex": r"^(?:.*/)?(?P<locality>[^/]+)/(?P<unique_name>[^/]+)/[^/]+$",
+            },
+        )
+
+        self.assertRedirects(response, reverse("caidapp:uploads_identities"))
+        mediafile.refresh_from_db()
+        other_mediafile.refresh_from_db()
+        self.assertEqual(mediafile.locality.name, "Brdy")
+        self.assertEqual(mediafile.identity.name, "Charles")
+        self.assertIsNone(other_mediafile.locality)
+        self.assertIsNone(other_mediafile.identity)
 
     def test_uploads_identities_uses_is_for_identification_without_taxon_requirement(self):
         visible_archive = UploadedArchiveFactory(

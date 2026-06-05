@@ -45,8 +45,9 @@ urlpatterns = [
         views.WorkGroupInvitationDeclineView.as_view(),
         name="workgroup_invitation_decline",
     ),
-    path("upload/", views.upload_archive, name="upload_archive"),
     path("upload/new/", views.NewUploadView.as_view(), name="new_upload"),
+    # TODO remove legacy upload routes after the new upload has been stable in production for one month.
+    path("upload/", views.upload_archive, name="upload_archive"),
     # path("user_settings/", views.update_caiduser, name="update_caiduser"),
     path(
         "upload/contains_single_taxon/",
@@ -86,6 +87,11 @@ urlpatterns = [
         "update_uploadedarchive/<int:uploadedarchive_id>/",
         views.update_uploadedarchive,
         name="update_uploadedarchive",
+    ),
+    path(
+        "uploadedarchive/<int:uploadedarchive_id>/apply_filename_metadata/",
+        views.apply_filename_metadata_to_uploadedarchive,
+        name="apply_filename_metadata_to_uploadedarchive",
     ),
     path(
         "<int:uploadedarchive_id>/run_processing/",

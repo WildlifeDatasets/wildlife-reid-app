@@ -84,6 +84,12 @@
                                                             <i class="fas fa-table"></i> Update with spreadsheet
                                                         </a>
                                                      </li>
+                                                     <li>
+                                                        <a class="dropdown-item"
+                                                           href="{% url 'caidapp:apply_filename_metadata_to_uploadedarchive' uploadedarchive.id %}?next={{ request.get_full_path|urlencode }}">
+                                                            <i class="bi bi-magic"></i> Extract metadata from filenames
+                                                        </a>
+                                                     </li>
                                                 {% if request.user.is_staff %}
                                                     <li>
                                                         <hr class="dropdown-divider">

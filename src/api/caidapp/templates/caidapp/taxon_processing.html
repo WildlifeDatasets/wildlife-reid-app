@@ -60,7 +60,7 @@
                         <div class="card">
                             <div class="card-body">
                                 <h3 class="card-title">Upload</h3>
-                                <a class="btn btn-{{ btn_styles.upload_species }} mt-2" href="{% url 'caidapp:upload_archive' %}"><i class="bi bi-plus-circle"></i> New Upload </a>
+                                <a class="btn btn-{{ btn_styles.upload_species }} mt-2" href="{% url 'caidapp:new_upload' %}"><i class="bi bi-plus-circle"></i> Upload </a>
                                 {%  if user.caiduser.import_dir|length > 0 %}
                                     <a class="btn btn-secondary mt-2" href="{% url 'caidapp:cloud_import_preview' %}"
                                        data-bs-toggle="tooltip" title="Locality: "

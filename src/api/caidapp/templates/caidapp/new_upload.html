@@ -75,21 +75,18 @@
         }
     </style>
 
+    <div class="container-xl px-0">
     <div class="pagetitle">
         <h1>{{ headline }}</h1>
         <nav>
             <ol class="breadcrumb">
                 <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li>
-                <li class="breadcrumb-item active">New Upload beta</li>
+                <li class="breadcrumb-item active">Upload</li>
             </ol>
         </nav>
     </div>
 
     <section class="section">
-        <div class="alert alert-info">
-            This is a beta upload flow. Metadata is optional and collapsed by default.
-        </div>
-
         <form method="post" enctype="multipart/form-data" id="new-upload-form" data-localities='[
             {% for locality in localities %}
                 "{{ locality.name|escapejs }}"{% if not forloop.last %},{% endif %}
@@ -266,43 +263,7 @@
                                 </div>
                             </div>
                             <div class="collapse mt-3" id="upload-directory-advanced">
-                                <label for="new-upload-path-regex" class="form-label">Advanced: pattern for full relative path</label>
-                                <input type="text" class="form-control" id="new-upload-path-regex" placeholder="Example: (?P&lt;taxon&gt;[^/]+)/(?P&lt;identity&gt;[^/]+)/.*">
-                                <div class="form-text">
-                                    Optional. This is for advanced cases, for example when identity is hidden in a filename like
-                                    <code>Karel__001.jpg</code>.
-                                </div>
-                                <div class="form-text">
-                                    If you already assigned path parts in the simple view, the regex here is filled automatically and you can refine it.
-                                </div>
-                                <div class="small text-muted mt-2">
-                                    <strong>What does the example mean?</strong>
-                                    <code>(?P&lt;taxon&gt;...)</code> names the captured value <code>taxon</code>.
-                                    <code>[^/]+</code> means "one or more characters until the next slash".
-                                    <code>.*</code> means "the rest of the path".
-                                </div>
-                                <div class="small text-muted mt-3">
-                                    <strong>Examples</strong>
-                                </div>
-                                <div class="small text-muted">
-                                    <code>^(?:.*/)?(?P&lt;locality&gt;[^/]+)/(?P&lt;identity&gt;[^/]+)/[^/]+$</code>
-                                    for a structure like <code>Brdy/Charles/IMG_001.jpg</code>, no matter how deep it is
-                                </div>
-                                <div class="small text-muted mt-1">
-                                    <code>^(?P&lt;taxon&gt;[^/]+)/(?P&lt;identity&gt;[^/]+)/[^/]+$</code>
-                                    for a structure like <code>lynx/Charles/IMG_001.jpg</code>
-                                </div>
-                                <div class="small text-muted mt-1">
-                                    <code>^(?:.*/)?(?P&lt;identity&gt;[^/_]+)_\d+\.[^/]+$</code>
-                                    for filenames like <code>Charles_001.jpg</code>, no matter how deep they are in directories
-                                </div>
-                                <a class="btn btn-sm btn-outline-primary mt-2"
-                                   id="new-upload-regex-chatgpt-link"
-                                   href="https://chatgpt.com/"
-                                   target="_blank"
-                                   rel="noopener">
-                                    Ask ChatGPT to suggest a pattern
-                                </a>
+                                {% include "caidapp/includes/path_regex_advanced.html" with regex_input_id="new-upload-path-regex" regex_label="Advanced: pattern for full relative path" chatgpt_link_id="new-upload-regex-chatgpt-link" path_regex_chatgpt_prompt_prefix_lines=path_regex_chatgpt_prompt_prefix_lines path_regex_chatgpt_prompt_suffix=path_regex_chatgpt_prompt_suffix only %}
                             </div>
                         </div>
                     </div>
@@ -423,6 +384,7 @@
             </div>
         </form>
     </section>
+    </div>
 {% endblock %}
 
 {% block script %}

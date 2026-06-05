@@ -15,7 +15,7 @@ class WorkgroupNextStepsServiceTest(TestCase):
         steps = build_next_steps(self.workgroup)
 
         self.assertEqual([step.code for step in steps[:2]], ["no_uploads", "no_identities"])
-        self.assertEqual(steps[0].url, reverse("caidapp:upload_archive_contains_single_taxon"))
+        self.assertEqual(steps[0].url, reverse("caidapp:new_upload"))
 
     def test_build_next_steps_for_existing_identities(self):
         UploadedArchiveFactory(owner=self.caiduser)

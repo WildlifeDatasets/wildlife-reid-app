@@ -25,6 +25,12 @@
     </li>
     <li>
         <a class="dropdown-item"
+           href="{% url 'caidapp:apply_filename_metadata_to_uploadedarchive' uploadedarchive.id %}?next={{ request.get_full_path|urlencode }}">
+            <i class="bi bi-magic"></i> Extract metadata from filenames
+        </a>
+    </li>
+    <li>
+        <a class="dropdown-item"
            href="{% url 'caidapp:missing_taxon_annotation_in_uploadedarchive' uploadedarchive.id %}">
             <i class="bi bi-pencil"></i> Annotate missing taxons
         </a>
