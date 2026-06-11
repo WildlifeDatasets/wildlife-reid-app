@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block body %}
+{% if user.is_authenticated %}
+<div class="pagetitle">
+    <h1>{% trans 'Delete selected identities' %}</h1>
+</div>
+<section class="section">
+    <div class="alert alert-warning">
+        <strong>Delete {{ identities|length }} identities?</strong>
+        Media files will not be deleted, but their identity links will be removed.
+    </div>
+    <form method="post" action="{{ return_url }}">
+        {% csrf_token %}
+        <input type="hidden" name="bulk_action" value="delete_selected">
+        <input type="hidden" name="confirm_delete" value="yes">
+        <input type="hidden" name="return_url" value="{{ return_url }}">
+        {% for identity_id in selected_identity_ids %}
+            <input type="hidden" name="selected_identity_ids" value="{{ identity_id }}">
+        {% endfor %}
+        <table class="table table-sm align-middle">
+            <thead>
+            <tr>
+                <th>{% trans 'Identity' %}</th>
+                <th>{% trans 'Media files' %}</th>
+                <th>{% trans 'Representative' %}</th>
+                <th>{% trans 'Last seen' %}</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for identity in identities %}
+                <tr>
+                    <td>{{ identity }}</td>
+                    <td>{{ identity.mediafile_count }}</td>
+                    <td>{{ identity.representative_mediafile_count }}</td>
+                    <td>{{ identity.last_seen|date:'Y-m-d' }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        <div class="d-flex gap-2">
+            <button class="btn btn-danger" type="submit">
+                <i class="bi bi-trash"></i> Delete identities
+            </button>
+            <a class="btn btn-outline-secondary" href="{{ return_url }}">Cancel</a>
+        </div>
+    </form>
+</section>
+{% endif %}
+{% endblock %}

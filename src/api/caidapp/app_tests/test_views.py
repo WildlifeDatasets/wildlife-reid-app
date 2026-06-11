@@ -252,6 +252,80 @@ class MediaFileUpdateEmptyObservationTest(TestCase):
         self.assertIsNone(observations[0].bbox_height)
 
 
+class IdentityListBulkActionsTest(TestCase):
+    def setUp(self):
+        self.caiduser = CaidUserFactory()
+        self.user = self.caiduser.user
+        self.client.login(username=self.user.username, password="test123")
+
+    def test_identity_search_supports_explicit_regex(self):
+        matching = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Alpha 1234")
+        non_matching = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Beta 12345")
+
+        response = self.client.get(
+            reverse("caidapp:individual_identities"),
+            {
+                "search": r"^\D*\d\D*\d\D*\d\D*\d\D*$",
+                "search_regex": "true",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, matching.name)
+        self.assertNotContains(response, non_matching.name)
+
+    def test_bulk_delete_confirm_and_delete_are_limited_to_user_workgroup(self):
+        identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Delete me")
+        other_caiduser = CaidUserFactory()
+        other_identity = IndividualIdentityFactory(owner_workgroup=other_caiduser.workgroup, name="Private identity")
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        mediafile = MediaFileFactory(parent=archive, identity=identity)
+
+        confirm_response = self.client.post(
+            reverse("caidapp:individual_identities"),
+            {
+                "bulk_action": "confirm_delete",
+                "selected_identity_ids": [str(identity.id), str(other_identity.id)],
+            },
+        )
+
+        self.assertEqual(confirm_response.status_code, 200)
+        self.assertContains(confirm_response, "Delete me")
+        self.assertNotContains(confirm_response, "Private identity")
+
+        delete_response = self.client.post(
+            reverse("caidapp:individual_identities"),
+            {
+                "bulk_action": "delete_selected",
+                "confirm_delete": "yes",
+                "selected_identity_ids": [str(identity.id), str(other_identity.id)],
+            },
+        )
+
+        self.assertRedirects(delete_response, reverse("caidapp:individual_identities"))
+        self.assertFalse(models.IndividualIdentity.objects.filter(id=identity.id).exists())
+        self.assertTrue(models.IndividualIdentity.objects.filter(id=other_identity.id).exists())
+        mediafile.refresh_from_db()
+        self.assertIsNone(mediafile.identity)
+
+    def test_bulk_open_sequences_redirects_to_multiple_identity_filter(self):
+        first = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="First")
+        second = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Second")
+
+        response = self.client.post(
+            reverse("caidapp:individual_identities"),
+            {
+                "bulk_action": "open_sequences",
+                "selected_identity_ids": [str(first.id), str(second.id)],
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse("caidapp:sequences"), response["Location"])
+        self.assertIn(f"individual_identity_ids={first.id}", response["Location"])
+        self.assertIn(f"individual_identity_ids={second.id}", response["Location"])
+
+
 class SequenceViewTest(TestCase):
     def setUp(self):
         self.caiduser = CaidUserFactory()
@@ -472,6 +546,61 @@ class SequenceViewTest(TestCase):
         identity = IndividualIdentityFactory(owner_workgroup=other_caiduser.workgroup, name="Private identity")
 
         response = self.client.get(reverse("caidapp:sequences"), {"individual_identity_id": identity.id})
+
+        self.assertEqual(response.status_code, 404)
+        self.assertNotContains(response, "Private identity", status_code=404)
+
+    def test_sequence_view_filters_by_multiple_identities(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        first_identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Alpha")
+        second_identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Beta")
+        other_identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Gamma")
+        first_sequence = SequenceFactory(uploaded_archive=archive)
+        second_sequence = SequenceFactory(uploaded_archive=archive)
+        other_sequence = SequenceFactory(uploaded_archive=archive)
+        first_mediafile = MediaFileFactory(
+            parent=archive,
+            sequence=first_sequence,
+            identity=first_identity,
+            original_filename="alpha.jpg",
+        )
+        second_mediafile = MediaFileFactory(
+            parent=archive,
+            sequence=second_sequence,
+            identity=second_identity,
+            original_filename="beta.jpg",
+        )
+        other_mediafile = MediaFileFactory(
+            parent=archive,
+            sequence=other_sequence,
+            identity=other_identity,
+            original_filename="gamma.jpg",
+        )
+
+        response = self.client.get(
+            reverse("caidapp:sequences"),
+            {
+                "individual_identity_ids": [str(first_identity.id), str(second_identity.id)],
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Identities: 2")
+        self.assertContains(response, first_mediafile.original_filename)
+        self.assertContains(response, second_mediafile.original_filename)
+        self.assertNotContains(response, other_mediafile.original_filename)
+
+    def test_sequence_view_rejects_multiple_identity_filter_outside_user_workgroup(self):
+        identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Visible identity")
+        other_caiduser = CaidUserFactory()
+        private_identity = IndividualIdentityFactory(owner_workgroup=other_caiduser.workgroup, name="Private identity")
+
+        response = self.client.get(
+            reverse("caidapp:sequences"),
+            {
+                "individual_identity_ids": [str(identity.id), str(private_identity.id)],
+            },
+        )
 
         self.assertEqual(response.status_code, 404)
         self.assertNotContains(response, "Private identity", status_code=404)

@@ -31,12 +31,26 @@
                 </div>
 
             </div>
+        <form method="post" id="identity-bulk-form">
+            {% csrf_token %}
+            <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                <button class="btn btn-outline-secondary" type="submit" name="bulk_action" value="open_sequences">
+                    <i class="bi bi-collection"></i> Sequences
+                </button>
+                <button class="btn btn-outline-danger" type="submit" name="bulk_action" value="confirm_delete">
+                    <i class="bi bi-trash"></i> Delete selected
+                </button>
+            </div>
         <div class="row" id="row-of-cards">
 
             {% if page_obj %}
                 <table class="table table-striped">
                     <thead>
                     <tr>
+                        <th>
+                            <input class="form-check-input js-select-all-identities" type="checkbox"
+                                   aria-label="Select all identities on this page">
+                        </th>
                         <th></th>
                         <th>{% trans 'Name' %}</th>
                     <th>Sex</th>
@@ -60,6 +74,11 @@
                     {% for object in object_list %}
                         {% with individual_identity=object %}
                         <tr>
+                            <td>
+                                <input class="form-check-input js-identity-checkbox" type="checkbox"
+                                       name="selected_identity_ids" value="{{ individual_identity.id }}"
+                                       aria-label="Select identity {{ individual_identity }}">
+                            </td>
                             <td>
                                 <a class="link-secondary"
 {#                                        href="{% url 'caidapp:individual_identity_mediafiles' individual_identity.id %}"#}
@@ -194,8 +213,20 @@
                 </div>
             {% endif %}
         </div>
+        </form>
 {#        pagination #}
         </section>
 
     {% endif %}
+{% endblock %}
+{% block script %}
+<script>
+document.querySelectorAll(".js-select-all-identities").forEach(function(masterCheckbox) {
+  masterCheckbox.addEventListener("change", function() {
+    document.querySelectorAll(".js-identity-checkbox").forEach(function(checkbox) {
+      checkbox.checked = masterCheckbox.checked;
+    });
+  });
+});
+</script>
 {% endblock %}

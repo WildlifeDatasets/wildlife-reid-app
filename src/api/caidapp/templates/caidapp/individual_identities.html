@@ -30,6 +30,22 @@
                 </div>
 
             </div>
+        <form method="post" id="identity-bulk-form">
+            {% csrf_token %}
+            <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                <button class="btn btn-outline-secondary" type="submit" name="bulk_action" value="open_sequences">
+                    <i class="bi bi-collection"></i> Sequences
+                </button>
+                <button class="btn btn-outline-danger" type="submit" name="bulk_action" value="confirm_delete">
+                    <i class="bi bi-trash"></i> Delete selected
+                </button>
+                <button class="btn btn-outline-secondary js-select-all-identities" type="button">
+                    Select all
+                </button>
+                <button class="btn btn-outline-secondary js-clear-identity-selection" type="button">
+                    Clear
+                </button>
+            </div>
         <div class="row" id="row-of-cards">
 
             {% if page_obj %}
@@ -40,8 +56,12 @@
                     >
 
                         {#                        <div class="col" style="-ms-flex: 0 0 200; flex: 0 0 200;">#}
-                        <div class="card"
-                        >
+                        <div class="card position-relative">
+                            <div class="position-absolute top-0 end-0 p-2" style="z-index: 2;">
+                                <input class="form-check-input js-identity-checkbox" type="checkbox"
+                                       name="selected_identity_ids" value="{{ individual_identity.id }}"
+                                       aria-label="Select identity {{ individual_identity }}">
+                            </div>
 
                         <a
                                 href="{% url 'caidapp:individual_identity_mediafiles' individual_identity.id %}"
@@ -160,8 +180,23 @@
                 </div>
             {% endif %}
         </div>
+        </form>
 {#        pagination #}
         </section>
 
     {% endif %}
+{% endblock %}
+{% block script %}
+<script>
+document.querySelectorAll(".js-select-all-identities").forEach(function(button) {
+  button.addEventListener("click", function() {
+    document.querySelectorAll(".js-identity-checkbox").forEach(function(checkbox) { checkbox.checked = true; });
+  });
+});
+document.querySelectorAll(".js-clear-identity-selection").forEach(function(button) {
+  button.addEventListener("click", function() {
+    document.querySelectorAll(".js-identity-checkbox").forEach(function(checkbox) { checkbox.checked = false; });
+  });
+});
+</script>
 {% endblock %}

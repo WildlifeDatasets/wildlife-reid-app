@@ -787,6 +787,61 @@ class IdentityListView(LoginRequiredMixin, ListView):
     # order by
     ordering = ["-name"]
 
+    def _get_selected_identities(self):
+        """Return selected identities limited to the current user's workgroup."""
+        selected_ids = []
+        for raw_id in self.request.POST.getlist("selected_identity_ids"):
+            try:
+                selected_ids.append(int(raw_id))
+            except (TypeError, ValueError):
+                continue
+        return (
+            IndividualIdentity.objects.filter(
+                pk__in=selected_ids,
+                owner_workgroup=self.request.user.caiduser.workgroup,
+            )
+            .annotate(
+                mediafile_count=Count("mediafile"),
+                representative_mediafile_count=Count("mediafile", filter=Q(mediafile__identity_is_representative=True)),
+                locality_count=Count("mediafile__locality", distinct=True),
+                last_seen=Max("mediafile__captured_at"),
+            )
+            .order_by("name", "id")
+        )
+
+    def post(self, request, *args, **kwargs):
+        """Handle bulk identity actions from list and card views."""
+        action = request.POST.get("bulk_action")
+        selected_identities = self._get_selected_identities()
+        selected_ids = list(selected_identities.values_list("id", flat=True))
+        if not selected_ids:
+            messages.warning(request, "Select at least one identity.")
+            return redirect(request.get_full_path())
+
+        if action == "open_sequences":
+            query_string = urllib.parse.urlencode({"individual_identity_ids": selected_ids}, doseq=True)
+            return redirect(f"{reverse('caidapp:sequences')}?{query_string}")
+
+        if action == "confirm_delete":
+            return render(
+                request,
+                "caidapp/individual_identities_bulk_delete_confirm.html",
+                {
+                    "identities": selected_identities,
+                    "selected_identity_ids": selected_ids,
+                    "return_url": request.get_full_path(),
+                },
+            )
+
+        if action == "delete_selected" and request.POST.get("confirm_delete") == "yes":
+            deleted_count = selected_identities.count()
+            selected_identities.delete()
+            messages.success(request, f"Deleted {deleted_count} identities.")
+            return redirect(request.POST.get("return_url") or reverse("caidapp:individual_identities"))
+
+        messages.warning(request, "Choose a bulk action.")
+        return redirect(request.get_full_path())
+
     def get_queryset(self):
         """Get queryset for the view."""
         class_prefix = "identities_" + self.request.GET.get("view", "cards")
@@ -3012,6 +3067,35 @@ def _get_active_identity_from_request(
     return _get_identity_for_user_or_404(request, individual_identity_id)
 
 
+def _parse_identity_ids_from_request(request: HttpRequest) -> List[int]:
+    """Return identity ids from repeated or comma-separated query parameters."""
+    raw_values = request.GET.getlist("individual_identity_ids")
+    parsed_ids = []
+    for raw_value in raw_values:
+        for raw_id in str(raw_value).split(","):
+            raw_id = raw_id.strip()
+            if not raw_id:
+                continue
+            parsed_ids.append(_parse_int_query_param_or_404(raw_id, "individual identity id"))
+    return parsed_ids
+
+
+def _get_active_identities_from_request(request: HttpRequest) -> List[IndividualIdentity]:
+    """Resolve a multiple-identity sequence scope for the current user's workgroup."""
+    identity_ids = _parse_identity_ids_from_request(request)
+    if not identity_ids:
+        return []
+    identities = list(
+        IndividualIdentity.objects.filter(
+            pk__in=identity_ids,
+            owner_workgroup=request.user.caiduser.workgroup,
+        ).order_by("name", "id")
+    )
+    if len({identity.id for identity in identities}) != len(set(identity_ids)):
+        raise Http404("Individual identity was not found.")
+    return identities
+
+
 def _get_locality_for_user_or_404(request: HttpRequest, locality_hash: str) -> Locality:
     """Return a locality only when it is visible to the current user's workgroup."""
     return get_object_or_404(
@@ -3069,6 +3153,7 @@ def _get_filtered_mediafiles_queryset(
     uploadedarchive_id: Optional[int] = None,
     album_hash: Optional[str] = None,
     individual_identity_id: Optional[int] = None,
+    individual_identity_ids: Optional[List[int]] = None,
     identity_is_representative: Optional[bool] = None,
     locality_hash: Optional[str] = None,
     show_overview_button: bool = False,
@@ -3087,6 +3172,8 @@ def _get_filtered_mediafiles_queryset(
             request.GET.get("individual_identity_id"),
             "individual identity id",
         )
+    if individual_identity_ids is None:
+        individual_identity_ids = _parse_identity_ids_from_request(request)
     if identity_is_representative is None:
         identity_is_representative = _parse_bool_query_param(request.GET.get("identity_is_representative"))
     if locality_hash is None:
@@ -3133,6 +3220,14 @@ def _get_filtered_mediafiles_queryset(
         page_title = f"Media files - {individual_identity.name}"
         filter_kwargs["identity"] = individual_identity
         mediafiles_name_suggestion = f"individual_identity_{individual_identity.name}"
+    elif individual_identity_ids:
+        active_identities = _get_active_identities_from_request(request)
+        identity_names = ", ".join(str(identity) for identity in active_identities[:3])
+        if len(active_identities) > 3:
+            identity_names += f", +{len(active_identities) - 3}"
+        page_title = f"Media files - {identity_names}"
+        filter_kwargs["identity_id__in"] = [identity.id for identity in active_identities]
+        mediafiles_name_suggestion = "individual_identities"
     elif locality_hash is not None:
         locality = _get_locality_for_user_or_404(request, locality_hash)
         page_title = f"Media files - {locality.name}"
@@ -3616,6 +3711,7 @@ def sequences(
     active_taxon = _get_active_taxon_from_request(request)
     active_album = _get_active_album_from_request(request, album_hash)
     active_identity = _get_active_identity_from_request(request, individual_identity_id)
+    active_identities = _get_active_identities_from_request(request)
     active_locality = _get_active_locality_from_request(request, locality_hash)
 
     sequence_queryset = _get_sequences_queryset_from_mediafiles(full_mediafiles).order_by(
@@ -3737,6 +3833,7 @@ def sequences(
         "active_taxon": active_taxon,
         "active_album": active_album,
         "active_identity": active_identity,
+        "active_identities": active_identities,
         "active_locality": active_locality,
         "sequences_stats_query_string": _build_sequence_scope_query_string(
             request,

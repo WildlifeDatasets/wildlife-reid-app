@@ -15,7 +15,7 @@
 </div>
 <section class="section">
   {% include "caidapp/filter_collapse.html" %}
-  {% if active_uploadedarchive or active_taxon or active_identity or active_locality or active_album %}
+  {% if active_uploadedarchive or active_taxon or active_identity or active_identities or active_locality or active_album %}
   <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
     <span class="text-muted small">Filtered by:</span>
     {% if active_uploadedarchive %}
@@ -32,6 +32,11 @@
       <a class="btn btn-sm btn-outline-secondary" href="{% url 'caidapp:individual_identity_mediafiles' active_identity.id %}">
         <i class="bi bi-fingerprint"></i> Identity: {{ active_identity }}
       </a>
+    {% endif %}
+    {% if active_identities %}
+      <span class="btn btn-sm btn-outline-secondary disabled">
+        <i class="bi bi-fingerprint"></i> Identities: {{ active_identities|length }}
+      </span>
     {% endif %}
     {% if active_locality %}
       <a class="btn btn-sm btn-outline-secondary" href="{% url 'caidapp:media_files_locality' active_locality.hash %}">

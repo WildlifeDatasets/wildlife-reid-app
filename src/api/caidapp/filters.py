@@ -1,4 +1,5 @@
 import logging
+import re
 
 import django_filters
 from django.db.models import Q, Value
@@ -8,6 +9,11 @@ from . import models
 from .models import Taxon, UploadedArchive
 
 logger = logging.getLogger(__name__)
+
+
+def _normalize_postgres_regex(pattern: str) -> str:
+    """Translate common regex digit shorthands to PostgreSQL-compatible syntax."""
+    return pattern.replace(r"\d", "[0-9]").replace(r"\D", "[^0-9]")
 
 
 class LocalityFilter(django_filters.FilterSet):
@@ -57,6 +63,7 @@ class IndividualIdentityFilter(django_filters.FilterSet):
         widget=django_filters.widgets.RangeWidget(attrs={"type": "date"}),
     )
     search = django_filters.CharFilter(method="filter_search", label="Search")
+    search_regex = django_filters.BooleanFilter(method="filter_search_regex", label="Use regex")
 
     class Meta:
         model = models.IndividualIdentity
@@ -73,6 +80,8 @@ class IndividualIdentityFilter(django_filters.FilterSet):
         # Annotate the queryset with a computed 'search' field.
         logger.debug(f"Filtering IndividualIdentity with search value: {value}")
         if not value:
+            return queryset
+        if self.data.get("search_regex"):
             return queryset
         return queryset.filter(
             Q(name__icontains=value)
@@ -93,6 +102,22 @@ class IndividualIdentityFilter(django_filters.FilterSet):
         # )
         # # Now filter on the annotated 'search' field.
         # return queryset.filter(search__icontains=value)
+
+    def filter_search_regex(self, queryset, name, value):
+        """Apply regex search to name, code, and juv_code when explicitly enabled."""
+        search_value = self.data.get("search")
+        if not value or not search_value:
+            return queryset
+        try:
+            re.compile(search_value)
+        except re.error:
+            return queryset.none()
+        db_regex = _normalize_postgres_regex(search_value)
+        return queryset.filter(
+            Q(name__iregex=db_regex)
+            | Q(code__iregex=db_regex)
+            | Q(juv_code__iregex=db_regex)
+        )
 
 
 class MediaFileFilter(django_filters.FilterSet):
