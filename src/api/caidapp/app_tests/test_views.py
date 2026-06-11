@@ -169,6 +169,16 @@ class MediaFileUpdateEmptyObservationTest(TestCase):
             data.update(extra_form_data)
         return data
 
+    def test_mediafile_update_links_to_uploadedarchive_detail(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        mediafile = MediaFileFactory(parent=archive)
+
+        response = self.client.get(reverse("caidapp:media_file_update", args=[mediafile.id]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, reverse("caidapp:uploadedarchive_detail", args=[archive.id]))
+        self.assertNotContains(response, reverse("caidapp:uploadedarchive_mediafiles", args=[archive.id]))
+
     def test_mark_empty_image_creates_nothing_observation_when_none_exist(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)
         mediafile = MediaFileFactory(parent=archive)
@@ -324,6 +334,15 @@ class IdentityListBulkActionsTest(TestCase):
         self.assertIn(reverse("caidapp:sequences"), response["Location"])
         self.assertIn(f"individual_identity_ids={first.id}", response["Location"])
         self.assertIn(f"individual_identity_ids={second.id}", response["Location"])
+
+    def test_identity_update_links_to_sequences(self):
+        identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Alpha")
+
+        response = self.client.get(reverse("caidapp:individual_identity_update", args=[identity.id]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Sequences")
+        self.assertContains(response, f'{reverse("caidapp:sequences")}?individual_identity_id={identity.id}')
 
 
 class SequenceViewTest(TestCase):

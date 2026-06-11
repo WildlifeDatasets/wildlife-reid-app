@@ -955,6 +955,7 @@ class IndividualIdentityUpdateView(LoginRequiredMixin, UpdateView):
                 "caidapp:individual_identity_mediafiles",
                 kwargs={"individual_identity_id": individual_identity.id},
             )
+            nav_dict["Sequences"] = f"{reverse('caidapp:sequences')}?individual_identity_id={individual_identity.id}"
         right_nav = {"Localities": None}
         for locality in individual_identity.localities():
             right_nav[locality.name] = reverse_lazy(
