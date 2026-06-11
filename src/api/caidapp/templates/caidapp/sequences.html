@@ -5,6 +5,7 @@
 <style>
 .sequence-card{position:relative;border:1px solid var(--wrid-sequence-border-color);background:var(--wrid-sequence-bg);overflow:hidden}.sequence-card .card-body{position:relative}.sequence-card-expanded .card-body{padding:.5rem}.sequence-card-footer-icon{position:absolute;right:.75rem;bottom:.75rem;z-index:2}.sequence-card-expanded{width:100%;max-width:100%}.sequence-card-expanded>.sequence-card-footer-icon{display:none}.sequence-cover{object-fit:contain;aspect-ratio:4/3;width:100%;background:var(--wrid-sequence-thumb-bg);display:block;border-radius:0!important}.sequence-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:1rem;align-items:start}.sequence-card-expanded.sequence-card-expanded-medium{grid-column:span 2;width:100%}.sequence-card-expanded.sequence-card-expanded-wide{grid-column:1/-1;width:100%}.sequence-mediafiles{padding-top:.25rem;margin-top:.25rem;width:fit-content;max-width:100%}.sequence-card-expanded:not(.sequence-card-expanded-medium):not(.sequence-card-expanded-wide) .sequence-mediafiles,.sequence-card-expanded-medium .sequence-mediafiles,.sequence-card-expanded-wide .sequence-mediafiles{width:100%}.sequence-mediafile-grid{display:flex;flex-wrap:wrap;gap:.5rem;align-items:flex-start}.sequence-mediafile-card{position:relative;padding-bottom:1.35rem;flex:0 1 280px;width:min(280px,100%);background:var(--wrid-media-card-bg);border-color:var(--wrid-media-card-border-color)}.sequence-card-expanded:not(.sequence-card-expanded-medium):not(.sequence-card-expanded-wide) .sequence-mediafile-card{flex:1 1 100%;width:100%;max-width:none}.sequence-card-expanded-medium .sequence-mediafile-card{flex:1 1 calc((100% - .5rem)/2);width:auto}.sequence-card-expanded-wide .sequence-mediafile-card{flex:1 1 300px;max-width:360px;width:auto}.sequence-mediafile-card img{object-fit:contain;aspect-ratio:4/3;width:100%;background:var(--wrid-media-thumb-bg);border-top-left-radius:var(--bs-card-inner-border-radius);border-top-right-radius:var(--bs-card-inner-border-radius)}.sequence-mediafile-image-placeholder{aspect-ratio:4/3;width:100%;background:var(--wrid-media-thumb-bg);border-top-left-radius:var(--bs-card-inner-border-radius);border-top-right-radius:var(--bs-card-inner-border-radius)}.sequence-overlay-badge{background-color:rgba(200,200,200,.75);padding:2px 6px;border-radius:5px;color:#111;border:0}.sequence-toggle-icon{cursor:pointer;line-height:1}.sequence-toggle-icon.toggle-sequence-active{background-color:rgba(33,37,41,.75);color:#fff}.sequence-info-icon{color:var(--bs-secondary-color);font-size:.95rem;line-height:1;cursor:help;display:inline-flex;align-items:center;justify-content:center;text-decoration:none}.bbox-overlay{border:2px solid red;background-color:rgba(255,0,0,.01);pointer-events:none}.sequence-collapsed-content{display:block}.sequence-expanded-content{display:none}.sequence-card-expanded .sequence-collapsed-content{display:none}.sequence-card-expanded .sequence-expanded-content{display:block}.sequence-mini-icon{padding:.125rem .35rem;font-size:.8rem;line-height:1}.sequence-list-details{padding-top:0}.sequence-table-thumb{width:72px;height:54px;object-fit:contain;background:var(--wrid-media-thumb-bg);transition:opacity .2s ease,visibility .2s ease}.sequence-table-cell-lines>div+div{margin-top:.2rem}.sequence-table-action{width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center}.sequence-toolbar-label{font-size:.8rem;color:var(--bs-secondary-color)}.sequence-pagination-toolbar{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:.75rem}.sequence-pagination-toolbar .pagination{margin-bottom:0}.sequence-pagination-controls{display:flex;flex-wrap:wrap;align-items:flex-end;gap:.75rem}.sequence-list-row.sequence-card-expanded .sequence-table-thumb,.sequence-list-row.sequence-card-expanded .sequence-table-thumb-placeholder{opacity:0;visibility:hidden}.sequence-list-row.sequence-card-expanded td{border-bottom:0}.sequence-list-row.sequence-card-expanded .sequence-list-hide-on-expand{display:none}.sequence-list-row .sequence-list-show-on-expand{display:none}.sequence-list-row.sequence-card-expanded .sequence-list-show-on-expand{display:inline}.sequence-detail-row td{padding-top:0;padding-bottom:.75rem;border-top:0}.sequence-detail-table,.sequence-detail-table tbody,.sequence-detail-table tr,.sequence-detail-table td{background:transparent!important}.sequence-detail-table td{border-top:0}.sequence-detail-table .sequence-table-thumb{width:64px;height:48px}.sequence-table-thumb-placeholder{width:72px;height:54px;background:var(--wrid-media-thumb-bg);transition:opacity .2s ease,visibility .2s ease}@media (max-width:767px){.sequence-card-expanded.sequence-card-expanded-medium{grid-column:1/-1}.sequence-mediafile-card,.sequence-card-expanded:not(.sequence-card-expanded-medium):not(.sequence-card-expanded-wide) .sequence-mediafile-card,.sequence-card-expanded-medium .sequence-mediafile-card,.sequence-card-expanded-wide .sequence-mediafile-card{flex-basis:100%;max-width:none;width:100%}.sequence-table-thumb,.sequence-table-thumb-placeholder{width:60px;height:45px}.sequence-pagination-toolbar{align-items:flex-start}}
 .sequence-locality-extra-toggle{padding:0 .35rem;font-size:.75rem;line-height:1.4;text-decoration:none}.sequence-locality-extra-list{margin-top:.25rem}
+.sequence-grid{display:flex;flex-wrap:wrap;column-gap:.55rem;row-gap:1.25rem;align-items:stretch}.sequence-grid-sequence-break{flex:0 0 1.15rem;width:1.15rem;height:1px}.sequence-grid .sequence-mediafile-card{flex:0 0 300px;width:300px;max-width:100%;display:flex;flex-direction:column;background:var(--wrid-media-card-bg);border-color:rgba(var(--bs-secondary-rgb),.55);border-radius:0;overflow:hidden;box-shadow:0 0 0 5px rgba(var(--bs-secondary-rgb),.45);transition:box-shadow .16s ease,border-color .16s ease,transform .16s ease;will-change:transform}.sequence-grid .sequence-mediafile-card.sequence-hover-highlight{border-color:rgba(var(--bs-secondary-rgb),.75);box-shadow:0 0 0 5px rgba(var(--bs-secondary-rgb),.58);transform:translateY(-1px)}.sequence-grid .sequence-lead-card{border-top-left-radius:.75rem;border-bottom-left-radius:.75rem}.sequence-grid .sequence-end-card,.sequence-grid .sequence-collapsed-card{margin-right:1rem;border-top-right-radius:.75rem;border-bottom-right-radius:.75rem}.sequence-grid .sequence-collapsed-card{margin-right:1.4rem;box-shadow:5px 5px 0 0 rgba(var(--bs-secondary-rgb),.42),10px 10px 0 0 rgba(var(--bs-secondary-rgb),.24)}.sequence-grid .sequence-collapsed-card.sequence-hover-highlight{box-shadow:6px 6px 0 0 rgba(var(--bs-secondary-rgb),.5),12px 12px 0 0 rgba(var(--bs-secondary-rgb),.3)}.sequence-grid .sequence-mediafile-card img,.sequence-grid .sequence-mediafile-image-placeholder{border-radius:0}.sequence-grid .sequence-extra-card{display:none}.sequence-grid .sequence-extra-card.sequence-expanded-visible{display:flex}.sequence-grid .sequence-mediafile-card .card-body{min-height:11.5rem;display:flex;flex:1 1 auto;flex-direction:column}.sequence-grid .sequence-mediafile-card .card-body>.mt-3{margin-top:auto!important}.sequence-toggle-icon.toggle-sequence-active{background-color:var(--bs-primary);color:#fff}.sequence-grid .sequence-collapsed-summary{font-size:.8rem;color:var(--bs-secondary-color)}@media (prefers-reduced-motion:reduce){.sequence-grid .sequence-mediafile-card{transition:none!important}}[data-bs-theme=dark] .sequence-grid .sequence-mediafile-card{box-shadow:0 0 0 5px rgba(var(--bs-secondary-rgb),.62)}[data-bs-theme=dark] .sequence-grid .sequence-collapsed-card{box-shadow:5px 5px 0 0 rgba(var(--bs-secondary-rgb),.5),10px 10px 0 0 rgba(var(--bs-secondary-rgb),.32)}[data-bs-theme=dark] .sequence-grid .sequence-mediafile-card.sequence-hover-highlight{box-shadow:0 0 0 5px rgba(var(--bs-secondary-rgb),.78)}[data-bs-theme=dark] .sequence-grid .sequence-collapsed-card.sequence-hover-highlight{box-shadow:6px 6px 0 0 rgba(var(--bs-secondary-rgb),.6),12px 12px 0 0 rgba(var(--bs-secondary-rgb),.38)}@media (max-width:767px){.sequence-grid .sequence-mediafile-card{flex-basis:100%;width:100%;border-radius:.75rem}.sequence-grid-sequence-break{display:none}.sequence-grid .sequence-lead-card,.sequence-grid .sequence-end-card,.sequence-grid .sequence-collapsed-card{margin-left:0;margin-right:0;border-radius:.75rem}}
 </style>
 {% endblock %}
 {% block body %}
@@ -214,39 +215,24 @@
       </table>
     </div>
     {% else %}
-    <div class="sequence-grid">
+    <div class="sequence-grid" id="sequence-card-grid">
       {% for sequence in sequence_objects %}
-      <div class="card sequence-card {% if sequence.mediafile_count > 2 %}sequence-card-expanded-wide{% elif sequence.mediafile_count > 1 %}sequence-card-expanded-medium{% endif %}" id="sequence-card-{{ sequence.id }}">
-        <div class="sequence-collapsed-content position-relative">
-          {% if sequence.cover_mediafile and sequence.cover_mediafile.thumbnail %}
-          <a href="{% url 'caidapp:media_file_update' sequence.cover_mediafile.id %}?next={{ request.get_full_path|urlencode }}">
-            <img class="sequence-cover card-img-top" src="{{ sequence.cover_mediafile.thumbnail.url }}" alt="Sequence cover">
-            {% for obs in sequence.cover_mediafile.observations.all %}{% if obs.bbox_x_center %}<div class="bbox-overlay" style="position:absolute;left:calc(({{ obs.bbox_x_center }} - {{ obs.bbox_width }}/2) * 100%);top:calc(({{ obs.bbox_y_center }} - {{ obs.bbox_height }}/2) * 100%);width:calc({{ obs.bbox_width }} * 100%);height:calc({{ obs.bbox_height }} * 100%);"></div>{% endif %}{% endfor %}
-          </a>
-          {% else %}<div class="sequence-cover card-img-top"></div>{% endif %}
-          <div class="position-absolute top-0 end-0 p-2"><div class="form-check m-0"><input class="form-check-input js-sequence-checkbox" type="checkbox" name="selected_sequence_ids" value="{{ sequence.id }}" id="sequence-checkbox-{{ sequence.id }}"></div></div>
-          <div class="position-absolute top-0 start-0 p-2"><button type="button" class="sequence-overlay-badge sequence-toggle-icon js-toggle-sequence" data-sequence-id="{{ sequence.id }}" data-bs-toggle="collapse" data-bs-target="#sequence-mediafiles-{{ sequence.id }}" data-bs-toggle-tooltip="true" data-bs-title="{{ sequence.mediafile_count }} media files in sequence" aria-expanded="false" aria-controls="sequence-mediafiles-{{ sequence.id }}" title="{{ sequence.mediafile_count }} media files in sequence"><i class="bi bi-images"></i></button></div>
-        </div>
-        <div class="card-body">
-          <div class="sequence-collapsed-content">
-            <div><strong>Count:</strong> {{ sequence.mediafile_count }}</div>
-            <div><strong>Captured:</strong> {{ sequence.captured_at_start|date:'Y-m-d H:i' }}</div>
-            {% if sequence.taxons %}<div><strong>Taxon:</strong> {% for taxon in sequence.taxons %}<a class="link-secondary" href="{% url 'caidapp:media_files' %}?taxon={{ taxon.id }}">{{ taxon }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}</div>{% endif %}
-            {% if sequence.primary_locality %}<div><strong>Locality:</strong> <a class="link-secondary" href="{% url 'caidapp:media_files_locality' sequence.primary_locality.hash %}">{% if request.session.private_mode %}{{ sequence.primary_locality.visible_name }}{% else %}{{ sequence.primary_locality.name }}{% endif %}</a>{% if sequence.additional_localities %} <button class="btn btn-sm btn-outline-secondary sequence-locality-extra-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#sequence-card-localities-{{ sequence.id }}" aria-expanded="false" aria-controls="sequence-card-localities-{{ sequence.id }}">+{{ sequence.additional_localities|length }}</button><div class="collapse sequence-locality-extra-list" id="sequence-card-localities-{{ sequence.id }}">{% for locality in sequence.additional_localities %}<div><a class="link-secondary" href="{% url 'caidapp:media_files_locality' locality.hash %}">{% if request.session.private_mode %}{{ locality.visible_name }}{% else %}{{ locality.name }}{% endif %}</a></div>{% endfor %}</div>{% endif %}</div>{% endif %}
-            {% if sequence.identities %}<div><strong>Identity:</strong> {% for identity in sequence.identities %}<a class="link-secondary" href="{% url 'caidapp:individual_identity_mediafiles' identity.id %}">{{ identity }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}</div>{% endif %}
-          </div>
-          <div class="sequence-expanded-content">
-            <div class="d-flex justify-content-between align-items-start mb-2 gap-3">
-              <button type="button" class="sequence-overlay-badge sequence-toggle-icon js-toggle-sequence" data-sequence-id="{{ sequence.id }}" data-bs-toggle="collapse" data-bs-target="#sequence-mediafiles-{{ sequence.id }}" data-bs-toggle-tooltip="true" data-bs-title="{{ sequence.mediafile_count }} media files in sequence" aria-expanded="true" aria-controls="sequence-mediafiles-{{ sequence.id }}" title="{{ sequence.mediafile_count }} media files in sequence"><i class="bi bi-images"></i></button>
-              <div class="form-check m-0"><input class="form-check-input js-sequence-select-all js-sequence-checkbox" type="checkbox" name="selected_sequence_ids" value="{{ sequence.id }}" data-sequence-id="{{ sequence.id }}" id="sequence-select-all-{{ sequence.id }}"><label class="form-check-label" for="sequence-select-all-{{ sequence.id }}">Select whole sequence</label></div>
-            </div>
-          </div>
-          <div class="sequence-mediafiles collapse" id="sequence-mediafiles-{{ sequence.id }}">
-            <div class="sequence-mediafile-grid">{% for mediafile in sequence.mediafile_set.all %}{% include "caidapp/includes/mediafile_card.html" with mediafile=mediafile sequence=sequence selectable=True show_locality=False request=request only %}{% endfor %}</div>
-          </div>
-        </div>
-        <div class="sequence-card-footer-icon"><span class="sequence-info-icon" data-bs-toggle-tooltip="true" data-bs-title="{% if sequence.taxons_display %}Taxon: {{ sequence.taxons_display }}&#10;{% endif %}{% if sequence.identities_display %}Identity: {{ sequence.identities_display }}&#10;{% endif %}{% if sequence.captured_at_start %}Captured: {{ sequence.captured_at_start|date:'Y-m-d H:i' }}{% if sequence.captured_at_end and sequence.captured_at_end != sequence.captured_at_start %} - {{ sequence.captured_at_end|date:'Y-m-d H:i' }}{% endif %}{% endif %}" title="{% if sequence.taxons_display %}Taxon: {{ sequence.taxons_display }}&#10;{% endif %}{% if sequence.identities_display %}Identity: {{ sequence.identities_display }}&#10;{% endif %}{% if sequence.captured_at_start %}Captured: {{ sequence.captured_at_start|date:'Y-m-d H:i' }}{% if sequence.captured_at_end and sequence.captured_at_end != sequence.captured_at_start %} - {{ sequence.captured_at_end|date:'Y-m-d H:i' }}{% endif %}{% endif %}"><i class="bi bi-info-circle"></i></span></div>
-      </div>
+        {% for mediafile in sequence.mediafile_set.all %}
+          {% if forloop.first %}
+            {% if sequence.mediafile_count == 1 %}
+              {% include "caidapp/includes/mediafile_card.html" with mediafile=mediafile sequence=sequence selectable=True show_locality=False request=request sequence_lead_card=True extra_card_class="sequence-member-card sequence-lead-card sequence-end-card" only %}
+            {% else %}
+              {% include "caidapp/includes/mediafile_card.html" with mediafile=mediafile sequence=sequence selectable=True show_locality=False request=request sequence_lead_card=True extra_card_class="sequence-member-card sequence-lead-card sequence-collapsed-card" only %}
+            {% endif %}
+          {% else %}
+            {% if forloop.last %}
+              {% include "caidapp/includes/mediafile_card.html" with mediafile=mediafile sequence=sequence selectable=True show_locality=False request=request extra_card_class="sequence-member-card sequence-extra-card sequence-end-card" only %}
+            {% else %}
+              {% include "caidapp/includes/mediafile_card.html" with mediafile=mediafile sequence=sequence selectable=True show_locality=False request=request extra_card_class="sequence-member-card sequence-extra-card" only %}
+            {% endif %}
+          {% endif %}
+        {% endfor %}
+        <span class="sequence-grid-sequence-break" aria-hidden="true"></span>
       {% empty %}
       <div class="alert alert-secondary">No sequences matched the current filter.</div>
       {% endfor %}
@@ -296,6 +282,124 @@ document.addEventListener("DOMContentLoaded", function() {
   document.querySelectorAll('[data-bs-toggle-tooltip="true"]').forEach(function(element){ if(window.bootstrap&&window.bootstrap.Tooltip){ new bootstrap.Tooltip(element); }});
   function syncSequenceButtons(sequenceId, expanded){ document.querySelectorAll(`.js-toggle-sequence[data-sequence-id="${sequenceId}"]`).forEach(function(button){ button.setAttribute("aria-expanded", expanded ? "true" : "false"); button.classList.toggle("toggle-sequence-active", expanded); });}
   function isSequenceSelected(sequenceId){ return Array.from(document.querySelectorAll(`.js-sequence-checkbox[value="${sequenceId}"]`)).some(function(checkbox){ return checkbox.checked; }); }
+  function visibleSequenceCards(){
+    return Array.from(document.querySelectorAll(".sequence-grid .sequence-mediafile-card")).filter(function(card){ return card.offsetParent !== null; });
+  }
+  function animateSequenceGridChange(changeCallback){
+    const reduceMotion=window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const grid=document.getElementById("sequence-card-grid");
+    if(!grid||reduceMotion){ changeCallback(); return; }
+    const firstPositions=new Map();
+    const firstLeadPositions=new Map();
+    visibleSequenceCards().forEach(function(card){
+      const rect=card.getBoundingClientRect();
+      firstPositions.set(card, rect);
+      if(card.classList.contains("sequence-lead-card")){ firstLeadPositions.set(card.dataset.sequenceId, rect); }
+    });
+    changeCallback();
+    const movedCards=visibleSequenceCards();
+    movedCards.forEach(function(card){
+      const first=firstPositions.get(card);
+      const last=card.getBoundingClientRect();
+      card.style.transition="none";
+      if(first){
+        const deltaX=first.left-last.left;
+        const deltaY=first.top-last.top;
+        if(deltaX||deltaY){ card.style.transform=`translate(${deltaX}px, ${deltaY}px)`; }
+      }else{
+        const source=firstLeadPositions.get(card.dataset.sequenceId);
+        if(source){
+          const deltaX=source.left-last.left;
+          const deltaY=source.top-last.top;
+          card.style.transform=`translate(${deltaX}px, ${deltaY}px) scale(.96)`;
+        }else{
+          card.style.transform="translateY(-.35rem) scale(.97)";
+        }
+        card.style.opacity="0";
+      }
+    });
+    requestAnimationFrame(function(){
+      movedCards.forEach(function(card){
+        card.style.transition="transform .26s ease, opacity .2s ease, box-shadow .16s ease, border-color .16s ease";
+        card.style.transform="";
+        card.style.opacity="";
+      });
+    });
+    window.setTimeout(function(){
+      movedCards.forEach(function(card){
+        card.style.transition="";
+        card.style.transform="";
+        card.style.opacity="";
+      });
+    }, 320);
+  }
+  function animateSequenceCollapse(sequenceId, changeCallback){
+    const reduceMotion=window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const grid=document.getElementById("sequence-card-grid");
+    if(!grid||reduceMotion){ changeCallback(); return; }
+    const leavingClones=[];
+    document.querySelectorAll(`.sequence-extra-card.sequence-expanded-visible[data-sequence-id="${sequenceId}"]`).forEach(function(card){
+      const rect=card.getBoundingClientRect();
+      const clone=card.cloneNode(true);
+      clone.removeAttribute("id");
+      clone.querySelectorAll("[id]").forEach(function(element){ element.removeAttribute("id"); });
+      clone.style.position="fixed";
+      clone.style.left=`${rect.left}px`;
+      clone.style.top=`${rect.top}px`;
+      clone.style.width=`${rect.width}px`;
+      clone.style.height=`${rect.height}px`;
+      clone.style.margin="0";
+      clone.style.pointerEvents="none";
+      clone.style.zIndex="1080";
+      clone.style.transition="none";
+      clone.style.transform="";
+      clone.style.opacity="1";
+      document.body.appendChild(clone);
+      leavingClones.push({clone:clone, rect:rect});
+    });
+    animateSequenceGridChange(changeCallback);
+    requestAnimationFrame(function(){
+      const target=document.querySelector(`.sequence-lead-card[data-sequence-id="${sequenceId}"]`);
+      const targetRect=target ? target.getBoundingClientRect() : null;
+      leavingClones.forEach(function(item){
+        const deltaX=targetRect ? targetRect.left-item.rect.left : 0;
+        const deltaY=targetRect ? targetRect.top-item.rect.top : 0;
+        item.clone.style.transition="transform .26s ease, opacity .2s ease";
+        item.clone.style.transform=`translate(${deltaX}px, ${deltaY}px) scale(.96)`;
+        item.clone.style.opacity="0";
+      });
+    });
+    window.setTimeout(function(){
+      leavingClones.forEach(function(item){ item.clone.remove(); });
+    }, 340);
+  }
+  function setSequenceExpandedState(sequenceId, expanded){
+    document.querySelectorAll(`.sequence-extra-card[data-sequence-id="${sequenceId}"]`).forEach(function(card){
+      card.classList.toggle("sequence-expanded-visible", expanded);
+    });
+    document.querySelectorAll(`.sequence-lead-card[data-sequence-id="${sequenceId}"]`).forEach(function(card){
+      card.classList.toggle("sequence-collapsed-card", !expanded);
+    });
+    syncSequenceButtons(sequenceId, expanded);
+  }
+  function setSequenceExpanded(sequenceId, expanded, animate){
+    if(animate===undefined){ animate=true; }
+    const panel=document.getElementById(`sequence-mediafiles-${sequenceId}`);
+    if(panel){
+      const collapseInstance=bootstrap.Collapse.getOrCreateInstance(panel,{ toggle:false });
+      if(expanded){ collapseInstance.show(); } else { collapseInstance.hide(); }
+      return;
+    }
+    if(animate){
+      if(expanded){
+        animateSequenceGridChange(function(){ setSequenceExpandedState(sequenceId, expanded); });
+      }else{
+        animateSequenceCollapse(sequenceId, function(){ setSequenceExpandedState(sequenceId, expanded); });
+      }
+    }else{
+      setSequenceExpandedState(sequenceId, expanded);
+    }
+  }
   function syncSequenceSelection(sequenceId, checked){
     document.querySelectorAll(`.js-sequence-checkbox[value="${sequenceId}"]`).forEach(function(peer){ peer.checked=checked; });
     document.querySelectorAll(`.js-mediafile-checkbox[data-sequence-id="${sequenceId}"]`).forEach(function(mediafileCheckbox){
@@ -308,15 +412,29 @@ document.addEventListener("DOMContentLoaded", function() {
   }
   document.querySelectorAll(".sequence-mediafiles.collapse").forEach(function(panel){ panel.addEventListener("show.bs.collapse", function(){ const sequenceId=this.id.replace("sequence-mediafiles-",""); const card=document.getElementById(`sequence-card-${sequenceId}`); if(card){ card.classList.add("sequence-card-expanded"); } syncSequenceButtons(sequenceId,true); }); panel.addEventListener("hide.bs.collapse", function(){ const sequenceId=this.id.replace("sequence-mediafiles-",""); const card=document.getElementById(`sequence-card-${sequenceId}`); if(card){ card.classList.remove("sequence-card-expanded"); } syncSequenceButtons(sequenceId,false); }); });
   function setAllSequencesExpanded(expanded){
-    document.querySelectorAll(".sequence-mediafiles.collapse").forEach(function(panel){
-      const collapseInstance=bootstrap.Collapse.getOrCreateInstance(panel,{ toggle:false });
-      if(expanded){ collapseInstance.show(); } else { collapseInstance.hide(); }
+    const sequenceIds=new Set();
+    document.querySelectorAll(".sequence-mediafiles.collapse").forEach(function(panel){ sequenceIds.add(panel.id.replace("sequence-mediafiles-","")); });
+    document.querySelectorAll(".js-toggle-sequence").forEach(function(button){ sequenceIds.add(button.dataset.sequenceId); });
+    animateSequenceGridChange(function(){
+      sequenceIds.forEach(function(sequenceId){
+        if(sequenceId){ setSequenceExpanded(sequenceId, expanded, false); }
+      });
     });
   }
   document.querySelectorAll(".js-expand-all-sequences").forEach(function(button){ button.addEventListener("click", function(){ setAllSequencesExpanded(true); }); });
   document.querySelectorAll(".js-collapse-all-sequences").forEach(function(button){ button.addEventListener("click", function(){ setAllSequencesExpanded(false); }); });
-  document.querySelectorAll(".js-sequence-checkbox").forEach(function(checkbox){ checkbox.addEventListener("change", function(){ const sequenceId=this.value; syncSequenceSelection(sequenceId,this.checked); if(this.checked){ const panel=document.getElementById(`sequence-mediafiles-${sequenceId}`); const collapseInstance=bootstrap.Collapse.getOrCreateInstance(panel,{ toggle:false }); collapseInstance.show(); } }); });
+  document.querySelectorAll(".js-toggle-sequence").forEach(function(button){ if(!button.dataset.bsTarget){ button.addEventListener("click", function(){ const expanded=this.getAttribute("aria-expanded")==="true"; setSequenceExpanded(this.dataset.sequenceId,!expanded); }); } });
+  document.querySelectorAll(".js-sequence-checkbox").forEach(function(checkbox){ checkbox.addEventListener("change", function(){ const sequenceId=this.value; syncSequenceSelection(sequenceId,this.checked); if(this.checked){ setSequenceExpanded(sequenceId,true); } }); });
   document.querySelectorAll(".js-mediafile-checkbox").forEach(function(checkbox){ checkbox.addEventListener("change", function(){ const sequenceId=this.dataset.sequenceId; if(!this.checked){ uncheckWholeSequence(sequenceId); } const marker=document.querySelector(`.js-deselected-mediafile-marker[data-mediafile-id="${this.value}"]`); if(marker){ marker.disabled=!(isSequenceSelected(sequenceId)&&!this.checked); } }); });
+  document.querySelectorAll(".sequence-grid .sequence-mediafile-card[data-sequence-id]").forEach(function(card){
+    function setSequenceHover(active){
+      document.querySelectorAll(`.sequence-grid .sequence-mediafile-card[data-sequence-id="${card.dataset.sequenceId}"]`).forEach(function(peer){
+        if(peer.offsetParent !== null){ peer.classList.toggle("sequence-hover-highlight", active); }
+      });
+    }
+    card.addEventListener("mouseenter", function(){ setSequenceHover(true); });
+    card.addEventListener("mouseleave", function(){ setSequenceHover(false); });
+  });
 });
 </script>
 {% endif %}

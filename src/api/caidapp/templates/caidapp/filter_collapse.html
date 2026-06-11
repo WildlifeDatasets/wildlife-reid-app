@@ -18,15 +18,13 @@
             {% render_field filter.form.search  class="form-control" placeholder="type here to search..." style="width: 300px;"%}
         </div>
         {% if filter.form.search_regex %}
-            <div class="ms-2 d-flex align-items-center gap-1">
-                <input class="btn-check" type="checkbox" name="{{ filter.form.search_regex.name }}"
+            <div class="ms-2 form-check"
+                 data-bs-toggle="tooltip"
+                 title="Use a database regular expression across identity name, code, and juvenile code. Examples: \d{4} for four consecutive digits, ^\d{4}$ for exactly four digits.">
+                <input class="form-check-input" type="checkbox" name="{{ filter.form.search_regex.name }}"
                        id="{{ filter.form.search_regex.id_for_label }}" value="true"
                        {% if filter.form.search_regex.value %}checked{% endif %}>
-                <label class="btn btn-outline-secondary" for="{{ filter.form.search_regex.id_for_label }}">Regex</label>
-                <span class="text-secondary" data-bs-toggle="tooltip"
-                      title="Use a database regular expression across identity name, code, and juvenile code. Examples: \d{4} for four consecutive digits, ^\d{4}$ for exactly four digits.">
-                    <i class="bi bi-question-circle"></i>
-                </span>
+                <label class="form-check-label" for="{{ filter.form.search_regex.id_for_label }}">Regex</label>
             </div>
         {% endif %}
         <div class="ms-2">

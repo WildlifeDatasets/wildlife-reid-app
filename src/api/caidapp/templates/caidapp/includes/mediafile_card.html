@@ -1,4 +1,4 @@
-<div class="card sequence-mediafile-card">
+<div class="card sequence-mediafile-card {{ extra_card_class|default:'' }}" data-sequence-id="{{ sequence.id }}">
     <div class="position-relative">
         {% if mediafile.thumbnail %}
             <a href="{% url 'caidapp:media_file_update' mediafile.id %}?next={{ request.get_full_path|urlencode }}">
@@ -21,22 +21,82 @@
             <div class="sequence-mediafile-image-placeholder"></div>
         {% endif %}
 
+        {% if sequence_lead_card %}
+            <div class="position-absolute top-0 start-0 p-2">
+                <button type="button"
+                        class="sequence-overlay-badge sequence-toggle-icon js-toggle-sequence"
+                        data-sequence-id="{{ sequence.id }}"
+                        data-bs-toggle-tooltip="true"
+                        data-bs-title="{{ sequence.mediafile_count }} media files in sequence"
+                        aria-expanded="false"
+                        title="{{ sequence.mediafile_count }} media files in sequence">
+                    <i class="bi bi-images"></i>
+                </button>
+            </div>
+        {% endif %}
+
         {% if selectable %}
             <div class="position-absolute top-0 end-0 p-2">
                 <div class="form-check m-0">
                     <input
-                        class="form-check-input js-mediafile-checkbox"
+                        class="form-check-input js-mediafile-checkbox {% if sequence_lead_card %}d-none{% endif %}"
                         type="checkbox"
                         name="selected_mediafile_ids"
                         value="{{ mediafile.id }}"
                         data-sequence-id="{{ sequence.id }}"
                         id="mediafile-checkbox-{{ mediafile.id }}"
                     >
+                    {% if sequence_lead_card %}
+                        <input
+                            class="form-check-input js-sequence-checkbox"
+                            type="checkbox"
+                            name="selected_sequence_ids"
+                            value="{{ sequence.id }}"
+                            data-sequence-id="{{ sequence.id }}"
+                            id="sequence-checkbox-{{ sequence.id }}"
+                            title="Select whole sequence"
+                            aria-label="Select whole sequence"
+                        >
+                    {% endif %}
                 </div>
             </div>
         {% endif %}
     </div>
     <div class="card-body">
+        {% if sequence_lead_card %}
+            <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                <span class="badge text-bg-secondary">{{ sequence.mediafile_count }}</span>
+                {% if sequence.captured_at_start %}
+                    <span class="small text-muted">{{ sequence.captured_at_start|date:'Y-m-d H:i' }}</span>
+                {% endif %}
+            </div>
+            {% if sequence.primary_locality %}
+                <div class="small mb-1">
+                    <strong>Locality:</strong>
+                    <a class="link-secondary" href="{% url 'caidapp:media_files_locality' sequence.primary_locality.hash %}">
+                        {% if request.session.private_mode %}{{ sequence.primary_locality.visible_name }}{% else %}{{ sequence.primary_locality.name }}{% endif %}
+                    </a>
+                    {% if sequence.additional_localities %}
+                        <button class="btn btn-sm btn-outline-secondary sequence-locality-extra-toggle" type="button"
+                                data-bs-toggle="collapse"
+                                data-bs-target="#sequence-card-localities-{{ sequence.id }}"
+                                aria-expanded="false"
+                                aria-controls="sequence-card-localities-{{ sequence.id }}">
+                            +{{ sequence.additional_localities|length }}
+                        </button>
+                        <div class="collapse sequence-locality-extra-list" id="sequence-card-localities-{{ sequence.id }}">
+                            {% for locality in sequence.additional_localities %}
+                                <div>
+                                    <a class="link-secondary" href="{% url 'caidapp:media_files_locality' locality.hash %}">
+                                        {% if request.session.private_mode %}{{ locality.visible_name }}{% else %}{{ locality.name }}{% endif %}
+                                    </a>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+            {% endif %}
+        {% endif %}
         {% if selectable %}
             <label class="form-label small fw-semibold mb-2" for="mediafile-checkbox-{{ mediafile.id }}">
                 {{ mediafile.original_filename|default:mediafile.id }}
