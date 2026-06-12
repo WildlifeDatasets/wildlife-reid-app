@@ -3753,6 +3753,9 @@ def sequences(
     )
     sequence_by_id = {sequence.id: sequence for sequence in page_sequences}
     ordered_sequences = [sequence_by_id[sequence_id] for sequence_id in page_sequence_ids if sequence_id in sequence_by_id]
+    matching_mediafile_ids_on_page = set(
+        full_mediafiles.filter(sequence_id__in=page_sequence_ids).values_list("id", flat=True)
+    )
 
     sequence_lookup = {sequence.id: sequence for sequence in ordered_sequences}
     for sequence in ordered_sequences:
@@ -3762,6 +3765,7 @@ def sequences(
         sequence.has_multiple_identities = len({mf.identity_id for mf in mediafiles_in_sequence if mf.identity_id}) > 1
         locality_counts = {}
         for mediafile in mediafiles_in_sequence:
+            mediafile.matches_current_filter = mediafile.id in matching_mediafile_ids_on_page
             if mediafile.locality is None:
                 continue
             locality_counts[mediafile.locality] = locality_counts.get(mediafile.locality, 0) + 1
@@ -3836,6 +3840,8 @@ def sequences(
         "active_identity": active_identity,
         "active_identities": active_identities,
         "active_locality": active_locality,
+        "matching_mediafile_ids_on_page": sorted(matching_mediafile_ids_on_page),
+        "has_active_sequence_search": bool(request.GET.get("search")),
         "sequences_stats_query_string": _build_sequence_scope_query_string(
             request,
             uploadedarchive_id=uploadedarchive_id,

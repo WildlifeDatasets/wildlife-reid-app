@@ -146,6 +146,40 @@ class MediafileExportTest(TestCase):
         self.assertTrue(path.endswith(".jpg"))
 
 
+class MediaFileListSearchTest(TestCase):
+    def setUp(self):
+        self.caiduser = CaidUserFactory()
+        self.user = self.caiduser.user
+        self.client.login(username=self.user.username, password="test123")
+
+    def test_mediafile_search_supports_explicit_regex(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        locality_matching = LocalityFactory(owner=self.caiduser, name="Site 1234")
+        locality_non_matching = LocalityFactory(owner=self.caiduser, name="Site 12345")
+        matching_mediafile = MediaFileFactory(
+            parent=archive,
+            locality=locality_matching,
+            original_filename="matching.jpg",
+        )
+        non_matching_mediafile = MediaFileFactory(
+            parent=archive,
+            locality=locality_non_matching,
+            original_filename="non-matching.jpg",
+        )
+
+        response = self.client.get(
+            reverse("caidapp:media_files"),
+            {
+                "search": r"^\D*\d\D*\d\D*\d\D*\d\D*$",
+                "search_regex": "true",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, matching_mediafile.original_filename)
+        self.assertNotContains(response, non_matching_mediafile.original_filename)
+
+
 class MediaFileUpdateEmptyObservationTest(TestCase):
     def setUp(self):
         self.caiduser = CaidUserFactory()
@@ -378,6 +412,36 @@ class SequenceViewTest(TestCase):
         self.assertContains(response, "Sequence")
         self.assertContains(response, "first.jpg")
         self.assertContains(response, "second.jpg")
+
+    def test_sequence_view_search_matches_mediafile_filename_and_keeps_full_sequence(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        matching_sequence = SequenceFactory(uploaded_archive=archive)
+        other_sequence = SequenceFactory(uploaded_archive=archive)
+        matching_mediafile = MediaFileFactory(
+            parent=archive,
+            sequence=matching_sequence,
+            original_filename="Brdy/alpha_1234.jpg",
+        )
+        sibling_mediafile = MediaFileFactory(
+            parent=archive,
+            sequence=matching_sequence,
+            original_filename="Brdy/not-matching.jpg",
+        )
+        MediaFileFactory(
+            parent=archive,
+            sequence=other_sequence,
+            original_filename="Brdy/unrelated.jpg",
+        )
+
+        response = self.client.get(reverse("caidapp:sequences"), {"search": "1234"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, matching_mediafile.original_filename)
+        self.assertContains(response, sibling_mediafile.original_filename)
+        self.assertContains(response, "sequence-nonmatching-mediafile")
+        self.assertContains(response, "Select matching mediafiles on page")
+        self.assertContains(response, "Select sequences with matching mediafile on page")
+        self.assertNotContains(response, "Brdy/unrelated.jpg")
 
     def test_sequence_view_shows_primary_locality_and_expandable_extra_count(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)

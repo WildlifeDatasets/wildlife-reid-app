@@ -210,20 +210,20 @@
 
         <section class="section">
             {#            <ul class="container">#}
-            <div class="row">
+            <div class="row g-4 align-items-stretch">
 
                 {% if page_obj %}
                     {% for uploadedarchive in page_obj %}
-                        <div class="col-12 col-sm-12 col-md-12 col-lg-6 col-xl-4 col-xxl-3 col-xxxl-3 col-xxxxl-1" id="card{{ uploadedarchive.instance.id }}">
-                            <div class="card border shadow archive-card
+                        <div class="col-12 col-sm-12 col-md-12 col-lg-6 col-xl-4 col-xxl-3 col-xxxl-3 col-xxxxl-1 d-flex" id="card{{ uploadedarchive.instance.id }}">
+                            <div class="card border shadow archive-card h-100 w-100
                                 {% if uploadedarchive.thumbnail %} has-bg {% endif %}"
                                     {% if uploadedarchive.thumbnail %}
                                  style="--archive-bg: url('{{ uploadedarchive.thumbnail.url }}');"
                                     {% endif %}
                             >
-                                <div class="card-body"
+                                <div class="card-body d-flex flex-column h-100"
                                 >
-                                        <span class="badge badge-status rounded-pill mt-3 bg-{{ uploadedarchive.get_status.status_style }}"
+                                        <span class="badge badge-status rounded-pill mt-3 align-self-start d-inline-flex bg-{{ uploadedarchive.get_status.status_style }}"
                                               id="status-{{ uploadedarchive.id }}"
                                               data-bs-toggle="tooltip" title="{{ uploadedarchive.get_status.status_message }}"
                                         >{{ uploadedarchive.get_status.status }}</span>
@@ -231,7 +231,7 @@
                                     {% include "caidapp/upload_card_body.html" %}
 
 
-                                    <div class="d-flex gap-1 mt-2">
+                                    <div class="d-flex gap-1 mt-auto pt-3">
                                         <div class="dropdown">
                                             <a class="btn btn-secondary custom-dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                                                 <i class="bi bi-three-dots"></i>

@@ -1,4 +1,4 @@
-<div class="card sequence-mediafile-card {{ extra_card_class|default:'' }}" data-sequence-id="{{ sequence.id }}">
+<div class="card sequence-mediafile-card {% if not mediafile.matches_current_filter %}sequence-nonmatching-mediafile{% endif %} {{ extra_card_class|default:'' }}" data-sequence-id="{{ sequence.id }}" data-matches-filter="{% if mediafile.matches_current_filter %}true{% else %}false{% endif %}">
     <div class="position-relative">
         {% if mediafile.thumbnail %}
             <a href="{% url 'caidapp:media_file_update' mediafile.id %}?next={{ request.get_full_path|urlencode }}">
@@ -40,6 +40,7 @@
                         name="selected_sequence_ids"
                         value="{{ sequence.id }}"
                         data-sequence-id="{{ sequence.id }}"
+                        data-has-matching-mediafile="{% if mediafile.matches_current_filter %}true{% else %}false{% endif %}"
                         id="sequence-checkbox-{{ sequence.id }}"
                         title="Select whole sequence"
                         aria-label="Select whole sequence"
@@ -57,6 +58,7 @@
                         name="selected_mediafile_ids"
                         value="{{ mediafile.id }}"
                         data-sequence-id="{{ sequence.id }}"
+                        data-matches-filter="{% if mediafile.matches_current_filter %}true{% else %}false{% endif %}"
                         id="mediafile-checkbox-{{ mediafile.id }}"
                     >
                 </div>

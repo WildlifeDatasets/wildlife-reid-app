@@ -158,6 +158,7 @@ class MediaFileFilter(django_filters.FilterSet):
         widget=django_filters.widgets.RangeWidget(attrs={"type": "date"}),
     )
     search = django_filters.CharFilter(method="filter_search", label="Search")
+    search_regex = django_filters.BooleanFilter(method="filter_search_regex", label="Use regex")
 
     class Meta:
         model = models.MediaFile
@@ -179,10 +180,14 @@ class MediaFileFilter(django_filters.FilterSet):
         # Annotate the queryset with a computed 'search' field.
         if not value:
             return queryset
+        if self.data.get("search_regex"):
+            return queryset
         return queryset.filter(
             Q(locality__name__icontains=value)
             | Q(observations__taxon__name__icontains=value)
             | Q(observations__identity__name__icontains=value)
+            | Q(original_filename__icontains=value)
+            | Q(mediafile__icontains=value)
         )
         queryset = queryset.annotate(
             search=Concat(
@@ -195,6 +200,24 @@ class MediaFileFilter(django_filters.FilterSet):
         )
         # Now filter on the annotated 'search' field.
         return queryset.filter(search__icontains=value)
+
+    def filter_search_regex(self, queryset, name, value):
+        """Apply regex search to the same fields as plain text search when explicitly enabled."""
+        search_value = self.data.get("search")
+        if not value or not search_value:
+            return queryset
+        try:
+            re.compile(search_value)
+        except re.error:
+            return queryset.none()
+        db_regex = _normalize_postgres_regex(search_value)
+        return queryset.filter(
+            Q(locality__name__iregex=db_regex)
+            | Q(observations__taxon__name__iregex=db_regex)
+            | Q(observations__identity__name__iregex=db_regex)
+            | Q(original_filename__iregex=db_regex)
+            | Q(mediafile__iregex=db_regex)
+        )
 
     def __init__(self, *args, **kwargs):
         self.request = kwargs.pop("request", None)
