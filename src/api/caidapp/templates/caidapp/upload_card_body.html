@@ -93,5 +93,15 @@ Media Files with {{ uploadedarchive.taxon_for_identification }} /{% endif %}
     {#        Media files: #}
 </div>
 
+{% if uploadedarchive.count_of_identities > 0 %}
+    <div
+            data-bs-toggle="tooltip"
+            title="{{ uploadedarchive.count_of_identities }} unique identified individuals in this upload"
+    >
+        <i class="bi bi-fingerprint"></i> Identities:
+        {{ uploadedarchive.count_of_identities }}
+    </div>
+{% endif %}
+
 
 </div>

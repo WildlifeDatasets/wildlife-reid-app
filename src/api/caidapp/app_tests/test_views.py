@@ -1239,6 +1239,26 @@ class IdentificationUploadsViewTest(TestCase):
         self.assertContains(response, visible_archive.name)
         self.assertNotContains(response, "Hidden non-identification upload")
 
+    def test_uploads_identities_show_count_of_identified_individuals(self):
+        archive = UploadedArchiveFactory(
+            owner=self.caiduser,
+            name="Upload with identities",
+            is_for_identification=True,
+            contains_identities=False,
+            taxon_for_identification=None,
+        )
+        first_identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Alpha")
+        second_identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Beta")
+        MediaFileFactory(parent=archive, identity=first_identity)
+        MediaFileFactory(parent=archive, identity=first_identity)
+        MediaFileFactory(parent=archive, identity=second_identity)
+
+        response = self.client.get(reverse("caidapp:uploads_identities"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Identities:")
+        self.assertContains(response, "2 unique identified individuals in this upload")
+
     def test_uploads_identities_include_base_dataset_when_show_base_between_regular_uploads_is_enabled(self):
         self.caiduser.show_base_between_regular_uploads = True
         self.caiduser.save()
