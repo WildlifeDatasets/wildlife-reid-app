@@ -2,7 +2,7 @@ import logging
 import traceback
 from io import BytesIO
 from pathlib import Path
-from typing import List, Union
+from typing import List, Optional, Union
 
 import Levenshtein
 import pandas as pd
@@ -154,16 +154,35 @@ def _set_localities_to_mediafiles_of_uploadedarchive(request, uploaded_archive: 
 def export_localities_view(request):
     """Export localities."""
     localities = Locality.objects.filter(**user_has_access_filter_params(request.user.caiduser, "owner"))
-    df = pd.DataFrame.from_records(localities.values())[["name", "location"]]
+    df = pd.DataFrame.from_records(localities.values())[["id", "name", "location"]]
     return views_general.csv_response(df, "localities")
 
 
 def export_localities_view_xls(request):
     """Export localities."""
     localities = Locality.objects.filter(**user_has_access_filter_params(request.user.caiduser, "owner"))
-    df = pd.DataFrame.from_records(localities.values())[["name", "location"]]
+    df = pd.DataFrame.from_records(localities.values())[["id", "name", "location"]]
 
     return views_general.excel_response(df, "localities")
+
+
+def _spreadsheet_cell_has_value(value) -> bool:
+    """Return True when spreadsheet cell contains a meaningful value."""
+    if pd.isna(value):
+        return False
+    if isinstance(value, str):
+        return value.strip() != ""
+    return True
+
+
+def _spreadsheet_row_id(value) -> Optional[int]:
+    """Parse integer primary key from spreadsheet cell."""
+    if not _spreadsheet_cell_has_value(value):
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
 
 
 def import_localities_view(request):
@@ -197,12 +216,21 @@ def import_localities_view(request):
                 return HttpResponse("Only .xlsx and .csv files are supported.")
 
             for index, row in df.iterrows():
-                locality = models.get_locality(request.user.caiduser, row["name"])
+                row = row.to_dict()
+                locality = None
+                locality_id = _spreadsheet_row_id(row.get("id"))
+                if locality_id is not None:
+                    locality = Locality.objects.filter(
+                        id=locality_id,
+                        **user_has_access_filter_params(request.user.caiduser, "owner"),
+                    ).first()
+                if locality is None:
+                    locality = models.get_locality(request.user.caiduser, row["name"])
                 locality.name = row["name"]
-                if "location" in df.keys():
-                    locality.set_location(row["location"])
+                if "location" in df.keys() and _spreadsheet_cell_has_value(row.get("location")):
+                    locality.set_location_from_str(row["location"])
                 elif "latitude" in df.keys() and "longitude" in df.keys():
-                    locality.set_location(f"{row['latitude']},{row['longitude']}")
+                    locality.set_location(row["latitude"], row["longitude"])
                 if locality.owner is None:
                     locality.owner = request.user.caiduser
                 locality.save()
@@ -218,7 +246,7 @@ def import_localities_view(request):
             "headline": "Import localities",
             "button": "Import",
             "text_note": "Upload CSV or XLSX file. "
-            + "There should be columns 'name' and 'location' in the file. "
+            + "There should be columns 'id', 'name' and 'location' in the file. "
             + "Location should be in format 'lat,lon'.",
             "next": "caidapp:localitys",
         },

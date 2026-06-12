@@ -6162,7 +6162,7 @@ def export_identities_csv(request):
         # **user_has_access_filter_params(request.user.caiduser, "owner")
     )
     df = pd.DataFrame.from_records(all_identities.values())[
-        ["name", "code", "juv_code", "sex", "coat_type", "birth_date", "death_date", "note"]
+        ["id", "name", "code", "juv_code", "sex", "coat_type", "birth_date", "death_date", "note"]
     ]
 
     return views_general.csv_response(df, "identities")
@@ -6176,10 +6176,29 @@ def export_identities_xlsx(request):
         # **user_has_access_filter_params(request.user.caiduser, "owner")
     )
     df = pd.DataFrame.from_records(all_identities.values())[
-        ["name", "code", "juv_code", "sex", "coat_type", "birth_date", "death_date", "note"]
+        ["id", "name", "code", "juv_code", "sex", "coat_type", "birth_date", "death_date", "note"]
     ]
 
     return views_general.excel_response(df, "identities")
+
+
+def _spreadsheet_cell_has_value(value) -> bool:
+    """Return True when spreadsheet cell contains a meaningful value."""
+    if pd.isna(value):
+        return False
+    if isinstance(value, str):
+        return value.strip() != ""
+    return True
+
+
+def _spreadsheet_row_id(value) -> Optional[int]:
+    """Parse integer primary key from spreadsheet cell."""
+    if not _spreadsheet_cell_has_value(value):
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
 
 
 def import_identities_view(request):
@@ -6217,14 +6236,23 @@ def import_identities_view(request):
                 row = row.to_dict()
                 identity = None
                 try:
-                    if "code" in row and len(row["code"]) > 0:
+                    identity_id = _spreadsheet_row_id(row.get("id"))
+                    if identity_id is not None:
+                        identity = IndividualIdentity.objects.filter(
+                            id=identity_id,
+                            owner_workgroup=request.user.caiduser.workgroup,
+                        ).first()
+
+                    if identity is None and _spreadsheet_cell_has_value(row.get("code")):
                         identity, created_new = IndividualIdentity.objects.get_or_create(
                             code=row["code"], owner_workgroup=request.user.caiduser.workgroup
                         )
-                    elif "name" in row and len(row["name"]) > 0:
+                    elif identity is None and _spreadsheet_cell_has_value(row.get("name")):
                         identity, created_new = IndividualIdentity.objects.get_or_create(
                             name=row["name"], owner_workgroup=request.user.caiduser.workgroup
                         )
+                    elif identity is not None:
+                        created_new = False
                     else:
                         logger.warning(f"No identification (name or code) found for {row} ")
                         continue
@@ -6236,19 +6264,19 @@ def import_identities_view(request):
 
                 logger.debug(f"{identity=}")
 
-                if "name" in row and len(row["name"]) > 0:
+                if _spreadsheet_cell_has_value(row.get("name")):
                     print(f"{row}")
                     print(f"{row['name']}")
                     identity.name = row["name"]
-                if "code" in row and len(row["code"]) > 0:
+                if _spreadsheet_cell_has_value(row.get("code")):
                     identity.code = row["code"]
-                if "sex" in row and len(row["sex"]) > 0:
+                if _spreadsheet_cell_has_value(row.get("sex")):
                     sex = row["sex"][0].upper()
                     if sex in ["M", "F", "U"]:
                         identity.sex = sex
                     else:
                         logger.warning(f"Invalid sex: {row['sex']}")
-                if "coat_type" in row and len(row["coat_type"]) > 0:
+                if _spreadsheet_cell_has_value(row.get("coat_type")):
                     rename_coat = {
                         "Spotted": "S",
                         "Marbled": "M",
@@ -6270,7 +6298,7 @@ def import_identities_view(request):
                     if isinstance(note, str):
                         identity.note = note
 
-                if "juv_code" in row and len(row["juv_code"]) > 0:
+                if _spreadsheet_cell_has_value(row.get("juv_code")):
                     identity.juv_code = row["juv_code"]
 
                 if "birth_date" in row and not pd.isna(row["birth_date"]):
@@ -6294,7 +6322,7 @@ def import_identities_view(request):
             "headline": "Import identities",
             "button": "Import",
             "text_note": "Upload CSV or XLSX file. "
-            + "There should be columns 'name' or 'code' in the file. "
+            + "There should be columns 'id', 'name' or 'code' in the file. "
             + "Optional columns are 'sex', 'coat_type', 'birth_date', 'death_date', 'note'.",
             "next": "caidapp:individual_identities",
         },

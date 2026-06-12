@@ -9,6 +9,7 @@ from caidapp import views
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.urls import reverse
 import pandas as pd
@@ -144,6 +145,83 @@ class MediafileExportTest(TestCase):
         self.assertIn("Canis_lupus", path)
         self.assertIn("Alpha_Female", path)
         self.assertTrue(path.endswith(".jpg"))
+
+
+class SpreadsheetIdentityLocalityImportExportTest(TestCase):
+    def setUp(self):
+        self.caiduser = CaidUserFactory()
+        self.user = self.caiduser.user
+        self.client.login(username=self.user.username, password="test123")
+
+    def _csv_upload(self, filename, rows):
+        dataframe = pd.DataFrame(rows)
+        return SimpleUploadedFile(
+            filename,
+            dataframe.to_csv(index=False).encode("utf-8"),
+            content_type="text/csv",
+        )
+
+    def test_identity_export_includes_id_column(self):
+        identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Alpha", code="A-01")
+
+        response = self.client.get(reverse("caidapp:export_identities_csv"))
+
+        self.assertEqual(response.status_code, 200)
+        df = pd.read_csv(StringIO(response.content.decode()))
+        self.assertEqual(
+            list(df.columns),
+            ["Unnamed: 0", "id", "name", "code", "juv_code", "sex", "coat_type", "birth_date", "death_date", "note"],
+        )
+        self.assertEqual(int(df.iloc[0]["id"]), identity.id)
+
+    def test_identity_import_prefers_id_for_rename(self):
+        identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Alpha", code="A-01")
+
+        response = self.client.post(
+            reverse("caidapp:import_identities"),
+            {
+                "spreadsheet_file": self._csv_upload(
+                    "identities.csv",
+                    [{"id": identity.id, "name": "Beta", "code": "A-01"}],
+                )
+            },
+        )
+
+        self.assertRedirects(response, reverse("caidapp:individual_identities"))
+        identity.refresh_from_db()
+        self.assertEqual(identity.name, "Beta")
+        self.assertEqual(
+            models.IndividualIdentity.objects.filter(owner_workgroup=self.caiduser.workgroup).count(),
+            1,
+        )
+
+    def test_locality_export_includes_id_column(self):
+        locality = LocalityFactory(owner=self.caiduser, name="North Meadow")
+
+        response = self.client.get(reverse("caidapp:export_localities"))
+
+        self.assertEqual(response.status_code, 200)
+        df = pd.read_csv(StringIO(response.content.decode()))
+        self.assertEqual(list(df.columns), ["Unnamed: 0", "id", "name", "location"])
+        self.assertEqual(int(df.iloc[0]["id"]), locality.id)
+
+    def test_locality_import_prefers_id_for_rename(self):
+        locality = LocalityFactory(owner=self.caiduser, name="North Meadow")
+
+        response = self.client.post(
+            reverse("caidapp:import_localities"),
+            {
+                "spreadsheet_file": self._csv_upload(
+                    "localities.csv",
+                    [{"id": locality.id, "name": "South Meadow", "location": ""}],
+                )
+            },
+        )
+
+        self.assertRedirects(response, reverse("caidapp:localities"))
+        locality.refresh_from_db()
+        self.assertEqual(locality.name, "South Meadow")
+        self.assertEqual(models.Locality.objects.filter(owner=self.caiduser).count(), 1)
 
 
 class MediaFileListSearchTest(TestCase):
