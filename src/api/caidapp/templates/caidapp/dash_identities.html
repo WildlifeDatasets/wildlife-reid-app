@@ -194,7 +194,7 @@
                                 must contain directories with the name of the identity.
                             </p>
 
-                            <a href="{% url 'caidapp:new_upload' %}"
+                            <a href="{% url 'caidapp:new_upload' %}?upload_target=identification&amp;contains_identities=1"
                                class="btn btn-secondary"><i class="bi bi-upload"></i>
                                 Upload identified media files
                             </a>
@@ -203,7 +203,7 @@
                                 identity or unidentified media files of a single species.
                             </p>
                             <a class="btn btn-{{ btn_styles.upload_unidentified.class }}"
-                               href="{% url 'caidapp:new_upload' %}"><i
+                               href="{% url 'caidapp:new_upload' %}?upload_target=identification"><i
                                     class="bi bi-upload"></i>
                                 Upload</a>
 

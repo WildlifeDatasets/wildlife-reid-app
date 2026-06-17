@@ -144,6 +144,26 @@ class NewUploadViewTest(TestCase):
         self.assertNotContains(response, "Where should this upload go?")
         self.assertContains(response, "base dataset")
 
+    def test_get_accepts_identification_query_defaults(self):
+        self._set_capabilities(show_taxon_classification=True, show_reid=True, show_base_dataset=True)
+
+        response = self.client.get(
+            reverse("caidapp:new_upload"),
+            {"upload_target": "identification", "contains_identities": "1"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        form = response.context["form"]
+        self.assertEqual(form["upload_target"].value(), "identification")
+        self.assertEqual(form["contains_identities"].value(), True)
+
+    def test_metadata_section_is_present_before_files_are_selected(self):
+        response = self.client.get(reverse("caidapp:new_upload"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id="new-upload-metadata-content"')
+        self.assertNotContains(response, 'id="new-upload-metadata-content" class="d-none"')
+
     @patch("caidapp.views.run_species_prediction_async")
     def test_multiple_media_files_are_packed_into_zip(self, run_processing):
         response = self._post_upload()

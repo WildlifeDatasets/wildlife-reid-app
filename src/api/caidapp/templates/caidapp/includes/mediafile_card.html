@@ -35,7 +35,7 @@
                 </button>
                 {% if selectable %}
                     <input
-                        class="form-check-input js-sequence-checkbox m-0"
+                        class="form-check-input js-sequence-checkbox sequence-checkbox-prominent m-0"
                         type="checkbox"
                         name="selected_sequence_ids"
                         value="{{ sequence.id }}"
@@ -49,8 +49,8 @@
             </div>
         {% endif %}
 
-        {% if selectable %}
-            <div class="position-absolute top-0 end-0 p-2">
+        {% if selectable and not sequence_lead_card or selectable and sequence.mediafile_count > 1 %}
+            <div class="position-absolute top-0 end-0 p-2 sequence-mediafile-checkbox-overlay">
                 <div class="form-check m-0">
                     <input
                         class="form-check-input js-mediafile-checkbox"
@@ -100,7 +100,7 @@
             {% endif %}
         {% endif %}
         {% if selectable %}
-            <label class="form-label small fw-semibold mb-2" for="mediafile-checkbox-{{ mediafile.id }}">
+            <label class="form-label small fw-semibold mb-2" for="{% if sequence_lead_card and sequence.mediafile_count == 1 %}sequence-checkbox-{{ sequence.id }}{% else %}mediafile-checkbox-{{ mediafile.id }}{% endif %}">
                 {{ mediafile.original_filename|default:mediafile.id }}
             </label>
             <input

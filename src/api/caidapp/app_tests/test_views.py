@@ -542,7 +542,7 @@ class SequenceViewTest(TestCase):
         one_file_sequence = SequenceFactory(uploaded_archive=archive)
         two_file_sequence = SequenceFactory(uploaded_archive=archive)
         three_file_sequence = SequenceFactory(uploaded_archive=archive)
-        MediaFileFactory(parent=archive, sequence=one_file_sequence, original_filename="one.jpg")
+        one_mediafile = MediaFileFactory(parent=archive, sequence=one_file_sequence, original_filename="one.jpg")
         MediaFileFactory(parent=archive, sequence=two_file_sequence, original_filename="two-a.jpg")
         MediaFileFactory(parent=archive, sequence=two_file_sequence, original_filename="two-b.jpg")
         MediaFileFactory(parent=archive, sequence=three_file_sequence, original_filename="three-a.jpg")
@@ -556,8 +556,18 @@ class SequenceViewTest(TestCase):
         self.assertContains(response, 'id="sequence-bulk-processing"')
         self.assertContains(response, "js-expand-all-sequences")
         self.assertContains(response, "js-collapse-all-sequences")
+        self.assertContains(response, 'name="btnDownloadSequences"')
+        self.assertContains(response, "Change date and time")
+        self.assertContains(response, "Dissolve to single-media sequences")
+        self.assertContains(response, "js-requires-selection")
+        self.assertContains(response, "No media files are selected. Select all media files on this page and continue?")
+        self.assertContains(response, 'button.closest("form").requestSubmit(button)')
         self.assertContains(response, "Select whole sequence")
         self.assertNotContains(response, "Select all media files in sequence")
+        self.assertContains(response, 'aria-label="Select"')
+        self.assertLess(content.index('js-select-matching-mediafiles'), content.index('name="btnDownloadSequences"'))
+        self.assertContains(response, "bg-body-tertiary p-3")
+        self.assertContains(response, "Apply filters")
         self.assertContains(response, "border-top-left-radius:var(--bs-card-inner-border-radius)")
         self.assertContains(response, "background:var(--wrid-media-card-bg)")
         self.assertContains(response, "border-color:var(--wrid-media-card-border-color)")
@@ -565,13 +575,72 @@ class SequenceViewTest(TestCase):
         self.assertContains(response, ".sequence-grid .sequence-lead-card")
         self.assertContains(response, ".sequence-grid .sequence-extra-card{display:none}")
         self.assertContains(response, ".sequence-grid .sequence-extra-card.sequence-expanded-visible{display:flex}")
+        self.assertContains(response, ".sequence-grid{column-gap:.25rem}")
+        self.assertContains(response, ".sequence-grid-sequence-break{flex-basis:.45rem;width:.45rem}")
+        self.assertContains(response, ".sequence-checkbox-prominent{width:1.3rem;height:1.3rem")
+        self.assertContains(response, "js-sequence-checkbox sequence-checkbox-prominent")
+        self.assertContains(response, ".sequence-grid .sequence-collapsed-card .sequence-mediafile-checkbox-overlay{display:none}")
+        self.assertContains(response, "sequence-mediafile-checkbox-overlay")
+        self.assertContains(response, 'js-sequence-checkbox[data-has-matching-mediafile="true"]')
+        self.assertContains(response, "if(!hasIndividualMediafileCheckbox){ setCheckboxState(checkbox, true); }")
         self.assertContains(response, "justify-content-start align-items-center gap-2")
         self.assertNotIn(f'data-sequence-id="{one_file_sequence.id}" class="sequence-extra-card', content)
+        self.assertContains(response, f'id="sequence-checkbox-{one_file_sequence.id}"')
+        self.assertNotContains(response, f'id="mediafile-checkbox-{one_mediafile.id}"')
         self.assertContains(response, f'data-sequence-id="{two_file_sequence.id}"')
         self.assertContains(response, "sequence-lead-card")
         self.assertContains(response, "sequence-extra-card")
         self.assertContains(response, "sequence-end-card")
         self.assertContains(response, f'data-sequence-id="{three_file_sequence.id}"')
+
+        list_response = self.client.get(reverse("caidapp:sequences"), {"view": "list"})
+        self.assertContains(list_response, f'id="sequence-checkbox-list-{one_file_sequence.id}"')
+        self.assertNotContains(list_response, f'id="mediafile-checkbox-list-{one_mediafile.id}"')
+
+    def test_sequence_verification_mode_groups_by_taxon_and_expands_sequences(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        taxon_wolf = TaxonFactory(name="Wolf")
+        taxon_lynx = TaxonFactory(name="Lynx")
+        wolf_sequence = SequenceFactory(uploaded_archive=archive)
+        lynx_sequence = SequenceFactory(uploaded_archive=archive)
+        wolf_first = MediaFileFactory(parent=archive, sequence=wolf_sequence, original_filename="wolf-a.jpg")
+        wolf_second = MediaFileFactory(parent=archive, sequence=wolf_sequence, original_filename="wolf-b.jpg")
+        lynx_mediafile = MediaFileFactory(parent=archive, sequence=lynx_sequence, original_filename="lynx.jpg")
+        AnimalObservationFactory(mediafile=wolf_first, taxon=taxon_wolf, taxon_verified=False)
+        AnimalObservationFactory(mediafile=wolf_second, taxon=taxon_wolf, taxon_verified=True)
+        AnimalObservationFactory(mediafile=lynx_mediafile, taxon=taxon_lynx, taxon_verified=False)
+
+        response = self.client.get(
+            reverse("caidapp:sequences"),
+            {"show_overview_button": "true", "taxon_verified": "false"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        sequences = list(response.context["sequence_objects"])
+        self.assertEqual([sequence.id for sequence in sequences], [lynx_sequence.id, wolf_sequence.id])
+        self.assertEqual([sequence.verification_taxon_group_label for sequence in sequences], ["Lynx", "Wolf"])
+        self.assertTrue(all(sequence.starts_verification_taxon_group for sequence in sequences))
+        self.assertContains(response, "verification-taxon-heading")
+        self.assertContains(response, "Verify taxon on selected media files")
+        self.assertNotContains(response, "Verify taxon on all media files on this page")
+        self.assertContains(response, "Media files view")
+        self.assertContains(response, "sequence-expanded-visible")
+        self.assertContains(response, "wolf-b.jpg")
+        self.assertEqual(set(self.client.session["mediafile_ids_page"]), {wolf_first.id, wolf_second.id, lynx_mediafile.id})
+
+    def test_legacy_verify_taxa_url_uses_sequence_verification_view(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        sequence = SequenceFactory(uploaded_archive=archive)
+        taxon = TaxonFactory(name="Bear")
+        mediafile = MediaFileFactory(parent=archive, sequence=sequence, original_filename="bear.jpg")
+        AnimalObservationFactory(mediafile=mediafile, taxon=taxon, taxon_verified=False)
+
+        response = self.client.get(reverse("caidapp:verify_taxa"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("sequence_objects", response.context)
+        self.assertContains(response, "Media files view")
+        self.assertContains(response, "bear.jpg")
 
     def test_sequence_download_starts_from_selected_sequences(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)
@@ -592,6 +661,34 @@ class SequenceViewTest(TestCase):
         self.assertEqual(response.url, reverse("caidapp:download_sequences"))
         self.assertEqual(self.client.session["sequence_download_mediafile_ids"], [selected_mediafile.id])
         self.assertNotIn(other_mediafile.id, self.client.session["sequence_download_mediafile_ids"])
+
+    def test_dissolve_selected_sequences_splits_mediafiles_into_singletons(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        selected_sequence = SequenceFactory(uploaded_archive=archive, local_id=10)
+        other_sequence = SequenceFactory(uploaded_archive=archive, local_id=20)
+        first_mediafile = MediaFileFactory(parent=archive, sequence=selected_sequence, original_filename="first.jpg")
+        second_mediafile = MediaFileFactory(parent=archive, sequence=selected_sequence, original_filename="second.jpg")
+        untouched_mediafile = MediaFileFactory(parent=archive, sequence=other_sequence, original_filename="other.jpg")
+
+        response = self.client.post(
+            reverse("caidapp:sequences"),
+            {
+                "btnDissolveSequences": "1",
+                "selected_sequence_ids": [str(selected_sequence.id)],
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        first_mediafile.refresh_from_db()
+        second_mediafile.refresh_from_db()
+        untouched_mediafile.refresh_from_db()
+        self.assertNotEqual(first_mediafile.sequence_id, second_mediafile.sequence_id)
+        self.assertNotEqual(first_mediafile.sequence_id, selected_sequence.id)
+        self.assertNotEqual(second_mediafile.sequence_id, selected_sequence.id)
+        self.assertEqual(untouched_mediafile.sequence_id, other_sequence.id)
+        self.assertFalse(models.Sequence.objects.filter(id=selected_sequence.id).exists())
+        self.assertEqual(models.MediaFile.objects.filter(sequence_id=first_mediafile.sequence_id).count(), 1)
+        self.assertEqual(models.MediaFile.objects.filter(sequence_id=second_mediafile.sequence_id).count(), 1)
 
     def test_sequence_csv_export_uses_one_row_per_observation(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)
@@ -1329,6 +1426,19 @@ class IdentificationUploadsViewTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, visible_archive.name)
         self.assertNotContains(response, "Hidden taxonomy-only upload")
+
+    def test_dash_identities_upload_links_prefill_identification_modes(self):
+        response = self.client.get(reverse("caidapp:dash_identities"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            reverse("caidapp:new_upload") + "?upload_target=identification&amp;contains_identities=1",
+        )
+        self.assertContains(
+            response,
+            reverse("caidapp:new_upload") + "?upload_target=identification",
+        )
 
 
 class IdentificationRerunTest(TestCase):

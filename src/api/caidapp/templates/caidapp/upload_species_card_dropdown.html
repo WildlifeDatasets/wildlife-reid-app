@@ -68,7 +68,7 @@
     </li>
     <li>
         <a class="dropdown-item"
-           href="{% url 'caidapp:verify_taxa' uploadedarchive.id %}">
+           href="{% url 'caidapp:sequences' %}?uploadedarchive_id={{ uploadedarchive.id }}&amp;show_overview_button=true&amp;taxon_verified=false">
             <i class="bi bi-check"></i>
             Verify taxons </a>
     </li>

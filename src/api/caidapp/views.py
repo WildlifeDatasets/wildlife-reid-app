@@ -37,8 +37,8 @@ from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector
 from django.core.exceptions import PermissionDenied
 from django.core.files.base import ContentFile
 from django.core.paginator import Page, Paginator
-from django.db.models import Count, F, Func, Max, Min, OuterRef, Prefetch, Q, QuerySet, Subquery, Value
-from django.db.models.functions import Cast
+from django.db.models import CharField, Count, F, Func, Max, Min, OuterRef, Prefetch, Q, QuerySet, Subquery, Value
+from django.db.models.functions import Cast, Coalesce
 from django.forms import modelformset_factory
 from django.forms.models import model_to_dict
 from django.http import HttpRequest, HttpResponseNotAllowed, JsonResponse
@@ -2243,8 +2243,18 @@ class NewUploadView(LoginRequiredMixin, UserPassesTestMixin, View):
     def test_func(self):
         return user_can_use_new_upload(self.request.user)
 
+    def _get_form_initial(self, request):
+        initial = {}
+        upload_target = request.GET.get("upload_target")
+        if upload_target in {"taxon_processing", "identification"}:
+            initial["upload_target"] = upload_target
+        contains_identities = request.GET.get("contains_identities")
+        if contains_identities in {"1", "true", "True", "on", "yes"}:
+            initial["contains_identities"] = True
+        return initial
+
     def get(self, request):
-        form = forms.NewUploadForm(user=request.user)
+        form = forms.NewUploadForm(user=request.user, initial=self._get_form_initial(request))
         return render(
             request,
             self.template_name,
@@ -3251,6 +3261,51 @@ def _get_filtered_mediafiles_queryset(
     return full_mediafiles, mediafile_filter, page_title, mediafiles_name_suggestion
 
 
+def _verification_taxon_group_label(mediafile: MediaFile) -> str:
+    """Return a display label used for grouping verification cards."""
+    taxons = mediafile.taxons
+    if not taxons:
+        return "No taxon"
+    if len(taxons) == 1:
+        return str(taxons[0])
+    return "Mixed taxa: " + ", ".join(str(taxon) for taxon in taxons)
+
+
+def _annotate_verification_taxon_groups(form_objects) -> None:
+    """Mark form instances where a taxon group heading should be rendered."""
+    previous_label = None
+    for mediafile_form in form_objects:
+        label = _verification_taxon_group_label(mediafile_form.instance)
+        mediafile_form.instance.verification_taxon_group_label = label
+        mediafile_form.instance.starts_verification_taxon_group = label != previous_label
+        previous_label = label
+
+
+def _verification_sequence_taxon_group_label(sequence: models.Sequence) -> str:
+    """Return a taxon group label for a sequence based on displayed mediafiles."""
+    taxons = []
+    for mediafile in sequence.mediafile_set.all():
+        mediafile_taxons = mediafile.taxons
+        if mediafile_taxons:
+            taxons.extend(mediafile_taxons)
+    unique_taxons = models._unique_sorted_model_objects(taxons)
+    if not unique_taxons:
+        return "No taxon"
+    if len(unique_taxons) == 1:
+        return str(unique_taxons[0])
+    return "Mixed taxa: " + ", ".join(str(taxon) for taxon in unique_taxons)
+
+
+def _annotate_verification_sequence_taxon_groups(sequences: List[models.Sequence]) -> None:
+    """Mark sequence objects where a taxon group heading should be rendered."""
+    previous_label = None
+    for sequence in sequences:
+        label = _verification_sequence_taxon_group_label(sequence)
+        sequence.verification_taxon_group_label = label
+        sequence.starts_verification_taxon_group = label != previous_label
+        previous_label = label
+
+
 def _build_sequence_scope_query_string(
     request,
     uploadedarchive_id: Optional[int] = None,
@@ -3336,6 +3391,54 @@ def _resolve_selected_mediafile_ids_from_post(request) -> List[int]:
 
     selected_mediafile_ids.difference_update(deselected_mediafile_ids)
     return sorted(selected_mediafile_ids)
+
+
+def _dissolve_mediafiles_into_singleton_sequences(caiduser, mediafile_ids: List[int]) -> int:
+    """Move selected mediafiles into single-media sequences within their uploads."""
+    selected_mediafiles = list(
+        MediaFile.objects.for_user(caiduser)
+        .filter(id__in=mediafile_ids)
+        .select_related("parent", "sequence")
+        .order_by("parent_id", "id")
+    )
+    if not selected_mediafiles:
+        return 0
+
+    affected_sequence_ids = {mediafile.sequence_id for mediafile in selected_mediafiles if mediafile.sequence_id}
+    sequence_sizes = dict(
+        MediaFile.objects.filter(sequence_id__in=affected_sequence_ids)
+        .values("sequence_id")
+        .annotate(sequence_mediafile_count=Count("id"))
+        .values_list("sequence_id", "sequence_mediafile_count")
+    )
+    mediafiles_to_reassign = [
+        mediafile
+        for mediafile in selected_mediafiles
+        if mediafile.sequence_id is None or sequence_sizes.get(mediafile.sequence_id, 0) > 1
+    ]
+    if not mediafiles_to_reassign:
+        return 0
+
+    next_local_id_by_archive = {}
+    for archive_id in {mediafile.parent_id for mediafile in mediafiles_to_reassign if mediafile.parent_id}:
+        current_max_local_id = (
+            models.Sequence.objects.filter(uploaded_archive_id=archive_id).aggregate(max_local_id=Max("local_id"))[
+                "max_local_id"
+            ]
+        )
+        next_local_id_by_archive[archive_id] = 0 if current_max_local_id is None else current_max_local_id + 1
+
+    for mediafile in mediafiles_to_reassign:
+        archive_id = mediafile.parent_id
+        local_id = next_local_id_by_archive[archive_id]
+        next_local_id_by_archive[archive_id] += 1
+        mediafile.sequence = models.Sequence.objects.create(uploaded_archive_id=archive_id, local_id=local_id)
+        mediafile.save(update_fields=["sequence"])
+
+    models.Sequence.objects.filter(id__in=affected_sequence_ids).annotate(mediafile_count=Count("mediafile")).filter(
+        mediafile_count=0
+    ).delete()
+    return len(mediafiles_to_reassign)
 
 
 def _parse_filename_metadata_date(value: str):
@@ -3685,8 +3788,14 @@ def sequences(
 ) -> HttpResponse:
     """List sequences with inline mediafile expansion."""
     logger.debug("Starting Sequence view")
+    if not show_overview_button:
+        show_overview_button = bool(_parse_bool_query_param(request.GET.get("show_overview_button")))
+    if taxon_verified is None:
+        taxon_verified = _parse_bool_query_param(request.GET.get("taxon_verified"))
     view_mode = request.GET.get("view", "cards")
     if view_mode not in {"cards", "list"}:
+        view_mode = "cards"
+    if show_overview_button:
         view_mode = "cards"
     records_per_page = _get_sequence_records_per_page(request, records_per_page)
     sort_key = _get_sequence_sort(request)
@@ -3715,9 +3824,25 @@ def sequences(
     active_identities = _get_active_identities_from_request(request)
     active_locality = _get_active_locality_from_request(request, locality_hash)
 
-    sequence_queryset = _get_sequences_queryset_from_mediafiles(full_mediafiles).order_by(
-        *SEQUENCE_SORT_OPTIONS[sort_key]["order_by"]
-    )
+    sequence_queryset = _get_sequences_queryset_from_mediafiles(full_mediafiles)
+    if show_overview_button:
+        first_observed_taxon_name = (
+            AnimalObservation.objects.filter(
+                mediafile__sequence=OuterRef("pk"),
+                mediafile__in=full_mediafiles,
+                taxon__isnull=False,
+            )
+            .order_by("taxon__name", "taxon_id", "id")
+            .values("taxon__name")[:1]
+        )
+        sequence_queryset = sequence_queryset.annotate(
+            verification_taxon_sort=Coalesce(
+                Subquery(first_observed_taxon_name),
+                Value("zzzzzz_no_taxon", output_field=CharField()),
+            )
+        ).order_by("verification_taxon_sort", "first_captured_at", "first_mediafile_id", "pk")
+    else:
+        sequence_queryset = sequence_queryset.order_by(*SEQUENCE_SORT_OPTIONS[sort_key]["order_by"])
     paginator = Paginator(sequence_queryset, per_page=records_per_page)
     page_with_sequences, _, page_context = _prepare_page(
         paginator,
@@ -3728,7 +3853,7 @@ def sequences(
     sequence_mediafiles = (
         MediaFile.objects.filter(sequence_id__in=page_sequence_ids)
         .select_related("parent", "taxon", "predicted_taxon", "locality", "identity", "updated_by", "sequence")
-        .prefetch_related("observations")
+        .prefetch_related("observations__taxon")
         .order_by("captured_at", "id")
     )
     page_sequences = (
@@ -3776,6 +3901,14 @@ def sequences(
         sequence.primary_locality = sequence.localities[0] if sequence.localities else None
         sequence.additional_localities = sequence.localities[1:]
         sequence.has_multiple_localities = len(sequence.localities) > 1
+    if show_overview_button:
+        _annotate_verification_sequence_taxon_groups(ordered_sequences)
+    page_mediafile_ids = [
+        mediafile.id
+        for sequence in ordered_sequences
+        for mediafile in sequence.mediafile_set.all()
+    ]
+    request.session["mediafile_ids_page"] = page_mediafile_ids
 
     form_bulk_processing = MediaFileBulkForm(request.POST or None)
 
@@ -3797,6 +3930,25 @@ def sequences(
                     selected_album_hash,
                 )
             return redirect(request.get_full_path())
+
+    if request.method == "POST" and "btnDissolveSequences" in request.POST:
+        selected_mediafile_ids = _resolve_selected_mediafile_ids_from_post(request)
+        if not selected_mediafile_ids:
+            messages.warning(request, "Select at least one sequence or media file to dissolve.")
+            return redirect(request.get_full_path())
+
+        dissolved_mediafile_count = _dissolve_mediafiles_into_singleton_sequences(
+            request.user.caiduser,
+            selected_mediafile_ids,
+        )
+        if dissolved_mediafile_count:
+            messages.success(
+                request,
+                f"Dissolved {dissolved_mediafile_count} media files into single-media sequences.",
+            )
+        else:
+            messages.info(request, "Selected media files are already in single-media sequences.")
+        return redirect(request.get_full_path())
 
     if request.method == "POST" and "btnExtractFilenameMetadata" in request.POST:
         selected_mediafile_ids = _resolve_selected_mediafile_ids_from_post(request)
@@ -3826,6 +3978,18 @@ def sequences(
         "number_of_sequences": sequence_queryset.count(),
         "number_of_mediafiles": full_mediafiles.count(),
         "show_overview_button": show_overview_button,
+        "verification_mediafiles_url": reverse("caidapp:media_files")
+        + "?"
+        + _build_mediafiles_scope_query_string(
+            request,
+            uploadedarchive_id=uploadedarchive_id,
+            album_hash=album_hash,
+            individual_identity_id=individual_identity_id,
+            identity_is_representative=identity_is_representative,
+            locality_hash=locality_hash,
+            show_overview_button=show_overview_button,
+            taxon_verified=taxon_verified,
+        ),
         "filter": mediafile_filter,
         "view_mode": view_mode,
         "records_per_page": records_per_page,
@@ -3884,8 +4048,9 @@ def media_files_update(
         .order_by("created_at")
     )
 
-    # Order the queryset according to your session or default preference
-    order_by = request.session.get("mediafiles_order_by", "-parent__uploaded_at")
+    # Order the queryset according to the view default, session, or fallback preference.
+    if order_by is None:
+        order_by = request.session.get("mediafiles_order_by", "-parent__uploaded_at")
     logger.debug("Selecting related")
     # Nová filtrace
     # Build the base queryset (including annotations)
@@ -3913,9 +4078,24 @@ def media_files_update(
         )
 
     # konec nové filtrace
-    full_mediafiles = full_mediafiles.order_by(order_by).select_related(
+    if show_overview_button:
+        first_observed_taxon_name = (
+            AnimalObservation.objects.filter(mediafile=OuterRef("pk"), taxon__isnull=False)
+            .order_by("taxon__name", "taxon_id", "id")
+            .values("taxon__name")[:1]
+        )
+        full_mediafiles = full_mediafiles.annotate(
+            verification_taxon_sort=Coalesce(
+                Subquery(first_observed_taxon_name),
+                Value("zzzzzz_no_taxon", output_field=CharField()),
+            )
+        ).order_by("verification_taxon_sort", order_by, "id")
+    else:
+        full_mediafiles = full_mediafiles.order_by(order_by)
+
+    full_mediafiles = full_mediafiles.select_related(
         "parent", "taxon", "predicted_taxon", "locality", "identity", "updated_by", "sequence"
-    )
+    ).prefetch_related("observations__taxon")
 
     number_of_mediafiles = full_mediafiles.count()
     logger.debug(f"{number_of_mediafiles=}")
@@ -4005,6 +4185,9 @@ def media_files_update(
         form_bulk_processing = MediaFileBulkForm()
         page_query = full_mediafiles.filter(id__in=[object.id for object in page_with_mediafiles])
         form = MediaFileFormSet(queryset=page_query)
+
+    if show_overview_button:
+        _annotate_verification_taxon_groups(form)
 
     logger.debug("Setting the context for rendering the page")
     context = {

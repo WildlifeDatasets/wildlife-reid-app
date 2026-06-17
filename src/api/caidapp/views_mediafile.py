@@ -19,7 +19,7 @@ from extra_views import InlineFormSetFactory, UpdateWithInlinesView
 from . import forms, model_extra, models
 from .forms import MediaFileForm
 from .models import AnimalObservation, MediaFile
-from .views import media_files_update
+from .views import media_files_update, sequences
 
 logger = logging.getLogger(__name__)
 
@@ -637,12 +637,11 @@ def start_missing_taxon_annotation(
 @login_required
 def verify_taxa_view(request, uploaded_archive_id: Optional[int] = None):
     """See media files for verification."""
-    return media_files_update(
+    return sequences(
         request,
         show_overview_button=True,
         taxon_verified=False,
         uploadedarchive_id=uploaded_archive_id,
-        order_by="taxon__name",
         parent__contains_single_taxon=False,
     )
     # views.

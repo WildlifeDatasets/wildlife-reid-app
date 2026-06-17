@@ -259,7 +259,7 @@
         metadataCard.classList.toggle("upload-metadata-card-muted", !hasFiles);
         metadataCard.classList.toggle("upload-metadata-card-active", hasFiles);
         metadataEmptyState.classList.toggle("d-none", hasFiles);
-        metadataContent.classList.toggle("d-none", !hasFiles);
+        metadataContent.classList.remove("d-none");
     }
 
     function setInfoText(element, text, className) {

@@ -1,5 +1,6 @@
 {% load widget_tweaks %}
 {% load custom_filters %}
+{% load crispy_forms_tags %}
 
 <form method="GET">
     {% for key, value in request.GET.items %}
@@ -7,18 +8,18 @@
             <input type="hidden" name="{{ key }}" value="{{ value }}">
         {% endif %}
     {% endfor %}
-    <div class="d-flex align-items-center mt-2">
+    <div class="d-flex flex-wrap align-items-end gap-2 mt-2">
         <a class="btn btn-secondary" data-bs-toggle="collapse" href="#collapseFilterProcessing"
            role="button"
-           aria-expanded="false" aria-controls="collapseBulkProcessing">
+           aria-expanded="false" aria-controls="collapseFilterProcessing">
             <i class="bi bi-funnel"></i>
             Filter
         </a>
-        <div class=" ms-2">
-            {% render_field filter.form.search  class="form-control" placeholder="type here to search..." style="width: 300px;"%}
+        <div style="min-width: 280px; max-width: 420px; flex: 1 1 320px;">
+            {% render_field filter.form.search class="form-control" placeholder="type here to search..." %}
         </div>
         {% if filter.form.search_regex %}
-            <div class="ms-2 form-check"
+            <div class="form-check mb-2"
                  data-bs-toggle="tooltip"
                  title="Use a database regular expression across identity name, code, and juvenile code. Examples: \d{4} for four consecutive digits, ^\d{4}$ for exactly four digits.">
                 <input class="form-check-input" type="checkbox" name="{{ filter.form.search_regex.name }}"
@@ -27,28 +28,30 @@
                 <label class="form-check-label" for="{{ filter.form.search_regex.id_for_label }}">Regex</label>
             </div>
         {% endif %}
-        <div class="ms-2">
-            <button class="btn btn-primary" type="submit">
-                <i class="bi bi-search"></i>
-                Search
-            </button>
-
-        </div>
-        <div class="ms-2">
+        <button class="btn btn-primary" type="submit">
+            <i class="bi bi-search"></i>
+            Search
+        </button>
+        <div class="text-muted small mb-2">
             Found {{ page_obj.paginator.count }} records.
         </div>
     </div>
-    <div class="collapse" name="collapseFilterProcessing" id="collapseFilterProcessing">
-        <div class="card mt-2">
-            <div class="d-flex flex-wrap m-2">
+    <div class="collapse mt-2" name="collapseFilterProcessing" id="collapseFilterProcessing">
+        <div class="border rounded bg-body-tertiary p-3">
+            <div class="row g-3 align-items-end">
                 {% for field in filter.form %}
                     {% if field.name != "search" and field.name != "search_regex" %}
-                        <div class="d-flex me-3 mt-1">
-                            {{ field.label_tag }}
-                            {{ field }}
+                        <div class="col-12 col-sm-6 col-lg-4 col-xl-3">
+                            {{ field|as_crispy_field }}
                         </div>
                     {% endif %}
                 {% endfor %}
+                <div class="col-12 col-sm-auto">
+                    <button class="btn btn-primary" type="submit">
+                        <i class="bi bi-funnel"></i>
+                        Apply filters
+                    </button>
+                </div>
             </div>
         </div>
     </div>

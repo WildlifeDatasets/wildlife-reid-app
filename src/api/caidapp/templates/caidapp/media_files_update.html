@@ -105,6 +105,15 @@
     pointer-events: none; /* non-blocking overlay for <a> */
 }
 
+    .verification-taxon-heading {
+        width: 100%;
+        margin-top: 1rem;
+        padding: 0.35rem 0;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+        color: #495057;
+        font-weight: 600;
+    }
+
 </style>
 
 {% endblock %}
@@ -312,6 +321,11 @@
                     <div class="row" id="row-of-cards">
 
                         {% for mediafile in form_objects %}
+                            {% if show_overview_button and mediafile.instance.starts_verification_taxon_group %}
+                                <div class="verification-taxon-heading">
+                                    {{ mediafile.instance.verification_taxon_group_label }}
+                                </div>
+                            {% endif %}
                             <div
                                  id="card{{ mediafile.instance.id }}"
 {#                                 class="card width-300"#}
