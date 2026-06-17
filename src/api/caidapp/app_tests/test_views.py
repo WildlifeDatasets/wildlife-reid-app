@@ -665,6 +665,26 @@ class SequenceViewTest(TestCase):
         self.assertContains(list_response, f'id="sequence-checkbox-list-{one_file_sequence.id}"')
         self.assertNotContains(list_response, f'id="mediafile-checkbox-list-{one_mediafile.id}"')
 
+    def test_sequence_bulk_verify_taxon_handles_mediafile_without_observations(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        sequence = SequenceFactory(uploaded_archive=archive)
+        mediafile = MediaFileFactory(parent=archive, sequence=sequence, original_filename="empty-observation.jpg")
+
+        response = self.client.post(
+            reverse("caidapp:sequences") + "?show_overview_button=true&taxon_verified=false",
+            {
+                "selected_mediafile_ids": [str(mediafile.id)],
+                "taxon_verified": "on",
+                "btnBulkProcessing_set_taxon_verified": "1",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        mediafile.refresh_from_db()
+        self.assertTrue(mediafile.taxon_verified)
+        observation = mediafile.observations.get()
+        self.assertTrue(observation.taxon_verified)
+
     def test_sequence_verification_mode_groups_by_taxon_and_expands_sequences(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)
         taxon_wolf = TaxonFactory(name="Wolf")

@@ -4388,12 +4388,15 @@ def _single_mediafile_update(request, instance, form, form_bulk_processing, sele
         instance.save()
 
     elif "btnBulkProcessing_set_taxon_verified" in form.data:
-        for observation in instance.observations.all():
+        observations = list(instance.observations.all())
+        if not observations:
+            observations = [instance.first_observation_get_or_create]
+        for observation in observations:
             observation.taxon_verified = True
             observation.save()
         # observation = instance.first_observation_get_or_create
         # observation.taxon_verified = True
-        instance.taxon_verified = observation.taxon_verified
+        instance.taxon_verified = True
         instance.updated_by = request.user.caiduser
         instance.updated_at = django.utils.timezone.now()
         instance.save()
