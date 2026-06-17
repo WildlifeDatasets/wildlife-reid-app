@@ -29,7 +29,7 @@
                     <div class="row">
                         {% if user.caiduser.show_taxon_classification %}
                         <div class="col">
-                            <a class="btn btn-primary btn-lg" href="{% url 'caidapp:taxon_processing' %}">
+                            <a class="btn btn-{% if home_next_step.section == 'taxon' %}primary{% else %}secondary{% endif %} btn-lg" href="{% url 'caidapp:taxon_processing' %}">
                                 <img src="{% static 'caidapp/taxon_classification.svg' %}" alt="taxon classification icon" class="img-fluid" style="max-height: 100px;">
                                 <br>Taxon</a>
                         </div>
@@ -40,13 +40,21 @@
                         >
                             <a
                                 href="{% url 'caidapp:dash_identities' %}"
-                                    class="btn btn-primary btn-lg {% if not user.caiduser.workgroup %} disabled {% endif %}"
+                                    class="btn btn-{% if home_next_step.section == 'identification' %}primary{% else %}secondary{% endif %} btn-lg {% if not user.caiduser.workgroup %} disabled {% endif %}"
                             >
                                 <img src="{% static 'caidapp/identification.svg' %}" alt="taxon classification icon" class="img-fluid" style="max-height: 100px;">
                                 <br>Indentity</a>
                         </div>
                         {% endif %}
                     </div>
+                    {% if home_next_step %}
+                        <div class="mt-4">
+                            <span class="text-muted me-2">Suggested next step:</span>
+                            <a class="btn btn-primary" href="{{ home_next_step.url }}">
+                                <i class="bi bi-arrow-right"></i> {{ home_next_step.label }}
+                            </a>
+                        </div>
+                    {% endif %}
 
                 </div>
                 {#                    <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li>#}

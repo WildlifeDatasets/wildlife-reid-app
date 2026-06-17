@@ -241,6 +241,7 @@ def home_view(request):
     context = {}
     if request.user.is_authenticated:
         context = render_home_dashboard_context(request.user.caiduser)
+        context["home_next_step"] = _home_next_step(request.user.caiduser)
     return render(
         request,
         "caidapp/home.html",
@@ -711,24 +712,12 @@ def _uploads_general_order_annotation():
 
 
 def _multiple_species_button_style_and_tooltips(request) -> dict:
-    access_filter = models.user_has_access_filter_params(request.user.caiduser, "owner")
-    n_non_classified_taxons = len(models.get_mediafiles_with_missing_taxon(request.user.caiduser))
-    n_missing_verifications = len(models.get_mediafiles_with_missing_verification(request.user.caiduser))
-    n_ready_for_identification = models.UploadedArchive.objects.filter(
-        **access_filter,
-        contains_single_taxon=False,
-        is_for_identification=False,
-        taxon_status__in=["TV", "TKN"],
-    ).count()
-
-    some_missing_taxons = n_non_classified_taxons > 0
-    some_missing_verifications = n_missing_verifications > 0
-    some_ready_for_identification = n_ready_for_identification > 0
+    taxon_state = _taxon_workflow_state(request.user.caiduser)
 
     btn_tooltips = {
-        "annotate_missing_taxa": f"Annotate {n_non_classified_taxons} media files " + "with missing taxon.",
-        "verify_taxa": f"Go to verification of {n_missing_verifications} media files.",
-        "send_to_identification": f"Send {n_ready_for_identification} uploads to identification.",
+        "annotate_missing_taxa": f"Annotate {taxon_state['missing_taxa_count']} media files with missing taxon.",
+        "verify_taxa": f"Go to verification of {taxon_state['missing_verification_count']} media files.",
+        "send_to_identification": f"Send {taxon_state['ready_for_identification_count']} uploads to identification.",
     }
     btn_styles = {
         "upload_species": "secondary",
@@ -736,17 +725,105 @@ def _multiple_species_button_style_and_tooltips(request) -> dict:
         "verify_taxa": "secondary",
         "send_to_identification": "secondary",
     }
-    if not some_missing_taxons and not some_missing_verifications:
-        if some_ready_for_identification:
-            btn_styles["send_to_identification"] = "primary"
-        else:
-            btn_styles["upload_species"] = "primary"
-    elif some_missing_taxons:
-        btn_styles["annotate_missing_taxa"] = "primary"
-    elif some_missing_verifications:
-        btn_styles["verify_taxa"] = "primary"
+    btn_styles[taxon_state["next_action"]] = "primary"
 
     return btn_styles, btn_tooltips
+
+
+def _taxon_workflow_state(caiduser) -> dict:
+    access_filter = models.user_has_access_filter_params(caiduser, "owner")
+    missing_taxa_count = len(models.get_mediafiles_with_missing_taxon(caiduser))
+    missing_verification_count = len(models.get_mediafiles_with_missing_verification(caiduser))
+    ready_for_identification_count = models.UploadedArchive.objects.filter(
+        **access_filter,
+        contains_single_taxon=False,
+        is_for_identification=False,
+        taxon_status__in=["TV", "TKN"],
+    ).count()
+
+    if missing_taxa_count > 0:
+        next_action = "annotate_missing_taxa"
+    elif missing_verification_count > 0:
+        next_action = "verify_taxa"
+    elif ready_for_identification_count > 0:
+        next_action = "send_to_identification"
+    else:
+        next_action = "upload_species"
+
+    return {
+        "missing_taxa_count": missing_taxa_count,
+        "missing_verification_count": missing_verification_count,
+        "ready_for_identification_count": ready_for_identification_count,
+        "next_action": next_action,
+    }
+
+
+def _home_next_step(caiduser) -> dict:
+    taxon_state = _taxon_workflow_state(caiduser)
+    taxon_actions = {
+        "annotate_missing_taxa": {
+            "label": "Annotate missing taxa",
+            "url": reverse("caidapp:missing_taxon_annotation"),
+            "section": "taxon",
+        },
+        "verify_taxa": {
+            "label": "Verify taxa",
+            "url": reverse("caidapp:sequences") + "?show_overview_button=true&taxon_verified=false",
+            "section": "taxon",
+        },
+        "send_to_identification": {
+            "label": "Send to identification",
+            "url": reverse("caidapp:uploads_ready_for_identification"),
+            "section": "taxon",
+        },
+    }
+    if taxon_state["next_action"] in taxon_actions:
+        return taxon_actions[taxon_state["next_action"]]
+
+    workgroup = caiduser.workgroup
+    if workgroup:
+        confirmation_count = MediafilesForIdentification.objects.filter(
+            mediafile__parent__owner__workgroup=workgroup
+        ).count()
+        if confirmation_count > 0:
+            return {
+                "label": "Confirm identification",
+                "url": reverse("caidapp:get_individual_identity"),
+                "section": "identification",
+            }
+
+        pending_identification_count = tasks.get_uploaded_archives_pending_identification(workgroup).count()
+        identification_is_initiated = workgroup.identification_init_at is not None
+        representative_count = MediaFile.objects.filter(
+            parent__owner__workgroup=workgroup,
+            identity_is_representative=True,
+            parent__taxon_for_identification__isnull=False,
+        ).count()
+
+        if pending_identification_count > 0 and identification_is_initiated:
+            return {
+                "label": "Run identification",
+                "url": reverse("caidapp:pre_identify"),
+                "section": "identification",
+            }
+        if pending_identification_count > 0 and representative_count > 0:
+            return {
+                "label": "Init identification",
+                "url": reverse("caidapp:dash_identities"),
+                "section": "identification",
+            }
+        if pending_identification_count > 0:
+            return {
+                "label": "Set up identification",
+                "url": reverse("caidapp:dash_identities"),
+                "section": "identification",
+            }
+
+    return {
+        "label": "Upload media",
+        "url": reverse("caidapp:new_upload"),
+        "section": "upload",
+    }
 
 
 def sample_data(request):

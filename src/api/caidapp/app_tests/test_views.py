@@ -97,6 +97,24 @@ class HomeDashboardSnapshotTest(TestCase):
         self.assertContains(response, "Top Taxa by Media Files")
         self.assertContains(response, "Monthly Images vs Videos")
 
+    def test_home_suggests_send_to_identification_before_general_upload(self):
+        archive = UploadedArchiveFactory(
+            owner=self.caiduser,
+            taxon_status="TV",
+            is_for_identification=False,
+            contains_single_taxon=False,
+        )
+        wolf = TaxonFactory(name="Wolf")
+        mediafile = MediaFileFactory(parent=archive, media_type="image")
+        AnimalObservationFactory(mediafile=mediafile, taxon=wolf, taxon_verified=True)
+
+        response = self.client.get(reverse("caidapp:home"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Suggested next step:")
+        self.assertContains(response, "Send to identification")
+        self.assertContains(response, reverse("caidapp:uploads_ready_for_identification"))
+
 
 class MediafileExportTest(TestCase):
     def setUp(self):
@@ -1265,6 +1283,26 @@ class IdentificationUploadsViewTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, reverse("caidapp:uploads_ready_for_identification"))
         self.assertContains(response, "Send to identification")
+
+    def test_taxon_dashboard_highlights_send_to_identification_when_upload_is_ready(self):
+        archive = UploadedArchiveFactory(
+            owner=self.caiduser,
+            taxon_status="TV",
+            is_for_identification=False,
+            contains_single_taxon=False,
+        )
+        wolf = TaxonFactory(name="Wolf")
+        mediafile = MediaFileFactory(parent=archive)
+        AnimalObservationFactory(mediafile=mediafile, taxon=wolf, taxon_verified=True)
+
+        response = self.client.get(reverse("caidapp:taxon_processing"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            f'class="btn btn-primary mt-2" href="{reverse("caidapp:uploads_ready_for_identification")}"',
+            html=False,
+        )
 
     def test_uploads_ready_for_identification_lists_verified_before_known(self):
         default_taxon = TaxonFactory(name="Lynx")
