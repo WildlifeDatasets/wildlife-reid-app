@@ -63,6 +63,11 @@ urlpatterns = [
     ),
     # Uploads
     path("uploads/", views.uploads_species, name="uploads"),
+    path(
+        "uploads/ready_for_identification/",
+        views_uploads.uploads_ready_for_identification,
+        name="uploads_ready_for_identification",
+    ),
     path("uploads_identities/", views.uploads_identities, name="uploads_identities"),
     path("uploads_known_identities/", views.uploads_known_identities, name="uploads_known_identities"),
     path(

@@ -711,24 +711,36 @@ def _uploads_general_order_annotation():
 
 
 def _multiple_species_button_style_and_tooltips(request) -> dict:
-    models.user_has_access_filter_params(request.user.caiduser, "owner")
+    access_filter = models.user_has_access_filter_params(request.user.caiduser, "owner")
     n_non_classified_taxons = len(models.get_mediafiles_with_missing_taxon(request.user.caiduser))
     n_missing_verifications = len(models.get_mediafiles_with_missing_verification(request.user.caiduser))
+    n_ready_for_identification = models.UploadedArchive.objects.filter(
+        **access_filter,
+        contains_single_taxon=False,
+        is_for_identification=False,
+        taxon_status__in=["TV", "TKN"],
+    ).count()
 
     some_missing_taxons = n_non_classified_taxons > 0
     some_missing_verifications = n_missing_verifications > 0
+    some_ready_for_identification = n_ready_for_identification > 0
 
     btn_tooltips = {
         "annotate_missing_taxa": f"Annotate {n_non_classified_taxons} media files " + "with missing taxon.",
         "verify_taxa": f"Go to verification of {n_missing_verifications} media files.",
+        "send_to_identification": f"Send {n_ready_for_identification} uploads to identification.",
     }
     btn_styles = {
         "upload_species": "secondary",
         "annotate_missing_taxa": "secondary",
         "verify_taxa": "secondary",
+        "send_to_identification": "secondary",
     }
     if not some_missing_taxons and not some_missing_verifications:
-        btn_styles["upload_species"] = "primary"
+        if some_ready_for_identification:
+            btn_styles["send_to_identification"] = "primary"
+        else:
+            btn_styles["upload_species"] = "primary"
     elif some_missing_taxons:
         btn_styles["annotate_missing_taxa"] = "primary"
     elif some_missing_verifications:
@@ -4397,6 +4409,8 @@ def select_taxon_for_identification(request, uploadedarchive_id: int):
     uploaded_archive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
     if not user_has_rw_acces_to_uploadedarchive(request.user.caiduser, uploaded_archive):
         return HttpResponseNotAllowed("Not allowed to edit this uploaded archive.")
+    workgroup = request.user.caiduser.workgroup
+    next_url = request.GET.get("next") or request.POST.get("next") or reverse("caidapp:uploads_ready_for_identification")
     if request.method == "POST":
         form = UploadedArchiveSelectTaxonForIdentificationForm(request.POST)
         if form.is_valid():
@@ -4405,18 +4419,24 @@ def select_taxon_for_identification(request, uploadedarchive_id: int):
             uploaded_archive.identification_status = "IR"  # Ready for identification
             uploaded_archive.is_for_identification = True
             uploaded_archive.save()
-            return redirect("caidapp:uploads_identities")
+            return redirect(next_url)
     else:
-        form = UploadedArchiveSelectTaxonForIdentificationForm()
+        initial_taxon = uploaded_archive.taxon_for_identification
+        if initial_taxon is None and workgroup:
+            initial_taxon = workgroup.default_taxon_for_identification
+        form = UploadedArchiveSelectTaxonForIdentificationForm(initial={"taxon_for_identification": initial_taxon})
     return render(
         request,
         "caidapp/update_form.html",
         {
             "form": form,
-            "headline": "Select taxon",
-            "button": "Select",
-            "text_note": "Select taxon for identification",
-            "next": "caidapp:uploads_identities",
+            "headline": "Send to identification",
+            "button": "Send to identification",
+            "text_note": (
+                "This screen sends media files with the selected taxon into the identification workflow. "
+                "Only images whose observation taxon matches this selection will be used for identification."
+            ),
+            "cancel_button_url": next_url,
             "mediafile": uploaded_archive.mediafile_set.all().first(),
         },
     )

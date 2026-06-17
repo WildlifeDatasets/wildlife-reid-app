@@ -1,0 +1,79 @@
+{% extends 'base.html' %}
+{% block body %}
+    {% if user.is_authenticated %}
+        <div class="pagetitle">
+            <h1>Send to identification</h1>
+            <nav>
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'caidapp:taxon_processing' %}">Taxon classification</a></li>
+                    <li class="breadcrumb-item active">Send to identification</li>
+                </ol>
+            </nav>
+        </div>
+
+        <section class="section">
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+                <div>
+                    <span class="text-muted">Default identification taxon:</span>
+                    {% if workgroup %}
+                        <a href="{% url 'caidapp:workgroup-update' workgroup.id %}">
+                            {% if default_taxon %}{{ default_taxon }}{% else %}not set{% endif %}
+                        </a>
+                    {% else %}
+                        <span class="text-muted">not set</span>
+                    {% endif %}
+                </div>
+                <a class="btn btn-sm btn-outline-secondary" href="{% url 'caidapp:taxon_processing' %}">
+                    <i class="bi bi-arrow-left"></i> Taxon dashboard
+                </a>
+            </div>
+
+            {% if uploadedarchives %}
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover align-middle">
+                        <thead>
+                            <tr>
+                                <th>Upload</th>
+                                <th class="text-end">Files</th>
+                                <th>Taxa</th>
+                                <th>Status</th>
+                                <th class="text-end"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for uploadedarchive in uploadedarchives %}
+                                <tr>
+                                    <td>
+                                        <a href="{% url 'caidapp:uploadedarchive_detail' uploadedarchive.id %}">
+                                            {{ uploadedarchive }}
+                                        </a>
+                                    </td>
+                                    <td class="text-end">{{ uploadedarchive.count_of_mediafiles }}</td>
+                                    <td>{{ uploadedarchive.identification_taxons_display }}</td>
+                                    <td>
+                                        <span class="badge text-bg-{% if uploadedarchive.taxon_status == 'TV' %}primary{% else %}secondary{% endif %}">
+                                            {{ uploadedarchive.get_taxon_status_display }}
+                                        </span>
+                                    </td>
+                                    <td class="text-end">
+                                        <a class="btn btn-sm btn-{{ uploadedarchive.identification_action_class }}"
+                                           href="{% url 'caidapp:select_taxon_for_identification' uploadedarchive.id %}?next={{ request.get_full_path|urlencode }}"
+                                           title="Send to identification"
+                                           aria-label="Send {{ uploadedarchive }} to identification">
+                                            <i class="bi bi-arrow-right"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="alert alert-secondary">
+                    There are no taxon uploads ready to send to identification.
+                    <a href="{% url 'caidapp:taxon_processing' %}">Go to taxon dashboard</a>.
+                </div>
+            {% endif %}
+        </section>
+    {% endif %}
+{% endblock %}
