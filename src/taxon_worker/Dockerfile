@@ -71,6 +71,9 @@ RUN pip uninstall -y opencv-python opencv-python-headless opencv opencv-contrib-
     rm -rf /usr/local/lib/python3.10/site-packages/cv2* && \
     pip install --no-cache-dir opencv-python-headless==4.8.1.78
 
+# Download EasyOCR models during image build so the first runtime OCR task does not block on model fetching.
+RUN python -c "import easyocr; easyocr.Reader(['en']); print('easyocr models loaded')"
+
 # expose ports and run application
 WORKDIR $APP_DIR
 CMD C_FORCE_ROOT=false celery -A worker.taxon_worker worker --pool threads --concurrency 1 --loglevel info --queues taxon_worker

@@ -32,9 +32,16 @@ logger.info("Initializing MegaDetector model and loading pre-trained checkpoint.
 
 MEDIA_DIR = Path("/shared_data/media")
 DETECTION_MODEL = None
+DETECTION_MODEL_WARMED_UP = False
 ORIENTATION_MODEL = None
 
 CLS_TO_ORIENTATION = {0: "back", 1: "front", 2: "left", 3: "right"}
+KEEP_DETECTION_MODEL_LOADED = os.getenv("TAXON_KEEP_DETECTION_MODEL_LOADED", "").lower() in ("1", "true", "yes")
+WARM_UP_DETECTION_MODEL_ON_START = os.getenv("TAXON_WARM_UP_DETECTION_MODEL_ON_START", "true").lower() in (
+    "1",
+    "true",
+    "yes",
+)
 
 
 def download_file(url: str, output_file: str):
@@ -125,10 +132,31 @@ def get_detection_model(force_reload: bool = False):
             device=DEVICE,
         )
         DETECTION_MODEL.conf = 0.05
+        warm_up_detection_model(DETECTION_MODEL)
 
     logger.debug("After detection model.")
     logger.debug(f"{mem.get_vram(DEVICE)}     {mem.get_ram()}")
     return DETECTION_MODEL
+
+
+def warm_up_detection_model(model):
+    """Run one tiny inference so CUDA kernels are initialized before the first real image."""
+    global DETECTION_MODEL_WARMED_UP
+
+    if DETECTION_MODEL_WARMED_UP:
+        return
+
+    logger.debug("Warming up detection model.")
+    try:
+        dummy_image = np.zeros((640, 640, 3), dtype=np.uint8)
+        with torch.inference_mode():
+            model(dummy_image)
+        if DEVICE.type == "cuda":
+            torch.cuda.synchronize(DEVICE)
+        DETECTION_MODEL_WARMED_UP = True
+        logger.debug("Detection model warm-up finished.")
+    except Exception:
+        logger.warning(f"Detection model warm-up failed: {traceback.format_exc()}")
 
 
 def get_orientation_model(model_name="resnet10t", model_checkpoint=""):
@@ -147,14 +175,25 @@ def get_orientation_model(model_name="resnet10t", model_checkpoint=""):
 
 def del_detection_model():
     """Release the detection model."""
-    global DETECTION_MODEL
+    global DETECTION_MODEL, DETECTION_MODEL_WARMED_UP
     DETECTION_MODEL = None
+    DETECTION_MODEL_WARMED_UP = False
     torch.cuda.empty_cache()
 
 
-# TODO remove this line
-DETECTION_MODEL = get_detection_model(force_reload=True)
-del_detection_model()
+def warm_up_detection_model_on_start():
+    """Warm up MegaDetector on worker start and release it again unless configured otherwise."""
+    global DETECTION_MODEL
+
+    if not WARM_UP_DETECTION_MODEL_ON_START:
+        return
+
+    DETECTION_MODEL = get_detection_model()
+    if not KEEP_DETECTION_MODEL_LOADED:
+        del_detection_model()
+
+
+warm_up_detection_model_on_start()
 
 
 def detect_animals_in_one_image(image_rgb: np.ndarray) -> Optional[List[Dict[str, Any]]]:
@@ -379,5 +418,6 @@ def detect_animal_on_metadata(metadata: pd.DataFrame, border=0.0) -> pd.DataFram
             metadata.loc[row_idx] = row
         except Exception:
             logger.warning(f"Cannot process image '{image_abs_path}'. Exception: {traceback.format_exc()}")
-    del_detection_model()
+    if not KEEP_DETECTION_MODEL_LOADED:
+        del_detection_model()
     return metadata
