@@ -272,6 +272,7 @@ def on_success_predict_taxon(
                 ),
             )
             uploaded_archive.save()
+            schedule_init_identification_after_representative_upload(uploaded_archive)
             logger.debug("Updating capture time range for uploaded archive %s", uploaded_archive_id)
             uploaded_archive.update_earliest_and_latest_captured_at()
             logger.debug("Creating sequences for uploaded archive %s", uploaded_archive_id)
@@ -2060,6 +2061,23 @@ def schedule_init_identification_for_workgroup(workgroup: models.WorkGroup, dela
     )
 
     schedule_reid_identification_for_workgroup(workgroup, delay_minutes=delay_minutes + 50)
+
+
+def schedule_init_identification_after_representative_upload(uploaded_archive: UploadedArchive) -> bool:
+    """Schedule one final initialization after an identified base dataset finishes importing."""
+    has_representatives = uploaded_archive.mediafile_set.filter(
+        identity__isnull=False,
+        identity_is_representative=True,
+    ).exists()
+    if not uploaded_archive.import_finished or not has_representatives:
+        return False
+
+    logger.debug(
+        "Scheduling identification initialization after completed representative upload: upload=%s",
+        uploaded_archive.id,
+    )
+    schedule_init_identification_for_workgroup(uploaded_archive.owner.workgroup)
+    return True
 
 
 @shared_task

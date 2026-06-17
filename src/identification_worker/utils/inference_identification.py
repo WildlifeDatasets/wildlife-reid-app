@@ -149,7 +149,7 @@ def get_identification_model(model_name, model_checkpoint=""):
 
 
 def get_sam_model() -> SamPredictor:
-    """Load the SAM model if not loaded before."""
+    """Load SAM once and move the cached CPU model to the inference device."""
     global SAM
     global SAM_PREDICTOR
 
@@ -170,12 +170,15 @@ def get_sam_model() -> SamPredictor:
             f"/root/resources/{model_zoo[model_version]}.pth",
         )
 
-        mem.wait_for_gpu_memory(0.5)
         logger.info(f"Initializing SAM model ({model_version}) and loading pre-trained checkpoint.")
         _checkpoint_path = Path(f"/root/resources/{model_zoo[model_version]}.pth").expanduser()
         SAM = sam_model_registry[model_version](checkpoint=str(_checkpoint_path))
-        SAM.to(device=DEVICE)
-        SAM_PREDICTOR = SamPredictor(SAM)
+    else:
+        logger.info(f"Reusing cached SAM model ({model_version}) from CPU memory.")
+
+    mem.wait_for_gpu_memory(0.5)
+    SAM.to(device=DEVICE)
+    SAM_PREDICTOR = SamPredictor(SAM)
     logger.debug(f"After segmentation model: {mem.get_vram(DEVICE)}     {mem.get_ram()}")
     return SAM_PREDICTOR
 
@@ -188,11 +191,12 @@ def del_identification_model():
 
 
 def del_sam_model():
-    """Release the SAM model."""
+    """Release SAM GPU memory while retaining its weights in CPU memory."""
     global SAM
     global SAM_PREDICTOR
-    SAM = None
     SAM_PREDICTOR = None
+    if SAM is not None:
+        SAM.to(device="cpu")
     torch.cuda.empty_cache()
 
 

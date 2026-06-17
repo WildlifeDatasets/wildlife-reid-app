@@ -716,6 +716,23 @@ class SequenceViewTest(TestCase):
         self.assertContains(response, "wolf-b.jpg")
         self.assertEqual(set(self.client.session["mediafile_ids_page"]), {wolf_first.id, wolf_second.id, lynx_mediafile.id})
 
+    def test_sequence_verification_empty_state_links_home(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        sequence = SequenceFactory(uploaded_archive=archive)
+        taxon = TaxonFactory(name="Wolf")
+        mediafile = MediaFileFactory(parent=archive, sequence=sequence, original_filename="verified.jpg", taxon_verified=True)
+        AnimalObservationFactory(mediafile=mediafile, taxon=taxon, taxon_verified=True)
+
+        response = self.client.get(
+            reverse("caidapp:sequences"),
+            {"show_overview_button": "true", "taxon_verified": "false"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "No sequences matched the current filter.")
+        self.assertContains(response, "Go home")
+        self.assertContains(response, reverse("caidapp:home"))
+
     def test_legacy_verify_taxa_url_uses_sequence_verification_view(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)
         sequence = SequenceFactory(uploaded_archive=archive)
@@ -1676,6 +1693,44 @@ class IdentificationRerunTest(TestCase):
         self.workgroup.default_taxon_for_identification = None
         self.workgroup.check_taxon_before_identification = False
         self.workgroup.save()
+
+    @patch("caidapp.tasks.schedule_init_identification_for_workgroup")
+    def test_completed_representative_upload_schedules_identification_init(self, schedule_mock):
+        archive = UploadedArchiveFactory(
+            owner=self.caiduser,
+            contains_identities=True,
+            import_finished=True,
+        )
+        MediaFileFactory(
+            parent=archive,
+            with_identity=True,
+            identity_is_representative=True,
+        )
+        schedule_mock.reset_mock()
+
+        scheduled = tasks.schedule_init_identification_after_representative_upload(archive)
+
+        self.assertTrue(scheduled)
+        schedule_mock.assert_called_once_with(self.workgroup)
+
+    @patch("caidapp.tasks.schedule_init_identification_for_workgroup")
+    def test_unfinished_representative_upload_does_not_schedule_identification_init(self, schedule_mock):
+        archive = UploadedArchiveFactory(
+            owner=self.caiduser,
+            contains_identities=True,
+            import_finished=False,
+        )
+        MediaFileFactory(
+            parent=archive,
+            with_identity=True,
+            identity_is_representative=True,
+        )
+        schedule_mock.reset_mock()
+
+        scheduled = tasks.schedule_init_identification_after_representative_upload(archive)
+
+        self.assertFalse(scheduled)
+        schedule_mock.assert_not_called()
 
     @patch("caidapp.views.run_identification_bulk")
     def test_bulk_rerun_processes_identification_uploads_with_missing_identity_regardless_of_status(self, run_identification_bulk_mock):

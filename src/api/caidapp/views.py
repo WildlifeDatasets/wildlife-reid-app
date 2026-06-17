@@ -4164,7 +4164,8 @@ def media_files_update(
             request,
             "No mediafiles for verification.",
             headline="Verification",
-            link=reverse_lazy("caidapp:uploads"),
+            link=reverse_lazy("caidapp:home"),
+            button_label="Go home",
         )
 
     # konec nové filtrace
