@@ -2262,6 +2262,7 @@ class NewUploadView(LoginRequiredMixin, UserPassesTestMixin, View):
                 "form": form,
                 "headline": "Upload",
                 "localities": get_all_relevant_localities(request),
+                "max_upload_files": settings.DATA_UPLOAD_MAX_NUMBER_FILES,
                 "path_regex_chatgpt_prompt_prefix_lines": PATH_REGEX_CHATGPT_PROMPT_PREFIX_LINES,
                 "path_regex_chatgpt_prompt_suffix": PATH_REGEX_CHATGPT_PROMPT_SUFFIX,
             },

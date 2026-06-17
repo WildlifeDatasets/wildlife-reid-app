@@ -123,6 +123,7 @@ MIDDLEWARE = [
     "whitenoise.middleware.WhiteNoiseMiddleware",  # MUSÍ být hned za SecurityMiddleware
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
+    "caidapp.middleware.UploadLimitExceededMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
@@ -274,6 +275,10 @@ MEDIA_URL = "/media/"
 MEDIA_ROOT = Path(SHARED_DATA_PATH) / "media"
 # use python manage.py collectstatic
 STATIC_ROOT = Path(SHARED_DATA_PATH) / "static"
+
+# The new upload flow can submit many individual media files in one multipart
+# request before they are packed into an archive server-side.
+DATA_UPLOAD_MAX_NUMBER_FILES = int(os.getenv("DATA_UPLOAD_MAX_NUMBER_FILES", "10000"))
 
 if DEBUG:
     STATICFILES_DIRS = [

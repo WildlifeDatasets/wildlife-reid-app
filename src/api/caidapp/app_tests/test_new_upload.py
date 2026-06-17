@@ -178,6 +178,38 @@ class NewUploadViewTest(TestCase):
         run_processing.assert_called_once_with(uploaded_archive, extract_identites=False)
 
     @patch("caidapp.views.run_species_prediction_async")
+    def test_more_than_django_default_file_count_can_be_uploaded(self, run_processing):
+        files = [
+            SimpleUploadedFile(f"image_{index:03d}.jpg", b"fake image", content_type="image/jpeg")
+            for index in range(101)
+        ]
+
+        response = self._post_upload(files=files)
+
+        self.assertEqual(response.status_code, 200)
+        uploaded_archive = models.UploadedArchive.objects.get()
+        self.assertEqual(uploaded_archive.files_at_upload, 101)
+        run_processing.assert_called_once_with(uploaded_archive, extract_identites=False)
+
+    @override_settings(DATA_UPLOAD_MAX_NUMBER_FILES=100)
+    @patch("caidapp.views.run_species_prediction_async")
+    def test_too_many_individual_files_returns_zip_guidance(self, run_processing):
+        files = [
+            SimpleUploadedFile(f"image_{index:03d}.jpg", b"fake image", content_type="image/jpeg")
+            for index in range(101)
+        ]
+
+        response = self._post_upload(files=files)
+
+        self.assertEqual(response.status_code, 400)
+        payload = response.json()
+        self.assertFalse(payload["ok"])
+        self.assertIn("more than 100 individual files", payload["html"])
+        self.assertIn("ZIP archive", payload["html"])
+        self.assertEqual(models.UploadedArchive.objects.count(), 0)
+        run_processing.assert_not_called()
+
+    @patch("caidapp.views.run_species_prediction_async")
     def test_spreadsheet_is_stored_inside_generated_zip(self, run_processing):
         spreadsheet = SimpleUploadedFile(
             "metadata.csv",

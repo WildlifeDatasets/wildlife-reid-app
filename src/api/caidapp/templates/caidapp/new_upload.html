@@ -91,7 +91,7 @@
             {% for locality in localities %}
                 "{{ locality.name|escapejs }}"{% if not forloop.last %},{% endif %}
             {% endfor %}
-        ]'>
+        ]' data-max-files="{{ max_upload_files }}">
             {% csrf_token %}
             {{ form.upload_relative_paths }}
             {{ form.directory_structure }}

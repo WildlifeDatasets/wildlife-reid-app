@@ -62,11 +62,13 @@
     const dateBadge = document.getElementById("new-upload-date-badge");
     const targetBadge = document.getElementById("new-upload-target-badge");
     const localities = JSON.parse(form.dataset.localities || "[]");
+    const maxUploadFiles = Number.parseInt(form.dataset.maxFiles || "", 10);
     let isUploading = false;
     let currentStep = 0;
     let selectedEntries = [];
     let currentMediaPaths = [];
     let currentSpreadsheetPreview = null;
+    let fileLimitWarningVisible = false;
     let pathAdjustmentConfig = {remove_prefix: "", add_prefix: ""};
     let pendingPathAdjustmentConfig = {remove_prefix: "", add_prefix: ""};
     const pathRoles = [
@@ -127,6 +129,14 @@
         element.classList.toggle("d-none", !text);
     }
 
+    function isFileLimitExceeded() {
+        return Number.isFinite(maxUploadFiles) && maxUploadFiles > 0 && selectedEntries.length > maxUploadFiles;
+    }
+
+    function updateFileLimitState() {
+        return isFileLimitExceeded();
+    }
+
     function updateWizardUi() {
         wizardSteps.forEach((step, index) => {
             step.classList.toggle("is-active", index === currentStep);
@@ -143,6 +153,7 @@
         if (stepLabel) {
             stepLabel.textContent = `Step ${currentStep + 1} of ${wizardSteps.length}`;
         }
+        updateFileLimitState();
         window.scrollTo({top: 0, behavior: "smooth"});
     }
 
@@ -1183,9 +1194,22 @@
         const spreadsheetFiles = files.filter(isSpreadsheet);
         const zipFiles = files.filter(isZip);
         const uploadFiles = files.filter((file) => !isSpreadsheet(file));
-        setSummaryText(fileSummary, files.length
-            ? `${uploadFiles.length} upload file(s), ${spreadsheetFiles.length} spreadsheet(s).`
-            : "");
+        const fileLimitExceeded = isFileLimitExceeded();
+        if (fileLimitExceeded && fileLimitWarningVisible) {
+            setSummaryText(
+                fileSummary,
+                `You selected ${files.length} individual files. The limit is ${maxUploadFiles}; upload a ZIP archive instead, or split the upload into smaller batches.`
+            );
+            fileSummary.classList.remove("text-muted");
+            fileSummary.classList.add("text-danger", "fw-semibold");
+        } else {
+            setSummaryText(fileSummary, files.length
+                ? `${uploadFiles.length} upload file(s), ${spreadsheetFiles.length} spreadsheet(s).`
+                : "");
+            fileSummary.classList.remove("text-danger", "fw-semibold");
+            fileSummary.classList.add("text-muted");
+        }
+        updateFileLimitState();
 
         const relativePaths = manifest.map((item) => item.relative_path);
         const zipMediaPaths = await listZipMediaPaths(zipFiles);
@@ -1238,7 +1262,14 @@
         });
     }
     if (nextStepButton) {
-        nextStepButton.addEventListener("click", function () {
+        nextStepButton.addEventListener("click", async function () {
+            if (currentStep === 0 && isFileLimitExceeded()) {
+                fileLimitWarningVisible = true;
+                await updateFileSummary();
+                fileSummary.scrollIntoView({behavior: "smooth", block: "center"});
+                return;
+            }
+            fileLimitWarningVisible = false;
             goToStep(currentStep + 1);
         });
     }
@@ -1383,6 +1414,13 @@
 
     form.addEventListener("submit", function (event) {
         event.preventDefault();
+        if (isFileLimitExceeded()) {
+            fileLimitWarningVisible = true;
+            updateFileSummary();
+            updateFileLimitState();
+            fileSummary.scrollIntoView({behavior: "smooth", block: "center"});
+            return;
+        }
         const formData = new FormData(form);
         progress.classList.remove("d-none");
         progressBar.style.width = "0%";
