@@ -53,6 +53,7 @@
     const progress = document.getElementById("new-upload-progress");
     const progressBar = progress.querySelector(".progress-bar");
     const localityInput = document.getElementById("id_locality_at_upload");
+    const localitySuggestions = document.getElementById("new-upload-locality-suggestions");
     const checkedAtInput = document.getElementById("id_locality_check_at");
     const uploadTargetInputs = Array.from(document.querySelectorAll('input[name="upload_target"]'));
     const containsIdentitiesInput = document.getElementById("id_contains_identities");
@@ -986,6 +987,87 @@
         updatePathAdjustmentHint(null);
     }
 
+    function normalizeLocalityText(value) {
+        return value
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .toLowerCase()
+            .trim();
+    }
+
+    function fuzzySubsequenceScore(query, candidate) {
+        let queryIndex = 0;
+        let score = 0;
+        let previousMatchIndex = -1;
+        for (let candidateIndex = 0; candidateIndex < candidate.length && queryIndex < query.length; candidateIndex += 1) {
+            if (candidate[candidateIndex] !== query[queryIndex]) {
+                continue;
+            }
+            score += previousMatchIndex === candidateIndex - 1 ? 2 : 1;
+            previousMatchIndex = candidateIndex;
+            queryIndex += 1;
+        }
+        return queryIndex === query.length ? score : 0;
+    }
+
+    function scoreLocalitySuggestion(query, locality) {
+        const normalizedQuery = normalizeLocalityText(query);
+        const normalizedLocality = normalizeLocalityText(locality);
+        if (!normalizedQuery) {
+            return 1;
+        }
+        if (normalizedLocality === normalizedQuery) {
+            return 1000;
+        }
+        if (normalizedLocality.startsWith(normalizedQuery)) {
+            return 700 - normalizedLocality.length;
+        }
+        const substringIndex = normalizedLocality.indexOf(normalizedQuery);
+        if (substringIndex >= 0) {
+            return 500 - substringIndex - normalizedLocality.length;
+        }
+        const fuzzyScore = fuzzySubsequenceScore(normalizedQuery, normalizedLocality);
+        return fuzzyScore ? 200 + fuzzyScore - normalizedLocality.length : 0;
+    }
+
+    function hideLocalitySuggestions() {
+        if (!localitySuggestions) {
+            return;
+        }
+        localitySuggestions.replaceChildren();
+        localitySuggestions.classList.add("d-none");
+    }
+
+    function renderLocalitySuggestions() {
+        if (!localitySuggestions || !localityInput) {
+            return;
+        }
+        const query = localityInput.value;
+        const suggestions = localities
+            .map((name) => ({name: name, score: scoreLocalitySuggestion(query, name)}))
+            .filter((item) => item.score > 0)
+            .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name))
+            .slice(0, 8);
+
+        localitySuggestions.replaceChildren();
+        localitySuggestions.classList.toggle("d-none", suggestions.length === 0);
+
+        for (const suggestion of suggestions) {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = "list-group-item list-group-item-action py-2";
+            button.textContent = suggestion.name;
+            button.addEventListener("mousedown", function (event) {
+                event.preventDefault();
+                localityInput.value = suggestion.name;
+                hideLocalitySuggestions();
+                updateLocalityWarning();
+                updateBadges();
+            });
+            localitySuggestions.appendChild(button);
+        }
+    }
+
     function updateLocalityWarning() {
         const value = localityInput.value.trim();
         if (value && !localities.includes(value)) {
@@ -1273,8 +1355,15 @@
             goToStep(currentStep + 1);
         });
     }
-    localityInput.addEventListener("blur", updateLocalityWarning);
-    localityInput.addEventListener("input", updateLocalityWarning);
+    localityInput.addEventListener("blur", function () {
+        updateLocalityWarning();
+        window.setTimeout(hideLocalitySuggestions, 120);
+    });
+    localityInput.addEventListener("focus", renderLocalitySuggestions);
+    localityInput.addEventListener("input", function () {
+        updateLocalityWarning();
+        renderLocalitySuggestions();
+    });
     checkedAtInput.addEventListener("input", updateBadges);
     uploadTargetInputs.forEach((input) => input.addEventListener("change", updateUploadTargetUi));
     if (containsIdentitiesInput) {

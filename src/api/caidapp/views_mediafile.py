@@ -451,7 +451,8 @@ class MediaFileGetMissingTaxonView(LoginRequiredMixin, UpdateWithInlinesView):
         """Add next and cancel URLs to context."""
         context = super().get_context_data(**kwargs)
         uploadedarchive = self.get_uploadedarchive()
-        # context["uploadedarchive"] = uploadedarchive
+        context["uploadedarchive"] = uploadedarchive
+        context["missing_taxon_annotation_mode"] = True
 
         messages.debug(self.request, f"In get_context_data of MediaFileGetMissingTaxonView {uploadedarchive=}")
 
@@ -476,13 +477,16 @@ class MediaFileGetMissingTaxonView(LoginRequiredMixin, UpdateWithInlinesView):
 
     def get_success_url(self):
         """After successful update, return to previous page."""
-        if self.request.POST.get("mark_empty_image"):
-            return reverse("caidapp:media_file_update", args=[self.object.id])
         uploadedarchive = self.get_uploadedarchive()
+        if self.request.POST.get("mark_empty_image"):
+            url = reverse("caidapp:missing_taxon_annotation_for_mediafile", args=[self.object.id])
+            if uploadedarchive:
+                url += f"?uploadedarchive_id={uploadedarchive.id}"
+            return url
         next_url = _mta_get_next_url(
             self.request,
             current_mediafile=self.object,
-            uploadedarchive=self.get_uploadedarchive(),
+            uploadedarchive=uploadedarchive,
         )
 
         if next_url is None:

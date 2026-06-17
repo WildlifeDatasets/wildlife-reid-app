@@ -138,7 +138,11 @@
                                 <div class="d-flex justify-content-center">
                                     {% for sequence_mediafile in chunk %}
                                         <div class="m-2">
-                                            <a href="{% url 'caidapp:media_file_update' sequence_mediafile.id %}">
+                                            {% if missing_taxon_annotation_mode %}
+                                                <a href="{% url 'caidapp:missing_taxon_annotation_for_mediafile' sequence_mediafile.id %}{% if uploadedarchive %}?uploadedarchive_id={{ uploadedarchive.id }}{% endif %}">
+                                            {% else %}
+                                                <a href="{% url 'caidapp:media_file_update' sequence_mediafile.id %}">
+                                            {% endif %}
                                                 <img src="{{ sequence_mediafile.static_thumbnail.url }}"
                                                      class="img-fluid"
                                                      alt="Media Thumbnail" style="max-width: 100px;"

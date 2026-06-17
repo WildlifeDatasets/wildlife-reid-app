@@ -291,6 +291,56 @@ class MediaFileUpdateEmptyObservationTest(TestCase):
         self.assertContains(response, reverse("caidapp:uploadedarchive_detail", args=[archive.id]))
         self.assertNotContains(response, reverse("caidapp:uploadedarchive_mediafiles", args=[archive.id]))
 
+    def test_missing_taxon_sequence_carousel_keeps_annotation_mode(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        sequence = SequenceFactory(uploaded_archive=archive)
+        first_mediafile = MediaFileFactory(
+            parent=archive,
+            sequence=sequence,
+            original_filename="first.jpg",
+            static_thumbnail=SimpleUploadedFile("first.webp", b"first", content_type="image/webp"),
+        )
+        second_mediafile = MediaFileFactory(
+            parent=archive,
+            sequence=sequence,
+            original_filename="second.jpg",
+            static_thumbnail=SimpleUploadedFile("second.webp", b"second", content_type="image/webp"),
+        )
+
+        response = self.client.get(
+            reverse("caidapp:missing_taxon_annotation_for_mediafile", args=[first_mediafile.id]),
+            {"uploadedarchive_id": archive.id},
+        )
+
+        expected_url = (
+            reverse("caidapp:missing_taxon_annotation_for_mediafile", args=[second_mediafile.id])
+            + f"?uploadedarchive_id={archive.id}"
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, expected_url)
+
+    def test_missing_taxon_mark_empty_keeps_annotation_mode(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        mediafile = MediaFileFactory(parent=archive)
+
+        response = self.client.post(
+            reverse("caidapp:missing_taxon_annotation_for_mediafile", args=[mediafile.id])
+            + f"?uploadedarchive_id={archive.id}",
+            self._base_mediafile_update_post_data(
+                mediafile,
+                total_forms=0,
+                initial_forms=0,
+                extra_form_data={"mark_empty_image": "1"},
+            ),
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(
+            response.url,
+            reverse("caidapp:missing_taxon_annotation_for_mediafile", args=[mediafile.id])
+            + f"?uploadedarchive_id={archive.id}",
+        )
+
     def test_mark_empty_image_creates_nothing_observation_when_none_exist(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)
         mediafile = MediaFileFactory(parent=archive)
