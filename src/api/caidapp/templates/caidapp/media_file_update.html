@@ -34,6 +34,34 @@
             top: 50%; /* Center the controls vertically */
             transform: translateY(-50%);
         }
+
+        .mediafile-image-stage {
+            position: relative;
+            display: inline-block;
+            max-width: 100%;
+        }
+
+        .mediafile-expand-image {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            z-index: 5;
+            box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.35);
+        }
+
+        .mediafile-fullscreen-modal .modal-content {
+            background: rgba(15, 15, 15, 0.96);
+        }
+
+        .mediafile-fullscreen-modal .modal-body {
+            min-height: calc(100vh - 4.5rem);
+        }
+
+        .mediafile-fullscreen-image {
+            max-width: 96vw;
+            max-height: calc(100vh - 6rem);
+            object-fit: contain;
+        }
     </style>
 {% endblock %}
 {# add body #}
@@ -465,11 +493,21 @@ mediafile.taxon: {{ mediafile.taxon }}
                             <!-- Image with modal trigger -->
 
                             <!-- Canvas -->
-                            <canvas id="annotCanvas"
-                                    {#                                style="max-width: 600px;"#}
+                            <div class="mediafile-image-stage m-1">
+                                <canvas id="annotCanvas"
+                                        {#                                style="max-width: 600px;"#}
 
-                                    {#                                class="img-fluid"#}
-                                    style="border:1px solid #ccc; margin-top:10px;"></canvas>
+                                        {#                                class="img-fluid"#}
+                                        style="border:1px solid #ccc; margin-top:10px;"></canvas>
+                                <button type="button"
+                                        class="btn btn-dark btn-sm mediafile-expand-image"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#imageModal{{ mediafile.id }}"
+                                        aria-label="Open image large"
+                                        title="Open image large">
+                                    <i class="bi bi-arrows-fullscreen"></i>
+                                </button>
+                            </div>
                             <img id="annotatable-image" src="{{ mediafile.preview.url }}" hidden>
 
 
@@ -512,17 +550,25 @@ mediafile.taxon: {{ mediafile.taxon }}
                     </div>
                 </div>
                 <!-- Bootstrap Modal for showing the larger image -->
-                <div class="modal fade" id="imageModal{{ mediafile.id }}" tabindex="-1"
+                <div class="modal fade mediafile-fullscreen-modal" id="imageModal{{ mediafile.id }}" tabindex="-1"
                      aria-labelledby="imageModalLabel{{ mediafile.id }}" aria-hidden="true">
-                    <div class="modal-dialog modal-dialog-centered modal-lg">
+                    <div class="modal-dialog modal-fullscreen">
                         <div class="modal-content">
-                            <div class="modal-header">
-                                <h5 class="modal-title" id="imageModalLabel{{ mediafile.id }}">Full Size Image</h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal"
+                            <div class="modal-header border-0 text-bg-dark">
+                                <h5 class="modal-title" id="imageModalLabel{{ mediafile.id }}">{{ mediafile.original_filename }}</h5>
+                                <a class="btn btn-outline-light btn-sm ms-auto me-2"
+                                   href="{{ mediafile.mediafile.url }}"
+                                   target="_blank"
+                                   rel="noopener">
+                                    <i class="bi bi-box-arrow-up-right"></i> Original
+                                </a>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
                                         aria-label="Close"></button>
                             </div>
-                            <div class="modal-body">
-                                <img src="{{ mediafile.preview.url }}" class="img-fluid" alt="Full Size Image">
+                            <div class="modal-body d-flex align-items-center justify-content-center p-2">
+                                <img src="{{ mediafile.mediafile.url }}"
+                                     class="mediafile-fullscreen-image"
+                                     alt="{{ mediafile.original_filename }}">
                             </div>
                         </div>
                     </div>
