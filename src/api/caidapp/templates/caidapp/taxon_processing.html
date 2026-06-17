@@ -83,6 +83,9 @@
                                 <a class="btn btn-{{ btn_styles.verify_taxa }} mt-2" href="{% url 'caidapp:sequences' %}?show_overview_button=true&amp;taxon_verified=false"
                                    data-bs-toggle="tooltip" title="{{ btn_tooltips.verify_taxa }}"
                                 >Verify taxa</a>
+                                <a class="btn btn-{{ btn_styles.send_to_identification }} mt-2" href="{% url 'caidapp:uploads_ready_for_identification' %}"
+                                   data-bs-toggle="tooltip" title="{{ btn_tooltips.send_to_identification }}"
+                                >Send to identification</a>
                             </div>
                         </div>
 

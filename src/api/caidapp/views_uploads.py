@@ -1,6 +1,7 @@
 import logging
 from typing import Optional
 
+from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse
 from django.shortcuts import render
 from django.utils import timezone
@@ -11,6 +12,18 @@ from .models import UploadedArchive
 logger = logging.getLogger(__name__)
 
 
+def _uploadedarchive_taxons_display(uploadedarchive: UploadedArchive) -> str:
+    taxons = {
+        observation.taxon
+        for mediafile in uploadedarchive.mediafile_set.all()
+        for observation in mediafile.observations.all()
+        if observation.taxon is not None
+    }
+    taxon_names = sorted(str(taxon) for taxon in taxons)
+    return ", ".join(taxon_names) if taxon_names else "-"
+
+
+@login_required
 def taxon_processing(request):
     """View for overall management of taxon processing."""
     btn_styles, btn_tooltips = views._multiple_species_button_style_and_tooltips(request)
@@ -21,6 +34,38 @@ def taxon_processing(request):
         {"btn_styles": btn_styles, "btn_tooltips": btn_tooltips},
     )
     pass
+
+
+@login_required
+def uploads_ready_for_identification(request):
+    """List taxon uploads that can be sent to the identification workflow."""
+    workgroup = request.user.caiduser.workgroup
+    uploadedarchives = (
+        UploadedArchive.objects.filter(
+            **models.user_has_access_filter_params(request.user.caiduser, "owner"),
+            contains_single_taxon=False,
+            is_for_identification=False,
+            taxon_status__in=["TV", "TKN"],
+        )
+        .prefetch_related("mediafile_set__observations__taxon")
+        .order_by("-uploaded_at")
+    )
+
+    uploadedarchives = list(uploadedarchives)
+    uploadedarchives.sort(key=lambda upload: 0 if upload.taxon_status == "TV" else 1)
+    for uploadedarchive in uploadedarchives:
+        uploadedarchive.identification_taxons_display = _uploadedarchive_taxons_display(uploadedarchive)
+        uploadedarchive.identification_action_class = "primary" if uploadedarchive.taxon_status == "TV" else "secondary"
+
+    return render(
+        request,
+        "caidapp/uploads_ready_for_identification.html",
+        {
+            "uploadedarchives": uploadedarchives,
+            "default_taxon": workgroup.default_taxon_for_identification if workgroup else None,
+            "workgroup": workgroup,
+        },
+    )
 
 
 from collections import defaultdict

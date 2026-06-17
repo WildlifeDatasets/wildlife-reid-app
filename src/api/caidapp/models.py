@@ -787,7 +787,7 @@ class UploadedArchive(models.Model):
         elif self.taxon_status == "TKN":
             return "Verify taxa", reverse_lazy("caidapp:verify_taxa", kwargs={"uploaded_archive_id": self.id})
         elif (self.taxon_status == "TV") and (self.owner.workgroup is not None):
-            return "Go to identification", reverse_lazy(
+            return "Send to identification", reverse_lazy(
                 "caidapp:select_taxon_for_identification", kwargs={"uploadedarchive_id": self.id}
             )
         else:

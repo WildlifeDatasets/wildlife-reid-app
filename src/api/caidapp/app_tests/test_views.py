@@ -1259,6 +1259,118 @@ class IdentificationUploadsViewTest(TestCase):
         self.user = self.caiduser.user
         self.client.login(username=self.user.username, password="test123")
 
+    def test_taxon_dashboard_links_to_uploads_ready_for_identification(self):
+        response = self.client.get(reverse("caidapp:taxon_processing"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, reverse("caidapp:uploads_ready_for_identification"))
+        self.assertContains(response, "Send to identification")
+
+    def test_uploads_ready_for_identification_lists_verified_before_known(self):
+        default_taxon = TaxonFactory(name="Lynx")
+        self.caiduser.workgroup.default_taxon_for_identification = default_taxon
+        self.caiduser.workgroup.save()
+        wolf = TaxonFactory(name="Wolf")
+        bear = TaxonFactory(name="Bear")
+        known_archive = UploadedArchiveFactory(
+            owner=self.caiduser,
+            name="Known archive",
+            taxon_status="TKN",
+            is_for_identification=False,
+            contains_single_taxon=False,
+        )
+        verified_archive = UploadedArchiveFactory(
+            owner=self.caiduser,
+            name="Verified archive",
+            taxon_status="TV",
+            is_for_identification=False,
+            contains_single_taxon=False,
+        )
+        sent_archive = UploadedArchiveFactory(
+            owner=self.caiduser,
+            name="Already sent archive",
+            taxon_status="TV",
+            is_for_identification=True,
+            contains_single_taxon=False,
+        )
+        known_mediafile = MediaFileFactory(parent=known_archive)
+        verified_mediafile = MediaFileFactory(parent=verified_archive)
+        sent_mediafile = MediaFileFactory(parent=sent_archive)
+        AnimalObservationFactory(mediafile=known_mediafile, taxon=bear)
+        AnimalObservationFactory(mediafile=verified_mediafile, taxon=wolf)
+        AnimalObservationFactory(mediafile=sent_mediafile, taxon=wolf)
+
+        response = self.client.get(reverse("caidapp:uploads_ready_for_identification"))
+        content = response.content.decode()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Default identification taxon:")
+        self.assertContains(response, "Lynx")
+        self.assertContains(response, "Verified archive")
+        self.assertContains(response, "Known archive")
+        self.assertContains(response, "Wolf")
+        self.assertContains(response, "Bear")
+        self.assertContains(response, reverse("caidapp:select_taxon_for_identification", args=[verified_archive.id]))
+        self.assertContains(response, reverse("caidapp:select_taxon_for_identification", args=[known_archive.id]))
+        self.assertNotContains(response, "Already sent archive")
+        self.assertLess(content.index("Verified archive"), content.index("Known archive"))
+
+    def test_uploads_ready_for_identification_empty_state_links_to_taxon_dashboard(self):
+        response = self.client.get(reverse("caidapp:uploads_ready_for_identification"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "There are no taxon uploads ready to send to identification.")
+        self.assertContains(response, reverse("caidapp:taxon_processing"))
+
+    def test_select_taxon_for_identification_uses_workgroup_default_and_explains_action(self):
+        default_taxon = TaxonFactory(name="Lynx")
+        self.caiduser.workgroup.default_taxon_for_identification = default_taxon
+        self.caiduser.workgroup.save()
+        archive = UploadedArchiveFactory(
+            owner=self.caiduser,
+            taxon_status="TV",
+            is_for_identification=False,
+            contains_single_taxon=False,
+        )
+
+        response = self.client.get(reverse("caidapp:select_taxon_for_identification", args=[archive.id]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["form"].initial["taxon_for_identification"], default_taxon)
+        self.assertContains(response, "This screen sends media files with the selected taxon")
+        self.assertContains(response, "Send to identification")
+
+    def test_select_taxon_for_identification_prefers_archive_taxon_and_returns_to_next(self):
+        default_taxon = TaxonFactory(name="Lynx")
+        archive_taxon = TaxonFactory(name="Wolf")
+        self.caiduser.workgroup.default_taxon_for_identification = default_taxon
+        self.caiduser.workgroup.save()
+        archive = UploadedArchiveFactory(
+            owner=self.caiduser,
+            taxon_status="TV",
+            taxon_for_identification=archive_taxon,
+            is_for_identification=False,
+            contains_single_taxon=False,
+        )
+        next_url = reverse("caidapp:uploads_ready_for_identification")
+
+        response = self.client.get(reverse("caidapp:select_taxon_for_identification", args=[archive.id]))
+        self.assertEqual(response.context["form"].initial["taxon_for_identification"], archive_taxon)
+
+        response = self.client.post(
+            reverse("caidapp:select_taxon_for_identification", args=[archive.id]) + f"?next={next_url}",
+            {
+                "taxon_for_identification": str(archive_taxon.id),
+                "next": next_url,
+            },
+        )
+
+        self.assertRedirects(response, next_url)
+        archive.refresh_from_db()
+        self.assertEqual(archive.taxon_for_identification, archive_taxon)
+        self.assertTrue(archive.is_for_identification)
+        self.assertEqual(archive.identification_status, "IR")
+
     def test_upload_lists_offer_filename_metadata_extraction(self):
         species_archive = UploadedArchiveFactory(
             owner=self.caiduser,
