@@ -97,6 +97,9 @@ def update_locality(request, locality_id=None):
             # get uploaded archive
             locality = form.save()
             _round_location(locality, order=3)
+            next_url = request.GET.get("next") or request.POST.get("next")
+            if next_url:
+                return redirect(next_url)
             return redirect("caidapp:localities")
     else:
         form = LocalityForm(instance=locality)

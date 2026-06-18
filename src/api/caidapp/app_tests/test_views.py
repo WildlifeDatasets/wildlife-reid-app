@@ -6,6 +6,7 @@ from unittest.mock import Mock, patch
 from caidapp import models
 from caidapp import tasks
 from caidapp import views
+from caidapp import views_mediafile
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
@@ -226,6 +227,25 @@ class ImageUploadGraphViewTest(TestCase):
         self.assertEqual(fig.layout.xaxis.type, "date")
         self.assertTrue(fig.layout.xaxis.rangeslider.visible)
         self.assertEqual(list(fig.data[0].x), [pd.Timestamp("2026-06-01").date(), pd.Timestamp("2026-06-05").date(), pd.Timestamp("2026-06-10").date()])
+
+
+class AnimalObservationFormTest(TestCase):
+    def test_identity_queryset_is_sorted_and_searchable(self):
+        caiduser = CaidUserFactory()
+        archive = UploadedArchiveFactory(owner=caiduser)
+        mediafile = MediaFileFactory(parent=archive)
+        IndividualIdentityFactory(owner_workgroup=caiduser.workgroup, name="Zebra")
+        IndividualIdentityFactory(owner_workgroup=caiduser.workgroup, name="Antelope")
+        observation = AnimalObservationFactory(mediafile=mediafile)
+
+        form = views_mediafile.forms.AnimalObservationForm(instance=observation)
+
+        self.assertEqual(
+            list(form.fields["identity"].queryset.values_list("name", flat=True)),
+            ["Antelope", "Identity0", "Zebra"],
+        )
+        self.assertIn("js-searchable-select", form.fields["identity"].widget.attrs["class"])
+        self.assertIn("js-searchable-select", form.fields["taxon"].widget.attrs["class"])
 
 
 class SpreadsheetIdentityLocalityImportExportTest(TestCase):

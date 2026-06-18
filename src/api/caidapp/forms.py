@@ -690,6 +690,9 @@ class MediaFileForm(forms.ModelForm):
         self.fields["locality"].queryset = models.Locality.objects.filter(
             **models.user_has_access_filter_params(caiduser, "owner")
         ).order_by("name")
+        self.fields["locality"].widget.attrs["class"] = (
+            self.fields["locality"].widget.attrs.get("class", "") + " js-searchable-select"
+        ).strip()
         # self.fields["taxon"].queryset = models.Taxon.objects.order_by("name")
 
 
@@ -707,6 +710,9 @@ class MediaFileMissingTaxonForm(forms.ModelForm):
         self.fields["locality"].queryset = models.Locality.objects.filter(
             **models.user_has_access_filter_params(caiduser, "owner")
         ).order_by("name")
+        self.fields["locality"].widget.attrs["class"] = (
+            self.fields["locality"].widget.attrs.get("class", "") + " js-searchable-select"
+        ).strip()
         self.fields["taxon"].queryset = models.Taxon.objects.order_by("name")
 
 
@@ -839,12 +845,18 @@ class AnimalObservationForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # caiduser = self.instance.mediafile.parent.owner
         if self.instance and self.instance.mediafile_id:
             workgroup = self.instance.mediafile.parent.owner.workgroup
             self.fields["identity"].queryset = self.fields["identity"].queryset.filter(owner_workgroup=workgroup)
 
+        self.fields["identity"].queryset = self.fields["identity"].queryset.order_by("name")
         self.fields["taxon"].queryset = models.Taxon.objects.order_by("name")
+        self.fields["identity"].widget.attrs["class"] = (
+            self.fields["identity"].widget.attrs.get("class", "") + " js-searchable-select"
+        ).strip()
+        self.fields["taxon"].widget.attrs["class"] = (
+            self.fields["taxon"].widget.attrs.get("class", "") + " js-searchable-select"
+        ).strip()
 
 
 # class AnimalObservationForm(forms.ModelForm):

@@ -1,11 +1,34 @@
 {% extends 'base.html' %}
 {% load custom_filters %}
 {% load crispy_forms_tags %}
+{% load static %}
 {# add style #}
 {% block head %}
     {{ form.media }}
+    <link href="{% static 'admin/css/vendor/select2/select2.min.css' %}" rel="stylesheet">
+    <link href="{% static 'admin/css/autocomplete.css' %}" rel="stylesheet">
+    <script src="{% static 'admin/js/vendor/select2/select2.full.js' %}"></script>
+    <script src="{% static 'admin/js/vendor/select2/i18n/cs.js' %}"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js"></script>
     <style>
+        .select2-container {
+            width: 100% !important;
+        }
+
+        .select2-container .select2-selection--single {
+            min-height: calc(1.5em + 0.75rem + 2px);
+            border: 1px solid var(--bs-border-color);
+            border-radius: var(--bs-border-radius);
+            padding-top: 0.1rem;
+        }
+
+        .select2-container .select2-selection__rendered {
+            line-height: calc(1.5em + 0.55rem);
+        }
+
+        .select2-container .select2-selection__arrow {
+            height: calc(1.5em + 0.75rem + 2px);
+        }
         /* Increase the size of the carousel control icons */
         .carousel-control-prev-icon,
         .carousel-control-next-icon {
@@ -366,7 +389,17 @@ Observation ID: {{ obs_form.instance.id }}
                                                             <i class="bi bi-geo-alt-fill"></i>
                                                         </button>
                                                     </div>
-                                                    {{ field }}
+                                                    <div class="d-flex align-items-start gap-2">
+                                                        <div class="flex-grow-1">
+                                                            {{ field }}
+                                                        </div>
+                                                        <a href="{% url 'caidapp:update_locality' %}?next={{ request.get_full_path|urlencode }}"
+                                                           class="btn btn-outline-primary btn-sm"
+                                                           title="Add locality"
+                                                           aria-label="Add locality">
+                                                            <i class="bi-plus"></i>
+                                                        </a>
+                                                    </div>
                                                     {% if effective_location %}
                                                         <small class="form-text text-muted">
                                                             Effective location:
@@ -850,6 +883,33 @@ mediafile.taxon: {{ mediafile.taxon }}
             const totalFormsInput = document.querySelector('[name$="TOTAL_FORMS"]');
             const locationCollapse = document.getElementById("mediafile-location-collapse");
 
+            function initializeSearchableSelects(root = document) {
+                if (!window.jQuery || !window.jQuery.fn || !window.jQuery.fn.select2) {
+                    return;
+                }
+
+                window.jQuery(root).find("select.js-searchable-select").each(function () {
+                    const $select = window.jQuery(this);
+                    if ($select.hasClass("select2-hidden-accessible")) {
+                        $select.select2("destroy");
+                    }
+                    const label = this.closest(".mt-1")?.querySelector("label");
+                    const placeholder = label ? `Search ${label.textContent.trim().toLowerCase()}` : "Search";
+                    $select.select2({
+                        width: "100%",
+                        language: "cs",
+                        allowClear: false,
+                    });
+
+                    $select.on("select2:open", function () {
+                        const searchField = document.querySelector(".select2-container--open .select2-search__field");
+                        if (searchField) {
+                            searchField.placeholder = placeholder;
+                        }
+                    });
+                });
+            }
+
             function appendObservationForm() {
                 const formIndex = parseInt(totalFormsInput.value);
                 const newFormHtml = emptyFormDiv.innerHTML.replace(/__prefix__/g, formIndex);
@@ -858,6 +918,7 @@ mediafile.taxon: {{ mediafile.taxon }}
                 wrapper.dataset.obsId = `new-${formIndex}`;
                 wrapper.innerHTML = newFormHtml;
                 container.appendChild(wrapper);
+                initializeSearchableSelects(wrapper);
 
                 totalFormsInput.value = formIndex + 1; // update management form count
                 return wrapper;
@@ -883,6 +944,8 @@ mediafile.taxon: {{ mediafile.taxon }}
                     totalFormsInput.value = Math.max(0, parseInt(totalFormsInput.value) - removedNewForms);
                 }
             }
+
+            initializeSearchableSelects(document);
 
             addBtn.addEventListener("click", function () {
                 appendObservationForm();

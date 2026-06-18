@@ -586,6 +586,11 @@ urlpatterns = [
         views.apply_identity_code_suggestion,
         name="apply_identity_code_suggestion",
     ),
+    path(
+        "apply_selected_identity_code_suggestions/",
+        views.apply_selected_identity_code_suggestions,
+        name="apply_selected_identity_code_suggestions",
+    ),
     # path("uploads_status_api/<bool:species>/", views.uploads_status_api, name="uploads_status_api"),
     path("uploads_status_api/<str:group>/", views.uploads_status_api, name="uploads_status_api"),
     path("sentry-debug/", trigger_error),

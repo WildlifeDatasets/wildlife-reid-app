@@ -6429,20 +6429,54 @@ def show_identity_code_suggestions(request):
     )
 
 
+def _apply_identity_code_to_identity(identity: IndividualIdentity, rename: bool = True) -> bool:
+    """Apply suggested code to one identity."""
+    code = identity.suggested_code_from_name()
+    if not code:
+        return False
+
+    identity.note = identity.note + f"\nformer code: {str(identity.code)} \nformer name: {str(identity.name)}"
+    identity.code = code
+    if rename:
+        identity.name = identity.name.replace(code, "").strip()
+    identity.save()
+    return True
+
+
 @login_required
 def apply_identity_code_suggestion(request, identity_id: int, rename: bool = True):
     """Use the suggested individuality code."""
     identity = get_object_or_404(IndividualIdentity, pk=identity_id, owner_workgroup=request.user.caiduser.workgroup)
-
-    code = identity.suggested_code_from_name()
-    if code:
-        identity.note = identity.note + f"\nformer code: {str(identity.code)} \nformer name: {str(identity.name)}"
-        identity.code = code
-        if rename:
-            identity.name = identity.name.replace(code, "").strip()
-        identity.save()
-
+    _apply_identity_code_to_identity(identity, rename=rename)
     return redirect(request.META.get("HTTP_REFERER", "/"))
+
+
+@login_required
+def apply_selected_identity_code_suggestions(request, rename: bool = True):
+    """Apply suggested codes to selected identities."""
+    if request.method != "POST":
+        messages.error(request, "Invalid request method.")
+        return redirect("caidapp:show_identity_code_suggestions")
+
+    selected_identity_ids = request.POST.getlist("identity_ids")
+    if not selected_identity_ids:
+        messages.info(request, "No identities were selected.")
+        return redirect("caidapp:show_identity_code_suggestions")
+
+    identities = IndividualIdentity.objects.filter(
+        owner_workgroup=request.user.caiduser.workgroup,
+        id__in=selected_identity_ids,
+    )
+    applied_count = 0
+    for identity in identities:
+        applied_count += int(_apply_identity_code_to_identity(identity, rename=rename))
+
+    if applied_count == 0:
+        messages.info(request, "No selected identities had an applicable code suggestion.")
+    else:
+        messages.success(request, f"Applied code suggestions to {applied_count} identities.")
+
+    return redirect("caidapp:show_identity_code_suggestions")
 
 
 @login_required
