@@ -129,6 +129,22 @@
                             {#                Do not remove the fallowing line with pagenumber. It is invisible. but importatn for the form. #}
                             {{ form_query.pagenumber }}
 
+                            <input type="checkbox" id="select_all" name="select_all" class="d-none">
+                            <input type="checkbox" id="select_all_the_page" name="select_all_the_page" class="d-none">
+
+                            <div class="dropdown d-inline-block">
+                                <button class="btn btn-outline-secondary dropdown-toggle" type="button"
+                                        data-bs-toggle="dropdown" aria-expanded="false"
+                                        data-bs-toggle-tooltip="true" data-bs-title="Select" aria-label="Select">
+                                    <i class="bi bi-check2-square"></i>
+                                </button>
+                                <ul class="dropdown-menu">
+                                    <li><button class="dropdown-item js-select-all-mediafiles" type="button">Select all in current filter</button></li>
+                                    <li><button class="dropdown-item js-select-page-mediafiles" type="button">Select media files on page</button></li>
+                                    <li><button class="dropdown-item js-clear-mediafile-selection" type="button">Clear page selection</button></li>
+                                </ul>
+                            </div>
+
                             <div class="dropdown d-inline-block">
                                 <a class="btn btn-secondary dropdown-toggle" href="#" role="button"
                                    data-bs-toggle="dropdown" aria-expanded="false">
@@ -214,11 +230,8 @@
                                             </p>
 
                                         {% endfor %}
-                                        <p> Select all:
-{#                                            show alert if checkbox is selected #}
-                                            <input type="checkbox" id="select_all" name="select_all" onclick="return confirm('{{ page_obj.paginator.count }} media files selected for bulk processing.')">
-                                            Select all the page:
-                                            <input type="checkbox" id="select_all_the_page" name="select_all_the_page" >
+                                        <p class="text-muted small mb-3">
+                                            Selection is controlled from the toolbar above the download button.
                                         </p>
                                         <label for="cars">Album:</label>
 
@@ -566,10 +579,68 @@
 {#    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>#}
     <script src="{% static 'caidapp/download_button.js' %}"></script>
     <script>
-        // Select all checkboxes by clicking on the checkbox in the header
-        $(document).on("click", "#select_all_the_page", function(event) {
-            var checked = $(this).prop("checked");
-            $(".select-mediafile-checkbox").prop("checked", checked);
+        document.addEventListener("DOMContentLoaded", function () {
+            const selectAllInput = document.getElementById("select_all");
+            const selectPageInput = document.getElementById("select_all_the_page");
+            const mediafileCheckboxes = Array.from(document.querySelectorAll(".select-mediafile-checkbox"));
+            const selectAllButton = document.querySelector(".js-select-all-mediafiles");
+            const selectPageButton = document.querySelector(".js-select-page-mediafiles");
+            const clearSelectionButton = document.querySelector(".js-clear-mediafile-selection");
+
+            function setPageSelection(checked) {
+                mediafileCheckboxes.forEach(function (checkbox) {
+                    checkbox.checked = checked;
+                });
+            }
+
+            if (selectAllButton) {
+                selectAllButton.addEventListener("click", function () {
+                    if (selectAllInput) {
+                        selectAllInput.checked = true;
+                    }
+                    if (selectPageInput) {
+                        selectPageInput.checked = true;
+                    }
+                    setPageSelection(true);
+                });
+            }
+
+            if (selectPageButton) {
+                selectPageButton.addEventListener("click", function () {
+                    if (selectAllInput) {
+                        selectAllInput.checked = false;
+                    }
+                    if (selectPageInput) {
+                        selectPageInput.checked = true;
+                    }
+                    setPageSelection(true);
+                });
+            }
+
+            if (clearSelectionButton) {
+                clearSelectionButton.addEventListener("click", function () {
+                    if (selectAllInput) {
+                        selectAllInput.checked = false;
+                    }
+                    if (selectPageInput) {
+                        selectPageInput.checked = false;
+                    }
+                    setPageSelection(false);
+                });
+            }
+
+            mediafileCheckboxes.forEach(function (checkbox) {
+                checkbox.addEventListener("change", function () {
+                    if (!checkbox.checked && selectAllInput) {
+                        selectAllInput.checked = false;
+                    }
+                    if (selectPageInput) {
+                        selectPageInput.checked = mediafileCheckboxes.some(function (item) {
+                            return item.checked;
+                        });
+                    }
+                });
+            });
         });
     </script>
     <script>

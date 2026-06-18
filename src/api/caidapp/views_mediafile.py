@@ -170,15 +170,18 @@ class MediaFileUpdateView(LoginRequiredMixin, UpdateWithInlinesView):
 
     def _get_taxon_from_inline_observations(self):
         """Get taxon from inline observations, prefer first non-null."""
-        taxon_id_str = self.request.POST.get("observations-0-taxon", None)
-        logger.debug(f"{taxon_id_str=}")
-        if taxon_id_str:
+        total_forms = int(self.request.POST.get("observations-TOTAL_FORMS", 0) or 0)
+        for index in range(total_forms):
+            taxon_id_str = self.request.POST.get(f"observations-{index}-taxon")
+            logger.debug("observations-%s-taxon=%s", index, taxon_id_str)
+            if not taxon_id_str:
+                continue
             try:
-                taxon_id = int(taxon_id_str[0])
-                taxon = models.Taxon.objects.get(id=taxon_id)
-                return taxon
+                taxon_id = int(taxon_id_str)
+                return models.Taxon.objects.get(id=taxon_id)
             except (ValueError, models.Taxon.DoesNotExist):
-                pass
+                continue
+        return None
 
     def form_valid(self, form):
         """Set updated_by and updated_at on save."""

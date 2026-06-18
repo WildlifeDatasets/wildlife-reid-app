@@ -104,6 +104,20 @@ logger = logging.getLogger("app")
 User = get_user_model()
 
 
+def _annotate_identity_mediafile_stats(queryset: QuerySet) -> QuerySet:
+    """Annotate identity stats using observation-linked mediafiles."""
+    return queryset.annotate(
+        mediafile_count=Count("animalobservation__mediafile", distinct=True),
+        representative_mediafile_count=Count(
+            "animalobservation__mediafile",
+            filter=Q(animalobservation__identity_is_representative=True),
+            distinct=True,
+        ),
+        locality_count=Count("animalobservation__mediafile__locality", distinct=True),
+        last_seen=Max("animalobservation__mediafile__captured_at"),
+    )
+
+
 MEDIAFILE_EXPORT_SCHEMAS = {
     "species_identity": "{species}/{identity}/{hash}_{species}_{identity}{dotext}",
     "identity_dirs": "{identity}/{hash}_{species}_{identity}{dotext}",
@@ -912,19 +926,12 @@ class IdentityListView(LoginRequiredMixin, ListView):
                 selected_ids.append(int(raw_id))
             except (TypeError, ValueError):
                 continue
-        return (
+        return _annotate_identity_mediafile_stats(
             IndividualIdentity.objects.filter(
                 pk__in=selected_ids,
                 owner_workgroup=self.request.user.caiduser.workgroup,
             )
-            .annotate(
-                mediafile_count=Count("mediafile"),
-                representative_mediafile_count=Count("mediafile", filter=Q(mediafile__identity_is_representative=True)),
-                locality_count=Count("mediafile__locality", distinct=True),
-                last_seen=Max("mediafile__captured_at"),
-            )
-            .order_by("name", "id")
-        )
+        ).order_by("name", "id")
 
     def post(self, request, *args, **kwargs):
         """Handle bulk identity actions from list and card views."""
@@ -965,12 +972,7 @@ class IdentityListView(LoginRequiredMixin, ListView):
 
         self.paginate_by = views_general.get_item_number_anything(self.request, class_prefix)
         qs = IndividualIdentity.objects.filter(Q(owner_workgroup=self.request.user.caiduser.workgroup) & ~Q(name="nan"))
-        qs = qs.annotate(
-            mediafile_count=Count("mediafile"),
-            representative_mediafile_count=Count("mediafile", filter=Q(mediafile__identity_is_representative=True)),
-            locality_count=Count("mediafile__locality", distinct=True),
-            last_seen=Max("mediafile__captured_at"),
-        )
+        qs = _annotate_identity_mediafile_stats(qs)
 
         self.filterset = filters.IndividualIdentityFilter(self.request.GET, queryset=qs)
         qs = self.filterset.qs
@@ -1063,7 +1065,10 @@ class IndividualIdentityUpdateView(LoginRequiredMixin, UpdateView):
         """Get context data for the template."""
         context = super().get_context_data(**kwargs)
         individual_identity = self.get_object()
-        media_files = MediaFile.objects.filter(identity=individual_identity, identity_is_representative=True)
+        media_files = individual_identity.observation_mediafiles().filter(
+            observations__identity=individual_identity,
+            observations__identity_is_representative=True,
+        )
         # media_file = media_files.first()
 
         nav_dict = {}
@@ -3347,7 +3352,7 @@ def _get_filtered_mediafiles_queryset(
     elif individual_identity_id is not None:
         individual_identity = _get_identity_for_user_or_404(request, individual_identity_id)
         page_title = f"Media files - {individual_identity.name}"
-        filter_kwargs["identity"] = individual_identity
+        filter_kwargs["observations__identity"] = individual_identity
         mediafiles_name_suggestion = f"individual_identity_{individual_identity.name}"
     elif individual_identity_ids:
         active_identities = _get_active_identities_from_request(request)
@@ -3355,7 +3360,7 @@ def _get_filtered_mediafiles_queryset(
         if len(active_identities) > 3:
             identity_names += f", +{len(active_identities) - 3}"
         page_title = f"Media files - {identity_names}"
-        filter_kwargs["identity_id__in"] = [identity.id for identity in active_identities]
+        filter_kwargs["observations__identity_id__in"] = [identity.id for identity in active_identities]
         mediafiles_name_suggestion = "individual_identities"
     elif locality_hash is not None:
         locality = _get_locality_for_user_or_404(request, locality_hash)
@@ -3364,8 +3369,11 @@ def _get_filtered_mediafiles_queryset(
         mediafiles_name_suggestion = f"locality_{locality.name}"
     elif identity_is_representative is not None:
         page_title = "Media files - representative"
-        filter_kwargs["identity_is_representative"] = identity_is_representative
+        filter_kwargs["observations__identity_is_representative"] = identity_is_representative
         mediafiles_name_suggestion = f"representative_identity_{str(identity_is_representative)}"
+
+    if individual_identity_id is not None and identity_is_representative is not None:
+        filter_kwargs["observations__identity_is_representative"] = identity_is_representative
 
     mediafiles = MediaFile.objects.filter(
         Q(album__albumsharerole__user=request.user.caiduser)
@@ -5250,7 +5258,10 @@ def _refresh_media_file_original_name(request):
 def shared_individual_identity_view(request, identity_hash: str):
     """Show shared individual identity to any user."""
     identity = get_object_or_404(IndividualIdentity, hash=identity_hash)
-    mediafiles = MediaFile.objects.filter(identity=identity, identity_is_representative=True).all()
+    mediafiles = MediaFile.objects.filter(
+        observations__identity=identity,
+        observations__identity_is_representative=True,
+    ).distinct()
 
     return render(
         request,

@@ -212,6 +212,82 @@ class MediafileListViewTest(TestCase):
         self.assertNotContains(response, "data-sequence=")
 
 
+class IdentityObservationAggregationTest(TestCase):
+    def setUp(self):
+        self.caiduser = CaidUserFactory()
+        self.client.login(username=self.caiduser.user.username, password="test123")
+
+    def test_identity_list_uses_observation_identities_for_counts_and_cover(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Alpha")
+        other_identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Beta")
+        first_locality = LocalityFactory(owner=self.caiduser, name="Forest")
+        second_locality = LocalityFactory(owner=self.caiduser, name="Meadow")
+        older_mediafile = MediaFileFactory(
+            parent=archive,
+            locality=first_locality,
+            original_filename="older.jpg",
+            captured_at=pd.Timestamp("2026-01-01T10:00:00Z").to_pydatetime(),
+        )
+        newer_mediafile = MediaFileFactory(
+            parent=archive,
+            locality=second_locality,
+            original_filename="newer.jpg",
+            captured_at=pd.Timestamp("2026-01-02T10:00:00Z").to_pydatetime(),
+        )
+        other_mediafile = MediaFileFactory(parent=archive, original_filename="other.jpg")
+
+        AnimalObservationFactory(mediafile=older_mediafile, identity=identity, identity_is_representative=False)
+        AnimalObservationFactory(mediafile=newer_mediafile, identity=identity, identity_is_representative=True)
+        AnimalObservationFactory(mediafile=other_mediafile, identity=other_identity, identity_is_representative=True)
+
+        response = self.client.get(reverse("caidapp:individual_identities"), {"view": "list"})
+
+        self.assertEqual(response.status_code, 200)
+        alpha = next(item for item in response.context["page_obj"] if item.id == identity.id)
+        self.assertEqual(alpha.mediafile_count, 2)
+        self.assertEqual(alpha.representative_mediafile_count, 1)
+        self.assertEqual(alpha.locality_count, 2)
+        self.assertEqual(alpha.cover_mediafile().id, newer_mediafile.id)
+        self.assertEqual(alpha.last_seen.date().isoformat(), "2026-01-02")
+
+    def test_identity_mediafiles_view_filters_by_observation_identity(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Alpha")
+        other_identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Beta")
+        matching_mediafile = MediaFileFactory(parent=archive, original_filename="alpha.jpg")
+        other_mediafile = MediaFileFactory(parent=archive, original_filename="beta.jpg")
+
+        AnimalObservationFactory(mediafile=matching_mediafile, identity=identity)
+        AnimalObservationFactory(mediafile=other_mediafile, identity=other_identity)
+
+        response = self.client.get(reverse("caidapp:individual_identity_mediafiles", args=[identity.id]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "alpha.jpg")
+        self.assertNotContains(response, "beta.jpg")
+
+    def test_sequence_view_filters_by_observation_identity(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Alpha")
+        other_identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Beta")
+        matching_sequence = SequenceFactory(uploaded_archive=archive)
+        other_sequence = SequenceFactory(uploaded_archive=archive)
+        matching_mediafile = MediaFileFactory(parent=archive, sequence=matching_sequence, original_filename="alpha-seq.jpg")
+        other_mediafile = MediaFileFactory(parent=archive, sequence=other_sequence, original_filename="beta-seq.jpg")
+
+        AnimalObservationFactory(mediafile=matching_mediafile, identity=identity)
+        AnimalObservationFactory(mediafile=other_mediafile, identity=other_identity)
+
+        response = self.client.get(reverse("caidapp:sequences"), {"individual_identity_id": identity.id})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Identity: Alpha")
+        self.assertContains(response, "alpha-seq.jpg")
+        self.assertNotContains(response, "beta-seq.jpg")
+
+
+
 class ImageUploadGraphViewTest(TestCase):
     def test_upload_stats_graph_uses_date_axis_and_sorted_days(self):
         df = pd.DataFrame(
@@ -469,6 +545,62 @@ class MediaFileUpdateEmptyObservationTest(TestCase):
         self.assertIsNone(observations[0].bbox_y_center)
         self.assertIsNone(observations[0].bbox_width)
         self.assertIsNone(observations[0].bbox_height)
+
+    def test_mediafile_update_shows_confirm_identity_action_for_preidentified_mediafile(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser, is_for_identification=True)
+        mediafile = MediaFileFactory(parent=archive)
+        models.MediafilesForIdentification.objects.create(mediafile=mediafile)
+
+        response = self.client.get(reverse("caidapp:media_file_update", args=[mediafile.id]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, reverse("caidapp:get_individual_identity_by_media_file", args=[mediafile.id]))
+        self.assertContains(response, "Confirm identity")
+
+    def test_save_sequence_uses_full_taxon_id_for_multi_digit_taxon_ids(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        sequence = SequenceFactory(uploaded_archive=archive)
+        first_mediafile = MediaFileFactory(parent=archive, sequence=sequence)
+        second_mediafile = MediaFileFactory(parent=archive, sequence=sequence)
+        observations = [
+            AnimalObservationFactory(mediafile=first_mediafile, taxon=None, taxon_verified=False),
+            AnimalObservationFactory(mediafile=second_mediafile, taxon=None, taxon_verified=False),
+        ]
+        taxon = None
+        for index in range(12):
+            created_taxon = TaxonFactory(name=f"SequenceTaxon{index}")
+            if index == 11:
+                taxon = created_taxon
+
+        response = self.client.post(
+            reverse("caidapp:media_file_update", args=[first_mediafile.id]),
+            self._base_mediafile_update_post_data(
+                first_mediafile,
+                total_forms=1,
+                initial_forms=1,
+                extra_form_data={
+                    "observations-0-id": str(observations[0].id),
+                    "observations-0-mediafile": str(first_mediafile.id),
+                    "observations-0-taxon": str(taxon.id),
+                    "observations-0-taxon_verified": "on",
+                    "observations-0-identity": "",
+                    "observations-0-identity_is_representative": "",
+                    "observations-0-orientation": "N",
+                    "observations-0-bbox_x_center": "",
+                    "observations-0-bbox_y_center": "",
+                    "observations-0-bbox_width": "",
+                    "observations-0-bbox_height": "",
+                    "observations-0-DELETE": "",
+                    "save_set_taxon_sequence": "1",
+                },
+            ),
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        for observation in observations:
+            observation.refresh_from_db()
+            self.assertEqual(observation.taxon_id, taxon.id)
 
     def test_mark_empty_image_replaces_existing_observations_with_nothing(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)

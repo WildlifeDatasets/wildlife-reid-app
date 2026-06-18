@@ -1119,32 +1119,62 @@ class IndividualIdentity(models.Model):
     birth_date = models.DateField("Birth date", blank=True, null=True)
     death_date = models.DateField("Death date", blank=True, null=True)
 
+    def observation_mediafiles(self):
+        """Return distinct mediafiles linked through observation identities."""
+        return MediaFile.objects.filter(observations__identity=self).distinct()
+
     # remove mediefiles and use mediafile_set
     def mediafiles(self):
         """Return mediafiles."""
-        return MediaFile.objects.filter(identity=self).all()
+        return self.observation_mediafiles()
+
+    def cover_mediafile(self):
+        """Return representative mediafile when available, otherwise any linked mediafile."""
+        representative = (
+            MediaFile.objects.filter(
+                observations__identity=self,
+                observations__identity_is_representative=True,
+            )
+            .order_by("-captured_at", "-id")
+            .distinct()
+            .first()
+        )
+        if representative is not None:
+            return representative
+        return self.observation_mediafiles().order_by("-captured_at", "-id").first()
 
     def last_seen(self):
         """Return last seen date."""
-        last = MediaFile.objects.filter(identity=self).order_by("-captured_at").first()
+        last = self.observation_mediafiles().order_by("-captured_at", "-id").first()
         return last.captured_at if last else None
 
     def count_of_representative_mediafiles(self):
         """Return number of representative media files."""
-        return MediaFile.objects.filter(identity=self, identity_is_representative=True).count()
+        return (
+            MediaFile.objects.filter(
+                observations__identity=self,
+                observations__identity_is_representative=True,
+            )
+            .distinct()
+            .count()
+        )
 
     def count_of_mediafiles(self):
         """Return number of media files."""
-        return MediaFile.objects.filter(identity=self).count()
+        return self.observation_mediafiles().count()
 
     def count_of_localities(self):
         """Return number of localities."""
-        return MediaFile.objects.filter(identity=self).values("locality").distinct().count()
+        return self.observation_mediafiles().values("locality").distinct().count()
 
     def localities(self):
         """Return localities ordered by count of media files."""
-        # return MediaFile.objects.filter(identity=self).values("locality").distinct().or
-        return Locality.objects.filter(mediafiles__identity=self).annotate(count=Count("mediafiles")).order_by("-count")
+        return (
+            Locality.objects.filter(mediafiles__observations__identity=self)
+            .annotate(count=Count("mediafiles", filter=Q(mediafiles__observations__identity=self), distinct=True))
+            .order_by("-count", "name")
+            .distinct()
+        )
 
     def __str__(self):
         return str(self.name)

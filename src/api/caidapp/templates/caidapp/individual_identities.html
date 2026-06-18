@@ -63,16 +63,17 @@
                                        aria-label="Select identity {{ individual_identity }}">
                             </div>
 
-                        <a
-                                href="{% url 'caidapp:individual_identity_mediafiles' individual_identity.id %}"
-                        >
-
-                            {% if individual_identity.mediafile_set.first.thumbnail %}
-                            <img class="card-img-top img-fluid cover-image" src="{{ individual_identity.mediafile_set.first.thumbnail.url }}"
-                                 style="height: 300px; object-fit: cover;"
-                                 alt="Camera trap image">
-                            {% endif %}
-                        </a>
+                        {% with cover_mediafile=individual_identity.cover_mediafile %}
+                            <a
+                                    href="{% url 'caidapp:individual_identity_mediafiles' individual_identity.id %}"
+                            >
+                                {% if cover_mediafile and cover_mediafile.thumbnail %}
+                                <img class="card-img-top img-fluid cover-image" src="{{ cover_mediafile.thumbnail.url }}"
+                                     style="height: 300px; object-fit: cover;"
+                                     alt="Camera trap image">
+                                {% endif %}
+                            </a>
+                        {% endwith %}
                             <div class="card-body"
                             >
                                 <h5 class="card-title">{{ individual_identity }}</h5>

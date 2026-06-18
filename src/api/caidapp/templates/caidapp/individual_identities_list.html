@@ -108,7 +108,7 @@
                                         class="link-secondary"
                                         href="{% url 'caidapp:individual_identity_mediafiles' individual_identity.id %}"
                                         data-bs-toggle="tooltip" title="Representative media files / Media files">
-                                    {{ individual_identity.count_of_mediafiles }}
+                                    {{ individual_identity.mediafile_count }}
                                 </a>
                             </td>
                             <td>
@@ -116,14 +116,14 @@
                                         class="link-secondary"
                                         href="{% url 'caidapp:individual_identity_mediafiles' individual_identity.id %}?search&identity_is_representative=true"
                                         data-bs-toggle="tooltip" title="Representative media files / Media files">
-                                    {{ individual_identity.count_of_representative_mediafiles }}
+                                    {{ individual_identity.representative_mediafile_count }}
                                 </a>
                             </td>
                             <td>
                                 {{ individual_identity.localities.0 }}
                             </td>
                             <td>
-                                {{ individual_identity.count_of_localities }}
+                                {{ individual_identity.locality_count }}
                             </td>
                         <td>
                             {{ individual_identity.last_seen|date:'Y-m-d' }}
