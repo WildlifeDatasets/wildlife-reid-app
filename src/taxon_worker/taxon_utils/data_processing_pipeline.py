@@ -173,7 +173,7 @@ def load_model_and_predict_and_add_not_classified(
 
     # artifact_config, config, model, model_mean, model_std
 
-    logger.info("Creating DataLoaders.")
+    logger.info("Classification stage: creating dataloaders for %s images.", len(image_paths))
     _, testloader, _, _ = get_dataloaders(
         None,
         image_paths,
@@ -191,9 +191,9 @@ def load_model_and_predict_and_add_not_classified(
     else:
         do_confidence_thresholding = True
 
-    logger.info("Running inference. Taxon classification.")
+    logger.info("Classification stage: running inference for %s images.", len(image_paths))
     predict_output = predict(model, testloader)
-    logger.info("Inference done.")
+    logger.info("Classification stage: inference done.")
     release_taxon_classification_model()
     logits = predict_output.preds
     if "temperature" in artifact_config:
@@ -356,9 +356,8 @@ def data_processing(
 
 def run_taxon_classification_inference(metadata):
     """Use full_image_path for taxon prediction."""
-    # run inference
-    # image_path = metadata["image_path"].apply(lambda x: os.path.join(MEDIA_DIR_PATH, x))
     image_path = metadata["full_image_path"]
+    logger.info("Classification stage: starting for %s media files.", len(metadata))
     logger.debug(f"image path    {image_path=}")
     (
         class_ids,
@@ -383,6 +382,7 @@ def run_taxon_classification_inference(metadata):
     if id2label is not None:
         metadata["predicted_category"] = metadata["predicted_class_id"].apply(lambda x: id2label.get(x, np.nan))
         metadata["predicted_category_raw"] = metadata["predicted_class_id_raw"].apply(lambda x: id2label.get(x, np.nan))
+    logger.info("Classification stage: finished for %s media files.", len(metadata))
 
 
 def use_detector_class_if_classification_fails(
@@ -439,6 +439,7 @@ def keep_correctly_loaded_images(metadata) -> Tuple[pd.DataFrame, pd.DataFrame]:
 def make_previews(metadata, output_dir, preview_width=1200, force: bool = False):
     """Create preview image for video."""
     output_dir = Path(output_dir)
+    logger.info("Preview stage: creating previews for %s media files.", len(metadata))
     for i, row in tqdm(metadata.iterrows(), total=len(metadata), desc="Creating previews"):
         mediafile_path = Path(row["absolute_media_path"])
         # output_dir = Path(settings.MEDIA_ROOT) / mediafile.parent.outputdir

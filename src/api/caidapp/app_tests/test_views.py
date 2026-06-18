@@ -182,6 +182,52 @@ class MediafileExportTest(TestCase):
         self.assertTrue(path.endswith(".jpg"))
 
 
+class MediafileListViewTest(TestCase):
+    def setUp(self):
+        self.caiduser = CaidUserFactory()
+        self.user = self.caiduser.user
+        self.client.login(username=self.user.username, password="test123")
+
+    def test_media_files_view_shows_each_file_separately(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        sequence = SequenceFactory(uploaded_archive=archive)
+        first_mediafile = MediaFileFactory(
+            parent=archive,
+            sequence=sequence,
+            original_filename="first.jpg",
+        )
+        second_mediafile = MediaFileFactory(
+            parent=archive,
+            sequence=sequence,
+            original_filename="second.jpg",
+        )
+
+        response = self.client.get(reverse("caidapp:media_files"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, first_mediafile.original_filename)
+        self.assertContains(response, second_mediafile.original_filename)
+        self.assertNotContains(response, "toggle-sequence")
+        self.assertNotContains(response, "data-sequence=")
+
+
+class ImageUploadGraphViewTest(TestCase):
+    def test_upload_stats_graph_uses_date_axis_and_sorted_days(self):
+        df = pd.DataFrame(
+            [
+                {"date": pd.Timestamp("2026-06-10").date(), "parent__owner__user__username": "alice"},
+                {"date": pd.Timestamp("2026-06-01").date(), "parent__owner__user__username": "alice"},
+                {"date": pd.Timestamp("2026-06-05").date(), "parent__owner__user__username": "alice"},
+            ]
+        )
+
+        fig = views._build_image_upload_graph_figure(df)
+
+        self.assertEqual(fig.layout.xaxis.type, "date")
+        self.assertTrue(fig.layout.xaxis.rangeslider.visible)
+        self.assertEqual(list(fig.data[0].x), [pd.Timestamp("2026-06-01").date(), pd.Timestamp("2026-06-05").date(), pd.Timestamp("2026-06-10").date()])
+
+
 class SpreadsheetIdentityLocalityImportExportTest(TestCase):
     def setUp(self):
         self.caiduser = CaidUserFactory()

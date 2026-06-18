@@ -369,7 +369,7 @@ def detect_animal_on_metadata(metadata: pd.DataFrame, border=0.0) -> pd.DataFram
         pd.DataFrame: metadata with added detection results.
     """
     assert "full_image_path" in metadata
-    logger.info("Running detection inference.")
+    logger.info("Detection stage: starting for %s media files.", len(metadata))
     for row_idx, row in tqdm(metadata.iterrows(), total=len(metadata), desc="Animal detection"):
         image_abs_path = row["full_image_path"]
         try:
@@ -420,4 +420,5 @@ def detect_animal_on_metadata(metadata: pd.DataFrame, border=0.0) -> pd.DataFram
             logger.warning(f"Cannot process image '{image_abs_path}'. Exception: {traceback.format_exc()}")
     if not KEEP_DETECTION_MODEL_LOADED:
         del_detection_model()
+    logger.info("Detection stage: finished for %s media files.", len(metadata))
     return metadata

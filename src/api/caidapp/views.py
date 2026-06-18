@@ -5315,36 +5315,43 @@ def switch_private_mode(request):
     return redirect(request.META.get("HTTP_REFERER", "/"))
 
 
+def _build_image_upload_graph_figure(mediafiles_df: pd.DataFrame):
+    """Build the upload statistics figure with a date axis."""
+    grouped = (
+        mediafiles_df.groupby(["date", "parent__owner__user__username"], as_index=False)
+        .size()
+        .rename(columns={"size": "count"})
+        .sort_values(["date", "parent__owner__user__username"])
+    )
+    fig = px.bar(
+        grouped,
+        x="date",
+        y="count",
+        color="parent__owner__user__username",
+        title="Media Files Uploaded Over Time by User",
+        labels={
+            "date": "Upload Date",
+            "count": "Number of Uploaded Files",
+            "parent__owner__user__username": "User",
+        },
+    )
+
+    fig.update_xaxes(type="date", title_text="Upload Date", rangeslider=dict(visible=True))
+    fig.update_yaxes(title_text="Number of Uploads")
+    fig.update_layout(hovermode="x unified")
+    return fig
+
+
 class ImageUploadGraphView(View):
     def get(self, request):
         """Render the image upload graph."""
-        # Fetch data from MediaFile model
         mediafiles = MediaFile.objects.all().values("parent__uploaded_at", "parent__owner__user__username")
-
-        # Convert to DataFrame
         df = pd.DataFrame(mediafiles)
         df["parent__uploaded_at"] = pd.to_datetime(df["parent__uploaded_at"])
         df["date"] = df["parent__uploaded_at"].dt.date
 
-        # Create Plotly histogram
-        fig = px.histogram(
-            df,
-            x="date",
-            color="parent__owner__user__username",
-            title="Media Files Uploaded Over Time by User",
-            labels={
-                "date": "Upload Date",
-                "count": "Number of Uploaded Files",
-                "parent__owner__user__username": "User",
-            },
-        )
-
-        # Customize x-axis to show dates properly
-        fig.update_xaxes(type="category", title_text="Upload Date")
-        fig.update_yaxes(title_text="Number of Uploads")
-
-        # Convert Plotly figure to HTML
-        graph = fig.to_html(full_html=False)
+        fig = _build_image_upload_graph_figure(df)
+        graph = fig.to_html(full_html=False, config={"scrollZoom": True, "displaylogo": False, "responsive": True})
 
         return render(request, "caidapp/image_upload_graph.html", {"graph": graph})
 

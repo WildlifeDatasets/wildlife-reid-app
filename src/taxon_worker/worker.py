@@ -1,5 +1,6 @@
 import logging
 import shutil
+import time
 import traceback
 from pathlib import Path
 
@@ -68,6 +69,7 @@ def predict(
     # detection_model_path=r"https://github.com/ecologize/CameraTraps/releases/download/v5.0/md_v5a.0.0.pt",
     # detection_model_architecture="ultralytics/yolov5:915bbf2",
     try:
+        task_started_at = time.monotonic()
         logger.info(
             "Applying species identification task with args: "
             + f"{input_archive_file=}, {output_dir=}, {contains_identities=}."
@@ -86,12 +88,9 @@ def predict(
         post_update_csv_name: str = "mediafile.post_update.csv"
         post_update_csv_path = output_dir / post_update_csv_name
 
-        # if spreadsheet is provided in uploaded_archive, save it to post_update_csv_path
-        # and use it for data update
-
+        logger.info("Import pipeline stage: prepare metadata")
         if do_init:
             shutil.rmtree(output_images_dir, ignore_errors=True)
-            # create metadata dataframe
             metadata, _ = data_processing_pipeline.data_preprocessing(
                 input_archive_file,
                 media_dir_path=output_images_dir,
@@ -103,7 +102,8 @@ def predict(
                 path_structure_mapping=path_structure_mapping,
             )
             metadata, df_failing0 = data_processing_pipeline.keep_correctly_loaded_images(metadata)
-            # image_path is now relative to output_images_dir
+            logger.debug("Prepared metadata from archive: %s rows", len(metadata))
+            logger.info("Import pipeline stage: build video previews")
             metadata["full_image_path"] = metadata["image_path"].apply(lambda x: str(output_images_dir / x))
             metadata["absolute_media_path"] = [pth for pth in metadata["full_image_path"]]
             metadata["detection_results"] = [None] * len(metadata)
@@ -113,16 +113,13 @@ def predict(
                 output_metadata_file.with_suffix(".failed.csv"), encoding="utf-8-sig"
             )
         else:
-            logger.debug(
-                f"Using existing metadata file: {output_metadata_file}. " + f"{output_metadata_file.exists()=}"
-            )
-            # print size of file in bytes
+            logger.info("Using existing metadata file: %s", output_metadata_file)
             logger.debug(f"{output_metadata_file=}, {output_metadata_file.stat().st_size=}")
-            # read file as str
             metadata = pd.read_csv(output_metadata_file, index_col=0)
             metadata["full_image_path"] = metadata["image_path"].apply(lambda x: str(output_images_dir / x))
             metadata["absolute_media_path"] = [pth for pth in metadata["full_image_path"]]
             metadata["detection_results"] = [None] * len(metadata)
+            logger.debug("Loaded existing metadata rows: %s", len(metadata))
 
         logger.debug(f"Metadata file: {output_metadata_file}. {output_metadata_file.exists()=}")
         logger.debug(f"{len(metadata['image_path'])=}")
@@ -130,28 +127,28 @@ def predict(
             logger.debug(f"{metadata['image_path'][0]=}, {Path(metadata['image_path'][0]).exists()=}")
             logger.debug(f"{metadata['full_image_path'][0]=}, " f"{Path(metadata['full_image_path'][0]).exists()=}")
 
+        logger.info("Import pipeline stage: detection")
         metadata = inference_detection.detect_animal_on_metadata(metadata)
+        logger.info("Import pipeline stage: taxon classification")
         data_processing_pipeline.run_taxon_classification_inference(metadata)
+        logger.info("Import pipeline stage: previews")
         data_processing_pipeline.make_previews(metadata, output_dir, force=do_init)
 
-        # Update metadata with post_update_csv if it exists
-        # find and read zip or xlsx file in temp dir
-
-        # if spreadsheet is provided in uploaded_archive, use it to update metadata
         if post_update_csv_path.exists():
+            logger.info("Import pipeline stage: apply post-update spreadsheet")
             metadata = post_update_with_spreadsheet(metadata, post_update_csv_path)
 
+        logger.info("Import pipeline stage: write metadata")
         metadata.to_csv(output_metadata_file, encoding="utf-8-sig")
 
+        logger.info("Import pipeline stage: build output archive")
         logger.debug("Preparing output archive.")
         dataset_tools.make_zipfile_with_categories(output_archive_file, output_images_dir, metadata)
         logger.debug(f"{contains_identities=}")
         logger.debug(f"{output_archive_file=}")
 
-        # dataset_tools.make_zipfile(output_archive_file, output_images_dir)
-
         logger.debug(f"{self.request.id=}")
-        logger.info("Finished processing.")
+        logger.info("Finished processing in %.1fs", time.monotonic() - task_started_at)
         out = {"status": "DONE"}
     except Exception:
         error = traceback.format_exc()
