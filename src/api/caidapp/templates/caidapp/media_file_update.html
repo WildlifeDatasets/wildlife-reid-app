@@ -645,6 +645,18 @@ mediafile.taxon: {{ mediafile.taxon }}
             const canvas = new fabric.Canvas('annotCanvas');
             const imgElement = document.getElementById("annotatable-image");
 
+            function removeObservationBox(obsId) {
+                canvas.getObjects()
+                    .filter((object) => object.obsId === obsId)
+                    .forEach((object) => canvas.remove(object));
+                canvas.discardActiveObject();
+                canvas.renderAll();
+            }
+
+            document.addEventListener("observation:deleted", (event) => {
+                removeObservationBox(event.detail.obsId);
+            });
+
             fabric.Image.fromURL(imgElement.src, function (img) {
                 const scale = 600 / img.width;
                 img.scale(scale);
@@ -687,14 +699,6 @@ mediafile.taxon: {{ mediafile.taxon }}
                     return rect;
                 }
 
-                function removeObservationBox(obsId) {
-                    const target = canvas.getObjects().find((o) => o.obsId === obsId);
-                    if (target) {
-                        canvas.remove(target);
-                        canvas.renderAll();
-                    }
-                }
-
                 // připravíme barvy
                 {#const palette = ["#ff3b3b", "#2ecc71", "#3498db", "#f39c12", "#9b59b6", "#1abc9c", "#e67e22", "#e84393"];#}
                 {# let colorIndex = 0;#}
@@ -702,6 +706,8 @@ mediafile.taxon: {{ mediafile.taxon }}
                 // projdeme všechny formuláře a přidáme bboxy se stejnou barvou
                 document.querySelectorAll(".observation-form").forEach(formDiv => {
                     const obsId = formDiv.dataset.obsId;
+                    const deleteInput = formDiv.querySelector(`input[type="hidden"][name$="-DELETE"]`);
+                    if (deleteInput && deleteInput.value) return;
                     console.log(`Loading existing observation ${obsId}`);
                     const x = parseFloat(formDiv.querySelector('[name$="bbox_x_center"]').value);
                     const y = parseFloat(formDiv.querySelector('[name$="bbox_y_center"]').value);
@@ -860,6 +866,9 @@ mediafile.taxon: {{ mediafile.taxon }}
             function markAllCurrentObservationsForDeletion() {
                 let removedNewForms = 0;
                 document.querySelectorAll("#observation-forms .observation-form").forEach((formDiv) => {
+                    document.dispatchEvent(new CustomEvent("observation:deleted", {
+                        detail: {obsId: formDiv.dataset.obsId}
+                    }));
                     const deleteInput = formDiv.querySelector('input[type="hidden"][name$="-DELETE"]');
                     if (deleteInput) {
                         deleteInput.value = "on";
@@ -937,6 +946,9 @@ mediafile.taxon: {{ mediafile.taxon }}
 
             const formDiv = btn.closest(".observation-form");
             if (confirm("Delete this observation?")) {
+                document.dispatchEvent(new CustomEvent("observation:deleted", {
+                    detail: {obsId: formDiv.dataset.obsId}
+                }));
                 const deleteInput = formDiv.querySelector('input[type="hidden"][name$="-DELETE"]');
                 if (deleteInput) {
                     deleteInput.value = "on";  // musí být "on", ne true

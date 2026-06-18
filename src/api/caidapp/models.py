@@ -12,7 +12,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.db import models
-from django.db.models import Count, Q, Exists, OuterRef
+from django.db.models import Count, Exists, F, OuterRef, Q
 from django.db.models.query import QuerySet
 from django.db.models.signals import post_save
 from django.dispatch import receiver
@@ -1848,6 +1848,52 @@ def get_mediafiles_with_missing_taxon(
     )
     return mediafiles
 
+
+def filter_mediafiles_by_identification_taxon(queryset: QuerySet, workgroup: Optional[WorkGroup]) -> QuerySet:
+    """Apply the configured per-upload identification taxon restriction."""
+    if workgroup is None or not workgroup.check_taxon_before_identification:
+        return queryset
+
+    taxon_filter = Q(
+        parent__taxon_for_identification__isnull=False,
+        observations__taxon_id=F("parent__taxon_for_identification_id"),
+    )
+    if workgroup.default_taxon_for_identification_id is not None:
+        taxon_filter |= Q(
+            parent__taxon_for_identification__isnull=True,
+            observations__taxon_id=workgroup.default_taxon_for_identification_id,
+        )
+    return queryset.filter(taxon_filter).distinct()
+
+
+def get_mediafiles_with_missing_identity(
+    caiduser: CaIDUser, uploadedarchive: Optional[UploadedArchive] = None
+) -> QuerySet:
+    """Return accessible identification media files without an assigned identity."""
+    access_filter = user_has_access_filter_params(caiduser, "parent__owner")
+    filters = {
+        "parent__is_for_identification": True,
+        "parent__import_finished": True,
+        **access_filter,
+    }
+    if uploadedarchive is not None:
+        filters["parent"] = uploadedarchive
+
+    observation_with_identity = AnimalObservation.objects.filter(
+        mediafile=OuterRef("pk"),
+        identity__isnull=False,
+    )
+    mediafiles = (
+        MediaFile.objects.annotate(has_observation_identity=Exists(observation_with_identity))
+        .filter(
+            identity__isnull=True,
+            has_observation_identity=False,
+            **filters,
+        )
+        .select_related("parent", "locality", "sequence")
+    )
+    mediafiles = filter_mediafiles_by_identification_taxon(mediafiles, caiduser.workgroup)
+    return mediafiles.order_by("parent__uploaded_at", "id")
 
 
 def get_mediafiles_with_missing_verification(

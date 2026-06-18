@@ -116,6 +116,23 @@ class HomeDashboardSnapshotTest(TestCase):
         self.assertContains(response, reverse("caidapp:uploads_ready_for_identification"))
 
 
+    def test_home_suggests_manual_identification_for_unidentified_identification_upload(self):
+        self.caiduser.workgroup.check_taxon_before_identification = False
+        self.caiduser.workgroup.save(update_fields=["check_taxon_before_identification"])
+        archive = UploadedArchiveFactory(
+            owner=self.caiduser,
+            is_for_identification=True,
+            contains_single_taxon=True,
+        )
+        MediaFileFactory(parent=archive, identity=None)
+
+        response = self.client.get(reverse("caidapp:home"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["home_next_step"]["label"], "Manual identification")
+        self.assertContains(response, reverse("caidapp:manual_identification"))
+
+
 class MediafileExportTest(TestCase):
     def setUp(self):
         self.caiduser = CaidUserFactory()
@@ -281,6 +298,8 @@ class MediaFileUpdateEmptyObservationTest(TestCase):
         self.caiduser = CaidUserFactory()
         self.user = self.caiduser.user
         self.client.login(username=self.user.username, password="test123")
+        self.caiduser.workgroup.check_taxon_before_identification = False
+        self.caiduser.workgroup.save(update_fields=["check_taxon_before_identification"])
 
     def _base_mediafile_update_post_data(self, mediafile, *, total_forms, initial_forms, extra_form_data=None):
         data = {
@@ -440,6 +459,137 @@ class MediaFileUpdateEmptyObservationTest(TestCase):
         self.assertIsNone(observations[0].bbox_y_center)
         self.assertIsNone(observations[0].bbox_width)
         self.assertIsNone(observations[0].bbox_height)
+
+    def test_manual_identification_filters_by_configured_taxon_when_enabled(self):
+        wolf = TaxonFactory(name="Wolf")
+        lynx = TaxonFactory(name="Lynx")
+        bear = TaxonFactory(name="Bear")
+        self.caiduser.workgroup.check_taxon_before_identification = True
+        self.caiduser.workgroup.default_taxon_for_identification = wolf
+        self.caiduser.workgroup.save()
+
+        default_archive = UploadedArchiveFactory(
+            owner=self.caiduser,
+            is_for_identification=True,
+            taxon_for_identification=None,
+        )
+        matching_default = MediaFileFactory(parent=default_archive, identity=None)
+        AnimalObservationFactory(mediafile=matching_default, taxon=wolf)
+        wrong_default = MediaFileFactory(parent=default_archive, identity=None)
+        AnimalObservationFactory(mediafile=wrong_default, taxon=lynx)
+
+        override_archive = UploadedArchiveFactory(
+            owner=self.caiduser,
+            is_for_identification=True,
+            taxon_for_identification=bear,
+        )
+        matching_override = MediaFileFactory(parent=override_archive, identity=None)
+        AnimalObservationFactory(mediafile=matching_override, taxon=bear)
+        wrong_override = MediaFileFactory(parent=override_archive, identity=None)
+        AnimalObservationFactory(mediafile=wrong_override, taxon=wolf)
+
+        mediafile_ids = set(
+            models.get_mediafiles_with_missing_identity(self.caiduser).values_list("id", flat=True)
+        )
+
+        self.assertEqual(mediafile_ids, {matching_default.id, matching_override.id})
+
+    def test_manual_identification_does_not_filter_taxon_when_disabled(self):
+        wolf = TaxonFactory(name="Wolf")
+        lynx = TaxonFactory(name="Lynx")
+        self.caiduser.workgroup.check_taxon_before_identification = False
+        self.caiduser.workgroup.default_taxon_for_identification = wolf
+        self.caiduser.workgroup.save()
+        archive = UploadedArchiveFactory(
+            owner=self.caiduser,
+            is_for_identification=True,
+            taxon_for_identification=wolf,
+        )
+        matching = MediaFileFactory(parent=archive, identity=None)
+        AnimalObservationFactory(mediafile=matching, taxon=wolf)
+        nonmatching = MediaFileFactory(parent=archive, identity=None)
+        AnimalObservationFactory(mediafile=nonmatching, taxon=lynx)
+        without_observation = MediaFileFactory(parent=archive, identity=None)
+
+        mediafile_ids = set(
+            models.get_mediafiles_with_missing_identity(self.caiduser).values_list("id", flat=True)
+        )
+
+        self.assertEqual(mediafile_ids, {matching.id, nonmatching.id, without_observation.id})
+
+    def test_manual_identification_starts_with_accessible_unidentified_mediafile(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser, is_for_identification=True)
+        first_mediafile = MediaFileFactory(parent=archive, identity=None)
+        second_mediafile = MediaFileFactory(parent=archive, identity=None)
+        other_user = CaidUserFactory()
+        other_archive = UploadedArchiveFactory(owner=other_user, is_for_identification=True)
+        MediaFileFactory(parent=other_archive, identity=None)
+
+        response = self.client.get(reverse("caidapp:manual_identification"))
+
+        self.assertRedirects(
+            response,
+            reverse("caidapp:manual_identification_mediafile", args=[first_mediafile.id]),
+            fetch_redirect_response=False,
+        )
+        detail_response = self.client.get(response.url)
+        self.assertEqual(detail_response.status_code, 200)
+        self.assertContains(detail_response, "Manual identification")
+        self.assertContains(
+            detail_response,
+            reverse("caidapp:manual_identification_mediafile", args=[second_mediafile.id]),
+        )
+
+    def test_manual_identification_skips_mediafile_with_observation_identity(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser, is_for_identification=True)
+        identified_mediafile = MediaFileFactory(parent=archive, identity=None)
+        unidentified_mediafile = MediaFileFactory(parent=archive, identity=None)
+        identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup)
+        AnimalObservationFactory(mediafile=identified_mediafile, identity=identity)
+
+        response = self.client.get(reverse("caidapp:manual_identification"))
+
+        self.assertRedirects(
+            response,
+            reverse("caidapp:manual_identification_mediafile", args=[unidentified_mediafile.id]),
+            fetch_redirect_response=False,
+        )
+
+    def test_manual_identification_saves_identity_and_advances(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser, is_for_identification=True)
+        current_mediafile = MediaFileFactory(parent=archive, identity=None)
+        next_mediafile = MediaFileFactory(parent=archive, identity=None)
+        observation = AnimalObservationFactory(mediafile=current_mediafile, identity=None)
+        identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup)
+
+        response = self.client.post(
+            reverse("caidapp:manual_identification_mediafile", args=[current_mediafile.id]),
+            self._base_mediafile_update_post_data(
+                current_mediafile,
+                total_forms=1,
+                initial_forms=1,
+                extra_form_data={
+                    "observations-0-id": str(observation.id),
+                    "observations-0-mediafile": str(current_mediafile.id),
+                    "observations-0-taxon": "",
+                    "observations-0-identity": str(identity.id),
+                    "observations-0-orientation": "N",
+                    "observations-0-bbox_x_center": "",
+                    "observations-0-bbox_y_center": "",
+                    "observations-0-bbox_width": "",
+                    "observations-0-bbox_height": "",
+                    "observations-0-DELETE": "",
+                },
+            ),
+        )
+
+        self.assertRedirects(
+            response,
+            reverse("caidapp:manual_identification_mediafile", args=[next_mediafile.id]),
+            fetch_redirect_response=False,
+        )
+        observation.refresh_from_db()
+        self.assertEqual(observation.identity, identity)
 
 
 class IdentityListBulkActionsTest(TestCase):
@@ -1415,7 +1565,7 @@ class IdentificationUploadsViewTest(TestCase):
         self.assertContains(response, "This screen sends media files with the selected taxon")
         self.assertContains(response, "Send to identification")
 
-    def test_select_taxon_for_identification_prefers_archive_taxon_and_returns_to_next(self):
+    def test_select_taxon_for_identification_prefers_archive_taxon_and_returns_to_home(self):
         default_taxon = TaxonFactory(name="Lynx")
         archive_taxon = TaxonFactory(name="Wolf")
         self.caiduser.workgroup.default_taxon_for_identification = default_taxon
@@ -1440,7 +1590,7 @@ class IdentificationUploadsViewTest(TestCase):
             },
         )
 
-        self.assertRedirects(response, next_url)
+        self.assertRedirects(response, reverse("caidapp:home"))
         archive.refresh_from_db()
         self.assertEqual(archive.taxon_for_identification, archive_taxon)
         self.assertTrue(archive.is_for_identification)

@@ -47,6 +47,7 @@ from django.template.loader import render_to_string
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.utils.decorators import method_decorator
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.translation import gettext_lazy as _
 from django.views import View
 from django.views.decorators.http import require_POST
@@ -386,6 +387,13 @@ def update_taxon(request, taxon_id: Optional[int] = None):
             taxon = form.save(commit=False)
             taxon.updated_by = request.user.caiduser
             taxon.save()
+            next_url = request.POST.get("next")
+            if next_url and url_has_allowed_host_and_scheme(
+                next_url,
+                allowed_hosts={request.get_host()},
+                require_https=request.is_secure(),
+            ):
+                return redirect(next_url)
             return redirect("caidapp:show_taxons")
     else:
         form = forms.TaxonForm(instance=taxon)
@@ -633,6 +641,7 @@ def dash_identities(request) -> HttpResponse:
         .filter(non_representative_mediafile_count__gt=0)
         .order_by("representative_mediafile_count", "-non_representative_mediafile_count")
     )
+    manual_identification_count = models.get_mediafiles_with_missing_identity(request.user.caiduser).count()
     next_step_candidates = build_next_steps(workgroup)
 
     return render(
@@ -645,6 +654,7 @@ def dash_identities(request) -> HttpResponse:
             next_step_candidates=next_step_candidates,
             primary_next_step=next_step_candidates[0] if next_step_candidates else None,
             identity_queue_count=identity_queue_count,
+            manual_identification_count=manual_identification_count,
             suggestion_candidate_mediafile_count=suggestion_candidate_mediafile_count,
             suggestion_candidate_archive_count=suggestion_candidate_archive_count,
             suggestion_run_info=suggestion_run_info,
@@ -782,6 +792,24 @@ def _home_next_step(caiduser) -> dict:
 
     workgroup = caiduser.workgroup
     if workgroup:
+        identification_mediafiles = MediaFile.objects.filter(
+            parent__owner__workgroup=workgroup,
+            parent__is_for_identification=True,
+            parent__import_finished=True,
+        )
+        identification_mediafiles = models.filter_mediafiles_by_identification_taxon(
+            identification_mediafiles, workgroup
+        )
+        has_assigned_identity = identification_mediafiles.filter(
+            Q(identity__isnull=False) | Q(observations__identity__isnull=False)
+        ).exists()
+        if identification_mediafiles.exists() and not has_assigned_identity:
+            return {
+                "label": "Manual identification",
+                "url": reverse("caidapp:manual_identification"),
+                "section": "identification",
+            }
+
         confirmation_count = MediafilesForIdentification.objects.filter(
             mediafile__parent__owner__workgroup=workgroup
         ).count()
@@ -4500,7 +4528,7 @@ def select_taxon_for_identification(request, uploadedarchive_id: int):
             uploaded_archive.identification_status = "IR"  # Ready for identification
             uploaded_archive.is_for_identification = True
             uploaded_archive.save()
-            return redirect(next_url)
+            return redirect("caidapp:home")
     else:
         initial_taxon = uploaded_archive.taxon_for_identification
         if initial_taxon is None and workgroup:

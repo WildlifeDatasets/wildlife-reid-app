@@ -239,6 +239,22 @@
                     </div>
                 </div>
             </div>
+
+            <div class="col-md-4">
+                <div class="card card-btn text-reset border-0 shadow">
+                    <div class="card-body">
+                        <h3 class="card-title">Manual identification</h3>
+                        <div class="card-text">
+                            <p>Assign identities manually to media files from identification uploads.</p>
+                            <a class="btn btn-secondary {% if manual_identification_count == 0 %}disabled{% endif %}"
+                               href="{% url 'caidapp:manual_identification' %}">
+                                <i class="bi bi-person-check"></i>
+                                Manual identification ({{ manual_identification_count }})
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
 
 

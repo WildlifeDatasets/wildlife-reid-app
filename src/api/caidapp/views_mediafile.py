@@ -254,6 +254,55 @@ class ObservationDeleteView(LoginRequiredMixin, DeleteView):
         return reverse("caidapp:media_file_update", args=[mediafile.id])
 
 
+def _manual_identification_next_url(request, current_mediafile=None):
+    """Return the next unidentified identification media file URL."""
+    mediafiles = models.get_mediafiles_with_missing_identity(request.user.caiduser)
+    if current_mediafile is not None:
+        mediafiles = mediafiles.exclude(pk=current_mediafile.pk)
+    next_mediafile = mediafiles.first()
+    if next_mediafile is None:
+        return None
+    return reverse("caidapp:manual_identification_mediafile", args=[next_mediafile.pk])
+
+
+class MediaFileManualIdentificationView(MediaFileUpdateView):
+    """Assign identities while walking through identification media files."""
+
+    def get_queryset(self):
+        return models.get_mediafiles_with_missing_identity(self.request.user.caiduser)
+
+    def get_success_url(self):
+        next_url = _manual_identification_next_url(self.request, self.object)
+        if next_url is not None:
+            return next_url
+        messages.success(self.request, "Manual identification is complete.")
+        return reverse("caidapp:dash_identities")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.update(
+            {
+                "headline": "Manual identification",
+                "manual_identification_mode": True,
+                "button": "Save and continue",
+                "skip_url": _manual_identification_next_url(self.request, self.object),
+                "cancel_url": reverse("caidapp:dash_identities"),
+                "cancel_label": "Identification dashboard",
+            }
+        )
+        return context
+
+
+@login_required
+def start_manual_identification(request):
+    """Open the first accessible identification media file without identity."""
+    next_url = _manual_identification_next_url(request)
+    if next_url is None:
+        messages.info(request, "All identification media files already have an identity.")
+        return redirect("caidapp:dash_identities")
+    return redirect(next_url)
+
+
 # @login_required
 # def missing_taxon_annotation(
 #     request,

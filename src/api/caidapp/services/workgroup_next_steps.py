@@ -38,6 +38,27 @@ def build_next_steps(workgroup: models.WorkGroup | None) -> list[NextStepCandida
             )
         )
 
+    identification_mediafiles = models.MediaFile.objects.filter(
+        parent__owner__workgroup=workgroup,
+        parent__is_for_identification=True,
+        parent__import_finished=True,
+    )
+    identification_mediafiles = models.filter_mediafiles_by_identification_taxon(
+        identification_mediafiles, workgroup
+    )
+    has_assigned_identity = identification_mediafiles.filter(
+        Q(identity__isnull=False) | Q(observations__identity__isnull=False)
+    ).exists()
+    if identification_mediafiles.exists() and not has_assigned_identity:
+        candidates.append(
+            NextStepCandidate(
+                code="manual_identification",
+                priority=15,
+                text="Assign identities manually to the uploaded identification media files.",
+                url=reverse("caidapp:manual_identification"),
+            )
+        )
+
     if identity_count == 0:
         candidates.append(
             NextStepCandidate(

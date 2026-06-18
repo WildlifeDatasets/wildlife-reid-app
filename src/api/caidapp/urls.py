@@ -139,6 +139,16 @@ urlpatterns = [
         views_mediafile.MediaFileUpdateView.as_view(),
         name="media_file_update",
     ),
+    path(
+        "manual_identification/",
+        views_mediafile.start_manual_identification,
+        name="manual_identification",
+    ),
+    path(
+        "manual_identification/mediafile/<int:pk>/",
+        views_mediafile.MediaFileManualIdentificationView.as_view(),
+        name="manual_identification_mediafile",
+    ),
     # path(
     #     "media_file_update/<int:media_file_id>/",
     #     views_mediafile.media_file_update,
