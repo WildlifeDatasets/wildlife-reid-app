@@ -17,7 +17,7 @@ from django.db.models.query import QuerySet
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils.text import slugify
-from django.urls import reverse_lazy
+from django.urls import NoReverseMatch, reverse, reverse_lazy
 from location_field.models.plain import PlainLocationField
 from tqdm import tqdm
 
@@ -533,6 +533,9 @@ class WorkGroupInvitation(models.Model):
 
     class Meta:
         unique_together = ("invited_user", "target_workgroup")
+
+    def __str__(self):
+        return f"{self.invited_user} -> {self.target_workgroup} ({self.status})"
 
 
 class Locality(models.Model):
@@ -2023,6 +2026,9 @@ class Notification(models.Model):
     # workgroup = models.ForeignKey(WorkGroup, on_delete=models.CASCADE, null=True, blank=True)
     message = models.TextField(blank=True, default="")
     json_message = models.JSONField(blank=True, null=True)
+    link_url_name = models.CharField(max_length=255, blank=True, default="")
+    link_url_kwargs = models.JSONField(blank=True, default=dict)
+    link_label = models.CharField(max_length=100, blank=True, default="")
     created_at = models.DateTimeField("Created at", auto_now_add=True)
     level = models.PositiveSmallIntegerField(choices=LEVEL_CHOICES, default=INFO)
 
@@ -2039,10 +2045,38 @@ class Notification(models.Model):
         """Return bootstrap class for the notification level."""
         return self.BOOTSTRAP_CLASSES.get(self.level, "secondary")
 
+    def get_link_url(self):
+        """Resolve an internal notification link without accepting arbitrary URLs."""
+        if not self.link_url_name:
+            return ""
+        try:
+            return reverse(self.link_url_name, kwargs=self.link_url_kwargs)
+        except NoReverseMatch:
+            logger.warning("Invalid notification route %s", self.link_url_name)
+            return ""
+
     @classmethod
-    def create_for(cls, *, message="", level=INFO, users=None, workgroups=None, json_message=None):
+    def create_for(
+        cls,
+        *,
+        message="",
+        level=INFO,
+        users=None,
+        workgroups=None,
+        json_message=None,
+        link_url_name="",
+        link_url_kwargs=None,
+        link_label="",
+    ):
         """Create notification and send it to users and workgroups."""
-        notif = cls.objects.create(message=message, level=level, json_message=json_message)
+        notif = cls.objects.create(
+            message=message,
+            level=level,
+            json_message=json_message,
+            link_url_name=link_url_name,
+            link_url_kwargs=link_url_kwargs or {},
+            link_label=link_label,
+        )
 
         final_users = set()
 

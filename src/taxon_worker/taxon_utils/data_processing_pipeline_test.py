@@ -11,14 +11,44 @@ try:
     from src.taxon_worker.taxon_utils import data_processing_pipeline
     from src.taxon_worker.taxon_utils.dataset_tools import make_zipfile  # make_tarfile,
 except ModuleNotFoundError:
-    from jupyter_notebooks.datasets.sumava import data_processing_pipeline
-    from jupyter_notebooks.datasets.sumava.dataset_tools import make_zipfile
+    try:
+        from taxon_utils import data_processing_pipeline
+        from taxon_utils.dataset_tools import make_zipfile
+    except ModuleNotFoundError:
+        from jupyter_notebooks.datasets.sumava import data_processing_pipeline
+        from jupyter_notebooks.datasets.sumava.dataset_tools import make_zipfile
 
 logger = logging.getLogger(__file__)
 
 
 CAID_DATASET_BASEDIR = Path(os.getenv("CAID_DATASET_BASEDIR", r"H:\biology\orig\CarnivoreID"))
 CI = os.getenv("CI", False)
+
+
+def test_keep_correctly_loaded_images_reports_missing_prepared_file(tmp_path):
+    existing = tmp_path / "existing.webp"
+    existing.write_bytes(b"image")
+    missing = tmp_path / "missing.webp"
+    metadata = pd.DataFrame(
+        [
+            {
+                "media_type": "image",
+                "read_error": "",
+                "full_image_path": str(existing),
+            },
+            {
+                "media_type": "image",
+                "read_error": "",
+                "full_image_path": str(missing),
+            },
+        ]
+    )
+
+    correct, failing = data_processing_pipeline.keep_correctly_loaded_images(metadata)
+
+    assert len(correct) == 1
+    assert len(failing) == 1
+    assert str(missing) in failing.iloc[0]["read_error"]
 
 
 def test_data_processing():

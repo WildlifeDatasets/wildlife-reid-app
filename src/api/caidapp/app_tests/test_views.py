@@ -470,6 +470,31 @@ class MediaFileUpdateEmptyObservationTest(TestCase):
         self.assertContains(response, reverse("caidapp:uploadedarchive_detail", args=[archive.id]))
         self.assertNotContains(response, reverse("caidapp:uploadedarchive_mediafiles", args=[archive.id]))
 
+    def test_predicted_taxon_select_uses_taxon_id_and_refreshes_searchable_dropdown(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        predicted_taxon = TaxonFactory(name="Panthera pardus")
+        mediafile = MediaFileFactory(
+            parent=archive,
+            predicted_taxon=predicted_taxon,
+            predicted_taxon_confidence=0.91,
+        )
+        AnimalObservationFactory(
+            mediafile=mediafile,
+            taxon=None,
+            predicted_taxon=predicted_taxon,
+            predicted_taxon_confidence=0.91,
+        )
+
+        response = self.client.get(reverse("caidapp:media_file_update", args=[mediafile.id]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            f"setCategoryAndSubmitInObservation('{predicted_taxon.id}', 0); return false;",
+        )
+        self.assertContains(response, "categoryDropdown.value = String(predictedTaxonId);")
+        self.assertContains(response, 'categoryDropdown.dispatchEvent(new Event("change", {bubbles: true}));')
+
     def test_missing_taxon_sequence_carousel_keeps_annotation_mode(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)
         sequence = SequenceFactory(uploaded_archive=archive)

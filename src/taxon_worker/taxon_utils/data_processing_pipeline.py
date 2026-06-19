@@ -418,18 +418,24 @@ def use_detector_class_if_classification_fails(
 
 
 def keep_correctly_loaded_images(metadata) -> Tuple[pd.DataFrame, pd.DataFrame]:
-    """Remove file from list if there is the error message."""
-    # metadata = metadata[metadata["media_type"] == "image"].reset_index(drop=True)
-    # keep media_type==image and media_type == video
-    metadata = metadata[(metadata["media_type"] == "image") | (metadata["media_type"] == "video")].reset_index(
-        drop=True
-    )
-    # drop media_type== "unknown"
-    # mediadata = metadata[metadata["media_type"] != "unknown"].reset_index(drop=True)
+    """Split readable media from failed rows, including missing converted files."""
+    metadata = metadata.copy()
+    supported_media = metadata["media_type"].isin(("image", "video"))
+    metadata.loc[~supported_media, "read_error"] = "Unsupported media type"
 
-    df_failing = metadata[metadata["read_error"] == ""].copy().reset_index(drop=True)
-    metadata = metadata[metadata["read_error"] == ""].reset_index(drop=True)
-    return metadata, df_failing
+    if "read_error" not in metadata:
+        metadata["read_error"] = ""
+    metadata["read_error"] = metadata["read_error"].fillna("").astype(str)
+
+    if "full_image_path" in metadata:
+        missing_file = ~metadata["full_image_path"].apply(lambda path: Path(path).is_file())
+        metadata.loc[missing_file & (metadata["read_error"] == ""), "read_error"] = metadata.loc[
+            missing_file & (metadata["read_error"] == ""), "full_image_path"
+        ].apply(lambda path: f"Prepared media file does not exist: {path}")
+
+    failing = metadata[metadata["read_error"] != ""].copy().reset_index(drop=True)
+    correct = metadata[metadata["read_error"] == ""].copy().reset_index(drop=True)
+    return correct, failing
 
 
 # new function

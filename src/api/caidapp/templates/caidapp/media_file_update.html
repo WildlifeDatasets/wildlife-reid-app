@@ -298,7 +298,7 @@
                                                                        class="btn btn-sm btn-outline-secondary"
                                                                        id="confirmTaxonSubmit"
                                                                             {#                                                        type="submit"#}
-                                                                       onclick="setCategoryAndSubmitInObservation('{{ obs_form.instance.predicted_taxon }}', {{ forloop.counter|add:'-1' }});"
+                                                                       onclick="setCategoryAndSubmitInObservation('{{ obs_form.instance.predicted_taxon_id }}', {{ forloop.counter|add:'-1' }}); return false;"
                                                                     >
                                                                         Select
                                                                     </a>
@@ -644,18 +644,13 @@ mediafile.taxon: {{ mediafile.taxon }}
             setTimeout(() => window.dispatchEvent(new Event("resize")), 400);
         }
 
-        function setCategoryAndSubmitInObservation(predictedTaxon, observationIndex) {
-            {#const categoryDropdown = document.getElementById('id_observations-0-taxon');#}
+        function setCategoryAndSubmitInObservation(predictedTaxonId, observationIndex) {
             const categoryDropdown = document.getElementById('id_observations-' + observationIndex + '-taxon');
-            const options = categoryDropdown.options;
-
-            // Loop through options to find and select the predicted taxon
-            for (let i = 0; i < options.length; i++) {
-                if (options[i].text === predictedTaxon) {
-                    categoryDropdown.selectedIndex = i;
-                    break;
-                }
+            if (!categoryDropdown) {
+                return;
             }
+            categoryDropdown.value = String(predictedTaxonId);
+            categoryDropdown.dispatchEvent(new Event("change", {bubbles: true}));
         }
 
         function setCategoryAndSubmit(predictedTaxon) {

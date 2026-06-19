@@ -34,7 +34,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 # from django.contrib.auth.models import User
 from django.contrib.auth.views import LoginView
 from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.files.base import ContentFile
 from django.core.paginator import Page, Paginator
 from django.db.models import CharField, Count, F, Func, Max, Min, OuterRef, Prefetch, Q, QuerySet, Subquery, Value
@@ -6742,9 +6742,9 @@ class NotificationCreateView(CreateView):
         return super().form_valid(form)
 
 
-class NotificationListView(ListView):
+class NotificationListView(LoginRequiredMixin, ListView):
     model = models.Notification
-    template_name = "caidapp/generic_list_table.html"
+    template_name = "caidapp/notification_list.html"
     context_object_name = "notifications"
     # title = "Notifications"
 
@@ -6782,6 +6782,7 @@ class NotificationListView(ListView):
             # "recipient",
             # "read",
         ]
+        context["object_detail_url"] = "caidapp:notification-detail"
         # context["object_detail_url"] = "caidapp:notification-detail"
         # context["object_update_url"] = "caidapp:notification-update"
         # context["object_delete_url"] = "caidapp:notification-delete"
@@ -6789,7 +6790,7 @@ class NotificationListView(ListView):
         return context
 
 
-class NotificationDetailView(DetailView):
+class NotificationDetailView(LoginRequiredMixin, DetailView):
     model = models.Notification
     template_name = "caidapp/generic_detail.html"
     context_object_name = "notification"
@@ -6821,7 +6822,8 @@ class NotificationDetailView(DetailView):
         me_as_recipient = self.object.recipients.filter(user=request.user.caiduser).first()
         if me_as_recipient and not me_as_recipient.read:
             me_as_recipient.read = True
-            me_as_recipient.save(update_fields=["read"])
+            me_as_recipient.read_at = timezone.now()
+            me_as_recipient.save(update_fields=["read", "read_at"])
         # if not self.object.read:
         #     self.object.read = True
         #     self.object.save(update_fields=["read"])
@@ -6843,6 +6845,15 @@ class NotificationDetailView(DetailView):
                 }
             )
         context["fields"] = field_data
+        link_url = self.object.get_link_url()
+        if link_url:
+            context["bottom_button_list"] = [
+                {
+                    "label": self.object.link_label or _("Open"),
+                    "style": "primary",
+                    "url": link_url,
+                }
+            ]
         return context
 
 
@@ -6864,11 +6875,17 @@ class NotificationDeleteView(DeleteView):
 class WorkGroupInvitationCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
     model = models.WorkGroupInvitation
     template_name = "caidapp/generic_form.html"
-    fields = ["invited_user"]
+    form_class = forms.WorkGroupInvitationForm
     success_url = reverse_lazy("caidapp:workgroup_invitations")
 
     def test_func(self):
-        return self.request.user.caiduser.workgroup_admin
+        user = self.request.user.caiduser
+        return user.workgroup_admin and user.workgroup_id is not None
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["target_workgroup"] = self.request.user.caiduser.workgroup
+        return kwargs
 
     # def dispatch(self, request, *args, **kwargs):
     #     """Check if the user is a workgroup admin and set the target workgroup for the invitation."""
@@ -6879,11 +6896,21 @@ class WorkGroupInvitationCreateView(LoginRequiredMixin, UserPassesTestMixin, Cre
     #     self.target_workgroup = request.user.caiduser.workgroup
     #     return super().dispatch(request, *args, **kwargs)
 
+    @django.db.transaction.atomic
     def form_valid(self, form):
         """Set the inviter and target workgroup before saving the form."""
         form.instance.invited_by = self.request.user.caiduser
-        form.instance.target_workgroup = self.target_workgroup
-        return super().form_valid(form)
+        form.instance.target_workgroup = self.request.user.caiduser.workgroup
+        response = super().form_valid(form)
+        models.Notification.create_for(
+            message=_("You have been invited to join %(workgroup)s.")
+            % {"workgroup": form.instance.target_workgroup.name},
+            users=[form.instance.invited_user],
+            link_url_name="caidapp:workgroup_invitation_detail",
+            link_url_kwargs={"pk": form.instance.pk},
+            link_label=_("View invitation"),
+        )
+        return response
 
 
 class WorkGroupInvitationListView(LoginRequiredMixin, ListView):
@@ -7027,6 +7054,7 @@ class WorkGroupInvitationDeclineView(LoginRequiredMixin, UpdateView):
     description = "This invitation will be declined."
 
     cancel_url = reverse_lazy("caidapp:workgroup_invitations")
+    success_url = reverse_lazy("caidapp:workgroup_invitations_for_user")
 
     def get_queryset(self):
         """Limit queryset to pending invitations for the current user."""
@@ -7057,6 +7085,7 @@ class WorkGroupInvitationAcceptView(LoginRequiredMixin, UpdateView):
     title = "Accept Workgroup Invitation"
     description = "By accepting this invitation, you will be moved to the new workgroup " "together with all your data."
     cancel_url = reverse_lazy("caidapp:workgroup_invitations")
+    success_url = reverse_lazy("caidapp:workgroup_invitations_for_user")
 
     def get_queryset(self):
         """Limit queryset to pending invitations for the current user."""
@@ -7065,6 +7094,7 @@ class WorkGroupInvitationAcceptView(LoginRequiredMixin, UpdateView):
             status="pending",
         )
 
+    @django.db.transaction.atomic
     def form_valid(self, form):
         """Accept the invitation and migrate the user to the new workgroup."""
         invitation = self.object
@@ -7074,11 +7104,15 @@ class WorkGroupInvitationAcceptView(LoginRequiredMixin, UpdateView):
             raise PermissionDenied
 
         # 🔥 migrace uživatele
-        migrate_user_to_workgroup(
-            user=invitation.invited_user,
-            target_workgroup=invitation.target_workgroup,
-            approved_by=invitation.invited_by,
-        )
+        try:
+            migrate_user_to_workgroup(
+                user=invitation.invited_user,
+                target_workgroup=invitation.target_workgroup,
+                approved_by=invitation.invited_by,
+            )
+        except ValidationError as exc:
+            form.add_error(None, exc)
+            return self.form_invalid(form)
 
         invitation.status = "accepted"
         invitation.responded_at = timezone.now()

@@ -3,6 +3,7 @@ from pathlib import Path
 
 from django import forms
 from django.contrib.auth import get_user_model
+from django.db.models import Q
 
 from . import models
 from .models import (
@@ -18,6 +19,40 @@ from .models import (
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
+
+
+class WorkGroupInvitationForm(forms.ModelForm):
+    user_identifier = forms.CharField(
+        label="Username or email",
+        help_text="Enter the exact username or email address of the user.",
+    )
+
+    class Meta:
+        model = models.WorkGroupInvitation
+        fields = []
+
+    def __init__(self, *args, target_workgroup=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.target_workgroup = target_workgroup
+
+    def clean_user_identifier(self):
+        identifier = self.cleaned_data["user_identifier"].strip()
+        matches = models.CaIDUser.objects.filter(
+            Q(user__username__iexact=identifier) | Q(user__email__iexact=identifier)
+        ).distinct()
+        if matches.count() != 1:
+            raise forms.ValidationError("No unique user was found for that username or email.")
+
+        invited_user = matches.get()
+        if invited_user.workgroup_id == getattr(self.target_workgroup, "pk", None):
+            raise forms.ValidationError("This user is already a member of the workgroup.")
+        if models.WorkGroupInvitation.objects.filter(
+            invited_user=invited_user,
+            target_workgroup=self.target_workgroup,
+        ).exists():
+            raise forms.ValidationError("An invitation for this user and workgroup already exists.")
+        self.instance.invited_user = invited_user
+        return identifier
 
 
 def normalize_regex_input(value: str) -> str:

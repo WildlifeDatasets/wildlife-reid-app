@@ -119,7 +119,13 @@ def predict(
             metadata["full_image_path"] = metadata["image_path"].apply(lambda x: str(output_images_dir / x))
             metadata["absolute_media_path"] = [pth for pth in metadata["full_image_path"]]
             metadata["detection_results"] = [None] * len(metadata)
+            metadata, df_failing = data_processing_pipeline.keep_correctly_loaded_images(metadata)
+            if not df_failing.empty:
+                df_failing.to_csv(output_metadata_file.with_suffix(".failed.csv"), encoding="utf-8-sig")
             logger.debug("Loaded existing metadata rows: %s", len(metadata))
+
+        if metadata.empty:
+            raise FileNotFoundError("No readable media files remain after preparing the upload.")
 
         logger.debug(f"Metadata file: {output_metadata_file}. {output_metadata_file.exists()=}")
         logger.debug(f"{len(metadata['image_path'])=}")
