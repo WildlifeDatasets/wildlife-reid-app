@@ -62,7 +62,18 @@ def migrate_user_to_workgroup(
 
     user.workgroup = target_workgroup
     user.workgroup_admin = False
-    user.save(update_fields=["workgroup", "workgroup_admin"])
+    user.can_edit_taxon_data = False
+    user.can_edit_identity_data = False
+    user.is_observer = False
+    user.save(
+        update_fields=[
+            "workgroup",
+            "workgroup_admin",
+            "can_edit_taxon_data",
+            "can_edit_identity_data",
+            "is_observer",
+        ]
+    )
 
     # The source is now empty. Cascades remove its obsolete model and result data.
     source_workgroup.delete()

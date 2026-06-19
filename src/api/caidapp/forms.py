@@ -166,11 +166,35 @@ class CaIDUserSettingsForm(forms.ModelForm):
 class WorkgroupMemberWorkflowForm(forms.ModelForm):
     class Meta:
         model = CaIDUser
-        fields = ("show_taxon_classification", "show_reid")
+        fields = (
+            "show_taxon_classification",
+            "show_reid",
+            "can_edit_taxon_data",
+            "can_edit_identity_data",
+            "can_edit_other_records",
+            "is_observer",
+        )
         labels = {
             "show_taxon_classification": "Taxon workflow",
             "show_reid": "Identification workflow",
+            "can_edit_taxon_data": "Edit taxon annotations",
+            "can_edit_identity_data": "Edit identities and identity assignments",
+            "can_edit_other_records": "Edit other records",
+            "is_observer": "Read-only observer",
         }
+        help_texts = {
+            "is_observer": "Observer can view data but cannot change any records. This overrides all editing permissions.",
+        }
+
+    def clean(self):
+        cleaned_data = super().clean()
+        if cleaned_data.get("is_observer"):
+            if self.instance.workgroup_admin:
+                raise forms.ValidationError("A workgroup admin cannot be a read-only observer.")
+            cleaned_data["can_edit_taxon_data"] = False
+            cleaned_data["can_edit_identity_data"] = False
+            cleaned_data["can_edit_other_records"] = False
+        return cleaned_data
 
 
 class AlbumForm(forms.ModelForm):

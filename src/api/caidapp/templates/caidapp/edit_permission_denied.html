@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block title %}Editing not allowed{% endblock %}
+
+{% block body %}
+    <div class="pagetitle">
+        <h1>Editing not allowed</h1>
+    </div>
+
+    <section class="section">
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                <div class="card">
+                    <div class="card-body pt-4">
+                        <div class="alert alert-warning d-flex align-items-start gap-2" role="alert">
+                            <i class="bi bi-lock-fill"></i>
+                            <div>{{ permission_message }}</div>
+                        </div>
+                        <p class="text-muted">
+                            Ask your workgroup administrator to change your editing permissions if you need access.
+                        </p>
+                        <button type="button" class="btn btn-secondary" onclick="history.back()">Back</button>
+                        <a class="btn btn-primary" href="{% url 'caidapp:home' %}">Home</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+{% endblock %}

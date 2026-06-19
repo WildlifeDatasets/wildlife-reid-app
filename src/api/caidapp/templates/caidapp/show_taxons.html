@@ -52,8 +52,11 @@
                 <ol class="breadcrumb">
                     {#                    <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li>#}
                     {#                </ol>#}
-                    <li class="breadcrumb-item">
-                        <a href="{% url 'caidapp:add_taxon' %}">Add Taxon</a>
+                    {% if user.caiduser.workgroup_admin or user.caiduser.can_edit_taxon_data and not user.caiduser.is_observer %}
+                        <li class="breadcrumb-item">
+                            <a href="{% url 'caidapp:add_taxon' %}">Add Taxon</a>
+                        </li>
+                    {% endif %}
                 </ol>
             </nav>
         </div><!-- End Page Title -->
@@ -114,13 +117,15 @@
                                                     Sequences
                                                 </a>
                                             </li>
-                                            <li>
-                                                <a class="dropdown-item"
-                                                   href="{% url 'caidapp:update_taxon' taxon_id=taxon.id %}">
-                                                    <i class="bi bi-pencil"></i>
-                                                    Edit
-                                                </a>
-                                            </li>
+                                            {% if user.caiduser.workgroup_admin or user.caiduser.can_edit_taxon_data and not user.caiduser.is_observer %}
+                                                <li>
+                                                    <a class="dropdown-item"
+                                                       href="{% url 'caidapp:update_taxon' taxon_id=taxon.id %}">
+                                                        <i class="bi bi-pencil"></i>
+                                                        Edit
+                                                    </a>
+                                                </li>
+                                            {% endif %}
                                         </ul>
                                     </div>
                                 </div>

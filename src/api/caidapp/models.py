@@ -400,6 +400,10 @@ class CaIDUser(models.Model):
     show_wellcome_message_on_next_login = models.BooleanField(default=False)
     show_base_dataset = models.BooleanField(default=False)
     show_base_between_regular_uploads = models.BooleanField(default=False)
+    can_edit_taxon_data = models.BooleanField(default=True)
+    can_edit_identity_data = models.BooleanField(default=True)
+    can_edit_other_records = models.BooleanField(default=True)
+    is_observer = models.BooleanField(default=False)
     default_taxon_for_identification = models.ForeignKey(
         Taxon,
         on_delete=models.SET_NULL,
@@ -435,6 +439,18 @@ class CaIDUser(models.Model):
         if not self.default_taxon_for_identification:
             self.default_taxon_for_identification = get_taxon("Animalia")
         super().save(*args, **kwargs)
+
+    def can_edit(self, area: str) -> bool:
+        """Return whether this user may write records in the requested area."""
+        if self.workgroup_admin:
+            return True
+        if self.is_observer:
+            return False
+        return {
+            "taxon": self.can_edit_taxon_data,
+            "identity": self.can_edit_identity_data,
+            "other": self.can_edit_other_records,
+        }.get(area, False)
 
     def __str__(self):
         user_str = str(self.user)

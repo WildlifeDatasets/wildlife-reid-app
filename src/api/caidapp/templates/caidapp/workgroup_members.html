@@ -17,6 +17,7 @@
                         <th>Role</th>
                         <th>Taxon workflow</th>
                         <th>Identification workflow</th>
+                        <th>Editing</th>
                         <th></th>
                     </tr>
                     </thead>
@@ -28,13 +29,24 @@
                             <td>{% if member.workgroup_admin %}Admin{% else %}Member{% endif %}</td>
                             <td>{% if member.show_taxon_classification %}Yes{% else %}No{% endif %}</td>
                             <td>{% if member.show_reid %}Yes{% else %}No{% endif %}</td>
+                            <td>
+                                {% if member.workgroup_admin %}
+                                    Full access
+                                {% elif member.is_observer %}
+                                    Read-only observer
+                                {% else %}
+                                    {% if member.can_edit_taxon_data %}Taxon{% endif %}
+                                    {% if member.can_edit_identity_data %} Identity{% endif %}
+                                    {% if member.can_edit_other_records %} Other{% endif %}
+                                {% endif %}
+                            </td>
                             <td class="text-end">
                                 <a class="btn btn-sm btn-outline-primary"
                                    href="{% url 'caidapp:workgroup_member_update' member.pk %}">Settings</a>
                             </td>
                         </tr>
                     {% empty %}
-                        <tr><td colspan="6">No users in this workgroup.</td></tr>
+                        <tr><td colspan="7">No users in this workgroup.</td></tr>
                     {% endfor %}
                     </tbody>
                 </table>

@@ -39,6 +39,12 @@
                             <form id="myForm" method="post" enctype="multipart/form-data">
                                 {% csrf_token %}
 
+                                {% if form.non_field_errors %}
+                                    <div class="alert alert-danger" role="alert">
+                                        {{ form.non_field_errors }}
+                                    </div>
+                                {% endif %}
+
                                 {# this is passing th nex page from GET to POST to be applicable when the form is ok  #}
                                 <input type="hidden" name="next" value="{{ request.GET.next }}">
 
@@ -51,6 +57,9 @@
                                             {{ field|add_class:"form-check-input" }}
                                         {% else %}
                                             {{ field|add_class:"form-control" }}
+                                        {% endif %}
+                                        {% if field.help_text %}
+                                            <div class="form-text">{{ field.help_text }}</div>
                                         {% endif %}
 
                                     </div>
@@ -153,4 +162,29 @@
         </div>
     {% endif %}
     {#</div>#}
+{% endblock %}
+
+{% block script %}
+    {{ block.super }}
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const observer = document.getElementById("id_is_observer");
+            if (!observer) return;
+            const editPermissionIds = [
+                "id_can_edit_taxon_data",
+                "id_can_edit_identity_data",
+                "id_can_edit_other_records"
+            ];
+            function syncObserverPermissions() {
+                editPermissionIds.forEach(function (id) {
+                    const checkbox = document.getElementById(id);
+                    if (!checkbox) return;
+                    if (observer.checked) checkbox.checked = false;
+                    checkbox.disabled = observer.checked;
+                });
+            }
+            observer.addEventListener("change", syncObserverPermissions);
+            syncObserverPermissions();
+        });
+    </script>
 {% endblock %}

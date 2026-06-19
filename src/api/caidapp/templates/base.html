@@ -97,6 +97,19 @@
         <a class="nav-link text-light" href="https://mjirik.github.io/CarnivoreID-doc/">
             <i class="bi bi-book"></i>
         </a>
+        {% if user.is_authenticated %}
+            <a class="nav-link text-light position-relative"
+               href="{% url 'caidapp:notifications' %}"
+               title="Notifications"
+               aria-label="Notifications{% if has_unread_notifications %}, unread notifications available{% endif %}">
+                <i class="bi bi-bell"></i>
+                {% if has_unread_notifications %}
+                    <span class="notification-unread-indicator position-absolute top-0 start-100 translate-middle p-1 bg-danger border border-light rounded-circle">
+                        <span class="visually-hidden">Unread notifications</span>
+                    </span>
+                {% endif %}
+            </a>
+        {% endif %}
     {%  include 'caidapp/users_menu.html' %}
     </div>
 </nav>
