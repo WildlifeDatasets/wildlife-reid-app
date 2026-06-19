@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% load i18n %}
+
+{% block content %}
+{% trans "Open" as open_label %}
+<h2>{{ title }}</h2>
+<div class="list-group">
+  {% for notification in notifications %}
+    <a class="list-group-item list-group-item-action{% if not notification.read %} fw-bold{% endif %}"
+       href="{% url 'caidapp:notification-detail' notification.pk %}">
+      <div class="d-flex justify-content-between gap-3">
+        <span>{{ notification.message }}</span>
+        <small class="text-nowrap">{{ notification.created_at }}</small>
+      </div>
+      {% if notification.get_link_url %}
+        <small class="text-primary">{{ notification.link_label|default:open_label }}</small>
+      {% endif %}
+    </a>
+  {% empty %}
+    <div class="list-group-item">{% trans "No notifications" %}</div>
+  {% endfor %}
+</div>
+{% endblock %}

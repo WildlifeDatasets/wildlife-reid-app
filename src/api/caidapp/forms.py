@@ -89,25 +89,9 @@ class UserIdentificationModelForm(forms.Form):
     identification_model = forms.ModelChoiceField(queryset=models.IdentificationModel.objects.all(), required=True)
 
 
-# deprecated TODO remove
-# class WorkgroupUsersForm(forms.Form):
-#     workgroup_users = forms.ModelMultipleChoiceField(queryset=CaIDUser.objects.all(), required=False)
-
-
-# class WorkgroupForm(forms.ModelForm):
-#     class Meta:
-#         model = WorkGroup
-#         fields = ["name", 'default_taxon_for_identification', 'caiduser_set']   # nebo jiná pole, která chceš editovat
 
 
 class WorkgroupForm(forms.ModelForm):
-    caidusers = forms.ModelMultipleChoiceField(
-        queryset=CaIDUser.objects.all(),
-        # widget=forms.CheckboxSelectMultiple,  # nebo forms.SelectMultiple
-        widget=forms.SelectMultiple,
-        required=False,
-    )
-
     class Meta:
         model = WorkGroup
         fields = [
@@ -116,7 +100,6 @@ class WorkgroupForm(forms.ModelForm):
             "sequence_time_limit",
             "check_taxon_before_identification",
             "identity_code_regex",
-            "caidusers",
             "identification_model",
             "detection_model_path",
             "detection_model_architecture",
@@ -127,19 +110,6 @@ class WorkgroupForm(forms.ModelForm):
             + "Ignore the other observations and media files.",
             "identity_code_regex": "Regex used to extract identity codes from identity names, for example B75.",
         }
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        if self.instance.pk:
-            self.fields["caidusers"].initial = self.instance.caiduser_set.all().order_by("user__username")
-
-    def save(self, commit=True):
-        """Save the WorkGroup and update the related CaIDUser instances."""
-        workgroup = super().save(commit=commit)
-        if commit:
-            workgroup.caiduser_set.set(self.cleaned_data["caidusers"])
-        return workgroup
-
 
 # class MergeIdentityForm(forms.Form):
 #     queryset = IndividualIdentity.objects.filter()
@@ -178,12 +148,29 @@ class CaIDUserSettingsForm(forms.ModelForm):
         model = CaIDUser
         fields = (
             "show_taxon_classification",
+            "show_reid",
             "show_base_between_regular_uploads",
             "default_taxon_for_identification",
             "timezone",
             "ml_consent_given",
             "show_wellcome_message_on_next_login",
         )
+
+    def __init__(self, *args, can_edit_workflows=False, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not can_edit_workflows:
+            self.fields.pop("show_taxon_classification")
+            self.fields.pop("show_reid")
+
+
+class WorkgroupMemberWorkflowForm(forms.ModelForm):
+    class Meta:
+        model = CaIDUser
+        fields = ("show_taxon_classification", "show_reid")
+        labels = {
+            "show_taxon_classification": "Taxon workflow",
+            "show_reid": "Identification workflow",
+        }
 
 
 class AlbumForm(forms.ModelForm):

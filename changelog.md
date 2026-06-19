@@ -4,10 +4,12 @@
 ## Release v0.5.0 – identification workflow overhaul
 
 
+
 ## 2026-06
 * [added] Bulk actions for identity lists with selected identity deletion confirmation
 * [added] Regex search mode for identities
 * [changed] Sequence view supports filtering by multiple selected identities
+* [added] workgroup member managementi (invitaions, settings)
 
 ## 2026-05
 * [changed] Sequence cards and expanded media file layout reworked

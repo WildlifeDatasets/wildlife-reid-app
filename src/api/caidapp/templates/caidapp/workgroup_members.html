@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block body %}
+    <div class="pagetitle">
+        <h1>{{ headline }}</h1>
+        {% include "caidapp/include_breadcrumb_nav.html" %}
+    </div>
+
+    <div class="card">
+        <div class="card-body pt-3">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead>
+                    <tr>
+                        <th>User</th>
+                        <th>Email</th>
+                        <th>Role</th>
+                        <th>Taxon workflow</th>
+                        <th>Identification workflow</th>
+                        <th></th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {% for member in workgroup_members %}
+                        <tr>
+                            <td>{{ member.user.username }}</td>
+                            <td>{{ member.user.email|default:"-" }}</td>
+                            <td>{% if member.workgroup_admin %}Admin{% else %}Member{% endif %}</td>
+                            <td>{% if member.show_taxon_classification %}Yes{% else %}No{% endif %}</td>
+                            <td>{% if member.show_reid %}Yes{% else %}No{% endif %}</td>
+                            <td class="text-end">
+                                <a class="btn btn-sm btn-outline-primary"
+                                   href="{% url 'caidapp:workgroup_member_update' member.pk %}">Settings</a>
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr><td colspan="6">No users in this workgroup.</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+{% endblock %}

@@ -22,6 +22,12 @@ urlpatterns = [
     path("djangologin/", views.MyLoginView.as_view(), name="djangologin"),
     path("logout/", views.logout_view, name="logout_view"),
     path("user_settings/", views.CaIDUserSettingsView.as_view(), name="update_caiduser"),
+    path("workgroup-users/", views.WorkgroupMemberListView.as_view(), name="workgroup_members"),
+    path(
+        "workgroup-users/<int:pk>/settings/",
+        views.WorkgroupMemberUpdateView.as_view(),
+        name="workgroup_member_update",
+    ),
     # path("rest_api/", include(router.urls)), # not used any more
     path("workgroup-invitations/create/", views.WorkGroupInvitationCreateView.as_view(), name="workgroup_invitation"),
     path("workgroup-invitations/", views.WorkGroupInvitationListView.as_view(), name="workgroup_invitations"),

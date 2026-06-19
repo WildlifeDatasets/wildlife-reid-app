@@ -463,7 +463,10 @@ class CaIDUserSettingsView(View):
 
     def get(self, request):
         """Render the user settings page."""
-        form = forms.CaIDUserSettingsForm(instance=request.user.caiduser)
+        form = forms.CaIDUserSettingsForm(
+            instance=request.user.caiduser,
+            can_edit_workflows=request.user.caiduser.workgroup_admin,
+        )
         context = {
             "form": form,
             "headline": "User settings",
@@ -476,7 +479,11 @@ class CaIDUserSettingsView(View):
 
     def post(self, request):
         """Handle the form submission for user settings."""
-        form = forms.CaIDUserSettingsForm(request.POST, instance=request.user.caiduser)
+        form = forms.CaIDUserSettingsForm(
+            request.POST,
+            instance=request.user.caiduser,
+            can_edit_workflows=request.user.caiduser.workgroup_admin,
+        )
         if form.is_valid():
             form.save()
             messages.success(request, "Settings updated successfully.")
@@ -4600,9 +4607,52 @@ class WorkgroupUpdateView(WorkgroupAdminRequiredMixin, UpdateView):
         context["headline"] = "Update workgroup"
         context["button"] = "Save"
         context["nav_dict"] = {
+            "Users": reverse_lazy("caidapp:workgroup_members"),
             "Invitations": reverse_lazy("caidapp:workgroup_invitations"),
             "Invite User": reverse_lazy("caidapp:workgroup_invitation"),
         }
+        return context
+
+
+class WorkgroupMemberListView(WorkgroupAdminRequiredMixin, ListView):
+    model = models.CaIDUser
+    template_name = "caidapp/workgroup_members.html"
+    context_object_name = "workgroup_members"
+
+    def get_queryset(self):
+        return (
+            models.CaIDUser.objects.filter(workgroup=self.request.user.caiduser.workgroup)
+            .select_related("user")
+            .order_by("user__username")
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["headline"] = "Workgroup users"
+        context["nav_dict"] = {
+            "Workgroup Settings": reverse_lazy(
+                "caidapp:workgroup-update", args=[self.request.user.caiduser.workgroup_id]
+            ),
+            "Invitations": reverse_lazy("caidapp:workgroup_invitations"),
+            "Invite User": reverse_lazy("caidapp:workgroup_invitation"),
+        }
+        return context
+
+
+class WorkgroupMemberUpdateView(WorkgroupAdminRequiredMixin, UpdateView):
+    model = models.CaIDUser
+    form_class = forms.WorkgroupMemberWorkflowForm
+    template_name = "caidapp/update_form.html"
+    success_url = reverse_lazy("caidapp:workgroup_members")
+
+    def get_queryset(self):
+        return models.CaIDUser.objects.filter(workgroup=self.request.user.caiduser.workgroup).select_related("user")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["headline"] = f"Workflow access: {self.object}"
+        context["button"] = "Save"
+        context["cancel_button_url"] = reverse("caidapp:workgroup_members")
         return context
 
 
