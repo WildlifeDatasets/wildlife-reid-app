@@ -2374,10 +2374,14 @@ def assign_unidentified_to_identification(caiduser: CaIDUser):
     logger.debug(f"Unidentified media files added to the list. Found {mediafiles.count()} media files.")
 
 
-@shared_task
-def refresh_identities_suggestions_task(workgroup_id, limit=100):
+@shared_task(bind=True)
+def refresh_identities_suggestions_task(self, workgroup_id, limit=100):
     """Refresh identities suggestions task."""
-    return compute_identity_suggestions(workgroup_id, limit)
+    def report_progress(**progress):
+        self.update_state(state="PROGRESS", meta=progress)
+
+    result_id = compute_identity_suggestions(workgroup_id, limit, progress_callback=report_progress)
+    return {"result_id": result_id}
 
 
 @shared_task(bind=True)

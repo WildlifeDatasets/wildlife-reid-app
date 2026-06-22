@@ -6122,18 +6122,21 @@ def select_second_id_for_identification_merge(request, individual_identity1_id: 
     )
 
 
+@login_required
 def refresh_identities_suggestions_view(request):
     """Refresh identity suggestions view."""
-    # call background task
-    refresh_identities_suggestions(request)
-    return redirect(request.META.get("HTTP_REFERER", "/"))
+    state = get_merge_identity_suggestions_state(request)
+    if state["status"] in {"pending", "progress"}:
+        messages.info(request, "Merge suggestion generation is already running.")
+    else:
+        refresh_identities_suggestions(request)
+        messages.info(request, "Merge suggestion generation has started.")
+    return redirect("caidapp:suggest_merge_identities")
 
 
 def refresh_identities_suggestions(request, limit: int = 100, redirect: bool = True):
     """Refresh identity suggestions."""
-    inspect = current_app.control.inspect(timeout=1.0)
-    worker_stats = inspect.stats() if inspect else None
-    if not worker_stats:
+    if not _celery_worker_available():
         result_id = compute_identity_suggestions(request.user.caiduser.workgroup.id, limit)
         request.session.pop("refresh_job_id", None)
         request.session["refresh_job_started_at"] = timezone.now().isoformat()
@@ -6144,7 +6147,7 @@ def refresh_identities_suggestions(request, limit: int = 100, redirect: bool = T
         )
         return result_id
 
-    job = tasks.refresh_identities_suggestions_task.delay(request.user.caiduser.workgroup.id)
+    job = tasks.refresh_identities_suggestions_task.delay(request.user.caiduser.workgroup.id, limit)
     logger.debug(
         f"{job.id=}, {request.user.id=}, {request.user=}, {request.user.caiduser=}, {request.user.caiduser.workgroup=}"
     )
@@ -6214,21 +6217,171 @@ def get_identity_suggestions(request):
     )
 
 
+def _clear_merge_identity_suggestions_job(request):
+    request.session.pop("refresh_job_id", None)
+    request.session.pop("refresh_job_started_at", None)
+    request.session.modified = True
+
+
+def get_merge_identity_suggestions_state(request):
+    """Return current merge suggestion generation state and latest data."""
+    job_id = request.session.get("refresh_job_id")
+    result_id = request.session.get("refresh_result_id")
+    latest = models.MergeIdentitySuggestionResult.objects.filter(
+        workgroup=request.user.caiduser.workgroup,
+        **({"id": result_id} if result_id else {}),
+    ).order_by("id").last()
+    suggestions = latest.suggestions if latest else None
+    created_at = latest.created_at if latest else None
+    started_at = request.session.get("refresh_job_started_at")
+    progress = {"current": 0, "total": 0, "suggestions_count": 0, "message": ""}
+
+    if not job_id:
+        return {
+            "status": "success" if suggestions is not None else "idle",
+            "suggestions": suggestions,
+            "created_at": created_at,
+            "started_at": started_at,
+            "progress": progress,
+        }
+
+    result = AsyncResult(job_id)
+    job_age = None
+    if started_at:
+        try:
+            job_age = timezone.now() - datetime.datetime.fromisoformat(started_at)
+        except ValueError:
+            logger.warning("Invalid merge suggestion job timestamp: %s", started_at)
+    missing_worker_is_stale = not _celery_worker_available() and (
+        job_age is None or job_age > datetime.timedelta(seconds=30)
+    )
+    pending_job_is_stale = result.state == "PENDING" and job_age is not None and job_age > datetime.timedelta(minutes=15)
+    if result.state in {"PENDING", "STARTED", "PROGRESS"} and (missing_worker_is_stale or pending_job_is_stale):
+        _clear_merge_identity_suggestions_job(request)
+        messages.warning(request, "The previous merge suggestion job is no longer running. You can start it again.")
+        return {
+            "status": "success" if suggestions is not None else "idle",
+            "suggestions": suggestions,
+            "created_at": created_at,
+            "started_at": None,
+            "progress": progress,
+        }
+
+    if result.state == "SUCCESS":
+        payload = result.result or {}
+        result_id = payload.get("result_id") if isinstance(payload, dict) else payload
+        completed = models.MergeIdentitySuggestionResult.objects.filter(
+            id=result_id,
+            workgroup=request.user.caiduser.workgroup,
+        ).first()
+        _clear_merge_identity_suggestions_job(request)
+        if completed is None:
+            messages.error(request, "The merge suggestion result could not be found.")
+            return {
+                "status": "error",
+                "suggestions": suggestions,
+                "created_at": created_at,
+                "started_at": started_at,
+                "progress": progress,
+            }
+        request.session["refresh_result_id"] = completed.id
+        return {
+            "status": "success",
+            "suggestions": completed.suggestions,
+            "created_at": completed.created_at,
+            "started_at": started_at,
+            "progress": progress,
+        }
+
+    if result.state in {"FAILURE", "REVOKED"}:
+        status = "error" if result.state == "FAILURE" else "cancelled"
+        _clear_merge_identity_suggestions_job(request)
+        return {
+            "status": status,
+            "suggestions": suggestions,
+            "created_at": created_at,
+            "started_at": started_at,
+            "progress": progress,
+        }
+
+    meta = result.info if isinstance(result.info, dict) else {}
+    progress.update(
+        current=meta.get("current", 0),
+        total=meta.get("total", 0),
+        suggestions_count=meta.get("suggestions_count", 0),
+        message=meta.get("message", "Preparing merge suggestions..."),
+    )
+    return {
+        "status": "progress" if result.state == "PROGRESS" else "pending",
+        "suggestions": suggestions,
+        "created_at": created_at,
+        "started_at": started_at,
+        "progress": progress,
+    }
+
+
+@login_required
+def merge_identity_suggestions_status(request):
+    state = get_merge_identity_suggestions_state(request)
+    return JsonResponse(
+        {
+            "status": state["status"],
+            "progress": state["progress"],
+            "redirect_url": reverse("caidapp:suggest_merge_identities") if state["status"] == "success" else "",
+        }
+    )
+
+
+@login_required
+def start_merge_identity_suggestions(request):
+    if request.method != "POST":
+        messages.error(request, "Invalid request method.")
+        return redirect("caidapp:suggest_merge_identities")
+
+    state = get_merge_identity_suggestions_state(request)
+    if state["status"] in {"pending", "progress"}:
+        messages.info(request, "Merge suggestion generation is already running.")
+    else:
+        refresh_identities_suggestions(request)
+        messages.info(request, "Merge suggestion generation has started.")
+    return redirect("caidapp:suggest_merge_identities")
+
+
+@login_required
+def cancel_merge_identity_suggestions(request):
+    if request.method != "POST":
+        messages.error(request, "Invalid request method.")
+        return redirect("caidapp:suggest_merge_identities")
+
+    job_id = request.session.get("refresh_job_id")
+    if job_id:
+        current_app.control.revoke(job_id, terminate=True)
+        _clear_merge_identity_suggestions_job(request)
+        messages.info(request, "Merge suggestion generation cancel requested.")
+    else:
+        messages.info(request, "No merge suggestion generation is running.")
+    return redirect("caidapp:suggest_merge_identities")
+
+
 @login_required
 def suggest_merge_identities_view(request, limit: int = 100):
     """Suggest merge identities."""
-    response = get_identity_suggestions(request)
-    if response["status"] == "no-job" and response["suggestions"] is None:
+    response = get_merge_identity_suggestions_state(request)
+    if response["status"] == "idle" and response["suggestions"] is None:
         refresh_identities_suggestions(request)
-        messages.info(request, "Generation of merge suggestions has started. Check back in a moment.")
-        return message_view(
+        response = get_merge_identity_suggestions_state(request)
+
+    if response["status"] in {"pending", "progress"}:
+        return render(
             request,
-            "Generation of merge suggestions has started.",
-            link=reverse_lazy("caidapp:suggest_merge_identities"),
-            button_label="Check now",
-            headline="Generating suggestions",
-            link_secondary=reverse_lazy("caidapp:refresh_merge_identities_suggestions"),
-            button_label_secondary="Start again",
+            "caidapp/suggest_merge_identities.html",
+            {
+                "suggestions": [],
+                "job_running": True,
+                "job_progress": response["progress"],
+                "status_url": reverse("caidapp:merge_identity_suggestions_status"),
+                "cancel_url": reverse("caidapp:cancel_merge_identity_suggestions"),
+            },
         )
 
     if "started_at" in response and response["started_at"]:
@@ -6237,8 +6390,6 @@ def suggest_merge_identities_view(request, limit: int = 100):
     if "created_at" in response and response["created_at"]:
         created_at = response["created_at"]
         messages.info(request, f"This data created {timesince_now(created_at)} ago.")
-    if response["status"] == "no-job":
-        logger.debug("No job found for suggestions.")
     if response["suggestions"] is None:
         messages.info(
             request,
@@ -6286,7 +6437,15 @@ def suggest_merge_identities_view(request, limit: int = 100):
         else:
             suggestions = None
 
-        return render(request, "caidapp/suggest_merge_identities.html", {"suggestions": suggestions})
+        return render(
+            request,
+            "caidapp/suggest_merge_identities.html",
+            {
+                "suggestions": suggestions,
+                "job_running": False,
+                "start_url": reverse("caidapp:start_merge_identity_suggestions"),
+            },
+        )
     except Exception as e:
 
         logger.warning(e)

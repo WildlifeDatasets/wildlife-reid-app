@@ -518,6 +518,21 @@ urlpatterns = [
         name="refresh_merge_identities_suggestions",
     ),
     path(
+        "merge_identity_suggestions_status/",
+        views.merge_identity_suggestions_status,
+        name="merge_identity_suggestions_status",
+    ),
+    path(
+        "start_merge_identity_suggestions/",
+        views.start_merge_identity_suggestions,
+        name="start_merge_identity_suggestions",
+    ),
+    path(
+        "cancel_merge_identity_suggestions/",
+        views.cancel_merge_identity_suggestions,
+        name="cancel_merge_identity_suggestions",
+    ),
+    path(
         "clear_identity_suggestions/",
         views.clear_identity_suggestions_view,
         name="clear_identity_suggestions",

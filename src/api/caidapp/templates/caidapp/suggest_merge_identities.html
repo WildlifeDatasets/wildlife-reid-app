@@ -2,130 +2,138 @@
 
 {% block content %}
   <h1>Merge Identities Suggestion</h1>
-  <form method="post" action="{% url 'caidapp:merge_selected_identities' %}">
-    {% csrf_token %}
-      <div class="mt-3 mb-3 d-flex justify-content-between">
-          <button type="submit" class="btn btn-primary"
-                  onclick="return confirm('Are you sure you want to merge the selected suggestions?');">
-              Merge Selected
-          </button>
 
-          <a class="btn btn-secondary" href="{% url 'caidapp:refresh_merge_identities_suggestions' %}">
-              <i class="bi bi-arrow-clockwise"></i>
-              Regenerate Suggestions
-          </a>
-
+  {% if job_running %}
+    {{ job_progress|json_script:"merge-suggestions-initial-progress" }}
+    <div class="card shadow-sm border-0 mb-3">
+      <div class="card-body">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
+          <div>
+            <h2 class="h5 mb-1">Generating merge suggestions</h2>
+            <p class="text-muted mb-0" id="merge-suggestions-status-message">
+              {{ job_progress.message|default:"Preparing merge suggestions..." }}
+            </p>
+          </div>
+          <form method="post" action="{{ cancel_url }}"
+                onsubmit="return confirm('Do you really want to cancel merge suggestion generation?');">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-outline-danger">Cancel generation</button>
+          </form>
+        </div>
+        <div class="progress mb-2" style="height: 1.2rem;">
+          <div id="merge-suggestions-progress-bar"
+               class="progress-bar progress-bar-striped progress-bar-animated"
+               role="progressbar" style="width: 0%;" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">0%</div>
+        </div>
+        <div class="small text-muted" id="merge-suggestions-progress-meta">Waiting for worker status...</div>
       </div>
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        const progressBar = document.getElementById("merge-suggestions-progress-bar");
+        const progressMeta = document.getElementById("merge-suggestions-progress-meta");
+        const statusMessage = document.getElementById("merge-suggestions-status-message");
+
+        function renderProgress(progress) {
+          const total = Number(progress.total || 0);
+          const current = Number(progress.current || 0);
+          const count = Number(progress.suggestions_count || 0);
+          const percent = total > 0 ? Math.round((current / total) * 100) : 0;
+          progressBar.style.width = `${percent}%`;
+          progressBar.textContent = `${percent}%`;
+          progressBar.setAttribute("aria-valuenow", String(percent));
+          progressMeta.textContent = total > 0
+            ? `Compared ${current} / ${total} identity pairs, suggestions found: ${count}.`
+            : "Preparing worker state...";
+          if (progress.message) statusMessage.textContent = progress.message;
+        }
+
+        function pollStatus() {
+          fetch("{{ status_url }}", {headers: {"X-Requested-With": "XMLHttpRequest"}, credentials: "same-origin"})
+            .then(function (response) { return response.json(); })
+            .then(function (data) {
+              renderProgress(data.progress || {});
+              if (data.status === "success" && data.redirect_url) {
+                window.location.href = data.redirect_url;
+                return;
+              }
+              if (data.status === "error" || data.status === "cancelled" || data.status === "idle") {
+                window.location.reload();
+                return;
+              }
+              window.setTimeout(pollStatus, 1500);
+            })
+            .catch(function () {
+              progressMeta.textContent = "Could not refresh progress right now. Retrying...";
+              window.setTimeout(pollStatus, 2500);
+            });
+        }
+
+        renderProgress(JSON.parse(document.getElementById("merge-suggestions-initial-progress").textContent));
+        pollStatus();
+      });
+    </script>
+  {% else %}
+    <form method="post" action="{{ start_url }}" class="mb-3"
+          onsubmit="this.querySelector('button[type=submit]').disabled = true;">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-clockwise"></i>
+        Regenerate Suggestions
+      </button>
+    </form>
+
     {% if suggestions %}
-      <div class="mb-3 d-flex flex-wrap gap-2">
-        <button type="button" class="btn btn-outline-secondary btn-sm" id="select-all-merge-suggestions">
-          Select all
-        </button>
-        <button type="button" class="btn btn-outline-secondary btn-sm" id="select-distance-zero-merge-suggestions">
-          Select distance 0
-        </button>
-      </div>
-      <ul class="list-group">
-      {% for identity1, identity2, distance in suggestions %}
-        <li class="list-group-item d-flex justify-content-between align-items-center">
-          <div class="form-check">
-            <input class="form-check-input" type="checkbox"
-                   name="suggestions"
-                   value="{{ identity1.id }}|{{ identity2.id }}"
-                   data-distance="{{ distance }}"
-                   id="suggestion-{{ identity1.id }}-{{ identity2.id }}">
-            <label class="form-check-label" for="suggestion-{{ identity1.id }}-{{ identity2.id }}">
-                <a href="{% url 'caidapp:individual_identity_update' identity1.id %}" class="link-secondary">
-                    {{ identity1.name }} ({{ identity1.code }})
-                </a>
-                &rarr;
-                <a href="{% url 'caidapp:individual_identity_update' identity1.id %}" class="link-secondary">
-                    {{ identity2.name }} ({{ identity2.code }})
-                </a>
-            </label>
+      <form method="post" action="{% url 'caidapp:merge_selected_identities' %}">
+        {% csrf_token %}
+        <div class="mb-3 d-flex flex-wrap justify-content-between gap-2">
+          <div class="d-flex flex-wrap gap-2">
+            <button type="button" class="btn btn-outline-secondary btn-sm" id="select-all-merge-suggestions">Select all</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" id="select-distance-zero-merge-suggestions">Select distance 0</button>
           </div>
-          <div class="d-flex align-items-center">
-            <div class="me-5">
-              distance: {{ distance }}
-            </div>
-            <a class="btn btn-secondary me-1"
-               href="{% url 'caidapp:merge_identities' identity1.id identity2.id %}">
-              Merge with preview
-            </a>
-            <a class="btn btn-secondary"
-               href="{% url 'caidapp:merge_identities_no_preview' identity1.id identity2.id %}"
-               onclick="return confirm('Are you sure you want to merge {{ identity1.name }} into {{ identity2.name }}?');">
-              Merge
-            </a>
-          </div>
-        </li>
-      {% endfor %}
-      </ul>
+          <button type="submit" class="btn btn-primary"
+                  onclick="return confirm('Are you sure you want to merge the selected suggestions?');">Merge Selected</button>
+        </div>
+        <ul class="list-group">
+          {% for identity1, identity2, distance in suggestions %}
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="suggestions"
+                       value="{{ identity1.id }}|{{ identity2.id }}" data-distance="{{ distance }}"
+                       id="suggestion-{{ identity1.id }}-{{ identity2.id }}">
+                <label class="form-check-label" for="suggestion-{{ identity1.id }}-{{ identity2.id }}">
+                  <a href="{% url 'caidapp:individual_identity_update' identity1.id %}" class="link-secondary">{{ identity1.name }} ({{ identity1.code }})</a>
+                  &rarr;
+                  <a href="{% url 'caidapp:individual_identity_update' identity2.id %}" class="link-secondary">{{ identity2.name }} ({{ identity2.code }})</a>
+                </label>
+              </div>
+              <div class="d-flex align-items-center">
+                <div class="me-5">distance: {{ distance }}</div>
+                <a class="btn btn-secondary me-1" href="{% url 'caidapp:merge_identities' identity1.id identity2.id %}">Merge with preview</a>
+                <a class="btn btn-secondary" href="{% url 'caidapp:merge_identities_no_preview' identity1.id identity2.id %}"
+                   onclick="return confirm('Are you sure you want to merge {{ identity1.name }} into {{ identity2.name }}?');">Merge</a>
+              </div>
+            </li>
+          {% endfor %}
+        </ul>
+      </form>
+
+      <script>
+        (function () {
+          const checkboxes = Array.from(document.querySelectorAll('input[name="suggestions"]'));
+          const selectAll = document.getElementById("select-all-merge-suggestions");
+          const selectZero = document.getElementById("select-distance-zero-merge-suggestions");
+          if (selectAll) selectAll.addEventListener("click", function () {
+            checkboxes.forEach(function (checkbox) { checkbox.checked = true; });
+          });
+          if (selectZero) selectZero.addEventListener("click", function () {
+            checkboxes.forEach(function (checkbox) { checkbox.checked = checkbox.dataset.distance === "0"; });
+          });
+        })();
+      </script>
     {% else %}
       <p>No suggestions available.</p>
     {% endif %}
-  </form>
-
-  <script>
-    (function () {
-      const suggestionCheckboxes = Array.from(document.querySelectorAll('input[name="suggestions"]'));
-      const selectAllButton = document.getElementById("select-all-merge-suggestions");
-      const selectDistanceZeroButton = document.getElementById("select-distance-zero-merge-suggestions");
-
-      if (suggestionCheckboxes.length === 0) {
-        return;
-      }
-
-      if (selectAllButton) {
-        selectAllButton.addEventListener("click", function () {
-          suggestionCheckboxes.forEach(function (checkbox) {
-            checkbox.checked = true;
-          });
-        });
-      }
-
-      if (selectDistanceZeroButton) {
-        selectDistanceZeroButton.addEventListener("click", function () {
-          suggestionCheckboxes.forEach(function (checkbox) {
-            checkbox.checked = checkbox.dataset.distance === "0";
-          });
-        });
-      }
-    })();
-  </script>
+  {% endif %}
 {% endblock %}
-
-
-
-
-
-
-
-{#{% extends "base.html" %}#}
-{##}
-{#{% block content %}#}
-{#  <h1>Merge Identities Suggestion</h1>#}
-{##}
-{#  {% if suggestions %}#}
-{#      <ul class="list-group">#}
-{#      {% for locality1, locality2, distance in suggestions %}#}
-{#        <li class="list-group-item d-flex justify-content-between align-items-center">#}
-{#          {{ locality1.name }} ({{ locality1.code }}) => {{ locality2.name }} ({{ locality2.code }})#}
-{#            <div class="d-flex align-items-center">#}
-{#                <div class="me-5">#}
-{#                    distance: {{ distance }}#}
-{#                </div>#}
-{#          <a class="btn btn-secondary me-1" href="{% url 'caidapp:merge_identities' locality1.id locality2.id %}"#}
-{#          onclick="return confirm('Are you sure you want to merge {{ locality1.name }} into {{ locality2.name }}?');"#}
-{#          >Merge with preview</a>#}
-{#                <a class="btn btn-secondary" href="{% url 'caidapp:merge_identities_no_preview' locality1.id locality2.id %}"#}
-{#                   onclick="return confirm('Are you sure you want to merge {{ locality1.name }} into {{ locality2.name }}?');"#}
-{#                >Merge</a>#}
-{#            </div>#}
-{#        </li>#}
-{#      {% endfor %}#}
-{#      </ul>#}
-{##}
-{##}
-{#  {% endif %}#}
-{#{% endblock %}#}

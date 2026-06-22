@@ -91,7 +91,7 @@ def prepare_dataframe_for_uploads_in_one_locality(locality_id: int) -> pd.DataFr
     return df
 
 
-def compute_identity_suggestions(workgroup_id: int, limit: int = 100) -> int:
+def compute_identity_suggestions(workgroup_id: int, limit: int = 100, progress_callback=None) -> int:
     """Compute identity suggestions for merging."""
     # user = get_user_model().objects.get(id=user_id)
     suggestions = []
@@ -99,11 +99,18 @@ def compute_identity_suggestions(workgroup_id: int, limit: int = 100) -> int:
     print(f"Computing identity suggestions for workgroup {workgroup.name} ({workgroup.id})")
     logger.debug(f"Computing identity suggestions for workgroup {workgroup.name} ({workgroup.id})")
 
-    all_identities = IndividualIdentity.objects.filter(
-        owner_workgroup=workgroup,
-    )
-    total = all_identities.count()
+    all_identities = list(IndividualIdentity.objects.filter(owner_workgroup=workgroup))
+    total = len(all_identities)
+    total_pairs = total * (total - 1) // 2
     print(f"Total identities: {total}")
+
+    if progress_callback:
+        progress_callback(
+            current=0,
+            total=total_pairs,
+            suggestions_count=0,
+            message=f"Preparing {total} identities...",
+        )
 
     for i, identity1 in tqdm(enumerate(all_identities), total=total, desc="Computing identity suggestions"):
         for j in range(i + 1, len(all_identities)):
@@ -127,12 +134,30 @@ def compute_identity_suggestions(workgroup_id: int, limit: int = 100) -> int:
                 identity_a, identity_b = order_identity_by_mediafile_count(identity1, identity2)
                 suggestions.append((identity_a.id, identity_b.id, distance))
 
+        processed_identities = i + 1
+        current = processed_identities * (2 * total - processed_identities - 1) // 2
+        if progress_callback and (processed_identities == total or processed_identities % 10 == 0):
+            progress_callback(
+                current=current,
+                total=total_pairs,
+                suggestions_count=len(suggestions),
+                message=f"Processed {processed_identities} of {total} identities.",
+            )
+
     # seřadit
-    suggestions.sort(key=lambda x: (x[2], -len(IndividualIdentity.objects.get(id=x[1]).name)))
+    identities_by_id = {identity.id: identity for identity in all_identities}
+    suggestions.sort(key=lambda x: (x[2], -len(identities_by_id[x[1]].name)))
 
     # uložit výsledek do DB
     result = MergeIdentitySuggestionResult.objects.create(
         workgroup=workgroup,
         suggestions=suggestions,
     )
+    if progress_callback:
+        progress_callback(
+            current=total_pairs,
+            total=total_pairs,
+            suggestions_count=len(suggestions),
+            message="Merge suggestion generation finished.",
+        )
     return result.id
