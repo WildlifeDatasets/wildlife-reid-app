@@ -67,3 +67,22 @@ class MergeIdentitySuggestionsViewTest(TestCase):
         compute_mock.assert_called_once_with(self.caiduser.workgroup.id, 100)
         self.assertEqual(request.session["refresh_result_id"], 123)
         self.assertNotIn("refresh_job_id", request.session)
+
+    def test_suggest_merge_identities_renders_bulk_selection_controls(self):
+        first = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Alpha", code="B75")
+        second = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Omega", code="B75")
+        result = MergeIdentitySuggestionResult.objects.create(
+            workgroup=self.caiduser.workgroup,
+            suggestions=[[first.id, second.id, 0]],
+        )
+
+        session = self.client.session
+        session["refresh_result_id"] = result.id
+        session.save()
+
+        response = self.client.get(reverse("caidapp:suggest_merge_identities"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id="select-all-merge-suggestions"')
+        self.assertContains(response, 'id="select-distance-zero-merge-suggestions"')
+        self.assertContains(response, 'data-distance="0"')

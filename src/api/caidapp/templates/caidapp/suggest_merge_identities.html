@@ -17,6 +17,14 @@
 
       </div>
     {% if suggestions %}
+      <div class="mb-3 d-flex flex-wrap gap-2">
+        <button type="button" class="btn btn-outline-secondary btn-sm" id="select-all-merge-suggestions">
+          Select all
+        </button>
+        <button type="button" class="btn btn-outline-secondary btn-sm" id="select-distance-zero-merge-suggestions">
+          Select distance 0
+        </button>
+      </div>
       <ul class="list-group">
       {% for identity1, identity2, distance in suggestions %}
         <li class="list-group-item d-flex justify-content-between align-items-center">
@@ -24,6 +32,7 @@
             <input class="form-check-input" type="checkbox"
                    name="suggestions"
                    value="{{ identity1.id }}|{{ identity2.id }}"
+                   data-distance="{{ distance }}"
                    id="suggestion-{{ identity1.id }}-{{ identity2.id }}">
             <label class="form-check-label" for="suggestion-{{ identity1.id }}-{{ identity2.id }}">
                 <a href="{% url 'caidapp:individual_identity_update' identity1.id %}" class="link-secondary">
@@ -56,6 +65,34 @@
       <p>No suggestions available.</p>
     {% endif %}
   </form>
+
+  <script>
+    (function () {
+      const suggestionCheckboxes = Array.from(document.querySelectorAll('input[name="suggestions"]'));
+      const selectAllButton = document.getElementById("select-all-merge-suggestions");
+      const selectDistanceZeroButton = document.getElementById("select-distance-zero-merge-suggestions");
+
+      if (suggestionCheckboxes.length === 0) {
+        return;
+      }
+
+      if (selectAllButton) {
+        selectAllButton.addEventListener("click", function () {
+          suggestionCheckboxes.forEach(function (checkbox) {
+            checkbox.checked = true;
+          });
+        });
+      }
+
+      if (selectDistanceZeroButton) {
+        selectDistanceZeroButton.addEventListener("click", function () {
+          suggestionCheckboxes.forEach(function (checkbox) {
+            checkbox.checked = checkbox.dataset.distance === "0";
+          });
+        });
+      }
+    })();
+  </script>
 {% endblock %}
 
 
