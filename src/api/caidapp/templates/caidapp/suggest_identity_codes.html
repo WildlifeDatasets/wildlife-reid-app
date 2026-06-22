@@ -2,13 +2,114 @@
 
 {% block content %}
   <h1>Identity Code Suggestion</h1>
-  <p>Here you can see identity code suggestions detected from names using regex <code>{{ active_regex }}</code>.
-  {% if request.user.caiduser.workgroup_admin %}
-    It can be changed in <a href="{% url 'caidapp:workgroup-update' request.user.caiduser.workgroup.id %}">Work Group Settings</a>.
-  {% endif %}
+  <p>
+    Here you can see identity code suggestions detected from names using regex <code>{{ active_regex }}</code>.
+    {% if request.user.caiduser.workgroup_admin %}
+      It can be changed in <a href="{% url 'caidapp:workgroup-update' request.user.caiduser.workgroup.id %}">Work Group Settings</a>.
+    {% endif %}
   </p>
 
-  {% if identities %}
+  {% if not job_running %}
+    <form method="post" action="{{ start_url }}" class="mb-3">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-outline-secondary">
+        {% if identities %}
+          Regenerate suggestions
+        {% else %}
+          Start suggestion generation
+        {% endif %}
+      </button>
+    </form>
+  {% endif %}
+
+  {% if job_running %}
+    {{ job_progress|json_script:"identity-code-suggestions-initial-progress" }}
+    <div class="card shadow-sm border-0 mb-3">
+      <div class="card-body">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
+          <div>
+            <h2 class="h5 mb-1">Generating suggestions</h2>
+            <p class="text-muted mb-0" id="identity-code-suggestions-status-message">
+              {{ job_progress.message|default:"Preparing identity code suggestions..." }}
+            </p>
+          </div>
+          <form method="post" action="{{ cancel_url }}" onsubmit="return confirm('Do you really want to cancel suggestion generation?');">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-outline-danger">Cancel generation</button>
+          </form>
+        </div>
+
+        <div class="progress mb-2" style="height: 1.2rem;">
+          <div
+            id="identity-code-suggestions-progress-bar"
+            class="progress-bar progress-bar-striped progress-bar-animated"
+            role="progressbar"
+            style="width: 0%;"
+            aria-valuemin="0"
+            aria-valuemax="100"
+            aria-valuenow="0">
+            0%
+          </div>
+        </div>
+        <div class="small text-muted" id="identity-code-suggestions-progress-meta">
+          Waiting for worker status...
+        </div>
+      </div>
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        const statusUrl = "{{ status_url }}";
+        const progressBar = document.getElementById("identity-code-suggestions-progress-bar");
+        const progressMeta = document.getElementById("identity-code-suggestions-progress-meta");
+        const statusMessage = document.getElementById("identity-code-suggestions-status-message");
+
+        function renderProgress(progress) {
+          const total = Number(progress.total || 0);
+          const current = Number(progress.current || 0);
+          const matches = Number(progress.matches || 0);
+          const percent = total > 0 ? Math.round((current / total) * 100) : 0;
+          progressBar.style.width = `${percent}%`;
+          progressBar.textContent = `${percent}%`;
+          progressBar.setAttribute("aria-valuenow", String(percent));
+          progressMeta.textContent = total > 0
+            ? `Checked ${current} / ${total} identities, matches found: ${matches}.`
+            : "Preparing worker state...";
+          if (progress.message) {
+            statusMessage.textContent = progress.message;
+          }
+        }
+
+        function pollStatus() {
+          fetch(statusUrl, {
+            headers: { "X-Requested-With": "XMLHttpRequest" },
+            credentials: "same-origin"
+          })
+            .then(function (response) { return response.json(); })
+            .then(function (data) {
+              renderProgress(data.progress || {});
+              if (data.status === "success" && data.redirect_url) {
+                window.location.href = data.redirect_url;
+                return;
+              }
+              if (data.status === "error" || data.status === "cancelled") {
+                window.location.href = window.location.href;
+                return;
+              }
+              window.setTimeout(pollStatus, 1500);
+            })
+            .catch(function () {
+              progressMeta.textContent = "Could not refresh progress right now. Retrying...";
+              window.setTimeout(pollStatus, 2500);
+            });
+        }
+
+        const initialProgress = JSON.parse(document.getElementById("identity-code-suggestions-initial-progress").textContent);
+        renderProgress(initialProgress);
+        pollStatus();
+      });
+    </script>
+  {% elif identities %}
     <form method="post" action="{% url 'caidapp:apply_selected_identity_code_suggestions' %}">
       {% csrf_token %}
       <div class="d-flex justify-content-between align-items-center mb-3">

@@ -35,7 +35,7 @@
                 class="bi bi-union"></i> Identity merge tool</a>
     </li>
 
-    <li><a class="dropdown-item mt-2" href="{% url 'caidapp:show_identity_code_suggestions' %}">
+    <li><a class="dropdown-item mt-2 js-identity-code-suggestions-link" href="{% url 'caidapp:show_identity_code_suggestions' %}">
         {#                    icon with numbers #}
         <i class="bi bi-upc"></i> Identity code suggestions</a>
     </li>
@@ -44,3 +44,20 @@
             class="fa fa-question"></i> List of not identified media files </a></li>
 </ul>
 </div>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    document.querySelectorAll(".js-identity-code-suggestions-link").forEach(function (link) {
+      link.addEventListener("click", function (event) {
+        if (link.dataset.loading === "true") {
+          event.preventDefault();
+          return;
+        }
+        link.dataset.loading = "true";
+        link.classList.add("disabled");
+        link.setAttribute("aria-disabled", "true");
+        link.innerHTML = '<i class="bi bi-arrow-repeat"></i> Identity code suggestions (starting...)';
+      });
+    });
+  });
+</script>

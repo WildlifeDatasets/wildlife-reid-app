@@ -2380,6 +2380,39 @@ def refresh_identities_suggestions_task(workgroup_id, limit=100):
     return compute_identity_suggestions(workgroup_id, limit)
 
 
+@shared_task(bind=True)
+def compute_identity_code_suggestions_task(self, workgroup_id: int):
+    """Compute identity code suggestions with progress updates."""
+    queryset = IndividualIdentity.objects.filter(owner_workgroup_id=workgroup_id).order_by("id")
+    total = queryset.count()
+    suggestion_ids: list[int] = []
+
+    if total == 0:
+        self.update_state(
+            state="PROGRESS",
+            meta={"current": 0, "total": 0, "matches": 0, "message": "No identities to scan."},
+        )
+        return {"suggestion_ids": [], "total": 0, "matches": 0}
+
+    for index, identity in enumerate(queryset.iterator(chunk_size=200), start=1):
+        suggested_code = identity.suggested_code_from_name()
+        if suggested_code:
+            suggestion_ids.append(identity.id)
+
+        if index == 1 or index == total or index % 50 == 0:
+            self.update_state(
+                state="PROGRESS",
+                meta={
+                    "current": index,
+                    "total": total,
+                    "matches": len(suggestion_ids),
+                    "message": f"Checked {index} of {total} identities.",
+                },
+            )
+
+    return {"suggestion_ids": suggestion_ids, "total": total, "matches": len(suggestion_ids)}
+
+
 def run_identification_outlier_detection_for_workgroup(
     workgroup: WorkGroup,
 ) -> models.IdentificationOutlierSuggestionResult:

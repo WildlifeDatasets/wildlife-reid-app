@@ -6610,9 +6610,74 @@ def merge_selected_identities_view(request):
 @login_required
 def show_identity_code_suggestions(request):
     """Show identity code suggestions."""
+    workgroup = request.user.caiduser.workgroup
+    active_regex = workgroup.get_identity_code_regex() if workgroup else models.DEFAULT_IDENTITY_CODE_REGEX
+    job_state = _get_identity_code_suggestions_state(request)
+
+    if job_state["status"] == "idle" and job_state["suggestion_ids"] is None:
+        start_response = _start_identity_code_suggestions(request, clear_existing=False)
+        if start_response["mode"] == "async":
+            job_state = _get_identity_code_suggestions_state(request)
+        else:
+            return render(
+                request,
+                "caidapp/suggest_identity_codes.html",
+                {
+                    "identities": start_response["suggestions"],
+                    "active_regex": active_regex,
+                    "job_status": "success",
+                    "job_running": False,
+                    "job_progress": {"current": 0, "total": 0, "matches": 0, "message": ""},
+                    "start_url": reverse("caidapp:start_identity_code_suggestions"),
+                },
+            )
+
+    if job_state["status"] in {"pending", "progress"}:
+        return render(
+            request,
+            "caidapp/suggest_identity_codes.html",
+            {
+                "identities": [],
+                "active_regex": active_regex,
+                "job_status": job_state["status"],
+                "job_running": True,
+                "job_progress": job_state["progress"],
+                "job_started_at": job_state["started_at"],
+                "status_url": reverse("caidapp:identity_code_suggestions_status"),
+                "cancel_url": reverse("caidapp:cancel_identity_code_suggestions"),
+            },
+        )
+
+    suggestions = _load_identity_code_suggestions_from_ids(
+        request.user.caiduser.workgroup,
+        job_state["suggestion_ids"],
+    )
+
+    return render(
+        request,
+        "caidapp/suggest_identity_codes.html",
+        {
+            "identities": suggestions,
+            "active_regex": active_regex,
+            "job_status": job_state["status"],
+            "job_running": False,
+            "job_progress": job_state["progress"],
+            "start_url": reverse("caidapp:start_identity_code_suggestions"),
+        },
+    )
+
+
+def _celery_worker_available() -> bool:
+    """Return True when a Celery worker is available."""
+    inspect = current_app.control.inspect(timeout=1.0)
+    worker_stats = inspect.stats() if inspect else None
+    return bool(worker_stats)
+
+
+def _compute_identity_code_suggestions_sync(workgroup):
+    """Compute identity code suggestions synchronously."""
     all_identities = IndividualIdentity.objects.filter(
-        owner_workgroup=request.user.caiduser.workgroup,
-        # **user_has_access_filter_params(request.user.caiduser, "owner")
+        owner_workgroup=workgroup,
     )
     suggestions = []
     for identity in all_identities:
@@ -6621,18 +6686,191 @@ def show_identity_code_suggestions(request):
             identity.suggested_code = suggested_code
             identity.suggested_name = identity.suggested_name_without_code()
             suggestions.append(identity)
+    return suggestions
 
-    workgroup = request.user.caiduser.workgroup
-    active_regex = workgroup.get_identity_code_regex() if workgroup else models.DEFAULT_IDENTITY_CODE_REGEX
 
-    return render(
-        request,
-        "caidapp/suggest_identity_codes.html",
+def _clear_identity_code_suggestions_session_state(request, clear_suggestions: bool = False):
+    """Clear job state for identity code suggestions from the session."""
+    request.session.pop("identity_code_suggestions_job_id", None)
+    request.session.pop("identity_code_suggestions_started_at", None)
+    if clear_suggestions:
+        request.session.pop("identity_code_suggestions_ids", None)
+        request.session.pop("identity_code_suggestions_generated_at", None)
+    request.session.modified = True
+
+
+def _start_identity_code_suggestions(request, clear_existing: bool):
+    """Start identity code suggestion generation asynchronously or synchronously."""
+    if clear_existing:
+        _clear_identity_code_suggestions_session_state(request, clear_suggestions=True)
+
+    if _celery_worker_available():
+        job = tasks.compute_identity_code_suggestions_task.delay(request.user.caiduser.workgroup.id)
+        request.session["identity_code_suggestions_job_id"] = job.id
+        request.session["identity_code_suggestions_started_at"] = timezone.now().isoformat()
+        request.session.pop("identity_code_suggestions_ids", None)
+        request.session.pop("identity_code_suggestions_generated_at", None)
+        request.session.modified = True
+        return {"mode": "async", "job_id": job.id}
+
+    suggestions = _compute_identity_code_suggestions_sync(request.user.caiduser.workgroup)
+    return {"mode": "sync", "suggestions": suggestions}
+
+
+def _load_identity_code_suggestions_from_ids(workgroup, suggestion_ids):
+    """Load cached identity code suggestions from IDs."""
+    if not suggestion_ids:
+        return []
+
+    identities_by_id = {
+        identity.id: identity
+        for identity in IndividualIdentity.objects.filter(
+            owner_workgroup=workgroup,
+            id__in=suggestion_ids,
+        )
+    }
+    suggestions = []
+    for identity_id in suggestion_ids:
+        identity = identities_by_id.get(identity_id)
+        if identity is None:
+            continue
+        suggested_code = identity.suggested_code_from_name()
+        if not suggested_code:
+            continue
+        identity.suggested_code = suggested_code
+        identity.suggested_name = identity.suggested_name_without_code()
+        suggestions.append(identity)
+    return suggestions
+
+
+def _get_identity_code_suggestions_state(request):
+    """Return current state of identity code suggestion generation."""
+    job_id = request.session.get("identity_code_suggestions_job_id")
+    suggestion_ids = request.session.get("identity_code_suggestions_ids")
+    started_at = request.session.get("identity_code_suggestions_started_at")
+    progress = {"current": 0, "total": 0, "matches": 0, "message": ""}
+
+    if not job_id:
+        return {
+            "status": "success" if suggestion_ids is not None else "idle",
+            "suggestion_ids": suggestion_ids,
+            "started_at": started_at,
+            "progress": progress,
+        }
+
+    result = AsyncResult(job_id)
+    if result.state in {"PENDING", "STARTED", "PROGRESS"} and not _celery_worker_available():
+        _clear_identity_code_suggestions_session_state(request, clear_suggestions=False)
+        messages.warning(
+            request,
+            "The previous suggestion generation job is no longer running. You can start it again.",
+        )
+        return {
+            "status": "success" if suggestion_ids is not None else "idle",
+            "suggestion_ids": suggestion_ids,
+            "started_at": None,
+            "progress": progress,
+        }
+
+    if result.state == "SUCCESS":
+        payload = result.result or {}
+        suggestion_ids = payload.get("suggestion_ids", [])
+        request.session["identity_code_suggestions_ids"] = suggestion_ids
+        request.session["identity_code_suggestions_generated_at"] = timezone.now().isoformat()
+        _clear_identity_code_suggestions_session_state(request, clear_suggestions=False)
+        return {
+            "status": "success",
+            "suggestion_ids": suggestion_ids,
+            "started_at": started_at,
+            "progress": {
+                "current": payload.get("total", 0),
+                "total": payload.get("total", 0),
+                "matches": payload.get("matches", 0),
+                "message": "Suggestion generation finished.",
+            },
+        }
+
+    if result.state == "FAILURE":
+        _clear_identity_code_suggestions_session_state(request, clear_suggestions=False)
+        messages.error(request, f"Identity code suggestion generation failed: {result.result}")
+        return {
+            "status": "error",
+            "suggestion_ids": suggestion_ids,
+            "started_at": started_at,
+            "progress": progress,
+        }
+
+    if result.state == "REVOKED":
+        _clear_identity_code_suggestions_session_state(request, clear_suggestions=False)
+        messages.info(request, "Identity code suggestion generation was cancelled.")
+        return {
+            "status": "cancelled",
+            "suggestion_ids": suggestion_ids,
+            "started_at": started_at,
+            "progress": progress,
+        }
+
+    meta = result.info if isinstance(result.info, dict) else {}
+    progress.update(
         {
-            "identities": suggestions,
-            "active_regex": active_regex,
-        },
+            "current": meta.get("current", 0),
+            "total": meta.get("total", 0),
+            "matches": meta.get("matches", 0),
+            "message": meta.get("message", "Preparing identity code suggestions..."),
+        }
     )
+    return {
+        "status": "progress" if result.state == "PROGRESS" else "pending",
+        "suggestion_ids": suggestion_ids,
+        "started_at": started_at,
+        "progress": progress,
+    }
+
+
+@login_required
+def identity_code_suggestions_status(request):
+    """Return JSON status of identity code suggestion generation."""
+    state = _get_identity_code_suggestions_state(request)
+    return JsonResponse(
+        {
+            "status": state["status"],
+            "progress": state["progress"],
+            "redirect_url": reverse("caidapp:show_identity_code_suggestions") if state["status"] == "success" else "",
+        }
+    )
+
+
+@login_required
+def start_identity_code_suggestions(request):
+    """Explicitly start or regenerate identity code suggestions."""
+    if request.method != "POST":
+        messages.error(request, "Invalid request method.")
+        return redirect("caidapp:show_identity_code_suggestions")
+
+    start_response = _start_identity_code_suggestions(request, clear_existing=True)
+    if start_response["mode"] == "async":
+        messages.info(request, "Identity code suggestion generation has started.")
+    else:
+        messages.info(request, "Identity code suggestions were generated synchronously because no worker is available.")
+    return redirect("caidapp:show_identity_code_suggestions")
+
+
+@login_required
+def cancel_identity_code_suggestions(request):
+    """Cancel the running identity code suggestion generation."""
+    if request.method != "POST":
+        messages.error(request, "Invalid request method.")
+        return redirect("caidapp:show_identity_code_suggestions")
+
+    job_id = request.session.get("identity_code_suggestions_job_id")
+    if not job_id:
+        messages.info(request, "No identity code suggestion generation is running.")
+        return redirect("caidapp:show_identity_code_suggestions")
+
+    current_app.control.revoke(job_id, terminate=True)
+    _clear_identity_code_suggestions_session_state(request, clear_suggestions=False)
+    messages.info(request, "Identity code suggestion generation cancel requested.")
+    return redirect("caidapp:show_identity_code_suggestions")
 
 
 def _apply_identity_code_to_identity(identity: IndividualIdentity, rename: bool = True) -> bool:

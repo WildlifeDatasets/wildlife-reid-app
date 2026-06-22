@@ -588,6 +588,21 @@ urlpatterns = [
         name="show_identity_code_suggestions",
     ),
     path(
+        "identity_code_suggestions_status/",
+        views.identity_code_suggestions_status,
+        name="identity_code_suggestions_status",
+    ),
+    path(
+        "start_identity_code_suggestions/",
+        views.start_identity_code_suggestions,
+        name="start_identity_code_suggestions",
+    ),
+    path(
+        "cancel_identity_code_suggestions/",
+        views.cancel_identity_code_suggestions,
+        name="cancel_identity_code_suggestions",
+    ),
+    path(
         "apply_identity_code_suggestion/<int:identity_id>/",
         views.apply_identity_code_suggestion,
         name="apply_identity_code_suggestion",
