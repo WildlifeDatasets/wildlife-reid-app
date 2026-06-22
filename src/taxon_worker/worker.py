@@ -8,6 +8,7 @@ import pandas as pd
 from celery import Celery
 from detection_utils import inference_detection
 from detection_utils.inference_video import create_image_from_video
+from progress import ProgressReporter
 
 try:
     from taxon_utils import data_processing_pipeline, dataset_tools
@@ -87,9 +88,11 @@ def predict(
         do_init = force_init or (not output_metadata_file.exists())
         post_update_csv_name: str = "mediafile.post_update.csv"
         post_update_csv_path = output_dir / post_update_csv_name
+        progress = ProgressReporter(self, do_init=do_init)
 
         logger.info("Import pipeline stage: prepare metadata")
         if do_init:
+            progress.stage("prepare_metadata", "Preparing uploaded media")
             shutil.rmtree(output_images_dir, ignore_errors=True)
             metadata, _ = data_processing_pipeline.data_preprocessing(
                 input_archive_file,
@@ -104,15 +107,20 @@ def predict(
             metadata, df_failing0 = data_processing_pipeline.keep_correctly_loaded_images(metadata)
             logger.debug("Prepared metadata from archive: %s rows", len(metadata))
             logger.info("Import pipeline stage: build video previews")
+            progress.stage("video_previews", "Extracting preview images from videos")
             metadata["full_image_path"] = metadata["image_path"].apply(lambda x: str(output_images_dir / x))
             metadata["absolute_media_path"] = [pth for pth in metadata["full_image_path"]]
             metadata["detection_results"] = [None] * len(metadata)
-            metadata = create_image_from_video(metadata)
+            metadata = create_image_from_video(
+                metadata,
+                progress_callback=progress.callback("Extracting preview images from videos"),
+            )
             metadata, df_failing1 = data_processing_pipeline.keep_correctly_loaded_images(metadata)
             pd.concat([df_failing0, df_failing1]).to_csv(
                 output_metadata_file.with_suffix(".failed.csv"), encoding="utf-8-sig"
             )
         else:
+            progress.stage("load_metadata", "Loading prepared metadata")
             logger.info("Using existing metadata file: %s", output_metadata_file)
             logger.debug(f"{output_metadata_file=}, {output_metadata_file.stat().st_size=}")
             metadata = pd.read_csv(output_metadata_file, index_col=0)
@@ -134,22 +142,35 @@ def predict(
             logger.debug(f"{metadata['full_image_path'][0]=}, " f"{Path(metadata['full_image_path'][0]).exists()=}")
 
         logger.info("Import pipeline stage: detection")
-        metadata = inference_detection.detect_animal_on_metadata(metadata)
+        progress.stage("detection", "Detecting animals")
+        metadata = inference_detection.detect_animal_on_metadata(
+            metadata,
+            progress_callback=progress.callback("Detecting animals"),
+        )
         logger.info("Import pipeline stage: taxon classification")
+        progress.stage("classification", "Classifying taxa")
         data_processing_pipeline.run_taxon_classification_inference(metadata)
         logger.info("Import pipeline stage: previews")
-        data_processing_pipeline.make_previews(metadata, output_dir, force=do_init)
+        progress.stage("previews", "Creating media previews")
+        data_processing_pipeline.make_previews(
+            metadata,
+            output_dir,
+            force=do_init,
+            progress_callback=progress.callback("Creating media previews"),
+        )
 
         if post_update_csv_path.exists():
             logger.info("Import pipeline stage: apply post-update spreadsheet")
             metadata = post_update_with_spreadsheet(metadata, post_update_csv_path)
 
         logger.info("Import pipeline stage: write metadata")
+        progress.stage("finalize", "Writing metadata and output archive")
         metadata.to_csv(output_metadata_file, encoding="utf-8-sig")
 
         logger.info("Import pipeline stage: build output archive")
         logger.debug("Preparing output archive.")
         dataset_tools.make_zipfile_with_categories(output_archive_file, output_images_dir, metadata)
+        progress.update(1, 1, message="Handing results back for import", force=True)
         logger.debug(f"{contains_identities=}")
         logger.debug(f"{output_archive_file=}")
 

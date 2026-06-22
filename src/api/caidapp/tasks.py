@@ -738,6 +738,8 @@ def run_species_prediction_async(
         link=link,
         link_error=link_error,
     )
+    uploaded_archive.taxon_task_id = task.id
+    uploaded_archive.save(update_fields=["taxon_task_id"])
     logger.info(
         "Created worker task: %s",
         _task_log_context(

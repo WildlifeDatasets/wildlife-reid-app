@@ -50,6 +50,7 @@
                                           title="{{ uploadedarchive.get_identification_status.status_message }}"
                                           id="status-{{ uploadedarchive.id }}"
                                     >{{ uploadedarchive.get_identification_status.status }}</span> <br>
+                                    {% include "caidapp/upload_progress.html" %}
                                     {% include "caidapp/upload_card_body.html" %}
 
                                     <div class="mt-auto pt-3">

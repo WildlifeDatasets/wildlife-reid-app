@@ -156,6 +156,7 @@ def create_image_from_video(
     selection_methods: Tuple[str] = ("area", "ratio"),
     selection_thresholds: Tuple[float] = (24, 1),
     gif_height: int = 240,
+    progress_callback=None,
 ) -> pd.DataFrame:
     """
     Create image from video.
@@ -169,7 +170,9 @@ def create_image_from_video(
     no_detection_counter = 0
     with tqdm(total=len(metadata), desc=f"Mediafile to image [0 / {len(metadata)}]") as pbar:
         # for row_idx, row in tqdm(metadata.iterrows(), desc="Video to image"):
-        for row_idx, row in metadata.iterrows():
+        for position, (row_idx, row) in enumerate(metadata.iterrows()):
+            if progress_callback is not None:
+                progress_callback(position, len(metadata))
             pbar.set_description(f"Mediafile to image [{row_idx} / {len(metadata)}]")
             full_path = row["full_image_path"]
 
@@ -257,6 +260,8 @@ def create_image_from_video(
             row["suffix"] = f".{new_full_path.split('.')[-1]}"
             row["static_detection_frame"] = prediction["frame"]
             metadata.loc[row_idx] = row
+    if progress_callback is not None:
+        progress_callback(len(metadata), len(metadata))
     logger.debug(
         f"Processed {process_counter} videos, skipped {no_detection_counter} "
         f"videos with no detection and  {skip_counter} images."

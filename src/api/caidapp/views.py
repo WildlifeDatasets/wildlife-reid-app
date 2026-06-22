@@ -7126,6 +7126,14 @@ def uploads_status_api(request, group: str):
 
     # Získat archivy usera (dle vaší logiky, v příkladu jen pro demonstraci)
     uploaded_archives = UploadedArchive.objects.filter(**user_has_access_filter_params(user.caiduser, "owner"))
+    requested_ids = request.GET.get("ids", "")
+    if requested_ids:
+        try:
+            uploaded_archives = uploaded_archives.filter(
+                id__in=[int(value) for value in requested_ids.split(",") if value]
+            )
+        except ValueError:
+            return JsonResponse({"error": "Invalid archive ids"}, status=400)
 
     data = []
     for ua in uploaded_archives:
@@ -7133,9 +7141,47 @@ def uploads_status_api(request, group: str):
             st = ua.get_status()
         else:
             st = ua.get_identification_status()
+        progress = None
+        if ua.taxon_status == "TAIP" and ua.taxon_task_id:
+            try:
+                task = AsyncResult(ua.taxon_task_id)
+                state = task.state
+                info = task.info
+                if state == "PROGRESS" and isinstance(info, dict):
+                    raw_percent = info.get("percent")
+                    percent = max(0, min(int(raw_percent), 99)) if raw_percent is not None else None
+                    progress = {
+                        "state": state,
+                        "percent": percent,
+                        "stage": str(info.get("stage", "")),
+                        "message": str(info.get("message", "Processing upload")),
+                    }
+                elif state == "SUCCESS" and isinstance(info, dict) and info.get("status") == "ERROR":
+                    progress = {
+                        "state": state,
+                        "percent": None,
+                        "stage": "failed",
+                        "message": "Processing failed",
+                    }
+                elif state == "SUCCESS":
+                    progress = {
+                        "state": state,
+                        "percent": 99,
+                        "stage": "import_results",
+                        "message": "Importing processed results",
+                    }
+                else:
+                    progress = {
+                        "state": state,
+                        "percent": None,
+                        "stage": "queued" if state == "PENDING" else "starting",
+                        "message": "Queued for processing" if state == "PENDING" else "Starting processing",
+                    }
+            except Exception:
+                logger.warning("Could not read taxon progress for archive %s", ua.id, exc_info=True)
         # status = st["status"]
         # status_message = st["status_message"]
-        data.append({"id": ua.id, **st})
+        data.append({"id": ua.id, **st, "progress": progress})
 
     return JsonResponse({"archives": data})
 

@@ -1,0 +1,11 @@
+<span
+    id="progress-{{ uploadedarchive.id }}"
+    data-archive-id="{{ uploadedarchive.id }}"
+    class="upload-progress position-absolute top-0 end-0 m-2 badge rounded-pill bg-secondary{% if uploadedarchive.taxon_status != 'TAIP' %} d-none{% endif %}"
+    role="status"
+    data-bs-toggle="tooltip"
+    title="{{ uploadedarchive.status_message|default:'Processing upload' }}"
+>
+    <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+    <span class="upload-progress-percent visually-hidden">Processing</span>
+</span>

@@ -362,7 +362,7 @@ def detect_animal_orientation(image_rgb: np.array, image_size: int = 176):
     return CLS_TO_ORIENTATION[cls_idx], score
 
 
-def detect_animal_on_metadata(metadata: pd.DataFrame, border=0.0) -> pd.DataFrame:
+def detect_animal_on_metadata(metadata: pd.DataFrame, border=0.0, progress_callback=None) -> pd.DataFrame:
     """Do the detection and segmentation on images in metadata.
 
     Returns:
@@ -370,7 +370,11 @@ def detect_animal_on_metadata(metadata: pd.DataFrame, border=0.0) -> pd.DataFram
     """
     assert "full_image_path" in metadata
     logger.info("Detection stage: starting for %s media files.", len(metadata))
-    for row_idx, row in tqdm(metadata.iterrows(), total=len(metadata), desc="Animal detection"):
+    for position, (row_idx, row) in enumerate(
+        tqdm(metadata.iterrows(), total=len(metadata), desc="Animal detection")
+    ):
+        if progress_callback is not None:
+            progress_callback(position, len(metadata))
         image_abs_path = row["full_image_path"]
         try:
             if row["media_type"] == "video" and row["full_image_path"] == row["absolute_media_path"]:
@@ -418,6 +422,8 @@ def detect_animal_on_metadata(metadata: pd.DataFrame, border=0.0) -> pd.DataFram
             metadata.loc[row_idx] = row
         except Exception:
             logger.warning(f"Cannot process image '{image_abs_path}'. Exception: {traceback.format_exc()}")
+    if progress_callback is not None:
+        progress_callback(len(metadata), len(metadata))
     if not KEEP_DETECTION_MODEL_LOADED:
         del_detection_model()
     logger.info("Detection stage: finished for %s media files.", len(metadata))
