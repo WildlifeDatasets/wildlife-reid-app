@@ -10,9 +10,13 @@ function checkStatuses(fetchUrl) {
         .then(data => {
             data.archives.forEach(item => {
                 const statusElement = document.getElementById('status-' + item.id);
-                if (statusElement && statusElement.textContent !== item.status) {
-                    statusElement.textContent = item.status;
-                    statusElement.className = 'badge badge-status rounded-pill bg-' + item.status_style;
+                const statusText = statusElement?.querySelector('.badge-status-text');
+                if (statusElement && statusText && statusText.textContent !== item.status) {
+                    statusText.textContent = item.status;
+                    Array.from(statusElement.classList)
+                        .filter(className => className.startsWith('bg-'))
+                        .forEach(className => statusElement.classList.remove(className));
+                    statusElement.classList.add('bg-' + item.status_style);
                     updateTooltip(statusElement, item.status_message);
                 }
 
@@ -23,20 +27,20 @@ function checkStatuses(fetchUrl) {
                 if (!item.progress) {
                     progressElement.classList.add('d-none');
                     progressElement.removeAttribute('aria-valuenow');
+                    progressElement.querySelector('.upload-progress-value').style.strokeDasharray = '0 100';
                     return;
                 }
 
                 progressElement.classList.remove('d-none');
-                const percentElement = progressElement.querySelector('.upload-progress-percent');
+                const progressValue = progressElement.querySelector('.upload-progress-value');
                 if (item.progress.percent === null) {
-                    percentElement.textContent = 'Processing';
-                    percentElement.classList.add('visually-hidden');
+                    progressValue.style.strokeDasharray = '0 100';
                     progressElement.removeAttribute('aria-valuenow');
                 } else {
-                    percentElement.textContent = item.progress.percent + '%';
-                    percentElement.classList.remove('visually-hidden');
+                    progressValue.style.strokeDasharray = item.progress.percent + ' 100';
                     progressElement.setAttribute('aria-valuenow', item.progress.percent);
                 }
+                progressElement.setAttribute('aria-valuetext', item.progress.message);
                 const tooltip = item.progress.percent === null
                     ? item.progress.message
                     : item.progress.message + ': ' + item.progress.percent + '%';

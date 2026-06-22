@@ -226,8 +226,7 @@
                                         <span class="badge badge-status rounded-pill mt-3 align-self-start d-inline-flex bg-{{ uploadedarchive.get_status.status_style }}"
                                               id="status-{{ uploadedarchive.id }}"
                                               data-bs-toggle="tooltip" title="{{ uploadedarchive.get_status.status_message }}"
-                                        >{{ uploadedarchive.get_status.status }}</span>
-                                    {% include "caidapp/upload_progress.html" %}
+                                        >{% include "caidapp/upload_progress.html" %}<span class="badge-status-text">{{ uploadedarchive.get_status.status }}</span></span>
 
                                     {% include "caidapp/upload_card_body.html" %}
 

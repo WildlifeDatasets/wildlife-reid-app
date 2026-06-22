@@ -98,4 +98,6 @@ class TaxonProgressTemplateTest(TestCase):
 
         self.assertIn(f'id="progress-{archive.id}"', html)
         self.assertIn(f'data-archive-id="{archive.id}"', html)
+        self.assertIn('class="upload-progress-ring"', html)
+        self.assertIn('class="upload-progress-value"', html)
         self.assertNotIn(" d-none", html)

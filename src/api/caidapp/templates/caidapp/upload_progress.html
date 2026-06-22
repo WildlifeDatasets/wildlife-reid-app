@@ -1,11 +1,20 @@
 <span
     id="progress-{{ uploadedarchive.id }}"
     data-archive-id="{{ uploadedarchive.id }}"
-    class="upload-progress position-absolute top-0 end-0 m-2 badge rounded-pill bg-secondary{% if uploadedarchive.taxon_status != 'TAIP' %} d-none{% endif %}"
-    role="status"
+    class="upload-progress d-inline-flex me-1{% if uploadedarchive.taxon_status != 'TAIP' %} d-none{% endif %}"
+    style="width: 1rem; height: 1rem; flex: 0 0 auto;"
+    role="progressbar"
+    aria-label="Upload processing progress"
+    aria-valuemin="0"
+    aria-valuemax="100"
     data-bs-toggle="tooltip"
     title="{{ uploadedarchive.status_message|default:'Processing upload' }}"
 >
-    <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
-    <span class="upload-progress-percent visually-hidden">Processing</span>
+    <svg class="upload-progress-ring" viewBox="0 0 20 20" style="transform: rotate(-90deg);" aria-hidden="true">
+        <circle class="upload-progress-track" cx="10" cy="10" r="8" pathLength="100"
+                fill="none" stroke="currentColor" stroke-width="2.5" opacity="0.28"></circle>
+        <circle class="upload-progress-value" cx="10" cy="10" r="8" pathLength="100"
+                fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                stroke-dasharray="0 100" style="transition: stroke-dasharray 0.35s ease;"></circle>
+    </svg>
 </span>
