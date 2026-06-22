@@ -100,6 +100,7 @@ class WorkgroupForm(forms.ModelForm):
             "sequence_time_limit",
             "check_taxon_before_identification",
             "identity_code_regex",
+            "identity_merge_distinguishing_regex",
             "identification_model",
             "detection_model_path",
             "detection_model_architecture",
@@ -109,6 +110,10 @@ class WorkgroupForm(forms.ModelForm):
             + "and observations with the correct taxon. "
             + "Ignore the other observations and media files.",
             "identity_code_regex": "Regex used to extract identity codes from identity names, for example B75.",
+            "identity_merge_distinguishing_regex": (
+                "Regex used to extract an identity-distinguishing token. If two names match the regex but "
+                "the extracted values differ, they will not be suggested for merging."
+            ),
         }
 
 # class MergeIdentityForm(forms.Form):

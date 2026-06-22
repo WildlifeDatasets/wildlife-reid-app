@@ -53,6 +53,9 @@ ORIENTATION_CHOICES = (
 )
 TAXON_NOT_CLASSIFIED = "Not Classified"
 DEFAULT_IDENTITY_CODE_REGEX = r"B\d+"
+DEFAULT_IDENTITY_MERGE_DISTINGUISHING_REGEX = (
+    r"(?i)(?<![a-z0-9])juv[._ -]*(\d{2,4})[._ -]+(\d+)(?!\d)"
+)
 
 
 def validate_identity_code_regex(value: str):
@@ -65,6 +68,11 @@ def validate_identity_code_regex(value: str):
         from django.core.exceptions import ValidationError
 
         raise ValidationError(f"Invalid regular expression: {exc}") from exc
+
+
+def validate_identity_merge_distinguishing_regex(value: str):
+    """Validate a regex used to distinguish identities during merge suggestion generation."""
+    validate_identity_code_regex(value)
 
 
 def get_hash():
@@ -190,6 +198,16 @@ class WorkGroup(models.Model):
         validators=[validate_identity_code_regex],
         help_text="Regular expression used to detect identity code suggestions in identity names.",
     )
+    identity_merge_distinguishing_regex = models.CharField(
+        max_length=256,
+        blank=True,
+        default=DEFAULT_IDENTITY_MERGE_DISTINGUISHING_REGEX,
+        validators=[validate_identity_merge_distinguishing_regex],
+        help_text=(
+            "Regex whose match or capture groups distinguish identities during merge suggestions. "
+            "If both names match but the extracted values differ, the pair is excluded."
+        ),
+    )
 
     # next_step_text = models.CharField(max_length=255, blank=True, default="")
     # next_step_link = models.CharField(max_length=255, blank=True, default="")
@@ -202,6 +220,18 @@ class WorkGroup(models.Model):
         except re.error:
             logger.warning("Invalid identity_code_regex for workgroup %s. Falling back to default.", self.pk)
             return DEFAULT_IDENTITY_CODE_REGEX
+        return pattern
+
+    def get_identity_merge_distinguishing_regex(self) -> str:
+        pattern = self.identity_merge_distinguishing_regex or DEFAULT_IDENTITY_MERGE_DISTINGUISHING_REGEX
+        try:
+            re.compile(pattern)
+        except re.error:
+            logger.warning(
+                "Invalid identity_merge_distinguishing_regex for workgroup %s. Falling back to default.",
+                self.pk,
+            )
+            return DEFAULT_IDENTITY_MERGE_DISTINGUISHING_REGEX
         return pattern
 
     def save(self, *args, **kwargs):
@@ -2135,6 +2165,34 @@ class MergeIdentitySuggestionResult(models.Model):
 
     def __str__(self):
         return f"Suggestions for {self.workgroup} at {self.created_at}"
+
+
+class MergeIdentitySuggestionExclusion(models.Model):
+    """A workgroup-specific identity pair that must not be suggested for merging."""
+
+    workgroup = models.ForeignKey(WorkGroup, on_delete=models.CASCADE, related_name="merge_suggestion_exclusions")
+    identity_a = models.ForeignKey(
+        IndividualIdentity,
+        on_delete=models.CASCADE,
+        related_name="merge_suggestion_exclusions_as_a",
+    )
+    identity_b = models.ForeignKey(
+        IndividualIdentity,
+        on_delete=models.CASCADE,
+        related_name="merge_suggestion_exclusions_as_b",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["workgroup", "identity_a", "identity_b"],
+                name="unique_merge_identity_suggestion_exclusion",
+            )
+        ]
+
+    def __str__(self):
+        return f"Do not merge {self.identity_a} with {self.identity_b}"
 
 
 class IdentificationOutlierSuggestionResult(models.Model):

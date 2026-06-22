@@ -533,6 +533,11 @@ urlpatterns = [
         name="cancel_merge_identity_suggestions",
     ),
     path(
+        "exclude_merge_identity_suggestion/",
+        views.exclude_merge_identity_suggestion,
+        name="exclude_merge_identity_suggestion",
+    ),
+    path(
         "clear_identity_suggestions/",
         views.clear_identity_suggestions_view,
         name="clear_identity_suggestions",

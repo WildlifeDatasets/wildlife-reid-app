@@ -1,4 +1,5 @@
 import logging
+import re
 
 import Levenshtein
 import pandas as pd
@@ -9,6 +10,14 @@ from .model_tools import order_identity_by_mediafile_count, remove_diacritics
 from .models import CaIDUser, IndividualIdentity, Locality, MediaFile, MergeIdentitySuggestionResult, UploadedArchive
 
 logger = logging.getLogger(__name__)
+
+def merge_distinguishing_token(name: str, pattern: str):
+    """Extract a comparable token from an identity name using a workgroup regex."""
+    match = re.search(pattern, name or "")
+    if not match:
+        return None
+    values = match.groups() or (match.group(0),)
+    return tuple((value or "").strip().casefold() for value in values)
 
 
 def user_has_access_to_uploadedarchives_filter_params(caiduser: CaIDUser):
@@ -96,10 +105,17 @@ def compute_identity_suggestions(workgroup_id: int, limit: int = 100, progress_c
     # user = get_user_model().objects.get(id=user_id)
     suggestions = []
     workgroup = models.WorkGroup.objects.get(id=workgroup_id)
+    distinguishing_pattern = workgroup.get_identity_merge_distinguishing_regex()
     print(f"Computing identity suggestions for workgroup {workgroup.name} ({workgroup.id})")
     logger.debug(f"Computing identity suggestions for workgroup {workgroup.name} ({workgroup.id})")
 
     all_identities = list(IndividualIdentity.objects.filter(owner_workgroup=workgroup))
+    excluded_pairs = {
+        tuple(sorted((identity_a_id, identity_b_id)))
+        for identity_a_id, identity_b_id in models.MergeIdentitySuggestionExclusion.objects.filter(
+            workgroup=workgroup
+        ).values_list("identity_a_id", "identity_b_id")
+    }
     total = len(all_identities)
     total_pairs = total * (total - 1) // 2
     print(f"Total identities: {total}")
@@ -118,7 +134,20 @@ def compute_identity_suggestions(workgroup_id: int, limit: int = 100, progress_c
             if identity1 == identity2:
                 continue
 
-            if identity1.code and identity2.code and identity1.code == identity2.code:
+            if tuple(sorted((identity1.id, identity2.id))) in excluded_pairs:
+                continue
+
+            code1 = (identity1.code or "").strip().casefold()
+            code2 = (identity2.code or "").strip().casefold()
+            if code1 and code2 and code1 != code2:
+                continue
+
+            distinguishing_token1 = merge_distinguishing_token(identity1.name, distinguishing_pattern)
+            distinguishing_token2 = merge_distinguishing_token(identity2.name, distinguishing_pattern)
+            if distinguishing_token1 and distinguishing_token2 and distinguishing_token1 != distinguishing_token2:
+                continue
+
+            if code1 and code2 and code1 == code2:
                 identity_a, identity_b = order_identity_by_mediafile_count(identity1, identity2)
                 suggestions.append((identity_a.id, identity_b.id, 0))
                 continue

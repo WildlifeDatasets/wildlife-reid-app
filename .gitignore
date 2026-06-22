@@ -165,3 +165,4 @@ caid_import
 
 node_modules/*
 prompts/*
+.codex_tmp/*

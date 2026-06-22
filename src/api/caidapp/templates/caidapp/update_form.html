@@ -61,6 +61,14 @@
                                         {% if field.help_text %}
                                             <div class="form-text">{{ field.help_text }}</div>
                                         {% endif %}
+                                        {% if field.name == "identity_merge_distinguishing_regex" and identity_merge_regex_chatgpt_url %}
+                                            <a class="btn btn-sm btn-outline-primary mt-2"
+                                               href="{{ identity_merge_regex_chatgpt_url }}"
+                                               target="_blank"
+                                               rel="noopener">
+                                                Ask ChatGPT
+                                            </a>
+                                        {% endif %}
 
                                     </div>
                                 {% endfor %}

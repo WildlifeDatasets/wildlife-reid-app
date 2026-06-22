@@ -4727,6 +4727,27 @@ class WorkgroupAdminRequiredMixin(UserPassesTestMixin):
         return self.request.user.caiduser.workgroup_admin
 
 
+def _build_identity_merge_regex_chatgpt_prompt(current_regex: str) -> str:
+    return f"""Help me configure a Python regular expression for wildlife identity merge suggestions.
+
+The application applies the regex separately to two identity names BEFORE calculating Levenshtein distance. The regex extracts an identity-distinguishing token:
+- If both names match and their captured values differ, the pair must never be suggested for merging.
+- If both names match and captured values are identical, normal Levenshtein comparison continues.
+- If only one or neither name matches, normal Levenshtein comparison continues.
+- When the regex has capture groups, the application compares the groups. Without capture groups, it compares the full match.
+
+Example: Sara_juv.22-1 must not merge with Sara_juv.22-2 or Sara_juv.23-1. A suitable regex captures year 22 and juvenile index 1 separately.
+
+Current regex:
+{current_regex}
+
+First consult me: ask for representative identity names that must not be paired, names that should still be allowed to pair, and naming variants or separators that occur. Then explain the proposed capture groups and test the regex against my examples. Do not finalize until ambiguities have been discussed.
+
+Conduct the consultation and all explanations in the language used by the user. If the user's language is not yet clear, ask which language they prefer.
+
+When we agree, put the final regex by itself on the LAST line of your response. The last line must contain only the regex: no Markdown code fence, no quotation marks, and no Python r prefix."""
+
+
 class WorkgroupUpdateView(WorkgroupAdminRequiredMixin, UpdateView):
     model = WorkGroup
     form_class = forms.WorkgroupForm
@@ -4751,6 +4772,13 @@ class WorkgroupUpdateView(WorkgroupAdminRequiredMixin, UpdateView):
         context = super().get_context_data(**kwargs)
         context["headline"] = "Update workgroup"
         context["button"] = "Save"
+        regex_prompt = _build_identity_merge_regex_chatgpt_prompt(
+            self.object.get_identity_merge_distinguishing_regex()
+        )
+        context["identity_merge_regex_chatgpt_prompt"] = regex_prompt
+        context["identity_merge_regex_chatgpt_url"] = (
+            f"https://chatgpt.com/?q={urllib.parse.quote(regex_prompt)}"
+        )
         context["nav_dict"] = {
             "Users": reverse_lazy("caidapp:workgroup_members"),
             "Invitations": reverse_lazy("caidapp:workgroup_invitations"),
@@ -6364,6 +6392,42 @@ def cancel_merge_identity_suggestions(request):
 
 
 @login_required
+@require_POST
+def exclude_merge_identity_suggestion(request):
+    """Persistently suppress one identity pair from merge suggestions."""
+    value = request.POST.get("excluded_suggestion", "")
+    try:
+        identity_id1, identity_id2 = (int(item) for item in value.split("|", 1))
+    except (TypeError, ValueError):
+        messages.error(request, "Invalid merge suggestion.")
+        return redirect("caidapp:suggest_merge_identities")
+
+    workgroup = request.user.caiduser.workgroup
+    identities = {
+        identity.id: identity
+        for identity in IndividualIdentity.objects.filter(
+            id__in=[identity_id1, identity_id2],
+            owner_workgroup=workgroup,
+        )
+    }
+    if len(identities) != 2 or identity_id1 == identity_id2:
+        messages.error(request, "The identities could not be excluded.")
+        return redirect("caidapp:suggest_merge_identities")
+
+    identity_a_id, identity_b_id = sorted((identity_id1, identity_id2))
+    models.MergeIdentitySuggestionExclusion.objects.get_or_create(
+        workgroup=workgroup,
+        identity_a_id=identity_a_id,
+        identity_b_id=identity_b_id,
+    )
+    messages.success(
+        request,
+        f"'{identities[identity_id1].name}' and '{identities[identity_id2].name}' will no longer be suggested together.",
+    )
+    return redirect("caidapp:suggest_merge_identities")
+
+
+@login_required
 def suggest_merge_identities_view(request, limit: int = 100):
     """Suggest merge identities."""
     response = get_merge_identity_suggestions_state(request)
@@ -6424,10 +6488,17 @@ def suggest_merge_identities_view(request, limit: int = 100):
                     owner_workgroup=request.user.caiduser.workgroup,
                 ).values_list("id", flat=True)
             )
+            excluded_pairs = {
+                tuple(sorted((identity_a_id, identity_b_id)))
+                for identity_a_id, identity_b_id in models.MergeIdentitySuggestionExclusion.objects.filter(
+                    workgroup=request.user.caiduser.workgroup
+                ).values_list("identity_a_id", "identity_b_id")
+            }
             valid_suggestions_ids = [
                 suggestion
                 for suggestion in suggestions_ids
                 if suggestion[0] in valid_identity_ids and suggestion[1] in valid_identity_ids
+                and tuple(sorted((suggestion[0], suggestion[1]))) not in excluded_pairs
             ]
             paginator = Paginator(valid_suggestions_ids, limit)
             page_obj = paginator.get_page(request.GET.get("page"))

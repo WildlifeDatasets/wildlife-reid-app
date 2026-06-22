@@ -1617,7 +1617,7 @@ def identify_on_success(self, output: dict, *args, **kwargs):
             msg = f"Unexpected error {output=} is missing 'status' field."
             logger.critical(msg)
             uploaded_archive.identification_status = "U"
-            uploaded_archive.identification_message = msg
+            uploaded_archive.status_message = msg
             uploaded_archive.save()
 
             # TODO - should the app return some error response to the user?
@@ -1667,7 +1667,6 @@ def identify_on_success(self, output: dict, *args, **kwargs):
             message = "Identification failed. "
             if "error" in output:
                 logger.error(f"{output['error']=}")
-                uploaded_archive.identification_message = output["error"]
                 message += output["error"]
                 if output["error"] == "Input data is empty.":
                     message += " Try to check the taxa in the input data."
@@ -1705,8 +1704,8 @@ def identify_bulk_on_success(self, output: dict, *args, **kwargs):
             logger.critical(msg)
             for uploaded_archive in uploaded_archives:
                 uploaded_archive.identification_status = "U"
-                uploaded_archive.identification_message = msg
-                uploaded_archive.save(update_fields=["identification_status", "identification_message"])
+                uploaded_archive.status_message = msg
+                uploaded_archive.save(update_fields=["identification_status", "status_message"])
         elif output["status"] == "DONE":
             output_json_file = output["output_json_file"]
             with open(output_json_file, "r") as f:
@@ -1773,11 +1772,8 @@ def identify_bulk_on_success(self, output: dict, *args, **kwargs):
                     message += " Try to check the taxa in the input data."
             for uploaded_archive in uploaded_archives:
                 uploaded_archive.identification_status = "F"
-                uploaded_archive.identification_message = output.get("error", "")
                 uploaded_archive.status_message = message
-                uploaded_archive.save(
-                    update_fields=["identification_status", "identification_message", "status_message"]
-                )
+                uploaded_archive.save(update_fields=["identification_status", "status_message"])
             workgroup.identification_reid_status = "Finished"
             workgroup.identification_reid_at = now()
             workgroup.identification_reid_message = message
@@ -1829,9 +1825,8 @@ def identify_bulk_on_error(self, uuid, *args, **kwargs):
     uploaded_archives = UploadedArchive.objects.filter(id__in=uploaded_archive_ids, owner__workgroup=workgroup)
     for uploaded_archive in uploaded_archives:
         uploaded_archive.identification_status = "F"
-        uploaded_archive.identification_message = str(error_message)
         uploaded_archive.status_message = f"Identification failed. {error_message}"
-        uploaded_archive.save(update_fields=["identification_status", "identification_message", "status_message"])
+        uploaded_archive.save(update_fields=["identification_status", "status_message"])
 
     workgroup.identification_reid_status = "Finished"
     workgroup.identification_reid_at = now()

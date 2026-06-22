@@ -1,4 +1,5 @@
 from unittest.mock import MagicMock, patch
+from urllib.parse import parse_qs, urlparse
 
 from django.test import TestCase
 from django.urls import reverse
@@ -7,7 +8,7 @@ from django.utils import timezone
 from caidapp import views
 from caidapp.app_tests.factories import CaidUserFactory, IndividualIdentityFactory
 from caidapp.model_extra import compute_identity_suggestions
-from caidapp.models import MergeIdentitySuggestionResult
+from caidapp.models import MergeIdentitySuggestionExclusion, MergeIdentitySuggestionResult
 
 
 class MergeIdentitySuggestionsComputationTest(TestCase):
@@ -36,6 +37,57 @@ class MergeIdentitySuggestionsComputationTest(TestCase):
         self.assertEqual({identity_a_id, identity_b_id}, {first.id, second.id})
         self.assertEqual(distance, 0)
 
+    def test_compute_identity_suggestions_skips_different_non_empty_codes(self):
+        IndividualIdentityFactory(owner_workgroup=self.workgroup, name="Sara juvenile", code="B101")
+        IndividualIdentityFactory(owner_workgroup=self.workgroup, name="Sara juvenile", code="B102")
+
+        result_id = compute_identity_suggestions(self.workgroup.id)
+
+        self.assertEqual(MergeIdentitySuggestionResult.objects.get(id=result_id).suggestions, [])
+
+    def test_compute_identity_suggestions_skips_different_juvenile_tokens(self):
+        IndividualIdentityFactory(owner_workgroup=self.workgroup, name="Sara_juv.22-1", code=None)
+        IndividualIdentityFactory(owner_workgroup=self.workgroup, name="Sara_juv.22-2", code=None)
+        IndividualIdentityFactory(owner_workgroup=self.workgroup, name="Sara_juv.23-1", code=None)
+
+        result_id = compute_identity_suggestions(self.workgroup.id)
+
+        self.assertEqual(MergeIdentitySuggestionResult.objects.get(id=result_id).suggestions, [])
+
+    def test_compute_identity_suggestions_allows_matching_juvenile_tokens(self):
+        first = IndividualIdentityFactory(owner_workgroup=self.workgroup, name="Sara_juv.22-1 L", code=None)
+        second = IndividualIdentityFactory(owner_workgroup=self.workgroup, name="Sara_juv.22-1 R", code=None)
+
+        result_id = compute_identity_suggestions(self.workgroup.id)
+        suggestions = MergeIdentitySuggestionResult.objects.get(id=result_id).suggestions
+
+        self.assertEqual(len(suggestions), 1)
+        self.assertEqual({suggestions[0][0], suggestions[0][1]}, {first.id, second.id})
+
+    def test_compute_identity_suggestions_uses_workgroup_distinguishing_regex(self):
+        self.workgroup.identity_merge_distinguishing_regex = r"animal-(\d+)"
+        self.workgroup.save(update_fields=["identity_merge_distinguishing_regex"])
+        IndividualIdentityFactory(owner_workgroup=self.workgroup, name="Sara animal-1", code=None)
+        IndividualIdentityFactory(owner_workgroup=self.workgroup, name="Sara animal-2", code=None)
+
+        result_id = compute_identity_suggestions(self.workgroup.id)
+
+        self.assertEqual(MergeIdentitySuggestionResult.objects.get(id=result_id).suggestions, [])
+
+    def test_compute_identity_suggestions_skips_persistently_excluded_pair(self):
+        first = IndividualIdentityFactory(owner_workgroup=self.workgroup, name="Similar identity", code=None)
+        second = IndividualIdentityFactory(owner_workgroup=self.workgroup, name="Similar identities", code=None)
+        identity_a_id, identity_b_id = sorted((first.id, second.id))
+        MergeIdentitySuggestionExclusion.objects.create(
+            workgroup=self.workgroup,
+            identity_a_id=identity_a_id,
+            identity_b_id=identity_b_id,
+        )
+
+        result_id = compute_identity_suggestions(self.workgroup.id)
+
+        self.assertEqual(MergeIdentitySuggestionResult.objects.get(id=result_id).suggestions, [])
+
     def test_compute_identity_suggestions_reports_pair_progress(self):
         for name in ["Alpha", "Bravo", "Charlie"]:
             IndividualIdentityFactory(owner_workgroup=self.workgroup, name=name)
@@ -53,6 +105,20 @@ class MergeIdentitySuggestionsViewTest(TestCase):
     def setUp(self):
         self.caiduser = CaidUserFactory(admin=True)
         self.client.force_login(self.caiduser.user)
+
+    def test_workgroup_settings_has_chatgpt_regex_consultation_link(self):
+        response = self.client.get(reverse("caidapp:workgroup-update", args=[self.caiduser.workgroup.id]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Ask ChatGPT")
+        prompt = response.context["identity_merge_regex_chatgpt_prompt"]
+        self.assertIn("BEFORE calculating Levenshtein distance", prompt)
+        self.assertIn("First consult me", prompt)
+        self.assertIn("in the language used by the user", prompt)
+        self.assertIn("no quotation marks", prompt)
+        self.assertIn("no Python r prefix", prompt)
+        url_prompt = parse_qs(urlparse(response.context["identity_merge_regex_chatgpt_url"]).query)["q"][0]
+        self.assertEqual(url_prompt, prompt)
 
     @patch("caidapp.views.tasks.refresh_identities_suggestions_task.delay")
     @patch("caidapp.views._celery_worker_available", return_value=True)
@@ -104,6 +170,35 @@ class MergeIdentitySuggestionsViewTest(TestCase):
         self.assertContains(response, 'id="select-all-merge-suggestions"')
         self.assertContains(response, 'id="select-distance-zero-merge-suggestions"')
         self.assertContains(response, 'data-distance="0"')
+        self.assertContains(response, "Never suggest")
+
+    def test_excluding_suggestion_persists_pair_and_hides_existing_result(self):
+        first = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Sara_juv.22-1")
+        second = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Sara_juv.22-2")
+        result = MergeIdentitySuggestionResult.objects.create(
+            workgroup=self.caiduser.workgroup,
+            suggestions=[[first.id, second.id, 1]],
+        )
+        session = self.client.session
+        session["refresh_result_id"] = result.id
+        session.save()
+
+        response = self.client.post(
+            reverse("caidapp:exclude_merge_identity_suggestion"),
+            {"excluded_suggestion": f"{second.id}|{first.id}"},
+        )
+
+        self.assertEqual(response.status_code, 302)
+        identity_a_id, identity_b_id = sorted((first.id, second.id))
+        self.assertTrue(
+            MergeIdentitySuggestionExclusion.objects.filter(
+                workgroup=self.caiduser.workgroup,
+                identity_a_id=identity_a_id,
+                identity_b_id=identity_b_id,
+            ).exists()
+        )
+        response = self.client.get(reverse("caidapp:suggest_merge_identities"))
+        self.assertNotContains(response, f'value="{first.id}|{second.id}"')
 
     def test_suggestions_are_paginated_without_recomputation(self):
         first = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Alpha")
