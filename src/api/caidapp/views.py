@@ -6411,16 +6411,44 @@ def suggest_merge_identities_view(request, limit: int = 100):
         # suggestions_ids = request.session["merge_identity_suggestions_ids"]
         if suggestions_ids:
 
-            from django.core.exceptions import ObjectDoesNotExist
-
             logger.debug(f"{len(suggestions_ids)=}")
 
+            all_identity_ids = {
+                identity_id
+                for identity_a_id, identity_b_id, _distance in suggestions_ids
+                for identity_id in (identity_a_id, identity_b_id)
+            }
+            valid_identity_ids = set(
+                IndividualIdentity.objects.filter(
+                    id__in=all_identity_ids,
+                    owner_workgroup=request.user.caiduser.workgroup,
+                ).values_list("id", flat=True)
+            )
+            valid_suggestions_ids = [
+                suggestion
+                for suggestion in suggestions_ids
+                if suggestion[0] in valid_identity_ids and suggestion[1] in valid_identity_ids
+            ]
+            paginator = Paginator(valid_suggestions_ids, limit)
+            page_obj = paginator.get_page(request.GET.get("page"))
+            identity_ids = {
+                identity_id
+                for identity_a_id, identity_b_id, _distance in page_obj.object_list
+                for identity_id in (identity_a_id, identity_b_id)
+            }
+            identities_by_id = {
+                identity.id: identity
+                for identity in IndividualIdentity.objects.filter(
+                    id__in=identity_ids,
+                    owner_workgroup=request.user.caiduser.workgroup,
+                )
+            }
             suggestions = []
-            for identity_a_id, identity_b_id, distance in suggestions_ids[:limit]:
+            for identity_a_id, identity_b_id, distance in page_obj.object_list:
                 try:
-                    identity_a = IndividualIdentity.objects.get(id=identity_a_id)
-                    identity_b = IndividualIdentity.objects.get(id=identity_b_id)
-                except ObjectDoesNotExist:
+                    identity_a = identities_by_id[identity_a_id]
+                    identity_b = identities_by_id[identity_b_id]
+                except KeyError:
                     continue  # přeskočí, pokud některý objekt neexistuje
                 suggestions.append((identity_a, identity_b, distance))
             # suggestions = [
@@ -6436,12 +6464,14 @@ def suggest_merge_identities_view(request, limit: int = 100):
             #     suggestions = suggestions[:limit]
         else:
             suggestions = None
+            page_obj = None
 
         return render(
             request,
             "caidapp/suggest_merge_identities.html",
             {
                 "suggestions": suggestions,
+                "page_obj": page_obj,
                 "job_running": False,
                 "start_url": reverse("caidapp:start_merge_identity_suggestions"),
             },

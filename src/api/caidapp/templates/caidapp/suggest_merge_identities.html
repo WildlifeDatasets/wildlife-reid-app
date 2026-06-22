@@ -85,6 +85,10 @@
     </form>
 
     {% if suggestions %}
+      <p class="text-muted">
+        Showing {{ page_obj.start_index }}-{{ page_obj.end_index }} of {{ page_obj.paginator.count }} saved suggestions.
+        Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}.
+      </p>
       <form method="post" action="{% url 'caidapp:merge_selected_identities' %}">
         {% csrf_token %}
         <div class="mb-3 d-flex flex-wrap justify-content-between gap-2">
@@ -118,6 +122,36 @@
           {% endfor %}
         </ul>
       </form>
+
+      {% if page_obj.paginator.num_pages > 1 %}
+        <nav class="mt-3" aria-label="Merge suggestion pages">
+          <ul class="pagination justify-content-center">
+            <li class="page-item{% if not page_obj.has_previous %} disabled{% endif %}">
+              <a class="page-link" href="?page=1">First</a>
+            </li>
+            <li class="page-item{% if not page_obj.has_previous %} disabled{% endif %}">
+              {% if page_obj.has_previous %}
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Previous</a>
+              {% else %}
+                <span class="page-link">Previous</span>
+              {% endif %}
+            </li>
+            <li class="page-item active">
+              <span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+            </li>
+            <li class="page-item{% if not page_obj.has_next %} disabled{% endif %}">
+              {% if page_obj.has_next %}
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}">Next</a>
+              {% else %}
+                <span class="page-link">Next</span>
+              {% endif %}
+            </li>
+            <li class="page-item{% if not page_obj.has_next %} disabled{% endif %}">
+              <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">Last</a>
+            </li>
+          </ul>
+        </nav>
+      {% endif %}
 
       <script>
         (function () {

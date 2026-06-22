@@ -105,6 +105,28 @@ class MergeIdentitySuggestionsViewTest(TestCase):
         self.assertContains(response, 'id="select-distance-zero-merge-suggestions"')
         self.assertContains(response, 'data-distance="0"')
 
+    def test_suggestions_are_paginated_without_recomputation(self):
+        first = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Alpha")
+        second = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Beta")
+        result = MergeIdentitySuggestionResult.objects.create(
+            workgroup=self.caiduser.workgroup,
+            suggestions=[[first.id, second.id, distance] for distance in range(205)],
+        )
+        session = self.client.session
+        session["refresh_result_id"] = result.id
+        session.save()
+
+        with patch("caidapp.views.refresh_identities_suggestions") as refresh_mock:
+            response = self.client.get(reverse("caidapp:suggest_merge_identities"), {"page": 2})
+
+        self.assertEqual(response.status_code, 200)
+        refresh_mock.assert_not_called()
+        self.assertEqual(response.context["page_obj"].number, 2)
+        self.assertEqual(response.context["page_obj"].paginator.count, 205)
+        self.assertEqual(len(response.context["suggestions"]), 100)
+        self.assertContains(response, "Showing 101-200 of 205 saved suggestions.")
+        self.assertContains(response, "?page=3")
+
     @patch("caidapp.views._celery_worker_available", return_value=True)
     @patch("caidapp.views.AsyncResult")
     def test_status_endpoint_returns_progress(self, async_result_mock, _worker_mock):
