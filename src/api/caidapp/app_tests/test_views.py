@@ -907,6 +907,28 @@ class IdentityListBulkActionsTest(TestCase):
         mediafile.refresh_from_db()
         self.assertIsNone(mediafile.identity)
 
+    def test_bulk_delete_redirects_to_first_page_when_last_page_disappears(self):
+        identities = [
+            IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name=f"Identity {index:02d}")
+            for index in range(25)
+        ]
+        list_url = reverse("caidapp:individual_identities")
+        return_url = f"{list_url}?view=list&sort=mediafile_count&dir=desc&page=2"
+
+        response = self.client.post(
+            return_url,
+            {
+                "bulk_action": "delete_selected",
+                "confirm_delete": "yes",
+                "selected_identity_ids": [str(identities[-1].id)],
+                "return_url": return_url,
+            },
+        )
+
+        expected_url = f"{list_url}?view=list&sort=mediafile_count&dir=desc&page=1"
+        self.assertRedirects(response, expected_url)
+        self.assertFalse(models.IndividualIdentity.objects.filter(id=identities[-1].id).exists())
+
     def test_bulk_open_sequences_redirects_to_multiple_identity_filter(self):
         first = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="First")
         second = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Second")

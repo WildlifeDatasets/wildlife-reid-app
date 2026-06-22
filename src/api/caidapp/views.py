@@ -1012,7 +1012,23 @@ class IdentityListView(LoginRequiredMixin, ListView):
             deleted_count = selected_identities.count()
             selected_identities.delete()
             messages.success(request, f"Deleted {deleted_count} identities.")
-            return redirect(request.POST.get("return_url") or reverse("caidapp:individual_identities"))
+            return_url = request.POST.get("return_url")
+            if not return_url or not url_has_allowed_host_and_scheme(
+                return_url,
+                allowed_hosts={request.get_host()},
+                require_https=request.is_secure(),
+            ):
+                return redirect(reverse("caidapp:individual_identities"))
+
+            parsed_url = urllib.parse.urlsplit(return_url)
+            query_params = [
+                (key, value)
+                for key, value in urllib.parse.parse_qsl(parsed_url.query, keep_blank_values=True)
+                if key != "page"
+            ]
+            query_params.append(("page", "1"))
+            return_url = urllib.parse.urlunsplit(parsed_url._replace(query=urllib.parse.urlencode(query_params)))
+            return redirect(return_url)
 
         messages.warning(request, "Choose a bulk action.")
         return redirect(request.get_full_path())
