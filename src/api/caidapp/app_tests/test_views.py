@@ -251,6 +251,42 @@ class IdentityObservationAggregationTest(TestCase):
         self.assertEqual(alpha.cover_mediafile().id, newer_mediafile.id)
         self.assertEqual(alpha.last_seen.date().isoformat(), "2026-01-02")
 
+    def test_identity_list_sorts_by_mediafile_count(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        alpha = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Alpha")
+        beta = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Beta")
+        gamma = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Gamma")
+
+        alpha_mediafile = MediaFileFactory(parent=archive, original_filename="alpha.jpg")
+        beta_first_mediafile = MediaFileFactory(parent=archive, original_filename="beta-1.jpg")
+        beta_second_mediafile = MediaFileFactory(parent=archive, original_filename="beta-2.jpg")
+
+        AnimalObservationFactory(mediafile=alpha_mediafile, identity=alpha)
+        AnimalObservationFactory(mediafile=beta_first_mediafile, identity=beta)
+        AnimalObservationFactory(mediafile=beta_second_mediafile, identity=beta)
+
+        response = self.client.get(
+            reverse("caidapp:individual_identities"),
+            {"view": "list", "sort": "mediafile_count", "dir": "desc"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        ordered_ids = [identity.id for identity in response.context["page_obj"]]
+        self.assertEqual(ordered_ids[:3], [beta.id, alpha.id, gamma.id])
+
+    def test_identity_list_uses_per_page_query_parameter(self):
+        for index in range(7):
+            IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name=f"Identity {index:02d}")
+
+        response = self.client.get(
+            reverse("caidapp:individual_identities"),
+            {"view": "list", "per_page": "6"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.context["page_obj"].object_list), 6)
+        self.assertEqual(response.context["records_per_page"], 6)
+
     def test_identity_mediafiles_view_filters_by_observation_identity(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)
         identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Alpha")
@@ -1167,6 +1203,70 @@ class SequenceViewTest(TestCase):
         self.assertFalse(models.Sequence.objects.filter(id=selected_sequence.id).exists())
         self.assertEqual(models.MediaFile.objects.filter(sequence_id=first_mediafile.sequence_id).count(), 1)
         self.assertEqual(models.MediaFile.objects.filter(sequence_id=second_mediafile.sequence_id).count(), 1)
+
+    def test_create_sequence_combines_selected_mediafiles_and_removes_empty_sequences(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        first_sequence = SequenceFactory(uploaded_archive=archive, local_id=10)
+        second_sequence = SequenceFactory(uploaded_archive=archive, local_id=20)
+        remaining_sequence = SequenceFactory(uploaded_archive=archive, local_id=30)
+        first_mediafile = MediaFileFactory(parent=archive, sequence=first_sequence, original_filename="first.jpg")
+        second_mediafile = MediaFileFactory(parent=archive, sequence=second_sequence, original_filename="second.jpg")
+        remaining_mediafile = MediaFileFactory(parent=archive, sequence=remaining_sequence, original_filename="third.jpg")
+        sibling_mediafile = MediaFileFactory(parent=archive, sequence=remaining_sequence, original_filename="fourth.jpg")
+
+        response = self.client.post(
+            reverse("caidapp:sequences"),
+            {
+                "btnCreateSequence": "1",
+                "selected_mediafile_ids": [str(first_mediafile.id), str(remaining_mediafile.id)],
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        first_mediafile.refresh_from_db()
+        second_mediafile.refresh_from_db()
+        remaining_mediafile.refresh_from_db()
+        sibling_mediafile.refresh_from_db()
+
+        self.assertEqual(first_mediafile.sequence_id, remaining_mediafile.sequence_id)
+        self.assertNotEqual(first_mediafile.sequence_id, first_sequence.id)
+        self.assertFalse(models.Sequence.objects.filter(id=first_sequence.id).exists())
+        self.assertTrue(models.Sequence.objects.filter(id=remaining_sequence.id).exists())
+        self.assertEqual(sibling_mediafile.sequence_id, remaining_sequence.id)
+        self.assertEqual(second_mediafile.sequence_id, second_sequence.id)
+        self.assertEqual(models.MediaFile.objects.filter(sequence_id=first_mediafile.sequence_id).count(), 2)
+
+    def test_mediafiles_view_create_sequence_uses_form_selection(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        first_sequence = SequenceFactory(uploaded_archive=archive, local_id=10)
+        second_sequence = SequenceFactory(uploaded_archive=archive, local_id=20)
+        first_mediafile = MediaFileFactory(parent=archive, sequence=first_sequence, original_filename="first.jpg")
+        second_mediafile = MediaFileFactory(parent=archive, sequence=second_sequence, original_filename="second.jpg")
+
+        response = self.client.post(
+            reverse("caidapp:media_files"),
+            {
+                "form-TOTAL_FORMS": "2",
+                "form-INITIAL_FORMS": "2",
+                "form-MIN_NUM_FORMS": "0",
+                "form-MAX_NUM_FORMS": "1000",
+                "form-0-id": str(first_mediafile.id),
+                "form-0-selected": "on",
+                "form-1-id": str(second_mediafile.id),
+                "form-1-selected": "on",
+                "btnCreateSequence": "1",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        first_mediafile.refresh_from_db()
+        second_mediafile.refresh_from_db()
+
+        self.assertEqual(first_mediafile.sequence_id, second_mediafile.sequence_id)
+        self.assertNotEqual(first_mediafile.sequence_id, first_sequence.id)
+        self.assertFalse(models.Sequence.objects.filter(id=first_sequence.id).exists())
+        self.assertFalse(models.Sequence.objects.filter(id=second_sequence.id).exists())
+        self.assertEqual(models.MediaFile.objects.filter(sequence_id=first_mediafile.sequence_id).count(), 2)
 
     def test_sequence_csv_export_uses_one_row_per_observation(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)

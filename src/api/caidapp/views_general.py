@@ -72,9 +72,8 @@ def get_order_by_anything(request, name_plural: str, model=None):
     return sort, direction
 
 
-def get_item_number_anything(request, name_plural: str):
+def get_item_number_anything(request, name_plural: str, default: int = 10):
     """Get order by for uploaded archives."""
-    default = 10
     item_number = request.session.get(f"item_number_{name_plural}", default)
     return item_number
 

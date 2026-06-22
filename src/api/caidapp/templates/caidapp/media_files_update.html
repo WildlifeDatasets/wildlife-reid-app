@@ -191,6 +191,15 @@
                                         </div>
                                     </li>
                                     <li>
+                                        <button class="dropdown-item"
+                                                name="btnCreateSequence"
+                                                type="submit"
+                                                onclick="return confirm('Create one new sequence from the selected media files? Empty original sequences may be removed.');">
+                                            <i class="bi bi-collection"></i>
+                                            Create new sequence
+                                        </button>
+                                    </li>
+                                    <li>
                                         <a class="dropdown-item"
                                            href="{% url 'caidapp:download_xlsx_for_mediafiles_NDOP' %}?{{ mediafiles_download_query_string }}">
                                             <i class="fas fa-file-excel"></i>

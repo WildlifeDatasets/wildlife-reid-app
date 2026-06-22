@@ -7,36 +7,34 @@
             Order By
         </button>
         <ul class="dropdown-menu">
-            <li><a class="dropdown-item" href="{% querystring request.GET sort='name' dir='desc'  %}">▼ Name</a></li>
-            <li><a class="dropdown-item" href="{% querystring request.GET sort='name' dir='asc'  %}">▲ Name</a></li>
-{#            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_anything_by' name_plural  '-name' %}">▼ Name</a></li>#}
-{#            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_anything_by' name_plural  'name' %}">▲ Name</a></li>#}
-            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_anything_by' name_plural '-sex' %}">▼ Sex</a></li>
-            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_anything_by' name_plural  'sex' %}">▲ Sex</a></li>
-            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_anything_by' name_plural '-birth_date' %}">▼ Birth date</a></li>
-            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_anything_by' name_plural  'birth_date' %}">▲ Birth date</a></li>
-            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_anything_by' name_plural '-death_date' %}">▼ Death date</a></li>
-            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_anything_by' name_plural  'death_date' %}">▲ Death date</a></li>
-            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_anything_by' name_plural '-coat_type' %}">▼ Coat type</a></li>
-            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_anything_by' name_plural  'coat_type' %}">▲ Coat type</a></li>
-            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_anything_by' name_plural '-mediafile_count' %}">▼ Count of media files</a></li>
-            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_anything_by' name_plural  'mediafile_count' %}">▲ Count of media files</a></li>
-            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_anything_by' name_plural '-representative_mediafile_count' %}">▼ Count of representative media files</a></li>
-            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_anything_by' name_plural  'representative_mediafile_count' %}">▲ Count of representative media files</a></li>
-            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_anything_by' name_plural '-locality_count' %}">▼ Count of localities</a></li>
-            <li><a class="dropdown-item" href="{% url 'caidapp:set_sort_anything_by' name_plural  'locality_count' %}">▲ Count of localities</a></li>
+            <li><a class="dropdown-item" href="{% querystring request.GET sort='name' dir='desc' page=1 %}">▼ Name</a></li>
+            <li><a class="dropdown-item" href="{% querystring request.GET sort='name' dir='asc' page=1 %}">▲ Name</a></li>
+            <li><a class="dropdown-item" href="{% querystring request.GET sort='sex' dir='desc' page=1 %}">▼ Sex</a></li>
+            <li><a class="dropdown-item" href="{% querystring request.GET sort='sex' dir='asc' page=1 %}">▲ Sex</a></li>
+            <li><a class="dropdown-item" href="{% querystring request.GET sort='birth_date' dir='desc' page=1 %}">▼ Birth date</a></li>
+            <li><a class="dropdown-item" href="{% querystring request.GET sort='birth_date' dir='asc' page=1 %}">▲ Birth date</a></li>
+            <li><a class="dropdown-item" href="{% querystring request.GET sort='death_date' dir='desc' page=1 %}">▼ Death date</a></li>
+            <li><a class="dropdown-item" href="{% querystring request.GET sort='death_date' dir='asc' page=1 %}">▲ Death date</a></li>
+            <li><a class="dropdown-item" href="{% querystring request.GET sort='coat_type' dir='desc' page=1 %}">▼ Coat type</a></li>
+            <li><a class="dropdown-item" href="{% querystring request.GET sort='coat_type' dir='asc' page=1 %}">▲ Coat type</a></li>
+            <li><a class="dropdown-item" href="{% querystring request.GET sort='mediafile_count' dir='desc' page=1 %}">▼ Count of media files</a></li>
+            <li><a class="dropdown-item" href="{% querystring request.GET sort='mediafile_count' dir='asc' page=1 %}">▲ Count of media files</a></li>
+            <li><a class="dropdown-item" href="{% querystring request.GET sort='representative_mediafile_count' dir='desc' page=1 %}">▼ Count of representative media files</a></li>
+            <li><a class="dropdown-item" href="{% querystring request.GET sort='representative_mediafile_count' dir='asc' page=1 %}">▲ Count of representative media files</a></li>
+            <li><a class="dropdown-item" href="{% querystring request.GET sort='locality_count' dir='desc' page=1 %}">▼ Count of localities</a></li>
+            <li><a class="dropdown-item" href="{% querystring request.GET sort='locality_count' dir='asc' page=1 %}">▲ Count of localities</a></li>
+            <li><a class="dropdown-item" href="{% querystring request.GET sort='last_seen' dir='desc' page=1 %}">▼ Last seen</a></li>
+            <li><a class="dropdown-item" href="{% querystring request.GET sort='last_seen' dir='asc' page=1 %}">▲ Last seen</a></li>
         </ul>
     </div>
     <div class="dropdown ms-1">
         <button class="btn btn-outline-secondary dropdown-toggle btn-sm" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-            Items Per Page
+            {{ records_per_page|default:24 }} / page
         </button>
         <ul class="dropdown-menu">
-            <li><a class="dropdown-item" href="{% url 'caidapp:set_item_number_anything' name_plural 6 %}"> 6 </a></li>
-            <li><a class="dropdown-item" href="{% url 'caidapp:set_item_number_anything' name_plural 12 %}"> 12 </a></li>
-            <li><a class="dropdown-item" href="{% url 'caidapp:set_item_number_anything' name_plural 24 %}"> 24 </a></li>
-            <li><a class="dropdown-item" href="{% url 'caidapp:set_item_number_anything' name_plural 48 %}"> 48 </a></li>
-            <li><a class="dropdown-item" href="{% url 'caidapp:set_item_number_anything' name_plural 96 %}"> 96 </a></li>
+            {% for option in per_page_options %}
+            <li><a class="dropdown-item{% if records_per_page == option %} active{% endif %}" href="{% querystring request.GET per_page=option page=1 %}">{{ option }}</a></li>
+            {% endfor %}
         </ul>
     </div>
 </div>

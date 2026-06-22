@@ -122,8 +122,8 @@ def order_identity_by_mediafile_count(identity1, identity2):
 
     The identity with fewer media files is the first one.
     """
-    count_media_files_identity1 = identity1.mediafile_set.count()
-    count_media_files_identity2 = identity2.mediafile_set.count()
+    count_media_files_identity1 = identity1.observation_mediafiles().count()
+    count_media_files_identity2 = identity2.observation_mediafiles().count()
     if count_media_files_identity1 < count_media_files_identity2:
         identity_a = identity1
         identity_b = identity2

@@ -19,7 +19,9 @@
     <div class="dropdown">
         <a class="nav-link dropdown-toggle text-light"
            href="#"
-           data-bs-toggle="dropdown">
+           data-bs-toggle="dropdown"
+           title="Username: {{ user.username }}{% if user.email %}&#10;Email: {{ user.email }}{% endif %}"
+           aria-label="User menu for {{ user.username }}">
             <i class="bi bi-person-circle"></i>
             <span class="d-none d-md-inline ms-1">
                     {% if user.first_name or user.last_name %}
@@ -31,18 +33,27 @@
         </a>
         <ul class="dropdown-menu dropdown-menu-end">
             <li class="dropdown-header">
-                <h6 data-bs-toggle="tooltip" data-bs-placement="top" title="{{ user.username}}
-                            {% if user.email %}
-                                ({{ user.email }})
-                            {% endif %}
-                            "
-                >
+                <h6 class="mb-1">
                     {% if user.first_name or user.last_name %}
                         {{ user.first_name }} {{ user.last_name }}
                     {% else %}
                         {{ user.username }}
                     {% endif %}
                 </h6>
+                <div class="small text-body-secondary d-flex align-items-center gap-2"
+                     title="Username"
+                     aria-label="Username: {{ user.username }}">
+                    <i class="bi bi-person"></i>
+                    <span>{{ user.username }}</span>
+                </div>
+                {% if user.email %}
+                <div class="small text-body-secondary d-flex align-items-center gap-2"
+                     title="Email"
+                     aria-label="Email: {{ user.email }}">
+                    <i class="bi bi-envelope"></i>
+                    <span>{{ user.email }}</span>
+                </div>
+                {% endif %}
             </li>
             <li>
                 <p class="dropdown-item-text">

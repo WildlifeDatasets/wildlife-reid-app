@@ -37,6 +37,7 @@ from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.files.base import ContentFile
 from django.core.paginator import Page, Paginator
+from django.db import transaction
 from django.db.models import CharField, Count, F, Func, Max, Min, OuterRef, Prefetch, Q, QuerySet, Subquery, Value
 from django.db.models.functions import Cast, Coalesce
 from django.forms import modelformset_factory
@@ -116,6 +117,49 @@ def _annotate_identity_mediafile_stats(queryset: QuerySet) -> QuerySet:
         locality_count=Count("animalobservation__mediafile__locality", distinct=True),
         last_seen=Max("animalobservation__mediafile__captured_at"),
     )
+
+
+IDENTITY_PER_PAGE_OPTIONS = (6, 12, 24, 48, 96)
+IDENTITY_SORT_FIELDS = {
+    "name",
+    "sex",
+    "birth_date",
+    "death_date",
+    "coat_type",
+    "mediafile_count",
+    "representative_mediafile_count",
+    "locality_count",
+    "last_seen",
+}
+
+
+def _get_identity_records_per_page(request, class_prefix: str, default: int = 24) -> int:
+    """Return validated per-page value for identity views."""
+    raw_value = request.GET.get("per_page")
+    if raw_value is not None:
+        try:
+            value = int(raw_value)
+        except (TypeError, ValueError):
+            value = default
+        if value in IDENTITY_PER_PAGE_OPTIONS:
+            request.session[f"item_number_{class_prefix}"] = value
+            return value
+    return views_general.get_item_number_anything(request, class_prefix, default=default)
+
+
+def _get_identity_sort_and_direction(request, class_prefix: str) -> Tuple[str, str]:
+    """Return validated sort and direction for identity views."""
+    default_sort = "name"
+    default_direction = "asc"
+    sort = request.GET.get("sort") or request.session.get(f"sort_{class_prefix}") or default_sort
+    direction = request.GET.get("dir") or request.session.get(f"dir_{class_prefix}") or default_direction
+    if sort not in IDENTITY_SORT_FIELDS:
+        sort = default_sort
+    if direction not in {"asc", "desc"}:
+        direction = default_direction
+    request.session[f"sort_{class_prefix}"] = sort
+    request.session[f"dir_{class_prefix}"] = direction
+    return sort, direction
 
 
 MEDIAFILE_EXPORT_SCHEMAS = {
@@ -977,28 +1021,17 @@ class IdentityListView(LoginRequiredMixin, ListView):
         """Get queryset for the view."""
         class_prefix = "identities_" + self.request.GET.get("view", "cards")
 
-        self.paginate_by = views_general.get_item_number_anything(self.request, class_prefix)
+        self.paginate_by = _get_identity_records_per_page(self.request, class_prefix, default=24)
         qs = IndividualIdentity.objects.filter(Q(owner_workgroup=self.request.user.caiduser.workgroup) & ~Q(name="nan"))
         qs = _annotate_identity_mediafile_stats(qs)
 
         self.filterset = filters.IndividualIdentityFilter(self.request.GET, queryset=qs)
         qs = self.filterset.qs
 
-        # class_prefix = self.__class__.__name__.lower() # maybe this is more general
-        # class_prefix = 'identities'
-        sort, direction = views_general.get_order_by_anything(self.request, class_prefix, IndividualIdentity)
-        list_of_fields = [f.name for f in self.model._meta.fields] + [
-            "mediafile_count",
-            "representative_mediafile_count",
-            "locality_count",
-            "last_seen",
-        ]
-
-        if sort in list_of_fields:
-            if direction == "desc":
-                sort = f"-{sort}"
-            logger.debug(f"Sorting by {sort}")
-            qs = qs.order_by(sort)
+        sort, direction = _get_identity_sort_and_direction(self.request, class_prefix)
+        order_by = sort if direction == "asc" else f"-{sort}"
+        logger.debug(f"Sorting identities by {order_by}")
+        qs = qs.order_by(order_by, "id")
         return qs
 
     def get_template_names(self):
@@ -1012,13 +1045,14 @@ class IdentityListView(LoginRequiredMixin, ListView):
     def get_context_data(self, **kwargs):
         """Get context data for the template."""
         context = super().get_context_data(**kwargs)
-        # context["filter_form"] = self.filterset.form
         context["filter"] = self.filterset
         context["list_display"] = []
+        class_prefix = "identities_" + self.request.GET.get("view", "cards")
+        context["sort_key"] = self.request.session.get(f"sort_{class_prefix}", "name")
+        context["sort_direction"] = self.request.session.get(f"dir_{class_prefix}", "asc")
+        context["per_page_options"] = IDENTITY_PER_PAGE_OPTIONS
+        context["records_per_page"] = self.paginate_by
         context = add_querystring_to_context(self.request, context)
-        # query_params = self.request.GET.copy()
-        # query_params.pop('page', None)
-        # context['query_string'] = query_params.urlencode()
         return context
 
 
@@ -3526,6 +3560,18 @@ def _resolve_selected_mediafile_ids_from_post(request) -> List[int]:
     return sorted(selected_mediafile_ids)
 
 
+def _resolve_selected_mediafile_ids_from_formset(form, full_mediafiles: QuerySet) -> List[int]:
+    """Resolve selected mediafile ids from the media files formset selection."""
+    if form.data.get("select_all") == "on":
+        return list(full_mediafiles.values_list("id", flat=True))
+
+    selected_mediafile_ids = []
+    for mediafile_form in form:
+        if mediafile_form.is_valid() and mediafile_form.cleaned_data.get("selected"):
+            selected_mediafile_ids.append(mediafile_form.instance.id)
+    return selected_mediafile_ids
+
+
 def _dissolve_mediafiles_into_singleton_sequences(caiduser, mediafile_ids: List[int]) -> int:
     """Move selected mediafiles into single-media sequences within their uploads."""
     selected_mediafiles = list(
@@ -3572,6 +3618,55 @@ def _dissolve_mediafiles_into_singleton_sequences(caiduser, mediafile_ids: List[
         mediafile_count=0
     ).delete()
     return len(mediafiles_to_reassign)
+
+
+def _create_sequence_from_mediafiles(caiduser, mediafile_ids: List[int]) -> dict:
+    """Move selected mediafiles into one new sequence within a single upload."""
+    selected_mediafiles = list(
+        MediaFile.objects.for_user(caiduser)
+        .filter(id__in=mediafile_ids)
+        .select_related("parent", "sequence")
+        .order_by("captured_at", "id")
+    )
+    if not selected_mediafiles:
+        return {"status": "empty"}
+
+    archive_ids = {mediafile.parent_id for mediafile in selected_mediafiles if mediafile.parent_id}
+    if len(archive_ids) != 1:
+        return {"status": "multiple_archives"}
+
+    selected_ids = {mediafile.id for mediafile in selected_mediafiles}
+    affected_sequence_ids = {mediafile.sequence_id for mediafile in selected_mediafiles if mediafile.sequence_id}
+    existing_sequence_ids = {mediafile.sequence_id for mediafile in selected_mediafiles}
+    if len(existing_sequence_ids) == 1:
+        existing_sequence_id = next(iter(existing_sequence_ids))
+        if existing_sequence_id is not None:
+            existing_sequence_size = MediaFile.objects.filter(sequence_id=existing_sequence_id).count()
+            if existing_sequence_size == len(selected_mediafiles):
+                return {"status": "already_one_sequence"}
+
+    archive_id = next(iter(archive_ids))
+    current_max_local_id = models.Sequence.objects.filter(uploaded_archive_id=archive_id).aggregate(
+        max_local_id=Max("local_id")
+    )["max_local_id"]
+    next_local_id = 0 if current_max_local_id is None else current_max_local_id + 1
+
+    with transaction.atomic():
+        new_sequence = models.Sequence.objects.create(uploaded_archive_id=archive_id, local_id=next_local_id)
+        MediaFile.objects.filter(id__in=selected_ids).update(sequence=new_sequence)
+        deleted_sequence_count = (
+            models.Sequence.objects.filter(id__in=affected_sequence_ids)
+            .annotate(mediafile_count=Count("mediafile"))
+            .filter(mediafile_count=0)
+            .delete()[0]
+        )
+
+    return {
+        "status": "created",
+        "sequence_id": new_sequence.id,
+        "mediafile_count": len(selected_mediafiles),
+        "deleted_sequence_count": deleted_sequence_count,
+    }
 
 
 def _parse_filename_metadata_date(value: str):
@@ -4083,6 +4178,29 @@ def sequences(
             messages.info(request, "Selected media files are already in single-media sequences.")
         return redirect(request.get_full_path())
 
+    if request.method == "POST" and "btnCreateSequence" in request.POST:
+        selected_mediafile_ids = _resolve_selected_mediafile_ids_from_post(request)
+        if not selected_mediafile_ids:
+            messages.warning(request, "Select at least one sequence or media file to combine.")
+            return redirect(request.get_full_path())
+
+        result = _create_sequence_from_mediafiles(request.user.caiduser, selected_mediafile_ids)
+        if result["status"] == "empty":
+            messages.warning(request, "No accessible media files were found in the selection.")
+        elif result["status"] == "multiple_archives":
+            messages.error(request, "Selected media files must belong to the same upload to create a sequence.")
+        elif result["status"] == "already_one_sequence":
+            messages.info(request, "Selected media files already form one complete sequence.")
+        else:
+            deleted_text = ""
+            if result["deleted_sequence_count"]:
+                deleted_text = f" Removed {result['deleted_sequence_count']} empty original sequences."
+            messages.success(
+                request,
+                f"Created a new sequence from {result['mediafile_count']} media files.{deleted_text}",
+            )
+        return redirect(request.get_full_path())
+
     if request.method == "POST" and "btnExtractFilenameMetadata" in request.POST:
         selected_mediafile_ids = _resolve_selected_mediafile_ids_from_post(request)
         if not selected_mediafile_ids:
@@ -4250,6 +4368,33 @@ def media_files_update(
 
     MediaFileFormSet = modelformset_factory(MediaFile, form=MediaFileSelectionForm, extra=0)
     logger.debug("Processing POST or GET request")
+    if request.method == "POST" and "btnCreateSequence" in request.POST:
+        form_bulk_processing = MediaFileBulkForm()
+        page_query = full_mediafiles.filter(id__in=[object.id for object in page_with_mediafiles])
+        form = MediaFileFormSet(request.POST, queryset=page_query)
+        selected_mediafile_ids = _resolve_selected_mediafile_ids_from_formset(form, full_mediafiles)
+
+        if not selected_mediafile_ids:
+            messages.warning(request, "Select at least one media file to combine.")
+            return redirect(request.get_full_path())
+
+        result = _create_sequence_from_mediafiles(request.user.caiduser, selected_mediafile_ids)
+        if result["status"] == "empty":
+            messages.warning(request, "No accessible media files were found in the selection.")
+        elif result["status"] == "multiple_archives":
+            messages.error(request, "Selected media files must belong to the same upload to create a sequence.")
+        elif result["status"] == "already_one_sequence":
+            messages.info(request, "Selected media files already form one complete sequence.")
+        else:
+            deleted_text = ""
+            if result["deleted_sequence_count"]:
+                deleted_text = f" Removed {result['deleted_sequence_count']} empty original sequences."
+            messages.success(
+                request,
+                f"Created a new sequence from {result['mediafile_count']} media files.{deleted_text}",
+            )
+        return redirect(request.get_full_path())
+
     if (request.method == "POST") and (
         any([(isinstance(key, str)) and (key.startswith("btnBulkProcessing")) for key in request.POST])
         # ("btnBulkProcessing" in request.POST) or ("btnBulkProcessingAlbum" in request.POST)

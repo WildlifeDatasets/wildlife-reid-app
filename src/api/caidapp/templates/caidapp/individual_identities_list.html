@@ -85,11 +85,13 @@
                                         href="{% url 'caidapp:individual_identity_update' individual_identity.id %}"
                                 >
 
-                                    {% if individual_identity.mediafile_set.first.thumbnail %}
-                                        <img class="img-fluid cover-image" src="{{ individual_identity.mediafile_set.first.thumbnail.url }}"
-                                             style="height: 31px; width:45px; object-fit: cover;"
-                                             alt="Camera trap image">
-                                    {% endif %}
+                                    {% with cover_mediafile=individual_identity.cover_mediafile %}
+                                        {% if cover_mediafile and cover_mediafile.thumbnail %}
+                                            <img class="img-fluid cover-image" src="{{ cover_mediafile.thumbnail.url }}"
+                                                 style="height: 31px; width:45px; object-fit: cover;"
+                                                 alt="Camera trap image">
+                                        {% endif %}
+                                    {% endwith %}
                                 </a>
                             </td>
                             <td><a class="link-secondary"
