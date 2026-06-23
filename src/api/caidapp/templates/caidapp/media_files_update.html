@@ -48,6 +48,31 @@
         aspect-ratio: 4/3;
         {#width: 100%; #}
     }
+    .bbox-preview-frame {
+        position: relative;
+        display: block;
+        width: 100%;
+        aspect-ratio: 4 / 3;
+        overflow: hidden;
+        background-color: var(--wrid-media-thumb-bg, #7f7f7f);
+    }
+    .bbox-preview-frame img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        display: block;
+    }
+    .bbox-preview-frame .card-img-top {
+        aspect-ratio: auto;
+    }
+    .bbox-image-area {
+        position: absolute;
+        left: var(--bbox-image-left, 0px);
+        top: var(--bbox-image-top, 0px);
+        width: var(--bbox-image-width, 100%);
+        height: var(--bbox-image-height, 100%);
+        pointer-events: none;
+    }
     .card-img-placeholder {
         width: 100%;
         height: 300px; /* Match the height of the card image */
@@ -65,10 +90,11 @@
     }
 
     .bbox-overlay {
-    border: 2px solid red;
-    background-color: rgba(255, 0, 0, 0.01);
-    pointer-events: none; /* non-blocking overlay for <a> */
-}
+        position: absolute;
+        border: 2px solid red;
+        background-color: rgba(255, 0, 0, 0.01);
+        pointer-events: none; /* non-blocking overlay for <a> */
+    }
 
     .verification-taxon-heading {
         width: 100%;
@@ -163,6 +189,11 @@
                                            href="{% url 'caidapp:download_xlsx_for_mediafiles' %}?{{ mediafiles_download_query_string }}">
                                             <i class="fas fa-file-excel"></i>
                                             Download XLSX
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="{% url 'caidapp:import_observations' %}">
+                                            <i class="bi bi-file-earmark-arrow-up"></i> Import observation metadata
                                         </a>
                                     </li>
                                     <li>
@@ -322,16 +353,16 @@
                                          <a
 {#                                                 href="{% url 'caidapp:media_file_update' mediafile.instance.id %}?next={{ request.get_full_path }}"#}
                                                  href="{% url 'caidapp:media_file_update' mediafile.instance.id %}?next={{ request.get_full_path|urlencode }}"
+                                                 class="bbox-preview-frame"
 
                                          >
-            <div class="position-relative">
                 <img class="card-img-top" src="{{ mediafile.instance.thumbnail.url }}" alt="Camera trap">
 
+                <div class="bbox-image-area">
                 {% for obs in mediafile.instance.observations.all %}
                     {% if obs.bbox_x_center %}
                         <div class="bbox-overlay"
                              style="
-                                position: absolute;
                                 left: calc(({{ obs.bbox_x_center }} - {{ obs.bbox_width }}/2) * 100%);
                                 top: calc(({{ obs.bbox_y_center }} - {{ obs.bbox_height }}/2) * 100%);
                                 width: calc({{ obs.bbox_width }} * 100%);
@@ -340,7 +371,7 @@
                         </div>
                     {% endif %}
                 {% endfor %}
-            </div>
+                </div>
         </a>
 
 
@@ -587,6 +618,62 @@
 {#    The download of mediafiles  #}
 {#    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>#}
     <script src="{% static 'caidapp/download_button.js' %}"></script>
+    <script>
+        function syncBboxPreviewFrame(frame) {
+            const img = frame.querySelector("img");
+            if (!img || !img.naturalWidth || !img.naturalHeight) return;
+            const frameWidth = frame.clientWidth;
+            const frameHeight = frame.clientHeight;
+            if (!frameWidth || !frameHeight) return;
+
+            const imageAspect = img.naturalWidth / img.naturalHeight;
+            const frameAspect = frameWidth / frameHeight;
+            let imageWidth;
+            let imageHeight;
+            if (frameAspect > imageAspect) {
+                imageHeight = frameHeight;
+                imageWidth = frameHeight * imageAspect;
+            } else {
+                imageWidth = frameWidth;
+                imageHeight = frameWidth / imageAspect;
+            }
+            frame.style.setProperty("--bbox-image-left", `${(frameWidth - imageWidth) / 2}px`);
+            frame.style.setProperty("--bbox-image-top", `${(frameHeight - imageHeight) / 2}px`);
+            frame.style.setProperty("--bbox-image-width", `${imageWidth}px`);
+            frame.style.setProperty("--bbox-image-height", `${imageHeight}px`);
+        }
+
+        function syncBboxPreviewFrames(root = document) {
+            root.querySelectorAll(".bbox-preview-frame").forEach(function (frame) {
+                const img = frame.querySelector("img");
+                if (!img) return;
+                if (img.complete) {
+                    syncBboxPreviewFrame(frame);
+                } else {
+                    img.addEventListener("load", function () {
+                        syncBboxPreviewFrame(frame);
+                    }, {once: true});
+                }
+            });
+        }
+
+        document.addEventListener("DOMContentLoaded", function () {
+            syncBboxPreviewFrames();
+            window.addEventListener("resize", function () {
+                syncBboxPreviewFrames();
+            });
+            if ("ResizeObserver" in window) {
+                const observer = new ResizeObserver(function (entries) {
+                    entries.forEach(function (entry) {
+                        syncBboxPreviewFrame(entry.target);
+                    });
+                });
+                document.querySelectorAll(".bbox-preview-frame").forEach(function (frame) {
+                    observer.observe(frame);
+                });
+            }
+        });
+    </script>
     <script>
         document.addEventListener("DOMContentLoaded", function () {
             const selectAllInput = document.getElementById("select_all");

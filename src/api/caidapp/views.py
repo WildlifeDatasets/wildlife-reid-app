@@ -1,5 +1,6 @@
 import datetime
 import io
+import math
 import logging
 import os
 import random
@@ -176,6 +177,10 @@ SEQUENCE_EXPORT_COLUMNS = [
     ("code", "Identity code"),
     ("juv_code", "Juvenile code"),
     ("locality name", "Locality name"),
+    ("locality_id", "Locality ID"),
+    ("mediafile_location", "Media file location (explicit)"),
+    ("locality_location", "Locality location"),
+    ("location_source", "Effective location source"),
     ("locality coordinates", "Locality coordinates"),
     ("latitude", "Latitude"),
     ("longitude", "Longitude"),
@@ -187,17 +192,20 @@ SEQUENCE_EXPORT_COLUMNS = [
     ("mediafile_id", "Media file ID"),
     ("sequence_id", "Sequence ID"),
     ("observation_id", "Observation ID"),
+    ("taxon_id", "Taxon ID"),
     ("predicted_category", "Taxon"),
     ("media_type", "Media type"),
     ("taxon_verified", "Taxon verified"),
     ("predicted_taxon", "Predicted taxon"),
+    ("predicted_taxon_id", "Predicted taxon ID"),
     ("predicted_taxon_confidence", "Predicted taxon confidence"),
     ("identity_is_representative", "Identity is representative"),
+    ("identity_id", "Identity ID"),
     ("orientation", "Orientation"),
-    ("bbox_x_center", "BBox x center"),
-    ("bbox_y_center", "BBox y center"),
-    ("bbox_width", "BBox width"),
-    ("bbox_height", "BBox height"),
+    ("bbox_cx", "BBox center X (relative)"),
+    ("bbox_cy", "BBox center Y (relative)"),
+    ("bbox_w", "BBox width (relative)"),
+    ("bbox_h", "BBox height (relative)"),
     ("note", "Note"),
 ]
 SEQUENCE_EXPORT_DEFAULT_COLUMNS = [
@@ -205,6 +213,10 @@ SEQUENCE_EXPORT_DEFAULT_COLUMNS = [
     "code",
     "juv_code",
     "locality name",
+    "locality_id",
+    "mediafile_location",
+    "locality_location",
+    "location_source",
     "locality coordinates",
     "latitude",
     "longitude",
@@ -216,7 +228,21 @@ SEQUENCE_EXPORT_DEFAULT_COLUMNS = [
     "mediafile_id",
     "sequence_id",
     "observation_id",
+    "taxon_id",
     "predicted_category",
+    "media_type",
+    "taxon_verified",
+    "predicted_taxon_id",
+    "predicted_taxon",
+    "predicted_taxon_confidence",
+    "identity_id",
+    "identity_is_representative",
+    "orientation",
+    "bbox_cx",
+    "bbox_cy",
+    "bbox_w",
+    "bbox_h",
+    "note",
 ]
 
 PATH_REGEX_CHATGPT_PROMPT_PREFIX_LINES = [
@@ -427,6 +453,26 @@ def show_taxons(request):
     )
 
 
+def _append_created_selection_to_next_url(request, next_url: str, created_param: str, created_id: int) -> str:
+    """Append created-object selection params to a validated next URL."""
+    parsed_url = urllib.parse.urlsplit(next_url)
+    query_params = [
+        (key, value)
+        for key, value in urllib.parse.parse_qsl(parsed_url.query, keep_blank_values=True)
+        if key
+        not in {
+            "created_taxon_id",
+            "created_identity_id",
+            "select_observation_prefix",
+        }
+    ]
+    query_params.append((created_param, str(created_id)))
+    observation_prefix = request.GET.get("select_observation_prefix") or request.POST.get("select_observation_prefix")
+    if observation_prefix:
+        query_params.append(("select_observation_prefix", observation_prefix))
+    return urllib.parse.urlunsplit(parsed_url._replace(query=urllib.parse.urlencode(query_params)))
+
+
 @login_required
 def update_taxon(request, taxon_id: Optional[int] = None):
     """Update species form. Create taxon if taxon_id is None."""
@@ -451,6 +497,8 @@ def update_taxon(request, taxon_id: Optional[int] = None):
                 allowed_hosts={request.get_host()},
                 require_https=request.is_secure(),
             ):
+                if taxon_id is None:
+                    next_url = _append_created_selection_to_next_url(request, next_url, "created_taxon_id", taxon.id)
                 return redirect(next_url)
             return redirect("caidapp:show_taxons")
     else:
@@ -1094,6 +1142,14 @@ def individual_identity_create(request, media_file_id: Optional[int] = None):
                 messages.success(request, "Individual identity created and linked to media file.")
             url = request.META.get("HTTP_REFERER", reverse("caidapp:individual_identities"))
             next_url = request.GET.get("next") or request.POST.get("next") or url
+            if next_url and url_has_allowed_host_and_scheme(
+                next_url,
+                allowed_hosts={request.get_host()},
+                require_https=request.is_secure(),
+            ):
+                next_url = _append_created_selection_to_next_url(
+                    request, next_url, "created_identity_id", individual_identity.id
+                )
             return redirect(next_url)
     else:
         form = IndividualIdentityForm()
@@ -3562,18 +3618,27 @@ def _get_sequence_sort(request) -> str:
     return sort
 
 
-def _resolve_selected_mediafile_ids_from_post(request) -> List[int]:
+def _resolve_selected_mediafile_ids_from_post(request, filtered_mediafiles: Optional[QuerySet] = None) -> List[int]:
     """Resolve bulk-selected mediafiles from sequence and mediafile checkboxes."""
+    if request.POST.get("select_all_filtered") == "on":
+        if filtered_mediafiles is None:
+            raise ValueError("Filtered mediafiles are required for an all-filtered selection")
+        return list(filtered_mediafiles.values_list("id", flat=True))
     selected_sequence_ids = [int(v) for v in request.POST.getlist("selected_sequence_ids") if str(v).isdigit()]
     selected_mediafile_ids = {int(v) for v in request.POST.getlist("selected_mediafile_ids") if str(v).isdigit()}
     deselected_mediafile_ids = {int(v) for v in request.POST.getlist("deselected_mediafile_ids") if str(v).isdigit()}
 
     if selected_sequence_ids:
-        sequence_mediafile_ids = MediaFile.objects.filter(sequence_id__in=selected_sequence_ids).values_list("id", flat=True)
+        sequence_mediafile_ids = MediaFile.objects.for_user(request.user.caiduser).filter(
+            sequence_id__in=selected_sequence_ids
+        ).values_list("id", flat=True)
         selected_mediafile_ids.update(sequence_mediafile_ids)
 
     selected_mediafile_ids.difference_update(deselected_mediafile_ids)
-    return sorted(selected_mediafile_ids)
+    accessible_ids = MediaFile.objects.for_user(request.user.caiduser).filter(
+        id__in=selected_mediafile_ids
+    ).values_list("id", flat=True)
+    return sorted(accessible_ids)
 
 
 def _resolve_selected_mediafile_ids_from_formset(form, full_mediafiles: QuerySet) -> List[int]:
@@ -4160,7 +4225,7 @@ def sequences(
         (isinstance(key, str)) and key.startswith("btnBulkProcessing") for key in request.POST
     ):
         if form_bulk_processing.is_valid():
-            selected_mediafile_ids = _resolve_selected_mediafile_ids_from_post(request)
+            selected_mediafile_ids = _resolve_selected_mediafile_ids_from_post(request, full_mediafiles)
             request.session["mediafile_ids"] = selected_mediafile_ids
             request.session["mediafiles_name_suggestion"] = mediafiles_name_suggestion
             selected_mediafiles = MediaFile.objects.filter(id__in=selected_mediafile_ids)
@@ -4176,7 +4241,7 @@ def sequences(
             return redirect(request.get_full_path())
 
     if request.method == "POST" and "btnDissolveSequences" in request.POST:
-        selected_mediafile_ids = _resolve_selected_mediafile_ids_from_post(request)
+        selected_mediafile_ids = _resolve_selected_mediafile_ids_from_post(request, full_mediafiles)
         if not selected_mediafile_ids:
             messages.warning(request, "Select at least one sequence or media file to dissolve.")
             return redirect(request.get_full_path())
@@ -4195,7 +4260,7 @@ def sequences(
         return redirect(request.get_full_path())
 
     if request.method == "POST" and "btnCreateSequence" in request.POST:
-        selected_mediafile_ids = _resolve_selected_mediafile_ids_from_post(request)
+        selected_mediafile_ids = _resolve_selected_mediafile_ids_from_post(request, full_mediafiles)
         if not selected_mediafile_ids:
             messages.warning(request, "Select at least one sequence or media file to combine.")
             return redirect(request.get_full_path())
@@ -4218,7 +4283,7 @@ def sequences(
         return redirect(request.get_full_path())
 
     if request.method == "POST" and "btnExtractFilenameMetadata" in request.POST:
-        selected_mediafile_ids = _resolve_selected_mediafile_ids_from_post(request)
+        selected_mediafile_ids = _resolve_selected_mediafile_ids_from_post(request, full_mediafiles)
         if not selected_mediafile_ids:
             selected_mediafile_ids = list(full_mediafiles.values_list("id", flat=True))
         return _start_filename_metadata_session(
@@ -4229,7 +4294,7 @@ def sequences(
         )
 
     if request.method == "POST" and "btnDownloadSequences" in request.POST:
-        selected_mediafile_ids = _resolve_selected_mediafile_ids_from_post(request)
+        selected_mediafile_ids = _resolve_selected_mediafile_ids_from_post(request, full_mediafiles)
         if not selected_mediafile_ids:
             selected_mediafile_ids = list(full_mediafiles.values_list("id", flat=True))
         request.session[SEQUENCE_DOWNLOAD_SESSION_KEY] = selected_mediafile_ids
@@ -4970,7 +5035,14 @@ def _get_mediafiles_for_export(request, uploadedarchive_id: Optional[int]) -> Tu
         request,
         uploadedarchive_id=uploadedarchive_id,
     )
-    mediafiles = mediafiles.select_related("parent", "locality").prefetch_related("observations__taxon", "observations__identity")
+    mediafiles = mediafiles.select_related(
+        "parent", "locality", "taxon", "predicted_taxon", "identity", "sequence"
+    ).prefetch_related(
+        Prefetch(
+            "observations",
+            queryset=AnimalObservation.objects.select_related("taxon", "predicted_taxon", "identity").order_by("id"),
+        )
+    )
     return mediafiles, name_suggestion
 
 
@@ -5096,7 +5168,12 @@ def _get_sequence_download_mediafiles(request: HttpRequest) -> QuerySet:
         MediaFile.objects.for_user(request.user.caiduser)
         .filter(id__in=mediafile_ids)
         .select_related("parent", "locality", "sequence", "taxon", "predicted_taxon", "identity")
-        .prefetch_related("observations__taxon", "observations__predicted_taxon", "observations__identity")
+        .prefetch_related(
+            Prefetch(
+                "observations",
+                queryset=AnimalObservation.objects.select_related("taxon", "predicted_taxon", "identity").order_by("id"),
+            )
+        )
         .order_by("sequence_id", "captured_at", "id")
     )
 
@@ -5121,6 +5198,10 @@ def _location_export_values(mediafile: models.MediaFile) -> Dict[str, str]:
         "locality coordinates": str(effective_location) if effective_location else "",
         "latitude": latitude,
         "longitude": longitude,
+        "locality_id": mediafile.locality_id or "",
+        "mediafile_location": str(mediafile.location) if mediafile.location else "",
+        "locality_location": str(mediafile.locality.location) if mediafile.locality and mediafile.locality.location else "",
+        "location_source": mediafile.effective_location_source or "",
     }
 
 
@@ -5142,16 +5223,14 @@ def _build_sequence_observation_export_records(
         observations = list(mediafile.observations.all()) or [None]
         mediafile_location_values = _location_export_values(mediafile)
         for observation in observations:
-            taxon = observation.taxon if observation and observation.taxon_id else mediafile.taxon
-            predicted_taxon = (
-                observation.predicted_taxon
-                if observation and observation.predicted_taxon_id
-                else mediafile.predicted_taxon
-            )
-            identity = observation.identity if observation and observation.identity_id else mediafile.identity
+            # Existing observations must never silently inherit legacy mediafile metadata.
+            taxon = observation.taxon if observation else mediafile.taxon
+            predicted_taxon = observation.predicted_taxon if observation else mediafile.predicted_taxon
+            identity = observation.identity if observation else mediafile.identity
             row = {
                 "mediafile_id": mediafile.id,
                 "observation_id": observation.id if observation else "",
+                "taxon_id": taxon.id if taxon else "",
                 "original_path": mediafile.original_filename or mediafile.mediafile.name,
                 "export_path": mediafile_export_paths.get(mediafile.id, ""),
                 "uploaded_archive": mediafile.parent.name if mediafile.parent else "",
@@ -5162,19 +5241,19 @@ def _build_sequence_observation_export_records(
                 "predicted_category": taxon.name if taxon else "",
                 "taxon_verified": observation.taxon_verified if observation else mediafile.taxon_verified,
                 "predicted_taxon": predicted_taxon.name if predicted_taxon else "",
+                "predicted_taxon_id": predicted_taxon.id if predicted_taxon else "",
                 "predicted_taxon_confidence": (
-                    observation.predicted_taxon_confidence
-                    if observation and observation.predicted_taxon_confidence is not None
-                    else mediafile.predicted_taxon_confidence
+                    observation.predicted_taxon_confidence if observation else mediafile.predicted_taxon_confidence
                 ),
                 "identity_is_representative": (
                     observation.identity_is_representative if observation else mediafile.identity_is_representative
                 ),
+                "identity_id": identity.id if identity else "",
                 "orientation": observation.orientation if observation else mediafile.orientation,
-                "bbox_x_center": observation.bbox_x_center if observation else "",
-                "bbox_y_center": observation.bbox_y_center if observation else "",
-                "bbox_width": observation.bbox_width if observation else "",
-                "bbox_height": observation.bbox_height if observation else "",
+                "bbox_cx": observation.bbox_x_center if observation else "",
+                "bbox_cy": observation.bbox_y_center if observation else "",
+                "bbox_w": observation.bbox_width if observation else "",
+                "bbox_h": observation.bbox_height if observation else "",
                 "note": mediafile.note,
                 "locality_check_at": (
                     mediafile.parent.locality_check_at.isoformat()
@@ -5296,31 +5375,31 @@ def download_zip_for_sequences_view(request) -> JsonResponse:
 
 @login_required
 def download_csv_for_mediafiles_view(request, uploadedarchive_id: Optional[int] = None):
-    """Download csv for media files."""
+    """Download observation-level CSV for the filtered media files."""
     mediafiles, name_suggestion = _get_mediafiles_for_export(request, uploadedarchive_id)
     fn = ("metadata_" + name_suggestion) if name_suggestion is not None else "metadata"
 
     try:
-        df = tasks.create_dataframe_from_mediafiles(mediafiles)
+        df = _sequence_export_dataframe(mediafiles, request, SEQUENCE_EXPORT_DEFAULT_COLUMNS)
         if df.empty:
             return HttpResponse("No data available to export.", content_type="text/plain")
     except Exception:
         logger.error(traceback.format_exc())
         return HttpResponse("Error during export.", content_type="text/plain")
     # df = tasks.create_dataframe_from_mediafiles(mediafiles)
-    response = HttpResponse(df.to_csv(), content_type="text/csv")
+    response = HttpResponse(df.to_csv(index=False), content_type="text/csv")
     response["Content-Disposition"] = f"attachment; filename={fn}.csv"
     return response
 
 
 @login_required
 def download_xlsx_for_mediafiles_view(request, uploadedarchive_id: Optional[int] = None):
-    """Download xlsx for media files."""
+    """Download observation-level XLSX for the filtered media files."""
     mediafiles, name_suggestion = _get_mediafiles_for_export(request, uploadedarchive_id)
     fn = ("metadata_" + name_suggestion) if name_suggestion is not None else "metadata"
 
     try:
-        df = tasks.create_dataframe_from_mediafiles(mediafiles)
+        df = _sequence_export_dataframe(mediafiles, request, SEQUENCE_EXPORT_DEFAULT_COLUMNS)
         if df.empty:
             return HttpResponse("No data available to export.", content_type="text/plain")
     except Exception:
@@ -5332,7 +5411,7 @@ def download_xlsx_for_mediafiles_view(request, uploadedarchive_id: Optional[int]
 
     output = BytesIO()
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
-        df.to_excel(writer, index=False, sheet_name="Localities")
+        df.to_excel(writer, index=False, sheet_name="Observations")
 
     # Rewind the buffer
     output.seek(0)
@@ -7445,6 +7524,250 @@ def import_identities_view(request):
             + "There should be columns 'id', 'name' or 'code' in the file. "
             + "Optional columns are 'sex', 'coat_type', 'birth_date', 'death_date', 'note'.",
             "next": "caidapp:individual_identities",
+        },
+    )
+
+
+OBSERVATION_IMPORT_CLEAR = "__CLEAR__"
+OBSERVATION_BBOX_COLUMNS = ("bbox_cx", "bbox_cy", "bbox_w", "bbox_h")
+OBSERVATION_BBOX_MODEL_FIELDS = ("bbox_x_center", "bbox_y_center", "bbox_width", "bbox_height")
+
+
+def _spreadsheet_optional_float(value, column: str) -> Optional[float]:
+    if not _spreadsheet_cell_has_value(value):
+        return None
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{column} must be a number") from exc
+    if not math.isfinite(parsed):
+        raise ValueError(f"{column} must be finite")
+    return parsed
+
+
+def _spreadsheet_optional_bool(value, column: str) -> Optional[bool]:
+    if not _spreadsheet_cell_has_value(value):
+        return None
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)) and value in (0, 1):
+        return bool(value)
+    normalized = str(value).strip().lower()
+    if normalized in {"true", "yes", "y", "1", "ano"}:
+        return True
+    if normalized in {"false", "no", "n", "0", "ne"}:
+        return False
+    raise ValueError(f"{column} must be true or false")
+
+
+def _spreadsheet_strict_id(value, column: str, required: bool = False) -> Optional[int]:
+    """Parse a positive integer ID without truncating or treating invalid input as blank."""
+    if not _spreadsheet_cell_has_value(value):
+        if required:
+            raise ValueError(f"{column} is required")
+        return None
+    if isinstance(value, bool):
+        raise ValueError(f"{column} must be a positive integer")
+    text = str(value).strip()
+    if re.fullmatch(r"[1-9]\d*", text):
+        return int(text)
+    if re.fullmatch(r"[1-9]\d*\.0+", text):
+        return int(float(text))
+    raise ValueError(f"{column} must be a positive integer")
+
+
+def _resolve_imported_related_object(row, id_column, name_columns, queryset, label):
+    """Resolve an optional related object, using a stable ID whenever supplied."""
+    raw_id = row.get(id_column)
+    if str(raw_id).strip() == OBSERVATION_IMPORT_CLEAR:
+        return None, True
+    object_id = _spreadsheet_strict_id(raw_id, id_column)
+    if object_id is not None:
+        obj = queryset.filter(id=object_id).first()
+        if obj is None:
+            raise ValueError(f"unknown or inaccessible {label} ID {object_id}")
+        for column in name_columns:
+            value = row.get(column)
+            if not _spreadsheet_cell_has_value(value):
+                continue
+            model_field = "name" if column in {"predicted_category", "predicted_taxon", "unique_name", "locality name"} else column
+            if str(getattr(obj, model_field) or "").strip() != str(value).strip():
+                raise ValueError(f"{label} ID {object_id} does not match {column} '{value}'")
+        return obj, True
+    for column in name_columns:
+        value = row.get(column)
+        if not _spreadsheet_cell_has_value(value):
+            continue
+        model_field = "name" if column in {"predicted_category", "predicted_taxon", "unique_name", "locality name"} else column
+        matches = queryset.filter(**{model_field: str(value).strip()})
+        if matches.count() != 1:
+            raise ValueError(f"{label} {column} '{value}' is not unique")
+        return matches.first(), True
+    return None, False
+
+
+def _observation_bbox_from_row(row) -> Tuple[Optional[List[Optional[float]]], bool]:
+    raw_values = [row.get(column) for column in OBSERVATION_BBOX_COLUMNS]
+    present = [_spreadsheet_cell_has_value(value) for value in raw_values]
+    if not any(present):
+        return None, False
+    if all(str(value).strip() == OBSERVATION_IMPORT_CLEAR for value in raw_values):
+        return [None, None, None, None], True
+    if not all(present):
+        raise ValueError("bbox requires bbox_cx, bbox_cy, bbox_w and bbox_h together")
+    values = [_spreadsheet_optional_float(value, column) for value, column in zip(raw_values, OBSERVATION_BBOX_COLUMNS)]
+    cx, cy, width, height = values
+    if any(value is None or value < 0 or value > 1 for value in values):
+        raise ValueError("bbox values must be between 0 and 1")
+    if cx - width / 2 < 0 or cx + width / 2 > 1 or cy - height / 2 < 0 or cy + height / 2 > 1:
+        raise ValueError("bbox must fit within the normalized image bounds")
+    return values, True
+
+
+def _read_uploaded_spreadsheet(file) -> pd.DataFrame:
+    content = file.read()
+    suffix = Path(file.name).suffix.lower()
+    if suffix == ".csv":
+        return pd.read_csv(BytesIO(content))
+    if suffix == ".xlsx":
+        return pd.read_excel(BytesIO(content))
+    raise ValueError("Only .csv and .xlsx files are supported.")
+
+
+def _import_observation_dataframe(df: pd.DataFrame, caiduser) -> Tuple[int, int]:
+    """Atomically create or update observations from an exported spreadsheet."""
+    if "mediafile_id" not in df.columns:
+        raise ValueError("Missing required column mediafile_id")
+    accessible_mediafiles = MediaFile.objects.for_user(caiduser)
+    accessible_observations = AnimalObservation.objects.filter(mediafile__in=accessible_mediafiles)
+    identity_queryset = IndividualIdentity.objects.filter(owner_workgroup=caiduser.workgroup)
+    locality_queryset = Locality.objects.filter(**models.user_has_access_filter_params(caiduser, "owner"))
+    seen_observation_ids = set()
+    created = updated = 0
+
+    with transaction.atomic():
+        for row_number, series in enumerate(df.to_dict(orient="records"), start=2):
+            try:
+                mediafile_id = _spreadsheet_strict_id(series.get("mediafile_id"), "mediafile_id", required=True)
+                mediafile = accessible_mediafiles.select_related("locality").filter(id=mediafile_id).first()
+                if mediafile is None:
+                    raise ValueError(f"unknown or inaccessible mediafile ID {mediafile_id}")
+
+                observation_id = _spreadsheet_strict_id(series.get("observation_id"), "observation_id")
+                if observation_id is not None:
+                    if observation_id in seen_observation_ids:
+                        raise ValueError(f"duplicate observation_id {observation_id}")
+                    seen_observation_ids.add(observation_id)
+                    observation = accessible_observations.filter(id=observation_id).first()
+                    if observation is None:
+                        raise ValueError(f"unknown or inaccessible observation ID {observation_id}")
+                    if observation.mediafile_id != mediafile.id:
+                        raise ValueError("observation_id does not belong to mediafile_id")
+                    updated += 1
+                else:
+                    observation = AnimalObservation(mediafile=mediafile)
+                    created += 1
+
+                taxon, supplied = _resolve_imported_related_object(
+                    series, "taxon_id", ("name", "predicted_category"), Taxon.objects.all(), "taxon"
+                )
+                if supplied:
+                    observation.taxon = taxon
+                predicted_taxon, supplied = _resolve_imported_related_object(
+                    series, "predicted_taxon_id", ("predicted_taxon",), Taxon.objects.all(), "predicted taxon"
+                )
+                if supplied:
+                    observation.predicted_taxon = predicted_taxon
+                identity, supplied = _resolve_imported_related_object(
+                    series, "identity_id", ("unique_name", "code"), identity_queryset, "identity"
+                )
+                if supplied:
+                    observation.identity = identity
+
+                for column in ("taxon_verified", "identity_is_representative"):
+                    parsed = _spreadsheet_optional_bool(series.get(column), column)
+                    if parsed is not None:
+                        setattr(observation, column, parsed)
+                if _spreadsheet_cell_has_value(series.get("orientation")):
+                    orientation = str(series["orientation"]).strip().upper()
+                    if orientation not in dict(models.ORIENTATION_CHOICES):
+                        raise ValueError(f"invalid orientation '{orientation}'")
+                    observation.orientation = orientation
+                confidence = _spreadsheet_optional_float(
+                    series.get("predicted_taxon_confidence"), "predicted_taxon_confidence"
+                )
+                if confidence is not None:
+                    if not 0 <= confidence <= 1:
+                        raise ValueError("predicted_taxon_confidence must be between 0 and 1")
+                    observation.predicted_taxon_confidence = confidence
+                bbox, supplied = _observation_bbox_from_row(series)
+                if supplied:
+                    for model_field, value in zip(OBSERVATION_BBOX_MODEL_FIELDS, bbox):
+                        setattr(observation, model_field, value)
+                observation.updated_by = caiduser
+                observation.updated_at = timezone.now()
+                observation.save()
+
+                locality, supplied = _resolve_imported_related_object(
+                    series, "locality_id", ("locality name",), locality_queryset, "locality"
+                )
+                mediafile_fields = []
+                if supplied:
+                    mediafile.locality = locality
+                    mediafile_fields.append("locality")
+                raw_location = series.get("mediafile_location")
+                if str(raw_location).strip() == OBSERVATION_IMPORT_CLEAR:
+                    mediafile.location = None
+                    mediafile_fields.append("location")
+                elif _spreadsheet_cell_has_value(raw_location):
+                    location = str(raw_location).strip()
+                    parts = location.split(",")
+                    if len(parts) != 2:
+                        raise ValueError("mediafile_location must be 'latitude,longitude'")
+                    latitude, longitude = [_spreadsheet_optional_float(part, "mediafile_location") for part in parts]
+                    if not -90 <= latitude <= 90 or not -180 <= longitude <= 180:
+                        raise ValueError("mediafile_location is outside valid latitude/longitude bounds")
+                    mediafile.location = f"{latitude},{longitude}"
+                    mediafile_fields.append("location")
+                if mediafile_fields:
+                    mediafile.updated_by = caiduser
+                    mediafile.updated_at = timezone.now()
+                    mediafile.save(update_fields=[*mediafile_fields, "updated_by", "updated_at"])
+            except ValueError as exc:
+                raise ValueError(f"Row {row_number}: {exc}") from exc
+    return created, updated
+
+
+@login_required
+def import_observations_view(request):
+    """Import observation and related mediafile metadata from CSV or XLSX."""
+    if request.method == "POST":
+        form = forms.SpreadsheetFileImportForm(request.POST, request.FILES)
+        if form.is_valid():
+            try:
+                df = _read_uploaded_spreadsheet(form.cleaned_data["spreadsheet_file"])
+                created, updated = _import_observation_dataframe(df, request.user.caiduser)
+            except ValueError as exc:
+                form.add_error("spreadsheet_file", str(exc))
+            else:
+                messages.success(request, f"Imported observations: {created} created, {updated} updated.")
+                return redirect("caidapp:media_files")
+    else:
+        form = forms.SpreadsheetFileImportForm()
+    return render(
+        request,
+        "caidapp/update_form.html",
+        {
+            "form": form,
+            "headline": "Import observations",
+            "button": "Import",
+            "text_note": (
+                "Upload an exported CSV or XLSX. observation_id updates an existing observation; "
+                "a blank observation_id creates one for mediafile_id. Blank cells leave values unchanged. "
+                f"Use {OBSERVATION_IMPORT_CLEAR} to clear supported nullable values. "
+                "BBox uses YOLO-style normalized bbox_cx, bbox_cy, bbox_w and bbox_h values in the range 0-1."
+            ),
+            "next": "caidapp:media_files",
         },
     )
 

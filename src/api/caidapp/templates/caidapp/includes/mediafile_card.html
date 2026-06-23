@@ -1,21 +1,22 @@
 <div class="card sequence-mediafile-card {% if not mediafile.matches_current_filter %}sequence-nonmatching-mediafile{% endif %} {{ extra_card_class|default:'' }}" data-sequence-id="{{ sequence.id }}" data-matches-filter="{% if mediafile.matches_current_filter %}true{% else %}false{% endif %}">
     <div class="position-relative">
         {% if mediafile.thumbnail %}
-            <a href="{% url 'caidapp:media_file_update' mediafile.id %}?next={{ request.get_full_path|urlencode }}">
+            <a class="bbox-preview-frame" href="{% url 'caidapp:media_file_update' mediafile.id %}?next={{ request.get_full_path|urlencode }}">
                 <img src="{{ mediafile.thumbnail.url }}" alt="Media file thumbnail">
-                {% for obs in mediafile.observations.all %}
-                    {% if obs.bbox_x_center %}
-                        <div class="bbox-overlay"
-                             style="
-                                position: absolute;
-                                left: calc(({{ obs.bbox_x_center }} - {{ obs.bbox_width }}/2) * 100%);
-                                top: calc(({{ obs.bbox_y_center }} - {{ obs.bbox_height }}/2) * 100%);
-                                width: calc({{ obs.bbox_width }} * 100%);
-                                height: calc({{ obs.bbox_height }} * 100%);
-                             ">
-                        </div>
-                    {% endif %}
-                {% endfor %}
+                <div class="bbox-image-area">
+                    {% for obs in mediafile.observations.all %}
+                        {% if obs.bbox_x_center %}
+                            <div class="bbox-overlay"
+                                 style="
+                                    left: calc(({{ obs.bbox_x_center }} - {{ obs.bbox_width }}/2) * 100%);
+                                    top: calc(({{ obs.bbox_y_center }} - {{ obs.bbox_height }}/2) * 100%);
+                                    width: calc({{ obs.bbox_width }} * 100%);
+                                    height: calc({{ obs.bbox_height }} * 100%);
+                                 ">
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
             </a>
         {% else %}
             <div class="sequence-mediafile-image-placeholder"></div>

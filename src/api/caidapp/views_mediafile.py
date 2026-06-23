@@ -151,16 +151,35 @@ class MediaFileUpdateView(LoginRequiredMixin, UpdateWithInlinesView):
 
     def _get_next_url(self):
         """Get next URL from GET or POST parameters, or fallback to referer or media files list."""
-        next_url = self.request.POST.get("next") or self.request.GET.get("next")
+        next_url = (
+            self.request.POST.get("next")
+            or self.request.GET.get("next")
+            or self.request.META.get("HTTP_REFERER")
+        )
 
         if next_url and url_has_allowed_host_and_scheme(
-                next_url,
-                allowed_hosts={self.request.get_host()},
+            next_url,
+            allowed_hosts={self.request.get_host()},
+            require_https=self.request.is_secure(),
         ):
             return next_url
 
-        # return self.request.GET.get("next") or self.request.META.get("HTTP_REFERER", "/")
         return resolve_url("caidapp:media_files")
+
+    def _get_next_url_for_form(self):
+        """Return a safe URL to store in the form, preserving the original source page."""
+        next_url = (
+            self.request.POST.get("next")
+            or self.request.GET.get("next")
+            or self.request.META.get("HTTP_REFERER")
+        )
+        if next_url and url_has_allowed_host_and_scheme(
+            next_url,
+            allowed_hosts={self.request.get_host()},
+            require_https=self.request.is_secure(),
+        ):
+            return next_url
+        return ""
 
     def get_success_url(self):
         """After successful update, return to previous page."""
@@ -237,9 +256,7 @@ class MediaFileUpdateView(LoginRequiredMixin, UpdateWithInlinesView):
     def get_context_data(self, **kwargs):
         """Add next URL to context."""
         context = super().get_context_data(**kwargs)
-        next_url = self.request.POST.get("next") or self.request.GET.get("next")
-        next_url = self.request.GET.get("next", "")
-        context["next"] = next_url
+        context["next"] = self._get_next_url_for_form()
         context["effective_location"] = self.object.effective_location
         context["effective_location_source"] = self.object.effective_location_source
         return context

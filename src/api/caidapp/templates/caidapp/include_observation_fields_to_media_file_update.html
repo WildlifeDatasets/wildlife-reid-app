@@ -7,7 +7,7 @@
         <div class="flex-grow-1">
             {{ obs_form.taxon }}
         </div>
-        <a href="{% url 'caidapp:add_taxon' %}?next={{ request.get_full_path|urlencode }}"
+        <a href="{% url 'caidapp:add_taxon' %}?next={{ request.get_full_path|urlencode }}&select_observation_prefix={{ obs_form.prefix|urlencode }}"
            class="btn btn-outline-primary btn-sm"
            title="Add taxon"
            aria-label="Add taxon">
@@ -27,16 +27,16 @@
         </div>
         {% if manual_identification_mode %}
             <a class="btn btn-outline-primary btn-sm"
-               href="{% url 'caidapp:individual_identity_create' %}?next={{ request.get_full_path|urlencode }}"
+               href="{% url 'caidapp:individual_identity_create' %}?next={{ request.get_full_path|urlencode }}&select_observation_prefix={{ obs_form.prefix|urlencode }}"
                title="Create identity" aria-label="Create identity">
                 <i class="bi-plus"></i>
             </a>
         {% else %}
-            <button type="button"
-                    class="btn btn-outline-primary btn-sm"
-                    onclick="window.location.href='{% url 'caidapp:individual_identity_create' mediafile.id %}?next={{ request.path }}'">
+            <a class="btn btn-outline-primary btn-sm"
+               href="{% url 'caidapp:individual_identity_create' mediafile.id %}?next={{ request.get_full_path|urlencode }}&select_observation_prefix={{ obs_form.prefix|urlencode }}"
+               title="Create identity" aria-label="Create identity">
                 <i class="bi-plus"></i>
-            </button>
+            </a>
         {% endif %}
     </div>
     {% for error in obs_form.identity.errors %}

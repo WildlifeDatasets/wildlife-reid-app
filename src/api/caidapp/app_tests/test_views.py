@@ -1,5 +1,5 @@
 import logging
-from io import StringIO
+from io import BytesIO, StringIO
 from pathlib import Path
 from unittest.mock import Mock, patch
 
@@ -506,6 +506,80 @@ class MediaFileUpdateEmptyObservationTest(TestCase):
         self.assertContains(response, reverse("caidapp:uploadedarchive_detail", args=[archive.id]))
         self.assertNotContains(response, reverse("caidapp:uploadedarchive_mediafiles", args=[archive.id]))
 
+    def test_mediafile_update_uses_referer_as_next_when_next_is_missing(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        mediafile = MediaFileFactory(parent=archive)
+        source_url = reverse("caidapp:sequences") + "?media_type=image&page=2"
+
+        response = self.client.get(
+            reverse("caidapp:media_file_update", args=[mediafile.id]),
+            HTTP_REFERER=source_url,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["next"], source_url)
+
+    def test_mediafile_update_save_redirects_to_next(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        mediafile = MediaFileFactory(parent=archive)
+        source_url = reverse("caidapp:sequences") + "?media_type=image&page=2"
+
+        response = self.client.post(
+            reverse("caidapp:media_file_update", args=[mediafile.id]),
+            self._base_mediafile_update_post_data(
+                mediafile,
+                total_forms=0,
+                initial_forms=0,
+                extra_form_data={"next": source_url},
+            ),
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, source_url)
+
+    def test_mediafile_update_add_related_links_keep_observation_prefix(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        mediafile = MediaFileFactory(parent=archive)
+        AnimalObservationFactory(mediafile=mediafile)
+
+        response = self.client.get(reverse("caidapp:media_file_update", args=[mediafile.id]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "select_observation_prefix=observations-0")
+        self.assertContains(response, "select_observation_prefix=observations-__prefix__")
+
+    def test_create_taxon_returns_to_mediafile_with_created_selection_params(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        mediafile = MediaFileFactory(parent=archive)
+        next_url = reverse("caidapp:media_file_update", args=[mediafile.id])
+
+        response = self.client.post(
+            reverse("caidapp:add_taxon"),
+            {"name": "Caracal", "parent": "", "next": next_url},
+            QUERY_STRING="select_observation_prefix=observations-2",
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(next_url, response.url)
+        self.assertIn("created_taxon_id=", response.url)
+        self.assertIn("select_observation_prefix=observations-2", response.url)
+
+    def test_create_identity_returns_to_mediafile_with_created_selection_params(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        mediafile = MediaFileFactory(parent=archive)
+        next_url = reverse("caidapp:media_file_update", args=[mediafile.id])
+
+        response = self.client.post(
+            reverse("caidapp:individual_identity_create", args=[mediafile.id]),
+            {"name": "Alpha", "code": "", "juv_code": "", "sex": "U", "coat_type": "U", "note": "", "next": next_url},
+            QUERY_STRING="select_observation_prefix=observations-1",
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(next_url, response.url)
+        self.assertIn("created_identity_id=", response.url)
+        self.assertIn("select_observation_prefix=observations-1", response.url)
+
     def test_predicted_taxon_select_uses_taxon_id_and_refreshes_searchable_dropdown(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)
         predicted_taxon = TaxonFactory(name="Panthera pardus")
@@ -990,6 +1064,43 @@ class SequenceViewTest(TestCase):
         self.assertContains(response, "first.jpg")
         self.assertContains(response, "second.jpg")
 
+    def test_sequence_bbox_preview_uses_image_area_wrapper(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        sequence = SequenceFactory(uploaded_archive=archive)
+        mediafile = MediaFileFactory(parent=archive, sequence=sequence, original_filename="bbox.jpg")
+        AnimalObservationFactory(
+            mediafile=mediafile,
+            bbox_x_center=0.5,
+            bbox_y_center=0.5,
+            bbox_width=0.2,
+            bbox_height=0.3,
+        )
+
+        response = self.client.get(reverse("caidapp:sequences"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "bbox-preview-frame")
+        self.assertContains(response, "bbox-image-area")
+        self.assertContains(response, "syncBboxPreviewFrame")
+
+    def test_mediafiles_bbox_preview_uses_image_area_wrapper(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        mediafile = MediaFileFactory(parent=archive, original_filename="bbox.jpg")
+        AnimalObservationFactory(
+            mediafile=mediafile,
+            bbox_x_center=0.5,
+            bbox_y_center=0.5,
+            bbox_width=0.2,
+            bbox_height=0.3,
+        )
+
+        response = self.client.get(reverse("caidapp:media_files"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "bbox-preview-frame")
+        self.assertContains(response, "bbox-image-area")
+        self.assertContains(response, "syncBboxPreviewFrame")
+
     def test_sequence_view_search_matches_mediafile_filename_and_keeps_full_sequence(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)
         matching_sequence = SequenceFactory(uploaded_archive=archive)
@@ -1311,6 +1422,151 @@ class SequenceViewTest(TestCase):
         self.assertEqual(list(df["original_path"]), ["observed.jpg", "observed.jpg", "empty.jpg"])
         self.assertEqual(set(df[df["original_path"] == "observed.jpg"]["predicted_category"]), {"Wolf", "Lynx"})
         self.assertTrue(pd.isna(df[df["original_path"] == "empty.jpg"].iloc[0]["observation_id"]))
+
+    def test_mediafile_export_uses_observation_values_and_relative_bbox(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        legacy_taxon = TaxonFactory(name="Legacy taxon")
+        observed_taxon = TaxonFactory(name="Observed taxon")
+        mediafile = MediaFileFactory(parent=archive, taxon=legacy_taxon, original_filename="two.jpg")
+        first = AnimalObservationFactory(
+            mediafile=mediafile,
+            taxon=observed_taxon,
+            bbox_x_center=0.5,
+            bbox_y_center=0.4,
+            bbox_width=0.2,
+            bbox_height=0.4,
+            identity_is_representative=True,
+        )
+        second = AnimalObservationFactory(mediafile=mediafile, taxon=None)
+
+        response = self.client.get(reverse("caidapp:download_csv_for_mediafiles"))
+
+        self.assertEqual(response.status_code, 200)
+        df = pd.read_csv(StringIO(response.content.decode()))
+        rows = df[df["mediafile_id"] == mediafile.id].sort_values("observation_id")
+        self.assertEqual(list(rows["observation_id"]), [first.id, second.id])
+        self.assertEqual(rows.iloc[0]["predicted_category"], "Observed taxon")
+        self.assertTrue(pd.isna(rows.iloc[1]["predicted_category"]))
+        self.assertEqual(rows.iloc[0]["bbox_cx"], 0.5)
+        self.assertEqual(rows.iloc[0]["bbox_cy"], 0.4)
+        self.assertEqual(rows.iloc[0]["bbox_w"], 0.2)
+        self.assertEqual(rows.iloc[0]["bbox_h"], 0.4)
+        self.assertTrue(rows.iloc[0]["identity_is_representative"])
+
+    def test_mediafile_csv_and_xlsx_exports_have_same_observation_rows(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        mediafile = MediaFileFactory(parent=archive, original_filename="same.jpg")
+        AnimalObservationFactory(mediafile=mediafile)
+        AnimalObservationFactory(mediafile=mediafile)
+
+        csv_response = self.client.get(reverse("caidapp:download_csv_for_mediafiles"))
+        xlsx_response = self.client.get(reverse("caidapp:download_xlsx_for_mediafiles"))
+        csv_df = pd.read_csv(StringIO(csv_response.content.decode()))
+        xlsx_df = pd.read_excel(BytesIO(xlsx_response.content))
+
+        self.assertEqual(list(csv_df.columns), list(xlsx_df.columns))
+        self.assertEqual(list(csv_df["observation_id"]), list(xlsx_df["observation_id"]))
+
+    def test_observation_import_updates_and_creates(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        taxon = TaxonFactory(name="Imported taxon")
+        mediafile = MediaFileFactory(parent=archive)
+        observation = AnimalObservationFactory(mediafile=mediafile, taxon=None)
+        frame = pd.DataFrame(
+            [
+                {
+                    "mediafile_id": mediafile.id,
+                    "observation_id": observation.id,
+                    "taxon_id": taxon.id,
+                    "bbox_cx": 0.5,
+                    "bbox_cy": 0.5,
+                    "bbox_w": 0.4,
+                    "bbox_h": 0.2,
+                },
+                {"mediafile_id": mediafile.id, "observation_id": "", "taxon_id": taxon.id},
+            ]
+        )
+
+        created, updated = views._import_observation_dataframe(frame, self.caiduser)
+
+        self.assertEqual((created, updated), (1, 1))
+        observation.refresh_from_db()
+        self.assertEqual(observation.taxon, taxon)
+        self.assertEqual(observation.bbox_width, 0.4)
+        self.assertEqual(mediafile.observations.count(), 2)
+
+    def test_observation_import_invalid_bbox_rolls_back_all_rows(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        first = AnimalObservationFactory(mediafile=MediaFileFactory(parent=archive), taxon=None)
+        second = AnimalObservationFactory(mediafile=MediaFileFactory(parent=archive), taxon=None)
+        taxon = TaxonFactory()
+        frame = pd.DataFrame(
+            [
+                {"mediafile_id": first.mediafile_id, "observation_id": first.id, "taxon_id": taxon.id},
+                {
+                    "mediafile_id": second.mediafile_id,
+                    "observation_id": second.id,
+                    "bbox_cx": 0.95,
+                    "bbox_cy": 0.5,
+                    "bbox_w": 0.2,
+                    "bbox_h": 0.2,
+                },
+            ]
+        )
+
+        with self.assertRaisesRegex(ValueError, "Row 3: bbox must fit"):
+            views._import_observation_dataframe(frame, self.caiduser)
+
+        first.refresh_from_db()
+        self.assertIsNone(first.taxon)
+
+    def test_observation_import_invalid_id_does_not_create(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        mediafile = MediaFileFactory(parent=archive)
+        before = mediafile.observations.count()
+        frame = pd.DataFrame([{"mediafile_id": mediafile.id, "observation_id": "1.5"}])
+
+        with self.assertRaisesRegex(ValueError, "observation_id must be a positive integer"):
+            views._import_observation_dataframe(frame, self.caiduser)
+
+        self.assertEqual(mediafile.observations.count(), before)
+
+    def test_observation_import_rejects_partial_bbox(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        observation = AnimalObservationFactory(mediafile=MediaFileFactory(parent=archive))
+        frame = pd.DataFrame(
+            [
+                {
+                    "mediafile_id": observation.mediafile_id,
+                    "observation_id": observation.id,
+                    "bbox_cx": 0.4,
+                    "bbox_cy": 0.5,
+                    "bbox_w": 0.2,
+                }
+            ]
+        )
+
+        with self.assertRaisesRegex(ValueError, "bbox requires bbox_cx"):
+            views._import_observation_dataframe(frame, self.caiduser)
+
+    def test_sequence_select_all_filtered_uses_all_pages(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        selected_ids = []
+        for index in range(25):
+            sequence = SequenceFactory(uploaded_archive=archive)
+            mediafile = MediaFileFactory(parent=archive, sequence=sequence, original_filename=f"page-{index}.jpg")
+            selected_ids.append(mediafile.id)
+        excluded_sequence = SequenceFactory(uploaded_archive=archive)
+        excluded = MediaFileFactory(parent=archive, sequence=excluded_sequence, media_type="video")
+
+        response = self.client.post(
+            f'{reverse("caidapp:sequences")}?media_type=image',
+            {"btnDownloadSequences": "1", "select_all_filtered": "on"},
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(set(self.client.session["sequence_download_mediafile_ids"]), set(selected_ids))
+        self.assertNotIn(excluded.id, self.client.session["sequence_download_mediafile_ids"])
 
     def test_sequence_view_accepts_uploadedarchive_filter_alias(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)

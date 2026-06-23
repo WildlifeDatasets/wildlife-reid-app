@@ -195,6 +195,7 @@ urlpatterns = [
     path("identities/export_csv", views.export_identities_csv, name="export_identities_csv"),
     path("identities/export_xlsx", views.export_identities_xlsx, name="export_identities_xlsx"),
     path("identities/import", views.import_identities_view, name="import_identities"),
+    path("observations/import", views.import_observations_view, name="import_observations"),
     path(
         "individual_identity_create/",
         views.individual_identity_create,

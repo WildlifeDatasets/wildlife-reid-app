@@ -899,7 +899,12 @@ mediafile.taxon: {{ mediafile.taxon }}
                 window.jQuery(root).find("select.js-searchable-select").each(function () {
                     const $select = window.jQuery(this);
                     if ($select.hasClass("select2-hidden-accessible")) {
-                        $select.select2("destroy");
+                        if ($select.data("select2")) {
+                            $select.select2("destroy");
+                        } else {
+                            $select.removeClass("select2-hidden-accessible");
+                            $select.removeAttr("data-select2-id tabindex aria-hidden");
+                        }
                     }
                     const label = this.closest(".mt-1")?.querySelector("label");
                     const placeholder = label ? `Search ${label.textContent.trim().toLowerCase()}` : "Search";
@@ -932,6 +937,42 @@ mediafile.taxon: {{ mediafile.taxon }}
                 return wrapper;
             }
 
+            function selectCreatedRelatedObject() {
+                const params = new URLSearchParams(window.location.search);
+                const observationPrefix = params.get("select_observation_prefix");
+                const createdTaxonId = params.get("created_taxon_id");
+                const createdIdentityId = params.get("created_identity_id");
+                const fieldName = createdTaxonId ? "taxon" : (createdIdentityId ? "identity" : null);
+                const createdId = createdTaxonId || createdIdentityId;
+                if (!observationPrefix || !fieldName || !createdId) {
+                    return;
+                }
+
+                const match = observationPrefix.match(/^observations-(\d+)$/);
+                if (match) {
+                    const targetIndex = parseInt(match[1], 10);
+                    while (parseInt(totalFormsInput.value, 10) <= targetIndex) {
+                        appendObservationForm();
+                    }
+                }
+
+                const select = document.querySelector(`select[name="${observationPrefix}-${fieldName}"]`);
+                if (!select) {
+                    return;
+                }
+                select.value = createdId;
+                select.dispatchEvent(new Event("change", {bubbles: true}));
+                if (window.jQuery && window.jQuery.fn && window.jQuery.fn.select2) {
+                    window.jQuery(select).trigger("change.select2");
+                }
+
+                params.delete("created_taxon_id");
+                params.delete("created_identity_id");
+                params.delete("select_observation_prefix");
+                const newUrl = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ""}${window.location.hash}`;
+                window.history.replaceState({}, "", newUrl);
+            }
+
             function markAllCurrentObservationsForDeletion() {
                 let removedNewForms = 0;
                 document.querySelectorAll("#observation-forms .observation-form").forEach((formDiv) => {
@@ -953,7 +994,8 @@ mediafile.taxon: {{ mediafile.taxon }}
                 }
             }
 
-            initializeSearchableSelects(document);
+            initializeSearchableSelects(container);
+            selectCreatedRelatedObject();
 
             addBtn.addEventListener("click", function () {
                 appendObservationForm();

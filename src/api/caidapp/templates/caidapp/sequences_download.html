@@ -21,6 +21,11 @@
       </div>
 
       <form method="get" id="sequence-download-form">
+        <div class="mb-3">
+          <a class="btn btn-outline-secondary" href="{% url 'caidapp:import_observations' %}">
+            <i class="bi bi-file-earmark-arrow-up"></i> Import observation metadata
+          </a>
+        </div>
         <div class="row g-4">
           <div class="col-lg-7">
             <h6>Metadata columns</h6>
