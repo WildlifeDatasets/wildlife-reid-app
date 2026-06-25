@@ -14,6 +14,7 @@ from django.core.management import call_command
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 import pandas as pd
 
 from .factories import (
@@ -2947,6 +2948,33 @@ class IdentificationRerunTest(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("disabled", response.context["btn_styles"]["init_identification"]["class"])
+
+    @patch("caidapp.views.current_app.control.revoke")
+    @patch("caidapp.views.tasks.run_identification_on_unidentified_for_workgroup_task.delay")
+    def test_do_suggestions_now_clears_scheduled_run_eta(self, delay_mock, revoke_mock):
+        task = Mock()
+        task.id = "run-now-task-1"
+        delay_mock.return_value = task
+        self.workgroup.identification_reid_status = "Scheduled"
+        self.workgroup.identification_scheduled_run_task_id = "scheduled-run-task"
+        self.workgroup.identification_scheduled_run_eta = timezone.now() + timezone.timedelta(minutes=30)
+        self.workgroup.save(
+            update_fields=[
+                "identification_reid_status",
+                "identification_scheduled_run_task_id",
+                "identification_scheduled_run_eta",
+            ]
+        )
+
+        response = self.client.get(reverse("caidapp:run_identification_on_unidentified"))
+
+        self.assertEqual(response.status_code, 302)
+        revoke_mock.assert_called_once_with("scheduled-run-task", terminate=True)
+        delay_mock.assert_called_once_with(self.workgroup.id)
+        self.workgroup.refresh_from_db()
+        self.assertEqual(self.workgroup.identification_reid_status, "Processing")
+        self.assertEqual(self.workgroup.identification_scheduled_run_task_id, "run-now-task-1")
+        self.assertIsNone(self.workgroup.identification_scheduled_run_eta)
 
     def test_dash_identities_counts_representatives_by_workgroup_default_taxon(self):
         self.workgroup.check_taxon_before_identification = True

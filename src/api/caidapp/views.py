@@ -2288,7 +2288,28 @@ def assign_unidentified_to_identification_view(request):
 def run_identification_on_unidentified(request):
     """Run identification suggestions for all finished uploaded archives."""
     workgroup = request.user.caiduser.workgroup
-    tasks.run_identification_on_unidentified_for_workgroup_task.delay(workgroup.id)
+    if workgroup.identification_reid_status == "Processing":
+        messages.info(request, "Identification suggestion generation is already running.")
+        return redirect(request.META.get("HTTP_REFERER", "/"))
+
+    if workgroup.identification_scheduled_run_task_id:
+        current_app.control.revoke(workgroup.identification_scheduled_run_task_id, terminate=True)
+
+    task = tasks.run_identification_on_unidentified_for_workgroup_task.delay(workgroup.id)
+    workgroup.identification_reid_status = "Processing"
+    workgroup.identification_reid_at = django.utils.timezone.now()
+    workgroup.identification_reid_message = "Identification suggestion generation requested manually."
+    workgroup.identification_scheduled_run_task_id = task.id
+    workgroup.identification_scheduled_run_eta = None
+    workgroup.save(
+        update_fields=[
+            "identification_reid_status",
+            "identification_reid_at",
+            "identification_reid_message",
+            "identification_scheduled_run_task_id",
+            "identification_scheduled_run_eta",
+        ]
+    )
     messages.info(request, "Regeneration of identification suggestions has started.")
     return redirect(request.META.get("HTTP_REFERER", "/"))
 
