@@ -5198,7 +5198,7 @@ def _identity_export_values(identity: Optional[models.IndividualIdentity]) -> Di
 
 def _annotate_identities_with_mediafile_count(queryset):
     """Annotate identities with the number of linked distinct media files."""
-    return queryset.annotate(mediafile_count=Count("observations__mediafile", distinct=True))
+    return queryset.annotate(mediafile_count=Count("animalobservation__mediafile", distinct=True))
 
 
 def _location_export_values(mediafile: models.MediaFile) -> Dict[str, str]:
@@ -7378,7 +7378,7 @@ def export_identities_csv(request):
     all_identities = IndividualIdentity.objects.filter(
         owner_workgroup=request.user.caiduser.workgroup,
         # **user_has_access_filter_params(request.user.caiduser, "owner")
-    ).annotate(mediafile_count=Count("observations__mediafile", distinct=True)).order_by("id")
+    ).annotate(mediafile_count=Count("animalobservation__mediafile", distinct=True)).order_by("id")
     df = pd.DataFrame.from_records(all_identities.values())[
         ["id", "name", "code", "juv_code", "sex", "coat_type", "birth_date", "death_date", "note", "mediafile_count"]
     ]
