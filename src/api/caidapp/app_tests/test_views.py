@@ -389,6 +389,11 @@ class SpreadsheetIdentityLocalityImportExportTest(TestCase):
 
     def test_identity_export_includes_id_column(self):
         identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Alpha", code="A-01")
+        another_identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Beta")
+        mediafile = MediaFileFactory(parent=UploadedArchiveFactory(owner=self.caiduser))
+        AnimalObservationFactory(mediafile=mediafile, identity=identity)
+        AnimalObservationFactory(mediafile=mediafile, identity=identity)
+        AnimalObservationFactory(mediafile=mediafile, identity=another_identity)
 
         response = self.client.get(reverse("caidapp:export_identities_csv"))
 
@@ -396,9 +401,38 @@ class SpreadsheetIdentityLocalityImportExportTest(TestCase):
         df = pd.read_csv(StringIO(response.content.decode()))
         self.assertEqual(
             list(df.columns),
-            ["Unnamed: 0", "id", "name", "code", "juv_code", "sex", "coat_type", "birth_date", "death_date", "note"],
+            [
+                "Unnamed: 0",
+                "id",
+                "name",
+                "code",
+                "juv_code",
+                "sex",
+                "coat_type",
+                "birth_date",
+                "death_date",
+                "note",
+                "mediafile_count",
+            ],
         )
         self.assertEqual(int(df.iloc[0]["id"]), identity.id)
+        self.assertEqual(int(df.loc[df["id"] == identity.id, "mediafile_count"].iloc[0]), 1)
+        self.assertEqual(int(df.loc[df["id"] == another_identity.id, "mediafile_count"].iloc[0]), 1)
+
+    def test_identity_export_xlsx_includes_mediafile_count(self):
+        identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Alpha")
+        mediafile = MediaFileFactory(parent=UploadedArchiveFactory(owner=self.caiduser))
+        AnimalObservationFactory(mediafile=mediafile, identity=identity)
+
+        response = self.client.get(reverse("caidapp:export_identities_xlsx"))
+
+        self.assertEqual(response.status_code, 200)
+        df = pd.read_excel(BytesIO(response.content))
+        self.assertEqual(
+            list(df.columns),
+            ["id", "name", "code", "juv_code", "sex", "coat_type", "birth_date", "death_date", "note", "mediafile_count"],
+        )
+        self.assertEqual(int(df.iloc[0]["mediafile_count"]), 1)
 
     def test_identity_import_prefers_id_for_rename(self):
         identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Alpha", code="A-01")

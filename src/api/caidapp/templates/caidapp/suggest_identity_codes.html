@@ -134,7 +134,7 @@
               </div>
               <div>
                 <a href="{% url 'caidapp:individual_identity_update' identity.id %}" class="link-secondary">
-                  {{ identity.name }} ({{ identity.code }})
+                  {{ identity.name }} ({{ identity.code }}) - {{ identity.mediafile_count }} media file{{ identity.mediafile_count|pluralize }}
                 </a>
                 &rarr; {{ identity.suggested_name }} ({{ identity.suggested_code }})
               </div>

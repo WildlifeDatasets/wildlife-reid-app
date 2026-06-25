@@ -5188,6 +5188,11 @@ def _identity_export_values(identity: Optional[models.IndividualIdentity]) -> Di
     }
 
 
+def _annotate_identities_with_mediafile_count(queryset):
+    """Annotate identities with the number of linked distinct media files."""
+    return queryset.annotate(mediafile_count=Count("observations__mediafile", distinct=True))
+
+
 def _location_export_values(mediafile: models.MediaFile) -> Dict[str, str]:
     effective_location = mediafile.effective_location
     if effective_location and "," in str(effective_location):
@@ -6604,9 +6609,11 @@ def suggest_merge_identities_view(request, limit: int = 100):
             }
             identities_by_id = {
                 identity.id: identity
-                for identity in IndividualIdentity.objects.filter(
-                    id__in=identity_ids,
-                    owner_workgroup=request.user.caiduser.workgroup,
+                for identity in _annotate_identities_with_mediafile_count(
+                    IndividualIdentity.objects.filter(
+                        id__in=identity_ids,
+                        owner_workgroup=request.user.caiduser.workgroup,
+                    )
                 )
             }
             suggestions = []
@@ -7031,8 +7038,10 @@ def _celery_worker_available() -> bool:
 
 def _compute_identity_code_suggestions_sync(workgroup):
     """Compute identity code suggestions synchronously."""
-    all_identities = IndividualIdentity.objects.filter(
-        owner_workgroup=workgroup,
+    all_identities = _annotate_identities_with_mediafile_count(
+        IndividualIdentity.objects.filter(
+            owner_workgroup=workgroup,
+        )
     )
     suggestions = []
     for identity in all_identities:
@@ -7079,9 +7088,11 @@ def _load_identity_code_suggestions_from_ids(workgroup, suggestion_ids):
 
     identities_by_id = {
         identity.id: identity
-        for identity in IndividualIdentity.objects.filter(
-            owner_workgroup=workgroup,
-            id__in=suggestion_ids,
+        for identity in _annotate_identities_with_mediafile_count(
+            IndividualIdentity.objects.filter(
+                owner_workgroup=workgroup,
+                id__in=suggestion_ids,
+            )
         )
     }
     suggestions = []
@@ -7359,9 +7370,9 @@ def export_identities_csv(request):
     all_identities = IndividualIdentity.objects.filter(
         owner_workgroup=request.user.caiduser.workgroup,
         # **user_has_access_filter_params(request.user.caiduser, "owner")
-    )
+    ).annotate(mediafile_count=Count("observations__mediafile", distinct=True)).order_by("id")
     df = pd.DataFrame.from_records(all_identities.values())[
-        ["id", "name", "code", "juv_code", "sex", "coat_type", "birth_date", "death_date", "note"]
+        ["id", "name", "code", "juv_code", "sex", "coat_type", "birth_date", "death_date", "note", "mediafile_count"]
     ]
 
     return views_general.csv_response(df, "identities")
@@ -7373,9 +7384,9 @@ def export_identities_xlsx(request):
     all_identities = IndividualIdentity.objects.filter(
         owner_workgroup=request.user.caiduser.workgroup,
         # **user_has_access_filter_params(request.user.caiduser, "owner")
-    )
+    ).annotate(mediafile_count=Count("observations__mediafile", distinct=True)).order_by("id")
     df = pd.DataFrame.from_records(all_identities.values())[
-        ["id", "name", "code", "juv_code", "sex", "coat_type", "birth_date", "death_date", "note"]
+        ["id", "name", "code", "juv_code", "sex", "coat_type", "birth_date", "death_date", "note", "mediafile_count"]
     ]
 
     return views_general.excel_response(df, "identities")

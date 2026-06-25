@@ -107,9 +107,9 @@
                        value="{{ identity1.id }}|{{ identity2.id }}" data-distance="{{ distance }}"
                        id="suggestion-{{ identity1.id }}-{{ identity2.id }}">
                 <label class="form-check-label" for="suggestion-{{ identity1.id }}-{{ identity2.id }}">
-                  <a href="{% url 'caidapp:individual_identity_update' identity1.id %}" class="link-secondary">{{ identity1.name }} ({{ identity1.code }})</a>
+                  <a href="{% url 'caidapp:individual_identity_update' identity1.id %}" class="link-secondary">{{ identity1.name }} ({{ identity1.code }}) - {{ identity1.mediafile_count }} media file{{ identity1.mediafile_count|pluralize }}</a>
                   &rarr;
-                  <a href="{% url 'caidapp:individual_identity_update' identity2.id %}" class="link-secondary">{{ identity2.name }} ({{ identity2.code }})</a>
+                  <a href="{% url 'caidapp:individual_identity_update' identity2.id %}" class="link-secondary">{{ identity2.name }} ({{ identity2.code }}) - {{ identity2.mediafile_count }} media file{{ identity2.mediafile_count|pluralize }}</a>
                 </label>
               </div>
               <div class="d-flex align-items-center">

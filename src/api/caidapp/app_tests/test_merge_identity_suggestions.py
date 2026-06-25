@@ -6,7 +6,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from caidapp import views
-from caidapp.app_tests.factories import CaidUserFactory, IndividualIdentityFactory
+from caidapp.app_tests.factories import AnimalObservationFactory, CaidUserFactory, IndividualIdentityFactory, MediaFileFactory, UploadedArchiveFactory
 from caidapp.model_extra import compute_identity_suggestions
 from caidapp.models import MergeIdentitySuggestionExclusion, MergeIdentitySuggestionResult
 
@@ -155,6 +155,10 @@ class MergeIdentitySuggestionsViewTest(TestCase):
     def test_suggest_merge_identities_renders_bulk_selection_controls(self):
         first = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Alpha", code="B75")
         second = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Omega", code="B75")
+        first_mediafile = MediaFileFactory(parent=UploadedArchiveFactory(owner=self.caiduser))
+        second_mediafile = MediaFileFactory(parent=UploadedArchiveFactory(owner=self.caiduser))
+        AnimalObservationFactory(mediafile=first_mediafile, identity=first)
+        AnimalObservationFactory(mediafile=second_mediafile, identity=second)
         result = MergeIdentitySuggestionResult.objects.create(
             workgroup=self.caiduser.workgroup,
             suggestions=[[first.id, second.id, 0]],
@@ -171,6 +175,7 @@ class MergeIdentitySuggestionsViewTest(TestCase):
         self.assertContains(response, 'id="select-distance-zero-merge-suggestions"')
         self.assertContains(response, 'data-distance="0"')
         self.assertContains(response, "Never suggest")
+        self.assertContains(response, "1 media file")
 
     def test_excluding_suggestion_persists_pair_and_hides_existing_result(self):
         first = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Sara_juv.22-1")

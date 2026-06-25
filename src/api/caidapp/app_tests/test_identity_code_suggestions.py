@@ -2,7 +2,7 @@ from django.test import TestCase
 from django.urls import reverse
 from unittest.mock import MagicMock, patch
 
-from caidapp.app_tests.factories import CaidUserFactory, IndividualIdentityFactory
+from caidapp.app_tests.factories import AnimalObservationFactory, CaidUserFactory, IndividualIdentityFactory, MediaFileFactory, UploadedArchiveFactory
 
 
 class IdentityCodeSuggestionsViewTest(TestCase):
@@ -46,6 +46,9 @@ class IdentityCodeSuggestionsViewTest(TestCase):
     @patch("caidapp.views._celery_worker_available", return_value=False)
     def test_view_renders_bulk_selection_controls(self, _worker_available_mock):
         matching = IndividualIdentityFactory(owner_workgroup=self.workgroup, name="B75 Cumel")
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        mediafile = MediaFileFactory(parent=archive)
+        AnimalObservationFactory(mediafile=mediafile, identity=matching)
 
         response = self.client.get(reverse("caidapp:show_identity_code_suggestions"))
 
@@ -53,6 +56,7 @@ class IdentityCodeSuggestionsViewTest(TestCase):
         self.assertContains(response, 'name="identity_ids"')
         self.assertContains(response, f'value="{matching.id}"')
         self.assertContains(response, "Apply to selected")
+        self.assertContains(response, "1 media file")
 
     def test_bulk_apply_updates_only_selected_identities(self):
         selected = IndividualIdentityFactory(owner_workgroup=self.workgroup, name="B75 Cumel", code="old-selected")
