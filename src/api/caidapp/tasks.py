@@ -341,10 +341,11 @@ def _prepare_dataframe_for_identification(mediafiles) -> dict:
     logger.debug(f"number of records={len(mediafiles)}")
     for i, mediafile in enumerate(mediafiles):
         # if mediafile.identity is not None:
-        csv_data["image_path"][i] = str(media_root / mediafile.image_file.name)
+        identity = _get_identification_identity(mediafile)
+        csv_data["image_path"][i] = _get_identification_source_image_path(mediafile, media_root)
         csv_data["mediafile_id"][i] = mediafile.id
-        csv_data["class_id"][i] = int(mediafile.identity.id) if mediafile.identity else None
-        csv_data["label"][i] = str(mediafile.identity.name) if mediafile.identity else None
+        csv_data["class_id"][i] = int(identity.id) if identity else None
+        csv_data["label"][i] = str(identity.name) if identity else None
         csv_data["locality_id"][i] = int(mediafile.locality.id) if mediafile.locality else None
         csv_data["locality_name"][i] = str(mediafile.locality.name) if mediafile.locality else ""
         csv_data["locality_coordinates"][i] = (
@@ -359,6 +360,84 @@ def _prepare_dataframe_for_identification(mediafiles) -> dict:
         csv_data["detection_results"][i] = detection_results
 
     return csv_data
+
+
+def _get_identification_identity(mediafile: MediaFile) -> IndividualIdentity | None:
+    """Return the identity that should label a mediafile in identification metadata."""
+    if mediafile.identity:
+        return mediafile.identity
+
+    representative_observation = (
+        mediafile.observations.filter(identity_is_representative=True, identity__isnull=False)
+        .order_by("id")
+        .first()
+    )
+    if representative_observation:
+        return representative_observation.identity
+
+    return mediafile.identity_from_observations
+
+
+def _get_identification_source_image_path(mediafile: MediaFile, media_root: Path) -> str:
+    """Return an image path suitable for identification embedding extraction."""
+    if mediafile.media_type != "video":
+        return str(media_root / mediafile.image_file.name)
+
+    static_thumbnail_name = getattr(mediafile.static_thumbnail, "name", "")
+    static_thumbnail_path = media_root / static_thumbnail_name if static_thumbnail_name else None
+    if static_thumbnail_path and static_thumbnail_path.exists():
+        return str(static_thumbnail_path)
+
+    logger.info("Generating missing static thumbnail for video mediafile %s before identification init.", mediafile.id)
+    mediafile.make_thumbnail_for_mediafile_if_necessary()
+    mediafile.refresh_from_db(fields=["static_thumbnail"])
+
+    static_thumbnail_name = getattr(mediafile.static_thumbnail, "name", "")
+    static_thumbnail_path = media_root / static_thumbnail_name if static_thumbnail_name else None
+    if static_thumbnail_path and static_thumbnail_path.exists():
+        return str(static_thumbnail_path)
+
+    raise FileNotFoundError(
+        f"Video mediafile {mediafile.id} has no readable static thumbnail for identification."
+    )
+
+
+def count_identification_media_types(mediafiles) -> tuple[int, int]:
+    """Return image and video counts for an identification queryset."""
+    return mediafiles.filter(media_type="image").count(), mediafiles.filter(media_type="video").count()
+
+
+def create_identification_run_statistic(
+    workgroup: WorkGroup,
+    operation: str,
+    image_number: int,
+    video_number: int,
+) -> models.IdentificationRunStatistic:
+    """Create a lightweight duration/progress audit row for one identification worker run."""
+    return models.IdentificationRunStatistic.objects.create(
+        workgroup=workgroup,
+        operation=operation,
+        image_number=image_number,
+        video_number=video_number,
+        status="started",
+    )
+
+
+def finish_identification_run_statistic(statistic_id: int | None, status: str, task_id: str = ""):
+    """Finish an identification run statistic without letting audit failures affect callbacks."""
+    if not statistic_id:
+        return
+    try:
+        statistic = models.IdentificationRunStatistic.objects.get(id=statistic_id)
+        finished_at = now()
+        statistic.finished_at = finished_at
+        statistic.duration_seconds = max((finished_at - statistic.created_at).total_seconds(), 0)
+        statistic.status = status
+        if task_id:
+            statistic.task_id = task_id
+        statistic.save(update_fields=["finished_at", "duration_seconds", "status", "task_id"])
+    except Exception:
+        logger.warning("Could not finish identification run statistic %s", statistic_id, exc_info=True)
 
 
 # def run_taxon_classification_async(uploaded_archive: UploadedArchive, link=None, link_error=None):
@@ -1463,6 +1542,7 @@ def init_identification_on_success(*args, **kwargs):
     logger.debug(f"{kwargs=}")
     # models.Notification(message=f"Identification initialization finished. {args=} {kwargs=}").save()
     workgroup_id = kwargs.pop("workgroup_id")
+    statistic_id = kwargs.pop("statistic_id", None)
     workgroup = WorkGroup.objects.get(id=workgroup_id)
     models.Notification.create_for(
         message=f"Identification initialization finished. {args=} {kwargs=}",
@@ -1471,6 +1551,11 @@ def init_identification_on_success(*args, **kwargs):
     )
     output: dict = args[0]
     status = output["status"]
+    finish_identification_run_statistic(
+        statistic_id,
+        "finished" if status == "DONE" else status.lower(),
+        workgroup.identification_scheduled_init_task_id or "",
+    )
     status = "Finished" if status == "DONE" else status
     workgroup.identification_init_status = status
     if "message" in output:
@@ -1542,6 +1627,8 @@ def train_identification_on_success(*args, **kwargs):
 def init_identification_on_error(*args, **kwargs):
     """Callback invoked after failing init_identification function in inference worker."""
     workgroup_id = kwargs.pop("workgroup_id", None)
+    statistic_id = kwargs.pop("statistic_id", None)
+    finish_identification_run_statistic(statistic_id, "failed")
     if workgroup_id is not None:
         workgroup = WorkGroup.objects.get(id=workgroup_id)
         workgroup.identification_init_status = "Failed"
@@ -1597,6 +1684,8 @@ def on_error_in_upload_processing(self, uuid, *args, **kwargs):
     logger.debug(f"self={self}")
     logger.debug(f"args={args}")
     logger.debug(f"kwargs={kwargs}")
+    statistic_id = kwargs.pop("statistic_id", None)
+    finish_identification_run_statistic(statistic_id, "failed", uuid)
     kwargs = dict(
         message=f"Upload processing finished with error. {self} {args=} {kwargs=}",
         level=models.Notification.ERROR,
@@ -1677,6 +1766,7 @@ def identify_on_success(self, output: dict, *args, **kwargs):
     logger.debug(f"kwargs={kwargs}")
 
     uploaded_archive_id: int = kwargs.pop("uploaded_archive_id")
+    statistic_id = kwargs.pop("statistic_id", None)
     uploaded_archive = UploadedArchive.objects.get(id=uploaded_archive_id)
     # uploaded_archive.identification_status = "IAID"
     uploaded_archive.save()
@@ -1685,14 +1775,30 @@ def identify_on_success(self, output: dict, *args, **kwargs):
 
     try:
         if "status" not in output:
+            finish_identification_run_statistic(statistic_id, "unknown")
             msg = f"Unexpected error {output=} is missing 'status' field."
             logger.critical(msg)
             uploaded_archive.identification_status = "U"
             uploaded_archive.status_message = msg
             uploaded_archive.save()
+            workgroup.identification_reid_status = "Finished"
+            workgroup.identification_reid_at = now()
+            workgroup.identification_reid_message = msg
+            workgroup.identification_scheduled_run_task_id = None
+            workgroup.identification_scheduled_run_eta = None
+            workgroup.save(
+                update_fields=[
+                    "identification_reid_status",
+                    "identification_reid_at",
+                    "identification_reid_message",
+                    "identification_scheduled_run_task_id",
+                    "identification_scheduled_run_eta",
+                ]
+            )
 
             # TODO - should the app return some error response to the user?
         elif output["status"] == "DONE":
+            finish_identification_run_statistic(statistic_id, "finished")
             # load output file
             output_json_file = output["output_json_file"]
             with open(output_json_file, "r") as f:
@@ -1728,10 +1834,25 @@ def identify_on_success(self, output: dict, *args, **kwargs):
             if UploadedArchive.objects.filter(owner__workgroup=workgroup, identification_status="IAIP").count() == 0:
                 # if there is no archive in the workgroup with status "IAIP", we can start identification
                 workgroup.identification_reid_status = "Finished"
-                workgroup.save()
+                workgroup.identification_reid_at = now()
+                workgroup.identification_reid_message = (
+                    f"Identification suggestions ready for {len_mediafile_ids} media files."
+                )
+                workgroup.identification_scheduled_run_task_id = None
+                workgroup.identification_scheduled_run_eta = None
+                workgroup.save(
+                    update_fields=[
+                        "identification_reid_status",
+                        "identification_reid_at",
+                        "identification_reid_message",
+                        "identification_scheduled_run_task_id",
+                        "identification_scheduled_run_eta",
+                    ]
+                )
                 logger.debug(f"Workgroup {workgroup} identification status set to 'IAID'.")
 
         else:
+            finish_identification_run_statistic(statistic_id, "failed")
             # identification failed
             uploaded_archive.identification_status = "F"
             uploaded_archive.save()
@@ -1743,13 +1864,42 @@ def identify_on_success(self, output: dict, *args, **kwargs):
                     message += " Try to check the taxa in the input data."
 
             uploaded_archive.status_message = message
+            workgroup.identification_reid_status = "Finished"
+            workgroup.identification_reid_at = now()
+            workgroup.identification_reid_message = message
+            workgroup.identification_scheduled_run_task_id = None
+            workgroup.identification_scheduled_run_eta = None
+            workgroup.save(
+                update_fields=[
+                    "identification_reid_status",
+                    "identification_reid_at",
+                    "identification_reid_message",
+                    "identification_scheduled_run_task_id",
+                    "identification_scheduled_run_eta",
+                ]
+            )
             logger.debug(f"{output=}")
             logger.error("Identification failed.")
 
     except Exception as e:
+        finish_identification_run_statistic(statistic_id, "failed")
         uploaded_archive.identification_status = "F"
         uploaded_archive.status_message = f"Error during identification. {str(e)}"
         uploaded_archive.save()
+        workgroup.identification_reid_status = "Finished"
+        workgroup.identification_reid_at = now()
+        workgroup.identification_reid_message = f"Error during identification. {str(e)}"
+        workgroup.identification_scheduled_run_task_id = None
+        workgroup.identification_scheduled_run_eta = None
+        workgroup.save(
+            update_fields=[
+                "identification_reid_status",
+                "identification_reid_at",
+                "identification_reid_message",
+                "identification_scheduled_run_task_id",
+                "identification_scheduled_run_eta",
+            ]
+        )
         logger.error(f"Error during identification: {e}")
         logger.error(traceback.format_exc())
 
@@ -1764,6 +1914,7 @@ def identify_bulk_on_success(self, output: dict, *args, **kwargs):
 
     workgroup_id: int = kwargs.pop("workgroup_id")
     uploaded_archive_ids: list[int] = kwargs.pop("uploaded_archive_ids")
+    statistic_id = kwargs.pop("statistic_id", None)
     workgroup = WorkGroup.objects.get(id=workgroup_id)
     uploaded_archives = list(
         UploadedArchive.objects.filter(id__in=uploaded_archive_ids, owner__workgroup=workgroup).order_by("id")
@@ -1771,6 +1922,7 @@ def identify_bulk_on_success(self, output: dict, *args, **kwargs):
 
     try:
         if "status" not in output:
+            finish_identification_run_statistic(statistic_id, "unknown")
             msg = f"Unexpected error {output=} is missing 'status' field."
             logger.critical(msg)
             for uploaded_archive in uploaded_archives:
@@ -1778,6 +1930,7 @@ def identify_bulk_on_success(self, output: dict, *args, **kwargs):
                 uploaded_archive.status_message = msg
                 uploaded_archive.save(update_fields=["identification_status", "status_message"])
         elif output["status"] == "DONE":
+            finish_identification_run_statistic(statistic_id, "finished")
             output_json_file = output["output_json_file"]
             with open(output_json_file, "r") as f:
                 data = json.load(f)
@@ -1835,6 +1988,7 @@ def identify_bulk_on_success(self, output: dict, *args, **kwargs):
                 ]
             )
         else:
+            finish_identification_run_statistic(statistic_id, "failed")
             message = "Identification failed. "
             if "error" in output:
                 logger.error(f"{output['error']=}")
@@ -1860,6 +2014,7 @@ def identify_bulk_on_success(self, output: dict, *args, **kwargs):
                 ]
             )
     except Exception as e:
+        finish_identification_run_statistic(statistic_id, "failed")
         for uploaded_archive in uploaded_archives:
             uploaded_archive.identification_status = "F"
             uploaded_archive.status_message = f"Error during identification. {str(e)}"
@@ -1892,6 +2047,8 @@ def identify_bulk_on_error(self, uuid, *args, **kwargs):
 
     workgroup_id: int = kwargs.pop("workgroup_id")
     uploaded_archive_ids: list[int] = kwargs.pop("uploaded_archive_ids")
+    statistic_id = kwargs.pop("statistic_id", None)
+    finish_identification_run_statistic(statistic_id, "failed", uuid)
     workgroup = WorkGroup.objects.get(id=workgroup_id)
     uploaded_archives = UploadedArchive.objects.filter(id__in=uploaded_archive_ids, owner__workgroup=workgroup)
     for uploaded_archive in uploaded_archives:
@@ -2173,6 +2330,13 @@ def init_identification(workgroup_id: int, selection: dict | None = None):
 
     # mark these mediafiles as used for init identification
     mediafiles_qs.update(used_for_init_identification=True)
+    image_number, video_number = count_identification_media_types(mediafiles_qs)
+    statistic = create_identification_run_statistic(
+        workgroup=workgroup,
+        operation="init",
+        image_number=image_number,
+        video_number=video_number,
+    )
 
     # set attribute media_file_used_for_init_identification
     logger.debug("Generating CSV for init_identification...")
@@ -2209,15 +2373,19 @@ def init_identification(workgroup_id: int, selection: dict | None = None):
     task = sig.apply_async(
         link=init_identification_on_success.s(
             workgroup_id=workgroup.id,
+            statistic_id=statistic.id,
             # uploaded_archive_id=uploaded_archive.id,
             # zip_file=os.path.relpath(str(output_archive_file), settings.MEDIA_ROOT),
             # csv_file=os.path.relpath(str(output_metadata_file), settings.MEDIA_ROOT),
         ),
         link_error=init_identification_on_error.s(
             workgroup_id=workgroup.id,
+            statistic_id=statistic.id,
             # uploaded_archive_id=uploaded_archive.id
         ),
     )
+    statistic.task_id = task.id
+    statistic.save(update_fields=["task_id"])
     workgroup.identification_scheduled_init_task_id = task.id
     workgroup.identification_scheduled_init_eta = None
     workgroup.save(

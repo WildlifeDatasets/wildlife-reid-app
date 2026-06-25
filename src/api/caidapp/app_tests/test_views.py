@@ -4,6 +4,7 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 from caidapp import models
+from caidapp import forms
 from caidapp import tasks
 from caidapp import views
 from caidapp import views_mediafile
@@ -457,6 +458,59 @@ class SpreadsheetIdentityLocalityImportExportTest(TestCase):
             1,
         )
 
+    def test_identity_import_blank_code_and_juv_code_keep_existing_values(self):
+        identity = IndividualIdentityFactory(
+            owner_workgroup=self.caiduser.workgroup,
+            name="Alpha",
+            code="A-01",
+            juv_code="J-01",
+        )
+
+        response = self.client.post(
+            reverse("caidapp:import_identities"),
+            {
+                "spreadsheet_file": self._csv_upload(
+                    "identities.csv",
+                    [{"id": identity.id, "name": "Alpha", "code": "", "juv_code": ""}],
+                )
+            },
+        )
+
+        self.assertRedirects(response, reverse("caidapp:individual_identities"))
+        identity.refresh_from_db()
+        self.assertEqual(identity.code, "A-01")
+        self.assertEqual(identity.juv_code, "J-01")
+
+    def test_identity_import_clear_token_removes_code_and_juv_code(self):
+        identity = IndividualIdentityFactory(
+            owner_workgroup=self.caiduser.workgroup,
+            name="Alpha",
+            code="A-01",
+            juv_code="J-01",
+        )
+
+        response = self.client.post(
+            reverse("caidapp:import_identities"),
+            {
+                "spreadsheet_file": self._csv_upload(
+                    "identities.csv",
+                    [
+                        {
+                            "id": identity.id,
+                            "name": "Alpha",
+                            "code": forms.SPREADSHEET_CLEAR_TOKEN,
+                            "juv_code": forms.SPREADSHEET_CLEAR_TOKEN,
+                        }
+                    ],
+                )
+            },
+        )
+
+        self.assertRedirects(response, reverse("caidapp:individual_identities"))
+        identity.refresh_from_db()
+        self.assertIsNone(identity.code)
+        self.assertIsNone(identity.juv_code)
+
     def test_locality_export_includes_id_column(self):
         locality = LocalityFactory(owner=self.caiduser, name="North Meadow")
 
@@ -468,7 +522,7 @@ class SpreadsheetIdentityLocalityImportExportTest(TestCase):
         self.assertEqual(int(df.iloc[0]["id"]), locality.id)
 
     def test_locality_import_prefers_id_for_rename(self):
-        locality = LocalityFactory(owner=self.caiduser, name="North Meadow")
+        locality = LocalityFactory(owner=self.caiduser, name="North Meadow", location="49.123,16.456")
 
         response = self.client.post(
             reverse("caidapp:import_localities"),
@@ -483,7 +537,25 @@ class SpreadsheetIdentityLocalityImportExportTest(TestCase):
         self.assertRedirects(response, reverse("caidapp:localities"))
         locality.refresh_from_db()
         self.assertEqual(locality.name, "South Meadow")
+        self.assertEqual(locality.location, "49.123,16.456")
         self.assertEqual(models.Locality.objects.filter(owner=self.caiduser).count(), 1)
+
+    def test_locality_import_clear_token_removes_location(self):
+        locality = LocalityFactory(owner=self.caiduser, name="North Meadow", location="49.123,16.456")
+
+        response = self.client.post(
+            reverse("caidapp:import_localities"),
+            {
+                "spreadsheet_file": self._csv_upload(
+                    "localities.csv",
+                    [{"id": locality.id, "name": "North Meadow", "location": forms.SPREADSHEET_CLEAR_TOKEN}],
+                )
+            },
+        )
+
+        self.assertRedirects(response, reverse("caidapp:localities"))
+        locality.refresh_from_db()
+        self.assertIsNone(locality.location)
 
 
 class MediaFileListSearchTest(TestCase):
@@ -1252,6 +1324,34 @@ class SequenceViewTest(TestCase):
         self.assertContains(response, "bbox-image-area")
         self.assertContains(response, "syncBboxPreviewFrame")
 
+    def test_mediafiles_star_uses_first_observation_representative_flag(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Alpha")
+        mediafile = MediaFileFactory(parent=archive, identity=None, identity_is_representative=False)
+        AnimalObservationFactory(mediafile=mediafile, identity=identity, identity_is_representative=True)
+
+        response = self.client.get(reverse("caidapp:media_files"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, f'data-mediafile-id="{mediafile.id}"')
+        self.assertContains(response, "bi-star-fill")
+        self.assertContains(response, "Alpha")
+
+    def test_mediafiles_star_is_informational_for_multiple_observations(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        first_identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Alpha")
+        second_identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Beta")
+        mediafile = MediaFileFactory(parent=archive, identity=None, identity_is_representative=False)
+        AnimalObservationFactory(mediafile=mediafile, identity=first_identity, identity_is_representative=True)
+        AnimalObservationFactory(mediafile=mediafile, identity=second_identity, identity_is_representative=False)
+
+        response = self.client.get(reverse("caidapp:media_files"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, f'data-mediafile-id="{mediafile.id}"')
+        self.assertContains(response, "multiple observations")
+        self.assertContains(response, "Edit representative flags in the media file detail.")
+
     def test_sequence_view_search_matches_mediafile_filename_and_keeps_full_sequence(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)
         matching_sequence = SequenceFactory(uploaded_archive=archive)
@@ -1377,6 +1477,47 @@ class SequenceViewTest(TestCase):
         self.assertTrue(mediafile.taxon_verified)
         observation = mediafile.observations.get()
         self.assertTrue(observation.taxon_verified)
+
+    def test_sequence_bulk_set_full_image_bbox_updates_selected_mediafiles(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        selected_sequence = SequenceFactory(uploaded_archive=archive)
+        other_sequence = SequenceFactory(uploaded_archive=archive)
+        selected_mediafile = MediaFileFactory(parent=archive, sequence=selected_sequence, original_filename="selected.jpg")
+        selected_without_observation = MediaFileFactory(
+            parent=archive,
+            sequence=selected_sequence,
+            original_filename="selected-no-obs.jpg",
+        )
+        untouched_mediafile = MediaFileFactory(parent=archive, sequence=other_sequence, original_filename="other.jpg")
+        selected_observation = AnimalObservationFactory(mediafile=selected_mediafile)
+        AnimalObservationFactory(mediafile=untouched_mediafile)
+
+        response = self.client.post(
+            reverse("caidapp:sequences"),
+            {
+                "selected_sequence_ids": [str(selected_sequence.id)],
+                "btnBulkProcessing_set_full_image_bbox": "1",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        selected_observation.refresh_from_db()
+        self.assertEqual(selected_observation.bbox_x_center, 0.5)
+        self.assertEqual(selected_observation.bbox_y_center, 0.5)
+        self.assertEqual(selected_observation.bbox_width, 1.0)
+        self.assertEqual(selected_observation.bbox_height, 1.0)
+
+        created_observation = selected_without_observation.observations.get()
+        self.assertEqual(created_observation.bbox_x_center, 0.5)
+        self.assertEqual(created_observation.bbox_y_center, 0.5)
+        self.assertEqual(created_observation.bbox_width, 1.0)
+        self.assertEqual(created_observation.bbox_height, 1.0)
+
+        untouched_observation = untouched_mediafile.observations.get()
+        self.assertIsNone(untouched_observation.bbox_x_center)
+        self.assertIsNone(untouched_observation.bbox_y_center)
+        self.assertIsNone(untouched_observation.bbox_width)
+        self.assertIsNone(untouched_observation.bbox_height)
 
     def test_sequence_verification_mode_groups_by_taxon_and_expands_sequences(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)
@@ -1586,6 +1727,49 @@ class SequenceViewTest(TestCase):
         self.assertEqual(second_mediafile.identity, target_identity)
         self.assertEqual(first_observation.identity, target_identity)
         self.assertEqual(second_observation.identity, target_identity)
+
+    def test_mediafiles_bulk_set_full_image_bbox_updates_selected_mediafiles(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        selected_mediafile = MediaFileFactory(parent=archive, original_filename="selected.jpg")
+        second_selected_mediafile = MediaFileFactory(parent=archive, original_filename="selected-no-obs.jpg")
+        untouched_mediafile = MediaFileFactory(parent=archive, original_filename="untouched.jpg")
+        selected_observation = AnimalObservationFactory(mediafile=selected_mediafile)
+        AnimalObservationFactory(mediafile=untouched_mediafile)
+
+        response = self.client.post(
+            reverse("caidapp:media_files"),
+            {
+                "form-TOTAL_FORMS": "3",
+                "form-INITIAL_FORMS": "3",
+                "form-MIN_NUM_FORMS": "0",
+                "form-MAX_NUM_FORMS": "1000",
+                "form-0-id": str(selected_mediafile.id),
+                "form-0-selected": "on",
+                "form-1-id": str(second_selected_mediafile.id),
+                "form-1-selected": "on",
+                "form-2-id": str(untouched_mediafile.id),
+                "btnBulkProcessing_set_full_image_bbox": "1",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        selected_observation.refresh_from_db()
+        self.assertEqual(selected_observation.bbox_x_center, 0.5)
+        self.assertEqual(selected_observation.bbox_y_center, 0.5)
+        self.assertEqual(selected_observation.bbox_width, 1.0)
+        self.assertEqual(selected_observation.bbox_height, 1.0)
+
+        created_observation = second_selected_mediafile.observations.get()
+        self.assertEqual(created_observation.bbox_x_center, 0.5)
+        self.assertEqual(created_observation.bbox_y_center, 0.5)
+        self.assertEqual(created_observation.bbox_width, 1.0)
+        self.assertEqual(created_observation.bbox_height, 1.0)
+
+        untouched_observation = untouched_mediafile.observations.get()
+        self.assertIsNone(untouched_observation.bbox_x_center)
+        self.assertIsNone(untouched_observation.bbox_y_center)
+        self.assertIsNone(untouched_observation.bbox_width)
+        self.assertIsNone(untouched_observation.bbox_height)
 
     def test_sequence_csv_export_uses_one_row_per_observation(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)
@@ -2749,6 +2933,98 @@ class IdentificationRerunTest(TestCase):
         self.assertFalse(scheduled)
         schedule_mock.assert_not_called()
 
+    def test_dash_identities_keeps_init_enabled_without_representatives_when_idle(self):
+        response = self.client.get(reverse("caidapp:dash_identities"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn("disabled", response.context["btn_styles"]["init_identification"]["class"])
+
+    def test_dash_identities_disables_init_when_identification_is_running(self):
+        self.workgroup.identification_reid_status = "Processing"
+        self.workgroup.save(update_fields=["identification_reid_status"])
+
+        response = self.client.get(reverse("caidapp:dash_identities"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("disabled", response.context["btn_styles"]["init_identification"]["class"])
+
+    def test_dash_identities_counts_representatives_by_workgroup_default_taxon(self):
+        self.workgroup.check_taxon_before_identification = True
+        self.workgroup.default_taxon_for_identification = TaxonFactory(name="Lynx lynx")
+        self.workgroup.save(update_fields=["check_taxon_before_identification", "default_taxon_for_identification"])
+
+        representative_archive = UploadedArchiveFactory(
+            owner=self.caiduser,
+            is_for_identification=True,
+            import_finished=True,
+            taxon_for_identification=None,
+        )
+        representative_mediafile = MediaFileFactory(
+            parent=representative_archive,
+            with_identity=True,
+            identity_is_representative=False,
+        )
+        AnimalObservationFactory(
+            mediafile=representative_mediafile,
+            identity=representative_mediafile.identity,
+            taxon=self.workgroup.default_taxon_for_identification,
+            identity_is_representative=True,
+        )
+
+        response = self.client.get(reverse("caidapp:dash_identities"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["btn_styles"]["n_representative"], 1)
+        self.assertEqual(self.workgroup.number_of_representative_media_files(), 1)
+
+    def test_representative_mediafiles_view_uses_workgroup_default_taxon(self):
+        self.workgroup.check_taxon_before_identification = True
+        self.workgroup.default_taxon_for_identification = TaxonFactory(name="Lynx lynx")
+        self.workgroup.save(update_fields=["check_taxon_before_identification", "default_taxon_for_identification"])
+
+        representative_archive = UploadedArchiveFactory(
+            owner=self.caiduser,
+            is_for_identification=True,
+            import_finished=True,
+            taxon_for_identification=None,
+        )
+        representative_mediafile = MediaFileFactory(
+            parent=representative_archive,
+            with_identity=True,
+            identity_is_representative=False,
+            original_filename="representative.jpg",
+        )
+        AnimalObservationFactory(
+            mediafile=representative_mediafile,
+            identity=representative_mediafile.identity,
+            taxon=self.workgroup.default_taxon_for_identification,
+            identity_is_representative=True,
+        )
+
+        response = self.client.get(reverse("caidapp:representative_mediafiles"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "representative.jpg")
+
+    def test_toggle_identity_representative_updates_observation_flag(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        identity = IndividualIdentityFactory(owner_workgroup=self.workgroup, name="Alpha")
+        mediafile = MediaFileFactory(parent=archive, identity=None, identity_is_representative=False)
+        observation = AnimalObservationFactory(
+            mediafile=mediafile,
+            identity=identity,
+            identity_is_representative=False,
+        )
+
+        response = self.client.post(reverse("caidapp:toggle_identity_representative", args=[mediafile.id]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()["representative"])
+        observation.refresh_from_db()
+        mediafile.refresh_from_db()
+        self.assertTrue(observation.identity_is_representative)
+        self.assertTrue(mediafile.identity_is_representative)
+
     @patch("caidapp.views.run_identification_bulk")
     def test_bulk_rerun_processes_identification_uploads_with_missing_identity_regardless_of_status(self, run_identification_bulk_mock):
         run_identification_bulk_mock.return_value = True
@@ -2883,7 +3159,9 @@ class IdentificationRerunTest(TestCase):
 
         signature_result = Mock()
         signature_mock.return_value = signature_result
-        signature_result.apply_async.return_value = Mock()
+        identify_task = Mock()
+        identify_task.id = "rerun-identify-task-1"
+        signature_result.apply_async.return_value = identify_task
 
         status_ok = views.run_identification(archive, workgroup=self.workgroup)
 

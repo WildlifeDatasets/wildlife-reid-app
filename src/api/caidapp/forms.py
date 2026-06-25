@@ -19,6 +19,7 @@ from .models import (
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
+SPREADSHEET_CLEAR_TOKEN = "__CLEAR__"
 
 
 def format_identity_choice_label(identity: IndividualIdentity) -> str:

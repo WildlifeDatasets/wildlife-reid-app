@@ -746,9 +746,15 @@ def dash_identities(request) -> HttpResponse:
     identities = (
         IndividualIdentity.objects.filter(owner_workgroup=request.user.caiduser.workgroup, name__ne="nan")
         .annotate(
-            representative_mediafile_count=Count("mediafile", filter=Q(mediafile__identity_is_representative=True)),
+            representative_mediafile_count=Count(
+                "animalobservation__mediafile",
+                filter=Q(animalobservation__identity_is_representative=True),
+                distinct=True,
+            ),
             non_representative_mediafile_count=Count(
-                "mediafile", filter=Q(mediafile__identity_is_representative=False)
+                "animalobservation__mediafile",
+                filter=Q(animalobservation__identity_is_representative=False),
+                distinct=True,
             ),
         )
         .filter(non_representative_mediafile_count__gt=0)
@@ -772,6 +778,94 @@ def dash_identities(request) -> HttpResponse:
             suggestion_candidate_archive_count=suggestion_candidate_archive_count,
             suggestion_run_info=suggestion_run_info,
         ),
+    )
+
+
+def _celery_progress_payload(task_id: str, default_message: str) -> dict | None:
+    if not task_id:
+        return None
+    try:
+        task = AsyncResult(task_id)
+        state = task.state
+        info = task.info
+        if state == "PROGRESS" and isinstance(info, dict):
+            raw_percent = info.get("percent")
+            percent = max(0, min(int(raw_percent), 99)) if raw_percent is not None else None
+            return {
+                "state": state,
+                "percent": percent,
+                "stage": str(info.get("stage", "")),
+                "message": str(info.get("message", default_message)),
+            }
+        if state == "SUCCESS" and isinstance(info, dict) and info.get("status") == "ERROR":
+            return {
+                "state": state,
+                "percent": None,
+                "stage": "failed",
+                "message": "Identification failed",
+            }
+        if state == "SUCCESS":
+            return {
+                "state": state,
+                "percent": 99,
+                "stage": "finalize",
+                "message": "Finalizing identification results",
+            }
+        return {
+            "state": state,
+            "percent": None,
+            "stage": "queued" if state == "PENDING" else "starting",
+            "message": "Queued for identification" if state == "PENDING" else default_message,
+        }
+    except Exception:
+        logger.warning("Could not read identification progress for task %s", task_id, exc_info=True)
+        return None
+
+
+def _workgroup_identification_progress(workgroup: WorkGroup, operation: str) -> dict:
+    if operation == "init":
+        status = workgroup.identification_init_status
+        message = workgroup.identification_init_message
+        task_id = workgroup.identification_scheduled_init_task_id
+        eta = workgroup.identification_scheduled_init_eta
+        default_message = "Initializing identification database"
+    else:
+        status = workgroup.identification_reid_status
+        message = workgroup.identification_reid_message
+        task_id = workgroup.identification_scheduled_run_task_id
+        eta = workgroup.identification_scheduled_run_eta
+        default_message = "Generating identification suggestions"
+
+    progress = None
+    if status in {"Processing", "Scheduled"}:
+        progress = _celery_progress_payload(task_id, message or default_message)
+        if progress is None:
+            progress = {
+                "state": "PENDING",
+                "percent": None,
+                "stage": "scheduled" if status == "Scheduled" else "starting",
+                "message": message or default_message,
+            }
+
+    return {
+        "status": status,
+        "message": message,
+        "task_id": task_id or "",
+        "eta": eta.isoformat() if eta else None,
+        "progress": progress,
+    }
+
+
+@login_required
+def identification_progress_api(request):
+    workgroup = request.user.caiduser.workgroup
+    if workgroup is None:
+        return JsonResponse({"error": "No workgroup assigned."}, status=400)
+    return JsonResponse(
+        {
+            "init": _workgroup_identification_progress(workgroup, "init"),
+            "run": _workgroup_identification_progress(workgroup, "run"),
+        }
     )
 
 
@@ -1482,20 +1576,26 @@ def get_best_representative_mediafiles(identity, orientation=None, max_count=5) 
             return candidates[:max_count]
         # fallback na reprezentativní bez orientace
         fallback = list(
-            identity.mediafile_set.filter(identity_is_representative=True).order_by("-captured_at")[:max_count]
+            identity.observation_mediafiles()
+            .filter(observations__identity=identity, observations__identity_is_representative=True)
+            .order_by("-captured_at")[:max_count]
         )
         if fallback:
             return fallback
-        return list(identity.mediafile_set.all().order_by("-captured_at")[:max_count])
+        return list(identity.observation_mediafiles().order_by("-captured_at")[:max_count])
     else:
         # fallback: přímé dotazy jako dřív
-        qs = identity.mediafile_set
-        mf = qs.filter(identity_is_representative=True, orientation=orientation)
+        qs = identity.observation_mediafiles()
+        mf = qs.filter(
+            observations__identity=identity,
+            observations__identity_is_representative=True,
+            orientation=orientation,
+        )
         if not mf.exists():
-            mf = qs.filter(identity_is_representative=True)
+            mf = qs.filter(observations__identity=identity, observations__identity_is_representative=True)
         if not mf.exists():
             mf = qs.all()
-        return list(mf.order_by("-captured_at")[:max_count])
+        return list(mf.distinct().order_by("-captured_at")[:max_count])
 
 
 @login_required
@@ -1677,7 +1777,10 @@ def get_individual_identity_remaining_card_content(
     mediafile = foridentification_id.mediafile
     is_representative_dict = is_candidate_for_representative_mediafile(mediafile, identity)
 
-    identity.representative_mediafiles = identity.mediafile_set.filter(identity_is_representative=True)
+    identity.representative_mediafiles = identity.observation_mediafiles().filter(
+        observations__identity=identity,
+        observations__identity_is_representative=True,
+    )
 
     html = render_to_string(
         "caidapp/get_individual_identity_remaining_card_content.html",
@@ -2102,14 +2205,7 @@ def _single_species_button_style(request) -> dict:
 
     is_initiated = request.user.caiduser.workgroup.identification_init_at is not None
 
-    n_representative = len(
-        MediaFile.objects.filter(
-            parent__owner__workgroup=request.user.caiduser.workgroup,
-            identity_is_representative=True,
-            # parent__contains_single_taxon=True,
-            parent__taxon_for_identification__isnull=False,
-        )
-    )
+    n_representative = workgroup.mediafiles_for_train_or_init_identification().count()
     exists_representative = n_representative > 0
 
     n_unidentified = len(
@@ -2149,8 +2245,14 @@ def _single_species_button_style(request) -> dict:
     }
     btn_styles["confirm_identification"] = {"class": "primary" if exists_for_confirmation else "secondary"}
 
-    init_disabled = (not exists_representative) or (workgroup.identification_reid_status == "Processing")
-    logger.debug(f"{init_disabled=}, {workgroup.identification_reid_status=}, {exists_representative=}")
+    init_disabled = (
+        workgroup.identification_init_status in {"Processing", "Scheduled"}
+        or workgroup.identification_reid_status in {"Processing", "Scheduled"}
+    )
+    logger.debug(
+        f"{init_disabled=}, {workgroup.identification_init_status=}, "
+        f"{workgroup.identification_reid_status=}, {exists_representative=}"
+    )
     btn_styles["init_identification"]["class"] += " disabled" if init_disabled else ""
     btn_styles["init_identification"][
         "tooltip"
@@ -2166,6 +2268,7 @@ def _single_species_button_style(request) -> dict:
     btn_styles["run_identification"][
         "confirm"
     ] = f"Identification of {n_unidentified} archives will take some time. Continue?"
+    btn_styles["n_representative"] = n_representative
     btn_styles["n_for_confirmation"] = n_for_confirmation
     btn_styles["n_unidentified"] = n_unidentified
 
@@ -2238,6 +2341,13 @@ def run_identification_bulk(
     if df.shape[0] == 0:
         logger.warning("No records found for bulk identification in workgroup %s.", workgroup.id)
         return False
+    image_number, video_number = tasks.count_identification_media_types(mediafiles)
+    statistic = tasks.create_identification_run_statistic(
+        workgroup=workgroup,
+        operation="identify",
+        image_number=image_number,
+        video_number=video_number,
+    )
 
     run_name = django.utils.timezone.now().strftime("%Y%m%d-%H%M%S")
     output_dir = Path(settings.MEDIA_ROOT) / workgroup.name / "reid_runs" / run_name
@@ -2279,12 +2389,16 @@ def run_identification_bulk(
         link=tasks.identify_bulk_on_success.s(
             workgroup_id=workgroup.id,
             uploaded_archive_ids=uploaded_archive_ids,
+            statistic_id=statistic.id,
         ),
         link_error=tasks.identify_bulk_on_error.s(
             workgroup_id=workgroup.id,
             uploaded_archive_ids=uploaded_archive_ids,
+            statistic_id=statistic.id,
         ),
     )
+    statistic.task_id = identify_task.id
+    statistic.save(update_fields=["task_id"])
     workgroup.identification_reid_status = "Processing"
     workgroup.identification_reid_at = django.utils.timezone.now()
     workgroup.identification_reid_message = (
@@ -2344,6 +2458,13 @@ def run_identification(
 
         return False
         # return redirect(request.META.get("HTTP_REFERER", "/"))
+    image_number, video_number = tasks.count_identification_media_types(mediafiles)
+    statistic = tasks.create_identification_run_statistic(
+        workgroup=workgroup,
+        operation="identify",
+        image_number=image_number,
+        video_number=video_number,
+    )
 
     from celery import current_app
 
@@ -2383,8 +2504,27 @@ def run_identification(
     identify_task = identify_signature.apply_async(
         link=identify_on_success.s(
             uploaded_archive_id=uploaded_archive.id,
+            statistic_id=statistic.id,
         ),
-        link_error=on_error_in_upload_processing.s(),
+        link_error=on_error_in_upload_processing.s(statistic_id=statistic.id),
+    )
+    statistic.task_id = identify_task.id
+    statistic.save(update_fields=["task_id"])
+    workgroup.identification_reid_status = "Processing"
+    workgroup.identification_reid_at = django.utils.timezone.now()
+    workgroup.identification_reid_message = (
+        f"Running identification for {uploaded_archive.name} and {df.shape[0]} media files."
+    )
+    workgroup.identification_scheduled_run_task_id = identify_task.id
+    workgroup.identification_scheduled_run_eta = None
+    workgroup.save(
+        update_fields=[
+            "identification_reid_status",
+            "identification_reid_at",
+            "identification_reid_message",
+            "identification_scheduled_run_task_id",
+            "identification_scheduled_run_eta",
+        ]
     )
     logger.debug(f"{identify_task=}")
     return True
@@ -3510,6 +3650,11 @@ def _get_filtered_mediafiles_queryset(
     )
     mediafile_filter = filters.MediaFileFilter(request.GET, queryset=mediafiles, request=request)
     full_mediafiles = mediafile_filter.qs.filter(sequence=sequence) if sequence else mediafile_filter.qs
+    if identity_is_representative:
+        full_mediafiles = models.filter_mediafiles_by_identification_taxon(
+            full_mediafiles,
+            request.user.caiduser.workgroup,
+        )
     full_mediafiles = full_mediafiles.distinct()
 
     return full_mediafiles, mediafile_filter, page_title, mediafiles_name_suggestion
@@ -3763,6 +3908,36 @@ def _create_sequence_from_mediafiles(caiduser, mediafile_ids: List[int]) -> dict
         "mediafile_count": len(selected_mediafiles),
         "deleted_sequence_count": deleted_sequence_count,
     }
+
+
+def _set_mediafile_bbox_to_full_image(mediafile: MediaFile, caiduser) -> int:
+    """Set full-image bbox for all observations on one mediafile."""
+    observations = list(mediafile.observations.all())
+    if not observations:
+        observations = [mediafile.first_observation_get_or_create]
+
+    for observation in observations:
+        observation.bbox_x_center = 0.5
+        observation.bbox_y_center = 0.5
+        observation.bbox_width = 1.0
+        observation.bbox_height = 1.0
+        observation.updated_by = caiduser
+        observation.updated_at = django.utils.timezone.now()
+        observation.save(
+            update_fields=[
+                "bbox_x_center",
+                "bbox_y_center",
+                "bbox_width",
+                "bbox_height",
+                "updated_by",
+                "updated_at",
+            ]
+        )
+
+    mediafile.updated_by = caiduser
+    mediafile.updated_at = django.utils.timezone.now()
+    mediafile.save(update_fields=["updated_by", "updated_at"])
+    return len(observations)
 
 
 def _parse_filename_metadata_date(value: str):
@@ -4446,6 +4621,16 @@ def media_files_update(
     else:
         full_mediafiles = full_mediafiles.order_by(order_by)
 
+    first_observation = AnimalObservation.objects.filter(mediafile=OuterRef("pk")).order_by("id")
+    full_mediafiles = full_mediafiles.annotate(
+        observation_count=Count("observations", distinct=True),
+        first_observation_identity_id=Subquery(first_observation.values("identity_id")[:1]),
+        first_observation_identity_name=Subquery(first_observation.values("identity__name")[:1]),
+        first_observation_identity_is_representative=Subquery(
+            first_observation.values("identity_is_representative")[:1]
+        ),
+    )
+
     full_mediafiles = full_mediafiles.select_related(
         "parent", "taxon", "predicted_taxon", "locality", "identity", "updated_by", "sequence"
     ).prefetch_related("observations__taxon")
@@ -4513,7 +4698,7 @@ def media_files_update(
             # if 'newsletter_sub' in .data:
             #     # do subscribe
             #     elif 'newsletter_unsub' in self.data:
-            selected_album_hash = form.data["selectAlbum"]
+            selected_album_hash = form.data.get("selectAlbum", "")
 
             select_all_in_the_pages = True if form.data.get("select_all", "") == "on" else False
             logger.debug(f"{select_all_in_the_pages=}")
@@ -4696,6 +4881,8 @@ def _single_mediafile_update(request, instance, form, form_bulk_processing, sele
         instance.updated_by = request.user.caiduser
         instance.updated_at = django.utils.timezone.now()
         instance.save()
+    elif "btnBulkProcessing_set_full_image_bbox" in form.data:
+        _set_mediafile_bbox_to_full_image(instance, request.user.caiduser)
 
 
 from dateutil.relativedelta import relativedelta  # Import relativedelta
@@ -5989,29 +6176,34 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
                         counter0 += 1
                         # mf.category = row['category']
                         if "predicted_category" in row:
-                            ao.taxon = models.get_taxon(row["predicted_category"])  # remove this
+                            if _spreadsheet_cell_requests_clear(row.get("predicted_category")):
+                                ao.taxon = None
+                            elif _spreadsheet_cell_has_value(row.get("predicted_category")):
+                                ao.taxon = models.get_taxon(row["predicted_category"])  # remove this
                             counter_fields_updated += 1
 
-                        code = row["code"] if "code" in row else ""
-                        unique_name = row["unique_name"] if "unique_name" in row else ""
-                        juv_code = row["juv_code"] if "juv_code" in row else ""
+                        code_supplied, code_value = _spreadsheet_optional_text_update(row.get("code"))
+                        unique_name_supplied, unique_name_value = _spreadsheet_optional_text_update(row.get("unique_name"))
+                        juv_code_supplied, juv_code_value = _spreadsheet_optional_text_update(row.get("juv_code"))
                         identity = None
-                        if code:
-                            identity = models.get_unique_code(code, workgroup=uploaded_archive.owner.workgroup)
-                        elif unique_name:
+                        if code_value:
+                            identity = models.get_unique_code(code_value, workgroup=uploaded_archive.owner.workgroup)
+                        elif unique_name_value:
                             identity = models.get_unique_name(
-                                row["unique_name"], workgroup=uploaded_archive.owner.workgroup
+                                unique_name_value, workgroup=uploaded_archive.owner.workgroup
                             )
+                        elif (code_supplied or juv_code_supplied) and ao.identity is not None:
+                            identity = ao.identity
                         if identity is not None:
                             identity_updated = False
-                            if unique_name and identity.name != unique_name.strip():
-                                identity.name = unique_name.strip()
+                            if unique_name_value and identity.name != unique_name_value:
+                                identity.name = unique_name_value
                                 identity_updated = True
-                            if code and identity.code != str(code).strip():
-                                identity.code = str(code).strip()
+                            if code_supplied and identity.code != code_value:
+                                identity.code = code_value
                                 identity_updated = True
-                            if juv_code and identity.juv_code != str(juv_code).strip():
-                                identity.juv_code = str(juv_code).strip()
+                            if juv_code_supplied and identity.juv_code != juv_code_value:
+                                identity.juv_code = juv_code_value
                                 identity_updated = True
                             if identity_updated:
                                 identity.save()
@@ -6022,23 +6214,34 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
                             counter_individuality += 1
 
                         if "locality_name" in row:
-                            locality_obj = models.get_locality(
-                                caiduser=request.user.caiduser, name=row["locality_name"]
-                            )
-                            if locality_obj:
-                                mf.locality = locality_obj
+                            if _spreadsheet_cell_requests_clear(row.get("locality_name")):
+                                mf.locality = None
                                 counter_fields_updated += 1
                                 counter_locality += 1
+                            elif _spreadsheet_cell_has_value(row.get("locality_name")):
+                                locality_obj = models.get_locality(
+                                    caiduser=request.user.caiduser, name=row["locality_name"]
+                                )
+                                if locality_obj:
+                                    mf.locality = locality_obj
+                                    counter_fields_updated += 1
+                                    counter_locality += 1
                         if ("latitude" in row) and ("longitude" in row):
                             latitude = row["latitude"]
                             longitude = row["longitude"]
-                            if not pd.isna(latitude) and not pd.isna(longitude):
+                            if _spreadsheet_cell_requests_clear(latitude) and _spreadsheet_cell_requests_clear(longitude):
+                                mf.location = None
+                                counter_fields_updated += 1
+                            elif not pd.isna(latitude) and not pd.isna(longitude):
                                 mf.location = f"{round(float(latitude), 3)},{round(float(longitude), 3)}"
                                 counter_fields_updated += 1
                         if "datetime" in row:
                             # check if it is in django compatible datetime format
                             row_datetime = row["datetime"]
-                            if isinstance(row_datetime, str):
+                            if _spreadsheet_cell_requests_clear(row_datetime):
+                                mf.captured_at = None
+                                counter_fields_updated += 1
+                            elif isinstance(row_datetime, str):
                                 # datetime_str = row["datetime"]
                                 # mf.captured_at = datetime_str
                                 mf.captured_at = row_datetime
@@ -6137,7 +6340,9 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
                     "errors": form.errors,
                     "text_note": "The 'original_path' is required in the uploaded spreadsheet. "
                     + "The 'predicted_category', 'unique_name', 'code', 'juv_code', 'locality name', "
-                    + "'latitude', 'longitude', 'datetime' are optional.",
+                    + "'latitude', 'longitude', 'datetime' are optional. "
+                    + "Blank cells keep existing values. "
+                    + f"Use {forms.SPREADSHEET_CLEAR_TOKEN} to clear supported nullable fields such as predicted_category, code, juv_code, locality name, latitude+longitude and datetime.",
                 },
             )
 
@@ -6159,7 +6364,9 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
                 "next": prev_url,
                 "text_note": "The 'original_path' is required in the uploaded spreadsheet. "
                 + "The 'predicted_category', 'unique_name', 'code', 'juv_code', 'locality name', "
-                + "'latitude', 'longitude', 'datetime' are optional.",
+                + "'latitude', 'longitude', 'datetime' are optional. "
+                + "Blank cells keep existing values. "
+                + f"Use {forms.SPREADSHEET_CLEAR_TOKEN} to clear supported nullable fields such as predicted_category, code, juv_code, locality name, latitude+longitude and datetime.",
             },
         )
 
@@ -7437,6 +7644,31 @@ def _spreadsheet_row_id(value) -> Optional[int]:
         return None
 
 
+def _spreadsheet_cell_requests_clear(value) -> bool:
+    """Return True when spreadsheet cell explicitly asks to clear a nullable value."""
+    if pd.isna(value):
+        return False
+    return str(value).strip().upper() == forms.SPREADSHEET_CLEAR_TOKEN.upper()
+
+
+def _spreadsheet_optional_text_update(value) -> tuple[bool, Optional[str]]:
+    """Return whether a text cell requests an update and the normalized value."""
+    if _spreadsheet_cell_requests_clear(value):
+        return True, None
+    if not _spreadsheet_cell_has_value(value):
+        return False, None
+    return True, str(value).strip()
+
+
+def _spreadsheet_optional_value_update(value) -> tuple[bool, object]:
+    """Return whether a cell requests an update and the raw replacement value."""
+    if _spreadsheet_cell_requests_clear(value):
+        return True, None
+    if not _spreadsheet_cell_has_value(value):
+        return False, None
+    return True, value
+
+
 def import_identities_view(request):
     """Import identities."""
     logger.debug(f"Importing identities, method {request.method}")
@@ -7479,7 +7711,7 @@ def import_identities_view(request):
                             owner_workgroup=request.user.caiduser.workgroup,
                         ).first()
 
-                    if identity is None and _spreadsheet_cell_has_value(row.get("code")):
+                    if identity is None and _spreadsheet_cell_has_value(row.get("code")) and not _spreadsheet_cell_requests_clear(row.get("code")):
                         identity, created_new = IndividualIdentity.objects.get_or_create(
                             code=row["code"], owner_workgroup=request.user.caiduser.workgroup
                         )
@@ -7504,8 +7736,10 @@ def import_identities_view(request):
                     print(f"{row}")
                     print(f"{row['name']}")
                     identity.name = row["name"]
-                if _spreadsheet_cell_has_value(row.get("code")):
-                    identity.code = row["code"]
+                if "code" in row:
+                    code_supplied, code_value = _spreadsheet_optional_text_update(row.get("code"))
+                    if code_supplied:
+                        identity.code = code_value
                 if _spreadsheet_cell_has_value(row.get("sex")):
                     sex = row["sex"][0].upper()
                     if sex in ["M", "F", "U"]:
@@ -7530,17 +7764,23 @@ def import_identities_view(request):
                         logger.warning(f"Invalid coat_type: {row['coat_type']}")
 
                 if "note" in row:
-                    note = row["note"]
-                    if isinstance(note, str):
-                        identity.note = note
+                    note_supplied, note_value = _spreadsheet_optional_text_update(row.get("note"))
+                    if note_supplied:
+                        identity.note = note_value or ""
 
-                if _spreadsheet_cell_has_value(row.get("juv_code")):
-                    identity.juv_code = row["juv_code"]
+                if "juv_code" in row:
+                    juv_code_supplied, juv_code_value = _spreadsheet_optional_text_update(row.get("juv_code"))
+                    if juv_code_supplied:
+                        identity.juv_code = juv_code_value
 
-                if "birth_date" in row and not pd.isna(row["birth_date"]):
-                    identity.birth_date = row["birth_date"]
-                if "death_date" in row and not pd.isna(row["death_date"]):
-                    identity.death_date = row["death_date"]
+                if "birth_date" in row:
+                    birth_date_supplied, birth_date_value = _spreadsheet_optional_value_update(row.get("birth_date"))
+                    if birth_date_supplied:
+                        identity.birth_date = birth_date_value
+                if "death_date" in row:
+                    death_date_supplied, death_date_value = _spreadsheet_optional_value_update(row.get("death_date"))
+                    if death_date_supplied:
+                        identity.death_date = death_date_value
 
                 if identity.owner_workgroup is None:
                     identity.owner_workgroup = request.user.caiduser.workgroup
@@ -7559,13 +7799,15 @@ def import_identities_view(request):
             "button": "Import",
             "text_note": "Upload CSV or XLSX file. "
             + "There should be columns 'id', 'name' or 'code' in the file. "
-            + "Optional columns are 'sex', 'coat_type', 'birth_date', 'death_date', 'note'.",
+            + "Optional columns are 'sex', 'coat_type', 'birth_date', 'death_date', 'note'. "
+            + "Blank cells keep existing values. "
+            + f"Use {forms.SPREADSHEET_CLEAR_TOKEN} to clear supported nullable fields such as code, juv_code, note, birth_date and death_date.",
             "next": "caidapp:individual_identities",
         },
     )
 
 
-OBSERVATION_IMPORT_CLEAR = "__CLEAR__"
+OBSERVATION_IMPORT_CLEAR = forms.SPREADSHEET_CLEAR_TOKEN
 OBSERVATION_BBOX_COLUMNS = ("bbox_cx", "bbox_cy", "bbox_w", "bbox_h")
 OBSERVATION_BBOX_MODEL_FIELDS = ("bbox_x_center", "bbox_y_center", "bbox_width", "bbox_height")
 
@@ -7616,7 +7858,7 @@ def _spreadsheet_strict_id(value, column: str, required: bool = False) -> Option
 def _resolve_imported_related_object(row, id_column, name_columns, queryset, label):
     """Resolve an optional related object, using a stable ID whenever supplied."""
     raw_id = row.get(id_column)
-    if str(raw_id).strip() == OBSERVATION_IMPORT_CLEAR:
+    if _spreadsheet_cell_requests_clear(raw_id):
         return None, True
     object_id = _spreadsheet_strict_id(raw_id, id_column)
     if object_id is not None:
@@ -7648,7 +7890,7 @@ def _observation_bbox_from_row(row) -> Tuple[Optional[List[Optional[float]]], bo
     present = [_spreadsheet_cell_has_value(value) for value in raw_values]
     if not any(present):
         return None, False
-    if all(str(value).strip() == OBSERVATION_IMPORT_CLEAR for value in raw_values):
+    if all(_spreadsheet_cell_requests_clear(value) for value in raw_values):
         return [None, None, None, None], True
     if not all(present):
         raise ValueError("bbox requires bbox_cx, bbox_cy, bbox_w and bbox_h together")
@@ -7753,7 +7995,7 @@ def _import_observation_dataframe(df: pd.DataFrame, caiduser) -> Tuple[int, int]
                     mediafile.locality = locality
                     mediafile_fields.append("locality")
                 raw_location = series.get("mediafile_location")
-                if str(raw_location).strip() == OBSERVATION_IMPORT_CLEAR:
+                if _spreadsheet_cell_requests_clear(raw_location):
                     mediafile.location = None
                     mediafile_fields.append("location")
                 elif _spreadsheet_cell_has_value(raw_location):
@@ -7828,18 +8070,28 @@ def toggle_identity_representative(request, mediafile_id: int):
     """Toggle identity representative flag for a media file."""
     mf = get_object_or_404(models.MediaFile, id=mediafile_id)
 
-    # Povolení jen v rámci stejné workgroup + musí mít identitu
-    if mf.identity is None:
-        return JsonResponse({"ok": False, "error": "Mediafile nemá přiřazenou identitu."}, status=400)
     if request.user.caiduser.workgroup != mf.parent.owner.workgroup:
         return HttpResponseNotAllowed("Not allowed")
 
-    mf.identity_is_representative = not mf.identity_is_representative
-    mf.updated_by = request.user.caiduser  # pokud máš tohle pole
+    observations = list(mf.observations.filter(identity__isnull=False).order_by("id"))
+    if mf.identity is not None:
+        observations = [observation for observation in observations if observation.identity_id == mf.identity_id]
+    if not observations:
+        return JsonResponse({"ok": False, "error": "Mediafile nema prirazenou identitu."}, status=400)
+
+    representative = not any(observation.identity_is_representative for observation in observations)
+    for observation in observations:
+        observation.identity_is_representative = representative
+        observation.updated_by = request.user.caiduser
+        observation.updated_at = django.utils.timezone.now()
+        observation.save(update_fields=["identity_is_representative", "updated_by", "updated_at"])
+
+    mf.identity_is_representative = representative
+    mf.updated_by = request.user.caiduser
     mf.save(update_fields=["identity_is_representative", "updated_by"])
 
     logger.debug("almost done")
-    return JsonResponse({"ok": True, "representative": mf.identity_is_representative})
+    return JsonResponse({"ok": True, "representative": representative})
 
 
 class NotificationCreateView(CreateView):

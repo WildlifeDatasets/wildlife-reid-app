@@ -9,6 +9,7 @@ from django.test import TestCase, override_settings
 
 from caidapp import tasks
 from caidapp.app_tests.factories import (
+    AnimalObservationFactory,
     CaidUserFactory,
     IndividualIdentityFactory,
     LocalityFactory,
@@ -42,6 +43,45 @@ class MediaFileLocationFallbackTest(TestCase):
         csv_data = tasks._prepare_dataframe_for_identification([mediafile])
 
         self.assertEqual(csv_data["locality_coordinates"][0], "49.9,14.2")
+
+    def test_prepare_dataframe_for_identification_uses_static_thumbnail_for_video(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        static_thumbnail_relpath = "output/test-video/static_thumbnails/clip.webp"
+        static_thumbnail_path = Path(settings.MEDIA_ROOT) / static_thumbnail_relpath
+        static_thumbnail_path.parent.mkdir(parents=True, exist_ok=True)
+        static_thumbnail_path.write_bytes(b"fake webp")
+        mediafile = MediaFileFactory(
+            parent=archive,
+            media_type="video",
+            image_file="output/test-video/videos/clip.mp4",
+            static_thumbnail=static_thumbnail_relpath,
+        )
+
+        csv_data = tasks._prepare_dataframe_for_identification([mediafile])
+
+        self.assertEqual(
+            csv_data["image_path"][0],
+            str(static_thumbnail_path),
+        )
+
+    def test_prepare_dataframe_for_identification_uses_representative_observation_identity(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Observed identity")
+        mediafile = MediaFileFactory(
+            parent=archive,
+            identity=None,
+            identity_is_representative=False,
+        )
+        AnimalObservationFactory(
+            mediafile=mediafile,
+            identity=identity,
+            identity_is_representative=True,
+        )
+
+        csv_data = tasks._prepare_dataframe_for_identification([mediafile])
+
+        self.assertEqual(csv_data["class_id"][0], identity.id)
+        self.assertEqual(csv_data["label"][0], identity.name)
 
     def test_create_dataframe_from_mediafiles_exports_identity_codes_and_effective_location(self):
         locality = LocalityFactory(owner=self.caiduser, location="50.1,14.4")

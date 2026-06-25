@@ -237,6 +237,7 @@ urlpatterns = [
         name="individual_identities",
     ),
     path("dash_identities/", views.dash_identities, name="dash_identities"),
+    path("identification_progress_api/", views.identification_progress_api, name="identification_progress_api"),
     path("init_identification/", views.init_identification_view, name="init_identification"),
     path("train_identification/", views.train_identification, name="train_identification"),
     path("stop_init_identification/", views.stop_init_identification, name="stop_init_identification"),

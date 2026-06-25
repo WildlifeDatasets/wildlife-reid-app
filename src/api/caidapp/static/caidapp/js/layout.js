@@ -1,4 +1,24 @@
 document.addEventListener('DOMContentLoaded', function() {
+    function getCollapseTrigger(collapseElement) {
+        const triggerId = collapseElement.getAttribute('id');
+        if (!triggerId) {
+            return null;
+        }
+        return document.querySelector(`[href="#${triggerId}"], [data-bs-target="#${triggerId}"]`);
+    }
+
+    function setSidebarMenuExpanded(collapseElement, expanded, persist) {
+        collapseElement.classList.toggle('show', expanded);
+        const triggerLink = getCollapseTrigger(collapseElement);
+        if (triggerLink) {
+            triggerLink.classList.toggle('collapsed', !expanded);
+            triggerLink.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+            triggerLink.classList.toggle('active', expanded);
+        }
+        if (persist) {
+            localStorage.setItem(`sidebar-menu-${collapseElement.id}`, expanded ? 'true' : 'false');
+        }
+    }
     
     // 1. Sidebar Toggle Logic
     const sidebarToggle = document.getElementById('sidebarToggle');
@@ -17,6 +37,20 @@ document.addEventListener('DOMContentLoaded', function() {
         document.body.classList.add('sidebar-collapsed');
     }
 
+    // Restore expanded sidebar submenus.
+    document.querySelectorAll('#sidebar .collapse[id]').forEach(collapseElement => {
+        if (localStorage.getItem(`sidebar-menu-${collapseElement.id}`) === 'true') {
+            setSidebarMenuExpanded(collapseElement, true, false);
+        }
+
+        collapseElement.addEventListener('shown.bs.collapse', () => {
+            setSidebarMenuExpanded(collapseElement, true, true);
+        });
+        collapseElement.addEventListener('hidden.bs.collapse', () => {
+            setSidebarMenuExpanded(collapseElement, false, true);
+        });
+    });
+
     // 2. Highlight Active Menu Item
     const currentPath = window.location.pathname;
     const menuLinks = document.querySelectorAll('#sidebar .nav-link, #sidebar .list-group-item');
@@ -29,15 +63,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // If inside a submenu (collapse), open it
             const parentCollapse = link.closest('.collapse');
             if (parentCollapse) {
-                parentCollapse.classList.add('show');
-                // Highlight parent trigger
-                const triggerId = parentCollapse.getAttribute('id');
-                const triggerLink = document.querySelector(`[data-bs-target="#${triggerId}"]`);
-                if (triggerLink) {
-                    triggerLink.classList.remove('collapsed');
-                    triggerLink.setAttribute('aria-expanded', 'true');
-                    triggerLink.classList.add('active'); // Optional: highlight parent too
-                }
+                setSidebarMenuExpanded(parentCollapse, true, true);
             }
         }
     });

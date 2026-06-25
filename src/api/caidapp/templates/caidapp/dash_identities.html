@@ -72,6 +72,36 @@
             background-size: cover;
             background-position: center;
         }
+        .ident-progress-indicators {
+            display: inline-flex;
+            align-items: center;
+            gap: .4rem;
+            vertical-align: middle;
+        }
+        .ident-progress-dot {
+            --ident-progress: 0;
+            width: 1.65rem;
+            height: 1.65rem;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--bs-secondary-color);
+            background:
+                radial-gradient(circle, var(--bs-body-bg) 54%, transparent 56%),
+                conic-gradient(var(--bs-primary) calc(var(--ident-progress) * 1%), rgba(var(--bs-secondary-rgb), .22) 0);
+            border: 1px solid rgba(var(--bs-secondary-rgb), .28);
+            font-size: .72rem;
+            line-height: 1;
+        }
+        .ident-progress-dot.ident-progress-active {
+            color: var(--bs-primary);
+        }
+        .ident-progress-dot.ident-progress-unknown {
+            background:
+                radial-gradient(circle, var(--bs-body-bg) 54%, transparent 56%),
+                conic-gradient(rgba(var(--bs-secondary-rgb), .22) 100%, rgba(var(--bs-secondary-rgb), .22) 0);
+        }
 
     </style>
     <!--refresh every 120 s-->
@@ -174,6 +204,24 @@
                     <a class="btn btn-danger" href="{% url 'caidapp:stop_init_identification' %}"><i
                             class="bi bi-stop-fill "></i> Stop </a>
                 {% endif %}
+                <span id="identification-progress-panel"
+                      class="ident-progress-indicators {% if user.caiduser.workgroup.identification_init_status != 'Processing' and user.caiduser.workgroup.identification_init_status != 'Scheduled' and user.caiduser.workgroup.identification_reid_status != 'Processing' and user.caiduser.workgroup.identification_reid_status != 'Scheduled' %}d-none{% endif %}"
+                      data-progress-url="{% url 'caidapp:identification_progress_api' %}">
+                    <span class="ident-progress-dot ident-progress-unknown {% if user.caiduser.workgroup.identification_init_status != 'Processing' and user.caiduser.workgroup.identification_init_status != 'Scheduled' %}d-none{% endif %}"
+                          data-operation="init"
+                          data-bs-toggle="tooltip"
+                          data-bs-title="Init identification: {{ user.caiduser.workgroup.identification_init_status }}{% if user.caiduser.workgroup.identification_init_message %} - {{ user.caiduser.workgroup.identification_init_message }}{% endif %}"
+                          title="Init identification: {{ user.caiduser.workgroup.identification_init_status }}{% if user.caiduser.workgroup.identification_init_message %} - {{ user.caiduser.workgroup.identification_init_message }}{% endif %}">
+                        <i class="fas fa-fingerprint"></i>
+                    </span>
+                    <span class="ident-progress-dot ident-progress-unknown {% if user.caiduser.workgroup.identification_reid_status != 'Processing' and user.caiduser.workgroup.identification_reid_status != 'Scheduled' %}d-none{% endif %}"
+                          data-operation="run"
+                          data-bs-toggle="tooltip"
+                          data-bs-title="Compare with identity database: {{ user.caiduser.workgroup.identification_reid_status }}{% if user.caiduser.workgroup.identification_reid_message %} - {{ user.caiduser.workgroup.identification_reid_message }}{% endif %}"
+                          title="Compare with identity database: {{ user.caiduser.workgroup.identification_reid_status }}{% if user.caiduser.workgroup.identification_reid_message %} - {{ user.caiduser.workgroup.identification_reid_message }}{% endif %}">
+                        <i class="bi bi-question-circle"></i>
+                    </span>
+                </span>
                 <a class="btn btn-secondary bs-1" href="{% url 'caidapp:workgroup-update' user.caiduser.workgroup.id %}"><i
                         class="bi bi-gear"></i></a>
 {#                <a class="btn btn-secondary bs-1" href="{% url 'caidapp:select_reid_model' %}"><i#}
@@ -593,7 +641,54 @@ Run ({{ user.caiduser.workgroup.identification_reid_status }} {{ user.caiduser.w
         document.addEventListener("DOMContentLoaded", function () {
             // spustí první dotaz po načtení stránky
             checkStatuses("{% url 'caidapp:uploads_status_api' 'identities' %}");
+            checkIdentificationProgress();
         });
+
+        function checkIdentificationProgress() {
+            const panel = document.getElementById('identification-progress-panel');
+            if (!panel) {
+                return;
+            }
+            fetch(panel.dataset.progressUrl)
+                .then(response => response.json())
+                .then(data => {
+                    const initActive = updateIdentificationProgressRow(panel, 'init', data.init);
+                    const runActive = updateIdentificationProgressRow(panel, 'run', data.run);
+                    const anyActive = initActive || runActive;
+                    panel.classList.toggle('d-none', !anyActive);
+                    setTimeout(checkIdentificationProgress, anyActive ? 5000 : 15000);
+                })
+                .catch(error => {
+                    console.error(error);
+                    setTimeout(checkIdentificationProgress, 20000);
+                });
+        }
+
+        function updateIdentificationProgressRow(panel, operation, item) {
+            const dot = panel.querySelector('.ident-progress-dot[data-operation="' + operation + '"]');
+            if (!dot || !item) {
+                return false;
+            }
+            const active = item.status === 'Processing' || item.status === 'Scheduled';
+            dot.classList.toggle('d-none', !active);
+
+            const progress = item.progress;
+            const percent = progress && progress.percent !== null ? progress.percent : 0;
+            const message = progress ? progress.message : (item.message || '');
+            const label = operation === 'init' ? 'Init identification' : 'Compare with identity database';
+            const tooltip = percent ? label + ': ' + percent + '% - ' + message : label + ': ' + (item.status || '') + (message ? ' - ' + message : '');
+            dot.style.setProperty('--ident-progress', percent);
+            dot.classList.toggle('ident-progress-active', active);
+            dot.classList.toggle('ident-progress-unknown', !percent);
+            dot.setAttribute('title', tooltip);
+            dot.setAttribute('data-bs-title', tooltip);
+            const oldTooltip = bootstrap.Tooltip.getInstance(dot);
+            if (oldTooltip) {
+                oldTooltip.dispose();
+            }
+            new bootstrap.Tooltip(dot);
+            return active;
+        }
     </script>
 
 {% endblock %}
