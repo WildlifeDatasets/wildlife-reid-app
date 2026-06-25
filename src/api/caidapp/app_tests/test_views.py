@@ -211,6 +211,19 @@ class MediafileListViewTest(TestCase):
         self.assertNotContains(response, "toggle-sequence")
         self.assertNotContains(response, "data-sequence=")
 
+    def test_bulk_identity_select_is_limited_to_workgroup_and_searchable(self):
+        UploadedArchiveFactory(owner=self.caiduser)
+        zeta = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Zeta")
+        alpha = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Alpha")
+        IndividualIdentityFactory(name="Other Workgroup")
+
+        response = self.client.get(reverse("caidapp:media_files"))
+
+        form = response.context["form_bulk_processing"]
+        identities = list(form.fields["identity"].queryset)
+        self.assertEqual(identities, [alpha, zeta])
+        self.assertIn("js-searchable-select", form.fields["identity"].widget.attrs["class"])
+
 
 class IdentityObservationAggregationTest(TestCase):
     def setUp(self):
@@ -604,6 +617,26 @@ class MediaFileUpdateEmptyObservationTest(TestCase):
         )
         self.assertContains(response, "categoryDropdown.value = String(predictedTaxonId);")
         self.assertContains(response, 'categoryDropdown.dispatchEvent(new Event("change", {bubbles: true}));')
+
+    def test_video_detail_has_static_animated_and_video_preview_tabs(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        mediafile = MediaFileFactory(
+            parent=archive,
+            media_type="video",
+            original_filename="clip.mp4",
+            static_thumbnail=SimpleUploadedFile("clip-static.webp", b"static", content_type="image/webp"),
+            thumbnail=SimpleUploadedFile("clip-animated.webp", b"animated", content_type="image/webp"),
+        )
+        AnimalObservationFactory(mediafile=mediafile)
+
+        response = self.client.get(reverse("caidapp:media_file_update", args=[mediafile.id]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Static frame + bbox")
+        self.assertContains(response, "Animated preview")
+        self.assertContains(response, f'id="video-pane{mediafile.id}"')
+        self.assertContains(response, 'id="annotCanvas"')
+        self.assertContains(response, reverse("caidapp:stream_video", args=[mediafile.id]))
 
     def test_missing_taxon_sequence_carousel_keeps_annotation_mode(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)
@@ -1082,6 +1115,24 @@ class SequenceViewTest(TestCase):
         self.assertContains(response, "bbox-preview-frame")
         self.assertContains(response, "bbox-image-area")
         self.assertContains(response, "syncBboxPreviewFrame")
+
+    def test_bulk_identity_post_rejects_identity_from_other_workgroup(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        mediafile = MediaFileFactory(parent=archive, original_filename="selected.jpg")
+        other_identity = IndividualIdentityFactory(name="Foreign Identity")
+
+        response = self.client.post(
+            reverse("caidapp:sequences"),
+            {
+                "selected_mediafile_ids": [str(mediafile.id)],
+                "identity": str(other_identity.id),
+                "btnBulkProcessing_id_identity": "Apply to selection",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        mediafile.refresh_from_db()
+        self.assertIsNone(mediafile.identity)
 
     def test_mediafiles_bbox_preview_uses_image_area_wrapper(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)

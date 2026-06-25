@@ -774,8 +774,15 @@ class MediaFileBulkForm(forms.ModelForm):
         fields = ("taxon", "identity", "identity_is_representative", "taxon_verified")
 
     def __init__(self, *args, **kwargs):
+        workgroup = kwargs.pop("workgroup", None)
         super(MediaFileBulkForm, self).__init__(*args, **kwargs)
         self.fields["taxon"].queryset = models.Taxon.objects.order_by("name")
+        if workgroup is not None:
+            self.fields["identity"].queryset = self.fields["identity"].queryset.filter(owner_workgroup=workgroup)
+        self.fields["identity"].queryset = self.fields["identity"].queryset.order_by("name")
+        self.fields["identity"].widget.attrs["class"] = (
+            self.fields["identity"].widget.attrs.get("class", "") + " js-searchable-select"
+        ).strip()
 
 
 class MediaFileSelectionForm(forms.ModelForm):

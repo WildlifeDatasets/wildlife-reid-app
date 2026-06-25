@@ -3,7 +3,14 @@
 {% load widget_tweaks %}
 {% load custom_filters %}
 {% block head %}
+<link href="{% static 'admin/css/vendor/select2/select2.min.css' %}" rel="stylesheet">
+<script src="{% static 'admin/js/vendor/select2/select2.full.js' %}"></script>
+<script src="{% static 'admin/js/vendor/select2/i18n/cs.js' %}"></script>
 <style>
+    .select2-container {
+        width: 100% !important;
+    }
+
     /* Custom breakpoint for screens larger than 1920px (you can adjust the value as needed) */
     @media (min-width: 1920px) {
         .col-xxxl-1 {
@@ -801,5 +808,17 @@ document.addEventListener("click", async (e) => {
     btn.disabled = false;
   }
 });
+    </script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            if (!window.jQuery || !window.jQuery.fn || !window.jQuery.fn.select2) {
+                return;
+            }
+
+            window.jQuery("select.js-searchable-select").select2({
+                width: "100%",
+                language: "cs"
+            });
+        });
     </script>
 {% endblock %}

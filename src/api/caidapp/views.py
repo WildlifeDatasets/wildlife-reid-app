@@ -4219,7 +4219,7 @@ def sequences(
     ]
     request.session["mediafile_ids_page"] = page_mediafile_ids
 
-    form_bulk_processing = MediaFileBulkForm(request.POST or None)
+    form_bulk_processing = MediaFileBulkForm(request.POST or None, workgroup=request.user.caiduser.workgroup)
 
     if request.method == "POST" and any(
         (isinstance(key, str)) and key.startswith("btnBulkProcessing") for key in request.POST
@@ -4450,7 +4450,7 @@ def media_files_update(
     MediaFileFormSet = modelformset_factory(MediaFile, form=MediaFileSelectionForm, extra=0)
     logger.debug("Processing POST or GET request")
     if request.method == "POST" and "btnCreateSequence" in request.POST:
-        form_bulk_processing = MediaFileBulkForm()
+        form_bulk_processing = MediaFileBulkForm(workgroup=request.user.caiduser.workgroup)
         page_query = full_mediafiles.filter(id__in=[object.id for object in page_with_mediafiles])
         form = MediaFileFormSet(request.POST, queryset=page_query)
         selected_mediafile_ids = _resolve_selected_mediafile_ids_from_formset(form, full_mediafiles)
@@ -4481,7 +4481,7 @@ def media_files_update(
         # ("btnBulkProcessing" in request.POST) or ("btnBulkProcessingAlbum" in request.POST)
     ):
         logger.debug("btnBulkProcessing")
-        form_bulk_processing = MediaFileBulkForm(request.POST)
+        form_bulk_processing = MediaFileBulkForm(request.POST, workgroup=request.user.caiduser.workgroup)
         if form_bulk_processing.is_valid():
             form_bulk_processing.save()
 
@@ -4536,13 +4536,13 @@ def media_files_update(
             logger.debug("form is not valid")
             logger.debug(form.errors)
         # queryform = MediaFileSetQueryForm(request.POST)
-        form_bulk_processing = MediaFileBulkForm()
+        form_bulk_processing = MediaFileBulkForm(workgroup=request.user.caiduser.workgroup)
         page_query = full_mediafiles.filter(id__in=[object.id for object in page_with_mediafiles])
         form = MediaFileFormSet(queryset=page_query)
     else:
 
         logger.debug("initial form processing")
-        form_bulk_processing = MediaFileBulkForm()
+        form_bulk_processing = MediaFileBulkForm(workgroup=request.user.caiduser.workgroup)
         page_query = full_mediafiles.filter(id__in=[object.id for object in page_with_mediafiles])
         form = MediaFileFormSet(queryset=page_query)
 

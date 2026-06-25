@@ -85,6 +85,23 @@
             max-height: calc(100vh - 6rem);
             object-fit: contain;
         }
+
+        .mediafile-video-tabs {
+            max-width: 760px;
+            width: 100%;
+        }
+
+        .mediafile-video-tabs .tab-pane {
+            border: 1px solid var(--bs-border-color);
+            border-top: 0;
+            padding: 0.75rem;
+            background: var(--bs-body-bg);
+        }
+
+        .mediafile-video-preview {
+            max-width: 100%;
+            width: 640px;
+        }
     </style>
 {% endblock %}
 {# add body #}
@@ -517,23 +534,73 @@ mediafile.taxon: {{ mediafile.taxon }}
                 <div class="col">
                     <div class="d-flex flex-row flex-wrap align-items-start col">
                         {% if mediafile.media_type == 'video' %}
-                            <video controls autoplay muted width="640" class="m-1" preload="auto">
-                                <source src="{% url 'caidapp:stream_video' mediafile.id %}" type="video/x-m4v">
-                                Your browser does not support the video tag.
-                            </video>
-
-                            <!-- Thumbnail with modal trigger -->
-                            {#                            <img src="{{ mediafile.thumbnail.url }}" class="img-fluid m-1" alt="Camera trap image"#}
-                            {#                                 style="max-width: 320px;" data-bs-toggle="modal"#}
-                            {#                                 data-bs-target="#imageModal{{ mediafile.id }}"#}
-                            {#                                 fetchpriority="high"#}
-                            {#                            >#}
-                            {#                            <canvas id="annotCanvas"#}
-                            {#                                style="max-width: 600px;"#}
-                            {# #}
-                            {#                                class="img-fluid"#}
-                            {#                                    style="border:1px solid #ccc; margin-top:10px;"></canvas>#}
-                            {#                                <img id="annotatable-image" src="{{ mediafile.static_thumbnail.url }}" hidden>#}
+                            <div class="mediafile-video-tabs m-1">
+                                <ul class="nav nav-tabs" id="mediaPreviewTabs{{ mediafile.id }}" role="tablist">
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link active" id="static-frame-tab{{ mediafile.id }}"
+                                                data-bs-toggle="tab" data-bs-target="#static-frame-pane{{ mediafile.id }}"
+                                                type="button" role="tab" aria-controls="static-frame-pane{{ mediafile.id }}"
+                                                aria-selected="true">
+                                            Static frame + bbox
+                                        </button>
+                                    </li>
+                                    {% if mediafile.thumbnail %}
+                                        <li class="nav-item" role="presentation">
+                                            <button class="nav-link" id="animated-preview-tab{{ mediafile.id }}"
+                                                    data-bs-toggle="tab" data-bs-target="#animated-preview-pane{{ mediafile.id }}"
+                                                    type="button" role="tab" aria-controls="animated-preview-pane{{ mediafile.id }}"
+                                                    aria-selected="false">
+                                                Animated preview
+                                            </button>
+                                        </li>
+                                    {% endif %}
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link" id="video-tab{{ mediafile.id }}"
+                                                data-bs-toggle="tab" data-bs-target="#video-pane{{ mediafile.id }}"
+                                                type="button" role="tab" aria-controls="video-pane{{ mediafile.id }}"
+                                                aria-selected="false">
+                                            Video
+                                        </button>
+                                    </li>
+                                </ul>
+                                <div class="tab-content" id="mediaPreviewTabsContent{{ mediafile.id }}">
+                                    <div class="tab-pane fade show active" id="static-frame-pane{{ mediafile.id }}"
+                                         role="tabpanel" aria-labelledby="static-frame-tab{{ mediafile.id }}" tabindex="0">
+                                        <div class="mediafile-image-stage">
+                                            <canvas id="annotCanvas"
+                                                    style="border:1px solid #ccc; margin-top:10px;"></canvas>
+                                            <button type="button"
+                                                    class="btn btn-dark btn-sm mediafile-expand-image"
+                                                    data-bs-toggle="modal"
+                                                    data-bs-target="#imageModal{{ mediafile.id }}"
+                                                    aria-label="Open static frame large"
+                                                    title="Open static frame large">
+                                                <i class="bi bi-arrows-fullscreen"></i>
+                                            </button>
+                                        </div>
+                                        {% if mediafile.static_thumbnail %}
+                                            <img id="annotatable-image" src="{{ mediafile.static_thumbnail.url }}" hidden>
+                                        {% else %}
+                                            <img id="annotatable-image" src="{{ mediafile.image_file.url }}" hidden>
+                                        {% endif %}
+                                    </div>
+                                    {% if mediafile.thumbnail %}
+                                        <div class="tab-pane fade" id="animated-preview-pane{{ mediafile.id }}"
+                                             role="tabpanel" aria-labelledby="animated-preview-tab{{ mediafile.id }}" tabindex="0">
+                                            <img src="{{ mediafile.thumbnail.url }}"
+                                                 class="img-fluid mediafile-video-preview"
+                                                 alt="Animated preview of {{ mediafile.original_filename }}">
+                                        </div>
+                                    {% endif %}
+                                    <div class="tab-pane fade" id="video-pane{{ mediafile.id }}"
+                                         role="tabpanel" aria-labelledby="video-tab{{ mediafile.id }}" tabindex="0">
+                                        <video controls muted class="mediafile-video-preview" preload="metadata">
+                                            <source src="{% url 'caidapp:stream_video' mediafile.id %}" type="video/mp4">
+                                            Your browser does not support the video tag.
+                                        </video>
+                                    </div>
+                                </div>
+                            </div>
 
                         {% else %}
                             <!-- Image with modal trigger -->
@@ -612,9 +679,21 @@ mediafile.taxon: {{ mediafile.taxon }}
                                         aria-label="Close"></button>
                             </div>
                             <div class="modal-body d-flex align-items-center justify-content-center p-2">
-                                <img src="{{ mediafile.mediafile.url }}"
-                                     class="mediafile-fullscreen-image"
-                                     alt="{{ mediafile.original_filename }}">
+                                {% if mediafile.media_type == 'video' %}
+                                    {% if mediafile.static_thumbnail %}
+                                        <img src="{{ mediafile.static_thumbnail.url }}"
+                                             class="mediafile-fullscreen-image"
+                                             alt="{{ mediafile.original_filename }}">
+                                    {% else %}
+                                        <img src="{{ mediafile.image_file.url }}"
+                                             class="mediafile-fullscreen-image"
+                                             alt="{{ mediafile.original_filename }}">
+                                    {% endif %}
+                                {% else %}
+                                    <img src="{{ mediafile.mediafile.url }}"
+                                         class="mediafile-fullscreen-image"
+                                         alt="{{ mediafile.original_filename }}">
+                                {% endif %}
                             </div>
                         </div>
                     </div>
