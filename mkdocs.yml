@@ -13,6 +13,7 @@ nav:
   - Introduction: index.md
   - User Guide:
     - Getting Started: first_steps.md
+    - Workgroup invitations: workgroup_invitations.md
     - Taxon classification: taxon_classification.md
     - Identification: identification.md
     - Cloud import: cloud_import.md
