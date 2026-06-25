@@ -7384,7 +7384,7 @@ def export_identities_xlsx(request):
     all_identities = IndividualIdentity.objects.filter(
         owner_workgroup=request.user.caiduser.workgroup,
         # **user_has_access_filter_params(request.user.caiduser, "owner")
-    ).annotate(mediafile_count=Count("observations__mediafile", distinct=True)).order_by("id")
+    ).annotate(mediafile_count=Count("animalobservations__mediafile", distinct=True)).order_by("id")
     df = pd.DataFrame.from_records(all_identities.values())[
         ["id", "name", "code", "juv_code", "sex", "coat_type", "birth_date", "death_date", "note", "mediafile_count"]
     ]
