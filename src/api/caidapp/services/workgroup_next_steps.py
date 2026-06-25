@@ -71,10 +71,10 @@ def build_next_steps(workgroup: models.WorkGroup | None) -> list[NextStepCandida
         return sorted(candidates, key=lambda item: item.priority)
 
     identities_with_counts = identities.annotate(
-        mediafile_count=Count("mediafile", distinct=True),
+        mediafile_count=Count("animalobservation__mediafile", distinct=True),
         representative_mediafile_count=Count(
-            "mediafile",
-            filter=Q(mediafile__identity_is_representative=True),
+            "animalobservation__mediafile",
+            filter=Q(animalobservation__identity_is_representative=True),
             distinct=True,
         ),
     )

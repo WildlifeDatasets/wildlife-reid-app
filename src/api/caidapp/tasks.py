@@ -830,6 +830,73 @@ def _get_rel_and_abs_paths_based_on_csv_row(row: dict, output_dir: Path):
     return rel_pth, abs_pth
 
 
+MEDIAFILE_VARIANT_CSV_COLUMNS = {
+    "preview_path": "preview",
+    "thumbnail_path": "thumbnail",
+    "static_thumbnail_path": "static_thumbnail",
+}
+
+
+def _is_missing_metadata_value(value) -> bool:
+    if value is None:
+        return True
+    try:
+        if pd.isna(value):
+            return True
+    except TypeError:
+        pass
+    return isinstance(value, str) and value.strip() == ""
+
+
+def _resolve_variant_rel_path(value, output_dir: Path) -> str | None:
+    if _is_missing_metadata_value(value):
+        return None
+
+    variant_path = Path(str(value))
+    if variant_path.is_absolute():
+        abs_path = variant_path
+    else:
+        upload_relative_path = output_dir / variant_path
+        media_root_relative_path = Path(settings.MEDIA_ROOT) / variant_path
+        if upload_relative_path.exists() or not media_root_relative_path.exists():
+            abs_path = upload_relative_path
+        else:
+            abs_path = media_root_relative_path
+
+    if not abs_path.exists():
+        return None
+    return os.path.relpath(abs_path, settings.MEDIA_ROOT).replace("\\", "/")
+
+
+def _apply_prepared_mediafile_variants(mf: MediaFile, row, output_dir: Path) -> bool:
+    changed_fields = []
+    for column_name, field_name in MEDIAFILE_VARIANT_CSV_COLUMNS.items():
+        if column_name not in row:
+            continue
+        rel_path = _resolve_variant_rel_path(row[column_name], output_dir)
+        if rel_path is None:
+            continue
+        field_file = getattr(mf, field_name)
+        if field_file.name != rel_path:
+            setattr(mf, field_name, rel_path)
+            changed_fields.append(field_name)
+
+    if changed_fields:
+        mf.save(update_fields=changed_fields)
+        return True
+    return False
+
+
+def _mediafile_variants_exist(mf: MediaFile) -> bool:
+    for field_name in MEDIAFILE_VARIANT_CSV_COLUMNS.values():
+        field_file = getattr(mf, field_name)
+        if not field_file or not field_file.name:
+            return False
+        if not (Path(settings.MEDIA_ROOT) / field_file.name).exists():
+            return False
+    return True
+
+
 def update_uploaded_archive_by_metadata_csv(
     uploaded_archive: UploadedArchive,
     thumbnail_width: int = 400,
@@ -1001,16 +1068,18 @@ def _update_database_by_one_row_of_metadata(
     identity = _resolve_identity()
     mediafile_location = _parse_mediafile_location()
 
-    try:
-        mf = uploaded_archive.mediafile_set.get(mediafile=str(image_rel_pth))
+    mf = uploaded_archive.mediafile_set.filter(mediafile=str(media_rel_pth)).first()
+    if mf is None and media_rel_pth != image_rel_pth:
+        mf = uploaded_archive.mediafile_set.filter(mediafile=str(image_rel_pth)).first()
+
+    if mf is not None:
         # logger.debug("Using Mediafile generated before")
         status = "found"
-    except MediaFile.DoesNotExist:
+    else:
         # convert pandas row to json
         if create_missing:
             # logger.debug(f"{row['detection_results']=}")
 
-            # TODO use media_rel_pth instead of image_rel_pth
             mf = MediaFile(
                 parent=uploaded_archive,
                 # mediafile=str(image_rel_pth),
@@ -1046,8 +1115,10 @@ def _update_database_by_one_row_of_metadata(
             status = "deleted"
             return status
 
-    # generate thumbnail if necessary
-    mf.make_thumbnail_for_mediafile_if_necessary(thumbnail_width=thumbnail_width)
+    _apply_prepared_mediafile_variants(mf, row, output_dir)
+    if not _mediafile_variants_exist(mf):
+        # Fallback for legacy CSVs or manually repaired media directories.
+        mf.make_thumbnail_for_mediafile_if_necessary(thumbnail_width=thumbnail_width)
 
     metadata_json = row.to_dict()
     # remove None and NaN values

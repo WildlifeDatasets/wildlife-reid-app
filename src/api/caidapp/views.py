@@ -624,8 +624,8 @@ def uploads_species(request) -> HttpResponse:
     queryset = get_filtered_mediafiles(
         request.user,
         contains_single_taxon=False,
-        taxon_for_identification__isnull=True,
-    )
+        contains_identities=False,
+    ).exclude(is_for_identification=True, taxon_for_identification__isnull=True)
     page_context = paginate_queryset(queryset, request)
 
     dates = views_uploads._get_check_dates(request, contains_single_taxon=False, taxon_for_identification__isnull=None)

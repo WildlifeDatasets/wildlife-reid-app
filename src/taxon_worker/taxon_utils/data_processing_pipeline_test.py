@@ -51,6 +51,47 @@ def test_keep_correctly_loaded_images_reports_missing_prepared_file(tmp_path):
     assert str(missing) in failing.iloc[0]["read_error"]
 
 
+def test_make_previews_creates_media_variants_once_for_duplicate_media_rows(tmp_path, monkeypatch):
+    output_dir = tmp_path / "output"
+    image_dir = output_dir / "images"
+    image_dir.mkdir(parents=True)
+    image_path = image_dir / "first.webp"
+    image_path.write_bytes(b"image")
+    calls = []
+
+    def fake_thumbnail(source_path, target_path, width=800):
+        calls.append(("thumbnail", Path(source_path), Path(target_path), width))
+        Path(target_path).parent.mkdir(parents=True, exist_ok=True)
+        Path(target_path).write_bytes(b"variant")
+        return True
+
+    monkeypatch.setattr(data_processing_pipeline, "make_thumbnail_from_file", fake_thumbnail)
+
+    metadata = pd.DataFrame(
+        [
+            {
+                "image_path": "first.webp",
+                "absolute_media_path": str(image_path),
+                "full_image_path": str(image_path),
+                "media_type": "image",
+            },
+            {
+                "image_path": "first.webp",
+                "absolute_media_path": str(image_path),
+                "full_image_path": str(image_path),
+                "media_type": "image",
+            },
+        ]
+    )
+
+    result = data_processing_pipeline.make_previews(metadata, output_dir, preview_width=1200, thumbnail_width=400)
+
+    assert list(result["preview_path"]) == ["previews/first.webp", "previews/first.webp"]
+    assert list(result["thumbnail_path"]) == ["thumbnails/first.webp", "thumbnails/first.webp"]
+    assert list(result["static_thumbnail_path"]) == ["static_thumbnails/first.webp", "static_thumbnails/first.webp"]
+    assert len(calls) == 3
+
+
 def test_data_processing():
     """Try the whole processing starting from .tar.gz file."""
     # to make it faster - find just one subdir with jpg file

@@ -2491,6 +2491,40 @@ class IdentificationUploadsViewTest(TestCase):
         response = self.client.get(reverse("caidapp:uploads_known_identities"))
         self.assertContains(response, f'{reverse("caidapp:sequences")}?uploadedarchive_id={known_identity_archive.id}')
 
+    def test_taxonomy_uploads_keep_archives_sent_to_identification(self):
+        identification_taxon = TaxonFactory(name="Lynx")
+        taxonomy_archive = UploadedArchiveFactory(
+            owner=self.caiduser,
+            name="Taxonomy only archive",
+            contains_single_taxon=False,
+            contains_identities=False,
+            is_for_identification=False,
+            taxon_for_identification=None,
+        )
+        sent_archive = UploadedArchiveFactory(
+            owner=self.caiduser,
+            name="Taxonomy archive sent to identification",
+            contains_single_taxon=False,
+            contains_identities=False,
+            is_for_identification=True,
+            taxon_for_identification=identification_taxon,
+        )
+        direct_identification_archive = UploadedArchiveFactory(
+            owner=self.caiduser,
+            name="Direct identification archive",
+            contains_single_taxon=False,
+            contains_identities=False,
+            is_for_identification=True,
+            taxon_for_identification=None,
+        )
+
+        response = self.client.get(reverse("caidapp:uploads"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, taxonomy_archive.name)
+        self.assertContains(response, sent_archive.name)
+        self.assertNotContains(response, direct_identification_archive.name)
+
     def test_uploadedarchive_detail_links_to_sequences_and_mediafiles(self):
         TaxonFactory(name=models.TAXON_NOT_CLASSIFIED)
         archive = UploadedArchiveFactory(

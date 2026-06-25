@@ -1584,32 +1584,40 @@ class MediaFile(models.Model):
         else:
             preview_abs_pth = preview_abs_pth.with_suffix(".webp")
 
-        preview_rel_pth = os.path.relpath(preview_abs_pth, settings.MEDIA_ROOT)
-        thumbnail_rel_pth = os.path.relpath(thumbnail_abs_pth, settings.MEDIA_ROOT)
-        static_thumbnail_rel_pth = os.path.relpath(thumbnail_abs_pth, settings.MEDIA_ROOT)
+        preview_rel_pth = os.path.relpath(preview_abs_pth, settings.MEDIA_ROOT).replace("\\", "/")
+        thumbnail_rel_pth = os.path.relpath(thumbnail_abs_pth, settings.MEDIA_ROOT).replace("\\", "/")
+        static_thumbnail_rel_pth = os.path.relpath(static_thumbnail_abs_pth, settings.MEDIA_ROOT).replace("\\", "/")
 
         if (not self.preview) or (not self.preview.name) or (not preview_abs_pth.exists()) or force:
             if not force:
                 logger.debug(f"preview does not exist for {self.mediafile.name=}")
-            preview_abs_pth.parent.mkdir(exist_ok=True, parents=True)
-            # logger.debug(f"Creating preview for {preview_rel_pth}")
-            if self.media_type == "video":
-                convert_to_mp4(mediafile_path, preview_abs_pth)
+            if preview_abs_pth.exists() and not force:
+                self.preview = str(preview_rel_pth)
+                self.save(update_fields=["preview"])
             else:
-                fs_data.make_thumbnail_from_file(mediafile_path, preview_abs_pth, width=preview_width)
-            self.preview = str(preview_rel_pth)
-            self.save()
+                preview_abs_pth.parent.mkdir(exist_ok=True, parents=True)
+                # logger.debug(f"Creating preview for {preview_rel_pth}")
+                if self.media_type == "video":
+                    convert_to_mp4(mediafile_path, preview_abs_pth)
+                else:
+                    fs_data.make_thumbnail_from_file(mediafile_path, preview_abs_pth, width=preview_width)
+                self.preview = str(preview_rel_pth)
+                self.save(update_fields=["preview"])
 
         if (not self.thumbnail) or (not self.thumbnail.name) or (not thumbnail_abs_pth.exists()) or force:
             if not force:
                 logger.debug(f"thumbnail does not exist for {self.mediafile.name=}")
-            thumbnail_abs_pth.parent.mkdir(exist_ok=True, parents=True)
-            if self.media_type == "video":
-                fs_data.make_gif_from_video_file(mediafile_path, thumbnail_abs_pth, width=thumbnail_width)
+            if thumbnail_abs_pth.exists() and not force:
+                self.thumbnail = str(thumbnail_rel_pth)
+                self.save(update_fields=["thumbnail"])
             else:
-                fs_data.make_thumbnail_from_file(mediafile_path, thumbnail_abs_pth, width=thumbnail_width)
-            self.thumbnail = str(thumbnail_rel_pth)
-            self.save()
+                thumbnail_abs_pth.parent.mkdir(exist_ok=True, parents=True)
+                if self.media_type == "video":
+                    fs_data.make_gif_from_video_file(mediafile_path, thumbnail_abs_pth, width=thumbnail_width)
+                else:
+                    fs_data.make_thumbnail_from_file(mediafile_path, thumbnail_abs_pth, width=thumbnail_width)
+                self.thumbnail = str(thumbnail_rel_pth)
+                self.save(update_fields=["thumbnail"])
 
         if (
             (not self.static_thumbnail)
@@ -1619,9 +1627,13 @@ class MediaFile(models.Model):
         ):
             if not force:
                 logger.debug(f"static_thumbnail does not exist for {self.mediafile.name=}")
-            fs_data.make_thumbnail_from_file(mediafile_path, static_thumbnail_abs_pth, width=thumbnail_width)
-            self.static_thumbnail = str(static_thumbnail_rel_pth)
-            self.save()
+            if static_thumbnail_abs_pth.exists() and not force:
+                self.static_thumbnail = str(static_thumbnail_rel_pth)
+                self.save(update_fields=["static_thumbnail"])
+            else:
+                fs_data.make_thumbnail_from_file(mediafile_path, static_thumbnail_abs_pth, width=thumbnail_width)
+                self.static_thumbnail = str(static_thumbnail_rel_pth)
+                self.save(update_fields=["static_thumbnail"])
             # self.get_static_thumbnail(force=force)
 
     def save(self, *args, **kwargs):

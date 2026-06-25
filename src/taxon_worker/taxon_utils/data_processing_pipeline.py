@@ -441,24 +441,126 @@ def keep_correctly_loaded_images(metadata) -> Tuple[pd.DataFrame, pd.DataFrame]:
 # new function
 
 
-# TODO make preview on taxon worker
-def make_previews(metadata, output_dir, preview_width=1200, force: bool = False, progress_callback=None):
-    """Create preview image for video."""
+def _variant_rel_path(path: Path, output_dir: Path) -> str:
+    return path.relative_to(output_dir).as_posix()
+
+
+def _media_variant_paths(row, output_dir: Path) -> dict:
+    mediafile_path = Path(row["absolute_media_path"])
+    mediafile_name = mediafile_path.name
+
+    preview_abs_pth = output_dir / "previews" / mediafile_name
+    if row["media_type"] == "video":
+        preview_abs_pth = preview_abs_pth.with_suffix(".mp4")
+    else:
+        preview_abs_pth = preview_abs_pth.with_suffix(".webp")
+
+    thumbnail_abs_pth = (output_dir / "thumbnails" / mediafile_name).with_suffix(".webp")
+    static_thumbnail_abs_pth = (output_dir / "static_thumbnails" / mediafile_name).with_suffix(".webp")
+    return {
+        "preview_path": preview_abs_pth,
+        "thumbnail_path": thumbnail_abs_pth,
+        "static_thumbnail_path": static_thumbnail_abs_pth,
+    }
+
+
+def _optional_path_from_row(row, column_name: str, fallback: Path) -> Path:
+    value = row.get(column_name)
+    if value is None or pd.isna(value) or (isinstance(value, str) and value.strip() == ""):
+        return fallback
+    return Path(value)
+
+
+def make_gif_from_video_file(video_path: Path, thumbnail_path: Path, width: int = 400, num_frames: int = 30) -> bool:
+    """Create an animated thumbnail from a video file."""
+    try:
+        cap = cv2.VideoCapture(str(video_path))
+        frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        if frame_count <= 0:
+            logger.warning("Cannot create animated thumbnail from video without frames: %s", video_path)
+            return False
+
+        frames = []
+        for i in range(num_frames):
+            frame_idx = int(i * frame_count / num_frames)
+            cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
+            ret, frame = cap.read()
+            if not ret:
+                continue
+            scale = float(width) / frame.shape[1]
+            frame = cv2.resize(frame, (0, 0), fx=scale, fy=scale)
+            frames.append(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+
+        if not frames:
+            logger.warning("Cannot create animated thumbnail from unreadable video: %s", video_path)
+            return False
+
+        thumbnail_path.parent.mkdir(exist_ok=True, parents=True)
+        frame_one = Image.fromarray(frames[0])
+        remaining_frames = [Image.fromarray(frame) for frame in frames[1:]]
+        save_kwargs = {
+            "append_images": remaining_frames,
+            "save_all": True,
+            "duration": 100,
+            "loop": 0,
+        }
+        if thumbnail_path.suffix.lower() == ".webp":
+            save_kwargs.update({"format": "WEBP", "quality": 85, "method": 5})
+        frame_one.save(thumbnail_path, **save_kwargs)
+        return True
+    except Exception:
+        logger.warning(
+            "Cannot create animated thumbnail from video '%s'. Exception: %s",
+            video_path,
+            traceback.format_exc(),
+        )
+        return False
+
+
+def make_previews(
+    metadata,
+    output_dir,
+    preview_width=1200,
+    thumbnail_width=400,
+    force: bool = False,
+    progress_callback=None,
+):
+    """Create preview, animated thumbnail and static thumbnail files for each media file."""
     output_dir = Path(output_dir)
-    logger.info("Preview stage: creating previews for %s media files.", len(metadata))
+    logger.info("Preview stage: creating media variants for %s media rows.", len(metadata))
+    generated_by_media_path = {}
     for position, (_, row) in enumerate(tqdm(metadata.iterrows(), total=len(metadata), desc="Creating previews")):
         mediafile_path = Path(row["absolute_media_path"])
-        # output_dir = Path(settings.MEDIA_ROOT) / mediafile.parent.outputdir
-        # abs_pth = output_dir / "thumbnails" / Path(mediafile.mediafile.name).name
-        preview_abs_pth = output_dir / "previews" / Path(mediafile_path).name
+        media_key = str(mediafile_path)
+        if media_key not in generated_by_media_path:
+            variant_paths = _media_variant_paths(row, output_dir)
+            preview_abs_pth = variant_paths["preview_path"]
+            thumbnail_abs_pth = variant_paths["thumbnail_path"]
+            static_thumbnail_abs_pth = variant_paths["static_thumbnail_path"]
+            static_source_path = _optional_path_from_row(row, "full_image_path", mediafile_path)
 
-        if row["media_type"] == "image":
-            # preview_rel_pth = os.path.relpath(preview_abs_pth, settings.MEDIA_ROOT)
-            # logger.debug(f"Creating preview for {mediafile_path}")
-            make_thumbnail_from_file(mediafile_path, preview_abs_pth, width=preview_width)
-        elif row["media_type"] == "video":
-            # logger.debug(f"Creating preview for {mediafile_path}")
-            convert_to_mp4(mediafile_path, preview_abs_pth, force=force)
+            if row["media_type"] == "image":
+                if force or not preview_abs_pth.exists():
+                    make_thumbnail_from_file(mediafile_path, preview_abs_pth, width=preview_width)
+                if force or not thumbnail_abs_pth.exists():
+                    make_thumbnail_from_file(mediafile_path, thumbnail_abs_pth, width=thumbnail_width)
+            elif row["media_type"] == "video":
+                if force or not preview_abs_pth.exists():
+                    convert_to_mp4(mediafile_path, preview_abs_pth, force=force)
+                if force or not thumbnail_abs_pth.exists():
+                    make_gif_from_video_file(mediafile_path, thumbnail_abs_pth, width=thumbnail_width)
+
+            if force or not static_thumbnail_abs_pth.exists():
+                make_thumbnail_from_file(static_source_path, static_thumbnail_abs_pth, width=thumbnail_width)
+
+            generated_by_media_path[media_key] = {
+                column_name: _variant_rel_path(path, output_dir)
+                for column_name, path in variant_paths.items()
+                if path.exists()
+            }
+
+        for column_name, rel_path in generated_by_media_path[media_key].items():
+            metadata.loc[row.name, column_name] = rel_path
         if progress_callback is not None:
             progress_callback(position + 1, len(metadata))
 

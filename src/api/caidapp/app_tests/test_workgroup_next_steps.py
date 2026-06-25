@@ -3,6 +3,7 @@ from django.urls import reverse
 
 from caidapp import models
 from caidapp.app_tests.factories import (
+    AnimalObservationFactory,
     CaidUserFactory,
     IndividualIdentityFactory,
     MediaFileFactory,
@@ -41,15 +42,15 @@ class WorkgroupNextStepsServiceTest(TestCase):
         identity_without_media = IndividualIdentityFactory(owner_workgroup=self.workgroup, name="Solo Identity")
         identity_with_code = IndividualIdentityFactory(owner_workgroup=self.workgroup, name="B75 Cumel")
         identity_with_media = IndividualIdentityFactory(owner_workgroup=self.workgroup, name="Fernet")
-        models.MediaFile.objects.create(
+        mediafile = models.MediaFile.objects.create(
             parent=UploadedArchiveFactory(owner=self.caiduser),
-            identity=identity_with_media,
             media_type="image",
             mediafile="images/test.jpg",
             image_file="images/test.jpg",
             preview="previews/test.jpg",
             original_filename="test.jpg",
         )
+        AnimalObservationFactory(mediafile=mediafile, identity=identity_with_media)
         models.MergeIdentitySuggestionResult.objects.create(
             workgroup=self.workgroup,
             suggestions=[(identity_with_code.id, identity_with_media.id, 1)],
@@ -66,6 +67,27 @@ class WorkgroupNextStepsServiceTest(TestCase):
         self.assertNotIn("no_identities", step_codes)
         self.assertEqual(steps[0].code, "identities_without_mediafiles")
         self.assertEqual(identity_without_media.count_of_mediafiles(), 0)
+
+    def test_representative_suggestion_ignores_identities_without_mediafiles(self):
+        UploadedArchiveFactory(owner=self.caiduser)
+        empty_identity = IndividualIdentityFactory(owner_workgroup=self.workgroup, name="Empty")
+        identity_without_representative = IndividualIdentityFactory(owner_workgroup=self.workgroup, name="Needs representative")
+        mediafile = MediaFileFactory(parent=UploadedArchiveFactory(owner=self.caiduser), identity=None)
+        AnimalObservationFactory(
+            mediafile=mediafile,
+            identity=identity_without_representative,
+            identity_is_representative=False,
+        )
+
+        steps = build_next_steps(self.workgroup)
+        representative_step = next(step for step in steps if step.code == "identities_without_representatives")
+
+        self.assertEqual(representative_step.text, "1 identities do not have a representative media file.")
+        self.assertEqual(
+            representative_step.url,
+            reverse("caidapp:individual_identity_mediafiles", args=[identity_without_representative.id]),
+        )
+        self.assertEqual(empty_identity.count_of_mediafiles(), 0)
 
 
 class DashIdentitiesNextStepViewTest(TestCase):

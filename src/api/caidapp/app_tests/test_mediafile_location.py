@@ -198,3 +198,54 @@ class SpreadsheetMetadataImportTest(TestCase):
         self.assertEqual(mediafile.identity.juv_code, "J12")
         self.assertEqual(str(mediafile.location), "49.123,13.456")
         self.assertEqual(mediafile.locality.name, "Forest Edge")
+
+    def test_metadata_import_uses_prepared_media_variants_without_regenerating(self):
+        uploaded_archive = UploadedArchiveFactory(
+            owner=self.caiduser,
+            contains_identities=False,
+            contains_single_taxon=False,
+            is_for_identification=False,
+        )
+        output_dir = Path(settings.MEDIA_ROOT) / uploaded_archive.outputdir
+        (output_dir / "images").mkdir(parents=True, exist_ok=True)
+        image_path = output_dir / "images" / "first.webp"
+        image_path.write_bytes(b"fake image")
+        for relative_path in ("previews/first.webp", "thumbnails/first.webp", "static_thumbnails/first.webp"):
+            path = output_dir / relative_path
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(b"prepared")
+
+        row_data = {
+            "image_path": "first.webp",
+            "absolute_media_path": str(image_path),
+            "datetime": "2026-05-15T10:30:00",
+            "predicted_category": "Lynx",
+            "media_type": "image",
+            "preview_path": "previews/first.webp",
+            "thumbnail_path": "thumbnails/first.webp",
+            "static_thumbnail_path": "static_thumbnails/first.webp",
+        }
+        df = pd.DataFrame([row_data])
+
+        with patch("caidapp.models.MediaFile.make_thumbnail_for_mediafile_if_necessary", autospec=True) as make_variants:
+            status = tasks._update_database_by_one_row_of_metadata(
+                df=df,
+                index=0,
+                row=df.iloc[0],
+                create_missing=True,
+                extract_identites=False,
+                locality=None,
+                output_dir=output_dir,
+                thumbnail_width=400,
+                uploaded_archive=uploaded_archive,
+            )
+
+        mediafile = uploaded_archive.mediafile_set.get()
+        self.assertEqual(status, "created and not updated by user")
+        self.assertEqual(mediafile.preview.name, f"{uploaded_archive.outputdir}/previews/first.webp")
+        self.assertEqual(mediafile.thumbnail.name, f"{uploaded_archive.outputdir}/thumbnails/first.webp")
+        self.assertEqual(
+            mediafile.static_thumbnail.name,
+            f"{uploaded_archive.outputdir}/static_thumbnails/first.webp",
+        )
+        make_variants.assert_not_called()
