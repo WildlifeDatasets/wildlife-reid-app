@@ -1178,6 +1178,10 @@ class IndividualIdentityUpdateView(LoginRequiredMixin, UpdateView):
         """Get context data for the template."""
         context = super().get_context_data(**kwargs)
         individual_identity = self.get_object()
+        mediafiles_count = individual_identity.count_of_mediafiles()
+        sequences_count = (
+            individual_identity.observation_mediafiles().exclude(sequence_id__isnull=True).values("sequence_id").distinct().count()
+        )
         media_files = individual_identity.observation_mediafiles().filter(
             observations__identity=individual_identity,
             observations__identity_is_representative=True,
@@ -1186,11 +1190,13 @@ class IndividualIdentityUpdateView(LoginRequiredMixin, UpdateView):
 
         nav_dict = {}
         if individual_identity:
-            nav_dict["Media Files"] = reverse_lazy(
+            nav_dict[f"Media Files ({mediafiles_count})"] = reverse_lazy(
                 "caidapp:individual_identity_mediafiles",
                 kwargs={"individual_identity_id": individual_identity.id},
             )
-            nav_dict["Sequences"] = f"{reverse('caidapp:sequences')}?individual_identity_id={individual_identity.id}"
+            nav_dict[f"Sequences ({sequences_count})"] = (
+                f"{reverse('caidapp:sequences')}?individual_identity_id={individual_identity.id}"
+            )
         right_nav = {"Localities": None}
         for locality in individual_identity.localities():
             right_nav[locality.name] = reverse_lazy(
@@ -1204,7 +1210,8 @@ class IndividualIdentityUpdateView(LoginRequiredMixin, UpdateView):
                 "button": "Save",
                 # "mediafile": media_file,
                 "mediafiles": media_files[:4],
-                "mediafiles_count": individual_identity.count_of_mediafiles(),
+                "mediafiles_count": mediafiles_count,
+                "sequences_count": sequences_count,
                 "mediafiles_url": reverse_lazy(
                     "caidapp:individual_identity_mediafiles",
                     kwargs={"individual_identity_id": individual_identity.id},
@@ -4408,6 +4415,11 @@ def media_files_update(
         taxon_verified=taxon_verified,
         extra_filter_kwargs=filter_kwargs,
     )
+    active_uploadedarchive = _get_active_uploadedarchive_from_request(request, uploadedarchive_id)
+    active_taxon = _get_active_taxon_from_request(request)
+    active_album = _get_active_album_from_request(request, album_hash)
+    active_identity = _get_active_identity_from_request(request, individual_identity_id)
+    active_locality = _get_active_locality_from_request(request, locality_hash)
 
     if show_overview_button and not full_mediafiles.exists():
         return message_view(
@@ -4571,6 +4583,11 @@ def media_files_update(
         "number_of_mediafiles": number_of_mediafiles,
         "show_overview_button": show_overview_button,
         "filter": mediafile_filter,
+        "active_uploadedarchive": active_uploadedarchive,
+        "active_taxon": active_taxon,
+        "active_album": active_album,
+        "active_identity": active_identity,
+        "active_locality": active_locality,
         "mediafiles_stats_query_string": _build_mediafiles_scope_query_string(
             request,
             uploadedarchive_id=uploadedarchive_id,
@@ -4648,6 +4665,7 @@ def _single_mediafile_update(request, instance, form, form_bulk_processing, sele
         instance.updated_by = request.user.caiduser
         instance.updated_at = django.utils.timezone.now()
         instance.save()
+        observation.save()
     elif "btnBulkProcessing_id_identity_is_representative" in form.data:
         observation = instance.first_observation_get_or_create
         observation.identity_is_representative = form_bulk_processing.cleaned_data["identity_is_representative"]

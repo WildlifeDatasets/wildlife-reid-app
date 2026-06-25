@@ -138,7 +138,37 @@
 
 
         <section class="section">
-        {% include "caidapp/filter_collapse.html" %}
+            {% if active_uploadedarchive or active_taxon or active_identity or active_locality or active_album %}
+            <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+                <span class="text-muted small">Filtered by:</span>
+                {% if active_uploadedarchive %}
+                    <a class="btn btn-sm btn-outline-secondary" href="{% url 'caidapp:uploadedarchive_detail' active_uploadedarchive.id %}">
+                        <i class="bi bi-file-zip"></i> Upload: {{ active_uploadedarchive }}
+                    </a>
+                {% endif %}
+                {% if active_taxon %}
+                    <a class="btn btn-sm btn-outline-secondary" href="{% url 'caidapp:media_files' %}?taxon={{ active_taxon.id }}">
+                        <i class="fa-solid fa-hippo"></i> Taxon: {{ active_taxon }}
+                    </a>
+                {% endif %}
+                {% if active_identity %}
+                    <a class="btn btn-sm btn-outline-secondary" href="{% url 'caidapp:individual_identity_update' active_identity.id %}">
+                        <i class="bi bi-fingerprint"></i> Identity: {{ active_identity }}
+                    </a>
+                {% endif %}
+                {% if active_locality %}
+                    <a class="btn btn-sm btn-outline-secondary" href="{% url 'caidapp:update_locality' active_locality.id %}">
+                        <i class="bi bi-geo-alt"></i> Locality: {% if request.session.private_mode %}{{ active_locality.visible_name }}{% else %}{{ active_locality.name }}{% endif %}
+                    </a>
+                {% endif %}
+                {% if active_album %}
+                    <a class="btn btn-sm btn-outline-secondary" href="{% url 'caidapp:album' active_album.hash %}">
+                        <i class="bi bi-collection"></i> Album: {{ active_album }}
+                    </a>
+                {% endif %}
+            </div>
+            {% endif %}
+            {% include "caidapp/filter_collapse.html" %}
 
             <form method="POST">
                 {% csrf_token %}

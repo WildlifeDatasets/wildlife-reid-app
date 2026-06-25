@@ -37,7 +37,7 @@
       </a>
     {% endif %}
     {% if active_identity %}
-      <a class="btn btn-sm btn-outline-secondary" href="{% url 'caidapp:individual_identity_mediafiles' active_identity.id %}">
+      <a class="btn btn-sm btn-outline-secondary" href="{% url 'caidapp:individual_identity_update' active_identity.id %}">
         <i class="bi bi-fingerprint"></i> Identity: {{ active_identity }}
       </a>
     {% endif %}
@@ -47,7 +47,7 @@
       </span>
     {% endif %}
     {% if active_locality %}
-      <a class="btn btn-sm btn-outline-secondary" href="{% url 'caidapp:media_files_locality' active_locality.hash %}">
+      <a class="btn btn-sm btn-outline-secondary" href="{% url 'caidapp:update_locality' active_locality.id %}">
         <i class="bi bi-geo-alt"></i> Locality: {% if request.session.private_mode %}{{ active_locality.visible_name }}{% else %}{{ active_locality.name }}{% endif %}
       </a>
     {% endif %}

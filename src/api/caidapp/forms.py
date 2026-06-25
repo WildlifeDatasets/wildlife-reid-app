@@ -21,6 +21,13 @@ logger = logging.getLogger(__name__)
 User = get_user_model()
 
 
+def format_identity_choice_label(identity: IndividualIdentity) -> str:
+    """Return a searchable identity label with code when available."""
+    if identity.code:
+        return f"{identity.name} ({identity.code})"
+    return str(identity.name)
+
+
 class WorkGroupInvitationForm(forms.ModelForm):
     user_identifier = forms.CharField(
         label="Username or email",
@@ -288,6 +295,7 @@ class IndividualIdentitySelectSecondForMergeForm(forms.Form):
         if identities is not None:
             logger.debug(f"identities: {identities}")
             self.fields["identity"] = forms.ModelChoiceField(queryset=identities, required=True)
+            self.fields["identity"].label_from_instance = format_identity_choice_label
 
 
 class UploadedArchiveUpdateBySpreadsheetForm(forms.Form):
@@ -780,6 +788,7 @@ class MediaFileBulkForm(forms.ModelForm):
         if workgroup is not None:
             self.fields["identity"].queryset = self.fields["identity"].queryset.filter(owner_workgroup=workgroup)
         self.fields["identity"].queryset = self.fields["identity"].queryset.order_by("name")
+        self.fields["identity"].label_from_instance = format_identity_choice_label
         self.fields["identity"].widget.attrs["class"] = (
             self.fields["identity"].widget.attrs.get("class", "") + " js-searchable-select"
         ).strip()
@@ -908,6 +917,7 @@ class AnimalObservationForm(forms.ModelForm):
             self.fields["identity"].queryset = self.fields["identity"].queryset.filter(owner_workgroup=workgroup)
 
         self.fields["identity"].queryset = self.fields["identity"].queryset.order_by("name")
+        self.fields["identity"].label_from_instance = format_identity_choice_label
         self.fields["taxon"].queryset = models.Taxon.objects.order_by("name")
         self.fields["identity"].widget.attrs["class"] = (
             self.fields["identity"].widget.attrs.get("class", "") + " js-searchable-select"

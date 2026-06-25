@@ -213,8 +213,8 @@ class MediafileListViewTest(TestCase):
 
     def test_bulk_identity_select_is_limited_to_workgroup_and_searchable(self):
         UploadedArchiveFactory(owner=self.caiduser)
-        zeta = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Zeta")
-        alpha = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Alpha")
+        zeta = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Zeta", code="Z-002")
+        alpha = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Alpha", code="A-001")
         IndividualIdentityFactory(name="Other Workgroup")
 
         response = self.client.get(reverse("caidapp:media_files"))
@@ -222,6 +222,8 @@ class MediafileListViewTest(TestCase):
         form = response.context["form_bulk_processing"]
         identities = list(form.fields["identity"].queryset)
         self.assertEqual(identities, [alpha, zeta])
+        self.assertEqual(form.fields["identity"].label_from_instance(alpha), "Alpha (A-001)")
+        self.assertEqual(form.fields["identity"].label_from_instance(zeta), "Zeta (Z-002)")
         self.assertIn("js-searchable-select", form.fields["identity"].widget.attrs["class"])
 
 
@@ -1145,6 +1147,21 @@ class IdentityListBulkActionsTest(TestCase):
         self.assertContains(response, "Media Files: 2")
         self.assertContains(response, reverse("caidapp:individual_identity_mediafiles", args=[identity.id]))
 
+    def test_identity_update_nav_shows_mediafile_and_sequence_counts(self):
+        identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Alpha")
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        sequence = SequenceFactory(uploaded_archive=archive)
+        mediafile_one = MediaFileFactory(parent=archive, sequence=sequence)
+        mediafile_two = MediaFileFactory(parent=archive, sequence=sequence)
+        AnimalObservationFactory(mediafile=mediafile_one, identity=identity)
+        AnimalObservationFactory(mediafile=mediafile_two, identity=identity)
+
+        response = self.client.get(reverse("caidapp:individual_identity_update", args=[identity.id]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Media Files (2)")
+        self.assertContains(response, "Sequences (1)")
+
 
 class SequenceViewTest(TestCase):
     def setUp(self):
@@ -1535,6 +1552,41 @@ class SequenceViewTest(TestCase):
         self.assertFalse(models.Sequence.objects.filter(id=second_sequence.id).exists())
         self.assertEqual(models.MediaFile.objects.filter(sequence_id=first_mediafile.sequence_id).count(), 2)
 
+    def test_mediafiles_bulk_identity_update_updates_all_selected_observations(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        target_identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Alpha")
+        first_mediafile = MediaFileFactory(parent=archive, original_filename="first.jpg")
+        second_mediafile = MediaFileFactory(parent=archive, original_filename="second.jpg")
+        first_observation = AnimalObservationFactory(mediafile=first_mediafile)
+        second_observation = AnimalObservationFactory(mediafile=second_mediafile)
+
+        response = self.client.post(
+            reverse("caidapp:media_files"),
+            {
+                "form-TOTAL_FORMS": "2",
+                "form-INITIAL_FORMS": "2",
+                "form-MIN_NUM_FORMS": "0",
+                "form-MAX_NUM_FORMS": "1000",
+                "form-0-id": str(first_mediafile.id),
+                "form-0-selected": "on",
+                "form-1-id": str(second_mediafile.id),
+                "form-1-selected": "on",
+                "identity": str(target_identity.id),
+                "btnBulkProcessing_id_identity": "Apply to selection",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        first_mediafile.refresh_from_db()
+        second_mediafile.refresh_from_db()
+        first_observation.refresh_from_db()
+        second_observation.refresh_from_db()
+
+        self.assertEqual(first_mediafile.identity, target_identity)
+        self.assertEqual(second_mediafile.identity, target_identity)
+        self.assertEqual(first_observation.identity, target_identity)
+        self.assertEqual(second_observation.identity, target_identity)
+
     def test_sequence_csv_export_uses_one_row_per_observation(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)
         sequence = SequenceFactory(uploaded_archive=archive)
@@ -1783,9 +1835,55 @@ class SequenceViewTest(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Identity: Alpha")
-        self.assertContains(response, reverse("caidapp:individual_identity_mediafiles", args=[identity.id]))
+        self.assertContains(response, reverse("caidapp:individual_identity_update", args=[identity.id]))
         self.assertContains(response, mediafile.original_filename)
         self.assertNotContains(response, other_mediafile.original_filename)
+
+    def test_sequence_view_shows_active_locality_detail_link(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        locality = LocalityFactory(owner=self.caiduser, name="Forest Camp")
+        other_locality = LocalityFactory(owner=self.caiduser, name="River Bank")
+        sequence = SequenceFactory(uploaded_archive=archive)
+        other_sequence = SequenceFactory(uploaded_archive=archive)
+        mediafile = MediaFileFactory(parent=archive, sequence=sequence, locality=locality, original_filename="forest.jpg")
+        other_mediafile = MediaFileFactory(
+            parent=archive,
+            sequence=other_sequence,
+            locality=other_locality,
+            original_filename="river.jpg",
+        )
+
+        response = self.client.get(reverse("caidapp:sequences"), {"locality_hash": locality.hash})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Locality: Forest Camp")
+        self.assertContains(response, reverse("caidapp:update_locality", args=[locality.id]))
+        self.assertContains(response, mediafile.original_filename)
+        self.assertNotContains(response, other_mediafile.original_filename)
+
+    def test_media_files_view_shows_active_filter_detail_links(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser, name="Visible upload")
+        identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Alpha")
+        locality = LocalityFactory(owner=self.caiduser, name="Forest Camp")
+        MediaFileFactory(parent=archive, identity=identity, locality=locality, original_filename="alpha.jpg")
+
+        response = self.client.get(
+            reverse("caidapp:media_files"),
+            {
+                "uploadedarchive_id": archive.id,
+                "individual_identity_id": identity.id,
+                "locality_hash": locality.hash,
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Filtered by:")
+        self.assertContains(response, "Upload: Visible upload")
+        self.assertContains(response, "Identity: Alpha")
+        self.assertContains(response, "Locality: Forest Camp")
+        self.assertContains(response, reverse("caidapp:uploadedarchive_detail", args=[archive.id]))
+        self.assertContains(response, reverse("caidapp:individual_identity_update", args=[identity.id]))
+        self.assertContains(response, reverse("caidapp:update_locality", args=[locality.id]))
 
     def test_sequence_view_rejects_identity_outside_user_workgroup(self):
         other_caiduser = CaidUserFactory()
