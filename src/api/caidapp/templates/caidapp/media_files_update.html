@@ -341,6 +341,15 @@
                                             <i class="bi bi-clock-history"></i> Change date and time
                                         </a>
                                     </li>
+                                    <li>
+                                        <button class="dropdown-item"
+                                                name="btnBulkProcessing_set_full_image_bbox"
+                                                type="submit"
+                                                onclick="return confirm('Set bbox to the full image for the selected media files?');">
+                                            <i class="bi bi-bounding-box"></i>
+                                            Set bbox to full image
+                                        </button>
+                                    </li>
 
 
                                 </ul>
@@ -515,23 +524,36 @@
                                                 <br>
                                         {% endif %}
 
-                                        {% if mediafile.instance.identity %}
+                                        {% if mediafile.instance.identity or mediafile.instance.first_observation_identity_id %}
                                             Identity:
                                             <a class="link-secondary"
-                                               href="{% url 'caidapp:individual_identity_mediafiles' mediafile.instance.identity.id %}">
-                                                {{ mediafile.instance.identity }}
+                                               href="{% if mediafile.instance.identity %}{% url 'caidapp:individual_identity_mediafiles' mediafile.instance.identity.id %}{% else %}{% url 'caidapp:individual_identity_mediafiles' mediafile.instance.first_observation_identity_id %}{% endif %}">
+                                                {% if mediafile.instance.identity %}{{ mediafile.instance.identity }}{% else %}{{ mediafile.instance.first_observation_identity_name }}{% endif %}
                                             </a>
                                             {#                                            {{ mediafile.instance.identity }}#}
                                                 {#                                                <i class="bi bi-check-circle"></i>#}
 {#                                                <i class="bi bi-bookmark"></i>#}
-                                              <button
-      type="button"
-      class="btn btn-link p-0 rep-star-btn"
-      data-mediafile-id="{{ mediafile.instance.id }}"
-      data-bs-toggle="tooltip"
-      title="Representative identity">
-    <i class="bi {% if mediafile.instance.identity_is_representative %}bi-star-fill{% else %}bi-star{% endif %}"></i>
-  </button>
+                                            {% if mediafile.instance.observation_count > 1 %}
+                                                <span class="btn btn-link p-0 text-muted"
+                                                      data-bs-toggle="tooltip"
+                                                      data-bs-title="This media file has multiple observations. Edit representative flags in the media file detail."
+                                                      title="This media file has multiple observations. Edit representative flags in the media file detail.">
+                                                    <span class="position-relative d-inline-block">
+                                                        <i class="bi {% if mediafile.instance.first_observation_identity_is_representative %}bi-star-fill{% else %}bi-star{% endif %}"></i>
+                                                        <i class="bi {% if mediafile.instance.first_observation_identity_is_representative %}bi-star-fill{% else %}bi-star{% endif %} position-absolute top-0 start-0"
+                                                           style="transform: translate(0.28rem, -0.18rem); opacity: .55;"></i>
+                                                    </span>
+                                                </span>
+                                            {% else %}
+                                                <button
+                                                        type="button"
+                                                        class="btn btn-link p-0 rep-star-btn"
+                                                        data-mediafile-id="{{ mediafile.instance.id }}"
+                                                        data-bs-toggle="tooltip"
+                                                        title="{% if mediafile.instance.first_observation_identity_is_representative %}Representative identity{% else %}Not representative{% endif %}">
+                                                    <i class="bi {% if mediafile.instance.first_observation_identity_is_representative %}bi-star-fill{% else %}bi-star{% endif %}"></i>
+                                                </button>
+                                            {% endif %}
 
                                             <br>
                                         {% endif %}

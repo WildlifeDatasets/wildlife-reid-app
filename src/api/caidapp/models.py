@@ -118,6 +118,38 @@ class IdentificationModel(models.Model):
         return str(self.name)
 
 
+class IdentificationRunStatistic(models.Model):
+    OPERATION_CHOICES = (
+        ("init", "Init identification"),
+        ("identify", "Identify"),
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    finished_at = models.DateTimeField(blank=True, null=True)
+    duration_seconds = models.FloatField(blank=True, null=True)
+    operation = models.CharField(max_length=32, choices=OPERATION_CHOICES)
+    image_number = models.PositiveIntegerField(default=0)
+    video_number = models.PositiveIntegerField(default=0)
+    workgroup = models.ForeignKey(
+        "WorkGroup",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="identification_run_statistics",
+    )
+    task_id = models.CharField(max_length=255, blank=True, default="")
+    status = models.CharField(max_length=64, blank=True, default="started")
+
+    class Meta:
+        ordering = ("-created_at", "-id")
+
+    def __str__(self):
+        return (
+            f"{self.operation} for {self.workgroup or 'unknown workgroup'} "
+            f"({self.image_number} images, {self.video_number} videos)"
+        )
+
+
 def get_taxon(name: str) -> Optional[Taxon]:
     """Return taxon according to the name, create it if necessary."""
     if (name is None) or (name == ""):
@@ -301,11 +333,7 @@ class WorkGroup(models.Model):
 
     def number_of_representative_media_files(self):
         """Return number of representative media files."""
-        return MediaFile.objects.filter(
-            parent__owner__workgroup=self,
-            identity_is_representative=True,
-            parent__taxon_for_identification__isnull=False,
-        ).count()
+        return self.mediafiles_for_train_or_init_identification().count()
 
     def number_of_uploaded_archives_ready_for_identification(self) -> int:
         """Return number of uploaded archives ready for identification."""
@@ -383,11 +411,11 @@ class WorkGroup(models.Model):
         if require_import_finished:
             qs = qs.filter(parent__import_finished=True)
         if representative_only:
-            qs = qs.filter(identity_is_representative=True)
+            qs = qs.filter(observations__identity_is_representative=True)
         if require_identity is True:
-            qs = qs.filter(identity__isnull=False)
+            qs = qs.filter(Q(identity__isnull=False) | Q(observations__identity__isnull=False))
         elif require_identity is False:
-            qs = qs.filter(identity__isnull=True)
+            qs = qs.filter(identity__isnull=True, observations__identity__isnull=True)
         if require_observations:
             qs = qs.filter(observations__isnull=False)
         if observation_taxon is not None:

@@ -1,5 +1,48 @@
 {% extends "base.html" %}
 
+{% block head %}
+  {{ block.super }}
+  <style>
+    .suggestion-hover-list .list-group-item {
+      transition: background-color 0.12s ease-in-out;
+    }
+
+    .suggestion-hover-list .list-group-item:hover {
+      background-color: var(--bs-table-hover-bg);
+    }
+
+    .merge-suggestion-row {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) 7.5rem auto minmax(0, 1fr) 7.5rem 6rem auto;
+      gap: 1rem;
+      align-items: center;
+    }
+
+    .identity-mediafile-count,
+    .merge-distance {
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    @media (max-width: 991px) {
+      .merge-suggestion-row {
+        grid-template-columns: auto minmax(0, 1fr) 7.5rem;
+      }
+
+      .merge-arrow,
+      .merge-distance,
+      .merge-suggestion-actions {
+        grid-column: 2 / -1;
+        text-align: left;
+      }
+
+      .merge-suggestion-actions {
+        justify-content: flex-start !important;
+      }
+    }
+  </style>
+{% endblock %}
+
 {% block content %}
   <h1>Merge Identities Suggestion</h1>
 
@@ -99,21 +142,29 @@
           <button type="submit" class="btn btn-primary"
                   onclick="return confirm('Are you sure you want to merge the selected suggestions?');">Merge Selected</button>
         </div>
-        <ul class="list-group">
+        <ul class="list-group suggestion-hover-list">
           {% for identity1, identity2, distance in suggestions %}
-            <li class="list-group-item d-flex justify-content-between align-items-center">
-              <div class="form-check">
+            <li class="list-group-item merge-suggestion-row">
+              <div class="form-check mb-0">
                 <input class="form-check-input" type="checkbox" name="suggestions"
                        value="{{ identity1.id }}|{{ identity2.id }}" data-distance="{{ distance }}"
                        id="suggestion-{{ identity1.id }}-{{ identity2.id }}">
-                <label class="form-check-label" for="suggestion-{{ identity1.id }}-{{ identity2.id }}">
-                  <a href="{% url 'caidapp:individual_identity_update' identity1.id %}" class="link-secondary">{{ identity1.name }} ({{ identity1.code }}) - {{ identity1.mediafile_count }} media file{{ identity1.mediafile_count|pluralize }}</a>
-                  &rarr;
-                  <a href="{% url 'caidapp:individual_identity_update' identity2.id %}" class="link-secondary">{{ identity2.name }} ({{ identity2.code }}) - {{ identity2.mediafile_count }} media file{{ identity2.mediafile_count|pluralize }}</a>
-                </label>
               </div>
-              <div class="d-flex align-items-center">
-                <div class="me-5">distance: {{ distance }}</div>
+              <label class="form-check-label" for="suggestion-{{ identity1.id }}-{{ identity2.id }}">
+                <a href="{% url 'caidapp:individual_identity_update' identity1.id %}" class="link-secondary">{{ identity1.name }} ({{ identity1.code }})</a>
+              </label>
+              <div class="identity-mediafile-count text-body-secondary">
+                {{ identity1.mediafile_count }} media file{{ identity1.mediafile_count|pluralize }}
+              </div>
+              <div class="merge-arrow text-body-secondary">&rarr;</div>
+              <div>
+                <a href="{% url 'caidapp:individual_identity_update' identity2.id %}" class="link-secondary">{{ identity2.name }} ({{ identity2.code }})</a>
+              </div>
+              <div class="identity-mediafile-count text-body-secondary">
+                {{ identity2.mediafile_count }} media file{{ identity2.mediafile_count|pluralize }}
+              </div>
+              <div class="merge-distance text-body-secondary">distance: {{ distance }}</div>
+              <div class="merge-suggestion-actions d-flex align-items-center justify-content-end">
                 <a class="btn btn-secondary me-1" href="{% url 'caidapp:merge_identities' identity1.id identity2.id %}">Merge with preview</a>
                 <a class="btn btn-secondary" href="{% url 'caidapp:merge_identities_no_preview' identity1.id identity2.id %}"
                    onclick="return confirm('Are you sure you want to merge {{ identity1.name }} into {{ identity2.name }}?');">Merge</a>

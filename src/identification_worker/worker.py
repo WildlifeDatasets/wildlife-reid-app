@@ -12,6 +12,7 @@ print(f"numpy version: {np.__version__}")
 import pandas as pd
 import torch
 from celery import Celery, shared_task
+from progress import ProgressReporter
 from train_model import train_identification_model
 from wildlife_tools.data import FeatureDataset
 from wildlife_tools.similarity.pairwise.collectors import CollectAll
@@ -96,12 +97,15 @@ def init(
         }
 
     try:
+        progress = ProgressReporter(self, operation="init")
+        progress.stage("load_metadata", "Loading initialization metadata")
         logger.info(f"Applying init task with args: {input_metadata_file=}, {organization_id=}.")
         # log celery worker id
         logger.debug(f"celery {self.request.id=}")
 
         # read metadata file
         metadata = pd.read_csv(input_metadata_file)
+        progress.update(1, 1)
         assert "image_path" in metadata
         assert "class_id" in metadata
         assert "label" in metadata
@@ -110,12 +114,16 @@ def init(
         metadata = metadata[["image_path", "class_id", "label", "detection_results"]]
 
         # generate embeddings
+        progress.stage("prepare_database", "Preparing reference image database")
         db_connection = get_db_connection()
         database_size = db_connection.reference_image.get_reference_images_count(organization_id)
         logger.debug(f"Database size: {database_size}")
         db_connection.reference_image.del_reference_images(organization_id)
+        progress.update(1, 1)
 
+        progress.stage("init_models", "Initializing identification models")
         init_models(identification_model["path"])
+        progress.update(1, 1)
         encoding_batch_size = int(os.environ["ENCODING_BATCH_SIZE"])
         target_num_splits = math.ceil(len(metadata) / encoding_batch_size)
         metadata_splits = np.array_split(metadata, target_num_splits)
@@ -124,16 +132,30 @@ def init(
         )
         for i, _metadata in enumerate(metadata_splits):
             logger.debug(f"[{i + 1}/{target_num_splits}] - {len(_metadata)}")
+            progress.stage(
+                "encode_embeddings",
+                f"Encoding reference embeddings ({i + 1}/{target_num_splits})",
+            )
+            progress.update(i, target_num_splits)
             _features = encode_images(_metadata, identification_model_path=identification_model["path"])
+            progress.update(i + 0.5, target_num_splits)
             _features = [json.dumps(e) for e in _features]
             _metadata["embedding"] = _features
 
             logger.info("Storing feature vectors into the database.")
+            progress.update(
+                i + 0.5,
+                target_num_splits,
+                message=f"Storing reference embeddings ({i + 1}/{target_num_splits})",
+            )
             db_connection.reference_image.create_reference_images(organization_id, _metadata)
+            progress.update(i + 1, target_num_splits)
         del_models()
 
+        progress.stage("finalize", "Finalizing identification initialization")
         database_size = db_connection.reference_image.get_reference_images_count(organization_id)
         logger.debug(f"Database size: {database_size}")
+        progress.update(1, 1)
 
         logger.info("Finished processing.")
         out = {
@@ -209,12 +231,17 @@ def predict_full(
     organization_id: int,
     identification_model_path,
     top_k: int = 1,
+    progress: ProgressReporter | None = None,
 ):
     """Predict identification for all samples."""
     # load features from database
+    if progress:
+        progress.stage("load_references", "Loading reference embeddings")
     database_features, reference_images = load_features(db_connection, organization_id)
 
     # generate query embeddings
+    if progress:
+        progress.stage("identify", "Encoding query images")
     query_features = encode_images(metadata, identification_model_path)
 
     # prepare metadata for database
@@ -235,6 +262,9 @@ def predict_full(
         }
     )
 
+    if progress:
+        progress.stage("identify", "Comparing query images with references")
+        progress.update(1, 3)
     identification_output = identify(
         query_features=query_features,
         database_features=database_features,
@@ -245,6 +275,8 @@ def predict_full(
         cal_images=int(os.environ["CALIBRATION_IMAGES"]),
         image_budget=int(os.environ["IMAGE_BUDGET"]),
     )
+    if progress:
+        progress.update(1, 1)
 
     id2label = dict(zip(reference_images["class_id"], reference_images["label"]))
 
@@ -258,6 +290,7 @@ def predict_batch(
     database_size: int,
     identification_model_path: str,
     top_k: int = 1,
+    progress: ProgressReporter | None = None,
 ):
     """Predict identification in batches."""
     database_batch_size = int(os.environ["DATABASE_BATCH_SIZE"])
@@ -266,6 +299,8 @@ def predict_batch(
     image_budget = int(os.environ["IMAGE_BUDGET"])
 
     # initialize and calibrate models
+    if progress:
+        progress.stage("load_references", "Initializing models and calibration data")
     init_models(identification_model_path)
 
     # TODO: get random calibration images?
@@ -278,6 +313,8 @@ def predict_batch(
         }
     )
     calibrate_models(calibration_features, calibration_metadata)
+    if progress:
+        progress.update(1, 1)
 
     # prepare query metadata splits
     target_num_splits = math.ceil(len(metadata) / encoding_batch_size)
@@ -295,6 +332,9 @@ def predict_batch(
     for qi, _metadata in enumerate(metadata_splits):
         progress_str = f"[{qi + 1}/{target_num_splits}] - {len(_metadata)}"
         logger.debug(f"predict_batch: {progress_str}")
+        if progress:
+            progress.stage("identify", f"Encoding query batch {qi + 1}/{target_num_splits}")
+            progress.update(qi, target_num_splits)
         query_features = encode_images(_metadata, identification_model_path, tqdm_desc=progress_str)
         # prepare query metadata
         query_metadata = pd.DataFrame(
@@ -314,6 +354,12 @@ def predict_batch(
         full_database_metadata = []
         priority_matrix = []
         for db_idx in range(1, len(database_split_idx)):
+            if progress:
+                progress.update(
+                    qi + (0.25 * db_idx / max(len(database_split_idx) - 1, 1)),
+                    target_num_splits,
+                    message=f"Computing priority matrix {db_idx}/{len(database_split_idx) - 1}",
+                )
             database_features, reference_images = load_features(
                 db_connection,
                 organization_id,
@@ -369,6 +415,12 @@ def predict_batch(
             split_idx.append(len(database_idx))
 
         for sidx in range(1, len(split_idx)):
+            if progress:
+                progress.update(
+                    qi + (0.5 + 0.25 * sidx / max(len(split_idx) - 1, 1)),
+                    target_num_splits,
+                    message=f"Computing score matrix {sidx}/{len(split_idx) - 1}",
+                )
             _database_idx = database_idx[split_idx[(sidx - 1)] : split_idx[sidx]]
             _pairs = [p for p in pairs if p[1] in _database_idx]
 
@@ -430,7 +482,14 @@ def predict_batch(
         keypoint_matcher = MatchLightGlue(features="aliked", collector=collector)
 
         keypoints = []
-        for qidx, didx in result_idx.items():
+        total_keypoints = max(len(result_idx), 1)
+        for keypoint_i, (qidx, didx) in enumerate(result_idx.items(), start=1):
+            if progress:
+                progress.update(
+                    qi + (0.75 + 0.25 * keypoint_i / total_keypoints),
+                    target_num_splits,
+                    message=f"Computing keypoints {keypoint_i}/{total_keypoints}",
+                )
             query_aliked_features, _ = prepare_feature_types([query_features[qidx]])
             keypoint_query_features = FeatureDataset(query_aliked_features, query_metadata.iloc[[qidx]])
 
@@ -460,6 +519,8 @@ def predict_batch(
         else:
             for k, v in _identification_output.items():
                 identification_output[k].extend(v)
+        if progress:
+            progress.update(qi + 1, target_num_splits)
 
     id2label = dict(zip(full_database_metadata["identity"], full_database_metadata["label"]))
 
@@ -489,11 +550,14 @@ def predict(
     # identification_model["name"]
     # identification_model["path"]
     try:
+        progress = ProgressReporter(self, operation="identify")
+        progress.stage("load_metadata", "Loading identification metadata")
         logger.info(f"Applying init task with args: {input_metadata_file_path=}, {organization_id=}.")
         logger.debug(f"celery task id={self.request.id=}")
 
         # read metadata file
         metadata = pd.read_csv(input_metadata_file_path)
+        progress.update(1, 1)
         if len(metadata) == 0:
             logger.info("Input data is empty. Finishing the job.")
             out = {"status": "ERROR", "error": "Input data is empty."}
@@ -505,9 +569,11 @@ def predict(
             logger.debug(f"first image = {first_image_path}, {Path(first_image_path).exists()}")
 
             # fetch embeddings of reference samples from the database
+            progress.stage("load_references", "Checking reference image database")
             logger.info("Loading reference feature vectors from the database.")
             db_connection = get_db_connection()
             database_size = db_connection.reference_image.get_reference_images_count(organization_id)
+            progress.update(1, 1)
 
             if database_size == 0:
                 logger.info(f"Identification worker was not initialized for {organization_id=}. " "Finishing the job.")
@@ -519,11 +585,20 @@ def predict(
                 logger.debug(f"Starting identification with: {len(metadata)} query files.")
                 # estimate sequence id
                 if ("sequence_number" not in metadata) and ("locality_name" in metadata):
+                    progress.stage("prepare_sequences", "Estimating sequences")
                     logger.debug("Estimating sequence number and datetime.")
                     metadata["locality"] = metadata["locality_name"]
                     metadata = extend_df_with_datetime(metadata)
                     metadata = extend_df_with_sequence_id(metadata, sequence_time)
-                    metadata["sequence_number"] = np.where(metadata["locality"].isna(), -1, metadata["sequence_number"])
+                    metadata["sequence_number"] = np.where(
+                        metadata["locality"].isna(),
+                        -1,
+                        metadata["sequence_number"],
+                    )
+                    progress.update(1, 1)
+                else:
+                    progress.stage("prepare_sequences", "Using existing sequences")
+                    progress.update(1, 1)
                 query_image_path = list(metadata.image_path)
                 query_masked_path = [p.replace("/images/", "/masked_images/") for p in query_image_path]
 
@@ -538,6 +613,7 @@ def predict(
                         organization_id,
                         identification_model_path=identification_model["path"],
                         top_k=top_k,
+                        progress=progress,
                     )
                 else:
                     logger.info("Starting batched identification.")
@@ -548,8 +624,10 @@ def predict(
                         database_size,
                         identification_model_path=identification_model["path"],
                         top_k=top_k,
+                        progress=progress,
                     )
 
+                progress.stage("save_output", "Saving identification suggestions")
                 pred_labels = [[id2label[x] for x in row] for row in identification_output["pred_class_ids"]]
                 identification_output["mediafile_ids"] = metadata["mediafile_id"].tolist()
                 identification_output["pred_labels"] = pred_labels
@@ -559,8 +637,11 @@ def predict(
                 # save output to json
                 with open(output_json_file_path, "w") as f:
                     json.dump(identification_output, f)
+                progress.update(1, 1)
 
+                progress.stage("finalize", "Finalizing identification")
                 logger.info("Finished processing.")
+                progress.update(1, 1)
                 out = {"status": "DONE", "output_json_file": output_json_file_path}
     except Exception:
         error = traceback.format_exc()

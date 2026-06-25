@@ -30,6 +30,20 @@ from .views_tools import add_querystring_to_context
 logger = logging.getLogger("app")
 
 
+def _spreadsheet_cell_has_value(value) -> bool:
+    if pd.isna(value):
+        return False
+    if isinstance(value, str):
+        return value.strip() != ""
+    return True
+
+
+def _spreadsheet_cell_requests_clear(value) -> bool:
+    if pd.isna(value):
+        return False
+    return str(value).strip().upper() == forms.SPREADSHEET_CLEAR_TOKEN.upper()
+
+
 def _round_location(locality: Locality, order: int = 3):
     """Round location for anonymization."""
     if (locality.location is None) or (locality.location == ""):
@@ -230,10 +244,20 @@ def import_localities_view(request):
                 if locality is None:
                     locality = models.get_locality(request.user.caiduser, row["name"])
                 locality.name = row["name"]
-                if "location" in df.keys() and _spreadsheet_cell_has_value(row.get("location")):
-                    locality.set_location_from_str(row["location"])
+                if "location" in df.keys():
+                    if _spreadsheet_cell_requests_clear(row.get("location")):
+                        locality.location = None
+                    elif _spreadsheet_cell_has_value(row.get("location")):
+                        locality.set_location_from_str(row["location"])
                 elif "latitude" in df.keys() and "longitude" in df.keys():
-                    locality.set_location(row["latitude"], row["longitude"])
+                    if _spreadsheet_cell_requests_clear(row.get("latitude")) and _spreadsheet_cell_requests_clear(
+                        row.get("longitude")
+                    ):
+                        locality.location = None
+                    elif _spreadsheet_cell_has_value(row.get("latitude")) and _spreadsheet_cell_has_value(
+                        row.get("longitude")
+                    ):
+                        locality.set_location(row["latitude"], row["longitude"])
                 if locality.owner is None:
                     locality.owner = request.user.caiduser
                 locality.save()
@@ -250,7 +274,9 @@ def import_localities_view(request):
             "button": "Import",
             "text_note": "Upload CSV or XLSX file. "
             + "There should be columns 'id', 'name' and 'location' in the file. "
-            + "Location should be in format 'lat,lon'.",
+            + "Location should be in format 'lat,lon'. "
+            + "Blank cells keep existing values. "
+            + f"Use {forms.SPREADSHEET_CLEAR_TOKEN} to clear locality location.",
             "next": "caidapp:localitys",
         },
     )
