@@ -82,7 +82,7 @@
                             <td>
                                 <a class="link-secondary"
 {#                                        href="{% url 'caidapp:individual_identity_mediafiles' individual_identity.id %}"#}
-                                        href="{% url 'caidapp:individual_identity_update' individual_identity.id %}"
+                                        href="{% url 'caidapp:individual_identity_update' individual_identity.id %}?next={{ request.get_full_path|urlencode }}"
                                 >
 
                                     {% with cover_mediafile=individual_identity.cover_mediafile %}
@@ -95,7 +95,7 @@
                                 </a>
                             </td>
                             <td><a class="link-secondary"
-                                    href="{% url 'caidapp:individual_identity_update' individual_identity.id %}"
+                                    href="{% url 'caidapp:individual_identity_update' individual_identity.id %}?next={{ request.get_full_path|urlencode }}"
                                 >
                                     {{ individual_identity }}
                                 </a>
@@ -148,7 +148,7 @@
                             {% endif %}
                             <td>
                                 <a class="btn btn-sm btn-secondary"
-                                   href="{% url 'caidapp:individual_identity_update' individual_identity.id %}">
+                                   href="{% url 'caidapp:individual_identity_update' individual_identity.id %}?next={{ request.get_full_path|urlencode }}">
                                     <i class="bi bi-pencil"></i>
                                 </a>
 

@@ -1087,6 +1087,17 @@ class IdentityListBulkActionsTest(TestCase):
         self.assertIn(f"individual_identity_ids={first.id}", response["Location"])
         self.assertIn(f"individual_identity_ids={second.id}", response["Location"])
 
+    def test_list_view_edit_links_preserve_tabular_layout_in_next(self):
+        identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Alpha")
+
+        response = self.client.get(reverse("caidapp:individual_identities"), {"view": "list", "page": 2})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            f'{reverse("caidapp:individual_identity_update", args=[identity.id])}?next=%2Fcaidapp%2Findividual_identities%2F%3Fview%3Dlist%26page%3D2',
+        )
+
     def test_identity_update_links_to_sequences(self):
         identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Alpha")
 
@@ -1095,6 +1106,44 @@ class IdentityListBulkActionsTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Sequences")
         self.assertContains(response, f'{reverse("caidapp:sequences")}?individual_identity_id={identity.id}')
+
+    def test_identity_update_redirects_back_to_tabular_list_when_next_is_set(self):
+        identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Alpha", code="A-1")
+        next_url = f"{reverse('caidapp:individual_identities')}?view=list&page=2"
+
+        response = self.client.post(
+            reverse("caidapp:individual_identity_update", args=[identity.id]),
+            {
+                "next": next_url,
+                "name": "Alpha edited",
+                "code": "A-1",
+                "juv_code": "",
+                "sex": "U",
+                "coat_type": "U",
+                "note": "",
+                "birth_date": "",
+                "death_date": "",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], next_url)
+        identity.refresh_from_db()
+        self.assertEqual(identity.name, "Alpha edited")
+
+    def test_identity_update_shows_mediafile_count_link(self):
+        identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Alpha")
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        mediafile_one = MediaFileFactory(parent=archive)
+        mediafile_two = MediaFileFactory(parent=archive)
+        AnimalObservationFactory(mediafile=mediafile_one, identity=identity)
+        AnimalObservationFactory(mediafile=mediafile_two, identity=identity)
+
+        response = self.client.get(reverse("caidapp:individual_identity_update", args=[identity.id]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Media Files: 2")
+        self.assertContains(response, reverse("caidapp:individual_identity_mediafiles", args=[identity.id]))
 
 
 class SequenceViewTest(TestCase):

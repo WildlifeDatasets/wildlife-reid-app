@@ -117,7 +117,11 @@
 
                 {% endif %}
                     {% if mediafiles %}
-{#                        carousel of with three mediafiles mediafiles#}
+                        <div class="mb-2">
+                            <a class="link-secondary" href="{{ mediafiles_url }}">
+                                <i class="bi bi-images"></i> Media Files: {{ mediafiles_count }}
+                            </a>
+                        </div>
 
                         <div id="mediafileCarousel" class="carousel slide" data-bs-ride="carousel">
                             <div class="carousel-inner">

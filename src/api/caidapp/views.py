@@ -1204,6 +1204,7 @@ class IndividualIdentityUpdateView(LoginRequiredMixin, UpdateView):
                 "button": "Save",
                 # "mediafile": media_file,
                 "mediafiles": media_files[:4],
+                "mediafiles_count": individual_identity.count_of_mediafiles(),
                 "mediafiles_url": reverse_lazy(
                     "caidapp:individual_identity_mediafiles",
                     kwargs={"individual_identity_id": individual_identity.id},
@@ -1219,7 +1220,14 @@ class IndividualIdentityUpdateView(LoginRequiredMixin, UpdateView):
         return context
 
     def get_success_url(self):
-        """Return to individual identities list."""
+        """Return to the originating page when possible."""
+        next_url = self.request.GET.get("next") or self.request.POST.get("next")
+        if next_url and url_has_allowed_host_and_scheme(
+            next_url,
+            allowed_hosts={self.request.get_host()},
+            require_https=self.request.is_secure(),
+        ):
+            return next_url
         return reverse_lazy("caidapp:individual_identities")
 
     # validation
