@@ -43,7 +43,7 @@ from django.db.models import CharField, Count, F, Func, Max, Min, OuterRef, Pref
 from django.db.models.functions import Cast, Coalesce
 from django.forms import modelformset_factory
 from django.forms.models import model_to_dict
-from django.http import HttpRequest, HttpResponseNotAllowed, JsonResponse
+from django.http import FileResponse, HttpRequest, HttpResponseNotAllowed, JsonResponse
 from django.shortcuts import Http404, HttpResponse, get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse, reverse_lazy
@@ -779,6 +779,44 @@ def dash_identities(request) -> HttpResponse:
             suggestion_run_info=suggestion_run_info,
         ),
     )
+
+
+@login_required
+def download_init_identification_csv(request):
+    """Download the latest workgroup init identification CSV."""
+    caiduser = request.user.caiduser
+    if not caiduser.workgroup_admin:
+        return HttpResponseNotAllowed("Only workgroup admins can download init identification CSV.")
+
+    csv_path = Path(settings.MEDIA_ROOT) / caiduser.workgroup.name / "init_identification.csv"
+    return _download_identification_csv(
+        csv_path,
+        f"init_identification_workgroup_{caiduser.workgroup.id}.csv",
+        "Init identification CSV does not exist yet.",
+    )
+
+
+@login_required
+def download_run_identification_csv(request):
+    """Download the latest workgroup run identification CSV."""
+    caiduser = request.user.caiduser
+    if not caiduser.workgroup_admin:
+        return HttpResponseNotAllowed("Only workgroup admins can download run identification CSV.")
+
+    reid_runs_dir = Path(settings.MEDIA_ROOT) / caiduser.workgroup.name / "reid_runs"
+    candidates = list(reid_runs_dir.glob("*/identification_metadata.csv")) if reid_runs_dir.exists() else []
+    csv_path = max(candidates, key=lambda path: path.stat().st_mtime) if candidates else None
+    return _download_identification_csv(
+        csv_path,
+        f"run_identification_workgroup_{caiduser.workgroup.id}.csv",
+        "Run identification CSV does not exist yet.",
+    )
+
+
+def _download_identification_csv(csv_path: Path | None, filename: str, missing_message: str) -> HttpResponse:
+    if csv_path is None or not csv_path.exists():
+        return HttpResponse(missing_message, content_type="text/plain", status=404)
+    return FileResponse(open(csv_path, "rb"), as_attachment=True, filename=filename, content_type="text/csv")
 
 
 def _celery_progress_payload(task_id: str, default_message: str) -> dict | None:
@@ -2162,6 +2200,7 @@ def init_identification_view(
 def stop_init_identification(request):
     """Stop identification initialization."""
     workgroup = request.user.caiduser.workgroup
+    redirect_url = request.META.get("HTTP_REFERER", reverse("caidapp:dash_identities"))
     if workgroup.identification_init_status in {"Processing", "Scheduled"}:
         if workgroup.identification_scheduled_init_task_id:
             current_app.control.revoke(workgroup.identification_scheduled_init_task_id, terminate=True)
@@ -2196,7 +2235,7 @@ def stop_init_identification(request):
                 "identification_scheduled_run_eta",
             ]
         )
-    return redirect("caidapp:uploads_known_identities")
+    return redirect(redirect_url)
 
 
 # TODO rename to identification button style
@@ -2288,29 +2327,17 @@ def assign_unidentified_to_identification_view(request):
 def run_identification_on_unidentified(request):
     """Run identification suggestions for all finished uploaded archives."""
     workgroup = request.user.caiduser.workgroup
-    if workgroup.identification_reid_status == "Processing":
+    task_state = None
+    if workgroup.identification_scheduled_run_task_id:
+        task_state = AsyncResult(workgroup.identification_scheduled_run_task_id).state
+    if workgroup.identification_reid_status == "Processing" and task_state in {"STARTED", "PROGRESS"}:
         messages.info(request, "Identification suggestion generation is already running.")
         return redirect(request.META.get("HTTP_REFERER", "/"))
 
     if workgroup.identification_scheduled_run_task_id:
         current_app.control.revoke(workgroup.identification_scheduled_run_task_id, terminate=True)
 
-    task = tasks.run_identification_on_unidentified_for_workgroup_task.delay(workgroup.id)
-    workgroup.identification_reid_status = "Processing"
-    workgroup.identification_reid_at = django.utils.timezone.now()
-    workgroup.identification_reid_message = "Identification suggestion generation requested manually."
-    workgroup.identification_scheduled_run_task_id = task.id
-    workgroup.identification_scheduled_run_eta = None
-    workgroup.save(
-        update_fields=[
-            "identification_reid_status",
-            "identification_reid_at",
-            "identification_reid_message",
-            "identification_scheduled_run_task_id",
-            "identification_scheduled_run_eta",
-        ]
-    )
-    messages.info(request, "Regeneration of identification suggestions has started.")
+    tasks.run_identification_on_unidentified_for_workgroup(workgroup.id, request=request)
     return redirect(request.META.get("HTTP_REFERER", "/"))
 
 

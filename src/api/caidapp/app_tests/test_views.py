@@ -2879,6 +2879,25 @@ class IdentificationUploadsViewTest(TestCase):
             reverse("caidapp:new_upload") + "?upload_target=identification",
         )
 
+    def test_dash_identities_shows_init_identification_csv_download_only_for_admin(self):
+        self.caiduser.workgroup_admin = False
+        self.caiduser.save(update_fields=["workgroup_admin"])
+
+        response = self.client.get(reverse("caidapp:dash_identities"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, reverse("caidapp:download_init_identification_csv"))
+        self.assertNotContains(response, reverse("caidapp:download_run_identification_csv"))
+
+        self.caiduser.workgroup_admin = True
+        self.caiduser.save(update_fields=["workgroup_admin"])
+
+        response = self.client.get(reverse("caidapp:dash_identities"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, reverse("caidapp:download_init_identification_csv"))
+        self.assertContains(response, reverse("caidapp:download_run_identification_csv"))
+
 
 class IdentificationRerunTest(TestCase):
     def setUp(self):
@@ -2934,6 +2953,31 @@ class IdentificationRerunTest(TestCase):
         self.assertFalse(scheduled)
         schedule_mock.assert_not_called()
 
+    @patch("caidapp.tasks.schedule_reid_identification_for_workgroup")
+    @patch("caidapp.tasks.init_identification.apply_async")
+    def test_schedule_init_identification_does_not_pre_schedule_reid(self, apply_async_mock, schedule_reid_mock):
+        task = Mock()
+        task.id = "init-task-1"
+        apply_async_mock.return_value = task
+
+        tasks.schedule_init_identification_for_workgroup(self.workgroup, delay_minutes=0)
+
+        schedule_reid_mock.assert_not_called()
+        self.workgroup.refresh_from_db()
+        self.assertEqual(self.workgroup.identification_scheduled_init_task_id, "init-task-1")
+        self.assertEqual(self.workgroup.identification_init_status, "Scheduled")
+
+    @patch("caidapp.tasks.schedule_reid_identification_for_workgroup")
+    def test_failed_init_identification_does_not_schedule_reid(self, schedule_reid_mock):
+        tasks.init_identification_on_success(
+            {"status": "ERROR", "error": "Could not initialize."},
+            workgroup_id=self.workgroup.id,
+        )
+
+        schedule_reid_mock.assert_not_called()
+        self.workgroup.refresh_from_db()
+        self.assertEqual(self.workgroup.identification_init_status, "ERROR")
+
     def test_dash_identities_keeps_init_enabled_without_representatives_when_idle(self):
         response = self.client.get(reverse("caidapp:dash_identities"))
 
@@ -2949,12 +2993,64 @@ class IdentificationRerunTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("disabled", response.context["btn_styles"]["init_identification"]["class"])
 
+    def test_dash_identities_shows_stop_when_init_is_scheduled(self):
+        self.workgroup.identification_init_status = "Scheduled"
+        self.workgroup.identification_scheduled_init_task_id = "queued-init-task"
+        self.workgroup.save(update_fields=["identification_init_status", "identification_scheduled_init_task_id"])
+
+        response = self.client.get(reverse("caidapp:dash_identities"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, reverse("caidapp:stop_init_identification"))
+        self.assertIn("disabled", response.context["btn_styles"]["init_identification"]["class"])
+
+    def test_download_init_identification_csv_returns_latest_workgroup_csv(self):
+        csv_path = Path(settings.MEDIA_ROOT) / self.workgroup.name / "init_identification.csv"
+        csv_path.parent.mkdir(parents=True, exist_ok=True)
+        csv_path.write_text("image_path,mediafile_id\nfirst.webp,1\n", encoding="utf-8")
+
+        response = self.client.get(reverse("caidapp:download_init_identification_csv"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "text/csv")
+        self.assertIn("attachment", response["Content-Disposition"])
+        self.assertEqual(b"".join(response.streaming_content), b"image_path,mediafile_id\nfirst.webp,1\n")
+
+    def test_download_init_identification_csv_is_admin_only(self):
+        self.caiduser.workgroup_admin = False
+        self.caiduser.save(update_fields=["workgroup_admin"])
+
+        response = self.client.get(reverse("caidapp:download_init_identification_csv"))
+
+        self.assertEqual(response.status_code, 405)
+
+    def test_download_run_identification_csv_returns_latest_workgroup_csv(self):
+        reid_runs_dir = Path(settings.MEDIA_ROOT) / self.workgroup.name / "reid_runs"
+        older_csv_path = reid_runs_dir / "20260625-120000" / "identification_metadata.csv"
+        latest_csv_path = reid_runs_dir / "20260626-120000" / "identification_metadata.csv"
+        older_csv_path.parent.mkdir(parents=True, exist_ok=True)
+        latest_csv_path.parent.mkdir(parents=True, exist_ok=True)
+        older_csv_path.write_text("image_path,mediafile_id\nold.webp,1\n", encoding="utf-8")
+        latest_csv_path.write_text("image_path,mediafile_id\nlatest.webp,2\n", encoding="utf-8")
+
+        response = self.client.get(reverse("caidapp:download_run_identification_csv"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "text/csv")
+        self.assertIn("attachment", response["Content-Disposition"])
+        self.assertEqual(b"".join(response.streaming_content), b"image_path,mediafile_id\nlatest.webp,2\n")
+
+    def test_download_run_identification_csv_is_admin_only(self):
+        self.caiduser.workgroup_admin = False
+        self.caiduser.save(update_fields=["workgroup_admin"])
+
+        response = self.client.get(reverse("caidapp:download_run_identification_csv"))
+
+        self.assertEqual(response.status_code, 405)
+
     @patch("caidapp.views.current_app.control.revoke")
-    @patch("caidapp.views.tasks.run_identification_on_unidentified_for_workgroup_task.delay")
-    def test_do_suggestions_now_clears_scheduled_run_eta(self, delay_mock, revoke_mock):
-        task = Mock()
-        task.id = "run-now-task-1"
-        delay_mock.return_value = task
+    @patch("caidapp.views.tasks.run_identification_on_unidentified_for_workgroup")
+    def test_do_suggestions_now_runs_batch_without_api_celery_worker(self, run_now_mock, revoke_mock):
         self.workgroup.identification_reid_status = "Scheduled"
         self.workgroup.identification_scheduled_run_task_id = "scheduled-run-task"
         self.workgroup.identification_scheduled_run_eta = timezone.now() + timezone.timedelta(minutes=30)
@@ -2970,11 +3066,30 @@ class IdentificationRerunTest(TestCase):
 
         self.assertEqual(response.status_code, 302)
         revoke_mock.assert_called_once_with("scheduled-run-task", terminate=True)
-        delay_mock.assert_called_once_with(self.workgroup.id)
-        self.workgroup.refresh_from_db()
-        self.assertEqual(self.workgroup.identification_reid_status, "Processing")
-        self.assertEqual(self.workgroup.identification_scheduled_run_task_id, "run-now-task-1")
-        self.assertIsNone(self.workgroup.identification_scheduled_run_eta)
+        run_now_mock.assert_called_once()
+        self.assertEqual(run_now_mock.call_args.args[0], self.workgroup.id)
+        self.assertEqual(run_now_mock.call_args.kwargs["request"], response.wsgi_request)
+
+    @patch("caidapp.views.AsyncResult")
+    @patch("caidapp.views.current_app.control.revoke")
+    @patch("caidapp.views.tasks.run_identification_on_unidentified_for_workgroup")
+    def test_do_suggestions_now_does_not_duplicate_running_worker_task(
+        self,
+        run_now_mock,
+        revoke_mock,
+        async_result_mock,
+    ):
+        async_result_mock.return_value.state = "PROGRESS"
+        self.workgroup.identification_reid_status = "Processing"
+        self.workgroup.identification_scheduled_run_task_id = "running-identify-task"
+        self.workgroup.save(update_fields=["identification_reid_status", "identification_scheduled_run_task_id"])
+
+        response = self.client.get(reverse("caidapp:run_identification_on_unidentified"))
+
+        self.assertEqual(response.status_code, 302)
+        async_result_mock.assert_called_once_with("running-identify-task")
+        revoke_mock.assert_not_called()
+        run_now_mock.assert_not_called()
 
     def test_dash_identities_counts_representatives_by_workgroup_default_taxon(self):
         self.workgroup.check_taxon_before_identification = True
@@ -3244,9 +3359,13 @@ class IdentificationRerunTest(TestCase):
         self.workgroup.identification_scheduled_run_task_id = "reid-task-123"
         self.workgroup.save()
 
-        response = self.client.get(reverse("caidapp:stop_init_identification"))
+        response = self.client.get(
+            reverse("caidapp:stop_init_identification"),
+            HTTP_REFERER=reverse("caidapp:dash_identities"),
+        )
 
         self.assertEqual(response.status_code, 302)
+        self.assertRedirects(response, reverse("caidapp:dash_identities"))
         revoke_mock.assert_called_once_with("reid-task-123", terminate=True)
         self.workgroup.refresh_from_db()
         self.assertEqual(self.workgroup.identification_reid_status, "Not initiated")
@@ -3262,6 +3381,7 @@ class IdentificationRerunTest(TestCase):
         response = self.client.get(reverse("caidapp:stop_init_identification"))
 
         self.assertEqual(response.status_code, 302)
+        self.assertRedirects(response, reverse("caidapp:dash_identities"))
         revoke_mock.assert_called_once_with("init-task-456", terminate=True)
         self.workgroup.refresh_from_db()
         self.assertEqual(self.workgroup.identification_init_status, "Not initiated")

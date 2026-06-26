@@ -326,38 +326,52 @@ def on_success_predict_taxon(
 
 def _prepare_dataframe_for_identification(mediafiles) -> dict:
     media_root = Path(settings.MEDIA_ROOT)
-    csv_len = len(mediafiles)
     csv_data = {
-        "image_path": [None] * csv_len,
-        "mediafile_id": [None] * csv_len,
-        "class_id": [None] * csv_len,
-        "label": [None] * csv_len,
-        "locality_id": [None] * csv_len,
-        "locality_name": [None] * csv_len,
-        "locality_coordinates": [None] * csv_len,
-        "detection_results": [None] * csv_len,
-        "sequence_number": [None] * csv_len,
+        "image_path": [],
+        "mediafile_id": [],
+        "class_id": [],
+        "label": [],
+        "locality_id": [],
+        "locality_name": [],
+        "locality_coordinates": [],
+        "detection_results": [],
+        "sequence_number": [],
     }
     logger.debug(f"number of records={len(mediafiles)}")
-    for i, mediafile in enumerate(mediafiles):
+    skipped_mediafile_ids = []
+    for mediafile in mediafiles:
         # if mediafile.identity is not None:
+        try:
+            image_path = _get_identification_source_image_path(mediafile, media_root)
+        except FileNotFoundError as exc:
+            skipped_mediafile_ids.append(mediafile.id)
+            logger.warning("Skipping mediafile %s for identification metadata: %s", mediafile.id, exc)
+            continue
+
         identity = _get_identification_identity(mediafile)
-        csv_data["image_path"][i] = _get_identification_source_image_path(mediafile, media_root)
-        csv_data["mediafile_id"][i] = mediafile.id
-        csv_data["class_id"][i] = int(identity.id) if identity else None
-        csv_data["label"][i] = str(identity.name) if identity else None
-        csv_data["locality_id"][i] = int(mediafile.locality.id) if mediafile.locality else None
-        csv_data["locality_name"][i] = str(mediafile.locality.name) if mediafile.locality else ""
-        csv_data["locality_coordinates"][i] = (
+        csv_data["image_path"].append(image_path)
+        csv_data["mediafile_id"].append(mediafile.id)
+        csv_data["class_id"].append(int(identity.id) if identity else None)
+        csv_data["label"].append(str(identity.name) if identity else None)
+        csv_data["locality_id"].append(int(mediafile.locality.id) if mediafile.locality else None)
+        csv_data["locality_name"].append(str(mediafile.locality.name) if mediafile.locality else "")
+        csv_data["locality_coordinates"].append(
             str(mediafile.effective_location) if mediafile.effective_location else None
         )
-        csv_data["sequence_number"][i] = mediafile.sequence.local_id if mediafile.sequence else None
+        csv_data["sequence_number"].append(mediafile.sequence.local_id if mediafile.sequence else None)
         # logger.debug(f"{mediafile.metadata_json=}")
         if mediafile.metadata_json and "detection_results" in mediafile.metadata_json:
             detection_results = mediafile.metadata_json["detection_results"]
         else:
             detection_results = None
-        csv_data["detection_results"][i] = detection_results
+        csv_data["detection_results"].append(detection_results)
+
+    if skipped_mediafile_ids:
+        logger.warning(
+            "Skipped %s mediafiles with missing identification source images: %s",
+            len(skipped_mediafile_ids),
+            skipped_mediafile_ids,
+        )
 
     return csv_data
 
@@ -381,7 +395,16 @@ def _get_identification_identity(mediafile: MediaFile) -> IndividualIdentity | N
 def _get_identification_source_image_path(mediafile: MediaFile, media_root: Path) -> str:
     """Return an image path suitable for identification embedding extraction."""
     if mediafile.media_type != "video":
-        return str(media_root / mediafile.image_file.name)
+        source_path = _first_existing_mediafile_path(
+            mediafile,
+            media_root,
+            ["image_file", "static_thumbnail", "preview", "thumbnail"],
+        )
+        if source_path:
+            return str(source_path)
+        raise FileNotFoundError(
+            f"Image mediafile {mediafile.id} has no existing image_file/static_thumbnail/preview/thumbnail."
+        )
 
     static_thumbnail_name = getattr(mediafile.static_thumbnail, "name", "")
     static_thumbnail_path = media_root / static_thumbnail_name if static_thumbnail_name else None
@@ -400,6 +423,19 @@ def _get_identification_source_image_path(mediafile: MediaFile, media_root: Path
     raise FileNotFoundError(
         f"Video mediafile {mediafile.id} has no readable static thumbnail for identification."
     )
+
+
+def _first_existing_mediafile_path(mediafile: MediaFile, media_root: Path, field_names: list[str]) -> Path | None:
+    """Return the first existing file path from MediaFile file fields."""
+    for field_name in field_names:
+        file_field = getattr(mediafile, field_name, None)
+        file_name = getattr(file_field, "name", "")
+        if not file_name:
+            continue
+        path = media_root / file_name
+        if path.exists():
+            return path
+    return None
 
 
 def count_identification_media_types(mediafiles) -> tuple[int, int]:
@@ -1584,7 +1620,8 @@ def init_identification_on_success(*args, **kwargs):
     logger.debug(f"{workgroup.hash=}")
 
     logger.debug("init_identification done.")
-    schedule_reid_identification_for_workgroup(workgroup, delay_minutes=2)
+    if status == "Finished":
+        schedule_reid_identification_for_workgroup(workgroup, delay_minutes=2)
 
 
 @shared_task
@@ -2285,8 +2322,6 @@ def schedule_init_identification_for_workgroup(workgroup: models.WorkGroup, dela
         ]
     )
 
-    schedule_reid_identification_for_workgroup(workgroup, delay_minutes=delay_minutes + 50)
-
 
 def schedule_init_identification_after_representative_upload(uploaded_archive: UploadedArchive) -> bool:
     """Schedule one final initialization after an identified base dataset finishes importing."""
@@ -2328,21 +2363,42 @@ def init_identification(workgroup_id: int, selection: dict | None = None):
         require_observations=selection.get("require_observations", False),
     )
 
-    # mark these mediafiles as used for init identification
-    mediafiles_qs.update(used_for_init_identification=True)
-    image_number, video_number = count_identification_media_types(mediafiles_qs)
+    # set attribute media_file_used_for_init_identification
+    logger.debug("Generating CSV for init_identification...")
+    output_dir = Path(settings.MEDIA_ROOT) / workgroup.name
+    output_dir.mkdir(exist_ok=True, parents=True)
+    csv_data = _prepare_dataframe_for_identification(mediafiles_qs)
+    valid_mediafile_ids = csv_data.get("mediafile_id")
+    if valid_mediafile_ids is None:
+        valid_mediafile_ids = list(mediafiles_qs.values_list("id", flat=True))
+    valid_mediafiles_qs = MediaFile.objects.filter(id__in=valid_mediafile_ids)
+    image_number, video_number = count_identification_media_types(valid_mediafiles_qs)
     statistic = create_identification_run_statistic(
         workgroup=workgroup,
         operation="init",
         image_number=image_number,
         video_number=video_number,
     )
+    if not csv_data["image_path"]:
+        finish_identification_run_statistic(statistic.id, "failed")
+        workgroup.identification_init_at = django.utils.timezone.now()
+        workgroup.identification_init_status = "ERROR"
+        workgroup.identification_init_message = "No readable representative images found for identification initialization."
+        workgroup.identification_scheduled_init_task_id = None
+        workgroup.identification_scheduled_init_eta = None
+        workgroup.save(
+            update_fields=[
+                "identification_init_at",
+                "identification_init_status",
+                "identification_init_message",
+                "identification_scheduled_init_task_id",
+                "identification_scheduled_init_eta",
+            ]
+        )
+        logger.error("No readable representative images found for identification initialization in workgroup %s.", workgroup.id)
+        return
 
-    # set attribute media_file_used_for_init_identification
-    logger.debug("Generating CSV for init_identification...")
-    output_dir = Path(settings.MEDIA_ROOT) / workgroup.name
-    output_dir.mkdir(exist_ok=True, parents=True)
-    csv_data = _prepare_dataframe_for_identification(mediafiles_qs)
+    valid_mediafiles_qs.update(used_for_init_identification=True)
     identity_metadata_file = output_dir / "init_identification.csv"
     pd.DataFrame(csv_data).to_csv(identity_metadata_file, index=False)
     logger.debug(f"{identity_metadata_file=}")

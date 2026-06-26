@@ -64,6 +64,39 @@ class MediaFileLocationFallbackTest(TestCase):
             str(static_thumbnail_path),
         )
 
+    def test_prepare_dataframe_for_identification_falls_back_to_static_thumbnail_for_missing_image(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        static_thumbnail_relpath = "output/test-image/static_thumbnails/first.webp"
+        static_thumbnail_path = Path(settings.MEDIA_ROOT) / static_thumbnail_relpath
+        static_thumbnail_path.parent.mkdir(parents=True, exist_ok=True)
+        static_thumbnail_path.write_bytes(b"fake webp")
+        mediafile = MediaFileFactory(
+            parent=archive,
+            media_type="image",
+            image_file="output/test-image/images/missing.webp",
+            static_thumbnail=static_thumbnail_relpath,
+        )
+
+        csv_data = tasks._prepare_dataframe_for_identification([mediafile])
+
+        self.assertEqual(csv_data["image_path"][0], str(static_thumbnail_path))
+
+    def test_prepare_dataframe_for_identification_skips_mediafile_with_missing_image_sources(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        mediafile = MediaFileFactory(
+            parent=archive,
+            media_type="image",
+            image_file="output/test-image/images/missing.webp",
+            static_thumbnail="output/test-image/static_thumbnails/missing.webp",
+            preview="output/test-image/previews/missing.webp",
+            thumbnail="output/test-image/thumbnails/missing.webp",
+        )
+
+        csv_data = tasks._prepare_dataframe_for_identification([mediafile])
+
+        self.assertEqual(csv_data["image_path"], [])
+        self.assertEqual(csv_data["mediafile_id"], [])
+
     def test_prepare_dataframe_for_identification_uses_representative_observation_identity(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)
         identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Observed identity")

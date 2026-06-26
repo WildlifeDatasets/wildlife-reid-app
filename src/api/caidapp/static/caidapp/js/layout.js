@@ -13,7 +13,6 @@ document.addEventListener('DOMContentLoaded', function() {
         if (triggerLink) {
             triggerLink.classList.toggle('collapsed', !expanded);
             triggerLink.setAttribute('aria-expanded', expanded ? 'true' : 'false');
-            triggerLink.classList.toggle('active', expanded);
         }
         if (persist) {
             localStorage.setItem(`sidebar-menu-${collapseElement.id}`, expanded ? 'true' : 'false');
