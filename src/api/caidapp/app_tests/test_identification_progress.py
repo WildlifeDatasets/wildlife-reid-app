@@ -1,4 +1,4 @@
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, call, patch
 
 from django.test import TestCase
 from django.urls import reverse
@@ -31,7 +31,28 @@ class IdentificationProgressApiTest(TestCase):
         payload = response.json()["run"]
         self.assertEqual(payload["progress"]["percent"], 41)
         self.assertEqual(payload["progress"]["stage"], "identify")
-        async_result.assert_called_once_with("identify-task-1")
+        async_result.assert_any_call("identify-task-1")
+        self.assertGreaterEqual(async_result.call_count, 1)
+
+    @patch("caidapp.views.AsyncResult")
+    def test_reconciles_stale_processing_when_worker_task_succeeded(self, async_result):
+        self.workgroup.identification_reid_status = "Processing"
+        self.workgroup.identification_reid_message = "Running identification"
+        self.workgroup.identification_scheduled_run_task_id = "identify-task-1"
+        self.workgroup.save()
+        async_result.return_value = Mock(state="SUCCESS", info={"status": "DONE"})
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()["run"]
+        self.assertEqual(payload["status"], "Finished")
+        self.assertEqual(payload["task_id"], "")
+        self.assertIn("reconciled automatically", payload["message"])
+        self.workgroup.refresh_from_db()
+        self.assertEqual(self.workgroup.identification_reid_status, "Finished")
+        self.assertIsNone(self.workgroup.identification_scheduled_run_task_id)
+        async_result.assert_has_calls([call("identify-task-1")])
 
     @patch("caidapp.views.AsyncResult", side_effect=RuntimeError("Redis unavailable"))
     def test_backend_error_keeps_progress_endpoint_available(self, async_result):

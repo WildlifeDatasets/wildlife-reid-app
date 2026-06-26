@@ -698,6 +698,8 @@ def dash_identities(request) -> HttpResponse:
     # )
     # page_context = paginate_queryset(queryset, request)
     workgroup = request.user.caiduser.workgroup
+    _reconcile_identification_task_status(workgroup, "init")
+    _reconcile_identification_task_status(workgroup, "run")
     if workgroup.identification_model is None:
         messages.error(request, "No identification model for workgroup. Please set it before running identification.")
 
@@ -860,21 +862,118 @@ def _celery_progress_payload(task_id: str, default_message: str) -> dict | None:
         return None
 
 
+def _identification_task_fields(operation: str) -> dict:
+    if operation == "init":
+        return {
+            "status": "identification_init_status",
+            "at": "identification_init_at",
+            "message": "identification_init_message",
+            "task_id": "identification_scheduled_init_task_id",
+            "eta": "identification_scheduled_init_eta",
+            "label": "Init identification",
+        }
+    return {
+        "status": "identification_reid_status",
+        "at": "identification_reid_at",
+        "message": "identification_reid_message",
+        "task_id": "identification_scheduled_run_task_id",
+        "eta": "identification_scheduled_run_eta",
+        "label": "Compare with identity database",
+    }
+
+
+def _identification_task_state(task_id: str | None) -> str | None:
+    if not task_id:
+        return None
+    try:
+        return AsyncResult(task_id).state
+    except Exception:
+        logger.warning("Could not read identification task state for task %s", task_id, exc_info=True)
+        return None
+
+
+def _identification_task_info(task_id: str | None):
+    if not task_id:
+        return None
+    try:
+        return AsyncResult(task_id).info
+    except Exception:
+        logger.warning("Could not read identification task info for task %s", task_id, exc_info=True)
+        return None
+
+
+def _reconcile_identification_task_status(workgroup: WorkGroup, operation: str) -> None:
+    fields = _identification_task_fields(operation)
+    status = getattr(workgroup, fields["status"])
+    task_id = getattr(workgroup, fields["task_id"])
+    if status not in {"Processing", "Scheduled"} or not task_id:
+        return
+
+    task_state = _identification_task_state(task_id)
+    if task_state not in {"SUCCESS", "FAILURE", "REVOKED"}:
+        return
+
+    now_value = django.utils.timezone.now()
+    task_info = _identification_task_info(task_id) if task_state == "SUCCESS" else None
+    task_returned_error = isinstance(task_info, dict) and task_info.get("status") == "ERROR"
+
+    if task_state == "SUCCESS" and not task_returned_error:
+        next_status = "Finished"
+        message = (
+            f"{fields['label']} worker task ended with Celery state SUCCESS at "
+            f"{now_value:%Y-%m-%d %H:%M}. Dashboard status was reconciled automatically."
+        )
+    elif task_state == "REVOKED":
+        next_status = "Not initiated"
+        message = (
+            f"{fields['label']} worker task was revoked at {now_value:%Y-%m-%d %H:%M}. "
+            "Dashboard status was reconciled automatically."
+        )
+    else:
+        next_status = "Failed"
+        error_message = ""
+        if task_returned_error and isinstance(task_info, dict):
+            error_message = f" Worker returned: {task_info.get('error', 'ERROR')}."
+        message = (
+            f"{fields['label']} worker task ended with Celery state {task_state} at "
+            f"{now_value:%Y-%m-%d %H:%M}.{error_message} Check API callback and worker logs."
+        )
+
+    setattr(workgroup, fields["status"], next_status)
+    setattr(workgroup, fields["at"], now_value)
+    setattr(workgroup, fields["message"], message)
+    setattr(workgroup, fields["task_id"], None)
+    setattr(workgroup, fields["eta"], None)
+    workgroup.save(
+        update_fields=[
+            fields["status"],
+            fields["at"],
+            fields["message"],
+            fields["task_id"],
+            fields["eta"],
+        ]
+    )
+
+
 def _workgroup_identification_progress(workgroup: WorkGroup, operation: str) -> dict:
+    _reconcile_identification_task_status(workgroup, operation)
     if operation == "init":
         status = workgroup.identification_init_status
         message = workgroup.identification_init_message
         task_id = workgroup.identification_scheduled_init_task_id
         eta = workgroup.identification_scheduled_init_eta
+        started_at = workgroup.identification_init_at if status == "Processing" else None
         default_message = "Initializing identification database"
     else:
         status = workgroup.identification_reid_status
         message = workgroup.identification_reid_message
         task_id = workgroup.identification_scheduled_run_task_id
         eta = workgroup.identification_scheduled_run_eta
+        started_at = workgroup.identification_reid_at if status == "Processing" else None
         default_message = "Generating identification suggestions"
 
     progress = None
+    task_state = _identification_task_state(task_id) if task_id else None
     if status in {"Processing", "Scheduled"}:
         progress = _celery_progress_payload(task_id, message or default_message)
         if progress is None:
@@ -890,6 +989,8 @@ def _workgroup_identification_progress(workgroup: WorkGroup, operation: str) -> 
         "message": message,
         "task_id": task_id or "",
         "eta": eta.isoformat() if eta else None,
+        "started_at": started_at.isoformat() if started_at else None,
+        "task_state": task_state,
         "progress": progress,
     }
 

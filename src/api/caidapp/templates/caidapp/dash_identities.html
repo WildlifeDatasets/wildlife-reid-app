@@ -224,17 +224,25 @@
                     <span class="ident-progress-dot ident-progress-unknown {% if user.caiduser.workgroup.identification_init_status != 'Processing' and user.caiduser.workgroup.identification_init_status != 'Scheduled' %}d-none{% endif %}"
                           data-operation="init"
                           data-bs-toggle="tooltip"
-                          data-bs-title="Init identification: {{ user.caiduser.workgroup.identification_init_status }}{% if user.caiduser.workgroup.identification_init_message %} - {{ user.caiduser.workgroup.identification_init_message }}{% endif %}"
-                          title="Init identification: {{ user.caiduser.workgroup.identification_init_status }}{% if user.caiduser.workgroup.identification_init_message %} - {{ user.caiduser.workgroup.identification_init_message }}{% endif %}">
+                          data-bs-title="Init identification: {{ user.caiduser.workgroup.identification_init_status }}{% if user.caiduser.workgroup.identification_init_status == 'Processing' and user.caiduser.workgroup.identification_init_at %} | started {{ user.caiduser.workgroup.identification_init_at|date:'Y-m-d H:i' }}{% endif %}{% if user.caiduser.workgroup.identification_scheduled_init_eta %} | scheduled {{ user.caiduser.workgroup.identification_scheduled_init_eta|date:'Y-m-d H:i' }}{% endif %}{% if user.caiduser.workgroup.identification_scheduled_init_task_id %} | task {{ user.caiduser.workgroup.identification_scheduled_init_task_id }}{% endif %}{% if user.caiduser.workgroup.identification_init_message %} - {{ user.caiduser.workgroup.identification_init_message }}{% endif %}"
+                          title="Init identification: {{ user.caiduser.workgroup.identification_init_status }}{% if user.caiduser.workgroup.identification_init_status == 'Processing' and user.caiduser.workgroup.identification_init_at %} | started {{ user.caiduser.workgroup.identification_init_at|date:'Y-m-d H:i' }}{% endif %}{% if user.caiduser.workgroup.identification_scheduled_init_eta %} | scheduled {{ user.caiduser.workgroup.identification_scheduled_init_eta|date:'Y-m-d H:i' }}{% endif %}{% if user.caiduser.workgroup.identification_scheduled_init_task_id %} | task {{ user.caiduser.workgroup.identification_scheduled_init_task_id }}{% endif %}{% if user.caiduser.workgroup.identification_init_message %} - {{ user.caiduser.workgroup.identification_init_message }}{% endif %}">
                         <i class="fas fa-fingerprint"></i>
                     </span>
                     <span class="ident-progress-dot ident-progress-unknown {% if user.caiduser.workgroup.identification_reid_status != 'Processing' and user.caiduser.workgroup.identification_reid_status != 'Scheduled' %}d-none{% endif %}"
                           data-operation="run"
                           data-bs-toggle="tooltip"
-                          data-bs-title="Compare with identity database: {{ user.caiduser.workgroup.identification_reid_status }}{% if user.caiduser.workgroup.identification_reid_message %} - {{ user.caiduser.workgroup.identification_reid_message }}{% endif %}"
-                          title="Compare with identity database: {{ user.caiduser.workgroup.identification_reid_status }}{% if user.caiduser.workgroup.identification_reid_message %} - {{ user.caiduser.workgroup.identification_reid_message }}{% endif %}">
+                          data-bs-title="Compare with identity database: {{ user.caiduser.workgroup.identification_reid_status }}{% if user.caiduser.workgroup.identification_reid_status == 'Processing' and user.caiduser.workgroup.identification_reid_at %} | started {{ user.caiduser.workgroup.identification_reid_at|date:'Y-m-d H:i' }}{% endif %}{% if user.caiduser.workgroup.identification_scheduled_run_eta %} | scheduled {{ user.caiduser.workgroup.identification_scheduled_run_eta|date:'Y-m-d H:i' }}{% endif %}{% if user.caiduser.workgroup.identification_scheduled_run_task_id %} | task {{ user.caiduser.workgroup.identification_scheduled_run_task_id }}{% endif %}{% if user.caiduser.workgroup.identification_reid_message %} - {{ user.caiduser.workgroup.identification_reid_message }}{% endif %}"
+                          title="Compare with identity database: {{ user.caiduser.workgroup.identification_reid_status }}{% if user.caiduser.workgroup.identification_reid_status == 'Processing' and user.caiduser.workgroup.identification_reid_at %} | started {{ user.caiduser.workgroup.identification_reid_at|date:'Y-m-d H:i' }}{% endif %}{% if user.caiduser.workgroup.identification_scheduled_run_eta %} | scheduled {{ user.caiduser.workgroup.identification_scheduled_run_eta|date:'Y-m-d H:i' }}{% endif %}{% if user.caiduser.workgroup.identification_scheduled_run_task_id %} | task {{ user.caiduser.workgroup.identification_scheduled_run_task_id }}{% endif %}{% if user.caiduser.workgroup.identification_reid_message %} - {{ user.caiduser.workgroup.identification_reid_message }}{% endif %}">
                         <i class="bi bi-question-circle"></i>
                     </span>
+                </span>
+                <span class="small text-muted d-inline-block ms-2">
+                    {% if user.caiduser.workgroup.identification_init_status == "Processing" or user.caiduser.workgroup.identification_init_status == "Scheduled" %}
+                        Init {{ user.caiduser.workgroup.identification_init_status|lower }}{% if user.caiduser.workgroup.identification_init_status == "Processing" and user.caiduser.workgroup.identification_init_at %}, started {{ user.caiduser.workgroup.identification_init_at|date:'Y-m-d H:i' }}{% endif %}{% if user.caiduser.workgroup.identification_scheduled_init_eta %}, scheduled {{ user.caiduser.workgroup.identification_scheduled_init_eta|date:'Y-m-d H:i' }}{% endif %}.
+                    {% endif %}
+                    {% if user.caiduser.workgroup.identification_reid_status == "Processing" or user.caiduser.workgroup.identification_reid_status == "Scheduled" %}
+                        Run {{ user.caiduser.workgroup.identification_reid_status|lower }}{% if user.caiduser.workgroup.identification_reid_status == "Processing" and user.caiduser.workgroup.identification_reid_at %}, started {{ user.caiduser.workgroup.identification_reid_at|date:'Y-m-d H:i' }}{% endif %}{% if user.caiduser.workgroup.identification_scheduled_run_eta %}, scheduled {{ user.caiduser.workgroup.identification_scheduled_run_eta|date:'Y-m-d H:i' }}{% endif %}.
+                    {% endif %}
                 </span>
                 <a class="btn btn-secondary bs-1" href="{% url 'caidapp:workgroup-update' user.caiduser.workgroup.id %}"><i
                         class="bi bi-gear"></i></a>
@@ -690,7 +698,13 @@ Run ({{ user.caiduser.workgroup.identification_reid_status }} {{ user.caiduser.w
             const percent = progress && progress.percent !== null ? progress.percent : 0;
             const message = progress ? progress.message : (item.message || '');
             const label = operation === 'init' ? 'Init identification' : 'Compare with identity database';
-            const tooltip = percent ? label + ': ' + percent + '% - ' + message : label + ': ' + (item.status || '') + (message ? ' - ' + message : '');
+            const details = [];
+            if (item.started_at) details.push('started ' + formatIdentificationDate(item.started_at));
+            if (item.eta) details.push('scheduled ' + formatIdentificationDate(item.eta));
+            if (item.task_state) details.push('state ' + item.task_state);
+            if (item.task_id) details.push('task ' + item.task_id);
+            const detailText = details.length ? ' | ' + details.join(' | ') : '';
+            const tooltip = percent ? label + ': ' + percent + '% - ' + message + detailText : label + ': ' + (item.status || '') + detailText + (message ? ' - ' + message : '');
             dot.style.setProperty('--ident-progress', percent);
             dot.classList.toggle('ident-progress-active', active);
             dot.classList.toggle('ident-progress-unknown', !percent);
@@ -702,6 +716,14 @@ Run ({{ user.caiduser.workgroup.identification_reid_status }} {{ user.caiduser.w
             }
             new bootstrap.Tooltip(dot);
             return active;
+        }
+
+        function formatIdentificationDate(value) {
+            const date = new Date(value);
+            if (Number.isNaN(date.getTime())) {
+                return value;
+            }
+            return date.toLocaleString();
         }
     </script>
 

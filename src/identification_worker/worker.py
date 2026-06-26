@@ -35,6 +35,10 @@ from utils.inference_identification import (
 from utils.log import setup_logging
 from utils.sequence_identification import extend_df_with_datetime, extend_df_with_sequence_id
 
+os.environ.setdefault("TZ", "Europe/Prague")
+if hasattr(time, "tzset"):
+    time.tzset()
+
 setup_logging()
 logger = logging.getLogger("app")
 
@@ -43,6 +47,8 @@ logger.debug(f"{config.REDIS_URL=}")
 logger.debug(f"{config.POSTGRES_URL=}")
 
 identification_worker = Celery("identification_worker", broker=config.RABBITMQ_URL, backend=config.REDIS_URL)
+identification_worker.conf.timezone = os.environ.get("TZ", "Europe/Prague")
+identification_worker.conf.enable_utc = False
 init_db_connection(db_url=config.POSTGRES_URL)
 
 
@@ -157,7 +163,7 @@ def init(
         logger.debug(f"Database size: {database_size}")
         progress.update(1, 1)
 
-        logger.info("Finished processing.")
+        logger.info("Finished init identification processing.")
         out = {
             "status": "DONE",
             "message": f"Identification initiated with {len(metadata['image_path'])} images.",
@@ -552,7 +558,7 @@ def predict(
     try:
         progress = ProgressReporter(self, operation="identify")
         progress.stage("load_metadata", "Loading identification metadata")
-        logger.info(f"Applying init task with args: {input_metadata_file_path=}, {organization_id=}.")
+        logger.info(f"Applying identify task with args: {input_metadata_file_path=}, {organization_id=}.")
         logger.debug(f"celery task id={self.request.id=}")
 
         # read metadata file
@@ -645,7 +651,7 @@ def predict(
                 progress.update(1, 1)
 
                 progress.stage("finalize", "Finalizing identification")
-                logger.info("Finished processing.")
+                logger.info("Finished identify processing.")
                 progress.update(1, 1)
                 out = {"status": "DONE", "output_json_file": output_json_file_path}
     except Exception:
