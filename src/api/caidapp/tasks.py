@@ -22,6 +22,7 @@ import tqdm
 from celery import current_app, shared_task, signature
 from django.conf import settings
 from django.utils.timezone import now
+from PIL import Image
 
 from . import fs_data, model_tools, models
 from .fs_data import make_thumbnail_from_file
@@ -324,13 +325,27 @@ def on_success_predict_taxon(
         uploaded_archive.save()
 
 
-def _prepare_dataframe_for_identification(mediafiles) -> dict:
+def _prepare_dataframe_for_identification(
+    mediafiles,
+    *,
+    representative_only: bool = False,
+    require_identity: bool = False,
+    observation_taxon=None,
+) -> dict:
     media_root = Path(settings.MEDIA_ROOT)
     csv_data = {
         "image_path": [],
         "mediafile_id": [],
+        "observation_id": [],
+        "taxon_id": [],
+        "taxon": [],
         "class_id": [],
         "label": [],
+        "bbox_cx": [],
+        "bbox_cy": [],
+        "bbox_w": [],
+        "bbox_h": [],
+        "orientation": [],
         "locality_id": [],
         "locality_name": [],
         "locality_coordinates": [],
@@ -348,23 +363,17 @@ def _prepare_dataframe_for_identification(mediafiles) -> dict:
             logger.warning("Skipping mediafile %s for identification metadata: %s", mediafile.id, exc)
             continue
 
-        identity = _get_identification_identity(mediafile)
-        csv_data["image_path"].append(image_path)
-        csv_data["mediafile_id"].append(mediafile.id)
-        csv_data["class_id"].append(int(identity.id) if identity else None)
-        csv_data["label"].append(str(identity.name) if identity else None)
-        csv_data["locality_id"].append(int(mediafile.locality.id) if mediafile.locality else None)
-        csv_data["locality_name"].append(str(mediafile.locality.name) if mediafile.locality else "")
-        csv_data["locality_coordinates"].append(
-            str(mediafile.effective_location) if mediafile.effective_location else None
+        observations = _identification_observations_for_mediafile(
+            mediafile,
+            representative_only=representative_only,
+            require_identity=require_identity,
+            observation_taxon=observation_taxon,
         )
-        csv_data["sequence_number"].append(mediafile.sequence.local_id if mediafile.sequence else None)
-        # logger.debug(f"{mediafile.metadata_json=}")
-        if mediafile.metadata_json and "detection_results" in mediafile.metadata_json:
-            detection_results = mediafile.metadata_json["detection_results"]
-        else:
-            detection_results = None
-        csv_data["detection_results"].append(detection_results)
+        if observations:
+            for observation in observations:
+                _append_identification_csv_row(csv_data, mediafile, image_path, observation=observation)
+        elif not representative_only and not require_identity and observation_taxon is None:
+            _append_identification_csv_row(csv_data, mediafile, image_path, observation=None)
 
     if skipped_mediafile_ids:
         logger.warning(
@@ -374,6 +383,102 @@ def _prepare_dataframe_for_identification(mediafiles) -> dict:
         )
 
     return csv_data
+
+
+def _identification_observations_for_mediafile(
+    mediafile: MediaFile,
+    *,
+    representative_only: bool = False,
+    require_identity: bool = False,
+    observation_taxon=None,
+) -> list:
+    observations = list(mediafile.observations.all().order_by("id"))
+    observation_taxon_id = getattr(observation_taxon, "id", observation_taxon)
+    if representative_only:
+        observations = [observation for observation in observations if observation.identity_is_representative]
+    if require_identity:
+        observations = [observation for observation in observations if observation.identity_id is not None]
+    if observation_taxon_id is not None:
+        observations = [observation for observation in observations if observation.taxon_id == observation_taxon_id]
+    return observations
+
+
+def _append_identification_csv_row(csv_data: dict, mediafile: MediaFile, image_path: str, observation=None) -> None:
+    identity = observation.identity if observation is not None else _get_identification_identity(mediafile)
+    taxon = observation.taxon if observation is not None else mediafile.taxon
+    bbox_values = (
+        (
+            observation.bbox_x_center,
+            observation.bbox_y_center,
+            observation.bbox_width,
+            observation.bbox_height,
+        )
+        if observation is not None
+        else ("", "", "", "")
+    )
+
+    csv_data["image_path"].append(image_path)
+    csv_data["mediafile_id"].append(mediafile.id)
+    csv_data["observation_id"].append(observation.id if observation is not None else None)
+    csv_data["taxon_id"].append(taxon.id if taxon else None)
+    csv_data["taxon"].append(str(taxon.name) if taxon else None)
+    csv_data["class_id"].append(int(identity.id) if identity else None)
+    csv_data["label"].append(str(identity.name) if identity else None)
+    csv_data["bbox_cx"].append(bbox_values[0])
+    csv_data["bbox_cy"].append(bbox_values[1])
+    csv_data["bbox_w"].append(bbox_values[2])
+    csv_data["bbox_h"].append(bbox_values[3])
+    csv_data["orientation"].append(observation.orientation if observation is not None else mediafile.orientation)
+    csv_data["locality_id"].append(int(mediafile.locality.id) if mediafile.locality else None)
+    csv_data["locality_name"].append(str(mediafile.locality.name) if mediafile.locality else "")
+    csv_data["locality_coordinates"].append(str(mediafile.effective_location) if mediafile.effective_location else None)
+    csv_data["sequence_number"].append(mediafile.sequence.local_id if mediafile.sequence else None)
+    csv_data["detection_results"].append(_identification_detection_results_from_observation(observation, image_path))
+
+
+def _identification_detection_results_from_observation(observation, image_path: str) -> str:
+    if observation is None:
+        return "[]"
+    bbox_fields = (
+        observation.bbox_x_center,
+        observation.bbox_y_center,
+        observation.bbox_width,
+        observation.bbox_height,
+    )
+    if any(value is None for value in bbox_fields):
+        return "[]"
+
+    image_size = _read_image_size(image_path)
+    if image_size is None:
+        logger.warning("Cannot construct identification detection_results for observation %s: unreadable image size.", observation.id)
+        return "[]"
+
+    width, height = image_size
+    x_min, y_min, x_max, y_max = observation.get_bbox_xyxy(width, height)
+    bbox = [
+        max(0, min(width, x_min)),
+        max(0, min(height, y_min)),
+        max(0, min(width, x_max)),
+        max(0, min(height, y_max)),
+    ]
+    return json.dumps(
+        [
+            {
+                "size": [width, height],
+                "bbox": bbox,
+                "orientation": observation.orientation,
+            }
+        ]
+    )
+
+
+def _read_image_size(image_path: str) -> tuple[int, int] | None:
+    try:
+        with Image.open(image_path) as image:
+            return image.size
+    except Exception as exc:
+        logger.warning("Could not read image size for identification metadata %s: %s", image_path, exc)
+        return None
 
 
 def _get_identification_identity(mediafile: MediaFile) -> IndividualIdentity | None:
@@ -2116,13 +2221,16 @@ def _prepare_mediafile_for_identification(data, i, media_root, mediafile_id):
     reid_top_k_image_paths = data["pred_image_paths"][i]
     reid_top_k_scores = data["scores"][i]
     unknown_mediafile = MediaFile.objects.get(id=mediafile_id)
+    unknown_observation = _identification_output_observation(data, i, unknown_mediafile)
 
     # update mediafile.metadata_json (model.JsonField) with the new data
-    metadata_json = unknown_mediafile.metadata_json
+    metadata_json = unknown_mediafile.metadata_json or {}
     metadata_json["reid_top_k_class_ids"] = reid_top_k_class_ids
     metadata_json["reid_top_k_labels"] = reid_top_k_labels
     metadata_json["reid_top_k_image_paths"] = reid_top_k_image_paths
     metadata_json["reid_top_k_scores"] = reid_top_k_scores
+    if unknown_observation is not None:
+        metadata_json["reid_observation_id"] = unknown_observation.id
     unknown_mediafile.metadata_json = metadata_json
     unknown_mediafile.save()
 
@@ -2130,15 +2238,22 @@ def _prepare_mediafile_for_identification(data, i, media_root, mediafile_id):
     if (reid_top_k_scores[0]) > settings.IDENTITY_MANUAL_CONFIRMATION_THRESHOLD:
 
         identity_id = reid_top_k_class_ids[0]  # top-1
-        unknown_mediafile.identity = IndividualIdentity.objects.get(id=identity_id)
+        identity = IndividualIdentity.objects.get(id=identity_id)
+        if unknown_observation is not None:
+            unknown_observation.identity = identity
+            unknown_observation.save(update_fields=["identity"])
+            if unknown_mediafile.observations.count() == 1:
+                unknown_mediafile.identity = identity
+                unknown_mediafile.save(update_fields=["identity"])
+        else:
+            unknown_mediafile.identity = identity
+            unknown_mediafile.save(update_fields=["identity"])
         logger.debug(
-            f"{unknown_mediafile} is {unknown_mediafile.identity.name} with score={reid_top_k_scores[0]}. "
+            f"{unknown_mediafile} is {identity.name} with score={reid_top_k_scores[0]}. "
             + "No need of manual confirmation."
         )
-        if unknown_mediafile.identity.name != reid_top_k_labels[0]:  # top-1
-            logger.warning(f"Identity name mismatch: {unknown_mediafile.identity.name} != {reid_top_k_labels[0]}")
-
-        unknown_mediafile.save()
+        if identity.name != reid_top_k_labels[0]:  # top-1
+            logger.warning(f"Identity name mismatch: {identity.name} != {reid_top_k_labels[0]}")
 
     else:
         mfi, _ = MediafilesForIdentification.objects.get_or_create(
@@ -2188,6 +2303,20 @@ def _prepare_mediafile_for_identification(data, i, media_root, mediafile_id):
                 logger.debug(f"{top_path=}")
                 logger.debug(traceback.format_exc())
                 logger.error(f"Error during identification of {unknown_mediafile}: {e}: {traceback.format_exc()}")
+
+
+def _identification_output_observation(data, i, mediafile: MediaFile):
+    observation_ids = data.get("observation_ids")
+    if not observation_ids or i >= len(observation_ids):
+        return None
+    observation_id = observation_ids[i]
+    if observation_id in (None, ""):
+        return None
+    try:
+        return mediafile.observations.get(id=observation_id)
+    except models.AnimalObservation.DoesNotExist:
+        logger.warning("Identification output observation %s does not belong to mediafile %s.", observation_id, mediafile.id)
+        return None
 
 
 # def _identity_mismatch_waning(
@@ -2367,7 +2496,15 @@ def init_identification(workgroup_id: int, selection: dict | None = None):
     logger.debug("Generating CSV for init_identification...")
     output_dir = Path(settings.MEDIA_ROOT) / workgroup.name
     output_dir.mkdir(exist_ok=True, parents=True)
-    csv_data = _prepare_dataframe_for_identification(mediafiles_qs)
+    csv_data = _prepare_dataframe_for_identification(
+        mediafiles_qs,
+        representative_only=selection.get("representative_only", True),
+        require_identity=selection.get("require_identity", True),
+        observation_taxon=selection.get(
+            "observation_taxon",
+            workgroup.default_taxon_for_identification if workgroup.check_taxon_before_identification else None,
+        ),
+    )
     valid_mediafile_ids = csv_data.get("mediafile_id")
     if valid_mediafile_ids is None:
         valid_mediafile_ids = list(mediafiles_qs.values_list("id", flat=True))
@@ -2728,7 +2865,7 @@ def run_identification_outlier_detection_for_workgroup(
     metadata_file = workgroup.file_path("identification_outliers.csv")
     metadata_file.parent.mkdir(exist_ok=True, parents=True)
 
-    csv_data = _prepare_dataframe_for_identification(mediafiles_qs)
+    csv_data = _prepare_dataframe_for_identification(mediafiles_qs, require_identity=True)
     pd.DataFrame(csv_data).to_csv(metadata_file, index=False)
 
     result = models.IdentificationOutlierSuggestionResult.objects.create(

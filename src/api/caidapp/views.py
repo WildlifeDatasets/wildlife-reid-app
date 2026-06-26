@@ -2074,7 +2074,11 @@ def train_identification(
     output_model_path = output_dir / f"{clean_new_name}.pth"
     identity_metadata_file = group_dir / "train_identification.csv"
 
-    csv_data = _prepare_dataframe_for_identification(mediafiles_qs)
+    csv_data = _prepare_dataframe_for_identification(
+        mediafiles_qs,
+        representative_only=True,
+        require_identity=True,
+    )
 
     messages.info(
         request,
@@ -2378,13 +2382,13 @@ def run_identification_bulk(
 
     uploaded_archive_ids = [uploaded_archive.id for uploaded_archive in uploaded_archives]
     bulk_selection = {**selection, "uploaded_archive_ids": uploaded_archive_ids}
-    mediafiles, _observation_taxon, _require_observations = tasks.resolve_identification_selection(
+    mediafiles, observation_taxon, _require_observations = tasks.resolve_identification_selection(
         workgroup,
         selection=bulk_selection,
     )
     logger.debug(f"Generating CSV for bulk identification with {len(mediafiles)} records...")
 
-    csv_data = _prepare_dataframe_for_identification(mediafiles)
+    csv_data = _prepare_dataframe_for_identification(mediafiles, observation_taxon=observation_taxon)
     df = pd.DataFrame(csv_data)
     if df.shape[0] == 0:
         logger.warning("No records found for bulk identification in workgroup %s.", workgroup.id)
@@ -2474,7 +2478,7 @@ def run_identification(
 ) -> bool:
     """Run identification of uploaded archive."""
     logger.debug("Generating CSV for run_identification...")
-    mediafiles, _observation_taxon, _require_observations = tasks.resolve_identification_selection(
+    mediafiles, observation_taxon, _require_observations = tasks.resolve_identification_selection(
         workgroup,
         uploaded_archive=uploaded_archive,
         selection=selection,
@@ -2482,7 +2486,7 @@ def run_identification(
     logger.debug(f"Generating CSV for init_identification with {len(mediafiles)} records...")
     uploaded_archive.identification_status = "IAIP"
 
-    csv_data = _prepare_dataframe_for_identification(mediafiles)
+    csv_data = _prepare_dataframe_for_identification(mediafiles, observation_taxon=observation_taxon)
     media_root = Path(settings.MEDIA_ROOT)
 
     identity_metadata_file = media_root / uploaded_archive.outputdir / "identification_metadata.csv"
@@ -4468,14 +4472,17 @@ def sequences(
             request.session["mediafiles_name_suggestion"] = mediafiles_name_suggestion
             selected_mediafiles = MediaFile.objects.filter(id__in=selected_mediafile_ids)
             selected_album_hash = request.POST.get("selectAlbum", "")
+            bulk_result_counts = {}
             for mediafile in selected_mediafiles:
-                _single_mediafile_update(
+                result = _single_mediafile_update(
                     request,
                     mediafile,
                     form_bulk_processing,
                     form_bulk_processing,
                     selected_album_hash,
                 )
+                bulk_result_counts[result] = bulk_result_counts.get(result, 0) + 1
+            _add_bulk_processing_result_messages(request, bulk_result_counts)
             return redirect(request.get_full_path())
 
     if request.method == "POST" and "btnDissolveSequences" in request.POST:
@@ -4759,12 +4766,15 @@ def media_files_update(
 
             if select_all_in_the_pages:
                 # selected all m media file processing
+                bulk_result_counts = {}
                 for mediafile in full_mediafiles:
 
-                    _single_mediafile_update(request, mediafile, form, form_bulk_processing, selected_album_hash)
+                    result = _single_mediafile_update(request, mediafile, form, form_bulk_processing, selected_album_hash)
+                    bulk_result_counts[result] = bulk_result_counts.get(result, 0) + 1
                     # album.cover = mediafile
                     # album.save()
             else:
+                bulk_result_counts = {}
                 for mediafileform in form:
                     # go over selected mediafiles
                     if mediafileform.is_valid():
@@ -4774,9 +4784,11 @@ def media_files_update(
                             mediafileform.cleaned_data["selected"] = False
                             mediafileform.selected = False
                             instance: MediaFile = mediafileform.save(commit=False)
-                            _single_mediafile_update(request, instance, form, form_bulk_processing, selected_album_hash)
+                            result = _single_mediafile_update(request, instance, form, form_bulk_processing, selected_album_hash)
+                            bulk_result_counts[result] = bulk_result_counts.get(result, 0) + 1
                             # album.cover = instance
                             # album.save()
+            _add_bulk_processing_result_messages(request, bulk_result_counts)
 
             if "btnBulkProcessingAlbum" in form.data:
                 if selected_album_hash == "new":
@@ -4900,12 +4912,18 @@ def _single_mediafile_update(request, instance, form, form_bulk_processing, sele
         instance.save()
         observation.save()
     elif "btnBulkProcessing_id_identity_is_representative" in form.data:
-        observation = instance.first_observation_get_or_create
+        observations = list(instance.observations.all())
+        if len(observations) > 1:
+            return "skipped_representative_multiple_observations"
+        observation = observations[0] if observations else instance.first_observation_get_or_create
         observation.identity_is_representative = form_bulk_processing.cleaned_data["identity_is_representative"]
+        observation.updated_by = request.user.caiduser
+        observation.updated_at = django.utils.timezone.now()
+        observation.save(update_fields=["identity_is_representative", "updated_by", "updated_at"])
         instance.identity_is_representative = observation.identity_is_representative
         instance.updated_by = request.user.caiduser
         instance.updated_at = django.utils.timezone.now()
-        instance.save()
+        instance.save(update_fields=["identity_is_representative", "updated_by", "updated_at"])
     elif "btnBulkProcessingDelete" in form.data:
         instance.delete()
     elif "btnBulkProcessing_id_taxon_verified" in form.data:
@@ -4931,6 +4949,19 @@ def _single_mediafile_update(request, instance, form, form_bulk_processing, sele
         instance.save()
     elif "btnBulkProcessing_set_full_image_bbox" in form.data:
         _set_mediafile_bbox_to_full_image(instance, request.user.caiduser)
+
+    return "updated"
+
+
+def _add_bulk_processing_result_messages(request, result_counts: dict) -> None:
+    skipped_representative = result_counts.get("skipped_representative_multiple_observations", 0)
+    if skipped_representative:
+        messages.warning(
+            request,
+            "Representative identity was not changed for "
+            f"{skipped_representative} media files with multiple observations. "
+            "Edit representative flags in the media file detail for those files.",
+        )
 
 
 from dateutil.relativedelta import relativedelta  # Import relativedelta

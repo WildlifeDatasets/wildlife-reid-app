@@ -1,3 +1,4 @@
+import json
 import shutil
 import tempfile
 from pathlib import Path
@@ -6,6 +7,7 @@ from unittest.mock import patch
 import pandas as pd
 from django.conf import settings
 from django.test import TestCase, override_settings
+from PIL import Image
 
 from caidapp import tasks
 from caidapp.app_tests.factories import (
@@ -14,6 +16,7 @@ from caidapp.app_tests.factories import (
     IndividualIdentityFactory,
     LocalityFactory,
     MediaFileFactory,
+    TaxonFactory,
     UploadedArchiveFactory,
 )
 
@@ -115,6 +118,79 @@ class MediaFileLocationFallbackTest(TestCase):
 
         self.assertEqual(csv_data["class_id"][0], identity.id)
         self.assertEqual(csv_data["label"][0], identity.name)
+
+    def test_prepare_dataframe_for_identification_exports_observation_row_and_current_bbox(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        taxon = TaxonFactory()
+        identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Observed identity")
+        mediafile = MediaFileFactory(
+            parent=archive,
+            metadata_json={"detection_results": [{"bbox": [1, 2, 3, 4], "orientation": "old"}]},
+        )
+        observation = AnimalObservationFactory(
+            mediafile=mediafile,
+            taxon=taxon,
+            identity=identity,
+            bbox_x_center=0.5,
+            bbox_y_center=0.5,
+            bbox_width=0.2,
+            bbox_height=0.4,
+            orientation="R",
+        )
+
+        csv_data = tasks._prepare_dataframe_for_identification([mediafile])
+
+        self.assertEqual(len(csv_data["image_path"]), 1)
+        self.assertEqual(csv_data["observation_id"][0], observation.id)
+        self.assertEqual(csv_data["taxon_id"][0], taxon.id)
+        self.assertEqual(csv_data["taxon"][0], taxon.name)
+        self.assertEqual(csv_data["class_id"][0], identity.id)
+        self.assertEqual(csv_data["label"][0], identity.name)
+        self.assertEqual(csv_data["bbox_cx"][0], 0.5)
+        self.assertEqual(csv_data["bbox_cy"][0], 0.5)
+        self.assertEqual(csv_data["bbox_w"][0], 0.2)
+        self.assertEqual(csv_data["bbox_h"][0], 0.4)
+        self.assertEqual(csv_data["orientation"][0], "R")
+        detection_results = json.loads(csv_data["detection_results"][0])
+        with Image.open(csv_data["image_path"][0]) as image:
+            width, height = image.size
+        expected_bbox = list(observation.get_bbox_xyxy(width, height))
+        self.assertEqual(detection_results[0]["orientation"], "R")
+        self.assertEqual(detection_results[0]["bbox"], expected_bbox)
+        self.assertNotEqual(detection_results[0]["bbox"], [1, 2, 3, 4])
+
+    def test_prepare_dataframe_for_identification_filters_observations_by_taxon(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        mediafile = MediaFileFactory(parent=archive)
+        matching = AnimalObservationFactory(mediafile=mediafile)
+        AnimalObservationFactory(mediafile=mediafile)
+
+        csv_data = tasks._prepare_dataframe_for_identification([mediafile], observation_taxon=matching.taxon)
+
+        self.assertEqual(csv_data["observation_id"], [matching.id])
+
+    @override_settings(IDENTITY_MANUAL_CONFIRMATION_THRESHOLD=0.5)
+    def test_prepare_mediafile_for_identification_updates_output_observation(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        mediafile = MediaFileFactory(parent=archive, identity=None, metadata_json=None)
+        observation = AnimalObservationFactory(mediafile=mediafile, identity=None)
+        identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Matched identity")
+        data = {
+            "pred_class_ids": [[identity.id]],
+            "pred_labels": [[identity.name]],
+            "pred_image_paths": [["unused"]],
+            "scores": [[0.9]],
+            "keypoints": [[]],
+            "observation_ids": [observation.id],
+        }
+
+        tasks._prepare_mediafile_for_identification(data, 0, Path(settings.MEDIA_ROOT), mediafile.id)
+
+        observation.refresh_from_db()
+        mediafile.refresh_from_db()
+        self.assertEqual(observation.identity_id, identity.id)
+        self.assertEqual(mediafile.identity_id, identity.id)
+        self.assertEqual(mediafile.metadata_json["reid_observation_id"], observation.id)
 
     def test_create_dataframe_from_mediafiles_exports_identity_codes_and_effective_location(self):
         locality = LocalityFactory(owner=self.caiduser, location="50.1,14.4")

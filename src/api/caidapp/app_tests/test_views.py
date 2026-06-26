@@ -1729,6 +1729,59 @@ class SequenceViewTest(TestCase):
         self.assertEqual(first_observation.identity, target_identity)
         self.assertEqual(second_observation.identity, target_identity)
 
+    def test_mediafiles_bulk_representative_false_updates_single_observation(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        mediafile = MediaFileFactory(parent=archive, original_filename="selected.jpg", identity_is_representative=True)
+        observation = AnimalObservationFactory(mediafile=mediafile, identity_is_representative=True)
+
+        response = self.client.post(
+            reverse("caidapp:media_files"),
+            {
+                "form-TOTAL_FORMS": "1",
+                "form-INITIAL_FORMS": "1",
+                "form-MIN_NUM_FORMS": "0",
+                "form-MAX_NUM_FORMS": "1000",
+                "form-0-id": str(mediafile.id),
+                "form-0-selected": "on",
+                "btnBulkProcessing_id_identity_is_representative": "Apply to selection",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        mediafile.refresh_from_db()
+        observation.refresh_from_db()
+        self.assertFalse(mediafile.identity_is_representative)
+        self.assertFalse(observation.identity_is_representative)
+
+    def test_mediafiles_bulk_representative_skips_multiple_observations(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        mediafile = MediaFileFactory(parent=archive, original_filename="multi.jpg", identity_is_representative=True)
+        first_observation = AnimalObservationFactory(mediafile=mediafile, identity_is_representative=True)
+        second_observation = AnimalObservationFactory(mediafile=mediafile, identity_is_representative=True)
+
+        response = self.client.post(
+            reverse("caidapp:media_files"),
+            {
+                "form-TOTAL_FORMS": "1",
+                "form-INITIAL_FORMS": "1",
+                "form-MIN_NUM_FORMS": "0",
+                "form-MAX_NUM_FORMS": "1000",
+                "form-0-id": str(mediafile.id),
+                "form-0-selected": "on",
+                "btnBulkProcessing_id_identity_is_representative": "Apply to selection",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        mediafile.refresh_from_db()
+        first_observation.refresh_from_db()
+        second_observation.refresh_from_db()
+        self.assertTrue(mediafile.identity_is_representative)
+        self.assertTrue(first_observation.identity_is_representative)
+        self.assertTrue(second_observation.identity_is_representative)
+        self.assertContains(response, "Representative identity was not changed")
+        self.assertContains(response, "multiple observations")
+
     def test_mediafiles_bulk_set_full_image_bbox_updates_selected_mediafiles(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)
         selected_mediafile = MediaFileFactory(parent=archive, original_filename="selected.jpg")

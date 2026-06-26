@@ -630,6 +630,11 @@ def predict(
                 progress.stage("save_output", "Saving identification suggestions")
                 pred_labels = [[id2label[x] for x in row] for row in identification_output["pred_class_ids"]]
                 identification_output["mediafile_ids"] = metadata["mediafile_id"].tolist()
+                if "observation_id" in metadata:
+                    identification_output["observation_ids"] = [
+                        None if pd.isna(observation_id) else int(observation_id)
+                        for observation_id in metadata["observation_id"].tolist()
+                    ]
                 identification_output["pred_labels"] = pred_labels
                 identification_output["query_image_path"] = query_image_path
                 identification_output["query_masked_path"] = query_masked_path
