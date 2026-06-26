@@ -238,6 +238,7 @@ class MediafileListViewTest(TestCase):
         identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Alpha")
         init_mediafile = MediaFileFactory(parent=archive, original_filename="init-candidate.jpg")
         skipped_mediafile = MediaFileFactory(parent=archive, original_filename="other-taxon.jpg")
+        missing_identity_mediafile = MediaFileFactory(parent=archive, original_filename="representative-without-identity.jpg")
         AnimalObservationFactory(
             mediafile=init_mediafile,
             taxon=lynx,
@@ -250,6 +251,18 @@ class MediafileListViewTest(TestCase):
             identity=identity,
             identity_is_representative=True,
         )
+        AnimalObservationFactory(
+            mediafile=missing_identity_mediafile,
+            taxon=lynx,
+            identity=None,
+            identity_is_representative=True,
+        )
+        AnimalObservationFactory(
+            mediafile=missing_identity_mediafile,
+            taxon=lynx,
+            identity=identity,
+            identity_is_representative=False,
+        )
 
         response = self.client.get(reverse("caidapp:media_files"), {"init_identification_candidates": "true"})
 
@@ -257,6 +270,7 @@ class MediafileListViewTest(TestCase):
         self.assertEqual(response.context["number_of_mediafiles"], 1)
         self.assertContains(response, "init-candidate.jpg")
         self.assertNotContains(response, "other-taxon.jpg")
+        self.assertNotContains(response, "representative-without-identity.jpg")
 
 
 class IdentityObservationAggregationTest(TestCase):

@@ -410,16 +410,24 @@ class WorkGroup(models.Model):
             qs = qs.filter(id__in=mediafile_ids)
         if require_import_finished:
             qs = qs.filter(parent__import_finished=True)
+
+        observation_filters = {}
         if representative_only:
-            qs = qs.filter(observations__identity_is_representative=True)
-        if require_identity is True:
+            observation_filters["identity_is_representative"] = True
+        if observation_taxon is not None:
+            observation_filters["taxon"] = observation_taxon
+        if require_identity is True and observation_filters:
+            observation_filters["identity__isnull"] = False
+        if observation_filters or require_observations:
+            matching_observation = AnimalObservation.objects.filter(mediafile=OuterRef("pk"), **observation_filters)
+            qs = qs.annotate(has_matching_identification_observation=Exists(matching_observation)).filter(
+                has_matching_identification_observation=True
+            )
+
+        if require_identity is True and not observation_filters:
             qs = qs.filter(Q(identity__isnull=False) | Q(observations__identity__isnull=False))
         elif require_identity is False:
             qs = qs.filter(identity__isnull=True, observations__identity__isnull=True)
-        if require_observations:
-            qs = qs.filter(observations__isnull=False)
-        if observation_taxon is not None:
-            qs = qs.filter(observations__taxon=observation_taxon)
 
         return qs.distinct()
 
