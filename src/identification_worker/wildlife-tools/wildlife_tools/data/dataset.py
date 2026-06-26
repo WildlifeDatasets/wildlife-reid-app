@@ -75,7 +75,6 @@ class WildlifeDataset:
 
     def get_image(self, path):
         """Load image from path."""
-        img
         try:
             img = cv2.imread(path)
             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
