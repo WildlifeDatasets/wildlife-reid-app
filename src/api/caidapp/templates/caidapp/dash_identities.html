@@ -133,7 +133,7 @@
                     <ul class="dropdown-menu">
                         <li>
 
-                            <a class="dropdown-item" href="{% url 'caidapp:media_files' %}?identity_is_representative=true"><i
+                            <a class="dropdown-item" href="{% url 'caidapp:media_files' %}?init_identification_candidates=true"><i
                                     class="bi bi-eye"></i> Check representative images </a>
                         </li>
                         <li>
@@ -409,7 +409,7 @@
                                                 Taxon of representative media files is
                                                 not {{ user.caiduser.workgroup.default_taxon_for_identification.name }}.
                                                 You might want to or set the correct taxon in
-                                                <a class="" href="{% url 'caidapp:media_files' %}?identity_is_representative=true">representative
+                                                <a class="" href="{% url 'caidapp:media_files' %}?init_identification_candidates=true">representative
                                                     media files</a>
                                                 {% if user.caiduser.workgroup_admin %}
                                                     or  turn of the checking in the
@@ -472,7 +472,7 @@
                                     {{ user.caiduser.workgroup.number_of_representative_media_files }}
 
                                     ( <a
-                                        href="{% url 'caidapp:media_files' %}?identity_is_representative=true"
+                                        href="{% url 'caidapp:media_files' %}?init_identification_candidates=true"
                                         class="">
                                     check them
                                 </a> )

@@ -3717,6 +3717,9 @@ def _get_filtered_mediafiles_queryset(
 ) -> Tuple[QuerySet, filters.MediaFileFilter, str, Optional[str]]:
     """Build the filtered mediafiles queryset shared by multiple views."""
     filter_kwargs = dict(extra_filter_kwargs or {})
+    init_identification_candidates = bool(
+        _parse_bool_query_param(request.GET.get("init_identification_candidates"))
+    )
 
     if uploadedarchive_id is None and request.GET.get("uploadedarchive_id"):
         uploadedarchive_id = _parse_int_query_param_or_404(request.GET.get("uploadedarchive_id"), "uploaded archive id")
@@ -3741,6 +3744,8 @@ def _get_filtered_mediafiles_queryset(
     if request.GET.get("taxon"):
         taxon = _get_active_taxon_from_request(request)
         page_title = f"Media files - {taxon.name}"
+    elif init_identification_candidates:
+        page_title = "Media files - init identification candidates"
     else:
         page_title = "Media files"
 
@@ -3796,17 +3801,23 @@ def _get_filtered_mediafiles_queryset(
     if individual_identity_id is not None and identity_is_representative is not None:
         filter_kwargs["observations__identity_is_representative"] = identity_is_representative
 
-    mediafiles = MediaFile.objects.filter(
-        Q(album__albumsharerole__user=request.user.caiduser)
-        | Q(**models.user_has_access_filter_params(request.user.caiduser, "parent__owner")),
-        **filter_kwargs,
-    )
+    if init_identification_candidates:
+        mediafiles = request.user.caiduser.workgroup.mediafiles_for_train_or_init_identification()
+        mediafiles_name_suggestion = "init_identification_candidates"
+    else:
+        mediafiles = MediaFile.objects.filter(
+            Q(album__albumsharerole__user=request.user.caiduser)
+            | Q(**models.user_has_access_filter_params(request.user.caiduser, "parent__owner")),
+            **filter_kwargs,
+        )
     mediafile_filter_data = request.GET.copy()
     if identity_is_representative is not None:
         mediafile_filter_data.pop("identity_is_representative", None)
+    if init_identification_candidates:
+        mediafile_filter_data.pop("init_identification_candidates", None)
     mediafile_filter = filters.MediaFileFilter(mediafile_filter_data, queryset=mediafiles, request=request)
     full_mediafiles = mediafile_filter.qs.filter(sequence=sequence) if sequence else mediafile_filter.qs
-    if identity_is_representative:
+    if identity_is_representative and not init_identification_candidates:
         full_mediafiles = models.filter_mediafiles_by_identification_taxon(
             full_mediafiles,
             request.user.caiduser.workgroup,

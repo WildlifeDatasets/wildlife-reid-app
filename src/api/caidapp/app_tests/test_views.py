@@ -228,6 +228,36 @@ class MediafileListViewTest(TestCase):
         self.assertEqual(form.fields["identity"].label_from_instance(zeta), "Zeta (Z-002)")
         self.assertIn("js-searchable-select", form.fields["identity"].widget.attrs["class"])
 
+    def test_init_identification_candidates_use_same_filter_as_init_worker(self):
+        lynx = TaxonFactory(name="Lynx lynx")
+        wolf = TaxonFactory(name="Canis lupus")
+        self.caiduser.workgroup.check_taxon_before_identification = True
+        self.caiduser.workgroup.default_taxon_for_identification = lynx
+        self.caiduser.workgroup.save(update_fields=["check_taxon_before_identification", "default_taxon_for_identification"])
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Alpha")
+        init_mediafile = MediaFileFactory(parent=archive, original_filename="init-candidate.jpg")
+        skipped_mediafile = MediaFileFactory(parent=archive, original_filename="other-taxon.jpg")
+        AnimalObservationFactory(
+            mediafile=init_mediafile,
+            taxon=lynx,
+            identity=identity,
+            identity_is_representative=True,
+        )
+        AnimalObservationFactory(
+            mediafile=skipped_mediafile,
+            taxon=wolf,
+            identity=identity,
+            identity_is_representative=True,
+        )
+
+        response = self.client.get(reverse("caidapp:media_files"), {"init_identification_candidates": "true"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["number_of_mediafiles"], 1)
+        self.assertContains(response, "init-candidate.jpg")
+        self.assertNotContains(response, "other-taxon.jpg")
+
 
 class IdentityObservationAggregationTest(TestCase):
     def setUp(self):
