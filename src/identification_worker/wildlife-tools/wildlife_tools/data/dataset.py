@@ -9,6 +9,8 @@ import pandas as pd
 import pycocotools.mask as mask_coco
 from PIL import Image
 from wildlife_tools.tools import realize
+import logging
+logger = logging.getLogger(__name__)
 
 
 class WildlifeDataset:
@@ -73,9 +75,14 @@ class WildlifeDataset:
 
     def get_image(self, path):
         """Load image from path."""
-        img = cv2.imread(path)
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        img = Image.fromarray(img)
+        img
+        try:
+            img = cv2.imread(path)
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            img = Image.fromarray(img)
+        except Exception as e:
+            logger.debug(f"{path=}")
+            raise(e)
         return img
 
     def __getitem__(self, idx):
