@@ -1368,6 +1368,26 @@ class SequenceViewTest(TestCase):
         self.assertContains(response, "bi-star-fill")
         self.assertContains(response, "Alpha")
 
+    def test_mediafiles_card_shows_observation_identities_with_expand_badge(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        first_identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Alpha")
+        second_identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Beta")
+        third_identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Gamma")
+        mediafile = MediaFileFactory(parent=archive, identity=None, original_filename="multi-identity.jpg")
+        AnimalObservationFactory(mediafile=mediafile, identity=first_identity)
+        AnimalObservationFactory(mediafile=mediafile, identity=second_identity)
+        AnimalObservationFactory(mediafile=mediafile, identity=third_identity)
+
+        response = self.client.get(reverse("caidapp:media_files"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "multi-identity.jpg")
+        self.assertContains(response, "Alpha")
+        self.assertContains(response, "Beta")
+        self.assertContains(response, "+1")
+        self.assertContains(response, f'id="mediafile-identities-{mediafile.id}"')
+        self.assertContains(response, "Gamma")
+
     def test_mediafiles_star_is_informational_for_multiple_observations(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)
         first_identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Alpha")

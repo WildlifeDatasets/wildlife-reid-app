@@ -524,13 +524,46 @@
                                                 <br>
                                         {% endif %}
 
-                                        {% if mediafile.instance.identity or mediafile.instance.first_observation_identity_id %}
+                                        {% if mediafile.instance.identities or mediafile.instance.identity %}
                                             Identity:
-                                            <a class="link-secondary"
-                                               href="{% if mediafile.instance.identity %}{% url 'caidapp:individual_identity_mediafiles' mediafile.instance.identity.id %}{% else %}{% url 'caidapp:individual_identity_mediafiles' mediafile.instance.first_observation_identity_id %}{% endif %}">
-                                                {% if mediafile.instance.identity %}{{ mediafile.instance.identity }}{% else %}{{ mediafile.instance.first_observation_identity_name }}{% endif %}
-                                            </a>
-                                            {#                                            {{ mediafile.instance.identity }}#}
+                                            {% if mediafile.instance.identities %}
+                                                {% with identities=mediafile.instance.identities %}
+                                                    {% for identity in identities %}
+                                                        {% if forloop.counter <= 2 %}
+                                                            <a class="link-secondary"
+                                                               href="{% url 'caidapp:individual_identity_mediafiles' identity.id %}">
+                                                                {{ identity }}
+                                                            </a>{% if not forloop.last and forloop.counter < 2 %}, {% endif %}
+                                                        {% endif %}
+                                                    {% endfor %}
+                                                    {% if identities|length > 2 %}
+                                                        <button class="btn btn-sm btn-outline-secondary py-0 px-1"
+                                                                type="button"
+                                                                data-bs-toggle="collapse"
+                                                                data-bs-target="#mediafile-identities-{{ mediafile.instance.id }}"
+                                                                aria-expanded="false"
+                                                                aria-controls="mediafile-identities-{{ mediafile.instance.id }}"
+                                                                title="Show all identities">
+                                                            +{{ identities|length|add:"-2" }}
+                                                        </button>
+                                                        <div class="collapse small mt-1" id="mediafile-identities-{{ mediafile.instance.id }}">
+                                                            {% for identity in identities %}
+                                                                <div>
+                                                                    <a class="link-secondary"
+                                                                       href="{% url 'caidapp:individual_identity_mediafiles' identity.id %}">
+                                                                        {{ identity }}
+                                                                    </a>
+                                                                </div>
+                                                            {% endfor %}
+                                                        </div>
+                                                    {% endif %}
+                                                {% endwith %}
+                                            {% else %}
+                                                <a class="link-secondary"
+                                                   href="{% url 'caidapp:individual_identity_mediafiles' mediafile.instance.identity.id %}">
+                                                    {{ mediafile.instance.identity }}
+                                                </a>
+                                            {% endif %}
                                                 {#                                                <i class="bi bi-check-circle"></i>#}
 {#                                                <i class="bi bi-bookmark"></i>#}
                                             {% if mediafile.instance.observation_count > 1 %}

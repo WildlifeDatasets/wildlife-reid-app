@@ -4527,7 +4527,7 @@ def sequences(
     sequence_mediafiles = (
         MediaFile.objects.filter(sequence_id__in=page_sequence_ids)
         .select_related("parent", "taxon", "predicted_taxon", "locality", "identity", "updated_by", "sequence")
-        .prefetch_related("observations__taxon")
+        .prefetch_related("observations__taxon", "observations__identity")
         .order_by("captured_at", "id")
     )
     page_sequences = (
@@ -4818,7 +4818,7 @@ def media_files_update(
 
     full_mediafiles = full_mediafiles.select_related(
         "parent", "taxon", "predicted_taxon", "locality", "identity", "updated_by", "sequence"
-    ).prefetch_related("observations__taxon")
+    ).prefetch_related("observations__taxon", "observations__identity")
 
     number_of_mediafiles = full_mediafiles.count()
     logger.debug(f"{number_of_mediafiles=}")
