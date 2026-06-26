@@ -80,7 +80,8 @@ class WildlifeDataset:
             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
             img = Image.fromarray(img)
         except Exception as e:
-            logger.debug(f"{path=}")
+            logger.warning(f"{path=}")
+            print(f"{path=}")
             raise(e)
         return img
 
