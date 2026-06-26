@@ -513,7 +513,7 @@ def _get_identification_source_image_path(mediafile: MediaFile, media_root: Path
 
     static_thumbnail_name = getattr(mediafile.static_thumbnail, "name", "")
     static_thumbnail_path = media_root / static_thumbnail_name if static_thumbnail_name else None
-    if static_thumbnail_path and static_thumbnail_path.exists():
+    if static_thumbnail_path and _is_readable_image(static_thumbnail_path):
         return str(static_thumbnail_path)
 
     logger.info("Generating missing static thumbnail for video mediafile %s before identification init.", mediafile.id)
@@ -522,7 +522,7 @@ def _get_identification_source_image_path(mediafile: MediaFile, media_root: Path
 
     static_thumbnail_name = getattr(mediafile.static_thumbnail, "name", "")
     static_thumbnail_path = media_root / static_thumbnail_name if static_thumbnail_name else None
-    if static_thumbnail_path and static_thumbnail_path.exists():
+    if static_thumbnail_path and _is_readable_image(static_thumbnail_path):
         return str(static_thumbnail_path)
 
     raise FileNotFoundError(
@@ -538,9 +538,22 @@ def _first_existing_mediafile_path(mediafile: MediaFile, media_root: Path, field
         if not file_name:
             continue
         path = media_root / file_name
-        if path.exists():
+        if _is_readable_image(path):
             return path
     return None
+
+
+def _is_readable_image(path: Path) -> bool:
+    # changed by MJ
+    if not path.exists():
+        return False
+    try:
+        with Image.open(path) as image:
+            image.verify()
+        return True
+    except Exception as exc:
+        logger.warning("Skipping unreadable identification image source %s: %s", path, exc)
+        return False
 
 
 def count_identification_media_types(mediafiles) -> tuple[int, int]:

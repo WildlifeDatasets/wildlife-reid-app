@@ -21,6 +21,11 @@ from caidapp.app_tests.factories import (
 )
 
 
+def _write_test_image(path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    Image.new("RGB", (100, 100), color="blue").save(path, format="PNG")
+
+
 class MediaFileLocationFallbackTest(TestCase):
     def setUp(self):
         self.caiduser = CaidUserFactory(admin=True)
@@ -51,8 +56,7 @@ class MediaFileLocationFallbackTest(TestCase):
         archive = UploadedArchiveFactory(owner=self.caiduser)
         static_thumbnail_relpath = "output/test-video/static_thumbnails/clip.webp"
         static_thumbnail_path = Path(settings.MEDIA_ROOT) / static_thumbnail_relpath
-        static_thumbnail_path.parent.mkdir(parents=True, exist_ok=True)
-        static_thumbnail_path.write_bytes(b"fake webp")
+        _write_test_image(static_thumbnail_path)
         mediafile = MediaFileFactory(
             parent=archive,
             media_type="video",
@@ -71,8 +75,7 @@ class MediaFileLocationFallbackTest(TestCase):
         archive = UploadedArchiveFactory(owner=self.caiduser)
         static_thumbnail_relpath = "output/test-image/static_thumbnails/first.webp"
         static_thumbnail_path = Path(settings.MEDIA_ROOT) / static_thumbnail_relpath
-        static_thumbnail_path.parent.mkdir(parents=True, exist_ok=True)
-        static_thumbnail_path.write_bytes(b"fake webp")
+        _write_test_image(static_thumbnail_path)
         mediafile = MediaFileFactory(
             parent=archive,
             media_type="image",
@@ -83,6 +86,26 @@ class MediaFileLocationFallbackTest(TestCase):
         csv_data = tasks._prepare_dataframe_for_identification([mediafile])
 
         self.assertEqual(csv_data["image_path"][0], str(static_thumbnail_path))
+
+    def test_prepare_dataframe_for_identification_skips_unreadable_image_source(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        image_relpath = "output/test-image/images/broken.webp"
+        image_path = Path(settings.MEDIA_ROOT) / image_relpath
+        image_path.parent.mkdir(parents=True, exist_ok=True)
+        image_path.write_bytes(b"not an image")
+        mediafile = MediaFileFactory(
+            parent=archive,
+            media_type="image",
+            image_file=image_relpath,
+            static_thumbnail="output/test-image/static_thumbnails/missing.webp",
+            preview="output/test-image/previews/missing.webp",
+            thumbnail="output/test-image/thumbnails/missing.webp",
+        )
+
+        csv_data = tasks._prepare_dataframe_for_identification([mediafile])
+
+        self.assertEqual(csv_data["image_path"], [])
+        self.assertEqual(csv_data["mediafile_id"], [])
 
     def test_prepare_dataframe_for_identification_skips_mediafile_with_missing_image_sources(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)

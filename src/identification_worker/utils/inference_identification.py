@@ -248,6 +248,9 @@ def segment_animal(image_path: str, bbox: list, border: float = 0.25) -> np.ndar
     """Segment an animal in a given image using SAM model."""
     # global SAM_PREDICTOR
     image = cv2.imread(image_path)
+    # changed by MJ
+    if image is None or image.size == 0:
+        raise ValueError(f"OpenCV cannot read image '{image_path}'.")
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
     # logger.debug("Running segmentation inference.")
@@ -276,19 +279,53 @@ def mask_images(metadata: pd.DataFrame, tqdm_desc="Masking images") -> pd.DataFr
         image_path = row["image_path"]
         # detection_results = ast.literal_eval(
         #    ast.literal_eval(row["detection_results"])["detection_results"])
-        if row["detection_results"] is None:
+        if pd.isna(row["detection_results"]):
             logger.debug(f"No detection results for image: {image_path}, row['detection_results'] is None.")
             masked_paths.append(str(image_path))
             continue
-        detection_results = ast.literal_eval(row["detection_results"])
+        # changed by MJ
+        try:
+            detection_results = ast.literal_eval(row["detection_results"])
+        except (SyntaxError, ValueError) as exc:
+            logger.warning(
+                "Could not parse detection_results for image %s at metadata row %s: %s",
+                image_path,
+                row_idx,
+                exc,
+            )
+            masked_paths.append(str(image_path))
+            continue
         if len(detection_results) == 0:
             logger.debug(f"No detection results for image: {image_path}")
             masked_paths.append(str(image_path))
             continue
 
-        bbox = detection_results[0]["bbox"]
+        # changed by MJ
+        try:
+            bbox = detection_results[0]["bbox"]
+        except (IndexError, KeyError, TypeError) as exc:
+            logger.warning(
+                "Detection result for image %s at metadata row %s does not contain a usable bbox: %s",
+                image_path,
+                row_idx,
+                exc,
+            )
+            masked_paths.append(str(image_path))
+            continue
 
-        cropped_animal = segment_animal(image_path, bbox)
+        # changed by MJ
+        try:
+            cropped_animal = segment_animal(image_path, bbox)
+        except Exception as exc:
+            logger.warning(
+                "Skipping mask for image %s at metadata row %s with bbox %s: %s",
+                image_path,
+                row_idx,
+                bbox,
+                exc,
+            )
+            masked_paths.append(str(image_path))
+            continue
 
         base_path = Path(image_path).parent.parent / "masked_images"
 
