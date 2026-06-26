@@ -1353,6 +1353,24 @@ class SequenceViewTest(TestCase):
         self.assertContains(response, "multiple observations")
         self.assertContains(response, "Edit representative flags in the media file detail.")
 
+    def test_representative_mediafiles_star_is_informational_for_multiple_observations(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        taxon = TaxonFactory(name="Lynx")
+        archive.taxon_for_identification = taxon
+        archive.save(update_fields=["taxon_for_identification"])
+        first_identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Alpha")
+        second_identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Beta")
+        mediafile = MediaFileFactory(parent=archive, identity=None, identity_is_representative=False)
+        AnimalObservationFactory(mediafile=mediafile, taxon=taxon, identity=first_identity, identity_is_representative=True)
+        AnimalObservationFactory(mediafile=mediafile, taxon=taxon, identity=second_identity, identity_is_representative=False)
+
+        response = self.client.get(reverse("caidapp:media_files"), {"identity_is_representative": "true"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, f'data-mediafile-id="{mediafile.id}"')
+        self.assertContains(response, "multiple observations")
+        self.assertContains(response, "Edit representative flags in the media file detail.")
+
     def test_sequence_view_search_matches_mediafile_filename_and_keeps_full_sequence(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)
         matching_sequence = SequenceFactory(uploaded_archive=archive)
@@ -3173,7 +3191,7 @@ class IdentificationRerunTest(TestCase):
         self.assertEqual(response.context["btn_styles"]["n_representative"], 1)
         self.assertEqual(self.workgroup.number_of_representative_media_files(), 1)
 
-    def test_representative_mediafiles_view_uses_workgroup_default_taxon(self):
+    def test_mediafiles_representative_filter_uses_workgroup_default_taxon(self):
         self.workgroup.check_taxon_before_identification = True
         self.workgroup.default_taxon_for_identification = TaxonFactory(name="Lynx lynx")
         self.workgroup.save(update_fields=["check_taxon_before_identification", "default_taxon_for_identification"])
@@ -3197,10 +3215,19 @@ class IdentificationRerunTest(TestCase):
             identity_is_representative=True,
         )
 
-        response = self.client.get(reverse("caidapp:representative_mediafiles"))
+        response = self.client.get(reverse("caidapp:media_files"), {"identity_is_representative": "true"})
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "representative.jpg")
+
+    def test_representative_mediafiles_url_redirects_to_mediafiles_filter(self):
+        response = self.client.get(reverse("caidapp:representative_mediafiles"))
+
+        self.assertRedirects(
+            response,
+            f"{reverse('caidapp:media_files')}?identity_is_representative=true",
+            fetch_redirect_response=False,
+        )
 
     def test_toggle_identity_representative_updates_observation_flag(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)

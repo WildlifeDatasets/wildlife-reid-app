@@ -39,7 +39,7 @@ from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.files.base import ContentFile
 from django.core.paginator import Page, Paginator
 from django.db import transaction
-from django.db.models import CharField, Count, F, Func, Max, Min, OuterRef, Prefetch, Q, QuerySet, Subquery, Value
+from django.db.models import CharField, Count, F, Func, IntegerField, Max, Min, OuterRef, Prefetch, Q, QuerySet, Subquery, Value
 from django.db.models.functions import Cast, Coalesce
 from django.forms import modelformset_factory
 from django.forms.models import model_to_dict
@@ -3700,7 +3700,10 @@ def _get_filtered_mediafiles_queryset(
         | Q(**models.user_has_access_filter_params(request.user.caiduser, "parent__owner")),
         **filter_kwargs,
     )
-    mediafile_filter = filters.MediaFileFilter(request.GET, queryset=mediafiles, request=request)
+    mediafile_filter_data = request.GET.copy()
+    if identity_is_representative is not None:
+        mediafile_filter_data.pop("identity_is_representative", None)
+    mediafile_filter = filters.MediaFileFilter(mediafile_filter_data, queryset=mediafiles, request=request)
     full_mediafiles = mediafile_filter.qs.filter(sequence=sequence) if sequence else mediafile_filter.qs
     if identity_is_representative:
         full_mediafiles = models.filter_mediafiles_by_identification_taxon(
@@ -3710,6 +3713,14 @@ def _get_filtered_mediafiles_queryset(
     full_mediafiles = full_mediafiles.distinct()
 
     return full_mediafiles, mediafile_filter, page_title, mediafiles_name_suggestion
+
+
+@login_required
+def representative_mediafiles_redirect(request):
+    """Backward-compatible redirect to the unified media files view."""
+    query_params = request.GET.copy()
+    query_params["identity_is_representative"] = "true"
+    return redirect(f"{reverse('caidapp:media_files')}?{query_params.urlencode()}")
 
 
 def _verification_taxon_group_label(mediafile: MediaFile) -> str:
@@ -4677,8 +4688,15 @@ def media_files_update(
         full_mediafiles = full_mediafiles.order_by(order_by)
 
     first_observation = AnimalObservation.objects.filter(mediafile=OuterRef("pk")).order_by("id")
+    observation_count = (
+        AnimalObservation.objects.filter(mediafile=OuterRef("pk"))
+        .order_by()
+        .values("mediafile")
+        .annotate(count=Count("pk"))
+        .values("count")[:1]
+    )
     full_mediafiles = full_mediafiles.annotate(
-        observation_count=Count("observations", distinct=True),
+        observation_count=Coalesce(Subquery(observation_count, output_field=IntegerField()), Value(0)),
         first_observation_identity_id=Subquery(first_observation.values("identity_id")[:1]),
         first_observation_identity_name=Subquery(first_observation.values("identity__name")[:1]),
         first_observation_identity_is_representative=Subquery(

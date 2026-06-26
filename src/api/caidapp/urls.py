@@ -167,7 +167,7 @@ urlpatterns = [
     ),
     path(
         "representative_mediafiles/",
-        lambda request: views.media_files_update(request, identity_is_representative=True),
+        views.representative_mediafiles_redirect,
         name="representative_mediafiles",
     ),
     path(
