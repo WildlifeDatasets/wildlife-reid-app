@@ -2292,10 +2292,14 @@ def _prepare_mediafile_for_identification(data, i, media_root, mediafile_id):
             paired_points_for_k_images,
         ):
             try:
-                top_abspath = Path(top_path)
-                top_relpath = top_abspath.relative_to(media_root)
-                top_mediafile = MediaFile.objects.get(image_file=str(top_relpath))
-                # top_mediafile = MediaFile.objects.get(mediafile=str(top_relpath))
+                top_mediafile = _resolve_mediafile_from_worker_path(top_path)
+                if top_mediafile is None:
+                    logger.warning(
+                        "Could not resolve worker suggestion path '%s' back to MediaFile for %s.",
+                        top_path,
+                        unknown_mediafile,
+                    )
+                    continue
 
                 identity = IndividualIdentity.objects.get(id=identity_id)
                 if identity.name != top_name:

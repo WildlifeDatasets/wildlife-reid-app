@@ -19,6 +19,7 @@ from caidapp.app_tests.factories import (
     TaxonFactory,
     UploadedArchiveFactory,
 )
+from caidapp.models import MediafileIdentificationSuggestion, MediafilesForIdentification
 
 
 def _write_test_image(path: Path) -> None:
@@ -214,6 +215,32 @@ class MediaFileLocationFallbackTest(TestCase):
         self.assertEqual(observation.identity_id, identity.id)
         self.assertEqual(mediafile.identity_id, identity.id)
         self.assertEqual(mediafile.metadata_json["reid_observation_id"], observation.id)
+
+    def test_prepare_mediafile_for_identification_resolves_masked_reference_paths(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        unknown_mediafile = MediaFileFactory(parent=archive, identity=None, metadata_json=None)
+        candidate_identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Matched identity")
+        candidate_mediafile = MediaFileFactory(
+            parent=archive,
+            identity=candidate_identity,
+            image_file="images/reference.jpg",
+            mediafile="images/reference.jpg",
+            preview="previews/reference.jpg",
+        )
+        data = {
+            "pred_class_ids": [[candidate_identity.id]],
+            "pred_labels": [[candidate_identity.name]],
+            "pred_image_paths": [[str(Path(settings.MEDIA_ROOT) / "masked_images" / "reference.jpg")]],
+            "scores": [[0.4]],
+            "keypoints": [[[[1, 2]], [[3, 4]]]],
+        }
+
+        tasks._prepare_mediafile_for_identification(data, 0, Path(settings.MEDIA_ROOT), unknown_mediafile.id)
+
+        mfi = MediafilesForIdentification.objects.get(mediafile=unknown_mediafile)
+        suggestion = MediafileIdentificationSuggestion.objects.get(for_identification=mfi)
+        self.assertEqual(suggestion.mediafile_id, candidate_mediafile.id)
+        self.assertEqual(suggestion.identity_id, candidate_identity.id)
 
     def test_create_dataframe_from_mediafiles_exports_identity_codes_and_effective_location(self):
         locality = LocalityFactory(owner=self.caiduser, location="50.1,14.4")
