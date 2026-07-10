@@ -135,6 +135,58 @@ class HomeDashboardSnapshotTest(TestCase):
         self.assertEqual(response.context["home_next_step"]["label"], "Manual identification")
         self.assertContains(response, reverse("caidapp:manual_identification"))
 
+    def test_user_menu_uses_personal_settings_label(self):
+        response = self.client.get(reverse("caidapp:home"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Personal Settings")
+        self.assertNotContains(response, "User Settings")
+
+    def test_workgroup_settings_shows_add_model_from_huggingface_only_for_workgroup_admin_with_admin_access(self):
+        self.caiduser.workgroup_admin = True
+        self.caiduser.save(update_fields=["workgroup_admin"])
+
+        response = self.client.get(reverse("caidapp:workgroup-update", args=[self.caiduser.workgroup.id]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "Add model from HuggingFace")
+
+        self.user.is_staff = True
+        self.user.save(update_fields=["is_staff"])
+        response = self.client.get(reverse("caidapp:workgroup-update", args=[self.caiduser.workgroup.id]))
+
+        self.assertContains(response, "Add model from HuggingFace")
+        self.assertContains(
+            response,
+            reverse("admin:caidapp_identificationmodel_add") + f"?workgroup={self.caiduser.workgroup.id}",
+        )
+
+    def test_workgroup_settings_shows_link_to_personal_settings(self):
+        self.caiduser.workgroup_admin = True
+        self.caiduser.save(update_fields=["workgroup_admin"])
+
+        response = self.client.get(reverse("caidapp:workgroup-update", args=[self.caiduser.workgroup.id]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Personal Settings")
+        self.assertContains(response, reverse("caidapp:update_caiduser"))
+
+    def test_personal_settings_shows_link_to_workgroup_settings_only_for_workgroup_admin(self):
+        self.caiduser.workgroup_admin = False
+        self.caiduser.save(update_fields=["workgroup_admin"])
+        response = self.client.get(reverse("caidapp:update_caiduser"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn("Workgroup Settings", response.context["nav_dict"])
+
+        self.caiduser.workgroup_admin = True
+        self.caiduser.save(update_fields=["workgroup_admin"])
+
+        response = self.client.get(reverse("caidapp:update_caiduser"))
+
+        self.assertIn("Workgroup Settings", response.context["nav_dict"])
+        self.assertContains(response, reverse("caidapp:workgroup-update", args=[self.caiduser.workgroup.id]))
+
 
 class MediafileExportTest(TestCase):
     def setUp(self):
@@ -3033,6 +3085,28 @@ class IdentificationUploadsViewTest(TestCase):
         self.assertContains(response, reverse("caidapp:download_init_identification_csv"))
         self.assertContains(response, reverse("caidapp:download_run_identification_csv"))
 
+    def test_dash_identities_hides_run_and_model_settings_controls_for_non_admin(self):
+        self.caiduser.workgroup_admin = False
+        self.caiduser.save(update_fields=["workgroup_admin"])
+
+        response = self.client.get(reverse("caidapp:dash_identities"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, reverse("caidapp:train_identification"))
+        self.assertNotContains(response, reverse("caidapp:pre_identify"))
+        self.assertNotContains(response, reverse("caidapp:workgroup-update", args=[self.caiduser.workgroup.id]))
+
+    def test_dash_identities_shows_run_and_model_settings_controls_for_workgroup_admin(self):
+        self.caiduser.workgroup_admin = True
+        self.caiduser.save(update_fields=["workgroup_admin"])
+
+        response = self.client.get(reverse("caidapp:dash_identities"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, reverse("caidapp:train_identification"))
+        self.assertContains(response, reverse("caidapp:pre_identify"))
+        self.assertContains(response, reverse("caidapp:workgroup-update", args=[self.caiduser.workgroup.id]))
+
 
 class IdentificationRerunTest(TestCase):
     def setUp(self):
@@ -3180,6 +3254,30 @@ class IdentificationRerunTest(TestCase):
         self.caiduser.save(update_fields=["workgroup_admin"])
 
         response = self.client.get(reverse("caidapp:download_run_identification_csv"))
+
+        self.assertEqual(response.status_code, 405)
+
+    def test_pre_identify_is_admin_only(self):
+        self.caiduser.workgroup_admin = False
+        self.caiduser.save(update_fields=["workgroup_admin"])
+
+        response = self.client.get(reverse("caidapp:pre_identify"))
+
+        self.assertEqual(response.status_code, 405)
+
+    def test_run_identification_on_unidentified_is_admin_only(self):
+        self.caiduser.workgroup_admin = False
+        self.caiduser.save(update_fields=["workgroup_admin"])
+
+        response = self.client.get(reverse("caidapp:run_identification_on_unidentified"))
+
+        self.assertEqual(response.status_code, 405)
+
+    def test_stop_init_identification_is_admin_only(self):
+        self.caiduser.workgroup_admin = False
+        self.caiduser.save(update_fields=["workgroup_admin"])
+
+        response = self.client.get(reverse("caidapp:stop_init_identification"))
 
         self.assertEqual(response.status_code, 405)
 

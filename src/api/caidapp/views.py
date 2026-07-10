@@ -567,6 +567,10 @@ class CaIDUserSettingsView(View):
         context["nav_dict"] = {
             "Invitations": reverse("caidapp:workgroup_invitations_for_user"),
         }
+        if request.user.caiduser.workgroup_admin and request.user.caiduser.workgroup_id:
+            context["nav_dict"]["Workgroup Settings"] = reverse(
+                "caidapp:workgroup-update", args=[request.user.caiduser.workgroup_id]
+            )
         return render(request, self.template_name, context)
 
     def post(self, request):
@@ -589,6 +593,10 @@ class CaIDUserSettingsView(View):
         context["nav_dict"] = {
             "Invitations": reverse("caidapp:workgroup_invitations_for_user"),
         }
+        if request.user.caiduser.workgroup_admin and request.user.caiduser.workgroup_id:
+            context["nav_dict"]["Workgroup Settings"] = reverse(
+                "caidapp:workgroup-update", args=[request.user.caiduser.workgroup_id]
+            )
         return render(request, self.template_name, context)
 
 
@@ -2304,6 +2312,8 @@ def init_identification_view(
 
 def stop_init_identification(request):
     """Stop identification initialization."""
+    if not user_can_manage_identification(request.user):
+        return HttpResponseNotAllowed("Stopping identification is for workgroup admins only.")
     workgroup = request.user.caiduser.workgroup
     redirect_url = request.META.get("HTTP_REFERER", reverse("caidapp:dash_identities"))
     if workgroup.identification_init_status in {"Processing", "Scheduled"}:
@@ -2431,6 +2441,8 @@ def assign_unidentified_to_identification_view(request):
 @login_required
 def run_identification_on_unidentified(request):
     """Run identification suggestions for all finished uploaded archives."""
+    if not user_can_manage_identification(request.user):
+        return HttpResponseNotAllowed("Identification suggestions are for workgroup admins only.")
     workgroup = request.user.caiduser.workgroup
     task_state = None
     if workgroup.identification_scheduled_run_task_id:
@@ -2605,7 +2617,7 @@ def run_identification(
 
         models.Notification.create_for(
             message=f"No records for identification {expected_taxon_string} in {uploaded_archive=}. ",
-            level=Notification.LevelChoices.WARNING,
+            level=Notification.LEVEL_CHOICES.WARNING,
             workgroups=[workgroup],
         )
 
@@ -2778,6 +2790,14 @@ def user_can_use_new_upload(user) -> bool:
             )
         )
     )
+
+
+def user_can_manage_identification(user) -> bool:
+    """Return whether the user may start or stop workgroup identification jobs."""
+    if not user.is_authenticated:
+        return False
+    caiduser = getattr(user, "caiduser", None)
+    return bool(caiduser and caiduser.workgroup and caiduser.workgroup_admin)
 
 
 class NewUploadView(LoginRequiredMixin, UserPassesTestMixin, View):
@@ -5283,10 +5303,16 @@ class WorkgroupUpdateView(WorkgroupAdminRequiredMixin, UpdateView):
             f"https://chatgpt.com/?q={urllib.parse.quote(regex_prompt)}"
         )
         context["nav_dict"] = {
+            "Personal Settings": reverse_lazy("caidapp:update_caiduser"),
             "Users": reverse_lazy("caidapp:workgroup_members"),
             "Invitations": reverse_lazy("caidapp:workgroup_invitations"),
             "Invite User": reverse_lazy("caidapp:workgroup_invitation"),
         }
+        if self.request.user.is_staff:
+            context["nav_dict"]["Add model from HuggingFace"] = (
+                reverse_lazy("admin:caidapp_identificationmodel_add")
+                + f"?workgroup={self.request.user.caiduser.workgroup_id}"
+            )
         return context
 
 
@@ -8264,6 +8290,8 @@ def import_observations_view(request):
 @login_required
 def pre_identify_view(request):
     """Show pre-identification confirmation page."""
+    if not user_can_manage_identification(request.user):
+        return HttpResponseNotAllowed("Identification is for workgroup admins only.")
     return render(
         request,
         "caidapp/pre_identify.html",
