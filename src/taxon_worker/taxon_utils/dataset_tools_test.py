@@ -220,6 +220,43 @@ def test_data_preprocessing_with_user_directory_locality_mapping(tmp_path):
     assert set(metadata["location"]) == {"xandovice", "ypovice", "zareci"}
 
 
+def test_path_structure_identity_mapping_sets_unique_name():
+    df = pd.DataFrame(
+        {
+            "original_path": ["Lynx/Charles/first.jpg"],
+            "vanilla_species": [None],
+            "vanilla_location": [None],
+            "location": [None],
+            "unique_name": [None],
+            "date": [None],
+        }
+    )
+
+    mapped = dataset_tools.apply_path_structure_mapping(df, {"identity": 1})
+
+    assert mapped.loc[0, "unique_name"] == "Charles"
+
+
+def test_path_structure_identity_regex_sets_unique_name():
+    df = pd.DataFrame(
+        {
+            "original_path": ["Lynx/Charles/first.jpg"],
+            "vanilla_species": [None],
+            "vanilla_location": [None],
+            "location": [None],
+            "unique_name": [None],
+            "date": [None],
+        }
+    )
+
+    mapped = dataset_tools.apply_path_structure_regex(
+        df,
+        r"^(?P<taxon>[^/]+)/(?P<identity>[^/]+)/[^/]+$",
+    )
+
+    assert mapped.loc[0, "unique_name"] == "Charles"
+
+
 def test_find_any_spreadsheet_and_save_as_csv_prefers_normalized_csv(tmp_path):
     tmp_dir = tmp_path / "input"
     tmp_dir.mkdir()

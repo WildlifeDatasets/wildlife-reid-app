@@ -262,6 +262,30 @@ class NewUploadViewTest(TestCase):
         run_processing.assert_called_once()
 
     @patch("caidapp.views.run_species_prediction_async")
+    def test_identity_spreadsheet_mapping_is_normalized_to_unique_name(self, run_processing):
+        spreadsheet = self._make_xlsx_file(
+            "metadata.xlsx",
+            [{"image_name": "first.jpg", "animal_id": "Charles"}],
+        )
+
+        response = self._post_upload(
+            extra_data={
+                "spreadsheet_column_mapping": json.dumps(
+                    {"original_path": "image_name", "identity": "animal_id"}
+                ),
+            },
+            files=[spreadsheet, SimpleUploadedFile("first.jpg", b"fake image", content_type="image/jpeg")],
+        )
+
+        self.assertEqual(response.status_code, 200)
+        uploaded_archive = models.UploadedArchive.objects.get()
+        with zipfile.ZipFile(uploaded_archive.archivefile.path) as archive:
+            normalized_csv = archive.read("mediafile.post_update.csv").decode("utf-8-sig")
+        self.assertIn("original_path,unique_name", normalized_csv)
+        self.assertIn("first.jpg,Charles", normalized_csv)
+        run_processing.assert_called_once()
+
+    @patch("caidapp.views.run_species_prediction_async")
     def test_spreadsheet_path_adjustment_can_prepend_missing_prefix(self, run_processing):
         spreadsheet = self._make_xlsx_file(
             "metadata.xlsx",
@@ -378,9 +402,9 @@ class NewUploadViewTest(TestCase):
 
         response = self._post_upload(
             extra_data={
-                "directory_structure": "{check_date}/{locality}/{taxon}/{unique_name}",
-                "directory_mapping": json.dumps({"check_date": 0, "locality": 1, "taxon": 2, "unique_name": 3}),
-                "path_regex": r"(?P<check_date>\d{4}-\d{2}-\d{2})/(?P<locality>[^/]+)/(?P<taxon>[^/]+)/(?P<unique_name>[^/]+)/.*",
+                "directory_structure": "{check_date}/{locality}/{taxon}/{identity}",
+                "directory_mapping": json.dumps({"check_date": 0, "locality": 1, "taxon": 2, "identity": 3}),
+                "path_regex": r"(?P<check_date>\d{4}-\d{2}-\d{2})/(?P<locality>[^/]+)/(?P<taxon>[^/]+)/(?P<identity>[^/]+)/.*",
                 "upload_relative_paths": json.dumps(manifest),
             },
             files=[SimpleUploadedFile("first.jpg", b"fake image", content_type="image/jpeg")],
@@ -393,10 +417,11 @@ class NewUploadViewTest(TestCase):
         self.assertEqual(uploaded_archive.name, "2026-05-01")
         self.assertEqual(
             uploaded_archive.import_mapping["directory_structure"],
-            "{check_date}/{locality}/{taxon}/{unique_name}",
+            "{check_date}/{locality}/{taxon}/{identity}",
         )
         self.assertEqual(uploaded_archive.import_mapping["path_source"], "relative_path")
         self.assertEqual(uploaded_archive.import_mapping["directory_mapping"]["taxon"], 2)
+        self.assertEqual(uploaded_archive.import_mapping["directory_mapping"]["identity"], 3)
         self.assertIn("(?P<taxon>", uploaded_archive.path_structure_regex)
         self.assertEqual(uploaded_archive.import_mapping["path_regex"], uploaded_archive.path_structure_regex)
         run_processing.assert_called_once()

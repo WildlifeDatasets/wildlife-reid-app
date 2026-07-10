@@ -23,6 +23,8 @@ COLUMN_ALIASES = {
     "media file": "original_path",
     "unique name": "unique_name",
     "unique_name": "unique_name",
+    "identity": "unique_name",
+    "identity name": "unique_name",
     "category": "taxon",
     "taxon": "taxon",
     "location_name": "locality_name",
@@ -124,7 +126,11 @@ def _normalize_spreadsheet_columns(df: pd.DataFrame, spreadsheet_column_mapping:
 
     for target_name, source_name in spreadsheet_column_mapping.items():
         if source_name:
-            rename_map[str(source_name)] = str(target_name)
+            normalized_target_name = COLUMN_ALIASES.get(
+                str(target_name).strip().lower(),
+                str(target_name),
+            )
+            rename_map[str(source_name)] = normalized_target_name
 
     if not rename_map:
         return df.copy()
@@ -315,8 +321,9 @@ def build_path_regex_from_directory_mapping(directory_mapping: dict[str, Any]) -
         "check_date": r"(?P<check_date>\d{4}-?\d{2}-?\d{2})",
         "locality": r"(?P<locality>[^/]+)",
         "taxon": r"(?P<taxon>[^/]+)",
-        "unique_name": r"(?P<unique_name>[^/]+)",
         "identity": r"(?P<identity>[^/]+)",
+        # Keep accepting mappings saved by older upload forms.
+        "unique_name": r"(?P<unique_name>[^/]+)",
     }
     max_position = max(normalized_mapping.values())
     parts = []
