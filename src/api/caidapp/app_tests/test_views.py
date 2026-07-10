@@ -1,4 +1,5 @@
 import logging
+import tempfile
 from io import BytesIO, StringIO
 from pathlib import Path
 from unittest.mock import Mock, patch
@@ -12,7 +13,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 import pandas as pd
@@ -3353,6 +3354,41 @@ class IdentificationRerunTest(TestCase):
         self.assertEqual(response.context["btn_styles"]["n_representative"], 1)
         self.assertEqual(self.workgroup.number_of_representative_media_files(), 1)
 
+    @patch("caidapp.views.signature")
+    @patch("caidapp.views._prepare_dataframe_for_identification")
+    def test_train_identification_uses_base_model_weights_and_output_weights(self, prepare_dataframe_mock, signature_mock):
+        self.caiduser.workgroup_admin = True
+        self.caiduser.save(update_fields=["workgroup_admin"])
+        self.identification_model.model_path = "/models/base/source-checkpoint.pth"
+        self.identification_model.base_model_path = "hf-hub:strakajk/LynxV4-MegaDescriptor-v2-T-256"
+        self.identification_model.save(update_fields=["model_path", "base_model_path"])
+        prepare_dataframe_mock.return_value = {
+            "image_path": ["representative-1.jpg", "representative-2.jpg"],
+            "class_id": [1, 1],
+            "label": ["lynx-alpha", "lynx-alpha"],
+        }
+        signature_result = Mock()
+        signature_mock.return_value = signature_result
+
+        with tempfile.TemporaryDirectory() as media_root, override_settings(MEDIA_ROOT=media_root):
+            response = self.client.get(
+                reverse("caidapp:train_identification"),
+                HTTP_REFERER=reverse("caidapp:dash_identities"),
+            )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertRedirects(response, reverse("caidapp:dash_identities"))
+        signature_mock.assert_called_once()
+        payload = signature_mock.call_args.kwargs["kwargs"]["identification_model"]
+        self.assertEqual(payload["base_model_source"], "hf-hub:strakajk/LynxV4-MegaDescriptor-v2-T-256")
+        self.assertEqual(payload["initial_weights_path"], "/models/base/source-checkpoint.pth")
+        self.assertTrue(payload["output_weights_path"].endswith(".pth"))
+        self.assertNotIn("init_path", payload)
+        self.assertNotIn("init_checkpoint_path", payload)
+        self.assertNotIn("path", payload)
+        self.assertNotIn("source_path", payload)
+        signature_result.apply_async.assert_called_once()
+
     def test_mediafiles_representative_filter_uses_workgroup_default_taxon(self):
         self.workgroup.check_taxon_before_identification = True
         self.workgroup.default_taxon_for_identification = TaxonFactory(name="Lynx lynx")
@@ -3487,6 +3523,9 @@ class IdentificationRerunTest(TestCase):
             "class_id": [1, 2],
             "label": ["one", "two"],
         }
+        self.identification_model.model_path = "/tmp/reid-weights.pth"
+        self.identification_model.base_model_path = "hf-hub:BVRA/MegaDescriptor-T-224"
+        self.identification_model.save(update_fields=["model_path", "base_model_path"])
 
         signature_result = Mock()
         signature_mock.return_value = signature_result
@@ -3501,6 +3540,9 @@ class IdentificationRerunTest(TestCase):
         bulk_kwargs = signature_mock.call_args.kwargs["kwargs"]
         self.assertEqual(bulk_kwargs["organization_id"], self.workgroup.id)
         self.assertNotIn("uploaded_archive_id", bulk_kwargs)
+        self.assertEqual(bulk_kwargs["identification_model"]["model_source"], "hf-hub:BVRA/MegaDescriptor-T-224")
+        self.assertEqual(bulk_kwargs["identification_model"]["weights_path"], "/tmp/reid-weights.pth")
+        self.assertNotIn("path", bulk_kwargs["identification_model"])
         signature_result.apply_async.assert_called_once()
         callback_kwargs = signature_result.apply_async.call_args.kwargs["link"].kwargs
         self.assertEqual(set(callback_kwargs["uploaded_archive_ids"]), {archive_one.id, archive_two.id})
@@ -3648,6 +3690,9 @@ class IdentificationRerunTest(TestCase):
             "class_id": [1],
             "label": ["known"],
         }
+        self.identification_model.model_path = "/tmp/test-model.pth"
+        self.identification_model.base_model_path = "hf-hub:BVRA/MegaDescriptor-T-224"
+        self.identification_model.save(update_fields=["model_path", "base_model_path"])
 
         signature_result = Mock()
         signature_mock.return_value = signature_result
@@ -3661,6 +3706,10 @@ class IdentificationRerunTest(TestCase):
         self.assertEqual(self.workgroup.identification_init_status, "Processing")
         self.assertEqual(self.workgroup.identification_scheduled_init_task_id, worker_task.id)
         self.assertIsNone(self.workgroup.identification_scheduled_init_eta)
+        payload = signature_mock.call_args.kwargs["kwargs"]["identification_model"]
+        self.assertEqual(payload["model_source"], "hf-hub:BVRA/MegaDescriptor-T-224")
+        self.assertEqual(payload["weights_path"], "/tmp/test-model.pth")
+        self.assertNotIn("path", payload)
 
     # def test_create_workstation(self):
     #     url = reverse("workstation-create")

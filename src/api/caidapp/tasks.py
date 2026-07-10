@@ -2570,7 +2570,8 @@ def init_identification(workgroup_id: int, selection: dict | None = None):
         # csv file should contain image_path, class_id, label
         "identification_model": {
             "name": workgroup.identification_model.name,
-            "path": workgroup.identification_model.model_path,
+            "model_source": workgroup.identification_model.get_runtime_model_source(),
+            "weights_path": workgroup.identification_model.get_runtime_checkpoint_path(),
         },
     }
     logger.debug(f"{kwargs=}")

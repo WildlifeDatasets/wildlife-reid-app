@@ -2171,10 +2171,13 @@ def train_identification(
     logger.debug("Generating CSV for init_identification...")
 
     caiduser = request.user.caiduser
-    # new_name = str_bumpversion("MegaDescriptor-T-224-v0") # caiduser.identification_model.name
-    now_str = django.utils.timezone.now().strftime("%Y%m%d-%H%M%S")
-    new_name = f"MegaDescriptor-T-224-v0.{now_str}"
-    # caiduser.identification_model.name
+    source_model = request.user.caiduser.workgroup.identification_model
+    now = django.utils.timezone.now()
+    new_name = models.build_trained_identification_model_name(
+        source_model.name,
+        request.user.caiduser.workgroup.name,
+        now,
+    )
     clean_new_name = re.sub(r"[^a-zA-Z0-9 _-]", "", new_name)
 
     group_dir = Path(settings.MEDIA_ROOT) / request.user.caiduser.workgroup.name
@@ -2234,8 +2237,13 @@ def train_identification(
 
     logger.debug("Calling train_identification...")
     new_identification_model = models.IdentificationModel(
-        name=new_name, model_path=output_model_path, workgroup=request.user.caiduser.workgroup
+        name=new_name,
+        model_path=str(output_model_path),
+        base_model_path=source_model.get_runtime_model_source(),
+        workgroup=request.user.caiduser.workgroup,
+        source_identification_model=source_model,
     )
+    new_identification_model.save()
     sig = signature(
         "train_identification",
         kwargs={
@@ -2244,8 +2252,9 @@ def train_identification(
             "organization_id": request.user.caiduser.workgroup.id,
             "identification_model": {
                 "name": new_identification_model.name,
-                "init_path": "hf-hub:BVRA/MegaDescriptor-T-224",  # str(caiduser.identification_model.model_path),
-                "path": str(new_identification_model.model_path),
+                "base_model_source": source_model.get_runtime_model_source(),
+                "initial_weights_path": source_model.get_runtime_checkpoint_path(),
+                "output_weights_path": str(new_identification_model.model_path),
             },
         },
     )
@@ -2265,7 +2274,6 @@ def train_identification(
             # uploaded_archive_id=uploaded_archive.id
         ),
     )
-    new_identification_model.save()
     # return redirect("caidapp:individual_identities")
     go_back = request.META.get("HTTP_REFERER", "/")
     return redirect(go_back)
@@ -2546,7 +2554,8 @@ def run_identification_bulk(
             top_k=3,
             identification_model={
                 "name": workgroup.identification_model.name,
-                "path": workgroup.identification_model.model_path,
+                "model_source": workgroup.identification_model.get_runtime_model_source(),
+                "weights_path": workgroup.identification_model.get_runtime_checkpoint_path(),
             },
         ),
     )
@@ -2662,7 +2671,8 @@ def run_identification(
             uploaded_archive_id=uploaded_archive.id,
             identification_model={
                 "name": workgroup.identification_model.name,
-                "path": workgroup.identification_model.model_path,
+                "model_source": workgroup.identification_model.get_runtime_model_source(),
+                "weights_path": workgroup.identification_model.get_runtime_checkpoint_path(),
             },
         ),
     )
