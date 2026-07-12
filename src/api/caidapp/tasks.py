@@ -511,6 +511,11 @@ def _get_identification_source_image_path(mediafile: MediaFile, media_root: Path
             f"Image mediafile {mediafile.id} has no existing image_file/static_thumbnail/preview/thumbnail."
         )
 
+    image_file_name = getattr(mediafile.image_file, "name", "")
+    image_file_path = media_root / image_file_name if image_file_name else None
+    if image_file_path and _is_readable_image(image_file_path):
+        return str(image_file_path)
+
     static_thumbnail_name = getattr(mediafile.static_thumbnail, "name", "")
     static_thumbnail_path = media_root / static_thumbnail_name if static_thumbnail_name else None
     if static_thumbnail_path and _is_readable_image(static_thumbnail_path):
@@ -526,7 +531,7 @@ def _get_identification_source_image_path(mediafile: MediaFile, media_root: Path
         return str(static_thumbnail_path)
 
     raise FileNotFoundError(
-        f"Video mediafile {mediafile.id} has no readable static thumbnail for identification."
+        f"Video mediafile {mediafile.id} has no readable selected frame or static thumbnail for identification."
     )
 
 

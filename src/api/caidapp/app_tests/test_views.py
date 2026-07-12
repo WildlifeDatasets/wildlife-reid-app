@@ -2677,6 +2677,43 @@ class IdentificationUploadsViewTest(TestCase):
         self.assertContains(response, reverse("caidapp:uploads_ready_for_identification"))
         self.assertContains(response, "Send to identification")
 
+    def test_manual_identification_links_unknown_media_to_its_detail(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser, is_for_identification=True)
+        mediafile = MediaFileFactory(
+            parent=archive,
+            image_file="output/missing/images/unknown.jpg",
+            original_filename="unknown.jpg",
+        )
+        queue_item = models.MediafilesForIdentification.objects.create(mediafile=mediafile)
+
+        response = self.client.get(reverse("caidapp:get_individual_identity", args=[queue_item.id]))
+
+        self.assertEqual(response.status_code, 200)
+        detail_url = reverse("caidapp:media_file_update", args=[mediafile.id])
+        self.assertContains(response, f'href="{detail_url}?next=', html=False)
+        self.assertContains(response, "Open media detail")
+
+    def test_manual_identification_suggestion_menu_links_candidate_media_to_its_detail(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser, is_for_identification=True)
+        unknown_mediafile = MediaFileFactory(parent=archive, identity=None, metadata_json={})
+        queue_item = models.MediafilesForIdentification.objects.create(mediafile=unknown_mediafile)
+        identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Candidate")
+        candidate_mediafile = MediaFileFactory(parent=archive, identity=identity, metadata_json={})
+        models.MediafileIdentificationSuggestion.objects.create(
+            for_identification=queue_item,
+            mediafile=candidate_mediafile,
+            identity=identity,
+            score=0.9,
+            name=identity.name,
+        )
+
+        response = self.client.get(reverse("caidapp:get_individual_identity", args=[queue_item.id]))
+
+        self.assertEqual(response.status_code, 200)
+        detail_url = reverse("caidapp:media_file_update", args=[candidate_mediafile.id])
+        self.assertContains(response, 'aria-label="Suggestion actions"', html=False)
+        self.assertContains(response, f'href="{detail_url}?next=', html=False)
+
     def test_taxon_dashboard_highlights_send_to_identification_when_upload_is_ready(self):
         archive = UploadedArchiveFactory(
             owner=self.caiduser,
