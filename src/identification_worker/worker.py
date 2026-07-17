@@ -84,7 +84,7 @@ def train_identification(
         logger.critical(f"Returning unexpected error output: '{error}'.")
         return {"status": "ERROR", "error": error}
 
-    return {"status" "DONE"}
+    return {"status": "DONE"}
 
 
 @identification_worker.task(bind=True, name="init_identification")
