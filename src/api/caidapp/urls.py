@@ -237,6 +237,11 @@ urlpatterns = [
         name="individual_identities",
     ),
     path("dash_identities/", views.dash_identities, name="dash_identities"),
+    path(
+        "identification_information/",
+        views.identification_information,
+        name="identification_information",
+    ),
     path("identification_progress_api/", views.identification_progress_api, name="identification_progress_api"),
     path(
         "download_init_identification_csv/",

@@ -109,6 +109,7 @@ class IdentificationRunStatisticTest(TestCase):
             model_path="model-path",
             workgroup=workgroup,
         )
+        workgroup.identification_initialized_model = workgroup.identification_model
         workgroup.save()
         archive = UploadedArchiveFactory(owner=caiduser, is_for_identification=True, import_finished=True)
         MediaFileFactory(parent=archive, media_type="image", identity=None)

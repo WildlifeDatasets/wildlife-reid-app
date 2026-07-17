@@ -182,6 +182,7 @@ class Taxon(models.Model):
 
 class IdentificationModel(models.Model):
     name = models.CharField(max_length=120)
+    created_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
     description = models.CharField(max_length=255, blank=True, default="")
     public = models.BooleanField(default=False)
     model_path = models.CharField(
@@ -366,6 +367,14 @@ class WorkGroup(models.Model):
         blank=True,
         related_name="actual_workgroup_identification_model",
     )
+    identification_initialized_model = models.ForeignKey(
+        IdentificationModel,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="initialized_workgroups",
+        help_text="Identification model used by the last successfully completed re-identification initialization.",
+    )
     detection_model_path = models.CharField(
         max_length=512,
         blank=True,
@@ -459,6 +468,13 @@ class WorkGroup(models.Model):
 
     def __str__(self):
         return str(self.name)
+
+    def identification_model_is_initialized(self) -> bool:
+        """Return whether the selected model matches the initialized reference embeddings."""
+        return bool(
+            self.identification_model_id
+            and self.identification_model_id == self.identification_initialized_model_id
+        )
 
     def number_of_uploaded_archives(self) -> int:
         """Return number of uploaded archives."""
