@@ -1,0 +1,194 @@
+{% extends 'base.html' %}
+
+{% block body %}
+<div class="pagetitle d-flex justify-content-between align-items-center">
+    <div>
+        <h1>Identification information</h1>
+        <p class="text-body-secondary mb-0">Workgroup: {{ workgroup.name }}</p>
+    </div>
+    <a class="btn btn-outline-secondary" href="{% url 'caidapp:dash_identities' %}">
+        <i class="bi bi-arrow-left"></i> Identification dashboard
+    </a>
+</div>
+
+<ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="{% url 'caidapp:home' %}">Home</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'caidapp:dash_identities' %}">Identification</a></li>
+    <li class="breadcrumb-item active">Information</li>
+</ol>
+
+{% if model_ready %}
+    <div class="alert alert-success d-flex align-items-center" role="alert">
+        <i class="bi bi-check-circle-fill me-2"></i>
+        The selected model matches the model used for the latest successful initialization.
+    </div>
+{% else %}
+    <div class="alert alert-warning d-flex align-items-center" role="alert">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+        Identification is not ready: the selected model has not completed initialization.
+    </div>
+{% endif %}
+
+<div class="row g-3 mb-4">
+    <div class="col-xl-6">
+        <div class="card h-100">
+            <div class="card-body">
+                <h2 class="card-title">Selected model</h2>
+                {% if current_model %}
+                    <dl class="row mb-0">
+                        <dt class="col-sm-4">Name</dt>
+                        <dd class="col-sm-8">
+                            {{ current_model.name }}
+                            {% if current_model.public %}<span class="badge text-bg-secondary">Public</span>{% endif %}
+                        </dd>
+                        <dt class="col-sm-4">Created</dt>
+                        <dd class="col-sm-8">{{ current_model.created_at|date:'Y-m-d H:i:s'|default:'Unknown' }}</dd>
+                        <dt class="col-sm-4">Model source</dt>
+                        <dd class="col-sm-8 text-break"><code>{{ current_model.model_path|default:'—' }}</code></dd>
+                        <dt class="col-sm-4">Base model</dt>
+                        <dd class="col-sm-8 text-break"><code>{{ current_model.base_model_path|default:'—' }}</code></dd>
+                        <dt class="col-sm-4">Trained from</dt>
+                        <dd class="col-sm-8">{{ current_model.source_identification_model|default:'—' }}</dd>
+                        <dt class="col-sm-4">Training status</dt>
+                        <dd class="col-sm-8">{{ workgroup.identification_train_status|default:'Unknown' }}</dd>
+                    </dl>
+                {% else %}
+                    <p class="text-body-secondary">No identification model is selected.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-6">
+        <div class="card h-100">
+            <div class="card-body">
+                <h2 class="card-title">Initialized model</h2>
+                {% if initialized_model %}
+                    <dl class="row mb-0">
+                        <dt class="col-sm-4">Name</dt>
+                        <dd class="col-sm-8">{{ initialized_model.name }}</dd>
+                        <dt class="col-sm-4">Created</dt>
+                        <dd class="col-sm-8">{{ initialized_model.created_at|date:'Y-m-d H:i:s'|default:'Unknown' }}</dd>
+                        <dt class="col-sm-4">Model source</dt>
+                        <dd class="col-sm-8 text-break"><code>{{ initialized_model.model_path|default:'—' }}</code></dd>
+                        <dt class="col-sm-4">Legacy recorded path</dt>
+                        <dd class="col-sm-8 text-break"><code>{{ workgroup.identification_init_model_path|default:'—' }}</code></dd>
+                    </dl>
+                {% else %}
+                    <p class="text-body-secondary">No model has completed initialization yet.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-lg-6">
+        <div class="card h-100 border-{{ init_status_style }}">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <h2 class="card-title">Initialization</h2>
+                    <span class="badge text-bg-{{ init_status_style }}">{{ workgroup.identification_init_status }}</span>
+                </div>
+                <dl class="row">
+                    <dt class="col-sm-5">Latest run started</dt>
+                    <dd class="col-sm-7">{{ latest_init_run.created_at|date:'Y-m-d H:i:s'|default:'Never' }}</dd>
+                    <dt class="col-sm-5">Latest run finished</dt>
+                    <dd class="col-sm-7">{{ latest_init_run.finished_at|date:'Y-m-d H:i:s'|default:'—' }}</dd>
+                    <dt class="col-sm-5">Duration</dt>
+                    <dd class="col-sm-7">
+                        {% if latest_init_run.duration_seconds is not None %}{{ latest_init_run.duration_seconds|floatformat:1 }} s{% else %}—{% endif %}
+                    </dd>
+                    <dt class="col-sm-5">Input</dt>
+                    <dd class="col-sm-7">
+                        {% if latest_init_run %}{{ latest_init_run.image_number }} images, {{ latest_init_run.video_number }} videos{% else %}—{% endif %}
+                    </dd>
+                    <dt class="col-sm-5">Scheduled for</dt>
+                    <dd class="col-sm-7">{{ workgroup.identification_scheduled_init_eta|date:'Y-m-d H:i:s'|default:'—' }}</dd>
+                    <dt class="col-sm-5">Task ID</dt>
+                    <dd class="col-sm-7 text-break"><code>{{ workgroup.identification_scheduled_init_task_id|default:latest_init_run.task_id|default:'—' }}</code></dd>
+                </dl>
+                <h3 class="h6">Latest message</h3>
+                <div class="bg-body-tertiary rounded p-3 text-break">{{ workgroup.identification_init_message|default:'No message.'|linebreaksbr }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card h-100 border-{{ identify_status_style }}">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <h2 class="card-title">Identification</h2>
+                    <span class="badge text-bg-{{ identify_status_style }}">{{ workgroup.identification_reid_status }}</span>
+                </div>
+                <dl class="row">
+                    <dt class="col-sm-5">Latest run started</dt>
+                    <dd class="col-sm-7">{{ latest_identify_run.created_at|date:'Y-m-d H:i:s'|default:'Never' }}</dd>
+                    <dt class="col-sm-5">Latest run finished</dt>
+                    <dd class="col-sm-7">{{ latest_identify_run.finished_at|date:'Y-m-d H:i:s'|default:'—' }}</dd>
+                    <dt class="col-sm-5">Duration</dt>
+                    <dd class="col-sm-7">
+                        {% if latest_identify_run.duration_seconds is not None %}{{ latest_identify_run.duration_seconds|floatformat:1 }} s{% else %}—{% endif %}
+                    </dd>
+                    <dt class="col-sm-5">Input</dt>
+                    <dd class="col-sm-7">
+                        {% if latest_identify_run %}{{ latest_identify_run.image_number }} images, {{ latest_identify_run.video_number }} videos{% else %}—{% endif %}
+                    </dd>
+                    <dt class="col-sm-5">Scheduled for</dt>
+                    <dd class="col-sm-7">{{ workgroup.identification_scheduled_run_eta|date:'Y-m-d H:i:s'|default:'—' }}</dd>
+                    <dt class="col-sm-5">Task ID</dt>
+                    <dd class="col-sm-7 text-break"><code>{{ workgroup.identification_scheduled_run_task_id|default:latest_identify_run.task_id|default:'—' }}</code></dd>
+                </dl>
+                <h3 class="h6">Latest message</h3>
+                <div class="bg-body-tertiary rounded p-3 text-break">{{ workgroup.identification_reid_message|default:'No message.'|linebreaksbr }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <h2 class="card-title">Identification data</h2>
+        <div class="row g-3 text-center">
+            <div class="col-6 col-md"><div class="fs-4 fw-semibold">{{ counts.identities }}</div><div class="text-body-secondary">Identities</div></div>
+            <div class="col-6 col-md"><div class="fs-4 fw-semibold">{{ counts.mediafiles }}</div><div class="text-body-secondary">Media files</div></div>
+            <div class="col-6 col-md"><div class="fs-4 fw-semibold">{{ counts.identified_mediafiles }}</div><div class="text-body-secondary">Identified</div></div>
+            <div class="col-6 col-md"><div class="fs-4 fw-semibold">{{ counts.representative_mediafiles }}</div><div class="text-body-secondary">Representative</div></div>
+            <div class="col-6 col-md"><div class="fs-4 fw-semibold">{{ counts.initialized_reference_mediafiles }}</div><div class="text-body-secondary">Used by latest init</div></div>
+            <div class="col-6 col-md"><div class="fs-4 fw-semibold">{{ counts.identification_uploads }}</div><div class="text-body-secondary">Uploads</div></div>
+            <div class="col-6 col-md"><div class="fs-4 fw-semibold">{{ counts.queued_mediafiles }}</div><div class="text-body-secondary">In confirmation queue</div></div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <h2 class="card-title">Recent runs</h2>
+        <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle">
+                <thead>
+                    <tr>
+                        <th>Operation</th><th>Status</th><th>Started</th><th>Finished</th>
+                        <th class="text-end">Duration</th><th class="text-end">Images</th>
+                        <th class="text-end">Videos</th><th>Task ID</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for run in recent_runs %}
+                    <tr>
+                        <td>{{ run.get_operation_display }}</td>
+                        <td><span class="badge text-bg-{{ run.status_style }}">{{ run.status }}</span></td>
+                        <td>{{ run.created_at|date:'Y-m-d H:i:s' }}</td>
+                        <td>{{ run.finished_at|date:'Y-m-d H:i:s'|default:'—' }}</td>
+                        <td class="text-end">{% if run.duration_seconds is not None %}{{ run.duration_seconds|floatformat:1 }} s{% else %}—{% endif %}</td>
+                        <td class="text-end">{{ run.image_number }}</td>
+                        <td class="text-end">{{ run.video_number }}</td>
+                        <td class="text-break"><code>{{ run.task_id|default:'—' }}</code></td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="8" class="text-center text-body-secondary py-4">No identification runs recorded yet.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

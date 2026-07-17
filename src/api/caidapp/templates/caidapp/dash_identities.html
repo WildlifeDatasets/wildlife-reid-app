@@ -153,6 +153,12 @@
                         </li>
                         {% if user.caiduser.workgroup_admin %}
                             <li>
+                                <a class="dropdown-item" href="{% url 'caidapp:identification_information' %}">
+                                    <i class="bi bi-info-circle"></i>
+                                    Identification information
+                                </a>
+                            </li>
+                            <li>
                                 <a class="dropdown-item {{ btn_styles.init_identification.class }}"
                                    href="{% url 'caidapp:train_identification' %}"
                                    onclick="return confirm('Start training of the identification model?')"

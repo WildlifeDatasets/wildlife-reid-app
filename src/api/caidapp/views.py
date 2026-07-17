@@ -791,6 +791,72 @@ def dash_identities(request) -> HttpResponse:
     )
 
 
+def _identification_status_style(status: str) -> str:
+    """Return a Bootstrap status color for identification state labels."""
+    normalized = str(status or "").strip().lower()
+    if normalized in {"done", "finished", "success", "succeeded"}:
+        return "success"
+    if normalized in {"error", "failed", "failure"}:
+        return "danger"
+    if normalized in {"processing", "scheduled", "started", "progress"}:
+        return "primary"
+    return "secondary"
+
+
+@login_required
+def identification_information(request) -> HttpResponse:
+    """Show workgroup-admin diagnostics for the re-identification workflow."""
+    if not user_can_manage_identification(request.user):
+        return HttpResponseNotAllowed("Identification information is for workgroup admins only.")
+
+    workgroup = request.user.caiduser.workgroup
+    run_statistics = workgroup.identification_run_statistics.all()
+    recent_runs = list(run_statistics[:50])
+    for run in recent_runs:
+        run.status_style = _identification_status_style(run.status)
+
+    latest_init_run = run_statistics.filter(operation="init").first()
+    latest_identify_run = run_statistics.filter(operation="identify").first()
+    current_model = workgroup.identification_model
+    initialized_model = workgroup.identification_initialized_model
+
+    mediafiles = MediaFile.objects.filter(parent__owner__workgroup=workgroup)
+    counts = {
+        "identities": IndividualIdentity.objects.filter(owner_workgroup=workgroup).count(),
+        "mediafiles": mediafiles.count(),
+        "identified_mediafiles": mediafiles.filter(observations__identity__isnull=False).distinct().count(),
+        "representative_mediafiles": mediafiles.filter(
+            observations__identity__isnull=False,
+            observations__identity_is_representative=True,
+        ).distinct().count(),
+        "initialized_reference_mediafiles": mediafiles.filter(used_for_init_identification=True).count(),
+        "identification_uploads": UploadedArchive.objects.filter(
+            owner__workgroup=workgroup,
+            is_for_identification=True,
+        ).count(),
+        "queued_mediafiles": MediafilesForIdentification.objects.filter(
+            mediafile__parent__owner__workgroup=workgroup
+        ).values("mediafile_id").distinct().count(),
+    }
+
+    return render(
+        request,
+        "caidapp/identification_information.html",
+        {
+            "workgroup": workgroup,
+            "current_model": current_model,
+            "initialized_model": initialized_model,
+            "model_ready": workgroup.identification_model_is_initialized(),
+            "init_status_style": _identification_status_style(workgroup.identification_init_status),
+            "identify_status_style": _identification_status_style(workgroup.identification_reid_status),
+            "latest_init_run": latest_init_run,
+            "latest_identify_run": latest_identify_run,
+            "recent_runs": recent_runs,
+            "counts": counts,
+        },
+    )
+
+
 @login_required
 def download_init_identification_csv(request):
     """Download the latest workgroup init identification CSV."""
@@ -2424,9 +2490,22 @@ def _single_species_button_style(request) -> dict:
     ] = f"Identification initialization with {n_representative} media files will take some time. Continue?"
 
     btn_styles["run_identification"]["class"] += (
-        " disabled" if ((not is_initiated) or (workgroup.identification_init_status == "Processing")) else ""
+        " disabled"
+        if (
+            (not is_initiated)
+            or (workgroup.identification_init_status in {"Processing", "Scheduled"})
+            or (not workgroup.identification_model_is_initialized())
+        )
+        else ""
     )
-    btn_styles["run_identification"]["tooltip"] = f"Identification suggestion for {n_unidentified} archives."
+    if workgroup.identification_model_is_initialized():
+        btn_styles["run_identification"]["tooltip"] = (
+            f"Identification suggestion for {n_unidentified} archives."
+        )
+    else:
+        btn_styles["run_identification"]["tooltip"] = (
+            "Identification is waiting for initialization of the selected model."
+        )
     btn_styles["run_identification"][
         "confirm"
     ] = f"Identification of {n_unidentified} archives will take some time. Continue?"
@@ -2452,6 +2531,9 @@ def run_identification_on_unidentified(request):
     if not user_can_manage_identification(request.user):
         return HttpResponseNotAllowed("Identification suggestions are for workgroup admins only.")
     workgroup = request.user.caiduser.workgroup
+    if not workgroup.identification_model_is_initialized():
+        messages.error(request, "Identification is waiting for initialization of the selected model.")
+        return redirect(request.META.get("HTTP_REFERER", "/"))
     task_state = None
     if workgroup.identification_scheduled_run_task_id:
         task_state = AsyncResult(workgroup.identification_scheduled_run_task_id).state
@@ -2478,6 +2560,9 @@ def run_identification_view(request, uploadedarchive_id):
     if workgroup.identification_model is None:
         messages.error(request, "No identification model for workgroup. Please set it before running identification.")
         return redirect(request.META.get("HTTP_REFERER", "/"))
+    if not workgroup.identification_model_is_initialized():
+        messages.error(request, "Identification is waiting for initialization of the selected model.")
+        return redirect(request.META.get("HTTP_REFERER", "/"))
 
     status_ok = run_identification(uploaded_archive, workgroup=request.user.caiduser.workgroup)
     if status_ok:
@@ -2493,6 +2578,15 @@ def run_identification_bulk(
     selection: dict | None = None,
 ) -> bool:
     """Run one identification job for all eligible uploads in the workgroup."""
+    if not workgroup.identification_model_is_initialized():
+        logger.warning(
+            "Cannot run identification for workgroup %s: selected model %s is not initialized (initialized model %s).",
+            workgroup.id,
+            workgroup.identification_model_id,
+            workgroup.identification_initialized_model_id,
+        )
+        return False
+    initialized_model = workgroup.identification_initialized_model
     selection = selection or {}
     if uploaded_archives is None:
         uploaded_archives = tasks.get_uploaded_archives_pending_identification(workgroup)
@@ -2553,9 +2647,9 @@ def run_identification_bulk(
             output_json_file_path=str(output_json_file),
             top_k=3,
             identification_model={
-                "name": workgroup.identification_model.name,
-                "model_source": workgroup.identification_model.get_runtime_model_source(),
-                "weights_path": workgroup.identification_model.get_runtime_checkpoint_path(),
+                "name": initialized_model.name,
+                "model_source": initialized_model.get_runtime_model_source(),
+                "weights_path": initialized_model.get_runtime_checkpoint_path(),
             },
         ),
     )
@@ -2599,6 +2693,15 @@ def run_identification(
     selection: dict | None = None,
 ) -> bool:
     """Run identification of uploaded archive."""
+    if not workgroup.identification_model_is_initialized():
+        logger.warning(
+            "Cannot run identification for workgroup %s: selected model %s is not initialized (initialized model %s).",
+            workgroup.id,
+            workgroup.identification_model_id,
+            workgroup.identification_initialized_model_id,
+        )
+        return False
+    initialized_model = workgroup.identification_initialized_model
     logger.debug("Generating CSV for run_identification...")
     mediafiles, observation_taxon, _require_observations = tasks.resolve_identification_selection(
         workgroup,
@@ -2670,9 +2773,9 @@ def run_identification(
             top_k=3,
             uploaded_archive_id=uploaded_archive.id,
             identification_model={
-                "name": workgroup.identification_model.name,
-                "model_source": workgroup.identification_model.get_runtime_model_source(),
-                "weights_path": workgroup.identification_model.get_runtime_checkpoint_path(),
+                "name": initialized_model.name,
+                "model_source": initialized_model.get_runtime_model_source(),
+                "weights_path": initialized_model.get_runtime_checkpoint_path(),
             },
         ),
     )
@@ -4145,6 +4248,36 @@ def _set_mediafile_bbox_to_full_image(mediafile: MediaFile, caiduser) -> int:
     return len(observations)
 
 
+def _remove_mediafile_bbox(mediafile: MediaFile, caiduser) -> int:
+    """Remove bboxes from a media file without altering its observations' identities."""
+    observations = list(mediafile.observations.all())
+    updated_at = django.utils.timezone.now()
+
+    for observation in observations:
+        observation.bbox_x_center = None
+        observation.bbox_y_center = None
+        observation.bbox_width = None
+        observation.bbox_height = None
+        observation.updated_by = caiduser
+        observation.updated_at = updated_at
+        observation.save(
+            update_fields=[
+                "bbox_x_center",
+                "bbox_y_center",
+                "bbox_width",
+                "bbox_height",
+                "updated_by",
+                "updated_at",
+            ]
+        )
+
+    if observations:
+        mediafile.updated_by = caiduser
+        mediafile.updated_at = updated_at
+        mediafile.save(update_fields=["updated_by", "updated_at"])
+    return len(observations)
+
+
 def _parse_filename_metadata_date(value: str):
     """Parse date captured from a filename/path regex."""
     if not value:
@@ -5109,6 +5242,8 @@ def _single_mediafile_update(request, instance, form, form_bulk_processing, sele
         instance.save()
     elif "btnBulkProcessing_set_full_image_bbox" in form.data:
         _set_mediafile_bbox_to_full_image(instance, request.user.caiduser)
+    elif "btnBulkProcessing_remove_bbox" in form.data:
+        _remove_mediafile_bbox(instance, request.user.caiduser)
 
     return "updated"
 
@@ -5296,8 +5431,14 @@ class WorkgroupUpdateView(WorkgroupAdminRequiredMixin, UpdateView):
 
     def form_valid(self, form):
         """If the form is valid, save the associated model."""
+        identification_model_changed = "identification_model" in form.changed_data
         response = super().form_valid(form)
-        # Additional processing can be done here if needed
+        if identification_model_changed:
+            transaction.on_commit(
+                lambda: tasks.schedule_init_identification_for_workgroup(
+                    models.WorkGroup.objects.get(pk=self.object.pk)
+                )
+            )
         return response
 
     def get_context_data(self, **kwargs):
