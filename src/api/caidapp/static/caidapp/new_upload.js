@@ -76,14 +76,14 @@
         ["", "Ignore"],
         ["locality", "Locality"],
         ["taxon", "Taxon"],
-        ["unique_name", "Unique name"],
+        ["identity", "Identity"],
         ["check_date", "Check date"],
     ];
     const columnRoles = [
         ["", "Ignore"],
         ["original_path", "Media path"],
         ["taxon", "Taxon"],
-        ["unique_name", "Unique name"],
+        ["identity", "Identity"],
         ["code", "Identity code"],
         ["juv_code", "Juv. code"],
         ["locality_name", "Locality"],
@@ -95,10 +95,9 @@
         check_date: "(?P<check_date>\\d{4}-?\\d{2}-?\\d{2})",
         locality: "(?P<locality>[^/]+)",
         taxon: "(?P<taxon>[^/]+)",
-        unique_name: "(?P<unique_name>[^/]+)",
         identity: "(?P<identity>[^/]+)",
     };
-    const identityLastDirectoryRegex = "^(?:.*/)?(?P<unique_name>[^/]+)/[^/]+$";
+    const identityLastDirectoryRegex = "^(?:.*/)?(?P<identity>[^/]+)/[^/]+$";
     const normalizedSpreadsheetFilename = "mediafile.post_update.csv";
 
     function getSelectedUploadTarget() {
@@ -650,8 +649,8 @@
             "media_file": "original_path",
             "taxon": "taxon",
             "category": "taxon",
-            "unique_name": "unique_name",
-            "identity": "unique_name",
+            "unique_name": "identity",
+            "identity": "identity",
             "code": "code",
             "juv_code": "juv_code",
             "locality_name": "locality_name",
@@ -964,7 +963,7 @@
                     currentSpreadsheetPreview = zipSpreadsheetPreview;
                     spreadsheetColumns.textContent =
                         `${describeSpreadsheetColumns(currentSpreadsheetPreview.columns, `${zipSpreadsheetPreview.filename} inside ZIP`)} ` +
-                        "Expected fields such as media path, unique name, taxon, locality, and datetime can be mapped below.";
+                        "Expected fields such as media path, identity, taxon, locality, and datetime can be mapped below.";
                     renderColumnMapper(currentSpreadsheetPreview.columns);
                     return;
                 }
@@ -981,7 +980,7 @@
 
         currentSpreadsheetPreview = null;
         spreadsheetColumns.textContent = zipSpreadsheetNames.length
-            ? "Spreadsheet found in ZIP. Expected fields such as media path, unique name, taxon, locality, and datetime can be mapped after upload preparation."
+            ? "Spreadsheet found in ZIP. Expected fields such as media path, identity, taxon, locality, and datetime can be mapped after upload preparation."
             : "Spreadsheet detected, but preview is unavailable. You can still upload it and continue with mapping.";
         renderColumnMapper([]);
         updatePathAdjustmentHint(null);
@@ -1191,7 +1190,7 @@
         const promptSuffix = suffixElement ? JSON.parse(suffixElement.textContent) : "";
         const samplePaths = [
             ...new Set(
-                (currentMediaPaths.length ? currentMediaPaths : [examplePath || "taxon/unique_name/Karel__001.jpg"])
+                (currentMediaPaths.length ? currentMediaPaths : [examplePath || "taxon/identity/Karel__001.jpg"])
                     .filter(Boolean)
                     .map((path) => path.replace(/\\/g, "/"))
             ),
@@ -1231,7 +1230,7 @@
         selects.forEach((select) => {
             select.value = "";
         });
-        selects.at(-1).value = "unique_name";
+        selects.at(-1).value = "identity";
         updateDirectoryMappingFromUi();
         pathRegexInput.value = identityLastDirectoryRegex;
         if (advancedRegexInput) {

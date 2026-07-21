@@ -4,13 +4,35 @@
     {% include "caidapp/get_individual_identity_img_card_top.html" %}
 {% endwith %}
 <div class="card-body">
-    <div class="card-title">
-        {% if reid_suggestion.identity %}
-            <a href="{% url 'caidapp:individual_identity_update' reid_suggestion.identity.id %}">
+    <div class="card-title d-flex align-items-start justify-content-between gap-2">
+        <span>
+            {% if reid_suggestion.identity %}
+                <a href="{% url 'caidapp:individual_identity_update' reid_suggestion.identity.id %}">
+                    {{ reid_suggestion.name }}
+                </a>
+            {% else %}
                 {{ reid_suggestion.name }}
-            </a>
-        {% else %}
-            {{ reid_suggestion.name }}
+            {% endif %}
+        </span>
+        {% if reid_suggestion.mediafile %}
+            <span class="dropdown">
+                <button class="btn btn-sm btn-link link-secondary p-0"
+                        type="button"
+                        data-bs-toggle="dropdown"
+                        aria-expanded="false"
+                        aria-label="Suggestion actions"
+                        title="Suggestion actions">
+                    <i class="bi bi-three-dots"></i>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li>
+                        <a class="dropdown-item"
+                           href="{% url 'caidapp:media_file_update' reid_suggestion.mediafile.id %}?next={{ request.get_full_path|urlencode }}">
+                            <i class="bi bi-box-arrow-up-right me-2"></i>Open media detail
+                        </a>
+                    </li>
+                </ul>
+            </span>
         {% endif %}
     </div>
     <p class="card-text">

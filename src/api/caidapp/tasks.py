@@ -511,6 +511,11 @@ def _get_identification_source_image_path(mediafile: MediaFile, media_root: Path
             f"Image mediafile {mediafile.id} has no existing image_file/static_thumbnail/preview/thumbnail."
         )
 
+    image_file_name = getattr(mediafile.image_file, "name", "")
+    image_file_path = media_root / image_file_name if image_file_name else None
+    if image_file_path and _is_readable_image(image_file_path):
+        return str(image_file_path)
+
     static_thumbnail_name = getattr(mediafile.static_thumbnail, "name", "")
     static_thumbnail_path = media_root / static_thumbnail_name if static_thumbnail_name else None
     if static_thumbnail_path and _is_readable_image(static_thumbnail_path):
@@ -526,7 +531,7 @@ def _get_identification_source_image_path(mediafile: MediaFile, media_root: Path
         return str(static_thumbnail_path)
 
     raise FileNotFoundError(
-        f"Video mediafile {mediafile.id} has no readable static thumbnail for identification."
+        f"Video mediafile {mediafile.id} has no readable selected frame or static thumbnail for identification."
     )
 
 
@@ -1696,6 +1701,7 @@ def init_identification_on_success(*args, **kwargs):
     logger.debug(f"{kwargs=}")
     # models.Notification(message=f"Identification initialization finished. {args=} {kwargs=}").save()
     workgroup_id = kwargs.pop("workgroup_id")
+    identification_model_id = kwargs.pop("identification_model_id", None)
     statistic_id = kwargs.pop("statistic_id", None)
     workgroup = WorkGroup.objects.get(id=workgroup_id)
     models.Notification.create_for(
@@ -1723,6 +1729,8 @@ def init_identification_on_success(*args, **kwargs):
     workgroup.identification_init_at = now
     workgroup.identification_scheduled_init_task_id = None
     workgroup.identification_scheduled_init_eta = None
+    if status == "Finished" and identification_model_id is not None:
+        workgroup.identification_initialized_model_id = identification_model_id
     workgroup.save(
         update_fields=[
             "identification_init_status",
@@ -1730,6 +1738,7 @@ def init_identification_on_success(*args, **kwargs):
             "identification_init_at",
             "identification_scheduled_init_task_id",
             "identification_scheduled_init_eta",
+            "identification_initialized_model",
         ]
     )
     logger.debug(f"{message=}")
@@ -1738,8 +1747,10 @@ def init_identification_on_success(*args, **kwargs):
     logger.debug(f"{workgroup.hash=}")
 
     logger.debug("init_identification done.")
-    if status == "Finished":
+    if status == "Finished" and workgroup.identification_model_id == identification_model_id:
         schedule_reid_identification_for_workgroup(workgroup, delay_minutes=2)
+    elif status == "Finished":
+        schedule_init_identification_for_workgroup(workgroup)
 
 
 @shared_task
@@ -2393,6 +2404,26 @@ def run_identification_on_unidentified_for_workgroup(workgroup_id: int, request=
     from .views import run_identification_bulk
 
     workgroup = WorkGroup.objects.get(pk=workgroup_id)
+    if not workgroup.identification_model_is_initialized():
+        workgroup.identification_reid_status = "Not initiated"
+        workgroup.identification_reid_at = now()
+        workgroup.identification_reid_message = "Waiting for initialization of the selected identification model."
+        workgroup.identification_scheduled_run_task_id = None
+        workgroup.identification_scheduled_run_eta = None
+        workgroup.save(
+            update_fields=[
+                "identification_reid_status",
+                "identification_reid_at",
+                "identification_reid_message",
+                "identification_scheduled_run_task_id",
+                "identification_scheduled_run_eta",
+            ]
+        )
+        if request:
+            from django.contrib import messages
+
+            messages.error(request, "Identification is waiting for initialization of the selected model.")
+        return False
     uploaded_archives = get_uploaded_archives_pending_identification(workgroup)
     upload_count = uploaded_archives.count()
 
@@ -2570,7 +2601,8 @@ def init_identification(workgroup_id: int, selection: dict | None = None):
         # csv file should contain image_path, class_id, label
         "identification_model": {
             "name": workgroup.identification_model.name,
-            "path": workgroup.identification_model.model_path,
+            "model_source": workgroup.identification_model.get_runtime_model_source(),
+            "weights_path": workgroup.identification_model.get_runtime_checkpoint_path(),
         },
     }
     logger.debug(f"{kwargs=}")
@@ -2583,6 +2615,7 @@ def init_identification(workgroup_id: int, selection: dict | None = None):
     task = sig.apply_async(
         link=init_identification_on_success.s(
             workgroup_id=workgroup.id,
+            identification_model_id=workgroup.identification_model_id,
             statistic_id=statistic.id,
             # uploaded_archive_id=uploaded_archive.id,
             # zip_file=os.path.relpath(str(output_archive_file), settings.MEDIA_ROOT),

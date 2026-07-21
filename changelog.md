@@ -4,6 +4,11 @@
 ## Release v0.5.0 – identification workflow overhaul
 
 
+## 2026-07
+* [added] Remove bbox in sequences view
+* [changed] Check if identification model in identify() is consistent with the model in init()
+* [added] workgroup admin can check all identification processes
+
 
 ## 2026-06
 * [added] Bulk actions for identity lists with selected identity deletion confirmation

@@ -151,33 +151,41 @@
                                 {% endif %}
                             </a>
                         </li>
-                        <li>
-                            <a class="dropdown-item {{ btn_styles.init_identification.class }}"
-                               href="{% url 'caidapp:train_identification' %}"
-                               onclick="return confirm('Start training of the identification model?')"
-                            >
-                                {#                            <i class="fas fa-fingerprint"></i>#}
-                                <i class="bi bi-lightning"></i>
-                                Train identification model
-                                {% if user.caiduser.workgroup.identification_train_status == "Processing" %}
-                                    <i class="fa fa-spinner fa-spin"></i>
-                                {% endif %}
-                            </a>
+                        {% if user.caiduser.workgroup_admin %}
+                            <li>
+                                <a class="dropdown-item" href="{% url 'caidapp:identification_information' %}">
+                                    <i class="bi bi-info-circle"></i>
+                                    Identification information
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item {{ btn_styles.init_identification.class }}"
+                                   href="{% url 'caidapp:train_identification' %}"
+                                   onclick="return confirm('Start training of the identification model?')"
+                                >
+                                    {#                            <i class="fas fa-fingerprint"></i>#}
+                                    <i class="bi bi-lightning"></i>
+                                    Train identification model
+                                    {% if user.caiduser.workgroup.identification_train_status == "Processing" %}
+                                        <i class="fa fa-spinner fa-spin"></i>
+                                    {% endif %}
+                                </a>
 
-                        </li>
-                        <li>
+                            </li>
+                            <li>
 
-                            <a class="dropdown-item {{ btn_styles.run_identification.class }}"
-                               href="{% url 'caidapp:pre_identify' %}"
-                               data-bs-toggle="tooltip" title="{{ btn_styles.run_identification.tooltip }}"
-                               onclick="return confirm('{{ btn_styles.run_identification.confirm }}')"
-                            >
-                                <i class="bi bi-question-circle"></i> Compare with identity database
-                                {% if user.caiduser.workgroup.identification_reid_status == "Processing" %}
-                                    <i class="fa fa-spinner fa-spin"></i>
-                                {% endif %}
-                            </a>
-                        </li>
+                                <a class="dropdown-item {{ btn_styles.run_identification.class }}"
+                                   href="{% url 'caidapp:pre_identify' %}"
+                                   data-bs-toggle="tooltip" title="{{ btn_styles.run_identification.tooltip }}"
+                                   onclick="return confirm('{{ btn_styles.run_identification.confirm }}')"
+                                >
+                                    <i class="bi bi-question-circle"></i> Compare with identity database
+                                    {% if user.caiduser.workgroup.identification_reid_status == "Processing" %}
+                                        <i class="fa fa-spinner fa-spin"></i>
+                                    {% endif %}
+                                </a>
+                            </li>
+                        {% endif %}
                         <li><hr class="dropdown-divider"></li>
                         {% if user.caiduser.workgroup_admin %}
                             <li>
@@ -214,9 +222,11 @@
                 {% if user.caiduser.workgroup.identification_init_status == "Processing" %}
                     <i class="fa fa-spinner fa-spin"></i>
                 {% endif %}
-                {% if user.caiduser.workgroup.identification_init_status == "Processing" or user.caiduser.workgroup.identification_init_status == "Scheduled" or user.caiduser.workgroup.identification_reid_status == "Processing" or user.caiduser.workgroup.identification_reid_status == "Scheduled" %}
-                    <a class="btn btn-danger" href="{% url 'caidapp:stop_init_identification' %}"><i
-                            class="bi bi-stop-fill "></i> Stop </a>
+                {% if user.caiduser.workgroup_admin %}
+                    {% if user.caiduser.workgroup.identification_init_status == "Processing" or user.caiduser.workgroup.identification_init_status == "Scheduled" or user.caiduser.workgroup.identification_reid_status == "Processing" or user.caiduser.workgroup.identification_reid_status == "Scheduled" %}
+                        <a class="btn btn-danger" href="{% url 'caidapp:stop_init_identification' %}"><i
+                                class="bi bi-stop-fill "></i> Stop </a>
+                    {% endif %}
                 {% endif %}
                 <span id="identification-progress-panel"
                       class="ident-progress-indicators {% if user.caiduser.workgroup.identification_init_status != 'Processing' and user.caiduser.workgroup.identification_init_status != 'Scheduled' and user.caiduser.workgroup.identification_reid_status != 'Processing' and user.caiduser.workgroup.identification_reid_status != 'Scheduled' %}d-none{% endif %}"
@@ -244,8 +254,10 @@
                         Run {{ user.caiduser.workgroup.identification_reid_status|lower }}{% if user.caiduser.workgroup.identification_reid_status == "Processing" and user.caiduser.workgroup.identification_reid_at %}, started {{ user.caiduser.workgroup.identification_reid_at|date:'Y-m-d H:i' }}{% endif %}{% if user.caiduser.workgroup.identification_scheduled_run_eta %}, scheduled {{ user.caiduser.workgroup.identification_scheduled_run_eta|date:'Y-m-d H:i' }}{% endif %}.
                     {% endif %}
                 </span>
-                <a class="btn btn-secondary bs-1" href="{% url 'caidapp:workgroup-update' user.caiduser.workgroup.id %}"><i
-                        class="bi bi-gear"></i></a>
+                {% if user.caiduser.workgroup_admin %}
+                    <a class="btn btn-secondary bs-1" href="{% url 'caidapp:workgroup-update' user.caiduser.workgroup.id %}"><i
+                            class="bi bi-gear"></i></a>
+                {% endif %}
 {#                <a class="btn btn-secondary bs-1" href="{% url 'caidapp:select_reid_model' %}"><i#}
 {#                        class="bi bi-gear"></i></a>#}
             </div>

@@ -45,6 +45,7 @@ logger.info(f"Using device: {DEVICE}")
 SAM: Sam | None = None
 SAM_PREDICTOR: SamPredictor | None = None
 IDENTIFICATION_MODELS: dict[str, SimilarityPipelineExtended] | None = None
+IDENTIFICATION_MODEL_CACHE_KEY: tuple[str, str] | None = None
 SAM3 = None
 SAM3_PREDICTOR: Any | None = None
 SEGMENTATION_BACKEND: Literal["sam3", "sam"] | None = None
@@ -131,13 +132,16 @@ def download_sam3_checkpoint_if_missing(
 
 
 def get_identification_model(model_name, model_checkpoint=""):
-    """Load the model from the given model name and checkpoint."""
+    """Load the model architecture/source and optionally apply local trained weights."""
     # no need of 'global' if only reading the variable
     global IDENTIFICATION_MODELS
+    global IDENTIFICATION_MODEL_CACHE_KEY
 
-    if IDENTIFICATION_MODELS is not None:
+    cache_key = (str(model_name), str(model_checkpoint or ""))
+    if IDENTIFICATION_MODELS is not None and IDENTIFICATION_MODEL_CACHE_KEY == cache_key:
         return
     IDENTIFICATION_MODELS = None
+    IDENTIFICATION_MODEL_CACHE_KEY = None
 
     logger.debug("Before identification model.")
     logger.debug(f"{mem.get_vram(DEVICE)}     {mem.get_ram()}")
@@ -175,6 +179,7 @@ def get_identification_model(model_name, model_checkpoint=""):
     )
 
     IDENTIFICATION_MODELS = {"mega": matcher_mega, "aliked": matcher_aliked}
+    IDENTIFICATION_MODEL_CACHE_KEY = cache_key
 
     logger.debug("After identification model.")
     logger.debug(f"{mem.get_vram(DEVICE)}     {mem.get_ram()}")
@@ -282,7 +287,10 @@ def get_segmentation_model() -> Literal["sam3", "sam"]:
 def del_identification_model():
     """Release the identification model."""
     global IDENTIFICATION_MODELS
+    global IDENTIFICATION_MODEL_CACHE_KEY
+    global IDENTIFICATION_MODEL_CACHE_KEY
     IDENTIFICATION_MODELS = None
+    IDENTIFICATION_MODEL_CACHE_KEY = None
     torch.cuda.empty_cache()
 
 
@@ -304,9 +312,9 @@ def del_sam_model():
     torch.cuda.empty_cache()
 
 
-def init_models(identification_model_path):
+def init_models(identification_model_path, identification_model_weights_path=""):
     """Initialize identification and segmentation models."""
-    get_identification_model(identification_model_path)
+    get_identification_model(identification_model_path, model_checkpoint=identification_model_weights_path)
     get_segmentation_model()
 
 
@@ -546,11 +554,16 @@ def mask_images(metadata: pd.DataFrame, tqdm_desc="Masking images") -> pd.DataFr
     return metadata
 
 
-def encode_images(metadata: pd.DataFrame, identification_model_path: str, tqdm_desc="") -> list:
+def encode_images(
+    metadata: pd.DataFrame,
+    identification_model_path: str,
+    identification_model_weights_path: str = "",
+    tqdm_desc="",
+) -> list:
     """Create feature vectors from given images."""
     # no need of 'global' if only reading the variable
     # global IDENTIFICATION_MODELS
-    get_identification_model(identification_model_path)
+    get_identification_model(identification_model_path, model_checkpoint=identification_model_weights_path)
     metadata = mask_images(metadata, tqdm_desc=f"Masking images: {tqdm_desc}")
     logger.info("Creating DataLoaders.")
 
@@ -621,6 +634,7 @@ def compute_partial(
     identification_model_path: str,
     target: str,
     pairs: tuple = None,
+    identification_model_weights_path: str = "",
 ):
     """Compare input feature vectors with the reference feature vectors and make predictions."""
     assert len(query_features) == len(query_metadata)
@@ -631,7 +645,7 @@ def compute_partial(
         assert pairs is not None, "Pairs must be provided for scores computation"
     logger.info(f"Starting identification of {len(query_metadata)} images.")
 
-    get_identification_model(identification_model_path)
+    get_identification_model(identification_model_path, model_checkpoint=identification_model_weights_path)
 
     # gather features
     database_aliked_features, database_mega_features = prepare_feature_types(database_features)
@@ -827,6 +841,7 @@ def identify(
     query_metadata: pd.DataFrame,
     database_metadata: pd.DataFrame,
     identification_model_path,
+    identification_model_weights_path: str = "",
     top_k: int = 3,
     cal_images: int = 50,
     image_budget: int = 100,
@@ -837,7 +852,7 @@ def identify(
     logger.info(f"Starting identification of {len(query_metadata)} images.")
 
     global IDENTIFICATION_MODELS
-    get_identification_model(identification_model_path)
+    get_identification_model(identification_model_path, model_checkpoint=identification_model_weights_path)
 
     # gather features
     database_aliked_features, database_mega_features = prepare_feature_types(database_features)
@@ -869,6 +884,7 @@ def identify(
     similarity = wildfusion(query_features, database_features, B=image_budget)
     logger.debug(f"{similarity.shape=}")
     IDENTIFICATION_MODELS = None
+    IDENTIFICATION_MODEL_CACHE_KEY = None
 
     output, result_idx = identify_from_similarity(
         similarity, database_metadata, query_metadata, top_k, post_process=os.environ.get("POST_PROCESS", None)

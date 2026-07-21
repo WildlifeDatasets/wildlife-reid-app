@@ -66,10 +66,11 @@ def train_identification(
     if identification_model is None:
         identification_model = {
             "name": "derived from LynxV4-MegaDescriptor-v2-T-256",
-            "source_path": "hf-hub:strakajk/LynxV4-MegaDescriptor-v2-T-256",
-            "path": "/models/model1/LynxV4-MegaDescriptor-v2-T-256.pth",
+            "base_model_source": "hf-hub:strakajk/LynxV4-MegaDescriptor-v2-T-256",
+            "initial_weights_path": "",
+            "output_weights_path": "/models/model1/LynxV4-MegaDescriptor-v2-T-256.pth",
         }
-    # outputdir = Path(identification_model["path"]).parent
+    # outputdir = Path(identification_model["output_weights_path"]).parent
     try:
         # outputdir.mkdir(parents=True, exist_ok=True)
         # pass
@@ -100,7 +101,10 @@ def init(
     if identification_model is None:
         identification_model = {
             "name": "",
-            "path": "hf-hub:strakajk/LynxV4-MegaDescriptor-v2-T-256",
+            # model_source is required: HF/timm model used to create the architecture.
+            "model_source": "hf-hub:strakajk/LynxV4-MegaDescriptor-v2-T-256",
+            # weights_path is optional: local checkpoint loaded into model_source before inference.
+            "weights_path": "",
         }
 
     try:
@@ -130,7 +134,13 @@ def init(
         progress.update(1, 1)
 
         progress.stage("init_models", "Initializing identification models")
-        init_models(identification_model["path"])
+        # model_source creates the architecture; optional weights_path loads locally trained weights into it.
+        identification_model_path = identification_model["model_source"]
+        identification_model_weights_path = identification_model.get("weights_path", "")
+        init_models(
+            identification_model_path,
+            identification_model_weights_path=identification_model_weights_path,
+        )
         progress.update(1, 1)
         encoding_batch_size = int(os.environ["ENCODING_BATCH_SIZE"])
         target_num_splits = math.ceil(len(metadata) / encoding_batch_size)
@@ -145,7 +155,11 @@ def init(
                 f"Encoding reference embeddings ({i + 1}/{target_num_splits})",
             )
             progress.update(i, target_num_splits)
-            _features = encode_images(_metadata, identification_model_path=identification_model["path"])
+            _features = encode_images(
+                _metadata,
+                identification_model_path=identification_model_path,
+                identification_model_weights_path=identification_model_weights_path,
+            )
             progress.update(i + 0.5, target_num_splits)
             _features = [json.dumps(e) for e in _features]
             _metadata["embedding"] = _features
@@ -238,6 +252,7 @@ def predict_full(
     db_connection: object,
     organization_id: int,
     identification_model_path,
+    identification_model_weights_path="",
     top_k: int = 1,
     progress: ProgressReporter | None = None,
 ):
@@ -250,7 +265,11 @@ def predict_full(
     # generate query embeddings
     if progress:
         progress.stage("identify", "Encoding query images")
-    query_features = encode_images(metadata, identification_model_path)
+    query_features = encode_images(
+        metadata,
+        identification_model_path,
+        identification_model_weights_path=identification_model_weights_path,
+    )
 
     # prepare metadata for database
     query_metadata = pd.DataFrame(
@@ -279,6 +298,7 @@ def predict_full(
         query_metadata=query_metadata,
         database_metadata=database_metadata,
         identification_model_path=identification_model_path,
+        identification_model_weights_path=identification_model_weights_path,
         top_k=top_k,
         cal_images=int(os.environ["CALIBRATION_IMAGES"]),
         image_budget=int(os.environ["IMAGE_BUDGET"]),
@@ -297,6 +317,7 @@ def predict_batch(
     organization_id: int,
     database_size: int,
     identification_model_path: str,
+    identification_model_weights_path: str = "",
     top_k: int = 1,
     progress: ProgressReporter | None = None,
 ):
@@ -309,7 +330,10 @@ def predict_batch(
     # initialize and calibrate models
     if progress:
         progress.stage("load_references", "Initializing models and calibration data")
-    init_models(identification_model_path)
+    init_models(
+        identification_model_path,
+        identification_model_weights_path=identification_model_weights_path,
+    )
 
     # TODO: get random calibration images?
     calibration_features, reference_images = load_features(db_connection, organization_id, start=0, end=cal_images)
@@ -343,7 +367,12 @@ def predict_batch(
         if progress:
             progress.stage("identify", f"Encoding query batch {qi + 1}/{target_num_splits}")
             progress.update(qi, target_num_splits)
-        query_features = encode_images(_metadata, identification_model_path, tqdm_desc=progress_str)
+        query_features = encode_images(
+            _metadata,
+            identification_model_path,
+            identification_model_weights_path=identification_model_weights_path,
+            tqdm_desc=progress_str,
+        )
         # prepare query metadata
         query_metadata = pd.DataFrame(
             {
@@ -396,6 +425,7 @@ def predict_batch(
                 database_metadata=database_metadata,
                 identification_model_path=identification_model_path,
                 target="priority",
+                identification_model_weights_path=identification_model_weights_path,
             )
             priority_matrix.append(_priority_matrix)
             full_database_metadata.append(database_metadata)
@@ -462,6 +492,7 @@ def predict_batch(
                 identification_model_path=identification_model_path,
                 target="scores",
                 pairs=_pairs,
+                identification_model_weights_path=identification_model_weights_path,
             )
 
             # accumulate results in pre-alocated matrix
@@ -552,11 +583,14 @@ def predict(
     if identification_model is None:
         identification_model = {
             "name": "",
-            "path": "hf-hub:strakajk/LynxV4-MegaDescriptor-v2-T-256",
+            # model_source is required: HF/timm model used to create the architecture.
+            "model_source": "hf-hub:strakajk/LynxV4-MegaDescriptor-v2-T-256",
+            # weights_path is optional: local checkpoint loaded into model_source before inference.
+            "weights_path": "",
         }
 
     # identification_model["name"]
-    # identification_model["path"]
+    # identification_model["model_source"]
     try:
         progress = ProgressReporter(self, operation="identify")
         progress.stage("load_metadata", "Loading identification metadata")
@@ -615,22 +649,30 @@ def predict(
 
                 if (database_batch_size >= database_size) and (encoding_batch_size >= len(metadata)):
                     logger.info("Starting full identification.")
+                    # model_source creates the architecture; optional weights_path loads locally trained weights into it.
+                    identification_model_path = identification_model["model_source"]
+                    identification_model_weights_path = identification_model.get("weights_path", "")
                     identification_output, id2label = predict_full(
                         metadata,
                         db_connection,
                         organization_id,
-                        identification_model_path=identification_model["path"],
+                        identification_model_path=identification_model_path,
+                        identification_model_weights_path=identification_model_weights_path,
                         top_k=top_k,
                         progress=progress,
                     )
                 else:
                     logger.info("Starting batched identification.")
+                    # model_source creates the architecture; optional weights_path loads locally trained weights into it.
+                    identification_model_path = identification_model["model_source"]
+                    identification_model_weights_path = identification_model.get("weights_path", "")
                     identification_output, id2label = predict_batch(
                         metadata,
                         db_connection,
                         organization_id,
                         database_size,
-                        identification_model_path=identification_model["path"],
+                        identification_model_path=identification_model_path,
+                        identification_model_weights_path=identification_model_weights_path,
                         top_k=top_k,
                         progress=progress,
                     )

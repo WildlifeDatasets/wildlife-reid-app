@@ -11,6 +11,7 @@ import numpy as np
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Count, Exists, F, OuterRef, Q
 from django.db.models.query import QuerySet
@@ -56,6 +57,12 @@ DEFAULT_IDENTITY_CODE_REGEX = r"B\d+"
 DEFAULT_IDENTITY_MERGE_DISTINGUISHING_REGEX = (
     r"(?i)(?<![a-z0-9])juv[._ -]*(\d{2,4})[._ -]+(\d+)(?!\d)"
 )
+IDENTIFICATION_MODEL_HF_PREFIX = "hf-hub:"
+IDENTIFICATION_MODEL_TIMM_PREFIX = "timm:"
+IDENTIFICATION_MODEL_FILE_PREFIX = "file:"
+LEGACY_TRAINING_BASE_MODEL_SOURCE = "hf-hub:BVRA/MegaDescriptor-T-224"
+IDENTIFICATION_MODEL_CHECKPOINT_SUFFIXES = {".pth", ".pt", ".ckpt", ".bin", ".safetensors"}
+IDENTIFICATION_MODEL_TIMESTAMP_RE = re.compile(r"([._-])\d{8}-\d{6}$")
 
 
 def validate_identity_code_regex(value: str):
@@ -73,6 +80,78 @@ def validate_identity_code_regex(value: str):
 def validate_identity_merge_distinguishing_regex(value: str):
     """Validate a regex used to distinguish identities during merge suggestion generation."""
     validate_identity_code_regex(value)
+
+
+def normalize_identification_model_source(value: str) -> str:
+    """Normalize a persisted model source string."""
+    return str(value or "").strip()
+
+
+def identification_model_source_is_hf(value: str) -> bool:
+    """Return whether the model source points to Hugging Face hub."""
+    return normalize_identification_model_source(value).startswith(IDENTIFICATION_MODEL_HF_PREFIX)
+
+
+def identification_model_source_is_timm(value: str) -> bool:
+    """Return whether the model source explicitly names a timm architecture."""
+    return normalize_identification_model_source(value).startswith(IDENTIFICATION_MODEL_TIMM_PREFIX)
+
+
+def identification_model_source_is_prefixed_file(value: str) -> bool:
+    """Return whether the source is an explicitly prefixed checkpoint path."""
+    return normalize_identification_model_source(value).startswith(IDENTIFICATION_MODEL_FILE_PREFIX)
+
+
+def identification_model_source_looks_like_local_path(value: str) -> bool:
+    """Return whether the source string looks like a local checkpoint path."""
+    value = normalize_identification_model_source(value)
+    if not value:
+        return False
+    if identification_model_source_is_prefixed_file(value):
+        return True
+    if value.startswith(("~/", "/", "\\\\")):
+        return True
+    if re.match(r"^[A-Za-z]:[\\/]", value):
+        return True
+    return Path(value).suffix.lower() in IDENTIFICATION_MODEL_CHECKPOINT_SUFFIXES
+
+
+def strip_identification_model_file_prefix(value: str) -> str:
+    """Return a filesystem path without the file: prefix."""
+    value = normalize_identification_model_source(value)
+    if value.startswith(IDENTIFICATION_MODEL_FILE_PREFIX):
+        return value[len(IDENTIFICATION_MODEL_FILE_PREFIX) :]
+    return value
+
+
+def strip_identification_model_timestamp_suffix(value: str) -> str:
+    """Strip a trailing YYYYMMDD-HHMMSS suffix from a model name."""
+    value = str(value or "").strip()
+    if not value:
+        return value
+    return IDENTIFICATION_MODEL_TIMESTAMP_RE.sub("", value)
+
+
+def build_trained_identification_model_name(
+    source_name: str,
+    workgroup_name: str,
+    created_at: datetime,
+    *,
+    max_length: int = 120,
+) -> str:
+    """Build a readable trained-model name with workgroup and timestamp."""
+    base_name = strip_identification_model_timestamp_suffix(source_name) or "IdentificationModel"
+    workgroup_slug = slugify(workgroup_name or "")
+    timestamp = created_at.strftime("%Y%m%d-%H%M%S")
+    if workgroup_slug and workgroup_slug not in slugify(base_name):
+        base_name = f"{base_name}-{workgroup_slug}"
+    max_base_length = max_length - len(timestamp) - 1
+    if max_base_length < 1:
+        return timestamp[:max_length]
+    trimmed_base_name = base_name[:max_base_length].rstrip(" ._-")
+    if not trimmed_base_name:
+        trimmed_base_name = "IdentificationModel"
+    return f"{trimmed_base_name}-{timestamp}"
 
 
 def get_hash():
@@ -102,10 +181,28 @@ class Taxon(models.Model):
 
 
 class IdentificationModel(models.Model):
-    name = models.CharField(max_length=50)
+    name = models.CharField(max_length=120)
+    created_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
     description = models.CharField(max_length=255, blank=True, default="")
     public = models.BooleanField(default=False)
-    model_path = models.CharField(max_length=255, blank=True, default="")
+    model_path = models.CharField(
+        max_length=512,
+        blank=True,
+        default="",
+        help_text=(
+            "Primary model source. Supported values include hf-hub:owner/model, timm:model_name, "
+            "or a local checkpoint path such as file:/shared_data/media/.../model.pth."
+        ),
+    )
+    base_model_path = models.CharField(
+        max_length=512,
+        blank=True,
+        default="",
+        help_text=(
+            "Optional base model source used when model_path points to a local checkpoint. "
+            "Use hf-hub:... or timm:... here."
+        ),
+    )
     workgroup = models.ForeignKey(
         "WorkGroup",
         on_delete=models.CASCADE,
@@ -113,6 +210,65 @@ class IdentificationModel(models.Model):
         blank=True,
         related_name="identification_models",
     )
+    source_identification_model = models.ForeignKey(
+        "self",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="trained_models",
+    )
+
+    def clean(self):
+        """Validate supported source combinations."""
+        self.model_path = normalize_identification_model_source(self.model_path)
+        self.base_model_path = normalize_identification_model_source(self.base_model_path)
+
+        if not self.model_path:
+            raise ValidationError({"model_path": "Model source is required."})
+
+        if identification_model_source_looks_like_local_path(self.model_path):
+            if not (
+                self.base_model_path
+                or self.source_identification_model_id
+                or self.source_identification_model
+            ):
+                raise ValidationError(
+                    {
+                        "base_model_path": (
+                            "Base model source is required when model_path points to a local checkpoint."
+                        )
+                    }
+                )
+
+    def get_runtime_model_source(self) -> str:
+        """Return the model identifier understood by timm.create_model()."""
+        source = normalize_identification_model_source(self.model_path)
+        if identification_model_source_looks_like_local_path(source):
+            base_source = self.get_runtime_base_model_source()
+            if not base_source:
+                raise ValidationError("Local checkpoint models require a base model source.")
+            source = base_source
+        if identification_model_source_is_timm(source):
+            return source[len(IDENTIFICATION_MODEL_TIMM_PREFIX) :]
+        return source
+
+    def get_runtime_checkpoint_path(self) -> str:
+        """Return the optional local checkpoint path for runtime loading."""
+        source = normalize_identification_model_source(self.model_path)
+        if identification_model_source_looks_like_local_path(source):
+            return strip_identification_model_file_prefix(source)
+        return ""
+
+    def get_runtime_base_model_source(self) -> str:
+        """Return the base model source used for a local checkpoint model."""
+        base_source = normalize_identification_model_source(self.base_model_path)
+        if base_source:
+            if identification_model_source_is_timm(base_source):
+                return base_source[len(IDENTIFICATION_MODEL_TIMM_PREFIX) :]
+            return base_source
+        if self.source_identification_model_id and self.source_identification_model:
+            return self.source_identification_model.get_runtime_model_source()
+        return LEGACY_TRAINING_BASE_MODEL_SOURCE if self.get_runtime_checkpoint_path() else ""
 
     def __str__(self):
         return str(self.name)
@@ -211,6 +367,14 @@ class WorkGroup(models.Model):
         blank=True,
         related_name="actual_workgroup_identification_model",
     )
+    identification_initialized_model = models.ForeignKey(
+        IdentificationModel,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="initialized_workgroups",
+        help_text="Identification model used by the last successfully completed re-identification initialization.",
+    )
     detection_model_path = models.CharField(
         max_length=512,
         blank=True,
@@ -304,6 +468,13 @@ class WorkGroup(models.Model):
 
     def __str__(self):
         return str(self.name)
+
+    def identification_model_is_initialized(self) -> bool:
+        """Return whether the selected model matches the initialized reference embeddings."""
+        return bool(
+            self.identification_model_id
+            and self.identification_model_id == self.identification_initialized_model_id
+        )
 
     def number_of_uploaded_archives(self) -> int:
         """Return number of uploaded archives."""

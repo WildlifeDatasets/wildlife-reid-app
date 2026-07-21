@@ -227,6 +227,11 @@
                                         File: <a class="link-secondary" href="{% url 'caidapp:media_file_update' foridentification.mediafile.id %}"
                                         >{{ foridentification.mediafile }}</a>
                                     </p>
+                                    <a class="btn btn-outline-secondary btn-sm"
+                                       href="{% url 'caidapp:media_file_update' foridentification.mediafile.id %}?next={{ request.get_full_path|urlencode }}">
+                                        <i class="bi bi-box-arrow-up-right"></i>
+                                        Open media detail
+                                    </a>
                                     <p class="card-text">
                                     </p>
                                     <p class="card-text">

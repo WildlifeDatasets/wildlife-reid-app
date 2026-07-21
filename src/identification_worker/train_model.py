@@ -27,6 +27,23 @@ logger.debug(f"{config.REDIS_URL=}")
 logger.debug(f"{config.POSTGRES_URL=}")
 
 
+def _resolve_training_source(identification_model: dict) -> tuple[str, str, str]:
+    """Map the training payload to model initialization and output paths.
+
+    - base_model_source: directly loadable HF/timm model used to create the architecture.
+      With pretrained=True this also provides the default pretrained weights.
+    - initial_weights_path: optional local checkpoint loaded into base_model_source before training.
+    - output_weights_path: output checkpoint path for the newly trained model.
+
+    Historical init_path/init_checkpoint_path/path payloads are no longer produced by the API.
+    If an old task misses these keys, it should fail loudly instead of guessing.
+    """
+    base_model_source = identification_model["base_model_source"]
+    initial_weights_path = identification_model.get("initial_weights_path", "").removeprefix("file:")
+    output_weights_path = identification_model["output_weights_path"]
+    return base_model_source.removeprefix("timm:"), initial_weights_path, output_weights_path
+
+
 def get_transforms(image_size):
     """Get training and validation transforms."""
     config = {
@@ -102,7 +119,7 @@ def train_identification_model(
     # logger.debug(f"{identification_model=}")
 
     # Check if to start or continue training
-    output_model_path = identification_model["path"]
+    source_model_name, source_checkpoint_path, output_model_path = _resolve_training_source(identification_model)
     output_folder = os.path.dirname(output_model_path)
     resume = False
     if os.path.exists(os.path.join(output_folder, "config.json")) and os.path.exists(
@@ -136,7 +153,8 @@ def train_identification_model(
         )
 
     # Load model
-    model = load_model(identification_model["init_path"], model_checkpoint=status["last_checkpoint_path"])
+    init_checkpoint_path = status["last_checkpoint_path"] or source_checkpoint_path
+    model = load_model(source_model_name, model_checkpoint=init_checkpoint_path)
     io_size = get_io_size(model)
     if io_size is not None:
         image_size, embedding_size = io_size

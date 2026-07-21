@@ -1346,6 +1346,8 @@ def apply_path_structure_regex(df: pd.DataFrame, path_structure_regex: str) -> p
         "taxon": "vanilla_species",
         "locality": "vanilla_location",
         "identity": "unique_name",
+        # Keep accepting mappings saved by older upload forms.
+        "unique_name": "unique_name",
         "check_date": "date",
     }
     for index, original_path in enumerate(df["original_path"]):
@@ -1385,6 +1387,8 @@ def apply_path_structure_mapping(df: pd.DataFrame, path_structure_mapping: dict)
         "taxon": ("vanilla_species",),
         "locality": ("vanilla_location", "location"),
         "identity": ("unique_name",),
+        # Keep accepting mappings saved by older upload forms.
+        "unique_name": ("unique_name",),
         "check_date": ("date",),
     }
     for index, original_path in enumerate(df["original_path"]):

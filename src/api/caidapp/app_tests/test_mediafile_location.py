@@ -72,6 +72,25 @@ class MediaFileLocationFallbackTest(TestCase):
             str(static_thumbnail_path),
         )
 
+    def test_prepare_dataframe_for_identification_prefers_selected_video_frame(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        selected_frame_relpath = "output/test-video/images/clip.jpg"
+        selected_frame_path = Path(settings.MEDIA_ROOT) / selected_frame_relpath
+        static_thumbnail_relpath = "output/test-video/static_thumbnails/clip.webp"
+        static_thumbnail_path = Path(settings.MEDIA_ROOT) / static_thumbnail_relpath
+        _write_test_image(selected_frame_path)
+        _write_test_image(static_thumbnail_path)
+        mediafile = MediaFileFactory(
+            parent=archive,
+            media_type="video",
+            image_file=selected_frame_relpath,
+            static_thumbnail=static_thumbnail_relpath,
+        )
+
+        csv_data = tasks._prepare_dataframe_for_identification([mediafile])
+
+        self.assertEqual(csv_data["image_path"][0], str(selected_frame_path))
+
     def test_prepare_dataframe_for_identification_falls_back_to_static_thumbnail_for_missing_image(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)
         static_thumbnail_relpath = "output/test-image/static_thumbnails/first.webp"

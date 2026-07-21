@@ -1,4 +1,5 @@
 import logging
+import tempfile
 from io import BytesIO, StringIO
 from pathlib import Path
 from unittest.mock import Mock, patch
@@ -12,7 +13,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 import pandas as pd
@@ -134,6 +135,58 @@ class HomeDashboardSnapshotTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context["home_next_step"]["label"], "Manual identification")
         self.assertContains(response, reverse("caidapp:manual_identification"))
+
+    def test_user_menu_uses_personal_settings_label(self):
+        response = self.client.get(reverse("caidapp:home"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Personal Settings")
+        self.assertNotContains(response, "User Settings")
+
+    def test_workgroup_settings_shows_add_model_from_huggingface_only_for_workgroup_admin_with_admin_access(self):
+        self.caiduser.workgroup_admin = True
+        self.caiduser.save(update_fields=["workgroup_admin"])
+
+        response = self.client.get(reverse("caidapp:workgroup-update", args=[self.caiduser.workgroup.id]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "Add model from HuggingFace")
+
+        self.user.is_staff = True
+        self.user.save(update_fields=["is_staff"])
+        response = self.client.get(reverse("caidapp:workgroup-update", args=[self.caiduser.workgroup.id]))
+
+        self.assertContains(response, "Add model from HuggingFace")
+        self.assertContains(
+            response,
+            reverse("admin:caidapp_identificationmodel_add") + f"?workgroup={self.caiduser.workgroup.id}",
+        )
+
+    def test_workgroup_settings_shows_link_to_personal_settings(self):
+        self.caiduser.workgroup_admin = True
+        self.caiduser.save(update_fields=["workgroup_admin"])
+
+        response = self.client.get(reverse("caidapp:workgroup-update", args=[self.caiduser.workgroup.id]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Personal Settings")
+        self.assertContains(response, reverse("caidapp:update_caiduser"))
+
+    def test_personal_settings_shows_link_to_workgroup_settings_only_for_workgroup_admin(self):
+        self.caiduser.workgroup_admin = False
+        self.caiduser.save(update_fields=["workgroup_admin"])
+        response = self.client.get(reverse("caidapp:update_caiduser"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn("Workgroup Settings", response.context["nav_dict"])
+
+        self.caiduser.workgroup_admin = True
+        self.caiduser.save(update_fields=["workgroup_admin"])
+
+        response = self.client.get(reverse("caidapp:update_caiduser"))
+
+        self.assertIn("Workgroup Settings", response.context["nav_dict"])
+        self.assertContains(response, reverse("caidapp:workgroup-update", args=[self.caiduser.workgroup.id]))
 
 
 class MediafileExportTest(TestCase):
@@ -1602,6 +1655,53 @@ class SequenceViewTest(TestCase):
         self.assertIsNone(untouched_observation.bbox_width)
         self.assertIsNone(untouched_observation.bbox_height)
 
+    def test_sequence_bulk_remove_bbox_keeps_identities(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        selected_sequence = SequenceFactory(uploaded_archive=archive)
+        other_sequence = SequenceFactory(uploaded_archive=archive)
+        identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup)
+        selected_mediafile = MediaFileFactory(parent=archive, sequence=selected_sequence)
+        selected_without_observation = MediaFileFactory(parent=archive, sequence=selected_sequence)
+        untouched_mediafile = MediaFileFactory(parent=archive, sequence=other_sequence)
+        selected_observation = AnimalObservationFactory(
+            mediafile=selected_mediafile,
+            identity=identity,
+            bbox_x_center=0.5,
+            bbox_y_center=0.5,
+            bbox_width=0.4,
+            bbox_height=0.3,
+        )
+        untouched_observation = AnimalObservationFactory(
+            mediafile=untouched_mediafile,
+            bbox_x_center=0.5,
+            bbox_y_center=0.5,
+            bbox_width=0.4,
+            bbox_height=0.3,
+        )
+
+        response = self.client.post(
+            reverse("caidapp:sequences"),
+            {
+                "selected_sequence_ids": [str(selected_sequence.id)],
+                "btnBulkProcessing_remove_bbox": "1",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        selected_observation.refresh_from_db()
+        self.assertEqual(selected_observation.identity, identity)
+        self.assertIsNone(selected_observation.bbox_x_center)
+        self.assertIsNone(selected_observation.bbox_y_center)
+        self.assertIsNone(selected_observation.bbox_width)
+        self.assertIsNone(selected_observation.bbox_height)
+        self.assertFalse(selected_without_observation.observations.exists())
+
+        untouched_observation.refresh_from_db()
+        self.assertEqual(untouched_observation.bbox_x_center, 0.5)
+        self.assertEqual(untouched_observation.bbox_y_center, 0.5)
+        self.assertEqual(untouched_observation.bbox_width, 0.4)
+        self.assertEqual(untouched_observation.bbox_height, 0.3)
+
     def test_sequence_verification_mode_groups_by_taxon_and_expands_sequences(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)
         taxon_wolf = TaxonFactory(name="Wolf")
@@ -2624,6 +2724,43 @@ class IdentificationUploadsViewTest(TestCase):
         self.assertContains(response, reverse("caidapp:uploads_ready_for_identification"))
         self.assertContains(response, "Send to identification")
 
+    def test_manual_identification_links_unknown_media_to_its_detail(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser, is_for_identification=True)
+        mediafile = MediaFileFactory(
+            parent=archive,
+            image_file="output/missing/images/unknown.jpg",
+            original_filename="unknown.jpg",
+        )
+        queue_item = models.MediafilesForIdentification.objects.create(mediafile=mediafile)
+
+        response = self.client.get(reverse("caidapp:get_individual_identity", args=[queue_item.id]))
+
+        self.assertEqual(response.status_code, 200)
+        detail_url = reverse("caidapp:media_file_update", args=[mediafile.id])
+        self.assertContains(response, f'href="{detail_url}?next=', html=False)
+        self.assertContains(response, "Open media detail")
+
+    def test_manual_identification_suggestion_menu_links_candidate_media_to_its_detail(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser, is_for_identification=True)
+        unknown_mediafile = MediaFileFactory(parent=archive, identity=None, metadata_json={})
+        queue_item = models.MediafilesForIdentification.objects.create(mediafile=unknown_mediafile)
+        identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Candidate")
+        candidate_mediafile = MediaFileFactory(parent=archive, identity=identity, metadata_json={})
+        models.MediafileIdentificationSuggestion.objects.create(
+            for_identification=queue_item,
+            mediafile=candidate_mediafile,
+            identity=identity,
+            score=0.9,
+            name=identity.name,
+        )
+
+        response = self.client.get(reverse("caidapp:get_individual_identity", args=[queue_item.id]))
+
+        self.assertEqual(response.status_code, 200)
+        detail_url = reverse("caidapp:media_file_update", args=[candidate_mediafile.id])
+        self.assertContains(response, 'aria-label="Suggestion actions"', html=False)
+        self.assertContains(response, f'href="{detail_url}?next=', html=False)
+
     def test_taxon_dashboard_highlights_send_to_identification_when_upload_is_ready(self):
         archive = UploadedArchiveFactory(
             owner=self.caiduser,
@@ -3033,6 +3170,28 @@ class IdentificationUploadsViewTest(TestCase):
         self.assertContains(response, reverse("caidapp:download_init_identification_csv"))
         self.assertContains(response, reverse("caidapp:download_run_identification_csv"))
 
+    def test_dash_identities_hides_run_and_model_settings_controls_for_non_admin(self):
+        self.caiduser.workgroup_admin = False
+        self.caiduser.save(update_fields=["workgroup_admin"])
+
+        response = self.client.get(reverse("caidapp:dash_identities"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, reverse("caidapp:train_identification"))
+        self.assertNotContains(response, reverse("caidapp:pre_identify"))
+        self.assertNotContains(response, reverse("caidapp:workgroup-update", args=[self.caiduser.workgroup.id]))
+
+    def test_dash_identities_shows_run_and_model_settings_controls_for_workgroup_admin(self):
+        self.caiduser.workgroup_admin = True
+        self.caiduser.save(update_fields=["workgroup_admin"])
+
+        response = self.client.get(reverse("caidapp:dash_identities"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, reverse("caidapp:train_identification"))
+        self.assertContains(response, reverse("caidapp:pre_identify"))
+        self.assertContains(response, reverse("caidapp:workgroup-update", args=[self.caiduser.workgroup.id]))
+
 
 class IdentificationRerunTest(TestCase):
     def setUp(self):
@@ -3046,9 +3205,77 @@ class IdentificationRerunTest(TestCase):
             model_path="/tmp/test-model.pth",
         )
         self.workgroup.identification_model = self.identification_model
+        self.workgroup.identification_initialized_model = self.identification_model
         self.workgroup.default_taxon_for_identification = None
         self.workgroup.check_taxon_before_identification = False
         self.workgroup.save()
+
+    def test_identification_information_is_workgroup_admin_only(self):
+        self.caiduser.workgroup_admin = False
+        self.caiduser.save(update_fields=["workgroup_admin"])
+
+        response = self.client.get(reverse("caidapp:identification_information"))
+
+        self.assertEqual(response.status_code, 405)
+
+    def test_identification_information_shows_models_runs_messages_and_counts(self):
+        identity = IndividualIdentityFactory(owner_workgroup=self.workgroup, name="Lynx A")
+        archive = UploadedArchiveFactory(owner=self.caiduser, is_for_identification=True)
+        mediafile = MediaFileFactory(parent=archive, used_for_init_identification=True)
+        AnimalObservationFactory(
+            mediafile=mediafile,
+            identity=identity,
+            identity_is_representative=True,
+        )
+        models.IdentificationRunStatistic.objects.create(
+            workgroup=self.workgroup,
+            operation="init",
+            status="finished",
+            image_number=12,
+            video_number=2,
+            duration_seconds=9.5,
+            finished_at=timezone.now(),
+            task_id="init-info-task",
+        )
+        models.IdentificationRunStatistic.objects.create(
+            workgroup=self.workgroup,
+            operation="identify",
+            status="failed",
+            image_number=7,
+            video_number=1,
+            duration_seconds=3.0,
+            finished_at=timezone.now(),
+            task_id="identify-info-task",
+        )
+        self.workgroup.identification_init_status = "Finished"
+        self.workgroup.identification_init_message = "Reference embeddings created."
+        self.workgroup.identification_reid_status = "Failed"
+        self.workgroup.identification_reid_message = "Worker returned an error."
+        self.workgroup.save(
+            update_fields=[
+                "identification_init_status",
+                "identification_init_message",
+                "identification_reid_status",
+                "identification_reid_message",
+            ]
+        )
+
+        response = self.client.get(reverse("caidapp:identification_information"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, self.identification_model.name)
+        self.assertContains(response, "Reference embeddings created.")
+        self.assertContains(response, "Worker returned an error.")
+        self.assertContains(response, "init-info-task")
+        self.assertContains(response, "identify-info-task")
+        self.assertEqual(response.context["counts"]["identities"], 1)
+        self.assertEqual(response.context["counts"]["representative_mediafiles"], 1)
+        self.assertEqual(response.context["counts"]["initialized_reference_mediafiles"], 1)
+
+    def test_identification_dashboard_links_to_information_for_admin(self):
+        response = self.client.get(reverse("caidapp:dash_identities"))
+
+        self.assertContains(response, reverse("caidapp:identification_information"))
 
     @patch("caidapp.tasks.schedule_init_identification_for_workgroup")
     def test_completed_representative_upload_schedules_identification_init(self, schedule_mock):
@@ -3112,6 +3339,43 @@ class IdentificationRerunTest(TestCase):
         schedule_reid_mock.assert_not_called()
         self.workgroup.refresh_from_db()
         self.assertEqual(self.workgroup.identification_init_status, "ERROR")
+
+    @patch("caidapp.tasks.schedule_init_identification_for_workgroup")
+    @patch("caidapp.tasks.schedule_reid_identification_for_workgroup")
+    def test_successful_init_records_initialized_model_after_completion(self, schedule_reid_mock, schedule_init_mock):
+        tasks.init_identification_on_success(
+            {"status": "DONE", "message": "Initialized."},
+            workgroup_id=self.workgroup.id,
+            identification_model_id=self.identification_model.id,
+        )
+
+        self.workgroup.refresh_from_db()
+        self.assertEqual(self.workgroup.identification_initialized_model, self.identification_model)
+        schedule_reid_mock.assert_called_once()
+        schedule_init_mock.assert_not_called()
+
+    @patch("caidapp.tasks.schedule_init_identification_for_workgroup")
+    @patch("caidapp.tasks.schedule_reid_identification_for_workgroup")
+    def test_completed_stale_init_schedules_init_for_current_model(self, schedule_reid_mock, schedule_init_mock):
+        previous_model = self.identification_model
+        current_model = models.IdentificationModel.objects.create(
+            name="Current model",
+            public=True,
+            model_path="hf-hub:example/current-model",
+        )
+        self.workgroup.identification_model = current_model
+        self.workgroup.save(update_fields=["identification_model"])
+
+        tasks.init_identification_on_success(
+            {"status": "DONE", "message": "Initialized."},
+            workgroup_id=self.workgroup.id,
+            identification_model_id=previous_model.id,
+        )
+
+        self.workgroup.refresh_from_db()
+        self.assertEqual(self.workgroup.identification_initialized_model, previous_model)
+        schedule_reid_mock.assert_not_called()
+        schedule_init_mock.assert_called_once()
 
     def test_dash_identities_keeps_init_enabled_without_representatives_when_idle(self):
         response = self.client.get(reverse("caidapp:dash_identities"))
@@ -3180,6 +3444,30 @@ class IdentificationRerunTest(TestCase):
         self.caiduser.save(update_fields=["workgroup_admin"])
 
         response = self.client.get(reverse("caidapp:download_run_identification_csv"))
+
+        self.assertEqual(response.status_code, 405)
+
+    def test_pre_identify_is_admin_only(self):
+        self.caiduser.workgroup_admin = False
+        self.caiduser.save(update_fields=["workgroup_admin"])
+
+        response = self.client.get(reverse("caidapp:pre_identify"))
+
+        self.assertEqual(response.status_code, 405)
+
+    def test_run_identification_on_unidentified_is_admin_only(self):
+        self.caiduser.workgroup_admin = False
+        self.caiduser.save(update_fields=["workgroup_admin"])
+
+        response = self.client.get(reverse("caidapp:run_identification_on_unidentified"))
+
+        self.assertEqual(response.status_code, 405)
+
+    def test_stop_init_identification_is_admin_only(self):
+        self.caiduser.workgroup_admin = False
+        self.caiduser.save(update_fields=["workgroup_admin"])
+
+        response = self.client.get(reverse("caidapp:stop_init_identification"))
 
         self.assertEqual(response.status_code, 405)
 
@@ -3254,6 +3542,41 @@ class IdentificationRerunTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context["btn_styles"]["n_representative"], 1)
         self.assertEqual(self.workgroup.number_of_representative_media_files(), 1)
+
+    @patch("caidapp.views.signature")
+    @patch("caidapp.views._prepare_dataframe_for_identification")
+    def test_train_identification_uses_base_model_weights_and_output_weights(self, prepare_dataframe_mock, signature_mock):
+        self.caiduser.workgroup_admin = True
+        self.caiduser.save(update_fields=["workgroup_admin"])
+        self.identification_model.model_path = "/models/base/source-checkpoint.pth"
+        self.identification_model.base_model_path = "hf-hub:strakajk/LynxV4-MegaDescriptor-v2-T-256"
+        self.identification_model.save(update_fields=["model_path", "base_model_path"])
+        prepare_dataframe_mock.return_value = {
+            "image_path": ["representative-1.jpg", "representative-2.jpg"],
+            "class_id": [1, 1],
+            "label": ["lynx-alpha", "lynx-alpha"],
+        }
+        signature_result = Mock()
+        signature_mock.return_value = signature_result
+
+        with tempfile.TemporaryDirectory() as media_root, override_settings(MEDIA_ROOT=media_root):
+            response = self.client.get(
+                reverse("caidapp:train_identification"),
+                HTTP_REFERER=reverse("caidapp:dash_identities"),
+            )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertRedirects(response, reverse("caidapp:dash_identities"))
+        signature_mock.assert_called_once()
+        payload = signature_mock.call_args.kwargs["kwargs"]["identification_model"]
+        self.assertEqual(payload["base_model_source"], "hf-hub:strakajk/LynxV4-MegaDescriptor-v2-T-256")
+        self.assertEqual(payload["initial_weights_path"], "/models/base/source-checkpoint.pth")
+        self.assertTrue(payload["output_weights_path"].endswith(".pth"))
+        self.assertNotIn("init_path", payload)
+        self.assertNotIn("init_checkpoint_path", payload)
+        self.assertNotIn("path", payload)
+        self.assertNotIn("source_path", payload)
+        signature_result.apply_async.assert_called_once()
 
     def test_mediafiles_representative_filter_uses_workgroup_default_taxon(self):
         self.workgroup.check_taxon_before_identification = True
@@ -3389,6 +3712,9 @@ class IdentificationRerunTest(TestCase):
             "class_id": [1, 2],
             "label": ["one", "two"],
         }
+        self.identification_model.model_path = "/tmp/reid-weights.pth"
+        self.identification_model.base_model_path = "hf-hub:BVRA/MegaDescriptor-T-224"
+        self.identification_model.save(update_fields=["model_path", "base_model_path"])
 
         signature_result = Mock()
         signature_mock.return_value = signature_result
@@ -3400,9 +3726,13 @@ class IdentificationRerunTest(TestCase):
 
         self.assertTrue(status_ok)
         signature_mock.assert_called_once()
+        self.assertEqual(signature_mock.call_args.args[0], "identify")
         bulk_kwargs = signature_mock.call_args.kwargs["kwargs"]
         self.assertEqual(bulk_kwargs["organization_id"], self.workgroup.id)
         self.assertNotIn("uploaded_archive_id", bulk_kwargs)
+        self.assertEqual(bulk_kwargs["identification_model"]["model_source"], "hf-hub:BVRA/MegaDescriptor-T-224")
+        self.assertEqual(bulk_kwargs["identification_model"]["weights_path"], "/tmp/reid-weights.pth")
+        self.assertNotIn("path", bulk_kwargs["identification_model"])
         signature_result.apply_async.assert_called_once()
         callback_kwargs = signature_result.apply_async.call_args.kwargs["link"].kwargs
         self.assertEqual(set(callback_kwargs["uploaded_archive_ids"]), {archive_one.id, archive_two.id})
@@ -3453,6 +3783,7 @@ class IdentificationRerunTest(TestCase):
         status_ok = views.run_identification(archive, workgroup=self.workgroup)
 
         self.assertTrue(status_ok)
+        self.assertEqual(signature_mock.call_args.args[0], "identify")
         self.assertTrue(models.MediafilesForIdentification.objects.filter(id=queue_item.id).exists())
         self.assertEqual(
             models.MediafileIdentificationSuggestion.objects.filter(for_identification=queue_item).count(),
@@ -3516,6 +3847,77 @@ class IdentificationRerunTest(TestCase):
         self.assertIsNone(self.workgroup.identification_scheduled_run_task_id)
         self.assertIn("stopped manually", self.workgroup.identification_reid_message)
 
+    @patch("caidapp.views.signature")
+    def test_identification_is_blocked_until_selected_model_is_initialized(self, signature_mock):
+        new_model = models.IdentificationModel.objects.create(
+            name="Selected model",
+            public=True,
+            model_path="hf-hub:example/selected-model",
+        )
+        self.workgroup.identification_model = new_model
+        self.workgroup.save(update_fields=["identification_model"])
+
+        started = views.run_identification_bulk(self.workgroup, uploaded_archives=[])
+
+        self.assertFalse(started)
+        signature_mock.assert_not_called()
+
+    @patch("caidapp.views.run_identification_bulk")
+    def test_scheduled_identification_waits_for_selected_model_initialization(self, run_bulk_mock):
+        new_model = models.IdentificationModel.objects.create(
+            name="Selected model",
+            public=True,
+            model_path="hf-hub:example/selected-model",
+        )
+        self.workgroup.identification_model = new_model
+        self.workgroup.identification_reid_status = "Scheduled"
+        self.workgroup.identification_scheduled_run_task_id = "scheduled-identification"
+        self.workgroup.save(
+            update_fields=[
+                "identification_model",
+                "identification_reid_status",
+                "identification_scheduled_run_task_id",
+            ]
+        )
+
+        started = tasks.run_identification_on_unidentified_for_workgroup(self.workgroup.id)
+
+        self.assertFalse(started)
+        run_bulk_mock.assert_not_called()
+        self.workgroup.refresh_from_db()
+        self.assertEqual(self.workgroup.identification_reid_status, "Not initiated")
+        self.assertIsNone(self.workgroup.identification_scheduled_run_task_id)
+        self.assertIn("Waiting for initialization", self.workgroup.identification_reid_message)
+
+    @patch("caidapp.tasks.schedule_init_identification_for_workgroup")
+    def test_changing_workgroup_model_schedules_initialization_after_commit(self, schedule_init_mock):
+        new_model = models.IdentificationModel.objects.create(
+            name="New model",
+            public=True,
+            model_path="hf-hub:example/new-model",
+        )
+        data = {
+            "name": self.workgroup.name,
+            "default_taxon_for_identification": self.workgroup.default_taxon_for_identification_id,
+            "sequence_time_limit": self.workgroup.sequence_time_limit,
+            "identity_code_regex": self.workgroup.identity_code_regex,
+            "identity_merge_distinguishing_regex": self.workgroup.identity_merge_distinguishing_regex,
+            "identification_model": new_model.id,
+            "detection_model_path": self.workgroup.detection_model_path,
+            "detection_model_architecture": self.workgroup.detection_model_architecture,
+        }
+
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(
+                reverse("caidapp:workgroup-update", args=[self.workgroup.id]),
+                data,
+            )
+
+        self.assertEqual(response.status_code, 302)
+        self.workgroup.refresh_from_db()
+        self.assertEqual(self.workgroup.identification_model, new_model)
+        schedule_init_mock.assert_called_once()
+
     @patch("caidapp.views.current_app.control.revoke")
     def test_stop_init_identification_revokes_running_init_task(self, revoke_mock):
         self.workgroup.identification_init_status = "Processing"
@@ -3550,6 +3952,9 @@ class IdentificationRerunTest(TestCase):
             "class_id": [1],
             "label": ["known"],
         }
+        self.identification_model.model_path = "/tmp/test-model.pth"
+        self.identification_model.base_model_path = "hf-hub:BVRA/MegaDescriptor-T-224"
+        self.identification_model.save(update_fields=["model_path", "base_model_path"])
 
         signature_result = Mock()
         signature_mock.return_value = signature_result
@@ -3563,6 +3968,11 @@ class IdentificationRerunTest(TestCase):
         self.assertEqual(self.workgroup.identification_init_status, "Processing")
         self.assertEqual(self.workgroup.identification_scheduled_init_task_id, worker_task.id)
         self.assertIsNone(self.workgroup.identification_scheduled_init_eta)
+        self.assertEqual(signature_mock.call_args.args[0], "init_identification")
+        payload = signature_mock.call_args.kwargs["kwargs"]["identification_model"]
+        self.assertEqual(payload["model_source"], "hf-hub:BVRA/MegaDescriptor-T-224")
+        self.assertEqual(payload["weights_path"], "/tmp/test-model.pth")
+        self.assertNotIn("path", payload)
 
     # def test_create_workstation(self):
     #     url = reverse("workstation-create")
