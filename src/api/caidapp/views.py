@@ -2729,7 +2729,7 @@ def run_identification(
 
         models.Notification.create_for(
             message=f"No records for identification {expected_taxon_string} in {uploaded_archive=}. ",
-            level=Notification.LEVEL_CHOICES.WARNING,
+            level=Notification.WARNING,
             workgroups=[workgroup],
         )
 
