@@ -41,6 +41,14 @@ RUN pip list
 RUN echo "------- SAM (pinned, just to be sure) --------"
 RUN pip install git+https://github.com/facebookresearch/segment-anything.git@dca509fe793f601edb92606367a655c15ac00fdf
 
+# install torch and flash-attn to match sam3 requirements
+RUN pip install torch==2.7.0 torchvision==0.22.0 torchaudio==2.7.0 --index-url https://download.pytorch.org/whl/cu128
+RUN pip uninstall -y flash-attn
+RUN pip install flash-attn --no-build-isolation
+
+RUN pip install git+https://github.com/facebookresearch/sam3.git@46957e47805eaa273f4aa7bbbd25a88bca9108ce
+# SAM3 weights are downloaded at runtime via HF_TOKEN (see download_sam3_checkpoint_if_missing)
+
 #RUN pip install pytz --upgrade
 #RUN pip install tzdata --upgrade
 

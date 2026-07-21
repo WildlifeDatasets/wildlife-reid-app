@@ -6,6 +6,7 @@ The application is orchestrated using `docker-compose` - a tool for defining and
 Before starting the application create `.env` file with secret variables.
 ```bash
 echo "WANDB_API_KEY=..." >> .env
+echo "HF_TOKEN=..." >> .env  # Hugging Face token for SAM3
 echo "ALLAUTH_GOOGLE_CLIENT_ID=..." >> .env
 echo "ALLAUTH_GOOGLE_CLIENT_SECRET=..." >> .env
 echo "CAID_HOST=147.228..." >> .env
