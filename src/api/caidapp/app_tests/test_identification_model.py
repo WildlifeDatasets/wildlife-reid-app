@@ -1,8 +1,10 @@
 from datetime import datetime
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from django.test import TestCase
 
-from caidapp import models
+from caidapp import admin, models
 from .factories import WorkGroupFactory
 
 
@@ -75,3 +77,39 @@ class IdentificationModelSourceTest(TestCase):
             identification_model.get_runtime_base_model_source(),
             models.LEGACY_TRAINING_BASE_MODEL_SOURCE,
         )
+
+    def test_local_checkpoint_check_reports_existing_file(self):
+        with TemporaryDirectory() as directory:
+            checkpoint = Path(directory) / "model.pth"
+            checkpoint.touch()
+            identification_model = models.IdentificationModel(
+                name="Existing checkpoint",
+                model_path=f"file:{checkpoint}",
+                base_model_path="hf-hub:strakajk/LynxV4-MegaDescriptor-v2-T-256",
+            )
+
+            result = admin.check_identification_model_file(identification_model)
+
+        self.assertEqual(result.status, "ok")
+
+    def test_local_checkpoint_check_reports_missing_file(self):
+        identification_model = models.IdentificationModel(
+            name="Missing checkpoint",
+            model_path="file:/missing/model.pth",
+            base_model_path="hf-hub:strakajk/LynxV4-MegaDescriptor-v2-T-256",
+        )
+
+        result = admin.check_identification_model_file(identification_model)
+
+        self.assertEqual(result.status, "invalid")
+        self.assertIn("neexistuje", result.detail)
+
+    def test_remote_model_check_does_not_require_local_checkpoint(self):
+        identification_model = models.IdentificationModel(
+            name="Hub model",
+            model_path="hf-hub:strakajk/LynxV4-MegaDescriptor-v2-T-256",
+        )
+
+        result = admin.check_identification_model_file(identification_model)
+
+        self.assertEqual(result.status, "external")
