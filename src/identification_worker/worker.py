@@ -22,6 +22,7 @@ from utils import config
 from utils.database import get_db_connection, init_db_connection
 from utils.embedding_processing import EmbeddingProcessing
 from utils.inference_identification import (
+    BBOX_RELATIVE_COLUMNS,
     calibrate_models,
     compute_partial,
     del_models,
@@ -121,7 +122,8 @@ def init(
         assert "label" in metadata
 
         # remove all unused columns
-        metadata = metadata[["image_path", "class_id", "label", "detection_results"]]
+        metadata_columns = ["image_path", "class_id", "label", "detection_results", *BBOX_RELATIVE_COLUMNS]
+        metadata = metadata[[column for column in metadata_columns if column in metadata.columns]]
 
         # generate embeddings
         progress.stage("prepare_database", "Preparing reference image database")

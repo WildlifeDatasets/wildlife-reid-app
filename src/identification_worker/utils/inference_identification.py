@@ -1,10 +1,11 @@
 import ast
 import logging
 import os
+import shutil
 import traceback
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import Any, List, Literal, Optional, Union
 
 import cv2
 import numpy as np
@@ -45,7 +46,23 @@ SAM: Sam | None = None
 SAM_PREDICTOR: SamPredictor | None = None
 IDENTIFICATION_MODELS: dict[str, SimilarityPipelineExtended] | None = None
 IDENTIFICATION_MODEL_CACHE_KEY: tuple[str, str] | None = None
+SAM3 = None
+SAM3_PREDICTOR: Any | None = None
+SEGMENTATION_BACKEND: Literal["sam3", "sam"] | None = None
+SAM3_CHECKPOINT_PATH = "/root/resources/sam3/sam3.pt"
+SAM3_HF_REPO_ID = "facebook/sam3"
+SAM3_HF_FILENAME = "sam3.pt"
+BBOX_RELATIVE_COLUMNS = ("bbox_cx", "bbox_cy", "bbox_w", "bbox_h")
 
+
+def _normalize_bbox_cxcywh(bbox_cxcywh: torch.Tensor, width: int, height: int) -> list[float]:
+    """Normalize cxcywh bbox coordinates to [0, 1] by image size."""
+    bbox = bbox_cxcywh.clone()
+    bbox[..., 0] /= width
+    bbox[..., 1] /= height
+    bbox[..., 2] /= width
+    bbox[..., 3] /= height
+    return bbox.flatten().tolist()
 
 @dataclass
 class Prediction:
@@ -96,6 +113,22 @@ def download_file_if_does_not_exists(url: str, output_file: str):
         logger.debug(f"File does not exists. Downloading. {output_file=}")
         Path(output_file).parent.mkdir(parents=True, exist_ok=True)
         download_file(url, output_file)
+
+
+def download_sam3_checkpoint_if_missing(
+    checkpoint_path: str = SAM3_CHECKPOINT_PATH,
+) -> str:
+    """Download SAM3 weights from Hugging Face if not present locally."""
+    if os.path.exists(checkpoint_path):
+        return checkpoint_path
+
+    from huggingface_hub import hf_hub_download
+
+    logger.info(f"SAM3 checkpoint not found at {checkpoint_path}, downloading from Hugging Face.")
+    Path(checkpoint_path).parent.mkdir(parents=True, exist_ok=True)
+    downloaded = hf_hub_download(repo_id=SAM3_HF_REPO_ID, filename=SAM3_HF_FILENAME)
+    shutil.copy(downloaded, checkpoint_path)
+    return checkpoint_path
 
 
 def get_identification_model(model_name, model_checkpoint=""):
@@ -153,7 +186,7 @@ def get_identification_model(model_name, model_checkpoint=""):
     return IDENTIFICATION_MODELS
 
 
-def get_sam_model() -> SamPredictor:
+def _load_sam_model() -> SamPredictor:
     """Load SAM once and move the cached CPU model to the inference device."""
     global SAM
     global SAM_PREDICTOR
@@ -188,6 +221,69 @@ def get_sam_model() -> SamPredictor:
     return SAM_PREDICTOR
 
 
+def _load_sam3_model() -> Any | None:
+    """Load SAM3 once and move the cached CPU model to the inference device."""
+    global SAM3
+    global SAM3_PREDICTOR
+
+    if SAM3_PREDICTOR is not None:
+        return SAM3_PREDICTOR
+
+    try:
+        from sam3.model_builder import build_sam3_image_model
+        from sam3.model.sam3_image_processor import Sam3Processor
+    except ImportError as exc:
+        logger.warning("SAM3 package unavailable: %s", exc)
+        return None
+
+    logger.debug(f"Before segmentation model: {mem.get_vram(DEVICE)}     {mem.get_ram()}")
+    if SAM3 is None:
+        try:
+            download_sam3_checkpoint_if_missing()
+        except Exception as exc:
+            logger.warning("SAM3 weights unavailable: %s", exc)
+            return None
+
+        try:
+            logger.info("Initializing SAM3 model and loading pre-trained checkpoint.")
+            _checkpoint_path = Path(SAM3_CHECKPOINT_PATH).expanduser()
+            SAM3 = build_sam3_image_model(
+                checkpoint_path=str(_checkpoint_path),
+                load_from_HF=False,
+                device="cpu",
+            )
+        except Exception as exc:
+            logger.warning("Failed to load SAM3 model: %s", exc)
+            SAM3 = None
+            torch.cuda.empty_cache()
+            return None
+    else:
+        logger.info("Reusing cached SAM3 model from CPU memory.")
+
+    mem.wait_for_gpu_memory(0.5)
+    SAM3.to(device=DEVICE)
+    SAM3_PREDICTOR = Sam3Processor(SAM3, device=str(DEVICE))
+    logger.debug(f"After segmentation model: {mem.get_vram(DEVICE)}     {mem.get_ram()}")
+    return SAM3_PREDICTOR
+
+
+def get_segmentation_model() -> Literal["sam3", "sam"]:
+    """Load the segmentation model. Prefer SAM3, fall back to SAM."""
+    global SEGMENTATION_BACKEND
+
+    if SEGMENTATION_BACKEND is not None:
+        return SEGMENTATION_BACKEND
+
+    if _load_sam3_model() is not None:
+        SEGMENTATION_BACKEND = "sam3"
+        logger.info("Using SAM3 for segmentation")
+        return SEGMENTATION_BACKEND
+
+    logger.warning("SAM3 is not available, falling back to SAM for segmentation")
+    _load_sam_model()
+    SEGMENTATION_BACKEND = "sam"
+    return SEGMENTATION_BACKEND
+
 def del_identification_model():
     """Release the identification model."""
     global IDENTIFICATION_MODELS
@@ -199,20 +295,27 @@ def del_identification_model():
 
 
 def del_sam_model():
-    """Release SAM GPU memory while retaining its weights in CPU memory."""
+    """Release segmentation GPU memory while retaining weights in CPU memory."""
     global SAM
     global SAM_PREDICTOR
+    global SAM3
+    global SAM3_PREDICTOR
+    global SEGMENTATION_BACKEND
+
     SAM_PREDICTOR = None
+    SAM3_PREDICTOR = None
+    SEGMENTATION_BACKEND = None
     if SAM is not None:
         SAM.to(device="cpu")
+    if SAM3 is not None:
+        SAM3.to(device="cpu")
     torch.cuda.empty_cache()
 
 
 def init_models(identification_model_path, identification_model_weights_path=""):
     """Initialize identification and segmentation models."""
-    # get_identification_model(os.environ["IDENTIFICATION_MODEL_VERSION"])
     get_identification_model(identification_model_path, model_checkpoint=identification_model_weights_path)
-    get_sam_model()
+    get_segmentation_model()
 
 
 def del_models():
@@ -252,19 +355,15 @@ def pad_image(image: np.ndarray, bbox: Union[list, np.ndarray], border: float = 
     return padded_image
 
 
-def segment_animal(image_path: str, bbox: list, border: float = 0.25) -> np.ndarray:
+def _segment_animal_sam(image_path: str, bbox: list, border: float = 0.25) -> np.ndarray:
     """Segment an animal in a given image using SAM model."""
-    # global SAM_PREDICTOR
     image = cv2.imread(image_path)
-    # changed by MJ
     if image is None or image.size == 0:
         raise ValueError(f"OpenCV cannot read image '{image_path}'.")
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
-    # logger.debug("Running segmentation inference.")
     SAM_PREDICTOR.set_image(image)
     sam_input_box = np.array([int(point) for point in bbox])
-    # logger.debug(f"{sam_input_box=}")
 
     masks, _, _ = SAM_PREDICTOR.predict(
         point_coords=None,
@@ -279,68 +378,175 @@ def segment_animal(image_path: str, bbox: list, border: float = 0.25) -> np.ndar
     return pad_image(foregroud_image, bbox, border=border)
 
 
+def _segment_animal_sam3(image_path: str, bbox: list, border: float = 0.25) -> np.ndarray:
+    """Segment an animal in a given image using SAM3 model."""
+    from sam3.model.box_ops import box_xyxy_to_cxcywh
+
+    image = cv2.imread(image_path)
+    if image is None or image.size == 0:
+        raise ValueError(f"OpenCV cannot read image '{image_path}'.")
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    image = Image.fromarray(image)
+    width, height = image.size
+
+    with torch.autocast(dtype=torch.bfloat16, device_type=DEVICE.type):
+        inference_state = SAM3_PREDICTOR.set_image(image)
+
+        # Use bbox prompt first
+        bbox_xyxy = torch.tensor(bbox).view(-1, 4)
+        bbox_cxcywh = box_xyxy_to_cxcywh(bbox_xyxy)
+        norm_bbox_cxcywh = _normalize_bbox_cxcywh(bbox_cxcywh, width, height)
+
+        # The box is assumed to be in [center_x, center_y, width, height] format and normalized in [0, 1] range.
+        output = SAM3_PREDICTOR.add_geometric_prompt(state=inference_state, box=norm_bbox_cxcywh, label=True)
+        masks, boxes, scores = output["masks"], output["boxes"], output["scores"]
+        mask_source = "bbox_prompt"
+
+        # Fallback to text prompt
+        if len(scores) == 0:
+            SAM3_PREDICTOR.reset_all_prompts(inference_state)
+            output = SAM3_PREDICTOR.set_text_prompt(state=inference_state, prompt="animal")
+            masks, boxes, scores = output["masks"], output["boxes"], output["scores"]
+            mask_source = "text_prompt"
+
+        # Process predictions
+        if len(scores) == 0:
+            mask = np.ones([height, width])
+            bbox = [0, 0, width, height]
+            score = 0
+            logger.debug("No mask found, using fallback full image mask.")
+            mask_source = "fallback_full"
+        else:
+            masks = masks.detach().cpu().numpy()
+            boxes = boxes.detach().cpu().numpy()
+            scores = scores.float().detach().cpu().numpy()
+            idx = np.argmax(scores)
+
+            mask = masks[idx][0]
+            bbox = boxes[idx]
+            score = scores[idx]
+
+        logger.debug(f"Using mask and bbox from: {mask_source}, bbox: {bbox}, score: {score}")
+
+    # Mask and crop the input
+    foregroud_image = np.array(image).copy()
+    foregroud_image[mask == False] = 0  # noqa
+
+    # Clip bbox values to image boundaries
+    bbox = [
+        max(0, min(bbox[0], width - 1)),
+        max(0, min(bbox[1], height - 1)),
+        max(0, min(bbox[2], width)),
+        max(0, min(bbox[3], height)),
+    ]
+    return pad_image(foregroud_image, bbox, border=border)
+
+
+def segment_animal(image_path: str, bbox: list, border: float = 0.25) -> np.ndarray:
+    """Segment an animal using the active segmentation model (SAM3 or SAM)."""
+    backend = get_segmentation_model()
+    if backend == "sam3":
+        return _segment_animal_sam3(image_path, bbox, border=border)
+    return _segment_animal_sam(image_path, bbox, border=border)
+
+
+def _is_valid_xyxy_bbox(bbox) -> bool:
+    """Return True if bbox is xyxy with positive width and height."""
+    try:
+        x0, y0, x1, y1 = (float(value) for value in bbox)
+    except (TypeError, ValueError):
+        return False
+    return x1 > x0 and y1 > y0
+
+
+def _get_masking_bbox(row: pd.Series, image_path: str, row_idx) -> list[int] | None:
+    """Get the bbox for masking from the row."""
+    has_relative_bbox = all(
+        column in row.index and not pd.isna(row[column]) and row[column] != ""
+        for column in BBOX_RELATIVE_COLUMNS
+    )
+
+    # try to build bbox from relative columns
+    if has_relative_bbox:
+        try:
+            image = cv2.imread(image_path)
+            if image is None or image.size == 0:
+                raise ValueError(f"OpenCV cannot read image '{image_path}'.")
+            height, width = image.shape[:2]
+            cx, cy, bw, bh = (float(row[column]) for column in BBOX_RELATIVE_COLUMNS)
+            x0, y0 = int((cx - bw / 2) * width), int((cy - bh / 2) * height)
+            x1, y1 = int((cx + bw / 2) * width), int((cy + bh / 2) * height)
+            bbox = [max(0, min(width, x0)), max(0, min(height, y0)), max(0, min(width, x1)), max(0, min(height, y1))]
+            if _is_valid_xyxy_bbox(bbox):
+                logger.debug(f"Masking bbox from relative columns: bbox={bbox}")
+                return bbox
+            logger.warning(
+                f"Degenerate relative bbox for image {image_path} at metadata row {row_idx}: {bbox}; "
+                "falling back to detection_results."
+            )
+        except (ValueError, TypeError) as exc:
+            logger.warning(
+                f"Could not build bbox from relative columns for image {image_path} at metadata row {row_idx}: {exc}; "
+                "falling back to detection_results."
+            )
+
+    # try to build bbox from detection results
+    if pd.isna(row.get("detection_results")):
+        logger.debug(f"No detection results for image: {image_path}, row['detection_results'] is None.")
+        return None
+
+    try:
+        detection_results = ast.literal_eval(row["detection_results"])
+    except (SyntaxError, ValueError) as exc:
+        logger.warning(f"Could not parse detection_results for image {image_path} at metadata row {row_idx}: {exc}")
+        return None
+
+    if not detection_results:
+        logger.debug(f"No detection results for image: {image_path}")
+        return None
+
+    try:
+        bbox = detection_results[0]["bbox"]
+    except (IndexError, KeyError, TypeError) as exc:
+        logger.warning(f"Detection result for image {image_path} at metadata row {row_idx} does not contain a usable bbox: {exc}")
+        return None
+
+    if not _is_valid_xyxy_bbox(bbox):
+        logger.warning(
+            f"Degenerate detection bbox for image {image_path} at metadata row {row_idx}: {bbox}"
+        )
+        return None
+
+    logger.debug(f"Masking bbox from detection_results: bbox={bbox}")
+    return bbox
+
+
 def mask_images(metadata: pd.DataFrame, tqdm_desc="Masking images") -> pd.DataFrame:
-    """Mask images using SAM model."""
+    """Mask images using the segmentation model."""
     masked_paths = []
-    get_sam_model()
+    segmentation_backend = get_segmentation_model()
+    logger.info(f"Masking images with {segmentation_backend.upper()}")
+
     for row_idx, row in tqdm(metadata.iterrows(), total=len(metadata), desc=tqdm_desc):
         image_path = row["image_path"]
-        # detection_results = ast.literal_eval(
-        #    ast.literal_eval(row["detection_results"])["detection_results"])
-        if pd.isna(row["detection_results"]):
-            logger.debug(f"No detection results for image: {image_path}, row['detection_results'] is None.")
-            masked_paths.append(str(image_path))
-            continue
-        # changed by MJ
-        try:
-            detection_results = ast.literal_eval(row["detection_results"])
-        except (SyntaxError, ValueError) as exc:
-            logger.warning(
-                "Could not parse detection_results for image %s at metadata row %s: %s",
-                image_path,
-                row_idx,
-                exc,
-            )
-            masked_paths.append(str(image_path))
-            continue
-        if len(detection_results) == 0:
-            logger.debug(f"No detection results for image: {image_path}")
+        bbox = _get_masking_bbox(row, image_path, row_idx)
+        if bbox is None:
             masked_paths.append(str(image_path))
             continue
 
-        # changed by MJ
-        try:
-            bbox = detection_results[0]["bbox"]
-        except (IndexError, KeyError, TypeError) as exc:
-            logger.warning(
-                "Detection result for image %s at metadata row %s does not contain a usable bbox: %s",
-                image_path,
-                row_idx,
-                exc,
-            )
-            masked_paths.append(str(image_path))
-            continue
-
-        # changed by MJ
         try:
             cropped_animal = segment_animal(image_path, bbox)
         except Exception as exc:
-            logger.warning(
-                "Skipping mask for image %s at metadata row %s with bbox %s: %s",
-                image_path,
-                row_idx,
-                bbox,
-                exc,
-            )
+            logger.warning(f"Skipping mask for image {image_path} at metadata row {row_idx} with bbox {bbox}: {exc}")
             masked_paths.append(str(image_path))
             continue
 
+        # save masked image
         base_path = Path(image_path).parent.parent / "masked_images"
 
         save_path = base_path / Path(image_path).name
         base_path.mkdir(exist_ok=True, parents=True)
         Image.fromarray(cropped_animal).convert("RGB").save(save_path)
-
         masked_paths.append(str(save_path))
 
     metadata["image_path"] = masked_paths

@@ -25,7 +25,9 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: Create .env
-      run: echo "WANDB_API_KEY=${{ secrets.WANDB_API_KEY }}" > .env
+      run: |
+        echo "WANDB_API_KEY=${{ secrets.WANDB_API_KEY }}" > .env
+        echo "HF_TOKEN=${{ secrets.HF_TOKEN }}" >> .env
     - name: Log in to registry
       run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
     - name: Build and Push Docker Images
@@ -58,7 +60,9 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Create .env
-        run: echo "WANDB_API_KEY=${{ secrets.WANDB_API_KEY }}" > .env
+        run: |
+          echo "WANDB_API_KEY=${{ secrets.WANDB_API_KEY }}" > .env
+          echo "HF_TOKEN=${{ secrets.HF_TOKEN }}" >> .env
       - name: Run Docker Containers through SSH
         # all steps are put into a single step because ssh-add adds private key only in current step
         # running any ssh command in other steps without ssh-add would result in "invalid password" error
