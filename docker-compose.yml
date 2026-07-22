@@ -126,6 +126,8 @@ services:
 
   identification_worker:
     platform: linux/amd64
+    # PyTorch DataLoader workers use /dev/shm to exchange batch tensors.
+    shm_size: 1gb
     image: ${IDENTIFICATION_WORKER_IMAGE:-identification_worker}${TAG:-:latest}
     build:
       context: .
