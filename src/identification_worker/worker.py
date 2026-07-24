@@ -12,6 +12,7 @@ print(f"numpy version: {np.__version__}")
 import pandas as pd
 import torch
 from celery import Celery, shared_task
+from gpu_monitor import register_gpu_monitor
 from progress import ProgressReporter
 from train_model import train_identification_model
 from wildlife_tools.data import FeatureDataset
@@ -51,6 +52,7 @@ identification_worker = Celery("identification_worker", broker=config.RABBITMQ_U
 identification_worker.conf.timezone = os.environ.get("TZ", "Europe/Prague")
 identification_worker.conf.enable_utc = False
 init_db_connection(db_url=config.POSTGRES_URL)
+register_gpu_monitor(identification_worker)
 
 
 @identification_worker.task(bind=True, name="train_identification")

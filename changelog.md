@@ -8,6 +8,7 @@
 * [added] Remove bbox in sequences view
 * [changed] Check if identification model in identify() is consistent with the model in init()
 * [added] workgroup admin can check all identification processes
+* [added] GPU monitoring
 
 
 ## 2026-06

@@ -104,6 +104,45 @@ class IdentificationModelAdmin(admin.ModelAdmin):
                 messages.WARNING,
             )
 
+@admin.register(models.IdentificationWorkerGpuHeartbeat)
+class IdentificationWorkerGpuHeartbeatAdmin(admin.ModelAdmin):
+    list_display = (
+        "recorded_at",
+        "status",
+        "device",
+        "device_name",
+        "free_memory_gb",
+        "total_memory_gb",
+        "error_summary",
+    )
+    list_filter = ("available", "device")
+    search_fields = ("device", "device_name", "error_message")
+    readonly_fields = (
+        "recorded_at",
+        "available",
+        "device",
+        "device_name",
+        "free_memory_gb",
+        "total_memory_gb",
+        "error_message",
+    )
+    date_hierarchy = "recorded_at"
+    list_per_page = 100
+
+    @admin.display(boolean=True, description="CUDA available")
+    def status(self, obj):
+        return obj.available
+
+    @admin.display(description="Error")
+    def error_summary(self, obj):
+        return obj.error_message[:160] if obj.error_message else ""
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
 
 admin.site.register(models.CaIDUser)
 admin.site.register(models.UploadedArchive)
