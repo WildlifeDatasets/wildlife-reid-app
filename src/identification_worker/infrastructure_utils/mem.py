@@ -75,7 +75,7 @@ def get_vram(device: Optional[torch.device] = None):
             + free_cubes * "▯"
             + "]"
         )
-    except ValueError:
+    except Exception:
         logger.debug(f"device: {device}, {torch.cuda.is_available()=}")
         logger.error(f"Error: {traceback.format_exc()}")
         return "No GPU available"

@@ -49,6 +49,27 @@ from .models import (
 logger = logging.getLogger("app")
 
 
+@shared_task(name="caidapp.tasks.record_identification_worker_gpu_heartbeat")
+def record_identification_worker_gpu_heartbeat(
+    available: bool,
+    device: str = "cuda:0",
+    device_name: str = "",
+    free_memory_gb: float | None = None,
+    total_memory_gb: float | None = None,
+    error_message: str = "",
+) -> int:
+    """Persist a CUDA health sample received from the identification worker."""
+    heartbeat = models.IdentificationWorkerGpuHeartbeat.objects.create(
+        available=available,
+        device=device[:64],
+        device_name=device_name[:255],
+        free_memory_gb=free_memory_gb,
+        total_memory_gb=total_memory_gb,
+        error_message=error_message,
+    )
+    return heartbeat.id
+
+
 def resolve_identification_selection(
     workgroup: WorkGroup,
     uploaded_archive: UploadedArchive | None = None,

@@ -306,6 +306,26 @@ class IdentificationRunStatistic(models.Model):
         )
 
 
+class IdentificationWorkerGpuHeartbeat(models.Model):
+    """One five-minute CUDA runtime health sample sent by the identification worker."""
+
+    recorded_at = models.DateTimeField(auto_now_add=True)
+    available = models.BooleanField(default=False)
+    device = models.CharField(max_length=64, default="cuda:0")
+    device_name = models.CharField(max_length=255, blank=True, default="")
+    free_memory_gb = models.FloatField(null=True, blank=True)
+    total_memory_gb = models.FloatField(null=True, blank=True)
+    error_message = models.TextField(blank=True, default="")
+
+    class Meta:
+        ordering = ("-recorded_at", "-id")
+        indexes = [models.Index(fields=("-recorded_at",), name="gpu_heartbeat_time_idx")]
+
+    def __str__(self):
+        status = "available" if self.available else "unavailable"
+        return f"Identification worker GPU {status} at {self.recorded_at:%Y-%m-%d %H:%M:%S}"
+
+
 def get_taxon(name: str) -> Optional[Taxon]:
     """Return taxon according to the name, create it if necessary."""
     if (name is None) or (name == ""):
