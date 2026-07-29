@@ -2033,7 +2033,12 @@ class SequenceViewTest(TestCase):
         archive = UploadedArchiveFactory(owner=self.caiduser)
         legacy_taxon = TaxonFactory(name="Legacy taxon")
         observed_taxon = TaxonFactory(name="Observed taxon")
-        mediafile = MediaFileFactory(parent=archive, taxon=legacy_taxon, original_filename="two.jpg")
+        mediafile = MediaFileFactory(
+            parent=archive,
+            taxon=legacy_taxon,
+            original_filename="two.jpg",
+            note="Mother with three juveniles",
+        )
         first = AnimalObservationFactory(
             mediafile=mediafile,
             taxon=observed_taxon,
@@ -2058,6 +2063,8 @@ class SequenceViewTest(TestCase):
         self.assertEqual(rows.iloc[0]["bbox_w"], 0.2)
         self.assertEqual(rows.iloc[0]["bbox_h"], 0.4)
         self.assertTrue(rows.iloc[0]["identity_is_representative"])
+        self.assertEqual(set(rows["mediafile_note"]), {"Mother with three juveniles"})
+        self.assertNotIn("note", df.columns)
 
     def test_mediafile_csv_and_xlsx_exports_have_same_observation_rows(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)
@@ -2088,8 +2095,14 @@ class SequenceViewTest(TestCase):
                     "bbox_cy": 0.5,
                     "bbox_w": 0.4,
                     "bbox_h": 0.2,
+                    "mediafile_note": "Original path description",
                 },
-                {"mediafile_id": mediafile.id, "observation_id": "", "taxon_id": taxon.id},
+                {
+                    "mediafile_id": mediafile.id,
+                    "observation_id": "",
+                    "taxon_id": taxon.id,
+                    "mediafile_note": "Original path description",
+                },
             ]
         )
 
@@ -2100,6 +2113,84 @@ class SequenceViewTest(TestCase):
         self.assertEqual(observation.taxon, taxon)
         self.assertEqual(observation.bbox_width, 0.4)
         self.assertEqual(mediafile.observations.count(), 2)
+        mediafile.refresh_from_db()
+        self.assertEqual(mediafile.note, "Original path description")
+
+    def test_observation_import_creates_rows_for_multiple_identities(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        first_identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup)
+        second_identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup)
+        mediafile = MediaFileFactory(parent=archive)
+        observation = AnimalObservationFactory(mediafile=mediafile, identity=None)
+        frame = pd.DataFrame(
+            [
+                {
+                    "mediafile_id": mediafile.id,
+                    "observation_id": observation.id,
+                    "identity_id": first_identity.id,
+                },
+                {
+                    "mediafile_id": mediafile.id,
+                    "observation_id": "",
+                    "identity_id": second_identity.id,
+                },
+            ]
+        )
+
+        created, updated = views._import_observation_dataframe(frame, self.caiduser)
+
+        self.assertEqual((created, updated), (1, 1))
+        self.assertEqual(
+            set(mediafile.observations.values_list("identity_id", flat=True)),
+            {first_identity.id, second_identity.id},
+        )
+
+    def test_observation_import_accepts_legacy_note_and_clear_token(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        mediafile = MediaFileFactory(parent=archive, note="Old note")
+        observation = AnimalObservationFactory(mediafile=mediafile)
+
+        views._import_observation_dataframe(
+            pd.DataFrame(
+                [
+                    {
+                        "mediafile_id": mediafile.id,
+                        "observation_id": observation.id,
+                        "note": forms.SPREADSHEET_CLEAR_TOKEN,
+                    }
+                ]
+            ),
+            self.caiduser,
+        )
+
+        mediafile.refresh_from_db()
+        self.assertEqual(mediafile.note, "")
+
+    def test_observation_import_rejects_conflicting_notes_for_same_mediafile(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        mediafile = MediaFileFactory(parent=archive, note="Unchanged")
+        observation = AnimalObservationFactory(mediafile=mediafile)
+        frame = pd.DataFrame(
+            [
+                {
+                    "mediafile_id": mediafile.id,
+                    "observation_id": observation.id,
+                    "mediafile_note": "First note",
+                },
+                {
+                    "mediafile_id": mediafile.id,
+                    "observation_id": "",
+                    "mediafile_note": "Conflicting note",
+                },
+            ]
+        )
+
+        with self.assertRaisesRegex(ValueError, "Row 3: conflicting mediafile_note"):
+            views._import_observation_dataframe(frame, self.caiduser)
+
+        mediafile.refresh_from_db()
+        self.assertEqual(mediafile.note, "Unchanged")
+        self.assertEqual(mediafile.observations.count(), 1)
 
     def test_observation_import_invalid_bbox_rolls_back_all_rows(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)

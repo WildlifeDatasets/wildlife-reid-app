@@ -206,7 +206,8 @@ SEQUENCE_EXPORT_COLUMNS = [
     ("bbox_cy", "BBox center Y (relative)"),
     ("bbox_w", "BBox width (relative)"),
     ("bbox_h", "BBox height (relative)"),
-    ("note", "Note"),
+    ("mediafile_note", "Media file note"),
+    ("note", "Media file note (legacy column name)"),
 ]
 SEQUENCE_EXPORT_DEFAULT_COLUMNS = [
     "unique_name",
@@ -242,7 +243,7 @@ SEQUENCE_EXPORT_DEFAULT_COLUMNS = [
     "bbox_cy",
     "bbox_w",
     "bbox_h",
-    "note",
+    "mediafile_note",
 ]
 
 PATH_REGEX_CHATGPT_PROMPT_PREFIX_LINES = [
@@ -5858,6 +5859,7 @@ def _build_sequence_observation_export_records(
                 "bbox_cy": observation.bbox_y_center if observation else "",
                 "bbox_w": observation.bbox_width if observation else "",
                 "bbox_h": observation.bbox_height if observation else "",
+                "mediafile_note": mediafile.note,
                 "note": mediafile.note,
                 "locality_check_at": (
                     mediafile.parent.locality_check_at.isoformat()
@@ -8299,6 +8301,20 @@ def _read_uploaded_spreadsheet(file) -> pd.DataFrame:
     raise ValueError("Only .csv and .xlsx files are supported.")
 
 
+def _observation_mediafile_note_from_row(row) -> Tuple[bool, str]:
+    """Return a mediafile note update, accepting the legacy note column."""
+    updates = []
+    for column in ("mediafile_note", "note"):
+        supplied, value = _spreadsheet_optional_text_update(row.get(column))
+        if supplied:
+            updates.append((column, value or ""))
+    if not updates:
+        return False, ""
+    if len({value for _column, value in updates}) > 1:
+        raise ValueError("mediafile_note and legacy note contain conflicting values")
+    return True, updates[0][1]
+
+
 def _import_observation_dataframe(df: pd.DataFrame, caiduser) -> Tuple[int, int]:
     """Atomically create or update observations from an exported spreadsheet."""
     if "mediafile_id" not in df.columns:
@@ -8308,6 +8324,7 @@ def _import_observation_dataframe(df: pd.DataFrame, caiduser) -> Tuple[int, int]
     identity_queryset = IndividualIdentity.objects.filter(owner_workgroup=caiduser.workgroup)
     locality_queryset = Locality.objects.filter(**models.user_has_access_filter_params(caiduser, "owner"))
     seen_observation_ids = set()
+    mediafile_note_updates = {}
     created = updated = 0
 
     with transaction.atomic():
@@ -8317,6 +8334,13 @@ def _import_observation_dataframe(df: pd.DataFrame, caiduser) -> Tuple[int, int]
                 mediafile = accessible_mediafiles.select_related("locality").filter(id=mediafile_id).first()
                 if mediafile is None:
                     raise ValueError(f"unknown or inaccessible mediafile ID {mediafile_id}")
+
+                mediafile_note_supplied, mediafile_note = _observation_mediafile_note_from_row(series)
+                if mediafile_note_supplied:
+                    previous_note = mediafile_note_updates.get(mediafile_id)
+                    if previous_note is not None and previous_note != mediafile_note:
+                        raise ValueError(f"conflicting mediafile_note values for mediafile_id {mediafile_id}")
+                    mediafile_note_updates[mediafile_id] = mediafile_note
 
                 observation_id = _spreadsheet_strict_id(series.get("observation_id"), "observation_id")
                 if observation_id is not None:
@@ -8394,6 +8418,9 @@ def _import_observation_dataframe(df: pd.DataFrame, caiduser) -> Tuple[int, int]
                         raise ValueError("mediafile_location is outside valid latitude/longitude bounds")
                     mediafile.location = f"{latitude},{longitude}"
                     mediafile_fields.append("location")
+                if mediafile_note_supplied:
+                    mediafile.note = mediafile_note
+                    mediafile_fields.append("note")
                 if mediafile_fields:
                     mediafile.updated_by = caiduser
                     mediafile.updated_at = timezone.now()
@@ -8430,6 +8457,8 @@ def import_observations_view(request):
                 "Upload an exported CSV or XLSX. observation_id updates an existing observation; "
                 "a blank observation_id creates one for mediafile_id. Blank cells leave values unchanged. "
                 f"Use {OBSERVATION_IMPORT_CLEAR} to clear supported nullable values. "
+                "mediafile_note updates the note on the media file; the legacy note column is also accepted. "
+                "Rows for the same mediafile_id must not contain conflicting note values. "
                 "BBox uses YOLO-style normalized bbox_cx, bbox_cy, bbox_w and bbox_h values in the range 0-1."
             ),
             "next": "caidapp:media_files",

@@ -9,6 +9,7 @@
 * [changed] Check if identification model in identify() is consistent with the model in init()
 * [added] workgroup admin can check all identification processes
 * [added] GPU monitoring
+* [added] Import media file note from observation export
 
 
 ## 2026-06
