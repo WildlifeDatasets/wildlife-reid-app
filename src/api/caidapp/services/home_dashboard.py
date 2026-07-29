@@ -38,8 +38,12 @@ def build_home_dashboard_payload(mediafiles: QuerySet[models.MediaFile]) -> dict
     total_mediafiles = mediafiles.count()
     images_count = mediafiles.filter(media_type="image").count()
     videos_count = mediafiles.filter(media_type="video").count()
-    verified_taxon_count = mediafiles.filter(taxon_verified=True).count()
-    identified_count = mediafiles.filter(identity__isnull=False).count()
+    verified_taxon_count = mediafiles.filter(
+        observations__isnull=False,
+    ).exclude(
+        observations__taxon_verified=False,
+    ).distinct().count()
+    identified_count = mediafiles.filter(observations__identity__isnull=False).distinct().count()
 
     media_type_counts = list(
         mediafiles.values("media_type").annotate(count=Count("id")).order_by("media_type")

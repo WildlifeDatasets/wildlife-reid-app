@@ -273,9 +273,9 @@ class MediaFileLocationFallbackTest(TestCase):
             parent__owner=self.caiduser,
             locality=locality,
             location="49.9,14.2",
-            identity=identity,
             original_filename="Brdy/Charles/first.jpg",
         )
+        AnimalObservationFactory(mediafile=mediafile, identity=identity)
 
         df = tasks.create_dataframe_from_mediafiles([mediafile])
 
@@ -409,11 +409,12 @@ class SpreadsheetMetadataImportTest(TestCase):
             )
 
         mediafile = uploaded_archive.mediafile_set.get()
+        observation = mediafile.observations.get()
         self.assertEqual(status, "created and not updated by user")
-        self.assertIsNotNone(mediafile.identity)
-        self.assertEqual(mediafile.identity.name, "Charles")
-        self.assertEqual(mediafile.identity.code, "B75")
-        self.assertEqual(mediafile.identity.juv_code, "J12")
+        self.assertIsNotNone(observation.identity)
+        self.assertEqual(observation.identity.name, "Charles")
+        self.assertEqual(observation.identity.code, "B75")
+        self.assertEqual(observation.identity.juv_code, "J12")
         self.assertEqual(str(mediafile.location), "49.123,13.456")
         self.assertEqual(mediafile.locality.name, "Forest Edge")
 

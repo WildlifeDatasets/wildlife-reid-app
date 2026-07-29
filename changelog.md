@@ -11,6 +11,7 @@
 * [added] GPU monitoring
 * [added] Import media file note from observation export
 * [added] Create missing locality or identity in observation import
+* [changed] Removed identification info from MediaFile object
 
 
 ## 2026-06

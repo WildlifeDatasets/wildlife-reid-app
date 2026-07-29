@@ -21,6 +21,7 @@ import pandas as pd
 import tqdm
 from celery import current_app, shared_task, signature
 from django.conf import settings
+from django.db.models import Exists, OuterRef
 from django.utils.timezone import now
 from PIL import Image
 
@@ -484,8 +485,8 @@ def _identification_observations_for_mediafile(
 
 
 def _append_identification_csv_row(csv_data: dict, mediafile: MediaFile, image_path: str, observation=None) -> None:
-    identity = observation.identity if observation is not None else _get_identification_identity(mediafile)
-    taxon = observation.taxon if observation is not None else mediafile.taxon
+    identity = observation.identity if observation is not None else None
+    taxon = observation.taxon if observation is not None else None
     bbox_values = (
         (
             observation.bbox_x_center,
@@ -508,7 +509,7 @@ def _append_identification_csv_row(csv_data: dict, mediafile: MediaFile, image_p
     csv_data["bbox_cy"].append(bbox_values[1])
     csv_data["bbox_w"].append(bbox_values[2])
     csv_data["bbox_h"].append(bbox_values[3])
-    csv_data["orientation"].append(observation.orientation if observation is not None else mediafile.orientation)
+    csv_data["orientation"].append(observation.orientation if observation is not None else "")
     csv_data["locality_id"].append(int(mediafile.locality.id) if mediafile.locality else None)
     csv_data["locality_name"].append(str(mediafile.locality.name) if mediafile.locality else "")
     csv_data["locality_coordinates"].append(str(mediafile.effective_location) if mediafile.effective_location else None)
@@ -1466,8 +1467,6 @@ def _update_database_by_one_row_of_metadata(
         if "predicted_category_raw" in row:
             predicted_taxon = get_taxon(row["predicted_category_raw"])
             predicted_taxon_confidence = float(row["predicted_prob_raw"])
-            mf.predicted_taxon = predicted_taxon
-            mf.predicted_taxon_confidence = predicted_taxon_confidence
         # if len(mf.observations.all()) == 0:
         #     ao = mf.observations.create(
         #         mediafile=mf,
@@ -1481,11 +1480,13 @@ def _update_database_by_one_row_of_metadata(
         #     ao.save()
         logger.debug("  update mediafile in db with row of metadata")
 
+        has_detection_results = False
         try:
             if ("detection_results" in row) and (row["detection_results"] is not None):
                 detection_results = ast.literal_eval(row["detection_results"])
                 logger.debug(f"detection_results={detection_results}")
                 if len(detection_results) > 0:
+                    has_detection_results = True
                     kv = {"back": "B", "front": "F", "left": "F", "right": "R", "unknown": "U"}
                     if mf.observations.count() > 1:
                         # remove all observations with the exception of the first one
@@ -1525,7 +1526,6 @@ def _update_database_by_one_row_of_metadata(
                             if orientation_score < orientation_score_threshold:
                                 orientation = "unknown"
 
-                            mf.orientation = kv[orientation]
                             ao.orientation = kv[orientation]
                         else:
                             logger.warning(f"Unknown orientation: {orientation} in {mf.mediafile}")
@@ -1533,6 +1533,26 @@ def _update_database_by_one_row_of_metadata(
         except Exception as e:
             logger.warning(f"Error during setting orientation in media file {mf.mediafile}: {e}")
             logger.debug(traceback.format_exc())
+
+        if not has_detection_results:
+            observations = list(mf.observations.order_by("id")[:2])
+            if not observations:
+                observation = mf.observations.create()
+            elif len(observations) == 1:
+                observation = observations[0]
+            else:
+                observation = None
+                logger.warning(
+                    "Skipping row-level animal metadata for mediafile %s because it has multiple observations.",
+                    mf.id,
+                )
+            if observation is not None:
+                observation.identity = identity
+                observation.identity_is_representative = identity_is_representative
+                observation.taxon = taxon
+                observation.predicted_taxon = predicted_taxon
+                observation.predicted_taxon_confidence = predicted_taxon_confidence
+                observation.save()
 
         mf.save()
     return status
@@ -1618,10 +1638,12 @@ def create_dataframe_from_mediafiles(mediafiles: Generator[MediaFile, None, None
         for field_name in model_backed_export_fields:
             metadata_row.pop(field_name, None)
 
-        if mf.taxon:
-            metadata_row["predicted_category"] = mf.taxon.name
-        if mf.identity:
-            metadata_row["unique_name"] = mf.identity.name
+        taxon = mf.taxon_from_observations
+        identity = mf.identity_from_observations
+        if taxon:
+            metadata_row["predicted_category"] = taxon.name
+        if identity:
+            metadata_row["unique_name"] = identity.name
         if mf.locality:
             metadata_row["locality name"] = mf.locality.name
             if mf.locality.location:
@@ -1633,11 +1655,11 @@ def create_dataframe_from_mediafiles(mediafiles: Generator[MediaFile, None, None
             metadata_row["longitude"] = longitude
         if mf.original_filename:
             metadata_row["original_path"] = mf.original_filename
-        if mf.identity:
-            if mf.identity.code:
-                metadata_row["code"] = mf.identity.code
-            if mf.identity.juv_code:
-                metadata_row["juv_code"] = mf.identity.juv_code
+        if identity:
+            if identity.code:
+                metadata_row["code"] = identity.code
+            if identity.juv_code:
+                metadata_row["juv_code"] = identity.juv_code
         if mf.captured_at:
             metadata_row["datetime"] = mf.captured_at.isoformat()
         metadata_row["uploaded_archive"] = mf.parent.name
@@ -1670,8 +1692,9 @@ def create_dataframe_from_mediafiles_NDOP(
         metadata_row["PORADI"] = i + 1
         metadata_row["ID_NALEZ"] = mf.id
 
-        if mf.taxon:
-            metadata_row["DRUH"] = mf.taxon.name
+        taxon = mf.taxon_from_observations
+        if taxon:
+            metadata_row["DRUH"] = taxon.name
             metadata_row["CESKE_JMENO"] = ""
         if mf.parent and mf.parent.owner and mf.parent.owner.user:
             if mf.parent.owner.user.first_name and mf.parent.owner.user.last_name:
@@ -1750,10 +1773,10 @@ def _sync_metadata_by_checking_enlisted_mediafiles(csv_file, output_dir, uploade
 
         ao = mf.observations.first()
         if ao:
-            if mf.taxon:
+            if ao.taxon:
                 df.loc[index, "predicted_category"] = ao.taxon.name
                 update_csv = True
-            if mf.identity:
+            if ao.identity:
                 df.loc[index, "unique_name"] = ao.identity.name
                 update_csv = True
         if mf.locality:
@@ -2577,8 +2600,8 @@ def schedule_init_identification_for_workgroup(workgroup: models.WorkGroup, dela
 def schedule_init_identification_after_representative_upload(uploaded_archive: UploadedArchive) -> bool:
     """Schedule one final initialization after an identified base dataset finishes importing."""
     has_representatives = uploaded_archive.mediafile_set.filter(
-        identity__isnull=False,
-        identity_is_representative=True,
+        observations__identity__isnull=False,
+        observations__identity_is_representative=True,
     ).exists()
     if not uploaded_archive.import_finished or not has_representatives:
         return False
@@ -2845,13 +2868,11 @@ def _iterate_over_locality_checks(path: Path, caiduser: CaIDUser) -> Generator[S
 
 def assign_unidentified_to_identification(caiduser: CaIDUser):
     """Assign unidentified media files to identification for the workgroup of the given user."""
-    kwargs = {}
     taxon_str = ""
     if caiduser.workgroup is None:
         logger.error("CaIDUser has no workgroup assigned. Cannot assign unidentified media files to identification.")
     if caiduser.workgroup.default_taxon_for_identification is not None:
         taxon_str = caiduser.workgroup.default_taxon_for_identification.name
-        kwargs["taxon__name"] = taxon_str
     else:
         logger.error("Workgroup has no default taxon for identification assigned. Using all media files.")
         # kwargs = {}
@@ -2859,29 +2880,26 @@ def assign_unidentified_to_identification(caiduser: CaIDUser):
     logger.debug(
         f"Assigning unidentified media files to identification for {caiduser.workgroup} and taxon {taxon_str}."
     )
-    # unused_mediafiles
-    logger.debug(f"{models.MediaFile.objects.filter(identity__isnull=True).count()=}")
-    logger.debug(f"{models.MediaFile.objects.filter(taxon__name=taxon_str).count()=}")
-    logger.debug(f"{models.MediaFile.objects.filter(parent__owner__workgroup=caiduser.workgroup).count()=}")
-    mf_taxon = models.MediaFile.objects.filter(parent__owner__workgroup=caiduser.workgroup, taxon__name=taxon_str)
-    logger.debug(f"{mf_taxon.count()=}")
-    mf_no_identity = models.MediaFile.objects.filter(parent__owner__workgroup=caiduser.workgroup, identity__isnull=True)
-    logger.debug(f"{mf_no_identity.count()=}")
-    mf_taxon_and_no_identity = models.MediaFile.objects.filter(
-        parent__owner__workgroup=caiduser.workgroup, identity__isnull=True, taxon__name=taxon_str
-    )
-    logger.debug(f"{mf_taxon_and_no_identity.count()=}")
-
     existing_mfi_ids = MediafilesForIdentification.objects.values_list("mediafile_id", flat=True)
     logger.debug(f"Number of Mediafiles already in identification: {existing_mfi_ids.count()}")
 
-    base_qs = models.MediaFile.objects.filter(
-        parent__owner__workgroup=caiduser.workgroup, identity__isnull=True, **kwargs
+    identity_observation = models.AnimalObservation.objects.filter(
+        mediafile=OuterRef("pk"),
+        identity__isnull=False,
     )
+    base_qs = (
+        models.MediaFile.objects.filter(parent__owner__workgroup=caiduser.workgroup)
+        .annotate(has_identity_observation=Exists(identity_observation))
+        .filter(has_identity_observation=False)
+    )
+    if taxon_str:
+        base_qs = base_qs.filter(observations__taxon__name=taxon_str)
     logger.debug(f"Base queryset count (before exclude): {base_qs.count()}")
 
-    mediafiles = base_qs.exclude(id__in=list(existing_mfi_ids)).select_related(
-        "parent", "taxon", "predicted_taxon", "locality", "identity", "updated_by", "sequence"
+    mediafiles = (
+        base_qs.exclude(id__in=list(existing_mfi_ids))
+        .select_related("parent", "locality", "updated_by", "sequence")
+        .distinct()
     )
 
     # mediafiles = models.MediaFile.objects.filter(
@@ -2913,9 +2931,16 @@ def assign_unidentified_to_identification(caiduser: CaIDUser):
                 if identity.code and (identity.code.lower() in orig_fn):
                     score += 0.1
                 if score > 0:
-                    identity_mediafile = identity.mediafile_set.filter(
-                        identity_is_representative=True,
-                    ).first()
+                    identity_mediafile = (
+                        identity.observation_mediafiles()
+                        .filter(
+                            observations__identity=identity,
+                            observations__identity_is_representative=True,
+                        )
+                        .first()
+                    )
+                    if identity_mediafile is None:
+                        continue
                     mfi_suggestion = models.MediafileIdentificationSuggestion(
                         for_identification=mfi,
                         mediafile=identity_mediafile,
@@ -2977,9 +3002,10 @@ def run_identification_outlier_detection_for_workgroup(
     mediafiles_qs = (
         MediaFile.objects.filter(
             parent__owner__workgroup=workgroup,
-            identity__isnull=False,
+            observations__identity__isnull=False,
         )
-        .select_related("identity", "locality", "sequence", "parent")
+        .select_related("locality", "sequence", "parent")
+        .distinct()
         .order_by("id")
     )
 

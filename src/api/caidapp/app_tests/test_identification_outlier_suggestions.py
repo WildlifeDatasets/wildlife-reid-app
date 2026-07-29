@@ -5,7 +5,12 @@ from django.conf import settings
 from django.test import TestCase
 
 from caidapp import tasks
-from caidapp.app_tests.factories import CaidUserFactory, IndividualIdentityFactory, UploadedArchiveFactory
+from caidapp.app_tests.factories import (
+    AnimalObservationFactory,
+    CaidUserFactory,
+    IndividualIdentityFactory,
+    UploadedArchiveFactory,
+)
 from caidapp.models import IdentificationOutlierSuggestionResult, MediaFile
 
 
@@ -20,22 +25,22 @@ class IdentificationOutlierSuggestionsCallbackTest(TestCase):
     def test_success_callback_resolves_candidate_mediafile_from_worker_path(self):
         suspicious_mediafile = MediaFile.objects.create(
             parent=self.archive,
-            identity=self.current_identity,
             media_type="image",
             mediafile="images/suspicious.jpg",
             image_file="images/suspicious.jpg",
             preview="previews/suspicious.jpg",
             original_filename="suspicious.jpg",
         )
+        AnimalObservationFactory(mediafile=suspicious_mediafile, identity=self.current_identity)
         candidate_mediafile = MediaFile.objects.create(
             parent=self.archive,
-            identity=self.suggested_identity,
             media_type="image",
             mediafile="images/candidate.jpg",
             image_file="images/candidate.jpg",
             preview="previews/candidate.jpg",
             original_filename="candidate.jpg",
         )
+        AnimalObservationFactory(mediafile=candidate_mediafile, identity=self.suggested_identity)
         result = IdentificationOutlierSuggestionResult.objects.create(
             workgroup=self.workgroup,
             status="processing",
@@ -84,13 +89,13 @@ class IdentificationOutlierSuggestionsAcceptViewTest(TestCase):
     def test_accept_suggestion_updates_identity_and_removes_card_from_result(self):
         suspicious_mediafile = MediaFile.objects.create(
             parent=self.archive,
-            identity=self.current_identity,
             media_type="image",
             mediafile="images/suspicious.jpg",
             image_file="images/suspicious.jpg",
             preview="previews/suspicious.jpg",
             original_filename="suspicious.jpg",
         )
+        observation = AnimalObservationFactory(mediafile=suspicious_mediafile, identity=self.current_identity)
         result = IdentificationOutlierSuggestionResult.objects.create(
             workgroup=self.workgroup,
             status="done",
@@ -120,7 +125,7 @@ class IdentificationOutlierSuggestionsAcceptViewTest(TestCase):
         )
 
         self.assertEqual(response.status_code, 302)
-        suspicious_mediafile.refresh_from_db()
+        observation.refresh_from_db()
         result.refresh_from_db()
-        self.assertEqual(suspicious_mediafile.identity, self.suggested_identity)
+        self.assertEqual(observation.identity, self.suggested_identity)
         self.assertEqual(result.suggestions, [])

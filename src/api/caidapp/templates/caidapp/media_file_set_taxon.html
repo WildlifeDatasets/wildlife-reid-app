@@ -179,13 +179,13 @@
                                                    class="btn btn-secondary"
                                                    id="confirmTaxonSubmit"
                                                         {#                                                        type="submit"#}
-                                                   onclick="setCategoryAndSubmit('{{ mediafile.predicted_taxon }}')"
+                                                   onclick="setCategoryAndSubmit('{{ mediafile.first_observation.predicted_taxon }}')"
                                                 >
                                                     Select
                                                 </a>
 
-                                                {{ mediafile.predicted_taxon }}
-                                                ({{ mediafile.predicted_taxon_confidence|mul:100|floor|floatformat:0 }}%)
+                                                {{ mediafile.first_observation.predicted_taxon }}
+                                                ({{ mediafile.first_observation.predicted_taxon_confidence|mul:100|floor|floatformat:0 }}%)
 
                                             </div>
                                         {% endif %}

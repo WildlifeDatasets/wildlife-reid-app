@@ -12,7 +12,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
-from django.db import models
+from django.db import models, transaction
 from django.db.models import Count, Exists, F, OuterRef, Q
 from django.db.models.query import QuerySet
 from django.db.models.signals import post_save
@@ -516,11 +516,19 @@ class WorkGroup(models.Model):
 
     def number_of_media_files_with_missing_identity(self) -> int:
         """Return number of uploaded files with missing identity."""
-        return MediaFile.objects.filter(
-            parent__owner__workgroup=self,
-            identity__isnull=True,
-            parent__taxon_for_identification__isnull=False,
-        ).count()
+        identity_observation = AnimalObservation.objects.filter(
+            mediafile=OuterRef("pk"),
+            identity__isnull=False,
+        )
+        return (
+            MediaFile.objects.filter(
+                parent__owner__workgroup=self,
+                parent__taxon_for_identification__isnull=False,
+            )
+            .annotate(has_identity_observation=Exists(identity_observation))
+            .filter(has_identity_observation=False)
+            .count()
+        )
 
     def number_of_representative_media_files(self):
         """Return number of representative media files."""
@@ -616,9 +624,12 @@ class WorkGroup(models.Model):
             )
 
         if require_identity is True and not observation_filters:
-            qs = qs.filter(Q(identity__isnull=False) | Q(observations__identity__isnull=False))
+            qs = qs.filter(observations__identity__isnull=False)
         elif require_identity is False:
-            qs = qs.filter(identity__isnull=True, observations__identity__isnull=True)
+            identity_observation = AnimalObservation.objects.filter(mediafile=OuterRef("pk"), identity__isnull=False)
+            qs = qs.annotate(has_identity_observation=Exists(identity_observation)).filter(
+                has_identity_observation=False
+            )
 
         return qs.distinct()
 
@@ -759,7 +770,11 @@ class CaIDUser(models.Model):
 
     def number_of_uploaded_media_files_with_known_taxon(self) -> int:
         """Return number of uploaded files with known taxon."""
-        return MediaFile.objects.filter(parent__owner=self, taxon__isnull=False).count()
+        return (
+            MediaFile.objects.filter(parent__owner=self, observations__taxon__isnull=False)
+            .distinct()
+            .count()
+        )
 
     def number_of_media_files_with_missing_taxa_general(self) -> int:
         """Return number of uploaded files with missing taxon.
@@ -780,9 +795,14 @@ class CaIDUser(models.Model):
 
         If possible, we use data for whole workgroup.
         """
+        unverified_observation = AnimalObservation.objects.filter(
+            mediafile=OuterRef("pk"),
+            taxon_verified=False,
+        )
         return (
             MediaFile.objects.filter(**user_has_access_filter_params(self, "parent__owner"))
-            .filter(taxon_verified=False)
+            .annotate(has_unverified_observation=Exists(unverified_observation))
+            .filter(has_unverified_observation=True)
             .count()
         )
 
@@ -792,19 +812,31 @@ class CaIDUser(models.Model):
 
     def number_of_media_files_with_missing_identity(self) -> int:
         """Return number of uploaded files with missing identity."""
-        return MediaFile.objects.filter(
-            parent__owner__workgroup=self.workgroup,
-            identity__isnull=True,
-            parent__taxon_for_identification__isnull=False,
-        ).count()
+        identity_observation = AnimalObservation.objects.filter(
+            mediafile=OuterRef("pk"),
+            identity__isnull=False,
+        )
+        return (
+            MediaFile.objects.filter(
+                parent__owner__workgroup=self.workgroup,
+                parent__taxon_for_identification__isnull=False,
+            )
+            .annotate(has_identity_observation=Exists(identity_observation))
+            .filter(has_identity_observation=False)
+            .count()
+        )
 
     def number_of_media_files_with_known_identity(self) -> int:
-        """Return number of uploaded files with missing identity."""
-        return MediaFile.objects.filter(
-            parent__owner__workgroup=self.workgroup,
-            identity__isnull=False,
-            parent__taxon_for_identification__isnull=False,
-        ).count()
+        """Return number of uploaded files with at least one identified observation."""
+        return (
+            MediaFile.objects.filter(
+                parent__owner__workgroup=self.workgroup,
+                observations__identity__isnull=False,
+                parent__taxon_for_identification__isnull=False,
+            )
+            .distinct()
+            .count()
+        )
 
     def number_of_media_files_for_identification(self) -> int:
         """Return number of media files for identification."""
@@ -1177,11 +1209,13 @@ class UploadedArchive(models.Model):
 
     def earliest_captured_taxon(self):
         """Return earliest captured taxon in the archive."""
-        return MediaFile.objects.filter(parent=self).order_by("captured_at").first().taxon
+        mediafile = MediaFile.objects.filter(parent=self).order_by("captured_at").first()
+        return mediafile.taxon_from_observations if mediafile else None
 
     def latest_captured_taxon(self):
         """Return latest captured taxon in the archive."""
-        return MediaFile.objects.filter(parent=self).order_by("-captured_at").first().taxon
+        mediafile = MediaFile.objects.filter(parent=self).order_by("-captured_at").first()
+        return mediafile.taxon_from_observations if mediafile else None
 
     def update_earliest_and_latest_captured_at(self):
         """Update the earliest and latest captured at in the archive based on media files."""
@@ -1212,7 +1246,7 @@ class UploadedArchive(models.Model):
 
     def taxons_are_verified(self):
         """Return True if all taxons are verified."""
-        return self.mediafile_set.filter(taxon_verified=False).count() == 0
+        return not AnimalObservation.objects.filter(mediafile__parent=self, taxon_verified=False).exists()
 
     def mediafiles_with_missing_taxon(self, **kwargs):
         """Return media files with missing taxon."""
@@ -1238,17 +1272,22 @@ class UploadedArchive(models.Model):
 
     def count_of_mediafiles_with_verified_taxon(self):
         """Return number of media files with verified taxon."""
-        return self.mediafile_set.filter(taxon_verified=True).count()
+        return (
+            self.mediafile_set.filter(observations__isnull=False)
+            .exclude(observations__taxon_verified=False)
+            .distinct()
+            .count()
+        )
 
     def count_of_mediafiles_with_unverified_taxon(self):
         """Return number of media files with unverified taxon."""
-        return self.mediafile_set.filter(taxon_verified=False).count()
+        return self.mediafile_set.filter(observations__taxon_verified=False).distinct().count()
 
     def percents_of_mediafiles_with_verified_taxon(self) -> float:
         """Return percents of media files with verified taxon."""
         if self.count_of_mediafiles() == 0:
             return 0
-        return 100 * (self.mediafile_set.filter(taxon_verified=True).count()) / self.count_of_mediafiles()
+        return 100 * self.count_of_mediafiles_with_verified_taxon() / self.count_of_mediafiles()
 
     def has_all_taxons(self):
         """Return True if all media files have taxon."""
@@ -1256,13 +1295,19 @@ class UploadedArchive(models.Model):
 
     def count_of_identities(self):
         """Return number of unique identities in the archive."""
-        return self.mediafile_set.filter(Q(identity__isnull=False)).values("identity").distinct().count()
+        return (
+            IndividualIdentity.objects.filter(animalobservation__mediafile__parent=self)
+            .distinct()
+            .count()
+        )
 
     def count_of_taxons(self):
         """Return number of unique taxons in the archive."""
-        not_classified_taxon = Taxon.objects.get(name=TAXON_NOT_CLASSIFIED)
         return (
-            self.mediafile_set.filter(Q(taxon=None) | Q(taxon=not_classified_taxon)).values("taxon").distinct().count()
+            AnimalObservation.objects.filter(mediafile__parent=self, taxon__isnull=False)
+            .values("taxon_id")
+            .distinct()
+            .count()
         )
 
     def number_of_media_files_in_archive(self) -> dict:
@@ -1666,7 +1711,7 @@ class MediaFile(models.Model):
     used_for_init_identification = models.BooleanField("Used for init identification", default=False)
 
     class Meta:
-        ordering = ["-identity_is_representative", "captured_at"]
+        ordering = ["captured_at", "id"]
 
     def __str__(self):
         return str(self.original_filename)
@@ -1777,39 +1822,22 @@ class MediaFile(models.Model):
         return True
 
     def is_for_suggestion(self):
-        """Return True if mediafile is for suggestion."""
-        is_for_suggestion = False
-        predicted_taxons = set()
-        if self.predicted_taxon is not None:
-            is_for_suggestion = True
-            for obs in self.observations.all():
-                if (
-                    (obs.taxon is None)
-                    or (obs.taxon.name == TAXON_NOT_CLASSIFIED)
-                    or ((obs.taxon.name == "Animalia") and (obs.taxon_verified is False))
-                ):
-                    predicted_taxons.add(obs.taxon)
-                else:
-                    is_for_suggestion = False
-
-        if len(predicted_taxons) != 1:
-            is_for_suggestion = False
-
-        return is_for_suggestion
-
-        # if (self.predicted_taxon is not None):
-        #     if self.first_observation is not None:
-        #         if self.first_observation.taxon == self.first_observation.predicted_taxon:
-        #             return True
-        # return (self.predicted_taxon is not None) and (
-        #     (self.taxon is None)
-        #     or (self.taxon.name == TAXON_NOT_CLASSIFIED)
-        #     or ((self.taxon.name == "Animalia") and (self.taxon_verified is False))
-        # )
+        """Return True when at least one observation has an unconfirmed taxon prediction."""
+        for observation in self.observations.all():
+            if observation.predicted_taxon is None:
+                continue
+            if (
+                observation.taxon is None
+                or observation.taxon.name == TAXON_NOT_CLASSIFIED
+                or (observation.taxon.name == "Animalia" and not observation.taxon_verified)
+            ):
+                return True
+        return False
 
     def is_consistent_with_uploaded_archive_taxon_for_identification(self) -> bool:
         """Return True if mediafile is consistent with uploaded archive taxo for identification."""
-        return self.taxon == self.parent.taxon_for_identification
+        taxons = self.taxons
+        return bool(taxons) and all(taxon == self.parent.taxon_for_identification for taxon in taxons)
 
     def make_thumbnail_for_mediafile_if_necessary(
         self,
@@ -1895,18 +1923,6 @@ class MediaFile(models.Model):
                 self.save(update_fields=["static_thumbnail"])
             # self.get_static_thumbnail(force=force)
 
-    def save(self, *args, **kwargs):
-        """Save object."""
-        if self.pk:
-            old = MediaFile.objects.get(pk=self.pk)
-            if old.identity_is_representative != self.identity_is_representative:
-                from .tasks import schedule_init_identification_for_workgroup
-
-                schedule_init_identification_for_workgroup(self.parent.owner.workgroup, delay_minutes=10)
-                # and the reid will be started after the init
-
-        super().save(*args, **kwargs)
-
     @property
     def first_observation(self) -> Optional["AnimalObservation"]:
         """Return the first AnimalObservation related to this MediaFile."""
@@ -1983,6 +1999,28 @@ class AnimalObservation(models.Model):
     updated_by = models.ForeignKey(CaIDUser, on_delete=models.SET_NULL, null=True, blank=True)
     updated_at = models.DateTimeField("Updated at", blank=True, null=True)
     metadata_json = models.JSONField(blank=True, null=True)
+
+    def save(self, *args, **kwargs):
+        """Save the observation and schedule ReID initialization after representative changes."""
+        representative_changed = False
+        if self.pk:
+            old_value = (
+                AnimalObservation.objects.filter(pk=self.pk)
+                .values_list("identity_is_representative", flat=True)
+                .first()
+            )
+            representative_changed = old_value is not None and old_value != self.identity_is_representative
+        super().save(*args, **kwargs)
+        if representative_changed:
+            from .tasks import schedule_init_identification_for_workgroup
+
+            workgroup = self.mediafile.parent.owner.workgroup
+            transaction.on_commit(
+                lambda: schedule_init_identification_for_workgroup(
+                    workgroup,
+                    delay_minutes=10,
+                )
+            )
 
     def set_bbox_from_xyxy(self, x_min, y_min, x_max, y_max, img_w, img_h):
         """YOLO-style relative bbox from absolute in px."""
@@ -2190,12 +2228,11 @@ def get_mediafiles_with_missing_taxon(
         .filter(has_valid_obs=False, parent__contains_single_taxon=False, **kwargs_filter, **kwargs)
         .select_related(
             "parent",
-            "predicted_taxon",
             "locality",
-            "identity",
             "updated_by",
             "sequence",
         )
+        .prefetch_related("observations__taxon", "observations__predicted_taxon", "observations__identity")
     )
     return mediafiles
 
@@ -2237,7 +2274,6 @@ def get_mediafiles_with_missing_identity(
     mediafiles = (
         MediaFile.objects.annotate(has_observation_identity=Exists(observation_with_identity))
         .filter(
-            identity__isnull=True,
             has_observation_identity=False,
             **filters,
         )
@@ -2273,12 +2309,11 @@ def get_mediafiles_with_missing_verification(
         )
         .select_related(
             "parent",
-            "predicted_taxon",
             "locality",
-            "identity",
             "updated_by",
             "sequence",
         )
+        .prefetch_related("observations__taxon", "observations__predicted_taxon", "observations__identity")
     )
 
     logger.debug(f"{mediafiles.count()=}")

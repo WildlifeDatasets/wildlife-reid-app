@@ -347,10 +347,11 @@ def create_map_from_mediafiles(mediafiles: Union[QuerySet, List[MediaFile]]):
     data = []
     for mediafile in mediafiles:
         if mediafile.locality and mediafile.locality.location and mediafile.locality.location.count(",") == 1:
+            taxon = mediafile.taxon_from_observations
             row = {
                 "id": mediafile.id,
-                "taxon": mediafile.taxon.name if mediafile.taxon else None,
-                "taxon_id": mediafile.taxon.id if mediafile.taxon else None,
+                "taxon": taxon.name if taxon else None,
+                "taxon_id": taxon.id if taxon else None,
                 "captured_at": mediafile.captured_at if mediafile.captured_at else None,
                 "locality": mediafile.locality.name if mediafile.locality else None,
                 "locality__location": (mediafile.locality.location if mediafile.locality.location else None),

@@ -26,11 +26,11 @@
                                 {% endif %}
                                 <div class="card-body">
                                     {#                                <h5 class="card-title">{{ mediafile }}</h5>#}
-                                    {% if mediafile.identity_is_representative %}
+                                    {% if mediafile.first_observation.identity_is_representative %}
                                         <i class="bi bi-check-circle-fill"></i>
                                     {% endif %}
                                     <i class="bi -file-earmark-image"></i>
-                                    <p class="card-text"> Taxon: {{ mediafile.taxon }}</p>
+                                    <p class="card-text"> Taxon: {{ mediafile.taxons_display|default:"-" }}</p>
                                     <p class="card-text"> Locality: {{ mediafile.locality }}</p>
                                     <p class="card-text"> Captured at: {{ mediafile.captured_at|date:'Y-m-d H:i' }}</p>
 

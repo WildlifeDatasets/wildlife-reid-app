@@ -1427,7 +1427,7 @@ class SequenceViewTest(TestCase):
     def test_mediafiles_star_uses_first_observation_representative_flag(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)
         identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Alpha")
-        mediafile = MediaFileFactory(parent=archive, identity=None, identity_is_representative=False)
+        mediafile = MediaFileFactory(parent=archive)
         AnimalObservationFactory(mediafile=mediafile, identity=identity, identity_is_representative=True)
 
         response = self.client.get(reverse("caidapp:media_files"))
@@ -1611,8 +1611,6 @@ class SequenceViewTest(TestCase):
         )
 
         self.assertEqual(response.status_code, 302)
-        mediafile.refresh_from_db()
-        self.assertTrue(mediafile.taxon_verified)
         observation = mediafile.observations.get()
         self.assertTrue(observation.taxon_verified)
 
@@ -2478,8 +2476,10 @@ class SequenceViewTest(TestCase):
         other_identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Beta")
         sequence = SequenceFactory(uploaded_archive=archive)
         other_sequence = SequenceFactory(uploaded_archive=archive)
-        mediafile = MediaFileFactory(parent=archive, sequence=sequence, identity=identity, original_filename="alpha.jpg")
-        other_mediafile = MediaFileFactory(parent=archive, sequence=other_sequence, identity=other_identity, original_filename="beta.jpg")
+        mediafile = MediaFileFactory(parent=archive, sequence=sequence, original_filename="alpha.jpg")
+        other_mediafile = MediaFileFactory(parent=archive, sequence=other_sequence, original_filename="beta.jpg")
+        AnimalObservationFactory(mediafile=mediafile, identity=identity)
+        AnimalObservationFactory(mediafile=other_mediafile, identity=other_identity)
 
         response = self.client.get(reverse("caidapp:sequences"), {"individual_identity_id": identity.id})
 
@@ -2555,21 +2555,21 @@ class SequenceViewTest(TestCase):
         first_mediafile = MediaFileFactory(
             parent=archive,
             sequence=first_sequence,
-            identity=first_identity,
             original_filename="alpha.jpg",
         )
         second_mediafile = MediaFileFactory(
             parent=archive,
             sequence=second_sequence,
-            identity=second_identity,
             original_filename="beta.jpg",
         )
         other_mediafile = MediaFileFactory(
             parent=archive,
             sequence=other_sequence,
-            identity=other_identity,
             original_filename="gamma.jpg",
         )
+        AnimalObservationFactory(mediafile=first_mediafile, identity=first_identity)
+        AnimalObservationFactory(mediafile=second_mediafile, identity=second_identity)
+        AnimalObservationFactory(mediafile=other_mediafile, identity=other_identity)
 
         response = self.client.get(
             reverse("caidapp:sequences"),
@@ -2721,8 +2721,8 @@ class SequenceViewTest(TestCase):
         selected_mediafile.refresh_from_db()
         other_mediafile.refresh_from_db()
         self.assertEqual(selected_mediafile.locality.name, "Brdy")
-        self.assertEqual(selected_mediafile.identity.name, "Charles")
-        self.assertIsNone(other_mediafile.identity)
+        self.assertEqual(selected_mediafile.observations.get().identity.name, "Charles")
+        self.assertFalse(other_mediafile.observations.exists())
 
     def test_sequence_filename_metadata_uses_directory_mapping_without_regex(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)
@@ -2750,9 +2750,10 @@ class SequenceViewTest(TestCase):
 
         self.assertEqual(response.status_code, 302)
         mediafile.refresh_from_db()
+        observation = mediafile.observations.get()
         self.assertEqual(mediafile.locality.name, "Brdy")
-        self.assertEqual(mediafile.taxon.name, "Lynx")
-        self.assertEqual(mediafile.identity.name, "Charles")
+        self.assertEqual(observation.taxon.name, "Lynx")
+        self.assertEqual(observation.identity.name, "Charles")
 
     def test_sequence_filename_metadata_chatgpt_prompt_includes_sample_paths(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)
@@ -2807,7 +2808,7 @@ class SequenceViewTest(TestCase):
 
         mediafile.refresh_from_db()
         self.assertIsNone(mediafile.locality)
-        self.assertIsNone(mediafile.identity)
+        self.assertFalse(mediafile.observations.exists())
 
         self.client.post(
             reverse("caidapp:sequences"),
@@ -2826,7 +2827,7 @@ class SequenceViewTest(TestCase):
 
         mediafile.refresh_from_db()
         self.assertEqual(mediafile.locality.name, "Brdy")
-        self.assertEqual(mediafile.identity.name, "Charles")
+        self.assertEqual(mediafile.observations.get().identity.name, "Charles")
 
     def test_sequence_filename_metadata_fills_only_empty_fields_by_default(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)
@@ -2837,9 +2838,9 @@ class SequenceViewTest(TestCase):
             parent=archive,
             sequence=sequence,
             locality=old_locality,
-            identity=old_identity,
             original_filename="NewLocality/NewIdentity/first.jpg",
         )
+        observation = AnimalObservationFactory(mediafile=mediafile, identity=old_identity)
 
         self.client.post(
             reverse("caidapp:sequences"),
@@ -2856,8 +2857,9 @@ class SequenceViewTest(TestCase):
         )
 
         mediafile.refresh_from_db()
+        observation.refresh_from_db()
         self.assertEqual(mediafile.locality, old_locality)
-        self.assertEqual(mediafile.identity, old_identity)
+        self.assertEqual(observation.identity, old_identity)
 
         self.client.post(
             reverse("caidapp:sequences"),
@@ -2875,8 +2877,9 @@ class SequenceViewTest(TestCase):
         )
 
         mediafile.refresh_from_db()
+        observation.refresh_from_db()
         self.assertEqual(mediafile.locality.name, "NewLocality")
-        self.assertEqual(mediafile.identity.name, "NewIdentity")
+        self.assertEqual(observation.identity.name, "NewIdentity")
 
     def test_sequence_filename_metadata_uses_current_filter_when_nothing_is_selected(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)
@@ -2902,8 +2905,9 @@ class SequenceViewTest(TestCase):
         )
 
         mediafile.refresh_from_db()
-        self.assertEqual(mediafile.taxon.name, "Lynx")
-        self.assertEqual(mediafile.identity.name, "Charles")
+        observation = mediafile.observations.get()
+        self.assertEqual(observation.taxon.name, "Lynx")
+        self.assertEqual(observation.identity.name, "Charles")
 
     def test_filename_metadata_skips_observation_metadata_for_multiple_observations(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)
@@ -2931,8 +2935,6 @@ class SequenceViewTest(TestCase):
         self.assertRedirects(response, reverse("caidapp:sequences"))
         mediafile.refresh_from_db()
         self.assertEqual(mediafile.locality.name, "Brdy")
-        self.assertIsNone(mediafile.taxon)
-        self.assertIsNone(mediafile.identity)
         first_observation.refresh_from_db()
         second_observation.refresh_from_db()
         self.assertIsNone(first_observation.taxon)
@@ -3893,9 +3895,22 @@ class IdentificationRerunTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.json()["representative"])
         observation.refresh_from_db()
-        mediafile.refresh_from_db()
         self.assertTrue(observation.identity_is_representative)
-        self.assertTrue(mediafile.identity_is_representative)
+
+    def test_toggle_identity_representative_rejects_multiple_observations(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        identity = IndividualIdentityFactory(owner_workgroup=self.workgroup, name="Alpha")
+        mediafile = MediaFileFactory(parent=archive)
+        first = AnimalObservationFactory(mediafile=mediafile, identity=identity)
+        second = AnimalObservationFactory(mediafile=mediafile, identity=identity)
+
+        response = self.client.post(reverse("caidapp:toggle_identity_representative", args=[mediafile.id]))
+
+        self.assertEqual(response.status_code, 400)
+        first.refresh_from_db()
+        second.refresh_from_db()
+        self.assertFalse(first.identity_is_representative)
+        self.assertFalse(second.identity_is_representative)
 
     @patch("caidapp.views.run_identification_bulk")
     def test_bulk_rerun_processes_identification_uploads_with_missing_identity_regardless_of_status(self, run_identification_bulk_mock):

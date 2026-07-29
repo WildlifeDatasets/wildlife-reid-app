@@ -510,9 +510,8 @@ Observation ID: {{ obs_form.instance.id }}
                                             {#                                            data-toggle="tooltip"#}
                                             title="File name: {{ mediafile }}
 ID: {{ mediafile.id }}
-mediafile.taxon: {{ mediafile.taxon }}
-{% if mediafile.taxon %}Media file Taxon: {{ mediafile.taxon }}{% endif %}
-{% if mediafile.identity %}Media file Identity: {{ mediafile.identity }}{% endif %}
+{% if mediafile.taxons_display %}Observed taxa: {{ mediafile.taxons_display }}{% endif %}
+{% if mediafile.identities_display %}Observed identities: {{ mediafile.identities_display }}{% endif %}
 {% if mediafile.uploaded_by %}Media file Uploaded by: {{ mediafile.uploaded_by }}{% endif %}
 {% if mediafile.updated_by %}Media file Updated by: {{ mediafile.updated_by }}{% endif %}
 {% if mediafile.created_at %}Media file Created at: {{ mediafile.created_at|date:'Y-m-d H:i' }}{% endif %}

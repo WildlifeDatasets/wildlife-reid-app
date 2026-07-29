@@ -64,6 +64,19 @@ class IndividualIdentityFilter(django_filters.FilterSet):
     )
     search = django_filters.CharFilter(method="filter_search", label="Search")
     search_regex = django_filters.BooleanFilter(method="filter_search_regex", label="Use regex")
+    orientation = django_filters.ChoiceFilter(
+        field_name="observations__orientation",
+        choices=models.ORIENTATION_CHOICES,
+        label="Orientation",
+    )
+    identity_is_representative = django_filters.BooleanFilter(
+        field_name="observations__identity_is_representative",
+        label="Representative identity",
+    )
+    taxon_verified = django_filters.BooleanFilter(
+        field_name="observations__taxon_verified",
+        label="Taxon verified",
+    )
 
     class Meta:
         model = models.IndividualIdentity
@@ -165,14 +178,7 @@ class MediaFileFilter(django_filters.FilterSet):
         # Declare the fields you want to filter by.
         taxon = Taxon.objects.all().order_by("name")
         fields = {
-            # "locality__name": ["icontains"],
-            # "identity__name": ["icontains"],
             "media_type": ["exact"],
-            # "taxon" : ["exact"],
-            "orientation": ["exact"],
-            "identity_is_representative": ["exact"],
-            # "search": ["icontains"],
-            # "taxon_verified": ["exact"],
         }
 
     def filter_search(self, queryset, name, value):

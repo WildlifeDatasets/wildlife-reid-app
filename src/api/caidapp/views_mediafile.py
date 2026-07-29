@@ -215,8 +215,6 @@ class MediaFileUpdateView(LoginRequiredMixin, UpdateWithInlinesView):
             logger.debug("User clicked save and set taxon for sequence")
             try:
 
-                # Prefer taxon set on an observation form (first non-null), fallback to mediafile.taxon
-                # obs_qs = form.instance.observations.all()
                 # first observation that has taxon set
                 # obs = obs_qs.filter(taxon__isnull=False).first()
                 # vezmi první observation s vyplněným taxonem
@@ -595,17 +593,10 @@ class MediaFileGetMissingTaxonView(LoginRequiredMixin, UpdateWithInlinesView):
         # Handle "save and set taxon for sequence" here as well when using missing-taxons flow
         if self.request.POST.get("save_set_taxon_sequence"):
             try:
-                # Prefer taxon set on an observation form (first non-null), fallback to mediafile.taxon
                 taxon = None
-                try:
-                    obs_qs = form.instance.observations.all()
-                    obs_with_taxon = obs_qs.filter(taxon__isnull=False).first()
-                    if obs_with_taxon:
-                        taxon = obs_with_taxon.taxon
-                    else:
-                        taxon = form.instance.taxon
-                except Exception:
-                    taxon = form.instance.taxon
+                obs_with_taxon = form.instance.observations.filter(taxon__isnull=False).first()
+                if obs_with_taxon:
+                    taxon = obs_with_taxon.taxon
 
                 updated = _set_taxon_for_sequence(form.instance, taxon, self.request.user.caiduser)
                 if taxon is not None:
@@ -752,21 +743,17 @@ def set_mediafiles_records_per_page(request, records_per_page: int):
 
 
 def __verify_taxon_in_observations(mediafile: models.MediaFile, caiduser: models.CaIDUser, commit=True):
-    # Update the MediaFile instance
     now = timezone.now()
     mediafile.updated_at = now
-    # TODO make this in clever way
     for ao in mediafile.observations.all():
         ao.taxon_verified = True
         ao.taxon_verified_at = now
-        ao.save()
+        ao.updated_by = caiduser
+        ao.updated_at = now
+        ao.save(update_fields=["taxon_verified", "taxon_verified_at", "updated_by", "updated_at"])
     mediafile.updated_by = caiduser
-    mediafile.taxon_verified = True
-    mediafile.taxon_verified_at = now
-
-    # mediafile.taxon_verified = True
     if commit:
-        mediafile.save()
+        mediafile.save(update_fields=["updated_by", "updated_at"])
 
 
 @login_required
@@ -779,11 +766,12 @@ def confirm_prediction(request, mediafile_id: int) -> JsonResponse:
             return JsonResponse({"success": False, "message": "No read/write access to the file"})
 
         # nastavíme taxon mediafile i všech jeho observations na predicted_taxon
-        # mediafile.taxon = mediafile.predicted_taxon
         for ao in mediafile.observations.all():
-            ao.taxon = mediafile.predicted_taxon
+            if ao.predicted_taxon is None:
+                continue
+            ao.taxon = ao.predicted_taxon
             logger.debug(f"Confirming prediction for observation {ao.id} to taxon {ao.taxon}")
-            ao.save()
+            ao.save(update_fields=["taxon"])
         __verify_taxon_in_observations(mediafile, request.user.caiduser)
         return JsonResponse({"success": True, "message": "Prediction confirmed."})
     except Exception:

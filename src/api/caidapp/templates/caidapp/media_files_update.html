@@ -438,9 +438,9 @@
 
                                         <span
                                                 data-bs-toggle="tooltip"
-                                                title="{% if mediafile.instance.taxon %}Taxon: {{ mediafile.instance.taxon }}{% endif %}
+                                                title="{% if mediafile.instance.taxons_display %}Taxon: {{ mediafile.instance.taxons_display }}{% endif %}
 {% if mediafile.instance.locality %}{%  if request.session.private_mode %}Locality: {{ mediafile.instance.locality.visible_name }}{% else %}Locality: {{ mediafile.instance.locality.name }}{% endif %}{% endif %}
-{% if mediafile.instance.identity %} Identity: {{ mediafile.instance.identity }} {% endif %}
+{% if mediafile.instance.identities_display %} Identity: {{ mediafile.instance.identities_display }} {% endif %}
 {{ mediafile.instance.captured_at|date:'Y-m-d H:i' }}
 {{ mediafile.instance.original_filename }}
 "
@@ -467,7 +467,7 @@
                                                 {% endfor %}
 
 
-                                                {% if mediafile.instance.taxon_verified %}
+                                                {% if mediafile.instance.is_verified_from_observations %}
 {#                                                    <i class="fa-solid fa-hippo"></i>#}
                                                     <i class="bi bi-check"
                                                        data-bs-toggle="tooltip"
@@ -482,11 +482,10 @@
                                                     <i class="bi bi-question-circle"></i>
                                                     {% with count=mediafile.instance.observations.count %}
         {% if count > 1 %}
-            Are these {{ count }} observations a {{ mediafile.instance.predicted_taxon }}
-            ({{ mediafile.instance.predicted_taxon_confidence|mul:100|floor|floatformat:0 }}%)?
+            There are unconfirmed taxon predictions for these {{ count }} observations.
         {% else %}
-            Is this observation a {{ mediafile.instance.predicted_taxon }}
-            ({{ mediafile.instance.predicted_taxon_confidence|mul:100|floor|floatformat:0 }}%)?
+            Is this observation a {{ mediafile.instance.first_observation.predicted_taxon }}
+            ({{ mediafile.instance.first_observation.predicted_taxon_confidence|mul:100|floor|floatformat:0 }}%)?
         {% endif %}
     {% endwith %}
 {#                                                    Is it {{ mediafile.instance.predicted_taxon  }} ({{ mediafile.instance.predicted_taxon_confidence|mul:100|floor|floatformat:0 }}%) ?#}
@@ -524,7 +523,7 @@
                                                 <br>
                                         {% endif %}
 
-                                        {% if mediafile.instance.identities or mediafile.instance.identity %}
+                                        {% if mediafile.instance.identities %}
                                             Identity:
                                             {% if mediafile.instance.identities %}
                                                 {% with identities=mediafile.instance.identities %}
@@ -558,11 +557,6 @@
                                                         </div>
                                                     {% endif %}
                                                 {% endwith %}
-                                            {% else %}
-                                                <a class="link-secondary"
-                                                   href="{% url 'caidapp:individual_identity_mediafiles' mediafile.instance.identity.id %}">
-                                                    {{ mediafile.instance.identity }}
-                                                </a>
                                             {% endif %}
                                                 {#                                                <i class="bi bi-check-circle"></i>#}
 {#                                                <i class="bi bi-bookmark"></i>#}

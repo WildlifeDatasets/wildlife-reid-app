@@ -47,7 +47,7 @@ def build_next_steps(workgroup: models.WorkGroup | None) -> list[NextStepCandida
         identification_mediafiles, workgroup
     )
     has_assigned_identity = identification_mediafiles.filter(
-        Q(identity__isnull=False) | Q(observations__identity__isnull=False)
+        observations__identity__isnull=False
     ).exists()
     if identification_mediafiles.exists() and not has_assigned_identity:
         candidates.append(

@@ -1223,7 +1223,7 @@ def _home_next_step(caiduser) -> dict:
             identification_mediafiles, workgroup
         )
         has_assigned_identity = identification_mediafiles.filter(
-            Q(identity__isnull=False) | Q(observations__identity__isnull=False)
+            observations__identity__isnull=False
         ).exists()
         if identification_mediafiles.exists() and not has_assigned_identity:
             return {
@@ -1246,9 +1246,9 @@ def _home_next_step(caiduser) -> dict:
         identification_is_initiated = workgroup.identification_init_at is not None
         representative_count = MediaFile.objects.filter(
             parent__owner__workgroup=workgroup,
-            identity_is_representative=True,
+            observations__identity_is_representative=True,
             parent__taxon_for_identification__isnull=False,
-        ).count()
+        ).distinct().count()
 
         if pending_identification_count > 0 and identification_is_initiated:
             return {
@@ -1830,14 +1830,17 @@ def get_individual_identity_from_foridentification(
             foridentification = MediafilesForIdentification.objects.get(id=foridentification_id)
 
     if foridentification is not None:
-        # give me all identities in foridentification.top_mediafile_set.mediafile.identity
-        identity_ids = foridentification.top_mediafiles.values_list("mediafile__identity", flat=True)
+        identity_ids = foridentification.top_mediafiles.values_list("identity_id", flat=True)
         logger.debug(f"{identity_ids=}")
 
         identity_ids = [i for i in identity_ids if i is not None]
         logger.debug(f"{identity_ids=}")
 
-        orientation_of_unknown = foridentification.mediafile.orientation
+        reid_observation_id = (foridentification.mediafile.metadata_json or {}).get("reid_observation_id")
+        unknown_observation = foridentification.mediafile.observations.filter(id=reid_observation_id).first()
+        if unknown_observation is None and foridentification.mediafile.observations.count() == 1:
+            unknown_observation = foridentification.mediafile.observations.first()
+        orientation_of_unknown = unknown_observation.orientation if unknown_observation is not None else None
 
         # remaining_identities = (
         #     IndividualIdentity.objects.filter(
@@ -1871,19 +1874,12 @@ def get_individual_identity_from_foridentification(
         #     .order_by("name")
         # )
         # ----------------------
-        prefetch_first_mediafile = Prefetch(
-            "mediafile_set",
-            queryset=MediaFile.objects.order_by("captured_at"),
-            to_attr="all_mediafiles_ordered",
-        )
-
         remaining_identities = (
             IndividualIdentity.objects.filter(
                 Q(owner_workgroup=request.user.caiduser.workgroup),
                 ~Q(name="nan"),
                 ~Q(id__in=identity_ids),
             )
-            .prefetch_related(prefetch_first_mediafile)
             .order_by("name")
         )
         # -------------------------------- ^^^^^ ------
@@ -1925,8 +1921,9 @@ def get_individual_identity_from_foridentification(
         logger.debug(f"  2 {time.time() - t0=:.2f} [s]")
 
         for identity in remaining_identities:
-            mf = identity.all_mediafiles_ordered
-            identity.representative_mediafiles = mf[:3] if mf else []
+            identity.representative_mediafiles = list(
+                identity.observation_mediafiles().order_by("captured_at", "id")[:3]
+            )
 
         logger.debug(f"  3 {time.time() - t0=:.2f} [s]")
         # for identity in identities:
@@ -3525,21 +3522,21 @@ def _mediafiles_query(
 
     mediafiles = MediaFile.objects.annotate(**_mediafiles_annotate())
     if taxon_verified is not None:
-        filter_kwargs.update(dict(taxon_verified=taxon_verified))
+        filter_kwargs.update({"observations__taxon_verified": taxon_verified})
     if album_hash is not None:
         album = get_object_or_404(Album, hash=album_hash)
         filter_kwargs.update(dict(album=album))
     if individual_identity_id is not None:
         individual_identity = get_object_or_404(IndividualIdentity, pk=individual_identity_id)
-        filter_kwargs.update(dict(identity=individual_identity))
+        filter_kwargs.update({"observations__identity": individual_identity})
     if taxon_id is not None:
         taxon = get_object_or_404(Taxon, pk=taxon_id)
-        filter_kwargs.update(dict(taxon=taxon))
+        filter_kwargs.update({"observations__taxon": taxon})
     if uploadedarchive_id is not None:
         uploadedarchive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
         filter_kwargs.update(dict(parent=uploadedarchive))
     if identity_is_representative is not None:
-        filter_kwargs.update(dict(identity_is_representative=identity_is_representative))
+        filter_kwargs.update({"observations__identity_is_representative": identity_is_representative})
     # logger.debug(f"{filter_kwargs=}, {exclude_filter_kwargs=}, {order_by=}")
     if locality_hash is not None:
         locality = get_object_or_404(Locality, hash=locality_hash)
@@ -3577,14 +3574,14 @@ def _mediafiles_query(
         # return mediafiles
     else:
 
-        vector = SearchVector("taxon__name", "locality__name")
+        vector = SearchVector("observations__taxon__name", "locality__name")
         query = SearchQuery(query)
         logger.debug(str(query))
         mediafiles = mediafiles.annotate(rank=SearchRank(vector, query)).filter(rank__gt=0).order_by("-rank")
         # return mediafiles
     mediafiles = mediafiles.select_related(
-        "parent", "taxon", "predicted_taxon", "locality", "identity", "updated_by", "sequence"
-    )
+        "parent", "locality", "updated_by", "sequence"
+    ).prefetch_related("observations__taxon", "observations__identity")
 
     return mediafiles
 
@@ -3900,10 +3897,10 @@ def _get_filtered_mediafiles_queryset(
 
     mediafiles_name_suggestion = None
     if taxon_verified is not None:
-        filter_kwargs["taxon_verified"] = taxon_verified
+        filter_kwargs["observations__taxon_verified"] = taxon_verified
 
     if show_overview_button:
-        filter_kwargs["taxon_verified"] = False
+        filter_kwargs["observations__taxon_verified"] = False
         mediafiles_name_suggestion = "taxon_not_verified"
 
     if uploadedarchive_id is not None:
@@ -4377,13 +4374,7 @@ def _apply_filename_metadata_to_mediafile(
                 taxon,
                 force_rewrite_filled_data,
             )
-            if mediafile.taxon_id != taxon.id and _can_apply_filename_metadata_value(
-                mediafile.taxon_id,
-                force_rewrite_filled_data,
-            ):
-                mediafile.taxon = taxon
-                changed_fields.append("taxon")
-            elif observation_changed:
+            if observation_changed:
                 changed_fields.append("taxon")
 
     locality_name = groups.get("locality")
@@ -4403,8 +4394,8 @@ def _apply_filename_metadata_to_mediafile(
     identity_metadata_present = bool(code or identity_name or juv_code)
     if has_multiple_observations and identity_metadata_present:
         skipped_observation_metadata = True
-    elif mediafile.identity_id and not force_rewrite_filled_data:
-        identity = mediafile.identity
+    elif observation is not None and observation.identity_id and not force_rewrite_filled_data:
+        identity = observation.identity
     elif code:
         identity = models.get_unique_code(code, workgroup=caiduser.workgroup)
     elif identity_name:
@@ -4435,12 +4426,6 @@ def _apply_filename_metadata_to_mediafile(
             if identity_changed:
                 identity.save()
                 changed_fields.append("identity_fields")
-            if mediafile.identity_id != identity.id and _can_apply_filename_metadata_value(
-                mediafile.identity_id,
-                force_rewrite_filled_data,
-            ):
-                mediafile.identity = identity
-                changed_fields.append("identity")
             if _apply_value_to_observation(
                 observation,
                 "identity",
@@ -4702,7 +4687,7 @@ def sequences(
     page_sequence_ids = [obj.id for obj in page_with_sequences.object_list]
     sequence_mediafiles = (
         MediaFile.objects.filter(sequence_id__in=page_sequence_ids)
-        .select_related("parent", "taxon", "predicted_taxon", "locality", "identity", "updated_by", "sequence")
+        .select_related("parent", "locality", "updated_by", "sequence")
         .prefetch_related("observations__taxon", "observations__identity")
         .order_by("captured_at", "id")
     )
@@ -4736,8 +4721,20 @@ def sequences(
     for sequence in ordered_sequences:
         mediafiles_in_sequence = list(sequence.mediafile_set.all())
         sequence.cover_mediafile = mediafiles_in_sequence[0] if mediafiles_in_sequence else None
-        sequence.has_multiple_taxa = len({mf.taxon_id for mf in mediafiles_in_sequence if mf.taxon_id}) > 1
-        sequence.has_multiple_identities = len({mf.identity_id for mf in mediafiles_in_sequence if mf.identity_id}) > 1
+        sequence_taxon_ids = {
+            observation.taxon_id
+            for mediafile in mediafiles_in_sequence
+            for observation in mediafile.observations.all()
+            if observation.taxon_id
+        }
+        sequence_identity_ids = {
+            observation.identity_id
+            for mediafile in mediafiles_in_sequence
+            for observation in mediafile.observations.all()
+            if observation.identity_id
+        }
+        sequence.has_multiple_taxa = len(sequence_taxon_ids) > 1
+        sequence.has_multiple_identities = len(sequence_identity_ids) > 1
         locality_counts = {}
         for mediafile in mediafiles_in_sequence:
             mediafile.matches_current_filter = mediafile.id in matching_mediafile_ids_on_page
@@ -4993,8 +4990,8 @@ def media_files_update(
     )
 
     full_mediafiles = full_mediafiles.select_related(
-        "parent", "taxon", "predicted_taxon", "locality", "identity", "updated_by", "sequence"
-    ).prefetch_related("observations__taxon", "observations__identity")
+        "parent", "locality", "updated_by", "sequence"
+    ).prefetch_related("observations__taxon", "observations__predicted_taxon", "observations__identity")
 
     number_of_mediafiles = full_mediafiles.count()
     logger.debug(f"{number_of_mediafiles=}")
@@ -5202,10 +5199,9 @@ def _single_mediafile_update(request, instance, form, form_bulk_processing, sele
     elif "btnBulkProcessing_id_taxon" in form.data:
         observation = instance.first_observation_get_or_create
         observation.taxon = form_bulk_processing.cleaned_data["taxon"]
-        instance.taxon = observation.taxon
         instance.updated_by = request.user.caiduser
         instance.updated_at = django.utils.timezone.now()
-        instance.save()
+        instance.save(update_fields=["updated_by", "updated_at"])
         observation.save()
     elif "btnBulkProcessing_id_identity" in form.data:
         observations = list(instance.observations.all()[:2])
@@ -5234,10 +5230,10 @@ def _single_mediafile_update(request, instance, form, form_bulk_processing, sele
     elif "btnBulkProcessing_id_taxon_verified" in form.data:
         observation = instance.first_observation_get_or_create
         observation.taxon_verified = form_bulk_processing.cleaned_data["taxon_verified"]
-        instance.taxon_verified = observation.taxon_verified
         instance.updated_by = request.user.caiduser
         instance.updated_at = django.utils.timezone.now()
-        instance.save()
+        instance.save(update_fields=["updated_by", "updated_at"])
+        observation.save()
 
     elif "btnBulkProcessing_set_taxon_verified" in form.data:
         observations = list(instance.observations.all())
@@ -5248,10 +5244,9 @@ def _single_mediafile_update(request, instance, form, form_bulk_processing, sele
             observation.save()
         # observation = instance.first_observation_get_or_create
         # observation.taxon_verified = True
-        instance.taxon_verified = True
         instance.updated_by = request.user.caiduser
         instance.updated_at = django.utils.timezone.now()
-        instance.save()
+        instance.save(update_fields=["updated_by", "updated_at"])
     elif "btnBulkProcessing_set_full_image_bbox" in form.data:
         _set_mediafile_bbox_to_full_image(instance, request.user.caiduser)
     elif "btnBulkProcessing_remove_bbox" in form.data:
@@ -5655,7 +5650,7 @@ def _get_mediafiles_for_export(request, uploadedarchive_id: Optional[int]) -> Tu
         uploadedarchive_id=uploadedarchive_id,
     )
     mediafiles = mediafiles.select_related(
-        "parent", "locality", "taxon", "predicted_taxon", "identity", "sequence"
+        "parent", "locality", "sequence"
     ).prefetch_related(
         Prefetch(
             "observations",
@@ -5698,11 +5693,6 @@ def _get_mediafile_export_context(mediafile: models.MediaFile) -> Dict[str, str]
             observation_taxa.append(observation.taxon.name)
         if observation.identity_id and observation.identity:
             observation_identities.append(observation.identity.name)
-
-    if not observation_taxa and mediafile.taxon_id and mediafile.taxon:
-        observation_taxa.append(mediafile.taxon.name)
-    if not observation_identities and mediafile.identity_id and mediafile.identity:
-        observation_identities.append(mediafile.identity.name)
 
     species, species_list = _build_export_value(observation_taxa, "unknown_species", "mixed_species")
     identity, identity_list = _build_export_value(observation_identities, "unknown_identity", "mixed_identity")
@@ -5786,7 +5776,7 @@ def _get_sequence_download_mediafiles(request: HttpRequest) -> QuerySet:
     return (
         MediaFile.objects.for_user(request.user.caiduser)
         .filter(id__in=mediafile_ids)
-        .select_related("parent", "locality", "sequence", "taxon", "predicted_taxon", "identity")
+        .select_related("parent", "locality", "sequence")
         .prefetch_related(
             Prefetch(
                 "observations",
@@ -5847,10 +5837,9 @@ def _build_sequence_observation_export_records(
         observations = list(mediafile.observations.all()) or [None]
         mediafile_location_values = _location_export_values(mediafile)
         for observation in observations:
-            # Existing observations must never silently inherit legacy mediafile metadata.
-            taxon = observation.taxon if observation else mediafile.taxon
-            predicted_taxon = observation.predicted_taxon if observation else mediafile.predicted_taxon
-            identity = observation.identity if observation else mediafile.identity
+            taxon = observation.taxon if observation else None
+            predicted_taxon = observation.predicted_taxon if observation else None
+            identity = observation.identity if observation else None
             row = {
                 "mediafile_id": mediafile.id,
                 "observation_id": observation.id if observation else "",
@@ -5863,17 +5852,17 @@ def _build_sequence_observation_export_records(
                 "media_type": mediafile.media_type,
                 "locality name": mediafile.locality.name if mediafile.locality else "",
                 "predicted_category": taxon.name if taxon else "",
-                "taxon_verified": observation.taxon_verified if observation else mediafile.taxon_verified,
+                "taxon_verified": observation.taxon_verified if observation else "",
                 "predicted_taxon": predicted_taxon.name if predicted_taxon else "",
                 "predicted_taxon_id": predicted_taxon.id if predicted_taxon else "",
                 "predicted_taxon_confidence": (
-                    observation.predicted_taxon_confidence if observation else mediafile.predicted_taxon_confidence
+                    observation.predicted_taxon_confidence if observation else ""
                 ),
                 "identity_is_representative": (
-                    observation.identity_is_representative if observation else mediafile.identity_is_representative
+                    observation.identity_is_representative if observation else ""
                 ),
                 "identity_id": identity.id if identity else "",
-                "orientation": observation.orientation if observation else mediafile.orientation,
+                "orientation": observation.orientation if observation else "",
                 "bbox_cx": observation.bbox_x_center if observation else "",
                 "bbox_cy": observation.bbox_y_center if observation else "",
                 "bbox_w": observation.bbox_width if observation else "",
@@ -6389,7 +6378,14 @@ class MergeIdentitiesWithPreview(View):
         # Differences for the right column
 
         form = IndividualIdentityForm(instance=suggestion)
-        media_file = MediaFile.objects.filter(identity=individual_to, identity_is_representative=True).first()
+        media_file = (
+            individual_to.observation_mediafiles()
+            .filter(
+                observations__identity=individual_to,
+                observations__identity_is_representative=True,
+            )
+            .first()
+        )
 
         return render(
             request,
@@ -6422,8 +6418,7 @@ class MergeIdentitiesWithPreview(View):
             individual_identity.updated_by = request.user.caiduser
             individual_identity.save()
 
-            # mediafiles of identity2 are reassigned to identity1
-            individual_from.mediafile_set.update(identity=individual_to)
+            AnimalObservation.objects.filter(identity=individual_from).update(identity=individual_to)
 
             models.MediafileIdentificationSuggestion.objects.filter(identity=individual_from).update(
                 identity=individual_to
@@ -6473,8 +6468,8 @@ def merge_identities_helper(request, individual_from, individual_to):
     for field, value in suggestion_data.items():
         logger.debug(f"{field=}, {value=}")
         setattr(individual_to, field, value)
-    # Reassign media files and identification suggestions from individual_from to individual_to.
-    individual_from.mediafile_set.update(identity=individual_to)
+    # Reassign observations and identification suggestions from individual_from to individual_to.
+    AnimalObservation.objects.filter(identity=individual_from).update(identity=individual_to)
     models.MediafileIdentificationSuggestion.objects.filter(identity=individual_from).update(identity=individual_to)
     # Remove the redundant identity.
     individual_from.delete()
@@ -6616,7 +6611,6 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
                                 identity.save()
                                 counter_fields_updated += 1
                             ao.identity = identity
-                            mf.identity = identity
                             counter_fields_updated += 1
                             counter_individuality += 1
 
@@ -7364,8 +7358,8 @@ def identification_outlier_suggestions_view(request, result_id: int = None):
         raw_name = str(mediafile.original_filename or mediafile.mediafile or mediafile.id)
         short_name = Path(raw_name).name if raw_name else str(mediafile.id)
         tooltip_parts = []
-        if mediafile.taxon:
-            tooltip_parts.append(f"Taxon: {mediafile.taxon}")
+        if mediafile.taxons_display:
+            tooltip_parts.append(f"Taxon: {mediafile.taxons_display}")
         if mediafile.note:
             tooltip_parts.append(f"Comments: {mediafile.note}")
         return {
@@ -7388,8 +7382,8 @@ def identification_outlier_suggestions_view(request, result_id: int = None):
             suspicious_mediafile = MediaFile.objects.filter(id=suspicious_mediafile_id).first()
         if current_identity_id:
             current_identity = IndividualIdentity.objects.filter(id=current_identity_id).first()
-        elif suspicious_mediafile and suspicious_mediafile.identity_id:
-            current_identity = suspicious_mediafile.identity
+        elif suspicious_mediafile:
+            current_identity = suspicious_mediafile.identity_from_observations
 
         for raw_candidate in raw_item.get("suggestions", []):
             candidate_mediafile = MediaFile.objects.filter(id=raw_candidate.get("mediafile_id")).first()
@@ -7538,9 +7532,18 @@ def accept_identification_outlier_suggestion_view(request):
     if suggested_identity.owner_workgroup != request.user.caiduser.workgroup:
         return HttpResponseNotAllowed("Not allowed to use this identity.")
 
-    suspicious_mediafile.identity = suggested_identity
-    suspicious_mediafile.updated_by = request.user.caiduser
-    suspicious_mediafile.save(update_fields=["identity", "updated_by"])
+    observations = list(suspicious_mediafile.observations.order_by("id")[:2])
+    if len(observations) != 1:
+        messages.warning(
+            request,
+            "Identity was not changed because this media file does not have exactly one observation.",
+        )
+        return redirect(next_url)
+    observation = observations[0]
+    observation.identity = suggested_identity
+    observation.updated_by = request.user.caiduser
+    observation.updated_at = django.utils.timezone.now()
+    observation.save(update_fields=["identity", "updated_by", "updated_at"])
 
     if result_id:
         result = models.IdentificationOutlierSuggestionResult.objects.filter(
@@ -8657,22 +8660,24 @@ def toggle_identity_representative(request, mediafile_id: int):
     if request.user.caiduser.workgroup != mf.parent.owner.workgroup:
         return HttpResponseNotAllowed("Not allowed")
 
-    observations = list(mf.observations.filter(identity__isnull=False).order_by("id"))
-    if mf.identity is not None:
-        observations = [observation for observation in observations if observation.identity_id == mf.identity_id]
-    if not observations:
-        return JsonResponse({"ok": False, "error": "Mediafile nema prirazenou identitu."}, status=400)
+    observations = list(mf.observations.order_by("id")[:2])
+    if len(observations) != 1:
+        return JsonResponse(
+            {
+                "ok": False,
+                "error": "Representative status can be changed here only for a media file with exactly one observation.",
+            },
+            status=400,
+        )
+    observation = observations[0]
+    if observation.identity_id is None:
+        return JsonResponse({"ok": False, "error": "The observation has no identity."}, status=400)
 
-    representative = not any(observation.identity_is_representative for observation in observations)
-    for observation in observations:
-        observation.identity_is_representative = representative
-        observation.updated_by = request.user.caiduser
-        observation.updated_at = django.utils.timezone.now()
-        observation.save(update_fields=["identity_is_representative", "updated_by", "updated_at"])
-
-    mf.identity_is_representative = representative
-    mf.updated_by = request.user.caiduser
-    mf.save(update_fields=["identity_is_representative", "updated_by"])
+    representative = not observation.identity_is_representative
+    observation.identity_is_representative = representative
+    observation.updated_by = request.user.caiduser
+    observation.updated_at = django.utils.timezone.now()
+    observation.save(update_fields=["identity_is_representative", "updated_by", "updated_at"])
 
     logger.debug("almost done")
     return JsonResponse({"ok": True, "representative": representative})
