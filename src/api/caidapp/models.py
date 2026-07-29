@@ -1652,12 +1652,6 @@ class MediaFile(models.Model):
         ("video", "Video"),
     )
     parent = models.ForeignKey(UploadedArchive, on_delete=models.CASCADE, null=True)
-    taxon = models.ForeignKey(Taxon, blank=True, null=True, on_delete=models.CASCADE, verbose_name="Taxon")
-    # legacy_taxon = taxon
-    predicted_taxon = models.ForeignKey(
-        Taxon, blank=True, null=True, on_delete=models.SET_NULL, related_name="predicted_taxon"
-    )
-    predicted_taxon_confidence = models.FloatField(null=True, blank=True)
     locality = models.ForeignKey(
         Locality,
         blank=True,
@@ -1687,24 +1681,17 @@ class MediaFile(models.Model):
     thumbnail = models.ImageField(blank=True, null=True, max_length=500)
     static_thumbnail = models.ImageField(blank=True, null=True, max_length=500)
     preview = models.ImageField(blank=True, null=True, max_length=500)  # 1200 x 800 px preview
-    identity = models.ForeignKey(IndividualIdentity, blank=True, null=True, on_delete=models.SET_NULL)
-    # TODO remove Observation properties
-    identity_is_representative = models.BooleanField(default=False)
     updated_by = models.ForeignKey(CaIDUser, on_delete=models.SET_NULL, null=True, blank=True)
     updated_at = models.DateTimeField("Updated at", blank=True, null=True)
     metadata_json = models.JSONField(blank=True, null=True)
-    animal_number = models.IntegerField(null=True, blank=True)
     media_type = models.CharField(
         max_length=255,
         blank=True,
         default="image",
         choices=MEDIA_TYPE_CHOICES,
     )
-    orientation = models.CharField(max_length=2, choices=ORIENTATION_CHOICES, default="N")
     original_filename = models.CharField(max_length=512, blank=True, default="")
 
-    taxon_verified = models.BooleanField("Taxon verified", default=False)
-    taxon_verified_at = models.DateTimeField("Taxon verified at", blank=True, null=True)
     sequence = models.ForeignKey(Sequence, on_delete=models.SET_NULL, null=True, blank=True)
     note = models.TextField(blank=True, default="")
     media_file_corrupted = models.BooleanField("Media file corrupted", default=False)

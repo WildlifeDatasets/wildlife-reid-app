@@ -468,7 +468,7 @@ class AnimalObservationFormTest(TestCase):
 
         self.assertEqual(
             list(form.fields["identity"].queryset.values_list("name", flat=True)),
-            ["Antelope", "Identity0", "Zebra"],
+            ["Antelope", "Zebra"],
         )
         self.assertIn("js-searchable-select", form.fields["identity"].widget.attrs["class"])
         self.assertIn("js-searchable-select", form.fields["taxon"].widget.attrs["class"])
@@ -799,16 +799,12 @@ class MediaFileUpdateEmptyObservationTest(TestCase):
         self.assertIn("created_identity_id=", response.url)
         self.assertIn("select_observation_prefix=observations-1", response.url)
         mediafile.refresh_from_db()
-        self.assertIsNone(mediafile.identity)
+        self.assertFalse(hasattr(mediafile, "identity"))
 
     def test_predicted_taxon_select_uses_taxon_id_and_refreshes_searchable_dropdown(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)
         predicted_taxon = TaxonFactory(name="Panthera pardus")
-        mediafile = MediaFileFactory(
-            parent=archive,
-            predicted_taxon=predicted_taxon,
-            predicted_taxon_confidence=0.91,
-        )
+        mediafile = MediaFileFactory(parent=archive)
         AnimalObservationFactory(
             mediafile=mediafile,
             taxon=None,
@@ -1220,7 +1216,7 @@ class IdentityListBulkActionsTest(TestCase):
         self.assertFalse(models.IndividualIdentity.objects.filter(id=identity.id).exists())
         self.assertTrue(models.IndividualIdentity.objects.filter(id=other_identity.id).exists())
         mediafile.refresh_from_db()
-        self.assertIsNone(mediafile.identity)
+        self.assertFalse(mediafile.observations.exclude(identity=None).exists())
 
     def test_bulk_delete_redirects_to_first_page_when_last_page_disappears(self):
         identities = [
@@ -1262,14 +1258,17 @@ class IdentityListBulkActionsTest(TestCase):
         self.assertIn(f"individual_identity_ids={second.id}", response["Location"])
 
     def test_list_view_edit_links_preserve_tabular_layout_in_next(self):
-        identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Alpha")
+        for index in range(25):
+            IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name=f"Identity {index:02d}")
+        identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Zulu")
 
         response = self.client.get(reverse("caidapp:individual_identities"), {"view": "list", "page": 2})
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(
             response,
-            f'{reverse("caidapp:individual_identity_update", args=[identity.id])}?next=%2Fcaidapp%2Findividual_identities%2F%3Fview%3Dlist%26page%3D2',
+            f'{reverse("caidapp:individual_identity_update", args=[identity.id])}'
+            "?next=/caidapp/individual_identities/%3Fview%3Dlist%26page%3D2",
         )
 
     def test_identity_update_links_to_sequences(self):
@@ -1316,7 +1315,7 @@ class IdentityListBulkActionsTest(TestCase):
         response = self.client.get(reverse("caidapp:individual_identity_update", args=[identity.id]))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Media Files: 2")
+        self.assertContains(response, "Media Files (2)")
         self.assertContains(response, reverse("caidapp:individual_identity_mediafiles", args=[identity.id]))
 
     def test_identity_update_nav_shows_mediafile_and_sequence_counts(self):
@@ -1404,7 +1403,7 @@ class SequenceViewTest(TestCase):
 
         self.assertEqual(response.status_code, 200)
         mediafile.refresh_from_db()
-        self.assertIsNone(mediafile.identity)
+        self.assertFalse(mediafile.observations.exists())
 
     def test_mediafiles_bbox_preview_uses_image_area_wrapper(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)
@@ -1737,7 +1736,7 @@ class SequenceViewTest(TestCase):
         archive = UploadedArchiveFactory(owner=self.caiduser)
         sequence = SequenceFactory(uploaded_archive=archive)
         taxon = TaxonFactory(name="Wolf")
-        mediafile = MediaFileFactory(parent=archive, sequence=sequence, original_filename="verified.jpg", taxon_verified=True)
+        mediafile = MediaFileFactory(parent=archive, sequence=sequence, original_filename="verified.jpg")
         AnimalObservationFactory(mediafile=mediafile, taxon=taxon, taxon_verified=True)
 
         response = self.client.get(
@@ -1906,8 +1905,6 @@ class SequenceViewTest(TestCase):
         first_observation.refresh_from_db()
         second_observation.refresh_from_db()
 
-        self.assertIsNone(first_mediafile.identity)
-        self.assertIsNone(second_mediafile.identity)
         self.assertEqual(first_observation.identity, target_identity)
         self.assertEqual(second_observation.identity, target_identity)
 
@@ -1942,7 +1939,7 @@ class SequenceViewTest(TestCase):
 
     def test_mediafiles_bulk_representative_false_updates_single_observation(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)
-        mediafile = MediaFileFactory(parent=archive, original_filename="selected.jpg", identity_is_representative=True)
+        mediafile = MediaFileFactory(parent=archive, original_filename="selected.jpg")
         observation = AnimalObservationFactory(mediafile=mediafile, identity_is_representative=True)
 
         response = self.client.post(
@@ -1961,12 +1958,11 @@ class SequenceViewTest(TestCase):
         self.assertEqual(response.status_code, 200)
         mediafile.refresh_from_db()
         observation.refresh_from_db()
-        self.assertTrue(mediafile.identity_is_representative)
         self.assertFalse(observation.identity_is_representative)
 
     def test_mediafiles_bulk_representative_skips_multiple_observations(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)
-        mediafile = MediaFileFactory(parent=archive, original_filename="multi.jpg", identity_is_representative=True)
+        mediafile = MediaFileFactory(parent=archive, original_filename="multi.jpg")
         first_observation = AnimalObservationFactory(mediafile=mediafile, identity_is_representative=True)
         second_observation = AnimalObservationFactory(mediafile=mediafile, identity_is_representative=True)
 
@@ -1987,7 +1983,6 @@ class SequenceViewTest(TestCase):
         mediafile.refresh_from_db()
         first_observation.refresh_from_db()
         second_observation.refresh_from_db()
-        self.assertTrue(mediafile.identity_is_representative)
         self.assertTrue(first_observation.identity_is_representative)
         self.assertTrue(second_observation.identity_is_representative)
         self.assertContains(response, "Representative identity was not changed")
@@ -2060,11 +2055,9 @@ class SequenceViewTest(TestCase):
 
     def test_mediafile_export_uses_observation_values_and_relative_bbox(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)
-        legacy_taxon = TaxonFactory(name="Legacy taxon")
         observed_taxon = TaxonFactory(name="Observed taxon")
         mediafile = MediaFileFactory(
             parent=archive,
-            taxon=legacy_taxon,
             original_filename="two.jpg",
             note="Mother with three juveniles",
         )
@@ -2987,7 +2980,7 @@ class IdentificationUploadsViewTest(TestCase):
         observation.refresh_from_db()
         mediafile.refresh_from_db()
         self.assertEqual(observation.identity, identity)
-        self.assertIsNone(mediafile.identity)
+        self.assertFalse(hasattr(mediafile, "identity"))
         self.assertFalse(models.MediafilesForIdentification.objects.filter(id=queue_item.id).exists())
 
     def test_reid_selection_with_multiple_observations_requires_manual_choice(self):
@@ -3285,9 +3278,9 @@ class IdentificationUploadsViewTest(TestCase):
         mediafile.refresh_from_db()
         other_mediafile.refresh_from_db()
         self.assertEqual(mediafile.locality.name, "Brdy")
-        self.assertEqual(mediafile.identity.name, "Charles")
+        self.assertEqual(mediafile.identity_from_observations.name, "Charles")
         self.assertIsNone(other_mediafile.locality)
-        self.assertIsNone(other_mediafile.identity)
+        self.assertIsNone(other_mediafile.identity_from_observations)
 
     def test_uploads_identities_uses_is_for_identification_without_taxon_requirement(self):
         visible_archive = UploadedArchiveFactory(
@@ -3796,7 +3789,7 @@ class IdentificationRerunTest(TestCase):
         )
         AnimalObservationFactory(
             mediafile=representative_mediafile,
-            identity=representative_mediafile.identity,
+            identity=representative_mediafile.identity_from_observations,
             taxon=self.workgroup.default_taxon_for_identification,
             identity_is_representative=True,
         )
@@ -3861,7 +3854,7 @@ class IdentificationRerunTest(TestCase):
         )
         AnimalObservationFactory(
             mediafile=representative_mediafile,
-            identity=representative_mediafile.identity,
+            identity=representative_mediafile.identity_from_observations,
             taxon=self.workgroup.default_taxon_for_identification,
             identity_is_representative=True,
         )

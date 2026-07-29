@@ -1135,9 +1135,11 @@ def paginate_queryset(queryset, request):
 def _uploads_general_order_annotation():
     # for UploadedArchive.objects.annotate()
     return dict(
-        mediafile_count=Count("mediafile"),  # Count of all related MediaFiles
+        mediafile_count=Count("mediafile", distinct=True),  # Count of all related MediaFiles
         mediafile_count_with_taxon=Count(
-            "mediafile", filter=Q(mediafile__taxon=F("taxon_for_identification"))
+            "mediafile",
+            filter=Q(mediafile__observations__taxon=F("taxon_for_identification")),
+            distinct=True,
         ),  # Count of MediaFiles with a specific taxon
         earliest_mediafile_captured_at=Min("mediafile__captured_at"),  # Earliest capture date
     )
@@ -1764,20 +1766,6 @@ def not_identified_mediafiles(request):
     )
 
 
-# delete
-# def get_best_representative_mediafiles(identity, orientation=None, max_count=5) -> List[MediaFile]:
-#     qs = identity.mediafile_set
-#     mf = qs.filter(identity_is_representative=True, orientation=orientation)
-#
-#     if not mf.exists():
-#         mf = qs.filter(identity_is_representative=True)
-#
-#     if not mf.exists():
-#         mf = qs.all()
-#
-#     return list(mf.order_by("-captured_at")[:max_count])
-
-
 def get_best_representative_mediafiles(identity, orientation=None, max_count=5) -> list[MediaFile]:
     """Get best representative mediafiles for identity."""
     # Pokud máme předem načtené reprezentativní mediafiles
@@ -1800,7 +1788,7 @@ def get_best_representative_mediafiles(identity, orientation=None, max_count=5) 
         mf = qs.filter(
             observations__identity=identity,
             observations__identity_is_representative=True,
-            orientation=orientation,
+            observations__orientation=orientation,
         )
         if not mf.exists():
             mf = qs.filter(observations__identity=identity, observations__identity_is_representative=True)

@@ -436,7 +436,6 @@ def _prepare_dataframe_for_identification(
     logger.debug(f"number of records={len(mediafiles)}")
     skipped_mediafile_ids = []
     for mediafile in mediafiles:
-        # if mediafile.identity is not None:
         try:
             image_path = _get_identification_source_image_path(mediafile, media_root)
         except FileNotFoundError as exc:
@@ -2451,12 +2450,6 @@ def _identification_output_observation(data, i, mediafile: MediaFile):
 #     top_k_labels: list,
 # ) -> None:
 #     """Warn if the identity mismatch is detected."""
-#     if top1_mediafile.identity.name != top_k_labels[0]:
-#         logger.warning(f"Identity mismatch: {top1_mediafile.identity.name} != {top_k_labels[0]}")
-#     if top2_mediafile.identity.name != top_k_labels[1]:
-#         logger.warning(f"Identity mismatch: {top2_mediafile.identity.name} != {top_k_labels[1]}")
-#     if top3_mediafile.identity.name != top_k_labels[2]:
-#         logger.warning(f"Identity mismatch: {top3_mediafile.identity.name} != {top_k_labels[2]}")
 
 
 @shared_task(bind=True)

@@ -91,6 +91,16 @@ class IndividualIdentityFactory(factory.django.DjangoModelFactory):
 
 
 
+def _set_mediafile_observation_value(mediafile, create, field, value, ignored_values=(None,)):
+    if not create or value in ignored_values:
+        return
+    observation = mediafile.observations.order_by("id").first()
+    if observation is None:
+        observation = models.AnimalObservation(mediafile=mediafile)
+    setattr(observation, field, value)
+    observation.save()
+
+
 class MediaFileFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = models.MediaFile
@@ -104,20 +114,65 @@ class MediaFileFactory(factory.django.DjangoModelFactory):
     original_filename = factory.Sequence(lambda n: f"image{n}.jpg")
 
     media_type = "image"
-    orientation = "N"
 
-    identity = None
+    @factory.post_generation
+    def identity(self, create, extracted, **kwargs):
+        _set_mediafile_observation_value(self, create, "identity", extracted)
 
-    class Params:
+    @factory.post_generation
+    def with_identity(self, create, extracted, **kwargs):
+        if create and extracted:
+            identity = IndividualIdentityFactory(owner_workgroup=self.parent.owner.workgroup)
+            _set_mediafile_observation_value(self, create, "identity", identity)
 
-        with_identity = factory.Trait(
-            identity=factory.SubFactory(IndividualIdentityFactory)
+    @factory.post_generation
+    def representative(self, create, extracted, **kwargs):
+        if create and extracted:
+            observation = self.observations.order_by("id").first()
+            if observation is None or observation.identity is None:
+                identity = IndividualIdentityFactory(owner_workgroup=self.parent.owner.workgroup)
+                _set_mediafile_observation_value(self, create, "identity", identity)
+            _set_mediafile_observation_value(self, create, "identity_is_representative", True)
+
+    @factory.post_generation
+    def identity_is_representative(self, create, extracted, **kwargs):
+        _set_mediafile_observation_value(
+            self,
+            create,
+            "identity_is_representative",
+            extracted,
+            ignored_values=(None, False),
         )
 
-        representative = factory.Trait(
-            identity_is_representative=True,
-            identity=factory.SubFactory(IndividualIdentityFactory)
-        )
+    @factory.post_generation
+    def taxon(self, create, extracted, **kwargs):
+        _set_mediafile_observation_value(self, create, "taxon", extracted)
+
+    @factory.post_generation
+    def predicted_taxon(self, create, extracted, **kwargs):
+        _set_mediafile_observation_value(self, create, "predicted_taxon", extracted)
+
+    @factory.post_generation
+    def predicted_taxon_confidence(self, create, extracted, **kwargs):
+        _set_mediafile_observation_value(self, create, "predicted_taxon_confidence", extracted)
+
+    @factory.post_generation
+    def orientation(self, create, extracted, **kwargs):
+        _set_mediafile_observation_value(self, create, "orientation", extracted, ignored_values=(None, "N"))
+
+    @factory.post_generation
+    def taxon_verified(self, create, extracted, **kwargs):
+        _set_mediafile_observation_value(self, create, "taxon_verified", extracted, ignored_values=(None, False))
+
+    @factory.post_generation
+    def taxon_verified_at(self, create, extracted, **kwargs):
+        _set_mediafile_observation_value(self, create, "taxon_verified_at", extracted)
+
+    @factory.post_generation
+    def animal_number(self, create, extracted, **kwargs):
+        # There is no observation equivalent. Accept the old test keyword while
+        # legacy tests are being migrated, but deliberately do not persist it.
+        return
 
 
 class AnimalObservationFactory(factory.django.DjangoModelFactory):
