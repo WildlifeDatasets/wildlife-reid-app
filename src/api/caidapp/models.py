@@ -641,6 +641,38 @@ class WorkGroup(models.Model):
 
 
 
+class ObservationImport(models.Model):
+    """A persisted, user-owned observation spreadsheet import."""
+
+    STATUS_QUEUED = "QUEUED"
+    STATUS_PROCESSING = "PROCESSING"
+    STATUS_SUCCEEDED = "SUCCEEDED"
+    STATUS_FAILED = "FAILED"
+    STATUS_CHOICES = (
+        (STATUS_QUEUED, "Queued"),
+        (STATUS_PROCESSING, "Processing"),
+        (STATUS_SUCCEEDED, "Succeeded"),
+        (STATUS_FAILED, "Failed"),
+    )
+
+    caiduser = models.ForeignKey("CaIDUser", on_delete=models.CASCADE, related_name="observation_imports")
+    source_filename = models.CharField(max_length=255)
+    stored_file = models.CharField(max_length=512)
+    task_id = models.CharField(max_length=255, blank=True, default="")
+    status = models.CharField(max_length=16, choices=STATUS_CHOICES, default=STATUS_QUEUED)
+    create_missing_localities = models.BooleanField(default=False)
+    create_missing_identities = models.BooleanField(default=False)
+    created_count = models.PositiveIntegerField(default=0)
+    updated_count = models.PositiveIntegerField(default=0)
+    error_message = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    started_at = models.DateTimeField(null=True, blank=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ("-created_at", "-id")
+
+
 class CaIDUser(models.Model):
     DjangoUser = get_user_model()
     id = models.AutoField(primary_key=True)

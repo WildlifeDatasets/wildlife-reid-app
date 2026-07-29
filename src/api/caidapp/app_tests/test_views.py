@@ -2248,7 +2248,8 @@ class SequenceViewTest(TestCase):
         first.refresh_from_db()
         self.assertIsNone(first.taxon)
 
-    def test_observation_import_explains_identity_path_and_cancels_entire_file(self):
+    @patch("caidapp.tasks.import_observations_task.delay", return_value=Mock(id="observation-import-task"))
+    def test_observation_import_explains_identity_path_and_cancels_entire_file(self, delay_mock):
         archive = UploadedArchiveFactory(owner=self.caiduser)
         observation = AnimalObservationFactory(mediafile=MediaFileFactory(parent=archive), identity=None)
         upload = SimpleUploadedFile(
@@ -2261,6 +2262,12 @@ class SequenceViewTest(TestCase):
         )
 
         response = self.client.post(reverse("caidapp:import_observations"), {"spreadsheet_file": upload})
+        self.assertEqual(response.status_code, 302)
+        observation_import = models.ObservationImport.objects.get()
+        delay_mock.assert_called_once_with(observation_import.id)
+        with patch.object(tasks.import_observations_task, "update_state"):
+            tasks.import_observations_task.run(observation_import.id)
+        response = self.client.get(response.url)
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Import cancelled — no rows were changed.")
@@ -2268,6 +2275,28 @@ class SequenceViewTest(TestCase):
         self.assertContains(response, "looks like an original file path")
         observation.refresh_from_db()
         self.assertIsNone(observation.identity)
+
+    @patch("caidapp.tasks.import_observations_task.delay", return_value=Mock(id="observation-import-task"))
+    def test_observation_import_runs_on_worker_and_persists_result(self, delay_mock):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        mediafile = MediaFileFactory(parent=archive)
+        upload = SimpleUploadedFile(
+            "observations.csv",
+            f"mediafile_id\n{mediafile.id}\n".encode(),
+            content_type="text/csv",
+        )
+
+        response = self.client.post(reverse("caidapp:import_observations"), {"spreadsheet_file": upload})
+
+        self.assertEqual(response.status_code, 302)
+        observation_import = models.ObservationImport.objects.get()
+        delay_mock.assert_called_once_with(observation_import.id)
+        with patch.object(tasks.import_observations_task, "update_state"):
+            tasks.import_observations_task.run(observation_import.id)
+        observation_import.refresh_from_db()
+        self.assertEqual(observation_import.status, models.ObservationImport.STATUS_SUCCEEDED)
+        self.assertEqual((observation_import.created_count, observation_import.updated_count), (1, 0))
+        self.assertEqual(mediafile.observations.count(), 1)
 
     def test_observation_import_option_creates_missing_locality(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)

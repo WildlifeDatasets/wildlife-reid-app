@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block body %}
+<div class="pagetitle"><h1>Import observations</h1></div>
+<section class="section">
+  <div class="card"><div class="card-body pt-3">
+    <p><strong>{{ observation_import.source_filename }}</strong></p>
+    {% if observation_import.status == "QUEUED" %}
+      <p class="text-muted">Import is queued and will start shortly.</p>
+    {% elif observation_import.status == "PROCESSING" %}
+      <p class="text-primary">Import is processing. This page refreshes automatically.</p>
+    {% elif observation_import.status == "SUCCEEDED" %}
+      <div class="alert alert-success">Imported observations: {{ observation_import.created_count }} created, {{ observation_import.updated_count }} updated.</div>
+      <a class="btn btn-primary" href="{% url 'caidapp:media_files' %}">View media files</a>
+    {% else %}
+      <div class="alert alert-danger">Import cancelled — no rows were changed. {{ observation_import.error_message }}</div>
+      <a class="btn btn-outline-primary" href="{% url 'caidapp:import_observations' %}">Try another file</a>
+    {% endif %}
+  </div></div>
+</section>
+{% if observation_import.status == "QUEUED" or observation_import.status == "PROCESSING" %}
+<script>window.setTimeout(() => window.location.reload(), 2000);</script>
+{% endif %}
+{% endblock %}

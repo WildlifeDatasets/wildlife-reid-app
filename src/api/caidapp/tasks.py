@@ -70,6 +70,65 @@ def record_identification_worker_gpu_heartbeat(
     return heartbeat.id
 
 
+@shared_task(bind=True, name="caidapp.tasks.import_observations_task")
+def import_observations_task(self, observation_import_id: int) -> dict:
+    """Run a submitted observation spreadsheet outside the HTTP request lifecycle."""
+    try:
+        observation_import = models.ObservationImport.objects.select_related("caiduser").get(pk=observation_import_id)
+    except models.ObservationImport.DoesNotExist:
+        logger.warning("Observation import %s no longer exists", observation_import_id)
+        return {"status": "missing"}
+
+    observation_import.status = models.ObservationImport.STATUS_PROCESSING
+    observation_import.started_at = now()
+    observation_import.error_message = ""
+    observation_import.save(update_fields=["status", "started_at", "error_message"])
+    self.update_state(state="PROGRESS", meta={"completed": 0, "total": 0, "message": "Reading spreadsheet"})
+
+    def report_progress(completed: int, total: int) -> None:
+        self.update_state(
+            state="PROGRESS",
+            meta={"completed": completed, "total": total, "message": f"Processing row {completed} of {total}"},
+        )
+
+    try:
+        # Imported lazily to avoid the views/tasks import cycle during Django startup.
+        from .views import _import_observation_dataframe, _read_uploaded_spreadsheet
+
+        with open(observation_import.stored_file, "rb") as spreadsheet_file:
+            dataframe = _read_uploaded_spreadsheet(spreadsheet_file)
+        self.update_state(
+            state="PROGRESS",
+            meta={"completed": 0, "total": len(dataframe.index), "message": "Validating and importing rows"},
+        )
+        created, updated = _import_observation_dataframe(
+            dataframe,
+            observation_import.caiduser,
+            create_missing_localities=observation_import.create_missing_localities,
+            create_missing_identities=observation_import.create_missing_identities,
+            progress_callback=report_progress,
+        )
+    except Exception as exc:
+        logger.exception("Observation import %s failed", observation_import_id)
+        observation_import.status = models.ObservationImport.STATUS_FAILED
+        observation_import.error_message = str(exc)
+        observation_import.finished_at = now()
+        observation_import.save(update_fields=["status", "error_message", "finished_at"])
+        return {"status": "failed", "error": str(exc)}
+    finally:
+        try:
+            Path(observation_import.stored_file).unlink(missing_ok=True)
+        except OSError:
+            logger.warning("Could not remove uploaded observation import %s", observation_import_id, exc_info=True)
+
+    observation_import.status = models.ObservationImport.STATUS_SUCCEEDED
+    observation_import.created_count = created
+    observation_import.updated_count = updated
+    observation_import.finished_at = now()
+    observation_import.save(update_fields=["status", "created_count", "updated_count", "finished_at"])
+    return {"status": "succeeded", "created": created, "updated": updated}
+
+
 def resolve_identification_selection(
     workgroup: WorkGroup,
     uploaded_archive: UploadedArchive | None = None,

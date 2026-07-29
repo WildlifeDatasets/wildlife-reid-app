@@ -8,6 +8,7 @@ import re
 import time
 import traceback
 import urllib.parse
+import uuid
 import zipfile
 from functools import wraps
 from io import BytesIO
@@ -8435,6 +8436,7 @@ def _import_observation_dataframe(
     caiduser,
     create_missing_localities=False,
     create_missing_identities=False,
+    progress_callback=None,
 ) -> Tuple[int, int]:
     """Atomically create or update observations from an exported spreadsheet."""
     if "mediafile_id" not in df.columns:
@@ -8448,6 +8450,7 @@ def _import_observation_dataframe(
     created = updated = 0
 
     with transaction.atomic():
+        total_rows = len(df.index)
         for row_number, series in enumerate(df.to_dict(orient="records"), start=2):
             try:
                 mediafile_id = _spreadsheet_strict_id(series.get("mediafile_id"), "mediafile_id", required=True)
@@ -8553,6 +8556,8 @@ def _import_observation_dataframe(
                     mediafile.save(update_fields=[*mediafile_fields, "updated_by", "updated_at"])
             except ValueError as exc:
                 raise ValueError(f"Row {row_number}: {exc}") from exc
+            if progress_callback and (row_number == total_rows + 1 or row_number % 25 == 0):
+                progress_callback(row_number - 1, total_rows)
     return created, updated
 
 
@@ -8562,19 +8567,40 @@ def import_observations_view(request):
     if request.method == "POST":
         form = forms.SpreadsheetFileImportForm(request.POST, request.FILES)
         if form.is_valid():
+            observation_import = None
+            stored_file = None
             try:
-                df = _read_uploaded_spreadsheet(form.cleaned_data["spreadsheet_file"])
-                created, updated = _import_observation_dataframe(
-                    df,
-                    request.user.caiduser,
+                uploaded_file = form.cleaned_data["spreadsheet_file"]
+                suffix = Path(uploaded_file.name).suffix.lower()
+                if suffix not in {".csv", ".xlsx"}:
+                    raise ValueError("Only .csv and .xlsx files are supported.")
+                import_dir = Path(settings.PRIVATE_DATA_PATH) / "observation_imports"
+                import_dir.mkdir(parents=True, exist_ok=True)
+                stored_file = import_dir / f"{uuid.uuid4().hex}{suffix}"
+                with stored_file.open("wb") as destination:
+                    for chunk in uploaded_file.chunks():
+                        destination.write(chunk)
+                observation_import = models.ObservationImport.objects.create(
+                    caiduser=request.user.caiduser,
+                    source_filename=Path(uploaded_file.name).name[:255],
+                    stored_file=str(stored_file),
                     create_missing_localities=form.cleaned_data["create_missing_localities"],
                     create_missing_identities=form.cleaned_data["create_missing_identities"],
                 )
-            except ValueError as exc:
+            except Exception as exc:
+                if observation_import is not None:
+                    observation_import.status = models.ObservationImport.STATUS_FAILED
+                    observation_import.error_message = f"Could not queue import: {exc}"
+                    observation_import.finished_at = timezone.now()
+                    observation_import.save(update_fields=["status", "error_message", "finished_at"])
+                if stored_file is not None:
+                    stored_file.unlink(missing_ok=True)
                 form.add_error("spreadsheet_file", f"Import cancelled — no rows were changed. {exc}")
             else:
-                messages.success(request, f"Imported observations: {created} created, {updated} updated.")
-                return redirect("caidapp:media_files")
+                task = tasks.import_observations_task.delay(observation_import.id)
+                observation_import.task_id = task.id
+                observation_import.save(update_fields=["task_id"])
+                return redirect("caidapp:observation_import_status", pk=observation_import.id)
     else:
         form = forms.SpreadsheetFileImportForm()
     return render(
@@ -8598,6 +8624,13 @@ def import_observations_view(request):
             "next": "caidapp:media_files",
         },
     )
+
+
+@login_required
+def observation_import_status_view(request, pk):
+    """Show a persisted observation-import status to its submitting user only."""
+    observation_import = get_object_or_404(models.ObservationImport, pk=pk, caiduser=request.user.caiduser)
+    return render(request, "caidapp/observation_import_status.html", {"observation_import": observation_import})
 
 
 # create view which will be shown just before the identify to make sure that the user wants to identify
