@@ -8292,14 +8292,7 @@ def _resolve_imported_related_object(row, id_column, name_columns, queryset, lab
                 "it must identify exactly one record"
             )
             if label == "identity" and column == "unique_name":
-                looks_like_path = "/" in str(value) or "\\" in str(value) or Path(str(value)).suffix.lower() in {
-                    ".jpg",
-                    ".jpeg",
-                    ".png",
-                    ".tif",
-                    ".tiff",
-                }
-                if looks_like_path:
+                if _looks_like_original_file_path(value):
                     message += (
                         ". This value looks like an original file path, not an identity name; "
                         "check that the spreadsheet columns have not shifted"
@@ -8308,6 +8301,60 @@ def _resolve_imported_related_object(row, id_column, name_columns, queryset, lab
             raise ValueError(message)
         return matches.first(), True
     return None, False
+
+
+def _looks_like_original_file_path(value) -> bool:
+    value = str(value)
+    return "/" in value or "\\" in value or Path(value).suffix.lower() in {".jpg", ".jpeg", ".png", ".tif", ".tiff"}
+
+
+def _resolve_imported_identity(row, queryset, caiduser, create_missing=False):
+    """Resolve an identity, optionally creating one from an explicit unique_name."""
+    raw_id = row.get("identity_id")
+    if _spreadsheet_cell_requests_clear(raw_id):
+        return None, True
+    identity_id = _spreadsheet_strict_id(raw_id, "identity_id")
+    if identity_id is not None:
+        return _resolve_imported_related_object(row, "identity_id", ("unique_name", "code"), queryset, "identity")
+
+    unique_name = row.get("unique_name")
+    if not _spreadsheet_cell_has_value(unique_name):
+        return _resolve_imported_related_object(row, "identity_id", ("unique_name", "code"), queryset, "identity")
+
+    unique_name = str(unique_name).strip()
+    matches = queryset.filter(name=unique_name)
+    match_count = matches.count()
+    if match_count == 1:
+        return matches.first(), True
+    if match_count > 1:
+        raise ValueError(f"identity unique_name '{unique_name}' matched {match_count} records; it must identify exactly one record")
+    if not create_missing:
+        message = f"identity unique_name '{unique_name}' matched 0 records; it must identify exactly one record"
+        if _looks_like_original_file_path(unique_name):
+            message += ". This value looks like an original file path, not an identity name; check that the spreadsheet columns have not shifted"
+        raise ValueError(message)
+    if _looks_like_original_file_path(unique_name):
+        raise ValueError(
+            "identity unique_name "
+            f"'{unique_name}' looks like an original file path, so it cannot be used to create an identity"
+        )
+    if len(unique_name) > IndividualIdentity._meta.get_field("name").max_length:
+        raise ValueError("identity unique_name is too long")
+
+    code = row.get("code")
+    code = str(code).strip() if _spreadsheet_cell_has_value(code) else None
+    if code:
+        if len(code) > IndividualIdentity._meta.get_field("code").max_length:
+            raise ValueError("identity code is too long")
+        code_match_count = queryset.filter(code=code).count()
+        if code_match_count:
+            raise ValueError(f"identity code '{code}' is already used by {code_match_count} records")
+    return IndividualIdentity.objects.create(
+        name=unique_name,
+        code=code,
+        owner_workgroup=caiduser.workgroup,
+        updated_by=caiduser,
+    ), True
 
 
 def _resolve_imported_locality(row, queryset, caiduser, create_missing=False):
@@ -8383,7 +8430,12 @@ def _observation_mediafile_note_from_row(row) -> Tuple[bool, str]:
     return True, updates[0][1]
 
 
-def _import_observation_dataframe(df: pd.DataFrame, caiduser, create_missing_localities=False) -> Tuple[int, int]:
+def _import_observation_dataframe(
+    df: pd.DataFrame,
+    caiduser,
+    create_missing_localities=False,
+    create_missing_identities=False,
+) -> Tuple[int, int]:
     """Atomically create or update observations from an exported spreadsheet."""
     if "mediafile_id" not in df.columns:
         raise ValueError("Missing required column mediafile_id")
@@ -8435,8 +8487,11 @@ def _import_observation_dataframe(df: pd.DataFrame, caiduser, create_missing_loc
                 )
                 if supplied:
                     observation.predicted_taxon = predicted_taxon
-                identity, supplied = _resolve_imported_related_object(
-                    series, "identity_id", ("unique_name", "code"), identity_queryset, "identity"
+                identity, supplied = _resolve_imported_identity(
+                    series,
+                    identity_queryset,
+                    caiduser,
+                    create_missing=create_missing_identities,
                 )
                 if supplied:
                     observation.identity = identity
@@ -8513,6 +8568,7 @@ def import_observations_view(request):
                     df,
                     request.user.caiduser,
                     create_missing_localities=form.cleaned_data["create_missing_localities"],
+                    create_missing_identities=form.cleaned_data["create_missing_identities"],
                 )
             except ValueError as exc:
                 form.add_error("spreadsheet_file", f"Import cancelled — no rows were changed. {exc}")
@@ -8534,7 +8590,8 @@ def import_observations_view(request):
                 f"Use {OBSERVATION_IMPORT_CLEAR} to clear supported nullable values. "
                 "mediafile_note updates the note on the media file; the legacy note column is also accepted. "
                 "Rows for the same mediafile_id must not contain conflicting note values. "
-                "The optional checkbox can create missing localities from locality name; it never creates identities. "
+                "Optional checkboxes can create missing localities from locality name and identities from unique_name. "
+                "Identity creation rejects values that look like original file paths. "
                 "The import is atomic: if any row is invalid, no rows from the file are saved. "
                 "BBox uses YOLO-style normalized bbox_cx, bbox_cy, bbox_w and bbox_h values in the range 0-1."
             ),

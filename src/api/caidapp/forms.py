@@ -870,6 +870,11 @@ class SpreadsheetFileImportForm(forms.Form):
         label="Create missing localities",
         help_text="Create a locality only when locality_id is blank and locality name has no existing match.",
     )
+    create_missing_identities = forms.BooleanField(
+        required=False,
+        label="Create missing identities",
+        help_text="Create an identity only when identity_id is blank and unique_name is an explicit name, not a file path.",
+    )
 
 
 class UploadedArchiveFilterForm:

@@ -2295,6 +2295,38 @@ class SequenceViewTest(TestCase):
 
         self.assertFalse(models.Locality.objects.filter(name="New import locality", owner=self.caiduser).exists())
 
+    def test_observation_import_option_creates_missing_identity(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        mediafile = MediaFileFactory(parent=archive)
+
+        created, updated = views._import_observation_dataframe(
+            pd.DataFrame([{"mediafile_id": mediafile.id, "unique_name": "New import identity", "code": "NI-01"}]),
+            self.caiduser,
+            create_missing_identities=True,
+        )
+
+        self.assertEqual((created, updated), (1, 0))
+        observation = mediafile.observations.get()
+        self.assertEqual(observation.identity.name, "New import identity")
+        self.assertEqual(observation.identity.code, "NI-01")
+        self.assertEqual(observation.identity.owner_workgroup, self.caiduser.workgroup)
+
+    def test_observation_import_identity_path_cannot_create_identity(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        mediafile = MediaFileFactory(parent=archive)
+        identity_name = "LY20/Zadni_paste/2020-09-20_B514_Julien_P.JPG"
+
+        with self.assertRaisesRegex(ValueError, "looks like an original file path"):
+            views._import_observation_dataframe(
+                pd.DataFrame([{"mediafile_id": mediafile.id, "unique_name": identity_name}]),
+                self.caiduser,
+                create_missing_identities=True,
+            )
+
+        self.assertFalse(
+            models.IndividualIdentity.objects.filter(name=identity_name, owner_workgroup=self.caiduser.workgroup).exists()
+        )
+
     def test_observation_import_invalid_id_does_not_create(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)
         mediafile = MediaFileFactory(parent=archive)
