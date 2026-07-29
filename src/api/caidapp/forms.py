@@ -776,18 +776,20 @@ class MediaFileMissingTaxonForm(forms.ModelForm):
         self.fields["taxon"].queryset = models.Taxon.objects.order_by("name")
 
 
-class MediaFileBulkForm(forms.ModelForm):
-    # select_all = forms.BooleanField(required=False)
-    class Meta:
-        model = MediaFile
-        fields = ("taxon", "identity", "identity_is_representative", "taxon_verified")
+class MediaFileBulkForm(forms.Form):
+    """Bulk operation inputs, deliberately independent of legacy MediaFile fields."""
+
+    taxon = forms.ModelChoiceField(queryset=models.Taxon.objects.none(), required=False)
+    identity = forms.ModelChoiceField(queryset=IndividualIdentity.objects.none(), required=False)
+    identity_is_representative = forms.BooleanField(required=False)
+    taxon_verified = forms.BooleanField(required=False)
 
     def __init__(self, *args, **kwargs):
         workgroup = kwargs.pop("workgroup", None)
-        super(MediaFileBulkForm, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.fields["taxon"].queryset = models.Taxon.objects.order_by("name")
         if workgroup is not None:
-            self.fields["identity"].queryset = self.fields["identity"].queryset.filter(owner_workgroup=workgroup)
+            self.fields["identity"].queryset = IndividualIdentity.objects.filter(owner_workgroup=workgroup)
         self.fields["identity"].queryset = self.fields["identity"].queryset.order_by("name")
         self.fields["identity"].label_from_instance = format_identity_choice_label
         self.fields["identity"].widget.attrs["class"] = (
@@ -863,6 +865,11 @@ class ChangeMediaFilesTimeForm(forms.Form):
 
 class SpreadsheetFileImportForm(forms.Form):
     spreadsheet_file = forms.FileField()
+    create_missing_localities = forms.BooleanField(
+        required=False,
+        label="Create missing localities",
+        help_text="Create a locality only when locality_id is blank and locality name has no existing match.",
+    )
 
 
 class UploadedArchiveFilterForm:

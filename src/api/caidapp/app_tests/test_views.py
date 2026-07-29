@@ -789,7 +789,7 @@ class MediaFileUpdateEmptyObservationTest(TestCase):
         next_url = reverse("caidapp:media_file_update", args=[mediafile.id])
 
         response = self.client.post(
-            reverse("caidapp:individual_identity_create", args=[mediafile.id]),
+            reverse("caidapp:individual_identity_create"),
             {"name": "Alpha", "code": "", "juv_code": "", "sex": "U", "coat_type": "U", "note": "", "next": next_url},
             QUERY_STRING="select_observation_prefix=observations-1",
         )
@@ -798,6 +798,8 @@ class MediaFileUpdateEmptyObservationTest(TestCase):
         self.assertIn(next_url, response.url)
         self.assertIn("created_identity_id=", response.url)
         self.assertIn("select_observation_prefix=observations-1", response.url)
+        mediafile.refresh_from_db()
+        self.assertIsNone(mediafile.identity)
 
     def test_predicted_taxon_select_uses_taxon_id_and_refreshes_searchable_dropdown(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)
@@ -1906,10 +1908,39 @@ class SequenceViewTest(TestCase):
         first_observation.refresh_from_db()
         second_observation.refresh_from_db()
 
-        self.assertEqual(first_mediafile.identity, target_identity)
-        self.assertEqual(second_mediafile.identity, target_identity)
+        self.assertIsNone(first_mediafile.identity)
+        self.assertIsNone(second_mediafile.identity)
         self.assertEqual(first_observation.identity, target_identity)
         self.assertEqual(second_observation.identity, target_identity)
+
+    def test_mediafiles_bulk_identity_update_skips_multiple_observations(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        target_identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Alpha")
+        mediafile = MediaFileFactory(parent=archive, original_filename="multiple.jpg")
+        first_observation = AnimalObservationFactory(mediafile=mediafile)
+        second_observation = AnimalObservationFactory(mediafile=mediafile)
+
+        response = self.client.post(
+            reverse("caidapp:media_files"),
+            {
+                "form-TOTAL_FORMS": "1",
+                "form-INITIAL_FORMS": "1",
+                "form-MIN_NUM_FORMS": "0",
+                "form-MAX_NUM_FORMS": "1000",
+                "form-0-id": str(mediafile.id),
+                "form-0-selected": "on",
+                "identity": str(target_identity.id),
+                "btnBulkProcessing_id_identity": "Apply to selection",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        first_observation.refresh_from_db()
+        second_observation.refresh_from_db()
+        self.assertIsNone(first_observation.identity)
+        self.assertIsNone(second_observation.identity)
+        self.assertContains(response, "Identity was not changed")
+        self.assertContains(response, "multiple observations")
 
     def test_mediafiles_bulk_representative_false_updates_single_observation(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)
@@ -1932,7 +1963,7 @@ class SequenceViewTest(TestCase):
         self.assertEqual(response.status_code, 200)
         mediafile.refresh_from_db()
         observation.refresh_from_db()
-        self.assertFalse(mediafile.identity_is_representative)
+        self.assertTrue(mediafile.identity_is_representative)
         self.assertFalse(observation.identity_is_representative)
 
     def test_mediafiles_bulk_representative_skips_multiple_observations(self):
@@ -2216,6 +2247,53 @@ class SequenceViewTest(TestCase):
 
         first.refresh_from_db()
         self.assertIsNone(first.taxon)
+
+    def test_observation_import_explains_identity_path_and_cancels_entire_file(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        observation = AnimalObservationFactory(mediafile=MediaFileFactory(parent=archive), identity=None)
+        upload = SimpleUploadedFile(
+            "observations.csv",
+            (
+                "mediafile_id,observation_id,unique_name\n"
+                f"{observation.mediafile_id},{observation.id},LY20/Zadni_paste/2020-09-20_B514_Julien_P.JPG\n"
+            ).encode(),
+            content_type="text/csv",
+        )
+
+        response = self.client.post(reverse("caidapp:import_observations"), {"spreadsheet_file": upload})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Import cancelled — no rows were changed.")
+        self.assertContains(response, "matched 0 records; it must identify exactly one record")
+        self.assertContains(response, "looks like an original file path")
+        observation.refresh_from_db()
+        self.assertIsNone(observation.identity)
+
+    def test_observation_import_option_creates_missing_locality(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        mediafile = MediaFileFactory(parent=archive, locality=None)
+        locality_name = "New import locality"
+
+        created, updated = views._import_observation_dataframe(
+            pd.DataFrame([{"mediafile_id": mediafile.id, "locality name": locality_name}]),
+            self.caiduser,
+            create_missing_localities=True,
+        )
+
+        self.assertEqual((created, updated), (1, 0))
+        mediafile.refresh_from_db()
+        self.assertEqual(mediafile.locality.name, locality_name)
+        self.assertEqual(mediafile.locality.owner, self.caiduser)
+
+    def test_observation_import_missing_locality_requires_checkbox(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        mediafile = MediaFileFactory(parent=archive, locality=None)
+        frame = pd.DataFrame([{"mediafile_id": mediafile.id, "locality name": "New import locality"}])
+
+        with self.assertRaisesRegex(ValueError, "locality name 'New import locality' matched 0 records"):
+            views._import_observation_dataframe(frame, self.caiduser)
+
+        self.assertFalse(models.Locality.objects.filter(name="New import locality", owner=self.caiduser).exists())
 
     def test_observation_import_invalid_id_does_not_create(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)
@@ -2830,6 +2908,38 @@ class IdentificationUploadsViewTest(TestCase):
         detail_url = reverse("caidapp:media_file_update", args=[mediafile.id])
         self.assertContains(response, f'href="{detail_url}?next=', html=False)
         self.assertContains(response, "Open media detail")
+
+    def test_reid_selection_updates_target_observation_without_legacy_identity(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser, is_for_identification=True)
+        mediafile = MediaFileFactory(parent=archive, metadata_json={})
+        observation = AnimalObservationFactory(mediafile=mediafile)
+        mediafile.metadata_json["reid_observation_id"] = observation.id
+        mediafile.save(update_fields=["metadata_json"])
+        queue_item = models.MediafilesForIdentification.objects.create(mediafile=mediafile)
+        identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Candidate")
+
+        response = self.client.get(reverse("caidapp:set_individual_identity", args=[queue_item.id, identity.id]))
+
+        self.assertRedirects(response, reverse("caidapp:get_individual_identity"))
+        observation.refresh_from_db()
+        mediafile.refresh_from_db()
+        self.assertEqual(observation.identity, identity)
+        self.assertIsNone(mediafile.identity)
+        self.assertFalse(models.MediafilesForIdentification.objects.filter(id=queue_item.id).exists())
+
+    def test_reid_selection_with_multiple_observations_requires_manual_choice(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser, is_for_identification=True)
+        mediafile = MediaFileFactory(parent=archive, metadata_json={})
+        AnimalObservationFactory(mediafile=mediafile)
+        AnimalObservationFactory(mediafile=mediafile)
+        queue_item = models.MediafilesForIdentification.objects.create(mediafile=mediafile)
+        identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Candidate")
+
+        response = self.client.get(reverse("caidapp:set_individual_identity", args=[queue_item.id, identity.id]))
+
+        self.assertRedirects(response, reverse("caidapp:media_file_update", args=[mediafile.id]))
+        self.assertTrue(models.MediafilesForIdentification.objects.filter(id=queue_item.id).exists())
+        self.assertFalse(mediafile.observations.filter(identity=identity).exists())
 
     def test_manual_identification_suggestion_menu_links_candidate_media_to_its_detail(self):
         archive = UploadedArchiveFactory(owner=self.caiduser, is_for_identification=True)

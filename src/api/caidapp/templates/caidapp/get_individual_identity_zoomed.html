@@ -35,9 +35,9 @@
                                         <div class="card-title">
 
                                             Top-{{ reid_suggestion_index|add:1 }}: {{ top_name }}
-                                        {% if top_mediafile.identity %}
-                                            <a href="{% url 'caidapp:individual_identity_update' top_mediafile.identity.id %}">
-                                                {{ top_mediafile.identity.name }}
+                                        {% if top_identity %}
+                                            <a href="{% url 'caidapp:individual_identity_update' top_identity.id %}">
+                                                {{ top_identity.name }}
                                             </a>
                                         {% else %}
                                             {{ top_name }}
@@ -47,8 +47,8 @@
                                             {{ top_score|mul:100|floatformat:2 }}%
                                         </p>
                                         <p class="card-text">
-                                            {% if top_mediafile.identity %}
-                                                <a href="{% url 'caidapp:set_individual_identity' foridentification.id top_mediafile.identity.id %}"
+                                        {% if top_identity %}
+                                            <a href="{% url 'caidapp:set_individual_identity' foridentification.id top_identity.id %}"
                                                    class="btn btn-primary">Select</a>
                                             {% else %}
                                                 Identity does not exist

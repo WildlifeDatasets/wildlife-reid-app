@@ -201,11 +201,6 @@ urlpatterns = [
         views.individual_identity_create,
         name="individual_identity_create",
     ),
-    path(
-        "individual_identity_create/media_file/<int:media_file_id>",
-        views.individual_identity_create,
-        name="individual_identity_create",
-    ),
     # path(
     #     "individual_identity_update/<int:individual_identity_id>",
     #     views.individual_identity_update,

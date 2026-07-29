@@ -1429,7 +1429,7 @@ class IdentityListView(LoginRequiredMixin, ListView):
 
 
 @login_required
-def individual_identity_create(request, media_file_id: Optional[int] = None):
+def individual_identity_create(request):
     """Create new individual_identity."""
     if request.method == "POST":
         form = IndividualIdentityForm(request.POST)
@@ -1438,16 +1438,6 @@ def individual_identity_create(request, media_file_id: Optional[int] = None):
             individual_identity.owner_workgroup = request.user.caiduser.workgroup
             individual_identity.updated_by = request.user.caiduser
             individual_identity.save()
-            # go back to prev page
-            if media_file_id:
-                media_file = get_object_or_404(
-                    MediaFile,
-                    pk=media_file_id,
-                    parent__owner__workgroup=request.user.caiduser.workgroup,
-                )
-                media_file.identity = individual_identity
-                media_file.save()
-                messages.success(request, "Individual identity created and linked to media file.")
             url = request.META.get("HTTP_REFERER", reverse("caidapp:individual_identities"))
             next_url = request.GET.get("next") or request.POST.get("next") or url
             if next_url and url_has_allowed_host_and_scheme(
@@ -1597,7 +1587,11 @@ def get_individual_identity_zoomed_by_identity(request, foridentification_id: in
         return HttpResponseNotAllowed("Not allowed to work with this media file.")
 
     identity = IndividualIdentity.objects.get(id=identity_id)
-    top_mediafile = MediaFile.objects.filter(identity=identity, identity_is_representative=True).first()
+    top_mediafile = (
+        identity.observation_mediafiles()
+        .filter(observations__identity=identity, observations__identity_is_representative=True)
+        .first()
+    )
     top_name = identity.name
 
     btn_link = reverse_lazy(
@@ -1616,6 +1610,7 @@ def get_individual_identity_zoomed_by_identity(request, foridentification_id: in
             # "reid_suggestion_id": reid_suggestion_id,
             # reid_sugestion_index: None,
             "top_mediafile": top_mediafile,
+            "top_identity": identity,
             # "top_score": top_score,
             "top_name": top_name,
             # "html_img_src": html_img_src,
@@ -1730,6 +1725,7 @@ def get_individual_identity_zoomed(request, foridentification_id: int, reid_sugg
             "reid_suggestion_id": reid_suggestion_id,
             "reid_suggestion_index": reid_suggestion_index,
             "top_mediafile": top_mediafile,
+            "top_identity": reid_suggestion.identity,
             "top_score": top_score,
             "top_name": top_name,
             "html_img_src": html_img_src,
@@ -2106,7 +2102,7 @@ def remove_foridentification(request, foridentification_id: int):
 
 @login_required
 def set_individual_identity(request, mediafiles_for_identification_id: int, individual_identity_id: int):
-    """Set identity for mediafile."""
+    """Set identity for the observation being identified."""
     mediafiles_for_identification = get_object_or_404(MediafilesForIdentification, id=mediafiles_for_identification_id)
     representative = request.GET.get("representative") == "1"
     individual_identity = get_object_or_404(IndividualIdentity, id=individual_identity_id)
@@ -2118,10 +2114,25 @@ def set_individual_identity(request, mediafiles_for_identification_id: int, indi
     if request.user.caiduser.workgroup != mediafiles_for_identification.mediafile.parent.owner.workgroup:
         return HttpResponseNotAllowed("Not allowed to work with this media file.")
 
-    mediafiles_for_identification.mediafile.identity = individual_identity
-    mediafiles_for_identification.mediafile.identity_is_representative = representative
-    mediafiles_for_identification.mediafile.updated_by = request.user.caiduser
-    mediafiles_for_identification.mediafile.save()
+    mediafile = mediafiles_for_identification.mediafile
+    reid_observation_id = (mediafile.metadata_json or {}).get("reid_observation_id")
+    observation = mediafile.observations.filter(id=reid_observation_id).first() if reid_observation_id else None
+    if observation is None:
+        observations = list(mediafile.observations.order_by("id")[:2])
+        if len(observations) == 1:
+            observation = observations[0]
+    if observation is None:
+        messages.warning(
+            request,
+            "This media file has multiple or no observations. Choose the target animal in the media file editor.",
+        )
+        return redirect("caidapp:media_file_update", pk=mediafile.id)
+
+    observation.identity = individual_identity
+    observation.identity_is_representative = representative
+    observation.updated_by = request.user.caiduser
+    observation.updated_at = django.utils.timezone.now()
+    observation.save(update_fields=["identity", "identity_is_representative", "updated_by", "updated_at"])
     mediafiles_for_identification.delete()
 
     return redirect("caidapp:get_individual_identity")
@@ -5036,13 +5047,11 @@ def media_files_update(
     ):
         logger.debug("btnBulkProcessing")
         form_bulk_processing = MediaFileBulkForm(request.POST, workgroup=request.user.caiduser.workgroup)
-        if form_bulk_processing.is_valid():
-            form_bulk_processing.save()
 
         form = MediaFileFormSet(request.POST)
         logger.debug("form")
         logger.debug(request.POST)
-        if form.is_valid():
+        if form.is_valid() and form_bulk_processing.is_valid():
             logger.debug("form is valid")
             # if 'newsletter_sub' in .data:
             #     # do subscribe
@@ -5092,8 +5101,9 @@ def media_files_update(
                     # mediafileform.save()
             # form.save()
         else:
-            logger.debug("form is not valid")
+            logger.debug("bulk form is not valid")
             logger.debug(form.errors)
+            logger.debug(form_bulk_processing.errors)
         # queryform = MediaFileSetQueryForm(request.POST)
         form_bulk_processing = MediaFileBulkForm(workgroup=request.user.caiduser.workgroup)
         page_query = full_mediafiles.filter(id__in=[object.id for object in page_with_mediafiles])
@@ -5197,13 +5207,14 @@ def _single_mediafile_update(request, instance, form, form_bulk_processing, sele
         instance.save()
         observation.save()
     elif "btnBulkProcessing_id_identity" in form.data:
-        observation = instance.first_observation_get_or_create
+        observations = list(instance.observations.all()[:2])
+        if len(observations) > 1:
+            return "skipped_identity_multiple_observations"
+        observation = observations[0] if observations else instance.first_observation_get_or_create
         observation.identity = form_bulk_processing.cleaned_data["identity"]
-        instance.identity = observation.identity
-        # instance.identity_is_representative = False
         instance.updated_by = request.user.caiduser
         instance.updated_at = django.utils.timezone.now()
-        instance.save()
+        instance.save(update_fields=["updated_by", "updated_at"])
         observation.save()
     elif "btnBulkProcessing_id_identity_is_representative" in form.data:
         observations = list(instance.observations.all())
@@ -5214,10 +5225,9 @@ def _single_mediafile_update(request, instance, form, form_bulk_processing, sele
         observation.updated_by = request.user.caiduser
         observation.updated_at = django.utils.timezone.now()
         observation.save(update_fields=["identity_is_representative", "updated_by", "updated_at"])
-        instance.identity_is_representative = observation.identity_is_representative
         instance.updated_by = request.user.caiduser
         instance.updated_at = django.utils.timezone.now()
-        instance.save(update_fields=["identity_is_representative", "updated_by", "updated_at"])
+        instance.save(update_fields=["updated_by", "updated_at"])
     elif "btnBulkProcessingDelete" in form.data:
         instance.delete()
     elif "btnBulkProcessing_id_taxon_verified" in form.data:
@@ -5251,12 +5261,20 @@ def _single_mediafile_update(request, instance, form, form_bulk_processing, sele
 
 def _add_bulk_processing_result_messages(request, result_counts: dict) -> None:
     skipped_representative = result_counts.get("skipped_representative_multiple_observations", 0)
+    skipped_identity = result_counts.get("skipped_identity_multiple_observations", 0)
     if skipped_representative:
         messages.warning(
             request,
             "Representative identity was not changed for "
             f"{skipped_representative} media files with multiple observations. "
             "Edit representative flags in the media file detail for those files.",
+        )
+    if skipped_identity:
+        messages.warning(
+            request,
+            "Identity was not changed for "
+            f"{skipped_identity} media files with multiple observations. "
+            "Choose the animal in the media file detail instead.",
         )
 
 
@@ -8267,10 +8285,60 @@ def _resolve_imported_related_object(row, id_column, name_columns, queryset, lab
             continue
         model_field = "name" if column in {"predicted_category", "predicted_taxon", "unique_name", "locality name"} else column
         matches = queryset.filter(**{model_field: str(value).strip()})
-        if matches.count() != 1:
-            raise ValueError(f"{label} {column} '{value}' is not unique")
+        match_count = matches.count()
+        if match_count != 1:
+            message = (
+                f"{label} {column} '{value}' matched {match_count} records; "
+                "it must identify exactly one record"
+            )
+            if label == "identity" and column == "unique_name":
+                looks_like_path = "/" in str(value) or "\\" in str(value) or Path(str(value)).suffix.lower() in {
+                    ".jpg",
+                    ".jpeg",
+                    ".png",
+                    ".tif",
+                    ".tiff",
+                }
+                if looks_like_path:
+                    message += (
+                        ". This value looks like an original file path, not an identity name; "
+                        "check that the spreadsheet columns have not shifted"
+                    )
+                message += ". Prefer identity_id for a known individual, or leave identity_id and unique_name blank"
+            raise ValueError(message)
         return matches.first(), True
     return None, False
+
+
+def _resolve_imported_locality(row, queryset, caiduser, create_missing=False):
+    """Resolve a locality, optionally creating a missing one from an explicit name."""
+    raw_id = row.get("locality_id")
+    if _spreadsheet_cell_requests_clear(raw_id):
+        return None, True
+    locality_id = _spreadsheet_strict_id(raw_id, "locality_id")
+    locality_name = row.get("locality name")
+    if locality_id is not None:
+        locality = queryset.filter(id=locality_id).first()
+        if locality is None:
+            raise ValueError(f"unknown or inaccessible locality ID {locality_id}")
+        if _spreadsheet_cell_has_value(locality_name) and locality.name.strip() != str(locality_name).strip():
+            raise ValueError(f"locality ID {locality_id} does not match locality name '{locality_name}'")
+        return locality, True
+    if not _spreadsheet_cell_has_value(locality_name):
+        return None, False
+
+    locality_name = str(locality_name).strip()
+    matches = queryset.filter(name=locality_name)
+    match_count = matches.count()
+    if match_count == 1:
+        return matches.first(), True
+    if match_count == 0 and create_missing:
+        if len(locality_name) > Locality._meta.get_field("name").max_length:
+            raise ValueError("locality name is too long")
+        return Locality.objects.create(name=locality_name, owner=caiduser), True
+    if match_count == 0:
+        raise ValueError(f"locality name '{locality_name}' matched 0 records; it must identify exactly one record")
+    raise ValueError(f"locality name '{locality_name}' matched {match_count} records; it must identify exactly one record")
 
 
 def _observation_bbox_from_row(row) -> Tuple[Optional[List[Optional[float]]], bool]:
@@ -8315,7 +8383,7 @@ def _observation_mediafile_note_from_row(row) -> Tuple[bool, str]:
     return True, updates[0][1]
 
 
-def _import_observation_dataframe(df: pd.DataFrame, caiduser) -> Tuple[int, int]:
+def _import_observation_dataframe(df: pd.DataFrame, caiduser, create_missing_localities=False) -> Tuple[int, int]:
     """Atomically create or update observations from an exported spreadsheet."""
     if "mediafile_id" not in df.columns:
         raise ValueError("Missing required column mediafile_id")
@@ -8397,8 +8465,11 @@ def _import_observation_dataframe(df: pd.DataFrame, caiduser) -> Tuple[int, int]
                 observation.updated_at = timezone.now()
                 observation.save()
 
-                locality, supplied = _resolve_imported_related_object(
-                    series, "locality_id", ("locality name",), locality_queryset, "locality"
+                locality, supplied = _resolve_imported_locality(
+                    series,
+                    locality_queryset,
+                    caiduser,
+                    create_missing=create_missing_localities,
                 )
                 mediafile_fields = []
                 if supplied:
@@ -8438,9 +8509,13 @@ def import_observations_view(request):
         if form.is_valid():
             try:
                 df = _read_uploaded_spreadsheet(form.cleaned_data["spreadsheet_file"])
-                created, updated = _import_observation_dataframe(df, request.user.caiduser)
+                created, updated = _import_observation_dataframe(
+                    df,
+                    request.user.caiduser,
+                    create_missing_localities=form.cleaned_data["create_missing_localities"],
+                )
             except ValueError as exc:
-                form.add_error("spreadsheet_file", str(exc))
+                form.add_error("spreadsheet_file", f"Import cancelled — no rows were changed. {exc}")
             else:
                 messages.success(request, f"Imported observations: {created} created, {updated} updated.")
                 return redirect("caidapp:media_files")
@@ -8459,6 +8534,8 @@ def import_observations_view(request):
                 f"Use {OBSERVATION_IMPORT_CLEAR} to clear supported nullable values. "
                 "mediafile_note updates the note on the media file; the legacy note column is also accepted. "
                 "Rows for the same mediafile_id must not contain conflicting note values. "
+                "The optional checkbox can create missing localities from locality name; it never creates identities. "
+                "The import is atomic: if any row is invalid, no rows from the file are saved. "
                 "BBox uses YOLO-style normalized bbox_cx, bbox_cy, bbox_w and bbox_h values in the range 0-1."
             ),
             "next": "caidapp:media_files",

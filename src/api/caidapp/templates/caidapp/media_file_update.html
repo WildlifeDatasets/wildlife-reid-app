@@ -462,11 +462,6 @@ Observation ID: {{ obs_form.instance.id }}
                                                            class="mt-1">{{ field.label }}</label><br>
                                                     {{ field }}
                                                 {% endif %}
-                                                {% if field.id_for_label == "id_identity" %}
-                                                    <button type="button" class="btn btn-outline-primary btn-sm"
-                                                            onclick="window.location.href='{% url 'caidapp:individual_identity_create' mediafile.id %}?next={{ request.path }}'">
-                                                        <i class="bi-plus"></i></button>
-                                                {% endif %}
                                                 {% if field.help_text %}
                                                     <small class="form-text text-muted">{{ field.help_text }}</small>
                                                 {% endif %}

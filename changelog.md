@@ -10,6 +10,7 @@
 * [added] workgroup admin can check all identification processes
 * [added] GPU monitoring
 * [added] Import media file note from observation export
+* [added] Create missing locality or identity in observation import
 
 
 ## 2026-06

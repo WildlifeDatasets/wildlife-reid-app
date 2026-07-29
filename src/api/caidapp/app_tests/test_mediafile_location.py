@@ -232,7 +232,7 @@ class MediaFileLocationFallbackTest(TestCase):
         observation.refresh_from_db()
         mediafile.refresh_from_db()
         self.assertEqual(observation.identity_id, identity.id)
-        self.assertEqual(mediafile.identity_id, identity.id)
+        self.assertIsNone(mediafile.identity_id)
         self.assertEqual(mediafile.metadata_json["reid_observation_id"], observation.id)
 
     def test_prepare_mediafile_for_identification_resolves_masked_reference_paths(self):

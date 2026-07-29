@@ -32,8 +32,8 @@
                                             {{ top_score|floatformat:2 }}
                                         </p>
                                         <p class="card-text">
-                                            {% if top_mediafile.identity %}
-                                                <a href="{% url 'caidapp:set_individual_identity' foridentification.id top_mediafile.identity.id %}"
+                                            {% if top_identity %}
+                                                <a href="{% url 'caidapp:set_individual_identity' foridentification.id top_identity.id %}"
                                                    class="btn btn-primary">Select</a>
                                             {% else %}
                                                 Identity does not exist

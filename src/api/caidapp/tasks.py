@@ -504,9 +504,6 @@ def _read_image_size(image_path: str) -> tuple[int, int] | None:
 
 def _get_identification_identity(mediafile: MediaFile) -> IndividualIdentity | None:
     """Return the identity that should label a mediafile in identification metadata."""
-    if mediafile.identity:
-        return mediafile.identity
-
     representative_observation = (
         mediafile.observations.filter(identity_is_representative=True, identity__isnull=False)
         .order_by("id")
@@ -1325,6 +1322,7 @@ def _update_database_by_one_row_of_metadata(
         return identity
 
     identity = _resolve_identity()
+    identity_is_representative = False
     mediafile_location = _parse_mediafile_location()
 
     mf = uploaded_archive.mediafile_set.filter(mediafile=str(media_rel_pth)).first()
@@ -1356,7 +1354,6 @@ def _update_database_by_one_row_of_metadata(
             # logger.debug(f"{uploaded_archive.contains_single_taxon=}")
             if uploaded_archive.contains_identities and uploaded_archive.contains_single_taxon:
                 identity_is_representative = True
-                mf.identity_is_representative = identity_is_representative
             if "original_path" in row:
                 mf.original_filename = row["original_path"]
             # if "media_type" in row:
@@ -1423,8 +1420,6 @@ def _update_database_by_one_row_of_metadata(
         #     # ao.metadata_json = row.to_dict()
         #     ao.taxon = taxon
         #     ao.save()
-        if identity is not None:
-            mf.identity = identity
         logger.debug("  update mediafile in db with row of metadata")
 
         try:
@@ -1451,6 +1446,7 @@ def _update_database_by_one_row_of_metadata(
 
                         if i == 0:
                             ao.identity = identity
+                            ao.identity_is_representative = identity_is_representative
 
                         ao.taxon = taxon
                         ao.predicted_taxon = predicted_taxon
@@ -1480,7 +1476,6 @@ def _update_database_by_one_row_of_metadata(
             logger.debug(traceback.format_exc())
 
         mf.save()
-        # logger.debug(f"identity={mf.identity}")
     return status
 
     # logger.debug(f"{mf}")
@@ -2287,12 +2282,11 @@ def _prepare_mediafile_for_identification(data, i, media_root, mediafile_id):
         if unknown_observation is not None:
             unknown_observation.identity = identity
             unknown_observation.save(update_fields=["identity"])
-            if unknown_mediafile.observations.count() == 1:
-                unknown_mediafile.identity = identity
-                unknown_mediafile.save(update_fields=["identity"])
         else:
-            unknown_mediafile.identity = identity
-            unknown_mediafile.save(update_fields=["identity"])
+            logger.warning(
+                "Automatic identity result for mediafile %s has no target observation; leaving it unassigned.",
+                unknown_mediafile.id,
+            )
         logger.debug(
             f"{unknown_mediafile} is {identity.name} with score={reid_top_k_scores[0]}. "
             + "No need of manual confirmation."
