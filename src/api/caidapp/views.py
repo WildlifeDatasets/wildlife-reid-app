@@ -8552,6 +8552,32 @@ def _import_observation_dataframe(
     return created, updated
 
 
+def _collect_observation_import_errors(
+    df: pd.DataFrame,
+    caiduser,
+    create_missing_localities=False,
+    create_missing_identities=False,
+) -> list[str]:
+    """Return row errors for a failed import without persisting diagnostic writes."""
+    errors = []
+    with transaction.atomic():
+        for row_number, record in enumerate(df.to_dict(orient="records"), start=2):
+            try:
+                _import_observation_dataframe(
+                    pd.DataFrame([record], columns=df.columns),
+                    caiduser,
+                    create_missing_localities=create_missing_localities,
+                    create_missing_identities=create_missing_identities,
+                )
+            except Exception as exc:
+                message = str(exc)
+                if message.startswith("Row 2: "):
+                    message = f"Row {row_number}: {message[7:]}"
+                errors.append(message)
+        transaction.set_rollback(True)
+    return errors
+
+
 @login_required
 def import_observations_view(request):
     """Import observation and related mediafile metadata from CSV or XLSX."""

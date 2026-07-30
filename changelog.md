@@ -12,6 +12,7 @@
 * [added] Import media file note from observation export
 * [added] Create missing locality or identity in observation import
 * [changed] Removed identification info from MediaFile object
+* [changed] import observation is async, show all errors instead of first error
 
 
 ## 2026-06

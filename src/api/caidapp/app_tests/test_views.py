@@ -2289,6 +2289,16 @@ class SequenceViewTest(TestCase):
         self.assertEqual((observation_import.created_count, observation_import.updated_count), (1, 0))
         self.assertEqual(mediafile.observations.count(), 1)
 
+    def test_observation_import_diagnostics_collects_errors_from_all_rows(self):
+        errors = views._collect_observation_import_errors(
+            pd.DataFrame([{"mediafile_id": "bad-first"}, {"mediafile_id": "bad-second"}]),
+            self.caiduser,
+        )
+
+        self.assertEqual(len(errors), 2)
+        self.assertIn("Row 2: mediafile_id must be a positive integer", errors[0])
+        self.assertIn("Row 3: mediafile_id must be a positive integer", errors[1])
+
     def test_observation_import_option_creates_missing_locality(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)
         mediafile = MediaFileFactory(parent=archive, locality=None)

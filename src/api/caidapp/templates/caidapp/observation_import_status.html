@@ -13,7 +13,7 @@
       <div class="alert alert-success">Imported observations: {{ observation_import.created_count }} created, {{ observation_import.updated_count }} updated.</div>
       <a class="btn btn-primary" href="{% url 'caidapp:media_files' %}">View media files</a>
     {% else %}
-      <div class="alert alert-danger">Import cancelled — no rows were changed. {{ observation_import.error_message }}</div>
+      <div class="alert alert-danger">Import cancelled — no rows were changed.<br>{{ observation_import.error_message|linebreaksbr }}</div>
       <a class="btn btn-outline-primary" href="{% url 'caidapp:import_observations' %}">Try another file</a>
     {% endif %}
   </div></div>

@@ -74,6 +74,7 @@ def record_identification_worker_gpu_heartbeat(
 @shared_task(bind=True, name="caidapp.tasks.import_observations_task")
 def import_observations_task(self, observation_import_id: int) -> dict:
     """Run a submitted observation spreadsheet outside the HTTP request lifecycle."""
+    dataframe = None
     try:
         observation_import = models.ObservationImport.objects.select_related("caiduser").get(pk=observation_import_id)
     except models.ObservationImport.DoesNotExist:
@@ -109,6 +110,25 @@ def import_observations_task(self, observation_import_id: int) -> dict:
             create_missing_identities=observation_import.create_missing_identities,
             progress_callback=report_progress,
         )
+    except ValueError as exc:
+        from .views import _collect_observation_import_errors
+
+        errors = (
+            _collect_observation_import_errors(
+                dataframe,
+                observation_import.caiduser,
+                create_missing_localities=observation_import.create_missing_localities,
+                create_missing_identities=observation_import.create_missing_identities,
+            )
+            if dataframe is not None
+            else []
+        )
+        error_message = "\n".join(dict.fromkeys([str(exc), *errors]))
+        observation_import.status = models.ObservationImport.STATUS_FAILED
+        observation_import.error_message = error_message
+        observation_import.finished_at = now()
+        observation_import.save(update_fields=["status", "error_message", "finished_at"])
+        return {"status": "failed", "error": error_message}
     except Exception as exc:
         logger.exception("Observation import %s failed", observation_import_id)
         observation_import.status = models.ObservationImport.STATUS_FAILED
