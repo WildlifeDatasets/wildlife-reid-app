@@ -209,15 +209,26 @@ class MediaFileUpdateView(LoginRequiredMixin, UpdateWithInlinesView):
         response = super().form_valid(form)
         # Albums are personal collections. A user may only change membership in
         # albums they own, never in an album merely shared with them.
-        selected_album_hashes = self.request.POST.getlist("album_hashes")
+        selected_album_values = self.request.POST.getlist("album_hashes")
         editable_albums = Album.objects.filter(owner=self.request.user.caiduser)
+        editable_albums_by_hash = {str(album.hash): album for album in editable_albums}
+        editable_albums_by_name = {album.name.casefold(): album for album in editable_albums}
+        selected_albums = []
+        for selected_value in selected_album_values:
+            selected_value = selected_value.strip()
+            if not selected_value:
+                continue
+            album = editable_albums_by_hash.get(selected_value)
+            if album is None:
+                album = editable_albums_by_name.get(selected_value.casefold())
+            if album is None and len(selected_value) <= Album._meta.get_field("name").max_length:
+                album = Album.objects.create(name=selected_value, owner=self.request.user.caiduser)
+                editable_albums_by_name[selected_value.casefold()] = album
+            if album is not None and album not in selected_albums:
+                selected_albums.append(album)
         current_editable_albums = self.object.album_set.filter(owner=self.request.user.caiduser)
-        self.object.album_set.remove(*current_editable_albums.exclude(hash__in=selected_album_hashes))
-        self.object.album_set.add(*editable_albums.filter(hash__in=selected_album_hashes))
-        new_album_name = form.cleaned_data["new_album_name"].strip()
-        if new_album_name:
-            new_album = Album.objects.create(name=new_album_name, owner=self.request.user.caiduser)
-            self.object.album_set.add(new_album)
+        self.object.album_set.remove(*current_editable_albums.exclude(pk__in=[album.pk for album in selected_albums]))
+        self.object.album_set.add(*selected_albums)
         # Save all valid inline formsets
         # inlines = self.get_inlines()
 

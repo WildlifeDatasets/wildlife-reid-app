@@ -722,13 +722,6 @@ class CaIDUserForm(forms.ModelForm):
 
 
 class MediaFileForm(forms.ModelForm):
-    new_album_name = forms.CharField(
-        required=False,
-        max_length=50,
-        label="Create new album",
-        widget=forms.TextInput(attrs={"class": "form-control", "placeholder": "Album name"}),
-    )
-
     class Meta:
         model = MediaFile
         fields = (

@@ -734,7 +734,7 @@ class MediaFileUpdateEmptyObservationTest(TestCase):
 
         response = self.client.get(reverse("caidapp:media_file_update", args=[mediafile.id]))
 
-        self.assertContains(response, 'name="album_hashes"')
+        self.assertContains(response, 'data-allow-new-albums="true"')
         self.assertContains(response, selected_album.name)
         self.assertContains(response, removed_album.name)
 
@@ -745,8 +745,7 @@ class MediaFileUpdateEmptyObservationTest(TestCase):
                 total_forms=0,
                 initial_forms=0,
                 extra_form_data={
-                    "album_hashes": [str(selected_album.hash)],
-                    "new_album_name": "New album from media file",
+                    "album_hashes": [str(selected_album.hash), "New album from media file"],
                 },
             ),
         )
