@@ -285,6 +285,33 @@
                                     {#                                                    {{ form.as_p }}#}
                                     <div class="form-group">
 
+                                        <h5>Albums</h5>
+                                        {% if editable_albums %}
+                                            <div class="mb-3">
+                                                <label class="form-label" for="album-hashes">Albums containing this media file</label>
+                                                <select class="form-select js-searchable-select" name="album_hashes"
+                                                        id="album-hashes" multiple>
+                                                    {% for album in editable_albums %}
+                                                        <option value="{{ album.hash }}"
+                                                                {% if album.hash in mediafile_album_hashes %}selected{% endif %}>
+                                                            {{ album.name }}
+                                                        </option>
+                                                    {% endfor %}
+                                                </select>
+                                                <div class="form-text">Search albums to add them; remove a selected album to detach this media file.</div>
+                                            </div>
+                                        {% else %}
+                                            <p class="text-muted">You do not have any albums yet.</p>
+                                        {% endif %}
+                                        <div class="mb-3">
+                                            <label class="form-label" for="{{ form.new_album_name.id_for_label }}">{{ form.new_album_name.label }}</label>
+                                            {{ form.new_album_name }}
+                                            <div class="form-text">A new album will be created and this media file added to it when you save.</div>
+                                            {% for error in form.new_album_name.errors %}
+                                                <div class="alert alert-danger" id="error_{{ form.new_album_name.id_for_label }}">{{ error }}</div>
+                                            {% endfor %}
+                                        </div>
+
                                         <h5>Observations</h5>
 
                                         <div>
@@ -405,6 +432,7 @@ Observation ID: {{ obs_form.instance.id }}
                                         <h5 class="mt-2">Media File</h5>
 
                                         {% for field in form %}
+                                            {% if field.name != "new_album_name" %}
                                             <div>
                                                 {% if field.name == "locality" %}
                                                     <div class="d-flex align-items-center gap-2 mt-1">
@@ -470,6 +498,7 @@ Observation ID: {{ obs_form.instance.id }}
                                                          id="error_{{ field.id_for_label }}">{{ error }}</div>
                                                 {% endfor %}
                                             </div>
+                                            {% endif %}
                                         {% endfor %}
                                         {# end of mediafile fields #}
 
@@ -1067,7 +1096,7 @@ ID: {{ mediafile.id }}
                 }
             }
 
-            initializeSearchableSelects(container);
+            initializeSearchableSelects();
             selectCreatedRelatedObject();
 
             addBtn.addEventListener("click", function () {

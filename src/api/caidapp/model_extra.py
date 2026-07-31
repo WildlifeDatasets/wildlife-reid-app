@@ -20,6 +20,23 @@ def merge_distinguishing_token(name: str, pattern: str):
     return tuple((value or "").strip().casefold() for value in values)
 
 
+def best_identity_merge_candidate(identity: IndividualIdentity, candidates):
+    """Return the candidate whose name is the closest fuzzy match to an identity."""
+    normalized_name = remove_diacritics(identity.name or "").casefold()
+    if not normalized_name:
+        return None
+
+    best_candidate = None
+    best_score = -1.0
+    for candidate in candidates:
+        candidate_name = remove_diacritics(candidate.name or "").casefold()
+        score = Levenshtein.ratio(normalized_name, candidate_name)
+        if score > best_score:
+            best_candidate = candidate
+            best_score = score
+    return best_candidate
+
+
 def user_has_access_to_uploadedarchives_filter_params(caiduser: CaIDUser):
     """Check if user has access to uploadedarchives."""
     return models.user_has_access_filter_params(caiduser=caiduser, prefix="owner")

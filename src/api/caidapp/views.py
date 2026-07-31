@@ -70,7 +70,12 @@ from .forms import (  # WorkgroupUsersForm,
     UploadedArchiveUpdateForm,
     UserSelectForm,
 )
-from .model_extra import compute_identity_suggestions, user_has_rw_acces_to_uploadedarchive, user_has_rw_access_to_mediafile
+from .model_extra import (
+    best_identity_merge_candidate,
+    compute_identity_suggestions,
+    user_has_rw_acces_to_uploadedarchive,
+    user_has_rw_access_to_mediafile,
+)
 from .model_tools import timesince_now
 from .models import (
     Album,
@@ -1520,6 +1525,10 @@ class IndividualIdentityUpdateView(LoginRequiredMixin, UpdateView):
                 "delete_button_url": reverse_lazy(
                     "caidapp:delete_individual_identity",
                     kwargs={"individual_identity_id": individual_identity.id},
+                ),
+                "merge_button_url": reverse_lazy(
+                    "caidapp:merge_identities",
+                    kwargs={"individual_identity1_id": individual_identity.id},
                 ),
                 "nav_dict": nav_dict,
                 "right_nav": right_nav,
@@ -6845,7 +6854,11 @@ class PygWalkerLocalitiesView(PygWalkerView):
 @login_required
 def select_second_id_for_identification_merge(request, individual_identity1_id: int):
     """Select taxon for identification."""
-    individual_identity1 = get_object_or_404(IndividualIdentity, pk=individual_identity1_id)
+    individual_identity1 = get_object_or_404(
+        IndividualIdentity,
+        pk=individual_identity1_id,
+        owner_workgroup=request.user.caiduser.workgroup,
+    )
     identities = IndividualIdentity.objects.filter(owner_workgroup=request.user.caiduser.workgroup).exclude(
         pk=individual_identity1_id
     )
@@ -6857,7 +6870,11 @@ def select_second_id_for_identification_merge(request, individual_identity1_id: 
             identity = form.cleaned_data["identity"]
             return redirect("caidapp:merge_identities", individual_identity1_id, identity.pk)
     else:
-        form = forms.IndividualIdentitySelectSecondForMergeForm(identities=identities)
+        candidate = best_identity_merge_candidate(individual_identity1, identities)
+        form = forms.IndividualIdentitySelectSecondForMergeForm(
+            identities=identities,
+            initial={"identity": candidate},
+        )
     return render(
         request,
         "caidapp/update_form.html",
@@ -6867,7 +6884,8 @@ def select_second_id_for_identification_merge(request, individual_identity1_id: 
             "button": "Select",
             "text_note": "The selected identity will be merged into the first one and then deleted.",
             # "next": "caidapp:uploads_identities",
-            "mediafile": individual_identity1.mediafile_set.all().first(),
+            "mediafile": individual_identity1.cover_mediafile(),
+            "select2_enabled": True,
         },
     )
 

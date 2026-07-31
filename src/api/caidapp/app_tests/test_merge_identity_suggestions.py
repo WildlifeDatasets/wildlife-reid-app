@@ -7,8 +7,8 @@ from django.utils import timezone
 
 from caidapp import views
 from caidapp.app_tests.factories import AnimalObservationFactory, CaidUserFactory, IndividualIdentityFactory, MediaFileFactory, UploadedArchiveFactory
-from caidapp.model_extra import compute_identity_suggestions
-from caidapp.models import MergeIdentitySuggestionExclusion, MergeIdentitySuggestionResult
+from caidapp.model_extra import best_identity_merge_candidate, compute_identity_suggestions
+from caidapp.models import IndividualIdentity, MergeIdentitySuggestionExclusion, MergeIdentitySuggestionResult
 
 
 class MergeIdentitySuggestionsComputationTest(TestCase):
@@ -100,6 +100,18 @@ class MergeIdentitySuggestionsComputationTest(TestCase):
         self.assertEqual(progress_updates[-1]["current"], 3)
         self.assertEqual(progress_updates[-1]["total"], 3)
 
+    def test_best_identity_merge_candidate_uses_fuzzy_name_similarity(self):
+        identity = IndividualIdentityFactory(owner_workgroup=self.workgroup, name="Marta 12")
+        closest = IndividualIdentityFactory(owner_workgroup=self.workgroup, name="Márta 12 L")
+        IndividualIdentityFactory(owner_workgroup=self.workgroup, name="Completely different")
+
+        candidate = best_identity_merge_candidate(
+            identity,
+            IndividualIdentity.objects.filter(owner_workgroup=self.workgroup).exclude(pk=identity.pk),
+        )
+
+        self.assertEqual(candidate, closest)
+
 
 class MergeIdentitySuggestionsViewTest(TestCase):
     def setUp(self):
@@ -176,6 +188,42 @@ class MergeIdentitySuggestionsViewTest(TestCase):
         self.assertContains(response, 'data-distance="0"')
         self.assertContains(response, "Never suggest")
         self.assertContains(response, "1 media file")
+        self.assertContains(response, "Merge reverse")
+        self.assertContains(
+            response,
+            reverse("caidapp:merge_identities_no_preview", args=[second.id, first.id]),
+        )
+
+    def test_select_second_identity_for_merge_renders_cover_mediafile(self):
+        identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup)
+        mediafile = MediaFileFactory(parent=UploadedArchiveFactory(owner=self.caiduser))
+        AnimalObservationFactory(mediafile=mediafile, identity=identity, identity_is_representative=True)
+
+        response = self.client.get(reverse("caidapp:merge_identities", args=[identity.id]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["mediafile"], mediafile)
+
+    def test_select_second_identity_for_merge_prefills_best_fuzzy_match_and_enables_select2(self):
+        identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Marta 12")
+        closest = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Márta 12 L")
+        IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Completely different")
+
+        response = self.client.get(reverse("caidapp:merge_identities", args=[identity.id]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["form"].initial["identity"], closest)
+        self.assertContains(response, "js-searchable-select")
+        self.assertContains(response, "select2.full.js")
+
+    def test_identity_detail_has_merge_action(self):
+        identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup)
+
+        response = self.client.get(reverse("caidapp:individual_identity_update", args=[identity.id]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Merge with another identity")
+        self.assertContains(response, reverse("caidapp:merge_identities", args=[identity.id]))
 
     def test_excluding_suggestion_persists_pair_and_hides_existing_result(self):
         first = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Sara_juv.22-1")

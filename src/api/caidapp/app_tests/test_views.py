@@ -725,6 +725,43 @@ class MediaFileUpdateEmptyObservationTest(TestCase):
         self.assertContains(response, reverse("caidapp:uploadedarchive_detail", args=[archive.id]))
         self.assertNotContains(response, reverse("caidapp:uploadedarchive_mediafiles", args=[archive.id]))
 
+    def test_mediafile_update_lists_owned_albums_and_updates_membership(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        mediafile = MediaFileFactory(parent=archive)
+        selected_album = AlbumFactory(owner=self.caiduser)
+        removed_album = AlbumFactory(owner=self.caiduser)
+        removed_album.mediafiles.add(mediafile)
+
+        response = self.client.get(reverse("caidapp:media_file_update", args=[mediafile.id]))
+
+        self.assertContains(response, 'name="album_hashes"')
+        self.assertContains(response, selected_album.name)
+        self.assertContains(response, removed_album.name)
+
+        response = self.client.post(
+            reverse("caidapp:media_file_update", args=[mediafile.id]),
+            self._base_mediafile_update_post_data(
+                mediafile,
+                total_forms=0,
+                initial_forms=0,
+                extra_form_data={
+                    "album_hashes": [str(selected_album.hash)],
+                    "new_album_name": "New album from media file",
+                },
+            ),
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(selected_album.mediafiles.filter(pk=mediafile.pk).exists())
+        self.assertFalse(removed_album.mediafiles.filter(pk=mediafile.pk).exists())
+        self.assertTrue(
+            models.Album.objects.filter(
+                owner=self.caiduser,
+                name="New album from media file",
+                mediafiles=mediafile,
+            ).exists()
+        )
+
     def test_mediafile_update_uses_referer_as_next_when_next_is_missing(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)
         mediafile = MediaFileFactory(parent=archive)

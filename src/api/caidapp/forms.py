@@ -295,7 +295,11 @@ class IndividualIdentitySelectSecondForMergeForm(forms.Form):
         super().__init__(*args, **kwargs)
         if identities is not None:
             logger.debug(f"identities: {identities}")
-            self.fields["identity"] = forms.ModelChoiceField(queryset=identities, required=True)
+            self.fields["identity"] = forms.ModelChoiceField(
+                queryset=identities,
+                required=True,
+                widget=forms.Select(attrs={"class": "js-searchable-select"}),
+            )
             self.fields["identity"].label_from_instance = format_identity_choice_label
 
 
@@ -718,6 +722,13 @@ class CaIDUserForm(forms.ModelForm):
 
 
 class MediaFileForm(forms.ModelForm):
+    new_album_name = forms.CharField(
+        required=False,
+        max_length=50,
+        label="Create new album",
+        widget=forms.TextInput(attrs={"class": "form-control", "placeholder": "Album name"}),
+    )
+
     class Meta:
         model = MediaFile
         fields = (

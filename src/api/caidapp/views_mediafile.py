@@ -18,7 +18,7 @@ from extra_views import InlineFormSetFactory, UpdateWithInlinesView
 
 from . import forms, model_extra, models
 from .forms import MediaFileForm
-from .models import AnimalObservation, MediaFile
+from .models import Album, AnimalObservation, MediaFile
 from .views import media_files_update, sequences
 
 logger = logging.getLogger(__name__)
@@ -207,6 +207,17 @@ class MediaFileUpdateView(LoginRequiredMixin, UpdateWithInlinesView):
         form.instance.updated_by = self.request.user.caiduser
         form.instance.updated_at = django.utils.timezone.now()
         response = super().form_valid(form)
+        # Albums are personal collections. A user may only change membership in
+        # albums they own, never in an album merely shared with them.
+        selected_album_hashes = self.request.POST.getlist("album_hashes")
+        editable_albums = Album.objects.filter(owner=self.request.user.caiduser)
+        current_editable_albums = self.object.album_set.filter(owner=self.request.user.caiduser)
+        self.object.album_set.remove(*current_editable_albums.exclude(hash__in=selected_album_hashes))
+        self.object.album_set.add(*editable_albums.filter(hash__in=selected_album_hashes))
+        new_album_name = form.cleaned_data["new_album_name"].strip()
+        if new_album_name:
+            new_album = Album.objects.create(name=new_album_name, owner=self.request.user.caiduser)
+            self.object.album_set.add(new_album)
         # Save all valid inline formsets
         # inlines = self.get_inlines()
 
@@ -257,6 +268,10 @@ class MediaFileUpdateView(LoginRequiredMixin, UpdateWithInlinesView):
         context["next"] = self._get_next_url_for_form()
         context["effective_location"] = self.object.effective_location
         context["effective_location_source"] = self.object.effective_location_source
+        context["editable_albums"] = Album.objects.filter(owner=self.request.user.caiduser).order_by("name")
+        context["mediafile_album_hashes"] = set(
+            self.object.album_set.filter(owner=self.request.user.caiduser).values_list("hash", flat=True)
+        )
         return context
 
 
