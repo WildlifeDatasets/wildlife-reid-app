@@ -1,5 +1,6 @@
 import logging
 import os
+import shutil
 import traceback
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
@@ -35,6 +36,12 @@ DETECTION_MODEL = None
 DETECTION_MODEL_WARMED_UP = False
 ORIENTATION_MODEL = None
 
+SAM3 = None
+SAM3_PREDICTOR: Any | None = None
+SAM3_CHECKPOINT_PATH = "/root/resources/sam3/sam3.pt"
+SAM3_HF_REPO_ID = "facebook/sam3"
+SAM3_HF_FILENAME = "sam3.pt"
+
 CLS_TO_ORIENTATION = {0: "back", 1: "front", 2: "left", 3: "right"}
 KEEP_DETECTION_MODEL_LOADED = os.getenv("TAXON_KEEP_DETECTION_MODEL_LOADED", "").lower() in ("1", "true", "yes")
 WARM_UP_DETECTION_MODEL_ON_START = os.getenv("TAXON_WARM_UP_DETECTION_MODEL_ON_START", "true").lower() in (
@@ -42,6 +49,7 @@ WARM_UP_DETECTION_MODEL_ON_START = os.getenv("TAXON_WARM_UP_DETECTION_MODEL_ON_S
     "true",
     "yes",
 )
+SAM3_FALLBACK_CONF = float(os.getenv("TAXON_SAM3_FALLBACK_CONF", "0.5"))
 
 
 def download_file(url: str, output_file: str):
@@ -75,6 +83,22 @@ def download_file_if_does_not_exists(url: str, output_file: str):
         logger.debug(f"File does not exists. Downloading from url: {url} to {output_file}.")
         Path(output_file).parent.mkdir(parents=True, exist_ok=True)
         download_file(url, output_file)
+
+
+def download_sam3_checkpoint_if_missing(
+    checkpoint_path: str = SAM3_CHECKPOINT_PATH,
+) -> str:
+    """Download SAM3 weights from Hugging Face if not present locally."""
+    if os.path.exists(checkpoint_path):
+        return checkpoint_path
+
+    from huggingface_hub import hf_hub_download
+
+    logger.info(f"SAM3 checkpoint not found at {checkpoint_path}, downloading from Hugging Face.")
+    Path(checkpoint_path).parent.mkdir(parents=True, exist_ok=True)
+    downloaded = hf_hub_download(repo_id=SAM3_HF_REPO_ID, filename=SAM3_HF_FILENAME)
+    shutil.copy(downloaded, checkpoint_path)
+    return checkpoint_path
 
 
 def pad_image(image: np.ndarray, bbox: Union[list, np.ndarray], border: float = 0.25) -> np.ndarray:
@@ -181,6 +205,143 @@ def del_detection_model():
     torch.cuda.empty_cache()
 
 
+def _load_sam3_model() -> Any | None:
+    """Load SAM3 once and move the cached CPU model to the inference device."""
+    global SAM3
+    global SAM3_PREDICTOR
+
+    if SAM3_PREDICTOR is not None:
+        return SAM3_PREDICTOR
+
+    try:
+        from sam3.model_builder import build_sam3_image_model
+        from sam3.model.sam3_image_processor import Sam3Processor
+    except ImportError as exc:
+        logger.warning("SAM3 package unavailable: %s", exc)
+        return None
+
+    logger.debug(f"Before SAM3 model: {mem.get_vram(DEVICE)}     {mem.get_ram()}")
+    if SAM3 is None:
+        try:
+            download_sam3_checkpoint_if_missing()
+        except Exception as exc:
+            logger.warning("SAM3 weights unavailable: %s", exc)
+            return None
+
+        try:
+            logger.info("Initializing SAM3 model and loading pre-trained checkpoint.")
+            _checkpoint_path = Path(SAM3_CHECKPOINT_PATH).expanduser()
+            SAM3 = build_sam3_image_model(
+                checkpoint_path=str(_checkpoint_path),
+                load_from_HF=False,
+                device="cpu",
+            )
+        except Exception as exc:
+            logger.warning("Failed to load SAM3 model: %s", exc)
+            SAM3 = None
+            torch.cuda.empty_cache()
+            return None
+    else:
+        logger.info("Reusing cached SAM3 model from CPU memory.")
+
+    mem.wait_for_gpu_memory(0.5)
+    SAM3.to(device=DEVICE)
+    SAM3_PREDICTOR = Sam3Processor(SAM3, device=str(DEVICE))
+    logger.debug(f"After SAM3 model: {mem.get_vram(DEVICE)}     {mem.get_ram()}")
+    return SAM3_PREDICTOR
+
+
+def del_sam3_model():
+    """Release SAM3 GPU memory while retaining weights in CPU memory."""
+    global SAM3
+    global SAM3_PREDICTOR
+
+    SAM3_PREDICTOR = None
+    if SAM3 is not None:
+        SAM3.to(device="cpu")
+    torch.cuda.empty_cache()
+
+
+def detect_animals_with_megadetector(image_rgb: np.ndarray) -> Optional[List[Dict[str, Any]]]:
+    """Detect animals/person/vehicle with MegaDetector. Returns detection_results dicts or None."""
+    global DETECTION_MODEL
+
+    if DETECTION_MODEL is None:
+        logger.debug("Detection model is not loaded. Loading the model.")
+        DETECTION_MODEL = get_detection_model()
+        results = DETECTION_MODEL(image_rgb)
+        logger.debug("Model loaded for the first time.")
+    else:
+        results = DETECTION_MODEL(image_rgb)
+    id2label = results.names
+
+    batch_idx = 0
+    results = results.xyxy[batch_idx].cpu().numpy()
+
+    if len(results) == 0:
+        return None
+
+    return [
+        {
+            "bbox": list(int(_) for _ in results[i][:4].tolist()),
+            "confidence": float(results[i][4]),
+            "class": id2label[results[i][5]],
+            "size": image_rgb.shape[:2],
+        }
+        for i in range(len(results))
+    ]
+
+
+def detect_animals_with_sam3(image_rgb: np.ndarray) -> Optional[List[Dict[str, Any]]]:
+    """Detect animals with SAM3 text prompt. Returns MegaDetector-compatible detection dicts."""
+    predictor = _load_sam3_model()
+    if predictor is None:
+        return None
+
+    height, width = image_rgb.shape[:2]
+    image = Image.fromarray(image_rgb)
+
+    try:
+        with torch.autocast(dtype=torch.bfloat16, device_type=DEVICE.type):
+            inference_state = predictor.set_image(image)
+            output = predictor.set_text_prompt(state=inference_state, prompt="animal")
+            boxes, scores = output["boxes"], output["scores"]
+
+            if len(scores) == 0:
+                logger.debug("SAM3 text prompt returned no detections.")
+                return None
+
+            boxes = boxes.detach().cpu().numpy()
+            scores = scores.float().detach().cpu().numpy()
+
+            results_list: List[Dict[str, Any]] = []
+            for i in range(len(scores)):
+                bbox = boxes[i]
+                x0 = max(0, min(int(bbox[0]), width - 1))
+                y0 = max(0, min(int(bbox[1]), height - 1))
+                x1 = max(0, min(int(bbox[2]), width))
+                y1 = max(0, min(int(bbox[3]), height))
+                if x1 <= x0 or y1 <= y0:
+                    continue
+                results_list.append(
+                    {
+                        "bbox": [x0, y0, x1, y1],
+                        "confidence": float(scores[i]),
+                        "class": "animal",
+                        "size": image_rgb.shape[:2],
+                    }
+                )
+
+            if not results_list:
+                return None
+
+            results_list.sort(key=lambda det: det["confidence"], reverse=True)
+            return results_list
+    except Exception:
+        logger.warning(f"SAM3 detection failed: {traceback.format_exc()}")
+        return None
+
+
 def warm_up_detection_model_on_start():
     """Warm up MegaDetector on worker start and release it again unless configured otherwise."""
     global DETECTION_MODEL
@@ -200,43 +361,25 @@ def detect_animals_in_one_image(image_rgb: np.ndarray) -> Optional[List[Dict[str
     """Detect an animal in a given image.
 
     Expected classes are: {0: 'animal', 1: 'person', 2: 'vehicle'}
+    Falls back to SAM3 text-prompt detection when MegaDetector is empty or low-confidence.
     """
-    global DETECTION_MODEL
+    megadetector_results = detect_animals_with_megadetector(image_rgb)
 
-    if DETECTION_MODEL is None:
-        logger.debug("Detection model is not loaded. Loading the model.")
-        DETECTION_MODEL = get_detection_model()
-        results = DETECTION_MODEL(image_rgb)
-        logger.debug("Model loaded for the first time.")
-    else:
-        results = DETECTION_MODEL(image_rgb)
-    id2label = results.names
+    # SAM3 fallback when MegaDetector finds nothing or only low-confidence boxes
+    max_conf = (max(float(det["confidence"]) for det in megadetector_results) if megadetector_results else None)
+    if megadetector_results is None or max_conf < SAM3_FALLBACK_CONF:
+        logger.info(
+            "MegaDetector empty or low-confidence (max_conf=%s, threshold=%s); trying SAM3 fallback.",
+            max_conf,
+            SAM3_FALLBACK_CONF,
+        )
+        sam3_results = detect_animals_with_sam3(image_rgb)
+        if sam3_results:
+            logger.info("SAM3 fallback returned %s detection(s).", len(sam3_results))
+            return sam3_results
+        logger.debug("SAM3 fallback unavailable or empty; keeping MegaDetector results.")
 
-    batch_idx = 0
-    results = results.xyxy[batch_idx].cpu().numpy()
-
-    if len(results) == 0:
-        return None
-
-    # results_list = [None] * len(results)
-    # for i in range(len(results)):
-    results_list = [
-        {
-            "bbox": list(int(_) for _ in results[i][:4].tolist()),
-            "confidence": results[i][4],
-            "class": id2label[results[i][5]],
-            "size": image_rgb.shape[:2],
-        }
-        for i in range(len(results))
-    ]
-    # results_list[i] = {
-    #     "bbox": list(int(_) for _ in results[i][:4].tolist()),
-    #     "confidence": results[i][4],
-    #     "class": id2label[results[i][5]],
-    #     "size": image_rgb.shape[:2]
-    # }
-
-    return results_list
+    return megadetector_results
 
 
 def detect_animals_in_images(
@@ -426,5 +569,6 @@ def detect_animal_on_metadata(metadata: pd.DataFrame, border=0.0, progress_callb
         progress_callback(len(metadata), len(metadata))
     if not KEEP_DETECTION_MODEL_LOADED:
         del_detection_model()
+    del_sam3_model()
     logger.info("Detection stage: finished for %s media files.", len(metadata))
     return metadata

@@ -36,6 +36,14 @@ RUN pip install --no-cache-dir --upgrade pip build && \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/* /tmp/* /var/tmp/*
 RUN pip install https://github.com/BohemianVRA/FGVC/releases/download/v1.5.4-dev/fgvc-1.5.4.dev0-py3-none-any.whl
 
+# install torch and flash-attn to match sam3 requirements
+RUN pip install torch==2.7.0 torchvision==0.22.0 torchaudio==2.7.0 --index-url https://download.pytorch.org/whl/cu128
+RUN pip uninstall -y flash-attn
+RUN pip install flash-attn --no-build-isolation
+RUN pip install git+https://github.com/facebookresearch/sam3.git@46957e47805eaa273f4aa7bbbd25a88bca9108ce
+# SAM3 weights are downloaded at runtime via HF_TOKEN (see download_sam3_checkpoint_if_missing)
+ENV TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD=1
+
 COPY ./src/taxon_worker/requirements.txt /root/resources/requirements.txt
 
 #RUN pip install pytz --upgrade
