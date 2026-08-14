@@ -2,7 +2,7 @@ import logging
 import re
 
 import django_filters
-from django.db.models import Q, Value
+from django.db.models import Count, Q, Value
 from django.db.models.functions import Concat
 
 from . import models
@@ -237,6 +237,132 @@ class MediaFileFilter(django_filters.FilterSet):
         self.filters["uploadedarchive"].queryset = UploadedArchive.objects.filter(
             **user_has_access_to_uploadedarchives_filter_params(caiduser)
         ).order_by("-uploaded_at")
+
+
+class AnimalObservationFilter(django_filters.FilterSet):
+    """Filters for the observation-centric review view.
+
+    Fields describing a detected animal stay on ``AnimalObservation``.  File
+    context (time, locality, upload) is deliberately reached through
+    ``mediafile`` so filtering an identity never includes other observations
+    from the same image.
+    """
+
+    request = None
+    taxon = django_filters.ModelChoiceFilter(queryset=Taxon.objects.all().order_by("name"))
+    identity = django_filters.ModelChoiceFilter(queryset=models.IndividualIdentity.objects.none())
+    uploadedarchive = django_filters.ModelChoiceFilter(
+        field_name="mediafile__parent",
+        queryset=UploadedArchive.objects.none(),
+        label="Uploaded archive",
+    )
+    locality = django_filters.ModelChoiceFilter(
+        field_name="mediafile__locality",
+        queryset=models.Locality.objects.none(),
+    )
+    captured_at = django_filters.DateFromToRangeFilter(
+        field_name="mediafile__captured_at",
+        label="Captured at",
+        widget=django_filters.widgets.RangeWidget(attrs={"type": "date"}),
+    )
+    orientation = django_filters.ChoiceFilter(choices=models.ORIENTATION_CHOICES)
+    taxon_verified = django_filters.BooleanFilter(label="Taxon verified")
+    identity_is_representative = django_filters.BooleanFilter(label="Representative identity")
+    has_bbox = django_filters.BooleanFilter(method="filter_has_bbox", label="Has bounding box")
+    has_identity = django_filters.BooleanFilter(method="filter_has_identity", label="Has identity")
+    multiple_in_mediafile = django_filters.BooleanFilter(
+        method="filter_multiple_in_mediafile", label="Image has multiple observations"
+    )
+    objects_per_image = django_filters.ChoiceFilter(
+        method="filter_objects_per_image",
+        choices=(
+            ("0", "0 objects (no bounding box)"),
+            ("1", "1 object"),
+            ("2", "2 or more objects"),
+        ),
+        label="Objects per image",
+    )
+    objects_per_image_min = django_filters.NumberFilter(
+        method="filter_objects_per_image_min", label="Objects per image (minimum)", min_value=0
+    )
+    objects_per_image_max = django_filters.NumberFilter(
+        method="filter_objects_per_image_max", label="Objects per image (maximum)", min_value=0
+    )
+    search = django_filters.CharFilter(method="filter_search", label="Search")
+
+    class Meta:
+        model = models.AnimalObservation
+        fields = {}
+
+    def __init__(self, *args, **kwargs):
+        request = kwargs.pop("request", None)
+        if request is None:
+            raise ValueError("request must be provided to AnimalObservationFilter")
+        caiduser = request.user.caiduser
+        super().__init__(*args, **kwargs)
+        self.filters["identity"].queryset = models.IndividualIdentity.objects.filter(
+            owner_workgroup=caiduser.workgroup
+        ).order_by("name", "id")
+        from .model_extra import user_has_access_to_uploadedarchives_filter_params
+
+        self.filters["uploadedarchive"].queryset = UploadedArchive.objects.filter(
+            **user_has_access_to_uploadedarchives_filter_params(caiduser)
+        ).order_by("-uploaded_at")
+        self.filters["locality"].queryset = models.Locality.objects.filter(
+            **models.user_has_access_filter_params(caiduser, "owner")
+        ).order_by("name", "id")
+
+    def filter_has_bbox(self, queryset, name, value):
+        if value is None:
+            return queryset
+        lookup = {"bbox_x_center__isnull": not value}
+        return queryset.filter(**lookup)
+
+    def filter_has_identity(self, queryset, name, value):
+        if value is None:
+            return queryset
+        return queryset.filter(identity__isnull=not value)
+
+    def filter_multiple_in_mediafile(self, queryset, name, value):
+        if value is None:
+            return queryset
+        return self._filter_by_bbox_count(queryset, minimum=2) if value else self._filter_by_bbox_count(queryset, maximum=1)
+
+    def _filter_by_bbox_count(self, queryset, minimum=None, maximum=None):
+        """Keep observations whose image has the requested number of real boxes.
+
+        Empty legacy ``AnimalObservation`` rows are deliberately not counted:
+        they describe an image without an annotated object rather than an object.
+        """
+        mediafile_counts = models.AnimalObservation.objects.order_by().values("mediafile_id").annotate(
+            bbox_count=Count("id", filter=Q(bbox_x_center__isnull=False))
+        )
+        if minimum is not None:
+            mediafile_counts = mediafile_counts.filter(bbox_count__gte=minimum)
+        if maximum is not None:
+            mediafile_counts = mediafile_counts.filter(bbox_count__lte=maximum)
+        return queryset.filter(mediafile_id__in=mediafile_counts.values("mediafile_id"))
+
+    def filter_objects_per_image(self, queryset, name, value):
+        if value == "2":
+            return self._filter_by_bbox_count(queryset, minimum=2)
+        return self._filter_by_bbox_count(queryset, minimum=int(value), maximum=int(value))
+
+    def filter_objects_per_image_min(self, queryset, name, value):
+        return self._filter_by_bbox_count(queryset, minimum=value)
+
+    def filter_objects_per_image_max(self, queryset, name, value):
+        return self._filter_by_bbox_count(queryset, maximum=value)
+
+    def filter_search(self, queryset, name, value):
+        if not value:
+            return queryset
+        return queryset.filter(
+            Q(taxon__name__icontains=value)
+            | Q(identity__name__icontains=value)
+            | Q(mediafile__original_filename__icontains=value)
+            | Q(mediafile__locality__name__icontains=value)
+        )
 
 
 class NotificationFilter(django_filters.FilterSet):

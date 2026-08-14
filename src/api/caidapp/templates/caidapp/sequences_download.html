@@ -3,8 +3,8 @@
 {% block body %}
 {% if user.is_authenticated %}
 <div class="pagetitle">
-  <h1>Download sequences</h1>
-  <nav><ol class="breadcrumb"><li class="breadcrumb-item"><a href="{% url 'caidapp:sequences' %}">Sequences</a></li><li class="breadcrumb-item active">Download</li></ol></nav>
+  <h1>{{ download_title }}</h1>
+  <nav><ol class="breadcrumb"><li class="breadcrumb-item"><a href="{% url breadcrumb_url %}">{{ breadcrumb_label }}</a></li><li class="breadcrumb-item active">Download</li></ol></nav>
 </div>
 
 <section class="section">
@@ -21,11 +21,13 @@
       </div>
 
       <form method="get" id="sequence-download-form">
+        {% if show_import_link %}
         <div class="mb-3">
           <a class="btn btn-outline-secondary" href="{% url 'caidapp:import_observations' %}">
             <i class="bi bi-file-earmark-arrow-up"></i> Import observation metadata
           </a>
         </div>
+        {% endif %}
         <div class="row g-4">
           <div class="col-lg-7">
             <h6>Metadata columns</h6>
@@ -47,10 +49,10 @@
               {% endfor %}
             </div>
             <div class="d-flex flex-wrap gap-2 mt-3">
-              <button class="btn btn-primary" type="submit" formaction="{% url 'caidapp:download_csv_for_sequences' %}">
+              <button class="btn btn-primary" type="submit" formaction="{% url download_csv_url_name %}">
                 <i class="bi bi-table"></i> Download CSV
               </button>
-              <button class="btn btn-primary" type="submit" formaction="{% url 'caidapp:download_xlsx_for_sequences' %}">
+              <button class="btn btn-primary" type="submit" formaction="{% url download_xlsx_url_name %}">
                 <i class="bi bi-file-earmark-excel"></i> Download XLSX
               </button>
             </div>
@@ -78,7 +80,7 @@
             <button
               type="button"
               class="btn btn-secondary download-mediafiles-button"
-              data-base-url="{% url 'caidapp:download_zip_for_sequences' %}"
+              data-base-url="{% url download_zip_url_name %}"
               data-query-string=""
             >
               <i class="bi bi-archive"></i> Prepare and download ZIP

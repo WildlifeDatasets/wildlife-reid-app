@@ -1423,6 +1423,7 @@ class SequenceViewTest(TestCase):
         self.assertContains(response, "bbox-image-area")
         self.assertContains(response, "syncBboxPreviewFrame")
 
+
     def test_bulk_identity_post_rejects_identity_from_other_workgroup(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)
         mediafile = MediaFileFactory(parent=archive, original_filename="selected.jpg")
@@ -1818,6 +1819,18 @@ class SequenceViewTest(TestCase):
         self.assertEqual(response.url, reverse("caidapp:download_sequences"))
         self.assertEqual(self.client.session["sequence_download_mediafile_ids"], [selected_mediafile.id])
         self.assertNotIn(other_mediafile.id, self.client.session["sequence_download_mediafile_ids"])
+
+    def test_sequence_download_configuration_uses_sequence_urls(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        mediafile = MediaFileFactory(parent=archive, original_filename="selected.jpg")
+        session = self.client.session
+        session["sequence_download_mediafile_ids"] = [mediafile.id]
+        session.save()
+
+        response = self.client.get(reverse("caidapp:download_sequences"))
+
+        self.assertContains(response, "Download sequences")
+        self.assertContains(response, reverse("caidapp:download_zip_for_sequences"))
 
     def test_dissolve_selected_sequences_splits_mediafiles_into_singletons(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)
@@ -2980,6 +2993,385 @@ class SequenceViewTest(TestCase):
         self.assertIsNone(second_observation.taxon)
         self.assertIsNone(first_observation.identity)
         self.assertIsNone(second_observation.identity)
+
+
+class ObservationViewTest(TestCase):
+    def setUp(self):
+        self.caiduser = CaidUserFactory()
+        self.user = self.caiduser.user
+        self.client.login(username=self.user.username, password="test123")
+
+    def test_observations_view_lists_each_observation_separately(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        sequence = SequenceFactory(uploaded_archive=archive, local_id=22)
+        mediafile = MediaFileFactory(parent=archive, sequence=sequence, original_filename="three-animals.jpg")
+        first = AnimalObservationFactory(mediafile=mediafile, bbox_x_center=0.2, bbox_y_center=0.4, bbox_width=0.2, bbox_height=0.3)
+        second = AnimalObservationFactory(mediafile=mediafile, bbox_x_center=0.7, bbox_y_center=0.5, bbox_width=0.2, bbox_height=0.3)
+
+        response = self.client.get(reverse("caidapp:observations"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, f"Observation #{first.id}")
+        self.assertContains(response, f"Observation #{second.id}")
+        self.assertContains(response, "Sequence 22")
+        self.assertContains(response, "observation-bbox")
+        self.assertContains(response, f"#observation-{first.id}")
+        self.assertContains(response, "observation-group-collapsed")
+        self.assertContains(response, "observation-group-collapsed-card")
+        self.assertContains(response, "observation-group-break")
+        self.assertContains(response, "observation-group-hover-highlight")
+        self.assertContains(response, "animateObservationGridChange")
+        self.assertContains(response, "animateObservationCollapse")
+        self.assertContains(response, "js-toggle-observation-group")
+        self.assertContains(response, "js-expand-all-observation-groups")
+
+    def test_observations_list_mode_keeps_observation_rows_and_group_summary(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        sequence = SequenceFactory(uploaded_archive=archive, local_id=31)
+        mediafile = MediaFileFactory(parent=archive, sequence=sequence, original_filename="two.jpg")
+        first = AnimalObservationFactory(mediafile=mediafile, bbox_x_center=0.3)
+        second = AnimalObservationFactory(mediafile=mediafile, bbox_x_center=0.7)
+
+        response = self.client.get(reverse("caidapp:observations"), {"view": "list"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, f"#{first.id}")
+        self.assertContains(response, f"#{second.id}")
+        self.assertContains(response, "observations on this page")
+        self.assertContains(response, f'data-mediafile-id="{mediafile.id}"', count=2)
+        self.assertContains(response, "Merge into new sequence")
+
+    def test_observation_bulk_bbox_updates_selected_image_only(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        selected_mediafile = MediaFileFactory(parent=archive)
+        selected_first = AnimalObservationFactory(mediafile=selected_mediafile, bbox_x_center=0.2)
+        selected_second = AnimalObservationFactory(mediafile=selected_mediafile, bbox_x_center=0.8)
+        untouched = AnimalObservationFactory(mediafile=MediaFileFactory(parent=archive), bbox_x_center=0.4)
+
+        response = self.client.post(
+            reverse("caidapp:observations"),
+            {
+                "selected_mediafile_ids": [str(selected_mediafile.id), str(selected_mediafile.id)],
+                "btnBulkProcessing_set_full_image_bbox": "1",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        selected_first.refresh_from_db()
+        selected_second.refresh_from_db()
+        untouched.refresh_from_db()
+        self.assertEqual(selected_first.bbox_width, 1.0)
+        self.assertEqual(selected_second.bbox_width, 1.0)
+        self.assertNotEqual(untouched.bbox_width, 1.0)
+
+    def test_observation_bulk_action_without_explicit_selection_is_noop(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        observation = AnimalObservationFactory(
+            mediafile=MediaFileFactory(parent=archive),
+            bbox_x_center=0.4,
+            bbox_y_center=0.4,
+            bbox_width=0.2,
+            bbox_height=0.2,
+        )
+
+        response = self.client.post(
+            reverse("caidapp:observations"),
+            {"btnBulkProcessing_remove_bbox": "1"},
+        )
+
+        self.assertEqual(response.status_code, 302)
+        observation.refresh_from_db()
+        self.assertEqual(observation.bbox_x_center, 0.4)
+
+    def test_observation_select_all_mutates_only_workgroup_images(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        editable_observation = AnimalObservationFactory(
+            mediafile=MediaFileFactory(parent=archive),
+            bbox_x_center=0.5,
+            bbox_y_center=0.5,
+            bbox_width=0.2,
+            bbox_height=0.2,
+        )
+        owner = CaidUserFactory()
+        shared_mediafile = MediaFileFactory(parent=UploadedArchiveFactory(owner=owner))
+        shared_observation = AnimalObservationFactory(
+            mediafile=shared_mediafile,
+            bbox_x_center=0.5,
+            bbox_y_center=0.5,
+            bbox_width=0.2,
+            bbox_height=0.2,
+        )
+        album = AlbumFactory(owner=owner)
+        album.mediafiles.add(shared_mediafile)
+        models.AlbumShareRole.objects.create(album=album, user=self.caiduser)
+
+        response = self.client.post(
+            reverse("caidapp:observations"),
+            {"select_all_filtered": "on", "btnBulkProcessing_remove_bbox": "1"},
+        )
+
+        self.assertEqual(response.status_code, 302)
+        editable_observation.refresh_from_db()
+        shared_observation.refresh_from_db()
+        self.assertIsNone(editable_observation.bbox_x_center)
+        self.assertEqual(shared_observation.bbox_x_center, 0.5)
+
+    def test_observation_bulk_action_rejects_editable_id_outside_current_filter(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        selected_identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Selected")
+        matching_observation = AnimalObservationFactory(
+            mediafile=MediaFileFactory(parent=archive),
+            identity=selected_identity,
+            bbox_x_center=0.3,
+            bbox_y_center=0.5,
+            bbox_width=0.2,
+            bbox_height=0.2,
+        )
+        outside_observation = AnimalObservationFactory(
+            mediafile=MediaFileFactory(parent=archive),
+            bbox_x_center=0.7,
+            bbox_y_center=0.5,
+            bbox_width=0.2,
+            bbox_height=0.2,
+        )
+
+        response = self.client.post(
+            reverse("caidapp:observations") + f"?identity={selected_identity.id}",
+            {
+                "selected_mediafile_ids": [str(outside_observation.mediafile_id)],
+                "btnBulkProcessing_remove_bbox": "1",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        matching_observation.refresh_from_db()
+        outside_observation.refresh_from_db()
+        self.assertEqual(matching_observation.bbox_x_center, 0.3)
+        self.assertEqual(outside_observation.bbox_x_center, 0.7)
+
+    def test_observation_sequence_action_merges_selected_images(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        first_mediafile = MediaFileFactory(parent=archive, sequence=SequenceFactory(uploaded_archive=archive))
+        second_mediafile = MediaFileFactory(parent=archive, sequence=SequenceFactory(uploaded_archive=archive))
+        AnimalObservationFactory(mediafile=first_mediafile)
+        AnimalObservationFactory(mediafile=second_mediafile)
+
+        response = self.client.post(
+            reverse("caidapp:observations"),
+            {
+                "selected_mediafile_ids": [str(first_mediafile.id), str(second_mediafile.id)],
+                "btnCreateSequence": "1",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        first_mediafile.refresh_from_db()
+        second_mediafile.refresh_from_db()
+        self.assertEqual(first_mediafile.sequence_id, second_mediafile.sequence_id)
+
+    def test_observation_sequence_action_dissolves_selected_images(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        sequence = SequenceFactory(uploaded_archive=archive)
+        first_mediafile = MediaFileFactory(parent=archive, sequence=sequence)
+        second_mediafile = MediaFileFactory(parent=archive, sequence=sequence)
+        AnimalObservationFactory(mediafile=first_mediafile)
+        AnimalObservationFactory(mediafile=second_mediafile)
+
+        response = self.client.post(
+            reverse("caidapp:observations"),
+            {
+                "selected_mediafile_ids": [str(first_mediafile.id), str(second_mediafile.id)],
+                "btnDissolveSequences": "1",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        first_mediafile.refresh_from_db()
+        second_mediafile.refresh_from_db()
+        self.assertNotEqual(first_mediafile.sequence_id, second_mediafile.sequence_id)
+
+    def test_observation_selection_download_stores_only_selected_editable_images(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        selected_mediafile = MediaFileFactory(parent=archive)
+        other_mediafile = MediaFileFactory(parent=archive)
+        AnimalObservationFactory(mediafile=selected_mediafile)
+        AnimalObservationFactory(mediafile=other_mediafile)
+
+        response = self.client.post(
+            reverse("caidapp:observations"),
+            {
+                "selected_mediafile_ids": [str(selected_mediafile.id)],
+                "btnDownloadObservations": "1",
+            },
+        )
+
+        self.assertRedirects(response, reverse("caidapp:download_observations"))
+        self.assertEqual(self.client.session["observation_download_mediafile_ids"], [selected_mediafile.id])
+
+    def test_identity_filter_does_not_include_sibling_observation_from_same_image(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        mediafile = MediaFileFactory(parent=archive, original_filename="two-animals.jpg")
+        selected_identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Selected")
+        other_identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Other")
+        selected = AnimalObservationFactory(mediafile=mediafile, identity=selected_identity)
+        sibling = AnimalObservationFactory(mediafile=mediafile, identity=other_identity)
+
+        response = self.client.get(reverse("caidapp:observations"), {"identity": selected_identity.id})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, f"Observation #{selected.id}")
+        self.assertNotContains(response, f"Observation #{sibling.id}")
+
+    def test_observation_export_uses_existing_round_trip_rows_for_matching_mediafile(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        mediafile = MediaFileFactory(parent=archive, original_filename="two-animals.jpg")
+        selected_identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Selected")
+        other_identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Other")
+        selected = AnimalObservationFactory(mediafile=mediafile, identity=selected_identity)
+        sibling = AnimalObservationFactory(mediafile=mediafile, identity=other_identity)
+
+        response = self.client.get(reverse("caidapp:download_csv_for_observations"), {"identity": selected_identity.id})
+
+        self.assertEqual(response.status_code, 200)
+        df = pd.read_csv(StringIO(response.content.decode()))
+        self.assertEqual(set(df["observation_id"]), {selected.id, sibling.id})
+        self.assertEqual(set(df["original_path"]), {"two-animals.jpg"})
+        self.assertContains(
+            self.client.get(reverse("caidapp:observations")),
+            reverse("caidapp:import_observations"),
+        )
+
+    def test_observation_image_export_uses_current_filter_and_download_configuration(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        selected_mediafile = MediaFileFactory(parent=archive, original_filename="selected.jpg")
+        other_mediafile = MediaFileFactory(parent=archive, original_filename="other.jpg")
+        selected_identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Selected")
+        AnimalObservationFactory(mediafile=selected_mediafile, identity=selected_identity)
+        AnimalObservationFactory(mediafile=other_mediafile)
+
+        response = self.client.get(reverse("caidapp:prepare_observation_download"), {"identity": selected_identity.id})
+
+        self.assertRedirects(response, reverse("caidapp:download_observations"))
+        download_response = self.client.get(reverse("caidapp:download_observations"))
+        self.assertContains(download_response, "Export 1 media files")
+        self.assertContains(download_response, reverse("caidapp:download_zip_for_observations"))
+        self.assertNotContains(download_response, "Import observation metadata")
+        self.assertNotContains(download_response, "Download sequences")
+
+    def test_observation_export_includes_blank_row_for_mediafile_without_observations(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        observed_mediafile = MediaFileFactory(parent=archive, original_filename="observed.jpg")
+        empty_mediafile = MediaFileFactory(parent=archive, original_filename="empty.jpg")
+        AnimalObservationFactory(mediafile=observed_mediafile)
+
+        response = self.client.get(reverse("caidapp:download_csv_for_observations"))
+
+        self.assertEqual(response.status_code, 200)
+        df = pd.read_csv(StringIO(response.content.decode()))
+        self.assertEqual(list(df["original_path"]), ["observed.jpg", "empty.jpg"])
+        self.assertTrue(pd.isna(df[df["original_path"] == "empty.jpg"].iloc[0]["observation_id"]))
+        created, updated = views._import_observation_dataframe(df, self.caiduser)
+        self.assertEqual((created, updated), (0, 1))
+        self.assertFalse(empty_mediafile.observations.exists())
+
+    def test_observation_export_search_includes_matching_empty_mediafile(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        empty_mediafile = MediaFileFactory(parent=archive, original_filename="empty-search-target.jpg")
+
+        response = self.client.get(reverse("caidapp:download_csv_for_observations"), {"search": "search-target"})
+
+        self.assertEqual(response.status_code, 200)
+        df = pd.read_csv(StringIO(response.content.decode()))
+        self.assertEqual(list(df["mediafile_id"]), [empty_mediafile.id])
+        self.assertTrue(pd.isna(df.iloc[0]["observation_id"]))
+
+    def test_observation_import_accepts_mediafile_exported_from_shared_album(self):
+        owner = CaidUserFactory()
+        archive = UploadedArchiveFactory(owner=owner)
+        mediafile = MediaFileFactory(parent=archive, original_filename="shared.jpg")
+        observation = AnimalObservationFactory(mediafile=mediafile)
+        album = AlbumFactory(owner=owner)
+        album.mediafiles.add(mediafile)
+        models.AlbumShareRole.objects.create(album=album, user=self.caiduser)
+
+        response = self.client.get(reverse("caidapp:download_csv_for_observations"))
+
+        self.assertEqual(response.status_code, 200)
+        df = pd.read_csv(StringIO(response.content.decode()))
+        shared_rows = df[df["mediafile_id"] == mediafile.id]
+        created, updated = views._import_observation_dataframe(shared_rows, self.caiduser)
+        self.assertEqual((created, updated), (0, 1))
+        self.assertTrue(models.AnimalObservation.objects.filter(id=observation.id).exists())
+
+    def test_has_bbox_filter_excludes_legacy_observation_without_bbox(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        mediafile = MediaFileFactory(parent=archive)
+        with_bbox = AnimalObservationFactory(mediafile=mediafile, bbox_x_center=0.5, bbox_y_center=0.5, bbox_width=0.3, bbox_height=0.3)
+        without_bbox = AnimalObservationFactory(mediafile=MediaFileFactory(parent=archive))
+
+        response = self.client.get(reverse("caidapp:observations"), {"has_bbox": "true"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, f"Observation #{with_bbox.id}")
+        self.assertNotContains(response, f"Observation #{without_bbox.id}")
+
+    def test_objects_per_image_filters_count_only_real_bounding_boxes(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        no_bbox = AnimalObservationFactory(mediafile=MediaFileFactory(parent=archive))
+        one_bbox = AnimalObservationFactory(
+            mediafile=MediaFileFactory(parent=archive),
+            bbox_x_center=0.5,
+            bbox_y_center=0.5,
+            bbox_width=0.3,
+            bbox_height=0.3,
+        )
+        multi_mediafile = MediaFileFactory(parent=archive)
+        two_bbox_first = AnimalObservationFactory(
+            mediafile=multi_mediafile,
+            bbox_x_center=0.3,
+            bbox_y_center=0.5,
+            bbox_width=0.2,
+            bbox_height=0.3,
+        )
+        two_bbox_second = AnimalObservationFactory(
+            mediafile=multi_mediafile,
+            bbox_x_center=0.7,
+            bbox_y_center=0.5,
+            bbox_width=0.2,
+            bbox_height=0.3,
+        )
+
+        zero_response = self.client.get(reverse("caidapp:observations"), {"objects_per_image": "0"})
+        self.assertContains(zero_response, f"Observation #{no_bbox.id}")
+        self.assertNotContains(zero_response, f"Observation #{one_bbox.id}")
+
+        one_response = self.client.get(reverse("caidapp:observations"), {"objects_per_image": "1"})
+        self.assertContains(one_response, f"Observation #{one_bbox.id}")
+        self.assertNotContains(one_response, f"Observation #{no_bbox.id}")
+
+        multi_response = self.client.get(reverse("caidapp:observations"), {"objects_per_image": "2"})
+        self.assertContains(multi_response, f"Observation #{two_bbox_first.id}")
+        self.assertContains(multi_response, f"Observation #{two_bbox_second.id}")
+        self.assertNotContains(multi_response, f"Observation #{one_bbox.id}")
+
+        minimum_response = self.client.get(reverse("caidapp:observations"), {"objects_per_image_min": "2"})
+        self.assertContains(minimum_response, f"Observation #{two_bbox_first.id}")
+        self.assertNotContains(minimum_response, f"Observation #{one_bbox.id}")
+
+        maximum_response = self.client.get(reverse("caidapp:observations"), {"objects_per_image_max": "1"})
+        self.assertContains(maximum_response, f"Observation #{no_bbox.id}")
+        self.assertContains(maximum_response, f"Observation #{one_bbox.id}")
+        self.assertNotContains(maximum_response, f"Observation #{two_bbox_first.id}")
+
+    def test_observations_view_restricts_other_workgroup(self):
+        foreign_user = CaidUserFactory()
+        foreign_archive = UploadedArchiveFactory(owner=foreign_user)
+        foreign_observation = AnimalObservationFactory(mediafile=MediaFileFactory(parent=foreign_archive))
+
+        response = self.client.get(reverse("caidapp:observations"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, f"Observation #{foreign_observation.id}")
 
 
 class IdentificationUploadsViewTest(TestCase):

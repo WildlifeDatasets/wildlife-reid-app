@@ -295,7 +295,7 @@
                                                     {{ inline.management_form }}
 
                                                     {% for obs_form in inline %}
-                                                        <div class="mb-2 border rounded p-2 observation-form"
+                                                        <div id="observation-{{ obs_form.instance.pk|default:'new' }}" class="mb-2 border rounded p-2 observation-form"
                                                              data-obs-id="{{ obs_form.instance.pk|default:'new' }}">
                                                             {#                                                            Observation {{ forloop.counter }},#}
                                                             {#                                                            pk: {{ obs_form.instance.pk }}: <br>#}

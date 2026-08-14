@@ -177,6 +177,9 @@ MEDIAFILE_EXPORT_SCHEMAS = {
 
 SEQUENCE_DOWNLOAD_SESSION_KEY = "sequence_download_mediafile_ids"
 SEQUENCE_DOWNLOAD_RETURN_URL_SESSION_KEY = "sequence_download_return_url"
+OBSERVATION_DOWNLOAD_SESSION_KEY = "observation_download_mediafile_ids"
+OBSERVATION_DOWNLOAD_RETURN_URL_SESSION_KEY = "observation_download_return_url"
+OBSERVATION_PER_PAGE_OPTIONS = (24, 48, 96, 192)
 
 SEQUENCE_EXPORT_COLUMNS = [
     ("unique_name", "Identity"),
@@ -3967,6 +3970,322 @@ def _get_filtered_mediafiles_queryset(
     return full_mediafiles, mediafile_filter, page_title, mediafiles_name_suggestion
 
 
+def _get_observation_records_per_page(request: HttpRequest) -> int:
+    """Return a validated per-page setting for the observation review view."""
+    raw_value = request.GET.get("per_page")
+    if raw_value is not None:
+        try:
+            value = int(raw_value)
+        except (TypeError, ValueError):
+            value = OBSERVATION_PER_PAGE_OPTIONS[0]
+        if value in OBSERVATION_PER_PAGE_OPTIONS:
+            request.session["observations_records_per_page"] = value
+            return value
+    return request.session.get("observations_records_per_page", OBSERVATION_PER_PAGE_OPTIONS[0])
+
+
+def _get_observations_queryset(request: HttpRequest) -> Tuple[QuerySet, filters.AnimalObservationFilter]:
+    """Return observations accessible to the current user, filtered per observation.
+
+    This must not use the mediafile list helper: a mediafile-level identity
+    filter would include every sibling observation from a matching image.
+    """
+    caiduser = request.user.caiduser
+    observations = AnimalObservation.objects.filter(
+        Q(mediafile__album__albumsharerole__user=caiduser)
+        | Q(**models.user_has_access_filter_params(caiduser, "mediafile__parent__owner"))
+    ).select_related(
+        "mediafile",
+        "mediafile__parent",
+        "mediafile__locality",
+        "mediafile__sequence",
+        "taxon",
+        "identity",
+    )
+    observation_filter = filters.AnimalObservationFilter(request.GET, queryset=observations, request=request)
+    return observation_filter.qs.distinct(), observation_filter
+
+
+def _get_mediafiles_for_observation_export(request: HttpRequest) -> QuerySet:
+    """Return complete mediafiles represented by the current observation filter.
+
+    The filter selects observations, but the spreadsheet is intentionally
+    mediafile-complete: every matching mediafile exports all its observations
+    (or one blank row when it has none).  This preserves the established
+    import/export round-trip format.
+    """
+    observation_queryset, observation_filter = _get_observations_queryset(request)
+    sequence_id = _parse_int_query_param_or_404(request.GET.get("sequence"), "sequence id")
+    if sequence_id is not None:
+        observation_queryset = observation_queryset.filter(mediafile__sequence_id=sequence_id)
+
+    observation_only_filter_names = (
+        "taxon",
+        "identity",
+        "orientation",
+        "taxon_verified",
+        "identity_is_representative",
+        "has_bbox",
+        "has_identity",
+        "multiple_in_mediafile",
+        "objects_per_image",
+        "objects_per_image_min",
+        "objects_per_image_max",
+    )
+    has_observation_only_filter = any(
+        observation_filter.form.cleaned_data.get(name) not in (None, "")
+        for name in observation_only_filter_names
+    )
+    if has_observation_only_filter:
+        mediafiles = MediaFile.objects.filter(id__in=observation_queryset.order_by().values("mediafile_id"))
+    else:
+        # File-context filters do not require an observation to exist.  This
+        # branch is what preserves a blank spreadsheet row for empty mediafiles.
+        mediafiles = MediaFile.objects.filter(
+            Q(album__albumsharerole__user=request.user.caiduser)
+            | Q(**models.user_has_access_filter_params(request.user.caiduser, "parent__owner"))
+        )
+        uploaded_archive = observation_filter.form.cleaned_data.get("uploadedarchive")
+        locality = observation_filter.form.cleaned_data.get("locality")
+        captured_at = observation_filter.form.cleaned_data.get("captured_at")
+        if uploaded_archive is not None:
+            mediafiles = mediafiles.filter(parent=uploaded_archive)
+        if locality is not None:
+            mediafiles = mediafiles.filter(locality=locality)
+        if captured_at is not None:
+            if captured_at.start is not None:
+                mediafiles = mediafiles.filter(captured_at__date__gte=captured_at.start)
+            if captured_at.stop is not None:
+                mediafiles = mediafiles.filter(captured_at__date__lte=captured_at.stop)
+        if sequence_id is not None:
+            mediafiles = mediafiles.filter(sequence_id=sequence_id)
+        search_value = observation_filter.form.cleaned_data.get("search")
+        if search_value:
+            mediafiles = mediafiles.filter(
+                Q(original_filename__icontains=search_value)
+                | Q(locality__name__icontains=search_value)
+                | Q(observations__taxon__name__icontains=search_value)
+                | Q(observations__identity__name__icontains=search_value)
+            )
+
+    return (
+        mediafiles.distinct()
+        .select_related("parent", "locality", "sequence")
+        .prefetch_related(
+            Prefetch(
+                "observations",
+                queryset=AnimalObservation.objects.select_related("taxon", "predicted_taxon", "identity").order_by("id"),
+            )
+        )
+        .order_by("sequence_id", "captured_at", "id")
+    )
+
+
+@login_required
+def download_csv_for_observations_view(request: HttpRequest) -> HttpResponse:
+    """Download import-compatible metadata for mediafiles matched by observations."""
+    mediafiles = _get_mediafiles_for_observation_export(request)
+    df = _sequence_export_dataframe(mediafiles, request, SEQUENCE_EXPORT_DEFAULT_COLUMNS)
+    if df.empty:
+        return HttpResponse("No data available to export.", content_type="text/plain")
+    response = HttpResponse(df.to_csv(index=False), content_type="text/csv")
+    response["Content-Disposition"] = "attachment; filename=observation_metadata.csv"
+    return response
+
+
+@login_required
+def download_xlsx_for_observations_view(request: HttpRequest) -> HttpResponse:
+    """Download import-compatible XLSX for mediafiles matched by observations."""
+    mediafiles = _get_mediafiles_for_observation_export(request)
+    df = _sequence_export_dataframe(mediafiles, request, SEQUENCE_EXPORT_DEFAULT_COLUMNS)
+    if df.empty:
+        return HttpResponse("No data available to export.", content_type="text/plain")
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        model_tools.convert_datetime_to_naive(df).to_excel(writer, index=False, sheet_name="Observations")
+    output.seek(0)
+    response = HttpResponse(output, content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    response["Content-Disposition"] = "attachment; filename=observation_metadata.xlsx"
+    return response
+
+
+@login_required
+def prepare_observation_download(request: HttpRequest) -> HttpResponse:
+    """Start the configurable image/metadata export for the current observation scope."""
+    mediafile_ids = list(_get_mediafiles_for_observation_export(request).values_list("id", flat=True))
+    request.session[OBSERVATION_DOWNLOAD_SESSION_KEY] = mediafile_ids
+    return_url = reverse("caidapp:observations")
+    if request.GET:
+        return_url = f"{return_url}?{request.GET.urlencode()}"
+    request.session[OBSERVATION_DOWNLOAD_RETURN_URL_SESSION_KEY] = return_url
+    return redirect("caidapp:download_observations")
+
+
+@login_required
+def observations(request: HttpRequest) -> HttpResponse:
+    """Review individual animal observations, optionally grouped by their context."""
+    group_by = request.GET.get("group", "sequence")
+    if group_by not in {"sequence", "mediafile", "none"}:
+        group_by = "sequence"
+    view_mode = request.GET.get("view", "cards")
+    if view_mode not in {"cards", "list"}:
+        view_mode = "cards"
+    records_per_page = _get_observation_records_per_page(request)
+    observation_queryset, observation_filter = _get_observations_queryset(request)
+
+    sequence_id = _parse_int_query_param_or_404(request.GET.get("sequence"), "sequence id")
+    if sequence_id is not None:
+        observation_queryset = observation_queryset.filter(mediafile__sequence_id=sequence_id)
+
+    matching_mediafiles = _get_mediafiles_for_observation_export(request)
+    if sequence_id is not None:
+        matching_mediafiles = matching_mediafiles.filter(sequence_id=sequence_id)
+    editable_mediafiles = MediaFile.objects.for_user(request.user.caiduser).filter(
+        id__in=matching_mediafiles.order_by().values("id")
+    )
+    if request.method == "POST":
+        selected_mediafile_ids = _resolve_selected_mediafile_ids_from_post(request, editable_mediafiles)
+        selected_mediafile_ids = sorted(
+            editable_mediafiles.filter(id__in=selected_mediafile_ids).values_list("id", flat=True)
+        )
+        selection_actions = {
+            "btnBulkProcessing_set_full_image_bbox",
+            "btnBulkProcessing_remove_bbox",
+            "btnCreateSequence",
+            "btnDissolveSequences",
+            "btnExtractFilenameMetadata",
+            "btnDownloadObservations",
+        }
+        requested_selection_action = next((key for key in selection_actions if key in request.POST), None)
+        if requested_selection_action and not selected_mediafile_ids:
+            messages.warning(request, "Select at least one editable image.")
+            return redirect(request.get_full_path())
+
+        if requested_selection_action in {
+            "btnBulkProcessing_set_full_image_bbox",
+            "btnBulkProcessing_remove_bbox",
+        }:
+            selected_mediafiles = (
+                MediaFile.objects.for_user(request.user.caiduser)
+                .filter(id__in=selected_mediafile_ids)
+                .prefetch_related("observations")
+            )
+            changed_observation_count = 0
+            for mediafile in selected_mediafiles:
+                if requested_selection_action == "btnBulkProcessing_set_full_image_bbox":
+                    changed_observation_count += _set_mediafile_bbox_to_full_image(mediafile, request.user.caiduser)
+                else:
+                    changed_observation_count += _remove_mediafile_bbox(mediafile, request.user.caiduser)
+            action_label = "Set full-image bbox on" if requested_selection_action.endswith("full_image_bbox") else "Removed bbox from"
+            messages.success(request, f"{action_label} {changed_observation_count} observations.")
+            return redirect(request.get_full_path())
+
+        if "btnCreateSequence" in request.POST:
+            result = _create_sequence_from_mediafiles(request.user.caiduser, selected_mediafile_ids)
+            if result["status"] == "empty":
+                messages.warning(request, "No editable media files matched the selection.")
+            elif result["status"] == "multiple_archives":
+                messages.error(request, "Selected media files must belong to the same upload to create a sequence.")
+            elif result["status"] == "already_one_sequence":
+                messages.info(request, "Selected media files already form one complete sequence.")
+            else:
+                messages.success(request, f"Created a new sequence from {result['mediafile_count']} media files.")
+            return redirect(request.get_full_path())
+
+        if "btnDissolveSequences" in request.POST:
+            dissolved_count = _dissolve_mediafiles_into_singleton_sequences(
+                request.user.caiduser, selected_mediafile_ids
+            )
+            if dissolved_count:
+                messages.success(request, f"Dissolved {dissolved_count} media files into single-media sequences.")
+            else:
+                messages.info(request, "Selected media files are already in single-media sequences.")
+            return redirect(request.get_full_path())
+
+        if "btnExtractFilenameMetadata" in request.POST:
+            return _start_filename_metadata_session(
+                request,
+                selected_mediafile_ids,
+                request.get_full_path(),
+                "Observations",
+            )
+
+        if "btnDownloadObservations" in request.POST:
+            request.session[OBSERVATION_DOWNLOAD_SESSION_KEY] = selected_mediafile_ids
+            request.session[OBSERVATION_DOWNLOAD_RETURN_URL_SESSION_KEY] = request.get_full_path()
+            return redirect("caidapp:download_observations")
+
+    observation_queryset = observation_queryset.order_by(
+        "mediafile__sequence_id", "mediafile__captured_at", "mediafile_id", "id"
+    )
+    paginator = Paginator(observation_queryset, per_page=records_per_page)
+    page_obj, _, page_context = _prepare_page(paginator, request=request)
+    observations_on_page = list(page_obj.object_list)
+    editable_mediafile_ids = set(editable_mediafiles.values_list("id", flat=True))
+    for observation in observations_on_page:
+        observation.bulk_editable = observation.mediafile_id in editable_mediafile_ids
+
+    groups = []
+    group_lookup = {}
+    for observation in observations_on_page:
+        if group_by == "sequence":
+            key = ("sequence", observation.mediafile.sequence_id)
+            label = (
+                f"Sequence {observation.mediafile.sequence.local_id or observation.mediafile.sequence_id}"
+                if observation.mediafile.sequence_id
+                else "No sequence"
+            )
+        elif group_by == "mediafile":
+            key = ("mediafile", observation.mediafile_id)
+            label = observation.mediafile.original_filename or f"Media file {observation.mediafile_id}"
+        else:
+            key = ("observation", observation.id)
+            label = None
+        group = group_lookup.get(key)
+        if group is None:
+            group_id = "-".join(str(part) if part is not None else "none" for part in key)
+            group = {
+                "id": group_id,
+                "label": label,
+                "observations": [],
+                "is_collapsible": group_by != "none",
+            }
+            group_lookup[key] = group
+            groups.append(group)
+        group["observations"].append(observation)
+
+    for group in groups:
+        group_observations = group["observations"]
+        group["mediafile_count"] = len({observation.mediafile_id for observation in group_observations})
+        group["bbox_count"] = sum(observation.bbox_x_center is not None for observation in group_observations)
+        group["taxon_count"] = len({observation.taxon_id for observation in group_observations if observation.taxon_id})
+        group["identity_count"] = len(
+            {observation.identity_id for observation in group_observations if observation.identity_id}
+        )
+        captured_values = [
+            observation.mediafile.captured_at
+            for observation in group_observations
+            if observation.mediafile.captured_at is not None
+        ]
+        group["captured_at_start"] = min(captured_values) if captured_values else None
+        group["captured_at_end"] = max(captured_values) if captured_values else None
+
+    context = {
+        **page_context,
+        "page_title": "Observations",
+        "filter": observation_filter,
+        "observation_groups": groups,
+        "group_by": group_by,
+        "view_mode": view_mode,
+        "records_per_page": records_per_page,
+        "observation_per_page_options": OBSERVATION_PER_PAGE_OPTIONS,
+        "number_of_observations": observation_queryset.count(),
+        "number_of_mediafiles": matching_mediafiles.count(),
+        "number_of_editable_mediafiles": editable_mediafiles.count(),
+    }
+    return render(request, "caidapp/observations.html", add_querystring_to_context(request, context))
+
+
 @login_required
 def representative_mediafiles_redirect(request):
     """Backward-compatible redirect to the unified media files view."""
@@ -5784,6 +6103,28 @@ def _get_sequence_download_mediafiles(request: HttpRequest) -> QuerySet:
     )
 
 
+def _get_observation_download_mediafiles(request: HttpRequest) -> QuerySet:
+    """Return mediafiles captured by the current Observations export scope."""
+    mediafile_ids = request.session.get(OBSERVATION_DOWNLOAD_SESSION_KEY, [])
+    caiduser = request.user.caiduser
+    return (
+        MediaFile.objects.filter(
+            Q(album__albumsharerole__user=caiduser)
+            | Q(**models.user_has_access_filter_params(caiduser, "parent__owner")),
+            id__in=mediafile_ids,
+        )
+        .distinct()
+        .select_related("parent", "locality", "sequence")
+        .prefetch_related(
+            Prefetch(
+                "observations",
+                queryset=AnimalObservation.objects.select_related("taxon", "predicted_taxon", "identity").order_by("id"),
+            )
+        )
+        .order_by("sequence_id", "captured_at", "id")
+    )
+
+
 def _identity_export_values(identity: Optional[models.IndividualIdentity]) -> Dict[str, str]:
     if identity is None:
         return {"unique_name": "", "code": "", "juv_code": ""}
@@ -5914,6 +6255,13 @@ def download_sequences_view(request) -> HttpResponse:
             "export_columns": SEQUENCE_EXPORT_COLUMNS,
             "default_export_columns": SEQUENCE_EXPORT_DEFAULT_COLUMNS,
             "export_schemas": MEDIAFILE_EXPORT_SCHEMAS,
+            "download_title": "Download sequences",
+            "breadcrumb_url": "caidapp:sequences",
+            "breadcrumb_label": "Sequences",
+            "download_csv_url_name": "caidapp:download_csv_for_sequences",
+            "download_xlsx_url_name": "caidapp:download_xlsx_for_sequences",
+            "download_zip_url_name": "caidapp:download_zip_for_sequences",
+            "show_import_link": True,
         },
     )
 
@@ -5981,6 +6329,95 @@ def download_zip_for_sequences_view(request) -> JsonResponse:
     abs_zip_path = Path(settings.MEDIA_ROOT) / "users" / user_hash / f"sequence_mediafiles.{datetime_str}.zip"
     task = tasks.create_mediafiles_zip_with_metadata.delay(user_hash, mediafiles_data, str(abs_zip_path), metadata_records)
     _ = tasks.clean_old_mediafile_zips.delay(str(abs_zip_path.parent), glob_pattern="sequence_mediafiles.*.zip", max_age_days=7)
+    return JsonResponse({"task_id": task.id})
+
+
+@login_required
+def download_observations_view(request: HttpRequest) -> HttpResponse:
+    """Configure the image and metadata export prepared from Observations."""
+    mediafiles = _get_observation_download_mediafiles(request)
+    mediafile_count = mediafiles.count()
+    return_url = request.session.get(OBSERVATION_DOWNLOAD_RETURN_URL_SESSION_KEY) or reverse_lazy("caidapp:observations")
+    if mediafile_count == 0:
+        return message_view(
+            request,
+            "No media files matched the current observation filter.",
+            headline="Download observations",
+            link=return_url,
+            button_label="Back to observations",
+        )
+    return render(
+        request,
+        "caidapp/sequences_download.html",
+        {
+            "mediafile_count": mediafile_count,
+            "return_url": return_url,
+            "export_columns": SEQUENCE_EXPORT_COLUMNS,
+            "default_export_columns": SEQUENCE_EXPORT_DEFAULT_COLUMNS,
+            "export_schemas": MEDIAFILE_EXPORT_SCHEMAS,
+            "download_title": "Download observations",
+            "breadcrumb_url": "caidapp:observations",
+            "breadcrumb_label": "Observations",
+            "download_csv_url_name": "caidapp:download_csv_for_observations_selection",
+            "download_xlsx_url_name": "caidapp:download_xlsx_for_observations_selection",
+            "download_zip_url_name": "caidapp:download_zip_for_observations",
+            "show_import_link": False,
+        },
+    )
+
+
+@login_required
+def download_csv_for_observations_selection_view(request) -> HttpResponse:
+    mediafiles = _get_observation_download_mediafiles(request)
+    df = _sequence_export_dataframe(mediafiles, request, _get_sequence_export_columns(request))
+    if df.empty:
+        return HttpResponse("No data available to export.", content_type="text/plain")
+    response = HttpResponse(df.to_csv(index=False), content_type="text/csv")
+    response["Content-Disposition"] = "attachment; filename=observation_metadata.csv"
+    return response
+
+
+@login_required
+def download_xlsx_for_observations_selection_view(request) -> HttpResponse:
+    mediafiles = _get_observation_download_mediafiles(request)
+    df = _sequence_export_dataframe(mediafiles, request, _get_sequence_export_columns(request))
+    if df.empty:
+        return HttpResponse("No data available to export.", content_type="text/plain")
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        model_tools.convert_datetime_to_naive(df).to_excel(writer, index=False, sheet_name="Observations")
+    output.seek(0)
+    response = HttpResponse(output, content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    response["Content-Disposition"] = "attachment; filename=observation_metadata.xlsx"
+    return response
+
+
+@login_required
+def download_zip_for_observations_view(request) -> JsonResponse:
+    """Prepare a ZIP with images and observation-level metadata."""
+    mediafiles = _get_observation_download_mediafiles(request)
+    if not mediafiles.exists():
+        return JsonResponse({"message": "No media files were selected for download."}, status=400)
+    try:
+        mediafiles_data = _build_export_mediafiles_data(request, mediafiles)
+    except ValueError as exc:
+        return JsonResponse({"message": str(exc)}, status=400)
+
+    mediafiles = _get_observation_download_mediafiles(request)
+    export_path_by_mediafile_id = {
+        mediafile.id: mediafile_data["output_name"] for mediafile_data, mediafile in zip(mediafiles_data, mediafiles)
+    }
+    metadata_records = _build_sequence_observation_export_records(
+        mediafiles, request=request, columns=SEQUENCE_EXPORT_DEFAULT_COLUMNS
+    )
+    for record in metadata_records:
+        record["export_path"] = export_path_by_mediafile_id.get(record["mediafile_id"], record.get("export_path", ""))
+
+    datetime_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+    user_hash = request.user.caiduser.hash
+    abs_zip_path = Path(settings.MEDIA_ROOT) / "users" / user_hash / f"observation_mediafiles.{datetime_str}.zip"
+    task = tasks.create_mediafiles_zip_with_metadata.delay(user_hash, mediafiles_data, str(abs_zip_path), metadata_records)
+    _ = tasks.clean_old_mediafile_zips.delay(str(abs_zip_path.parent), glob_pattern="observation_mediafiles.*.zip", max_age_days=7)
     return JsonResponse({"task_id": task.id})
 
 
@@ -6859,6 +7296,7 @@ def select_second_id_for_identification_merge(request, individual_identity1_id: 
         pk=individual_identity1_id,
         owner_workgroup=request.user.caiduser.workgroup,
     )
+
     identities = IndividualIdentity.objects.filter(owner_workgroup=request.user.caiduser.workgroup).exclude(
         pk=individual_identity1_id
     )
@@ -8440,6 +8878,34 @@ def _observation_mediafile_note_from_row(row) -> Tuple[bool, str]:
     return True, updates[0][1]
 
 
+OBSERVATION_IMPORT_OBSERVATION_VALUE_COLUMNS = (
+    "taxon_id",
+    "name",
+    "predicted_category",
+    "predicted_taxon_id",
+    "predicted_taxon",
+    "predicted_taxon_confidence",
+    "identity_id",
+    "unique_name",
+    "code",
+    "juv_code",
+    "taxon_verified",
+    "identity_is_representative",
+    "orientation",
+    *OBSERVATION_BBOX_COLUMNS,
+)
+
+
+def _row_has_observation_values(row) -> bool:
+    """Return whether a blank-observation export row carries an animal update."""
+    return any(_spreadsheet_cell_has_value(row.get(column)) for column in OBSERVATION_IMPORT_OBSERVATION_VALUE_COLUMNS)
+
+
+def _row_includes_observation_columns(row) -> bool:
+    """Distinguish an exported blank observation row from a minimal legacy import."""
+    return any(column in row for column in OBSERVATION_IMPORT_OBSERVATION_VALUE_COLUMNS)
+
+
 def _import_observation_dataframe(
     df: pd.DataFrame,
     caiduser,
@@ -8450,7 +8916,10 @@ def _import_observation_dataframe(
     """Atomically create or update observations from an exported spreadsheet."""
     if "mediafile_id" not in df.columns:
         raise ValueError("Missing required column mediafile_id")
-    accessible_mediafiles = MediaFile.objects.for_user(caiduser)
+    accessible_mediafiles = MediaFile.objects.filter(
+        Q(album__albumsharerole__user=caiduser)
+        | Q(**models.user_has_access_filter_params(caiduser, "parent__owner"))
+    ).distinct()
     accessible_observations = AnimalObservation.objects.filter(mediafile__in=accessible_mediafiles)
     identity_queryset = IndividualIdentity.objects.filter(owner_workgroup=caiduser.workgroup)
     locality_queryset = Locality.objects.filter(**models.user_has_access_filter_params(caiduser, "owner"))
@@ -8475,6 +8944,11 @@ def _import_observation_dataframe(
                     mediafile_note_updates[mediafile_id] = mediafile_note
 
                 observation_id = _spreadsheet_strict_id(series.get("observation_id"), "observation_id")
+                skip_blank_observation = (
+                    observation_id is None
+                    and _row_includes_observation_columns(series)
+                    and not _row_has_observation_values(series)
+                )
                 if observation_id is not None:
                     if observation_id in seen_observation_ids:
                         raise ValueError(f"duplicate observation_id {observation_id}")
@@ -8487,7 +8961,8 @@ def _import_observation_dataframe(
                     updated += 1
                 else:
                     observation = AnimalObservation(mediafile=mediafile)
-                    created += 1
+                    if not skip_blank_observation:
+                        created += 1
 
                 taxon, supplied = _resolve_imported_related_object(
                     series, "taxon_id", ("name", "predicted_category"), Taxon.objects.all(), "taxon"
@@ -8528,9 +9003,10 @@ def _import_observation_dataframe(
                 if supplied:
                     for model_field, value in zip(OBSERVATION_BBOX_MODEL_FIELDS, bbox):
                         setattr(observation, model_field, value)
-                observation.updated_by = caiduser
-                observation.updated_at = timezone.now()
-                observation.save()
+                if not skip_blank_observation:
+                    observation.updated_by = caiduser
+                    observation.updated_at = timezone.now()
+                    observation.save()
 
                 locality, supplied = _resolve_imported_locality(
                     series,
@@ -8647,7 +9123,8 @@ def import_observations_view(request):
             "button": "Import",
             "text_note": (
                 "Upload an exported CSV or XLSX. observation_id updates an existing observation; "
-                "a blank observation_id creates one for mediafile_id. Blank cells leave values unchanged. "
+                "a blank observation_id creates one for mediafile_id, except for a completely blank observation row "
+                "from an export (which preserves an image without observations). Blank cells leave values unchanged. "
                 f"Use {OBSERVATION_IMPORT_CLEAR} to clear supported nullable values. "
                 "mediafile_note updates the note on the media file; the legacy note column is also accepted. "
                 "Rows for the same mediafile_id must not contain conflicting note values. "

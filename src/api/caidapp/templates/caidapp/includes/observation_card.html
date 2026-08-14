@@ -1,0 +1,48 @@
+<article id="observation-{{ observation.id }}" class="card observation-card">
+  {% if observation.bulk_editable %}
+  <label class="observation-image-select" title="Select this image (all observations in the image)">
+    <input class="form-check-input js-observation-mediafile-checkbox" type="checkbox" name="selected_mediafile_ids" value="{{ observation.mediafile_id }}" data-mediafile-id="{{ observation.mediafile_id }}" aria-label="Select image {{ observation.mediafile.original_filename|default:observation.mediafile_id }}">
+  </label>
+  {% else %}
+  <span class="observation-image-readonly" title="Bulk and sequence actions are unavailable for this shared image"><i class="bi bi-slash-circle"></i></span>
+  {% endif %}
+  <a class="observation-preview" href="{% url 'caidapp:media_file_update' observation.mediafile_id %}?next={{ request.get_full_path|urlencode }}%23observation-{{ observation.id }}#observation-{{ observation.id }}">
+    {% if observation.mediafile.thumbnail %}
+      <img src="{{ observation.mediafile.thumbnail.url }}" alt="{{ observation.mediafile.original_filename|default:'Media file' }}">
+      <span class="observation-image-area">
+        {% if observation.bbox_x_center is not None %}
+          <span class="observation-bbox" style="left:calc(({{ observation.bbox_x_center }} - {{ observation.bbox_width }}/2) * 100%);top:calc(({{ observation.bbox_y_center }} - {{ observation.bbox_height }}/2) * 100%);width:calc({{ observation.bbox_width }} * 100%);height:calc({{ observation.bbox_height }} * 100%);"></span>
+        {% endif %}
+      </span>
+    {% else %}
+      <span class="observation-preview-placeholder"><i class="bi bi-image"></i></span>
+    {% endif %}
+  </a>
+  <div class="card-body">
+    <div class="d-flex justify-content-between gap-2 mb-2">
+      <span class="small text-muted">Observation #{{ observation.id }}</span>
+      {% if observation.bbox_x_center is None %}
+        <span class="badge text-bg-secondary">No bbox</span>
+      {% endif %}
+    </div>
+    <div class="fw-semibold">{{ observation.taxon|default:"No taxon" }}</div>
+    <div class="small mb-2">
+      {% if observation.identity %}
+        <i class="bi bi-fingerprint"></i> {{ observation.identity }}
+      {% else %}
+        <span class="text-muted">No identity</span>
+      {% endif %}
+    </div>
+    <div class="small text-muted text-truncate" title="{{ observation.mediafile.original_filename }}">
+      <i class="bi bi-image"></i> {{ observation.mediafile.original_filename|default:observation.mediafile_id }}
+    </div>
+    <div class="small text-muted">
+      {% if observation.mediafile.captured_at %}{{ observation.mediafile.captured_at|date:'Y-m-d H:i' }}{% else %}-{% endif %}
+      {% if observation.mediafile.locality %} &middot; {% if request.session.private_mode %}{{ observation.mediafile.locality.visible_name }}{% else %}{{ observation.mediafile.locality.name }}{% endif %}{% endif %}
+    </div>
+    <div class="mt-3 d-flex gap-2">
+      <a class="btn btn-sm btn-outline-primary" href="{% url 'caidapp:media_file_update' observation.mediafile_id %}?next={{ request.get_full_path|urlencode }}%23observation-{{ observation.id }}#observation-{{ observation.id }}"><i class="bi bi-pencil"></i> Edit</a>
+      {% if observation.mediafile.sequence_id %}<a class="btn btn-sm btn-outline-secondary" href="{% url 'caidapp:sequences' %}?sequence={{ observation.mediafile.sequence_id }}"><i class="bi bi-collection"></i></a>{% endif %}
+    </div>
+  </div>
+</article>

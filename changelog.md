@@ -4,6 +4,10 @@
 ## Release v0.5.0 – identification workflow overhaul
 
 
+## 2026-08
+
+* [Added] Observation view
+
 ## 2026-07
 * [added] Remove bbox in sequences view
 * [changed] Check if identification model in identify() is consistent with the model in init()

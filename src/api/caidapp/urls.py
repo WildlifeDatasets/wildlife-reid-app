@@ -135,6 +135,9 @@ urlpatterns = [
     # Media Files
     path("media_files/", views.media_files_update, name="media_files"),
     path("sequences/", views.sequences, name="sequences"),
+    path("observations/", views.observations, name="observations"),
+    path("observations/export/csv", views.download_csv_for_observations_view, name="download_csv_for_observations"),
+    path("observations/export/xlsx", views.download_xlsx_for_observations_view, name="download_xlsx_for_observations"),
     path(
         "media_files/apply_filename_metadata/",
         views.apply_filename_metadata_to_mediafiles,
@@ -384,6 +387,23 @@ urlpatterns = [
         "download_zip_for_sequences/",
         views.download_zip_for_sequences_view,
         name="download_zip_for_sequences",
+    ),
+    path("prepare_observation_download/", views.prepare_observation_download, name="prepare_observation_download"),
+    path("download_observations/", views.download_observations_view, name="download_observations"),
+    path(
+        "download_csv_for_observations_selection/",
+        views.download_csv_for_observations_selection_view,
+        name="download_csv_for_observations_selection",
+    ),
+    path(
+        "download_xlsx_for_observations_selection/",
+        views.download_xlsx_for_observations_selection_view,
+        name="download_xlsx_for_observations_selection",
+    ),
+    path(
+        "download_zip_for_observations/",
+        views.download_zip_for_observations_view,
+        name="download_zip_for_observations",
     ),
     path(
         "download_uploadedarchive_csv/<int:uploadedarchive_id>",
