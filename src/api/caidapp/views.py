@@ -40,7 +40,7 @@ from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.files.base import ContentFile
 from django.core.paginator import Page, Paginator
 from django.db import transaction
-from django.db.models import CharField, Count, F, Func, IntegerField, Max, Min, OuterRef, Prefetch, Q, QuerySet, Subquery, Value
+from django.db.models import CharField, Count, F, Func, IntegerField, Max, Min, OuterRef, Prefetch, Q, QuerySet, Subquery, Value, Window
 from django.db.models.functions import Cast, Coalesce
 from django.forms import modelformset_factory
 from django.forms.models import model_to_dict
@@ -4130,6 +4130,20 @@ def observations(request: HttpRequest) -> HttpResponse:
     view_mode = request.GET.get("view", "cards")
     if view_mode not in {"cards", "list"}:
         view_mode = "cards"
+    sort_by = request.GET.get("sort", "captured_asc")
+    if sort_by not in {
+        "captured_desc",
+        "captured_asc",
+        "locality",
+        "filename",
+        "taxon",
+        "identity",
+        "observation_id",
+    }:
+        sort_by = "captured_asc"
+    grouping_disabled_for_sort = group_by != "none" and sort_by in {"taxon", "identity"}
+    if grouping_disabled_for_sort:
+        group_by = "none"
     records_per_page = _get_observation_records_per_page(request)
     observation_queryset, observation_filter = _get_observations_queryset(request)
 
@@ -4222,6 +4236,14 @@ def observations(request: HttpRequest) -> HttpResponse:
                 if field_name == "identity_is_representative" and field_value and not observation.identity_id:
                     skipped_count += 1
                     continue
+                if (
+                    field_name == "taxon_verified"
+                    and field_value
+                    and observation.is_no_detection_placeholder
+                    and not observation.taxon_id
+                ):
+                    skipped_count += 1
+                    continue
                 previous_value = getattr(observation, f"{field_name}_id", None) if field_name in {"taxon", "identity"} else getattr(observation, field_name)
                 new_value = field_value.id if field_name in {"taxon", "identity"} and field_value is not None else field_value
                 setattr(observation, field_name, field_value)
@@ -4245,7 +4267,14 @@ def observations(request: HttpRequest) -> HttpResponse:
             ).update(updated_by=request.user.caiduser, updated_at=updated_at)
             messages.success(request, f"Updated {field_name.replace('_', ' ')} on {changed_count} observations.")
             if skipped_count:
-                messages.warning(request, f"Skipped {skipped_count} observations without an identity.")
+                if field_name == "taxon_verified":
+                    messages.warning(
+                        request,
+                        f"Skipped {skipped_count} no-detection placeholders without a taxon. "
+                        "Set their taxon to Nothing to confirm an empty image.",
+                    )
+                else:
+                    messages.warning(request, f"Skipped {skipped_count} observations without an identity.")
             return redirect(request.get_full_path())
 
         if "btnCreateSequence" in request.POST:
@@ -4283,9 +4312,46 @@ def observations(request: HttpRequest) -> HttpResponse:
             request.session[OBSERVATION_DOWNLOAD_RETURN_URL_SESSION_KEY] = request.get_full_path()
             return redirect("caidapp:download_observations")
 
-    observation_queryset = observation_queryset.order_by(
-        "mediafile__sequence_id", "mediafile__captured_at", "mediafile_id", "id"
-    )
+    group_ordering = []
+    if group_by != "none":
+        partition_field = "mediafile__sequence_id" if group_by == "sequence" else "mediafile_id"
+        if sort_by == "captured_desc":
+            group_sort_expression = Max("mediafile__captured_at")
+        elif sort_by == "captured_asc":
+            group_sort_expression = Min("mediafile__captured_at")
+        elif sort_by == "locality":
+            group_sort_expression = Min("mediafile__locality__name")
+        elif sort_by == "filename":
+            group_sort_expression = Min("mediafile__original_filename")
+        else:
+            group_sort_expression = Min("id")
+        observation_queryset = observation_queryset.annotate(
+            observation_group_sort=Window(
+                expression=group_sort_expression,
+                partition_by=[F(partition_field)],
+            )
+        )
+        group_sort_field = F("observation_group_sort")
+        group_ordering = [
+            group_sort_field.desc(nulls_last=True) if sort_by == "captured_desc" else group_sort_field.asc(nulls_last=True),
+            F(partition_field).asc(nulls_last=True),
+        ]
+
+    if sort_by == "captured_desc":
+        observation_ordering = [F("mediafile__captured_at").desc(nulls_last=True), "mediafile_id", "id"]
+    elif sort_by == "captured_asc":
+        observation_ordering = [F("mediafile__captured_at").asc(nulls_last=True), "mediafile_id", "id"]
+    elif sort_by == "locality":
+        observation_ordering = [F("mediafile__locality__name").asc(nulls_last=True), "mediafile__captured_at", "mediafile_id", "id"]
+    elif sort_by == "filename":
+        observation_ordering = [F("mediafile__original_filename").asc(nulls_last=True), "mediafile_id", "id"]
+    elif sort_by == "taxon":
+        observation_ordering = [F("taxon__name").asc(nulls_last=True), "mediafile__captured_at", "mediafile_id", "id"]
+    elif sort_by == "identity":
+        observation_ordering = [F("identity__name").asc(nulls_last=True), "mediafile__captured_at", "mediafile_id", "id"]
+    else:
+        observation_ordering = ["id"]
+    observation_queryset = observation_queryset.order_by(*group_ordering, *observation_ordering)
     paginator = Paginator(observation_queryset, per_page=records_per_page)
     page_obj, _, page_context = _prepare_page(paginator, request=request)
     observations_on_page = list(page_obj.object_list)
@@ -4347,12 +4413,15 @@ def observations(request: HttpRequest) -> HttpResponse:
         "filter": observation_filter,
         "observation_groups": groups,
         "group_by": group_by,
+        "sort_by": sort_by,
+        "grouping_disabled_for_sort": grouping_disabled_for_sort,
         "view_mode": view_mode,
         "records_per_page": records_per_page,
         "observation_per_page_options": OBSERVATION_PER_PAGE_OPTIONS,
         "number_of_observations": observation_queryset.count(),
         "number_of_mediafiles": matching_mediafiles.count(),
         "number_of_editable_observations": editable_observations.count(),
+        "number_of_editable_observation_mediafiles": editable_observations.values("mediafile_id").distinct().count(),
         "form_bulk_processing": form_bulk_processing,
     }
     return render(request, "caidapp/observations.html", add_querystring_to_context(request, context))
@@ -5617,7 +5686,10 @@ def _single_mediafile_update(request, instance, form, form_bulk_processing, sele
         instance.delete()
     elif "btnBulkProcessing_id_taxon_verified" in form.data:
         observation = instance.first_observation_get_or_create
-        observation.taxon_verified = form_bulk_processing.cleaned_data["taxon_verified"]
+        requested_verified = form_bulk_processing.cleaned_data["taxon_verified"]
+        if requested_verified and observation.is_no_detection_placeholder and not observation.taxon_id:
+            return "skipped_verify_no_detection_placeholder"
+        observation.taxon_verified = requested_verified
         instance.updated_by = request.user.caiduser
         instance.updated_at = django.utils.timezone.now()
         instance.save(update_fields=["updated_by", "updated_at"])
@@ -5628,6 +5700,8 @@ def _single_mediafile_update(request, instance, form, form_bulk_processing, sele
         if not observations:
             observations = [instance.first_observation_get_or_create]
         for observation in observations:
+            if observation.is_no_detection_placeholder and not observation.taxon_id:
+                continue
             observation.taxon_verified = True
             observation.save()
         # observation = instance.first_observation_get_or_create
@@ -5646,6 +5720,7 @@ def _single_mediafile_update(request, instance, form, form_bulk_processing, sele
 def _add_bulk_processing_result_messages(request, result_counts: dict) -> None:
     skipped_representative = result_counts.get("skipped_representative_multiple_observations", 0)
     skipped_identity = result_counts.get("skipped_identity_multiple_observations", 0)
+    skipped_placeholder_verify = result_counts.get("skipped_verify_no_detection_placeholder", 0)
     if skipped_representative:
         messages.warning(
             request,
@@ -5659,6 +5734,12 @@ def _add_bulk_processing_result_messages(request, result_counts: dict) -> None:
             "Identity was not changed for "
             f"{skipped_identity} media files with multiple observations. "
             "Choose the animal in the media file detail instead.",
+        )
+    if skipped_placeholder_verify:
+        messages.warning(
+            request,
+            f"Skipped {skipped_placeholder_verify} no-detection placeholders without a taxon. "
+            "Set their taxon to Nothing to confirm an empty image.",
         )
 
 
@@ -6244,7 +6325,11 @@ def _build_sequence_observation_export_records(
 
     records = []
     for mediafile in mediafiles:
-        observations = list(mediafile.observations.all()) or [None]
+        observations = [
+            observation
+            for observation in mediafile.observations.all()
+            if not observation.is_no_detection_placeholder
+        ] or [None]
         mediafile_location_values = _location_export_values(mediafile)
         for observation in observations:
             taxon = observation.taxon if observation else None

@@ -1,3 +1,4 @@
+import datetime
 import logging
 import tempfile
 from io import BytesIO, StringIO
@@ -1440,7 +1441,7 @@ class SequenceViewTest(TestCase):
 
         self.assertEqual(response.status_code, 200)
         mediafile.refresh_from_db()
-        self.assertFalse(mediafile.observations.exists())
+        self.assertTrue(mediafile.observations.get().is_no_detection_placeholder)
 
     def test_mediafiles_bbox_preview_uses_image_area_wrapper(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)
@@ -1632,7 +1633,7 @@ class SequenceViewTest(TestCase):
         self.assertContains(list_response, f'id="sequence-checkbox-list-{one_file_sequence.id}"')
         self.assertNotContains(list_response, f'id="mediafile-checkbox-list-{one_mediafile.id}"')
 
-    def test_sequence_bulk_verify_taxon_handles_mediafile_without_observations(self):
+    def test_sequence_bulk_verify_taxon_skips_no_detection_placeholder_without_taxon(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)
         sequence = SequenceFactory(uploaded_archive=archive)
         mediafile = MediaFileFactory(parent=archive, sequence=sequence, original_filename="empty-observation.jpg")
@@ -1648,7 +1649,8 @@ class SequenceViewTest(TestCase):
 
         self.assertEqual(response.status_code, 302)
         observation = mediafile.observations.get()
-        self.assertTrue(observation.taxon_verified)
+        self.assertTrue(observation.is_no_detection_placeholder)
+        self.assertFalse(observation.taxon_verified)
 
     def test_sequence_bulk_set_full_image_bbox_updates_selected_mediafiles(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)
@@ -1730,7 +1732,7 @@ class SequenceViewTest(TestCase):
         self.assertIsNone(selected_observation.bbox_y_center)
         self.assertIsNone(selected_observation.bbox_width)
         self.assertIsNone(selected_observation.bbox_height)
-        self.assertFalse(selected_without_observation.observations.exists())
+        self.assertTrue(selected_without_observation.observations.get().is_no_detection_placeholder)
 
         untouched_observation.refresh_from_db()
         self.assertEqual(untouched_observation.bbox_x_center, 0.5)
@@ -2774,7 +2776,7 @@ class SequenceViewTest(TestCase):
         other_mediafile.refresh_from_db()
         self.assertEqual(selected_mediafile.locality.name, "Brdy")
         self.assertEqual(selected_mediafile.observations.get().identity.name, "Charles")
-        self.assertFalse(other_mediafile.observations.exists())
+        self.assertTrue(other_mediafile.observations.get().is_no_detection_placeholder)
 
     def test_sequence_filename_metadata_uses_directory_mapping_without_regex(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)
@@ -2860,7 +2862,7 @@ class SequenceViewTest(TestCase):
 
         mediafile.refresh_from_db()
         self.assertIsNone(mediafile.locality)
-        self.assertFalse(mediafile.observations.exists())
+        self.assertTrue(mediafile.observations.get().is_no_detection_placeholder)
 
         self.client.post(
             reverse("caidapp:sequences"),
@@ -3025,6 +3027,18 @@ class ObservationViewTest(TestCase):
         self.assertContains(response, "js-toggle-observation-group")
         self.assertContains(response, "js-expand-all-observation-groups")
         self.assertContains(response, "groupCheckbox.indeterminate")
+        self.assertContains(response, 'id="observation-action-toolbar"')
+        self.assertContains(response, "Sort by")
+        self.assertContains(response, "Captured: oldest")
+        self.assertContains(response, "Select all 2 matching filter")
+        self.assertContains(response, "Edit metadata…")
+        self.assertContains(response, "> Data</button>")
+        self.assertContains(response, "Metadata uses one row per observation")
+        self.assertNotContains(response, "Export includes every observation belonging to a matching media file")
+        self.assertContains(response, 'id="observation-scope-modal"')
+        self.assertContains(response, "scopeModalMessage.textContent")
+        self.assertNotContains(response, "Observation selection")
+        self.assertNotContains(response, "Observation fields")
         self.assertContains(response, 'title="2 observations grouped by Sequence 22 · 1 media file on this page"')
         self.assertContains(response, 'class="observation-group-controls"', count=1)
         self.assertNotContains(response, "observation-group-toggle-label")
@@ -3042,6 +3056,92 @@ class ObservationViewTest(TestCase):
         self.assertContains(response, f"Observation #{observation.id}")
         self.assertNotContains(response, 'class="observation-group-controls"')
 
+    def test_sequence_link_opens_only_that_sequences_observations(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        selected_sequence = SequenceFactory(uploaded_archive=archive, local_id=24)
+        other_sequence = SequenceFactory(uploaded_archive=archive, local_id=25)
+        selected = AnimalObservationFactory(
+            mediafile=MediaFileFactory(parent=archive, sequence=selected_sequence)
+        )
+        other = AnimalObservationFactory(
+            mediafile=MediaFileFactory(parent=archive, sequence=other_sequence)
+        )
+
+        unfiltered_response = self.client.get(reverse("caidapp:observations"))
+        sequence_url = f'{reverse("caidapp:observations")}?sequence={selected_sequence.id}'
+        self.assertContains(unfiltered_response, f'href="{sequence_url}"')
+
+        filtered_response = self.client.get(sequence_url)
+
+        self.assertEqual(filtered_response.status_code, 200)
+        self.assertContains(filtered_response, f"Observation #{selected.id}")
+        self.assertNotContains(filtered_response, f"Observation #{other.id}")
+        self.assertEqual(filtered_response.context["number_of_observations"], 1)
+
+    def test_observations_sort_sequences_by_newest_captured_date(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        older_sequence = SequenceFactory(uploaded_archive=archive, local_id=40)
+        newer_sequence = SequenceFactory(uploaded_archive=archive, local_id=41)
+        older = AnimalObservationFactory(
+            mediafile=MediaFileFactory(
+                parent=archive,
+                sequence=older_sequence,
+                captured_at=timezone.now() - datetime.timedelta(days=2),
+            )
+        )
+        newer = AnimalObservationFactory(
+            mediafile=MediaFileFactory(
+                parent=archive,
+                sequence=newer_sequence,
+                captured_at=timezone.now() - datetime.timedelta(days=1),
+            )
+        )
+
+        response = self.client.get(reverse("caidapp:observations"), {"sort": "captured_desc"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["sort_by"], "captured_desc")
+        self.assertEqual(response.context["observation_groups"][0]["observations"][0].id, newer.id)
+        self.assertEqual(response.context["observation_groups"][1]["observations"][0].id, older.id)
+
+    def test_taxon_sort_disables_ambiguous_grouping(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        sequence = SequenceFactory(uploaded_archive=archive)
+        taxon_z = TaxonFactory(name="Zebra taxon")
+        taxon_a = TaxonFactory(name="Aardvark taxon")
+        observation_z = AnimalObservationFactory(mediafile=MediaFileFactory(parent=archive, sequence=sequence), taxon=taxon_z)
+        observation_a = AnimalObservationFactory(mediafile=MediaFileFactory(parent=archive, sequence=sequence), taxon=taxon_a)
+
+        response = self.client.get(
+            reverse("caidapp:observations"),
+            {"group": "sequence", "sort": "taxon"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["group_by"], "none")
+        self.assertTrue(response.context["grouping_disabled_for_sort"])
+        self.assertEqual([group["observations"][0].id for group in response.context["observation_groups"]], [observation_a.id, observation_z.id])
+        self.assertContains(response, "Grouping was disabled because one image or sequence can contain multiple taxa")
+
+    def test_grouped_context_sort_modes_render(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        sequence = SequenceFactory(uploaded_archive=archive)
+        AnimalObservationFactory(
+            mediafile=MediaFileFactory(
+                parent=archive,
+                sequence=sequence,
+                locality=LocalityFactory(owner=self.caiduser),
+                original_filename="sorted.jpg",
+                captured_at=timezone.now(),
+            )
+        )
+
+        for sort_by in ("captured_asc", "captured_desc", "locality", "filename", "observation_id"):
+            with self.subTest(sort_by=sort_by):
+                response = self.client.get(reverse("caidapp:observations"), {"sort": sort_by})
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.context["sort_by"], sort_by)
+
     def test_observations_list_mode_keeps_observation_rows_and_group_summary(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)
         sequence = SequenceFactory(uploaded_archive=archive, local_id=31)
@@ -3058,7 +3158,7 @@ class ObservationViewTest(TestCase):
         self.assertContains(response, f'data-observation-id="{first.id}"')
         self.assertContains(response, f'data-observation-id="{second.id}"')
         self.assertContains(response, "js-observation-group-checkbox")
-        self.assertContains(response, "Merge containing images into new sequence")
+        self.assertContains(response, "Merge into new sequence")
 
     def test_observation_bulk_bbox_updates_selected_observation_only(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)
@@ -3379,7 +3479,7 @@ class ObservationViewTest(TestCase):
         self.assertNotContains(download_response, "Import observation metadata")
         self.assertNotContains(download_response, "Download sequences")
 
-    def test_observation_export_includes_blank_row_for_mediafile_without_observations(self):
+    def test_observation_export_includes_blank_row_for_no_detection_placeholder(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)
         observed_mediafile = MediaFileFactory(parent=archive, original_filename="observed.jpg")
         empty_mediafile = MediaFileFactory(parent=archive, original_filename="empty.jpg")
@@ -3393,7 +3493,7 @@ class ObservationViewTest(TestCase):
         self.assertTrue(pd.isna(df[df["original_path"] == "empty.jpg"].iloc[0]["observation_id"]))
         created, updated = views._import_observation_dataframe(df, self.caiduser)
         self.assertEqual((created, updated), (0, 1))
-        self.assertFalse(empty_mediafile.observations.exists())
+        self.assertTrue(empty_mediafile.observations.get().is_no_detection_placeholder)
 
     def test_observation_export_search_includes_matching_empty_mediafile(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)

@@ -21,6 +21,7 @@ import pandas as pd
 import tqdm
 from celery import current_app, shared_task, signature
 from django.conf import settings
+from django.db import transaction
 from django.db.models import Exists, OuterRef
 from django.utils.timezone import now
 from PIL import Image
@@ -492,7 +493,7 @@ def _identification_observations_for_mediafile(
     require_identity: bool = False,
     observation_taxon=None,
 ) -> list:
-    observations = list(mediafile.observations.all().order_by("id"))
+    observations = list(mediafile.observations.filter(is_no_detection_placeholder=False).order_by("id"))
     observation_taxon_id = getattr(observation_taxon, "id", observation_taxon)
     if representative_only:
         observations = [observation for observation in observations if observation.identity_is_representative]
@@ -1298,6 +1299,81 @@ def update_uploaded_archive_by_metadata_csv(
     uploaded_archive.save(update_fields=["locality_at_upload_object"])
 
 
+def _sync_observations_from_detection_results(mediafile, detection_results, **kwargs):
+    """Atomically synchronize all observations produced by one detector result."""
+    database = mediafile._state.db or "default"
+    with transaction.atomic(using=database):
+        models.MediaFile.objects.using(database).select_for_update().get(pk=mediafile.pk)
+        return _sync_observations_from_detection_results_atomic(
+            mediafile,
+            detection_results,
+            **kwargs,
+        )
+
+
+def _sync_observations_from_detection_results_atomic(
+    mediafile,
+    detection_results,
+    *,
+    taxon,
+    predicted_taxon,
+    predicted_taxon_confidence,
+    identity,
+    identity_is_representative,
+    orientation_score_threshold=0.5,
+):
+    """Replace automated observations, reusing the first row for the first detection."""
+    observations = mediafile.observations.order_by("id")
+    first_observation = observations.first() or mediafile.first_observation_get_or_create
+    observations.exclude(pk=first_observation.pk).delete()
+
+    if not detection_results:
+        first_observation.taxon = None
+        first_observation.taxon_verified = False
+        first_observation.taxon_verified_at = None
+        first_observation.predicted_taxon = None
+        first_observation.predicted_taxon_confidence = None
+        first_observation.identity = None
+        first_observation.identity_is_representative = False
+        first_observation.bbox_x_center = None
+        first_observation.bbox_y_center = None
+        first_observation.bbox_width = None
+        first_observation.bbox_height = None
+        first_observation.orientation = "N"
+        first_observation.metadata_json = None
+        first_observation.is_no_detection_placeholder = True
+        first_observation.save()
+        return False
+
+    orientation_codes = {"back": "B", "front": "F", "left": "L", "right": "R", "unknown": "U"}
+    for index, detection_result in enumerate(detection_results):
+        observation = first_observation if index == 0 else models.AnimalObservation(mediafile=mediafile)
+        if index == 0:
+            observation.identity = identity
+            observation.identity_is_representative = identity_is_representative
+
+        observation.taxon = taxon
+        observation.predicted_taxon = predicted_taxon
+        observation.predicted_taxon_confidence = predicted_taxon_confidence
+        x_min, y_min, x_max, y_max = detection_result["bbox"]
+        height, width = detection_result["size"]
+        observation.bbox_x_center = ((x_min + x_max) / 2) / width
+        observation.bbox_y_center = ((y_min + y_max) / 2) / height
+        observation.bbox_width = (x_max - x_min) / width
+        observation.bbox_height = (y_max - y_min) / height
+
+        orientation = detection_result["orientation"]
+        orientation_score = detection_result["orientation_score"]
+        if orientation in orientation_codes:
+            if orientation_score < orientation_score_threshold:
+                orientation = "unknown"
+            observation.orientation = orientation_codes[orientation]
+        else:
+            logger.warning("Unknown orientation: %s in %s", orientation, mediafile.mediafile)
+        observation.save()
+    return True
+
+
 def _update_database_by_one_row_of_metadata(
     df,
     index,
@@ -1500,60 +1576,27 @@ def _update_database_by_one_row_of_metadata(
         logger.debug("  update mediafile in db with row of metadata")
 
         has_detection_results = False
+        detection_results_provided = False
         try:
             if ("detection_results" in row) and (row["detection_results"] is not None):
+                detection_results_provided = True
                 detection_results = ast.literal_eval(row["detection_results"])
                 logger.debug(f"detection_results={detection_results}")
-                if len(detection_results) > 0:
-                    has_detection_results = True
-                    kv = {"back": "B", "front": "F", "left": "F", "right": "R", "unknown": "U"}
-                    if mf.observations.count() > 1:
-                        # remove all observations with the exception of the first one
-                        # todo probably we should map the observation results to observations
-                        # this is porcessed only if the values are not changed by user.
-                        mf.observations.exclude(id=mf.first_observation.id).delete()
-                    for i, one_detection_result in enumerate(detection_results):
-                        ao: models.AnimalObservation
-                        if mf.observations.exists() and len(detection_results) > 0:
-                            ao = mf.observations.first()
-                        else:
-                            ao = mf.observations.create(
-                                # mediafile=mf,
-                                # metadata_json=row.to_dict(),
-                            )
-                        logger.debug(f"i={i}, detection_result={one_detection_result}")
-
-                        if i == 0:
-                            ao.identity = identity
-                            ao.identity_is_representative = identity_is_representative
-
-                        ao.taxon = taxon
-                        ao.predicted_taxon = predicted_taxon
-                        ao.predicted_taxon_confidence = predicted_taxon_confidence
-                        x_min, y_min, x_max, y_max = one_detection_result["bbox"]
-                        h, w = one_detection_result["size"]
-                        logger.debug(f"bbox: {x_min=}, {y_min=}, {x_max=}, {y_max=}")
-
-                        ao.bbox_x_center = ((x_min + x_max) / 2) / w
-                        ao.bbox_y_center = ((y_min + y_max) / 2) / h
-                        ao.bbox_width = (x_max - x_min) / w
-                        ao.bbox_height = (y_max - y_min) / h
-
-                        orientation = detection_results[i]["orientation"]
-                        orientation_score = detection_results[i]["orientation_score"]
-                        if orientation in kv:
-                            if orientation_score < orientation_score_threshold:
-                                orientation = "unknown"
-
-                            ao.orientation = kv[orientation]
-                        else:
-                            logger.warning(f"Unknown orientation: {orientation} in {mf.mediafile}")
-                        ao.save()
+                has_detection_results = _sync_observations_from_detection_results(
+                    mf,
+                    detection_results,
+                    taxon=taxon,
+                    predicted_taxon=predicted_taxon,
+                    predicted_taxon_confidence=predicted_taxon_confidence,
+                    identity=identity,
+                    identity_is_representative=identity_is_representative,
+                    orientation_score_threshold=orientation_score_threshold,
+                )
         except Exception as e:
             logger.warning(f"Error during setting orientation in media file {mf.mediafile}: {e}")
             logger.debug(traceback.format_exc())
 
-        if not has_detection_results:
+        if not detection_results_provided and not has_detection_results:
             observations = list(mf.observations.order_by("id")[:2])
             if not observations:
                 observation = mf.observations.create()

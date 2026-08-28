@@ -1924,7 +1924,7 @@ class MediaFile(models.Model):
         obs = self.observations.order_by("id").first()
         if obs is not None:
             return obs
-        return AnimalObservation.objects.create(mediafile=self)
+        return AnimalObservation.objects.create(mediafile=self, is_no_detection_placeholder=True)
 
     def mediafile_variant_url(self, variant: str = "images") -> str:
         """Get mediafile variant URL."""
@@ -1986,9 +1986,47 @@ class AnimalObservation(models.Model):
     updated_by = models.ForeignKey(CaIDUser, on_delete=models.SET_NULL, null=True, blank=True)
     updated_at = models.DateTimeField("Updated at", blank=True, null=True)
     metadata_json = models.JSONField(blank=True, null=True)
+    is_no_detection_placeholder = models.BooleanField(
+        default=False,
+        editable=False,
+        help_text="Temporary observation representing a media file where no object was detected.",
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["mediafile"],
+                condition=Q(is_no_detection_placeholder=True),
+                name="unique_no_detection_placeholder_per_mediafile",
+            )
+        ]
+
+    @property
+    def has_object_data(self) -> bool:
+        """Return whether this row contains data belonging to an actual observation."""
+        return any(
+            value is not None
+            for value in (
+                self.taxon_id,
+                self.predicted_taxon_id,
+                self.predicted_taxon_confidence,
+                self.identity_id,
+                self.bbox_x_center,
+                self.bbox_y_center,
+                self.bbox_width,
+                self.bbox_height,
+                self.metadata_json,
+            )
+        ) or self.identity_is_representative or self.orientation != "N"
 
     def save(self, *args, **kwargs):
         """Save the observation and schedule ReID initialization after representative changes."""
+        if self.is_no_detection_placeholder and self.has_object_data:
+            self.is_no_detection_placeholder = False
+            update_fields = kwargs.get("update_fields")
+            if update_fields is not None:
+                kwargs["update_fields"] = set(update_fields) | {"is_no_detection_placeholder"}
+
         representative_changed = False
         if self.pk:
             old_value = (

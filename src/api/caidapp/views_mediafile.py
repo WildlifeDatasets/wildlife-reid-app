@@ -78,7 +78,10 @@ def _set_taxon_for_sequence(mediafile: MediaFile, taxon, caiduser, commit=True):
 
     with transaction.atomic():
         # bulk update
-        updated_count = obs_qs.update(taxon_id=taxon_id, updated_by=caiduser, updated_at=now)
+        update_values = {"taxon_id": taxon_id, "updated_by": caiduser, "updated_at": now}
+        if taxon_id is not None:
+            update_values["is_no_detection_placeholder"] = False
+        updated_count = obs_qs.update(**update_values)
 
     return updated_count
 
@@ -89,17 +92,35 @@ def _replace_observations_with_nothing(mediafile: MediaFile, caiduser):
     nothing_taxon = models.get_taxon("Nothing")
 
     with transaction.atomic():
-        deleted_count, _ = AnimalObservation.objects.filter(mediafile=mediafile).delete()
-        AnimalObservation.objects.create(
-            mediafile=mediafile,
-            taxon=nothing_taxon,
-            taxon_verified=True,
-            taxon_verified_at=now,
-            updated_by=caiduser,
-            updated_at=now,
-        )
+        observations = AnimalObservation.objects.select_for_update().filter(mediafile=mediafile).order_by("id")
+        observation = observations.first()
+        original_count = observations.count()
+        if observation is None:
+            observation = AnimalObservation.objects.create(
+                mediafile=mediafile,
+                is_no_detection_placeholder=True,
+            )
+        observations.exclude(pk=observation.pk).delete()
 
-    return deleted_count
+        observation.taxon = nothing_taxon
+        observation.taxon_verified = True
+        observation.taxon_verified_at = now
+        observation.predicted_taxon = None
+        observation.predicted_taxon_confidence = None
+        observation.identity = None
+        observation.identity_is_representative = False
+        observation.bbox_x_center = None
+        observation.bbox_y_center = None
+        observation.bbox_width = None
+        observation.bbox_height = None
+        observation.orientation = "N"
+        observation.updated_by = caiduser
+        observation.updated_at = now
+        observation.metadata_json = None
+        observation.is_no_detection_placeholder = False
+        observation.save()
+
+    return original_count
 
 
 class ObservationInline(InlineFormSetFactory):

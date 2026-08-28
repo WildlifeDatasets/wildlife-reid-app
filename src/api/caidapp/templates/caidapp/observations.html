@@ -5,7 +5,7 @@
 <style>
 .observation-groups{display:flex;flex-wrap:wrap;column-gap:.25rem;row-gap:1.25rem;align-items:stretch}.observation-group{display:contents}.observation-group-member{display:flex;position:relative;flex:0 0 300px;width:300px;max-width:100%;background:var(--wrid-media-card-bg);border-color:rgba(var(--bs-secondary-rgb),.55);overflow:hidden;box-shadow:0 0 0 5px rgba(var(--bs-secondary-rgb),.45);transition:box-shadow .2s ease,border-color .16s ease,transform .16s ease,opacity .16s ease;will-change:transform}.observation-group-extra{display:none}.observation-group-extra.observation-group-expanded-visible{display:flex}.observation-group-lead{border-top-left-radius:.75rem;border-bottom-left-radius:.75rem}.observation-group-end-card,.observation-group-collapsed-card{margin-right:.65rem;border-top-right-radius:.75rem;border-bottom-right-radius:.75rem}.observation-group-collapsed-card{box-shadow:5px 5px 0 rgba(var(--bs-secondary-rgb),.42),10px 10px 0 rgba(var(--bs-secondary-rgb),.24)}.observation-group-break{flex:0 0 .45rem;width:.45rem;height:1px}.observation-group-member.observation-group-hover-highlight{border-color:rgba(var(--bs-primary-rgb),.72);box-shadow:0 0 0 5px rgba(var(--bs-primary-rgb),.58),0 .45rem 1rem rgba(var(--bs-primary-rgb),.22);transform:translateY(-1px)}.observation-group-collapsed-card.observation-group-hover-highlight{box-shadow:8px 8px 0 rgba(var(--bs-primary-rgb),.5),16px 16px 0 rgba(var(--bs-primary-rgb),.3),0 .65rem 1.15rem rgba(var(--bs-primary-rgb),.18);transform:translate(-1px,-2px)}.observation-group-controls{position:absolute;top:.55rem;left:.55rem;z-index:5;display:flex;align-items:center;gap:.3rem}.observation-group-toggle{display:inline-flex;align-items:center;gap:.3rem;border:0;border-radius:.3rem;background:rgba(33,37,41,.8);color:#fff;padding:.25rem .5rem;font-size:.78rem}.observation-group-toggle:hover{background:var(--bs-primary)}.observation-card{display:flex;flex:1 1 auto;flex-direction:column;overflow:hidden;border:0;border-radius:0;background:var(--wrid-media-card-bg)}.observation-card .card-body{display:flex;flex:1 1 auto;flex-direction:column;min-height:11.5rem}.observation-card .card-body>.mt-3{margin-top:auto!important}.observation-preview{position:relative;display:block;aspect-ratio:4/3;background:var(--wrid-media-thumb-bg);overflow:hidden}.observation-preview img{width:100%;height:100%;object-fit:contain;display:block}.observation-image-area{position:absolute;inset:0;pointer-events:none}.observation-bbox{position:absolute;border:3px solid var(--bs-danger);background:rgba(220,53,69,.08);box-shadow:0 0 0 1px rgba(255,255,255,.8)}.observation-preview-placeholder{height:100%;display:grid;place-items:center;color:var(--bs-secondary-color);font-size:2rem}.observation-toolbar{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:end;gap:.75rem}.observation-toolbar-label{font-size:.8rem;color:var(--bs-secondary-color)}@media (prefers-reduced-motion:reduce){.observation-group-member{transition:none!important}}[data-bs-theme=dark] .observation-group-member{box-shadow:0 0 0 5px rgba(var(--bs-secondary-rgb),.62)}[data-bs-theme=dark] .observation-group-collapsed-card{box-shadow:5px 5px 0 rgba(var(--bs-secondary-rgb),.5),10px 10px 0 rgba(var(--bs-secondary-rgb),.32)}[data-bs-theme=dark] .observation-group-member.observation-group-hover-highlight{box-shadow:0 0 0 5px rgba(var(--bs-primary-rgb),.74),0 .55rem 1.2rem rgba(var(--bs-primary-rgb),.28)}@media (max-width:767px){.observation-group-member{flex-basis:100%;width:100%;border-radius:.75rem}.observation-group-break{display:none}.observation-group-lead,.observation-group-end-card,.observation-group-collapsed-card{margin-left:0;margin-right:0;border-radius:.75rem}}
 .observation-group-member{border:var(--bs-card-border-width) solid rgba(var(--bs-secondary-rgb),.55)}
-.observation-image-select,.observation-image-readonly{position:absolute;top:.55rem;right:.55rem;z-index:4;display:inline-flex;align-items:center;justify-content:center;border-radius:.35rem;background:rgba(33,37,41,.82);color:#fff;padding:.25rem}.observation-image-select{cursor:pointer}.observation-image-select .form-check-input{width:1.25rem;height:1.25rem;margin:0;cursor:pointer}.observation-group-select{display:inline-flex;align-items:center;justify-content:center;border-radius:.35rem;background:rgba(33,37,41,.82);padding:.25rem;cursor:pointer}.observation-group-select .form-check-input{width:1.25rem;height:1.25rem;margin:0;cursor:pointer}.observation-list-thumb{display:block;width:80px;height:60px;object-fit:contain;background:var(--wrid-media-thumb-bg)}.observation-list-group-summary{background:rgba(var(--bs-secondary-rgb),.09)}.observation-selection-toolbar{border:1px solid rgba(var(--bs-primary-rgb),.18);background:rgba(var(--bs-primary-rgb),.04);border-radius:.5rem;padding:.65rem}.observation-selection-note{max-width:44rem}.observation-bulk-fields{border:1px solid rgba(var(--bs-secondary-rgb),.2);border-top:0;border-radius:0 0 .5rem .5rem;padding:.75rem}
+.observation-image-select,.observation-image-readonly{position:absolute;top:.55rem;right:.55rem;z-index:4;display:inline-flex;align-items:center;justify-content:center;border-radius:.35rem;background:rgba(33,37,41,.82);color:#fff;padding:.25rem}.observation-image-select{cursor:pointer}.observation-image-select .form-check-input{width:1.25rem;height:1.25rem;margin:0;cursor:pointer}.observation-group-select{display:inline-flex;align-items:center;justify-content:center;border-radius:.35rem;background:rgba(33,37,41,.82);padding:.25rem;cursor:pointer}.observation-group-select .form-check-input{width:1.25rem;height:1.25rem;margin:0;cursor:pointer}.observation-list-thumb{display:block;width:80px;height:60px;object-fit:contain;background:var(--wrid-media-thumb-bg)}.observation-list-group-summary{background:rgba(var(--bs-secondary-rgb),.09)}.observation-action-toolbar{border:1px solid rgba(var(--bs-secondary-rgb),.25);background:var(--bs-body-bg);border-radius:.5rem;padding:.65rem;transition:border-color .18s ease,background-color .18s ease,box-shadow .18s ease}.observation-action-toolbar.has-selection{border-color:rgba(var(--bs-primary-rgb),.48);background:rgba(var(--bs-primary-rgb),.06);box-shadow:0 0 0 .18rem rgba(var(--bs-primary-rgb),.08)}.observation-selection-help{max-width:38rem}.observation-data-note{max-width:21rem;white-space:normal}.observation-bulk-fields{border:1px solid rgba(var(--bs-secondary-rgb),.2);border-radius:.5rem;padding:.75rem;margin-top:-.5rem;margin-bottom:1rem}
 .observation-group-collapsed .observation-group-lead .observation-image-select{display:none}.observation-group-expanded .observation-group-select{display:none}
 </style>
 {% endblock %}
@@ -18,29 +18,87 @@
 </div>
 <section class="section">
   {% include 'caidapp/filter_collapse.html' %}
-  <form method="post" id="observation-workbench-form">
+  <form method="post" id="observation-workbench-form" data-filtered-observation-count="{{ number_of_editable_observations }}" data-filtered-mediafile-count="{{ number_of_editable_observation_mediafiles }}">
     {% csrf_token %}
     <input class="d-none" type="checkbox" name="select_all_filtered" id="observation-select-all-filtered" data-total="{{ number_of_editable_observations }}">
-    <div class="observation-selection-toolbar d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3">
+    <div class="observation-toolbar my-3">
       <div>
-        <div class="fw-semibold">Observation selection</div>
-        <div class="small text-muted observation-selection-note">Each card or row checkbox selects one observation. A group checkbox selects all editable observations in that visual group and shows a dash when only some are selected.</div>
+        <div class="text-muted small">{{ number_of_observations }} observations in {{ number_of_mediafiles }} images. Each card or row represents one observation.</div>
+      </div>
+      <div class="d-flex flex-wrap gap-3 align-items-end">
+        <div>
+          <div class="observation-toolbar-label mb-1">View</div>
+          <div class="d-flex gap-2"><a class="btn btn-sm {% if view_mode == 'cards' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="{% querystring request.GET view='cards' page=None %}" title="Cards view"><i class="bi bi-grid"></i></a><a class="btn btn-sm {% if view_mode == 'list' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="{% querystring request.GET view='list' page=None %}" title="List view"><i class="bi bi-list-ul"></i></a></div>
+        </div>
+        <div class="dropdown">
+          <div class="observation-toolbar-label mb-1">Group by</div>
+          <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">{% if group_by == 'sequence' %}Sequence{% elif group_by == 'mediafile' %}Image{% else %}None{% endif %}</button>
+          <ul class="dropdown-menu dropdown-menu-end"><li><a class="dropdown-item {% if group_by == 'sequence' %}active{% endif %}" href="{% if sort_by == 'taxon' or sort_by == 'identity' %}{% querystring request.GET group='sequence' sort='captured_asc' page=None %}{% else %}{% querystring request.GET group='sequence' page=None %}{% endif %}">Sequence</a></li><li><a class="dropdown-item {% if group_by == 'mediafile' %}active{% endif %}" href="{% if sort_by == 'taxon' or sort_by == 'identity' %}{% querystring request.GET group='mediafile' sort='captured_asc' page=None %}{% else %}{% querystring request.GET group='mediafile' page=None %}{% endif %}">Image</a></li><li><a class="dropdown-item {% if group_by == 'none' %}active{% endif %}" href="{% querystring request.GET group='none' page=None %}">None</a></li></ul>
+        </div>
+        <div class="dropdown">
+          <div class="observation-toolbar-label mb-1">Sort by</div>
+          <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">{% if sort_by == 'captured_desc' %}Captured: newest{% elif sort_by == 'captured_asc' %}Captured: oldest{% elif sort_by == 'locality' %}Locality{% elif sort_by == 'filename' %}Filename{% elif sort_by == 'taxon' %}Taxon{% elif sort_by == 'identity' %}Identity{% else %}Observation ID{% endif %}</button>
+          <ul class="dropdown-menu dropdown-menu-end">
+            <li><a class="dropdown-item {% if sort_by == 'captured_desc' %}active{% endif %}" href="{% querystring request.GET sort='captured_desc' page=None %}">Captured: newest</a></li>
+            <li><a class="dropdown-item {% if sort_by == 'captured_asc' %}active{% endif %}" href="{% querystring request.GET sort='captured_asc' page=None %}">Captured: oldest</a></li>
+            <li><a class="dropdown-item {% if sort_by == 'locality' %}active{% endif %}" href="{% querystring request.GET sort='locality' page=None %}">Locality: A–Z</a></li>
+            <li><a class="dropdown-item {% if sort_by == 'filename' %}active{% endif %}" href="{% querystring request.GET sort='filename' page=None %}">Filename: A–Z</a></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item {% if sort_by == 'taxon' %}active{% endif %}" href="{% querystring request.GET sort='taxon' group='none' page=None %}">Taxon: A–Z</a></li>
+            <li><a class="dropdown-item {% if sort_by == 'identity' %}active{% endif %}" href="{% querystring request.GET sort='identity' group='none' page=None %}">Identity: A–Z</a></li>
+            <li><a class="dropdown-item {% if sort_by == 'observation_id' %}active{% endif %}" href="{% querystring request.GET sort='observation_id' page=None %}">Observation ID</a></li>
+          </ul>
+        </div>
+        {% if group_by != 'none' and view_mode == 'cards' %}<div><div class="observation-toolbar-label mb-1">Groups</div><div class="d-flex gap-2"><button type="button" class="btn btn-sm btn-outline-secondary js-expand-all-observation-groups" title="Expand all groups"><i class="bi bi-arrows-expand"></i></button><button type="button" class="btn btn-sm btn-outline-secondary js-collapse-all-observation-groups" title="Collapse all groups"><i class="bi bi-arrows-collapse"></i></button></div></div>{% endif %}
+        <div class="dropdown">
+          <div class="observation-toolbar-label mb-1">Per page</div>
+          <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">{{ records_per_page }}</button>
+          <ul class="dropdown-menu dropdown-menu-end">{% for option in observation_per_page_options %}<li><a class="dropdown-item {% if records_per_page == option %}active{% endif %}" href="{% querystring request.GET per_page=option page=None %}">{{ option }}</a></li>{% endfor %}</ul>
+        </div>
+      </div>
+    </div>
+    {% if grouping_disabled_for_sort %}<div class="alert alert-info py-2 small" role="status"><i class="bi bi-info-circle"></i> Grouping was disabled because one image or sequence can contain multiple {% if sort_by == 'taxon' %}taxa{% else %}identities{% endif %}.</div>{% endif %}
+
+    <div class="observation-action-toolbar d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3" id="observation-action-toolbar">
+      <div class="d-flex flex-wrap align-items-center gap-2">
+        <div class="dropdown">
+          <button class="btn btn-sm btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown"><i class="bi bi-check2-square"></i> Select</button>
+          <ul class="dropdown-menu">
+            <li><button class="dropdown-item js-select-observation-page" type="button"><i class="bi bi-file-earmark-check"></i> Select this page</button></li>
+            <li><button class="dropdown-item js-select-all-observation-filtered" type="button"><i class="bi bi-check-all"></i> Select all {{ number_of_editable_observations }} matching filter</button></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><button class="dropdown-item js-clear-observation-selection" type="button"><i class="bi bi-x-square"></i> Clear selection</button></li>
+          </ul>
+        </div>
+        <span class="badge text-bg-secondary" id="observation-selected-count" aria-live="polite">0 observations selected</span>
+        <button class="btn btn-sm btn-outline-secondary d-none js-clear-observation-selection js-observation-clear-visible" type="button"><i class="bi bi-x"></i> Clear</button>
+        <span class="small text-muted observation-selection-help">Actions use selected observations; with no selection you can apply them to all matching the filter.</span>
       </div>
       <div class="d-flex flex-wrap gap-2">
-        <span class="badge text-bg-secondary align-self-center" id="observation-selected-count">0 selected</span>
-        <button class="btn btn-sm btn-outline-primary js-select-observation-page" type="button"><i class="bi bi-check2-square"></i> Select page</button>
-        <button class="btn btn-sm btn-outline-secondary js-clear-observation-selection" type="button"><i class="bi bi-x-square"></i> Clear</button>
-        <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#observation-bulk-fields" aria-expanded="false"><i class="bi bi-tags"></i> Observation fields</button>
+        <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#observation-bulk-fields" aria-expanded="false"><i class="bi bi-tags"></i> Edit metadata…</button>
         <div class="dropdown">
-          <button class="btn btn-sm btn-primary dropdown-toggle" type="button" data-bs-toggle="dropdown"><i class="bi bi-sliders"></i> Actions</button>
+          <button class="btn btn-sm btn-primary dropdown-toggle" type="button" data-bs-toggle="dropdown"><i class="bi bi-three-dots"></i> Actions</button>
           <ul class="dropdown-menu dropdown-menu-end">
-            <li><button class="dropdown-item js-observation-requires-selection" name="btnBulkProcessing_set_full_image_bbox" type="submit" data-confirm-message="Set the bbox of every selected observation to the full image?"><i class="bi bi-bounding-box"></i> Set selected bboxes to full image</button></li>
-            <li><button class="dropdown-item js-observation-requires-selection" name="btnBulkProcessing_remove_bbox" type="submit" data-confirm-message="Remove the bbox from every selected observation? Identities will be kept."><i class="bi bi-bounding-box"></i> Remove selected bboxes</button></li>
-            <li><button class="dropdown-item js-observation-requires-selection" name="btnExtractFilenameMetadata" type="submit"><i class="bi bi-regex"></i> Extract metadata from images containing selection</button></li>
-            <li><button class="dropdown-item js-observation-requires-selection" name="btnDownloadObservations" type="submit"><i class="bi bi-download"></i> Download images containing selection</button></li>
+            <li><h6 class="dropdown-header">Observation bboxes</h6></li>
+            <li><button class="dropdown-item js-observation-requires-selection" name="btnBulkProcessing_set_full_image_bbox" type="submit" data-action-scope="observations" data-confirm-message="Set the bbox of every selected observation to the full image?"><i class="bi bi-bounding-box"></i> Set bboxes to full image</button></li>
+            <li><button class="dropdown-item js-observation-requires-selection" name="btnBulkProcessing_remove_bbox" type="submit" data-action-scope="observations" data-confirm-message="Remove the bbox from every selected observation? Identities will be kept."><i class="bi bi-bounding-box"></i> Remove bboxes</button></li>
+            <li><hr class="dropdown-divider"></li><li><h6 class="dropdown-header">Containing images</h6></li>
+            <li><button class="dropdown-item js-observation-requires-selection" name="btnExtractFilenameMetadata" type="submit" data-action-scope="images"><i class="bi bi-regex"></i> Extract metadata from filenames</button></li>
+            <li><button class="dropdown-item js-observation-requires-selection" name="btnDownloadObservations" type="submit" data-action-scope="images"><i class="bi bi-download"></i> Download selected images</button></li>
+            <li><button class="dropdown-item js-observation-requires-selection" name="btnCreateSequence" type="submit" data-action-scope="images" data-confirm-message="Move the images containing selected observations into one new sequence? They must belong to the same upload."><i class="bi bi-collection"></i> Merge into new sequence</button></li>
+            <li><button class="dropdown-item text-warning js-observation-requires-selection" name="btnDissolveSequences" type="submit" data-action-scope="images" data-confirm-message="Move every image containing a selected observation into its own single-image sequence?"><i class="bi bi-distribute-horizontal"></i> Dissolve into single-image sequences</button></li>
+          </ul>
+        </div>
+        <div class="dropdown">
+          <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown"><i class="bi bi-database"></i> Data</button>
+          <ul class="dropdown-menu dropdown-menu-end">
+            <li><a class="dropdown-item" href="{% url 'caidapp:download_csv_for_observations' %}?{{ request.GET.urlencode }}"><i class="bi bi-table"></i> Export CSV</a></li>
+            <li><a class="dropdown-item" href="{% url 'caidapp:download_xlsx_for_observations' %}?{{ request.GET.urlencode }}"><i class="bi bi-file-earmark-excel"></i> Export XLSX</a></li>
+            <li><a class="dropdown-item" href="{% url 'caidapp:prepare_observation_download' %}?{{ request.GET.urlencode }}"><i class="bi bi-images"></i> Export images and metadata</a></li>
             <li><hr class="dropdown-divider"></li>
-            <li><button class="dropdown-item js-observation-requires-selection" name="btnCreateSequence" type="submit" data-confirm-message="Move the images containing selected observations into one new sequence? They must belong to the same upload."><i class="bi bi-collection"></i> Merge containing images into new sequence</button></li>
-            <li><button class="dropdown-item text-warning js-observation-requires-selection" name="btnDissolveSequences" type="submit" data-confirm-message="Move every image containing a selected observation into its own single-image sequence?"><i class="bi bi-distribute-horizontal"></i> Dissolve containing images</button></li>
+            <li><a class="dropdown-item" href="{% url 'caidapp:import_observations' %}?next={{ request.get_full_path|urlencode }}"><i class="bi bi-file-earmark-arrow-up"></i> Import observation metadata</a></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><div class="dropdown-item-text small text-muted observation-data-note">Metadata uses one row per observation. An image without observations is represented by one blank observation row.</div></li>
           </ul>
         </div>
       </div>
@@ -51,58 +109,11 @@
         <div class="col-sm-6 col-xl-3">
           <label class="form-label small mb-1" for="{{ field.id_for_label }}">{{ field.label }}</label>
           {% if field.field.widget.input_type == 'checkbox' %}<div class="form-check py-2">{% render_field field class+='form-check-input' %}</div>{% else %}{% render_field field class+='form-select form-select-sm' %}{% endif %}
-          <button class="btn btn-sm btn-outline-primary mt-2 js-observation-requires-selection" type="submit" name="btnBulkProcessing_{{ field.id_for_label }}">Apply to selected observations</button>
+          <button class="btn btn-sm btn-outline-primary mt-2 js-observation-requires-selection" type="submit" name="btnBulkProcessing_{{ field.id_for_label }}" data-action-scope="observations">Apply to observations</button>
         </div>
         {% endfor %}
       </div>
     </div>
-  <div class="observation-toolbar my-3">
-    <div>
-      <div class="text-muted small">{{ number_of_observations }} observations in {{ number_of_mediafiles }} images. Each card or row represents one observation.</div>
-      <div class="small text-muted">Export includes every observation belonging to a matching media file, or one blank row for a media file with no observations.</div>
-    </div>
-    <div class="d-flex flex-wrap gap-3 align-items-end">
-      <div class="dropdown">
-        <div class="observation-toolbar-label mb-1">Metadata</div>
-        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown"><i class="bi bi-file-earmark-arrow-down"></i> Export / import</button>
-        <ul class="dropdown-menu dropdown-menu-end">
-          <li><a class="dropdown-item" href="{% url 'caidapp:download_csv_for_observations' %}?{{ request.GET.urlencode }}"><i class="bi bi-table"></i> Export CSV</a></li>
-          <li><a class="dropdown-item" href="{% url 'caidapp:download_xlsx_for_observations' %}?{{ request.GET.urlencode }}"><i class="bi bi-file-earmark-excel"></i> Export XLSX</a></li>
-          <li><hr class="dropdown-divider"></li>
-          <li><a class="dropdown-item" href="{% url 'caidapp:prepare_observation_download' %}?{{ request.GET.urlencode }}"><i class="bi bi-images"></i> Export images and metadata</a></li>
-          <li><hr class="dropdown-divider"></li>
-          <li><a class="dropdown-item" href="{% url 'caidapp:import_observations' %}?next={{ request.get_full_path|urlencode }}"><i class="bi bi-file-earmark-arrow-up"></i> Import observation metadata</a></li>
-        </ul>
-      </div>
-      <div>
-        <div class="observation-toolbar-label mb-1">View</div>
-        <div class="d-flex gap-2">
-          <a class="btn btn-sm {% if view_mode == 'cards' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="{% querystring request.GET view='cards' page=None %}" title="Cards view"><i class="bi bi-grid"></i></a>
-          <a class="btn btn-sm {% if view_mode == 'list' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="{% querystring request.GET view='list' page=None %}" title="List view"><i class="bi bi-list-ul"></i></a>
-        </div>
-      </div>
-      <div class="dropdown">
-        <div class="observation-toolbar-label mb-1">Group by</div>
-        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">{% if group_by == 'sequence' %}Sequence{% elif group_by == 'mediafile' %}Image{% else %}None{% endif %}</button>
-        <ul class="dropdown-menu dropdown-menu-end">
-          <li><a class="dropdown-item {% if group_by == 'sequence' %}active{% endif %}" href="{% querystring request.GET group='sequence' page=None %}">Sequence</a></li>
-          <li><a class="dropdown-item {% if group_by == 'mediafile' %}active{% endif %}" href="{% querystring request.GET group='mediafile' page=None %}">Image</a></li>
-          <li><a class="dropdown-item {% if group_by == 'none' %}active{% endif %}" href="{% querystring request.GET group='none' page=None %}">None</a></li>
-        </ul>
-      </div>
-      {% if group_by != 'none' and view_mode == 'cards' %}
-      <div>
-        <div class="observation-toolbar-label mb-1">Groups</div>
-        <div class="d-flex gap-2"><button type="button" class="btn btn-sm btn-outline-secondary js-expand-all-observation-groups" title="Expand all groups"><i class="bi bi-arrows-expand"></i></button><button type="button" class="btn btn-sm btn-outline-secondary js-collapse-all-observation-groups" title="Collapse all groups"><i class="bi bi-arrows-collapse"></i></button></div>
-      </div>
-      {% endif %}
-      <div class="dropdown">
-        <div class="observation-toolbar-label mb-1">Per page</div>
-        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">{{ records_per_page }}</button>
-        <ul class="dropdown-menu dropdown-menu-end">{% for option in observation_per_page_options %}<li><a class="dropdown-item {% if records_per_page == option %}active{% endif %}" href="{% querystring request.GET per_page=option page=None %}">{{ option }}</a></li>{% endfor %}</ul>
-      </div>
-    </div>
-  </div>
   <div class="mb-3">{% include 'caidapp/pagination_a.html' %}</div>
   {% if view_mode == 'list' %}
   <div class="table-responsive">
@@ -130,9 +141,9 @@
         <tr data-group-id="{{ group.id }}">
           <td>{% if observation.bulk_editable %}<input class="form-check-input js-observation-checkbox" type="checkbox" name="selected_observation_ids" value="{{ observation.id }}" data-observation-id="{{ observation.id }}" data-group-id="{{ group.id }}" title="Select this observation">{% else %}<i class="bi bi-slash-circle text-muted" title="Bulk and sequence actions are unavailable for this shared image"></i>{% endif %}</td>
           <td>{% if observation.mediafile.thumbnail %}<a href="{% url 'caidapp:media_file_update' observation.mediafile_id %}?next={{ request.get_full_path|urlencode }}%23observation-{{ observation.id }}#observation-{{ observation.id }}"><img class="observation-list-thumb rounded" src="{{ observation.mediafile.thumbnail.url }}" alt="Thumbnail"></a>{% endif %}</td>
-          <td class="small"><div class="fw-semibold">#{{ observation.id }}</div>{% if observation.bbox_x_center is None %}<span class="badge text-bg-secondary">No bbox</span>{% else %}<span class="text-muted">BBox</span>{% endif %}</td>
+          <td class="small"><div class="fw-semibold">#{{ observation.id }}</div>{% if observation.is_no_detection_placeholder %}<span class="badge text-bg-light border">No detection</span>{% elif observation.bbox_x_center is None %}<span class="badge text-bg-secondary">No bbox</span>{% else %}<span class="text-muted">BBox</span>{% endif %}</td>
           <td class="small text-break">{{ observation.mediafile.original_filename|default:observation.mediafile_id }}</td>
-          <td>{{ observation.taxon|default:'-' }}</td>
+          <td>{% if observation.is_no_detection_placeholder %}<span class="text-muted">No object detected</span>{% else %}{{ observation.taxon|default:'-' }}{% endif %}</td>
           <td>{% if observation.identity %}<i class="bi bi-fingerprint"></i> {{ observation.identity }}{% else %}<span class="text-muted">-</span>{% endif %}</td>
           <td class="small">{% if observation.mediafile.captured_at %}{{ observation.mediafile.captured_at|date:'Y-m-d H:i' }}{% else %}-{% endif %}{% if observation.mediafile.locality %}<div class="text-muted">{% if request.session.private_mode %}{{ observation.mediafile.locality.visible_name }}{% else %}{{ observation.mediafile.locality.name }}{% endif %}</div>{% endif %}</td>
           <td><a class="btn btn-sm btn-outline-primary" href="{% url 'caidapp:media_file_update' observation.mediafile_id %}?next={{ request.get_full_path|urlencode }}%23observation-{{ observation.id }}#observation-{{ observation.id }}"><i class="bi bi-pencil"></i></a></td>
@@ -167,6 +178,13 @@
     </div>
   {% endif %}
   <div class="mt-3">{% include 'caidapp/pagination_a.html' %}</div>
+  <div class="modal fade" id="observation-scope-modal" tabindex="-1" aria-labelledby="observation-scope-modal-title" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title" id="observation-scope-modal-title">Apply action to all filtered observations?</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+      <div class="modal-body"><p id="observation-scope-modal-message" class="mb-0"></p><p id="observation-scope-modal-warning" class="small text-muted mt-2 mb-0"></p></div>
+      <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button type="button" class="btn btn-primary" id="observation-scope-modal-apply">Apply to all matching</button></div>
+    </div></div>
+  </div>
   </form>
 </section>
 {% endif %}
@@ -341,6 +359,10 @@ document.addEventListener("DOMContentLoaded", function() {
     const selectedCount = observationCheckboxes().filter(function(checkbox) { return checkbox.checked; }).length;
     const counter = document.getElementById("observation-selected-count");
     if (counter) counter.textContent = selectAll.checked ? `All ${selectAll.dataset.total} matching observations selected` : `${selectedCount} observations selected`;
+    const hasSelection = selectAll.checked || selectedCount > 0;
+    const toolbar = document.getElementById("observation-action-toolbar");
+    if (toolbar) toolbar.classList.toggle("has-selection", hasSelection);
+    document.querySelectorAll(".js-observation-clear-visible").forEach(function(button) { button.classList.toggle("d-none", !hasSelection); });
   }
   observationCheckboxes().forEach(function(checkbox) {
     checkbox.addEventListener("change", function() {
@@ -366,6 +388,14 @@ document.addEventListener("DOMContentLoaded", function() {
       updateObservationSelectedCount();
     });
   });
+  document.querySelectorAll(".js-select-all-observation-filtered").forEach(function(button) {
+    button.addEventListener("click", function() {
+      document.getElementById("observation-select-all-filtered").checked = true;
+      observationCheckboxes().forEach(function(checkbox) { if (!checkbox.disabled) checkbox.checked = true; });
+      updateAllObservationGroupCheckboxes();
+      updateObservationSelectedCount();
+    });
+  });
   document.querySelectorAll(".js-clear-observation-selection").forEach(function(button) {
     button.addEventListener("click", function() {
       document.getElementById("observation-select-all-filtered").checked = false;
@@ -380,6 +410,30 @@ document.addEventListener("DOMContentLoaded", function() {
   function confirmObservationAction(button) {
     return !button.dataset.confirmMessage || window.confirm(button.dataset.confirmMessage);
   }
+  let pendingObservationActionButton = null;
+  const scopeModalElement = document.getElementById("observation-scope-modal");
+  const scopeModal = scopeModalElement && window.bootstrap ? bootstrap.Modal.getOrCreateInstance(scopeModalElement) : null;
+  const scopeModalMessage = document.getElementById("observation-scope-modal-message");
+  const scopeModalWarning = document.getElementById("observation-scope-modal-warning");
+  const scopeModalApply = document.getElementById("observation-scope-modal-apply");
+  function showObservationScopeModal(button) {
+    pendingObservationActionButton = button;
+    const observationCount = Number(observationWorkbenchForm.dataset.filteredObservationCount || 0);
+    const mediafileCount = Number(observationWorkbenchForm.dataset.filteredMediafileCount || 0);
+    const actionLabel = button.textContent.trim();
+    const imageScope = button.dataset.actionScope === "images";
+    if (imageScope) {
+      scopeModalMessage.textContent = `No observations are selected. The current filter contains ${observationCount} editable observations in ${mediafileCount} images. Run “${actionLabel}” for all ${mediafileCount} images containing those observations?`;
+      scopeModalApply.textContent = `Apply to all ${mediafileCount} images`;
+      scopeModalApply.disabled = mediafileCount === 0;
+    } else {
+      scopeModalMessage.textContent = `No observations are selected. Run “${actionLabel}” for all ${observationCount} editable observations matching the current filter?`;
+      scopeModalApply.textContent = `Apply to all ${observationCount} observations`;
+      scopeModalApply.disabled = observationCount === 0;
+    }
+    scopeModalWarning.textContent = button.dataset.confirmMessage || "";
+    if (scopeModal) scopeModal.show();
+  }
   document.querySelectorAll(".js-observation-requires-selection").forEach(function(button) {
     button.addEventListener("click", function(event) {
       if (hasObservationSelection()) {
@@ -387,17 +441,22 @@ document.addEventListener("DOMContentLoaded", function() {
         return;
       }
       event.preventDefault();
-      if (!window.confirm("No observations are selected. Use all editable observations matching the current filter?")) return;
-      document.getElementById("observation-select-all-filtered").checked = true;
-      updateObservationSelectedCount();
-      if (!confirmObservationAction(button)) {
-        document.getElementById("observation-select-all-filtered").checked = false;
-        updateObservationSelectedCount();
-        return;
-      }
-      button.form.requestSubmit(button);
+      showObservationScopeModal(button);
     });
   });
+  if (scopeModalApply) {
+    scopeModalApply.addEventListener("click", function() {
+      if (!pendingObservationActionButton) return;
+      const actionButton = pendingObservationActionButton;
+      pendingObservationActionButton = null;
+      document.getElementById("observation-select-all-filtered").checked = true;
+      observationCheckboxes().forEach(function(checkbox) { if (!checkbox.disabled) checkbox.checked = true; });
+      updateAllObservationGroupCheckboxes();
+      updateObservationSelectedCount();
+      if (scopeModal) scopeModal.hide();
+      actionButton.form.requestSubmit(actionButton);
+    });
+  }
   updateAllObservationGroupCheckboxes();
   updateObservationSelectedCount();
 });

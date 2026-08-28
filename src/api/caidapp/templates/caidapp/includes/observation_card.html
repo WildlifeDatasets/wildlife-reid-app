@@ -21,13 +21,17 @@
   <div class="card-body">
     <div class="d-flex justify-content-between gap-2 mb-2">
       <span class="small text-muted">Observation #{{ observation.id }}</span>
-      {% if observation.bbox_x_center is None %}
+      {% if observation.is_no_detection_placeholder %}
+        <span class="badge text-bg-light border" title="No object was found in this image">No detection</span>
+      {% elif observation.bbox_x_center is None %}
         <span class="badge text-bg-secondary">No bbox</span>
       {% endif %}
     </div>
-    <div class="fw-semibold">{{ observation.taxon|default:"No taxon" }}</div>
+    <div class="fw-semibold">{% if observation.is_no_detection_placeholder %}No object detected{% else %}{{ observation.taxon|default:"No taxon" }}{% endif %}</div>
     <div class="small mb-2">
-      {% if observation.identity %}
+      {% if observation.is_no_detection_placeholder %}
+        <span class="text-muted">Awaiting confirmation</span>
+      {% elif observation.identity %}
         <i class="bi bi-fingerprint"></i> {{ observation.identity }}
       {% else %}
         <span class="text-muted">No identity</span>
@@ -42,7 +46,7 @@
     </div>
     <div class="mt-3 d-flex gap-2">
       <a class="btn btn-sm btn-outline-primary" href="{% url 'caidapp:media_file_update' observation.mediafile_id %}?next={{ request.get_full_path|urlencode }}%23observation-{{ observation.id }}#observation-{{ observation.id }}"><i class="bi bi-pencil"></i> Edit</a>
-      {% if observation.mediafile.sequence_id %}<a class="btn btn-sm btn-outline-secondary" href="{% url 'caidapp:sequences' %}?sequence={{ observation.mediafile.sequence_id }}"><i class="bi bi-collection"></i></a>{% endif %}
+      {% if observation.mediafile.sequence_id %}<a class="btn btn-sm btn-outline-secondary" href="{% url 'caidapp:observations' %}?sequence={{ observation.mediafile.sequence_id }}" title="Show observations in this sequence" aria-label="Show observations in this sequence"><i class="bi bi-collection"></i></a>{% endif %}
     </div>
   </div>
 </article>
