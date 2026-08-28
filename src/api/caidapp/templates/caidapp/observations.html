@@ -7,6 +7,10 @@
 .observation-group-member{border:var(--bs-card-border-width) solid rgba(var(--bs-secondary-rgb),.55)}
 .observation-image-select,.observation-image-readonly{position:absolute;top:.55rem;right:.55rem;z-index:4;display:inline-flex;align-items:center;justify-content:center;border-radius:.35rem;background:rgba(33,37,41,.82);color:#fff;padding:.25rem}.observation-image-select{cursor:pointer}.observation-image-select .form-check-input{width:1.25rem;height:1.25rem;margin:0;cursor:pointer}.observation-group-select{display:inline-flex;align-items:center;justify-content:center;border-radius:.35rem;background:rgba(33,37,41,.82);padding:.25rem;cursor:pointer}.observation-group-select .form-check-input{width:1.25rem;height:1.25rem;margin:0;cursor:pointer}.observation-list-thumb{display:block;width:80px;height:60px;object-fit:contain;background:var(--wrid-media-thumb-bg)}.observation-list-group-summary{background:rgba(var(--bs-secondary-rgb),.09)}.observation-action-toolbar{border:1px solid rgba(var(--bs-secondary-rgb),.25);background:var(--bs-body-bg);border-radius:.5rem;padding:.65rem;transition:border-color .18s ease,background-color .18s ease,box-shadow .18s ease}.observation-action-toolbar.has-selection{border-color:rgba(var(--bs-primary-rgb),.48);background:rgba(var(--bs-primary-rgb),.06);box-shadow:0 0 0 .18rem rgba(var(--bs-primary-rgb),.08)}.observation-selection-help{max-width:38rem}.observation-data-note{max-width:21rem;white-space:normal}.observation-bulk-fields{border:1px solid rgba(var(--bs-secondary-rgb),.2);border-radius:.5rem;padding:.75rem;margin-top:-.5rem;margin-bottom:1rem}
 .observation-group-collapsed .observation-group-lead .observation-image-select{display:none}.observation-group-expanded .observation-group-select{display:none}
+.observation-card-field{display:flex;align-items:baseline;gap:.5rem;min-width:0;margin-bottom:.28rem}.observation-card-field>i{flex:0 0 1rem;width:1rem;text-align:center;color:var(--bs-secondary-color)}.observation-card-field>span,.observation-card-field>time{min-width:0}.observation-info-button{display:inline-flex;align-items:center;justify-content:center;padding:.25rem;font-size:1.1rem;text-decoration:none}.observation-info-button:hover,.observation-info-button:focus{color:var(--bs-primary)!important}.observation-info-details dt,.observation-info-details dd{padding-top:.25rem;padding-bottom:.25rem;margin-bottom:.25rem}.observation-info-details dd{user-select:text}.observation-info-tooltip .tooltip-inner{max-width:360px;text-align:left;white-space:pre-line}
+.observation-list-group-toggle{display:inline-flex;align-items:center;gap:.4rem;padding:.1rem .35rem;text-decoration:none}.observation-list-group-toggle i{transition:transform .16s ease}.observation-list-group-toggle[aria-expanded=true] i{transform:rotate(90deg)}
+.observation-list-table>tbody>.observation-list-group-shell>td{border:0!important}.observation-list-group-block{overflow:hidden;border:1px solid rgba(var(--bs-secondary-rgb),.35);border-radius:.65rem;background:var(--bs-body-bg)}.observation-list-group-summary{background:rgba(var(--bs-secondary-rgb),.09)}.observation-list-group-main{min-width:0}.observation-list-group-cover{display:block;flex:0 0 80px}.observation-list-group-cover-placeholder{display:flex;align-items:center;justify-content:center;color:var(--bs-secondary-color);font-size:1.4rem}.observation-list-group-details{padding:.35rem .5rem .5rem;background:rgba(var(--bs-secondary-rgb),.035)}.observation-list-detail-table td{border:0!important;background:transparent!important}.observation-list-detail-table tr:hover td{background:rgba(var(--bs-primary-rgb),.06)!important}
+.observation-groups-large{column-gap:.75rem;row-gap:1.5rem}.observation-groups-large .observation-group-member{flex-basis:calc(50% - 1.5rem);width:calc(50% - 1.5rem)}.observation-groups-large .observation-group-break{display:none}@media (max-width:1199.98px){.observation-groups-large .observation-group-member{flex-basis:calc(100% - .75rem);width:calc(100% - .75rem)}}
 </style>
 {% endblock %}
 
@@ -28,7 +32,11 @@
       <div class="d-flex flex-wrap gap-3 align-items-end">
         <div>
           <div class="observation-toolbar-label mb-1">View</div>
-          <div class="d-flex gap-2"><a class="btn btn-sm {% if view_mode == 'cards' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="{% querystring request.GET view='cards' page=None %}" title="Cards view"><i class="bi bi-grid"></i></a><a class="btn btn-sm {% if view_mode == 'list' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="{% querystring request.GET view='list' page=None %}" title="List view"><i class="bi bi-list-ul"></i></a></div>
+          <div class="d-flex gap-2" role="group" aria-label="Observation view">
+            <a class="btn btn-sm {% if view_mode == 'cards' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="{% querystring request.GET view='cards' page=None %}" title="Cards view" aria-label="Cards view"{% if view_mode == 'cards' %} aria-current="page"{% endif %}><i class="bi bi-grid-3x3-gap" aria-hidden="true"></i></a>
+            <a class="btn btn-sm {% if view_mode == 'large_cards' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="{% querystring request.GET view='large_cards' page=None %}" title="Large cards view" aria-label="Large cards view"{% if view_mode == 'large_cards' %} aria-current="page"{% endif %}><i class="bi bi-grid" aria-hidden="true"></i></a>
+            <a class="btn btn-sm {% if view_mode == 'list' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="{% querystring request.GET view='list' page=None %}" title="List view" aria-label="List view"{% if view_mode == 'list' %} aria-current="page"{% endif %}><i class="bi bi-list-ul" aria-hidden="true"></i></a>
+          </div>
         </div>
         <div class="dropdown">
           <div class="observation-toolbar-label mb-1">Group by</div>
@@ -49,7 +57,7 @@
             <li><a class="dropdown-item {% if sort_by == 'observation_id' %}active{% endif %}" href="{% querystring request.GET sort='observation_id' page=None %}">Observation ID</a></li>
           </ul>
         </div>
-        {% if group_by != 'none' and view_mode == 'cards' %}<div><div class="observation-toolbar-label mb-1">Groups</div><div class="d-flex gap-2"><button type="button" class="btn btn-sm btn-outline-secondary js-expand-all-observation-groups" title="Expand all groups"><i class="bi bi-arrows-expand"></i></button><button type="button" class="btn btn-sm btn-outline-secondary js-collapse-all-observation-groups" title="Collapse all groups"><i class="bi bi-arrows-collapse"></i></button></div></div>{% endif %}
+        {% if group_by != 'none' %}<div><div class="observation-toolbar-label mb-1">Groups</div><div class="d-flex gap-2"><button type="button" class="btn btn-sm btn-outline-secondary js-expand-all-observation-groups" title="Expand all groups"><i class="bi bi-arrows-expand"></i></button><button type="button" class="btn btn-sm btn-outline-secondary js-collapse-all-observation-groups" title="Collapse all groups"><i class="bi bi-arrows-collapse"></i></button></div></div>{% endif %}
         <div class="dropdown">
           <div class="observation-toolbar-label mb-1">Per page</div>
           <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">{{ records_per_page }}</button>
@@ -77,7 +85,7 @@
       <div class="d-flex flex-wrap gap-2">
         <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#observation-bulk-fields" aria-expanded="false"><i class="bi bi-tags"></i> Edit metadata…</button>
         <div class="dropdown">
-          <button class="btn btn-sm btn-primary dropdown-toggle" type="button" data-bs-toggle="dropdown"><i class="bi bi-three-dots"></i> Actions</button>
+          <button class="btn btn-sm btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown"><i class="bi bi-lightning"></i> Actions</button>
           <ul class="dropdown-menu dropdown-menu-end">
             <li><h6 class="dropdown-header">Observation bboxes</h6></li>
             <li><button class="dropdown-item js-observation-requires-selection" name="btnBulkProcessing_set_full_image_bbox" type="submit" data-action-scope="observations" data-confirm-message="Set the bbox of every selected observation to the full image?"><i class="bi bi-bounding-box"></i> Set bboxes to full image</button></li>
@@ -117,38 +125,44 @@
   <div class="mb-3">{% include 'caidapp/pagination_a.html' %}</div>
   {% if view_mode == 'list' %}
   <div class="table-responsive">
-    <table class="table table-sm align-middle table-hover">
-      <thead><tr><th style="width:42px"></th><th style="width:96px"></th><th>Observation</th><th>Image</th><th>Taxon</th><th>Identity</th><th>Captured / locality</th><th style="width:60px"></th></tr></thead>
+    <table class="table table-sm align-middle observation-list-table">
+      {% if group_by == 'none' %}<thead><tr><th style="width:42px"></th><th style="width:96px"></th><th>Observation</th><th>Image</th><th>Taxon</th><th>Identity</th><th>Captured / locality</th><th style="width:60px"></th></tr></thead>{% endif %}
       <tbody>
       {% for group in observation_groups %}
         {% if group_by != 'none' %}
-        <tr class="observation-list-group-summary" data-group-id="{{ group.id }}">
-          <td><input class="form-check-input js-observation-group-checkbox" type="checkbox" data-group-id="{{ group.id }}" aria-label="Select all editable observations in {{ group.label }}"></td>
-          <td colspan="7">
-            <div class="d-flex flex-wrap align-items-center gap-2">
-              <strong>{{ group.label }}</strong>
-              <span class="badge text-bg-secondary">{{ group.observations|length }} observations on this page</span>
-              <span class="badge text-bg-light">{{ group.mediafile_count }} images</span>
-              <span class="badge text-bg-light">{{ group.bbox_count }} bboxes</span>
-              {% if group.taxon_count %}<span class="badge text-bg-light">{{ group.taxon_count }} taxa</span>{% endif %}
-              {% if group.identity_count %}<span class="badge text-bg-light">{{ group.identity_count }} identities</span>{% endif %}
-              {% if group.captured_at_start %}<span class="small text-muted">{{ group.captured_at_start|date:'Y-m-d H:i' }}{% if group.captured_at_end != group.captured_at_start %} – {{ group.captured_at_end|date:'Y-m-d H:i' }}{% endif %}</span>{% endif %}
+        <tr class="observation-list-group-shell" data-group-id="{{ group.id }}">
+          <td colspan="8" class="border-0 p-0 pb-3">
+            <div class="observation-list-group-block">
+              <div class="observation-list-group-summary d-flex align-items-center gap-3 p-2" data-group-id="{{ group.id }}">
+                <input class="form-check-input js-observation-group-checkbox flex-shrink-0" type="checkbox" data-group-id="{{ group.id }}" aria-label="Select all editable observations in {{ group.label }}">
+                {% with cover_observation=group.observations.0 %}
+                  {% if cover_observation.mediafile.thumbnail %}<a class="observation-list-group-cover" href="{% url 'caidapp:media_file_update' cover_observation.mediafile_id %}?next={{ request.get_full_path|urlencode }}%23observation-{{ cover_observation.id }}#observation-{{ cover_observation.id }}"><img class="observation-list-thumb rounded" src="{{ cover_observation.mediafile.thumbnail.url }}" alt="First image in {{ group.label }}"></a>{% else %}<span class="observation-list-thumb observation-list-group-cover observation-list-group-cover-placeholder rounded"><i class="bi bi-image" aria-hidden="true"></i></span>{% endif %}
+                {% endwith %}
+                <div class="observation-list-group-main flex-grow-1">
+                  <div class="d-flex flex-wrap align-items-center gap-2">
+                    <button type="button" class="btn btn-sm btn-link link-body-emphasis observation-list-group-toggle js-toggle-observation-list-group" data-group-id="{{ group.id }}" aria-expanded="false" aria-controls="observation-list-group-details-{{ group.id }}" title="Expand {{ group.observations|length }} grouped observations"><i class="bi bi-chevron-right" aria-hidden="true"></i><strong>{{ group.label }}</strong></button>
+                    <span class="badge text-bg-secondary">{{ group.observations|length }} observations</span>
+                    <span class="badge text-bg-light">{{ group.mediafile_count }} images</span>
+                    <span class="badge text-bg-light">{{ group.bbox_count }} bboxes</span>
+                    {% if group.taxon_count %}<span class="badge text-bg-light">{{ group.taxon_count }} taxa</span>{% endif %}
+                    {% if group.identity_count %}<span class="badge text-bg-light">{{ group.identity_count }} identities</span>{% endif %}
+                  </div>
+                  {% if group.captured_at_start %}<div class="small text-muted mt-1"><i class="bi bi-calendar-event me-1" aria-hidden="true"></i>{{ group.captured_at_start|date:'Y-m-d H:i' }}{% if group.captured_at_end != group.captured_at_start %} – {{ group.captured_at_end|date:'Y-m-d H:i' }}{% endif %}</div>{% endif %}
+                </div>
+              </div>
+              <div id="observation-list-group-details-{{ group.id }}" class="observation-list-group-details" data-group-id="{{ group.id }}" hidden>
+                <div class="table-responsive">
+                  <table class="table table-sm align-middle mb-0 observation-list-detail-table"><tbody>
+                    {% for observation in group.observations %}{% include 'caidapp/includes/observation_list_row.html' with observation=observation group_id=group.id request=request only %}{% endfor %}
+                  </tbody></table>
+                </div>
+              </div>
             </div>
           </td>
         </tr>
+        {% else %}
+          {% for observation in group.observations %}{% include 'caidapp/includes/observation_list_row.html' with observation=observation group_id=group.id request=request only %}{% endfor %}
         {% endif %}
-        {% for observation in group.observations %}
-        <tr data-group-id="{{ group.id }}">
-          <td>{% if observation.bulk_editable %}<input class="form-check-input js-observation-checkbox" type="checkbox" name="selected_observation_ids" value="{{ observation.id }}" data-observation-id="{{ observation.id }}" data-group-id="{{ group.id }}" title="Select this observation">{% else %}<i class="bi bi-slash-circle text-muted" title="Bulk and sequence actions are unavailable for this shared image"></i>{% endif %}</td>
-          <td>{% if observation.mediafile.thumbnail %}<a href="{% url 'caidapp:media_file_update' observation.mediafile_id %}?next={{ request.get_full_path|urlencode }}%23observation-{{ observation.id }}#observation-{{ observation.id }}"><img class="observation-list-thumb rounded" src="{{ observation.mediafile.thumbnail.url }}" alt="Thumbnail"></a>{% endif %}</td>
-          <td class="small"><div class="fw-semibold">#{{ observation.id }}</div>{% if observation.is_no_detection_placeholder %}<span class="badge text-bg-light border">No detection</span>{% elif observation.bbox_x_center is None %}<span class="badge text-bg-secondary">No bbox</span>{% else %}<span class="text-muted">BBox</span>{% endif %}</td>
-          <td class="small text-break">{{ observation.mediafile.original_filename|default:observation.mediafile_id }}</td>
-          <td>{% if observation.is_no_detection_placeholder %}<span class="text-muted">No object detected</span>{% else %}{{ observation.taxon|default:'-' }}{% endif %}</td>
-          <td>{% if observation.identity %}<i class="bi bi-fingerprint"></i> {{ observation.identity }}{% else %}<span class="text-muted">-</span>{% endif %}</td>
-          <td class="small">{% if observation.mediafile.captured_at %}{{ observation.mediafile.captured_at|date:'Y-m-d H:i' }}{% else %}-{% endif %}{% if observation.mediafile.locality %}<div class="text-muted">{% if request.session.private_mode %}{{ observation.mediafile.locality.visible_name }}{% else %}{{ observation.mediafile.locality.name }}{% endif %}</div>{% endif %}</td>
-          <td><a class="btn btn-sm btn-outline-primary" href="{% url 'caidapp:media_file_update' observation.mediafile_id %}?next={{ request.get_full_path|urlencode }}%23observation-{{ observation.id }}#observation-{{ observation.id }}"><i class="bi bi-pencil"></i></a></td>
-        </tr>
-        {% endfor %}
       {% empty %}
         <tr><td colspan="8"><div class="alert alert-secondary mb-0">No observations matched the current filter.</div></td></tr>
       {% endfor %}
@@ -156,7 +170,7 @@
     </table>
   </div>
   {% else %}
-    <div class="observation-groups">
+    <div class="observation-groups{% if view_mode == 'large_cards' %} observation-groups-large{% endif %}">
       {% for group in observation_groups %}
         <section id="observation-group-{{ group.id }}" class="observation-group {% if group.observations|length > 1 and group.is_collapsible %}observation-group-collapsed{% else %}observation-group-expanded{% endif %}" data-group-id="{{ group.id }}">
             {% for observation in group.observations %}
@@ -185,12 +199,39 @@
       <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button type="button" class="btn btn-primary" id="observation-scope-modal-apply">Apply to all matching</button></div>
     </div></div>
   </div>
+  <div class="modal fade" id="observation-info-modal" tabindex="-1" aria-labelledby="observation-info-modal-title" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg"><div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title text-break" id="observation-info-modal-title">Observation details</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+      <div class="modal-body" id="observation-info-modal-body"></div>
+      <div class="modal-footer"><span class="small text-muted me-auto"><i class="bi bi-cursor-text"></i> Values can be selected and copied.</span><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button></div>
+    </div></div>
+  </div>
   </form>
 </section>
 {% endif %}
 <script>
 document.addEventListener("DOMContentLoaded", function() {
   const observationWorkbenchForm = document.getElementById("observation-workbench-form");
+  const observationInfoModalElement = document.getElementById("observation-info-modal");
+  const observationInfoModal = observationInfoModalElement && window.bootstrap ? bootstrap.Modal.getOrCreateInstance(observationInfoModalElement) : null;
+  const observationInfoModalTitle = document.getElementById("observation-info-modal-title");
+  const observationInfoModalBody = document.getElementById("observation-info-modal-body");
+  document.querySelectorAll('[data-bs-toggle-tooltip="true"]').forEach(function(element) {
+    if (window.bootstrap && window.bootstrap.Tooltip) {
+      new bootstrap.Tooltip(element, {customClass: "observation-info-tooltip", placement: "top"});
+    }
+  });
+  document.querySelectorAll(".js-observation-info").forEach(function(button) {
+    button.addEventListener("click", function() {
+      const tooltip = window.bootstrap && window.bootstrap.Tooltip ? bootstrap.Tooltip.getInstance(button) : null;
+      if (tooltip) tooltip.hide();
+      const template = document.getElementById(button.dataset.observationInfoTemplate);
+      if (!template || !observationInfoModalBody) return;
+      observationInfoModalBody.replaceChildren(template.content.cloneNode(true));
+      observationInfoModalTitle.textContent = button.dataset.observationInfoTitle || "Observation details";
+      if (observationInfoModal) observationInfoModal.show();
+    });
+  });
   function visibleObservationCards() {
     return Array.from(document.querySelectorAll(".observation-groups .observation-group-member")).filter(function(card) { return card.offsetParent !== null; });
   }
@@ -308,10 +349,26 @@ document.addEventListener("DOMContentLoaded", function() {
       setGroupExpanded(button.dataset.groupId, button.getAttribute("aria-expanded") !== "true");
     });
   });
+  function setObservationListGroupExpanded(groupId, expanded) {
+    document.querySelectorAll(`.observation-list-group-details[data-group-id="${groupId}"]`).forEach(function(details) {
+      details.hidden = !expanded;
+    });
+    document.querySelectorAll(`.js-toggle-observation-list-group[data-group-id="${groupId}"]`).forEach(function(toggle) {
+      toggle.setAttribute("aria-expanded", expanded ? "true" : "false");
+      toggle.title = `${expanded ? "Collapse" : "Expand"} grouped observations`;
+    });
+    updateObservationGroupCheckbox(groupId);
+  }
+  document.querySelectorAll(".js-toggle-observation-list-group").forEach(function(button) {
+    button.addEventListener("click", function() {
+      setObservationListGroupExpanded(button.dataset.groupId, button.getAttribute("aria-expanded") !== "true");
+    });
+  });
   document.querySelectorAll(".js-expand-all-observation-groups").forEach(function(button) {
     button.addEventListener("click", function() {
       animateObservationGridChange(function() {
         document.querySelectorAll(".js-toggle-observation-group").forEach(function(toggle) { setGroupExpanded(toggle.dataset.groupId, true, false); });
+        document.querySelectorAll(".js-toggle-observation-list-group").forEach(function(toggle) { setObservationListGroupExpanded(toggle.dataset.groupId, true); });
       });
     });
   });
@@ -319,6 +376,7 @@ document.addEventListener("DOMContentLoaded", function() {
     button.addEventListener("click", function() {
       animateObservationGridChange(function() {
         document.querySelectorAll(".js-toggle-observation-group").forEach(function(toggle) { setGroupExpanded(toggle.dataset.groupId, false, false); });
+        document.querySelectorAll(".js-toggle-observation-list-group").forEach(function(toggle) { setObservationListGroupExpanded(toggle.dataset.groupId, false); });
       });
     });
   });

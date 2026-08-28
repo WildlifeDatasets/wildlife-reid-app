@@ -4000,7 +4000,9 @@ def _get_observations_queryset(request: HttpRequest) -> Tuple[QuerySet, filters.
         "mediafile__locality",
         "mediafile__sequence",
         "taxon",
+        "predicted_taxon",
         "identity",
+        "updated_by",
     )
     observation_filter = filters.AnimalObservationFilter(request.GET, queryset=observations, request=request)
     return observation_filter.qs.distinct(), observation_filter
@@ -4128,7 +4130,7 @@ def observations(request: HttpRequest) -> HttpResponse:
     if group_by not in {"sequence", "mediafile", "none"}:
         group_by = "sequence"
     view_mode = request.GET.get("view", "cards")
-    if view_mode not in {"cards", "list"}:
+    if view_mode not in {"cards", "large_cards", "list"}:
         view_mode = "cards"
     sort_by = request.GET.get("sort", "captured_asc")
     if sort_by not in {

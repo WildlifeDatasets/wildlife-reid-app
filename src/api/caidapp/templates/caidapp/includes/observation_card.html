@@ -19,34 +19,43 @@
     {% endif %}
   </a>
   <div class="card-body">
-    <div class="d-flex justify-content-between gap-2 mb-2">
-      <span class="small text-muted">Observation #{{ observation.id }}</span>
-      {% if observation.is_no_detection_placeholder %}
-        <span class="badge text-bg-light border" title="No object was found in this image">No detection</span>
-      {% elif observation.bbox_x_center is None %}
-        <span class="badge text-bg-secondary">No bbox</span>
-      {% endif %}
+    {% if observation.is_no_detection_placeholder %}
+      <div class="mb-2"><span class="badge text-bg-light border" title="No object was found in this image">No detection</span></div>
+    {% elif observation.bbox_x_center is None %}
+      <div class="mb-2"><span class="badge text-bg-secondary">No bbox</span></div>
+    {% endif %}
+    <div class="observation-card-field fw-semibold"><i class="bi bi-tag" aria-hidden="true"></i><span>{% if observation.is_no_detection_placeholder %}No object detected{% else %}{{ observation.taxon|default:"No taxon" }}{% endif %}</span></div>
+    <div class="observation-card-field small">
+      <i class="bi bi-fingerprint" aria-hidden="true"></i>
+      {% if observation.is_no_detection_placeholder %}<span class="text-muted">Awaiting confirmation</span>{% elif observation.identity %}<span>{{ observation.identity }}</span>{% else %}<span class="text-muted">No identity</span>{% endif %}
     </div>
-    <div class="fw-semibold">{% if observation.is_no_detection_placeholder %}No object detected{% else %}{{ observation.taxon|default:"No taxon" }}{% endif %}</div>
-    <div class="small mb-2">
-      {% if observation.is_no_detection_placeholder %}
-        <span class="text-muted">Awaiting confirmation</span>
-      {% elif observation.identity %}
-        <i class="bi bi-fingerprint"></i> {{ observation.identity }}
-      {% else %}
-        <span class="text-muted">No identity</span>
-      {% endif %}
-    </div>
-    <div class="small text-muted text-truncate" title="{{ observation.mediafile.original_filename }}">
-      <i class="bi bi-image"></i> {{ observation.mediafile.original_filename|default:observation.mediafile_id }}
-    </div>
-    <div class="small text-muted">
-      {% if observation.mediafile.captured_at %}{{ observation.mediafile.captured_at|date:'Y-m-d H:i' }}{% else %}-{% endif %}
-      {% if observation.mediafile.locality %} &middot; {% if request.session.private_mode %}{{ observation.mediafile.locality.visible_name }}{% else %}{{ observation.mediafile.locality.name }}{% endif %}{% endif %}
-    </div>
-    <div class="mt-3 d-flex gap-2">
+    <div class="observation-card-field small text-muted text-truncate" title="{{ observation.mediafile.original_filename }}"><i class="bi bi-image" aria-hidden="true"></i><span>{{ observation.mediafile.original_filename|default:observation.mediafile_id }}</span></div>
+    {% if observation.mediafile.locality %}<div class="observation-card-field small text-muted"><i class="bi bi-geo-alt" aria-hidden="true"></i><span>{% if request.session.private_mode %}{{ observation.mediafile.locality.visible_name }}{% else %}{{ observation.mediafile.locality.name }}{% endif %}</span></div>{% endif %}
+    {% if observation.mediafile.captured_at %}<div class="observation-card-field small text-muted"><i class="bi bi-calendar3" aria-hidden="true"></i><time datetime="{{ observation.mediafile.captured_at|date:'c' }}">{{ observation.mediafile.captured_at|date:'Y-m-d H:i' }}</time></div>{% endif %}
+    <div class="mt-3 d-flex align-items-center gap-2">
       <a class="btn btn-sm btn-outline-primary" href="{% url 'caidapp:media_file_update' observation.mediafile_id %}?next={{ request.get_full_path|urlencode }}%23observation-{{ observation.id }}#observation-{{ observation.id }}"><i class="bi bi-pencil"></i> Edit</a>
       {% if observation.mediafile.sequence_id %}<a class="btn btn-sm btn-outline-secondary" href="{% url 'caidapp:observations' %}?sequence={{ observation.mediafile.sequence_id }}" title="Show observations in this sequence" aria-label="Show observations in this sequence"><i class="bi bi-collection"></i></a>{% endif %}
+      <button type="button" class="btn btn-sm btn-link text-secondary observation-info-button js-observation-info ms-auto" data-observation-info-template="observation-info-template-{{ observation.id }}" data-observation-info-title="{{ observation.mediafile.original_filename|default:'Observation details' }}" data-bs-toggle-tooltip="true" title="Taxon: {% if observation.is_no_detection_placeholder %}No object detected{% else %}{{ observation.taxon|default:'No taxon' }}{% endif %}{% if observation.predicted_taxon %}&#10;Predicted taxon: {{ observation.predicted_taxon }}{% if observation.predicted_taxon_confidence is not None %} ({{ observation.predicted_taxon_confidence|floatformat:4 }}){% endif %}{% endif %}&#10;Taxon verified: {{ observation.taxon_verified|yesno:'Yes,No' }}&#10;Identity: {{ observation.identity|default:'No identity' }}{% if observation.identity %}&#10;Representative: {{ observation.identity_is_representative|yesno:'Yes,No' }}{% endif %}&#10;Image: {{ observation.mediafile.original_filename|default:observation.mediafile_id }}{% if observation.mediafile.locality %}&#10;Locality: {% if request.session.private_mode %}{{ observation.mediafile.locality.visible_name }}{% else %}{{ observation.mediafile.locality.name }}{% endif %}{% endif %}{% if observation.mediafile.captured_at %}&#10;Captured: {{ observation.mediafile.captured_at|date:'Y-m-d H:i' }}{% endif %}{% if observation.mediafile.sequence_id %}&#10;Sequence ID: {{ observation.mediafile.sequence_id }}{% endif %}&#10;Orientation: {{ observation.get_orientation_display }}&#10;BBox: {% if observation.bbox_x_center is not None %}{{ observation.bbox_x_center }}, {{ observation.bbox_y_center }}, {{ observation.bbox_width }}, {{ observation.bbox_height }}{% else %}-{% endif %}&#10;Observation ID: {{ observation.id }}&#10;Media file ID: {{ observation.mediafile_id }}{% if observation.updated_at %}&#10;Updated: {{ observation.updated_at|date:'Y-m-d H:i' }}{% endif %}" aria-label="Show observation details"><i class="bi bi-info-circle" aria-hidden="true"></i></button>
     </div>
   </div>
+  <template id="observation-info-template-{{ observation.id }}">
+    <dl class="row mb-0 observation-info-details user-select-text">
+      <dt class="col-sm-4">Observation ID</dt><dd class="col-sm-8">{{ observation.id }}</dd>
+      <dt class="col-sm-4">Media file ID</dt><dd class="col-sm-8">{{ observation.mediafile_id }}</dd>
+      <dt class="col-sm-4">Image</dt><dd class="col-sm-8 text-break">{{ observation.mediafile.original_filename|default:'-' }}</dd>
+      <dt class="col-sm-4">Taxon</dt><dd class="col-sm-8">{% if observation.is_no_detection_placeholder %}No object detected{% else %}{{ observation.taxon|default:'-' }}{% endif %}</dd>
+      <dt class="col-sm-4">Predicted taxon</dt><dd class="col-sm-8">{{ observation.predicted_taxon|default:'-' }}{% if observation.predicted_taxon_confidence is not None %} ({{ observation.predicted_taxon_confidence|floatformat:4 }}){% endif %}</dd>
+      <dt class="col-sm-4">Taxon verified</dt><dd class="col-sm-8">{{ observation.taxon_verified|yesno:'Yes,No' }}</dd>
+      <dt class="col-sm-4">Identity</dt><dd class="col-sm-8">{{ observation.identity|default:'-' }}</dd>
+      <dt class="col-sm-4">Representative</dt><dd class="col-sm-8">{{ observation.identity_is_representative|yesno:'Yes,No' }}</dd>
+      <dt class="col-sm-4">Locality</dt><dd class="col-sm-8">{% if observation.mediafile.locality %}{% if request.session.private_mode %}{{ observation.mediafile.locality.visible_name }}{% else %}{{ observation.mediafile.locality.name }}{% endif %}{% else %}-{% endif %}</dd>
+      <dt class="col-sm-4">Captured</dt><dd class="col-sm-8">{% if observation.mediafile.captured_at %}{{ observation.mediafile.captured_at|date:'Y-m-d H:i:s T' }}{% else %}-{% endif %}</dd>
+      <dt class="col-sm-4">Upload</dt><dd class="col-sm-8">{{ observation.mediafile.parent|default:'-' }}</dd>
+      <dt class="col-sm-4">Sequence ID</dt><dd class="col-sm-8">{{ observation.mediafile.sequence_id|default:'-' }}</dd>
+      <dt class="col-sm-4">Orientation</dt><dd class="col-sm-8">{{ observation.get_orientation_display }}</dd>
+      <dt class="col-sm-4">BBox (cx, cy, w, h)</dt><dd class="col-sm-8 font-monospace">{% if observation.bbox_x_center is not None %}{{ observation.bbox_x_center }}, {{ observation.bbox_y_center }}, {{ observation.bbox_width }}, {{ observation.bbox_height }}{% else %}-{% endif %}</dd>
+      <dt class="col-sm-4">No-detection placeholder</dt><dd class="col-sm-8">{{ observation.is_no_detection_placeholder|yesno:'Yes,No' }}</dd>
+      <dt class="col-sm-4">Updated</dt><dd class="col-sm-8">{% if observation.updated_at %}{{ observation.updated_at|date:'Y-m-d H:i:s T' }}{% else %}-{% endif %}{% if observation.updated_by %} · {{ observation.updated_by }}{% endif %}</dd>
+    </dl>
+  </template>
 </article>

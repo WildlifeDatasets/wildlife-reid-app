@@ -3013,8 +3013,8 @@ class ObservationViewTest(TestCase):
         response = self.client.get(reverse("caidapp:observations"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, f"Observation #{first.id}")
-        self.assertContains(response, f"Observation #{second.id}")
+        self.assertContains(response, f'id="observation-{first.id}"')
+        self.assertContains(response, f'id="observation-{second.id}"')
         self.assertContains(response, "Sequence 22")
         self.assertContains(response, "observation-bbox")
         self.assertContains(response, f"#observation-{first.id}")
@@ -3032,6 +3032,8 @@ class ObservationViewTest(TestCase):
         self.assertContains(response, "Captured: oldest")
         self.assertContains(response, "Select all 2 matching filter")
         self.assertContains(response, "Edit metadata…")
+        self.assertContains(response, '<i class="bi bi-lightning"></i> Actions')
+        self.assertNotContains(response, '<i class="bi bi-three-dots"></i> Actions')
         self.assertContains(response, "> Data</button>")
         self.assertContains(response, "Metadata uses one row per observation")
         self.assertNotContains(response, "Export includes every observation belonging to a matching media file")
@@ -3053,8 +3055,56 @@ class ObservationViewTest(TestCase):
         response = self.client.get(reverse("caidapp:observations"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, f"Observation #{observation.id}")
+        self.assertContains(response, f'id="observation-{observation.id}"')
         self.assertNotContains(response, 'class="observation-group-controls"')
+
+    def test_observations_large_cards_mode_uses_two_column_card_layout(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        observation = AnimalObservationFactory(mediafile=MediaFileFactory(parent=archive))
+
+        response = self.client.get(reverse("caidapp:observations"), {"view": "large_cards"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["view_mode"], "large_cards")
+        self.assertContains(response, f'id="observation-{observation.id}"')
+        self.assertContains(response, 'class="observation-groups observation-groups-large"')
+        self.assertContains(response, ".observation-groups-large .observation-group-member{flex-basis:calc(50% - 1.5rem)")
+        self.assertContains(response, 'title="Large cards view" aria-label="Large cards view" aria-current="page"')
+        self.assertContains(response, '<i class="bi bi-grid-3x3-gap" aria-hidden="true"></i>')
+        self.assertContains(response, '<i class="bi bi-grid" aria-hidden="true"></i>')
+        self.assertContains(response, '<i class="bi bi-list-ul" aria-hidden="true"></i>')
+
+    def test_observation_card_shows_icon_fields_and_copyable_details_modal(self):
+        locality = LocalityFactory(owner=self.caiduser, name="Forest locality")
+        archive = UploadedArchiveFactory(owner=self.caiduser, name="Camera upload")
+        mediafile = MediaFileFactory(
+            parent=archive,
+            locality=locality,
+            captured_at=timezone.make_aware(datetime.datetime(2025, 4, 3, 14, 25)),
+            original_filename="forest/lynx.jpg",
+        )
+        identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Lynx A")
+        taxon = TaxonFactory(name="Lynx lynx")
+        observation = AnimalObservationFactory(mediafile=mediafile, taxon=taxon, identity=identity)
+
+        response = self.client.get(reverse("caidapp:observations"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, f"Observation #{observation.id}")
+        self.assertContains(response, '<i class="bi bi-tag"')
+        self.assertContains(response, '<i class="bi bi-fingerprint"')
+        self.assertContains(response, '<i class="bi bi-image"')
+        self.assertContains(response, '<i class="bi bi-geo-alt"')
+        self.assertContains(response, '<i class="bi bi-calendar3"')
+        self.assertContains(response, "Lynx lynx")
+        self.assertContains(response, "Lynx A")
+        self.assertContains(response, "Forest locality")
+        self.assertContains(response, "2025-04-03 14:25")
+        self.assertContains(response, 'id="observation-info-modal"')
+        self.assertContains(response, f'id="observation-info-template-{observation.id}"')
+        self.assertContains(response, 'class="btn btn-sm btn-link text-secondary observation-info-button')
+        self.assertContains(response, "Values can be selected and copied.")
+        self.assertContains(response, "observationInfoModalBody.replaceChildren")
 
     def test_sequence_link_opens_only_that_sequences_observations(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)
@@ -3074,8 +3124,8 @@ class ObservationViewTest(TestCase):
         filtered_response = self.client.get(sequence_url)
 
         self.assertEqual(filtered_response.status_code, 200)
-        self.assertContains(filtered_response, f"Observation #{selected.id}")
-        self.assertNotContains(filtered_response, f"Observation #{other.id}")
+        self.assertContains(filtered_response, f'id="observation-{selected.id}"')
+        self.assertNotContains(filtered_response, f'id="observation-{other.id}"')
         self.assertEqual(filtered_response.context["number_of_observations"], 1)
 
     def test_observations_sort_sequences_by_newest_captured_date(self):
@@ -3142,7 +3192,7 @@ class ObservationViewTest(TestCase):
                 self.assertEqual(response.status_code, 200)
                 self.assertEqual(response.context["sort_by"], sort_by)
 
-    def test_observations_list_mode_keeps_observation_rows_and_group_summary(self):
+    def test_observations_list_mode_renders_one_collapsible_row_per_group(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)
         sequence = SequenceFactory(uploaded_archive=archive, local_id=31)
         mediafile = MediaFileFactory(parent=archive, sequence=sequence, original_filename="two.jpg")
@@ -3152,13 +3202,42 @@ class ObservationViewTest(TestCase):
         response = self.client.get(reverse("caidapp:observations"), {"view": "list"})
 
         self.assertEqual(response.status_code, 200)
+        group = response.context["observation_groups"][0]
         self.assertContains(response, f"#{first.id}")
         self.assertContains(response, f"#{second.id}")
-        self.assertContains(response, "observations on this page")
+        self.assertContains(response, "2 observations")
         self.assertContains(response, f'data-observation-id="{first.id}"')
         self.assertContains(response, f'data-observation-id="{second.id}"')
         self.assertContains(response, "js-observation-group-checkbox")
+        self.assertContains(response, "js-toggle-observation-list-group")
+        self.assertContains(response, 'class="observation-list-group-shell"', count=1)
+        self.assertContains(response, 'class="observation-list-group-block"', count=1)
+        self.assertContains(response, f'aria-controls="observation-list-group-details-{group["id"]}"')
+        self.assertContains(response, f'id="observation-list-group-details-{group["id"]}" class="observation-list-group-details" data-group-id="{group["id"]}" hidden')
+        self.assertContains(response, f'id="observation-list-{first.id}" class="observation-list-member" data-group-id=', count=1)
+        self.assertContains(response, f'id="observation-list-{second.id}" class="observation-list-member" data-group-id=', count=1)
+        self.assertContains(response, "observation-list-detail-table")
+        self.assertContains(response, "observation-list-detail-table td{border:0!important")
+        self.assertContains(response, "setObservationListGroupExpanded")
+        self.assertContains(response, 'details.hidden = !expanded')
+        self.assertContains(response, "js-expand-all-observation-groups")
+        self.assertContains(response, "js-collapse-all-observation-groups")
         self.assertContains(response, "Merge into new sequence")
+
+    def test_observations_ungrouped_list_keeps_one_plain_row_per_observation(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        mediafile = MediaFileFactory(parent=archive, original_filename="two.jpg")
+        first = AnimalObservationFactory(mediafile=mediafile, bbox_x_center=0.3)
+        second = AnimalObservationFactory(mediafile=mediafile, bbox_x_center=0.7)
+
+        response = self.client.get(reverse("caidapp:observations"), {"view": "list", "group": "none"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "<th>Observation</th>", html=True)
+        self.assertContains(response, f'id="observation-list-{first.id}" class="observation-list-member"', count=1)
+        self.assertContains(response, f'id="observation-list-{second.id}" class="observation-list-member"', count=1)
+        self.assertNotContains(response, 'class="observation-list-group-shell"')
+        self.assertNotContains(response, 'aria-controls="observation-list-group-details-')
 
     def test_observation_bulk_bbox_updates_selected_observation_only(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)
@@ -3440,8 +3519,8 @@ class ObservationViewTest(TestCase):
         response = self.client.get(reverse("caidapp:observations"), {"identity": selected_identity.id})
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, f"Observation #{selected.id}")
-        self.assertNotContains(response, f"Observation #{sibling.id}")
+        self.assertContains(response, f'id="observation-{selected.id}"')
+        self.assertNotContains(response, f'id="observation-{sibling.id}"')
 
     def test_observation_export_uses_existing_round_trip_rows_for_matching_mediafile(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)
@@ -3533,8 +3612,8 @@ class ObservationViewTest(TestCase):
         response = self.client.get(reverse("caidapp:observations"), {"has_bbox": "true"})
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, f"Observation #{with_bbox.id}")
-        self.assertNotContains(response, f"Observation #{without_bbox.id}")
+        self.assertContains(response, f'id="observation-{with_bbox.id}"')
+        self.assertNotContains(response, f'id="observation-{without_bbox.id}"')
 
     def test_objects_per_image_filters_count_only_real_bounding_boxes(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)
@@ -3563,26 +3642,26 @@ class ObservationViewTest(TestCase):
         )
 
         zero_response = self.client.get(reverse("caidapp:observations"), {"objects_per_image": "0"})
-        self.assertContains(zero_response, f"Observation #{no_bbox.id}")
-        self.assertNotContains(zero_response, f"Observation #{one_bbox.id}")
+        self.assertContains(zero_response, f'id="observation-{no_bbox.id}"')
+        self.assertNotContains(zero_response, f'id="observation-{one_bbox.id}"')
 
         one_response = self.client.get(reverse("caidapp:observations"), {"objects_per_image": "1"})
-        self.assertContains(one_response, f"Observation #{one_bbox.id}")
-        self.assertNotContains(one_response, f"Observation #{no_bbox.id}")
+        self.assertContains(one_response, f'id="observation-{one_bbox.id}"')
+        self.assertNotContains(one_response, f'id="observation-{no_bbox.id}"')
 
         multi_response = self.client.get(reverse("caidapp:observations"), {"objects_per_image": "2"})
-        self.assertContains(multi_response, f"Observation #{two_bbox_first.id}")
-        self.assertContains(multi_response, f"Observation #{two_bbox_second.id}")
-        self.assertNotContains(multi_response, f"Observation #{one_bbox.id}")
+        self.assertContains(multi_response, f'id="observation-{two_bbox_first.id}"')
+        self.assertContains(multi_response, f'id="observation-{two_bbox_second.id}"')
+        self.assertNotContains(multi_response, f'id="observation-{one_bbox.id}"')
 
         minimum_response = self.client.get(reverse("caidapp:observations"), {"objects_per_image_min": "2"})
-        self.assertContains(minimum_response, f"Observation #{two_bbox_first.id}")
-        self.assertNotContains(minimum_response, f"Observation #{one_bbox.id}")
+        self.assertContains(minimum_response, f'id="observation-{two_bbox_first.id}"')
+        self.assertNotContains(minimum_response, f'id="observation-{one_bbox.id}"')
 
         maximum_response = self.client.get(reverse("caidapp:observations"), {"objects_per_image_max": "1"})
-        self.assertContains(maximum_response, f"Observation #{no_bbox.id}")
-        self.assertContains(maximum_response, f"Observation #{one_bbox.id}")
-        self.assertNotContains(maximum_response, f"Observation #{two_bbox_first.id}")
+        self.assertContains(maximum_response, f'id="observation-{no_bbox.id}"')
+        self.assertContains(maximum_response, f'id="observation-{one_bbox.id}"')
+        self.assertNotContains(maximum_response, f'id="observation-{two_bbox_first.id}"')
 
     def test_observations_view_restricts_other_workgroup(self):
         foreign_user = CaidUserFactory()
@@ -3592,7 +3671,7 @@ class ObservationViewTest(TestCase):
         response = self.client.get(reverse("caidapp:observations"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertNotContains(response, f"Observation #{foreign_observation.id}")
+        self.assertNotContains(response, f'id="observation-{foreign_observation.id}"')
 
 
 class IdentificationUploadsViewTest(TestCase):
