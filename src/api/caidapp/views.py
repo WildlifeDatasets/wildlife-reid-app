@@ -4143,11 +4143,33 @@ def observations(request: HttpRequest) -> HttpResponse:
     editable_mediafiles = MediaFile.objects.for_user(request.user.caiduser).filter(
         id__in=matching_mediafiles.order_by().values("id")
     )
+    editable_observations = observation_queryset.filter(
+        mediafile_id__in=editable_mediafiles.order_by().values("id")
+    )
+    form_bulk_processing = MediaFileBulkForm(
+        request.POST or None,
+        workgroup=request.user.caiduser.workgroup,
+    )
     if request.method == "POST":
-        selected_mediafile_ids = _resolve_selected_mediafile_ids_from_post(request, editable_mediafiles)
+        if request.POST.get("select_all_filtered") == "on":
+            selected_observations = editable_observations
+        else:
+            requested_observation_ids = {
+                int(value)
+                for value in request.POST.getlist("selected_observation_ids")
+                if str(value).isdigit() and int(value) > 0
+            }
+            selected_observations = editable_observations.filter(id__in=requested_observation_ids)
+        selected_observation_ids = list(selected_observations.values_list("id", flat=True))
         selected_mediafile_ids = sorted(
-            editable_mediafiles.filter(id__in=selected_mediafile_ids).values_list("id", flat=True)
+            set(selected_observations.values_list("mediafile_id", flat=True))
         )
+        observation_field_actions = {
+            "btnBulkProcessing_id_taxon": "taxon",
+            "btnBulkProcessing_id_identity": "identity",
+            "btnBulkProcessing_id_identity_is_representative": "identity_is_representative",
+            "btnBulkProcessing_id_taxon_verified": "taxon_verified",
+        }
         selection_actions = {
             "btnBulkProcessing_set_full_image_bbox",
             "btnBulkProcessing_remove_bbox",
@@ -4155,29 +4177,75 @@ def observations(request: HttpRequest) -> HttpResponse:
             "btnDissolveSequences",
             "btnExtractFilenameMetadata",
             "btnDownloadObservations",
+            *observation_field_actions,
         }
         requested_selection_action = next((key for key in selection_actions if key in request.POST), None)
-        if requested_selection_action and not selected_mediafile_ids:
-            messages.warning(request, "Select at least one editable image.")
+        if requested_selection_action and not selected_observation_ids:
+            messages.warning(request, "Select at least one editable observation.")
             return redirect(request.get_full_path())
 
         if requested_selection_action in {
             "btnBulkProcessing_set_full_image_bbox",
             "btnBulkProcessing_remove_bbox",
         }:
-            selected_mediafiles = (
-                MediaFile.objects.for_user(request.user.caiduser)
-                .filter(id__in=selected_mediafile_ids)
-                .prefetch_related("observations")
+            updated_at = django.utils.timezone.now()
+            bbox_values = (0.5, 0.5, 1.0, 1.0) if requested_selection_action.endswith("full_image_bbox") else (None, None, None, None)
+            for observation in selected_observations:
+                (
+                    observation.bbox_x_center,
+                    observation.bbox_y_center,
+                    observation.bbox_width,
+                    observation.bbox_height,
+                ) = bbox_values
+                observation.updated_by = request.user.caiduser
+                observation.updated_at = updated_at
+                observation.save(update_fields=[*OBSERVATION_BBOX_MODEL_FIELDS, "updated_by", "updated_at"])
+            MediaFile.objects.filter(id__in=selected_mediafile_ids).update(
+                updated_by=request.user.caiduser,
+                updated_at=updated_at,
             )
-            changed_observation_count = 0
-            for mediafile in selected_mediafiles:
-                if requested_selection_action == "btnBulkProcessing_set_full_image_bbox":
-                    changed_observation_count += _set_mediafile_bbox_to_full_image(mediafile, request.user.caiduser)
-                else:
-                    changed_observation_count += _remove_mediafile_bbox(mediafile, request.user.caiduser)
+            changed_observation_count = len(selected_observation_ids)
             action_label = "Set full-image bbox on" if requested_selection_action.endswith("full_image_bbox") else "Removed bbox from"
             messages.success(request, f"{action_label} {changed_observation_count} observations.")
+            return redirect(request.get_full_path())
+
+        if requested_selection_action in observation_field_actions:
+            if not form_bulk_processing.is_valid():
+                messages.error(request, "The bulk value is not valid.")
+                return redirect(request.get_full_path())
+            field_name = observation_field_actions[requested_selection_action]
+            field_value = form_bulk_processing.cleaned_data[field_name]
+            updated_at = django.utils.timezone.now()
+            changed_count = 0
+            skipped_count = 0
+            for observation in selected_observations.select_related("identity"):
+                if field_name == "identity_is_representative" and field_value and not observation.identity_id:
+                    skipped_count += 1
+                    continue
+                previous_value = getattr(observation, f"{field_name}_id", None) if field_name in {"taxon", "identity"} else getattr(observation, field_name)
+                new_value = field_value.id if field_name in {"taxon", "identity"} and field_value is not None else field_value
+                setattr(observation, field_name, field_value)
+                update_fields = [field_name, "updated_by", "updated_at"]
+                if field_name == "taxon" and previous_value != new_value:
+                    observation.taxon_verified = False
+                    observation.taxon_verified_at = None
+                    update_fields.extend(["taxon_verified", "taxon_verified_at"])
+                if field_name == "identity" and previous_value != new_value:
+                    observation.identity_is_representative = False
+                    update_fields.append("identity_is_representative")
+                if field_name == "taxon_verified":
+                    observation.taxon_verified_at = updated_at if field_value else None
+                    update_fields.append("taxon_verified_at")
+                observation.updated_by = request.user.caiduser
+                observation.updated_at = updated_at
+                observation.save(update_fields=update_fields)
+                changed_count += 1
+            MediaFile.objects.filter(
+                id__in=selected_observations.values("mediafile_id")
+            ).update(updated_by=request.user.caiduser, updated_at=updated_at)
+            messages.success(request, f"Updated {field_name.replace('_', ' ')} on {changed_count} observations.")
+            if skipped_count:
+                messages.warning(request, f"Skipped {skipped_count} observations without an identity.")
             return redirect(request.get_full_path())
 
         if "btnCreateSequence" in request.POST:
@@ -4221,9 +4289,12 @@ def observations(request: HttpRequest) -> HttpResponse:
     paginator = Paginator(observation_queryset, per_page=records_per_page)
     page_obj, _, page_context = _prepare_page(paginator, request=request)
     observations_on_page = list(page_obj.object_list)
-    editable_mediafile_ids = set(editable_mediafiles.values_list("id", flat=True))
+    page_observation_ids = [observation.id for observation in observations_on_page]
+    editable_observation_ids = set(
+        editable_observations.filter(id__in=page_observation_ids).values_list("id", flat=True)
+    )
     for observation in observations_on_page:
-        observation.bulk_editable = observation.mediafile_id in editable_mediafile_ids
+        observation.bulk_editable = observation.id in editable_observation_ids
 
     groups = []
     group_lookup = {}
@@ -4281,7 +4352,8 @@ def observations(request: HttpRequest) -> HttpResponse:
         "observation_per_page_options": OBSERVATION_PER_PAGE_OPTIONS,
         "number_of_observations": observation_queryset.count(),
         "number_of_mediafiles": matching_mediafiles.count(),
-        "number_of_editable_mediafiles": editable_mediafiles.count(),
+        "number_of_editable_observations": editable_observations.count(),
+        "form_bulk_processing": form_bulk_processing,
     }
     return render(request, "caidapp/observations.html", add_querystring_to_context(request, context))
 

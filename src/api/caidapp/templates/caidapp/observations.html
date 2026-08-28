@@ -1,11 +1,12 @@
 {% extends 'base.html' %}
-{% load custom_filters %}
+{% load custom_filters widget_tweaks %}
 
 {% block head %}
 <style>
-.observation-groups{display:flex;flex-wrap:wrap;column-gap:.25rem;row-gap:1.25rem;align-items:stretch}.observation-group{display:contents}.observation-group-member{display:flex;position:relative;flex:0 0 300px;width:300px;max-width:100%;background:var(--wrid-media-card-bg);border-color:rgba(var(--bs-secondary-rgb),.55);overflow:hidden;box-shadow:0 0 0 5px rgba(var(--bs-secondary-rgb),.45);transition:box-shadow .2s ease,border-color .16s ease,transform .16s ease,opacity .16s ease;will-change:transform}.observation-group-extra{display:none}.observation-group-extra.observation-group-expanded-visible{display:flex}.observation-group-lead{border-top-left-radius:.75rem;border-bottom-left-radius:.75rem}.observation-group-end-card,.observation-group-collapsed-card{margin-right:.65rem;border-top-right-radius:.75rem;border-bottom-right-radius:.75rem}.observation-group-collapsed-card{box-shadow:5px 5px 0 rgba(var(--bs-secondary-rgb),.42),10px 10px 0 rgba(var(--bs-secondary-rgb),.24)}.observation-group-break{flex:0 0 .45rem;width:.45rem;height:1px}.observation-group-member.observation-group-hover-highlight{border-color:rgba(var(--bs-primary-rgb),.72);box-shadow:0 0 0 5px rgba(var(--bs-primary-rgb),.58),0 .45rem 1rem rgba(var(--bs-primary-rgb),.22);transform:translateY(-1px)}.observation-group-collapsed-card.observation-group-hover-highlight{box-shadow:8px 8px 0 rgba(var(--bs-primary-rgb),.5),16px 16px 0 rgba(var(--bs-primary-rgb),.3),0 .65rem 1.15rem rgba(var(--bs-primary-rgb),.18);transform:translate(-1px,-2px)}.observation-group-toggle{position:absolute;top:.55rem;left:.55rem;z-index:2;max-width:calc(100% - 1.1rem);border:0;border-radius:.3rem;background:rgba(33,37,41,.8);color:#fff;padding:.25rem .5rem;font-size:.78rem;text-align:left}.observation-group-toggle:hover{background:var(--bs-primary)}.observation-group-toggle .observation-group-toggle-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.observation-card{display:flex;flex:1 1 auto;flex-direction:column;overflow:hidden;border:0;border-radius:0;background:var(--wrid-media-card-bg)}.observation-card .card-body{display:flex;flex:1 1 auto;flex-direction:column;min-height:11.5rem}.observation-card .card-body>.mt-3{margin-top:auto!important}.observation-preview{position:relative;display:block;aspect-ratio:4/3;background:var(--wrid-media-thumb-bg);overflow:hidden}.observation-preview img{width:100%;height:100%;object-fit:contain;display:block}.observation-image-area{position:absolute;inset:0;pointer-events:none}.observation-bbox{position:absolute;border:3px solid var(--bs-danger);background:rgba(220,53,69,.08);box-shadow:0 0 0 1px rgba(255,255,255,.8)}.observation-preview-placeholder{height:100%;display:grid;place-items:center;color:var(--bs-secondary-color);font-size:2rem}.observation-toolbar{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:end;gap:.75rem}.observation-toolbar-label{font-size:.8rem;color:var(--bs-secondary-color)}@media (prefers-reduced-motion:reduce){.observation-group-member{transition:none!important}}[data-bs-theme=dark] .observation-group-member{box-shadow:0 0 0 5px rgba(var(--bs-secondary-rgb),.62)}[data-bs-theme=dark] .observation-group-collapsed-card{box-shadow:5px 5px 0 rgba(var(--bs-secondary-rgb),.5),10px 10px 0 rgba(var(--bs-secondary-rgb),.32)}[data-bs-theme=dark] .observation-group-member.observation-group-hover-highlight{box-shadow:0 0 0 5px rgba(var(--bs-primary-rgb),.74),0 .55rem 1.2rem rgba(var(--bs-primary-rgb),.28)}@media (max-width:767px){.observation-group-member{flex-basis:100%;width:100%;border-radius:.75rem}.observation-group-break{display:none}.observation-group-lead,.observation-group-end-card,.observation-group-collapsed-card{margin-left:0;margin-right:0;border-radius:.75rem}}
+.observation-groups{display:flex;flex-wrap:wrap;column-gap:.25rem;row-gap:1.25rem;align-items:stretch}.observation-group{display:contents}.observation-group-member{display:flex;position:relative;flex:0 0 300px;width:300px;max-width:100%;background:var(--wrid-media-card-bg);border-color:rgba(var(--bs-secondary-rgb),.55);overflow:hidden;box-shadow:0 0 0 5px rgba(var(--bs-secondary-rgb),.45);transition:box-shadow .2s ease,border-color .16s ease,transform .16s ease,opacity .16s ease;will-change:transform}.observation-group-extra{display:none}.observation-group-extra.observation-group-expanded-visible{display:flex}.observation-group-lead{border-top-left-radius:.75rem;border-bottom-left-radius:.75rem}.observation-group-end-card,.observation-group-collapsed-card{margin-right:.65rem;border-top-right-radius:.75rem;border-bottom-right-radius:.75rem}.observation-group-collapsed-card{box-shadow:5px 5px 0 rgba(var(--bs-secondary-rgb),.42),10px 10px 0 rgba(var(--bs-secondary-rgb),.24)}.observation-group-break{flex:0 0 .45rem;width:.45rem;height:1px}.observation-group-member.observation-group-hover-highlight{border-color:rgba(var(--bs-primary-rgb),.72);box-shadow:0 0 0 5px rgba(var(--bs-primary-rgb),.58),0 .45rem 1rem rgba(var(--bs-primary-rgb),.22);transform:translateY(-1px)}.observation-group-collapsed-card.observation-group-hover-highlight{box-shadow:8px 8px 0 rgba(var(--bs-primary-rgb),.5),16px 16px 0 rgba(var(--bs-primary-rgb),.3),0 .65rem 1.15rem rgba(var(--bs-primary-rgb),.18);transform:translate(-1px,-2px)}.observation-group-controls{position:absolute;top:.55rem;left:.55rem;z-index:5;display:flex;align-items:center;gap:.3rem}.observation-group-toggle{display:inline-flex;align-items:center;gap:.3rem;border:0;border-radius:.3rem;background:rgba(33,37,41,.8);color:#fff;padding:.25rem .5rem;font-size:.78rem}.observation-group-toggle:hover{background:var(--bs-primary)}.observation-card{display:flex;flex:1 1 auto;flex-direction:column;overflow:hidden;border:0;border-radius:0;background:var(--wrid-media-card-bg)}.observation-card .card-body{display:flex;flex:1 1 auto;flex-direction:column;min-height:11.5rem}.observation-card .card-body>.mt-3{margin-top:auto!important}.observation-preview{position:relative;display:block;aspect-ratio:4/3;background:var(--wrid-media-thumb-bg);overflow:hidden}.observation-preview img{width:100%;height:100%;object-fit:contain;display:block}.observation-image-area{position:absolute;inset:0;pointer-events:none}.observation-bbox{position:absolute;border:3px solid var(--bs-danger);background:rgba(220,53,69,.08);box-shadow:0 0 0 1px rgba(255,255,255,.8)}.observation-preview-placeholder{height:100%;display:grid;place-items:center;color:var(--bs-secondary-color);font-size:2rem}.observation-toolbar{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:end;gap:.75rem}.observation-toolbar-label{font-size:.8rem;color:var(--bs-secondary-color)}@media (prefers-reduced-motion:reduce){.observation-group-member{transition:none!important}}[data-bs-theme=dark] .observation-group-member{box-shadow:0 0 0 5px rgba(var(--bs-secondary-rgb),.62)}[data-bs-theme=dark] .observation-group-collapsed-card{box-shadow:5px 5px 0 rgba(var(--bs-secondary-rgb),.5),10px 10px 0 rgba(var(--bs-secondary-rgb),.32)}[data-bs-theme=dark] .observation-group-member.observation-group-hover-highlight{box-shadow:0 0 0 5px rgba(var(--bs-primary-rgb),.74),0 .55rem 1.2rem rgba(var(--bs-primary-rgb),.28)}@media (max-width:767px){.observation-group-member{flex-basis:100%;width:100%;border-radius:.75rem}.observation-group-break{display:none}.observation-group-lead,.observation-group-end-card,.observation-group-collapsed-card{margin-left:0;margin-right:0;border-radius:.75rem}}
 .observation-group-member{border:var(--bs-card-border-width) solid rgba(var(--bs-secondary-rgb),.55)}
-.observation-image-select,.observation-image-readonly{position:absolute;top:.55rem;right:.55rem;z-index:4;display:inline-flex;align-items:center;justify-content:center;border-radius:.35rem;background:rgba(33,37,41,.82);color:#fff;padding:.25rem}.observation-image-select{cursor:pointer}.observation-image-select .form-check-input{width:1.25rem;height:1.25rem;margin:0;cursor:pointer}.observation-list-thumb{display:block;width:80px;height:60px;object-fit:contain;background:var(--wrid-media-thumb-bg)}.observation-list-group-summary{background:rgba(var(--bs-secondary-rgb),.09)}.observation-selection-toolbar{border:1px solid rgba(var(--bs-primary-rgb),.18);background:rgba(var(--bs-primary-rgb),.04);border-radius:.5rem;padding:.65rem}.observation-selection-note{max-width:44rem}
+.observation-image-select,.observation-image-readonly{position:absolute;top:.55rem;right:.55rem;z-index:4;display:inline-flex;align-items:center;justify-content:center;border-radius:.35rem;background:rgba(33,37,41,.82);color:#fff;padding:.25rem}.observation-image-select{cursor:pointer}.observation-image-select .form-check-input{width:1.25rem;height:1.25rem;margin:0;cursor:pointer}.observation-group-select{display:inline-flex;align-items:center;justify-content:center;border-radius:.35rem;background:rgba(33,37,41,.82);padding:.25rem;cursor:pointer}.observation-group-select .form-check-input{width:1.25rem;height:1.25rem;margin:0;cursor:pointer}.observation-list-thumb{display:block;width:80px;height:60px;object-fit:contain;background:var(--wrid-media-thumb-bg)}.observation-list-group-summary{background:rgba(var(--bs-secondary-rgb),.09)}.observation-selection-toolbar{border:1px solid rgba(var(--bs-primary-rgb),.18);background:rgba(var(--bs-primary-rgb),.04);border-radius:.5rem;padding:.65rem}.observation-selection-note{max-width:44rem}.observation-bulk-fields{border:1px solid rgba(var(--bs-secondary-rgb),.2);border-top:0;border-radius:0 0 .5rem .5rem;padding:.75rem}
+.observation-group-collapsed .observation-group-lead .observation-image-select{display:none}.observation-group-expanded .observation-group-select{display:none}
 </style>
 {% endblock %}
 
@@ -19,28 +20,40 @@
   {% include 'caidapp/filter_collapse.html' %}
   <form method="post" id="observation-workbench-form">
     {% csrf_token %}
-    <input class="d-none" type="checkbox" name="select_all_filtered" id="observation-select-all-filtered" data-total="{{ number_of_editable_mediafiles }}">
+    <input class="d-none" type="checkbox" name="select_all_filtered" id="observation-select-all-filtered" data-total="{{ number_of_editable_observations }}">
     <div class="observation-selection-toolbar d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3">
       <div>
-        <div class="fw-semibold">Image selection</div>
-        <div class="small text-muted observation-selection-note">A checkbox selects the whole image and therefore all observations in it. Shared images without bulk-action access remain available through the regular export.</div>
+        <div class="fw-semibold">Observation selection</div>
+        <div class="small text-muted observation-selection-note">Each card or row checkbox selects one observation. A group checkbox selects all editable observations in that visual group and shows a dash when only some are selected.</div>
       </div>
       <div class="d-flex flex-wrap gap-2">
         <span class="badge text-bg-secondary align-self-center" id="observation-selected-count">0 selected</span>
         <button class="btn btn-sm btn-outline-primary js-select-observation-page" type="button"><i class="bi bi-check2-square"></i> Select page</button>
         <button class="btn btn-sm btn-outline-secondary js-clear-observation-selection" type="button"><i class="bi bi-x-square"></i> Clear</button>
+        <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#observation-bulk-fields" aria-expanded="false"><i class="bi bi-tags"></i> Observation fields</button>
         <div class="dropdown">
           <button class="btn btn-sm btn-primary dropdown-toggle" type="button" data-bs-toggle="dropdown"><i class="bi bi-sliders"></i> Actions</button>
           <ul class="dropdown-menu dropdown-menu-end">
-            <li><button class="dropdown-item js-observation-requires-selection" name="btnBulkProcessing_set_full_image_bbox" type="submit" data-confirm-message="Set every observation bbox in the selected images to the full image?"><i class="bi bi-bounding-box"></i> Set all bboxes to full image</button></li>
-            <li><button class="dropdown-item js-observation-requires-selection" name="btnBulkProcessing_remove_bbox" type="submit" data-confirm-message="Remove every bbox from the selected images? Identities will be kept."><i class="bi bi-bounding-box"></i> Remove all bboxes</button></li>
-            <li><button class="dropdown-item js-observation-requires-selection" name="btnExtractFilenameMetadata" type="submit"><i class="bi bi-regex"></i> Extract metadata from filenames</button></li>
-            <li><button class="dropdown-item js-observation-requires-selection" name="btnDownloadObservations" type="submit"><i class="bi bi-download"></i> Download editable selection</button></li>
+            <li><button class="dropdown-item js-observation-requires-selection" name="btnBulkProcessing_set_full_image_bbox" type="submit" data-confirm-message="Set the bbox of every selected observation to the full image?"><i class="bi bi-bounding-box"></i> Set selected bboxes to full image</button></li>
+            <li><button class="dropdown-item js-observation-requires-selection" name="btnBulkProcessing_remove_bbox" type="submit" data-confirm-message="Remove the bbox from every selected observation? Identities will be kept."><i class="bi bi-bounding-box"></i> Remove selected bboxes</button></li>
+            <li><button class="dropdown-item js-observation-requires-selection" name="btnExtractFilenameMetadata" type="submit"><i class="bi bi-regex"></i> Extract metadata from images containing selection</button></li>
+            <li><button class="dropdown-item js-observation-requires-selection" name="btnDownloadObservations" type="submit"><i class="bi bi-download"></i> Download images containing selection</button></li>
             <li><hr class="dropdown-divider"></li>
-            <li><button class="dropdown-item js-observation-requires-selection" name="btnCreateSequence" type="submit" data-confirm-message="Move the selected images into one new sequence? They must belong to the same upload."><i class="bi bi-collection"></i> Merge into new sequence</button></li>
-            <li><button class="dropdown-item text-warning js-observation-requires-selection" name="btnDissolveSequences" type="submit" data-confirm-message="Move every selected image into its own single-image sequence?"><i class="bi bi-distribute-horizontal"></i> Dissolve into single-image sequences</button></li>
+            <li><button class="dropdown-item js-observation-requires-selection" name="btnCreateSequence" type="submit" data-confirm-message="Move the images containing selected observations into one new sequence? They must belong to the same upload."><i class="bi bi-collection"></i> Merge containing images into new sequence</button></li>
+            <li><button class="dropdown-item text-warning js-observation-requires-selection" name="btnDissolveSequences" type="submit" data-confirm-message="Move every image containing a selected observation into its own single-image sequence?"><i class="bi bi-distribute-horizontal"></i> Dissolve containing images</button></li>
           </ul>
         </div>
+      </div>
+    </div>
+    <div class="collapse observation-bulk-fields" id="observation-bulk-fields">
+      <div class="row g-3 align-items-end">
+        {% for field in form_bulk_processing %}
+        <div class="col-sm-6 col-xl-3">
+          <label class="form-label small mb-1" for="{{ field.id_for_label }}">{{ field.label }}</label>
+          {% if field.field.widget.input_type == 'checkbox' %}<div class="form-check py-2">{% render_field field class+='form-check-input' %}</div>{% else %}{% render_field field class+='form-select form-select-sm' %}{% endif %}
+          <button class="btn btn-sm btn-outline-primary mt-2 js-observation-requires-selection" type="submit" name="btnBulkProcessing_{{ field.id_for_label }}">Apply to selected observations</button>
+        </div>
+        {% endfor %}
       </div>
     </div>
   <div class="observation-toolbar my-3">
@@ -99,7 +112,7 @@
       {% for group in observation_groups %}
         {% if group_by != 'none' %}
         <tr class="observation-list-group-summary" data-group-id="{{ group.id }}">
-          <td></td>
+          <td><input class="form-check-input js-observation-group-checkbox" type="checkbox" data-group-id="{{ group.id }}" aria-label="Select all editable observations in {{ group.label }}"></td>
           <td colspan="7">
             <div class="d-flex flex-wrap align-items-center gap-2">
               <strong>{{ group.label }}</strong>
@@ -115,7 +128,7 @@
         {% endif %}
         {% for observation in group.observations %}
         <tr data-group-id="{{ group.id }}">
-          <td>{% if observation.bulk_editable %}<input class="form-check-input js-observation-mediafile-checkbox" type="checkbox" name="selected_mediafile_ids" value="{{ observation.mediafile_id }}" data-mediafile-id="{{ observation.mediafile_id }}" title="Select image (all observations)">{% else %}<i class="bi bi-slash-circle text-muted" title="Bulk and sequence actions are unavailable for this shared image"></i>{% endif %}</td>
+          <td>{% if observation.bulk_editable %}<input class="form-check-input js-observation-checkbox" type="checkbox" name="selected_observation_ids" value="{{ observation.id }}" data-observation-id="{{ observation.id }}" data-group-id="{{ group.id }}" title="Select this observation">{% else %}<i class="bi bi-slash-circle text-muted" title="Bulk and sequence actions are unavailable for this shared image"></i>{% endif %}</td>
           <td>{% if observation.mediafile.thumbnail %}<a href="{% url 'caidapp:media_file_update' observation.mediafile_id %}?next={{ request.get_full_path|urlencode }}%23observation-{{ observation.id }}#observation-{{ observation.id }}"><img class="observation-list-thumb rounded" src="{{ observation.mediafile.thumbnail.url }}" alt="Thumbnail"></a>{% endif %}</td>
           <td class="small"><div class="fw-semibold">#{{ observation.id }}</div>{% if observation.bbox_x_center is None %}<span class="badge text-bg-secondary">No bbox</span>{% else %}<span class="text-muted">BBox</span>{% endif %}</td>
           <td class="small text-break">{{ observation.mediafile.original_filename|default:observation.mediafile_id }}</td>
@@ -137,11 +150,12 @@
         <section id="observation-group-{{ group.id }}" class="observation-group {% if group.observations|length > 1 and group.is_collapsible %}observation-group-collapsed{% else %}observation-group-expanded{% endif %}" data-group-id="{{ group.id }}">
             {% for observation in group.observations %}
             <div class="observation-group-member {% if forloop.first %}observation-group-lead{% if group.observations|length > 1 and group.is_collapsible %} observation-group-collapsed-card{% endif %}{% else %}observation-group-extra{% if group.observations|length > 1 and group.is_collapsible %}{% else %} observation-group-expanded-visible{% endif %}{% endif %} {% if forloop.last %}observation-group-end-card{% endif %}" data-group-id="{{ group.id }}">
-              {% include 'caidapp/includes/observation_card.html' with observation=observation request=request only %}
+              {% include 'caidapp/includes/observation_card.html' with observation=observation request=request group_id=group.id only %}
               {% if forloop.first and group.observations|length > 1 and group.is_collapsible %}
-              <button type="button" class="observation-group-toggle js-toggle-observation-group d-flex align-items-center gap-1" data-group-id="{{ group.id }}" aria-expanded="false" aria-controls="observation-group-{{ group.id }}" title="{{ group.mediafile_count }} images, {{ group.bbox_count }} bboxes, {{ group.taxon_count }} taxa, {{ group.identity_count }} identities (on this page)"><i class="bi bi-images"></i><span>({{ group.observations|length }})</span><span class="observation-group-toggle-label">{{ group.label }} · {{ group.mediafile_count }} img</span></button>
-              {% elif forloop.first and group.label %}
-              <span class="observation-group-toggle d-flex align-items-center gap-1" title="{{ group.mediafile_count }} images, {{ group.bbox_count }} bboxes (on this page)"><i class="bi bi-collection"></i><span class="observation-group-toggle-label">{{ group.label }}</span></span>
+              <div class="observation-group-controls">
+                <button type="button" class="observation-group-toggle js-toggle-observation-group" data-group-id="{{ group.id }}" aria-expanded="false" aria-controls="observation-group-{{ group.id }}" aria-label="Expand {{ group.observations|length }} observations grouped by {{ group.label }}" title="{{ group.observations|length }} observations grouped by {{ group.label }} · {{ group.mediafile_count }} media file{{ group.mediafile_count|pluralize }} on this page">{% if group_by == 'sequence' %}<i class="bi bi-collection"></i>{% else %}<i class="bi bi-image"></i>{% endif %}<span>{{ group.observations|length }}</span></button>
+                <label class="observation-group-select" title="Select all {{ group.observations|length }} editable observations in this group"><input class="form-check-input js-observation-group-checkbox" type="checkbox" data-group-id="{{ group.id }}" aria-label="Select all editable observations in {{ group.label }}"></label>
+              </div>
               {% endif %}
             </div>
             {% endfor %}
@@ -158,6 +172,7 @@
 {% endif %}
 <script>
 document.addEventListener("DOMContentLoaded", function() {
+  const observationWorkbenchForm = document.getElementById("observation-workbench-form");
   function visibleObservationCards() {
     return Array.from(document.querySelectorAll(".observation-groups .observation-group-member")).filter(function(card) { return card.offsetParent !== null; });
   }
@@ -259,6 +274,7 @@ document.addEventListener("DOMContentLoaded", function() {
     group.querySelectorAll(".js-toggle-observation-group").forEach(function(button) {
       button.setAttribute("aria-expanded", expanded ? "true" : "false");
     });
+    updateObservationGroupCheckbox(groupId);
   }
   function setGroupExpanded(groupId, expanded, animate) {
     if (animate === undefined) animate = true;
@@ -297,55 +313,81 @@ document.addEventListener("DOMContentLoaded", function() {
     card.addEventListener("mouseenter", function() { setGroupHover(true); });
     card.addEventListener("mouseleave", function() { setGroupHover(false); });
   });
-  function observationImageCheckboxes() {
-    return Array.from(document.querySelectorAll(".js-observation-mediafile-checkbox"));
+  function observationCheckboxes() {
+    return observationWorkbenchForm ? Array.from(observationWorkbenchForm.querySelectorAll(".js-observation-checkbox")) : [];
   }
-  function syncObservationImageSelection(mediafileId, checked) {
-    observationImageCheckboxes().forEach(function(peer) {
-      if (peer.dataset.mediafileId === mediafileId && !peer.disabled) { peer.checked = checked; }
+  function groupObservationCheckboxes(groupId) {
+    return observationCheckboxes().filter(function(checkbox) {
+      return checkbox.dataset.groupId === groupId && !checkbox.disabled;
     });
-    updateObservationSelectedCount();
+  }
+  function updateObservationGroupCheckbox(groupId) {
+    const members = groupObservationCheckboxes(groupId);
+    const selectedCount = members.filter(function(checkbox) { return checkbox.checked; }).length;
+    observationWorkbenchForm.querySelectorAll(".js-observation-group-checkbox").forEach(function(groupCheckbox) {
+      if (groupCheckbox.dataset.groupId !== groupId) return;
+      groupCheckbox.disabled = members.length === 0;
+      groupCheckbox.checked = members.length > 0 && selectedCount === members.length;
+      groupCheckbox.indeterminate = selectedCount > 0 && selectedCount < members.length;
+      groupCheckbox.setAttribute("aria-checked", groupCheckbox.indeterminate ? "mixed" : (groupCheckbox.checked ? "true" : "false"));
+    });
+  }
+  function updateAllObservationGroupCheckboxes() {
+    const groupIds = new Set(Array.from(observationWorkbenchForm.querySelectorAll(".js-observation-group-checkbox")).map(function(checkbox) { return checkbox.dataset.groupId; }));
+    groupIds.forEach(updateObservationGroupCheckbox);
   }
   function updateObservationSelectedCount() {
     const selectAll = document.getElementById("observation-select-all-filtered");
-    const selectedIds = new Set(observationImageCheckboxes().filter(function(checkbox) { return checkbox.checked; }).map(function(checkbox) { return checkbox.dataset.mediafileId; }));
+    const selectedCount = observationCheckboxes().filter(function(checkbox) { return checkbox.checked; }).length;
     const counter = document.getElementById("observation-selected-count");
-    if (counter) counter.textContent = selectAll.checked ? `All ${selectAll.dataset.total} matching selected` : `${selectedIds.size} selected`;
+    if (counter) counter.textContent = selectAll.checked ? `All ${selectAll.dataset.total} matching observations selected` : `${selectedCount} observations selected`;
   }
-  observationImageCheckboxes().forEach(function(checkbox) {
+  observationCheckboxes().forEach(function(checkbox) {
     checkbox.addEventListener("change", function() {
       document.getElementById("observation-select-all-filtered").checked = false;
-      syncObservationImageSelection(this.dataset.mediafileId, this.checked);
+      updateObservationGroupCheckbox(this.dataset.groupId);
+      updateObservationSelectedCount();
+    });
+  });
+  observationWorkbenchForm.querySelectorAll(".js-observation-group-checkbox").forEach(function(groupCheckbox) {
+    groupCheckbox.addEventListener("change", function() {
+      document.getElementById("observation-select-all-filtered").checked = false;
+      const checked = this.checked;
+      groupObservationCheckboxes(this.dataset.groupId).forEach(function(checkbox) { checkbox.checked = checked; });
+      updateObservationGroupCheckbox(this.dataset.groupId);
+      updateObservationSelectedCount();
     });
   });
   document.querySelectorAll(".js-select-observation-page").forEach(function(button) {
     button.addEventListener("click", function() {
       document.getElementById("observation-select-all-filtered").checked = false;
-      observationImageCheckboxes().forEach(function(checkbox) { if (!checkbox.disabled) checkbox.checked = true; });
+      observationCheckboxes().forEach(function(checkbox) { if (!checkbox.disabled) checkbox.checked = true; });
+      updateAllObservationGroupCheckboxes();
       updateObservationSelectedCount();
     });
   });
   document.querySelectorAll(".js-clear-observation-selection").forEach(function(button) {
     button.addEventListener("click", function() {
       document.getElementById("observation-select-all-filtered").checked = false;
-      observationImageCheckboxes().forEach(function(checkbox) { checkbox.checked = false; });
+      observationCheckboxes().forEach(function(checkbox) { checkbox.checked = false; });
+      updateAllObservationGroupCheckboxes();
       updateObservationSelectedCount();
     });
   });
-  function hasObservationImageSelection() {
-    return document.getElementById("observation-select-all-filtered").checked || observationImageCheckboxes().some(function(checkbox) { return checkbox.checked; });
+  function hasObservationSelection() {
+    return document.getElementById("observation-select-all-filtered").checked || observationCheckboxes().some(function(checkbox) { return checkbox.checked; });
   }
   function confirmObservationAction(button) {
     return !button.dataset.confirmMessage || window.confirm(button.dataset.confirmMessage);
   }
   document.querySelectorAll(".js-observation-requires-selection").forEach(function(button) {
     button.addEventListener("click", function(event) {
-      if (hasObservationImageSelection()) {
+      if (hasObservationSelection()) {
         if (!confirmObservationAction(button)) event.preventDefault();
         return;
       }
       event.preventDefault();
-      if (!window.confirm("No images are selected. Use all editable images matching the current filter?")) return;
+      if (!window.confirm("No observations are selected. Use all editable observations matching the current filter?")) return;
       document.getElementById("observation-select-all-filtered").checked = true;
       updateObservationSelectedCount();
       if (!confirmObservationAction(button)) {
@@ -356,6 +398,7 @@ document.addEventListener("DOMContentLoaded", function() {
       button.form.requestSubmit(button);
     });
   });
+  updateAllObservationGroupCheckboxes();
   updateObservationSelectedCount();
 });
 </script>
