@@ -27,7 +27,7 @@
     <input class="d-none" type="checkbox" name="select_all_filtered" id="observation-select-all-filtered" data-total="{{ number_of_editable_observations }}">
     <div class="observation-toolbar my-3">
       <div>
-        <div class="text-muted small">{{ number_of_observations }} observations in {{ number_of_mediafiles }} images. Each card or row represents one observation.</div>
+        <div class="text-muted small">{{ number_of_observations }} observations in {{ number_of_mediafiles }} media file{{ number_of_mediafiles|pluralize }}. Each card or row represents one observation.</div>
       </div>
       <div class="d-flex flex-wrap gap-3 align-items-end">
         <div>
@@ -40,8 +40,8 @@
         </div>
         <div class="dropdown">
           <div class="observation-toolbar-label mb-1">Group by</div>
-          <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">{% if group_by == 'sequence' %}Sequence{% elif group_by == 'mediafile' %}Image{% else %}None{% endif %}</button>
-          <ul class="dropdown-menu dropdown-menu-end"><li><a class="dropdown-item {% if group_by == 'sequence' %}active{% endif %}" href="{% if sort_by == 'taxon' or sort_by == 'identity' %}{% querystring request.GET group='sequence' sort='captured_asc' page=None %}{% else %}{% querystring request.GET group='sequence' page=None %}{% endif %}">Sequence</a></li><li><a class="dropdown-item {% if group_by == 'mediafile' %}active{% endif %}" href="{% if sort_by == 'taxon' or sort_by == 'identity' %}{% querystring request.GET group='mediafile' sort='captured_asc' page=None %}{% else %}{% querystring request.GET group='mediafile' page=None %}{% endif %}">Image</a></li><li><a class="dropdown-item {% if group_by == 'none' %}active{% endif %}" href="{% querystring request.GET group='none' page=None %}">None</a></li></ul>
+          <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">{% if group_by == 'sequence' %}Sequence{% elif group_by == 'mediafile' %}Media file{% else %}None{% endif %}</button>
+          <ul class="dropdown-menu dropdown-menu-end"><li><a class="dropdown-item {% if group_by == 'sequence' %}active{% endif %}" href="{% if sort_by == 'taxon' or sort_by == 'identity' %}{% querystring request.GET group='sequence' sort='captured_asc' page=None %}{% else %}{% querystring request.GET group='sequence' page=None %}{% endif %}">Sequence</a></li><li><a class="dropdown-item {% if group_by == 'mediafile' %}active{% endif %}" href="{% if sort_by == 'taxon' or sort_by == 'identity' %}{% querystring request.GET group='mediafile' sort='captured_asc' page=None %}{% else %}{% querystring request.GET group='mediafile' page=None %}{% endif %}">Media file</a></li><li><a class="dropdown-item {% if group_by == 'none' %}active{% endif %}" href="{% querystring request.GET group='none' page=None %}">None</a></li></ul>
         </div>
         <div class="dropdown">
           <div class="observation-toolbar-label mb-1">Sort by</div>
@@ -65,7 +65,7 @@
         </div>
       </div>
     </div>
-    {% if grouping_disabled_for_sort %}<div class="alert alert-info py-2 small" role="status"><i class="bi bi-info-circle"></i> Grouping was disabled because one image or sequence can contain multiple {% if sort_by == 'taxon' %}taxa{% else %}identities{% endif %}.</div>{% endif %}
+    {% if grouping_disabled_for_sort %}<div class="alert alert-info py-2 small" role="status"><i class="bi bi-info-circle"></i> Grouping was disabled because one media file or sequence can contain multiple {% if sort_by == 'taxon' %}taxa{% else %}identities{% endif %}.</div>{% endif %}
 
     <div class="observation-action-toolbar d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3" id="observation-action-toolbar">
       <div class="d-flex flex-wrap align-items-center gap-2">
@@ -83,18 +83,19 @@
         <span class="small text-muted observation-selection-help">Actions use selected observations; with no selection you can apply them to all matching the filter.</span>
       </div>
       <div class="d-flex flex-wrap gap-2">
-        <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#observation-bulk-fields" aria-expanded="false"><i class="bi bi-tags"></i> Edit metadata…</button>
         <div class="dropdown">
           <button class="btn btn-sm btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown"><i class="bi bi-lightning"></i> Actions</button>
           <ul class="dropdown-menu dropdown-menu-end">
-            <li><h6 class="dropdown-header">Observation bboxes</h6></li>
+            <li><h6 class="dropdown-header">Edit observations</h6></li>
+            <li><button class="dropdown-item" type="button" data-bs-toggle="collapse" data-bs-target="#observation-bulk-fields" aria-expanded="false" aria-controls="observation-bulk-fields"><i class="bi bi-tags"></i> Edit metadata…</button></li>
             <li><button class="dropdown-item js-observation-requires-selection" name="btnBulkProcessing_set_full_image_bbox" type="submit" data-action-scope="observations" data-confirm-message="Set the bbox of every selected observation to the full image?"><i class="bi bi-bounding-box"></i> Set bboxes to full image</button></li>
             <li><button class="dropdown-item js-observation-requires-selection" name="btnBulkProcessing_remove_bbox" type="submit" data-action-scope="observations" data-confirm-message="Remove the bbox from every selected observation? Identities will be kept."><i class="bi bi-bounding-box"></i> Remove bboxes</button></li>
-            <li><hr class="dropdown-divider"></li><li><h6 class="dropdown-header">Containing images</h6></li>
-            <li><button class="dropdown-item js-observation-requires-selection" name="btnExtractFilenameMetadata" type="submit" data-action-scope="images"><i class="bi bi-regex"></i> Extract metadata from filenames</button></li>
-            <li><button class="dropdown-item js-observation-requires-selection" name="btnDownloadObservations" type="submit" data-action-scope="images"><i class="bi bi-download"></i> Download selected images</button></li>
-            <li><button class="dropdown-item js-observation-requires-selection" name="btnCreateSequence" type="submit" data-action-scope="images" data-confirm-message="Move the images containing selected observations into one new sequence? They must belong to the same upload."><i class="bi bi-collection"></i> Merge into new sequence</button></li>
-            <li><button class="dropdown-item text-warning js-observation-requires-selection" name="btnDissolveSequences" type="submit" data-action-scope="images" data-confirm-message="Move every image containing a selected observation into its own single-image sequence?"><i class="bi bi-distribute-horizontal"></i> Dissolve into single-image sequences</button></li>
+            <li><hr class="dropdown-divider"></li><li><h6 class="dropdown-header">Containing media files</h6></li>
+            <li><button class="dropdown-item js-observation-requires-selection" name="btnExtractFilenameMetadata" type="submit" data-action-scope="mediafiles"><i class="bi bi-regex"></i> Extract metadata from filenames</button></li>
+            <li><button class="dropdown-item js-observation-requires-selection" name="btnDownloadObservations" type="submit" data-action-scope="mediafiles"><i class="bi bi-download"></i> Download selected media files</button></li>
+            <li><hr class="dropdown-divider"></li><li><h6 class="dropdown-header">Sequences</h6></li>
+            <li><button class="dropdown-item js-observation-requires-selection" name="btnCreateSequence" type="submit" data-action-scope="mediafiles" data-confirm-message="Move the media files containing selected observations into one new sequence? They must belong to the same upload."><i class="bi bi-collection"></i> Merge into new sequence</button></li>
+            <li><button class="dropdown-item text-warning js-observation-requires-selection" name="btnDissolveSequences" type="submit" data-action-scope="mediafiles" data-confirm-message="Move every media file containing a selected observation into its own single-media sequence?"><i class="bi bi-distribute-horizontal"></i> Dissolve into single-media sequences</button></li>
           </ul>
         </div>
         <div class="dropdown">
@@ -106,7 +107,7 @@
             <li><hr class="dropdown-divider"></li>
             <li><a class="dropdown-item" href="{% url 'caidapp:import_observations' %}?next={{ request.get_full_path|urlencode }}"><i class="bi bi-file-earmark-arrow-up"></i> Import observation metadata</a></li>
             <li><hr class="dropdown-divider"></li>
-            <li><div class="dropdown-item-text small text-muted observation-data-note">Metadata uses one row per observation. An image without observations is represented by one blank observation row.</div></li>
+            <li><div class="dropdown-item-text small text-muted observation-data-note">Metadata uses one row per observation. A media file without observations is represented by one blank observation row.</div></li>
           </ul>
         </div>
       </div>
@@ -126,7 +127,7 @@
   {% if view_mode == 'list' %}
   <div class="table-responsive">
     <table class="table table-sm align-middle observation-list-table">
-      {% if group_by == 'none' %}<thead><tr><th style="width:42px"></th><th style="width:96px"></th><th>Observation</th><th>Image</th><th>Taxon</th><th>Identity</th><th>Captured / locality</th><th style="width:60px"></th></tr></thead>{% endif %}
+      {% if group_by == 'none' %}<thead><tr><th style="width:42px"></th><th style="width:96px"></th><th>Observation</th><th>Media file</th><th>Taxon</th><th>Identity</th><th>Captured / locality</th><th style="width:60px"></th></tr></thead>{% endif %}
       <tbody>
       {% for group in observation_groups %}
         {% if group_by != 'none' %}
@@ -136,13 +137,13 @@
               <div class="observation-list-group-summary d-flex align-items-center gap-3 p-2" data-group-id="{{ group.id }}">
                 <input class="form-check-input js-observation-group-checkbox flex-shrink-0" type="checkbox" data-group-id="{{ group.id }}" aria-label="Select all editable observations in {{ group.label }}">
                 {% with cover_observation=group.observations.0 %}
-                  {% if cover_observation.mediafile.thumbnail %}<a class="observation-list-group-cover" href="{% url 'caidapp:media_file_update' cover_observation.mediafile_id %}?next={{ request.get_full_path|urlencode }}%23observation-{{ cover_observation.id }}#observation-{{ cover_observation.id }}"><img class="observation-list-thumb rounded" src="{{ cover_observation.mediafile.thumbnail.url }}" alt="First image in {{ group.label }}"></a>{% else %}<span class="observation-list-thumb observation-list-group-cover observation-list-group-cover-placeholder rounded"><i class="bi bi-image" aria-hidden="true"></i></span>{% endif %}
+                  {% if cover_observation.mediafile.thumbnail %}<a class="observation-list-group-cover" href="{% url 'caidapp:media_file_update' cover_observation.mediafile_id %}?next={{ request.get_full_path|urlencode }}%23observation-{{ cover_observation.id }}#observation-{{ cover_observation.id }}"><img class="observation-list-thumb rounded" src="{{ cover_observation.mediafile.thumbnail.url }}" alt="Preview of first media file in {{ group.label }}"></a>{% else %}<span class="observation-list-thumb observation-list-group-cover observation-list-group-cover-placeholder rounded"><i class="bi bi-image" aria-hidden="true"></i></span>{% endif %}
                 {% endwith %}
                 <div class="observation-list-group-main flex-grow-1">
                   <div class="d-flex flex-wrap align-items-center gap-2">
                     <button type="button" class="btn btn-sm btn-link link-body-emphasis observation-list-group-toggle js-toggle-observation-list-group" data-group-id="{{ group.id }}" aria-expanded="false" aria-controls="observation-list-group-details-{{ group.id }}" title="Expand {{ group.observations|length }} grouped observations"><i class="bi bi-chevron-right" aria-hidden="true"></i><strong>{{ group.label }}</strong></button>
                     <span class="badge text-bg-secondary">{{ group.observations|length }} observations</span>
-                    <span class="badge text-bg-light">{{ group.mediafile_count }} images</span>
+                    <span class="badge text-bg-light">{{ group.mediafile_count }} media file{{ group.mediafile_count|pluralize }}</span>
                     <span class="badge text-bg-light">{{ group.bbox_count }} bboxes</span>
                     {% if group.taxon_count %}<span class="badge text-bg-light">{{ group.taxon_count }} taxa</span>{% endif %}
                     {% if group.identity_count %}<span class="badge text-bg-light">{{ group.identity_count }} identities</span>{% endif %}
@@ -479,10 +480,11 @@ document.addEventListener("DOMContentLoaded", function() {
     const observationCount = Number(observationWorkbenchForm.dataset.filteredObservationCount || 0);
     const mediafileCount = Number(observationWorkbenchForm.dataset.filteredMediafileCount || 0);
     const actionLabel = button.textContent.trim();
-    const imageScope = button.dataset.actionScope === "images";
-    if (imageScope) {
-      scopeModalMessage.textContent = `No observations are selected. The current filter contains ${observationCount} editable observations in ${mediafileCount} images. Run “${actionLabel}” for all ${mediafileCount} images containing those observations?`;
-      scopeModalApply.textContent = `Apply to all ${mediafileCount} images`;
+    const mediafileScope = button.dataset.actionScope === "mediafiles";
+    if (mediafileScope) {
+      const mediafileLabel = `${mediafileCount} media file${mediafileCount === 1 ? "" : "s"}`;
+      scopeModalMessage.textContent = `No observations are selected. The current filter contains ${observationCount} editable observations in ${mediafileLabel}. Run “${actionLabel}” for all ${mediafileLabel} containing those observations?`;
+      scopeModalApply.textContent = `Apply to all ${mediafileLabel}`;
       scopeModalApply.disabled = mediafileCount === 0;
     } else {
       scopeModalMessage.textContent = `No observations are selected. Run “${actionLabel}” for all ${observationCount} editable observations matching the current filter?`;
