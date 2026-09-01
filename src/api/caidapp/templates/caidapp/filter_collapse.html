@@ -33,7 +33,11 @@
             Search
         </button>
         <div class="text-muted small mb-2">
-            Found {{ page_obj.paginator.count }} records.
+            {% if show_observation_result_summary %}
+                <span class="observation-selection-count" id="observation-selected-count" aria-live="polite">All matching · {{ number_of_editable_observations }} observation{{ number_of_editable_observations|pluralize }} · {{ number_of_editable_observation_mediafiles }} media file{{ number_of_editable_observation_mediafiles|pluralize }} · {{ number_of_editable_observation_sequences }} sequence{{ number_of_editable_observation_sequences|pluralize }}</span>
+            {% else %}
+                Found {{ page_obj.paginator.count }} records.
+            {% endif %}
         </div>
     </div>
     <div class="collapse mt-2" name="collapseFilterProcessing" id="collapseFilterProcessing">

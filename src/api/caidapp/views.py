@@ -4472,6 +4472,7 @@ def observations(request: HttpRequest) -> HttpResponse:
         "observation_per_page_options": OBSERVATION_PER_PAGE_OPTIONS,
         "number_of_observations": observation_queryset.count(),
         "number_of_mediafiles": matching_mediafiles.count(),
+        "show_observation_result_summary": True,
         "number_of_editable_observations": editable_observations.count(),
         "number_of_editable_observation_mediafiles": editable_observations.values("mediafile_id").distinct().count(),
         "number_of_editable_observation_sequences": len(editable_sequence_ids),

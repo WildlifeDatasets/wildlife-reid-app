@@ -3,9 +3,9 @@
 
 {% block head %}
 <style>
-.observation-groups{display:flex;flex-wrap:wrap;column-gap:.25rem;row-gap:1.25rem;align-items:stretch}.observation-group{display:contents}.observation-group-member{display:flex;position:relative;flex:0 0 300px;width:300px;max-width:100%;background:var(--wrid-media-card-bg);border-color:rgba(var(--bs-secondary-rgb),.55);overflow:hidden;box-shadow:0 0 0 5px rgba(var(--bs-secondary-rgb),.45);transition:box-shadow .2s ease,border-color .16s ease,transform .16s ease,opacity .16s ease;will-change:transform}.observation-group-extra{display:none}.observation-group-extra.observation-group-expanded-visible{display:flex}.observation-group-lead{border-top-left-radius:.75rem;border-bottom-left-radius:.75rem}.observation-group-end-card,.observation-group-collapsed-card{margin-right:.65rem;border-top-right-radius:.75rem;border-bottom-right-radius:.75rem}.observation-group-collapsed-card{box-shadow:5px 5px 0 rgba(var(--bs-secondary-rgb),.42),10px 10px 0 rgba(var(--bs-secondary-rgb),.24)}.observation-group-break{flex:0 0 .45rem;width:.45rem;height:1px}.observation-group-member.observation-group-hover-highlight{border-color:rgba(var(--bs-primary-rgb),.72);box-shadow:0 0 0 5px rgba(var(--bs-primary-rgb),.58),0 .45rem 1rem rgba(var(--bs-primary-rgb),.22);transform:translateY(-1px)}.observation-group-collapsed-card.observation-group-hover-highlight{box-shadow:8px 8px 0 rgba(var(--bs-primary-rgb),.5),16px 16px 0 rgba(var(--bs-primary-rgb),.3),0 .65rem 1.15rem rgba(var(--bs-primary-rgb),.18);transform:translate(-1px,-2px)}.observation-group-controls{position:absolute;top:.55rem;left:.55rem;z-index:5;display:flex;align-items:center;gap:.3rem}.observation-group-toggle{display:inline-flex;align-items:center;gap:.3rem;border:0;border-radius:.3rem;background:rgba(33,37,41,.8);color:#fff;padding:.25rem .5rem;font-size:.78rem}.observation-group-toggle:hover{background:var(--bs-primary)}.observation-card{display:flex;flex:1 1 auto;flex-direction:column;overflow:hidden;border:0;border-radius:0;background:var(--wrid-media-card-bg)}.observation-card .card-body{display:flex;flex:1 1 auto;flex-direction:column;min-height:11.5rem}.observation-card .card-body>.mt-3{margin-top:auto!important}.observation-preview{position:relative;display:block;aspect-ratio:4/3;background:var(--wrid-media-thumb-bg);overflow:hidden}.observation-preview img{width:100%;height:100%;object-fit:contain;display:block}.observation-image-area{position:absolute;inset:0;pointer-events:none}.observation-bbox{position:absolute;border:3px solid var(--bs-danger);background:rgba(220,53,69,.08);box-shadow:0 0 0 1px rgba(255,255,255,.8)}.observation-preview-placeholder{height:100%;display:grid;place-items:center;color:var(--bs-secondary-color);font-size:2rem}.observation-toolbar{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:end;gap:.75rem}.observation-toolbar-label{font-size:.8rem;color:var(--bs-secondary-color)}@media (prefers-reduced-motion:reduce){.observation-group-member{transition:none!important}}[data-bs-theme=dark] .observation-group-member{box-shadow:0 0 0 5px rgba(var(--bs-secondary-rgb),.62)}[data-bs-theme=dark] .observation-group-collapsed-card{box-shadow:5px 5px 0 rgba(var(--bs-secondary-rgb),.5),10px 10px 0 rgba(var(--bs-secondary-rgb),.32)}[data-bs-theme=dark] .observation-group-member.observation-group-hover-highlight{box-shadow:0 0 0 5px rgba(var(--bs-primary-rgb),.74),0 .55rem 1.2rem rgba(var(--bs-primary-rgb),.28)}@media (max-width:767px){.observation-group-member{flex-basis:100%;width:100%;border-radius:.75rem}.observation-group-break{display:none}.observation-group-lead,.observation-group-end-card,.observation-group-collapsed-card{margin-left:0;margin-right:0;border-radius:.75rem}}
+.observation-groups{display:flex;flex-wrap:wrap;column-gap:.25rem;row-gap:1.25rem;align-items:stretch}.observation-group{display:contents}.observation-group-member{display:flex;position:relative;flex:0 0 300px;width:300px;max-width:100%;background:var(--wrid-media-card-bg);border-color:rgba(var(--bs-secondary-rgb),.55);overflow:hidden;box-shadow:0 0 0 5px rgba(var(--bs-secondary-rgb),.45);transition:box-shadow .2s ease,border-color .16s ease,transform .16s ease,opacity .16s ease;will-change:transform}.observation-group-extra{display:none}.observation-group-extra.observation-group-expanded-visible{display:flex}.observation-group-lead{border-top-left-radius:.75rem;border-bottom-left-radius:.75rem}.observation-group-end-card,.observation-group-collapsed-card{margin-right:.65rem;border-top-right-radius:.75rem;border-bottom-right-radius:.75rem}.observation-group-collapsed-card{box-shadow:5px 5px 0 rgba(var(--bs-secondary-rgb),.42),10px 10px 0 rgba(var(--bs-secondary-rgb),.24)}.observation-group-break{flex:0 0 .45rem;width:.45rem;height:1px}.observation-group-member.observation-group-hover-highlight{border-color:rgba(var(--bs-primary-rgb),.72);box-shadow:0 0 0 5px rgba(var(--bs-primary-rgb),.58),0 .45rem 1rem rgba(var(--bs-primary-rgb),.22);transform:translateY(-1px)}.observation-group-collapsed-card.observation-group-hover-highlight{box-shadow:8px 8px 0 rgba(var(--bs-primary-rgb),.5),16px 16px 0 rgba(var(--bs-primary-rgb),.3),0 .65rem 1.15rem rgba(var(--bs-primary-rgb),.18);transform:translate(-1px,-2px)}.observation-group-controls{position:absolute;top:.55rem;left:.55rem;z-index:5;display:flex;align-items:center;gap:.3rem}.observation-group-toggle{display:inline-flex;align-items:center;gap:.3rem;border:0;border-radius:.3rem;background:rgba(33,37,41,.8);color:#fff;padding:.25rem .5rem;font-size:.78rem}.observation-group-toggle:hover{background:var(--bs-primary)}.observation-card{display:flex;flex:1 1 auto;flex-direction:column;overflow:hidden;border:0;border-radius:0;background:var(--wrid-media-card-bg)}.observation-card .card-body{display:flex;flex:1 1 auto;flex-direction:column;min-height:11.5rem}.observation-card .card-body>.mt-3{margin-top:auto!important}.observation-preview{position:relative;display:block;aspect-ratio:4/3;background:var(--wrid-media-thumb-bg);overflow:hidden}.observation-preview img{width:100%;height:100%;object-fit:contain;display:block}.observation-image-area{position:absolute;inset:0;pointer-events:none}.observation-bbox{position:absolute;border:3px solid var(--bs-danger);background:rgba(220,53,69,.08);box-shadow:0 0 0 1px rgba(255,255,255,.8)}.observation-preview-placeholder{height:100%;display:grid;place-items:center;color:var(--bs-secondary-color);font-size:2rem}.observation-workbench-toolbar{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:end;gap:.75rem}.observation-toolbar-label{font-size:.8rem;color:var(--bs-secondary-color)}.observation-page-select{display:flex;align-items:center;justify-content:center;width:2rem;height:2rem;border:1px solid rgba(var(--bs-secondary-rgb),.7);border-radius:var(--bs-border-radius-sm);background:rgba(var(--bs-secondary-rgb),.08);cursor:pointer}.observation-page-select:hover{border-color:var(--bs-primary);background:rgba(var(--bs-primary-rgb),.1)}.observation-page-select:has(input:focus-visible){outline:2px solid rgba(var(--bs-primary-rgb),.45);outline-offset:2px}.observation-page-select .form-check-input{margin:0;width:1.1rem;height:1.1rem;cursor:pointer}.observation-toolbar-pagination .pagination{margin-bottom:0;--bs-pagination-padding-x:.5rem;--bs-pagination-padding-y:.25rem;--bs-pagination-font-size:.875rem;--bs-pagination-border-radius:var(--bs-border-radius-sm)}.observation-selection-count{font-size:.8rem}@media (prefers-reduced-motion:reduce){.observation-group-member{transition:none!important}}[data-bs-theme=dark] .observation-group-member{box-shadow:0 0 0 5px rgba(var(--bs-secondary-rgb),.62)}[data-bs-theme=dark] .observation-group-collapsed-card{box-shadow:5px 5px 0 rgba(var(--bs-secondary-rgb),.5),10px 10px 0 rgba(var(--bs-secondary-rgb),.32)}[data-bs-theme=dark] .observation-group-member.observation-group-hover-highlight{box-shadow:0 0 0 5px rgba(var(--bs-primary-rgb),.74),0 .55rem 1.2rem rgba(var(--bs-primary-rgb),.28)}@media (max-width:767px){.observation-group-member{flex-basis:100%;width:100%;border-radius:.75rem}.observation-group-break{display:none}.observation-group-lead,.observation-group-end-card,.observation-group-collapsed-card{margin-left:0;margin-right:0;border-radius:.75rem}}
 .observation-group-member{border:var(--bs-card-border-width) solid rgba(var(--bs-secondary-rgb),.55)}
-.observation-image-select,.observation-image-readonly{position:absolute;top:.55rem;right:.55rem;z-index:4;display:inline-flex;align-items:center;justify-content:center;border-radius:.35rem;background:rgba(33,37,41,.82);color:#fff;padding:.25rem}.observation-image-select{cursor:pointer}.observation-image-select .form-check-input{width:1.25rem;height:1.25rem;margin:0;cursor:pointer}.observation-group-select{display:inline-flex;align-items:center;justify-content:center;border-radius:.35rem;background:rgba(33,37,41,.82);padding:.25rem;cursor:pointer}.observation-group-select .form-check-input{width:1.25rem;height:1.25rem;margin:0;cursor:pointer}.observation-list-thumb{display:block;width:80px;height:60px;object-fit:contain;background:var(--wrid-media-thumb-bg)}.observation-list-group-summary{background:rgba(var(--bs-secondary-rgb),.09)}.observation-action-toolbar{border:1px solid rgba(var(--bs-secondary-rgb),.25);background:var(--bs-body-bg);border-radius:.5rem;padding:.65rem;transition:border-color .18s ease,background-color .18s ease,box-shadow .18s ease}.observation-action-toolbar.has-selection{border-color:rgba(var(--bs-primary-rgb),.48);background:rgba(var(--bs-primary-rgb),.06);box-shadow:0 0 0 .18rem rgba(var(--bs-primary-rgb),.08)}.observation-selection-help{max-width:38rem}.observation-data-note{max-width:21rem;white-space:normal}.observation-bulk-fields{border:1px solid rgba(var(--bs-secondary-rgb),.2);border-radius:.5rem;padding:.75rem;margin-top:-.5rem;margin-bottom:1rem}
+.observation-image-select,.observation-image-readonly{position:absolute;top:.55rem;right:.55rem;z-index:4;display:inline-flex;align-items:center;justify-content:center;border-radius:.35rem;background:rgba(33,37,41,.82);color:#fff;padding:.25rem}.observation-image-select{cursor:pointer}.observation-image-select .form-check-input{width:1.25rem;height:1.25rem;margin:0;cursor:pointer}.observation-group-select{display:inline-flex;align-items:center;justify-content:center;border-radius:.35rem;background:rgba(33,37,41,.82);padding:.25rem;cursor:pointer}.observation-group-select .form-check-input{width:1.25rem;height:1.25rem;margin:0;cursor:pointer}.observation-list-thumb{display:block;width:80px;height:60px;object-fit:contain;background:var(--wrid-media-thumb-bg)}.observation-list-group-summary{background:rgba(var(--bs-secondary-rgb),.09)}.observation-action-toolbar{padding:.25rem 0;transition:background-color .18s ease}.observation-action-toolbar.has-selection{background:rgba(var(--bs-primary-rgb),.06)}.observation-data-note{max-width:21rem;white-space:normal}.observation-bulk-fields{border:1px solid rgba(var(--bs-secondary-rgb),.2);border-radius:.5rem;padding:.75rem;margin-top:.25rem;margin-bottom:1rem}
 .observation-group-collapsed .observation-group-lead .observation-image-select{display:none}.observation-group-expanded .observation-group-select{display:none}
 .observation-card-field{display:flex;align-items:baseline;gap:.5rem;min-width:0;margin-bottom:.28rem}.observation-card-field>i{flex:0 0 1rem;width:1rem;text-align:center;color:var(--bs-secondary-color)}.observation-card-field>span,.observation-card-field>time{min-width:0}.observation-info-button{display:inline-flex;align-items:center;justify-content:center;padding:.25rem;font-size:1.1rem;text-decoration:none}.observation-info-button:hover,.observation-info-button:focus{color:var(--bs-primary)!important}.observation-info-details dt,.observation-info-details dd{padding-top:.25rem;padding-bottom:.25rem;margin-bottom:.25rem}.observation-info-details dd{user-select:text}.observation-info-tooltip .tooltip-inner{max-width:360px;text-align:left;white-space:pre-line}
 .observation-list-group-toggle{display:inline-flex;align-items:center;gap:.4rem;padding:.1rem .35rem;text-decoration:none}.observation-list-group-toggle i{transition:transform .16s ease}.observation-list-group-toggle[aria-expanded=true] i{transform:rotate(90deg)}
@@ -25,11 +25,42 @@
   <form method="post" id="observation-workbench-form" data-filtered-observation-count="{{ number_of_editable_observations }}" data-filtered-mediafile-count="{{ number_of_editable_observation_mediafiles }}" data-filtered-sequence-count="{{ number_of_editable_observation_sequences }}" data-filtered-sequence-direct-mediafile-count="{{ number_of_editable_observation_sequence_mediafiles }}" data-filtered-sequence-mediafile-count="{{ number_of_mediafiles_in_editable_observation_sequences }}">
     {% csrf_token %}
     <input class="d-none" type="checkbox" name="select_all_filtered" id="observation-select-all-filtered" data-total="{{ number_of_editable_observations }}">
-    <div class="observation-toolbar my-3">
-      <div>
-        <div class="text-muted small">{{ number_of_observations }} observations in {{ number_of_mediafiles }} media file{{ number_of_mediafiles|pluralize }}. Each card or row represents one observation.</div>
+    {% if grouping_disabled_for_sort %}<div class="alert alert-info py-2 small" role="status"><i class="bi bi-info-circle"></i> Grouping was disabled because one media file or sequence can contain multiple {% if sort_by == 'taxon' %}taxa{% else %}identities{% endif %}.</div>{% endif %}
+
+    <div class="observation-action-toolbar observation-workbench-toolbar mb-3" id="observation-action-toolbar">
+      <div class="d-flex flex-wrap align-items-center gap-2">
+        <label class="observation-page-select" title="Select all editable observations on this page">
+          <input class="form-check-input m-0 js-select-observation-page-checkbox" type="checkbox" id="observation-select-page" aria-label="Select all editable observations on this page">
+        </label>
+        <div class="dropdown">
+          <button class="btn btn-sm btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" data-bs-toggle-tooltip="true" title="Observation actions affect exactly the selected observations. Media-file and sequence actions use the containing media files or sequences."><i class="bi bi-lightning"></i> Actions</button>
+          <ul class="dropdown-menu dropdown-menu-start">
+            <li><h6 class="dropdown-header">Edit observations</h6></li>
+            <li><button class="dropdown-item" type="button" data-bs-toggle="collapse" data-bs-target="#observation-bulk-fields" data-bs-toggle-tooltip="true" aria-expanded="false" aria-controls="observation-bulk-fields" title="Edit taxon, identity, verification, or representative status on the exact selected observations."><i class="bi bi-tags"></i> Edit metadata…</button></li>
+            <li><button class="dropdown-item js-observation-requires-selection" name="btnBulkProcessing_set_full_image_bbox" type="submit" data-action-scope="observations" data-confirm-always="true" data-bs-toggle-tooltip="true" title="Changes only the selected observations; sibling observations in the same media file are not changed."><i class="bi bi-bounding-box"></i> Set selected observation bboxes to full image</button></li>
+            <li><button class="dropdown-item js-observation-requires-selection" name="btnBulkProcessing_remove_bbox" type="submit" data-action-scope="observations" data-confirm-always="true" data-bs-toggle-tooltip="true" title="Removes bboxes only from the selected observations. Taxon and identity values are preserved."><i class="bi bi-bounding-box"></i> Remove bboxes from selected observations</button></li>
+            <li><hr class="dropdown-divider"></li><li><h6 class="dropdown-header">Containing media files</h6></li>
+            <li><button class="dropdown-item js-observation-requires-selection" name="btnExtractFilenameMetadata" type="submit" data-action-scope="mediafiles" data-bs-toggle-tooltip="true" title="Uses each media file that contains at least one selected observation. A media file is processed only once."><i class="bi bi-regex"></i> Extract filename metadata from containing media files</button></li>
+            <li><button class="dropdown-item js-observation-requires-selection" name="btnDownloadObservations" type="submit" data-action-scope="mediafiles" data-bs-toggle-tooltip="true" title="Downloads each media file that contains at least one selected observation, without duplicates."><i class="bi bi-download"></i> Download containing media files</button></li>
+            <li><hr class="dropdown-divider"></li><li><h6 class="dropdown-header">Sequences</h6></li>
+            <li><button class="dropdown-item js-observation-requires-selection" name="btnCreateSequence" type="submit" data-action-scope="mediafiles" data-confirm-always="true" data-bs-toggle-tooltip="true" title="Moves the media files containing selected observations into one new sequence. All affected files must belong to the same upload."><i class="bi bi-collection"></i> Merge containing media files into new sequence</button></li>
+            <li><button class="dropdown-item text-warning js-observation-requires-selection" name="btnDissolveSequences" type="submit" data-action-scope="sequences" data-confirm-always="true" data-bs-toggle-tooltip="true" title="Splits every complete sequence containing a selected observation. Media files outside the current filter may also be affected."><i class="bi bi-distribute-horizontal"></i> Split complete containing sequences</button></li>
+          </ul>
+        </div>
+        <div class="dropdown">
+          <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown"><i class="bi bi-database"></i> Data</button>
+          <ul class="dropdown-menu dropdown-menu-end">
+            <li><a class="dropdown-item" href="{% url 'caidapp:download_csv_for_observations' %}?{{ request.GET.urlencode }}"><i class="bi bi-table"></i> Export CSV</a></li>
+            <li><a class="dropdown-item" href="{% url 'caidapp:download_xlsx_for_observations' %}?{{ request.GET.urlencode }}"><i class="bi bi-file-earmark-excel"></i> Export XLSX</a></li>
+            <li><a class="dropdown-item" href="{% url 'caidapp:prepare_observation_download' %}?{{ request.GET.urlencode }}"><i class="bi bi-images"></i> Export images and metadata</a></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item" href="{% url 'caidapp:import_observations' %}?next={{ request.get_full_path|urlencode }}"><i class="bi bi-file-earmark-arrow-up"></i> Import observation metadata</a></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><div class="dropdown-item-text small text-muted observation-data-note">Metadata uses one row per observation. A media file without observations is represented by one blank observation row.</div></li>
+          </ul>
+        </div>
       </div>
-      <div class="d-flex flex-wrap gap-3 align-items-end">
+      <div class="d-flex flex-wrap gap-3 align-items-end justify-content-end">
         <div>
           <div class="observation-toolbar-label mb-1">View</div>
           <div class="d-flex gap-2" role="group" aria-label="Observation view">
@@ -63,53 +94,7 @@
           <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">{{ records_per_page }}</button>
           <ul class="dropdown-menu dropdown-menu-end">{% for option in observation_per_page_options %}<li><a class="dropdown-item {% if records_per_page == option %}active{% endif %}" href="{% querystring request.GET per_page=option page=None %}">{{ option }}</a></li>{% endfor %}</ul>
         </div>
-      </div>
-    </div>
-    {% if grouping_disabled_for_sort %}<div class="alert alert-info py-2 small" role="status"><i class="bi bi-info-circle"></i> Grouping was disabled because one media file or sequence can contain multiple {% if sort_by == 'taxon' %}taxa{% else %}identities{% endif %}.</div>{% endif %}
-
-    <div class="observation-action-toolbar d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3" id="observation-action-toolbar">
-      <div class="d-flex flex-wrap align-items-center gap-2">
-        <div class="dropdown">
-          <button class="btn btn-sm btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown"><i class="bi bi-check2-square"></i> Select</button>
-          <ul class="dropdown-menu">
-            <li><button class="dropdown-item js-select-observation-page" type="button"><i class="bi bi-file-earmark-check"></i> Select this page</button></li>
-            <li><button class="dropdown-item js-select-all-observation-filtered" type="button"><i class="bi bi-check-all"></i> Select all {{ number_of_editable_observations }} matching filter</button></li>
-            <li><hr class="dropdown-divider"></li>
-            <li><button class="dropdown-item js-clear-observation-selection" type="button"><i class="bi bi-x-square"></i> Clear selection</button></li>
-          </ul>
-        </div>
-        <span class="badge text-bg-secondary" id="observation-selected-count" aria-live="polite">0 observations selected</span>
-        <button class="btn btn-sm btn-outline-secondary d-none js-clear-observation-selection js-observation-clear-visible" type="button"><i class="bi bi-x"></i> Clear</button>
-        <span class="small text-muted observation-selection-help">Observation actions affect the exact selection. Media-file and sequence actions use the objects containing at least one selected observation.</span>
-      </div>
-      <div class="d-flex flex-wrap gap-2">
-        <div class="dropdown">
-          <button class="btn btn-sm btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown"><i class="bi bi-lightning"></i> Actions</button>
-          <ul class="dropdown-menu dropdown-menu-end">
-            <li><h6 class="dropdown-header">Edit observations</h6></li>
-            <li><button class="dropdown-item" type="button" data-bs-toggle="collapse" data-bs-target="#observation-bulk-fields" data-bs-toggle-tooltip="true" aria-expanded="false" aria-controls="observation-bulk-fields" title="Edit taxon, identity, verification, or representative status on the exact selected observations."><i class="bi bi-tags"></i> Edit metadata…</button></li>
-            <li><button class="dropdown-item js-observation-requires-selection" name="btnBulkProcessing_set_full_image_bbox" type="submit" data-action-scope="observations" data-confirm-always="true" data-bs-toggle-tooltip="true" title="Changes only the selected observations; sibling observations in the same media file are not changed."><i class="bi bi-bounding-box"></i> Set selected observation bboxes to full image</button></li>
-            <li><button class="dropdown-item js-observation-requires-selection" name="btnBulkProcessing_remove_bbox" type="submit" data-action-scope="observations" data-confirm-always="true" data-bs-toggle-tooltip="true" title="Removes bboxes only from the selected observations. Taxon and identity values are preserved."><i class="bi bi-bounding-box"></i> Remove bboxes from selected observations</button></li>
-            <li><hr class="dropdown-divider"></li><li><h6 class="dropdown-header">Containing media files</h6></li>
-            <li><button class="dropdown-item js-observation-requires-selection" name="btnExtractFilenameMetadata" type="submit" data-action-scope="mediafiles" data-bs-toggle-tooltip="true" title="Uses each media file that contains at least one selected observation. A media file is processed only once."><i class="bi bi-regex"></i> Extract filename metadata from containing media files</button></li>
-            <li><button class="dropdown-item js-observation-requires-selection" name="btnDownloadObservations" type="submit" data-action-scope="mediafiles" data-bs-toggle-tooltip="true" title="Downloads each media file that contains at least one selected observation, without duplicates."><i class="bi bi-download"></i> Download containing media files</button></li>
-            <li><hr class="dropdown-divider"></li><li><h6 class="dropdown-header">Sequences</h6></li>
-            <li><button class="dropdown-item js-observation-requires-selection" name="btnCreateSequence" type="submit" data-action-scope="mediafiles" data-confirm-always="true" data-bs-toggle-tooltip="true" title="Moves the media files containing selected observations into one new sequence. All affected files must belong to the same upload."><i class="bi bi-collection"></i> Merge containing media files into new sequence</button></li>
-            <li><button class="dropdown-item text-warning js-observation-requires-selection" name="btnDissolveSequences" type="submit" data-action-scope="sequences" data-confirm-always="true" data-bs-toggle-tooltip="true" title="Splits every complete sequence containing a selected observation. Media files outside the current filter may also be affected."><i class="bi bi-distribute-horizontal"></i> Split complete containing sequences</button></li>
-          </ul>
-        </div>
-        <div class="dropdown">
-          <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown"><i class="bi bi-database"></i> Data</button>
-          <ul class="dropdown-menu dropdown-menu-end">
-            <li><a class="dropdown-item" href="{% url 'caidapp:download_csv_for_observations' %}?{{ request.GET.urlencode }}"><i class="bi bi-table"></i> Export CSV</a></li>
-            <li><a class="dropdown-item" href="{% url 'caidapp:download_xlsx_for_observations' %}?{{ request.GET.urlencode }}"><i class="bi bi-file-earmark-excel"></i> Export XLSX</a></li>
-            <li><a class="dropdown-item" href="{% url 'caidapp:prepare_observation_download' %}?{{ request.GET.urlencode }}"><i class="bi bi-images"></i> Export images and metadata</a></li>
-            <li><hr class="dropdown-divider"></li>
-            <li><a class="dropdown-item" href="{% url 'caidapp:import_observations' %}?next={{ request.get_full_path|urlencode }}"><i class="bi bi-file-earmark-arrow-up"></i> Import observation metadata</a></li>
-            <li><hr class="dropdown-divider"></li>
-            <li><div class="dropdown-item-text small text-muted observation-data-note">Metadata uses one row per observation. A media file without observations is represented by one blank observation row.</div></li>
-          </ul>
-        </div>
+        <div class="observation-toolbar-pagination">{% include 'caidapp/pagination_a.html' %}</div>
       </div>
     </div>
     <div class="collapse observation-bulk-fields" id="observation-bulk-fields">
@@ -123,7 +108,6 @@
         {% endfor %}
       </div>
     </div>
-  <div class="mb-3">{% include 'caidapp/pagination_a.html' %}</div>
   {% if view_mode == 'list' %}
   <div class="table-responsive">
     <table class="table table-sm align-middle observation-list-table">
@@ -447,18 +431,25 @@ document.addEventListener("DOMContentLoaded", function() {
   }
   function updateObservationSelectedCount() {
     const selectAll = document.getElementById("observation-select-all-filtered");
-    const allFiltered = selectAll.checked;
-    const counts = observationActionScopeCounts(allFiltered);
+    const explicitCounts = observationActionScopeCounts(false);
+    const hasExplicitSelection = selectAll.checked || explicitCounts.observationCount > 0;
+    const allMatching = !hasExplicitSelection || selectAll.checked;
+    const counts = observationActionScopeCounts(allMatching);
     const counter = document.getElementById("observation-selected-count");
     if (counter) {
-      counter.textContent = counts.observationCount === 0
-        ? "0 observations selected"
-        : `${allFiltered ? "All matching · " : ""}${countLabel(counts.observationCount, "observation", "observations")} · ${countLabel(counts.mediafileCount, "media file", "media files")} · ${countLabel(counts.sequenceCount, "sequence", "sequences")}`;
+      counter.textContent = `${allMatching ? "All matching" : "Selected"} · ${countLabel(counts.observationCount, "observation", "observations")} · ${countLabel(counts.mediafileCount, "media file", "media files")} · ${countLabel(counts.sequenceCount, "sequence", "sequences")}`;
     }
-    const hasSelection = allFiltered || counts.observationCount > 0;
+    const pageCheckbox = document.getElementById("observation-select-page");
+    if (pageCheckbox) {
+      const editableCheckboxes = observationCheckboxes().filter(function(checkbox) { return !checkbox.disabled; });
+      const selectedOnPage = editableCheckboxes.filter(function(checkbox) { return checkbox.checked; }).length;
+      pageCheckbox.disabled = editableCheckboxes.length === 0;
+      pageCheckbox.checked = editableCheckboxes.length > 0 && selectedOnPage === editableCheckboxes.length;
+      pageCheckbox.indeterminate = selectedOnPage > 0 && selectedOnPage < editableCheckboxes.length;
+      pageCheckbox.setAttribute("aria-checked", pageCheckbox.indeterminate ? "mixed" : (pageCheckbox.checked ? "true" : "false"));
+    }
     const toolbar = document.getElementById("observation-action-toolbar");
-    if (toolbar) toolbar.classList.toggle("has-selection", hasSelection);
-    document.querySelectorAll(".js-observation-clear-visible").forEach(function(button) { button.classList.toggle("d-none", !hasSelection); });
+    if (toolbar) toolbar.classList.toggle("has-selection", hasExplicitSelection);
   }
   observationCheckboxes().forEach(function(checkbox) {
     checkbox.addEventListener("change", function() {
@@ -476,30 +467,15 @@ document.addEventListener("DOMContentLoaded", function() {
       updateObservationSelectedCount();
     });
   });
-  document.querySelectorAll(".js-select-observation-page").forEach(function(button) {
-    button.addEventListener("click", function() {
+  const selectPageCheckbox = document.getElementById("observation-select-page");
+  if (selectPageCheckbox) {
+    selectPageCheckbox.addEventListener("change", function() {
       document.getElementById("observation-select-all-filtered").checked = false;
-      observationCheckboxes().forEach(function(checkbox) { if (!checkbox.disabled) checkbox.checked = true; });
+      observationCheckboxes().forEach(function(checkbox) { if (!checkbox.disabled) checkbox.checked = selectPageCheckbox.checked; });
       updateAllObservationGroupCheckboxes();
       updateObservationSelectedCount();
     });
-  });
-  document.querySelectorAll(".js-select-all-observation-filtered").forEach(function(button) {
-    button.addEventListener("click", function() {
-      document.getElementById("observation-select-all-filtered").checked = true;
-      observationCheckboxes().forEach(function(checkbox) { if (!checkbox.disabled) checkbox.checked = true; });
-      updateAllObservationGroupCheckboxes();
-      updateObservationSelectedCount();
-    });
-  });
-  document.querySelectorAll(".js-clear-observation-selection").forEach(function(button) {
-    button.addEventListener("click", function() {
-      document.getElementById("observation-select-all-filtered").checked = false;
-      observationCheckboxes().forEach(function(checkbox) { checkbox.checked = false; });
-      updateAllObservationGroupCheckboxes();
-      updateObservationSelectedCount();
-    });
-  });
+  }
   function hasObservationSelection() {
     return document.getElementById("observation-select-all-filtered").checked || observationCheckboxes().some(function(checkbox) { return checkbox.checked; });
   }
@@ -517,7 +493,7 @@ document.addEventListener("DOMContentLoaded", function() {
     const counts = observationActionScopeCounts(allFiltered);
     const actionLabel = button.textContent.trim();
     const scope = button.dataset.actionScope || "observations";
-    const selectionSource = allFiltered ? "the current filter" : "the current selection";
+    const selectionSource = allFiltered ? "all observations matching the current filter" : "the current selection";
     const observationLabel = countLabel(counts.observationCount, "observation", "observations");
     const mediafileLabel = countLabel(counts.mediafileCount, "media file", "media files");
     const sequenceLabel = countLabel(counts.sequenceCount, "complete sequence", "complete sequences");
