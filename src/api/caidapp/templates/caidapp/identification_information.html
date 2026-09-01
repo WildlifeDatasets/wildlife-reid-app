@@ -105,7 +105,7 @@
                     <dt class="col-sm-5">Scheduled for</dt>
                     <dd class="col-sm-7">{{ workgroup.identification_scheduled_init_eta|date:'Y-m-d H:i:s'|default:'—' }}</dd>
                     <dt class="col-sm-5">Task ID</dt>
-                    <dd class="col-sm-7 text-break"><code>{{ workgroup.identification_scheduled_init_task_id|default:latest_init_run.task_id|default:'—' }}</code></dd>
+                    <dd class="col-sm-7 text-break"><code>{% if workgroup.identification_scheduled_init_task_id %}{{ workgroup.identification_scheduled_init_task_id }}{% elif latest_init_run %}{{ latest_init_run.task_id|default:'—' }}{% else %}—{% endif %}</code></dd>
                 </dl>
                 <h3 class="h6">Latest message</h3>
                 <div class="bg-body-tertiary rounded p-3 text-break">{{ workgroup.identification_init_message|default:'No message.'|linebreaksbr }}</div>
@@ -135,7 +135,7 @@
                     <dt class="col-sm-5">Scheduled for</dt>
                     <dd class="col-sm-7">{{ workgroup.identification_scheduled_run_eta|date:'Y-m-d H:i:s'|default:'—' }}</dd>
                     <dt class="col-sm-5">Task ID</dt>
-                    <dd class="col-sm-7 text-break"><code>{{ workgroup.identification_scheduled_run_task_id|default:latest_identify_run.task_id|default:'—' }}</code></dd>
+                    <dd class="col-sm-7 text-break"><code>{% if workgroup.identification_scheduled_run_task_id %}{{ workgroup.identification_scheduled_run_task_id }}{% elif latest_identify_run %}{{ latest_identify_run.task_id|default:'—' }}{% else %}—{% endif %}</code></dd>
                 </dl>
                 <h3 class="h6">Latest message</h3>
                 <div class="bg-body-tertiary rounded p-3 text-break">{{ workgroup.identification_reid_message|default:'No message.'|linebreaksbr }}</div>

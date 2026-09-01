@@ -4162,6 +4162,22 @@ def observations(request: HttpRequest) -> HttpResponse:
     editable_observations = observation_queryset.filter(
         mediafile_id__in=editable_mediafiles.order_by().values("id")
     )
+    editable_sequence_ids = list(
+        editable_observations.exclude(mediafile__sequence_id__isnull=True)
+        .order_by()
+        .values_list("mediafile__sequence_id", flat=True)
+        .distinct()
+    )
+    editable_sequence_direct_mediafile_count = (
+        editable_observations.exclude(mediafile__sequence_id__isnull=True)
+        .order_by()
+        .values("mediafile_id")
+        .distinct()
+        .count()
+    )
+    editable_sequence_mediafile_count = MediaFile.objects.for_user(request.user.caiduser).filter(
+        sequence_id__in=editable_sequence_ids
+    ).count()
     form_bulk_processing = MediaFileBulkForm(
         request.POST or None,
         workgroup=request.user.caiduser.workgroup,
@@ -4179,6 +4195,13 @@ def observations(request: HttpRequest) -> HttpResponse:
         selected_observation_ids = list(selected_observations.values_list("id", flat=True))
         selected_mediafile_ids = sorted(
             set(selected_observations.values_list("mediafile_id", flat=True))
+        )
+        selected_sequence_ids = sorted(
+            set(
+                selected_observations.exclude(mediafile__sequence_id__isnull=True).values_list(
+                    "mediafile__sequence_id", flat=True
+                )
+            )
         )
         observation_field_actions = {
             "btnBulkProcessing_id_taxon": "taxon",
@@ -4292,13 +4315,25 @@ def observations(request: HttpRequest) -> HttpResponse:
             return redirect(request.get_full_path())
 
         if "btnDissolveSequences" in request.POST:
+            if not selected_sequence_ids:
+                messages.warning(request, "The selected observations do not belong to a sequence.")
+                return redirect(request.get_full_path())
+            complete_sequence_mediafile_ids = list(
+                MediaFile.objects.for_user(request.user.caiduser)
+                .filter(sequence_id__in=selected_sequence_ids)
+                .values_list("id", flat=True)
+            )
             dissolved_count = _dissolve_mediafiles_into_singleton_sequences(
-                request.user.caiduser, selected_mediafile_ids
+                request.user.caiduser, complete_sequence_mediafile_ids
             )
             if dissolved_count:
-                messages.success(request, f"Dissolved {dissolved_count} media files into single-media sequences.")
+                messages.success(
+                    request,
+                    f"Split {len(selected_sequence_ids)} complete containing sequences; "
+                    f"moved {dissolved_count} media files into single-media sequences.",
+                )
             else:
-                messages.info(request, "Selected media files are already in single-media sequences.")
+                messages.info(request, "The containing sequences are already single-media sequences.")
             return redirect(request.get_full_path())
 
         if "btnExtractFilenameMetadata" in request.POST:
@@ -4361,8 +4396,23 @@ def observations(request: HttpRequest) -> HttpResponse:
     editable_observation_ids = set(
         editable_observations.filter(id__in=page_observation_ids).values_list("id", flat=True)
     )
+    page_sequence_ids = {
+        observation.mediafile.sequence_id
+        for observation in observations_on_page
+        if observation.mediafile.sequence_id is not None
+    }
+    page_sequence_mediafile_counts = dict(
+        MediaFile.objects.for_user(request.user.caiduser)
+        .filter(sequence_id__in=page_sequence_ids)
+        .values("sequence_id")
+        .annotate(mediafile_count=Count("id"))
+        .values_list("sequence_id", "mediafile_count")
+    )
     for observation in observations_on_page:
         observation.bulk_editable = observation.id in editable_observation_ids
+        observation.containing_sequence_mediafile_count = page_sequence_mediafile_counts.get(
+            observation.mediafile.sequence_id, 0
+        )
 
     groups = []
     group_lookup = {}
@@ -4424,6 +4474,9 @@ def observations(request: HttpRequest) -> HttpResponse:
         "number_of_mediafiles": matching_mediafiles.count(),
         "number_of_editable_observations": editable_observations.count(),
         "number_of_editable_observation_mediafiles": editable_observations.values("mediafile_id").distinct().count(),
+        "number_of_editable_observation_sequences": len(editable_sequence_ids),
+        "number_of_editable_observation_sequence_mediafiles": editable_sequence_direct_mediafile_count,
+        "number_of_mediafiles_in_editable_observation_sequences": editable_sequence_mediafile_count,
         "form_bulk_processing": form_bulk_processing,
     }
     return render(request, "caidapp/observations.html", add_querystring_to_context(request, context))
@@ -7385,10 +7438,10 @@ class MyPygWalkerView(PygWalkerView):
         "id",
         "captured_at",
         "locality",
-        "identity",
-        "taxon",
-        "taxon__name",
-        "identity__name",
+        "observations__identity",
+        "observations__taxon",
+        "observations__taxon__name",
+        "observations__identity__name",
         "locality__name",
         "latitude",
         "longitude",
@@ -9412,6 +9465,17 @@ class NotificationListView(LoginRequiredMixin, ListView):
         # context["object_delete_url"] = "caidapp:notification-delete"
         # context["object_create_url"] = "caidapp:notification-create"
         return context
+
+
+@login_required
+@require_POST
+def mark_all_notifications_as_read(request):
+    """Mark every unread notification belonging to the current user as read."""
+    models.NotificationRecipient.objects.filter(
+        user=request.user.caiduser,
+        read=False,
+    ).update(read=True, read_at=timezone.now())
+    return redirect("caidapp:notifications")
 
 
 class NotificationDetailView(LoginRequiredMixin, DetailView):

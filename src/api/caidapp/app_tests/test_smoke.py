@@ -1,6 +1,6 @@
 import logging
 
-from caidapp.models import WorkGroup, WorkGroupInvitation
+from caidapp.models import ObservationImport, WorkGroup, WorkGroupInvitation
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import NoReverseMatch, URLPattern, URLResolver, reverse
@@ -11,7 +11,7 @@ from caidapp.app_tests.factories import (
     WorkGroupInvitationFactory,
     UploadedArchiveFactory,
     MediaFileFactory, AnimalObservationFactory, IndividualIdentityFactory, LocalityFactory,
-    NotificationFactory, NotificationRecipientFactory
+    NotificationFactory, NotificationRecipientFactory, TaxonFactory
 )
 
 logger = logging.getLogger(__name__)
@@ -22,10 +22,18 @@ User = get_user_model()
 class UrlSmokeTest(TestCase):
     MUTATING_NAMES = {
         "clear_identity_suggestions",
+        "exclude_merge_identity_suggestion",
+        "notifications-mark-all-as-read",
         "toggle_identity_representative",
     }
     SKIPPED_VIEWS = {
-        "stream_video"
+        "stream_video",
+        # These downloads correctly return 404 until an identification run has
+        # produced its workgroup-specific CSV artifact.
+        "download_init_identification_csv",
+        "download_run_identification_csv",
+        # A ZIP export requires an explicit sequence selection in the request.
+        "download_zip_for_sequences",
     }
 
     def setUp(self):
@@ -60,6 +68,24 @@ class UrlSmokeTest(TestCase):
         self.archive = UploadedArchiveFactory(owner=self.caiduser)
         self.mediafile = MediaFileFactory(parent=self.archive)
         self.observation = AnimalObservationFactory(mediafile=self.mediafile)
+        self.manual_identification_taxon = TaxonFactory()
+        self.manual_identification_archive = UploadedArchiveFactory(
+            owner=self.caiduser,
+            is_for_identification=True,
+            import_finished=True,
+            taxon_for_identification=self.manual_identification_taxon,
+        )
+        self.manual_identification_mediafile = MediaFileFactory(parent=self.manual_identification_archive)
+        AnimalObservationFactory(
+            mediafile=self.manual_identification_mediafile,
+            taxon=self.manual_identification_taxon,
+            identity=None,
+        )
+        self.observation_import = ObservationImport.objects.create(
+            caiduser=self.caiduser,
+            source_filename="smoke-test.csv",
+            stored_file="observation_imports/smoke-test.csv",
+        )
         self.identity = IndividualIdentityFactory(owner_workgroup=self.workgroup)
         MediaFileFactory.create_batch(3, parent=self.archive, identity=self.identity)
         self.identities = IndividualIdentityFactory.create_batch(3, owner_workgroup=self.workgroup)
@@ -144,6 +170,8 @@ class UrlSmokeTest(TestCase):
         name = getattr(pattern, "name", "")
         if name == "media_file_update":
             return self.mediafile.pk
+        if name == "manual_identification_mediafile":
+            return self.manual_identification_mediafile.pk
         if name == "missing_taxon_annotation_for_mediafile":
             return self.mediafile.pk
         if name == "toggle_identity_representative":
@@ -158,4 +186,16 @@ class UrlSmokeTest(TestCase):
             return self.notification.pk
         if name == "observation_delete":
             return self.observation.pk
+        if name == "workgroup_member_update":
+            return self.caiduser.pk
+        if name in {
+            "workgroup_invitation_detail",
+            "workgroup_invitation_accept",
+            "workgroup_invitation_decline",
+        }:
+            return self.wg_invitation.pk
+        if name == "observation_import_status":
+            return self.observation_import.pk
+        if name == "workgroup-update":
+            return self.workgroup.pk
         return 1

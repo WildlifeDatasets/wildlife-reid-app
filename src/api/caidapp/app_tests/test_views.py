@@ -3032,13 +3032,13 @@ class ObservationViewTest(TestCase):
         self.assertContains(response, ">Media file</a>", html=False)
         self.assertContains(response, "2 observations in 1 media file")
         self.assertContains(response, "Containing media files")
-        self.assertContains(response, "Download selected media files")
+        self.assertContains(response, "Download containing media files")
         self.assertContains(response, "Captured: oldest")
         self.assertContains(response, "Select all 2 matching filter")
         self.assertContains(response, "Edit metadata…")
         self.assertContains(response, "Edit observations")
         self.assertContains(response, "Sequences")
-        self.assertContains(response, 'class="dropdown-item" type="button" data-bs-toggle="collapse" data-bs-target="#observation-bulk-fields" aria-expanded="false" aria-controls="observation-bulk-fields"')
+        self.assertContains(response, 'class="dropdown-item" type="button" data-bs-toggle="collapse" data-bs-target="#observation-bulk-fields"')
         self.assertNotContains(response, 'class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#observation-bulk-fields"')
         self.assertContains(response, '<i class="bi bi-lightning"></i> Actions')
         self.assertNotContains(response, '<i class="bi bi-three-dots"></i> Actions')
@@ -3048,6 +3048,13 @@ class ObservationViewTest(TestCase):
         self.assertNotContains(response, "Export includes every observation belonging to a matching media file")
         self.assertContains(response, 'id="observation-scope-modal"')
         self.assertContains(response, "scopeModalMessage.textContent")
+        self.assertContains(response, 'data-action-scope="sequences" data-confirm-always="true"')
+        self.assertContains(response, "Split complete containing sequences")
+        self.assertContains(response, "Media files outside the current filter may also be affected")
+        self.assertContains(response, "directSequenceMediafileCount")
+        self.assertContains(response, "additional media files")
+        self.assertContains(response, f'data-mediafile-id="{mediafile.id}"')
+        self.assertContains(response, f'data-sequence-id="{sequence.id}"')
         self.assertNotContains(response, "Observation selection")
         self.assertNotContains(response, "Observation fields")
         self.assertContains(response, 'title="2 observations grouped by Sequence 22 · 1 media file on this page"')
@@ -3231,7 +3238,7 @@ class ObservationViewTest(TestCase):
         self.assertContains(response, 'details.hidden = !expanded')
         self.assertContains(response, "js-expand-all-observation-groups")
         self.assertContains(response, "js-collapse-all-observation-groups")
-        self.assertContains(response, "Merge into new sequence")
+        self.assertContains(response, "Merge containing media files into new sequence")
 
     def test_observations_ungrouped_list_keeps_one_plain_row_per_observation(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)
@@ -3478,18 +3485,23 @@ class ObservationViewTest(TestCase):
         second_mediafile.refresh_from_db()
         self.assertEqual(first_mediafile.sequence_id, second_mediafile.sequence_id)
 
-    def test_observation_sequence_action_dissolves_selected_images(self):
+    def test_observation_sequence_action_splits_complete_containing_sequences(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)
         sequence = SequenceFactory(uploaded_archive=archive)
+        unrelated_sequence = SequenceFactory(uploaded_archive=archive)
         first_mediafile = MediaFileFactory(parent=archive, sequence=sequence)
         second_mediafile = MediaFileFactory(parent=archive, sequence=sequence)
-        first_observation = AnimalObservationFactory(mediafile=first_mediafile)
-        second_observation = AnimalObservationFactory(mediafile=second_mediafile)
+        unrelated_mediafile = MediaFileFactory(parent=archive, sequence=unrelated_sequence)
+        selected_identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup)
+        other_identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup)
+        first_observation = AnimalObservationFactory(mediafile=first_mediafile, identity=selected_identity)
+        AnimalObservationFactory(mediafile=second_mediafile, identity=other_identity)
+        AnimalObservationFactory(mediafile=unrelated_mediafile)
 
         response = self.client.post(
-            reverse("caidapp:observations"),
+            reverse("caidapp:observations") + f"?identity={selected_identity.id}",
             {
-                "selected_observation_ids": [str(first_observation.id), str(second_observation.id)],
+                "selected_observation_ids": [str(first_observation.id)],
                 "btnDissolveSequences": "1",
             },
         )
@@ -3497,7 +3509,9 @@ class ObservationViewTest(TestCase):
         self.assertEqual(response.status_code, 302)
         first_mediafile.refresh_from_db()
         second_mediafile.refresh_from_db()
+        unrelated_mediafile.refresh_from_db()
         self.assertNotEqual(first_mediafile.sequence_id, second_mediafile.sequence_id)
+        self.assertEqual(unrelated_mediafile.sequence_id, unrelated_sequence.id)
 
     def test_observation_selection_download_stores_only_selected_editable_images(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)

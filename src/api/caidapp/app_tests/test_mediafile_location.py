@@ -460,11 +460,12 @@ class SpreadsheetMetadataImportTest(TestCase):
             )
 
         mediafile = uploaded_archive.mediafile_set.get()
+        relative_output_dir = output_dir.relative_to(Path(settings.MEDIA_ROOT)).as_posix()
         self.assertEqual(status, "created and not updated by user")
-        self.assertEqual(mediafile.preview.name, f"{uploaded_archive.outputdir}/previews/first.webp")
-        self.assertEqual(mediafile.thumbnail.name, f"{uploaded_archive.outputdir}/thumbnails/first.webp")
+        self.assertEqual(mediafile.preview.name, f"{relative_output_dir}/previews/first.webp")
+        self.assertEqual(mediafile.thumbnail.name, f"{relative_output_dir}/thumbnails/first.webp")
         self.assertEqual(
             mediafile.static_thumbnail.name,
-            f"{uploaded_archive.outputdir}/static_thumbnails/first.webp",
+            f"{relative_output_dir}/static_thumbnails/first.webp",
         )
         make_variants.assert_not_called()

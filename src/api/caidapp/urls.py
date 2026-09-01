@@ -691,6 +691,11 @@ urlpatterns = [
     path("notifications/create/", views.NotificationCreateView.as_view(), name="notification-create"),
     path("notifications/", views.NotificationListView.as_view(), name="notifications"),
     path(
+        "notifications/mark-all-as-read/",
+        views.mark_all_notifications_as_read,
+        name="notifications-mark-all-as-read",
+    ),
+    path(
         "notifications/<int:pk>/",
         views.NotificationDetailView.as_view(),
         name="notification-detail",

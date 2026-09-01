@@ -1,7 +1,7 @@
 <article id="observation-{{ observation.id }}" class="card observation-card">
   {% if observation.bulk_editable %}
   <label class="observation-image-select" title="Select this observation">
-    <input class="form-check-input js-observation-checkbox" type="checkbox" name="selected_observation_ids" value="{{ observation.id }}" data-observation-id="{{ observation.id }}" data-group-id="{{ group_id }}" aria-label="Select observation {{ observation.id }}">
+    <input class="form-check-input js-observation-checkbox" type="checkbox" name="selected_observation_ids" value="{{ observation.id }}" data-observation-id="{{ observation.id }}" data-mediafile-id="{{ observation.mediafile_id }}" data-sequence-id="{{ observation.mediafile.sequence_id|default:'' }}" data-sequence-mediafile-count="{{ observation.containing_sequence_mediafile_count|default:0 }}" data-group-id="{{ group_id }}" aria-label="Select observation {{ observation.id }}">
   </label>
   {% else %}
   <span class="observation-image-readonly" title="Bulk and sequence actions are unavailable for this shared media file"><i class="bi bi-slash-circle"></i></span>

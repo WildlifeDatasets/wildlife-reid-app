@@ -22,7 +22,7 @@
 </div>
 <section class="section">
   {% include 'caidapp/filter_collapse.html' %}
-  <form method="post" id="observation-workbench-form" data-filtered-observation-count="{{ number_of_editable_observations }}" data-filtered-mediafile-count="{{ number_of_editable_observation_mediafiles }}">
+  <form method="post" id="observation-workbench-form" data-filtered-observation-count="{{ number_of_editable_observations }}" data-filtered-mediafile-count="{{ number_of_editable_observation_mediafiles }}" data-filtered-sequence-count="{{ number_of_editable_observation_sequences }}" data-filtered-sequence-direct-mediafile-count="{{ number_of_editable_observation_sequence_mediafiles }}" data-filtered-sequence-mediafile-count="{{ number_of_mediafiles_in_editable_observation_sequences }}">
     {% csrf_token %}
     <input class="d-none" type="checkbox" name="select_all_filtered" id="observation-select-all-filtered" data-total="{{ number_of_editable_observations }}">
     <div class="observation-toolbar my-3">
@@ -80,22 +80,22 @@
         </div>
         <span class="badge text-bg-secondary" id="observation-selected-count" aria-live="polite">0 observations selected</span>
         <button class="btn btn-sm btn-outline-secondary d-none js-clear-observation-selection js-observation-clear-visible" type="button"><i class="bi bi-x"></i> Clear</button>
-        <span class="small text-muted observation-selection-help">Actions use selected observations; with no selection you can apply them to all matching the filter.</span>
+        <span class="small text-muted observation-selection-help">Observation actions affect the exact selection. Media-file and sequence actions use the objects containing at least one selected observation.</span>
       </div>
       <div class="d-flex flex-wrap gap-2">
         <div class="dropdown">
           <button class="btn btn-sm btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown"><i class="bi bi-lightning"></i> Actions</button>
           <ul class="dropdown-menu dropdown-menu-end">
             <li><h6 class="dropdown-header">Edit observations</h6></li>
-            <li><button class="dropdown-item" type="button" data-bs-toggle="collapse" data-bs-target="#observation-bulk-fields" aria-expanded="false" aria-controls="observation-bulk-fields"><i class="bi bi-tags"></i> Edit metadata…</button></li>
-            <li><button class="dropdown-item js-observation-requires-selection" name="btnBulkProcessing_set_full_image_bbox" type="submit" data-action-scope="observations" data-confirm-message="Set the bbox of every selected observation to the full image?"><i class="bi bi-bounding-box"></i> Set bboxes to full image</button></li>
-            <li><button class="dropdown-item js-observation-requires-selection" name="btnBulkProcessing_remove_bbox" type="submit" data-action-scope="observations" data-confirm-message="Remove the bbox from every selected observation? Identities will be kept."><i class="bi bi-bounding-box"></i> Remove bboxes</button></li>
+            <li><button class="dropdown-item" type="button" data-bs-toggle="collapse" data-bs-target="#observation-bulk-fields" data-bs-toggle-tooltip="true" aria-expanded="false" aria-controls="observation-bulk-fields" title="Edit taxon, identity, verification, or representative status on the exact selected observations."><i class="bi bi-tags"></i> Edit metadata…</button></li>
+            <li><button class="dropdown-item js-observation-requires-selection" name="btnBulkProcessing_set_full_image_bbox" type="submit" data-action-scope="observations" data-confirm-always="true" data-bs-toggle-tooltip="true" title="Changes only the selected observations; sibling observations in the same media file are not changed."><i class="bi bi-bounding-box"></i> Set selected observation bboxes to full image</button></li>
+            <li><button class="dropdown-item js-observation-requires-selection" name="btnBulkProcessing_remove_bbox" type="submit" data-action-scope="observations" data-confirm-always="true" data-bs-toggle-tooltip="true" title="Removes bboxes only from the selected observations. Taxon and identity values are preserved."><i class="bi bi-bounding-box"></i> Remove bboxes from selected observations</button></li>
             <li><hr class="dropdown-divider"></li><li><h6 class="dropdown-header">Containing media files</h6></li>
-            <li><button class="dropdown-item js-observation-requires-selection" name="btnExtractFilenameMetadata" type="submit" data-action-scope="mediafiles"><i class="bi bi-regex"></i> Extract metadata from filenames</button></li>
-            <li><button class="dropdown-item js-observation-requires-selection" name="btnDownloadObservations" type="submit" data-action-scope="mediafiles"><i class="bi bi-download"></i> Download selected media files</button></li>
+            <li><button class="dropdown-item js-observation-requires-selection" name="btnExtractFilenameMetadata" type="submit" data-action-scope="mediafiles" data-bs-toggle-tooltip="true" title="Uses each media file that contains at least one selected observation. A media file is processed only once."><i class="bi bi-regex"></i> Extract filename metadata from containing media files</button></li>
+            <li><button class="dropdown-item js-observation-requires-selection" name="btnDownloadObservations" type="submit" data-action-scope="mediafiles" data-bs-toggle-tooltip="true" title="Downloads each media file that contains at least one selected observation, without duplicates."><i class="bi bi-download"></i> Download containing media files</button></li>
             <li><hr class="dropdown-divider"></li><li><h6 class="dropdown-header">Sequences</h6></li>
-            <li><button class="dropdown-item js-observation-requires-selection" name="btnCreateSequence" type="submit" data-action-scope="mediafiles" data-confirm-message="Move the media files containing selected observations into one new sequence? They must belong to the same upload."><i class="bi bi-collection"></i> Merge into new sequence</button></li>
-            <li><button class="dropdown-item text-warning js-observation-requires-selection" name="btnDissolveSequences" type="submit" data-action-scope="mediafiles" data-confirm-message="Move every media file containing a selected observation into its own single-media sequence?"><i class="bi bi-distribute-horizontal"></i> Dissolve into single-media sequences</button></li>
+            <li><button class="dropdown-item js-observation-requires-selection" name="btnCreateSequence" type="submit" data-action-scope="mediafiles" data-confirm-always="true" data-bs-toggle-tooltip="true" title="Moves the media files containing selected observations into one new sequence. All affected files must belong to the same upload."><i class="bi bi-collection"></i> Merge containing media files into new sequence</button></li>
+            <li><button class="dropdown-item text-warning js-observation-requires-selection" name="btnDissolveSequences" type="submit" data-action-scope="sequences" data-confirm-always="true" data-bs-toggle-tooltip="true" title="Splits every complete sequence containing a selected observation. Media files outside the current filter may also be affected."><i class="bi bi-distribute-horizontal"></i> Split complete containing sequences</button></li>
           </ul>
         </div>
         <div class="dropdown">
@@ -195,7 +195,7 @@
   <div class="mt-3">{% include 'caidapp/pagination_a.html' %}</div>
   <div class="modal fade" id="observation-scope-modal" tabindex="-1" aria-labelledby="observation-scope-modal-title" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered"><div class="modal-content">
-      <div class="modal-header"><h5 class="modal-title" id="observation-scope-modal-title">Apply action to all filtered observations?</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+      <div class="modal-header"><h5 class="modal-title" id="observation-scope-modal-title">Confirm action</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
       <div class="modal-body"><p id="observation-scope-modal-message" class="mb-0"></p><p id="observation-scope-modal-warning" class="small text-muted mt-2 mb-0"></p></div>
       <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button type="button" class="btn btn-primary" id="observation-scope-modal-apply">Apply to all matching</button></div>
     </div></div>
@@ -413,12 +413,49 @@ document.addEventListener("DOMContentLoaded", function() {
     const groupIds = new Set(Array.from(observationWorkbenchForm.querySelectorAll(".js-observation-group-checkbox")).map(function(checkbox) { return checkbox.dataset.groupId; }));
     groupIds.forEach(updateObservationGroupCheckbox);
   }
+  function countLabel(count, singular, plural) {
+    return `${count} ${count === 1 ? singular : plural}`;
+  }
+  function observationActionScopeCounts(allFiltered) {
+    if (allFiltered) {
+      return {
+        observationCount: Number(observationWorkbenchForm.dataset.filteredObservationCount || 0),
+        mediafileCount: Number(observationWorkbenchForm.dataset.filteredMediafileCount || 0),
+        sequenceCount: Number(observationWorkbenchForm.dataset.filteredSequenceCount || 0),
+        directSequenceMediafileCount: Number(observationWorkbenchForm.dataset.filteredSequenceDirectMediafileCount || 0),
+        sequenceMediafileCount: Number(observationWorkbenchForm.dataset.filteredSequenceMediafileCount || 0),
+      };
+    }
+    const checked = observationCheckboxes().filter(function(checkbox) { return checkbox.checked; });
+    const mediafileIds = new Set();
+    const directSequenceMediafileIds = new Set();
+    const sequenceSizes = new Map();
+    checked.forEach(function(checkbox) {
+      if (checkbox.dataset.mediafileId) mediafileIds.add(checkbox.dataset.mediafileId);
+      if (checkbox.dataset.sequenceId) {
+        directSequenceMediafileIds.add(checkbox.dataset.mediafileId);
+        sequenceSizes.set(checkbox.dataset.sequenceId, Number(checkbox.dataset.sequenceMediafileCount || 0));
+      }
+    });
+    return {
+      observationCount: checked.length,
+      mediafileCount: mediafileIds.size,
+      sequenceCount: sequenceSizes.size,
+      directSequenceMediafileCount: directSequenceMediafileIds.size,
+      sequenceMediafileCount: Array.from(sequenceSizes.values()).reduce(function(total, size) { return total + size; }, 0),
+    };
+  }
   function updateObservationSelectedCount() {
     const selectAll = document.getElementById("observation-select-all-filtered");
-    const selectedCount = observationCheckboxes().filter(function(checkbox) { return checkbox.checked; }).length;
+    const allFiltered = selectAll.checked;
+    const counts = observationActionScopeCounts(allFiltered);
     const counter = document.getElementById("observation-selected-count");
-    if (counter) counter.textContent = selectAll.checked ? `All ${selectAll.dataset.total} matching observations selected` : `${selectedCount} observations selected`;
-    const hasSelection = selectAll.checked || selectedCount > 0;
+    if (counter) {
+      counter.textContent = counts.observationCount === 0
+        ? "0 observations selected"
+        : `${allFiltered ? "All matching · " : ""}${countLabel(counts.observationCount, "observation", "observations")} · ${countLabel(counts.mediafileCount, "media file", "media files")} · ${countLabel(counts.sequenceCount, "sequence", "sequences")}`;
+    }
+    const hasSelection = allFiltered || counts.observationCount > 0;
     const toolbar = document.getElementById("observation-action-toolbar");
     if (toolbar) toolbar.classList.toggle("has-selection", hasSelection);
     document.querySelectorAll(".js-observation-clear-visible").forEach(function(button) { button.classList.toggle("d-none", !hasSelection); });
@@ -466,42 +503,55 @@ document.addEventListener("DOMContentLoaded", function() {
   function hasObservationSelection() {
     return document.getElementById("observation-select-all-filtered").checked || observationCheckboxes().some(function(checkbox) { return checkbox.checked; });
   }
-  function confirmObservationAction(button) {
-    return !button.dataset.confirmMessage || window.confirm(button.dataset.confirmMessage);
-  }
   let pendingObservationActionButton = null;
+  let pendingObservationApplyAllFiltered = false;
   const scopeModalElement = document.getElementById("observation-scope-modal");
   const scopeModal = scopeModalElement && window.bootstrap ? bootstrap.Modal.getOrCreateInstance(scopeModalElement) : null;
+  const scopeModalTitle = document.getElementById("observation-scope-modal-title");
   const scopeModalMessage = document.getElementById("observation-scope-modal-message");
   const scopeModalWarning = document.getElementById("observation-scope-modal-warning");
   const scopeModalApply = document.getElementById("observation-scope-modal-apply");
-  function showObservationScopeModal(button) {
+  function showObservationScopeModal(button, allFiltered) {
     pendingObservationActionButton = button;
-    const observationCount = Number(observationWorkbenchForm.dataset.filteredObservationCount || 0);
-    const mediafileCount = Number(observationWorkbenchForm.dataset.filteredMediafileCount || 0);
+    pendingObservationApplyAllFiltered = allFiltered;
+    const counts = observationActionScopeCounts(allFiltered);
     const actionLabel = button.textContent.trim();
-    const mediafileScope = button.dataset.actionScope === "mediafiles";
-    if (mediafileScope) {
-      const mediafileLabel = `${mediafileCount} media file${mediafileCount === 1 ? "" : "s"}`;
-      scopeModalMessage.textContent = `No observations are selected. The current filter contains ${observationCount} editable observations in ${mediafileLabel}. Run “${actionLabel}” for all ${mediafileLabel} containing those observations?`;
-      scopeModalApply.textContent = `Apply to all ${mediafileLabel}`;
-      scopeModalApply.disabled = mediafileCount === 0;
+    const scope = button.dataset.actionScope || "observations";
+    const selectionSource = allFiltered ? "the current filter" : "the current selection";
+    const observationLabel = countLabel(counts.observationCount, "observation", "observations");
+    const mediafileLabel = countLabel(counts.mediafileCount, "media file", "media files");
+    const sequenceLabel = countLabel(counts.sequenceCount, "complete sequence", "complete sequences");
+    const sequenceMediafileLabel = countLabel(counts.sequenceMediafileCount, "media file", "media files");
+    let warning = button.getAttribute("data-bs-original-title") || button.title || "";
+    if (scopeModalTitle) scopeModalTitle.textContent = actionLabel;
+    if (scope === "sequences") {
+      scopeModalMessage.textContent = `Based on ${selectionSource}, split ${sequenceLabel} containing ${sequenceMediafileLabel} into single-media sequences?`;
+      const additionalCount = Math.max(0, counts.sequenceMediafileCount - counts.directSequenceMediafileCount);
+      const ignoredCount = Math.max(0, counts.mediafileCount - counts.directSequenceMediafileCount);
+      const warnings = [];
+      if (additionalCount) warnings.push(`${countLabel(additionalCount, "additional media file", "additional media files")} outside the direct selection or filter will also be affected.`);
+      if (ignoredCount) warnings.push(`${countLabel(ignoredCount, "selected media file", "selected media files")} without a sequence will not be affected.`);
+      warning = warnings.join(" ") || warning;
+      scopeModalApply.textContent = `Split ${sequenceLabel}`;
+      scopeModalApply.disabled = counts.sequenceCount === 0;
+    } else if (scope === "mediafiles") {
+      scopeModalMessage.textContent = `Run “${actionLabel}” for ${mediafileLabel} containing ${observationLabel} from ${selectionSource}? Each media file is processed once.`;
+      scopeModalApply.textContent = `Apply to ${mediafileLabel}`;
+      scopeModalApply.disabled = counts.mediafileCount === 0;
     } else {
-      scopeModalMessage.textContent = `No observations are selected. Run “${actionLabel}” for all ${observationCount} editable observations matching the current filter?`;
-      scopeModalApply.textContent = `Apply to all ${observationCount} observations`;
-      scopeModalApply.disabled = observationCount === 0;
+      scopeModalMessage.textContent = `Run “${actionLabel}” for ${observationLabel} from ${selectionSource}? Other observations in the same media files are not changed.`;
+      scopeModalApply.textContent = `Apply to ${observationLabel}`;
+      scopeModalApply.disabled = counts.observationCount === 0;
     }
-    scopeModalWarning.textContent = button.dataset.confirmMessage || "";
+    scopeModalWarning.textContent = warning;
     if (scopeModal) scopeModal.show();
   }
   document.querySelectorAll(".js-observation-requires-selection").forEach(function(button) {
     button.addEventListener("click", function(event) {
-      if (hasObservationSelection()) {
-        if (!confirmObservationAction(button)) event.preventDefault();
-        return;
-      }
+      const hasSelection = hasObservationSelection();
+      if (hasSelection && button.dataset.confirmAlways !== "true") return;
       event.preventDefault();
-      showObservationScopeModal(button);
+      showObservationScopeModal(button, !hasSelection);
     });
   });
   if (scopeModalApply) {
@@ -509,10 +559,13 @@ document.addEventListener("DOMContentLoaded", function() {
       if (!pendingObservationActionButton) return;
       const actionButton = pendingObservationActionButton;
       pendingObservationActionButton = null;
-      document.getElementById("observation-select-all-filtered").checked = true;
-      observationCheckboxes().forEach(function(checkbox) { if (!checkbox.disabled) checkbox.checked = true; });
-      updateAllObservationGroupCheckboxes();
-      updateObservationSelectedCount();
+      if (pendingObservationApplyAllFiltered) {
+        document.getElementById("observation-select-all-filtered").checked = true;
+        observationCheckboxes().forEach(function(checkbox) { if (!checkbox.disabled) checkbox.checked = true; });
+        updateAllObservationGroupCheckboxes();
+        updateObservationSelectedCount();
+      }
+      pendingObservationApplyAllFiltered = false;
       if (scopeModal) scopeModal.hide();
       actionButton.form.requestSubmit(actionButton);
     });

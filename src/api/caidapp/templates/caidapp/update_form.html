@@ -120,7 +120,13 @@
                 {% if mediafile or right_col_raw_html or right_col_links or mediafiles %}
                 <div class="col-md-6">
                 {% if mediafile %}
+                    {% if mediafile.thumbnail %}
                         <img src="{{ mediafile.thumbnail.url }}" alt="{{ mediafile.name }}" class="img-thumbnail">
+                    {% else %}
+                        <div class="d-flex align-items-center justify-content-center rounded bg-body-secondary text-body-secondary" style="min-height: 12rem;" role="img" aria-label="Media file has no thumbnail">
+                            <i class="bi bi-image fs-1" aria-hidden="true"></i>
+                        </div>
+                    {% endif %}
 {#                    <div class="card">#}
 {#                        <div class="card-body">#}
 {#                        </div>#}
@@ -143,7 +149,13 @@
                                             href="{{ mediafiles_url }}"
                                             {% endif %}
                                     >
+                                        {% if mf.thumbnail %}
                                         <img src="{{ mf.thumbnail.url }}" class="d-block w-100 img-thumbnail" alt="{{ mf.name }}">
+                                        {% else %}
+                                        <div class="d-flex align-items-center justify-content-center rounded bg-body-secondary text-body-secondary" style="min-height: 12rem;" role="img" aria-label="Media file has no thumbnail">
+                                            <i class="bi bi-image fs-1" aria-hidden="true"></i>
+                                        </div>
+                                        {% endif %}
                                     </a>
                                     </div>
                                 {% endfor %}
