@@ -160,6 +160,13 @@
                                 <ul class="dropdown-menu">
                                     <li>
                                         <a class="dropdown-item"
+                                           href="{% url 'caidapp:observations' %}?identity={{ individual_identity.id }}">
+                                            <i class="bi bi-bounding-box"></i>
+                                            Observations
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item"
                                            href="{% url 'caidapp:sequences' %}?individual_identity_id={{ individual_identity.id }}">
                                             <i class="bi bi-collection"></i>
                                             Sequences

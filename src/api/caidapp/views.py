@@ -513,6 +513,13 @@ def update_taxon(request, taxon_id: Optional[int] = None):
             return redirect("caidapp:show_taxons")
     else:
         form = forms.TaxonForm(instance=taxon)
+    nav_dict = {}
+    if taxon_id is not None:
+        nav_dict = {
+            "Observations": f"{reverse('caidapp:observations')}?taxon={taxon.id}",
+            "Media Files": f"{reverse('caidapp:media_files')}?taxon={taxon.id}",
+            "Sequences": f"{reverse('caidapp:sequences')}?taxon={taxon.id}",
+        }
     return render(
         request,
         "caidapp/update_form.html",
@@ -520,6 +527,7 @@ def update_taxon(request, taxon_id: Optional[int] = None):
             "form": form,
             "headline": headline,
             "button": button_text,
+            "nav_dict": nav_dict,
         },
     )
 
@@ -1488,6 +1496,7 @@ class IndividualIdentityUpdateView(LoginRequiredMixin, UpdateView):
         context = super().get_context_data(**kwargs)
         individual_identity = self.get_object()
         mediafiles_count = individual_identity.count_of_mediafiles()
+        observations_count = AnimalObservation.objects.filter(identity=individual_identity).count()
         sequences_count = (
             individual_identity.observation_mediafiles().exclude(sequence_id__isnull=True).values("sequence_id").distinct().count()
         )
@@ -1499,6 +1508,9 @@ class IndividualIdentityUpdateView(LoginRequiredMixin, UpdateView):
 
         nav_dict = {}
         if individual_identity:
+            nav_dict[f"Observations ({observations_count})"] = (
+                f"{reverse('caidapp:observations')}?identity={individual_identity.id}"
+            )
             nav_dict[f"Media Files ({mediafiles_count})"] = reverse_lazy(
                 "caidapp:individual_identity_mediafiles",
                 kwargs={"individual_identity_id": individual_identity.id},
@@ -1520,6 +1532,7 @@ class IndividualIdentityUpdateView(LoginRequiredMixin, UpdateView):
                 # "mediafile": media_file,
                 "mediafiles": media_files[:4],
                 "mediafiles_count": mediafiles_count,
+                "observations_count": observations_count,
                 "sequences_count": sequences_count,
                 "mediafiles_url": reverse_lazy(
                     "caidapp:individual_identity_mediafiles",

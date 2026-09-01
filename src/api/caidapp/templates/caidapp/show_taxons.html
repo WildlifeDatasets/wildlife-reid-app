@@ -112,6 +112,13 @@
                                         <ul class="dropdown-menu">
                                             <li>
                                                 <a class="dropdown-item"
+                                                   href="{% url 'caidapp:observations' %}?taxon={{ taxon.id }}">
+                                                    <i class="bi bi-bounding-box"></i>
+                                                    Observations
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a class="dropdown-item"
                                                    href="{% url 'caidapp:sequences' %}?taxon={{ taxon.id }}">
                                                     <i class="bi bi-collection"></i>
                                                     Sequences

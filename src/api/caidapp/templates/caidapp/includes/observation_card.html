@@ -24,13 +24,13 @@
     {% elif observation.bbox_x_center is None %}
       <div class="mb-2"><span class="badge text-bg-secondary">No bbox</span></div>
     {% endif %}
-    <div class="observation-card-field fw-semibold"><i class="bi bi-tag" aria-hidden="true"></i><span>{% if observation.is_no_detection_placeholder %}No object detected{% else %}{{ observation.taxon|default:"No taxon" }}{% endif %}</span></div>
+    <div class="observation-card-field fw-semibold"><i class="bi bi-tag" aria-hidden="true"></i>{% if observation.is_no_detection_placeholder %}<span>No object detected</span>{% elif observation.taxon %}<a class="link-body-emphasis" href="{% url 'caidapp:observations' %}?taxon={{ observation.taxon_id }}" title="Show observations with this taxon">{{ observation.taxon }}</a>{% else %}<span>No taxon</span>{% endif %}</div>
     <div class="observation-card-field small">
       <i class="bi bi-fingerprint" aria-hidden="true"></i>
-      {% if observation.is_no_detection_placeholder %}<span class="text-muted">Awaiting confirmation</span>{% elif observation.identity %}<span>{{ observation.identity }}</span>{% else %}<span class="text-muted">No identity</span>{% endif %}
+      {% if observation.is_no_detection_placeholder %}<span class="text-muted">Awaiting confirmation</span>{% elif observation.identity %}<a class="link-secondary" href="{% url 'caidapp:observations' %}?identity={{ observation.identity_id }}" title="Show observations with this identity">{{ observation.identity }}</a>{% else %}<span class="text-muted">No identity</span>{% endif %}
     </div>
     <div class="observation-card-field small text-muted text-truncate" title="{{ observation.mediafile.original_filename }}"><i class="bi bi-image" aria-hidden="true"></i><span>{{ observation.mediafile.original_filename|default:observation.mediafile_id }}</span></div>
-    {% if observation.mediafile.locality %}<div class="observation-card-field small text-muted"><i class="bi bi-geo-alt" aria-hidden="true"></i><span>{% if request.session.private_mode %}{{ observation.mediafile.locality.visible_name }}{% else %}{{ observation.mediafile.locality.name }}{% endif %}</span></div>{% endif %}
+    {% if observation.mediafile.locality %}<div class="observation-card-field small text-muted"><i class="bi bi-geo-alt" aria-hidden="true"></i><a class="link-secondary" href="{% url 'caidapp:observations' %}?locality={{ observation.mediafile.locality_id }}" title="Show observations from this locality">{% if request.session.private_mode %}{{ observation.mediafile.locality.visible_name }}{% else %}{{ observation.mediafile.locality.name }}{% endif %}</a></div>{% endif %}
     {% if observation.mediafile.captured_at %}<div class="observation-card-field small text-muted"><i class="bi bi-calendar3" aria-hidden="true"></i><time datetime="{{ observation.mediafile.captured_at|date:'c' }}">{{ observation.mediafile.captured_at|date:'Y-m-d H:i' }}</time></div>{% endif %}
     <div class="mt-3 d-flex align-items-center gap-2">
       <a class="btn btn-sm btn-outline-primary" href="{% url 'caidapp:media_file_update' observation.mediafile_id %}?next={{ request.get_full_path|urlencode }}%23observation-{{ observation.id }}#observation-{{ observation.id }}"><i class="bi bi-pencil"></i> Edit</a>

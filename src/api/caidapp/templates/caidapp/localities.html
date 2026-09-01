@@ -150,6 +150,10 @@
                                     <a href="{% url 'caidapp:sequences' %}?locality_hash={{ locality.hash }}" class="link-secondary">
                                         <i class="bi bi-collection"></i> Sequences
                                     </a>
+                                    <br>
+                                    <a href="{% url 'caidapp:observations' %}?locality={{ locality.id }}" class="link-secondary">
+                                        <i class="bi bi-bounding-box"></i> Observations
+                                    </a>
 
                                 </p>
                             </div>

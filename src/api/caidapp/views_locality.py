@@ -132,6 +132,8 @@ def update_locality(request, locality_id=None):
             "button": "Save",
             "locality": locality,
             "delete_button_url": delete_button_url,
+            "observations_url": f"{reverse_lazy('caidapp:observations')}?locality={locality.id}" if locality_id is not None else None,
+            "sequences_url": f"{reverse_lazy('caidapp:sequences')}?locality_hash={locality.hash}" if locality_id is not None else None,
         },
     )
 

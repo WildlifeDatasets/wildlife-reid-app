@@ -1314,6 +1314,7 @@ class IdentityListBulkActionsTest(TestCase):
         response = self.client.get(reverse("caidapp:individual_identity_update", args=[identity.id]))
 
         self.assertEqual(response.status_code, 200)
+        self.assertContains(response, f'{reverse("caidapp:observations")}?identity={identity.id}')
         self.assertContains(response, "Sequences")
         self.assertContains(response, f'{reverse("caidapp:sequences")}?individual_identity_id={identity.id}')
 
@@ -2717,6 +2718,7 @@ class SequenceViewTest(TestCase):
         response = self.client.get(reverse("caidapp:show_taxons"))
 
         self.assertEqual(response.status_code, 200)
+        self.assertContains(response, f'{reverse("caidapp:observations")}?taxon={wolf.id}')
         self.assertContains(response, f'{reverse("caidapp:sequences")}?taxon={wolf.id}')
 
     def test_identity_locality_and_album_lists_link_to_sequences(self):
@@ -2734,6 +2736,7 @@ class SequenceViewTest(TestCase):
 
         response = self.client.get(reverse("caidapp:localities"))
         self.assertEqual(response.status_code, 200)
+        self.assertContains(response, f'{reverse("caidapp:observations")}?locality={locality.id}')
         self.assertContains(response, f'{reverse("caidapp:sequences")}?locality_hash={locality.hash}')
 
         response = self.client.get(reverse("caidapp:albums"))
@@ -3117,6 +3120,9 @@ class ObservationViewTest(TestCase):
         self.assertContains(response, "Lynx lynx")
         self.assertContains(response, "Lynx A")
         self.assertContains(response, "Forest locality")
+        self.assertContains(response, f'href="{reverse("caidapp:observations")}?taxon={taxon.id}"')
+        self.assertContains(response, f'href="{reverse("caidapp:observations")}?identity={identity.id}"')
+        self.assertContains(response, f'href="{reverse("caidapp:observations")}?locality={locality.id}"')
         self.assertContains(response, "2025-04-03 14:25")
         self.assertContains(response, 'id="observation-info-modal"')
         self.assertContains(response, f'id="observation-info-template-{observation.id}"')

@@ -33,6 +33,8 @@
                 <ol class="breadcrumb">
                     {% if locality.id %}
                     <li class="breadcrumb-item"><a href="{% url 'caidapp:media_files_locality' locality.hash %}"> {{ locality.mediafile_set.count }} Media Files</a></li>
+                    <li class="breadcrumb-item"><a href="{{ observations_url }}">Observations</a></li>
+                    <li class="breadcrumb-item"><a href="{{ sequences_url }}">Sequences</a></li>
                         {% endif %}
 {#                    <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li>#}
 {#                    <li class="breadcrumb-item"><a href="{% url 'caidapp:uploadedarchive_mediafiles' mediafile.parent.id %}"> Uploaded#}
@@ -86,6 +88,8 @@
                         <div class="card-body mt-4">
                             <ul class="list-group">
                                 <li class="list-group"><a class="link-secondary" href="{% url 'caidapp:media_files_locality' locality.hash %}">  Media Files: {{ locality.mediafile_set.count }} </a></li>
+                                <li class="list-group"><a class="link-secondary" href="{{ observations_url }}">Observations</a></li>
+                                <li class="list-group"><a class="link-secondary" href="{{ sequences_url }}">Sequences</a></li>
 
                             </ul>
                         {%  if locality.identities.count > 0 %}
