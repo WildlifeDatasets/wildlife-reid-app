@@ -77,6 +77,11 @@
                             <div class="card-body"
                             >
                                 <h5 class="card-title">{{ individual_identity }}</h5>
+                                {% if individual_identity.code %}
+                                    <p class="card-text text-body-secondary mb-2">
+                                        <strong>Code:</strong> {{ individual_identity.code }}
+                                    </p>
+                                {% endif %}
                                 {#                        <p>Status: {{ album.mediafiles.0.thumbnail.url }} </p>#}
                                 {#                        <p>Created At: {{ individual_identity.created_at|date:'Y-m-d H:i' }} </p>#}
 {#                                <div>#}

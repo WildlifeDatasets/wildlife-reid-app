@@ -366,6 +366,18 @@ class IdentityObservationAggregationTest(TestCase):
         self.assertEqual(alpha.cover_mediafile().id, newer_mediafile.id)
         self.assertEqual(alpha.last_seen.date().isoformat(), "2026-01-02")
 
+    def test_identity_card_displays_animal_code(self):
+        IndividualIdentityFactory(
+            owner_workgroup=self.caiduser.workgroup,
+            name="Alpha",
+            code="A-01",
+        )
+
+        response = self.client.get(reverse("caidapp:individual_identities"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "<strong>Code:</strong> A-01", html=True)
+
     def test_identity_list_sorts_by_mediafile_count(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)
         alpha = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Alpha")
