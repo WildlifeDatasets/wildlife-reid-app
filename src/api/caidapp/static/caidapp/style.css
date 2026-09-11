@@ -54,6 +54,39 @@
     background-size: cover;
 }
 
+.media-type-video-badge {
+    position: absolute;
+    right: .45rem;
+    bottom: .45rem;
+    z-index: 4;
+    display: inline-grid;
+    place-items: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 50%;
+    color: #fff;
+    background: rgba(0, 0, 0, .72);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, .65);
+    pointer-events: none;
+}
+
+.bbox-preview-frame .bbox-image-area,
+.observation-preview .observation-image-area {
+    transition: opacity .15s ease;
+}
+
+.bbox-preview-frame.is-motion-playing .bbox-image-area,
+.observation-preview.is-motion-playing .observation-image-area {
+    opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .bbox-preview-frame .bbox-image-area,
+    .observation-preview .observation-image-area {
+        transition: none;
+    }
+}
+
 .archive-card.has-bg {
     background-image:
         linear-gradient(

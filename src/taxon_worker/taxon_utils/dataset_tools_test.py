@@ -220,6 +220,29 @@ def test_data_preprocessing_with_user_directory_locality_mapping(tmp_path):
     assert set(metadata["location"]) == {"xandovice", "ypovice", "zareci"}
 
 
+def test_make_dataset_keeps_video_extension_when_converting_images(tmp_path, monkeypatch):
+    metadata = pd.DataFrame(
+        [
+            {"original_path": "photo.jpg", "media_type": "image"},
+            {"original_path": "clip.mp4", "media_type": "video"},
+        ]
+    )
+    monkeypatch.setattr(dataset_tools, "Parallel", lambda **kwargs: lambda jobs: None)
+
+    result = dataset_tools.make_dataset(
+        metadata,
+        dataset_name=None,
+        dataset_base_dir=tmp_path,
+        output_path=tmp_path / "output",
+        hash_filename=True,
+        mode="convert",
+        n_jobs=1,
+    )
+
+    assert Path(result.loc[0, "image_path"]).suffix == ".webp"
+    assert Path(result.loc[1, "image_path"]).suffix == ".mp4"
+
+
 def test_path_structure_identity_mapping_sets_unique_name():
     df = pd.DataFrame(
         {

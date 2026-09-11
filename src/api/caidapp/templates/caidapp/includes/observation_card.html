@@ -7,13 +7,14 @@
   <span class="observation-image-readonly" title="Bulk and sequence actions are unavailable for this shared media file"><i class="bi bi-slash-circle"></i></span>
   {% endif %}
   <a class="observation-preview" href="{% url 'caidapp:media_file_update' observation.mediafile_id %}?next={{ request.get_full_path|urlencode }}%23observation-{{ observation.id }}#observation-{{ observation.id }}">
-    {% if observation.mediafile.thumbnail %}
-      <img src="{{ observation.mediafile.thumbnail.url }}" alt="{{ observation.mediafile.original_filename|default:'Media file' }}">
+    {% if observation.mediafile.card_image %}
+      <img class="{% if observation.mediafile.motion_thumbnail %}js-motion-preview{% endif %}" src="{{ observation.mediafile.card_image.url }}"{% if observation.mediafile.motion_thumbnail %} data-motion-src="{{ observation.mediafile.motion_thumbnail.url }}"{% endif %} loading="lazy" alt="{{ observation.mediafile.original_filename|default:'Media file' }}">
       <span class="observation-image-area">
         {% if observation.bbox_x_center is not None %}
           <span class="observation-bbox" style="left:calc(({{ observation.bbox_x_center }} - {{ observation.bbox_width }}/2) * 100%);top:calc(({{ observation.bbox_y_center }} - {{ observation.bbox_height }}/2) * 100%);width:calc({{ observation.bbox_width }} * 100%);height:calc({{ observation.bbox_height }} * 100%);"></span>
         {% endif %}
       </span>
+      {% if observation.mediafile.media_type == 'video' %}<span class="media-type-video-badge" title="Video" aria-label="Video"><i class="bi bi-play-fill" aria-hidden="true"></i></span>{% endif %}
     {% else %}
       <span class="observation-preview-placeholder"><i class="bi bi-image"></i></span>
     {% endif %}

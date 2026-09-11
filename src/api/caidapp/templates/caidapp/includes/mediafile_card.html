@@ -1,8 +1,8 @@
 <div class="card sequence-mediafile-card {% if not mediafile.matches_current_filter %}sequence-nonmatching-mediafile{% endif %} {{ extra_card_class|default:'' }}" data-sequence-id="{{ sequence.id }}" data-matches-filter="{% if mediafile.matches_current_filter %}true{% else %}false{% endif %}">
     <div class="position-relative">
-        {% if mediafile.thumbnail %}
+        {% if mediafile.card_image %}
             <a class="bbox-preview-frame" href="{% url 'caidapp:media_file_update' mediafile.id %}?next={{ request.get_full_path|urlencode }}">
-                <img src="{{ mediafile.thumbnail.url }}" alt="Media file thumbnail">
+                <img class="{% if mediafile.motion_thumbnail %}js-motion-preview{% endif %}" src="{{ mediafile.card_image.url }}"{% if mediafile.motion_thumbnail %} data-motion-src="{{ mediafile.motion_thumbnail.url }}"{% endif %} loading="lazy" alt="Media file thumbnail">
                 <div class="bbox-image-area">
                     {% for obs in mediafile.observations.all %}
                         {% if obs.bbox_x_center %}
@@ -17,6 +17,7 @@
                         {% endif %}
                     {% endfor %}
                 </div>
+                {% if mediafile.media_type == 'video' %}<span class="media-type-video-badge" title="Video" aria-label="Video"><i class="bi bi-play-fill" aria-hidden="true"></i></span>{% endif %}
             </a>
         {% else %}
             <div class="sequence-mediafile-image-placeholder"></div>

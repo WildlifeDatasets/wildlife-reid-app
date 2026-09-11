@@ -137,7 +137,7 @@
             </div><!-- End Page Title -->
 
             <div class="section">
-                {% if foridentifications %}
+                {% if foridentification_count %}
                     <div class="section-title">
                         <h2> Unknown identity
                         </h2>
@@ -152,7 +152,7 @@
                                     class="link-secondary"> {{ foridentification.mediafile.parent }}</a>
                             </p>
                             <p>
-                                {{ foridentifications|length }} media files left to identify.
+                                {{ foridentification_count }} media files left to identify.
                             </p>
                         </div>
                         <div class="col-md-4">
@@ -208,8 +208,9 @@
                         <div class="col-md-3 me-5" id="unknown-card-{{ foridentification.mediafile.id }}">
 {#                            <div class="{{ col_style }} me-5" id="card{{ mediafile.id }}">#}
                             <div class="card">
-                                <img class="card-img-top"
-                                        src="{{  foridentification.mediafile.image_file.url }}"
+                                {% if foridentification.mediafile.card_image %}<img class="card-img-top"
+                                        src="{{ foridentification.mediafile.card_image.url }}"
+                                        loading="lazy"
 {#                                        {% if foridentification.mediafile.media_type == 'video' %}#}
 {#                                        src="{{  foridentification.mediafile.thumbnail.url }}"#}
 {#                                        alt="Camera trap GIF thumbnail image"#}
@@ -218,7 +219,7 @@
 {#                                        alt="Camera trap image"#}
 {#                                        {% endif %}#}
                                         alt="Camera trap image with unknown identity"
-                                >
+                                >{% endif %}
                                 <div class="card-body">
                                     <div class="card-title">
                                         Unknown
@@ -241,7 +242,7 @@
                                     </p>
 
                                     <p class="card-text">
-                                        {{ foridentifications|length }} media files left to identify.
+                                        {{ foridentification_count }} media files left to identify.
                                     </p>
 
                                 </div>

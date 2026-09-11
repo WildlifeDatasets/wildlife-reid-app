@@ -1744,6 +1744,23 @@ class MediaFile(models.Model):
             logger.debug(f"static_thumbnail Does not exist for {self.mediafile.name=}")
             return None
 
+    @property
+    def card_image(self):
+        """Return a small, static image suitable for cards and bbox overlays."""
+        candidates = [self.static_thumbnail]
+        if self.media_type == "image":
+            candidates.append(self.preview)
+        candidates.append(self.image_file)
+        candidates.append(self.thumbnail)
+        return next((candidate for candidate in candidates if candidate and candidate.name), None)
+
+    @property
+    def motion_thumbnail(self):
+        """Return the optional animated card preview for a video."""
+        if self.media_type == "video" and self.thumbnail and self.thumbnail.name:
+            return self.thumbnail
+        return None
+
     def is_preidentified(self):
         """Return True if mediafile is preidentified."""
         return MediafilesForIdentification.objects.filter(mediafile=self).exists()
@@ -1905,7 +1922,12 @@ class MediaFile(models.Model):
                 self.static_thumbnail = str(static_thumbnail_rel_pth)
                 self.save(update_fields=["static_thumbnail"])
             else:
-                fs_data.make_thumbnail_from_file(mediafile_path, static_thumbnail_abs_pth, width=thumbnail_width)
+                static_source_path = mediafile_path
+                if self.image_file and self.image_file.name:
+                    image_file_path = Path(settings.MEDIA_ROOT) / self.image_file.name
+                    if image_file_path.exists():
+                        static_source_path = image_file_path
+                fs_data.make_thumbnail_from_file(static_source_path, static_thumbnail_abs_pth, width=thumbnail_width)
                 self.static_thumbnail = str(static_thumbnail_rel_pth)
                 self.save(update_fields=["static_thumbnail"])
             # self.get_static_thumbnail(force=force)
@@ -1941,17 +1963,17 @@ class MediaFile(models.Model):
     @property
     def thumbnail_url(self):
         """Get thumbnail URL."""
-        return self.mediafile_variant_url("thumbnails")
+        return self.thumbnail.url if self.thumbnail and self.thumbnail.name else ""
 
     @property
     def static_thumbnail_url(self):
         """Get static thumbnail URL."""
-        return self.mediafile_variant_url("static_thumbnails")
+        return self.static_thumbnail.url if self.static_thumbnail and self.static_thumbnail.name else ""
 
     @property
     def preview_url(self):
         """Get preview URL."""
-        return self.mediafile_variant_url("previews")
+        return self.preview.url if self.preview and self.preview.name else ""
 
 
 class AnimalObservation(models.Model):

@@ -245,6 +245,20 @@ class MediafileListViewTest(TestCase):
         self.user = self.caiduser.user
         self.client.login(username=self.user.username, password="test123")
 
+    def test_card_image_prefers_static_variant_and_variant_urls_use_stored_fields(self):
+        mediafile = MediaFileFactory(
+            media_type="video",
+            static_thumbnail=SimpleUploadedFile("static.webp", b"static", content_type="image/webp"),
+            thumbnail=SimpleUploadedFile("motion.webp", b"motion", content_type="image/webp"),
+            preview=SimpleUploadedFile("playback.mp4", b"video", content_type="video/mp4"),
+        )
+
+        self.assertEqual(mediafile.card_image.name, mediafile.static_thumbnail.name)
+        self.assertEqual(mediafile.motion_thumbnail.name, mediafile.thumbnail.name)
+        self.assertEqual(mediafile.static_thumbnail_url, mediafile.static_thumbnail.url)
+        self.assertEqual(mediafile.thumbnail_url, mediafile.thumbnail.url)
+        self.assertEqual(mediafile.preview_url, mediafile.preview.url)
+
     def test_media_files_view_shows_each_file_separately(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)
         sequence = SequenceFactory(uploaded_archive=archive)
@@ -266,6 +280,24 @@ class MediafileListViewTest(TestCase):
         self.assertContains(response, second_mediafile.original_filename)
         self.assertNotContains(response, "toggle-sequence")
         self.assertNotContains(response, "data-sequence=")
+
+    def test_media_files_video_card_uses_static_image_and_lazy_motion_preview(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        mediafile = MediaFileFactory(
+            parent=archive,
+            media_type="video",
+            original_filename="clip.mp4",
+            static_thumbnail=SimpleUploadedFile("clip-static.webp", b"static", content_type="image/webp"),
+            thumbnail=SimpleUploadedFile("clip-motion.webp", b"motion", content_type="image/webp"),
+        )
+
+        response = self.client.get(reverse("caidapp:media_files"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, f'src="{mediafile.static_thumbnail.url}"')
+        self.assertContains(response, f'data-motion-src="{mediafile.thumbnail.url}"')
+        self.assertContains(response, "js-motion-preview")
+        self.assertContains(response, "media-type-video-badge")
 
     def test_bulk_identity_select_is_limited_to_workgroup_and_searchable(self):
         UploadedArchiveFactory(owner=self.caiduser)
@@ -1436,6 +1468,26 @@ class SequenceViewTest(TestCase):
         self.assertContains(response, "bbox-preview-frame")
         self.assertContains(response, "bbox-image-area")
         self.assertContains(response, "syncBboxPreviewFrame")
+
+    def test_video_cards_use_static_image_and_lazy_motion_preview(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        sequence = SequenceFactory(uploaded_archive=archive)
+        mediafile = MediaFileFactory(
+            parent=archive,
+            sequence=sequence,
+            media_type="video",
+            original_filename="clip.mp4",
+            static_thumbnail=SimpleUploadedFile("clip-static.webp", b"static", content_type="image/webp"),
+            thumbnail=SimpleUploadedFile("clip-motion.webp", b"motion", content_type="image/webp"),
+        )
+        AnimalObservationFactory(mediafile=mediafile, bbox_x_center=0.5, bbox_y_center=0.5)
+
+        response = self.client.get(reverse("caidapp:sequences"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, f'src="{mediafile.static_thumbnail.url}"')
+        self.assertContains(response, f'data-motion-src="{mediafile.thumbnail.url}"')
+        self.assertContains(response, "media-type-video-badge")
 
 
     def test_bulk_identity_post_rejects_identity_from_other_workgroup(self):
@@ -3032,6 +3084,7 @@ class ObservationViewTest(TestCase):
         self.assertContains(response, f'id="observation-{second.id}"')
         self.assertContains(response, "Sequence 22")
         self.assertContains(response, "observation-bbox")
+        self.assertContains(response, "syncObservationBboxFrame")
         self.assertContains(response, f"#observation-{first.id}")
         self.assertContains(response, "observation-group-collapsed")
         self.assertContains(response, "observation-group-collapsed-card")

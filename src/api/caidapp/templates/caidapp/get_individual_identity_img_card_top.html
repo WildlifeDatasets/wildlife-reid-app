@@ -49,11 +49,12 @@
 <div id="image-carousel-{{ id_prefix }}-{{ carousel_id }}" class="image-carousel">
 {% if representative_mediafiles %}
     {% for mediafile in representative_mediafiles %}
-        <img class="carousel-image {% if forloop.first %}active{% endif %}"
+        {% if mediafile.card_image %}<img class="carousel-image {% if forloop.first %}active{% endif %}"
 {#             src="{{ mediafile.thumbnail.url }}"#}
-             src="{{ mediafile.image_file.url }}"
+             src="{{ mediafile.card_image.url }}"
+             loading="lazy"
              alt="Representative media file {{ forloop.counter }}"
-        >
+        >{% endif %}
     {% endfor %}
 {% else %}
 <div class="ratio ratio-4x3 carousel-image active bg-light"></div>

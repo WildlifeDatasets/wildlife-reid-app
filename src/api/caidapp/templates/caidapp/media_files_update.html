@@ -395,14 +395,18 @@
                                     {% for hidden in mediafile.hidden_fields %}
                                         {{ hidden }}
                                     {% endfor %}
-                                    {% if mediafile.instance.thumbnail %}
+                                    {% if mediafile.instance.card_image %}
                                          <a
 {#                                                 href="{% url 'caidapp:media_file_update' mediafile.instance.id %}?next={{ request.get_full_path }}"#}
                                                  href="{% url 'caidapp:media_file_update' mediafile.instance.id %}?next={{ request.get_full_path|urlencode }}"
                                                  class="bbox-preview-frame"
 
                                          >
-                <img class="card-img-top" src="{{ mediafile.instance.thumbnail.url }}" alt="Camera trap">
+                <img class="card-img-top{% if mediafile.instance.motion_thumbnail %} js-motion-preview{% endif %}"
+                     src="{{ mediafile.instance.card_image.url }}"
+                     {% if mediafile.instance.motion_thumbnail %}data-motion-src="{{ mediafile.instance.motion_thumbnail.url }}"{% endif %}
+                     loading="lazy"
+                     alt="Media file thumbnail">
 
                 <div class="bbox-image-area">
                 {% for obs in mediafile.instance.observations.all %}
@@ -418,6 +422,7 @@
                     {% endif %}
                 {% endfor %}
                 </div>
+                {% if mediafile.instance.media_type == 'video' %}<span class="media-type-video-badge" title="Video" aria-label="Video"><i class="bi bi-play-fill" aria-hidden="true"></i></span>{% endif %}
         </a>
 
 

@@ -745,7 +745,12 @@ def make_dataset(
             lambda filename: os.path.join(dataset_name, filename)
         )
     if mode == "convert":
-        dataframe["image_path"] = dataframe["image_path"].apply(
+        image_rows = (
+            dataframe["media_type"].eq("image")
+            if "media_type" in dataframe
+            else pd.Series(True, index=dataframe.index)
+        )
+        dataframe.loc[image_rows, "image_path"] = dataframe.loc[image_rows, "image_path"].apply(
             lambda filename: str(Path(filename).with_suffix(".webp"))
         )
 

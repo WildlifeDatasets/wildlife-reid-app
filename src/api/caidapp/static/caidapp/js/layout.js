@@ -66,6 +66,44 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
     });
+
+    // Keep bbox-bearing cards static until the user explicitly explores a video.
+    // The animated WebP lives in a data attribute, so it is not downloaded up front.
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    let activeMotionImage = null;
+
+    function stopMotionPreview(image) {
+        if (!image || !image.dataset.staticSrc) {
+            return;
+        }
+        image.src = image.dataset.staticSrc;
+        image.closest('.bbox-preview-frame, .observation-preview')?.classList.remove('is-motion-playing');
+        if (activeMotionImage === image) {
+            activeMotionImage = null;
+        }
+    }
+
+    document.querySelectorAll('.js-motion-preview[data-motion-src]').forEach(image => {
+        const interactionTarget = image.closest('a') || image;
+        image.dataset.staticSrc = image.currentSrc || image.src;
+
+        const startMotionPreview = () => {
+            if (reduceMotion.matches) {
+                return;
+            }
+            if (activeMotionImage && activeMotionImage !== image) {
+                stopMotionPreview(activeMotionImage);
+            }
+            image.src = image.dataset.motionSrc;
+            image.closest('.bbox-preview-frame, .observation-preview')?.classList.add('is-motion-playing');
+            activeMotionImage = image;
+        };
+
+        interactionTarget.addEventListener('pointerenter', startMotionPreview);
+        interactionTarget.addEventListener('pointerleave', () => stopMotionPreview(image));
+        interactionTarget.addEventListener('focus', startMotionPreview);
+        interactionTarget.addEventListener('blur', () => stopMotionPreview(image));
+    });
 });
 
 // function toggleTheme() {

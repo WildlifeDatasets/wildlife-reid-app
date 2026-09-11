@@ -1933,17 +1933,9 @@ def get_individual_identity_from_foridentification(
 
         logger.debug(f"  2 {time.time() - t0=:.2f} [s]")
 
-        for identity in remaining_identities:
-            identity.representative_mediafiles = list(
-                identity.observation_mediafiles().order_by("captured_at", "id")[:3]
-            )
-
         logger.debug(f"  3 {time.time() - t0=:.2f} [s]")
         # for identity in identities:
         #     identity.representative_mediafiles = identity.mediafile_set.filter(identity_is_representative=True)
-
-        logger.debug(f"{len(remaining_identities)=}")
-        logger.debug(f"   {remaining_identities[:10]=}")
 
         # max_score for current foridentification
         current_max_score = foridentification.top_mediafiles.aggregate(max_score=Max("score"))["max_score"] or 0.0
@@ -1964,16 +1956,15 @@ def get_individual_identity_from_foridentification(
         return message_view(request, "No mediafiles for identification.")
 
     logger.debug(f"  5 {time.time() - t0=:.2f} [s]")
-    logger.debug(f"{remaining_identities[:5]}")
     return render(
         request,
         "caidapp/get_individual_identity.html",
         {
             "foridentification": foridentification,
-            "foridentifications": foridentifications,
             "remaining_identities": remaining_identities,
             "reid_suggestions": reid_suggestions,
             "next_foridentification": next_foridentification,
+            "foridentification_count": foridentifications.count(),
             # "related_identities": identity_ids,
         },
     )
@@ -1998,10 +1989,7 @@ def get_individual_identity_remaining_card_content(
     mediafile = foridentification_id.mediafile
     is_representative_dict = is_candidate_for_representative_mediafile(mediafile, identity)
 
-    identity.representative_mediafiles = identity.observation_mediafiles().filter(
-        observations__identity=identity,
-        observations__identity_is_representative=True,
-    )
+    identity.representative_mediafiles = get_best_representative_mediafiles(identity, max_count=3)
 
     html = render_to_string(
         "caidapp/get_individual_identity_remaining_card_content.html",
