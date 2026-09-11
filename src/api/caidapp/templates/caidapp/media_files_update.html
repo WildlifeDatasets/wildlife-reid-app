@@ -145,6 +145,12 @@
                     <a class="btn btn-sm btn-outline-secondary" href="{% url 'caidapp:uploadedarchive_detail' active_uploadedarchive.id %}">
                         <i class="bi bi-file-zip"></i> Upload: {{ active_uploadedarchive }}
                     </a>
+                    <a class="btn btn-sm btn-outline-secondary" href="{% url 'caidapp:observations' %}?uploadedarchive={{ active_uploadedarchive.id }}">
+                        <i class="bi bi-bounding-box"></i> Observations
+                    </a>
+                    <a class="btn btn-sm btn-outline-secondary" href="{% url 'caidapp:sequences' %}?uploadedarchive_id={{ active_uploadedarchive.id }}">
+                        <i class="bi bi-collection"></i> Sequences
+                    </a>
                 {% endif %}
                 {% if active_taxon %}
                     <a class="btn btn-sm btn-outline-secondary" href="{% url 'caidapp:media_files' %}?taxon={{ active_taxon.id }}">

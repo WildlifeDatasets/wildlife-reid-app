@@ -4213,6 +4213,7 @@ def observations(request: HttpRequest) -> HttpResponse:
         selection_actions = {
             "btnBulkProcessing_set_full_image_bbox",
             "btnBulkProcessing_remove_bbox",
+            "btnDeleteObservations",
             "btnCreateSequence",
             "btnDissolveSequences",
             "btnExtractFilenameMetadata",
@@ -4247,6 +4248,36 @@ def observations(request: HttpRequest) -> HttpResponse:
             changed_observation_count = len(selected_observation_ids)
             action_label = "Set full-image bbox on" if requested_selection_action.endswith("full_image_bbox") else "Removed bbox from"
             messages.success(request, f"{action_label} {changed_observation_count} observations.")
+            return redirect(request.get_full_path())
+
+        if requested_selection_action == "btnDeleteObservations":
+            updated_at = django.utils.timezone.now()
+            with transaction.atomic():
+                affected_mediafiles = list(
+                    MediaFile.objects.select_for_update().filter(id__in=selected_mediafile_ids)
+                )
+                deletable_observations = selected_observations.exclude(is_no_detection_placeholder=True)
+                deleted_count = deletable_observations.count()
+                skipped_placeholder_count = selected_observations.filter(is_no_detection_placeholder=True).count()
+                deletable_observations.delete()
+                for mediafile in affected_mediafiles:
+                    if not AnimalObservation.objects.filter(mediafile=mediafile).exists():
+                        AnimalObservation.objects.create(
+                            mediafile=mediafile,
+                            is_no_detection_placeholder=True,
+                            updated_by=request.user.caiduser,
+                            updated_at=updated_at,
+                        )
+                MediaFile.objects.filter(id__in=[mediafile.id for mediafile in affected_mediafiles]).update(
+                    updated_by=request.user.caiduser,
+                    updated_at=updated_at,
+                )
+            messages.success(request, f"Deleted {deleted_count} observations.")
+            if skipped_placeholder_count:
+                messages.info(
+                    request,
+                    f"Kept {skipped_placeholder_count} no-detection placeholders so their media files remain represented.",
+                )
             return redirect(request.get_full_path())
 
         if requested_selection_action in observation_field_actions:

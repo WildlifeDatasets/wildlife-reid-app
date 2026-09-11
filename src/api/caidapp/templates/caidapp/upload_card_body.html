@@ -92,6 +92,16 @@ Media Files with {{ uploadedarchive.taxon_for_identification }} /{% endif %}
     {#        <i class="bi bi-images"></i>#}
     {#        Media files: #}
 </div>
+{% if uploadedarchive.taxon_status != "C" and uploadedarchive.taxon_status != "TAIP" %}
+<div class="d-flex flex-wrap gap-2 small mt-1">
+    <a class="link-secondary" href="{% url 'caidapp:observations' %}?uploadedarchive={{ uploadedarchive.id }}">
+        <i class="bi bi-bounding-box"></i> Observations
+    </a>
+    <a class="link-secondary" href="{% url 'caidapp:sequences' %}?uploadedarchive_id={{ uploadedarchive.id }}">
+        <i class="bi bi-collection"></i> Sequences
+    </a>
+</div>
+{% endif %}
 
 {% if uploadedarchive.count_of_identities > 0 %}
     <div

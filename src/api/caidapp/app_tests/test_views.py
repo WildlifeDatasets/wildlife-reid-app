@@ -2651,6 +2651,8 @@ class SequenceViewTest(TestCase):
         self.assertContains(response, "Identity: Alpha")
         self.assertContains(response, "Locality: Forest Camp")
         self.assertContains(response, reverse("caidapp:uploadedarchive_detail", args=[archive.id]))
+        self.assertContains(response, f'{reverse("caidapp:observations")}?uploadedarchive={archive.id}')
+        self.assertContains(response, f'{reverse("caidapp:sequences")}?uploadedarchive_id={archive.id}')
         self.assertContains(response, reverse("caidapp:individual_identity_update", args=[identity.id]))
         self.assertContains(response, reverse("caidapp:update_locality", args=[locality.id]))
 
@@ -3446,6 +3448,42 @@ class ObservationViewTest(TestCase):
         observation.refresh_from_db()
         self.assertEqual(observation.bbox_x_center, 0.4)
 
+    def test_delete_selected_observations_deletes_only_exact_selection(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        mediafile = MediaFileFactory(parent=archive)
+        selected = AnimalObservationFactory(mediafile=mediafile, bbox_x_center=0.3)
+        sibling = AnimalObservationFactory(mediafile=mediafile, bbox_x_center=0.7)
+
+        response = self.client.post(
+            reverse("caidapp:observations"),
+            {
+                "selected_observation_ids": [str(selected.id)],
+                "btnDeleteObservations": "1",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(AnimalObservation.objects.filter(id=selected.id).exists())
+        self.assertTrue(AnimalObservation.objects.filter(id=sibling.id).exists())
+
+    def test_delete_last_observation_keeps_no_detection_placeholder(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        mediafile = MediaFileFactory(parent=archive)
+        selected = AnimalObservationFactory(mediafile=mediafile, bbox_x_center=0.3)
+
+        response = self.client.post(
+            reverse("caidapp:observations"),
+            {
+                "selected_observation_ids": [str(selected.id)],
+                "btnDeleteObservations": "1",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(AnimalObservation.objects.filter(id=selected.id).exists())
+        remaining = AnimalObservation.objects.get(mediafile=mediafile)
+        self.assertTrue(remaining.is_no_detection_placeholder)
+
     def test_observation_select_all_mutates_only_workgroup_images(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)
         editable_observation = AnimalObservationFactory(
@@ -4074,7 +4112,7 @@ class IdentificationUploadsViewTest(TestCase):
         self.assertContains(response, sent_archive.name)
         self.assertNotContains(response, direct_identification_archive.name)
 
-    def test_uploadedarchive_detail_links_to_sequences_and_mediafiles(self):
+    def test_uploadedarchive_detail_links_to_observations_sequences_and_mediafiles(self):
         TaxonFactory(name=models.TAXON_NOT_CLASSIFIED)
         archive = UploadedArchiveFactory(
             owner=self.caiduser,
@@ -4086,6 +4124,7 @@ class IdentificationUploadsViewTest(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, archive.name)
+        self.assertContains(response, f'{reverse("caidapp:observations")}?uploadedarchive={archive.id}')
         self.assertContains(response, f'{reverse("caidapp:sequences")}?uploadedarchive_id={archive.id}')
         self.assertContains(response, reverse("caidapp:uploadedarchive_mediafiles", args=[archive.id]))
         self.assertContains(response, "bi-three-dots")
