@@ -24,6 +24,18 @@
     <div class="card-body">
       <h5 class="card-title">Selection</h5>
       <p class="mb-1">{{ mediafile_count }} media files selected.</p>
+      {% if multiple_observation_mediafile_count %}
+      <div class="alert alert-warning mt-3 mb-2" role="alert">
+        <strong>
+          {% if multiple_observation_mediafile_count == 1 %}
+          1 media file contains multiple observations.
+          {% else %}
+          {{ multiple_observation_mediafile_count }} media files contain multiple observations.
+          {% endif %}
+        </strong>
+        If the pattern extracts observation metadata (taxon or identity), those values will be skipped for these media files because the target observation is ambiguous. Media-file metadata, such as locality or capture date, can still be applied.
+      </div>
+      {% endif %}
       {% if manual_count %}
       <p class="text-muted mb-0">{{ manual_count }} of them were manually updated and will be skipped unless enabled below.</p>
       {% endif %}

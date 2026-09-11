@@ -5050,6 +5050,11 @@ def apply_filename_metadata_to_mediafiles(request) -> HttpResponse:
     source_label = request.session.get("filename_metadata_source_label") or "Sequences"
     mediafiles = MediaFile.objects.for_user(caiduser).filter(id__in=mediafile_ids).select_related("updated_by", "parent")
     mediafile_count = mediafiles.count()
+    multiple_observation_mediafile_count = (
+        mediafiles.annotate(filename_metadata_observation_count=Count("observations"))
+        .filter(filename_metadata_observation_count__gt=1)
+        .count()
+    )
 
     if mediafile_count == 0:
         return message_view(
@@ -5138,6 +5143,7 @@ def apply_filename_metadata_to_mediafiles(request) -> HttpResponse:
         {
             "form": form,
             "mediafile_count": mediafile_count,
+            "multiple_observation_mediafile_count": multiple_observation_mediafile_count,
             "manual_count": mediafiles.exclude(updated_by__isnull=True).count(),
             "return_url": return_url,
             "source_label": source_label,

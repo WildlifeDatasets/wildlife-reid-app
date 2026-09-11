@@ -2905,6 +2905,29 @@ class SequenceViewTest(TestCase):
         self.assertIn("The following is a description of the individual path parts", prompt)
         self.assertContains(response, "Ask ChatGPT")
 
+    def test_filename_metadata_warns_about_mediafiles_with_multiple_observations(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        sequence = SequenceFactory(uploaded_archive=archive)
+        single_observation_mediafile = MediaFileFactory(parent=archive, sequence=sequence)
+        multiple_observation_mediafile = MediaFileFactory(parent=archive, sequence=sequence)
+        AnimalObservationFactory(mediafile=multiple_observation_mediafile)
+        AnimalObservationFactory(mediafile=multiple_observation_mediafile)
+        session = self.client.session
+        session["filename_metadata_mediafile_ids"] = [
+            single_observation_mediafile.id,
+            multiple_observation_mediafile.id,
+        ]
+        session["filename_metadata_return_url"] = reverse("caidapp:sequences")
+        session["filename_metadata_source_label"] = "Sequences"
+        session.save()
+
+        response = self.client.get(reverse("caidapp:apply_filename_metadata_to_mediafiles"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["multiple_observation_mediafile_count"], 1)
+        self.assertContains(response, "1 media file contains multiple observations")
+        self.assertContains(response, "those values will be skipped")
+
     def test_sequence_filename_metadata_skips_manually_updated_mediafiles_by_default(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)
         sequence = SequenceFactory(uploaded_archive=archive)
