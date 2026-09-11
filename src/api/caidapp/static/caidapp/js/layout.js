@@ -104,6 +104,60 @@ document.addEventListener('DOMContentLoaded', function() {
         interactionTarget.addEventListener('focus', startMotionPreview);
         interactionTarget.addEventListener('blur', () => stopMotionPreview(image));
     });
+
+    // Bounding boxes use coordinates relative to the original media file.  Card
+    // previews use object-fit: contain, which can leave empty space around a
+    // portrait or landscape image.  Keep the overlay's coordinate system on the
+    // rendered image area rather than on the whole 4:3 preview frame.
+    function syncContainedImageOverlay(frame) {
+        const image = frame.querySelector('img');
+        if (!image || !image.naturalWidth || !image.naturalHeight) {
+            return;
+        }
+
+        const frameWidth = frame.clientWidth;
+        const frameHeight = frame.clientHeight;
+        if (!frameWidth || !frameHeight) {
+            return;
+        }
+
+        const imageAspect = image.naturalWidth / image.naturalHeight;
+        const frameAspect = frameWidth / frameHeight;
+        const imageWidth = frameAspect > imageAspect ? frameHeight * imageAspect : frameWidth;
+        const imageHeight = frameAspect > imageAspect ? frameHeight : frameWidth / imageAspect;
+        const prefix = frame.classList.contains('observation-preview') ? '--observation-image' : '--bbox-image';
+
+        frame.style.setProperty(`${prefix}-left`, `${(frameWidth - imageWidth) / 2}px`);
+        frame.style.setProperty(`${prefix}-top`, `${(frameHeight - imageHeight) / 2}px`);
+        frame.style.setProperty(`${prefix}-width`, `${imageWidth}px`);
+        frame.style.setProperty(`${prefix}-height`, `${imageHeight}px`);
+    }
+
+    function syncContainedImageOverlays(root = document) {
+        root.querySelectorAll('.bbox-preview-frame, .observation-preview').forEach(frame => {
+            const image = frame.querySelector('img');
+            if (!image) {
+                return;
+            }
+            syncContainedImageOverlay(frame);
+            if (!image.dataset.overlayLoadListener) {
+                image.addEventListener('load', () => syncContainedImageOverlay(frame));
+                image.dataset.overlayLoadListener = 'true';
+            }
+        });
+    }
+
+    syncContainedImageOverlays();
+    window.addEventListener('resize', syncContainedImageOverlays);
+
+    if ('ResizeObserver' in window) {
+        const overlayResizeObserver = new ResizeObserver(entries => {
+            entries.forEach(entry => syncContainedImageOverlay(entry.target));
+        });
+        document.querySelectorAll('.bbox-preview-frame, .observation-preview').forEach(frame => {
+            overlayResizeObserver.observe(frame);
+        });
+    }
 });
 
 // function toggleTheme() {
