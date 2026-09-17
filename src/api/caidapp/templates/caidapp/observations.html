@@ -10,7 +10,21 @@
 .observation-card-field{display:flex;align-items:baseline;gap:.5rem;min-width:0;margin-bottom:.28rem}.observation-card-field>i{flex:0 0 1rem;width:1rem;text-align:center;color:var(--bs-secondary-color)}.observation-card-field>span,.observation-card-field>time{min-width:0}.observation-info-button{display:inline-flex;align-items:center;justify-content:center;padding:.25rem;font-size:1.1rem;text-decoration:none}.observation-info-button:hover,.observation-info-button:focus{color:var(--bs-primary)!important}.observation-info-details dt,.observation-info-details dd{padding-top:.25rem;padding-bottom:.25rem;margin-bottom:.25rem}.observation-info-details dd{user-select:text}.observation-info-tooltip .tooltip-inner{max-width:360px;text-align:left;white-space:pre-line}
 .observation-list-group-toggle{display:inline-flex;align-items:center;gap:.4rem;padding:.1rem .35rem;text-decoration:none}.observation-list-group-toggle i{transition:transform .16s ease}.observation-list-group-toggle[aria-expanded=true] i{transform:rotate(90deg)}
 .observation-list-table>tbody>.observation-list-group-shell>td{border:0!important}.observation-list-group-block{overflow:hidden;border:1px solid rgba(var(--bs-secondary-rgb),.35);border-radius:.65rem;background:var(--bs-body-bg)}.observation-list-group-summary{background:rgba(var(--bs-secondary-rgb),.09)}.observation-list-group-main{min-width:0}.observation-list-group-cover{display:block;flex:0 0 80px}.observation-list-group-cover-placeholder{display:flex;align-items:center;justify-content:center;color:var(--bs-secondary-color);font-size:1.4rem}.observation-list-group-details{padding:.35rem .5rem .5rem;background:rgba(var(--bs-secondary-rgb),.035)}.observation-list-detail-table td{border:0!important;background:transparent!important}.observation-list-detail-table tr:hover td{background:rgba(var(--bs-primary-rgb),.06)!important}
+.observation-list-group-details{will-change:height,opacity}@media (prefers-reduced-motion:reduce){.observation-list-group-details{transition:none!important}}
 .observation-groups-large{column-gap:.75rem;row-gap:1.5rem}.observation-groups-large .observation-group-member{flex-basis:calc(50% - 1.5rem);width:calc(50% - 1.5rem)}.observation-groups-large .observation-group-break{display:none}@media (max-width:1199.98px){.observation-groups-large .observation-group-member{flex-basis:calc(100% - .75rem);width:calc(100% - .75rem)}}
+.js-observation-media-preview{position:relative;overflow:hidden;background:var(--wrid-media-thumb-bg)}
+.observation-media-stage{position:absolute;overflow:hidden;pointer-events:none}
+.observation-media-stage>img{position:absolute;display:block;max-width:none;max-height:none}
+.observation-media-stage .observation-bbox{box-sizing:border-box}
+.observation-preview .observation-media-stage{left:var(--observation-image-left,0);top:var(--observation-image-top,0);width:var(--observation-image-width,100%);height:var(--observation-image-height,100%)}
+.observation-list-preview{display:inline-block;width:80px;height:60px;vertical-align:middle}
+.observation-list-preview .observation-media-stage{left:var(--observation-image-left,0);top:var(--observation-image-top,0);width:var(--observation-image-width,100%);height:var(--observation-image-height,100%)}
+.observation-list-preview .observation-bbox{border-width:2px}
+.observation-preview-crop-badge{position:absolute;z-index:3;bottom:.4rem;left:.4rem;display:none;align-items:center;gap:.25rem;padding:.18rem .36rem;border-radius:.3rem;background:rgba(33,37,41,.82);color:#fff;font-size:.7rem;line-height:1.1;pointer-events:none}
+.observation-preview-crop .observation-preview-crop-badge{display:inline-flex}
+.observation-preview-crop .observation-bbox{background:rgba(220,53,69,.05);box-shadow:0 0 0 999px rgba(0,0,0,.28),0 0 0 1px rgba(255,255,255,.8)}
+.observation-list-preview .observation-preview-crop-badge{bottom:.18rem;left:.18rem;padding:.14rem .22rem;font-size:.65rem}
+.observation-list-preview .observation-preview-crop-badge .observation-preview-crop-label{display:none}
 </style>
 {% endblock %}
 
@@ -70,6 +84,13 @@
             <a class="btn btn-sm {% if view_mode == 'list' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="{% querystring request.GET view='list' page=None %}" title="List view" aria-label="List view"{% if view_mode == 'list' %} aria-current="page"{% endif %}><i class="bi bi-list-ul" aria-hidden="true"></i></a>
           </div>
         </div>
+        <div>
+          <div class="observation-toolbar-label mb-1">Preview</div>
+          <div class="btn-group" role="group" aria-label="Observation preview">
+            <a class="btn btn-sm {% if preview_mode == 'full' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="{% querystring request.GET preview='full' page=None %}"{% if preview_mode == 'full' %} aria-current="page"{% endif %}>Full</a>
+            <a class="btn btn-sm {% if preview_mode == 'bbox' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="{% querystring request.GET preview='bbox' page=None %}" title="Show each bounding box with a small amount of surrounding media"{% if preview_mode == 'bbox' %} aria-current="page"{% endif %}><i class="bi bi-crop" aria-hidden="true"></i> BBox crop</a>
+          </div>
+        </div>
         <div class="dropdown">
           <div class="observation-toolbar-label mb-1">Group by</div>
           <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">{% if group_by == 'sequence' %}Sequence{% elif group_by == 'mediafile' %}Media file{% else %}None{% endif %}</button>
@@ -122,7 +143,7 @@
               <div class="observation-list-group-summary d-flex align-items-center gap-3 p-2" data-group-id="{{ group.id }}">
                 <input class="form-check-input js-observation-group-checkbox flex-shrink-0" type="checkbox" data-group-id="{{ group.id }}" aria-label="Select all editable observations in {{ group.label }}">
                 {% with cover_observation=group.observations.0 %}
-                  {% if cover_observation.mediafile.card_image %}<a class="observation-list-group-cover position-relative" href="{% url 'caidapp:media_file_update' cover_observation.mediafile_id %}?next={{ request.get_full_path|urlencode }}%23observation-{{ cover_observation.id }}#observation-{{ cover_observation.id }}"><img class="observation-list-thumb rounded {% if cover_observation.mediafile.motion_thumbnail %}js-motion-preview{% endif %}" src="{{ cover_observation.mediafile.card_image.url }}"{% if cover_observation.mediafile.motion_thumbnail %} data-motion-src="{{ cover_observation.mediafile.motion_thumbnail.url }}"{% endif %} loading="lazy" alt="Preview of first media file in {{ group.label }}">{% if cover_observation.mediafile.media_type == 'video' %}<span class="media-type-video-badge" title="Video" aria-label="Video"><i class="bi bi-play-fill" aria-hidden="true"></i></span>{% endif %}</a>{% else %}<span class="observation-list-thumb observation-list-group-cover observation-list-group-cover-placeholder rounded"><i class="bi bi-image" aria-hidden="true"></i></span>{% endif %}
+                  {% if cover_observation.mediafile.card_image %}<a class="observation-list-group-cover observation-list-preview js-observation-media-preview{% if preview_mode == 'bbox' and cover_observation.bbox_x_center is not None %} observation-preview-crop{% endif %}"{% if cover_observation.bbox_x_center is not None %} data-bbox-x="{{ cover_observation.bbox_x_center }}" data-bbox-y="{{ cover_observation.bbox_y_center }}" data-bbox-width="{{ cover_observation.bbox_width }}" data-bbox-height="{{ cover_observation.bbox_height }}"{% endif %}{% if preview_mode == 'bbox' and cover_observation.bbox_x_center is not None %} title="BBox crop: bounding box with surrounding media. Click to open the full media file."{% endif %} href="{% url 'caidapp:media_file_update' cover_observation.mediafile_id %}?next={{ request.get_full_path|urlencode }}%23observation-{{ cover_observation.id }}#observation-{{ cover_observation.id }}"><span class="observation-media-stage"><img class="{% if cover_observation.mediafile.motion_thumbnail and preview_mode != 'bbox' %}js-motion-preview{% endif %}" src="{{ cover_observation.mediafile.card_image.url }}"{% if cover_observation.mediafile.motion_thumbnail and preview_mode != 'bbox' %} data-motion-src="{{ cover_observation.mediafile.motion_thumbnail.url }}"{% endif %} loading="lazy" alt="Preview of first media file in {{ group.label }}">{% if cover_observation.bbox_x_center is not None %}<span class="observation-bbox"></span>{% endif %}</span>{% if preview_mode == 'bbox' and cover_observation.bbox_x_center is not None %}<span class="observation-preview-crop-badge"><i class="bi bi-crop" aria-hidden="true"></i><span class="observation-preview-crop-label">BBox crop</span></span>{% endif %}{% if cover_observation.mediafile.media_type == 'video' %}<span class="media-type-video-badge" title="Video" aria-label="Video"><i class="bi bi-play-fill" aria-hidden="true"></i></span>{% endif %}</a>{% else %}<span class="observation-list-thumb observation-list-group-cover observation-list-group-cover-placeholder rounded"><i class="bi bi-image" aria-hidden="true"></i></span>{% endif %}
                 {% endwith %}
                 <div class="observation-list-group-main flex-grow-1">
                   <div class="d-flex flex-wrap align-items-center gap-2">
@@ -139,7 +160,7 @@
               <div id="observation-list-group-details-{{ group.id }}" class="observation-list-group-details" data-group-id="{{ group.id }}" hidden>
                 <div class="table-responsive">
                   <table class="table table-sm align-middle mb-0 observation-list-detail-table"><tbody>
-                    {% for observation in group.observations %}{% include 'caidapp/includes/observation_list_row.html' with observation=observation group_id=group.id request=request only %}{% endfor %}
+                    {% for observation in group.observations %}{% include 'caidapp/includes/observation_list_row.html' with observation=observation group_id=group.id request=request preview_mode=preview_mode only %}{% endfor %}
                   </tbody></table>
                 </div>
               </div>
@@ -147,7 +168,7 @@
           </td>
         </tr>
         {% else %}
-          {% for observation in group.observations %}{% include 'caidapp/includes/observation_list_row.html' with observation=observation group_id=group.id request=request only %}{% endfor %}
+          {% for observation in group.observations %}{% include 'caidapp/includes/observation_list_row.html' with observation=observation group_id=group.id request=request preview_mode=preview_mode only %}{% endfor %}
         {% endif %}
       {% empty %}
         <tr><td colspan="8"><div class="alert alert-secondary mb-0">No observations matched the current filter.</div></td></tr>
@@ -161,7 +182,7 @@
         <section id="observation-group-{{ group.id }}" class="observation-group {% if group.observations|length > 1 and group.is_collapsible %}observation-group-collapsed{% else %}observation-group-expanded{% endif %}" data-group-id="{{ group.id }}">
             {% for observation in group.observations %}
             <div class="observation-group-member {% if forloop.first %}observation-group-lead{% if group.observations|length > 1 and group.is_collapsible %} observation-group-collapsed-card{% endif %}{% else %}observation-group-extra{% if group.observations|length > 1 and group.is_collapsible %}{% else %} observation-group-expanded-visible{% endif %}{% endif %} {% if forloop.last %}observation-group-end-card{% endif %}" data-group-id="{{ group.id }}">
-              {% include 'caidapp/includes/observation_card.html' with observation=observation request=request group_id=group.id only %}
+              {% include 'caidapp/includes/observation_card.html' with observation=observation request=request group_id=group.id preview_mode=preview_mode only %}
               {% if forloop.first and group.observations|length > 1 and group.is_collapsible %}
               <div class="observation-group-controls">
                 <button type="button" class="observation-group-toggle js-toggle-observation-group" data-group-id="{{ group.id }}" aria-expanded="false" aria-controls="observation-group-{{ group.id }}" aria-label="Expand {{ group.observations|length }} observations grouped by {{ group.label }}" title="{{ group.observations|length }} observations grouped by {{ group.label }} · {{ group.mediafile_count }} media file{{ group.mediafile_count|pluralize }} on this page">{% if group_by == 'sequence' %}<i class="bi bi-collection"></i>{% else %}<i class="bi bi-image"></i>{% endif %}<span>{{ group.observations|length }}</span></button>
@@ -202,34 +223,90 @@ document.addEventListener("DOMContentLoaded", function() {
   const observationInfoModal = observationInfoModalElement && window.bootstrap ? bootstrap.Modal.getOrCreateInstance(observationInfoModalElement) : null;
   const observationInfoModalTitle = document.getElementById("observation-info-modal-title");
   const observationInfoModalBody = document.getElementById("observation-info-modal-body");
-  function syncObservationBboxFrame(frame) {
-    const image = frame.querySelector("img");
-    if (!image || !image.naturalWidth || !image.naturalHeight) return;
+  function observationBbox(frame) {
+    const x = Number.parseFloat(frame.dataset.bboxX);
+    const y = Number.parseFloat(frame.dataset.bboxY);
+    const width = Number.parseFloat(frame.dataset.bboxWidth);
+    const height = Number.parseFloat(frame.dataset.bboxHeight);
+    if (![x, y, width, height].every(Number.isFinite) || width <= 0 || height <= 0) return null;
+    if (x + width / 2 <= 0 || x - width / 2 >= 1 || y + height / 2 <= 0 || y - height / 2 >= 1) return null;
+    return {x: x, y: y, width: width, height: height};
+  }
+  function syncObservationMediaPreview(frame) {
+    const stage = frame.querySelector(".observation-media-stage");
+    const image = stage && stage.querySelector("img");
+    if (!stage || !image || !image.naturalWidth || !image.naturalHeight) return;
     const frameWidth = frame.clientWidth;
     const frameHeight = frame.clientHeight;
     if (!frameWidth || !frameHeight) return;
-    const imageAspect = image.naturalWidth / image.naturalHeight;
+
+    const bbox = observationBbox(frame);
+    if (frame.classList.contains("observation-preview-crop") && !bbox) {
+      frame.classList.remove("observation-preview-crop");
+      const cropBadge = frame.querySelector(".observation-preview-crop-badge");
+      if (cropBadge) cropBadge.remove();
+      const invalidBboxElement = stage.querySelector(".observation-bbox");
+      if (invalidBboxElement) invalidBboxElement.remove();
+      if ((frame.getAttribute("title") || "").startsWith("BBox crop:")) frame.removeAttribute("title");
+    }
+    const useCrop = frame.classList.contains("observation-preview-crop") && bbox;
+    let cropLeft = 0;
+    let cropTop = 0;
+    let cropWidth = 1;
+    let cropHeight = 1;
+    if (useCrop) {
+      // Keep four percentage points of the original media on every available side.
+      cropLeft = Math.max(0, bbox.x - bbox.width / 2 - .04);
+      cropTop = Math.max(0, bbox.y - bbox.height / 2 - .04);
+      const cropRight = Math.min(1, bbox.x + bbox.width / 2 + .04);
+      const cropBottom = Math.min(1, bbox.y + bbox.height / 2 + .04);
+      cropWidth = cropRight - cropLeft;
+      cropHeight = cropBottom - cropTop;
+      if (cropWidth <= 0 || cropHeight <= 0) return;
+    }
+
+    const cropAspect = (image.naturalWidth * cropWidth) / (image.naturalHeight * cropHeight);
     const frameAspect = frameWidth / frameHeight;
-    const imageWidth = frameAspect > imageAspect ? frameHeight * imageAspect : frameWidth;
-    const imageHeight = frameAspect > imageAspect ? frameHeight : frameWidth / imageAspect;
-    frame.style.setProperty("--observation-image-left", `${(frameWidth - imageWidth) / 2}px`);
-    frame.style.setProperty("--observation-image-top", `${(frameHeight - imageHeight) / 2}px`);
-    frame.style.setProperty("--observation-image-width", `${imageWidth}px`);
-    frame.style.setProperty("--observation-image-height", `${imageHeight}px`);
+    const stageWidth = frameAspect > cropAspect ? frameHeight * cropAspect : frameWidth;
+    const stageHeight = frameAspect > cropAspect ? frameHeight : frameWidth / cropAspect;
+    stage.style.left = `${(frameWidth - stageWidth) / 2}px`;
+    stage.style.top = `${(frameHeight - stageHeight) / 2}px`;
+    stage.style.width = `${stageWidth}px`;
+    stage.style.height = `${stageHeight}px`;
+    image.style.width = `${stageWidth / cropWidth}px`;
+    image.style.height = `${stageHeight / cropHeight}px`;
+    image.style.left = `${-cropLeft * stageWidth / cropWidth}px`;
+    image.style.top = `${-cropTop * stageHeight / cropHeight}px`;
+
+    const bboxElement = stage.querySelector(".observation-bbox");
+    if (bboxElement && bbox) {
+      bboxElement.style.left = `${(bbox.x - bbox.width / 2 - cropLeft) / cropWidth * 100}%`;
+      bboxElement.style.top = `${(bbox.y - bbox.height / 2 - cropTop) / cropHeight * 100}%`;
+      bboxElement.style.width = `${bbox.width / cropWidth * 100}%`;
+      bboxElement.style.height = `${bbox.height / cropHeight * 100}%`;
+    }
   }
-  function syncObservationBboxFrames() {
-    document.querySelectorAll(".observation-preview").forEach(function(frame) {
-      const image = frame.querySelector("img");
+  function syncObservationMediaPreviews() {
+    document.querySelectorAll(".js-observation-media-preview").forEach(function(frame) {
+      const image = frame.querySelector(".observation-media-stage img");
       if (!image) return;
-      if (image.complete) {
-        syncObservationBboxFrame(frame);
-      } else {
-        image.addEventListener("load", function() { syncObservationBboxFrame(frame); }, {once: true});
+      if (image.complete) syncObservationMediaPreview(frame);
+      if (!image.dataset.observationPreviewLoadListener) {
+        image.addEventListener("load", function() { syncObservationMediaPreview(frame); });
+        image.dataset.observationPreviewLoadListener = "true";
       }
     });
   }
-  syncObservationBboxFrames();
-  window.addEventListener("resize", syncObservationBboxFrames);
+  syncObservationMediaPreviews();
+  if (window.ResizeObserver) {
+    const observationPreviewResizeObserver = new ResizeObserver(function(entries) {
+      entries.forEach(function(entry) { syncObservationMediaPreview(entry.target); });
+    });
+    document.querySelectorAll(".js-observation-media-preview").forEach(function(frame) {
+      observationPreviewResizeObserver.observe(frame);
+    });
+  }
+  window.addEventListener("resize", syncObservationMediaPreviews);
   document.querySelectorAll('[data-bs-toggle-tooltip="true"]').forEach(function(element) {
     if (window.bootstrap && window.bootstrap.Tooltip) {
       new bootstrap.Tooltip(element, {customClass: "observation-info-tooltip", placement: "top"});
@@ -348,6 +425,7 @@ document.addEventListener("DOMContentLoaded", function() {
       button.setAttribute("aria-expanded", expanded ? "true" : "false");
     });
     updateObservationGroupCheckbox(groupId);
+    if (expanded) requestAnimationFrame(syncObservationMediaPreviews);
   }
   function setGroupExpanded(groupId, expanded, animate) {
     if (animate === undefined) animate = true;
@@ -363,15 +441,56 @@ document.addEventListener("DOMContentLoaded", function() {
       setGroupExpanded(button.dataset.groupId, button.getAttribute("aria-expanded") !== "true");
     });
   });
-  function setObservationListGroupExpanded(groupId, expanded) {
+  function setObservationListGroupExpanded(groupId, expanded, animate) {
+    if (animate === undefined) animate = true;
+    const reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     document.querySelectorAll(`.observation-list-group-details[data-group-id="${groupId}"]`).forEach(function(details) {
-      details.hidden = !expanded;
+      const animationToken = String((Number(details.dataset.animationToken || "0") + 1));
+      details.dataset.animationToken = animationToken;
+      const finishAnimation = function() {
+        if (details.dataset.animationToken !== animationToken) return;
+        details.style.height = "";
+        details.style.opacity = "";
+        details.style.overflow = "";
+        details.style.transition = "";
+        if (!expanded) details.hidden = true;
+      };
+      if (!animate || reduceMotion) {
+        details.hidden = !expanded;
+        finishAnimation();
+        return;
+      }
+      if (expanded) {
+        details.hidden = false;
+        details.style.height = "0px";
+        details.style.opacity = "0";
+        details.style.overflow = "hidden";
+        const targetHeight = details.scrollHeight;
+        requestAnimationFrame(function() {
+          if (details.dataset.animationToken !== animationToken) return;
+          details.style.transition = "height .22s ease, opacity .18s ease";
+          details.style.height = `${targetHeight}px`;
+          details.style.opacity = "1";
+        });
+      } else {
+        details.style.height = `${details.getBoundingClientRect().height}px`;
+        details.style.opacity = "1";
+        details.style.overflow = "hidden";
+        requestAnimationFrame(function() {
+          if (details.dataset.animationToken !== animationToken) return;
+          details.style.transition = "height .2s ease, opacity .16s ease";
+          details.style.height = "0px";
+          details.style.opacity = "0";
+        });
+      }
+      window.setTimeout(finishAnimation, 260);
     });
     document.querySelectorAll(`.js-toggle-observation-list-group[data-group-id="${groupId}"]`).forEach(function(toggle) {
       toggle.setAttribute("aria-expanded", expanded ? "true" : "false");
       toggle.title = `${expanded ? "Collapse" : "Expand"} grouped observations`;
     });
     updateObservationGroupCheckbox(groupId);
+    if (expanded) requestAnimationFrame(syncObservationMediaPreviews);
   }
   document.querySelectorAll(".js-toggle-observation-list-group").forEach(function(button) {
     button.addEventListener("click", function() {
