@@ -4133,6 +4133,9 @@ def observations(request: HttpRequest) -> HttpResponse:
     view_mode = request.GET.get("view", "cards")
     if view_mode not in {"cards", "large_cards", "list"}:
         view_mode = "cards"
+    preview_mode = request.GET.get("preview", "full")
+    if preview_mode not in {"full", "bbox"}:
+        preview_mode = "full"
     sort_by = request.GET.get("sort", "captured_asc")
     if sort_by not in {
         "captured_desc",
@@ -4500,6 +4503,7 @@ def observations(request: HttpRequest) -> HttpResponse:
         "sort_by": sort_by,
         "grouping_disabled_for_sort": grouping_disabled_for_sort,
         "view_mode": view_mode,
+        "preview_mode": preview_mode,
         "records_per_page": records_per_page,
         "observation_per_page_options": OBSERVATION_PER_PAGE_OPTIONS,
         "number_of_observations": observation_queryset.count(),

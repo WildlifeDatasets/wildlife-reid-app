@@ -3109,7 +3109,7 @@ class ObservationViewTest(TestCase):
         self.assertContains(response, f'id="observation-{second.id}"')
         self.assertContains(response, "Sequence 22")
         self.assertContains(response, "observation-bbox")
-        self.assertContains(response, "syncObservationBboxFrame")
+        self.assertContains(response, "syncObservationMediaPreview")
         self.assertContains(response, f"#observation-{first.id}")
         self.assertContains(response, "observation-group-collapsed")
         self.assertContains(response, "observation-group-collapsed-card")
@@ -3184,6 +3184,46 @@ class ObservationViewTest(TestCase):
         self.assertContains(response, '<i class="bi bi-grid-3x3-gap" aria-hidden="true"></i>')
         self.assertContains(response, '<i class="bi bi-grid" aria-hidden="true"></i>')
         self.assertContains(response, '<i class="bi bi-list-ul" aria-hidden="true"></i>')
+
+    def test_observations_bbox_preview_mode_is_validated(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        observation = AnimalObservationFactory(
+            mediafile=MediaFileFactory(parent=archive),
+            bbox_x_center=0.4,
+            bbox_y_center=0.5,
+            bbox_width=0.2,
+            bbox_height=0.3,
+        )
+
+        bbox_response = self.client.get(reverse("caidapp:observations"), {"preview": "bbox"})
+        invalid_response = self.client.get(reverse("caidapp:observations"), {"preview": "unknown"})
+
+        self.assertEqual(bbox_response.status_code, 200)
+        self.assertEqual(bbox_response.context["preview_mode"], "bbox")
+        self.assertContains(bbox_response, "BBox zoom")
+        self.assertContains(bbox_response, "observation-preview-crop")
+        self.assertContains(bbox_response, f'data-bbox-x="{observation.bbox_x_center}"')
+        self.assertContains(bbox_response, "Keep four percentage points of the original media")
+        self.assertContains(bbox_response, "new ResizeObserver")
+        self.assertEqual(invalid_response.status_code, 200)
+        self.assertEqual(invalid_response.context["preview_mode"], "full")
+        self.assertNotContains(invalid_response, '<span class="observation-preview-crop-badge"')
+
+    def test_observations_bbox_preview_falls_back_for_incomplete_bbox(self):
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        AnimalObservationFactory(
+            mediafile=MediaFileFactory(parent=archive),
+            bbox_x_center=0.4,
+            bbox_y_center=None,
+            bbox_width=None,
+            bbox_height=None,
+        )
+
+        response = self.client.get(reverse("caidapp:observations"), {"preview": "bbox"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'class="observation-preview js-observation-media-preview observation-preview-crop"')
+        self.assertContains(response, 'if (frame.classList.contains("observation-preview-crop") && !bbox)')
 
     def test_observation_card_shows_icon_fields_and_copyable_details_modal(self):
         locality = LocalityFactory(owner=self.caiduser, name="Forest locality")
@@ -3334,6 +3374,8 @@ class ObservationViewTest(TestCase):
         self.assertContains(response, "observation-list-detail-table td{border:0!important")
         self.assertContains(response, "setObservationListGroupExpanded")
         self.assertContains(response, 'details.hidden = !expanded')
+        self.assertContains(response, 'height .22s ease, opacity .18s ease')
+        self.assertContains(response, 'details.dataset.animationToken')
         self.assertContains(response, "js-expand-all-observation-groups")
         self.assertContains(response, "js-collapse-all-observation-groups")
         self.assertContains(response, "Merge containing media files into new sequence")
