@@ -114,7 +114,6 @@
 
                 <div>
                     <h1>{{ headline }}</h1>
-                    {% include 'caidapp/includes/comparison_button.html' with kind='mediafile' source_id=mediafile.id label=mediafile.original_filename %}
                     <nav>
                         <ol class="breadcrumb">
                             {% if mediafile.parent.contains_single_taxon %}
@@ -140,6 +139,7 @@
                         </a>
 
                         <ul class="dropdown-menu">
+                            {% include 'caidapp/includes/comparison_menu_item.html' with kind='mediafile' source_id=mediafile.id label=mediafile.original_filename %}
                             {% if mediafile.is_preidentified %}
                                 <li>
                                     <a class="dropdown-item"
@@ -304,7 +304,6 @@
                                                             {#                                                            {{ obs_form.as_p }}#}
 
                                                             {{ obs_form.id }}
-                                                            {% if obs_form.instance.pk %}{% include 'caidapp/includes/comparison_button.html' with kind='observation' source_id=obs_form.instance.pk label=mediafile.original_filename %}{% endif %}
                                                             {% if mediafile.is_for_suggestion  and forloop.counter == 1 %}
                                                                 {#                                                            {% if mediafile.is_for_suggestion  %}#}
                                                                 <div>
@@ -343,6 +342,7 @@
                                                                     </a>
 
                                                                     <ul class="dropdown-menu">
+                                                                        {% include 'caidapp/includes/comparison_menu_item.html' with kind='observation' source_id=obs_form.instance.pk label=mediafile.original_filename %}
                                                                         {% if request.user.is_staff %}
 
                                                                             <li>
