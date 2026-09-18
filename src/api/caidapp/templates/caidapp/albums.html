@@ -37,6 +37,7 @@
                     <div class="card-body"
                     >
                         <h5 class="card-title">{{ album }}</h5>
+                        {% include 'caidapp/includes/comparison_button.html' with kind='album' source_id=album.hash label=album.name %}
                         {#                        <p>Status: {{ album.mediafiles.0.thumbnail.url }} </p>#}
                         <p>Created At: {{ album.created_at|date:'Y-m-d H:i' }} </p>
                         <p>{{ album.description }} </p>

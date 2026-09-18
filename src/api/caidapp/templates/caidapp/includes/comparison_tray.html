@@ -1,0 +1,27 @@
+{% load static %}
+<link rel="stylesheet" href="{% static 'caidapp/css/comparison_tray.css' %}">
+<aside id="comparison-tray" class="comparison-tray" hidden aria-label="Comparison selection" data-storage-key="wrid-comparison-v1-{{ user.pk }}-{{ user.caiduser.workgroup_id|default:'none' }}" data-url="{% url 'caidapp:comparison' %}" data-source-url="{% url 'caidapp:comparison_source' %}">
+  <div class="comparison-tray-content">
+    <strong id="comparison-tray-title">Comparison</strong>
+    {% for slot in 'ab' %}
+    <div class="comparison-tray-slot" data-slot="{{ slot }}">
+      <strong>{{ slot|upper }}</strong><img alt="" hidden width="48" height="36"><span class="comparison-tray-label">Empty</span>
+      <button type="button" class="btn btn-sm btn-outline-secondary" data-comparison-remove="{{ slot }}" aria-label="Remove {{ slot|upper }}">×</button>
+    </div>
+    {% endfor %}
+    <a class="btn btn-primary" id="comparison-tray-open" aria-disabled="true">Compare</a>
+    <button type="button" class="btn btn-sm btn-outline-secondary" id="comparison-tray-clear">Clear</button>
+    <span class="small" id="comparison-tray-status" role="status" aria-live="polite"></span>
+  </div>
+</aside>
+<dialog id="comparison-replace-dialog" aria-labelledby="comparison-replace-title">
+  <h2 id="comparison-replace-title" class="h5">Add to comparison</h2>
+  <p id="comparison-replace-label"></p>
+  <p>Both sides are occupied. Choose which item to replace.</p>
+  <div class="d-flex flex-wrap gap-2">
+    <button type="button" class="btn btn-outline-primary" data-comparison-replace="a"></button>
+    <button type="button" class="btn btn-outline-primary" data-comparison-replace="b"></button>
+    <button type="button" class="btn btn-outline-secondary" id="comparison-replace-cancel">Cancel</button>
+  </div>
+</dialog>
+<script src="{% static 'caidapp/js/comparison_tray.js' %}"></script>

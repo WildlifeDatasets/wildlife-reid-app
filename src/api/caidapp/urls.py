@@ -3,7 +3,7 @@ from django.urls import include, path
 # from rest_framework import routers
 from django.views.generic import DetailView
 
-from . import models, views, views_admin, views_general, views_locality, views_mediafile, views_uploads
+from . import models, views, views_admin, views_comparison, views_general, views_locality, views_mediafile, views_uploads
 
 
 def trigger_error(request):
@@ -18,6 +18,9 @@ def trigger_error(request):
 
 app_name = "caidapp"
 urlpatterns = [
+    path("comparison/", views_comparison.comparison, name="comparison"),
+    path("comparison/source/", views_comparison.comparison_source, name="comparison_source"),
+    path("comparison/search/", views_comparison.comparison_search, name="comparison_search"),
     path("", views.login, name="index"),
     path("djangologin/", views.MyLoginView.as_view(), name="djangologin"),
     path("logout/", views.logout_view, name="logout_view"),

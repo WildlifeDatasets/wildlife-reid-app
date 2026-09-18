@@ -36,6 +36,7 @@
 </div>
 <section class="section">
   {% include 'caidapp/filter_collapse.html' %}
+  <div id="comparison-selection-message" class="small text-body-secondary" role="status"></div>
   <form method="post" id="observation-workbench-form" data-filtered-observation-count="{{ number_of_editable_observations }}" data-filtered-mediafile-count="{{ number_of_editable_observation_mediafiles }}" data-filtered-sequence-count="{{ number_of_editable_observation_sequences }}" data-filtered-sequence-direct-mediafile-count="{{ number_of_editable_observation_sequence_mediafiles }}" data-filtered-sequence-mediafile-count="{{ number_of_mediafiles_in_editable_observation_sequences }}">
     {% csrf_token %}
     <input class="d-none" type="checkbox" name="select_all_filtered" id="observation-select-all-filtered" data-total="{{ number_of_editable_observations }}">
@@ -47,8 +48,11 @@
           <input class="form-check-input m-0 js-select-observation-page-checkbox" type="checkbox" id="observation-select-page" aria-label="Select all editable observations on this page">
         </label>
         <div class="dropdown">
-          <button class="btn btn-sm btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" data-bs-toggle-tooltip="true" title="Observation actions affect exactly the selected observations. Media-file and sequence actions use the containing media files or sequences."><i class="bi bi-lightning"></i> Actions</button>
-          <ul class="dropdown-menu dropdown-menu-start">
+          <button id="observation-actions-toggle" class="btn btn-sm btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" data-bs-toggle-tooltip="true" title="Observation actions affect exactly the selected observations. Media-file and sequence actions use the containing media files or sequences."><i class="bi bi-lightning"></i> Actions</button>
+          <ul id="observation-actions-menu" class="dropdown-menu dropdown-menu-start">
+            <li><h6 class="dropdown-header">Comparison</h6></li>
+            <li><button class="dropdown-item" type="button" id="comparison-selected-observations" disabled aria-describedby="comparison-selection-message"><i class="bi bi-layout-split"></i> Compare 2 selected observations</button></li>
+            <li><hr class="dropdown-divider"></li>
             <li><h6 class="dropdown-header">Edit observations</h6></li>
             <li><button class="dropdown-item" type="button" data-bs-toggle="collapse" data-bs-target="#observation-bulk-fields" data-bs-toggle-tooltip="true" aria-expanded="false" aria-controls="observation-bulk-fields" title="Edit taxon, identity, verification, or representative status on the exact selected observations."><i class="bi bi-tags"></i> Edit metadata…</button></li>
             <li><button class="dropdown-item js-observation-requires-selection" name="btnBulkProcessing_set_full_image_bbox" type="submit" data-action-scope="observations" data-confirm-always="true" data-bs-toggle-tooltip="true" title="Changes only the selected observations; sibling observations in the same media file are not changed."><i class="bi bi-bounding-box"></i> Set selected observation bboxes to full image</button></li>
@@ -692,6 +696,14 @@ document.addEventListener("DOMContentLoaded", function() {
       pendingObservationApplyAllFiltered = false;
       if (scopeModal) scopeModal.hide();
       actionButton.form.requestSubmit(actionButton);
+    });
+  }
+  const observationActionsMenu = document.getElementById("observation-actions-menu");
+  const observationActionsToggle = document.getElementById("observation-actions-toggle");
+  if (observationActionsMenu && observationActionsToggle && window.bootstrap) {
+    observationActionsMenu.addEventListener("click", function(event) {
+      const action = event.target.closest(".dropdown-item:not(:disabled)");
+      if (action) bootstrap.Dropdown.getOrCreateInstance(observationActionsToggle).hide();
     });
   }
   updateAllObservationGroupCheckboxes();

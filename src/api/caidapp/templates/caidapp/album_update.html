@@ -5,6 +5,7 @@
     {% if user.is_authenticated %}
         <div class="pagetitle">
             <h1>{{ headline }}</h1>
+            {% if mediafile.pk %}{% include 'caidapp/includes/comparison_button.html' with kind='album' source_id=mediafile.hash label=mediafile.name %}{% endif %}
             <nav>
                 <ol class="breadcrumb">
 {#                    <li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li>#}

@@ -158,6 +158,7 @@
                                     <i class="bi bi-three-dots"></i>
                                 </a>
                                 <ul class="dropdown-menu">
+                                    {% include 'caidapp/includes/comparison_menu_item.html' with kind='identity' source_id=individual_identity.id label=individual_identity.name %}
                                     <li>
                                         <a class="dropdown-item"
                                            href="{% url 'caidapp:observations' %}?identity={{ individual_identity.id }}">

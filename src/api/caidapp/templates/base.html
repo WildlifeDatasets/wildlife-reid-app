@@ -221,6 +221,9 @@
                     <a class="nav-link" href="{% url 'caidapp:observations' %}">
                         <i class="bi bi-bounding-box"></i> <span>Observations</span>
                     </a>
+                    <a class="nav-link" href="{% url 'caidapp:comparison' %}">
+                        <i class="bi bi-layout-split"></i> <span>Comparison</span>
+                    </a>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link" href="{% url 'caidapp:localities' %}">
@@ -348,6 +351,7 @@
 </script>
 {% endcompress %}
 
+{% if user.is_authenticated %}{% include 'caidapp/includes/comparison_tray.html' %}{% endif %}
 {% block script %}{% endblock %}
 
 </body>

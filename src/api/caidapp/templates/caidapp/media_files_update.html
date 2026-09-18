@@ -158,6 +158,7 @@
                     </a>
                 {% endif %}
                 {% if active_identity %}
+                    {% include 'caidapp/includes/comparison_button.html' with kind='identity' source_id=active_identity.id label=active_identity.name %}
                     <a class="btn btn-sm btn-outline-secondary" href="{% url 'caidapp:individual_identity_update' active_identity.id %}">
                         <i class="bi bi-fingerprint"></i> Identity: {{ active_identity }}
                     </a>
@@ -168,6 +169,7 @@
                     </a>
                 {% endif %}
                 {% if active_album %}
+                    {% include 'caidapp/includes/comparison_button.html' with kind='album' source_id=active_album.hash label=active_album.name %}
                     <a class="btn btn-sm btn-outline-secondary" href="{% url 'caidapp:album' active_album.hash %}">
                         <i class="bi bi-collection"></i> Album: {{ active_album }}
                     </a>
@@ -401,6 +403,7 @@
                                     {% for hidden in mediafile.hidden_fields %}
                                         {{ hidden }}
                                     {% endfor %}
+                                    <div class="p-2">{% include 'caidapp/includes/comparison_button.html' with kind='mediafile' source_id=mediafile.instance.id label=mediafile.instance.original_filename %}</div>
                                     {% if mediafile.instance.card_image %}
                                          <a
 {#                                                 href="{% url 'caidapp:media_file_update' mediafile.instance.id %}?next={{ request.get_full_path }}"#}

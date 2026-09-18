@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block head %}
+<link rel="stylesheet" href="{% static 'caidapp/css/comparison.css' %}">
+{% endblock %}
+
+{% block body %}
+<section class="comparison-page" id="comparison-app"
+         data-source-url="{% url 'caidapp:comparison_source' %}"
+         data-search-url="{% url 'caidapp:comparison_search' %}">
+  <div class="comparison-heading d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <div><h1 class="h3 mb-1">Compare media</h1><p class="text-body-secondary mb-0">Browse two independent sources side by side.</p></div>
+    <button type="button" class="btn btn-outline-secondary btn-sm js-comparison-fullscreen"><i class="bi bi-arrows-fullscreen"></i> Full screen</button>
+  </div>
+  <div class="comparison-panels">
+    <section class="comparison-panel" data-slot="a" aria-label="First comparison source"></section>
+    <section class="comparison-panel" data-slot="b" aria-label="Second comparison source"></section>
+  </div>
+</section>
+{% endblock %}
+
+{% block script %}
+<script src="{% static 'caidapp/js/comparison.js' %}?v=2"></script>
+{% endblock %}

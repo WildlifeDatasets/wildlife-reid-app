@@ -3528,8 +3528,8 @@ class ObservationViewTest(TestCase):
         )
 
         self.assertEqual(response.status_code, 302)
-        self.assertFalse(AnimalObservation.objects.filter(id=selected.id).exists())
-        self.assertTrue(AnimalObservation.objects.filter(id=sibling.id).exists())
+        self.assertFalse(models.AnimalObservation.objects.filter(id=selected.id).exists())
+        self.assertTrue(models.AnimalObservation.objects.filter(id=sibling.id).exists())
 
     def test_delete_last_observation_keeps_no_detection_placeholder(self):
         archive = UploadedArchiveFactory(owner=self.caiduser)
@@ -3545,8 +3545,8 @@ class ObservationViewTest(TestCase):
         )
 
         self.assertEqual(response.status_code, 302)
-        self.assertFalse(AnimalObservation.objects.filter(id=selected.id).exists())
-        remaining = AnimalObservation.objects.get(mediafile=mediafile)
+        self.assertFalse(models.AnimalObservation.objects.filter(id=selected.id).exists())
+        remaining = models.AnimalObservation.objects.get(mediafile=mediafile)
         self.assertTrue(remaining.is_no_detection_placeholder)
 
     def test_observation_select_all_mutates_only_workgroup_images(self):
