@@ -894,3 +894,152 @@ def detect_identification_outliers(
         "organization_id": organization_id,
         "input_metadata_file": input_metadata_file,
     }
+
+
+def _most_similar_cross_label_pairs(embeddings, class_ids, top_k: int = 20) -> pd.DataFrame:
+    """Return the top-k most similar embedding pairs that do not share class_id."""
+    embeddings = np.asarray(embeddings, dtype=np.float32)
+    class_ids = np.asarray(class_ids)
+    columns = ["idx_a", "idx_b", "similarity"]
+    if embeddings.shape[0] < 2 or top_k <= 0:
+        return pd.DataFrame(columns=columns)
+
+    # Cosine similarity of unique unordered pairs with different class_id
+    norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
+    embeddings = embeddings / np.maximum(norms, 1e-12)
+
+    # Select unique pairs
+    idx_a, idx_b = np.triu_indices(len(embeddings), k=1)
+
+    # Calculate cosine similarity between pairs
+    values = (embeddings @ embeddings.T)[idx_a, idx_b]
+
+    # Filter pairs that do not have different class_id
+    cross_label_mask = class_ids[idx_a] != class_ids[idx_b]
+    idx_a, idx_b, values = idx_a[cross_label_mask], idx_b[cross_label_mask], values[cross_label_mask]
+
+    if values.size == 0:
+        return pd.DataFrame(columns=columns)
+
+    # Select the top-k pairs without fully sorting when possible
+    if top_k >= values.size:
+        order = np.argsort(-values)
+    else:
+        part = np.argpartition(-values, top_k - 1)[:top_k]
+        order = part[np.argsort(-values[part])]
+
+    return pd.DataFrame(
+        {
+            "idx_a": idx_a[order].astype(int, copy=False),
+            "idx_b": idx_b[order].astype(int, copy=False),
+            "similarity": values[order].astype(float, copy=False),
+        }
+    ).reset_index(drop=True)
+
+
+def _pair_payload(metadata: pd.DataFrame, idx_a, idx_b, similarity, mega_similarity=None) -> dict:
+    """Build a JSON-serializable pair record from metadata rows."""
+    payload = {"idx_a": int(idx_a), "idx_b": int(idx_b), "similarity": float(similarity)}
+    for side, idx in (("a", idx_a), ("b", idx_b)):
+        row = metadata.iloc[int(idx)]
+        payload[f"path_{side}"] = row["image_path"]
+        payload[f"class_id_{side}"] = int(row["class_id"])
+        payload[f"label_{side}"] = None if pd.isna(row["label"]) else row["label"]
+    if mega_similarity is not None:
+        payload["mega_similarity"] = float(mega_similarity)
+    return payload
+
+
+@identification_worker.task(bind=True, name="detect_most_similar")
+def detect_most_similar(
+    self,
+    organization_id: int,
+    input_metadata_file: str = "",
+    top_k: int = 20,
+    aliked_pair_budget: int = 200,
+    **kwargs,
+):
+    """Find the most similar cross-identity pairs using mega cosine and LightGlue.
+
+    MegaDescriptor cosine ranks all pairs with different class_id. LightGlue then
+    scores the top `aliked_pair_budget` of those pairs using stored ALIKED features.
+    """
+    try:
+        # Read metadata file
+        metadata = pd.read_csv(input_metadata_file)
+        assert "image_path" in metadata
+        assert "class_id" in metadata, "Identity id should be in `class_id` column"
+        assert "label" in metadata, "Label should be in `label` column"
+
+        logger.info("Loading reference feature vectors from the database.")
+        _, reference_images = load_features(get_db_connection(), organization_id)
+
+        # Add embeddings from reference_images to metadata by matching image_path
+        metadata["image_name"] = metadata["image_path"].apply(lambda x: os.path.basename(x))
+        reference_images["image_name"] = reference_images["image_path"].apply(lambda x: os.path.basename(x))
+        if "embedding" not in metadata.columns:
+            path_to_embedding = dict(zip(reference_images["image_name"], reference_images["embedding"]))
+            metadata["embedding"] = metadata["image_name"].map(path_to_embedding)
+
+        # Drop rows with missing embeddings
+        logger.info(f"Dropping rows with missing embeddings: {metadata.embedding.isna().sum()}")
+        metadata = metadata.dropna(subset=["embedding"])
+
+        # Embeddings are stored as [mega, local]
+        parsed_features = [json.loads(e) for e in metadata["embedding"]]
+        aliked_embeddings, mega_embeddings = prepare_feature_types(parsed_features)
+
+        # Rank all cross-identity pairs by MegaDescriptor cosine
+        mega_shortlist = _most_similar_cross_label_pairs(mega_embeddings, metadata["class_id"].to_numpy(), top_k=aliked_pair_budget)
+        mega_pairs = [
+            _pair_payload(metadata, row.idx_a, row.idx_b, row.similarity)
+            for row in mega_shortlist.head(top_k).itertuples(index=False)
+        ]
+
+        # Score the mega shortlist with LightGlue match counts
+        local_pairs = []
+        lightglue_shortlist = mega_shortlist
+        if not lightglue_shortlist.empty:
+            logger.info("Running LightGlue on %s mega shortlist pairs.", len(lightglue_shortlist))
+
+            # Prepare dataset and matcher pairs
+            aliked_dataset = FeatureDataset(aliked_embeddings, metadata, col_label="class_id")
+            matcher_pairs = list(
+                zip(lightglue_shortlist["idx_a"].astype(int), lightglue_shortlist["idx_b"].astype(int))
+            )
+
+            # Score the mega shortlist with LightGlue match counts
+            score_grid = MatchLightGlue(features="aliked", num_workers=2)(aliked_dataset, aliked_dataset, pairs=matcher_pairs)
+
+            # Convert score grid to match counts
+            match_counts = np.array([score_grid[idx_a, idx_b] for idx_a, idx_b in matcher_pairs], dtype=float)
+            lightglue_shortlist["match_count"] = np.nan_to_num(match_counts, nan=0.0)
+            lightglue_shortlist = lightglue_shortlist.sort_values("match_count", ascending=False).head(top_k)
+            local_pairs = [
+                _pair_payload(metadata, row.idx_a, row.idx_b, row.match_count, mega_similarity=row.similarity)
+                for row in lightglue_shortlist.itertuples(index=False)
+            ]
+        else:
+            logger.info("Mega shortlist is empty; skipping LightGlue.")
+
+        # Save mega and local pairs for inspection
+        pair_rows = [{**item, "source": "mega"} for item in mega_pairs]
+        pair_rows.extend({**item, "source": "local"} for item in local_pairs)
+
+        output_csv = Path(input_metadata_file).with_name(f"{Path(input_metadata_file).stem}_most_similar.csv")
+        pd.DataFrame(pair_rows).to_csv(output_csv, index=False)
+        logger.info("Saved most-similar pairs file to %s", output_csv)
+
+    except Exception:
+        error = traceback.format_exc()
+        logger.critical(f"Returning unexpected error output: '{error}'.")
+        return {"status": "ERROR", "error": error}
+
+    return {
+        "status": "DONE",
+        "message": f"Found {len(mega_pairs)} mega and {len(local_pairs)} local cross-identity pairs.",
+        "organization_id": organization_id,
+        "input_metadata_file": input_metadata_file,
+        "mega_pairs": mega_pairs,
+        "local_pairs": local_pairs,
+    }
