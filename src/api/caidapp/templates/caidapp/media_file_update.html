@@ -162,12 +162,12 @@
                                         Edit in admin
                                     </a>
                                 </li>
-                                <li>
+                                {% if not mediafile.metadata_json.detection_crop_stale %}<li>
                                     <a class="dropdown-item"
                                        href="{{ mediafile.detection_url }}">
                                         Get detection image
                                     </a>
-                                </li>
+                                </li>{% endif %}
                                 <li>
                                     <a class="dropdown-item"
                                        href="{{ mediafile.thumbnail_url }}">
@@ -828,6 +828,87 @@ ID: {{ mediafile.id }}
                     canvas.renderAll();
                     return rect;
                 }
+
+                // Suggestions only modify the form after an explicit selection.
+                {% if mediafile.media_type == 'image' %}
+                document.addEventListener("click", async (event) => {
+                    const button = event.target.closest(".suggest-bbox-btn");
+                    if (!button) return;
+                    const formDiv = button.closest(".observation-form");
+                    const output = formDiv.querySelector(".bbox-proposals");
+                    const originalValues = () => ["bbox_x_center", "bbox_y_center", "bbox_width", "bbox_height"].map(name => formDiv.querySelector(`[name$="${name}"]`).value).join(",");
+                    const initial = originalValues();
+                    button.disabled = true;
+                    output.textContent = "Waiting for detection. You can continue editing.";
+                    try {
+                        const response = await fetch("{% url 'caidapp:bbox_proposal' mediafile.id %}", {
+                            method: "POST", headers: {"X-CSRFToken": document.querySelector('[name="csrfmiddlewaretoken"]').value},
+                        });
+                        if (!response.ok) throw new Error("Cannot request suggestions. Try again later.");
+                        const start = await response.json();
+                        const deadline = Date.now() + 120000;
+                        let result;
+                        while (true) {
+                            if (!formDiv.isConnected) return;
+                            const status = await fetch(start.url);
+                            if (!status.ok) throw new Error("Cannot read detection status.");
+                            result = await status.json();
+                            if (result.status !== "queued") break;
+                            if (Date.now() > deadline) throw new Error("Detection is still queued. Click Suggest BBox later to retrieve it, or add a bbox manually.");
+                            await new Promise(resolve => setTimeout(resolve, 1500));
+                        }
+                        if (result.status !== "succeeded") throw new Error(result.message || "Detection failed.");
+                        output.replaceChildren();
+                        if (!result.detections.length) output.textContent = "No animals found. You can add a bbox manually.";
+                        result.detections.forEach((detection, index) => {
+                            const choice = document.createElement("button");
+                            choice.type = "button";
+                            choice.className = "btn btn-sm btn-outline-secondary me-1 mb-1";
+                            const [x0, y0, x1, y1] = detection.bbox;
+                            choice.textContent = `Use suggestion ${index + 1} (${Math.round(detection.confidence * 100)}%, x ${Math.round(x0 * 100)}%, y ${Math.round(y0 * 100)}%)`;
+                            let preview;
+                            const hidePreview = () => {
+                                if (preview) canvas.remove(preview);
+                                preview = null;
+                                canvas.requestRenderAll();
+                            };
+                            const showPreview = () => {
+                                hidePreview();
+                                preview = new fabric.Rect({
+                                    left: x0 * canvas.width, top: y0 * canvas.height,
+                                    width: (x1 - x0) * canvas.width, height: (y1 - y0) * canvas.height,
+                                    fill: 'rgba(0,180,255,.15)', stroke: '#00b4ff', strokeWidth: 3,
+                                    strokeDashArray: [6, 4], selectable: false, evented: false,
+                                });
+                                canvas.add(preview);
+                            };
+                            choice.addEventListener("mouseenter", showPreview);
+                            choice.addEventListener("focus", showPreview);
+                            choice.addEventListener("mouseleave", hidePreview);
+                            choice.addEventListener("blur", hidePreview);
+                            choice.addEventListener("click", (event) => {
+                                event.stopPropagation();
+                                if (originalValues() !== initial && !window.confirm("Replace the bbox you edited with this suggestion?")) return;
+                                hidePreview();
+                                const values = [(x0 + x1) / 2, (y0 + y1) / 2, x1 - x0, y1 - y0];
+                                removeObservationBox(formDiv.dataset.obsId);
+                                addObservationBox(formDiv.dataset.obsId, ...values, getColorForObsId(formDiv.dataset.obsId));
+                                ["bbox_x_center", "bbox_y_center", "bbox_width", "bbox_height"].forEach((name, i) => {
+                                    formDiv.querySelector(`[name$="${name}"]`).value = values[i];
+                                });
+                                formDiv.querySelector(".add-bbox-btn").classList.add("d-none");
+                                formDiv.querySelector(".remove-bbox-btn").classList.remove("d-none");
+                                output.textContent = "Suggestion applied. Adjust it if needed and save the form.";
+                            });
+                            output.appendChild(choice);
+                        });
+                    } catch (error) {
+                        output.textContent = error.message;
+                    } finally {
+                        button.disabled = false;
+                    }
+                });
+                {% endif %}
 
                 // připravíme barvy
                 {#const palette = ["#ff3b3b", "#2ecc71", "#3498db", "#f39c12", "#9b59b6", "#1abc9c", "#e67e22", "#e84393"];#}

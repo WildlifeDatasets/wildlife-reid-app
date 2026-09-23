@@ -5,6 +5,19 @@ from django import template
 register = template.Library()
 
 
+@register.simple_tag
+def querystring(querydict, **updates):
+    """Build a filtered query string on the project's pinned Django 4.2."""
+    params = querydict.copy()
+    for key, value in updates.items():
+        if value is None:
+            params.pop(key, None)
+        else:
+            params[key] = value
+    encoded = params.urlencode()
+    return f"?{encoded}" if encoded else ""
+
+
 @register.filter
 def mul(value, arg):
     """Multiplies the value by the argument."""

@@ -292,10 +292,12 @@ def detect_animals_with_megadetector(image_rgb: np.ndarray) -> Optional[List[Dic
     ]
 
 
-def detect_animals_with_sam3(image_rgb: np.ndarray) -> Optional[List[Dict[str, Any]]]:
+def detect_animals_with_sam3(image_rgb: np.ndarray, *, strict=False) -> Optional[List[Dict[str, Any]]]:
     """Detect animals with SAM3 text prompt. Returns MegaDetector-compatible detection dicts."""
     predictor = _load_sam3_model()
     if predictor is None:
+        if strict:
+            raise RuntimeError("SAM3 is unavailable. Check its package, checkpoint and GPU configuration.")
         return None
 
     height, width = image_rgb.shape[:2]
@@ -338,6 +340,8 @@ def detect_animals_with_sam3(image_rgb: np.ndarray) -> Optional[List[Dict[str, A
             results_list.sort(key=lambda det: det["confidence"], reverse=True)
             return results_list
     except Exception:
+        if strict:
+            raise
         logger.warning(f"SAM3 detection failed: {traceback.format_exc()}")
         return None
 

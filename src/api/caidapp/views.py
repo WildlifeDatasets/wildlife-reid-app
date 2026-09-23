@@ -4214,6 +4214,7 @@ def observations(request: HttpRequest) -> HttpResponse:
             "btnBulkProcessing_id_taxon_verified": "taxon_verified",
         }
         selection_actions = {
+            "btnRedetectBboxes",
             "btnBulkProcessing_set_full_image_bbox",
             "btnBulkProcessing_remove_bbox",
             "btnDeleteObservations",
@@ -4227,6 +4228,10 @@ def observations(request: HttpRequest) -> HttpResponse:
         if requested_selection_action and not selected_observation_ids:
             messages.warning(request, "Select at least one editable observation.")
             return redirect(request.get_full_path())
+
+        if requested_selection_action == "btnRedetectBboxes":
+            from .views_bbox import prepare_redetection
+            return prepare_redetection(request, selected_mediafile_ids)
 
         if requested_selection_action in {
             "btnBulkProcessing_set_full_image_bbox",
@@ -4259,7 +4264,9 @@ def observations(request: HttpRequest) -> HttpResponse:
                 affected_mediafiles = list(
                     MediaFile.objects.select_for_update().filter(id__in=selected_mediafile_ids)
                 )
-                deletable_observations = selected_observations.exclude(is_no_detection_placeholder=True)
+                deletable_observations = AnimalObservation.objects.filter(
+                    pk__in=selected_observations.exclude(is_no_detection_placeholder=True).values("pk")
+                )
                 deleted_count = deletable_observations.count()
                 skipped_placeholder_count = selected_observations.filter(is_no_detection_placeholder=True).count()
                 deletable_observations.delete()
@@ -5305,6 +5312,10 @@ def sequences(
         sequence.has_multiple_localities = len(sequence.localities) > 1
     if show_overview_button:
         _annotate_verification_sequence_taxon_groups(ordered_sequences)
+    if request.method == "POST" and "btnRedetectBboxes" in request.POST:
+        from .views_bbox import prepare_redetection
+        return prepare_redetection(request, _resolve_selected_mediafile_ids_from_post(request, full_mediafiles))
+
     page_mediafile_ids = [
         mediafile.id
         for sequence in ordered_sequences

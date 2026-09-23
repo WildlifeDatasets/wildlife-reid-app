@@ -51,6 +51,38 @@ from .models import (
 logger = logging.getLogger("app")
 
 
+@shared_task(name="caidapp.tasks.finish_bbox_detection")
+def finish_bbox_detection(result, job_id):
+    from .bbox_services import finish_job, fail_job
+
+    logger.info(
+        "Received bbox worker callback job_id=%s status=%s detections=%s",
+        job_id,
+        result.get("status") if isinstance(result, dict) else "invalid",
+        len(result.get("detections", []))
+        if isinstance(result, dict) and isinstance(result.get("detections"), list)
+        else "invalid",
+    )
+    try:
+        status = finish_job(job_id, result)
+        logger.info("Finished bbox worker callback job_id=%s status=%s", job_id, status)
+        return status
+    except models.BboxDetectionJob.DoesNotExist:
+        return "missing"
+    except Exception:
+        logger.exception("BBox reconciliation failed for job %s", job_id)
+        fail_job(job_id, "Could not apply detection results. No observations were changed.")
+        return "failed"
+
+
+@shared_task(name="caidapp.tasks.fail_bbox_detection")
+def fail_bbox_detection(job_id):
+    from .bbox_services import fail_job
+
+    logger.error("Received bbox worker failure callback job_id=%s", job_id)
+    fail_job(job_id, "The detection worker failed. No observations were changed.")
+
+
 @shared_task(name="caidapp.tasks.record_identification_worker_gpu_heartbeat")
 def record_identification_worker_gpu_heartbeat(
     available: bool,

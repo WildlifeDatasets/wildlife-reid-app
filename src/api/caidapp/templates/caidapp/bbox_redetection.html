@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="pagetitle"><h1>Detect bounding boxes again</h1></div>
+<div class="card"><div class="card-body pt-3">
+  <p>This processes <strong>{{ mediafile_count }} media files</strong> and includes <strong>all {{ observation_count }} observations</strong> in those files, including observations outside your selection or filter.</p>
+  {% if video_count %}<p>{{ video_count }} video media files will be skipped. This action currently supports images only.</p>{% endif %}
+  <p>Matched observations keep their identity, taxon and other annotations. Observations that already have no bbox are preserved. New detections do not inherit identities.</p>
+  <form method="post" action="{% url 'caidapp:bbox_redetection_start' %}">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <p class="text-muted">The delete option removes annotations on unmatched observations. Errors leave the affected media file unchanged. Files edited while detection is running are skipped.</p>
+    <button type="submit" class="btn btn-primary" {% if not mediafile_count %}disabled{% endif %}>Start detection</button>
+    <a class="btn btn-outline-secondary" href="{% url 'caidapp:observations' %}">Cancel</a>
+  </form>
+</div></div>
+{% endblock %}

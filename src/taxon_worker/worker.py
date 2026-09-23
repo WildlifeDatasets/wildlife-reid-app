@@ -6,6 +6,8 @@ from pathlib import Path
 
 import pandas as pd
 from celery import Celery
+# Celery adds the working directory to sys.path only while loading this module.
+from bbox_detection import detect_file
 from detection_utils import inference_detection
 from detection_utils.inference_video import create_image_from_video
 from progress import ProgressReporter
@@ -32,6 +34,39 @@ except Exception as e:
     raise e
 
 MEDIA_DIR_PATH = Path("/shared_data/media")
+
+
+@taxon_worker.task(bind=True, name="redetect_bboxes", soft_time_limit=300, time_limit=360)
+def redetect_bboxes(self, relative_path, options):
+    task_id = self.request.id
+    logger.info(
+        "BBox detection started task_id=%s source=%s detector=%s confidence=%s",
+        task_id,
+        Path(relative_path).name,
+        options.get("detector"),
+        options.get("confidence"),
+    )
+    try:
+        result = detect_file(relative_path, options, task_id=task_id)
+        logger.info(
+            "BBox detection finished task_id=%s status=%s detector=%s detections=%d",
+            task_id,
+            result.get("status"),
+            result.get("detector"),
+            len(result.get("detections", [])),
+        )
+        return result
+    except Exception:
+        logger.exception("BBox detection failed task_id=%s source=%s", task_id, Path(relative_path).name)
+        return {"status": "error", "message": "Detection failed. Check the taxon worker logs and model availability."}
+    finally:
+        try:
+            if not inference_detection.KEEP_DETECTION_MODEL_LOADED:
+                inference_detection.del_detection_model()
+            inference_detection.del_sam3_model()
+            logger.info("BBox model cleanup finished task_id=%s", task_id)
+        except Exception:
+            logger.exception("BBox model cleanup failed task_id=%s", task_id)
 
 
 @taxon_worker.task(bind=True, name="predict")

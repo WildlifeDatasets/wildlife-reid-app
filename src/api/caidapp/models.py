@@ -2103,6 +2103,26 @@ class AnimalObservation(models.Model):
         return f"xywh=percent:{x*100:.4f},{y*100:.4f},{self.bbox_width*100:.4f},{self.bbox_height*100:.4f}"
 
 
+class BboxDetectionJob(models.Model):
+    """One media file in a detection batch; also caches non-mutating proposals."""
+
+    batch = models.UUIDField(db_index=True)
+    requested_by = models.ForeignKey(CaIDUser, on_delete=models.CASCADE)
+    mediafile = models.ForeignKey(MediaFile, on_delete=models.CASCADE)
+    purpose = models.CharField(max_length=16, default="replace")
+    status = models.CharField(max_length=16, default="queued")
+    task_id = models.CharField(max_length=64, blank=True)
+    options = models.JSONField(default=dict)
+    snapshot = models.JSONField(default=dict)
+    result = models.JSONField(default=dict)
+    message = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["batch", "mediafile"], name="unique_bbox_batch_mediafile")]
+
+
 class MediafilesForIdentification(models.Model):
     mediafile = models.ForeignKey(MediaFile, on_delete=models.SET_NULL, null=True, blank=True)
 

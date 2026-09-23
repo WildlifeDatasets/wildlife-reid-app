@@ -18,6 +18,7 @@ app.config_from_object("django.conf:settings", namespace="CELERY")
 app.conf.task_routes = {
     # recognition workflow
     "predict": {"queue": "taxon_worker"},
+    "redetect_bboxes": {"queue": "taxon_worker"},
     # detection workflow
     "detect": {"queue": "detection_worker"},
     "detectionsimplelog": {"queue": "detection_worker"},

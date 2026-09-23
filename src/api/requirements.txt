@@ -34,5 +34,6 @@ opencv-python-headless==4.5.5.64  # just pinned version, no specific reason for 
 tqdm==4.62.3
 joblib==1.4.0
 numpy==1.26
+scipy>=1.10,<2
 python-Levenshtein==0.26.1
 whitenoise==6.4.0

@@ -158,7 +158,24 @@ class ObservationInline(InlineFormSetFactory):
         return kwargs
 
 
-class MediaFileUpdateView(LoginRequiredMixin, UpdateWithInlinesView):
+class BboxDerivativeInvalidationMixin:
+    @transaction.atomic
+    def forms_valid(self, form, inlines):
+        from .bbox_services import BBOX_FIELDS, _invalidate_reid
+
+        mediafile = MediaFile.objects.select_for_update().get(pk=self.object.pk)
+        old = list(mediafile.observations.select_for_update().order_by("pk"))
+        before = [(o.pk, *(getattr(o, field) for field in BBOX_FIELDS)) for o in old]
+        response = super().forms_valid(form, inlines)
+        after = list(mediafile.observations.order_by("pk").values_list("pk", *BBOX_FIELDS))
+        if before != after:
+            mediafile.refresh_from_db()
+            _invalidate_reid(mediafile, old)
+            mediafile.save(update_fields=["used_for_init_identification", "metadata_json"])
+        return response
+
+
+class MediaFileUpdateView(LoginRequiredMixin, BboxDerivativeInvalidationMixin, UpdateWithInlinesView):
     model = MediaFile
     form_class = MediaFileForm
     inlines = [ObservationInline]
@@ -542,7 +559,7 @@ def _mta_get_next_url(
 #
 
 
-class MediaFileGetMissingTaxonView(LoginRequiredMixin, UpdateWithInlinesView):
+class MediaFileGetMissingTaxonView(LoginRequiredMixin, BboxDerivativeInvalidationMixin, UpdateWithInlinesView):
     model = MediaFile
     form_class = MediaFileForm
     inlines = [ObservationInline]

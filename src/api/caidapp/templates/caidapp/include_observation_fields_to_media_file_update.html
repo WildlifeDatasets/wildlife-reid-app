@@ -77,6 +77,10 @@
             class="btn btn-sm btn-outline-primary add-bbox-btn">
         Add BBox
     </button>
+    {% if mediafile.media_type == 'image' %}
+    <button type="button" class="btn btn-sm btn-outline-primary suggest-bbox-btn">Suggest BBox</button>
+    <div class="bbox-proposals small mt-2" aria-live="polite"></div>
+    {% endif %}
     <button type="button"
             class="btn btn-sm btn-outline-danger remove-bbox-btn d-none">
         Remove BBox

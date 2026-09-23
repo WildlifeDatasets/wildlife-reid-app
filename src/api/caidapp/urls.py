@@ -3,7 +3,7 @@ from django.urls import include, path
 # from rest_framework import routers
 from django.views.generic import DetailView
 
-from . import models, views, views_admin, views_comparison, views_general, views_locality, views_mediafile, views_uploads
+from . import models, views, views_admin, views_bbox, views_comparison, views_general, views_locality, views_mediafile, views_uploads
 
 
 def trigger_error(request):
@@ -18,6 +18,10 @@ def trigger_error(request):
 
 app_name = "caidapp"
 urlpatterns = [
+    path("bbox-detection/start/", views_bbox.start_redetection, name="bbox_redetection_start"),
+    path("bbox-detection/<uuid:batch>/", views_bbox.detection_status, name="bbox_detection_status"),
+    path("bbox-proposal/<int:mediafile_id>/", views_bbox.propose_bbox, name="bbox_proposal"),
+    path("bbox-proposal/status/<int:job_id>/", views_bbox.proposal_status, name="bbox_proposal_status"),
     path("comparison/", views_comparison.comparison, name="comparison"),
     path("comparison/source/", views_comparison.comparison_source, name="comparison_source"),
     path("comparison/search/", views_comparison.comparison_search, name="comparison_search"),
