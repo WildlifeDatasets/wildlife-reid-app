@@ -1,5 +1,6 @@
 from django.urls import reverse
 from pathlib import Path
+from unittest.mock import patch
 
 from django.conf import settings
 from django.test import TestCase
@@ -80,6 +81,8 @@ class IdentificationOutlierSuggestionsCallbackTest(TestCase):
 class IdentificationOutlierSuggestionsAcceptViewTest(TestCase):
     def setUp(self):
         self.caiduser = CaidUserFactory(admin=True)
+        self.caiduser.user.is_staff = True
+        self.caiduser.user.save(update_fields=["is_staff"])
         self.client.force_login(self.caiduser.user)
         self.workgroup = self.caiduser.workgroup
         self.archive = UploadedArchiveFactory(owner=self.caiduser)
@@ -129,3 +132,47 @@ class IdentificationOutlierSuggestionsAcceptViewTest(TestCase):
         result.refresh_from_db()
         self.assertEqual(observation.identity, self.suggested_identity)
         self.assertEqual(result.suggestions, [])
+
+
+class IdentificationOutlierStaffAccessTest(TestCase):
+    def setUp(self):
+        self.caiduser = CaidUserFactory(admin=True)
+        self.client.force_login(self.caiduser.user)
+
+    def test_workgroup_admin_without_staff_cannot_access_outlier_actions(self):
+        response = self.client.get(reverse("caidapp:dash_identities"))
+        self.assertNotContains(response, "Run ID outlier detection")
+        self.assertNotContains(response, "Show ID outliers")
+
+        self.assertEqual(self.client.get(reverse("caidapp:run_identification_outlier_detection")).status_code, 403)
+        self.assertEqual(self.client.get(reverse("caidapp:identification_outlier_suggestions")).status_code, 403)
+        self.assertEqual(
+            self.client.post(reverse("caidapp:accept_identification_outlier_suggestion")).status_code,
+            403,
+        )
+
+    @patch("caidapp.views.tasks.run_identification_outlier_detection_for_workgroup")
+    def test_staff_can_see_and_run_outlier_actions(self, run_detection):
+        self.caiduser.workgroup_admin = False
+        self.caiduser.save(update_fields=["workgroup_admin"])
+        self.caiduser.user.is_staff = True
+        self.caiduser.user.save(update_fields=["is_staff"])
+        result = IdentificationOutlierSuggestionResult.objects.create(
+            workgroup=self.caiduser.workgroup,
+            status="processing",
+            suggestions=[],
+        )
+        run_detection.return_value = (result, None)
+
+        response = self.client.get(reverse("caidapp:dash_identities"))
+        self.assertContains(response, "Run ID outlier detection")
+        self.assertContains(response, "Show ID outliers")
+        self.assertEqual(self.client.get(reverse("caidapp:identification_outlier_suggestions")).status_code, 200)
+
+        response = self.client.get(reverse("caidapp:run_identification_outlier_detection"))
+        self.assertRedirects(
+            response,
+            reverse("caidapp:identification_outlier_suggestions_result", args=[result.id]),
+            fetch_redirect_response=False,
+        )
+        run_detection.assert_called_once_with(self.caiduser.workgroup)

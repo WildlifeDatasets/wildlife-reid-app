@@ -186,6 +186,18 @@
                                 </a>
                             </li>
                         {% endif %}
+                        {% if user.is_staff %}
+                            <li>
+                                <a class="dropdown-item" href="{% url 'caidapp:run_identification_outlier_detection' %}">
+                                    <i class="bi bi-search"></i> Run ID outlier detection
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{% url 'caidapp:identification_outlier_suggestions' %}">
+                                    <i class="bi bi-grid"></i> Show ID outliers
+                                </a>
+                            </li>
+                        {% endif %}
                         <li><hr class="dropdown-divider"></li>
                         {% if user.caiduser.workgroup_admin %}
                             <li>

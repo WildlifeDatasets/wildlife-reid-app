@@ -8025,7 +8025,7 @@ def suggest_merge_identities_view(request, limit: int = 100):
 @login_required
 def run_identification_outlier_detection_view(request):
     """Start background detection of suspicious identity assignments for the current workgroup."""
-    if not (request.user.caiduser.workgroup_admin or request.user.is_staff):
+    if not request.user.is_staff:
         raise PermissionDenied
 
     workgroup = request.user.caiduser.workgroup
@@ -8040,7 +8040,7 @@ def run_identification_outlier_detection_view(request):
 @login_required
 def identification_outlier_suggestions_view(request, result_id: int = None):
     """Display latest suspicious identity assignments for the current workgroup."""
-    if not (request.user.caiduser.workgroup_admin or request.user.is_staff):
+    if not request.user.is_staff:
         raise PermissionDenied
 
     workgroup = request.user.caiduser.workgroup
@@ -8226,7 +8226,7 @@ def accept_identification_outlier_suggestion_view(request):
     if request.method != "POST":
         raise PermissionDenied
 
-    if not (request.user.caiduser.workgroup_admin or request.user.is_staff):
+    if not request.user.is_staff:
         raise PermissionDenied
 
     suspicious_mediafile_id = request.POST.get("suspicious_mediafile_id")
