@@ -193,6 +193,8 @@ class MergeIdentitySuggestionsViewTest(TestCase):
             response,
             reverse("caidapp:merge_identities_no_preview", args=[second.id, first.id]),
         )
+        self.assertContains(response, f"from_mediafile_id={first_mediafile.id}")
+        self.assertContains(response, f"to_mediafile_id={second_mediafile.id}")
 
     def test_select_second_identity_for_merge_renders_cover_mediafile(self):
         identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup)
@@ -203,6 +205,69 @@ class MergeIdentitySuggestionsViewTest(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context["mediafile"], mediafile)
+
+    def test_merge_preview_shows_direction_and_requested_mediafiles(self):
+        source = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Source", code="SRC")
+        target = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Target", code="DST")
+        source_mediafile = MediaFileFactory(parent=UploadedArchiveFactory(owner=self.caiduser))
+        target_mediafile = MediaFileFactory(parent=UploadedArchiveFactory(owner=self.caiduser))
+        AnimalObservationFactory(mediafile=source_mediafile, identity=source)
+        AnimalObservationFactory(mediafile=target_mediafile, identity=target)
+
+        url = reverse("caidapp:merge_identities", args=[source.id, target.id])
+        response = self.client.get(url, {
+            "from_mediafile_id": source_mediafile.id,
+            "to_mediafile_id": target_mediafile.id,
+        })
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Merge from")
+        self.assertContains(response, "Keep as")
+        self.assertContains(response, "Swap direction")
+        self.assertEqual(response.context["from_mediafiles"][0], source_mediafile)
+        self.assertEqual(response.context["to_mediafiles"][0], target_mediafile)
+        self.assertEqual(response.context["form"].initial["name"], "Target")
+        swapped = urlparse(response.context["swap_url"])
+        self.assertEqual(swapped.path, reverse("caidapp:merge_identities", args=[target.id, source.id]))
+        swap_query = parse_qs(swapped.query)
+        self.assertEqual(swap_query["from_mediafile_id"], [str(target_mediafile.id)])
+        self.assertEqual(swap_query["to_mediafile_id"], [str(source_mediafile.id)])
+
+        reversed_response = self.client.get(response.context["swap_url"])
+        self.assertEqual(reversed_response.context["form"].initial["name"], "Source")
+        self.assertEqual(reversed_response.context["form"].initial["code"], "SRC")
+
+    def test_merge_preview_ignores_mediafile_from_other_identity(self):
+        source = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup)
+        target = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup)
+        source_mediafile = MediaFileFactory(parent=UploadedArchiveFactory(owner=self.caiduser))
+        target_mediafile = MediaFileFactory(parent=UploadedArchiveFactory(owner=self.caiduser))
+        AnimalObservationFactory(mediafile=source_mediafile, identity=source)
+        AnimalObservationFactory(mediafile=target_mediafile, identity=target)
+
+        response = self.client.get(
+            reverse("caidapp:merge_identities", args=[source.id, target.id]),
+            {"from_mediafile_id": target_mediafile.id, "to_mediafile_id": "invalid"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["from_mediafiles"][0], source_mediafile)
+        self.assertEqual(response.context["to_mediafiles"][0], target_mediafile)
+
+    def test_invalid_merge_form_keeps_direction_and_errors(self):
+        source = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Source")
+        target = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Target")
+
+        response = self.client.post(
+            reverse("caidapp:merge_identities", args=[source.id, target.id]),
+            {"name": "", "sex": "U", "coat_type": "U"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["individual_from"], source)
+        self.assertEqual(response.context["individual_to"], target)
+        self.assertIn("name", response.context["form"].errors)
+        self.assertTrue(IndividualIdentity.objects.filter(pk=source.pk).exists())
 
     def test_select_second_identity_for_merge_prefills_best_fuzzy_match_and_enables_select2(self):
         identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Marta 12")

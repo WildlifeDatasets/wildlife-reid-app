@@ -1,0 +1,28 @@
+{% if cards %}
+    <div class="row g-3">
+        {% for card in cards %}
+            <div class="col-xl-6">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start gap-2 mb-3">
+                            <span class="badge text-bg-secondary">Pair {{ forloop.counter }}</span>
+                            <strong>{% if score_type == 'mega' %}Cosine similarity: {{ card.similarity|floatformat:3 }}{% else %}Matched points: {{ card.similarity|floatformat:0 }}{% endif %}</strong>
+                        </div>
+                        <div class="row g-3">
+                            {% include 'caidapp/similar_identity_pair_side.html' with side=card.a side_label='A' %}
+                            {% include 'caidapp/similar_identity_pair_side.html' with side=card.b side_label='B' %}
+                        </div>
+                        {% if card.a.identity and card.b.identity %}
+                            <div class="d-flex flex-wrap gap-2 mt-3">
+                                <a class="btn btn-outline-secondary btn-sm" href="{% url 'caidapp:merge_identities' card.a.identity.id card.b.identity.id %}?from_mediafile_id={{ card.a.mediafile.id|default:'' }}&amp;to_mediafile_id={{ card.b.mediafile.id|default:'' }}&amp;next={{ request.get_full_path|urlencode }}">Review A into B</a>
+                                <a class="btn btn-outline-secondary btn-sm" href="{% url 'caidapp:merge_identities' card.b.identity.id card.a.identity.id %}?from_mediafile_id={{ card.b.mediafile.id|default:'' }}&amp;to_mediafile_id={{ card.a.mediafile.id|default:'' }}&amp;next={{ request.get_full_path|urlencode }}">Review B into A</a>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="alert alert-light border">No pairs found by this method.</div>
+{% endif %}

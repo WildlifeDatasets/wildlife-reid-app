@@ -22,7 +22,7 @@ import tqdm
 from celery import current_app, shared_task, signature
 from django.conf import settings
 from django.db import transaction
-from django.db.models import Exists, OuterRef
+from django.db.models import Exists, OuterRef, Q
 from django.utils.timezone import now
 from PIL import Image
 
@@ -3132,10 +3132,31 @@ def run_identification_outlier_detection_for_workgroup(
             },
         },
     )
-    sig.apply_async(
-        link=identification_outlier_detection_on_success.s(result_id=result.id),
-        link_error=identification_outlier_detection_on_error.s(result_id=result.id),
+    _notify_identification_staff(
+        workgroup,
+        f"Identification outlier detection started for workgroup {workgroup}.",
+        models.Notification.INFO,
+        "caidapp:identification_outlier_suggestions_result",
+        result.id,
     )
+    try:
+        sig.apply_async(
+            link=identification_outlier_detection_on_success.s(result_id=result.id),
+            link_error=identification_outlier_detection_on_error.s(result_id=result.id),
+        )
+    except Exception as exc:
+        logger.exception("Could not start identification outlier detection for workgroup %s", workgroup.id)
+        result.status = "error"
+        result.message = str(exc)
+        result.save(update_fields=["status", "message"])
+        _notify_identification_staff(
+            workgroup,
+            f"Identification outlier detection failed to start for workgroup {workgroup}: {exc}",
+            models.Notification.ERROR,
+            "caidapp:identification_outlier_suggestions_result",
+            result.id,
+        )
+        return result, metadata_file
     return result, metadata_file
 
 
@@ -3148,15 +3169,23 @@ def identification_outlier_detection_on_success(output: dict, *args, **kwargs):
 
     status = output.get("status", "unknown")
     result.status = "done" if status == "DONE" else str(status).lower()
-    result.message = output.get("message", "")
+    result.message = output.get("error") or output.get("message", "")
     result.suggestions = _normalize_identification_outlier_suggestions(output.get("suggestions", []))
     result.save(update_fields=["status", "message", "suggestions"])
 
     if workgroup is not None:
-        models.Notification.create_for(
-            message=f"Identification outlier detection finished for workgroup {workgroup}.",
-            workgroups=[workgroup],
-            level=models.Notification.INFO,
+        if result.status == "done":
+            notification_message = f"Identification outlier detection finished for workgroup {workgroup}."
+            level = models.Notification.INFO
+        else:
+            notification_message = f"Identification outlier detection failed for workgroup {workgroup}: {result.message}"
+            level = models.Notification.ERROR
+        _notify_identification_staff(
+            workgroup,
+            notification_message,
+            level,
+            "caidapp:identification_outlier_suggestions_result",
+            result.id,
         )
 
     return result.id
@@ -3218,10 +3247,197 @@ def identification_outlier_detection_on_error(self, task_id: str, *args, **kwarg
     result.save(update_fields=["status", "message"])
 
     if result.workgroup is not None:
-        models.Notification.create_for(
-            message=f"Identification outlier detection failed for workgroup {result.workgroup}: {error_message}",
-            workgroups=[result.workgroup],
-            level=models.Notification.ERROR,
+        _notify_identification_staff(
+            result.workgroup,
+            f"Identification outlier detection failed for workgroup {result.workgroup}: {error_message}",
+            models.Notification.ERROR,
+            "caidapp:identification_outlier_suggestions_result",
+            result.id,
         )
 
+    return result.id
+
+
+def _notify_identification_staff(workgroup, message: str, level: int, route: str, result_id: int) -> None:
+    """Send diagnostic job updates only to staff in the current workgroup."""
+    staff_users = list(workgroup.caiduser_set.filter(user__is_staff=True))
+    if staff_users:
+        try:
+            models.Notification.create_for(
+                message=message,
+                level=level,
+                users=staff_users,
+                link_url_name=route,
+                link_url_kwargs={"result_id": result_id},
+                link_label="View result",
+            )
+        except Exception:
+            logger.exception("Could not notify staff about identification job %s", result_id)
+
+
+def _notify_similar_pair_staff(result, message: str, level: int) -> None:
+    _notify_identification_staff(
+        result.workgroup,
+        message,
+        level,
+        "caidapp:similar_identity_pairs_result",
+        result.id,
+    )
+
+
+def run_similar_identity_pairs_for_workgroup(workgroup: WorkGroup) -> models.IdentificationSimilarPairResult:
+    """Prepare the identified observation CSV and submit the similarity worker job."""
+    result = models.IdentificationSimilarPairResult.objects.create(workgroup=workgroup)
+    result.input_csv_filename = f"identification_similar_pairs_{result.id}.csv"
+    result.output_csv_filename = f"identification_similar_pairs_{result.id}_most_similar.csv"
+    result.save(update_fields=["input_csv_filename", "output_csv_filename"])
+
+    try:
+        mediafiles = (
+            MediaFile.objects.filter(
+                parent__owner__workgroup=workgroup,
+                observations__identity__isnull=False,
+            )
+            .select_related("locality", "sequence", "parent")
+            .distinct()
+            .order_by("id")
+        )
+        csv_data = _prepare_dataframe_for_identification(mediafiles, require_identity=True)
+        metadata_file = workgroup.file_path(result.input_csv_filename)
+        metadata_file.parent.mkdir(exist_ok=True, parents=True)
+        pd.DataFrame(csv_data).to_csv(metadata_file, index=False)
+
+        if len(set(csv_data["class_id"])) < 2:
+            raise ValueError("At least two different identities with available media files are required.")
+
+        result.message = f"Comparing {len(csv_data['image_path'])} identified observations."
+        result.save(update_fields=["message"])
+        _notify_similar_pair_staff(
+            result,
+            f"Similar identity pair search started for workgroup {workgroup}.",
+            models.Notification.INFO,
+        )
+        job = signature(
+            "detect_most_similar",
+            kwargs={
+                "organization_id": workgroup.id,
+                "input_metadata_file": str(metadata_file),
+            },
+        ).apply_async(
+            link=similar_identity_pairs_on_success.s(result_id=result.id),
+            link_error=similar_identity_pairs_on_error.s(result_id=result.id),
+        )
+        result.task_id = job.id
+        result.save(update_fields=["task_id"])
+    except Exception as exc:
+        logger.exception("Could not start similar identity pair search for workgroup %s", workgroup.id)
+        result.status = "error"
+        result.message = str(exc)
+        result.finished_at = now()
+        result.save(update_fields=["status", "message", "finished_at"])
+        _notify_similar_pair_staff(
+            result,
+            f"Similar identity pair search failed for workgroup {workgroup}: {exc}",
+            models.Notification.ERROR,
+        )
+    return result
+
+
+def _normalize_similar_identity_pairs(raw_pairs: list[dict], workgroup: WorkGroup) -> list[dict]:
+    """Resolve worker paths and identity IDs while keeping the source scores intact."""
+    normalized = []
+    for raw_pair in raw_pairs or []:
+        if not isinstance(raw_pair, dict):
+            continue
+        pair = dict(raw_pair)
+        if not pair.get("path_a") or not pair.get("path_b") or pair["path_a"] == pair["path_b"]:
+            continue
+        try:
+            identity_a_id = int(pair["class_id_a"])
+            identity_b_id = int(pair["class_id_b"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if identity_a_id == identity_b_id:
+            continue
+        identity_ids = set(
+            IndividualIdentity.objects.filter(
+                owner_workgroup=workgroup,
+                id__in=[identity_a_id, identity_b_id],
+            ).values_list("id", flat=True)
+        )
+        if identity_ids != {identity_a_id, identity_b_id}:
+            continue
+        for side in ("a", "b"):
+            mediafile = _resolve_similar_pair_mediafile(pair[f"path_{side}"], workgroup)
+            if mediafile is not None:
+                pair[f"mediafile_{side}_id"] = mediafile.id
+        normalized.append(pair)
+    return normalized
+
+
+def _resolve_similar_pair_mediafile(path_str: str, workgroup: WorkGroup) -> MediaFile | None:
+    """Resolve either an image or the selected still frame of a video in this workgroup."""
+    normalized_path = (
+        str(path_str)
+        .replace("/masked_images/", "/images/")
+        .replace("\\masked_images\\", "\\images\\")
+    )
+    try:
+        relative_path = Path(normalized_path).relative_to(Path(settings.MEDIA_ROOT))
+    except ValueError:
+        return None
+    filename = str(relative_path)
+    return (
+        MediaFile.objects.filter(parent__owner__workgroup=workgroup)
+        .filter(
+            Q(image_file=filename)
+            | Q(static_thumbnail=filename)
+            | Q(preview=filename)
+            | Q(thumbnail=filename)
+        )
+        .first()
+    )
+
+
+@shared_task
+def similar_identity_pairs_on_success(output: dict, *args, **kwargs):
+    result = models.IdentificationSimilarPairResult.objects.get(id=kwargs["result_id"])
+    if result.status != "processing":
+        return result.id
+    if not isinstance(output, dict):
+        output = {}
+
+    if output.get("status") == "DONE":
+        result.status = "done"
+        result.message = output.get("message", "Similar identity pair search finished.")
+        result.mega_pairs = _normalize_similar_identity_pairs(output.get("mega_pairs", []), result.workgroup)
+        result.local_pairs = _normalize_similar_identity_pairs(output.get("local_pairs", []), result.workgroup)
+        level = models.Notification.INFO
+        message = f"Similar identity pair search finished for workgroup {result.workgroup}."
+    else:
+        result.status = "error"
+        result.message = output.get("error") or output.get("message") or "Worker returned no result."
+        level = models.Notification.ERROR
+        message = f"Similar identity pair search failed for workgroup {result.workgroup}: {result.message}"
+    result.finished_at = now()
+    result.save(update_fields=["status", "message", "mega_pairs", "local_pairs", "finished_at"])
+    _notify_similar_pair_staff(result, message, level)
+    return result.id
+
+
+@shared_task(bind=True)
+def similar_identity_pairs_on_error(self, task_id: str, *args, **kwargs):
+    result = models.IdentificationSimilarPairResult.objects.get(id=kwargs["result_id"])
+    if result.status != "processing":
+        return result.id
+    async_result = self.AsyncResult(task_id)
+    result.status = "error"
+    result.message = str(async_result.result) if async_result.failed() else "Unknown worker error."
+    result.finished_at = now()
+    result.save(update_fields=["status", "message", "finished_at"])
+    _notify_similar_pair_staff(
+        result,
+        f"Similar identity pair search failed for workgroup {result.workgroup}: {result.message}",
+        models.Notification.ERROR,
+    )
     return result.id

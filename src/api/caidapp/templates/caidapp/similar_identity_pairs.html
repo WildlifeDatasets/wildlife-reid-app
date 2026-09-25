@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+
+{% block head %}
+    {{ block.super }}
+    {% if result and result.status == 'processing' %}<meta http-equiv="refresh" content="10">{% endif %}
+{% endblock %}
+
+{% block body %}
+<div class="pagetitle d-flex justify-content-between align-items-center">
+    <div>
+        <div class="d-flex align-items-center gap-2">
+            <h1 class="mb-0">Similar identity pairs</h1>
+            <button type="button" class="btn btn-link text-body-secondary p-1"
+                    data-bs-toggle="collapse" data-bs-target="#similar-pairs-help"
+                    aria-expanded="false" aria-controls="similar-pairs-help"
+                    aria-label="How similar identity pairs are found" title="How does this work?">
+                <i class="bi bi-info-circle" aria-hidden="true"></i>
+            </button>
+        </div>
+        <p class="text-body-secondary mb-0">This search compares embeddings saved during identification initialization, which normally includes representative observations; it cannot reliably distinguish two identities in the same media file.</p>
+    </div>
+    <a class="btn btn-outline-secondary" href="{% url 'caidapp:dash_identities' %}">Identification dashboard</a>
+</div>
+
+<div class="collapse mb-4" id="similar-pairs-help">
+    <div class="card border-info-subtle">
+        <div class="card-body">
+            <h2 class="h5">How this search works</h2>
+            <ul class="mb-2">
+                <li>The input CSV contains one row per observation with an assigned identity, including its bounding box when available. It also includes observations not marked as representative.</li>
+                <li>The search uses embeddings already stored during identification initialization, which normally processes representative observations. It does not calculate new embeddings from the bounding boxes in this CSV. Rows without a matching stored embedding are skipped.</li>
+                <li>MegaDescriptor ranks pairs from different identities by cosine similarity. Local feature matching then scores a shortlist by the number of matched points. Higher scores mean stronger similarity within that method; the two score types are not directly comparable.</li>
+            </ul>
+            <p class="mb-0 text-body-secondary">Two observations in one media file have the same file name and may be assigned the same stored embedding. A pair from the same media file is excluded, but comparisons with other media files can still be misleading. Review both identities and media files before merging; this search never merges them automatically.</p>
+        </div>
+    </div>
+</div>
+
+<div class="d-flex flex-wrap gap-2 mb-4">
+    <form method="post" action="{% url 'caidapp:run_similar_identity_pairs' %}">
+        {% csrf_token %}
+        <button class="btn btn-primary" type="submit">Run search</button>
+    </form>
+    <a class="btn btn-outline-secondary" href="{% url 'caidapp:identification_information' %}">Identification information</a>
+    {% if result and input_csv_available %}
+        <a class="btn btn-outline-secondary" href="{% url 'caidapp:download_similar_identity_pairs_csv' result.id 'input' %}">Input CSV</a>
+    {% endif %}
+    {% if result and output_csv_available %}
+        <a class="btn btn-outline-secondary" href="{% url 'caidapp:download_similar_identity_pairs_csv' result.id 'output' %}">Pairs CSV</a>
+    {% endif %}
+</div>
+
+{% if not result %}
+    <div class="alert alert-info">No similarity search has run for this workgroup yet.</div>
+{% else %}
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="d-flex flex-wrap justify-content-between gap-2">
+                <div>
+                    <h2 class="card-title mb-1">Run {{ result.id }}</h2>
+                    <div>Started {{ result.created_at|date:'Y-m-d H:i' }}{% if result.finished_at %} · Finished {{ result.finished_at|date:'Y-m-d H:i' }}{% endif %}</div>
+                    {% if result.message %}<p class="mb-0 mt-2">{{ result.message }}</p>{% endif %}
+                </div>
+                <div><span class="badge text-bg-{% if result.status == 'done' %}success{% elif result.status == 'error' %}danger{% else %}primary{% endif %}">{{ result.status }}</span></div>
+            </div>
+            {% if result.status == 'processing' %}
+                <p class="text-body-secondary mb-0 mt-3">The search is running. This page refreshes every 10 seconds.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if result.status == 'done' %}
+        <section class="mb-5">
+            <h2 class="h4">MegaDescriptor pairs <span class="text-body-secondary">({{ mega_cards|length }})</span></h2>
+            <p class="text-body-secondary">Similarity is cosine similarity; higher values indicate more similar embeddings.</p>
+            {% include 'caidapp/similar_identity_pair_cards.html' with cards=mega_cards score_type='mega' %}
+        </section>
+        <section class="mb-5">
+            <h2 class="h4">Local feature pairs <span class="text-body-secondary">({{ local_cards|length }})</span></h2>
+            <p class="text-body-secondary">Similarity is the number of matched local feature points; higher values indicate more matches.</p>
+            {% include 'caidapp/similar_identity_pair_cards.html' with cards=local_cards score_type='local' %}
+        </section>
+    {% endif %}
+{% endif %}
+{% endblock %}

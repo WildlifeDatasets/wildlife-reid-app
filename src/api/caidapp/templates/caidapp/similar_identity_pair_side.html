@@ -1,0 +1,23 @@
+<div class="col-md-6">
+    <div class="border rounded h-100 overflow-hidden">
+        {% if side.mediafile and side.mediafile.thumbnail %}
+            <a href="{% url 'caidapp:media_file_update' side.mediafile.id %}">
+                <img src="{{ side.mediafile.thumbnail.url }}" alt="Media file thumbnail" class="w-100" style="height: 11rem; object-fit: cover;">
+            </a>
+        {% else %}
+            <div class="bg-body-tertiary text-body-secondary d-flex align-items-center justify-content-center" style="height: 11rem;">No thumbnail</div>
+        {% endif %}
+        <div class="p-3">
+            <div class="small text-body-secondary">{{ side_label }}</div>
+            {% if side.identity %}
+                <a href="{% url 'caidapp:individual_identity_update' side.identity.id %}" class="fw-semibold">{{ side.identity }}</a>
+            {% else %}
+                <strong>{{ side.label }}</strong>
+            {% endif %}
+            <div class="small text-break mt-1">{{ side.filename }}</div>
+            {% if side.mediafile %}
+                <a class="small" href="{% url 'caidapp:media_file_update' side.mediafile.id %}">Media file detail</a>
+            {% endif %}
+        </div>
+    </div>
+</div>

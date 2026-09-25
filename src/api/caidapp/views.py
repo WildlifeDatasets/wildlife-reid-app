@@ -823,11 +823,13 @@ def _identification_status_style(status: str) -> str:
 
 @login_required
 def identification_information(request) -> HttpResponse:
-    """Show workgroup-admin diagnostics for the re-identification workflow."""
-    if not user_can_manage_identification(request.user):
-        return HttpResponseNotAllowed("Identification information is for workgroup admins only.")
+    """Show workgroup identification diagnostics to admins and staff."""
+    if not (user_can_manage_identification(request.user) or request.user.is_staff):
+        return HttpResponseNotAllowed("Identification information is for workgroup admins and staff only.")
 
     workgroup = request.user.caiduser.workgroup
+    if workgroup is None:
+        return message_view(request, "No workgroup assigned.")
     run_statistics = workgroup.identification_run_statistics.all()
     recent_runs = list(run_statistics[:50])
     for run in recent_runs:
@@ -837,6 +839,10 @@ def identification_information(request) -> HttpResponse:
     latest_identify_run = run_statistics.filter(operation="identify").first()
     current_model = workgroup.identification_model
     initialized_model = workgroup.identification_initialized_model
+    recent_similar_pair_results = list(workgroup.similar_pair_results.all()[:10]) if request.user.is_staff else []
+    recent_outlier_results = list(
+        models.IdentificationOutlierSuggestionResult.objects.filter(workgroup=workgroup).order_by("-created_at")[:10]
+    ) if request.user.is_staff else []
 
     mediafiles = MediaFile.objects.filter(parent__owner__workgroup=workgroup)
     counts = {
@@ -870,6 +876,10 @@ def identification_information(request) -> HttpResponse:
             "latest_init_run": latest_init_run,
             "latest_identify_run": latest_identify_run,
             "recent_runs": recent_runs,
+            "recent_similar_pair_results": recent_similar_pair_results,
+            "latest_similar_pair_result": recent_similar_pair_results[0] if recent_similar_pair_results else None,
+            "recent_outlier_results": recent_outlier_results,
+            "latest_outlier_result": recent_outlier_results[0] if recent_outlier_results else None,
             "counts": counts,
         },
     )
@@ -7058,59 +7068,72 @@ def get_individuals(request, id1, id2) -> Tuple[models.IndividualIdentity, model
     return individual_identity1, individual_identity2
 
 
-class MergeIdentitiesWithPreview(View):
+class MergeIdentitiesWithPreview(LoginRequiredMixin, View):
+    @staticmethod
+    def _mediafiles_for_preview(identity, requested_id):
+        mediafiles = list(identity.observation_mediafiles().order_by("-captured_at", "-id")[:40])
+        selected = None
+        if requested_id and str(requested_id).isdigit():
+            selected = identity.observation_mediafiles().filter(pk=requested_id).first()
+        if selected:
+            mediafiles = [selected] + [mediafile for mediafile in mediafiles if mediafile.pk != selected.pk]
+        elif mediafiles:
+            representative = identity.cover_mediafile()
+            if representative:
+                mediafiles = [representative] + [mediafile for mediafile in mediafiles if mediafile.pk != representative.pk]
+        return mediafiles[:40]
+
+    def _render_preview(self, request, individual_from, individual_to, form):
+        differences = generate_differences(individual_to, individual_from)
+        return_url = request.GET.get("next") or request.POST.get("next") or request.META.get("HTTP_REFERER")
+        if not return_url or not url_has_allowed_host_and_scheme(
+            return_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+        ):
+            return_url = reverse("caidapp:individual_identities")
+        from_mediafiles = self._mediafiles_for_preview(individual_from, request.GET.get("from_mediafile_id"))
+        to_mediafiles = self._mediafiles_for_preview(individual_to, request.GET.get("to_mediafile_id"))
+        from_mediafile_id = from_mediafiles[0].pk if from_mediafiles else ""
+        to_mediafile_id = to_mediafiles[0].pk if to_mediafiles else ""
+        swap_url = reverse("caidapp:merge_identities", args=[individual_to.pk, individual_from.pk])
+        swap_url += "?" + urllib.parse.urlencode({
+            "from_mediafile_id": to_mediafile_id,
+            "to_mediafile_id": from_mediafile_id,
+            "next": return_url,
+        })
+        return render(request, "caidapp/merge_identities_preview.html", {
+            "form": form,
+            "individual_from": individual_from,
+            "individual_to": individual_to,
+            "from_mediafiles": from_mediafiles,
+            "to_mediafiles": to_mediafiles,
+            "from_mediafile_id": from_mediafile_id,
+            "to_mediafile_id": to_mediafile_id,
+            "from_mediafiles_count": individual_from.count_of_mediafiles(),
+            "to_mediafiles_count": individual_to.count_of_mediafiles(),
+            "differences": differences,
+            "swap_url": swap_url,
+            "cancel_button_url": return_url,
+            "return_url": return_url,
+        })
+
     def get(self, request, individual_identity_from_id, individual_identity_to_id):
         """Render the merge form."""
         individual_from, individual_to = get_individuals(
             request, individual_identity_from_id, individual_identity_to_id
         )
-        suggestion, differences = _prepare_merged_individual_identity_object(
-            individual_from,
-            individual_to,
-            # individual_identity_from_id, individual_identity_to_id
-        )
-        differences_html = (
-            "<h3>Differences</h3><ul>"
-            + "".join(f"<li>{key}: {value}</li>" for key, value in differences.items())
-            + "</ul>"
-        )
-
-        # Differences for the right column
-
+        if individual_from.pk == individual_to.pk:
+            raise Http404("Choose two different identities to merge.")
+        suggestion, _ = _prepare_merged_individual_identity_object(individual_from, individual_to)
         form = IndividualIdentityForm(instance=suggestion)
-        media_file = (
-            individual_to.observation_mediafiles()
-            .filter(
-                observations__identity=individual_to,
-                observations__identity_is_representative=True,
-            )
-            .first()
-        )
-
-        return render(
-            request,
-            "caidapp/update_form.html",
-            {
-                "form": form,
-                "headline": "Merge Individual Identity",
-                "button": "Save",
-                "link": request.META.get("HTTP_REFERER", "/"),
-                "cancel_button_url": request.META.get("HTTP_REFERER", "/"),
-                "individual_identity": individual_to,
-                "mediafile": media_file,
-                "delete_button_url": reverse_lazy(
-                    "caidapp:delete_individual_identity",
-                    kwargs={"individual_identity_id": individual_identity_to_id},
-                ),
-                "right_col_raw_html": differences_html,
-            },
-        )
+        return self._render_preview(request, individual_from, individual_to, form)
 
     def post(self, request, individual_identity_from_id, individual_identity_to_id):
         """Handle form submission."""
-        individual_to, individual_from = get_individuals(
-            request, individual_identity_to_id, individual_identity_from_id
+        individual_from, individual_to = get_individuals(
+            request, individual_identity_from_id, individual_identity_to_id
         )
+        if individual_from.pk == individual_to.pk:
+            raise Http404("Choose two different identities to merge.")
 
         form = IndividualIdentityForm(request.POST, instance=individual_to)
         if form.is_valid():
@@ -7131,7 +7154,7 @@ class MergeIdentitiesWithPreview(View):
             return redirect("caidapp:individual_identities")
 
         # On failure, re-render the form with errors
-        return self.get(request, individual_identity_to_id, individual_identity_from_id)
+        return self._render_preview(request, individual_from, individual_to, form)
 
 
 class MergeIdentitiesNoPreview(View):
@@ -7960,6 +7983,15 @@ def suggest_merge_identities_view(request, limit: int = 100):
                     )
                 )
             }
+            cover_mediafile_ids = {}
+            for identity_id, mediafile_id in (
+                AnimalObservation.objects.filter(identity_id__in=identity_ids)
+                .order_by("identity_id", "-identity_is_representative", "-mediafile__captured_at", "-mediafile_id")
+                .values_list("identity_id", "mediafile_id")
+            ):
+                cover_mediafile_ids.setdefault(identity_id, mediafile_id)
+            for identity in identities_by_id.values():
+                identity.merge_preview_mediafile_id = cover_mediafile_ids.get(identity.id)
             suggestions = []
             for identity_a_id, identity_b_id, distance in page_obj.object_list:
                 try:
@@ -8033,7 +8065,10 @@ def run_identification_outlier_detection_view(request):
         return message_view(request, "No workgroup assigned.")
 
     result, metadata_file = tasks.run_identification_outlier_detection_for_workgroup(workgroup)
-    messages.info(request, "Identification outlier detection has started.")
+    if result.status == "error":
+        messages.error(request, result.message)
+    else:
+        messages.info(request, "Identification outlier detection has started.")
     return redirect("caidapp:identification_outlier_suggestions_result", result_id=result.id)
 
 
@@ -8273,6 +8308,109 @@ def accept_identification_outlier_suggestion_view(request):
         f"Identity for media file '{suspicious_mediafile}' was updated to '{suggested_identity}'.",
     )
     return redirect(next_url)
+
+
+@login_required
+@require_POST
+def run_similar_identity_pairs_view(request):
+    """Start a manual search for similar media across different identities."""
+    if not request.user.is_staff:
+        raise PermissionDenied
+    workgroup = request.user.caiduser.workgroup
+    if workgroup is None:
+        return message_view(request, "No workgroup assigned.")
+
+    result = tasks.run_similar_identity_pairs_for_workgroup(workgroup)
+    if result.status == "error":
+        messages.error(request, result.message)
+    else:
+        messages.info(request, "Similar identity pair search has started.")
+    return redirect("caidapp:similar_identity_pairs_result", result_id=result.id)
+
+
+@login_required
+def similar_identity_pairs_view(request, result_id: int = None):
+    """Show one workgroup's latest or selected similarity search result."""
+    if not request.user.is_staff:
+        raise PermissionDenied
+    workgroup = request.user.caiduser.workgroup
+    if workgroup is None:
+        return message_view(request, "No workgroup assigned.")
+    queryset = models.IdentificationSimilarPairResult.objects.filter(workgroup=workgroup)
+    result = get_object_or_404(queryset, pk=result_id) if result_id is not None else queryset.first()
+    if result is None:
+        return render(request, "caidapp/similar_identity_pairs.html", {"result": None})
+
+    raw_pairs = (result.mega_pairs or []) + (result.local_pairs or [])
+    mediafile_ids = {
+        pair.get(f"mediafile_{side}_id")
+        for pair in raw_pairs
+        for side in ("a", "b")
+        if pair.get(f"mediafile_{side}_id")
+    }
+    identity_ids = {
+        pair.get(f"class_id_{side}")
+        for pair in raw_pairs
+        for side in ("a", "b")
+        if pair.get(f"class_id_{side}")
+    }
+    mediafiles = MediaFile.objects.filter(
+        id__in=mediafile_ids,
+        parent__owner__workgroup=workgroup,
+    ).in_bulk()
+    identities = IndividualIdentity.objects.filter(
+        id__in=identity_ids,
+        owner_workgroup=workgroup,
+    ).in_bulk()
+
+    def make_cards(pairs):
+        cards = []
+        for pair in pairs:
+            sides = []
+            for side in ("a", "b"):
+                path = pair.get(f"path_{side}") or ""
+                identity_id = pair.get(f"class_id_{side}")
+                sides.append({
+                    "mediafile": mediafiles.get(pair.get(f"mediafile_{side}_id")),
+                    "identity": identities.get(identity_id),
+                    "label": pair.get(f"label_{side}") or "Unknown identity",
+                    "filename": Path(path).name,
+                })
+            cards.append({"a": sides[0], "b": sides[1], "similarity": pair.get("similarity")})
+        return cards
+
+    return render(
+        request,
+        "caidapp/similar_identity_pairs.html",
+        {
+            "result": result,
+            "mega_cards": make_cards(result.mega_pairs or []),
+            "local_cards": make_cards(result.local_pairs or []),
+            "output_csv_available": workgroup.file_path(result.output_csv_filename).is_file(),
+            "input_csv_available": workgroup.file_path(result.input_csv_filename).is_file(),
+        },
+    )
+
+
+@login_required
+def download_similar_identity_pairs_csv(request, result_id: int, kind: str):
+    """Download one run's CSV without exposing the workgroup's media directory."""
+    if not request.user.is_staff:
+        raise PermissionDenied
+    result = get_object_or_404(
+        models.IdentificationSimilarPairResult,
+        pk=result_id,
+        workgroup=request.user.caiduser.workgroup,
+    )
+    if kind not in {"input", "output"}:
+        raise Http404
+    filename = result.input_csv_filename if kind == "input" else result.output_csv_filename
+    if not filename:
+        raise Http404
+    csv_path = result.workgroup.file_path(filename)
+    if not csv_path.is_file():
+        raise Http404
+    return FileResponse(open(csv_path, "rb"), as_attachment=True, filename=filename, content_type="text/csv")
 
 
 @login_required

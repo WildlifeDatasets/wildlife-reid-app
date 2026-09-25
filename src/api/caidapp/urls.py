@@ -602,6 +602,18 @@ urlpatterns = [
         views.accept_identification_outlier_suggestion_view,
         name="accept_identification_outlier_suggestion",
     ),
+    path("similar_identity_pairs/run/", views.run_similar_identity_pairs_view, name="run_similar_identity_pairs"),
+    path("similar_identity_pairs/", views.similar_identity_pairs_view, name="similar_identity_pairs"),
+    path(
+        "similar_identity_pairs/<int:result_id>/",
+        views.similar_identity_pairs_view,
+        name="similar_identity_pairs_result",
+    ),
+    path(
+        "similar_identity_pairs/<int:result_id>/download/<str:kind>/",
+        views.download_similar_identity_pairs_csv,
+        name="download_similar_identity_pairs_csv",
+    ),
     path(
         "update_uploaded_archive_with_spreadsheet/<int:uploaded_archive_id>/",
         views.UpdateUploadedArchiveBySpreadsheetFile.as_view(),

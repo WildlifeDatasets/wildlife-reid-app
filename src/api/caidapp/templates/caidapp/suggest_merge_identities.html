@@ -165,7 +165,7 @@
               </div>
               <div class="merge-distance text-body-secondary">distance: {{ distance }}</div>
               <div class="merge-suggestion-actions d-flex align-items-center justify-content-end">
-                <a class="btn btn-secondary me-1" href="{% url 'caidapp:merge_identities' identity1.id identity2.id %}">Merge with preview</a>
+                <a class="btn btn-secondary me-1" href="{% url 'caidapp:merge_identities' identity1.id identity2.id %}?from_mediafile_id={{ identity1.merge_preview_mediafile_id|default:'' }}&amp;to_mediafile_id={{ identity2.merge_preview_mediafile_id|default:'' }}&amp;next={{ request.get_full_path|urlencode }}">Merge with preview</a>
                 <a class="btn btn-secondary" href="{% url 'caidapp:merge_identities_no_preview' identity1.id identity2.id %}"
                    onclick="return confirm('Are you sure you want to merge {{ identity1.name }} into {{ identity2.name }}?');">Merge</a>
                 <a class="btn btn-outline-secondary ms-1" href="{% url 'caidapp:merge_identities_no_preview' identity2.id identity1.id %}"
