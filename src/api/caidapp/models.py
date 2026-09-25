@@ -2579,6 +2579,27 @@ class IdentificationOutlierSuggestionResult(models.Model):
         return f"Identification outliers for {self.workgroup} at {self.created_at}"
 
 
+class IdentificationSimilarPairResult(models.Model):
+    """One manual search for visually similar media from different identities."""
+
+    workgroup = models.ForeignKey(WorkGroup, on_delete=models.CASCADE, related_name="similar_pair_results")
+    created_at = models.DateTimeField(auto_now_add=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+    status = models.CharField(max_length=32, default="processing")
+    message = models.TextField(blank=True, default="")
+    task_id = models.CharField(max_length=255, blank=True, default="")
+    input_csv_filename = models.CharField(max_length=255, blank=True, default="")
+    output_csv_filename = models.CharField(max_length=255, blank=True, default="")
+    mega_pairs = models.JSONField(default=list, blank=True)
+    local_pairs = models.JSONField(default=list, blank=True)
+
+    class Meta:
+        ordering = ("-created_at", "-id")
+
+    def __str__(self):
+        return f"Similar identity pairs for {self.workgroup} at {self.created_at}"
+
+
 class HomeDashboardSnapshot(models.Model):
     """Persisted dashboard aggregates for one workgroup home screen."""
 

@@ -151,7 +151,7 @@
                                 {% endif %}
                             </a>
                         </li>
-                        {% if user.caiduser.workgroup_admin %}
+                        {% if user.caiduser.workgroup_admin or user.is_staff %}
                             <li>
                                 <a class="dropdown-item" href="{% url 'caidapp:identification_information' %}">
                                     <i class="bi bi-info-circle"></i>
@@ -195,6 +195,19 @@
                             <li>
                                 <a class="dropdown-item" href="{% url 'caidapp:identification_outlier_suggestions' %}">
                                     <i class="bi bi-grid"></i> Show ID outliers
+                                </a>
+                            </li>
+                            <li>
+                                <form method="post" action="{% url 'caidapp:run_similar_identity_pairs' %}" class="m-0">
+                                    {% csrf_token %}
+                                    <button type="submit" class="dropdown-item">
+                                        <i class="bi bi-search-heart"></i> Find similar identity pairs
+                                    </button>
+                                </form>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{% url 'caidapp:similar_identity_pairs' %}">
+                                    <i class="bi bi-intersect"></i> Show similar identity pairs
                                 </a>
                             </li>
                         {% endif %}

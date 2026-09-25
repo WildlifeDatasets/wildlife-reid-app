@@ -3,10 +3,14 @@
 
 ## Release v0.5.0 – identification workflow overhaul
 
+## 2026-09
+
+* [added] Merge identity suggestion
 
 ## 2026-08
 
 * [Added] Observation view
+* 
 
 ## 2026-07
 * [added] Remove bbox in sequences view

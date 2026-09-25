@@ -896,8 +896,8 @@ def detect_identification_outliers(
     }
 
 
-def _most_similar_cross_label_pairs(embeddings, class_ids, top_k: int = 20) -> pd.DataFrame:
-    """Return the top-k most similar embedding pairs that do not share class_id."""
+def _most_similar_cross_label_pairs(embeddings, class_ids, top_k: int = 20, image_paths=None) -> pd.DataFrame:
+    """Return top-k pairs with different identities and different media paths."""
     embeddings = np.asarray(embeddings, dtype=np.float32)
     class_ids = np.asarray(class_ids)
     columns = ["idx_a", "idx_b", "similarity"]
@@ -916,6 +916,9 @@ def _most_similar_cross_label_pairs(embeddings, class_ids, top_k: int = 20) -> p
 
     # Filter pairs that do not have different class_id
     cross_label_mask = class_ids[idx_a] != class_ids[idx_b]
+    if image_paths is not None:
+        paths = np.asarray(image_paths)
+        cross_label_mask &= paths[idx_a] != paths[idx_b]
     idx_a, idx_b, values = idx_a[cross_label_mask], idx_b[cross_label_mask], values[cross_label_mask]
 
     if values.size == 0:
@@ -990,7 +993,12 @@ def detect_most_similar(
         aliked_embeddings, mega_embeddings = prepare_feature_types(parsed_features)
 
         # Rank all cross-identity pairs by MegaDescriptor cosine
-        mega_shortlist = _most_similar_cross_label_pairs(mega_embeddings, metadata["class_id"].to_numpy(), top_k=aliked_pair_budget)
+        mega_shortlist = _most_similar_cross_label_pairs(
+            mega_embeddings,
+            metadata["class_id"].to_numpy(),
+            top_k=aliked_pair_budget,
+            image_paths=metadata["image_path"].to_numpy(),
+        )
         mega_pairs = [
             _pair_payload(metadata, row.idx_a, row.idx_b, row.similarity)
             for row in mega_shortlist.head(top_k).itertuples(index=False)

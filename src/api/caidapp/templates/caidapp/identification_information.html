@@ -144,6 +144,56 @@
     </div>
 </div>
 
+{% if user.is_staff %}
+<div class="row g-3 mb-4">
+    <div class="col-xl-6">
+        <div class="card h-100">
+            <div class="card-body">
+                <h2 class="card-title">Identity outlier detection</h2>
+                {% if latest_outlier_result %}
+                    <p>Status: <strong>{{ latest_outlier_result.status }}</strong><br>
+                       Started: {{ latest_outlier_result.created_at|date:'Y-m-d H:i:s' }}<br>
+                       {{ latest_outlier_result.message|default:'' }}</p>
+                    <a href="{% url 'caidapp:identification_outlier_suggestions_result' latest_outlier_result.id %}">View latest outliers</a>
+                {% else %}
+                    <p class="text-body-secondary">No run yet.</p>
+                {% endif %}
+                <h3 class="h6 mt-3">Recent runs</h3>
+                <ul class="mb-0">
+                    {% for run in recent_outlier_results %}
+                        <li><a href="{% url 'caidapp:identification_outlier_suggestions_result' run.id %}">{{ run.created_at|date:'Y-m-d H:i' }}</a> — {{ run.status }} ({{ run.suggestions|length }} suggestions)</li>
+                    {% empty %}<li>None</li>{% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-6">
+        <div class="card h-100">
+            <div class="card-body">
+                <h2 class="card-title">Similar identity pairs</h2>
+                {% if latest_similar_pair_result %}
+                    <p>Status: <strong>{{ latest_similar_pair_result.status }}</strong><br>
+                       Started: {{ latest_similar_pair_result.created_at|date:'Y-m-d H:i:s' }}<br>
+                       {% if latest_similar_pair_result.finished_at %}Finished: {{ latest_similar_pair_result.finished_at|date:'Y-m-d H:i:s' }}<br>{% endif %}
+                       {{ latest_similar_pair_result.message|default:'' }}</p>
+                    <p>{{ latest_similar_pair_result.mega_pairs|length }} Mega pairs, {{ latest_similar_pair_result.local_pairs|length }} Local pairs</p>
+                    {% if latest_similar_pair_result.task_id %}<div class="small text-body-secondary text-break">Task ID: {{ latest_similar_pair_result.task_id }}</div>{% endif %}
+                    <a href="{% url 'caidapp:similar_identity_pairs_result' latest_similar_pair_result.id %}">View latest pairs</a>
+                {% else %}
+                    <p class="text-body-secondary">No run yet.</p>
+                {% endif %}
+                <h3 class="h6 mt-3">Recent runs</h3>
+                <ul class="mb-0">
+                    {% for run in recent_similar_pair_results %}
+                        <li><a href="{% url 'caidapp:similar_identity_pairs_result' run.id %}">{{ run.created_at|date:'Y-m-d H:i' }}</a> — {{ run.status }}</li>
+                    {% empty %}<li>None</li>{% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <div class="card mb-4">
     <div class="card-body">
         <h2 class="card-title">Identification data</h2>

@@ -27,6 +27,7 @@ app.conf.task_routes = {
     "train_identification": {"queue": "identification_worker"},
     "identify": {"queue": "identification_worker"},
     "detect_identification_outliers": {"queue": "identification_worker"},
+    "detect_most_similar": {"queue": "identification_worker"},
 }
 app.conf.update(task_track_started=True)
 
