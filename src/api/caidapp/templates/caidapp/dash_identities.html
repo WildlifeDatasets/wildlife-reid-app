@@ -388,6 +388,11 @@
             </div>
         {% endif %}
         <h1 class="mt-4">Additional information</h1>
+        <p class="text-body-secondary small">
+            Statistics updated at {{ identification_dashboard_updated_at|date:"Y-m-d H:i" }}.
+            Refreshed in the background every 3 hours.
+            {% if identification_dashboard_stale %}An updated snapshot is pending.{% endif %}
+        </p>
 
         {#        <div  class="container-fluid">#}
         <div class="row">
@@ -399,17 +404,17 @@
                     <div class="card-body">
                         <h3 class="card-title">Identification data</h3>
 
-                        Number of identities: {{ user.caiduser.number_of_identities }}<br>
+                        Number of identities: {{ identification_stats.identities }}<br>
                         Number of media files in
-                        identification: {{ user.caiduser.number_of_media_files_for_identification }}<br>
+                        identification: {{ identification_stats.mediafiles }}<br>
                         Number of media files with known
-                        identity: {{ user.caiduser.number_of_media_files_with_known_identity }}<br>
+                        identity: {{ identification_stats.known_identity }}<br>
                         Number of representative media
-                        files: {{ user.caiduser.workgroup.number_of_representative_media_files }}<br>
+                        files: {{ identification_stats.representative }}<br>
                         Number of media files with missing
-                        identity: {{ user.caiduser.number_of_media_files_with_missing_identity }}<br>
+                        identity: {{ identification_stats.missing_identity }}<br>
                         Number of media files for identification
-                        initialization: {{ user.caiduser.workgroup.mediafiles_for_train_or_init_identification.count }}<br>
+                        initialization: {{ identification_stats.representative }}<br>
 
                         <br>
                         {% if not user.caiduser.workgroup.default_taxon_for_identification %}
@@ -427,19 +432,19 @@
 
                             </div>
                         {% else %}
-                            {% if user.caiduser.number_of_media_files_for_identification == 0 %}
+                            {% if identification_stats.mediafiles == 0 %}
                                 <p>You might want to <a href="{% url 'caidapp:new_upload' %}">upload
                                     unidentified single species</a> or <a
                                         href="{% url 'caidapp:new_upload' %}">upload
                                     identified archive</a>.</p>
                             {% else %}
-                                {% if user.caiduser.workgroup.number_of_representative_media_files == 0 %}
+                                {% if identification_stats.representative == 0 %}
                                     <p>
                                         You might want to select representative images (marked with <i
                                             class="bi bi-star-fill"></i>>) for the identification process.
                                     </p>
                                 {% else %}
-                                    {% if  user.caiduser.workgroup.mediafiles_for_train_or_init_identification.count == 0 %}
+                                    {% if  identification_stats.representative == 0 %}
                                         {% if user.caiduser.workgroup.default_taxon_for_identification %}
 
                                             <div class="alert alert-warning">
@@ -461,7 +466,7 @@
                                 {% endif %}
 
 
-                                {% if user.caiduser.number_of_media_files_with_missing_identity > 0 %}
+                                {% if identification_stats.missing_identity > 0 %}
                                     <p>
                                         You might want to <a href="{% url 'caidapp:not_identified_mediafiles' %}">do the
                                         identification on uploaded images</a>.
@@ -502,11 +507,11 @@
                                 the identification results.
                             </p>
                             <p>
-                                {% if not user.caiduser.workgroup.number_of_representative_media_files or user.caiduser.workgroup.number_of_representative_media_files == 0 %}
+                                {% if not identification_stats.representative or identification_stats.representative == 0 %}
                                     No representative images found.
                                 {% else %}
                                     Number of representative images:
-                                    {{ user.caiduser.workgroup.number_of_representative_media_files }}
+                                    {{ identification_stats.representative }}
 
                                     ( <a
                                         href="{% url 'caidapp:media_files' %}?init_identification_candidates=true"
@@ -521,14 +526,14 @@
 
 
                         {% if identities_by_representative_mediafiles %}
-                            {% if identities_by_representative_mediafiles.count == 0 %}
+                            {% if representative_identity_count == 0 %}
                                 <p>
                                     There is nothing you can do here. All identities have representative media files.
                                 </p>
                             {% else %}
                                 <p class="mt-2">
                                     Number of identities without representative
-                                    mediafile: {{ identities_by_representative_mediafiles|length }}
+                                    mediafile: {{ representative_identity_count }}
                                 </p>
                                 <p>
                                     Identity {{ identities_by_representative_mediafiles.0.name }}
@@ -699,7 +704,6 @@ Run ({{ user.caiduser.workgroup.identification_reid_status }} {{ user.caiduser.w
 
         document.addEventListener("DOMContentLoaded", function () {
             // spustí první dotaz po načtení stránky
-            checkStatuses("{% url 'caidapp:uploads_status_api' 'identities' %}");
             checkIdentificationProgress();
         });
 

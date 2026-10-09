@@ -17,6 +17,9 @@ python manage.py collectstatic --noinput --verbosity 2
 # start "local" celery worker
 C_FORCE_ROOT=false celery -A caidapp.celery_app worker --pool threads --concurrency 12 --loglevel info &
 
+# Run one scheduler for the API deployment; it dispatches tasks to the API worker.
+celery -A caidapp.celery_app beat --loglevel info --schedule /data/celerybeat-schedule --pidfile /tmp/caid-celerybeat.pid &
+
 # start django
 uvicorn CarnivoreIDApp.asgi:application \
     --host 0.0.0.0 \

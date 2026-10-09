@@ -1,6 +1,7 @@
 import logging
 import os
 import threading
+from datetime import timedelta
 from celery import Celery, signals
 
 RABBITMQ_URL = os.environ["RABBITMQ_URL"]
@@ -31,6 +32,16 @@ app.conf.task_routes = {
 }
 app.conf.update(task_track_started=True)
 
+# Beat publishes this task every three hours; the API worker performs the refresh.
+app.conf.beat_schedule = {
+    **(app.conf.beat_schedule or {}),
+    "refresh-identification-dashboard-every-three-hours": {
+        "task": "caidapp.tasks.refresh_identification_dashboard_stats",
+        "schedule": timedelta(hours=3),
+        "options": {"queue": "celery", "expires": 3 * 60 * 60},
+    },
+}
+
 
 def _signal_context(sender=None, task_id=None, task=None, args=None, kwargs=None, **extra):
     parts = [
@@ -55,6 +66,16 @@ def _signal_context(sender=None, task_id=None, task=None, args=None, kwargs=None
 @signals.worker_ready.connect
 def _on_worker_ready(sender=None, **kwargs):
     logger.info("Celery worker ready: %s", _signal_context(sender=sender, **kwargs))
+    # Warm missing or stale snapshots after a restart, without waiting for Beat.
+    try:
+        app.send_task(
+            "caidapp.tasks.refresh_identification_dashboard_stats",
+            kwargs={"due_only": True},
+            queue="celery",
+            expires=3 * 60 * 60,
+        )
+    except Exception:
+        logger.exception("Could not enqueue initial identification dashboard refresh")
 
 
 @signals.worker_shutdown.connect

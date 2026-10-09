@@ -110,7 +110,9 @@ def build_next_steps(workgroup: models.WorkGroup | None) -> list[NextStepCandida
         )
 
     code_suggestion_count = 0
-    for identity in identities.only("id", "name", "code", "owner_workgroup"):
+    for identity in identities.select_related("owner_workgroup").only(
+        "id", "name", "code", "owner_workgroup", "owner_workgroup__identity_code_regex"
+    ):
         suggested_code = identity.suggested_code_from_name()
         if suggested_code and identity.code != suggested_code:
             code_suggestion_count += 1

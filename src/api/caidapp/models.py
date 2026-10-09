@@ -2600,6 +2600,14 @@ class IdentificationSimilarPairResult(models.Model):
         return f"Similar identity pairs for {self.workgroup} at {self.created_at}"
 
 
+class IdentificationDashboardSnapshot(models.Model):
+    """Persisted identification statistics shared by members of a workgroup."""
+
+    workgroup = models.OneToOneField(WorkGroup, on_delete=models.CASCADE)
+    payload = models.JSONField(default=dict)
+    updated_at = models.DateTimeField(auto_now=True)
+
+
 class HomeDashboardSnapshot(models.Model):
     """Persisted dashboard aggregates for one workgroup home screen."""
 

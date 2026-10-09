@@ -9,6 +9,7 @@ import shutil
 import tempfile
 import traceback
 import threading
+import uuid
 from datetime import timedelta
 from pathlib import Path
 from types import SimpleNamespace
@@ -49,6 +50,44 @@ from .models import (
 # from tqdm import tqdm
 
 logger = logging.getLogger("app")
+
+
+@shared_task(
+    name="caidapp.tasks.refresh_identification_dashboard_stats",
+    queue="celery",
+    autoretry_for=(Exception,),
+    retry_backoff=60,
+    retry_kwargs={"max_retries": 3},
+    ignore_result=True,
+)
+def refresh_identification_dashboard_stats(due_only=False):
+    """Dispatch one independent refresh per workgroup from Beat or worker startup."""
+    from .services.identification_dashboard import REFRESH_INTERVAL
+
+    workgroups = WorkGroup.objects.all()
+    if due_only:
+        workgroups = workgroups.exclude(
+            identificationdashboardsnapshot__updated_at__gte=now() - REFRESH_INTERVAL
+        )
+    for workgroup_id in workgroups.values_list("pk", flat=True).iterator():
+        refresh_workgroup_identification_dashboard.apply_async(args=[workgroup_id], queue="celery")
+
+
+@shared_task(
+    name="caidapp.tasks.refresh_workgroup_identification_dashboard",
+    queue="celery",
+    autoretry_for=(Exception,),
+    retry_backoff=60,
+    retry_kwargs={"max_retries": 3},
+    ignore_result=True,
+)
+def refresh_workgroup_identification_dashboard(workgroup_id):
+    """Refresh a group; failed groups retry independently and retain their old snapshot."""
+    from .services.identification_dashboard import refresh_identification_dashboard_snapshot
+
+    workgroup = WorkGroup.objects.filter(pk=workgroup_id).first()
+    if workgroup is not None:
+        refresh_identification_dashboard_snapshot(workgroup)
 
 
 @shared_task(name="caidapp.tasks.finish_bbox_detection")
@@ -3286,12 +3325,46 @@ def _notify_similar_pair_staff(result, message: str, level: int) -> None:
 
 
 def run_similar_identity_pairs_for_workgroup(workgroup: WorkGroup) -> models.IdentificationSimilarPairResult:
-    """Prepare the identified observation CSV and submit the similarity worker job."""
-    result = models.IdentificationSimilarPairResult.objects.create(workgroup=workgroup)
+    """Create a run and queue metadata preparation outside the HTTP request."""
+    result = models.IdentificationSimilarPairResult.objects.create(
+        workgroup=workgroup,
+        message="Preparing identified observations for the similarity search.",
+        task_id=str(uuid.uuid4()),
+    )
     result.input_csv_filename = f"identification_similar_pairs_{result.id}.csv"
     result.output_csv_filename = f"identification_similar_pairs_{result.id}_most_similar.csv"
     result.save(update_fields=["input_csv_filename", "output_csv_filename"])
 
+    try:
+        prepare_similar_identity_pairs.apply_async(
+            args=[result.id],
+            task_id=result.task_id,
+            queue="celery",
+            retry=False,
+        )
+        logger.info("Queued similar pair metadata preparation result_id=%s task_id=%s", result.id, result.task_id)
+    except Exception as exc:
+        logger.exception("Could not queue similar identity pair search for workgroup %s", workgroup.id)
+        result.status = "error"
+        result.message = str(exc)
+        result.finished_at = now()
+        result.save(update_fields=["status", "message", "finished_at"])
+        _notify_similar_pair_staff(
+            result,
+            f"Similar identity pair search failed for workgroup {workgroup}: {exc}",
+            models.Notification.ERROR,
+        )
+    return result
+
+
+@shared_task(name="caidapp.tasks.prepare_similar_identity_pairs")
+def prepare_similar_identity_pairs(result_id: int) -> int:
+    """Build the CSV in the API worker, then submit the comparison to the GPU worker."""
+    result = models.IdentificationSimilarPairResult.objects.select_related("workgroup").get(id=result_id)
+    if result.status != "processing":
+        return result.id
+    workgroup = result.workgroup
+    logger.info("Preparing similar pair input result_id=%s workgroup_id=%s", result.id, workgroup.id)
     try:
         mediafiles = (
             MediaFile.objects.filter(
@@ -3312,11 +3385,6 @@ def run_similar_identity_pairs_for_workgroup(workgroup: WorkGroup) -> models.Ide
 
         result.message = f"Comparing {len(csv_data['image_path'])} identified observations."
         result.save(update_fields=["message"])
-        _notify_similar_pair_staff(
-            result,
-            f"Similar identity pair search started for workgroup {workgroup}.",
-            models.Notification.INFO,
-        )
         job = signature(
             "detect_most_similar",
             kwargs={
@@ -3329,8 +3397,19 @@ def run_similar_identity_pairs_for_workgroup(workgroup: WorkGroup) -> models.Ide
         )
         result.task_id = job.id
         result.save(update_fields=["task_id"])
+        logger.info(
+            "Queued similar pair comparison result_id=%s task_id=%s observations=%s",
+            result.id,
+            job.id,
+            len(csv_data["image_path"]),
+        )
+        _notify_similar_pair_staff(
+            result,
+            f"Similar identity pair search started for workgroup {workgroup}.",
+            models.Notification.INFO,
+        )
     except Exception as exc:
-        logger.exception("Could not start similar identity pair search for workgroup %s", workgroup.id)
+        logger.exception("Could not prepare similar identity pair search for workgroup %s", workgroup.id)
         result.status = "error"
         result.message = str(exc)
         result.finished_at = now()
@@ -3340,7 +3419,7 @@ def run_similar_identity_pairs_for_workgroup(workgroup: WorkGroup) -> models.Ide
             f"Similar identity pair search failed for workgroup {workgroup}: {exc}",
             models.Notification.ERROR,
         )
-    return result
+    return result.id
 
 
 def _normalize_similar_identity_pairs(raw_pairs: list[dict], workgroup: WorkGroup) -> list[dict]:
@@ -3386,7 +3465,7 @@ def _resolve_similar_pair_mediafile(path_str: str, workgroup: WorkGroup) -> Medi
         relative_path = Path(normalized_path).relative_to(Path(settings.MEDIA_ROOT))
     except ValueError:
         return None
-    filename = str(relative_path)
+    filename = relative_path.as_posix()
     return (
         MediaFile.objects.filter(parent__owner__workgroup=workgroup)
         .filter(

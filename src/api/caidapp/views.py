@@ -93,8 +93,8 @@ from .models import (
     user_has_access_filter_params,
 )
 from .services.home_dashboard import render_home_dashboard_context
+from .services.identification_dashboard import identification_dashboard_context
 from .services.workgroup_migration import migrate_user_to_workgroup
-from .services.workgroup_next_steps import build_next_steps
 from .tasks import (
     _iterate_over_locality_checks,
     _prepare_dataframe_for_identification,
@@ -729,82 +729,15 @@ def dash_identities(request) -> HttpResponse:
     if workgroup.identification_model is None:
         messages.error(request, "No identification model for workgroup. Please set it before running identification.")
 
-    identity_queue_count = (
-        MediafilesForIdentification.objects.filter(mediafile__parent__owner__workgroup=workgroup)
-        .values("mediafile_id")
-        .distinct()
-        .count()
-    )
-
-    finished_archives = list(
-        UploadedArchive.objects.filter(owner__workgroup=workgroup, import_finished=True, contains_identities=False)
-    )
-    suggestion_candidate_mediafile_count = 0
-    suggestion_candidate_archive_count = 0
-    suggestion_observation_taxon = None
-    if workgroup.check_taxon_before_identification and workgroup.default_taxon_for_identification:
-        suggestion_observation_taxon = workgroup.default_taxon_for_identification
-
-    for uploaded_archive in finished_archives:
-        observation_taxon = uploaded_archive.taxon_for_identification or suggestion_observation_taxon
-        require_observations = observation_taxon is not None
-        candidate_count = workgroup.mediafiles_for_identification(
-            uploaded_archive_ids=[uploaded_archive.id],
-            require_import_finished=True,
-            require_identity=False,
-            observation_taxon=observation_taxon,
-            require_observations=require_observations,
-        ).count()
-        if candidate_count > 0:
-            suggestion_candidate_archive_count += 1
-            suggestion_candidate_mediafile_count += candidate_count
-
-    if suggestion_candidate_mediafile_count > 0:
-        suggestion_run_info = (
-            f"Suggestions can be generated for {suggestion_candidate_mediafile_count} media files "
-            f"in {suggestion_candidate_archive_count} finished uploaded archives."
-        )
-    else:
-        suggestion_run_info = (
-            "No eligible media files found for suggestions. "
-            "Check whether the upload import is finished and whether the archive has the expected taxon."
-        )
-
-    # find the identity with minimum number of representative mediafiles
-    identities = (
-        IndividualIdentity.objects.filter(owner_workgroup=request.user.caiduser.workgroup, name__ne="nan")
-        .annotate(
-            representative_mediafile_count=Count(
-                "animalobservation__mediafile",
-                filter=Q(animalobservation__identity_is_representative=True),
-                distinct=True,
-            ),
-            non_representative_mediafile_count=Count(
-                "animalobservation__mediafile",
-                filter=Q(animalobservation__identity_is_representative=False),
-                distinct=True,
-            ),
-        )
-        .filter(non_representative_mediafile_count__gt=0)
-        .order_by("representative_mediafile_count", "-non_representative_mediafile_count")
-    )
-    manual_identification_count = models.get_mediafiles_with_missing_identity(request.user.caiduser).count()
-    next_step_candidates = build_next_steps(workgroup)
+    dashboard_context = identification_dashboard_context(workgroup)
 
     return render(
         request,
         "caidapp/dash_identities.html",
         dict(
             # **page_context,
-            btn_styles=_single_species_button_style(request),
-            identities_by_representative_mediafiles=identities,
-            next_step_candidates=next_step_candidates,
-            primary_next_step=next_step_candidates[0] if next_step_candidates else None,
-            identity_queue_count=identity_queue_count,
-            manual_identification_count=manual_identification_count,
-            suggestion_candidate_mediafile_count=suggestion_candidate_mediafile_count,
-            suggestion_candidate_archive_count=suggestion_candidate_archive_count,
-            suggestion_run_info=suggestion_run_info,
+            btn_styles=_single_species_button_style(request, dashboard_context["identification_stats"]),
+            **dashboard_context,
         ),
     )
 
@@ -2449,15 +2382,28 @@ def stop_init_identification(request):
 
 
 # TODO rename to identification button style
-def _single_species_button_style(request) -> dict:
+def _single_species_button_style(request, dashboard_stats=None) -> dict:
     workgroup = request.user.caiduser.workgroup
 
     is_initiated = request.user.caiduser.workgroup.identification_init_at is not None
 
-    n_representative = workgroup.mediafiles_for_train_or_init_identification().count()
-    exists_representative = n_representative > 0
+    n_representative = (
+        dashboard_stats["representative"] if dashboard_stats is not None
+        else workgroup.mediafiles_for_train_or_init_identification().count()
+    )
+    if dashboard_stats is None:
+        exists_representative = n_representative > 0
+    else:
+        # Button availability must reflect current data, even with an older snapshot.
+        observation_taxon = (
+            workgroup.default_taxon_for_identification
+            if workgroup.check_taxon_before_identification else None
+        )
+        exists_representative = workgroup.mediafiles_for_identification(
+            representative_only=True, require_identity=True, observation_taxon=observation_taxon
+        ).exists()
 
-    n_unidentified = len(
+    n_unidentified = (
         UploadedArchive.objects.filter(
             # status="Species Finished",
             Q(taxon_status="TKN") | Q(taxon_status="TV"),
@@ -2465,14 +2411,14 @@ def _single_species_button_style(request) -> dict:
             contains_identities=False,
             # contains_single_taxon=True,
             taxon_for_identification__isnull=False,
-        )
+        ).count()
     )
 
     exists_unidentified = n_unidentified > 0
 
-    n_for_confirmation = len(
-        MediafilesForIdentification.objects.filter(mediafile__parent__owner__workgroup=request.user.caiduser.workgroup)
-    )
+    n_for_confirmation = MediafilesForIdentification.objects.filter(
+        mediafile__parent__owner__workgroup=workgroup
+    ).count()
     exists_for_confirmation = n_for_confirmation > 0
 
     # btn_tooltips = {}

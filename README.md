@@ -63,6 +63,32 @@ To check whether the application is running, you can use the following command t
          ```
 
 
+## Identification dashboard statistics
+
+The API startup scripts launch Celery Beat alongside the API worker. The schedule
+is defined in `src/api/caidapp/celery.py` under `app.conf.beat_schedule`: every
+three hours it publishes `caidapp.tasks.refresh_identification_dashboard_stats`
+to the `celery` queue. This task dispatches one refresh per workgroup to the API
+worker. Failed refreshes retry independently up to three times; existing snapshots
+remain available. When the worker starts, it also queues a refresh of missing or
+stale snapshots without waiting for the first periodic run.
+
+The dashboard displays the snapshot timestamp; running task status and action
+availability still use current data. A workgroup without a snapshot is calculated
+once on its first dashboard request if the worker has not prepared it yet.
+
+After deploying, apply migrations and restart the API to start Beat and the worker.
+Run only one Beat instance for the deployment. Its schedule state is persisted in
+`/data/celerybeat-schedule`. If launching the API without the startup scripts,
+start `celery -A caidapp.celery_app beat` alongside the API Celery worker.
+
+The management command remains available for a manual, immediate refresh
+(optionally limited to one workgroup):
+
+```bash
+docker compose exec api python manage.py refresh_identification_dashboard_stats --workgroup-id 1
+```
+
 ## Build `wrid-mlbase` image
 
 ```bash
