@@ -35,18 +35,21 @@ COPY ./src/api/requirements.txt /api/requirements.txt
 ENV APP_DIR='/api'
 WORKDIR $APP_DIR
 RUN uv pip install --no-cache-dir --upgrade pip build && \
-    uv pip install --no-cache-dir --compile --prerelease=allow -r requirements.txt && \
+    uv pip install --no-cache-dir --compile -r requirements.txt && \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/* /tmp/* /var/tmp/*
 RUN uv pip install https://github.com/BohemianVRA/FGVC/releases/download/v1.5.4-dev/fgvc-1.5.4.dev0-py3-none-any.whl
 
 RUN uv pip install pytz --upgrade
 RUN uv pip install tzdata --upgrade
 
-RUN uv pip install openpyxl==3.1.5 pyproj==3.7.0 django-cruds-adminlte==0.0.16
-RUN uv pip install --upgrade 'sentry-sdk[django]'
+RUN uv pip install openpyxl==3.1.5 'pyproj>=3.7,<4' django-cruds-adminlte==0.0.16
+# Upgrade only Sentry; --upgrade also upgrades its Django dependency.
+RUN uv pip install --upgrade-package sentry-sdk 'sentry-sdk[django]'
 RUN uv pip install django-compressor==4.5.1 csscompressor==0.9.5
 RUN uv pip install django-filter==24.3 django-crispy-forms==2.3
 RUN uv pip install factory_boy==3.2.0
+
+RUN python -c "import django; assert django.VERSION[:2] == (5, 2), django.get_version()"
 
 COPY ./src/api /api
 

@@ -26,6 +26,7 @@ class UrlSmokeTest(TestCase):
         "clear_identity_suggestions",
         "exclude_merge_identity_suggestion",
         "notifications-mark-all-as-read",
+        "run_similar_identity_pairs",
         "toggle_identity_representative",
     }
     SKIPPED_VIEWS = {
@@ -126,7 +127,12 @@ class UrlSmokeTest(TestCase):
             except NoReverseMatch:
                 continue
 
-            response = self.client.get(url)
+            query = {}
+            if name == "comparison_source":
+                query = {"kind": "mediafile", "id": self.mediafile.pk}
+            elif name == "comparison_search":
+                query = {"kind": "mediafile"}
+            response = self.client.get(url, query)
             self.assertIn(
                 response.status_code,
                 [200, 302, 403],  # 403 pro neautorizované přístupy, které jsou v pořádku
