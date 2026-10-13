@@ -126,6 +126,7 @@ MIDDLEWARE = [
     "caidapp.middleware.UploadLimitExceededMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "allauth.account.middleware.AccountMiddleware",
     "caidapp.middleware.RecordEditPermissionMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
@@ -144,29 +145,21 @@ STATICFILES_FINDERS = [
 ]
 
 
-# if not DEBUG:
-#     INSTALLED_APPS += ["compressor"]
-#     STATICFILES_FINDERS += ["compressor.finders.CompressorFinder"]
-
-# if DEBUG:
-#     STATICFILES_STORAGE = "django.contrib.staticfiles.storage.StaticFilesStorage"
-#     COMPRESS_ENABLED = False
-# else:
-#     STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
-#     COMPRESS_ENABLED = True
-
 COMPRESS_ENABLED = False
 COMPRESS_OFFLINE = False
-# STATICFILES_STORAGE = "django.contrib.staticfiles.storage.StaticFilesStorage"
-# STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 if DEBUG:
     # vývoj: žádné hashe, žádná cache
-    STATICFILES_STORAGE = "django.contrib.staticfiles.storage.StaticFilesStorage"
+    staticfiles_backend = "django.contrib.staticfiles.storage.StaticFilesStorage"
     WHITENOISE_MAX_AGE = 0
 else:
     # produkce: hash + gzip + brotli
-    STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+    staticfiles_backend = "whitenoise.storage.CompressedManifestStaticFilesStorage"
     WHITENOISE_MAX_AGE = 31536000  # 1 rok
+
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {"BACKEND": staticfiles_backend},
+}
 
 
 # COMPRESS_ENABLED = True  # aktivuje kompresi i v debug režimu (obvykle jen v produkci)
