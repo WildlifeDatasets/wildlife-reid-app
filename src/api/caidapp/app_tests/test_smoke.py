@@ -21,6 +21,8 @@ User = get_user_model()
 
 class UrlSmokeTest(TestCase):
     MUTATING_NAMES = {
+        "bbox_proposal",
+        "bbox_redetection_start",
         "clear_identity_suggestions",
         "exclude_merge_identity_suggestion",
         "notifications-mark-all-as-read",
