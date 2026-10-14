@@ -1,7 +1,3 @@
-from django.test import TestCase
-from django.urls import reverse
-from django.core.exceptions import ValidationError
-
 from caidapp import models
 from caidapp.app_tests.factories import (
     AlbumFactory,
@@ -13,10 +9,14 @@ from caidapp.app_tests.factories import (
     WorkGroupFactory,
 )
 from caidapp.services.workgroup_migration import migrate_user_to_workgroup
+from django.core.exceptions import ValidationError
+from django.test import TestCase
+from django.urls import reverse
 
 
 class WorkgroupMigrationTest(TestCase):
     def setUp(self):
+        """Prepare a personal workgroup with owned data and a target workgroup for migration tests."""
         self.source = WorkGroupFactory()
         self.target = WorkGroupFactory()
         self.user = CaidUserFactory()
@@ -31,6 +31,7 @@ class WorkgroupMigrationTest(TestCase):
         self.identification = models.MediafilesForIdentification.objects.create(mediafile=self.mediafile)
 
     def test_migrates_data_and_deletes_personal_workgroup(self):
+        """Move personal workgroup data, reset access and identification state, and delete the emptied group."""
         migrate_user_to_workgroup(user=self.user, target_workgroup=self.target)
 
         self.user.refresh_from_db()
@@ -50,6 +51,7 @@ class WorkgroupMigrationTest(TestCase):
         self.assertTrue(models.Album.objects.filter(pk=self.album.pk, owner=self.user).exists())
 
     def test_rejects_migration_from_multi_user_workgroup(self):
+        """Reject migration out of a multi-user workgroup without moving the member."""
         other_user = CaidUserFactory()
         other_user.workgroup = self.source
         other_user.save(update_fields=["workgroup"])
@@ -61,6 +63,7 @@ class WorkgroupMigrationTest(TestCase):
 
 class WorkgroupInvitationViewTest(TestCase):
     def setUp(self):
+        """Authenticate an admin of the target group and create an external user to invite."""
         self.target = WorkGroupFactory()
         self.admin = CaidUserFactory()
         self.admin.workgroup = self.target
@@ -70,6 +73,7 @@ class WorkgroupInvitationViewTest(TestCase):
         self.client.force_login(self.admin.user)
 
     def test_create_by_email_sends_linked_notification(self):
+        """Resolve an invitee by email and create a notification linked to the invitation detail."""
         response = self.client.post(
             reverse("caidapp:workgroup_invitation"),
             {"user_identifier": self.invited.user.email},

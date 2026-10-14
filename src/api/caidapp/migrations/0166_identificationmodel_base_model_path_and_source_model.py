@@ -1,11 +1,11 @@
 from django.db import migrations, models
 
-
 LEGACY_TRAINING_BASE_MODEL_SOURCE = "hf-hub:BVRA/MegaDescriptor-T-224"
 CHECKPOINT_SUFFIXES = (".pth", ".pt", ".ckpt", ".bin", ".safetensors")
 
 
 def backfill_identification_model_base_path(apps, schema_editor):
+    """Assign the legacy training base source to local checkpoints lacking a base model."""
     IdentificationModel = apps.get_model("caidapp", "IdentificationModel")
     for identification_model in IdentificationModel.objects.all():
         model_path = (identification_model.model_path or "").strip()
@@ -13,8 +13,11 @@ def backfill_identification_model_base_path(apps, schema_editor):
             continue
         if not model_path:
             continue
-        if model_path.startswith("file:") or model_path.startswith("/") or model_path.startswith("~/") or model_path.endswith(
-            CHECKPOINT_SUFFIXES
+        if (
+            model_path.startswith("file:")
+            or model_path.startswith("/")
+            or model_path.startswith("~/")
+            or model_path.endswith(CHECKPOINT_SUFFIXES)
         ):
             identification_model.base_model_path = LEGACY_TRAINING_BASE_MODEL_SOURCE
             identification_model.save(update_fields=["base_model_path"])

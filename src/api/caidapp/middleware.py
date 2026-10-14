@@ -1,5 +1,5 @@
-from django.contrib.auth import get_user_model
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.core.exceptions import TooManyFilesSent
 from django.http import JsonResponse
 from django.shortcuts import render
@@ -134,6 +134,7 @@ class RecordEditPermissionMiddleware(MiddlewareMixin):
     unsafe_methods = {"POST", "PUT", "PATCH", "DELETE"}
 
     def process_view(self, request, view_func, view_args, view_kwargs):
+        """Reject writes that exceed the user's workgroup record-edit permissions."""
         if not request.user.is_authenticated or not hasattr(request.user, "caiduser"):
             return None
 
@@ -173,6 +174,7 @@ class RecordEditPermissionMiddleware(MiddlewareMixin):
             return _permission_denied_response(request, "You do not have permission to edit these records.")
         return None
 
+
 # class ImpersonateMiddleware(MiddlewareMixin):
 #     def process_request(self, request):
 #         if request.user.is_authenticated and request.user.is_superuser:
@@ -208,6 +210,7 @@ class UploadLimitExceededMiddleware(MiddlewareMixin):
     """Return a user-facing upload error when Django rejects too many multipart files."""
 
     def process_exception(self, request, exception):
+        """Convert excessive multipart file counts on the upload route to a JSON error."""
         if not isinstance(exception, TooManyFilesSent):
             return None
         if request.path != str(reverse_lazy("caidapp:new_upload")):

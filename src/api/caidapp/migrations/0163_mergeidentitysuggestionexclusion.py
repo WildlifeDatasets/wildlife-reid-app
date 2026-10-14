@@ -1,6 +1,7 @@
 import django.db.models.deletion
 from django.db import migrations, models
 
+
 class Migration(migrations.Migration):
     dependencies = [
         ("caidapp", "0162_uploadedarchive_taxon_task_id"),

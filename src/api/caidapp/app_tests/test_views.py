@@ -5,19 +5,15 @@ from io import BytesIO, StringIO
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from caidapp import models
-from caidapp import forms
-from caidapp import tasks
-from caidapp import views
-from caidapp import views_mediafile
+import pandas as pd
+from caidapp import forms, models, tasks, views, views_mediafile
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.core.management import call_command
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.core.management import call_command
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
-import pandas as pd
 
 from .factories import (
     AlbumFactory,
@@ -66,11 +62,13 @@ class BasicFlowTest(TestCase):
 
 class HomeDashboardSnapshotTest(TestCase):
     def setUp(self):
+        """Authenticate a workgroup member for home snapshot and settings navigation tests."""
         self.caiduser = CaidUserFactory()
         self.user = self.caiduser.user
         self.client.login(username=self.user.username, password="test123")
 
     def test_refresh_home_dashboard_command_creates_snapshot(self):
+        """Create a home snapshot with separate image and video totals through the refresh command."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         wolf = TaxonFactory(name="Wolf")
         image_mediafile = MediaFileFactory(parent=archive, media_type="image")
@@ -89,6 +87,7 @@ class HomeDashboardSnapshotTest(TestCase):
         self.assertIn("Refreshed 1 home dashboard snapshot", output.getvalue())
 
     def test_home_view_uses_persisted_snapshot_when_available(self):
+        """Render home statistics from the stored daily snapshot when one is available."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         wolf = TaxonFactory(name="Wolf")
         mediafile = MediaFileFactory(parent=archive, media_type="image")
@@ -103,6 +102,7 @@ class HomeDashboardSnapshotTest(TestCase):
         self.assertContains(response, "Monthly Images vs Videos")
 
     def test_home_suggests_send_to_identification_before_general_upload(self):
+        """Prioritize sending ready uploads to identification over suggesting a general upload."""
         archive = UploadedArchiveFactory(
             owner=self.caiduser,
             taxon_status="TV",
@@ -120,8 +120,8 @@ class HomeDashboardSnapshotTest(TestCase):
         self.assertContains(response, "Send to identification")
         self.assertContains(response, reverse("caidapp:uploads_ready_for_identification"))
 
-
     def test_home_suggests_manual_identification_for_unidentified_identification_upload(self):
+        """Suggest manual identification for an identification upload with missing identities."""
         self.caiduser.workgroup.check_taxon_before_identification = False
         self.caiduser.workgroup.save(update_fields=["check_taxon_before_identification"])
         archive = UploadedArchiveFactory(
@@ -138,6 +138,7 @@ class HomeDashboardSnapshotTest(TestCase):
         self.assertContains(response, reverse("caidapp:manual_identification"))
 
     def test_user_menu_uses_personal_settings_label(self):
+        """Use the Personal Settings label in the user menu."""
         response = self.client.get(reverse("caidapp:home"))
 
         self.assertEqual(response.status_code, 200)
@@ -145,6 +146,7 @@ class HomeDashboardSnapshotTest(TestCase):
         self.assertNotContains(response, "User Settings")
 
     def test_workgroup_settings_shows_add_model_from_huggingface_only_for_workgroup_admin_with_admin_access(self):
+        """Show the Hub model admin link only when workgroup admin and Django admin access both allow it."""
         self.caiduser.workgroup_admin = True
         self.caiduser.save(update_fields=["workgroup_admin"])
 
@@ -164,6 +166,7 @@ class HomeDashboardSnapshotTest(TestCase):
         )
 
     def test_workgroup_settings_shows_link_to_personal_settings(self):
+        """Link workgroup settings to the current user's personal settings."""
         self.caiduser.workgroup_admin = True
         self.caiduser.save(update_fields=["workgroup_admin"])
 
@@ -174,6 +177,7 @@ class HomeDashboardSnapshotTest(TestCase):
         self.assertContains(response, reverse("caidapp:update_caiduser"))
 
     def test_personal_settings_shows_link_to_workgroup_settings_only_for_workgroup_admin(self):
+        """Expose workgroup settings navigation only to a workgroup admin."""
         self.caiduser.workgroup_admin = False
         self.caiduser.save(update_fields=["workgroup_admin"])
         response = self.client.get(reverse("caidapp:update_caiduser"))
@@ -192,11 +196,13 @@ class HomeDashboardSnapshotTest(TestCase):
 
 class MediafileExportTest(TestCase):
     def setUp(self):
+        """Authenticate a workgroup member for scoped CSV and file-path export tests."""
         self.caiduser = CaidUserFactory()
         self.user = self.caiduser.user
         self.client.login(username=self.user.username, password="test123")
 
     def test_csv_export_uses_get_filter_scope(self):
+        """Apply the current GET filter to CSV export instead of exporting unrelated media files."""
         taxon_wolf = TaxonFactory(name="Wolf")
         taxon_lynx = TaxonFactory(name="Lynx")
         archive = UploadedArchiveFactory(owner=self.caiduser)
@@ -218,6 +224,7 @@ class MediafileExportTest(TestCase):
         self.assertEqual(df.iloc[0]["original_path"], "wolf.jpg")
 
     def test_export_path_uses_observations(self):
+        """Build export paths from observation taxon and identity labels."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         locality = LocalityFactory(owner=self.caiduser, name="North Meadow")
         identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Alpha Female")
@@ -241,11 +248,13 @@ class MediafileExportTest(TestCase):
 
 class MediafileListViewTest(TestCase):
     def setUp(self):
+        """Authenticate a workgroup member for media-file list and selection tests."""
         self.caiduser = CaidUserFactory()
         self.user = self.caiduser.user
         self.client.login(username=self.user.username, password="test123")
 
     def test_card_image_prefers_static_variant_and_variant_urls_use_stored_fields(self):
+        """Use stored derivative fields and prefer a static card image over motion previews."""
         mediafile = MediaFileFactory(
             media_type="video",
             static_thumbnail=SimpleUploadedFile("static.webp", b"static", content_type="image/webp"),
@@ -260,6 +269,7 @@ class MediafileListViewTest(TestCase):
         self.assertEqual(mediafile.preview_url, mediafile.preview.url)
 
     def test_media_files_view_shows_each_file_separately(self):
+        """Render each media file independently without sequence-group controls."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         sequence = SequenceFactory(uploaded_archive=archive)
         first_mediafile = MediaFileFactory(
@@ -282,6 +292,7 @@ class MediafileListViewTest(TestCase):
         self.assertNotContains(response, "data-sequence=")
 
     def test_media_files_video_card_uses_static_image_and_lazy_motion_preview(self):
+        """Show a static video thumbnail with a lazily loaded motion preview and video badge."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         mediafile = MediaFileFactory(
             parent=archive,
@@ -300,6 +311,7 @@ class MediafileListViewTest(TestCase):
         self.assertContains(response, "media-type-video-badge")
 
     def test_bulk_identity_select_is_limited_to_workgroup_and_searchable(self):
+        """Limit searchable bulk identity choices to the user's workgroup and sort their labels."""
         UploadedArchiveFactory(owner=self.caiduser)
         zeta = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Zeta", code="Z-002")
         alpha = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Alpha", code="A-001")
@@ -315,16 +327,21 @@ class MediafileListViewTest(TestCase):
         self.assertIn("js-searchable-select", form.fields["identity"].widget.attrs["class"])
 
     def test_init_identification_candidates_use_same_filter_as_init_worker(self):
+        """Use the initialization worker's taxon and representative-identity eligibility for candidate listings."""
         lynx = TaxonFactory(name="Lynx lynx")
         wolf = TaxonFactory(name="Canis lupus")
         self.caiduser.workgroup.check_taxon_before_identification = True
         self.caiduser.workgroup.default_taxon_for_identification = lynx
-        self.caiduser.workgroup.save(update_fields=["check_taxon_before_identification", "default_taxon_for_identification"])
+        self.caiduser.workgroup.save(
+            update_fields=["check_taxon_before_identification", "default_taxon_for_identification"]
+        )
         archive = UploadedArchiveFactory(owner=self.caiduser)
         identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Alpha")
         init_mediafile = MediaFileFactory(parent=archive, original_filename="init-candidate.jpg")
         skipped_mediafile = MediaFileFactory(parent=archive, original_filename="other-taxon.jpg")
-        missing_identity_mediafile = MediaFileFactory(parent=archive, original_filename="representative-without-identity.jpg")
+        missing_identity_mediafile = MediaFileFactory(
+            parent=archive, original_filename="representative-without-identity.jpg"
+        )
         AnimalObservationFactory(
             mediafile=init_mediafile,
             taxon=lynx,
@@ -361,10 +378,12 @@ class MediafileListViewTest(TestCase):
 
 class IdentityObservationAggregationTest(TestCase):
     def setUp(self):
+        """Authenticate a workgroup member for observation-based identity aggregation tests."""
         self.caiduser = CaidUserFactory()
         self.client.login(username=self.caiduser.user.username, password="test123")
 
     def test_identity_list_uses_observation_identities_for_counts_and_cover(self):
+        """Aggregate identity counts and locality totals from observations and choose the representative cover."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Alpha")
         other_identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Beta")
@@ -399,6 +418,7 @@ class IdentityObservationAggregationTest(TestCase):
         self.assertEqual(alpha.last_seen.date().isoformat(), "2026-01-02")
 
     def test_identity_card_displays_animal_code(self):
+        """Display an identity's animal code on its list card."""
         IndividualIdentityFactory(
             owner_workgroup=self.caiduser.workgroup,
             name="Alpha",
@@ -411,6 +431,7 @@ class IdentityObservationAggregationTest(TestCase):
         self.assertContains(response, "<strong>Code:</strong> A-01", html=True)
 
     def test_identity_list_sorts_by_mediafile_count(self):
+        """Order identities by their observation-derived media-file counts."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         alpha = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Alpha")
         beta = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Beta")
@@ -434,6 +455,7 @@ class IdentityObservationAggregationTest(TestCase):
         self.assertEqual(ordered_ids[:3], [beta.id, alpha.id, gamma.id])
 
     def test_identity_list_uses_per_page_query_parameter(self):
+        """Respect the requested six-record page size on the identity list."""
         for index in range(7):
             IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name=f"Identity {index:02d}")
 
@@ -447,6 +469,7 @@ class IdentityObservationAggregationTest(TestCase):
         self.assertEqual(response.context["records_per_page"], 6)
 
     def test_identity_mediafiles_view_filters_by_observation_identity(self):
+        """Include only media files with observations assigned to the selected identity."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Alpha")
         other_identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Beta")
@@ -463,12 +486,15 @@ class IdentityObservationAggregationTest(TestCase):
         self.assertNotContains(response, "beta.jpg")
 
     def test_sequence_view_filters_by_observation_identity(self):
+        """Apply observation identity filters to sequence listings."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Alpha")
         other_identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Beta")
         matching_sequence = SequenceFactory(uploaded_archive=archive)
         other_sequence = SequenceFactory(uploaded_archive=archive)
-        matching_mediafile = MediaFileFactory(parent=archive, sequence=matching_sequence, original_filename="alpha-seq.jpg")
+        matching_mediafile = MediaFileFactory(
+            parent=archive, sequence=matching_sequence, original_filename="alpha-seq.jpg"
+        )
         other_mediafile = MediaFileFactory(parent=archive, sequence=other_sequence, original_filename="beta-seq.jpg")
 
         AnimalObservationFactory(mediafile=matching_mediafile, identity=identity)
@@ -482,9 +508,9 @@ class IdentityObservationAggregationTest(TestCase):
         self.assertNotContains(response, "beta-seq.jpg")
 
 
-
 class ImageUploadGraphViewTest(TestCase):
     def test_upload_stats_graph_uses_date_axis_and_sorted_days(self):
+        """Plot upload days chronologically on a date axis with the range slider enabled."""
         df = pd.DataFrame(
             [
                 {"date": pd.Timestamp("2026-06-10").date(), "parent__owner__user__username": "alice"},
@@ -497,11 +523,15 @@ class ImageUploadGraphViewTest(TestCase):
 
         self.assertEqual(fig.layout.xaxis.type, "date")
         self.assertTrue(fig.layout.xaxis.rangeslider.visible)
-        self.assertEqual(list(fig.data[0].x), [pd.Timestamp("2026-06-01").date(), pd.Timestamp("2026-06-05").date(), pd.Timestamp("2026-06-10").date()])
+        self.assertEqual(
+            list(fig.data[0].x),
+            [pd.Timestamp("2026-06-01").date(), pd.Timestamp("2026-06-05").date(), pd.Timestamp("2026-06-10").date()],
+        )
 
 
 class AnimalObservationFormTest(TestCase):
     def test_identity_queryset_is_sorted_and_searchable(self):
+        """Sort identity choices alphabetically and enable searchable identity and taxon controls."""
         caiduser = CaidUserFactory()
         archive = UploadedArchiveFactory(owner=caiduser)
         mediafile = MediaFileFactory(parent=archive)
@@ -521,6 +551,7 @@ class AnimalObservationFormTest(TestCase):
 
 class SpreadsheetIdentityLocalityImportExportTest(TestCase):
     def setUp(self):
+        """Authenticate a workgroup member for identity and locality spreadsheet round trips."""
         self.caiduser = CaidUserFactory()
         self.user = self.caiduser.user
         self.client.login(username=self.user.username, password="test123")
@@ -534,6 +565,7 @@ class SpreadsheetIdentityLocalityImportExportTest(TestCase):
         )
 
     def test_identity_export_includes_id_column(self):
+        """Export stable identity IDs and distinct media-file counts in CSV output."""
         identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Alpha", code="A-01")
         another_identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Beta")
         mediafile = MediaFileFactory(parent=UploadedArchiveFactory(owner=self.caiduser))
@@ -566,6 +598,7 @@ class SpreadsheetIdentityLocalityImportExportTest(TestCase):
         self.assertEqual(int(df.loc[df["id"] == another_identity.id, "mediafile_count"].iloc[0]), 1)
 
     def test_identity_export_xlsx_includes_mediafile_count(self):
+        """Include distinct media-file counts in identity XLSX output."""
         identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Alpha")
         mediafile = MediaFileFactory(parent=UploadedArchiveFactory(owner=self.caiduser))
         AnimalObservationFactory(mediafile=mediafile, identity=identity)
@@ -576,11 +609,23 @@ class SpreadsheetIdentityLocalityImportExportTest(TestCase):
         df = pd.read_excel(BytesIO(response.content))
         self.assertEqual(
             list(df.columns),
-            ["id", "name", "code", "juv_code", "sex", "coat_type", "birth_date", "death_date", "note", "mediafile_count"],
+            [
+                "id",
+                "name",
+                "code",
+                "juv_code",
+                "sex",
+                "coat_type",
+                "birth_date",
+                "death_date",
+                "note",
+                "mediafile_count",
+            ],
         )
         self.assertEqual(int(df.iloc[0]["mediafile_count"]), 1)
 
     def test_identity_import_prefers_id_for_rename(self):
+        """Rename an existing identity by spreadsheet ID instead of creating a second row."""
         identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Alpha", code="A-01")
 
         response = self.client.post(
@@ -602,6 +647,7 @@ class SpreadsheetIdentityLocalityImportExportTest(TestCase):
         )
 
     def test_identity_import_blank_code_and_juv_code_keep_existing_values(self):
+        """Preserve existing identity codes when spreadsheet code cells are blank."""
         identity = IndividualIdentityFactory(
             owner_workgroup=self.caiduser.workgroup,
             name="Alpha",
@@ -625,6 +671,7 @@ class SpreadsheetIdentityLocalityImportExportTest(TestCase):
         self.assertEqual(identity.juv_code, "J-01")
 
     def test_identity_import_clear_token_removes_code_and_juv_code(self):
+        """Remove identity codes only when the spreadsheet contains the explicit clear token."""
         identity = IndividualIdentityFactory(
             owner_workgroup=self.caiduser.workgroup,
             name="Alpha",
@@ -655,6 +702,7 @@ class SpreadsheetIdentityLocalityImportExportTest(TestCase):
         self.assertIsNone(identity.juv_code)
 
     def test_locality_export_includes_id_column(self):
+        """Include stable locality IDs alongside names and coordinates in CSV export."""
         locality = LocalityFactory(owner=self.caiduser, name="North Meadow")
 
         response = self.client.get(reverse("caidapp:export_localities"))
@@ -665,6 +713,7 @@ class SpreadsheetIdentityLocalityImportExportTest(TestCase):
         self.assertEqual(int(df.iloc[0]["id"]), locality.id)
 
     def test_locality_import_prefers_id_for_rename(self):
+        """Rename a locality by ID while retaining its coordinates and avoiding duplicate rows."""
         locality = LocalityFactory(owner=self.caiduser, name="North Meadow", location="49.123,16.456")
 
         response = self.client.post(
@@ -684,6 +733,7 @@ class SpreadsheetIdentityLocalityImportExportTest(TestCase):
         self.assertEqual(models.Locality.objects.filter(owner=self.caiduser).count(), 1)
 
     def test_locality_import_clear_token_removes_location(self):
+        """Clear locality coordinates when the spreadsheet explicitly requests removal."""
         locality = LocalityFactory(owner=self.caiduser, name="North Meadow", location="49.123,16.456")
 
         response = self.client.post(
@@ -703,11 +753,13 @@ class SpreadsheetIdentityLocalityImportExportTest(TestCase):
 
 class MediaFileListSearchTest(TestCase):
     def setUp(self):
+        """Authenticate a workgroup member for explicit regex filename search."""
         self.caiduser = CaidUserFactory()
         self.user = self.caiduser.user
         self.client.login(username=self.user.username, password="test123")
 
     def test_mediafile_search_supports_explicit_regex(self):
+        """Use the enabled regex option to include matching filenames and exclude nonmatches."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         locality_matching = LocalityFactory(owner=self.caiduser, name="Site 1234")
         locality_non_matching = LocalityFactory(owner=self.caiduser, name="Site 12345")
@@ -737,6 +789,7 @@ class MediaFileListSearchTest(TestCase):
 
 class MediaFileUpdateEmptyObservationTest(TestCase):
     def setUp(self):
+        """Authenticate a media-file owner for observation formsets and manual identification tests."""
         self.caiduser = CaidUserFactory()
         self.user = self.caiduser.user
         self.client.login(username=self.user.username, password="test123")
@@ -761,6 +814,7 @@ class MediaFileUpdateEmptyObservationTest(TestCase):
         return data
 
     def test_mediafile_update_links_to_uploadedarchive_detail(self):
+        """Link media-file details to the upload detail page rather than the legacy media-file listing."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         mediafile = MediaFileFactory(parent=archive)
 
@@ -771,6 +825,7 @@ class MediaFileUpdateEmptyObservationTest(TestCase):
         self.assertNotContains(response, reverse("caidapp:uploadedarchive_mediafiles", args=[archive.id]))
 
     def test_mediafile_update_lists_owned_albums_and_updates_membership(self):
+        """Update owned album memberships and create a newly named album from the edit form."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         mediafile = MediaFileFactory(parent=archive)
         selected_album = AlbumFactory(owner=self.caiduser)
@@ -807,6 +862,7 @@ class MediaFileUpdateEmptyObservationTest(TestCase):
         )
 
     def test_mediafile_update_uses_referer_as_next_when_next_is_missing(self):
+        """Use the referring page as the return destination when no next parameter is supplied."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         mediafile = MediaFileFactory(parent=archive)
         source_url = reverse("caidapp:sequences") + "?media_type=image&page=2"
@@ -820,6 +876,7 @@ class MediaFileUpdateEmptyObservationTest(TestCase):
         self.assertEqual(response.context["next"], source_url)
 
     def test_mediafile_update_save_redirects_to_next(self):
+        """Redirect a successful media-file save to the supplied return destination."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         mediafile = MediaFileFactory(parent=archive)
         source_url = reverse("caidapp:sequences") + "?media_type=image&page=2"
@@ -838,6 +895,7 @@ class MediaFileUpdateEmptyObservationTest(TestCase):
         self.assertEqual(response.url, source_url)
 
     def test_mediafile_update_add_related_links_keep_observation_prefix(self):
+        """Preserve observation formset prefixes on add-related links, including the empty-form template."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         mediafile = MediaFileFactory(parent=archive)
         AnimalObservationFactory(mediafile=mediafile)
@@ -849,6 +907,7 @@ class MediaFileUpdateEmptyObservationTest(TestCase):
         self.assertContains(response, "select_observation_prefix=observations-__prefix__")
 
     def test_create_taxon_returns_to_mediafile_with_created_selection_params(self):
+        """Return a newly created taxon ID to the originating observation formset row."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         mediafile = MediaFileFactory(parent=archive)
         next_url = reverse("caidapp:media_file_update", args=[mediafile.id])
@@ -865,6 +924,7 @@ class MediaFileUpdateEmptyObservationTest(TestCase):
         self.assertIn("select_observation_prefix=observations-2", response.url)
 
     def test_create_identity_returns_to_mediafile_with_created_selection_params(self):
+        """Return a newly created identity ID to the observation row without adding an identity to MediaFile."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         mediafile = MediaFileFactory(parent=archive)
         next_url = reverse("caidapp:media_file_update", args=[mediafile.id])
@@ -883,6 +943,7 @@ class MediaFileUpdateEmptyObservationTest(TestCase):
         self.assertFalse(hasattr(mediafile, "identity"))
 
     def test_predicted_taxon_select_uses_taxon_id_and_refreshes_searchable_dropdown(self):
+        """Apply predicted taxa by full taxon ID and notify the searchable dropdown of the selection."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         predicted_taxon = TaxonFactory(name="Panthera pardus")
         mediafile = MediaFileFactory(parent=archive)
@@ -904,6 +965,7 @@ class MediaFileUpdateEmptyObservationTest(TestCase):
         self.assertContains(response, 'categoryDropdown.dispatchEvent(new Event("change", {bubbles: true}));')
 
     def test_video_detail_has_static_animated_and_video_preview_tabs(self):
+        """Provide static bbox annotation, animated preview, and original-video tabs on video details."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         mediafile = MediaFileFactory(
             parent=archive,
@@ -924,6 +986,7 @@ class MediaFileUpdateEmptyObservationTest(TestCase):
         self.assertContains(response, reverse("caidapp:stream_video", args=[mediafile.id]))
 
     def test_missing_taxon_sequence_carousel_keeps_annotation_mode(self):
+        """Retain missing-taxon annotation mode when navigating sibling sequence media files."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         sequence = SequenceFactory(uploaded_archive=archive)
         first_mediafile = MediaFileFactory(
@@ -952,6 +1015,7 @@ class MediaFileUpdateEmptyObservationTest(TestCase):
         self.assertContains(response, expected_url)
 
     def test_missing_taxon_mark_empty_keeps_annotation_mode(self):
+        """Keep missing-taxon annotation routing after marking a media file empty."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         mediafile = MediaFileFactory(parent=archive)
 
@@ -974,6 +1038,7 @@ class MediaFileUpdateEmptyObservationTest(TestCase):
         )
 
     def test_mark_empty_image_creates_nothing_observation_when_none_exist(self):
+        """Create a verified Nothing observation without a bbox when marking an unannotated image empty."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         mediafile = MediaFileFactory(parent=archive)
 
@@ -1000,6 +1065,7 @@ class MediaFileUpdateEmptyObservationTest(TestCase):
         self.assertIsNone(observations[0].bbox_height)
 
     def test_mediafile_update_shows_confirm_identity_action_for_preidentified_mediafile(self):
+        """Offer identity confirmation for media files with identification suggestions."""
         archive = UploadedArchiveFactory(owner=self.caiduser, is_for_identification=True)
         mediafile = MediaFileFactory(parent=archive)
         models.MediafilesForIdentification.objects.create(mediafile=mediafile)
@@ -1011,6 +1077,7 @@ class MediaFileUpdateEmptyObservationTest(TestCase):
         self.assertContains(response, "Confirm identity")
 
     def test_save_sequence_uses_full_taxon_id_for_multi_digit_taxon_ids(self):
+        """Use the complete multi-digit taxon ID when saving sequence annotations."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         sequence = SequenceFactory(uploaded_archive=archive)
         first_mediafile = MediaFileFactory(parent=archive, sequence=sequence)
@@ -1056,6 +1123,7 @@ class MediaFileUpdateEmptyObservationTest(TestCase):
             self.assertEqual(observation.taxon_id, taxon.id)
 
     def test_mark_empty_image_replaces_existing_observations_with_nothing(self):
+        """Replace existing annotations with one verified bbox-less Nothing observation when marking empty."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         mediafile = MediaFileFactory(parent=archive)
         taxon_wolf = TaxonFactory(name="Wolf")
@@ -1112,6 +1180,7 @@ class MediaFileUpdateEmptyObservationTest(TestCase):
         self.assertIsNone(observations[0].bbox_height)
 
     def test_manual_identification_filters_by_configured_taxon_when_enabled(self):
+        """Apply configured default and override taxa to manual identification eligibility."""
         wolf = TaxonFactory(name="Wolf")
         lynx = TaxonFactory(name="Lynx")
         bear = TaxonFactory(name="Bear")
@@ -1139,13 +1208,12 @@ class MediaFileUpdateEmptyObservationTest(TestCase):
         wrong_override = MediaFileFactory(parent=override_archive, identity=None)
         AnimalObservationFactory(mediafile=wrong_override, taxon=wolf)
 
-        mediafile_ids = set(
-            models.get_mediafiles_with_missing_identity(self.caiduser).values_list("id", flat=True)
-        )
+        mediafile_ids = set(models.get_mediafiles_with_missing_identity(self.caiduser).values_list("id", flat=True))
 
         self.assertEqual(mediafile_ids, {matching_default.id, matching_override.id})
 
     def test_manual_identification_does_not_filter_taxon_when_disabled(self):
+        """Include all unidentified taxa when taxon checks before identification are disabled."""
         wolf = TaxonFactory(name="Wolf")
         lynx = TaxonFactory(name="Lynx")
         self.caiduser.workgroup.check_taxon_before_identification = False
@@ -1162,13 +1230,12 @@ class MediaFileUpdateEmptyObservationTest(TestCase):
         AnimalObservationFactory(mediafile=nonmatching, taxon=lynx)
         without_observation = MediaFileFactory(parent=archive, identity=None)
 
-        mediafile_ids = set(
-            models.get_mediafiles_with_missing_identity(self.caiduser).values_list("id", flat=True)
-        )
+        mediafile_ids = set(models.get_mediafiles_with_missing_identity(self.caiduser).values_list("id", flat=True))
 
         self.assertEqual(mediafile_ids, {matching.id, nonmatching.id, without_observation.id})
 
     def test_manual_identification_starts_with_accessible_unidentified_mediafile(self):
+        """Start manual identification with an accessible item and expose the next item in its form."""
         archive = UploadedArchiveFactory(owner=self.caiduser, is_for_identification=True)
         first_mediafile = MediaFileFactory(parent=archive, identity=None)
         second_mediafile = MediaFileFactory(parent=archive, identity=None)
@@ -1192,6 +1259,7 @@ class MediaFileUpdateEmptyObservationTest(TestCase):
         )
 
     def test_manual_identification_skips_mediafile_with_observation_identity(self):
+        """Skip media files whose observations already carry an identity."""
         archive = UploadedArchiveFactory(owner=self.caiduser, is_for_identification=True)
         identified_mediafile = MediaFileFactory(parent=archive, identity=None)
         unidentified_mediafile = MediaFileFactory(parent=archive, identity=None)
@@ -1207,6 +1275,7 @@ class MediaFileUpdateEmptyObservationTest(TestCase):
         )
 
     def test_manual_identification_saves_identity_and_advances(self):
+        """Persist the observation identity and advance manual identification to the next item."""
         archive = UploadedArchiveFactory(owner=self.caiduser, is_for_identification=True)
         current_mediafile = MediaFileFactory(parent=archive, identity=None)
         next_mediafile = MediaFileFactory(parent=archive, identity=None)
@@ -1245,11 +1314,13 @@ class MediaFileUpdateEmptyObservationTest(TestCase):
 
 class IdentityListBulkActionsTest(TestCase):
     def setUp(self):
+        """Authenticate an identity owner for list filtering, bulk actions, and return navigation."""
         self.caiduser = CaidUserFactory()
         self.user = self.caiduser.user
         self.client.login(username=self.user.username, password="test123")
 
     def test_identity_search_supports_explicit_regex(self):
+        """Apply the explicitly enabled regex option to identity list search."""
         matching = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Alpha 1234")
         non_matching = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Beta 12345")
 
@@ -1266,6 +1337,7 @@ class IdentityListBulkActionsTest(TestCase):
         self.assertNotContains(response, non_matching.name)
 
     def test_bulk_delete_confirm_and_delete_are_limited_to_user_workgroup(self):
+        """Confirm and delete only identities in the user's workgroup, clearing their observation references."""
         identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Delete me")
         other_caiduser = CaidUserFactory()
         other_identity = IndividualIdentityFactory(owner_workgroup=other_caiduser.workgroup, name="Private identity")
@@ -1300,6 +1372,7 @@ class IdentityListBulkActionsTest(TestCase):
         self.assertFalse(mediafile.observations.exclude(identity=None).exists())
 
     def test_bulk_delete_redirects_to_first_page_when_last_page_disappears(self):
+        """Return to the first page after deleting the last identity on the current page."""
         identities = [
             IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name=f"Identity {index:02d}")
             for index in range(25)
@@ -1322,6 +1395,7 @@ class IdentityListBulkActionsTest(TestCase):
         self.assertFalse(models.IndividualIdentity.objects.filter(id=identities[-1].id).exists())
 
     def test_bulk_open_sequences_redirects_to_multiple_identity_filter(self):
+        """Open sequences with both selected identities encoded in the filter URL."""
         first = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="First")
         second = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Second")
 
@@ -1339,6 +1413,7 @@ class IdentityListBulkActionsTest(TestCase):
         self.assertIn(f"individual_identity_ids={second.id}", response["Location"])
 
     def test_list_view_edit_links_preserve_tabular_layout_in_next(self):
+        """Preserve tabular layout in identity edit links' return destinations."""
         for index in range(25):
             IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name=f"Identity {index:02d}")
         identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Zulu")
@@ -1353,6 +1428,7 @@ class IdentityListBulkActionsTest(TestCase):
         )
 
     def test_identity_update_links_to_sequences(self):
+        """Offer observation and sequence links scoped to the edited identity."""
         identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Alpha")
 
         response = self.client.get(reverse("caidapp:individual_identity_update", args=[identity.id]))
@@ -1363,6 +1439,7 @@ class IdentityListBulkActionsTest(TestCase):
         self.assertContains(response, f'{reverse("caidapp:sequences")}?individual_identity_id={identity.id}')
 
     def test_identity_update_redirects_back_to_tabular_list_when_next_is_set(self):
+        """Save identity edits and return to the requested tabular list."""
         identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Alpha", code="A-1")
         next_url = f"{reverse('caidapp:individual_identities')}?view=list&page=2"
 
@@ -1387,6 +1464,7 @@ class IdentityListBulkActionsTest(TestCase):
         self.assertEqual(identity.name, "Alpha edited")
 
     def test_identity_update_shows_mediafile_count_link(self):
+        """Link the identity's two media files from its edit page."""
         identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Alpha")
         archive = UploadedArchiveFactory(owner=self.caiduser)
         mediafile_one = MediaFileFactory(parent=archive)
@@ -1401,6 +1479,7 @@ class IdentityListBulkActionsTest(TestCase):
         self.assertContains(response, reverse("caidapp:individual_identity_mediafiles", args=[identity.id]))
 
     def test_identity_update_nav_shows_mediafile_and_sequence_counts(self):
+        """Show distinct media-file and sequence totals in identity edit navigation."""
         identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Alpha")
         archive = UploadedArchiveFactory(owner=self.caiduser)
         sequence = SequenceFactory(uploaded_archive=archive)
@@ -1418,11 +1497,13 @@ class IdentityListBulkActionsTest(TestCase):
 
 class SequenceViewTest(TestCase):
     def setUp(self):
+        """Authenticate an archive owner for sequence grouping, bulk actions, and import/export tests."""
         self.caiduser = CaidUserFactory()
         self.user = self.caiduser.user
         self.client.login(username=self.user.username, password="test123")
 
     def test_sequence_view_groups_mediafiles_by_sequence(self):
+        """Display temporally grouped media files together under their sequence."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         locality = LocalityFactory(owner=self.caiduser)
         sequence = SequenceFactory(uploaded_archive=archive)
@@ -1451,6 +1532,7 @@ class SequenceViewTest(TestCase):
         self.assertContains(response, "second.jpg")
 
     def test_sequence_bbox_preview_uses_image_area_wrapper(self):
+        """Provide an image-area wrapper and synchronization hook for sequence bbox overlays."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         sequence = SequenceFactory(uploaded_archive=archive)
         mediafile = MediaFileFactory(parent=archive, sequence=sequence, original_filename="bbox.jpg")
@@ -1470,6 +1552,7 @@ class SequenceViewTest(TestCase):
         self.assertContains(response, "syncBboxPreviewFrame")
 
     def test_video_cards_use_static_image_and_lazy_motion_preview(self):
+        """Use a static video card image and load its motion preview lazily in sequences."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         sequence = SequenceFactory(uploaded_archive=archive)
         mediafile = MediaFileFactory(
@@ -1489,8 +1572,8 @@ class SequenceViewTest(TestCase):
         self.assertContains(response, f'data-motion-src="{mediafile.thumbnail.url}"')
         self.assertContains(response, "media-type-video-badge")
 
-
     def test_bulk_identity_post_rejects_identity_from_other_workgroup(self):
+        """Reject another workgroup's identity in a bulk post and retain the placeholder."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         mediafile = MediaFileFactory(parent=archive, original_filename="selected.jpg")
         other_identity = IndividualIdentityFactory(name="Foreign Identity")
@@ -1509,6 +1592,7 @@ class SequenceViewTest(TestCase):
         self.assertTrue(mediafile.observations.get().is_no_detection_placeholder)
 
     def test_mediafiles_bbox_preview_uses_image_area_wrapper(self):
+        """Provide the bbox image-area wrapper on media-file cards as well as sequence cards."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         mediafile = MediaFileFactory(parent=archive, original_filename="bbox.jpg")
         AnimalObservationFactory(
@@ -1527,6 +1611,7 @@ class SequenceViewTest(TestCase):
         self.assertContains(response, "syncBboxPreviewFrame")
 
     def test_mediafiles_star_uses_first_observation_representative_flag(self):
+        """Show a representative star and label from the media file's single observation."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Alpha")
         mediafile = MediaFileFactory(parent=archive)
@@ -1540,6 +1625,7 @@ class SequenceViewTest(TestCase):
         self.assertContains(response, "Alpha")
 
     def test_mediafiles_card_shows_observation_identities_with_expand_badge(self):
+        """Summarize multiple observation identities on a card with expandable additional labels."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         first_identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Alpha")
         second_identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Beta")
@@ -1560,6 +1646,7 @@ class SequenceViewTest(TestCase):
         self.assertContains(response, "Gamma")
 
     def test_mediafiles_star_is_informational_for_multiple_observations(self):
+        """Make the representative star informational when a media file has multiple observations."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         first_identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Alpha")
         second_identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Beta")
@@ -1575,6 +1662,7 @@ class SequenceViewTest(TestCase):
         self.assertContains(response, "Edit representative flags in the media file detail.")
 
     def test_representative_mediafiles_star_is_informational_for_multiple_observations(self):
+        """Disable ambiguous star toggling for multiple observations in the representative listing."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         taxon = TaxonFactory(name="Lynx")
         archive.taxon_for_identification = taxon
@@ -1582,8 +1670,12 @@ class SequenceViewTest(TestCase):
         first_identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Alpha")
         second_identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Beta")
         mediafile = MediaFileFactory(parent=archive, identity=None, identity_is_representative=False)
-        AnimalObservationFactory(mediafile=mediafile, taxon=taxon, identity=first_identity, identity_is_representative=True)
-        AnimalObservationFactory(mediafile=mediafile, taxon=taxon, identity=second_identity, identity_is_representative=False)
+        AnimalObservationFactory(
+            mediafile=mediafile, taxon=taxon, identity=first_identity, identity_is_representative=True
+        )
+        AnimalObservationFactory(
+            mediafile=mediafile, taxon=taxon, identity=second_identity, identity_is_representative=False
+        )
 
         response = self.client.get(reverse("caidapp:media_files"), {"identity_is_representative": "true"})
 
@@ -1593,6 +1685,7 @@ class SequenceViewTest(TestCase):
         self.assertContains(response, "Edit representative flags in the media file detail.")
 
     def test_sequence_view_search_matches_mediafile_filename_and_keeps_full_sequence(self):
+        """Keep all sequence siblings visible while marking which filenames match the search."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         matching_sequence = SequenceFactory(uploaded_archive=archive)
         other_sequence = SequenceFactory(uploaded_archive=archive)
@@ -1623,6 +1716,7 @@ class SequenceViewTest(TestCase):
         self.assertNotContains(response, "Brdy/unrelated.jpg")
 
     def test_sequence_view_shows_primary_locality_and_expandable_extra_count(self):
+        """Show the primary sequence locality and an expandable count of additional localities."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         locality_primary = LocalityFactory(owner=self.caiduser, name="Xandovice")
         locality_secondary = LocalityFactory(owner=self.caiduser, name="Ypovice")
@@ -1639,6 +1733,7 @@ class SequenceViewTest(TestCase):
         self.assertContains(response, "Ypovice")
 
     def test_sequence_view_has_collapsed_bulk_controls_and_expand_all_actions(self):
+        """Render collapsed bulk controls and sequence selection consistently across grid and list layouts."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         one_file_sequence = SequenceFactory(uploaded_archive=archive)
         two_file_sequence = SequenceFactory(uploaded_archive=archive)
@@ -1666,7 +1761,7 @@ class SequenceViewTest(TestCase):
         self.assertContains(response, "Select whole sequence")
         self.assertNotContains(response, "Select all media files in sequence")
         self.assertContains(response, 'aria-label="Select"')
-        self.assertLess(content.index('js-select-matching-mediafiles'), content.index('name="btnDownloadSequences"'))
+        self.assertLess(content.index("js-select-matching-mediafiles"), content.index('name="btnDownloadSequences"'))
         self.assertContains(response, "bg-body-tertiary p-3")
         self.assertContains(response, "Apply filters")
         self.assertContains(response, "border-top-left-radius:var(--bs-card-inner-border-radius)")
@@ -1680,7 +1775,9 @@ class SequenceViewTest(TestCase):
         self.assertContains(response, ".sequence-grid-sequence-break{flex-basis:.45rem;width:.45rem}")
         self.assertContains(response, ".sequence-checkbox-prominent{width:1.3rem;height:1.3rem")
         self.assertContains(response, "js-sequence-checkbox sequence-checkbox-prominent")
-        self.assertContains(response, ".sequence-grid .sequence-collapsed-card .sequence-mediafile-checkbox-overlay{display:none}")
+        self.assertContains(
+            response, ".sequence-grid .sequence-collapsed-card .sequence-mediafile-checkbox-overlay{display:none}"
+        )
         self.assertContains(response, "sequence-mediafile-checkbox-overlay")
         self.assertContains(response, 'js-sequence-checkbox[data-has-matching-mediafile="true"]')
         self.assertContains(response, "if(!hasIndividualMediafileCheckbox){ setCheckboxState(checkbox, true); }")
@@ -1699,6 +1796,7 @@ class SequenceViewTest(TestCase):
         self.assertNotContains(list_response, f'id="mediafile-checkbox-list-{one_mediafile.id}"')
 
     def test_sequence_bulk_verify_taxon_skips_no_detection_placeholder_without_taxon(self):
+        """Leave an empty no-detection placeholder unverified during bulk taxon verification."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         sequence = SequenceFactory(uploaded_archive=archive)
         mediafile = MediaFileFactory(parent=archive, sequence=sequence, original_filename="empty-observation.jpg")
@@ -1718,10 +1816,13 @@ class SequenceViewTest(TestCase):
         self.assertFalse(observation.taxon_verified)
 
     def test_sequence_bulk_set_full_image_bbox_updates_selected_mediafiles(self):
+        """Set full-image bboxes only on selected sequence media files, including initially empty files."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         selected_sequence = SequenceFactory(uploaded_archive=archive)
         other_sequence = SequenceFactory(uploaded_archive=archive)
-        selected_mediafile = MediaFileFactory(parent=archive, sequence=selected_sequence, original_filename="selected.jpg")
+        selected_mediafile = MediaFileFactory(
+            parent=archive, sequence=selected_sequence, original_filename="selected.jpg"
+        )
         selected_without_observation = MediaFileFactory(
             parent=archive,
             sequence=selected_sequence,
@@ -1759,6 +1860,7 @@ class SequenceViewTest(TestCase):
         self.assertIsNone(untouched_observation.bbox_height)
 
     def test_sequence_bulk_remove_bbox_keeps_identities(self):
+        """Remove selected bboxes without clearing identities or changing unselected observations."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         selected_sequence = SequenceFactory(uploaded_archive=archive)
         other_sequence = SequenceFactory(uploaded_archive=archive)
@@ -1806,6 +1908,7 @@ class SequenceViewTest(TestCase):
         self.assertEqual(untouched_observation.bbox_height, 0.3)
 
     def test_sequence_verification_mode_groups_by_taxon_and_expands_sequences(self):
+        """Group verification sequences by taxon and include expanded siblings in page selection state."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         taxon_wolf = TaxonFactory(name="Wolf")
         taxon_lynx = TaxonFactory(name="Lynx")
@@ -1834,9 +1937,12 @@ class SequenceViewTest(TestCase):
         self.assertContains(response, "Media files view")
         self.assertContains(response, "sequence-expanded-visible")
         self.assertContains(response, "wolf-b.jpg")
-        self.assertEqual(set(self.client.session["mediafile_ids_page"]), {wolf_first.id, wolf_second.id, lynx_mediafile.id})
+        self.assertEqual(
+            set(self.client.session["mediafile_ids_page"]), {wolf_first.id, wolf_second.id, lynx_mediafile.id}
+        )
 
     def test_sequence_verification_empty_state_links_home(self):
+        """Link back home when sequence verification has no matching results."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         sequence = SequenceFactory(uploaded_archive=archive)
         taxon = TaxonFactory(name="Wolf")
@@ -1854,6 +1960,7 @@ class SequenceViewTest(TestCase):
         self.assertContains(response, reverse("caidapp:home"))
 
     def test_legacy_verify_taxa_url_uses_sequence_verification_view(self):
+        """Route the legacy taxon verification URL through the sequence verification view."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         sequence = SequenceFactory(uploaded_archive=archive)
         taxon = TaxonFactory(name="Bear")
@@ -1868,10 +1975,13 @@ class SequenceViewTest(TestCase):
         self.assertContains(response, "bear.jpg")
 
     def test_sequence_download_starts_from_selected_sequences(self):
+        """Prepare downloads from selected sequences without including unrelated media files."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         selected_sequence = SequenceFactory(uploaded_archive=archive)
         other_sequence = SequenceFactory(uploaded_archive=archive)
-        selected_mediafile = MediaFileFactory(parent=archive, sequence=selected_sequence, original_filename="selected.jpg")
+        selected_mediafile = MediaFileFactory(
+            parent=archive, sequence=selected_sequence, original_filename="selected.jpg"
+        )
         other_mediafile = MediaFileFactory(parent=archive, sequence=other_sequence, original_filename="other.jpg")
 
         response = self.client.post(
@@ -1888,6 +1998,7 @@ class SequenceViewTest(TestCase):
         self.assertNotIn(other_mediafile.id, self.client.session["sequence_download_mediafile_ids"])
 
     def test_sequence_download_configuration_uses_sequence_urls(self):
+        """Use sequence-specific configuration and ZIP download endpoints."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         mediafile = MediaFileFactory(parent=archive, original_filename="selected.jpg")
         session = self.client.session
@@ -1900,6 +2011,7 @@ class SequenceViewTest(TestCase):
         self.assertContains(response, reverse("caidapp:download_zip_for_sequences"))
 
     def test_dissolve_selected_sequences_splits_mediafiles_into_singletons(self):
+        """Split selected sequences into singleton sequences and leave unselected sequences untouched."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         selected_sequence = SequenceFactory(uploaded_archive=archive, local_id=10)
         other_sequence = SequenceFactory(uploaded_archive=archive, local_id=20)
@@ -1928,14 +2040,19 @@ class SequenceViewTest(TestCase):
         self.assertEqual(models.MediaFile.objects.filter(sequence_id=second_mediafile.sequence_id).count(), 1)
 
     def test_create_sequence_combines_selected_mediafiles_and_removes_empty_sequences(self):
+        """Combine selected media files into a new sequence and remove only emptied source sequences."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         first_sequence = SequenceFactory(uploaded_archive=archive, local_id=10)
         second_sequence = SequenceFactory(uploaded_archive=archive, local_id=20)
         remaining_sequence = SequenceFactory(uploaded_archive=archive, local_id=30)
         first_mediafile = MediaFileFactory(parent=archive, sequence=first_sequence, original_filename="first.jpg")
         second_mediafile = MediaFileFactory(parent=archive, sequence=second_sequence, original_filename="second.jpg")
-        remaining_mediafile = MediaFileFactory(parent=archive, sequence=remaining_sequence, original_filename="third.jpg")
-        sibling_mediafile = MediaFileFactory(parent=archive, sequence=remaining_sequence, original_filename="fourth.jpg")
+        remaining_mediafile = MediaFileFactory(
+            parent=archive, sequence=remaining_sequence, original_filename="third.jpg"
+        )
+        sibling_mediafile = MediaFileFactory(
+            parent=archive, sequence=remaining_sequence, original_filename="fourth.jpg"
+        )
 
         response = self.client.post(
             reverse("caidapp:sequences"),
@@ -1960,6 +2077,7 @@ class SequenceViewTest(TestCase):
         self.assertEqual(models.MediaFile.objects.filter(sequence_id=first_mediafile.sequence_id).count(), 2)
 
     def test_mediafiles_view_create_sequence_uses_form_selection(self):
+        """Use submitted media-file selection to combine sequences from the media-file listing."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         first_sequence = SequenceFactory(uploaded_archive=archive, local_id=10)
         second_sequence = SequenceFactory(uploaded_archive=archive, local_id=20)
@@ -1992,6 +2110,7 @@ class SequenceViewTest(TestCase):
         self.assertEqual(models.MediaFile.objects.filter(sequence_id=first_mediafile.sequence_id).count(), 2)
 
     def test_mediafiles_bulk_identity_update_updates_all_selected_observations(self):
+        """Assign the target identity to each selected media file's single observation."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         target_identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Alpha")
         first_mediafile = MediaFileFactory(parent=archive, original_filename="first.jpg")
@@ -2025,6 +2144,7 @@ class SequenceViewTest(TestCase):
         self.assertEqual(second_observation.identity, target_identity)
 
     def test_mediafiles_bulk_identity_update_skips_multiple_observations(self):
+        """Skip ambiguous identity edits when a selected media file contains multiple observations."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         target_identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Alpha")
         mediafile = MediaFileFactory(parent=archive, original_filename="multiple.jpg")
@@ -2054,6 +2174,7 @@ class SequenceViewTest(TestCase):
         self.assertContains(response, "multiple observations")
 
     def test_mediafiles_bulk_representative_false_updates_single_observation(self):
+        """Allow a bulk update to clear the representative flag on a single observation."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         mediafile = MediaFileFactory(parent=archive, original_filename="selected.jpg")
         observation = AnimalObservationFactory(mediafile=mediafile, identity_is_representative=True)
@@ -2077,6 +2198,7 @@ class SequenceViewTest(TestCase):
         self.assertFalse(observation.identity_is_representative)
 
     def test_mediafiles_bulk_representative_skips_multiple_observations(self):
+        """Preserve representative flags when a media file has multiple observations and report the ambiguity."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         mediafile = MediaFileFactory(parent=archive, original_filename="multi.jpg")
         first_observation = AnimalObservationFactory(mediafile=mediafile, identity_is_representative=True)
@@ -2105,6 +2227,7 @@ class SequenceViewTest(TestCase):
         self.assertContains(response, "multiple observations")
 
     def test_mediafiles_bulk_set_full_image_bbox_updates_selected_mediafiles(self):
+        """Set full-image bboxes for selected media-file cards without changing unselected rows."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         selected_mediafile = MediaFileFactory(parent=archive, original_filename="selected.jpg")
         second_selected_mediafile = MediaFileFactory(parent=archive, original_filename="selected-no-obs.jpg")
@@ -2148,6 +2271,7 @@ class SequenceViewTest(TestCase):
         self.assertIsNone(untouched_observation.bbox_height)
 
     def test_sequence_csv_export_uses_one_row_per_observation(self):
+        """Export one row per real observation and one empty row for a media file without detections."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         sequence = SequenceFactory(uploaded_archive=archive)
         taxon_wolf = TaxonFactory(name="Wolf")
@@ -2170,6 +2294,7 @@ class SequenceViewTest(TestCase):
         self.assertTrue(pd.isna(df[df["original_path"] == "empty.jpg"].iloc[0]["observation_id"]))
 
     def test_mediafile_export_uses_observation_values_and_relative_bbox(self):
+        """Export current observation labels and relative bboxes while keeping notes at media-file level."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         observed_taxon = TaxonFactory(name="Observed taxon")
         mediafile = MediaFileFactory(
@@ -2205,6 +2330,7 @@ class SequenceViewTest(TestCase):
         self.assertNotIn("note", df.columns)
 
     def test_mediafile_csv_and_xlsx_exports_have_same_observation_rows(self):
+        """Keep observation row IDs and columns consistent between CSV and XLSX media-file exports."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         mediafile = MediaFileFactory(parent=archive, original_filename="same.jpg")
         AnimalObservationFactory(mediafile=mediafile)
@@ -2219,6 +2345,7 @@ class SequenceViewTest(TestCase):
         self.assertEqual(list(csv_df["observation_id"]), list(xlsx_df["observation_id"]))
 
     def test_observation_import_updates_and_creates(self):
+        """Update an existing observation and create another without overwriting the media-file note."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         taxon = TaxonFactory(name="Imported taxon")
         mediafile = MediaFileFactory(parent=archive)
@@ -2255,6 +2382,7 @@ class SequenceViewTest(TestCase):
         self.assertEqual(mediafile.note, "Original path description")
 
     def test_observation_import_creates_rows_for_multiple_identities(self):
+        """Import separate observation rows for different identities in the same media file."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         first_identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup)
         second_identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup)
@@ -2284,6 +2412,7 @@ class SequenceViewTest(TestCase):
         )
 
     def test_observation_import_accepts_legacy_note_and_clear_token(self):
+        """Accept the legacy note column and its explicit clear token for media-file notes."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         mediafile = MediaFileFactory(parent=archive, note="Old note")
         observation = AnimalObservationFactory(mediafile=mediafile)
@@ -2305,6 +2434,7 @@ class SequenceViewTest(TestCase):
         self.assertEqual(mediafile.note, "")
 
     def test_observation_import_rejects_conflicting_notes_for_same_mediafile(self):
+        """Reject conflicting notes for one media file without changing its stored data."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         mediafile = MediaFileFactory(parent=archive, note="Unchanged")
         observation = AnimalObservationFactory(mediafile=mediafile)
@@ -2331,6 +2461,7 @@ class SequenceViewTest(TestCase):
         self.assertEqual(mediafile.observations.count(), 1)
 
     def test_observation_import_invalid_bbox_rolls_back_all_rows(self):
+        """Roll back earlier imported observations when a later row contains an invalid bbox."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         first = AnimalObservationFactory(mediafile=MediaFileFactory(parent=archive), taxon=None)
         second = AnimalObservationFactory(mediafile=MediaFileFactory(parent=archive), taxon=None)
@@ -2357,6 +2488,7 @@ class SequenceViewTest(TestCase):
 
     @patch("caidapp.tasks.import_observations_task.delay", return_value=Mock(id="observation-import-task"))
     def test_observation_import_explains_identity_path_and_cancels_entire_file(self, delay_mock):
+        """Cancel the entire import and explain when an identity field looks like a file path."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         observation = AnimalObservationFactory(mediafile=MediaFileFactory(parent=archive), identity=None)
         upload = SimpleUploadedFile(
@@ -2385,6 +2517,7 @@ class SequenceViewTest(TestCase):
 
     @patch("caidapp.tasks.import_observations_task.delay", return_value=Mock(id="observation-import-task"))
     def test_observation_import_runs_on_worker_and_persists_result(self, delay_mock):
+        """Queue observation import and persist its created count and final success state."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         mediafile = MediaFileFactory(parent=archive)
         upload = SimpleUploadedFile(
@@ -2406,6 +2539,7 @@ class SequenceViewTest(TestCase):
         self.assertEqual(mediafile.observations.count(), 1)
 
     def test_observation_import_diagnostics_collects_errors_from_all_rows(self):
+        """Collect diagnostics for invalid media-file IDs from multiple spreadsheet rows."""
         errors = views._collect_observation_import_errors(
             pd.DataFrame([{"mediafile_id": "bad-first"}, {"mediafile_id": "bad-second"}]),
             self.caiduser,
@@ -2416,6 +2550,7 @@ class SequenceViewTest(TestCase):
         self.assertIn("Row 3: mediafile_id must be a positive integer", errors[1])
 
     def test_observation_import_option_creates_missing_locality(self):
+        """Create a missing locality owned by the importer when the option is enabled."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         mediafile = MediaFileFactory(parent=archive, locality=None)
         locality_name = "New import locality"
@@ -2432,6 +2567,7 @@ class SequenceViewTest(TestCase):
         self.assertEqual(mediafile.locality.owner, self.caiduser)
 
     def test_observation_import_missing_locality_requires_checkbox(self):
+        """Reject a missing locality unless automatic locality creation is explicitly enabled."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         mediafile = MediaFileFactory(parent=archive, locality=None)
         frame = pd.DataFrame([{"mediafile_id": mediafile.id, "locality name": "New import locality"}])
@@ -2442,6 +2578,7 @@ class SequenceViewTest(TestCase):
         self.assertFalse(models.Locality.objects.filter(name="New import locality", owner=self.caiduser).exists())
 
     def test_observation_import_option_creates_missing_identity(self):
+        """Create a missing identity with its code in the importer's workgroup when enabled."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         mediafile = MediaFileFactory(parent=archive)
 
@@ -2458,6 +2595,7 @@ class SequenceViewTest(TestCase):
         self.assertEqual(observation.identity.owner_workgroup, self.caiduser.workgroup)
 
     def test_observation_import_identity_path_cannot_create_identity(self):
+        """Reject file paths as identity names even when identity creation is enabled."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         mediafile = MediaFileFactory(parent=archive)
         identity_name = "LY20/Zadni_paste/2020-09-20_B514_Julien_P.JPG"
@@ -2470,10 +2608,13 @@ class SequenceViewTest(TestCase):
             )
 
         self.assertFalse(
-            models.IndividualIdentity.objects.filter(name=identity_name, owner_workgroup=self.caiduser.workgroup).exists()
+            models.IndividualIdentity.objects.filter(
+                name=identity_name, owner_workgroup=self.caiduser.workgroup
+            ).exists()
         )
 
     def test_observation_import_invalid_id_does_not_create(self):
+        """Reject an invalid observation ID without creating another observation."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         mediafile = MediaFileFactory(parent=archive)
         before = mediafile.observations.count()
@@ -2485,6 +2626,7 @@ class SequenceViewTest(TestCase):
         self.assertEqual(mediafile.observations.count(), before)
 
     def test_observation_import_rejects_partial_bbox(self):
+        """Reject partially specified bbox coordinates during observation import."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         observation = AnimalObservationFactory(mediafile=MediaFileFactory(parent=archive))
         frame = pd.DataFrame(
@@ -2503,6 +2645,7 @@ class SequenceViewTest(TestCase):
             views._import_observation_dataframe(frame, self.caiduser)
 
     def test_sequence_select_all_filtered_uses_all_pages(self):
+        """Include every filtered page in sequence download selection and exclude nonmatching media files."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         selected_ids = []
         for index in range(25):
@@ -2522,6 +2665,7 @@ class SequenceViewTest(TestCase):
         self.assertNotIn(excluded.id, self.client.session["sequence_download_mediafile_ids"])
 
     def test_sequence_view_accepts_uploadedarchive_filter_alias(self):
+        """Accept the alternate uploadedarchive query parameter for sequence filtering."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         sequence = SequenceFactory(uploaded_archive=archive)
         mediafile = MediaFileFactory(parent=archive, sequence=sequence, original_filename="first.jpg")
@@ -2548,6 +2692,7 @@ class SequenceViewTest(TestCase):
         self.assertNotContains(response, "second.jpg")
 
     def test_sequence_view_shows_active_uploadedarchive_link(self):
+        """Show the active upload filter as a link to the upload detail page."""
         archive = UploadedArchiveFactory(owner=self.caiduser, name="Visible upload")
         sequence = SequenceFactory(uploaded_archive=archive)
         MediaFileFactory(parent=archive, sequence=sequence, original_filename="first.jpg")
@@ -2560,6 +2705,7 @@ class SequenceViewTest(TestCase):
         self.assertContains(response, reverse("caidapp:uploadedarchive_detail", args=[archive.id]))
 
     def test_sequence_view_rejects_uploadedarchive_outside_user_workgroup(self):
+        """Return not found for another workgroup's upload without disclosing its name."""
         other_caiduser = CaidUserFactory()
         other_archive = UploadedArchiveFactory(owner=other_caiduser, name="Private outside upload")
         sequence = SequenceFactory(uploaded_archive=other_archive)
@@ -2571,6 +2717,7 @@ class SequenceViewTest(TestCase):
         self.assertNotContains(response, "Private outside upload", status_code=404)
 
     def test_sequence_view_shows_active_taxon_link_and_filters_accessible_mediafiles(self):
+        """Show the taxon filter link and omit accessible media files belonging only to other taxa."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         wolf = TaxonFactory(name="Wolf")
         lynx = TaxonFactory(name="Lynx")
@@ -2590,6 +2737,7 @@ class SequenceViewTest(TestCase):
         self.assertNotContains(response, "lynx.jpg")
 
     def test_sequence_view_shows_active_identity_link(self):
+        """Show the active identity detail link and exclude other identities' media files."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Alpha")
         other_identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Beta")
@@ -2609,12 +2757,15 @@ class SequenceViewTest(TestCase):
         self.assertNotContains(response, other_mediafile.original_filename)
 
     def test_sequence_view_shows_active_locality_detail_link(self):
+        """Link the active locality filter to locality details and restrict displayed media files."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         locality = LocalityFactory(owner=self.caiduser, name="Forest Camp")
         other_locality = LocalityFactory(owner=self.caiduser, name="River Bank")
         sequence = SequenceFactory(uploaded_archive=archive)
         other_sequence = SequenceFactory(uploaded_archive=archive)
-        mediafile = MediaFileFactory(parent=archive, sequence=sequence, locality=locality, original_filename="forest.jpg")
+        mediafile = MediaFileFactory(
+            parent=archive, sequence=sequence, locality=locality, original_filename="forest.jpg"
+        )
         other_mediafile = MediaFileFactory(
             parent=archive,
             sequence=other_sequence,
@@ -2631,6 +2782,7 @@ class SequenceViewTest(TestCase):
         self.assertNotContains(response, other_mediafile.original_filename)
 
     def test_media_files_view_shows_active_filter_detail_links(self):
+        """Render upload, identity, and locality detail links for active media-file filters."""
         archive = UploadedArchiveFactory(owner=self.caiduser, name="Visible upload")
         identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Alpha")
         locality = LocalityFactory(owner=self.caiduser, name="Forest Camp")
@@ -2657,6 +2809,7 @@ class SequenceViewTest(TestCase):
         self.assertContains(response, reverse("caidapp:update_locality", args=[locality.id]))
 
     def test_sequence_view_rejects_identity_outside_user_workgroup(self):
+        """Hide identities outside the current workgroup when filtering sequences."""
         other_caiduser = CaidUserFactory()
         identity = IndividualIdentityFactory(owner_workgroup=other_caiduser.workgroup, name="Private identity")
 
@@ -2666,6 +2819,7 @@ class SequenceViewTest(TestCase):
         self.assertNotContains(response, "Private identity", status_code=404)
 
     def test_sequence_view_filters_by_multiple_identities(self):
+        """Combine two selected identities in sequence filtering and display their filter count."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         first_identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Alpha")
         second_identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Beta")
@@ -2706,6 +2860,7 @@ class SequenceViewTest(TestCase):
         self.assertNotContains(response, other_mediafile.original_filename)
 
     def test_sequence_view_rejects_multiple_identity_filter_outside_user_workgroup(self):
+        """Reject multi-identity filters containing an identity from another workgroup."""
         identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Visible identity")
         other_caiduser = CaidUserFactory()
         private_identity = IndividualIdentityFactory(owner_workgroup=other_caiduser.workgroup, name="Private identity")
@@ -2721,13 +2876,18 @@ class SequenceViewTest(TestCase):
         self.assertNotContains(response, "Private identity", status_code=404)
 
     def test_sequence_view_shows_active_locality_link(self):
+        """Support locality-hash filtering with a link to the locality's media-file listing."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         locality = LocalityFactory(owner=self.caiduser, name="Visible locality")
         other_locality = LocalityFactory(owner=self.caiduser, name="Other locality")
         sequence = SequenceFactory(uploaded_archive=archive)
         other_sequence = SequenceFactory(uploaded_archive=archive)
-        mediafile = MediaFileFactory(parent=archive, sequence=sequence, locality=locality, original_filename="locality.jpg")
-        other_mediafile = MediaFileFactory(parent=archive, sequence=other_sequence, locality=other_locality, original_filename="other-locality.jpg")
+        mediafile = MediaFileFactory(
+            parent=archive, sequence=sequence, locality=locality, original_filename="locality.jpg"
+        )
+        other_mediafile = MediaFileFactory(
+            parent=archive, sequence=other_sequence, locality=other_locality, original_filename="other-locality.jpg"
+        )
 
         response = self.client.get(reverse("caidapp:sequences"), {"locality_hash": locality.hash})
 
@@ -2738,6 +2898,7 @@ class SequenceViewTest(TestCase):
         self.assertNotContains(response, other_mediafile.original_filename)
 
     def test_sequence_view_rejects_locality_outside_user_workgroup(self):
+        """Hide private localities from sequence filters and error-page content."""
         other_caiduser = CaidUserFactory()
         locality = LocalityFactory(owner=other_caiduser, name="Private locality")
 
@@ -2747,6 +2908,7 @@ class SequenceViewTest(TestCase):
         self.assertNotContains(response, "Private locality", status_code=404)
 
     def test_sequence_view_shows_active_album_link(self):
+        """Filter sequences by a visible album and link back to that album."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         album = AlbumFactory(owner=self.caiduser, name="Visible album")
         other_album = AlbumFactory(owner=self.caiduser, name="Other album")
@@ -2766,6 +2928,7 @@ class SequenceViewTest(TestCase):
         self.assertNotContains(response, other_mediafile.original_filename)
 
     def test_sequence_view_rejects_album_outside_user_access(self):
+        """Reject sequence filtering by an album the user cannot access."""
         other_caiduser = CaidUserFactory()
         album = AlbumFactory(owner=other_caiduser, name="Private album")
 
@@ -2775,6 +2938,7 @@ class SequenceViewTest(TestCase):
         self.assertNotContains(response, "Private album", status_code=404)
 
     def test_taxon_list_links_to_sequences_for_taxon(self):
+        """Provide observation and sequence drill-down links from taxon listings."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         wolf = TaxonFactory(name="Wolf")
         sequence = SequenceFactory(uploaded_archive=archive)
@@ -2788,6 +2952,7 @@ class SequenceViewTest(TestCase):
         self.assertContains(response, f'{reverse("caidapp:sequences")}?taxon={wolf.id}')
 
     def test_identity_locality_and_album_lists_link_to_sequences(self):
+        """Provide identity, locality, and album sequence links with the appropriate filter parameters."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Alpha")
         locality = LocalityFactory(owner=self.caiduser, name="Visible locality")
@@ -2810,6 +2975,7 @@ class SequenceViewTest(TestCase):
         self.assertContains(response, f'{reverse("caidapp:sequences")}?album_hash={album.hash}')
 
     def test_sequence_filename_metadata_uses_selected_mediafiles(self):
+        """Extract filename metadata only for media files selected through the sequence action."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         sequence = SequenceFactory(uploaded_archive=archive)
         selected_mediafile = MediaFileFactory(
@@ -2848,6 +3014,7 @@ class SequenceViewTest(TestCase):
         self.assertTrue(other_mediafile.observations.get().is_no_detection_placeholder)
 
     def test_sequence_filename_metadata_uses_directory_mapping_without_regex(self):
+        """Derive locality, taxon, and identity from directory-role mapping without an explicit regex."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         sequence = SequenceFactory(uploaded_archive=archive)
         mediafile = MediaFileFactory(
@@ -2879,6 +3046,7 @@ class SequenceViewTest(TestCase):
         self.assertEqual(observation.identity.name, "Charles")
 
     def test_sequence_filename_metadata_chatgpt_prompt_includes_sample_paths(self):
+        """Include five sample paths and supported named-group guidance in the regex consultation prompt."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         sequence = SequenceFactory(uploaded_archive=archive)
         mediafiles = [
@@ -2906,6 +3074,7 @@ class SequenceViewTest(TestCase):
         self.assertContains(response, "Ask ChatGPT")
 
     def test_filename_metadata_warns_about_mediafiles_with_multiple_observations(self):
+        """Warn that observation labels will be skipped for media files with multiple observations."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         sequence = SequenceFactory(uploaded_archive=archive)
         single_observation_mediafile = MediaFileFactory(parent=archive, sequence=sequence)
@@ -2929,6 +3098,7 @@ class SequenceViewTest(TestCase):
         self.assertContains(response, "those values will be skipped")
 
     def test_sequence_filename_metadata_skips_manually_updated_mediafiles_by_default(self):
+        """Preserve manually edited media files unless filename extraction explicitly allows overwriting them."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         sequence = SequenceFactory(uploaded_archive=archive)
         mediafile = MediaFileFactory(
@@ -2976,6 +3146,7 @@ class SequenceViewTest(TestCase):
         self.assertEqual(mediafile.observations.get().identity.name, "Charles")
 
     def test_sequence_filename_metadata_fills_only_empty_fields_by_default(self):
+        """Fill only empty metadata by default and replace existing values only with overwrite enabled."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         sequence = SequenceFactory(uploaded_archive=archive)
         old_locality = LocalityFactory(owner=self.caiduser, name="OldLocality")
@@ -3028,6 +3199,7 @@ class SequenceViewTest(TestCase):
         self.assertEqual(observation.identity.name, "NewIdentity")
 
     def test_sequence_filename_metadata_uses_current_filter_when_nothing_is_selected(self):
+        """Use the current filter for filename extraction when no explicit media-file selection exists."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         sequence = SequenceFactory(uploaded_archive=archive)
         mediafile = MediaFileFactory(
@@ -3056,6 +3228,7 @@ class SequenceViewTest(TestCase):
         self.assertEqual(observation.identity.name, "Charles")
 
     def test_filename_metadata_skips_observation_metadata_for_multiple_observations(self):
+        """Apply file locality while skipping ambiguous taxon and identity updates on sibling observations."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         sequence = SequenceFactory(uploaded_archive=archive)
         mediafile = MediaFileFactory(
@@ -3091,16 +3264,22 @@ class SequenceViewTest(TestCase):
 
 class ObservationViewTest(TestCase):
     def setUp(self):
+        """Authenticate a workgroup member for observation-level selection and grouping tests."""
         self.caiduser = CaidUserFactory()
         self.user = self.caiduser.user
         self.client.login(username=self.user.username, password="test123")
 
     def test_observations_view_lists_each_observation_separately(self):
+        """Render distinct observation cards with visual grouping and explicit action-scope controls."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         sequence = SequenceFactory(uploaded_archive=archive, local_id=22)
         mediafile = MediaFileFactory(parent=archive, sequence=sequence, original_filename="three-animals.jpg")
-        first = AnimalObservationFactory(mediafile=mediafile, bbox_x_center=0.2, bbox_y_center=0.4, bbox_width=0.2, bbox_height=0.3)
-        second = AnimalObservationFactory(mediafile=mediafile, bbox_x_center=0.7, bbox_y_center=0.5, bbox_width=0.2, bbox_height=0.3)
+        first = AnimalObservationFactory(
+            mediafile=mediafile, bbox_x_center=0.2, bbox_y_center=0.4, bbox_width=0.2, bbox_height=0.3
+        )
+        second = AnimalObservationFactory(
+            mediafile=mediafile, bbox_x_center=0.7, bbox_y_center=0.5, bbox_width=0.2, bbox_height=0.3
+        )
 
         response = self.client.get(reverse("caidapp:observations"))
 
@@ -3133,8 +3312,15 @@ class ObservationViewTest(TestCase):
         self.assertContains(response, "Edit metadata…")
         self.assertContains(response, "Edit observations")
         self.assertContains(response, "Sequences")
-        self.assertContains(response, 'class="dropdown-item" type="button" data-bs-toggle="collapse" data-bs-target="#observation-bulk-fields"')
-        self.assertNotContains(response, 'class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#observation-bulk-fields"')
+        self.assertContains(
+            response,
+            'class="dropdown-item" type="button" data-bs-toggle="collapse" data-bs-target="#observation-bulk-fields"',
+        )
+        self.assertNotContains(
+            response,
+            'class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" '
+            'data-bs-target="#observation-bulk-fields"',
+        )
         self.assertContains(response, '<i class="bi bi-lightning"></i> Actions')
         self.assertNotContains(response, '<i class="bi bi-three-dots"></i> Actions')
         self.assertContains(response, "> Data</button>")
@@ -3155,10 +3341,13 @@ class ObservationViewTest(TestCase):
         self.assertContains(response, 'title="2 observations grouped by Sequence 22 · 1 media file on this page"')
         self.assertContains(response, 'class="observation-group-controls"', count=1)
         self.assertNotContains(response, "observation-group-toggle-label")
-        self.assertContains(response, ".observation-group-collapsed .observation-group-lead .observation-image-select{display:none}")
+        self.assertContains(
+            response, ".observation-group-collapsed .observation-group-lead .observation-image-select{display:none}"
+        )
         self.assertContains(response, ".observation-group-expanded .observation-group-select{display:none}")
 
     def test_single_observation_group_has_no_group_card_controls(self):
+        """Omit group-card controls for a group containing only one observation."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         sequence = SequenceFactory(uploaded_archive=archive, local_id=23)
         observation = AnimalObservationFactory(mediafile=MediaFileFactory(parent=archive, sequence=sequence))
@@ -3170,6 +3359,7 @@ class ObservationViewTest(TestCase):
         self.assertNotContains(response, 'class="observation-group-controls"')
 
     def test_observations_large_cards_mode_uses_two_column_card_layout(self):
+        """Use the two-column large-card layout and indicate its active view mode."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         observation = AnimalObservationFactory(mediafile=MediaFileFactory(parent=archive))
 
@@ -3179,13 +3369,16 @@ class ObservationViewTest(TestCase):
         self.assertEqual(response.context["view_mode"], "large_cards")
         self.assertContains(response, f'id="observation-{observation.id}"')
         self.assertContains(response, 'class="observation-groups observation-groups-large"')
-        self.assertContains(response, ".observation-groups-large .observation-group-member{flex-basis:calc(50% - 1.5rem)")
+        self.assertContains(
+            response, ".observation-groups-large .observation-group-member{flex-basis:calc(50% - 1.5rem)"
+        )
         self.assertContains(response, 'title="Large cards view" aria-label="Large cards view" aria-current="page"')
         self.assertContains(response, '<i class="bi bi-grid-3x3-gap" aria-hidden="true"></i>')
         self.assertContains(response, '<i class="bi bi-grid" aria-hidden="true"></i>')
         self.assertContains(response, '<i class="bi bi-list-ul" aria-hidden="true"></i>')
 
     def test_observations_bbox_preview_mode_is_validated(self):
+        """Enable bbox zoom for valid preview mode and fall back to full preview for invalid input."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         observation = AnimalObservationFactory(
             mediafile=MediaFileFactory(parent=archive),
@@ -3210,6 +3403,7 @@ class ObservationViewTest(TestCase):
         self.assertNotContains(invalid_response, '<span class="observation-preview-crop-badge"')
 
     def test_observations_bbox_preview_falls_back_for_incomplete_bbox(self):
+        """Provide full-preview fallback handling when bbox zoom lacks complete coordinates."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         AnimalObservationFactory(
             mediafile=MediaFileFactory(parent=archive),
@@ -3222,10 +3416,13 @@ class ObservationViewTest(TestCase):
         response = self.client.get(reverse("caidapp:observations"), {"preview": "bbox"})
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'class="observation-preview js-observation-media-preview observation-preview-crop"')
+        self.assertContains(
+            response, 'class="observation-preview js-observation-media-preview observation-preview-crop"'
+        )
         self.assertContains(response, 'if (frame.classList.contains("observation-preview-crop") && !bbox)')
 
     def test_observation_card_shows_icon_fields_and_copyable_details_modal(self):
+        """Render linked observation metadata icons and a details modal with copyable values."""
         locality = LocalityFactory(owner=self.caiduser, name="Forest locality")
         archive = UploadedArchiveFactory(owner=self.caiduser, name="Camera upload")
         mediafile = MediaFileFactory(
@@ -3261,15 +3458,12 @@ class ObservationViewTest(TestCase):
         self.assertContains(response, "observationInfoModalBody.replaceChildren")
 
     def test_sequence_link_opens_only_that_sequences_observations(self):
+        """Scope a sequence link to that sequence's observations rather than unrelated observations."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         selected_sequence = SequenceFactory(uploaded_archive=archive, local_id=24)
         other_sequence = SequenceFactory(uploaded_archive=archive, local_id=25)
-        selected = AnimalObservationFactory(
-            mediafile=MediaFileFactory(parent=archive, sequence=selected_sequence)
-        )
-        other = AnimalObservationFactory(
-            mediafile=MediaFileFactory(parent=archive, sequence=other_sequence)
-        )
+        selected = AnimalObservationFactory(mediafile=MediaFileFactory(parent=archive, sequence=selected_sequence))
+        other = AnimalObservationFactory(mediafile=MediaFileFactory(parent=archive, sequence=other_sequence))
 
         unfiltered_response = self.client.get(reverse("caidapp:observations"))
         sequence_url = f'{reverse("caidapp:observations")}?sequence={selected_sequence.id}'
@@ -3283,6 +3477,7 @@ class ObservationViewTest(TestCase):
         self.assertEqual(filtered_response.context["number_of_observations"], 1)
 
     def test_observations_sort_sequences_by_newest_captured_date(self):
+        """Order grouped sequences by their newest capture dates when descending capture sort is selected."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         older_sequence = SequenceFactory(uploaded_archive=archive, local_id=40)
         newer_sequence = SequenceFactory(uploaded_archive=archive, local_id=41)
@@ -3309,12 +3504,17 @@ class ObservationViewTest(TestCase):
         self.assertEqual(response.context["observation_groups"][1]["observations"][0].id, older.id)
 
     def test_taxon_sort_disables_ambiguous_grouping(self):
+        """Disable grouping for taxon sorting because one group can contain multiple taxa."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         sequence = SequenceFactory(uploaded_archive=archive)
         taxon_z = TaxonFactory(name="Zebra taxon")
         taxon_a = TaxonFactory(name="Aardvark taxon")
-        observation_z = AnimalObservationFactory(mediafile=MediaFileFactory(parent=archive, sequence=sequence), taxon=taxon_z)
-        observation_a = AnimalObservationFactory(mediafile=MediaFileFactory(parent=archive, sequence=sequence), taxon=taxon_a)
+        observation_z = AnimalObservationFactory(
+            mediafile=MediaFileFactory(parent=archive, sequence=sequence), taxon=taxon_z
+        )
+        observation_a = AnimalObservationFactory(
+            mediafile=MediaFileFactory(parent=archive, sequence=sequence), taxon=taxon_a
+        )
 
         response = self.client.get(
             reverse("caidapp:observations"),
@@ -3324,10 +3524,16 @@ class ObservationViewTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context["group_by"], "none")
         self.assertTrue(response.context["grouping_disabled_for_sort"])
-        self.assertEqual([group["observations"][0].id for group in response.context["observation_groups"]], [observation_a.id, observation_z.id])
-        self.assertContains(response, "Grouping was disabled because one media file or sequence can contain multiple taxa")
+        self.assertEqual(
+            [group["observations"][0].id for group in response.context["observation_groups"]],
+            [observation_a.id, observation_z.id],
+        )
+        self.assertContains(
+            response, "Grouping was disabled because one media file or sequence can contain multiple taxa"
+        )
 
     def test_grouped_context_sort_modes_render(self):
+        """Render each supported grouped-context sort mode without losing the requested sort choice."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         sequence = SequenceFactory(uploaded_archive=archive)
         AnimalObservationFactory(
@@ -3347,6 +3553,7 @@ class ObservationViewTest(TestCase):
                 self.assertEqual(response.context["sort_by"], sort_by)
 
     def test_observations_list_mode_renders_one_collapsible_row_per_group(self):
+        """Render one collapsible list shell per group while retaining individual observation rows and selection."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         sequence = SequenceFactory(uploaded_archive=archive, local_id=31)
         mediafile = MediaFileFactory(parent=archive, sequence=sequence, original_filename="two.jpg")
@@ -3367,20 +3574,29 @@ class ObservationViewTest(TestCase):
         self.assertContains(response, 'class="observation-list-group-shell"', count=1)
         self.assertContains(response, 'class="observation-list-group-block"', count=1)
         self.assertContains(response, f'aria-controls="observation-list-group-details-{group["id"]}"')
-        self.assertContains(response, f'id="observation-list-group-details-{group["id"]}" class="observation-list-group-details" data-group-id="{group["id"]}" hidden')
-        self.assertContains(response, f'id="observation-list-{first.id}" class="observation-list-member" data-group-id=', count=1)
-        self.assertContains(response, f'id="observation-list-{second.id}" class="observation-list-member" data-group-id=', count=1)
+        self.assertContains(
+            response,
+            f'id="observation-list-group-details-{group["id"]}" class="observation-list-group-details" '
+            f'data-group-id="{group["id"]}" hidden',
+        )
+        self.assertContains(
+            response, f'id="observation-list-{first.id}" class="observation-list-member" data-group-id=', count=1
+        )
+        self.assertContains(
+            response, f'id="observation-list-{second.id}" class="observation-list-member" data-group-id=', count=1
+        )
         self.assertContains(response, "observation-list-detail-table")
         self.assertContains(response, "observation-list-detail-table td{border:0!important")
         self.assertContains(response, "setObservationListGroupExpanded")
-        self.assertContains(response, 'details.hidden = !expanded')
-        self.assertContains(response, 'height .22s ease, opacity .18s ease')
-        self.assertContains(response, 'details.dataset.animationToken')
+        self.assertContains(response, "details.hidden = !expanded")
+        self.assertContains(response, "height .22s ease, opacity .18s ease")
+        self.assertContains(response, "details.dataset.animationToken")
         self.assertContains(response, "js-expand-all-observation-groups")
         self.assertContains(response, "js-collapse-all-observation-groups")
         self.assertContains(response, "Merge containing media files into new sequence")
 
     def test_observations_ungrouped_list_keeps_one_plain_row_per_observation(self):
+        """Keep plain observation rows without group shells when list grouping is disabled."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         mediafile = MediaFileFactory(parent=archive, original_filename="two.jpg")
         first = AnimalObservationFactory(mediafile=mediafile, bbox_x_center=0.3)
@@ -3397,6 +3613,7 @@ class ObservationViewTest(TestCase):
         self.assertNotContains(response, 'aria-controls="observation-list-group-details-')
 
     def test_observation_bulk_bbox_updates_selected_observation_only(self):
+        """Change the selected observation's bbox without changing its sibling or another media file."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         selected_mediafile = MediaFileFactory(parent=archive)
         selected_first = AnimalObservationFactory(mediafile=selected_mediafile, bbox_x_center=0.2)
@@ -3420,6 +3637,7 @@ class ObservationViewTest(TestCase):
         self.assertNotEqual(untouched.bbox_width, 1.0)
 
     def test_observation_bulk_taxon_updates_selected_observation_only(self):
+        """Change only the selected taxon and reset its verification state without touching siblings."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         mediafile = MediaFileFactory(parent=archive)
         selected = AnimalObservationFactory(mediafile=mediafile, taxon_verified=True, taxon_verified_at=timezone.now())
@@ -3445,6 +3663,7 @@ class ObservationViewTest(TestCase):
         self.assertEqual(sibling.taxon_id, sibling_taxon_id)
 
     def test_observation_bulk_identity_updates_selected_observation_only(self):
+        """Change only the selected identity and reset its representative flag without touching siblings."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         mediafile = MediaFileFactory(parent=archive)
         old_identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup)
@@ -3474,6 +3693,7 @@ class ObservationViewTest(TestCase):
         self.assertEqual(sibling.identity_id, sibling_identity_id)
 
     def test_observation_representative_requires_identity(self):
+        """Reject marking an observation representative when it has no identity."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         observation = AnimalObservationFactory(
             mediafile=MediaFileFactory(parent=archive),
@@ -3495,6 +3715,7 @@ class ObservationViewTest(TestCase):
         self.assertFalse(observation.identity_is_representative)
 
     def test_observation_bulk_action_without_explicit_selection_is_noop(self):
+        """Leave bbox data unchanged when a bulk post has no explicit selection."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         observation = AnimalObservationFactory(
             mediafile=MediaFileFactory(parent=archive),
@@ -3514,6 +3735,7 @@ class ObservationViewTest(TestCase):
         self.assertEqual(observation.bbox_x_center, 0.4)
 
     def test_delete_selected_observations_deletes_only_exact_selection(self):
+        """Delete exactly the selected observation and preserve its sibling."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         mediafile = MediaFileFactory(parent=archive)
         selected = AnimalObservationFactory(mediafile=mediafile, bbox_x_center=0.3)
@@ -3532,6 +3754,7 @@ class ObservationViewTest(TestCase):
         self.assertTrue(models.AnimalObservation.objects.filter(id=sibling.id).exists())
 
     def test_delete_last_observation_keeps_no_detection_placeholder(self):
+        """Replace the last deleted observation with a no-detection placeholder."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         mediafile = MediaFileFactory(parent=archive)
         selected = AnimalObservationFactory(mediafile=mediafile, bbox_x_center=0.3)
@@ -3550,6 +3773,7 @@ class ObservationViewTest(TestCase):
         self.assertTrue(remaining.is_no_detection_placeholder)
 
     def test_observation_select_all_mutates_only_workgroup_images(self):
+        """Restrict select-all edits to owned media even when shared media are visible."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         editable_observation = AnimalObservationFactory(
             mediafile=MediaFileFactory(parent=archive),
@@ -3583,6 +3807,7 @@ class ObservationViewTest(TestCase):
         self.assertEqual(shared_observation.bbox_x_center, 0.5)
 
     def test_observation_select_all_respects_observation_filter(self):
+        """Apply select-all edits only to observations matching the active filter."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         selected_identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup)
         matching = AnimalObservationFactory(
@@ -3608,6 +3833,7 @@ class ObservationViewTest(TestCase):
         self.assertEqual(outside.bbox_x_center, 0.7)
 
     def test_observation_bulk_action_rejects_editable_id_outside_current_filter(self):
+        """Ignore a posted editable observation ID when it lies outside the current filter."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         selected_identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Selected")
         matching_observation = AnimalObservationFactory(
@@ -3641,6 +3867,7 @@ class ObservationViewTest(TestCase):
         self.assertEqual(outside_observation.bbox_x_center, 0.7)
 
     def test_observation_sequence_action_merges_selected_images(self):
+        """Merge the containing media files of selected observations into one sequence."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         first_mediafile = MediaFileFactory(parent=archive, sequence=SequenceFactory(uploaded_archive=archive))
         second_mediafile = MediaFileFactory(parent=archive, sequence=SequenceFactory(uploaded_archive=archive))
@@ -3651,7 +3878,11 @@ class ObservationViewTest(TestCase):
         response = self.client.post(
             reverse("caidapp:observations"),
             {
-                "selected_observation_ids": [str(first_observation.id), str(first_sibling.id), str(second_observation.id)],
+                "selected_observation_ids": [
+                    str(first_observation.id),
+                    str(first_sibling.id),
+                    str(second_observation.id),
+                ],
                 "btnCreateSequence": "1",
             },
         )
@@ -3662,6 +3893,7 @@ class ObservationViewTest(TestCase):
         self.assertEqual(first_mediafile.sequence_id, second_mediafile.sequence_id)
 
     def test_observation_sequence_action_splits_complete_containing_sequences(self):
+        """Split complete containing sequences while leaving unrelated sequences unchanged."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         sequence = SequenceFactory(uploaded_archive=archive)
         unrelated_sequence = SequenceFactory(uploaded_archive=archive)
@@ -3690,6 +3922,7 @@ class ObservationViewTest(TestCase):
         self.assertEqual(unrelated_mediafile.sequence_id, unrelated_sequence.id)
 
     def test_observation_selection_download_stores_only_selected_editable_images(self):
+        """Store only selected editable containing media files for observation image downloads."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         selected_mediafile = MediaFileFactory(parent=archive)
         other_mediafile = MediaFileFactory(parent=archive)
@@ -3709,6 +3942,7 @@ class ObservationViewTest(TestCase):
         self.assertEqual(self.client.session["observation_download_mediafile_ids"], [selected_mediafile.id])
 
     def test_identity_filter_does_not_include_sibling_observation_from_same_image(self):
+        """Exclude sibling observations with another identity from an identity-filtered observation view."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         mediafile = MediaFileFactory(parent=archive, original_filename="two-animals.jpg")
         selected_identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Selected")
@@ -3723,6 +3957,7 @@ class ObservationViewTest(TestCase):
         self.assertNotContains(response, f'id="observation-{sibling.id}"')
 
     def test_observation_export_uses_existing_round_trip_rows_for_matching_mediafile(self):
+        """Export all round-trip rows for a matching containing media file, including sibling observations."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         mediafile = MediaFileFactory(parent=archive, original_filename="two-animals.jpg")
         selected_identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Selected")
@@ -3742,6 +3977,7 @@ class ObservationViewTest(TestCase):
         )
 
     def test_observation_image_export_uses_current_filter_and_download_configuration(self):
+        """Use the active observation filter to prepare media-file download configuration."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         selected_mediafile = MediaFileFactory(parent=archive, original_filename="selected.jpg")
         other_mediafile = MediaFileFactory(parent=archive, original_filename="other.jpg")
@@ -3759,6 +3995,7 @@ class ObservationViewTest(TestCase):
         self.assertNotContains(download_response, "Download sequences")
 
     def test_observation_export_includes_blank_row_for_no_detection_placeholder(self):
+        """Export an empty placeholder row and preserve the placeholder when importing the export again."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         observed_mediafile = MediaFileFactory(parent=archive, original_filename="observed.jpg")
         empty_mediafile = MediaFileFactory(parent=archive, original_filename="empty.jpg")
@@ -3775,6 +4012,7 @@ class ObservationViewTest(TestCase):
         self.assertTrue(empty_mediafile.observations.get().is_no_detection_placeholder)
 
     def test_observation_export_search_includes_matching_empty_mediafile(self):
+        """Include a matching empty media file in metadata export without exposing a placeholder ID."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         empty_mediafile = MediaFileFactory(parent=archive, original_filename="empty-search-target.jpg")
 
@@ -3786,6 +4024,7 @@ class ObservationViewTest(TestCase):
         self.assertTrue(pd.isna(df.iloc[0]["observation_id"]))
 
     def test_observation_import_accepts_mediafile_exported_from_shared_album(self):
+        """Accept an unchanged round-trip observation export from an accessible shared album."""
         owner = CaidUserFactory()
         archive = UploadedArchiveFactory(owner=owner)
         mediafile = MediaFileFactory(parent=archive, original_filename="shared.jpg")
@@ -3804,9 +4043,12 @@ class ObservationViewTest(TestCase):
         self.assertTrue(models.AnimalObservation.objects.filter(id=observation.id).exists())
 
     def test_has_bbox_filter_excludes_legacy_observation_without_bbox(self):
+        """Exclude legacy bbox-less observations when the has-bbox filter is enabled."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         mediafile = MediaFileFactory(parent=archive)
-        with_bbox = AnimalObservationFactory(mediafile=mediafile, bbox_x_center=0.5, bbox_y_center=0.5, bbox_width=0.3, bbox_height=0.3)
+        with_bbox = AnimalObservationFactory(
+            mediafile=mediafile, bbox_x_center=0.5, bbox_y_center=0.5, bbox_width=0.3, bbox_height=0.3
+        )
         without_bbox = AnimalObservationFactory(mediafile=MediaFileFactory(parent=archive))
 
         response = self.client.get(reverse("caidapp:observations"), {"has_bbox": "true"})
@@ -3816,6 +4058,7 @@ class ObservationViewTest(TestCase):
         self.assertNotContains(response, f'id="observation-{without_bbox.id}"')
 
     def test_objects_per_image_filters_count_only_real_bounding_boxes(self):
+        """Count actual bounding boxes for zero, one, multiple, minimum, and maximum object filters."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         no_bbox = AnimalObservationFactory(mediafile=MediaFileFactory(parent=archive))
         one_bbox = AnimalObservationFactory(
@@ -3864,6 +4107,7 @@ class ObservationViewTest(TestCase):
         self.assertNotContains(maximum_response, f'id="observation-{two_bbox_first.id}"')
 
     def test_observations_view_restricts_other_workgroup(self):
+        """Omit another workgroup's observations from the review page."""
         foreign_user = CaidUserFactory()
         foreign_archive = UploadedArchiveFactory(owner=foreign_user)
         foreign_observation = AnimalObservationFactory(mediafile=MediaFileFactory(parent=foreign_archive))
@@ -3876,11 +4120,13 @@ class ObservationViewTest(TestCase):
 
 class IdentificationUploadsViewTest(TestCase):
     def setUp(self):
+        """Authenticate a workgroup member for upload routing and identity-review workflow tests."""
         self.caiduser = CaidUserFactory()
         self.user = self.caiduser.user
         self.client.login(username=self.user.username, password="test123")
 
     def test_taxon_dashboard_links_to_uploads_ready_for_identification(self):
+        """Offer the ready-for-identification upload list from the taxon dashboard."""
         response = self.client.get(reverse("caidapp:taxon_processing"))
 
         self.assertEqual(response.status_code, 200)
@@ -3888,6 +4134,7 @@ class IdentificationUploadsViewTest(TestCase):
         self.assertContains(response, "Send to identification")
 
     def test_manual_identification_links_unknown_media_to_its_detail(self):
+        """Link an unknown manual-identification item to its media-file detail with return navigation."""
         archive = UploadedArchiveFactory(owner=self.caiduser, is_for_identification=True)
         mediafile = MediaFileFactory(
             parent=archive,
@@ -3904,6 +4151,7 @@ class IdentificationUploadsViewTest(TestCase):
         self.assertContains(response, "Open media detail")
 
     def test_reid_selection_updates_target_observation_without_legacy_identity(self):
+        """Assign the selected suggestion to its target observation and remove the review queue item."""
         archive = UploadedArchiveFactory(owner=self.caiduser, is_for_identification=True)
         mediafile = MediaFileFactory(parent=archive, metadata_json={})
         observation = AnimalObservationFactory(mediafile=mediafile)
@@ -3922,6 +4170,7 @@ class IdentificationUploadsViewTest(TestCase):
         self.assertFalse(models.MediafilesForIdentification.objects.filter(id=queue_item.id).exists())
 
     def test_reid_selection_with_multiple_observations_requires_manual_choice(self):
+        """Require explicit observation choice instead of applying a suggestion to an ambiguous media file."""
         archive = UploadedArchiveFactory(owner=self.caiduser, is_for_identification=True)
         mediafile = MediaFileFactory(parent=archive, metadata_json={})
         AnimalObservationFactory(mediafile=mediafile)
@@ -3936,6 +4185,7 @@ class IdentificationUploadsViewTest(TestCase):
         self.assertFalse(mediafile.observations.filter(identity=identity).exists())
 
     def test_manual_identification_suggestion_menu_links_candidate_media_to_its_detail(self):
+        """Link candidate media details from the manual-identification suggestion action menu."""
         archive = UploadedArchiveFactory(owner=self.caiduser, is_for_identification=True)
         unknown_mediafile = MediaFileFactory(parent=archive, identity=None, metadata_json={})
         queue_item = models.MediafilesForIdentification.objects.create(mediafile=unknown_mediafile)
@@ -3957,6 +4207,7 @@ class IdentificationUploadsViewTest(TestCase):
         self.assertContains(response, f'href="{detail_url}?next=', html=False)
 
     def test_taxon_dashboard_highlights_send_to_identification_when_upload_is_ready(self):
+        """Highlight sending uploads to identification when a taxon upload is ready."""
         archive = UploadedArchiveFactory(
             owner=self.caiduser,
             taxon_status="TV",
@@ -3977,6 +4228,7 @@ class IdentificationUploadsViewTest(TestCase):
         )
 
     def test_uploads_ready_for_identification_lists_verified_before_known(self):
+        """List verified uploads before known-taxon uploads and omit those already sent to identification."""
         default_taxon = TaxonFactory(name="Lynx")
         self.caiduser.workgroup.default_taxon_for_identification = default_taxon
         self.caiduser.workgroup.save()
@@ -4026,6 +4278,7 @@ class IdentificationUploadsViewTest(TestCase):
         self.assertLess(content.index("Verified archive"), content.index("Known archive"))
 
     def test_uploads_ready_for_identification_empty_state_links_to_taxon_dashboard(self):
+        """Offer a route back to taxon processing when no uploads are ready for identification."""
         response = self.client.get(reverse("caidapp:uploads_ready_for_identification"))
 
         self.assertEqual(response.status_code, 200)
@@ -4033,6 +4286,7 @@ class IdentificationUploadsViewTest(TestCase):
         self.assertContains(response, reverse("caidapp:taxon_processing"))
 
     def test_select_taxon_for_identification_uses_workgroup_default_and_explains_action(self):
+        """Prefill the workgroup's default taxon and explain the send-to-identification action."""
         default_taxon = TaxonFactory(name="Lynx")
         self.caiduser.workgroup.default_taxon_for_identification = default_taxon
         self.caiduser.workgroup.save()
@@ -4051,6 +4305,7 @@ class IdentificationUploadsViewTest(TestCase):
         self.assertContains(response, "Send to identification")
 
     def test_select_taxon_for_identification_prefers_archive_taxon_and_returns_to_home(self):
+        """Prefer an archive-specific taxon and persist identification routing before returning home."""
         default_taxon = TaxonFactory(name="Lynx")
         archive_taxon = TaxonFactory(name="Wolf")
         self.caiduser.workgroup.default_taxon_for_identification = default_taxon
@@ -4082,6 +4337,7 @@ class IdentificationUploadsViewTest(TestCase):
         self.assertEqual(archive.identification_status, "IR")
 
     def test_upload_lists_offer_filename_metadata_extraction(self):
+        """Offer filename metadata extraction across taxon, identification, and representative upload lists."""
         species_archive = UploadedArchiveFactory(
             owner=self.caiduser,
             contains_single_taxon=False,
@@ -4118,6 +4374,7 @@ class IdentificationUploadsViewTest(TestCase):
         )
 
     def test_upload_lists_link_to_sequences_for_archive(self):
+        """Link each upload listing to sequences filtered by that archive."""
         species_archive = UploadedArchiveFactory(
             owner=self.caiduser,
             contains_single_taxon=False,
@@ -4144,6 +4401,7 @@ class IdentificationUploadsViewTest(TestCase):
         self.assertContains(response, f'{reverse("caidapp:sequences")}?uploadedarchive_id={known_identity_archive.id}')
 
     def test_taxonomy_uploads_keep_archives_sent_to_identification(self):
+        """Keep taxon-origin uploads visible after sending them to identification, excluding direct ReID uploads."""
         identification_taxon = TaxonFactory(name="Lynx")
         taxonomy_archive = UploadedArchiveFactory(
             owner=self.caiduser,
@@ -4178,6 +4436,7 @@ class IdentificationUploadsViewTest(TestCase):
         self.assertNotContains(response, direct_identification_archive.name)
 
     def test_uploadedarchive_detail_links_to_observations_sequences_and_mediafiles(self):
+        """Provide observation, sequence, and media-file navigation from upload details."""
         TaxonFactory(name=models.TAXON_NOT_CLASSIFIED)
         archive = UploadedArchiveFactory(
             owner=self.caiduser,
@@ -4195,8 +4454,11 @@ class IdentificationUploadsViewTest(TestCase):
         self.assertContains(response, "bi-three-dots")
 
     def test_upload_filename_metadata_uses_all_mediafiles_in_archive(self):
+        """Extract metadata across the selected archive without changing media files from another archive."""
         archive = UploadedArchiveFactory(owner=self.caiduser, is_for_identification=True, contains_identities=False)
-        other_archive = UploadedArchiveFactory(owner=self.caiduser, is_for_identification=True, contains_identities=False)
+        other_archive = UploadedArchiveFactory(
+            owner=self.caiduser, is_for_identification=True, contains_identities=False
+        )
         mediafile = MediaFileFactory(parent=archive, original_filename="Brdy/Charles/first.jpg")
         other_mediafile = MediaFileFactory(parent=other_archive, original_filename="Brdy/Other/second.jpg")
 
@@ -4222,6 +4484,7 @@ class IdentificationUploadsViewTest(TestCase):
         self.assertIsNone(other_mediafile.identity_from_observations)
 
     def test_uploads_identities_uses_is_for_identification_without_taxon_requirement(self):
+        """List identification uploads by workflow flag even without a configured target taxon."""
         visible_archive = UploadedArchiveFactory(
             owner=self.caiduser,
             name="Visible identification upload",
@@ -4244,6 +4507,7 @@ class IdentificationUploadsViewTest(TestCase):
         self.assertNotContains(response, "Hidden non-identification upload")
 
     def test_uploads_identities_show_count_of_identified_individuals(self):
+        """Show the number of distinct identified individuals in an identification upload."""
         archive = UploadedArchiveFactory(
             owner=self.caiduser,
             name="Upload with identities",
@@ -4264,6 +4528,7 @@ class IdentificationUploadsViewTest(TestCase):
         self.assertContains(response, "2 unique identified individuals in this upload")
 
     def test_uploads_identities_include_base_dataset_when_show_base_between_regular_uploads_is_enabled(self):
+        """Include marked base datasets among regular uploads when the workgroup option enables it."""
         self.caiduser.show_base_between_regular_uploads = True
         self.caiduser.save()
         UploadedArchiveFactory(
@@ -4289,6 +4554,7 @@ class IdentificationUploadsViewTest(TestCase):
         self.assertContains(response, "bi-star-fill")
 
     def test_uploads_identities_hide_base_dataset_when_show_base_between_regular_uploads_is_disabled(self):
+        """Hide base datasets from regular identification uploads when the workgroup option disables it."""
         self.caiduser.show_base_between_regular_uploads = False
         self.caiduser.save()
         UploadedArchiveFactory(
@@ -4313,6 +4579,7 @@ class IdentificationUploadsViewTest(TestCase):
         self.assertContains(response, "Visible ordinary identification upload")
 
     def test_uploads_known_identities_uses_is_for_identification_without_taxon_requirement(self):
+        """List representative identification uploads without requiring an explicit target taxon."""
         visible_archive = UploadedArchiveFactory(
             owner=self.caiduser,
             name="Visible base dataset upload",
@@ -4335,6 +4602,7 @@ class IdentificationUploadsViewTest(TestCase):
         self.assertNotContains(response, "Hidden taxonomy-only upload")
 
     def test_dash_identities_upload_links_prefill_identification_modes(self):
+        """Prefill ordinary and representative identification upload modes from dashboard links."""
         response = self.client.get(reverse("caidapp:dash_identities"))
 
         self.assertEqual(response.status_code, 200)
@@ -4348,6 +4616,7 @@ class IdentificationUploadsViewTest(TestCase):
         )
 
     def test_dash_identities_shows_init_identification_csv_download_only_for_admin(self):
+        """Show initialization and run CSV downloads only to a workgroup admin."""
         self.caiduser.workgroup_admin = False
         self.caiduser.save(update_fields=["workgroup_admin"])
 
@@ -4367,6 +4636,7 @@ class IdentificationUploadsViewTest(TestCase):
         self.assertContains(response, reverse("caidapp:download_run_identification_csv"))
 
     def test_dash_identities_hides_run_and_model_settings_controls_for_non_admin(self):
+        """Hide training, rerun, and model settings controls from regular workgroup members."""
         self.caiduser.workgroup_admin = False
         self.caiduser.save(update_fields=["workgroup_admin"])
 
@@ -4378,6 +4648,7 @@ class IdentificationUploadsViewTest(TestCase):
         self.assertNotContains(response, reverse("caidapp:workgroup-update", args=[self.caiduser.workgroup.id]))
 
     def test_dash_identities_shows_run_and_model_settings_controls_for_workgroup_admin(self):
+        """Expose training, rerun, and model settings controls to a workgroup admin."""
         self.caiduser.workgroup_admin = True
         self.caiduser.save(update_fields=["workgroup_admin"])
 
@@ -4391,6 +4662,7 @@ class IdentificationUploadsViewTest(TestCase):
 
 class IdentificationRerunTest(TestCase):
     def setUp(self):
+        """Authenticate an admin with a selected initialized model and taxon filtering disabled."""
         self.caiduser = CaidUserFactory(admin=True)
         self.user = self.caiduser.user
         self.client.login(username=self.user.username, password="test123")
@@ -4407,6 +4679,7 @@ class IdentificationRerunTest(TestCase):
         self.workgroup.save()
 
     def test_identification_information_is_workgroup_admin_only(self):
+        """Reject identification information access after the member's workgroup admin status is removed."""
         self.caiduser.workgroup_admin = False
         self.caiduser.save(update_fields=["workgroup_admin"])
 
@@ -4415,6 +4688,7 @@ class IdentificationRerunTest(TestCase):
         self.assertEqual(response.status_code, 405)
 
     def test_identification_information_shows_models_runs_messages_and_counts(self):
+        """Display selected models, task IDs, run messages, and reference counts on identification information."""
         identity = IndividualIdentityFactory(owner_workgroup=self.workgroup, name="Lynx A")
         archive = UploadedArchiveFactory(owner=self.caiduser, is_for_identification=True)
         mediafile = MediaFileFactory(parent=archive, used_for_init_identification=True)
@@ -4469,12 +4743,14 @@ class IdentificationRerunTest(TestCase):
         self.assertEqual(response.context["counts"]["initialized_reference_mediafiles"], 1)
 
     def test_identification_dashboard_links_to_information_for_admin(self):
+        """Link the admin identification dashboard to its detailed information page."""
         response = self.client.get(reverse("caidapp:dash_identities"))
 
         self.assertContains(response, reverse("caidapp:identification_information"))
 
     @patch("caidapp.tasks.schedule_init_identification_for_workgroup")
     def test_completed_representative_upload_schedules_identification_init(self, schedule_mock):
+        """Schedule initialization after a representative upload has finished importing."""
         archive = UploadedArchiveFactory(
             owner=self.caiduser,
             contains_identities=True,
@@ -4494,6 +4770,7 @@ class IdentificationRerunTest(TestCase):
 
     @patch("caidapp.tasks.schedule_init_identification_for_workgroup")
     def test_unfinished_representative_upload_does_not_schedule_identification_init(self, schedule_mock):
+        """Avoid scheduling initialization while a representative upload is still unfinished."""
         archive = UploadedArchiveFactory(
             owner=self.caiduser,
             contains_identities=True,
@@ -4514,6 +4791,7 @@ class IdentificationRerunTest(TestCase):
     @patch("caidapp.tasks.schedule_reid_identification_for_workgroup")
     @patch("caidapp.tasks.init_identification.apply_async")
     def test_schedule_init_identification_does_not_pre_schedule_reid(self, apply_async_mock, schedule_reid_mock):
+        """Schedule initialization alone without queuing identification before it completes."""
         task = Mock()
         task.id = "init-task-1"
         apply_async_mock.return_value = task
@@ -4527,6 +4805,7 @@ class IdentificationRerunTest(TestCase):
 
     @patch("caidapp.tasks.schedule_reid_identification_for_workgroup")
     def test_failed_init_identification_does_not_schedule_reid(self, schedule_reid_mock):
+        """Record initialization failure without scheduling identification afterward."""
         tasks.init_identification_on_success(
             {"status": "ERROR", "error": "Could not initialize."},
             workgroup_id=self.workgroup.id,
@@ -4539,6 +4818,7 @@ class IdentificationRerunTest(TestCase):
     @patch("caidapp.tasks.schedule_init_identification_for_workgroup")
     @patch("caidapp.tasks.schedule_reid_identification_for_workgroup")
     def test_successful_init_records_initialized_model_after_completion(self, schedule_reid_mock, schedule_init_mock):
+        """Record the successfully initialized model and then schedule identification."""
         tasks.init_identification_on_success(
             {"status": "DONE", "message": "Initialized."},
             workgroup_id=self.workgroup.id,
@@ -4553,6 +4833,7 @@ class IdentificationRerunTest(TestCase):
     @patch("caidapp.tasks.schedule_init_identification_for_workgroup")
     @patch("caidapp.tasks.schedule_reid_identification_for_workgroup")
     def test_completed_stale_init_schedules_init_for_current_model(self, schedule_reid_mock, schedule_init_mock):
+        """Reinitialize the currently selected model when a stale model's initialization finishes."""
         previous_model = self.identification_model
         current_model = models.IdentificationModel.objects.create(
             name="Current model",
@@ -4574,12 +4855,14 @@ class IdentificationRerunTest(TestCase):
         schedule_init_mock.assert_called_once()
 
     def test_dash_identities_keeps_init_enabled_without_representatives_when_idle(self):
+        """Keep initialization available on an idle dashboard even with no representatives."""
         response = self.client.get(reverse("caidapp:dash_identities"))
 
         self.assertEqual(response.status_code, 200)
         self.assertNotIn("disabled", response.context["btn_styles"]["init_identification"]["class"])
 
     def test_dash_identities_disables_init_when_identification_is_running(self):
+        """Disable initialization controls while identification is running."""
         self.workgroup.identification_reid_status = "Processing"
         self.workgroup.save(update_fields=["identification_reid_status"])
 
@@ -4589,6 +4872,7 @@ class IdentificationRerunTest(TestCase):
         self.assertIn("disabled", response.context["btn_styles"]["init_identification"]["class"])
 
     def test_dash_identities_shows_stop_when_init_is_scheduled(self):
+        """Show a stop action and disable duplicate initialization when initialization is scheduled."""
         self.workgroup.identification_init_status = "Scheduled"
         self.workgroup.identification_scheduled_init_task_id = "queued-init-task"
         self.workgroup.save(update_fields=["identification_init_status", "identification_scheduled_init_task_id"])
@@ -4600,6 +4884,7 @@ class IdentificationRerunTest(TestCase):
         self.assertIn("disabled", response.context["btn_styles"]["init_identification"]["class"])
 
     def test_download_init_identification_csv_returns_latest_workgroup_csv(self):
+        """Stream the latest workgroup initialization CSV as a download with its original contents."""
         csv_path = Path(settings.MEDIA_ROOT) / self.workgroup.name / "init_identification.csv"
         csv_path.parent.mkdir(parents=True, exist_ok=True)
         csv_path.write_text("image_path,mediafile_id\nfirst.webp,1\n", encoding="utf-8")
@@ -4612,6 +4897,7 @@ class IdentificationRerunTest(TestCase):
         self.assertEqual(b"".join(response.streaming_content), b"image_path,mediafile_id\nfirst.webp,1\n")
 
     def test_download_init_identification_csv_is_admin_only(self):
+        """Reject initialization CSV downloads after workgroup admin access is removed."""
         self.caiduser.workgroup_admin = False
         self.caiduser.save(update_fields=["workgroup_admin"])
 
@@ -4620,6 +4906,7 @@ class IdentificationRerunTest(TestCase):
         self.assertEqual(response.status_code, 405)
 
     def test_download_run_identification_csv_returns_latest_workgroup_csv(self):
+        """Stream the latest workgroup identification-run CSV as a download."""
         reid_runs_dir = Path(settings.MEDIA_ROOT) / self.workgroup.name / "reid_runs"
         older_csv_path = reid_runs_dir / "20260625-120000" / "identification_metadata.csv"
         latest_csv_path = reid_runs_dir / "20260626-120000" / "identification_metadata.csv"
@@ -4636,6 +4923,7 @@ class IdentificationRerunTest(TestCase):
         self.assertEqual(b"".join(response.streaming_content), b"image_path,mediafile_id\nlatest.webp,2\n")
 
     def test_download_run_identification_csv_is_admin_only(self):
+        """Reject identification-run CSV downloads after workgroup admin access is removed."""
         self.caiduser.workgroup_admin = False
         self.caiduser.save(update_fields=["workgroup_admin"])
 
@@ -4644,6 +4932,7 @@ class IdentificationRerunTest(TestCase):
         self.assertEqual(response.status_code, 405)
 
     def test_pre_identify_is_admin_only(self):
+        """Reject pre-identification controls for a regular workgroup member."""
         self.caiduser.workgroup_admin = False
         self.caiduser.save(update_fields=["workgroup_admin"])
 
@@ -4652,6 +4941,7 @@ class IdentificationRerunTest(TestCase):
         self.assertEqual(response.status_code, 405)
 
     def test_run_identification_on_unidentified_is_admin_only(self):
+        """Reject rerunning unidentified media for a regular workgroup member."""
         self.caiduser.workgroup_admin = False
         self.caiduser.save(update_fields=["workgroup_admin"])
 
@@ -4660,6 +4950,7 @@ class IdentificationRerunTest(TestCase):
         self.assertEqual(response.status_code, 405)
 
     def test_stop_init_identification_is_admin_only(self):
+        """Reject stop controls for a regular workgroup member."""
         self.caiduser.workgroup_admin = False
         self.caiduser.save(update_fields=["workgroup_admin"])
 
@@ -4670,6 +4961,7 @@ class IdentificationRerunTest(TestCase):
     @patch("caidapp.views.current_app.control.revoke")
     @patch("caidapp.views.tasks.run_identification_on_unidentified_for_workgroup")
     def test_do_suggestions_now_runs_batch_without_api_celery_worker(self, run_now_mock, revoke_mock):
+        """Revoke a scheduled run and execute the immediate batch path without an API Celery worker."""
         self.workgroup.identification_reid_status = "Scheduled"
         self.workgroup.identification_scheduled_run_task_id = "scheduled-run-task"
         self.workgroup.identification_scheduled_run_eta = timezone.now() + timezone.timedelta(minutes=30)
@@ -4698,6 +4990,7 @@ class IdentificationRerunTest(TestCase):
         revoke_mock,
         async_result_mock,
     ):
+        """Avoid revoking or duplicating an identification task that is already running."""
         async_result_mock.return_value.state = "PROGRESS"
         self.workgroup.identification_reid_status = "Processing"
         self.workgroup.identification_scheduled_run_task_id = "running-identify-task"
@@ -4711,6 +5004,7 @@ class IdentificationRerunTest(TestCase):
         run_now_mock.assert_not_called()
 
     def test_dash_identities_counts_representatives_by_workgroup_default_taxon(self):
+        """Count only representatives matching the workgroup's default identification taxon."""
         self.workgroup.check_taxon_before_identification = True
         self.workgroup.default_taxon_for_identification = TaxonFactory(name="Lynx lynx")
         self.workgroup.save(update_fields=["check_taxon_before_identification", "default_taxon_for_identification"])
@@ -4741,7 +5035,10 @@ class IdentificationRerunTest(TestCase):
 
     @patch("caidapp.views.signature")
     @patch("caidapp.views._prepare_dataframe_for_identification")
-    def test_train_identification_uses_base_model_weights_and_output_weights(self, prepare_dataframe_mock, signature_mock):
+    def test_train_identification_uses_base_model_weights_and_output_weights(
+        self, prepare_dataframe_mock, signature_mock
+    ):
+        """Dispatch training with separate base architecture, initial checkpoint, and output checkpoint fields."""
         self.caiduser.workgroup_admin = True
         self.caiduser.save(update_fields=["workgroup_admin"])
         self.identification_model.model_path = "/models/base/source-checkpoint.pth"
@@ -4775,6 +5072,7 @@ class IdentificationRerunTest(TestCase):
         signature_result.apply_async.assert_called_once()
 
     def test_mediafiles_representative_filter_uses_workgroup_default_taxon(self):
+        """Apply the workgroup's default taxon to the representative media-file filter."""
         self.workgroup.check_taxon_before_identification = True
         self.workgroup.default_taxon_for_identification = TaxonFactory(name="Lynx lynx")
         self.workgroup.save(update_fields=["check_taxon_before_identification", "default_taxon_for_identification"])
@@ -4804,6 +5102,7 @@ class IdentificationRerunTest(TestCase):
         self.assertContains(response, "representative.jpg")
 
     def test_representative_mediafiles_url_redirects_to_mediafiles_filter(self):
+        """Redirect the legacy representative URL to the equivalent media-file filter."""
         response = self.client.get(reverse("caidapp:representative_mediafiles"))
 
         self.assertRedirects(
@@ -4813,6 +5112,7 @@ class IdentificationRerunTest(TestCase):
         )
 
     def test_toggle_identity_representative_updates_observation_flag(self):
+        """Toggle the representative flag on a media file's single observation."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         identity = IndividualIdentityFactory(owner_workgroup=self.workgroup, name="Alpha")
         mediafile = MediaFileFactory(parent=archive, identity=None, identity_is_representative=False)
@@ -4830,6 +5130,7 @@ class IdentificationRerunTest(TestCase):
         self.assertTrue(observation.identity_is_representative)
 
     def test_toggle_identity_representative_rejects_multiple_observations(self):
+        """Reject an ambiguous representative toggle when a media file has multiple observations."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         identity = IndividualIdentityFactory(owner_workgroup=self.workgroup, name="Alpha")
         mediafile = MediaFileFactory(parent=archive)
@@ -4845,7 +5146,10 @@ class IdentificationRerunTest(TestCase):
         self.assertFalse(second.identity_is_representative)
 
     @patch("caidapp.views.run_identification_bulk")
-    def test_bulk_rerun_processes_identification_uploads_with_missing_identity_regardless_of_status(self, run_identification_bulk_mock):
+    def test_bulk_rerun_processes_identification_uploads_with_missing_identity_regardless_of_status(
+        self, run_identification_bulk_mock
+    ):
+        """Rerun eligible uploads with missing identities regardless of their previous identification status."""
         run_identification_bulk_mock.return_value = True
 
         archive_ready = UploadedArchiveFactory(
@@ -4902,20 +5206,21 @@ class IdentificationRerunTest(TestCase):
         prepare_dataframe_mock,
         signature_mock,
     ):
+        """Dispatch one identification task for several uploads with model weights and shared callback scope."""
         archive_one = UploadedArchiveFactory(
             owner=self.caiduser,
             is_for_identification=True,
             import_finished=True,
             identification_status="IR",
         )
-        mediafile_one = MediaFileFactory(parent=archive_one, identity=None)
+        MediaFileFactory(parent=archive_one, identity=None)
         archive_two = UploadedArchiveFactory(
             owner=self.caiduser,
             is_for_identification=True,
             import_finished=True,
             identification_status="C",
         )
-        mediafile_two = MediaFileFactory(parent=archive_two, identity=None)
+        MediaFileFactory(parent=archive_two, identity=None)
         prepare_dataframe_mock.return_value = {
             "image_path": ["one.jpg", "two.jpg"],
             "class_id": [1, 2],
@@ -4961,6 +5266,7 @@ class IdentificationRerunTest(TestCase):
         prepare_dataframe_mock,
         signature_mock,
     ):
+        """Retain existing review queue entries and suggestions until replacement worker results succeed."""
         archive = UploadedArchiveFactory(
             owner=self.caiduser,
             is_for_identification=True,
@@ -5002,6 +5308,7 @@ class IdentificationRerunTest(TestCase):
 
     @patch("caidapp.tasks._prepare_mediafile_for_identification")
     def test_identify_on_success_clears_existing_queue_for_upload_on_success(self, prepare_mediafile_mock):
+        """Clear obsolete review queue entries only when successful worker output is being applied."""
         archive = UploadedArchiveFactory(
             owner=self.caiduser,
             is_for_identification=True,
@@ -5020,8 +5327,8 @@ class IdentificationRerunTest(TestCase):
         output_dir.mkdir(parents=True, exist_ok=True)
         output_json_file = output_dir / "identification_result.json"
         output_json_file.write_text(
-            '{"mediafile_ids": [%d], "pred_image_paths": [[]], "pred_class_ids": [[]], "pred_labels": [[]], "scores": [[]], "keypoints": [[]]}'
-            % mediafile.id,
+            '{"mediafile_ids": [%d], "pred_image_paths": [[]], "pred_class_ids": [[]], '
+            '"pred_labels": [[]], "scores": [[]], "keypoints": [[]]}' % mediafile.id,
             encoding="utf-8",
         )
 
@@ -5039,6 +5346,7 @@ class IdentificationRerunTest(TestCase):
 
     @patch("caidapp.views.current_app.control.revoke")
     def test_stop_init_identification_revokes_running_reid_task(self, revoke_mock):
+        """Revoke a running identification task and reset its workgroup scheduling state."""
         self.workgroup.identification_reid_status = "Processing"
         self.workgroup.identification_scheduled_run_task_id = "reid-task-123"
         self.workgroup.save()
@@ -5058,6 +5366,7 @@ class IdentificationRerunTest(TestCase):
 
     @patch("caidapp.views.signature")
     def test_identification_is_blocked_until_selected_model_is_initialized(self, signature_mock):
+        """Block identification dispatch until the selected model has been initialized."""
         new_model = models.IdentificationModel.objects.create(
             name="Selected model",
             public=True,
@@ -5073,6 +5382,7 @@ class IdentificationRerunTest(TestCase):
 
     @patch("caidapp.views.run_identification_bulk")
     def test_scheduled_identification_waits_for_selected_model_initialization(self, run_bulk_mock):
+        """Leave scheduled identification waiting and clear its task ID while model initialization is missing."""
         new_model = models.IdentificationModel.objects.create(
             name="Selected model",
             public=True,
@@ -5100,6 +5410,7 @@ class IdentificationRerunTest(TestCase):
 
     @patch("caidapp.tasks.schedule_init_identification_for_workgroup")
     def test_changing_workgroup_model_schedules_initialization_after_commit(self, schedule_init_mock):
+        """Schedule initialization after committing a change to the workgroup's selected model."""
         new_model = models.IdentificationModel.objects.create(
             name="New model",
             public=True,
@@ -5129,6 +5440,7 @@ class IdentificationRerunTest(TestCase):
 
     @patch("caidapp.views.current_app.control.revoke")
     def test_stop_init_identification_revokes_running_init_task(self, revoke_mock):
+        """Revoke a running initialization task and reset its workgroup scheduling state."""
         self.workgroup.identification_init_status = "Processing"
         self.workgroup.identification_scheduled_init_task_id = "init-task-456"
         self.workgroup.save()
@@ -5150,7 +5462,10 @@ class IdentificationRerunTest(TestCase):
         prepare_dataframe_mock,
         signature_mock,
     ):
-        representative_archive = UploadedArchiveFactory(owner=self.caiduser, is_for_identification=True, import_finished=True)
+        """Persist the initialization worker task ID and dispatch separate model source and weights fields."""
+        representative_archive = UploadedArchiveFactory(
+            owner=self.caiduser, is_for_identification=True, import_finished=True
+        )
         MediaFileFactory(
             parent=representative_archive,
             with_identity=True,

@@ -1,5 +1,5 @@
-from django.db import migrations, models
 import django.db.models.deletion
+from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
@@ -14,8 +14,7 @@ class Migration(migrations.Migration):
             field=models.ForeignKey(
                 blank=True,
                 help_text=(
-                    "Identification model used by the last successfully completed "
-                    "re-identification initialization."
+                    "Identification model used by the last successfully completed " "re-identification initialization."
                 ),
                 null=True,
                 on_delete=django.db.models.deletion.SET_NULL,

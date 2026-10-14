@@ -65,6 +65,7 @@ class ZipSpreadsheetSource:
 
 
 def load_relative_path_manifest(raw_manifest: str) -> list[dict[str, Any]]:
+    """Parse dictionary entries from a JSON manifest, returning an empty list for invalid input."""
     if not raw_manifest:
         return []
     try:
@@ -110,6 +111,7 @@ def _build_spreadsheet_summary(filename: str, df: pd.DataFrame) -> SpreadsheetSu
 
 
 def read_spreadsheet_summary(spreadsheet_file) -> SpreadsheetSummary:
+    """Summarize the first 20 spreadsheet rows and rewind the uploaded file."""
     spreadsheet_file.seek(0)
     df = _read_spreadsheet_dataframe(spreadsheet_file, spreadsheet_file.name, nrows=20)
     spreadsheet_file.seek(0)
@@ -193,6 +195,7 @@ def _build_normalized_spreadsheet_csv(
 
 
 def split_upload_files(upload_files):
+    """Separate the first supported spreadsheet from upload files and reject legacy XLS input."""
     media_files = []
     spreadsheet_file = None
     for upload_file in upload_files:
@@ -207,9 +210,7 @@ def split_upload_files(upload_files):
 
 
 def _preferred_zip_spreadsheet_name(names: list[str]) -> str | None:
-    normalized_candidates = [
-        name for name in names if PurePosixPath(name).name == NORMALIZED_SPREADSHEET_FILENAME
-    ]
+    normalized_candidates = [name for name in names if PurePosixPath(name).name == NORMALIZED_SPREADSHEET_FILENAME]
     if normalized_candidates:
         return normalized_candidates[0]
     for suffix in (".csv", ".xlsx"):
@@ -220,13 +221,10 @@ def _preferred_zip_spreadsheet_name(names: list[str]) -> str | None:
 
 
 def read_zip_spreadsheet_source(upload_file) -> ZipSpreadsheetSource | None:
+    """Read the preferred spreadsheet from a ZIP and rewind the uploaded archive."""
     upload_file.seek(0)
     with zipfile.ZipFile(upload_file, "r") as source_zip:
-        names = [
-            name
-            for name in source_zip.namelist()
-            if PurePosixPath(name).suffix.lower() in SPREADSHEET_SUFFIXES
-        ]
+        names = [name for name in source_zip.namelist() if PurePosixPath(name).suffix.lower() in SPREADSHEET_SUFFIXES]
         preferred_name = _preferred_zip_spreadsheet_name(names)
         if preferred_name is None:
             upload_file.seek(0)
@@ -237,6 +235,7 @@ def read_zip_spreadsheet_source(upload_file) -> ZipSpreadsheetSource | None:
 
 
 def read_zip_spreadsheet_summary(upload_file) -> SpreadsheetSummary:
+    """Summarize the preferred ZIP spreadsheet or return an empty summary when absent."""
     source = read_zip_spreadsheet_source(upload_file)
     if source is None:
         return SpreadsheetSummary()
@@ -245,6 +244,7 @@ def read_zip_spreadsheet_summary(upload_file) -> SpreadsheetSummary:
 
 
 def parse_json_mapping(raw_mapping: str) -> dict[str, Any]:
+    """Parse a JSON object, returning an empty mapping for invalid or non-object input."""
     if not raw_mapping:
         return {}
     try:
@@ -255,12 +255,14 @@ def parse_json_mapping(raw_mapping: str) -> dict[str, Any]:
 
 
 def parse_directory_structure(structure: str) -> list[str]:
+    """Split a slash-delimited directory template and strip braces from each non-empty component."""
     if not structure:
         return []
     return [part.strip("{}") for part in structure.strip("/").split("/") if part]
 
 
 def validate_directory_mapping(relative_paths: list[str], structure: str) -> list[str]:
+    """Warn about paths too shallow for the directory template, limiting detailed warnings to five."""
     if not structure:
         return []
     parts = parse_directory_structure(structure)
@@ -279,6 +281,7 @@ def validate_directory_mapping(relative_paths: list[str], structure: str) -> lis
 
 
 def build_archive_name(has_single_zip_upload: bool, upload_files, relative_paths: list[str]) -> str:
+    """Choose the ZIP stem or shared top-level directory, falling back to a timestamped name."""
     timestamp = timezone.now().strftime("%Y%m%d-%H%M%S")
     fallback_name = f"upload_{timestamp}"
 
@@ -301,6 +304,7 @@ def build_archive_name(has_single_zip_upload: bool, upload_files, relative_paths
 
 
 def build_path_regex_from_directory_mapping(directory_mapping: dict[str, Any]) -> str:
+    """Build a named-group path regex from valid directory-role positions."""
     if not directory_mapping:
         return ""
 
@@ -343,6 +347,7 @@ def build_upload_zip(
     spreadsheet_column_mapping=None,
     spreadsheet_path_adjustment=None,
 ):
+    """Package uploads and normalized spreadsheet metadata into a ZIP or reuse a suitable archive."""
     upload_files = list(upload_files)
     detected_media_files, detected_spreadsheet = split_upload_files(upload_files)
     if spreadsheet_file is None:
@@ -353,7 +358,9 @@ def build_upload_zip(
         raise ValueError("Upload must contain a ZIP archive or at least one media file.")
 
     relative_path_manifest = relative_path_manifest or []
-    has_single_zip_upload = len(upload_files) == 1 and PurePosixPath(upload_files[0].name).suffix.lower() in ARCHIVE_SUFFIXES
+    has_single_zip_upload = (
+        len(upload_files) == 1 and PurePosixPath(upload_files[0].name).suffix.lower() in ARCHIVE_SUFFIXES
+    )
     relative_paths = [
         _manifest_path_for_file(relative_path_manifest, index, upload_file.name)
         for index, upload_file in enumerate(upload_files)
@@ -363,7 +370,9 @@ def build_upload_zip(
         path_regex = build_path_regex_from_directory_mapping(directory_mapping)
     spreadsheet_column_mapping = spreadsheet_column_mapping or {}
     spreadsheet_path_adjustment = spreadsheet_path_adjustment or {}
-    directory_warnings = [] if has_single_zip_upload else validate_directory_mapping(relative_paths, directory_structure)
+    directory_warnings = (
+        [] if has_single_zip_upload else validate_directory_mapping(relative_paths, directory_structure)
+    )
     if directory_structure and not has_single_zip_upload and not any("/" in path for path in relative_paths):
         directory_warnings.append("Directory structure was selected, but no relative paths were detected.")
 
@@ -403,15 +412,15 @@ def build_upload_zip(
         "directory_structure": directory_structure,
         "directory_mapping": directory_mapping,
         "path_regex": path_regex,
-        "path_source": "archive_path" if has_single_zip_upload else ("relative_path" if any("/" in path for path in relative_paths) else "filename"),
+        "path_source": (
+            "archive_path"
+            if has_single_zip_upload
+            else ("relative_path" if any("/" in path for path in relative_paths) else "filename")
+        ),
     }
     log_messages = [*directory_warnings, *spreadsheet_summary.warnings]
 
-    if (
-        has_single_zip_upload
-        and spreadsheet_file is None
-        and normalized_spreadsheet_bytes is None
-    ):
+    if has_single_zip_upload and spreadsheet_file is None and normalized_spreadsheet_bytes is None:
         archive_name = build_archive_name(has_single_zip_upload, upload_files, relative_paths)
         return ZipBuildResult(
             file=upload_files[0],

@@ -4,6 +4,7 @@ from django.db import migrations
 
 
 def set_import_finished_from_taxon_status(apps, schema_editor):
+    """Derive import completion from the historical archive taxon processing status."""
     UploadedArchive = apps.get_model("caidapp", "UploadedArchive")
     UploadedArchive.objects.exclude(taxon_status__in=["C", "F", "TAIP"]).update(import_finished=True)
     UploadedArchive.objects.filter(taxon_status__in=["C", "F", "TAIP"]).update(import_finished=False)
@@ -12,19 +13,18 @@ def set_import_finished_from_taxon_status(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0151_alter_uploadedarchive_mediafiles_imported'),
+        ("caidapp", "0151_alter_uploadedarchive_mediafiles_imported"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='uploadedarchive',
-            name='import_finished',
+            model_name="uploadedarchive",
+            name="import_finished",
         ),
         migrations.RenameField(
-            model_name='uploadedarchive',
-            old_name='mediafiles_imported',
-            new_name='import_finished',
+            model_name="uploadedarchive",
+            old_name="mediafiles_imported",
+            new_name="import_finished",
         ),
         migrations.RunPython(set_import_finished_from_taxon_status, migrations.RunPython.noop),
     ]
-

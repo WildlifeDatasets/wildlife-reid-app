@@ -38,16 +38,19 @@ def build_home_dashboard_payload(mediafiles: QuerySet[models.MediaFile]) -> dict
     total_mediafiles = mediafiles.count()
     images_count = mediafiles.filter(media_type="image").count()
     videos_count = mediafiles.filter(media_type="video").count()
-    verified_taxon_count = mediafiles.filter(
-        observations__isnull=False,
-    ).exclude(
-        observations__taxon_verified=False,
-    ).distinct().count()
+    verified_taxon_count = (
+        mediafiles.filter(
+            observations__isnull=False,
+        )
+        .exclude(
+            observations__taxon_verified=False,
+        )
+        .distinct()
+        .count()
+    )
     identified_count = mediafiles.filter(observations__identity__isnull=False).distinct().count()
 
-    media_type_counts = list(
-        mediafiles.values("media_type").annotate(count=Count("id")).order_by("media_type")
-    )
+    media_type_counts = list(mediafiles.values("media_type").annotate(count=Count("id")).order_by("media_type"))
     monthly_uploads = list(
         mediafiles.annotate(month=TruncMonth("parent__uploaded_at"))
         .values("month")
@@ -63,9 +66,7 @@ def build_home_dashboard_payload(mediafiles: QuerySet[models.MediaFile]) -> dict
     top_taxons = list(
         models.AnimalObservation.objects.filter(mediafile_id__in=mediafile_ids, taxon__isnull=False)
         .exclude(
-            Q(taxon__name="Animalia", taxon_verified=False) |
-            Q(taxon__name="Not classified") |
-            Q(taxon__name="Nothing")
+            Q(taxon__name="Animalia", taxon_verified=False) | Q(taxon__name="Not classified") | Q(taxon__name="Nothing")
         )
         .values("taxon__name")
         .annotate(count=Count("mediafile_id", distinct=True))

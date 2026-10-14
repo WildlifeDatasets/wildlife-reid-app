@@ -1,9 +1,5 @@
-from django.urls import reverse
 from pathlib import Path
 from unittest.mock import patch
-
-from django.conf import settings
-from django.test import TestCase
 
 from caidapp import tasks
 from caidapp.app_tests.factories import (
@@ -13,10 +9,14 @@ from caidapp.app_tests.factories import (
     UploadedArchiveFactory,
 )
 from caidapp.models import IdentificationOutlierSuggestionResult, MediaFile
+from django.conf import settings
+from django.test import TestCase
+from django.urls import reverse
 
 
 class IdentificationOutlierSuggestionsCallbackTest(TestCase):
     def setUp(self):
+        """Create current and alternative identities for worker outlier-result normalization."""
         self.caiduser = CaidUserFactory(admin=True)
         self.workgroup = self.caiduser.workgroup
         self.archive = UploadedArchiveFactory(owner=self.caiduser)
@@ -24,6 +24,7 @@ class IdentificationOutlierSuggestionsCallbackTest(TestCase):
         self.suggested_identity = IndividualIdentityFactory(owner_workgroup=self.workgroup, name="Suggested")
 
     def test_success_callback_resolves_candidate_mediafile_from_worker_path(self):
+        """Resolve an alternative candidate's media file from the worker path while retaining its database index."""
         suspicious_mediafile = MediaFile.objects.create(
             parent=self.archive,
             media_type="image",
@@ -80,6 +81,7 @@ class IdentificationOutlierSuggestionsCallbackTest(TestCase):
 
 class IdentificationOutlierSuggestionsAcceptViewTest(TestCase):
     def setUp(self):
+        """Authenticate staff and prepare identities for accepting an outlier correction."""
         self.caiduser = CaidUserFactory(admin=True)
         self.caiduser.user.is_staff = True
         self.caiduser.user.save(update_fields=["is_staff"])
@@ -90,6 +92,7 @@ class IdentificationOutlierSuggestionsAcceptViewTest(TestCase):
         self.suggested_identity = IndividualIdentityFactory(owner_workgroup=self.workgroup, name="Suggested")
 
     def test_accept_suggestion_updates_identity_and_removes_card_from_result(self):
+        """Apply the suggested identity to the observation and remove the resolved outlier card."""
         suspicious_mediafile = MediaFile.objects.create(
             parent=self.archive,
             media_type="image",
@@ -136,10 +139,12 @@ class IdentificationOutlierSuggestionsAcceptViewTest(TestCase):
 
 class IdentificationOutlierStaffAccessTest(TestCase):
     def setUp(self):
+        """Authenticate a non-staff workgroup admin for outlier authorization checks."""
         self.caiduser = CaidUserFactory(admin=True)
         self.client.force_login(self.caiduser.user)
 
     def test_workgroup_admin_without_staff_cannot_access_outlier_actions(self):
+        """Hide outlier controls and deny outlier endpoints to workgroup admins without staff access."""
         response = self.client.get(reverse("caidapp:dash_identities"))
         self.assertNotContains(response, "Run ID outlier detection")
         self.assertNotContains(response, "Show ID outliers")
@@ -153,6 +158,7 @@ class IdentificationOutlierStaffAccessTest(TestCase):
 
     @patch("caidapp.views.tasks.run_identification_outlier_detection_for_workgroup")
     def test_staff_can_see_and_run_outlier_actions(self, run_detection):
+        """Allow staff to view and launch outlier detection without requiring workgroup admin status."""
         self.caiduser.workgroup_admin = False
         self.caiduser.save(update_fields=["workgroup_admin"])
         self.caiduser.user.is_staff = True

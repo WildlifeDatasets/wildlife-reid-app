@@ -1,15 +1,16 @@
+from caidapp.app_tests.factories import CaidUserFactory, LocalityFactory, MediaFileFactory
 from django.test import TestCase
 from django.urls import reverse
-
-from caidapp.app_tests.factories import CaidUserFactory, LocalityFactory, MediaFileFactory
 
 
 class DeleteLocalityTest(TestCase):
     def setUp(self):
+        """Authenticate a locality owner for delete confirmation and preservation tests."""
         self.caiduser = CaidUserFactory(admin=True)
         self.client.force_login(self.caiduser.user)
 
     def test_delete_locality_keeps_linked_mediafiles_and_clears_locality(self):
+        """Delete a locality after confirmation while keeping its media files and clearing their locality."""
         locality = LocalityFactory(owner=self.caiduser, name="Old Meadow")
         mediafile = MediaFileFactory(parent__owner=self.caiduser, locality=locality)
         url = reverse("caidapp:delete_locality", kwargs={"locality_id": locality.id})

@@ -1,6 +1,5 @@
-from django.db import migrations, models
-
 import caidapp.models
+from django.db import migrations, models
 
 
 class Migration(migrations.Migration):

@@ -19,7 +19,7 @@ from extra_views import InlineFormSetFactory, UpdateWithInlinesView
 from . import forms, model_extra, models
 from .forms import MediaFileForm
 from .models import Album, AnimalObservation, MediaFile
-from .views import media_files_update, sequences
+from .views import sequences
 
 logger = logging.getLogger(__name__)
 
@@ -161,6 +161,7 @@ class ObservationInline(InlineFormSetFactory):
 class BboxDerivativeInvalidationMixin:
     @transaction.atomic
     def forms_valid(self, form, inlines):
+        """Save formsets and invalidate identification derivatives when observation bboxes change."""
         from .bbox_services import BBOX_FIELDS, _invalidate_reid
 
         mediafile = MediaFile.objects.select_for_update().get(pk=self.object.pk)
@@ -190,9 +191,7 @@ class MediaFileUpdateView(LoginRequiredMixin, BboxDerivativeInvalidationMixin, U
     def _get_next_url(self):
         """Get next URL from GET or POST parameters, or fallback to referer or media files list."""
         next_url = (
-            self.request.POST.get("next")
-            or self.request.GET.get("next")
-            or self.request.META.get("HTTP_REFERER")
+            self.request.POST.get("next") or self.request.GET.get("next") or self.request.META.get("HTTP_REFERER")
         )
 
         if next_url and url_has_allowed_host_and_scheme(
@@ -207,9 +206,7 @@ class MediaFileUpdateView(LoginRequiredMixin, BboxDerivativeInvalidationMixin, U
     def _get_next_url_for_form(self):
         """Return a safe URL to store in the form, preserving the original source page."""
         next_url = (
-            self.request.POST.get("next")
-            or self.request.GET.get("next")
-            or self.request.META.get("HTTP_REFERER")
+            self.request.POST.get("next") or self.request.GET.get("next") or self.request.META.get("HTTP_REFERER")
         )
         if next_url and url_has_allowed_host_and_scheme(
             next_url,
@@ -351,9 +348,11 @@ class MediaFileManualIdentificationView(MediaFileUpdateView):
     """Assign identities while walking through identification media files."""
 
     def get_queryset(self):
+        """Return accessible media files that still need an identity assigned."""
         return models.get_mediafiles_with_missing_identity(self.request.user.caiduser)
 
     def get_success_url(self):
+        """Continue to the next manual identification item or return to the completed dashboard."""
         next_url = _manual_identification_next_url(self.request, self.object)
         if next_url is not None:
             return next_url
@@ -361,6 +360,7 @@ class MediaFileManualIdentificationView(MediaFileUpdateView):
         return reverse("caidapp:dash_identities")
 
     def get_context_data(self, **kwargs):
+        """Add manual identification controls and next-item navigation to the edit form."""
         context = super().get_context_data(**kwargs)
         context.update(
             {

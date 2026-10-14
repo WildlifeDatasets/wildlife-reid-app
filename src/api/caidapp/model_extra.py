@@ -11,6 +11,7 @@ from .models import CaIDUser, IndividualIdentity, Locality, MediaFile, MergeIden
 
 logger = logging.getLogger(__name__)
 
+
 def merge_distinguishing_token(name: str, pattern: str):
     """Extract a comparable token from an identity name using a workgroup regex."""
     match = re.search(pattern, name or "")
@@ -102,12 +103,12 @@ def prepare_dataframe_for_uploads_in_one_locality(locality_id: int) -> pd.DataFr
     # add columns for locality
     for upload in locality_uploads:
         df.loc[df["id"] == upload.id, "count_of_mediafiles"] = upload.count_of_mediafiles()
-        df.loc[
-            df["id"] == upload.id, "count_of_representative_mediafiles"
-        ] = upload.count_of_representative_mediafiles()
-        df.loc[
-            df["id"] == upload.id, "count_of_mediafiles_with_taxon_for_identification"
-        ] = upload.count_of_mediafiles_with_taxon_for_identification()
+        df.loc[df["id"] == upload.id, "count_of_representative_mediafiles"] = (
+            upload.count_of_representative_mediafiles()
+        )
+        df.loc[df["id"] == upload.id, "count_of_mediafiles_with_taxon_for_identification"] = (
+            upload.count_of_mediafiles_with_taxon_for_identification()
+        )
         df.loc[df["id"] == upload.id, "earliest_captured_taxon"] = upload.earliest_captured_taxon()
         df.loc[df["id"] == upload.id, "latest_captured_taxon"] = upload.latest_captured_taxon()
     #

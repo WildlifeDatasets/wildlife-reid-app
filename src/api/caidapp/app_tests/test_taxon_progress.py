@@ -1,16 +1,16 @@
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from django.test import TestCase
-from django.template.loader import render_to_string
-from django.urls import reverse
-
 from caidapp import tasks
 from caidapp.app_tests.factories import CaidUserFactory, UploadedArchiveFactory
+from django.template.loader import render_to_string
+from django.test import TestCase
+from django.urls import reverse
 
 
 class TaxonProgressApiTest(TestCase):
     def setUp(self):
+        """Prepare an authenticated archive owner and a scheduled taxon task for progress queries."""
         self.caiduser = CaidUserFactory()
         self.client.force_login(self.caiduser.user)
         self.archive = UploadedArchiveFactory(
@@ -22,6 +22,7 @@ class TaxonProgressApiTest(TestCase):
 
     @patch("caidapp.views.AsyncResult")
     def test_returns_worker_progress(self, async_result):
+        """Return the taxon worker's detection stage and 54 percent progress."""
         async_result.return_value = Mock(
             state="PROGRESS",
             info={"percent": 54, "stage": "detection", "message": "Detecting animals"},
@@ -37,6 +38,7 @@ class TaxonProgressApiTest(TestCase):
 
     @patch("caidapp.views.AsyncResult")
     def test_successful_worker_waiting_for_import_reports_99_percent(self, async_result):
+        """Report 99 percent while a successful worker result is still awaiting import."""
         async_result.return_value = Mock(state="SUCCESS", info={"status": "DONE"})
 
         response = self.client.get(self.url, {"ids": str(self.archive.id)})
@@ -47,6 +49,7 @@ class TaxonProgressApiTest(TestCase):
 
     @patch("caidapp.views.AsyncResult", side_effect=RuntimeError("Redis unavailable"))
     def test_backend_error_keeps_status_endpoint_available(self, async_result):
+        """Keep the status response available with null progress when the result backend fails."""
         response = self.client.get(self.url, {"ids": str(self.archive.id)})
 
         self.assertEqual(response.status_code, 200)
@@ -54,6 +57,7 @@ class TaxonProgressApiTest(TestCase):
 
     @patch("caidapp.views.AsyncResult")
     def test_requested_ids_limit_backend_lookups(self, async_result):
+        """Look up task results only for archive IDs requested by the client."""
         other = UploadedArchiveFactory(
             owner=self.caiduser,
             taxon_status="TAIP",
@@ -80,6 +84,7 @@ class TaxonTaskDispatchTest(TestCase):
         init,
         update_metadata,
     ):
+        """Persist the taxon task ID returned by asynchronous worker dispatch."""
         archive = UploadedArchiveFactory()
         init.return_value = (Path("images.zip"), Path("output"), Path("metadata.csv"))
         signature_mock.return_value.apply_async.return_value = Mock(id="worker-task-id", task_id="worker-task-id")
@@ -92,6 +97,7 @@ class TaxonTaskDispatchTest(TestCase):
 
 class TaxonProgressTemplateTest(TestCase):
     def test_processing_archive_renders_progress_indicator(self):
+        """Render a visible progress ring associated with the processing archive ID."""
         archive = UploadedArchiveFactory(taxon_status="TAIP", status_message="Processing upload")
 
         html = render_to_string("caidapp/upload_progress.html", {"uploadedarchive": archive})

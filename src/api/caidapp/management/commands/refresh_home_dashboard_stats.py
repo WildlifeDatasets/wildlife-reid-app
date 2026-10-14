@@ -1,16 +1,17 @@
-from django.core.management.base import BaseCommand
-
 from caidapp.models import WorkGroup
 from caidapp.services.home_dashboard import refresh_workgroup_home_dashboard_snapshot
+from django.core.management.base import BaseCommand
 
 
 class Command(BaseCommand):
     help = "Refresh persisted home dashboard statistics for workgroups."
 
     def add_arguments(self, parser):
+        """Allow restricting home dashboard refreshes to one workgroup."""
         parser.add_argument("--workgroup-id", type=int, default=None)
 
     def handle(self, *args, **options):
+        """Refresh persisted home dashboard snapshots for the selected workgroups and report counts."""
         workgroups = WorkGroup.objects.all().order_by("id")
         if options["workgroup_id"] is not None:
             workgroups = workgroups.filter(id=options["workgroup_id"])

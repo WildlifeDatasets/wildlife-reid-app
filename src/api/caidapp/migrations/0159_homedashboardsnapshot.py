@@ -17,7 +17,9 @@ class Migration(migrations.Migration):
                 ("updated_at", models.DateTimeField(auto_now=True)),
                 (
                     "workgroup",
-                    models.OneToOneField(blank=True, null=True, on_delete=models.deletion.CASCADE, to="caidapp.workgroup"),
+                    models.OneToOneField(
+                        blank=True, null=True, on_delete=models.deletion.CASCADE, to="caidapp.workgroup"
+                    ),
                 ),
             ],
         ),

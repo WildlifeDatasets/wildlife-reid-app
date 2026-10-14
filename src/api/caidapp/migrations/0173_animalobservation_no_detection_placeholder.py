@@ -3,11 +3,14 @@ from django.db.models import Q
 
 
 def create_missing_observations(apps, schema_editor):
+    """Create no-detection placeholders for media files with no observations in the migrated database."""
     MediaFile = apps.get_model("caidapp", "MediaFile")
     AnimalObservation = apps.get_model("caidapp", "AnimalObservation")
     database = schema_editor.connection.alias
 
-    missing_ids = MediaFile.objects.using(database).filter(observations__isnull=True).values_list("id", flat=True).iterator()
+    missing_ids = (
+        MediaFile.objects.using(database).filter(observations__isnull=True).values_list("id", flat=True).iterator()
+    )
     batch = []
     for mediafile_id in missing_ids:
         batch.append(
@@ -24,6 +27,7 @@ def create_missing_observations(apps, schema_editor):
 
 
 def remove_placeholders(apps, schema_editor):
+    """Delete no-detection placeholders when reversing this data migration."""
     AnimalObservation = apps.get_model("caidapp", "AnimalObservation")
     database = schema_editor.connection.alias
     AnimalObservation.objects.using(database).filter(is_no_detection_placeholder=True).delete()

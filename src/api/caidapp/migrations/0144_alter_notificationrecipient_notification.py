@@ -7,13 +7,15 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0143_workgroup_detection_model_architecture_and_more'),
+        ("caidapp", "0143_workgroup_detection_model_architecture_and_more"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='notificationrecipient',
-            name='notification',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='recipients', to='caidapp.notification'),
+            model_name="notificationrecipient",
+            name="notification",
+            field=models.ForeignKey(
+                on_delete=django.db.models.deletion.CASCADE, related_name="recipients", to="caidapp.notification"
+            ),
         ),
     ]

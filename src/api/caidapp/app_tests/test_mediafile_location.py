@@ -5,10 +5,6 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pandas as pd
-from django.conf import settings
-from django.test import TestCase, override_settings
-from PIL import Image
-
 from caidapp import tasks
 from caidapp.app_tests.factories import (
     AnimalObservationFactory,
@@ -20,6 +16,9 @@ from caidapp.app_tests.factories import (
     UploadedArchiveFactory,
 )
 from caidapp.models import MediafileIdentificationSuggestion, MediafilesForIdentification
+from django.conf import settings
+from django.test import TestCase, override_settings
+from PIL import Image
 
 
 def _write_test_image(path: Path) -> None:
@@ -29,9 +28,11 @@ def _write_test_image(path: Path) -> None:
 
 class MediaFileLocationFallbackTest(TestCase):
     def setUp(self):
+        """Create a workgroup admin for location and identification metadata tests."""
         self.caiduser = CaidUserFactory(admin=True)
 
     def test_effective_location_prefers_mediafile_location(self):
+        """Prefer coordinates stored directly on the media file over locality coordinates."""
         locality = LocalityFactory(owner=self.caiduser, location="50.1,14.4")
         mediafile = MediaFileFactory(parent__owner=self.caiduser, locality=locality, location="49.9,14.2")
 
@@ -39,6 +40,7 @@ class MediaFileLocationFallbackTest(TestCase):
         self.assertEqual(mediafile.effective_location_source, "mediafile")
 
     def test_effective_location_falls_back_to_locality(self):
+        """Use locality coordinates when the media file has no location of its own."""
         locality = LocalityFactory(owner=self.caiduser, location="50.1,14.4")
         mediafile = MediaFileFactory(parent__owner=self.caiduser, locality=locality, location=None)
 
@@ -46,6 +48,7 @@ class MediaFileLocationFallbackTest(TestCase):
         self.assertEqual(mediafile.effective_location_source, "locality")
 
     def test_prepare_dataframe_for_identification_uses_effective_location(self):
+        """Export the effective media-file coordinates to the identification dataframe."""
         locality = LocalityFactory(owner=self.caiduser, location="50.1,14.4")
         mediafile = MediaFileFactory(parent__owner=self.caiduser, locality=locality, location="49.9,14.2")
 
@@ -54,6 +57,7 @@ class MediaFileLocationFallbackTest(TestCase):
         self.assertEqual(csv_data["locality_coordinates"][0], "49.9,14.2")
 
     def test_prepare_dataframe_for_identification_uses_static_thumbnail_for_video(self):
+        """Use a video's static thumbnail as the identification image source."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         static_thumbnail_relpath = "output/test-video/static_thumbnails/clip.webp"
         static_thumbnail_path = Path(settings.MEDIA_ROOT) / static_thumbnail_relpath
@@ -73,6 +77,7 @@ class MediaFileLocationFallbackTest(TestCase):
         )
 
     def test_prepare_dataframe_for_identification_prefers_selected_video_frame(self):
+        """Prefer the selected video frame over the static thumbnail for identification."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         selected_frame_relpath = "output/test-video/images/clip.jpg"
         selected_frame_path = Path(settings.MEDIA_ROOT) / selected_frame_relpath
@@ -92,6 +97,7 @@ class MediaFileLocationFallbackTest(TestCase):
         self.assertEqual(csv_data["image_path"][0], str(selected_frame_path))
 
     def test_prepare_dataframe_for_identification_falls_back_to_static_thumbnail_for_missing_image(self):
+        """Fall back to a static thumbnail when the primary image source is missing."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         static_thumbnail_relpath = "output/test-image/static_thumbnails/first.webp"
         static_thumbnail_path = Path(settings.MEDIA_ROOT) / static_thumbnail_relpath
@@ -108,6 +114,7 @@ class MediaFileLocationFallbackTest(TestCase):
         self.assertEqual(csv_data["image_path"][0], str(static_thumbnail_path))
 
     def test_prepare_dataframe_for_identification_skips_unreadable_image_source(self):
+        """Omit unreadable image sources from identification input rows."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         image_relpath = "output/test-image/images/broken.webp"
         image_path = Path(settings.MEDIA_ROOT) / image_relpath
@@ -128,6 +135,7 @@ class MediaFileLocationFallbackTest(TestCase):
         self.assertEqual(csv_data["mediafile_id"], [])
 
     def test_prepare_dataframe_for_identification_skips_mediafile_with_missing_image_sources(self):
+        """Omit media files with no available image variants from identification input rows."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         mediafile = MediaFileFactory(
             parent=archive,
@@ -144,6 +152,7 @@ class MediaFileLocationFallbackTest(TestCase):
         self.assertEqual(csv_data["mediafile_id"], [])
 
     def test_prepare_dataframe_for_identification_uses_representative_observation_identity(self):
+        """Take identification class labels from the representative observation's identity."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Observed identity")
         mediafile = MediaFileFactory(
@@ -163,6 +172,7 @@ class MediaFileLocationFallbackTest(TestCase):
         self.assertEqual(csv_data["label"][0], identity.name)
 
     def test_prepare_dataframe_for_identification_exports_observation_row_and_current_bbox(self):
+        """Export the selected observation's current bbox and labels instead of stale detector metadata."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         taxon = TaxonFactory()
         identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Observed identity")
@@ -203,6 +213,7 @@ class MediaFileLocationFallbackTest(TestCase):
         self.assertNotEqual(detection_results[0]["bbox"], [1, 2, 3, 4])
 
     def test_prepare_dataframe_for_identification_filters_observations_by_taxon(self):
+        """Restrict exported identification observations to the requested taxon."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         mediafile = MediaFileFactory(parent=archive)
         matching = AnimalObservationFactory(mediafile=mediafile)
@@ -214,6 +225,7 @@ class MediaFileLocationFallbackTest(TestCase):
 
     @override_settings(IDENTITY_MANUAL_CONFIRMATION_THRESHOLD=0.5)
     def test_prepare_mediafile_for_identification_updates_output_observation(self):
+        """Write identification output to its observation and retain the observation reference in metadata."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         mediafile = MediaFileFactory(parent=archive, identity=None, metadata_json=None)
         observation = AnimalObservationFactory(mediafile=mediafile, identity=None)
@@ -236,6 +248,7 @@ class MediaFileLocationFallbackTest(TestCase):
         self.assertEqual(mediafile.metadata_json["reid_observation_id"], observation.id)
 
     def test_prepare_mediafile_for_identification_resolves_masked_reference_paths(self):
+        """Resolve a masked reference path to its original candidate media file and identity."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         unknown_mediafile = MediaFileFactory(parent=archive, identity=None, metadata_json=None)
         candidate_identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Matched identity")
@@ -262,6 +275,7 @@ class MediaFileLocationFallbackTest(TestCase):
         self.assertEqual(suggestion.identity_id, candidate_identity.id)
 
     def test_create_dataframe_from_mediafiles_exports_identity_codes_and_effective_location(self):
+        """Export identity codes, effective coordinates, locality coordinates, and original paths."""
         locality = LocalityFactory(owner=self.caiduser, location="50.1,14.4")
         identity = IndividualIdentityFactory(
             owner_workgroup=self.caiduser.workgroup,
@@ -288,6 +302,7 @@ class MediaFileLocationFallbackTest(TestCase):
         self.assertEqual(df.loc[0, "original_path"], "Brdy/Charles/first.jpg")
 
     def test_create_dataframe_from_mediafiles_falls_back_to_locality_location(self):
+        """Export locality coordinates when media-file coordinates are absent."""
         locality = LocalityFactory(owner=self.caiduser, location="50.1,14.4")
         mediafile = MediaFileFactory(parent__owner=self.caiduser, locality=locality, location=None)
 
@@ -297,6 +312,7 @@ class MediaFileLocationFallbackTest(TestCase):
         self.assertEqual(df.loc[0, "longitude"], "14.4")
 
     def test_create_dataframe_from_mediafiles_does_not_export_stale_unique_name_from_metadata_json(self):
+        """Omit stale identity names from metadata when no current observation identity supplies one."""
         mediafile = MediaFileFactory(
             parent__owner=self.caiduser,
             identity=None,
@@ -313,9 +329,11 @@ class MediaFileLocationFallbackTest(TestCase):
 
 class UploadedArchiveLocalityCompatibilityTest(TestCase):
     def setUp(self):
+        """Create an archive owner for legacy locality compatibility tests."""
         self.caiduser = CaidUserFactory(admin=True)
 
     def test_uploaded_archive_localities_are_derived_from_mediafiles(self):
+        """Derive archive locality summaries from its media files in name order."""
         uploaded_archive = UploadedArchiveFactory(owner=self.caiduser)
         locality_a = LocalityFactory(owner=self.caiduser, name="Xandovice")
         locality_b = LocalityFactory(owner=self.caiduser, name="Ypovice")
@@ -330,6 +348,7 @@ class UploadedArchiveLocalityCompatibilityTest(TestCase):
         self.assertEqual(uploaded_archive.localities_display, "Xandovice, Ypovice")
 
     def test_uploaded_archive_locality_falls_back_to_legacy_field(self):
+        """Use the legacy archive locality when no media-file locality is available."""
         locality = LocalityFactory(owner=self.caiduser, name="Legacy Place")
         uploaded_archive = UploadedArchiveFactory(owner=self.caiduser, locality_at_upload_object=locality)
 
@@ -342,9 +361,11 @@ class UploadedArchiveLocalityCompatibilityTest(TestCase):
 
 class LocalityCoverTest(TestCase):
     def setUp(self):
+        """Create an owner for locality cover selection tests."""
         self.caiduser = CaidUserFactory(admin=True)
 
     def test_cover_falls_back_to_first_mediafile(self):
+        """Choose the first available locality media file as its cover."""
         locality = LocalityFactory(owner=self.caiduser, name="Cover Meadow")
         self.assertIsNone(locality.cover)
 
@@ -355,6 +376,7 @@ class LocalityCoverTest(TestCase):
 
 class SpreadsheetMetadataImportTest(TestCase):
     def setUp(self):
+        """Prepare temporary media storage and an admin for spreadsheet metadata imports."""
         self.media_root = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, self.media_root)
         self.override = override_settings(MEDIA_ROOT=self.media_root)
@@ -363,6 +385,7 @@ class SpreadsheetMetadataImportTest(TestCase):
         self.caiduser = CaidUserFactory(admin=True)
 
     def test_metadata_row_assigns_identity_codes_and_mediafile_location_outside_identification_mode(self):
+        """Import observation identity codes and media-file locality without identification mode enabled."""
         uploaded_archive = UploadedArchiveFactory(
             owner=self.caiduser,
             contains_identities=False,
@@ -395,7 +418,9 @@ class SpreadsheetMetadataImportTest(TestCase):
         }
         df = pd.DataFrame([row_data])
 
-        with patch("caidapp.models.MediaFile.make_thumbnail_for_mediafile_if_necessary", autospec=True, return_value=None):
+        with patch(
+            "caidapp.models.MediaFile.make_thumbnail_for_mediafile_if_necessary", autospec=True, return_value=None
+        ):
             status = tasks._update_database_by_one_row_of_metadata(
                 df=df,
                 index=0,
@@ -419,6 +444,7 @@ class SpreadsheetMetadataImportTest(TestCase):
         self.assertEqual(mediafile.locality.name, "Forest Edge")
 
     def test_metadata_import_uses_prepared_media_variants_without_regenerating(self):
+        """Reuse supplied media variants during metadata import instead of regenerating previews."""
         uploaded_archive = UploadedArchiveFactory(
             owner=self.caiduser,
             contains_identities=False,
@@ -446,7 +472,9 @@ class SpreadsheetMetadataImportTest(TestCase):
         }
         df = pd.DataFrame([row_data])
 
-        with patch("caidapp.models.MediaFile.make_thumbnail_for_mediafile_if_necessary", autospec=True) as make_variants:
+        with patch(
+            "caidapp.models.MediaFile.make_thumbnail_for_mediafile_if_necessary", autospec=True
+        ) as make_variants:
             status = tasks._update_database_by_one_row_of_metadata(
                 df=df,
                 index=0,

@@ -126,11 +126,7 @@ class IndividualIdentityFilter(django_filters.FilterSet):
         except re.error:
             return queryset.none()
         db_regex = _normalize_postgres_regex(search_value)
-        return queryset.filter(
-            Q(name__iregex=db_regex)
-            | Q(code__iregex=db_regex)
-            | Q(juv_code__iregex=db_regex)
-        )
+        return queryset.filter(Q(name__iregex=db_regex) | Q(code__iregex=db_regex) | Q(juv_code__iregex=db_regex))
 
 
 class MediaFileFilter(django_filters.FilterSet):
@@ -313,20 +309,27 @@ class AnimalObservationFilter(django_filters.FilterSet):
         ).order_by("name", "id")
 
     def filter_has_bbox(self, queryset, name, value):
+        """Filter observations by the presence of a bbox center when a choice is supplied."""
         if value is None:
             return queryset
         lookup = {"bbox_x_center__isnull": not value}
         return queryset.filter(**lookup)
 
     def filter_has_identity(self, queryset, name, value):
+        """Filter observations by whether an identity is assigned."""
         if value is None:
             return queryset
         return queryset.filter(identity__isnull=not value)
 
     def filter_multiple_in_mediafile(self, queryset, name, value):
+        """Filter by whether the containing media file has at least two bounding boxes."""
         if value is None:
             return queryset
-        return self._filter_by_bbox_count(queryset, minimum=2) if value else self._filter_by_bbox_count(queryset, maximum=1)
+        return (
+            self._filter_by_bbox_count(queryset, minimum=2)
+            if value
+            else self._filter_by_bbox_count(queryset, maximum=1)
+        )
 
     def _filter_by_bbox_count(self, queryset, minimum=None, maximum=None):
         """Keep observations whose image has the requested number of real boxes.
@@ -334,8 +337,10 @@ class AnimalObservationFilter(django_filters.FilterSet):
         Empty legacy ``AnimalObservation`` rows are deliberately not counted:
         they describe an image without an annotated object rather than an object.
         """
-        mediafile_counts = models.AnimalObservation.objects.order_by().values("mediafile_id").annotate(
-            bbox_count=Count("id", filter=Q(bbox_x_center__isnull=False))
+        mediafile_counts = (
+            models.AnimalObservation.objects.order_by()
+            .values("mediafile_id")
+            .annotate(bbox_count=Count("id", filter=Q(bbox_x_center__isnull=False)))
         )
         if minimum is not None:
             mediafile_counts = mediafile_counts.filter(bbox_count__gte=minimum)
@@ -344,17 +349,21 @@ class AnimalObservationFilter(django_filters.FilterSet):
         return queryset.filter(mediafile_id__in=mediafile_counts.values("mediafile_id"))
 
     def filter_objects_per_image(self, queryset, name, value):
+        """Filter by zero, one, or at least two bounding boxes in the containing media file."""
         if value == "2":
             return self._filter_by_bbox_count(queryset, minimum=2)
         return self._filter_by_bbox_count(queryset, minimum=int(value), maximum=int(value))
 
     def filter_objects_per_image_min(self, queryset, name, value):
+        """Require at least the requested number of bounding boxes in the containing media file."""
         return self._filter_by_bbox_count(queryset, minimum=value)
 
     def filter_objects_per_image_max(self, queryset, name, value):
+        """Limit the number of bounding boxes in the containing media file."""
         return self._filter_by_bbox_count(queryset, maximum=value)
 
     def filter_search(self, queryset, name, value):
+        """Search observation labels and the containing media file's filename and locality."""
         if not value:
             return queryset
         return queryset.filter(

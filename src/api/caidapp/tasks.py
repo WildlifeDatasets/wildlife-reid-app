@@ -7,8 +7,8 @@ import os
 import os.path
 import shutil
 import tempfile
-import traceback
 import threading
+import traceback
 import uuid
 from datetime import timedelta
 from pathlib import Path
@@ -66,9 +66,7 @@ def refresh_identification_dashboard_stats(due_only=False):
 
     workgroups = WorkGroup.objects.all()
     if due_only:
-        workgroups = workgroups.exclude(
-            identificationdashboardsnapshot__updated_at__gte=now() - REFRESH_INTERVAL
-        )
+        workgroups = workgroups.exclude(identificationdashboardsnapshot__updated_at__gte=now() - REFRESH_INTERVAL)
     for workgroup_id in workgroups.values_list("pk", flat=True).iterator():
         refresh_workgroup_identification_dashboard.apply_async(args=[workgroup_id], queue="celery")
 
@@ -92,15 +90,18 @@ def refresh_workgroup_identification_dashboard(workgroup_id):
 
 @shared_task(name="caidapp.tasks.finish_bbox_detection")
 def finish_bbox_detection(result, job_id):
-    from .bbox_services import finish_job, fail_job
+    """Apply a bbox worker result and mark reconciliation failures without propagating exceptions."""
+    from .bbox_services import fail_job, finish_job
 
     logger.info(
         "Received bbox worker callback job_id=%s status=%s detections=%s",
         job_id,
         result.get("status") if isinstance(result, dict) else "invalid",
-        len(result.get("detections", []))
-        if isinstance(result, dict) and isinstance(result.get("detections"), list)
-        else "invalid",
+        (
+            len(result.get("detections", []))
+            if isinstance(result, dict) and isinstance(result.get("detections"), list)
+            else "invalid"
+        ),
     )
     try:
         status = finish_job(job_id, result)
@@ -116,6 +117,7 @@ def finish_bbox_detection(result, job_id):
 
 @shared_task(name="caidapp.tasks.fail_bbox_detection")
 def fail_bbox_detection(job_id):
+    """Record detection worker failure on the queued bbox job."""
     from .bbox_services import fail_job
 
     logger.error("Received bbox worker failure callback job_id=%s", job_id)
@@ -237,7 +239,11 @@ def resolve_identification_selection(
     observation_taxon = selection.get("observation_taxon")
     if observation_taxon is None and uploaded_archive is not None:
         observation_taxon = uploaded_archive.taxon_for_identification
-    if observation_taxon is None and workgroup.default_taxon_for_identification and workgroup.check_taxon_before_identification:
+    if (
+        observation_taxon is None
+        and workgroup.default_taxon_for_identification
+        and workgroup.check_taxon_before_identification
+    ):
         observation_taxon = workgroup.default_taxon_for_identification
 
     require_observations = selection.get("require_observations")
@@ -428,10 +434,10 @@ def on_success_predict_taxon(
                 assign_unidentified_to_identification(caiduser=uploaded_archive.owner)
             uploaded_archive.import_finished = True
             uploaded_archive.is_for_identification = (
-                (uploaded_archive.taxon_for_identification is not None) or
-                uploaded_archive.contains_single_taxon or
-                uploaded_archive.contains_identities or
-                uploaded_archive.is_for_identification
+                (uploaded_archive.taxon_for_identification is not None)
+                or uploaded_archive.contains_single_taxon
+                or uploaded_archive.contains_identities
+                or uploaded_archive.is_for_identification
             )
             uploaded_archive.taxon_status = "TAID"
             uploaded_archive.identification_status = "IR"  # Ready for identification
@@ -622,7 +628,10 @@ def _identification_detection_results_from_observation(observation, image_path: 
 
     image_size = _read_image_size(image_path)
     if image_size is None:
-        logger.warning("Cannot construct identification detection_results for observation %s: unreadable image size.", observation.id)
+        logger.warning(
+            "Cannot construct identification detection_results for observation %s: unreadable image size.",
+            observation.id,
+        )
         return "[]"
 
     width, height = image_size
@@ -656,9 +665,7 @@ def _read_image_size(image_path: str) -> tuple[int, int] | None:
 def _get_identification_identity(mediafile: MediaFile) -> IndividualIdentity | None:
     """Return the identity that should label a mediafile in identification metadata."""
     representative_observation = (
-        mediafile.observations.filter(identity_is_representative=True, identity__isnull=False)
-        .order_by("id")
-        .first()
+        mediafile.observations.filter(identity_is_representative=True, identity__isnull=False).order_by("id").first()
     )
     if representative_observation:
         return representative_observation.identity
@@ -2209,7 +2216,9 @@ def identify_on_success(self, output: dict, *args, **kwargs):
             assert "keypoints" in data
 
             media_root = Path(settings.MEDIA_ROOT)
-            deleted_queue_count, deleted_suggestion_count = clear_identification_queue_for_uploaded_archive(uploaded_archive)
+            deleted_queue_count, deleted_suggestion_count = clear_identification_queue_for_uploaded_archive(
+                uploaded_archive
+            )
             logger.info(
                 "Cleared identification queue after successful rerun for upload %s: mediafiles=%s suggestions=%s",
                 uploaded_archive.id,
@@ -2348,9 +2357,12 @@ def identify_bulk_on_success(self, output: dict, *args, **kwargs):
                 count_by_archive_id[mediafile.parent_id] = count_by_archive_id.get(mediafile.parent_id, 0) + 1
 
             for uploaded_archive in uploaded_archives:
-                deleted_queue_count, deleted_suggestion_count = clear_identification_queue_for_uploaded_archive(uploaded_archive)
+                deleted_queue_count, deleted_suggestion_count = clear_identification_queue_for_uploaded_archive(
+                    uploaded_archive
+                )
                 logger.info(
-                    "Cleared identification queue after successful bulk rerun for upload %s: mediafiles=%s suggestions=%s",
+                    "Cleared identification queue after successful bulk rerun for upload %s: "
+                    "mediafiles=%s suggestions=%s",
                     uploaded_archive.id,
                     deleted_queue_count,
                     deleted_suggestion_count,
@@ -2362,9 +2374,7 @@ def identify_bulk_on_success(self, output: dict, *args, **kwargs):
             for uploaded_archive in uploaded_archives:
                 processed_count = count_by_archive_id.get(uploaded_archive.id, 0)
                 uploaded_archive.identification_status = "IAID"
-                uploaded_archive.status_message = (
-                    f"Identification suggestions ready for {processed_count} media files."
-                )
+                uploaded_archive.status_message = f"Identification suggestions ready for {processed_count} media files."
                 uploaded_archive.save(update_fields=["identification_status", "status_message"])
 
             workgroup.identification_reid_status = "Finished"
@@ -2573,7 +2583,9 @@ def _identification_output_observation(data, i, mediafile: MediaFile):
     try:
         return mediafile.observations.get(id=observation_id)
     except models.AnimalObservation.DoesNotExist:
-        logger.warning("Identification output observation %s does not belong to mediafile %s.", observation_id, mediafile.id)
+        logger.warning(
+            "Identification output observation %s does not belong to mediafile %s.", observation_id, mediafile.id
+        )
         return None
 
 
@@ -2653,10 +2665,10 @@ def run_identification_on_unidentified_for_workgroup(workgroup_id: int, request=
 
     workgroup.identification_reid_status = "Processing"
     workgroup.identification_reid_at = now()
-    workgroup.identification_reid_message = (
-        f"Preparing identification batch for {upload_count} uploads."
+    workgroup.identification_reid_message = f"Preparing identification batch for {upload_count} uploads."
+    workgroup.save(
+        update_fields=["identification_reid_status", "identification_reid_at", "identification_reid_message"]
     )
-    workgroup.save(update_fields=["identification_reid_status", "identification_reid_at", "identification_reid_message"])
     models.Notification.create_for(
         message=f"Starting identification for workgroup {workgroup_id}...",
         workgroups=[workgroup],
@@ -2792,7 +2804,9 @@ def init_identification(workgroup_id: int, selection: dict | None = None):
         finish_identification_run_statistic(statistic.id, "failed")
         workgroup.identification_init_at = django.utils.timezone.now()
         workgroup.identification_init_status = "ERROR"
-        workgroup.identification_init_message = "No readable representative images found for identification initialization."
+        workgroup.identification_init_message = (
+            "No readable representative images found for identification initialization."
+        )
         workgroup.identification_scheduled_init_task_id = None
         workgroup.identification_scheduled_init_eta = None
         workgroup.save(
@@ -2804,7 +2818,9 @@ def init_identification(workgroup_id: int, selection: dict | None = None):
                 "identification_scheduled_init_eta",
             ]
         )
-        logger.error("No readable representative images found for identification initialization in workgroup %s.", workgroup.id)
+        logger.error(
+            "No readable representative images found for identification initialization in workgroup %s.", workgroup.id
+        )
         return
 
     valid_mediafiles_qs.update(used_for_init_identification=True)
@@ -3082,6 +3098,7 @@ def assign_unidentified_to_identification(caiduser: CaIDUser):
 @shared_task(bind=True)
 def refresh_identities_suggestions_task(self, workgroup_id, limit=100):
     """Refresh identities suggestions task."""
+
     def report_progress(**progress):
         self.update_state(state="PROGRESS", meta=progress)
 
@@ -3217,7 +3234,9 @@ def identification_outlier_detection_on_success(output: dict, *args, **kwargs):
             notification_message = f"Identification outlier detection finished for workgroup {workgroup}."
             level = models.Notification.INFO
         else:
-            notification_message = f"Identification outlier detection failed for workgroup {workgroup}: {result.message}"
+            notification_message = (
+                f"Identification outlier detection failed for workgroup {workgroup}: {result.message}"
+            )
             level = models.Notification.ERROR
         _notify_identification_staff(
             workgroup,
@@ -3456,11 +3475,7 @@ def _normalize_similar_identity_pairs(raw_pairs: list[dict], workgroup: WorkGrou
 
 def _resolve_similar_pair_mediafile(path_str: str, workgroup: WorkGroup) -> MediaFile | None:
     """Resolve either an image or the selected still frame of a video in this workgroup."""
-    normalized_path = (
-        str(path_str)
-        .replace("/masked_images/", "/images/")
-        .replace("\\masked_images\\", "\\images\\")
-    )
+    normalized_path = str(path_str).replace("/masked_images/", "/images/").replace("\\masked_images\\", "\\images\\")
     try:
         relative_path = Path(normalized_path).relative_to(Path(settings.MEDIA_ROOT))
     except ValueError:
@@ -3468,18 +3483,14 @@ def _resolve_similar_pair_mediafile(path_str: str, workgroup: WorkGroup) -> Medi
     filename = relative_path.as_posix()
     return (
         MediaFile.objects.filter(parent__owner__workgroup=workgroup)
-        .filter(
-            Q(image_file=filename)
-            | Q(static_thumbnail=filename)
-            | Q(preview=filename)
-            | Q(thumbnail=filename)
-        )
+        .filter(Q(image_file=filename) | Q(static_thumbnail=filename) | Q(preview=filename) | Q(thumbnail=filename))
         .first()
     )
 
 
 @shared_task
 def similar_identity_pairs_on_success(output: dict, *args, **kwargs):
+    """Store normalized similar-identity pairs or an error and notify staff once processing ends."""
     result = models.IdentificationSimilarPairResult.objects.get(id=kwargs["result_id"])
     if result.status != "processing":
         return result.id
@@ -3506,6 +3517,7 @@ def similar_identity_pairs_on_success(output: dict, *args, **kwargs):
 
 @shared_task(bind=True)
 def similar_identity_pairs_on_error(self, task_id: str, *args, **kwargs):
+    """Record a similar-pair worker failure and notify staff if the result is still processing."""
     result = models.IdentificationSimilarPairResult.objects.get(id=kwargs["result_id"])
     if result.status != "processing":
         return result.id

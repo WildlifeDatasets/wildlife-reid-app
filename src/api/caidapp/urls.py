@@ -1,9 +1,17 @@
 from django.urls import include, path
 
-# from rest_framework import routers
-from django.views.generic import DetailView
+from . import (
+    views,
+    views_admin,
+    views_bbox,
+    views_comparison,
+    views_general,
+    views_locality,
+    views_mediafile,
+    views_uploads,
+)
 
-from . import models, views, views_admin, views_bbox, views_comparison, views_general, views_locality, views_mediafile, views_uploads
+# from rest_framework import routers
 
 
 def trigger_error(request):
@@ -123,9 +131,8 @@ urlpatterns = [
     ),
     path("refresh_data/", views.refresh_data, name="refresh_data"),
     # Localities
-    #TODO remove manage_localities
+    # TODO remove manage_localities
     # path("manage_localities/", views_locality.manage_localities, name="manage_localities"),
-
     # TODO turn id into pk because of generic views
     path("delete_locality/<int:locality_id>/", views_locality.LocalityDeleteView.as_view(), name="delete_locality"),
     path(
@@ -136,7 +143,7 @@ urlpatterns = [
     path(
         "update_locality/",
         views_locality.update_locality,
-        name="update_locality",  ## TODO rename to locality_create
+        name="update_locality",  # TODO rename to locality_create
     ),
     # path("taxon/<int:taxon_id>", views.media_files_update, name="taxon"),
     # Media Files

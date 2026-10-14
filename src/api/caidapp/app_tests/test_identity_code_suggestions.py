@@ -1,12 +1,19 @@
-from django.test import TestCase
-from django.urls import reverse
 from unittest.mock import MagicMock, patch
 
-from caidapp.app_tests.factories import AnimalObservationFactory, CaidUserFactory, IndividualIdentityFactory, MediaFileFactory, UploadedArchiveFactory
+from caidapp.app_tests.factories import (
+    AnimalObservationFactory,
+    CaidUserFactory,
+    IndividualIdentityFactory,
+    MediaFileFactory,
+    UploadedArchiveFactory,
+)
+from django.test import TestCase
+from django.urls import reverse
 
 
 class IdentityCodeSuggestionsViewTest(TestCase):
     def setUp(self):
+        """Authenticate an admin whose workgroup extracts identity codes with a custom regex."""
         self.caiduser = CaidUserFactory(admin=True)
         self.workgroup = self.caiduser.workgroup
         self.workgroup.identity_code_regex = r"B\d+"
@@ -15,6 +22,7 @@ class IdentityCodeSuggestionsViewTest(TestCase):
 
     @patch("caidapp.views._celery_worker_available", return_value=False)
     def test_view_filters_suggestions_by_workgroup_regex(self, _worker_available_mock):
+        """Show matching identity names only from the current workgroup."""
         matching = IndividualIdentityFactory(owner_workgroup=self.workgroup, name="B75 Cumel")
         non_matching = IndividualIdentityFactory(owner_workgroup=self.workgroup, name="NoCode Identity")
         other_workgroup = IndividualIdentityFactory(name="B610 Fernet")
@@ -30,6 +38,7 @@ class IdentityCodeSuggestionsViewTest(TestCase):
 
     @patch("caidapp.views._celery_worker_available", return_value=False)
     def test_view_uses_custom_workgroup_regex(self, _worker_available_mock):
+        """Use the workgroup's custom two-letter code pattern when generating suggestions."""
         self.workgroup.identity_code_regex = r"[A-Z]{2}\d{2}"
         self.workgroup.save()
         matching = IndividualIdentityFactory(owner_workgroup=self.workgroup, name="AB12 Kira")
@@ -45,6 +54,7 @@ class IdentityCodeSuggestionsViewTest(TestCase):
 
     @patch("caidapp.views._celery_worker_available", return_value=False)
     def test_view_renders_bulk_selection_controls(self, _worker_available_mock):
+        """Render selection controls, an apply action, and the identity's media-file count."""
         matching = IndividualIdentityFactory(owner_workgroup=self.workgroup, name="B75 Cumel")
         archive = UploadedArchiveFactory(owner=self.caiduser)
         mediafile = MediaFileFactory(parent=archive)
@@ -59,6 +69,7 @@ class IdentityCodeSuggestionsViewTest(TestCase):
         self.assertContains(response, "1 media file")
 
     def test_bulk_apply_updates_only_selected_identities(self):
+        """Apply extracted codes only to selected identities and retain the former code in notes."""
         selected = IndividualIdentityFactory(owner_workgroup=self.workgroup, name="B75 Cumel", code="old-selected")
         not_selected = IndividualIdentityFactory(owner_workgroup=self.workgroup, name="B90 Kira", code="old-other")
 
@@ -82,6 +93,7 @@ class IdentityCodeSuggestionsViewTest(TestCase):
     @patch("caidapp.views.tasks.compute_identity_code_suggestions_task.delay")
     @patch("caidapp.views._celery_worker_available")
     def test_view_starts_background_job_when_worker_is_available(self, worker_available_mock, delay_mock):
+        """Queue code suggestions when a worker is available and retain the task ID in the session."""
         worker_available_mock.return_value = True
         delay_mock.return_value = MagicMock(id="job-123")
 
@@ -97,6 +109,7 @@ class IdentityCodeSuggestionsViewTest(TestCase):
 
     @patch("caidapp.views.AsyncResult")
     def test_status_endpoint_returns_progress_meta(self, async_result_mock):
+        """Return the running code-suggestion job's counters and message as progress metadata."""
         session = self.client.session
         session["identity_code_suggestions_job_id"] = "job-123"
         session.save()
@@ -125,6 +138,7 @@ class IdentityCodeSuggestionsViewTest(TestCase):
 
     @patch("caidapp.views.current_app.control.revoke")
     def test_cancel_view_revokes_running_job(self, revoke_mock):
+        """Revoke the running code-suggestion task and remove its session reference."""
         session = self.client.session
         session["identity_code_suggestions_job_id"] = "job-123"
         session.save()
@@ -144,6 +158,7 @@ class IdentityCodeSuggestionsViewTest(TestCase):
         _worker_available_mock,
         compute_sync_mock,
     ):
+        """Recover a stale background job by computing suggestions synchronously when no worker is available."""
         matching = IndividualIdentityFactory(owner_workgroup=self.workgroup, name="B75 Cumel")
         compute_sync_mock.side_effect = lambda workgroup: [matching]
         session = self.client.session

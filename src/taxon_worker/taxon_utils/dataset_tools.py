@@ -746,9 +746,7 @@ def make_dataset(
         )
     if mode == "convert":
         image_rows = (
-            dataframe["media_type"].eq("image")
-            if "media_type" in dataframe
-            else pd.Series(True, index=dataframe.index)
+            dataframe["media_type"].eq("image") if "media_type" in dataframe else pd.Series(True, index=dataframe.index)
         )
         dataframe.loc[image_rows, "image_path"] = dataframe.loc[image_rows, "image_path"].apply(
             lambda filename: str(Path(filename).with_suffix(".webp"))
@@ -988,7 +986,6 @@ class SumavaInitialProcessing:
 
         The EXIF information is extracted in single-core way but with the help of ExifTool.
         """
-
         start_time = time()
         results = add_datetime(original_paths, dataset_basedir=self.dataset_basedir, num_cores=self.num_cores)
         end_time = time()
@@ -1492,7 +1489,9 @@ def data_preprocessing(
 
 def find_any_spreadsheet_and_save_as_csv(tmp_dir, csv_path):
     """Find any spreadsheet in directory and save it as CSV."""
-    post_update_path = sorted(list(tmp_dir.glob("**/*.csv")) + list(tmp_dir.glob("**/*.xls")) + list(tmp_dir.glob("**/*.xlsx")))
+    post_update_path = sorted(
+        list(tmp_dir.glob("**/*.csv")) + list(tmp_dir.glob("**/*.xls")) + list(tmp_dir.glob("**/*.xlsx"))
+    )
     post_update_path = post_update_path[-1] if len(post_update_path) > 0 else None
     logger.debug(f"{post_update_path=}")
     if post_update_path is not None:

@@ -1,22 +1,29 @@
 from unittest.mock import MagicMock, patch
 from urllib.parse import parse_qs, urlparse
 
+from caidapp import views
+from caidapp.app_tests.factories import (
+    AnimalObservationFactory,
+    CaidUserFactory,
+    IndividualIdentityFactory,
+    MediaFileFactory,
+    UploadedArchiveFactory,
+)
+from caidapp.model_extra import best_identity_merge_candidate, compute_identity_suggestions
+from caidapp.models import IndividualIdentity, MergeIdentitySuggestionExclusion, MergeIdentitySuggestionResult
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from caidapp import views
-from caidapp.app_tests.factories import AnimalObservationFactory, CaidUserFactory, IndividualIdentityFactory, MediaFileFactory, UploadedArchiveFactory
-from caidapp.model_extra import best_identity_merge_candidate, compute_identity_suggestions
-from caidapp.models import IndividualIdentity, MergeIdentitySuggestionExclusion, MergeIdentitySuggestionResult
-
 
 class MergeIdentitySuggestionsComputationTest(TestCase):
     def setUp(self):
+        """Prepare a workgroup for merge candidate computation."""
         self.caiduser = CaidUserFactory(admin=True)
         self.workgroup = self.caiduser.workgroup
 
     def test_compute_identity_suggestions_ignores_empty_codes(self):
+        """Avoid generating merge pairs from identities whose codes are empty."""
         IndividualIdentityFactory(owner_workgroup=self.workgroup, name="VeryLongDifferentIdentityNameAlpha", code=None)
         IndividualIdentityFactory(owner_workgroup=self.workgroup, name="Ox", code=None)
 
@@ -26,6 +33,7 @@ class MergeIdentitySuggestionsComputationTest(TestCase):
         self.assertEqual(result.suggestions, [])
 
     def test_compute_identity_suggestions_matches_same_non_empty_code(self):
+        """Suggest a zero-distance merge for identities sharing a non-empty code."""
         first = IndividualIdentityFactory(owner_workgroup=self.workgroup, name="Alpha Identity", code="B75")
         second = IndividualIdentityFactory(owner_workgroup=self.workgroup, name="Omega Identity", code="B75")
 
@@ -38,6 +46,7 @@ class MergeIdentitySuggestionsComputationTest(TestCase):
         self.assertEqual(distance, 0)
 
     def test_compute_identity_suggestions_skips_different_non_empty_codes(self):
+        """Reject merge suggestions for identities with different non-empty codes."""
         IndividualIdentityFactory(owner_workgroup=self.workgroup, name="Sara juvenile", code="B101")
         IndividualIdentityFactory(owner_workgroup=self.workgroup, name="Sara juvenile", code="B102")
 
@@ -46,6 +55,7 @@ class MergeIdentitySuggestionsComputationTest(TestCase):
         self.assertEqual(MergeIdentitySuggestionResult.objects.get(id=result_id).suggestions, [])
 
     def test_compute_identity_suggestions_skips_different_juvenile_tokens(self):
+        """Keep distinct juvenile name tokens from becoming merge suggestions."""
         IndividualIdentityFactory(owner_workgroup=self.workgroup, name="Sara_juv.22-1", code=None)
         IndividualIdentityFactory(owner_workgroup=self.workgroup, name="Sara_juv.22-2", code=None)
         IndividualIdentityFactory(owner_workgroup=self.workgroup, name="Sara_juv.23-1", code=None)
@@ -55,6 +65,7 @@ class MergeIdentitySuggestionsComputationTest(TestCase):
         self.assertEqual(MergeIdentitySuggestionResult.objects.get(id=result_id).suggestions, [])
 
     def test_compute_identity_suggestions_allows_matching_juvenile_tokens(self):
+        """Allow a merge suggestion when juvenile distinguishing tokens agree."""
         first = IndividualIdentityFactory(owner_workgroup=self.workgroup, name="Sara_juv.22-1 L", code=None)
         second = IndividualIdentityFactory(owner_workgroup=self.workgroup, name="Sara_juv.22-1 R", code=None)
 
@@ -65,6 +76,7 @@ class MergeIdentitySuggestionsComputationTest(TestCase):
         self.assertEqual({suggestions[0][0], suggestions[0][1]}, {first.id, second.id})
 
     def test_compute_identity_suggestions_uses_workgroup_distinguishing_regex(self):
+        """Use the configured distinguishing regex to exclude incompatible merge candidates."""
         self.workgroup.identity_merge_distinguishing_regex = r"animal-(\d+)"
         self.workgroup.save(update_fields=["identity_merge_distinguishing_regex"])
         IndividualIdentityFactory(owner_workgroup=self.workgroup, name="Sara animal-1", code=None)
@@ -75,6 +87,7 @@ class MergeIdentitySuggestionsComputationTest(TestCase):
         self.assertEqual(MergeIdentitySuggestionResult.objects.get(id=result_id).suggestions, [])
 
     def test_compute_identity_suggestions_skips_persistently_excluded_pair(self):
+        """Honor a persisted exclusion when computing merge suggestions."""
         first = IndividualIdentityFactory(owner_workgroup=self.workgroup, name="Similar identity", code=None)
         second = IndividualIdentityFactory(owner_workgroup=self.workgroup, name="Similar identities", code=None)
         identity_a_id, identity_b_id = sorted((first.id, second.id))
@@ -89,6 +102,7 @@ class MergeIdentitySuggestionsComputationTest(TestCase):
         self.assertEqual(MergeIdentitySuggestionResult.objects.get(id=result_id).suggestions, [])
 
     def test_compute_identity_suggestions_reports_pair_progress(self):
+        """Report pair-comparison progress through the final current and total counters."""
         for name in ["Alpha", "Bravo", "Charlie"]:
             IndividualIdentityFactory(owner_workgroup=self.workgroup, name=name)
         progress_updates = []
@@ -101,6 +115,7 @@ class MergeIdentitySuggestionsComputationTest(TestCase):
         self.assertEqual(progress_updates[-1]["total"], 3)
 
     def test_best_identity_merge_candidate_uses_fuzzy_name_similarity(self):
+        """Choose the closest identity name using fuzzy similarity."""
         identity = IndividualIdentityFactory(owner_workgroup=self.workgroup, name="Marta 12")
         closest = IndividualIdentityFactory(owner_workgroup=self.workgroup, name="Márta 12 L")
         IndividualIdentityFactory(owner_workgroup=self.workgroup, name="Completely different")
@@ -115,10 +130,12 @@ class MergeIdentitySuggestionsComputationTest(TestCase):
 
 class MergeIdentitySuggestionsViewTest(TestCase):
     def setUp(self):
+        """Authenticate a workgroup admin for merge suggestion UI tests."""
         self.caiduser = CaidUserFactory(admin=True)
         self.client.force_login(self.caiduser.user)
 
     def test_workgroup_settings_has_chatgpt_regex_consultation_link(self):
+        """Include consultation constraints and preserve the exact prompt in the ChatGPT URL."""
         response = self.client.get(reverse("caidapp:workgroup-update", args=[self.caiduser.workgroup.id]))
 
         self.assertEqual(response.status_code, 200)
@@ -135,6 +152,7 @@ class MergeIdentitySuggestionsViewTest(TestCase):
     @patch("caidapp.views.tasks.refresh_identities_suggestions_task.delay")
     @patch("caidapp.views._celery_worker_available", return_value=True)
     def test_suggest_merge_identities_starts_generation_when_missing(self, _worker_mock, delay_mock):
+        """Launch a merge-suggestion job when no existing result or job is available."""
         delay_mock.return_value = MagicMock(id="job-123")
 
         response = self.client.get(reverse("caidapp:suggest_merge_identities"))
@@ -148,6 +166,7 @@ class MergeIdentitySuggestionsViewTest(TestCase):
     @patch("caidapp.views.compute_identity_suggestions")
     @patch("caidapp.views.current_app.control.inspect")
     def test_refresh_identities_suggestions_falls_back_to_sync_without_worker(self, inspect_mock, compute_mock):
+        """Compute merge suggestions synchronously and store the result when no worker is available."""
         inspect_instance = MagicMock()
         inspect_instance.stats.return_value = None
         inspect_mock.return_value = inspect_instance
@@ -165,6 +184,7 @@ class MergeIdentitySuggestionsViewTest(TestCase):
         self.assertNotIn("refresh_job_id", request.session)
 
     def test_suggest_merge_identities_renders_bulk_selection_controls(self):
+        """Render bulk selection, exclusion, reverse merge, and selected-media links for suggestions."""
         first = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Alpha", code="B75")
         second = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Omega", code="B75")
         first_mediafile = MediaFileFactory(parent=UploadedArchiveFactory(owner=self.caiduser))
@@ -197,6 +217,7 @@ class MergeIdentitySuggestionsViewTest(TestCase):
         self.assertContains(response, f"to_mediafile_id={second_mediafile.id}")
 
     def test_select_second_identity_for_merge_renders_cover_mediafile(self):
+        """Show the chosen identity's cover media file on the second-identity selection page."""
         identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup)
         mediafile = MediaFileFactory(parent=UploadedArchiveFactory(owner=self.caiduser))
         AnimalObservationFactory(mediafile=mediafile, identity=identity, identity_is_representative=True)
@@ -207,6 +228,7 @@ class MergeIdentitySuggestionsViewTest(TestCase):
         self.assertEqual(response.context["mediafile"], mediafile)
 
     def test_merge_preview_shows_direction_and_requested_mediafiles(self):
+        """Show merge direction and requested media files and swap them consistently when reversing."""
         source = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Source", code="SRC")
         target = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Target", code="DST")
         source_mediafile = MediaFileFactory(parent=UploadedArchiveFactory(owner=self.caiduser))
@@ -215,10 +237,13 @@ class MergeIdentitySuggestionsViewTest(TestCase):
         AnimalObservationFactory(mediafile=target_mediafile, identity=target)
 
         url = reverse("caidapp:merge_identities", args=[source.id, target.id])
-        response = self.client.get(url, {
-            "from_mediafile_id": source_mediafile.id,
-            "to_mediafile_id": target_mediafile.id,
-        })
+        response = self.client.get(
+            url,
+            {
+                "from_mediafile_id": source_mediafile.id,
+                "to_mediafile_id": target_mediafile.id,
+            },
+        )
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Merge from")
@@ -238,6 +263,7 @@ class MergeIdentitySuggestionsViewTest(TestCase):
         self.assertEqual(reversed_response.context["form"].initial["code"], "SRC")
 
     def test_merge_preview_ignores_mediafile_from_other_identity(self):
+        """Ignore a requested preview media file that belongs to a different identity."""
         source = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup)
         target = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup)
         source_mediafile = MediaFileFactory(parent=UploadedArchiveFactory(owner=self.caiduser))
@@ -255,6 +281,7 @@ class MergeIdentitySuggestionsViewTest(TestCase):
         self.assertEqual(response.context["to_mediafiles"][0], target_mediafile)
 
     def test_invalid_merge_form_keeps_direction_and_errors(self):
+        """Retain source, target, and validation errors when the merge form is invalid."""
         source = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Source")
         target = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Target")
 
@@ -270,6 +297,7 @@ class MergeIdentitySuggestionsViewTest(TestCase):
         self.assertTrue(IndividualIdentity.objects.filter(pk=source.pk).exists())
 
     def test_select_second_identity_for_merge_prefills_best_fuzzy_match_and_enables_select2(self):
+        """Prefill the closest fuzzy candidate and enable searchable identity selection."""
         identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Marta 12")
         closest = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Márta 12 L")
         IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Completely different")
@@ -282,6 +310,7 @@ class MergeIdentitySuggestionsViewTest(TestCase):
         self.assertContains(response, "select2.full.js")
 
     def test_identity_detail_has_merge_action(self):
+        """Offer an identity detail action that opens the merge selection workflow."""
         identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup)
 
         response = self.client.get(reverse("caidapp:individual_identity_update", args=[identity.id]))
@@ -291,6 +320,7 @@ class MergeIdentitySuggestionsViewTest(TestCase):
         self.assertContains(response, reverse("caidapp:merge_identities", args=[identity.id]))
 
     def test_excluding_suggestion_persists_pair_and_hides_existing_result(self):
+        """Persist the excluded identity pair and hide it from already saved suggestions."""
         first = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Sara_juv.22-1")
         second = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Sara_juv.22-2")
         result = MergeIdentitySuggestionResult.objects.create(
@@ -319,6 +349,7 @@ class MergeIdentitySuggestionsViewTest(TestCase):
         self.assertNotContains(response, f'value="{first.id}|{second.id}"')
 
     def test_suggestions_are_paginated_without_recomputation(self):
+        """Paginate 205 saved suggestions in batches of 100 without recomputing candidates."""
         first = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Alpha")
         second = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Beta")
         result = MergeIdentitySuggestionResult.objects.create(
@@ -343,6 +374,7 @@ class MergeIdentitySuggestionsViewTest(TestCase):
     @patch("caidapp.views._celery_worker_available", return_value=True)
     @patch("caidapp.views.AsyncResult")
     def test_status_endpoint_returns_progress(self, async_result_mock, _worker_mock):
+        """Return the merge worker's running progress through the status endpoint."""
         session = self.client.session
         session["refresh_job_id"] = "job-123"
         session.save()
@@ -370,6 +402,7 @@ class MergeIdentitySuggestionsViewTest(TestCase):
 
     @patch("caidapp.views.current_app.control.revoke")
     def test_cancel_view_revokes_running_job(self, revoke_mock):
+        """Revoke a merge-generation task and clear its session ID on cancellation."""
         session = self.client.session
         session["refresh_job_id"] = "job-123"
         session.save()
@@ -383,6 +416,7 @@ class MergeIdentitySuggestionsViewTest(TestCase):
     @patch("caidapp.views._celery_worker_available", return_value=False)
     @patch("caidapp.views.AsyncResult")
     def test_view_recovers_from_stale_job_without_worker(self, async_result_mock, _worker_mock):
+        """Recover stale merge generation synchronously when the worker is absent."""
         session = self.client.session
         session["refresh_job_id"] = "stale-job"
         session["refresh_job_started_at"] = "2026-06-22T12:00:00+00:00"
@@ -402,6 +436,7 @@ class MergeIdentitySuggestionsViewTest(TestCase):
     @patch("caidapp.views._celery_worker_available", return_value=False)
     @patch("caidapp.views.AsyncResult")
     def test_fresh_job_survives_temporary_worker_inspect_failure(self, async_result_mock, _worker_mock):
+        """Keep a newly queued job pending through a temporary worker inspection failure."""
         session = self.client.session
         session["refresh_job_id"] = "fresh-job"
         session["refresh_job_started_at"] = timezone.now().isoformat()
@@ -420,6 +455,7 @@ class MergeIdentitySuggestionsViewTest(TestCase):
     @patch("caidapp.views._celery_worker_available", return_value=True)
     @patch("caidapp.views.AsyncResult")
     def test_start_does_not_enqueue_duplicate_job(self, async_result_mock, _worker_mock, delay_mock):
+        """Avoid queuing another merge job while the current session job is active."""
         session = self.client.session
         session["refresh_job_id"] = "job-123"
         session.save()

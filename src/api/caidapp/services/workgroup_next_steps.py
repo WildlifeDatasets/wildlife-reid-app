@@ -43,12 +43,8 @@ def build_next_steps(workgroup: models.WorkGroup | None) -> list[NextStepCandida
         parent__is_for_identification=True,
         parent__import_finished=True,
     )
-    identification_mediafiles = models.filter_mediafiles_by_identification_taxon(
-        identification_mediafiles, workgroup
-    )
-    has_assigned_identity = identification_mediafiles.filter(
-        observations__identity__isnull=False
-    ).exists()
+    identification_mediafiles = models.filter_mediafiles_by_identification_taxon(identification_mediafiles, workgroup)
+    has_assigned_identity = identification_mediafiles.filter(observations__identity__isnull=False).exists()
     if identification_mediafiles.exists() and not has_assigned_identity:
         candidates.append(
             NextStepCandidate(
@@ -85,9 +81,7 @@ def build_next_steps(workgroup: models.WorkGroup | None) -> list[NextStepCandida
             NextStepCandidate(
                 code="identities_without_mediafiles",
                 priority=30,
-                text=(
-                    f"{identities_without_mediafiles.count()} identities do not have any media files assigned yet."
-                ),
+                text=(f"{identities_without_mediafiles.count()} identities do not have any media files assigned yet."),
                 url=reverse("caidapp:individual_identities"),
             )
         )

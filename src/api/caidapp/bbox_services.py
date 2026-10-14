@@ -23,6 +23,7 @@ DEFAULT_OPTIONS = {"detector": "auto", "confidence": 0.5, "min_iou": 0.2, "creat
 
 
 def source_name(mediafile):
+    """Return the image derivative name, falling back to the original media file."""
     return (mediafile.image_file or mediafile.mediafile).name
 
 
@@ -46,6 +47,7 @@ def observation_snapshot(mediafile):
 
 
 def xyxy(observation):
+    """Convert a valid center-size observation bbox to corners, or return None."""
     cx, cy, w, h = (getattr(observation, field) for field in BBOX_FIELDS)
     if any(v is None or not math.isfinite(v) for v in (cx, cy, w, h)) or w <= 0 or h <= 0:
         return None
@@ -53,6 +55,7 @@ def xyxy(observation):
 
 
 def iou(a, b):
+    """Return the intersection-over-union of two corner-coordinate bounding boxes."""
     overlap = max(0, min(a[2], b[2]) - max(a[0], b[0])) * max(0, min(a[3], b[3]) - max(a[1], b[1]))
     union = (a[2] - a[0]) * (a[3] - a[1]) + (b[2] - b[0]) * (b[3] - b[1]) - overlap
     return overlap / union if union > 0 else 0
@@ -69,6 +72,7 @@ def match_boxes(old, new, threshold):
 
 
 def validate_detections(result):
+    """Return successful detections or raise ValueError for malformed boxes or confidence."""
     if result.get("status") != "ok" or not isinstance(result.get("detections"), list):
         raise ValueError(result.get("message") or "Detector did not return a successful result")
     detections = result["detections"]
@@ -88,6 +92,7 @@ def validate_detections(result):
 
 
 def create_jobs(caiduser, mediafiles, options, *, purpose="replace", batch=None):
+    """Create an idempotent batch for images and dispatch queued jobs after commit."""
     batch = batch or uuid.uuid4()
     jobs = []
     with transaction.atomic():
@@ -120,6 +125,7 @@ def create_jobs(caiduser, mediafiles, options, *, purpose="replace", batch=None)
 
 
 def dispatch_job(job_id):
+    """Publish a detection task with completion callbacks, marking dispatch failures locally."""
     job = models.BboxDetectionJob.objects.get(pk=job_id)
     try:
         logger.info(
@@ -148,6 +154,7 @@ def dispatch_job(job_id):
 
 
 def fail_job(job_id, message):
+    """Mark a still-queued job as failed and record its completion time."""
     updated = models.BboxDetectionJob.objects.filter(pk=job_id, status="queued").update(
         status="failed",
         message=message,
@@ -201,7 +208,11 @@ def finish_job(job_id, result):
         job.task_id,
         job.mediafile_id,
         result.get("status") if isinstance(result, dict) else "invalid",
-        len(result.get("detections", [])) if isinstance(result, dict) and isinstance(result.get("detections"), list) else "invalid",
+        (
+            len(result.get("detections", []))
+            if isinstance(result, dict) and isinstance(result.get("detections"), list)
+            else "invalid"
+        ),
     )
     mediafile = (
         models.MediaFile.objects.select_for_update(of=("self",))
@@ -243,6 +254,7 @@ def finish_job(job_id, result):
 
 
 def reconcile(mediafile, observations, detections, job):
+    """Apply matched detections and unmatched policies, reuse placeholders, and invalidate ReID data."""
     options = job.options
     old = [o for o in observations if not o.is_no_detection_placeholder and xyxy(o) is not None]
     old_boxes = [xyxy(o) for o in old]

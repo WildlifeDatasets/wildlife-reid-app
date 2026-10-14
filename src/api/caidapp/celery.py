@@ -2,6 +2,7 @@ import logging
 import os
 import threading
 from datetime import timedelta
+
 from celery import Celery, signals
 
 RABBITMQ_URL = os.environ["RABBITMQ_URL"]
@@ -99,7 +100,9 @@ def _on_task_received(sender=None, request=None, **kwargs):
 
 @signals.task_prerun.connect
 def _on_task_prerun(sender=None, task_id=None, task=None, args=None, kwargs=None, **extra):
-    logger.info("Celery task prerun: %s", _signal_context(sender=sender, task_id=task_id, task=task, args=args, kwargs=kwargs))
+    logger.info(
+        "Celery task prerun: %s", _signal_context(sender=sender, task_id=task_id, task=task, args=args, kwargs=kwargs)
+    )
 
 
 @signals.task_postrun.connect
@@ -120,6 +123,7 @@ def _on_task_failure(sender=None, task_id=None, exception=None, args=None, kwarg
         exception,
         getattr(einfo, "traceback", None),
     )
+
 
 # load task modules
 app.autodiscover_tasks(["caidapp"])

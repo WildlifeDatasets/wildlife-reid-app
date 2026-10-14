@@ -2,6 +2,7 @@ from django.db import migrations
 
 
 def backfill_mediafile_locality_from_uploadedarchive(apps, schema_editor):
+    """Copy archive upload localities to media files that have no locality assigned."""
     UploadedArchive = apps.get_model("caidapp", "UploadedArchive")
     MediaFile = apps.get_model("caidapp", "MediaFile")
 

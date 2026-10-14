@@ -3,13 +3,12 @@ import os
 import time
 from pathlib import Path
 
+from caidapp.models import CaIDUser, Locality, UploadedArchive, WorkGroup
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management.base import BaseCommand
 from django.test import Client
 from django.urls import reverse
-
-from caidapp.models import CaIDUser, Locality, UploadedArchive, WorkGroup
 
 
 class NewUploadHealthcheckError(Exception):
@@ -22,6 +21,7 @@ class Command(BaseCommand):
     help = "End-to-end healthcheck of the new upload flow with real ZIP input."
 
     def add_arguments(self, parser):
+        """Configure the test archive, expected locality, timeout, and healthcheck cleanup options."""
         parser.add_argument("--username", default="system_healthcheck_new_upload")
         parser.add_argument("--zip-name", default="2021-05-06_Tri_lokality_XYZ.zip")
         parser.add_argument("--expected-locality", default="Xandovice")
@@ -29,6 +29,7 @@ class Command(BaseCommand):
         parser.add_argument("--cleanup-after", action="store_true")
 
     def handle(self, *args, **options):
+        """Upload a fixture through the API and verify processing, creating healthcheck database records."""
         dataset_dir = os.getenv("WRAP_TEST_DATA_DIR")
         if not dataset_dir:
             raise NewUploadHealthcheckError("WRAP_TEST_DATA_DIR is not configured inside the container.")

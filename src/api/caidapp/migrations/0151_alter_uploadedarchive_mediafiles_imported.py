@@ -6,13 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0150_uploadedarchive_import_finished'),
+        ("caidapp", "0150_uploadedarchive_import_finished"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='uploadedarchive',
-            name='mediafiles_imported',
-            field=models.BooleanField(default=False, verbose_name='Media Files Import Finished Correctly'),
+            model_name="uploadedarchive",
+            name="mediafiles_imported",
+            field=models.BooleanField(default=False, verbose_name="Media Files Import Finished Correctly"),
         ),
     ]

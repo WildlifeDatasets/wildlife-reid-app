@@ -1,14 +1,14 @@
 from unittest.mock import Mock, call, patch
 
-from django.test import TestCase
-from django.urls import reverse
-
 from caidapp import models, tasks, views
 from caidapp.app_tests.factories import CaidUserFactory, MediaFileFactory, UploadedArchiveFactory
+from django.test import TestCase
+from django.urls import reverse
 
 
 class IdentificationProgressApiTest(TestCase):
     def setUp(self):
+        """Authenticate a workgroup member and configure the identification progress endpoint."""
         self.caiduser = CaidUserFactory()
         self.client.force_login(self.caiduser.user)
         self.workgroup = self.caiduser.workgroup
@@ -16,6 +16,7 @@ class IdentificationProgressApiTest(TestCase):
 
     @patch("caidapp.views.AsyncResult")
     def test_returns_reid_worker_progress(self, async_result):
+        """Expose the worker's percent and stage for the scheduled identification task."""
         self.workgroup.identification_reid_status = "Processing"
         self.workgroup.identification_reid_message = "Running identification"
         self.workgroup.identification_scheduled_run_task_id = "identify-task-1"
@@ -36,6 +37,7 @@ class IdentificationProgressApiTest(TestCase):
 
     @patch("caidapp.views.AsyncResult")
     def test_reconciles_stale_processing_when_worker_task_succeeded(self, async_result):
+        """Reconcile a completed worker task with stale processing state and clear its scheduled task ID."""
         self.workgroup.identification_reid_status = "Processing"
         self.workgroup.identification_reid_message = "Running identification"
         self.workgroup.identification_scheduled_run_task_id = "identify-task-1"
@@ -56,6 +58,7 @@ class IdentificationProgressApiTest(TestCase):
 
     @patch("caidapp.views.AsyncResult", side_effect=RuntimeError("Redis unavailable"))
     def test_backend_error_keeps_progress_endpoint_available(self, async_result):
+        """Return starting progress when the task result backend is unavailable."""
         self.workgroup.identification_init_status = "Processing"
         self.workgroup.identification_init_message = "Initializing"
         self.workgroup.identification_scheduled_init_task_id = "init-task-1"
@@ -67,6 +70,7 @@ class IdentificationProgressApiTest(TestCase):
         self.assertEqual(response.json()["init"]["progress"]["stage"], "starting")
 
     def test_dash_identification_progress_uses_compact_circular_indicators(self):
+        """Render compact circular identification progress controls instead of the older bar UI."""
         self.workgroup.identification_init_status = "Processing"
         self.workgroup.identification_init_message = "Encoding references"
         self.workgroup.save()
@@ -76,13 +80,14 @@ class IdentificationProgressApiTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "ident-progress-dot")
         self.assertContains(response, "--ident-progress")
-        self.assertContains(response, "data-operation=\"init\"")
+        self.assertContains(response, 'data-operation="init"')
         self.assertNotContains(response, "Identification progress")
         self.assertNotContains(response, "ident-progress-bar")
 
 
 class IdentificationRunStatisticTest(TestCase):
     def test_finish_identification_run_statistic_sets_duration(self):
+        """Store task completion time and a nonnegative identification duration."""
         workgroup = CaidUserFactory().workgroup
         statistic = tasks.create_identification_run_statistic(
             workgroup=workgroup,
@@ -101,6 +106,7 @@ class IdentificationRunStatisticTest(TestCase):
 
     @patch("caidapp.views.signature")
     def test_bulk_identification_dispatch_creates_statistic(self, signature_mock):
+        """Create a run statistic with separate image and video counts during bulk dispatch."""
         caiduser = CaidUserFactory()
         workgroup = caiduser.workgroup
         workgroup.check_taxon_before_identification = False

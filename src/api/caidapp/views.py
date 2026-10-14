@@ -1,7 +1,7 @@
 import datetime
 import io
-import math
 import logging
+import math
 import os
 import random
 import re
@@ -40,7 +40,22 @@ from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.files.base import ContentFile
 from django.core.paginator import Page, Paginator
 from django.db import transaction
-from django.db.models import CharField, Count, F, Func, IntegerField, Max, Min, OuterRef, Prefetch, Q, QuerySet, Subquery, Value, Window
+from django.db.models import (
+    CharField,
+    Count,
+    F,
+    Func,
+    IntegerField,
+    Max,
+    Min,
+    OuterRef,
+    Prefetch,
+    Q,
+    QuerySet,
+    Subquery,
+    Value,
+    Window,
+)
 from django.db.models.functions import Cast, Coalesce
 from django.forms import modelformset_factory
 from django.forms.models import model_to_dict
@@ -258,9 +273,10 @@ SEQUENCE_EXPORT_DEFAULT_COLUMNS = [
 PATH_REGEX_CHATGPT_PROMPT_PREFIX_LINES = [
     "Help me write a Python regular expression for parsing wildlife dataset file paths.",
     "Use named groups only from: taxon, locality, unique_name, code, juv_code, check_date, date.",
-    "Use unique_name for the individual identity name. The legacy group name identity is accepted, but do not use it unless the user asks for it.",
+    "Use unique_name for the individual identity name. The legacy group name identity is accepted, "
+    "but do not use it unless the user asks for it.",
     "If check_date or date is present, prefer YYYY-MM-DD with (?P<check_date>\\d{4}-\\d{2}-\\d{2}).",
-    "Return the regex pattern only, without Python prefixes or quotes such as r\"...\".",
+    'Return the regex pattern only, without Python prefixes or quotes such as r"...".',
     "The regex should match these sample paths:",
 ]
 PATH_REGEX_CHATGPT_PROMPT_SUFFIX = (
@@ -773,9 +789,15 @@ def identification_information(request) -> HttpResponse:
     current_model = workgroup.identification_model
     initialized_model = workgroup.identification_initialized_model
     recent_similar_pair_results = list(workgroup.similar_pair_results.all()[:10]) if request.user.is_staff else []
-    recent_outlier_results = list(
-        models.IdentificationOutlierSuggestionResult.objects.filter(workgroup=workgroup).order_by("-created_at")[:10]
-    ) if request.user.is_staff else []
+    recent_outlier_results = (
+        list(
+            models.IdentificationOutlierSuggestionResult.objects.filter(workgroup=workgroup).order_by("-created_at")[
+                :10
+            ]
+        )
+        if request.user.is_staff
+        else []
+    )
 
     mediafiles = MediaFile.objects.filter(parent__owner__workgroup=workgroup)
     counts = {
@@ -785,15 +807,18 @@ def identification_information(request) -> HttpResponse:
         "representative_mediafiles": mediafiles.filter(
             observations__identity__isnull=False,
             observations__identity_is_representative=True,
-        ).distinct().count(),
+        )
+        .distinct()
+        .count(),
         "initialized_reference_mediafiles": mediafiles.filter(used_for_init_identification=True).count(),
         "identification_uploads": UploadedArchive.objects.filter(
             owner__workgroup=workgroup,
             is_for_identification=True,
         ).count(),
-        "queued_mediafiles": MediafilesForIdentification.objects.filter(
-            mediafile__parent__owner__workgroup=workgroup
-        ).values("mediafile_id").distinct().count(),
+        "queued_mediafiles": MediafilesForIdentification.objects.filter(mediafile__parent__owner__workgroup=workgroup)
+        .values("mediafile_id")
+        .distinct()
+        .count(),
     }
 
     return render(
@@ -1032,6 +1057,7 @@ def _workgroup_identification_progress(workgroup: WorkGroup, operation: str) -> 
 
 @login_required
 def identification_progress_api(request):
+    """Return initialization and identification progress for the current user's workgroup."""
     workgroup = request.user.caiduser.workgroup
     if workgroup is None:
         return JsonResponse({"error": "No workgroup assigned."}, status=400)
@@ -1183,9 +1209,7 @@ def _home_next_step(caiduser) -> dict:
         identification_mediafiles = models.filter_mediafiles_by_identification_taxon(
             identification_mediafiles, workgroup
         )
-        has_assigned_identity = identification_mediafiles.filter(
-            observations__identity__isnull=False
-        ).exists()
+        has_assigned_identity = identification_mediafiles.filter(observations__identity__isnull=False).exists()
         if identification_mediafiles.exists() and not has_assigned_identity:
             return {
                 "label": "Manual identification",
@@ -1205,11 +1229,15 @@ def _home_next_step(caiduser) -> dict:
 
         pending_identification_count = tasks.get_uploaded_archives_pending_identification(workgroup).count()
         identification_is_initiated = workgroup.identification_init_at is not None
-        representative_count = MediaFile.objects.filter(
-            parent__owner__workgroup=workgroup,
-            observations__identity_is_representative=True,
-            parent__taxon_for_identification__isnull=False,
-        ).distinct().count()
+        representative_count = (
+            MediaFile.objects.filter(
+                parent__owner__workgroup=workgroup,
+                observations__identity_is_representative=True,
+                parent__taxon_for_identification__isnull=False,
+            )
+            .distinct()
+            .count()
+        )
 
         if pending_identification_count > 0 and identification_is_initiated:
             return {
@@ -1441,7 +1469,11 @@ class IndividualIdentityUpdateView(LoginRequiredMixin, UpdateView):
         mediafiles_count = individual_identity.count_of_mediafiles()
         observations_count = AnimalObservation.objects.filter(identity=individual_identity).count()
         sequences_count = (
-            individual_identity.observation_mediafiles().exclude(sequence_id__isnull=True).values("sequence_id").distinct().count()
+            individual_identity.observation_mediafiles()
+            .exclude(sequence_id__isnull=True)
+            .values("sequence_id")
+            .distinct()
+            .count()
         )
         media_files = individual_identity.observation_mediafiles().filter(
             observations__identity=individual_identity,
@@ -1808,7 +1840,6 @@ def get_individual_identity_from_foridentification(
         # )
 
         # -------------------------------- vvvvv ------
-        from django.db.models import Prefetch
 
         # připrav filtr: reprezentativní a orientované (pokud zadané)
         mediafile_filter = {"identity_is_representative": True}
@@ -1830,14 +1861,11 @@ def get_individual_identity_from_foridentification(
         #     .order_by("name")
         # )
         # ----------------------
-        remaining_identities = (
-            IndividualIdentity.objects.filter(
-                Q(owner_workgroup=request.user.caiduser.workgroup),
-                ~Q(name="nan"),
-                ~Q(id__in=identity_ids),
-            )
-            .order_by("name")
-        )
+        remaining_identities = IndividualIdentity.objects.filter(
+            Q(owner_workgroup=request.user.caiduser.workgroup),
+            ~Q(name="nan"),
+            ~Q(id__in=identity_ids),
+        ).order_by("name")
         # -------------------------------- ^^^^^ ------
 
         logger.debug(f"  1 {time.time() - t0=:.2f} [s]")
@@ -2388,7 +2416,8 @@ def _single_species_button_style(request, dashboard_stats=None) -> dict:
     is_initiated = request.user.caiduser.workgroup.identification_init_at is not None
 
     n_representative = (
-        dashboard_stats["representative"] if dashboard_stats is not None
+        dashboard_stats["representative"]
+        if dashboard_stats is not None
         else workgroup.mediafiles_for_train_or_init_identification().count()
     )
     if dashboard_stats is None:
@@ -2396,23 +2425,20 @@ def _single_species_button_style(request, dashboard_stats=None) -> dict:
     else:
         # Button availability must reflect current data, even with an older snapshot.
         observation_taxon = (
-            workgroup.default_taxon_for_identification
-            if workgroup.check_taxon_before_identification else None
+            workgroup.default_taxon_for_identification if workgroup.check_taxon_before_identification else None
         )
         exists_representative = workgroup.mediafiles_for_identification(
             representative_only=True, require_identity=True, observation_taxon=observation_taxon
         ).exists()
 
-    n_unidentified = (
-        UploadedArchive.objects.filter(
-            # status="Species Finished",
-            Q(taxon_status="TKN") | Q(taxon_status="TV"),
-            owner__workgroup=request.user.caiduser.workgroup,
-            contains_identities=False,
-            # contains_single_taxon=True,
-            taxon_for_identification__isnull=False,
-        ).count()
-    )
+    n_unidentified = UploadedArchive.objects.filter(
+        # status="Species Finished",
+        Q(taxon_status="TKN") | Q(taxon_status="TV"),
+        owner__workgroup=request.user.caiduser.workgroup,
+        contains_identities=False,
+        # contains_single_taxon=True,
+        taxon_for_identification__isnull=False,
+    ).count()
 
     exists_unidentified = n_unidentified > 0
 
@@ -2440,10 +2466,10 @@ def _single_species_button_style(request, dashboard_stats=None) -> dict:
     }
     btn_styles["confirm_identification"] = {"class": "primary" if exists_for_confirmation else "secondary"}
 
-    init_disabled = (
-        workgroup.identification_init_status in {"Processing", "Scheduled"}
-        or workgroup.identification_reid_status in {"Processing", "Scheduled"}
-    )
+    init_disabled = workgroup.identification_init_status in {
+        "Processing",
+        "Scheduled",
+    } or workgroup.identification_reid_status in {"Processing", "Scheduled"}
     logger.debug(
         f"{init_disabled=}, {workgroup.identification_init_status=}, "
         f"{workgroup.identification_reid_status=}, {exists_representative=}"
@@ -2466,13 +2492,11 @@ def _single_species_button_style(request, dashboard_stats=None) -> dict:
         else ""
     )
     if workgroup.identification_model_is_initialized():
-        btn_styles["run_identification"]["tooltip"] = (
-            f"Identification suggestion for {n_unidentified} archives."
-        )
+        btn_styles["run_identification"]["tooltip"] = f"Identification suggestion for {n_unidentified} archives."
     else:
-        btn_styles["run_identification"]["tooltip"] = (
-            "Identification is waiting for initialization of the selected model."
-        )
+        btn_styles["run_identification"][
+            "tooltip"
+        ] = "Identification is waiting for initialization of the selected model."
     btn_styles["run_identification"][
         "confirm"
     ] = f"Identification of {n_unidentified} archives will take some time. Continue?"
@@ -2856,19 +2880,13 @@ def _one_zip_from_request_FILES(request: HttpRequest) -> HttpRequest:
 
 
 def user_can_use_new_upload(user) -> bool:
+    """Check authentication and staff, workgroup admin, or enabled upload workflow access."""
     if not user.is_authenticated:
         return False
     caiduser = getattr(user, "caiduser", None)
     return bool(
         user.is_staff
-        or (
-            caiduser
-            and (
-                caiduser.workgroup_admin
-                or caiduser.show_taxon_classification
-                or caiduser.show_reid
-            )
-        )
+        or (caiduser and (caiduser.workgroup_admin or caiduser.show_taxon_classification or caiduser.show_reid))
     )
 
 
@@ -2884,6 +2902,7 @@ class NewUploadView(LoginRequiredMixin, UserPassesTestMixin, View):
     template_name = "caidapp/new_upload.html"
 
     def test_func(self):
+        """Apply upload workflow access checks before dispatching the view."""
         return user_can_use_new_upload(self.request.user)
 
     def _get_form_initial(self, request):
@@ -2897,6 +2916,7 @@ class NewUploadView(LoginRequiredMixin, UserPassesTestMixin, View):
         return initial
 
     def get(self, request):
+        """Render the upload form with workflow defaults, localities, and upload limits."""
         form = forms.NewUploadForm(user=request.user, initial=self._get_form_initial(request))
         return render(
             request,
@@ -2912,6 +2932,7 @@ class NewUploadView(LoginRequiredMixin, UserPassesTestMixin, View):
         )
 
     def post(self, request):
+        """Validate and package uploaded files, record consent, and start archive processing."""
         form = forms.NewUploadForm(request.POST, request.FILES, user=request.user)
         if not form.is_valid():
             html = render_to_string(
@@ -2971,9 +2992,7 @@ class NewUploadView(LoginRequiredMixin, UserPassesTestMixin, View):
             return JsonResponse({"ok": False, "html": html}, status=400)
 
         blocking_import_log = [
-            line
-            for line in zip_result.import_log.splitlines()
-            if "too shallow" in line or "no relative paths" in line
+            line for line in zip_result.import_log.splitlines() if "too shallow" in line or "no relative paths" in line
         ]
         if blocking_import_log:
             html = render_to_string(
@@ -3003,7 +3022,9 @@ class NewUploadView(LoginRequiredMixin, UserPassesTestMixin, View):
         uploaded_archive.archivefile.save(zip_result.filename, zip_result.file, save=False)
         uploaded_archive.name = zip_result.archive_name
         if uploaded_archive.locality_at_upload:
-            uploaded_archive.locality_at_upload_object = models.get_locality(caiduser, uploaded_archive.locality_at_upload)
+            uploaded_archive.locality_at_upload_object = models.get_locality(
+                caiduser, uploaded_archive.locality_at_upload
+            )
         uploaded_archive.save()
         counts = uploaded_archive.number_of_media_files_in_archive()
 
@@ -3016,12 +3037,11 @@ class NewUploadView(LoginRequiredMixin, UserPassesTestMixin, View):
             next_url = reverse_lazy("caidapp:uploads_identities")
 
         summary_lines = [
-            f"Uploaded {counts['file_count']} files ({counts['image_count']} images and {counts['video_count']} videos).",
+            f"Uploaded {counts['file_count']} files "
+            f"({counts['image_count']} images and {counts['video_count']} videos).",
         ]
         if zip_result.spreadsheet_summary.filename:
-            summary_lines.append(
-                "Spreadsheet columns: " + ", ".join(zip_result.spreadsheet_summary.normalized_columns)
-            )
+            summary_lines.append("Spreadsheet columns: " + ", ".join(zip_result.spreadsheet_summary.normalized_columns))
         if zip_result.import_log:
             summary_lines.append("Warnings: " + zip_result.import_log.replace("\n", " "))
 
@@ -3536,9 +3556,9 @@ def _mediafiles_query(
         logger.debug(str(query))
         mediafiles = mediafiles.annotate(rank=SearchRank(vector, query)).filter(rank__gt=0).order_by("-rank")
         # return mediafiles
-    mediafiles = mediafiles.select_related(
-        "parent", "locality", "updated_by", "sequence"
-    ).prefetch_related("observations__taxon", "observations__identity")
+    mediafiles = mediafiles.select_related("parent", "locality", "updated_by", "sequence").prefetch_related(
+        "observations__taxon", "observations__identity"
+    )
 
     return mediafiles
 
@@ -3817,9 +3837,7 @@ def _get_filtered_mediafiles_queryset(
 ) -> Tuple[QuerySet, filters.MediaFileFilter, str, Optional[str]]:
     """Build the filtered mediafiles queryset shared by multiple views."""
     filter_kwargs = dict(extra_filter_kwargs or {})
-    init_identification_candidates = bool(
-        _parse_bool_query_param(request.GET.get("init_identification_candidates"))
-    )
+    init_identification_candidates = bool(_parse_bool_query_param(request.GET.get("init_identification_candidates")))
 
     if uploadedarchive_id is None and request.GET.get("uploadedarchive_id"):
         uploadedarchive_id = _parse_int_query_param_or_404(request.GET.get("uploadedarchive_id"), "uploaded archive id")
@@ -3992,8 +4010,7 @@ def _get_mediafiles_for_observation_export(request: HttpRequest) -> QuerySet:
         "objects_per_image_max",
     )
     has_observation_only_filter = any(
-        observation_filter.form.cleaned_data.get(name) not in (None, "")
-        for name in observation_only_filter_names
+        observation_filter.form.cleaned_data.get(name) not in (None, "") for name in observation_only_filter_names
     )
     if has_observation_only_filter:
         mediafiles = MediaFile.objects.filter(id__in=observation_queryset.order_by().values("mediafile_id"))
@@ -4033,7 +4050,9 @@ def _get_mediafiles_for_observation_export(request: HttpRequest) -> QuerySet:
         .prefetch_related(
             Prefetch(
                 "observations",
-                queryset=AnimalObservation.objects.select_related("taxon", "predicted_taxon", "identity").order_by("id"),
+                queryset=AnimalObservation.objects.select_related("taxon", "predicted_taxon", "identity").order_by(
+                    "id"
+                ),
             )
         )
         .order_by("sequence_id", "captured_at", "id")
@@ -4119,9 +4138,7 @@ def observations(request: HttpRequest) -> HttpResponse:
     editable_mediafiles = MediaFile.objects.for_user(request.user.caiduser).filter(
         id__in=matching_mediafiles.order_by().values("id")
     )
-    editable_observations = observation_queryset.filter(
-        mediafile_id__in=editable_mediafiles.order_by().values("id")
-    )
+    editable_observations = observation_queryset.filter(mediafile_id__in=editable_mediafiles.order_by().values("id"))
     editable_sequence_ids = list(
         editable_observations.exclude(mediafile__sequence_id__isnull=True)
         .order_by()
@@ -4135,9 +4152,9 @@ def observations(request: HttpRequest) -> HttpResponse:
         .distinct()
         .count()
     )
-    editable_sequence_mediafile_count = MediaFile.objects.for_user(request.user.caiduser).filter(
-        sequence_id__in=editable_sequence_ids
-    ).count()
+    editable_sequence_mediafile_count = (
+        MediaFile.objects.for_user(request.user.caiduser).filter(sequence_id__in=editable_sequence_ids).count()
+    )
     form_bulk_processing = MediaFileBulkForm(
         request.POST or None,
         workgroup=request.user.caiduser.workgroup,
@@ -4153,9 +4170,7 @@ def observations(request: HttpRequest) -> HttpResponse:
             }
             selected_observations = editable_observations.filter(id__in=requested_observation_ids)
         selected_observation_ids = list(selected_observations.values_list("id", flat=True))
-        selected_mediafile_ids = sorted(
-            set(selected_observations.values_list("mediafile_id", flat=True))
-        )
+        selected_mediafile_ids = sorted(set(selected_observations.values_list("mediafile_id", flat=True)))
         selected_sequence_ids = sorted(
             set(
                 selected_observations.exclude(mediafile__sequence_id__isnull=True).values_list(
@@ -4187,6 +4202,7 @@ def observations(request: HttpRequest) -> HttpResponse:
 
         if requested_selection_action == "btnRedetectBboxes":
             from .views_bbox import prepare_redetection
+
             return prepare_redetection(request, selected_mediafile_ids)
 
         if requested_selection_action in {
@@ -4194,7 +4210,11 @@ def observations(request: HttpRequest) -> HttpResponse:
             "btnBulkProcessing_remove_bbox",
         }:
             updated_at = django.utils.timezone.now()
-            bbox_values = (0.5, 0.5, 1.0, 1.0) if requested_selection_action.endswith("full_image_bbox") else (None, None, None, None)
+            bbox_values = (
+                (0.5, 0.5, 1.0, 1.0)
+                if requested_selection_action.endswith("full_image_bbox")
+                else (None, None, None, None)
+            )
             for observation in selected_observations:
                 (
                     observation.bbox_x_center,
@@ -4210,16 +4230,18 @@ def observations(request: HttpRequest) -> HttpResponse:
                 updated_at=updated_at,
             )
             changed_observation_count = len(selected_observation_ids)
-            action_label = "Set full-image bbox on" if requested_selection_action.endswith("full_image_bbox") else "Removed bbox from"
+            action_label = (
+                "Set full-image bbox on"
+                if requested_selection_action.endswith("full_image_bbox")
+                else "Removed bbox from"
+            )
             messages.success(request, f"{action_label} {changed_observation_count} observations.")
             return redirect(request.get_full_path())
 
         if requested_selection_action == "btnDeleteObservations":
             updated_at = django.utils.timezone.now()
             with transaction.atomic():
-                affected_mediafiles = list(
-                    MediaFile.objects.select_for_update().filter(id__in=selected_mediafile_ids)
-                )
+                affected_mediafiles = list(MediaFile.objects.select_for_update().filter(id__in=selected_mediafile_ids))
                 deletable_observations = AnimalObservation.objects.filter(
                     pk__in=selected_observations.exclude(is_no_detection_placeholder=True).values("pk")
                 )
@@ -4242,7 +4264,8 @@ def observations(request: HttpRequest) -> HttpResponse:
             if skipped_placeholder_count:
                 messages.info(
                     request,
-                    f"Kept {skipped_placeholder_count} no-detection placeholders so their media files remain represented.",
+                    f"Kept {skipped_placeholder_count} no-detection placeholders "
+                    "so their media files remain represented.",
                 )
             return redirect(request.get_full_path())
 
@@ -4267,8 +4290,14 @@ def observations(request: HttpRequest) -> HttpResponse:
                 ):
                     skipped_count += 1
                     continue
-                previous_value = getattr(observation, f"{field_name}_id", None) if field_name in {"taxon", "identity"} else getattr(observation, field_name)
-                new_value = field_value.id if field_name in {"taxon", "identity"} and field_value is not None else field_value
+                previous_value = (
+                    getattr(observation, f"{field_name}_id", None)
+                    if field_name in {"taxon", "identity"}
+                    else getattr(observation, field_name)
+                )
+                new_value = (
+                    field_value.id if field_name in {"taxon", "identity"} and field_value is not None else field_value
+                )
                 setattr(observation, field_name, field_value)
                 update_fields = [field_name, "updated_by", "updated_at"]
                 if field_name == "taxon" and previous_value != new_value:
@@ -4285,9 +4314,9 @@ def observations(request: HttpRequest) -> HttpResponse:
                 observation.updated_at = updated_at
                 observation.save(update_fields=update_fields)
                 changed_count += 1
-            MediaFile.objects.filter(
-                id__in=selected_observations.values("mediafile_id")
-            ).update(updated_by=request.user.caiduser, updated_at=updated_at)
+            MediaFile.objects.filter(id__in=selected_observations.values("mediafile_id")).update(
+                updated_by=request.user.caiduser, updated_at=updated_at
+            )
             messages.success(request, f"Updated {field_name.replace('_', ' ')} on {changed_count} observations.")
             if skipped_count:
                 if field_name == "taxon_verified":
@@ -4368,7 +4397,11 @@ def observations(request: HttpRequest) -> HttpResponse:
         )
         group_sort_field = F("observation_group_sort")
         group_ordering = [
-            group_sort_field.desc(nulls_last=True) if sort_by == "captured_desc" else group_sort_field.asc(nulls_last=True),
+            (
+                group_sort_field.desc(nulls_last=True)
+                if sort_by == "captured_desc"
+                else group_sort_field.asc(nulls_last=True)
+            ),
             F(partition_field).asc(nulls_last=True),
         ]
 
@@ -4377,13 +4410,23 @@ def observations(request: HttpRequest) -> HttpResponse:
     elif sort_by == "captured_asc":
         observation_ordering = [F("mediafile__captured_at").asc(nulls_last=True), "mediafile_id", "id"]
     elif sort_by == "locality":
-        observation_ordering = [F("mediafile__locality__name").asc(nulls_last=True), "mediafile__captured_at", "mediafile_id", "id"]
+        observation_ordering = [
+            F("mediafile__locality__name").asc(nulls_last=True),
+            "mediafile__captured_at",
+            "mediafile_id",
+            "id",
+        ]
     elif sort_by == "filename":
         observation_ordering = [F("mediafile__original_filename").asc(nulls_last=True), "mediafile_id", "id"]
     elif sort_by == "taxon":
         observation_ordering = [F("taxon__name").asc(nulls_last=True), "mediafile__captured_at", "mediafile_id", "id"]
     elif sort_by == "identity":
-        observation_ordering = [F("identity__name").asc(nulls_last=True), "mediafile__captured_at", "mediafile_id", "id"]
+        observation_ordering = [
+            F("identity__name").asc(nulls_last=True),
+            "mediafile__captured_at",
+            "mediafile_id",
+            "id",
+        ]
     else:
         observation_ordering = ["id"]
     observation_queryset = observation_queryset.order_by(*group_ordering, *observation_ordering)
@@ -4561,8 +4604,12 @@ def _build_sequence_scope_query_string(
 def _get_sequences_queryset_from_mediafiles(full_mediafiles: QuerySet) -> QuerySet:
     """Return sequences derived from a filtered mediafile queryset."""
     scoped_mediafiles = full_mediafiles.exclude(sequence__isnull=True)
-    first_captured_at = scoped_mediafiles.filter(sequence=OuterRef("pk")).order_by("captured_at", "id").values("captured_at")[:1]
-    first_mediafile_id = scoped_mediafiles.filter(sequence=OuterRef("pk")).order_by("captured_at", "id").values("id")[:1]
+    first_captured_at = (
+        scoped_mediafiles.filter(sequence=OuterRef("pk")).order_by("captured_at", "id").values("captured_at")[:1]
+    )
+    first_mediafile_id = (
+        scoped_mediafiles.filter(sequence=OuterRef("pk")).order_by("captured_at", "id").values("id")[:1]
+    )
     sequence_ids = scoped_mediafiles.values("sequence_id")
 
     sequences = (
@@ -4619,15 +4666,19 @@ def _resolve_selected_mediafile_ids_from_post(request, filtered_mediafiles: Opti
     deselected_mediafile_ids = {int(v) for v in request.POST.getlist("deselected_mediafile_ids") if str(v).isdigit()}
 
     if selected_sequence_ids:
-        sequence_mediafile_ids = MediaFile.objects.for_user(request.user.caiduser).filter(
-            sequence_id__in=selected_sequence_ids
-        ).values_list("id", flat=True)
+        sequence_mediafile_ids = (
+            MediaFile.objects.for_user(request.user.caiduser)
+            .filter(sequence_id__in=selected_sequence_ids)
+            .values_list("id", flat=True)
+        )
         selected_mediafile_ids.update(sequence_mediafile_ids)
 
     selected_mediafile_ids.difference_update(deselected_mediafile_ids)
-    accessible_ids = MediaFile.objects.for_user(request.user.caiduser).filter(
-        id__in=selected_mediafile_ids
-    ).values_list("id", flat=True)
+    accessible_ids = (
+        MediaFile.objects.for_user(request.user.caiduser)
+        .filter(id__in=selected_mediafile_ids)
+        .values_list("id", flat=True)
+    )
     return sorted(accessible_ids)
 
 
@@ -4671,11 +4722,9 @@ def _dissolve_mediafiles_into_singleton_sequences(caiduser, mediafile_ids: List[
 
     next_local_id_by_archive = {}
     for archive_id in {mediafile.parent_id for mediafile in mediafiles_to_reassign if mediafile.parent_id}:
-        current_max_local_id = (
-            models.Sequence.objects.filter(uploaded_archive_id=archive_id).aggregate(max_local_id=Max("local_id"))[
-                "max_local_id"
-            ]
-        )
+        current_max_local_id = models.Sequence.objects.filter(uploaded_archive_id=archive_id).aggregate(
+            max_local_id=Max("local_id")
+        )["max_local_id"]
         next_local_id_by_archive[archive_id] = 0 if current_max_local_id is None else current_max_local_id + 1
 
     for mediafile in mediafiles_to_reassign:
@@ -4892,9 +4941,13 @@ def _apply_filename_metadata_to_mediafile(
     locality_name = groups.get("locality")
     if locality_name:
         locality = models.get_locality(caiduser, locality_name)
-        if locality and mediafile.locality_id != locality.id and _can_apply_filename_metadata_value(
-            mediafile.locality_id,
-            force_rewrite_filled_data,
+        if (
+            locality
+            and mediafile.locality_id != locality.id
+            and _can_apply_filename_metadata_value(
+                mediafile.locality_id,
+                force_rewrite_filled_data,
+            )
         ):
             mediafile.locality = locality
             changed_fields.append("locality")
@@ -4917,39 +4970,58 @@ def _apply_filename_metadata_to_mediafile(
             skipped_observation_metadata = True
         else:
             identity_changed = False
-            if identity_name and identity.name != identity_name and _can_apply_filename_metadata_value(
-                identity.name,
-                force_rewrite_filled_data,
+            if (
+                identity_name
+                and identity.name != identity_name
+                and _can_apply_filename_metadata_value(
+                    identity.name,
+                    force_rewrite_filled_data,
+                )
             ):
                 identity.name = identity_name[:100]
                 identity_changed = True
-            if code and identity.code != code and _can_apply_filename_metadata_value(
-                identity.code,
-                force_rewrite_filled_data,
+            if (
+                code
+                and identity.code != code
+                and _can_apply_filename_metadata_value(
+                    identity.code,
+                    force_rewrite_filled_data,
+                )
             ):
                 identity.code = code[:50]
                 identity_changed = True
-            if juv_code and identity.juv_code != juv_code and _can_apply_filename_metadata_value(
-                identity.juv_code,
-                force_rewrite_filled_data,
+            if (
+                juv_code
+                and identity.juv_code != juv_code
+                and _can_apply_filename_metadata_value(
+                    identity.juv_code,
+                    force_rewrite_filled_data,
+                )
             ):
                 identity.juv_code = juv_code[:50]
                 identity_changed = True
             if identity_changed:
                 identity.save()
                 changed_fields.append("identity_fields")
-            if _apply_value_to_observation(
-                observation,
-                "identity",
-                identity,
-                force_rewrite_filled_data,
-            ) and "identity" not in changed_fields:
+            if (
+                _apply_value_to_observation(
+                    observation,
+                    "identity",
+                    identity,
+                    force_rewrite_filled_data,
+                )
+                and "identity" not in changed_fields
+            ):
                 changed_fields.append("identity")
 
     captured_at = _parse_filename_metadata_date(groups.get("check_date") or groups.get("date"))
-    if captured_at and mediafile.captured_at != captured_at and _can_apply_filename_metadata_value(
-        mediafile.captured_at,
-        force_rewrite_filled_data,
+    if (
+        captured_at
+        and mediafile.captured_at != captured_at
+        and _can_apply_filename_metadata_value(
+            mediafile.captured_at,
+            force_rewrite_filled_data,
+        )
     ):
         mediafile.captured_at = captured_at
         changed_fields.append("captured_at")
@@ -4969,7 +5041,9 @@ def _apply_filename_metadata_to_mediafile(
 
 def _build_filename_metadata_regex_prompt(sample_paths: List[str]) -> str:
     """Build a ChatGPT prompt for suggesting a filename metadata regex."""
-    sample_lines = "\n".join(f"- {path}" for path in sample_paths) if sample_paths else "- taxon/unique_name/example.jpg"
+    sample_lines = (
+        "\n".join(f"- {path}" for path in sample_paths) if sample_paths else "- taxon/unique_name/example.jpg"
+    )
     return "\n".join([*PATH_REGEX_CHATGPT_PROMPT_PREFIX_LINES, sample_lines, "", PATH_REGEX_CHATGPT_PROMPT_SUFFIX])
 
 
@@ -4998,7 +5072,9 @@ def apply_filename_metadata_to_uploadedarchive(request, uploadedarchive_id: int)
     if not user_has_rw_acces_to_uploadedarchive(request.user.caiduser, uploaded_archive):
         return HttpResponseNotAllowed("Not allowed to work with this uploaded archive.")
 
-    return_url = request.GET.get("next") or reverse_lazy("caidapp:uploadedarchive_mediafiles", args=[uploaded_archive.id])
+    return_url = request.GET.get("next") or reverse_lazy(
+        "caidapp:uploadedarchive_mediafiles", args=[uploaded_archive.id]
+    )
     mediafile_ids = list(uploaded_archive.mediafile_set.values_list("id", flat=True))
     return _start_filename_metadata_session(
         request,
@@ -5015,7 +5091,9 @@ def apply_filename_metadata_to_mediafiles(request) -> HttpResponse:
     mediafile_ids = request.session.get("filename_metadata_mediafile_ids", [])
     return_url = request.session.get("filename_metadata_return_url") or reverse_lazy("caidapp:sequences")
     source_label = request.session.get("filename_metadata_source_label") or "Sequences"
-    mediafiles = MediaFile.objects.for_user(caiduser).filter(id__in=mediafile_ids).select_related("updated_by", "parent")
+    mediafiles = (
+        MediaFile.objects.for_user(caiduser).filter(id__in=mediafile_ids).select_related("updated_by", "parent")
+    )
     mediafile_count = mediafiles.count()
     multiple_observation_mediafile_count = (
         mediafiles.annotate(filename_metadata_observation_count=Count("observations"))
@@ -5230,7 +5308,9 @@ def sequences(
         .order_by("first_captured_at", "first_mediafile_id", "pk")
     )
     sequence_by_id = {sequence.id: sequence for sequence in page_sequences}
-    ordered_sequences = [sequence_by_id[sequence_id] for sequence_id in page_sequence_ids if sequence_id in sequence_by_id]
+    ordered_sequences = [
+        sequence_by_id[sequence_id] for sequence_id in page_sequence_ids if sequence_id in sequence_by_id
+    ]
     matching_mediafile_ids_on_page = set(
         full_mediafiles.filter(sequence_id__in=page_sequence_ids).values_list("id", flat=True)
     )
@@ -5261,7 +5341,9 @@ def sequences(
             locality_counts[mediafile.locality] = locality_counts.get(mediafile.locality, 0) + 1
         sequence.localities = [
             locality
-            for locality, _count in sorted(locality_counts.items(), key=lambda item: (-item[1], item[0].name, item[0].id))
+            for locality, _count in sorted(
+                locality_counts.items(), key=lambda item: (-item[1], item[0].name, item[0].id)
+            )
         ]
         sequence.primary_locality = sequence.localities[0] if sequence.localities else None
         sequence.additional_localities = sequence.localities[1:]
@@ -5270,13 +5352,10 @@ def sequences(
         _annotate_verification_sequence_taxon_groups(ordered_sequences)
     if request.method == "POST" and "btnRedetectBboxes" in request.POST:
         from .views_bbox import prepare_redetection
+
         return prepare_redetection(request, _resolve_selected_mediafile_ids_from_post(request, full_mediafiles))
 
-    page_mediafile_ids = [
-        mediafile.id
-        for sequence in ordered_sequences
-        for mediafile in sequence.mediafile_set.all()
-    ]
+    page_mediafile_ids = [mediafile.id for sequence in ordered_sequences for mediafile in sequence.mediafile_set.all()]
     request.session["mediafile_ids_page"] = page_mediafile_ids
 
     form_bulk_processing = MediaFileBulkForm(request.POST or None, workgroup=request.user.caiduser.workgroup)
@@ -5511,9 +5590,9 @@ def media_files_update(
         ),
     )
 
-    full_mediafiles = full_mediafiles.select_related(
-        "parent", "locality", "updated_by", "sequence"
-    ).prefetch_related("observations__taxon", "observations__predicted_taxon", "observations__identity")
+    full_mediafiles = full_mediafiles.select_related("parent", "locality", "updated_by", "sequence").prefetch_related(
+        "observations__taxon", "observations__predicted_taxon", "observations__identity"
+    )
 
     number_of_mediafiles = full_mediafiles.count()
     logger.debug(f"{number_of_mediafiles=}")
@@ -5592,7 +5671,9 @@ def media_files_update(
                 bulk_result_counts = {}
                 for mediafile in full_mediafiles:
 
-                    result = _single_mediafile_update(request, mediafile, form, form_bulk_processing, selected_album_hash)
+                    result = _single_mediafile_update(
+                        request, mediafile, form, form_bulk_processing, selected_album_hash
+                    )
                     bulk_result_counts[result] = bulk_result_counts.get(result, 0) + 1
                     # album.cover = mediafile
                     # album.save()
@@ -5607,7 +5688,9 @@ def media_files_update(
                             mediafileform.cleaned_data["selected"] = False
                             mediafileform.selected = False
                             instance: MediaFile = mediafileform.save(commit=False)
-                            result = _single_mediafile_update(request, instance, form, form_bulk_processing, selected_album_hash)
+                            result = _single_mediafile_update(
+                                request, instance, form, form_bulk_processing, selected_album_hash
+                            )
                             bulk_result_counts[result] = bulk_result_counts.get(result, 0) + 1
                             # album.cover = instance
                             # album.save()
@@ -5896,7 +5979,9 @@ def select_taxon_for_identification(request, uploadedarchive_id: int):
     if not user_has_rw_acces_to_uploadedarchive(request.user.caiduser, uploaded_archive):
         return HttpResponseNotAllowed("Not allowed to edit this uploaded archive.")
     workgroup = request.user.caiduser.workgroup
-    next_url = request.GET.get("next") or request.POST.get("next") or reverse("caidapp:uploads_ready_for_identification")
+    next_url = (
+        request.GET.get("next") or request.POST.get("next") or reverse("caidapp:uploads_ready_for_identification")
+    )
     if request.method == "POST":
         form = UploadedArchiveSelectTaxonForIdentificationForm(request.POST)
         if form.is_valid():
@@ -5945,24 +6030,27 @@ class WorkgroupAdminRequiredMixin(UserPassesTestMixin):
 
 
 def _build_identity_merge_regex_chatgpt_prompt(current_regex: str) -> str:
-    return f"""Help me configure a Python regular expression for wildlife identity merge suggestions.
-
-The application applies the regex separately to two identity names BEFORE calculating Levenshtein distance. The regex extracts an identity-distinguishing token:
-- If both names match and their captured values differ, the pair must never be suggested for merging.
-- If both names match and captured values are identical, normal Levenshtein comparison continues.
-- If only one or neither name matches, normal Levenshtein comparison continues.
-- When the regex has capture groups, the application compares the groups. Without capture groups, it compares the full match.
-
-Example: Sara_juv.22-1 must not merge with Sara_juv.22-2 or Sara_juv.23-1. A suitable regex captures year 22 and juvenile index 1 separately.
-
-Current regex:
-{current_regex}
-
-First consult me: ask for representative identity names that must not be paired, names that should still be allowed to pair, and naming variants or separators that occur. Then explain the proposed capture groups and test the regex against my examples. Do not finalize until ambiguities have been discussed.
-
-Conduct the consultation and all explanations in the language used by the user. If the user's language is not yet clear, ask which language they prefer.
-
-When we agree, put the final regex by itself on the LAST line of your response. The last line must contain only the regex: no Markdown code fence, no quotation marks, and no Python r prefix."""
+    return (
+        "Help me configure a Python regular expression for wildlife identity merge suggestions.\n\n"
+        "The application applies the regex separately to two identity names BEFORE calculating Le"
+        "venshtein distance. The regex extracts an identity-distinguishing token:\n- If both names"
+        " match and their captured values differ, the pair must never be suggested for merging.\n-"
+        " If both names match and captured values are identical, normal Levenshtein comparison co"
+        "ntinues.\n- If only one or neither name matches, normal Levenshtein comparison continues."
+        "\n- When the regex has capture groups, the application compares the groups. Without captu"
+        "re groups, it compares the full match.\n\nExample: Sara_juv.22-1 must not merge with Sara_"
+        "juv.22-2 or Sara_juv.23-1. A suitable regex captures year 22 and juvenile index 1 separa"
+        "tely.\n\nCurrent regex:\n"
+        f"{current_regex}"
+        "\n\nFirst consult me: ask for representative identity names that must not be paired, names"
+        " that should still be allowed to pair, and naming variants or separators that occur. The"
+        "n explain the proposed capture groups and test the regex against my examples. Do not fin"
+        "alize until ambiguities have been discussed.\n\nConduct the consultation and all explanati"
+        "ons in the language used by the user. If the user's language is not yet clear, ask which"
+        " language they prefer.\n\nWhen we agree, put the final regex by itself on the LAST line of"
+        " your response. The last line must contain only the regex: no Markdown code fence, no qu"
+        "otation marks, and no Python r prefix."
+    )
 
 
 class WorkgroupUpdateView(WorkgroupAdminRequiredMixin, UpdateView):
@@ -5995,13 +6083,9 @@ class WorkgroupUpdateView(WorkgroupAdminRequiredMixin, UpdateView):
         context = super().get_context_data(**kwargs)
         context["headline"] = "Update workgroup"
         context["button"] = "Save"
-        regex_prompt = _build_identity_merge_regex_chatgpt_prompt(
-            self.object.get_identity_merge_distinguishing_regex()
-        )
+        regex_prompt = _build_identity_merge_regex_chatgpt_prompt(self.object.get_identity_merge_distinguishing_regex())
         context["identity_merge_regex_chatgpt_prompt"] = regex_prompt
-        context["identity_merge_regex_chatgpt_url"] = (
-            f"https://chatgpt.com/?q={urllib.parse.quote(regex_prompt)}"
-        )
+        context["identity_merge_regex_chatgpt_url"] = f"https://chatgpt.com/?q={urllib.parse.quote(regex_prompt)}"
         context["nav_dict"] = {
             "Personal Settings": reverse_lazy("caidapp:update_caiduser"),
             "Users": reverse_lazy("caidapp:workgroup_members"),
@@ -6022,6 +6106,7 @@ class WorkgroupMemberListView(WorkgroupAdminRequiredMixin, ListView):
     context_object_name = "workgroup_members"
 
     def get_queryset(self):
+        """Return members of the current user's workgroup ordered by username."""
         return (
             models.CaIDUser.objects.filter(workgroup=self.request.user.caiduser.workgroup)
             .select_related("user")
@@ -6029,6 +6114,7 @@ class WorkgroupMemberListView(WorkgroupAdminRequiredMixin, ListView):
         )
 
     def get_context_data(self, **kwargs):
+        """Add workgroup settings and invitation navigation to the member list."""
         context = super().get_context_data(**kwargs)
         context["headline"] = "Workgroup users"
         context["nav_dict"] = {
@@ -6048,9 +6134,11 @@ class WorkgroupMemberUpdateView(WorkgroupAdminRequiredMixin, UpdateView):
     success_url = reverse_lazy("caidapp:workgroup_members")
 
     def get_queryset(self):
+        """Restrict workflow-access edits to members of the current user's workgroup."""
         return models.CaIDUser.objects.filter(workgroup=self.request.user.caiduser.workgroup).select_related("user")
 
     def get_context_data(self, **kwargs):
+        """Add the member workflow form heading and return navigation."""
         context = super().get_context_data(**kwargs)
         context["headline"] = f"Workflow access: {self.object}"
         context["button"] = "Save"
@@ -6183,9 +6271,7 @@ def _get_mediafiles_for_export(request, uploadedarchive_id: Optional[int]) -> Tu
         request,
         uploadedarchive_id=uploadedarchive_id,
     )
-    mediafiles = mediafiles.select_related(
-        "parent", "locality", "sequence"
-    ).prefetch_related(
+    mediafiles = mediafiles.select_related("parent", "locality", "sequence").prefetch_related(
         Prefetch(
             "observations",
             queryset=AnimalObservation.objects.select_related("taxon", "predicted_taxon", "identity").order_by("id"),
@@ -6210,7 +6296,9 @@ def _sanitize_export_component(value: Optional[object], default: str = "unknown"
 
 def _build_export_value(unique_values: List[str], unknown_label: str, mixed_label: str) -> Tuple[str, str]:
     """Return aggregate export value and joined list representation."""
-    sanitized_values = sorted({_sanitize_export_component(value, default=unknown_label) for value in unique_values if value})
+    sanitized_values = sorted(
+        {_sanitize_export_component(value, default=unknown_label) for value in unique_values if value}
+    )
     if not sanitized_values:
         return unknown_label, unknown_label
     if len(sanitized_values) == 1:
@@ -6234,7 +6322,9 @@ def _get_mediafile_export_context(mediafile: models.MediaFile) -> Dict[str, str]
     mediafile_name = Path(mediafile.mediafile.name) if mediafile.mediafile else Path(str(mediafile.pk))
     original_stem = Path(mediafile.original_filename).stem if mediafile.original_filename else mediafile_name.stem
     extension = mediafile_name.suffix or Path(mediafile.original_filename).suffix
-    locality = _sanitize_export_component(mediafile.locality.name if mediafile.locality else None, default="unknown_locality")
+    locality = _sanitize_export_component(
+        mediafile.locality.name if mediafile.locality else None, default="unknown_locality"
+    )
     captured_date = mediafile.captured_at.strftime("%Y-%m-%d") if mediafile.captured_at else "unknown_date"
 
     return {
@@ -6314,7 +6404,9 @@ def _get_sequence_download_mediafiles(request: HttpRequest) -> QuerySet:
         .prefetch_related(
             Prefetch(
                 "observations",
-                queryset=AnimalObservation.objects.select_related("taxon", "predicted_taxon", "identity").order_by("id"),
+                queryset=AnimalObservation.objects.select_related("taxon", "predicted_taxon", "identity").order_by(
+                    "id"
+                ),
             )
         )
         .order_by("sequence_id", "captured_at", "id")
@@ -6336,7 +6428,9 @@ def _get_observation_download_mediafiles(request: HttpRequest) -> QuerySet:
         .prefetch_related(
             Prefetch(
                 "observations",
-                queryset=AnimalObservation.objects.select_related("taxon", "predicted_taxon", "identity").order_by("id"),
+                queryset=AnimalObservation.objects.select_related("taxon", "predicted_taxon", "identity").order_by(
+                    "id"
+                ),
             )
         )
         .order_by("sequence_id", "captured_at", "id")
@@ -6370,7 +6464,9 @@ def _location_export_values(mediafile: models.MediaFile) -> Dict[str, str]:
         "longitude": longitude,
         "locality_id": mediafile.locality_id or "",
         "mediafile_location": str(mediafile.location) if mediafile.location else "",
-        "locality_location": str(mediafile.locality.location) if mediafile.locality and mediafile.locality.location else "",
+        "locality_location": (
+            str(mediafile.locality.location) if mediafile.locality and mediafile.locality.location else ""
+        ),
         "location_source": mediafile.effective_location_source or "",
     }
 
@@ -6386,14 +6482,14 @@ def _build_sequence_observation_export_records(
     mediafile_export_paths = {}
     if include_export_path and request is not None:
         for mediafile in mediafiles:
-            mediafile_export_paths[mediafile.id] = _render_mediafile_export_path(_get_mediafile_export_template(request), mediafile)
+            mediafile_export_paths[mediafile.id] = _render_mediafile_export_path(
+                _get_mediafile_export_template(request), mediafile
+            )
 
     records = []
     for mediafile in mediafiles:
         observations = [
-            observation
-            for observation in mediafile.observations.all()
-            if not observation.is_no_detection_placeholder
+            observation for observation in mediafile.observations.all() if not observation.is_no_detection_placeholder
         ] or [None]
         mediafile_location_values = _location_export_values(mediafile)
         for observation in observations:
@@ -6415,12 +6511,8 @@ def _build_sequence_observation_export_records(
                 "taxon_verified": observation.taxon_verified if observation else "",
                 "predicted_taxon": predicted_taxon.name if predicted_taxon else "",
                 "predicted_taxon_id": predicted_taxon.id if predicted_taxon else "",
-                "predicted_taxon_confidence": (
-                    observation.predicted_taxon_confidence if observation else ""
-                ),
-                "identity_is_representative": (
-                    observation.identity_is_representative if observation else ""
-                ),
+                "predicted_taxon_confidence": (observation.predicted_taxon_confidence if observation else ""),
+                "identity_is_representative": (observation.identity_is_representative if observation else ""),
                 "identity_id": identity.id if identity else "",
                 "orientation": observation.orientation if observation else "",
                 "bbox_cx": observation.bbox_x_center if observation else "",
@@ -6441,7 +6533,9 @@ def _build_sequence_observation_export_records(
     return records
 
 
-def _sequence_export_dataframe(mediafiles: QuerySet, request: HttpRequest, columns: Optional[List[str]] = None) -> pd.DataFrame:
+def _sequence_export_dataframe(
+    mediafiles: QuerySet, request: HttpRequest, columns: Optional[List[str]] = None
+) -> pd.DataFrame:
     records = _build_sequence_observation_export_records(mediafiles, request=request, columns=columns)
     return pd.DataFrame.from_records(records, columns=columns or SEQUENCE_EXPORT_DEFAULT_COLUMNS)
 
@@ -6549,8 +6643,12 @@ def download_zip_for_sequences_view(request) -> JsonResponse:
     datetime_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
     user_hash = request.user.caiduser.hash
     abs_zip_path = Path(settings.MEDIA_ROOT) / "users" / user_hash / f"sequence_mediafiles.{datetime_str}.zip"
-    task = tasks.create_mediafiles_zip_with_metadata.delay(user_hash, mediafiles_data, str(abs_zip_path), metadata_records)
-    _ = tasks.clean_old_mediafile_zips.delay(str(abs_zip_path.parent), glob_pattern="sequence_mediafiles.*.zip", max_age_days=7)
+    task = tasks.create_mediafiles_zip_with_metadata.delay(
+        user_hash, mediafiles_data, str(abs_zip_path), metadata_records
+    )
+    _ = tasks.clean_old_mediafile_zips.delay(
+        str(abs_zip_path.parent), glob_pattern="sequence_mediafiles.*.zip", max_age_days=7
+    )
     return JsonResponse({"task_id": task.id})
 
 
@@ -6559,7 +6657,9 @@ def download_observations_view(request: HttpRequest) -> HttpResponse:
     """Configure the image and metadata export prepared from Observations."""
     mediafiles = _get_observation_download_mediafiles(request)
     mediafile_count = mediafiles.count()
-    return_url = request.session.get(OBSERVATION_DOWNLOAD_RETURN_URL_SESSION_KEY) or reverse_lazy("caidapp:observations")
+    return_url = request.session.get(OBSERVATION_DOWNLOAD_RETURN_URL_SESSION_KEY) or reverse_lazy(
+        "caidapp:observations"
+    )
     if mediafile_count == 0:
         return message_view(
             request,
@@ -6590,6 +6690,7 @@ def download_observations_view(request: HttpRequest) -> HttpResponse:
 
 @login_required
 def download_csv_for_observations_selection_view(request) -> HttpResponse:
+    """Export metadata for the observation selection as a downloadable CSV response."""
     mediafiles = _get_observation_download_mediafiles(request)
     df = _sequence_export_dataframe(mediafiles, request, _get_sequence_export_columns(request))
     if df.empty:
@@ -6601,6 +6702,7 @@ def download_csv_for_observations_selection_view(request) -> HttpResponse:
 
 @login_required
 def download_xlsx_for_observations_selection_view(request) -> HttpResponse:
+    """Export metadata for the observation selection as an XLSX with timezone-naive dates."""
     mediafiles = _get_observation_download_mediafiles(request)
     df = _sequence_export_dataframe(mediafiles, request, _get_sequence_export_columns(request))
     if df.empty:
@@ -6638,8 +6740,12 @@ def download_zip_for_observations_view(request) -> JsonResponse:
     datetime_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
     user_hash = request.user.caiduser.hash
     abs_zip_path = Path(settings.MEDIA_ROOT) / "users" / user_hash / f"observation_mediafiles.{datetime_str}.zip"
-    task = tasks.create_mediafiles_zip_with_metadata.delay(user_hash, mediafiles_data, str(abs_zip_path), metadata_records)
-    _ = tasks.clean_old_mediafile_zips.delay(str(abs_zip_path.parent), glob_pattern="observation_mediafiles.*.zip", max_age_days=7)
+    task = tasks.create_mediafiles_zip_with_metadata.delay(
+        user_hash, mediafiles_data, str(abs_zip_path), metadata_records
+    )
+    _ = tasks.clean_old_mediafile_zips.delay(
+        str(abs_zip_path.parent), glob_pattern="observation_mediafiles.*.zip", max_age_days=7
+    )
     return JsonResponse({"task_id": task.id})
 
 
@@ -7026,7 +7132,9 @@ class MergeIdentitiesWithPreview(LoginRequiredMixin, View):
         elif mediafiles:
             representative = identity.cover_mediafile()
             if representative:
-                mediafiles = [representative] + [mediafile for mediafile in mediafiles if mediafile.pk != representative.pk]
+                mediafiles = [representative] + [
+                    mediafile for mediafile in mediafiles if mediafile.pk != representative.pk
+                ]
         return mediafiles[:40]
 
     def _render_preview(self, request, individual_from, individual_to, form):
@@ -7041,26 +7149,32 @@ class MergeIdentitiesWithPreview(LoginRequiredMixin, View):
         from_mediafile_id = from_mediafiles[0].pk if from_mediafiles else ""
         to_mediafile_id = to_mediafiles[0].pk if to_mediafiles else ""
         swap_url = reverse("caidapp:merge_identities", args=[individual_to.pk, individual_from.pk])
-        swap_url += "?" + urllib.parse.urlencode({
-            "from_mediafile_id": to_mediafile_id,
-            "to_mediafile_id": from_mediafile_id,
-            "next": return_url,
-        })
-        return render(request, "caidapp/merge_identities_preview.html", {
-            "form": form,
-            "individual_from": individual_from,
-            "individual_to": individual_to,
-            "from_mediafiles": from_mediafiles,
-            "to_mediafiles": to_mediafiles,
-            "from_mediafile_id": from_mediafile_id,
-            "to_mediafile_id": to_mediafile_id,
-            "from_mediafiles_count": individual_from.count_of_mediafiles(),
-            "to_mediafiles_count": individual_to.count_of_mediafiles(),
-            "differences": differences,
-            "swap_url": swap_url,
-            "cancel_button_url": return_url,
-            "return_url": return_url,
-        })
+        swap_url += "?" + urllib.parse.urlencode(
+            {
+                "from_mediafile_id": to_mediafile_id,
+                "to_mediafile_id": from_mediafile_id,
+                "next": return_url,
+            }
+        )
+        return render(
+            request,
+            "caidapp/merge_identities_preview.html",
+            {
+                "form": form,
+                "individual_from": individual_from,
+                "individual_to": individual_to,
+                "from_mediafiles": from_mediafiles,
+                "to_mediafiles": to_mediafiles,
+                "from_mediafile_id": from_mediafile_id,
+                "to_mediafile_id": to_mediafile_id,
+                "from_mediafiles_count": individual_from.count_of_mediafiles(),
+                "to_mediafiles_count": individual_to.count_of_mediafiles(),
+                "differences": differences,
+                "swap_url": swap_url,
+                "cancel_button_url": return_url,
+                "return_url": return_url,
+            },
+        )
 
     def get(self, request, individual_identity_from_id, individual_identity_to_id):
         """Render the merge form."""
@@ -7254,7 +7368,9 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
                             counter_fields_updated += 1
 
                         code_supplied, code_value = _spreadsheet_optional_text_update(row.get("code"))
-                        unique_name_supplied, unique_name_value = _spreadsheet_optional_text_update(row.get("unique_name"))
+                        unique_name_supplied, unique_name_value = _spreadsheet_optional_text_update(
+                            row.get("unique_name")
+                        )
                         juv_code_supplied, juv_code_value = _spreadsheet_optional_text_update(row.get("juv_code"))
                         identity = None
                         if code_value:
@@ -7299,7 +7415,9 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
                         if ("latitude" in row) and ("longitude" in row):
                             latitude = row["latitude"]
                             longitude = row["longitude"]
-                            if _spreadsheet_cell_requests_clear(latitude) and _spreadsheet_cell_requests_clear(longitude):
+                            if _spreadsheet_cell_requests_clear(latitude) and _spreadsheet_cell_requests_clear(
+                                longitude
+                            ):
                                 mf.location = None
                                 counter_fields_updated += 1
                             elif not pd.isna(latitude) and not pd.isna(longitude):
@@ -7412,7 +7530,8 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
                     + "The 'predicted_category', 'unique_name', 'code', 'juv_code', 'locality name', "
                     + "'latitude', 'longitude', 'datetime' are optional. "
                     + "Blank cells keep existing values. "
-                    + f"Use {forms.SPREADSHEET_CLEAR_TOKEN} to clear supported nullable fields such as predicted_category, code, juv_code, locality name, latitude+longitude and datetime.",
+                    + f"Use {forms.SPREADSHEET_CLEAR_TOKEN} to clear supported nullable fields such as "
+                    "predicted_category, code, juv_code, locality name, latitude+longitude and datetime.",
                 },
             )
 
@@ -7436,7 +7555,8 @@ class UpdateUploadedArchiveBySpreadsheetFile(View):
                 + "The 'predicted_category', 'unique_name', 'code', 'juv_code', 'locality name', "
                 + "'latitude', 'longitude', 'datetime' are optional. "
                 + "Blank cells keep existing values. "
-                + f"Use {forms.SPREADSHEET_CLEAR_TOKEN} to clear supported nullable fields such as predicted_category, code, juv_code, locality name, latitude+longitude and datetime.",
+                + f"Use {forms.SPREADSHEET_CLEAR_TOKEN} to clear supported nullable fields such as "
+                "predicted_category, code, juv_code, locality name, latitude+longitude and datetime.",
             },
         )
 
@@ -7668,10 +7788,14 @@ def get_merge_identity_suggestions_state(request):
     """Return current merge suggestion generation state and latest data."""
     job_id = request.session.get("refresh_job_id")
     result_id = request.session.get("refresh_result_id")
-    latest = models.MergeIdentitySuggestionResult.objects.filter(
-        workgroup=request.user.caiduser.workgroup,
-        **({"id": result_id} if result_id else {}),
-    ).order_by("id").last()
+    latest = (
+        models.MergeIdentitySuggestionResult.objects.filter(
+            workgroup=request.user.caiduser.workgroup,
+            **({"id": result_id} if result_id else {}),
+        )
+        .order_by("id")
+        .last()
+    )
     suggestions = latest.suggestions if latest else None
     created_at = latest.created_at if latest else None
     started_at = request.session.get("refresh_job_started_at")
@@ -7696,7 +7820,9 @@ def get_merge_identity_suggestions_state(request):
     missing_worker_is_stale = not _celery_worker_available() and (
         job_age is None or job_age > datetime.timedelta(seconds=30)
     )
-    pending_job_is_stale = result.state == "PENDING" and job_age is not None and job_age > datetime.timedelta(minutes=15)
+    pending_job_is_stale = (
+        result.state == "PENDING" and job_age is not None and job_age > datetime.timedelta(minutes=15)
+    )
     if result.state in {"PENDING", "STARTED", "PROGRESS"} and (missing_worker_is_stale or pending_job_is_stale):
         _clear_merge_identity_suggestions_job(request)
         messages.warning(request, "The previous merge suggestion job is no longer running. You can start it again.")
@@ -7763,6 +7889,7 @@ def get_merge_identity_suggestions_state(request):
 
 @login_required
 def merge_identity_suggestions_status(request):
+    """Return merge-suggestion job status, progress, and a success redirect URL."""
     state = get_merge_identity_suggestions_state(request)
     return JsonResponse(
         {
@@ -7775,6 +7902,7 @@ def merge_identity_suggestions_status(request):
 
 @login_required
 def start_merge_identity_suggestions(request):
+    """Start merge-suggestion generation on POST unless a job is already running."""
     if request.method != "POST":
         messages.error(request, "Invalid request method.")
         return redirect("caidapp:suggest_merge_identities")
@@ -7790,6 +7918,7 @@ def start_merge_identity_suggestions(request):
 
 @login_required
 def cancel_merge_identity_suggestions(request):
+    """Revoke the session's merge-suggestion job on POST and clear its session state."""
     if request.method != "POST":
         messages.error(request, "Invalid request method.")
         return redirect("caidapp:suggest_merge_identities")
@@ -7835,7 +7964,8 @@ def exclude_merge_identity_suggestion(request):
     )
     messages.success(
         request,
-        f"'{identities[identity_id1].name}' and '{identities[identity_id2].name}' will no longer be suggested together.",
+        f"'{identities[identity_id1].name}' and '{identities[identity_id2].name}' "
+        "will no longer be suggested together.",
     )
     return redirect("caidapp:suggest_merge_identities")
 
@@ -7910,7 +8040,8 @@ def suggest_merge_identities_view(request, limit: int = 100):
             valid_suggestions_ids = [
                 suggestion
                 for suggestion in suggestions_ids
-                if suggestion[0] in valid_identity_ids and suggestion[1] in valid_identity_ids
+                if suggestion[0] in valid_identity_ids
+                and suggestion[1] in valid_identity_ids
                 and tuple(sorted((suggestion[0], suggestion[1]))) not in excluded_pairs
             ]
             paginator = Paginator(valid_suggestions_ids, limit)
@@ -8123,8 +8254,11 @@ def identification_outlier_suggestions_view(request, result_id: int = None):
         ]
 
         if {"own_similarity", "best_other_similarity", "is_suspect"}.issubset(metadata.columns):
-            suspect_labels = metadata["is_suspect"].fillna(False).astype(bool).map(
-                lambda value: "Suspect" if bool(value) else "Not suspect"
+            suspect_labels = (
+                metadata["is_suspect"]
+                .fillna(False)
+                .astype(bool)
+                .map(lambda value: "Suspect" if bool(value) else "Not suspect")
             )
             similarity_fig = px.scatter(
                 metadata,
@@ -8295,10 +8429,7 @@ def similar_identity_pairs_view(request, result_id: int = None):
         if pair.get(f"mediafile_{side}_id")
     }
     identity_ids = {
-        pair.get(f"class_id_{side}")
-        for pair in raw_pairs
-        for side in ("a", "b")
-        if pair.get(f"class_id_{side}")
+        pair.get(f"class_id_{side}") for pair in raw_pairs for side in ("a", "b") if pair.get(f"class_id_{side}")
     }
     mediafiles = MediaFile.objects.filter(
         id__in=mediafile_ids,
@@ -8316,12 +8447,14 @@ def similar_identity_pairs_view(request, result_id: int = None):
             for side in ("a", "b"):
                 path = pair.get(f"path_{side}") or ""
                 identity_id = pair.get(f"class_id_{side}")
-                sides.append({
-                    "mediafile": mediafiles.get(pair.get(f"mediafile_{side}_id")),
-                    "identity": identities.get(identity_id),
-                    "label": pair.get(f"label_{side}") or "Unknown identity",
-                    "filename": Path(path).name,
-                })
+                sides.append(
+                    {
+                        "mediafile": mediafiles.get(pair.get(f"mediafile_{side}_id")),
+                        "identity": identities.get(identity_id),
+                        "label": pair.get(f"label_{side}") or "Unknown identity",
+                        "filename": Path(path).name,
+                    }
+                )
             cards.append({"a": sides[0], "b": sides[1], "similarity": pair.get("similarity")})
         return cards
 
@@ -8803,11 +8936,14 @@ def uploads_status_api(request, group: str):
 @login_required
 def export_identities_csv(request):
     """Export identities to CSV."""
-
-    all_identities = IndividualIdentity.objects.filter(
-        owner_workgroup=request.user.caiduser.workgroup,
-        # **user_has_access_filter_params(request.user.caiduser, "owner")
-    ).annotate(mediafile_count=Count("animalobservation__mediafile", distinct=True)).order_by("id")
+    all_identities = (
+        IndividualIdentity.objects.filter(
+            owner_workgroup=request.user.caiduser.workgroup,
+            # **user_has_access_filter_params(request.user.caiduser, "owner")
+        )
+        .annotate(mediafile_count=Count("animalobservation__mediafile", distinct=True))
+        .order_by("id")
+    )
     df = pd.DataFrame.from_records(all_identities.values())[
         ["id", "name", "code", "juv_code", "sex", "coat_type", "birth_date", "death_date", "note", "mediafile_count"]
     ]
@@ -8818,10 +8954,14 @@ def export_identities_csv(request):
 @login_required
 def export_identities_xlsx(request):
     """Export identities to Excel."""
-    all_identities = IndividualIdentity.objects.filter(
-        owner_workgroup=request.user.caiduser.workgroup,
-        # **user_has_access_filter_params(request.user.caiduser, "owner")
-    ).annotate(mediafile_count=Count("animalobservation__mediafile", distinct=True)).order_by("id")
+    all_identities = (
+        IndividualIdentity.objects.filter(
+            owner_workgroup=request.user.caiduser.workgroup,
+            # **user_has_access_filter_params(request.user.caiduser, "owner")
+        )
+        .annotate(mediafile_count=Count("animalobservation__mediafile", distinct=True))
+        .order_by("id")
+    )
     df = pd.DataFrame.from_records(all_identities.values())[
         ["id", "name", "code", "juv_code", "sex", "coat_type", "birth_date", "death_date", "note", "mediafile_count"]
     ]
@@ -8915,17 +9055,19 @@ def import_identities_view(request):
                             owner_workgroup=request.user.caiduser.workgroup,
                         ).first()
 
-                    if identity is None and _spreadsheet_cell_has_value(row.get("code")) and not _spreadsheet_cell_requests_clear(row.get("code")):
-                        identity, created_new = IndividualIdentity.objects.get_or_create(
+                    if (
+                        identity is None
+                        and _spreadsheet_cell_has_value(row.get("code"))
+                        and not _spreadsheet_cell_requests_clear(row.get("code"))
+                    ):
+                        identity, _ = IndividualIdentity.objects.get_or_create(
                             code=row["code"], owner_workgroup=request.user.caiduser.workgroup
                         )
                     elif identity is None and _spreadsheet_cell_has_value(row.get("name")):
-                        identity, created_new = IndividualIdentity.objects.get_or_create(
+                        identity, _ = IndividualIdentity.objects.get_or_create(
                             name=row["name"], owner_workgroup=request.user.caiduser.workgroup
                         )
-                    elif identity is not None:
-                        created_new = False
-                    else:
+                    elif identity is None:
                         logger.warning(f"No identification (name or code) found for {row} ")
                         continue
                 except models.IndividualIdentity.MultipleObjectsReturned:
@@ -9005,7 +9147,8 @@ def import_identities_view(request):
             + "There should be columns 'id', 'name' or 'code' in the file. "
             + "Optional columns are 'sex', 'coat_type', 'birth_date', 'death_date', 'note'. "
             + "Blank cells keep existing values. "
-            + f"Use {forms.SPREADSHEET_CLEAR_TOKEN} to clear supported nullable fields such as code, juv_code, note, birth_date and death_date.",
+            + f"Use {forms.SPREADSHEET_CLEAR_TOKEN} to clear supported nullable fields such as "
+            "code, juv_code, note, birth_date and death_date.",
             "next": "caidapp:individual_identities",
         },
     )
@@ -9073,7 +9216,11 @@ def _resolve_imported_related_object(row, id_column, name_columns, queryset, lab
             value = row.get(column)
             if not _spreadsheet_cell_has_value(value):
                 continue
-            model_field = "name" if column in {"predicted_category", "predicted_taxon", "unique_name", "locality name"} else column
+            model_field = (
+                "name"
+                if column in {"predicted_category", "predicted_taxon", "unique_name", "locality name"}
+                else column
+            )
             if str(getattr(obj, model_field) or "").strip() != str(value).strip():
                 raise ValueError(f"{label} ID {object_id} does not match {column} '{value}'")
         return obj, True
@@ -9081,13 +9228,14 @@ def _resolve_imported_related_object(row, id_column, name_columns, queryset, lab
         value = row.get(column)
         if not _spreadsheet_cell_has_value(value):
             continue
-        model_field = "name" if column in {"predicted_category", "predicted_taxon", "unique_name", "locality name"} else column
+        model_field = (
+            "name" if column in {"predicted_category", "predicted_taxon", "unique_name", "locality name"} else column
+        )
         matches = queryset.filter(**{model_field: str(value).strip()})
         match_count = matches.count()
         if match_count != 1:
             message = (
-                f"{label} {column} '{value}' matched {match_count} records; "
-                "it must identify exactly one record"
+                f"{label} {column} '{value}' matched {match_count} records; " "it must identify exactly one record"
             )
             if label == "identity" and column == "unique_name":
                 if _looks_like_original_file_path(value):
@@ -9125,11 +9273,16 @@ def _resolve_imported_identity(row, queryset, caiduser, create_missing=False):
     if match_count == 1:
         return matches.first(), True
     if match_count > 1:
-        raise ValueError(f"identity unique_name '{unique_name}' matched {match_count} records; it must identify exactly one record")
+        raise ValueError(
+            f"identity unique_name '{unique_name}' matched {match_count} records; it must identify exactly one record"
+        )
     if not create_missing:
         message = f"identity unique_name '{unique_name}' matched 0 records; it must identify exactly one record"
         if _looks_like_original_file_path(unique_name):
-            message += ". This value looks like an original file path, not an identity name; check that the spreadsheet columns have not shifted"
+            message += (
+                ". This value looks like an original file path, not an identity name; "
+                "check that the spreadsheet columns have not shifted"
+            )
         raise ValueError(message)
     if _looks_like_original_file_path(unique_name):
         raise ValueError(
@@ -9147,12 +9300,15 @@ def _resolve_imported_identity(row, queryset, caiduser, create_missing=False):
         code_match_count = queryset.filter(code=code).count()
         if code_match_count:
             raise ValueError(f"identity code '{code}' is already used by {code_match_count} records")
-    return IndividualIdentity.objects.create(
-        name=unique_name,
-        code=code,
-        owner_workgroup=caiduser.workgroup,
-        updated_by=caiduser,
-    ), True
+    return (
+        IndividualIdentity.objects.create(
+            name=unique_name,
+            code=code,
+            owner_workgroup=caiduser.workgroup,
+            updated_by=caiduser,
+        ),
+        True,
+    )
 
 
 def _resolve_imported_locality(row, queryset, caiduser, create_missing=False):
@@ -9183,7 +9339,9 @@ def _resolve_imported_locality(row, queryset, caiduser, create_missing=False):
         return Locality.objects.create(name=locality_name, owner=caiduser), True
     if match_count == 0:
         raise ValueError(f"locality name '{locality_name}' matched 0 records; it must identify exactly one record")
-    raise ValueError(f"locality name '{locality_name}' matched {match_count} records; it must identify exactly one record")
+    raise ValueError(
+        f"locality name '{locality_name}' matched {match_count} records; it must identify exactly one record"
+    )
 
 
 def _observation_bbox_from_row(row) -> Tuple[Optional[List[Optional[float]]], bool]:
@@ -9267,8 +9425,7 @@ def _import_observation_dataframe(
     if "mediafile_id" not in df.columns:
         raise ValueError("Missing required column mediafile_id")
     accessible_mediafiles = MediaFile.objects.filter(
-        Q(album__albumsharerole__user=caiduser)
-        | Q(**models.user_has_access_filter_params(caiduser, "parent__owner"))
+        Q(album__albumsharerole__user=caiduser) | Q(**models.user_has_access_filter_params(caiduser, "parent__owner"))
     ).distinct()
     accessible_observations = AnimalObservation.objects.filter(mediafile__in=accessible_mediafiles)
     identity_queryset = IndividualIdentity.objects.filter(owner_workgroup=caiduser.workgroup)
@@ -9524,7 +9681,9 @@ def toggle_identity_representative(request, mediafile_id: int):
         return JsonResponse(
             {
                 "ok": False,
-                "error": "Representative status can be changed here only for a media file with exactly one observation.",
+                "error": (
+                    "Representative status can be changed here only for a media file with exactly one observation."
+                ),
             },
             status=400,
         )
@@ -9622,7 +9781,7 @@ class NotificationDetailView(LoginRequiredMixin, DetailView):
     context_object_name = "notification"
     title = "Notification Detail"
     # paginate_by = 20
-    fields = ["message",  "level", "created_at"]
+    fields = ["message", "level", "created_at"]
     cancel_url = reverse_lazy("caidapp:notifications")
 
     # def get_queryset(self):
@@ -9632,14 +9791,9 @@ class NotificationDetailView(LoginRequiredMixin, DetailView):
     #     return qs.filter(user=self.request.user.caiduser)
 
     def get_queryset(self):
+        """Restrict notification detail access to notifications addressed to the current user."""
         user = self.request.user.caiduser
-        return (
-            super()
-            .get_queryset()
-            .filter(recipients__user=user)
-            .prefetch_related("recipients")
-            .distinct()
-        )
+        return super().get_queryset().filter(recipients__user=user).prefetch_related("recipients").distinct()
 
     def get(self, request, *args, **kwargs):
         """Handle GET request and mark notification as read."""
@@ -9705,10 +9859,12 @@ class WorkGroupInvitationCreateView(LoginRequiredMixin, UserPassesTestMixin, Cre
     success_url = reverse_lazy("caidapp:workgroup_invitations")
 
     def test_func(self):
+        """Allow invitation creation only for admins assigned to a workgroup."""
         user = self.request.user.caiduser
         return user.workgroup_admin and user.workgroup_id is not None
 
     def get_form_kwargs(self):
+        """Pass the current user's workgroup to the invitation form for validation."""
         kwargs = super().get_form_kwargs()
         kwargs["target_workgroup"] = self.request.user.caiduser.workgroup
         return kwargs
@@ -9746,6 +9902,7 @@ class WorkGroupInvitationListView(LoginRequiredMixin, ListView):
     title = "Workgroup Invitations"
 
     def dispatch(self, request, *args, **kwargs):
+        """Require a workgroup admin and scope invitation filtering before dispatch."""
         user = request.user
         """Check if the user is a workgroup admin and set the target workgroup for filtering invitations."""
         if not user.caiduser or not user.caiduser.workgroup_admin or not user.caiduser.workgroup_admin:
@@ -9945,4 +10102,3 @@ class WorkGroupInvitationAcceptView(LoginRequiredMixin, UpdateView):
         invitation.save(update_fields=["status", "responded_at"])
 
         return redirect(self.get_success_url())
-

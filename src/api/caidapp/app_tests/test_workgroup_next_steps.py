@@ -1,6 +1,3 @@
-from django.test import TestCase
-from django.urls import reverse
-
 from caidapp import models
 from caidapp.app_tests.factories import (
     AnimalObservationFactory,
@@ -10,22 +7,27 @@ from caidapp.app_tests.factories import (
     UploadedArchiveFactory,
 )
 from caidapp.services.workgroup_next_steps import build_next_steps
+from django.test import TestCase
+from django.urls import reverse
 
 
 class WorkgroupNextStepsServiceTest(TestCase):
     def setUp(self):
+        """Prepare an admin workgroup with taxon checks disabled for next-step recommendations."""
         self.caiduser = CaidUserFactory(admin=True)
         self.workgroup = self.caiduser.workgroup
         self.workgroup.check_taxon_before_identification = False
         self.workgroup.save(update_fields=["check_taxon_before_identification"])
 
     def test_build_next_steps_for_empty_workgroup(self):
+        """Recommend uploading and creating identities first for an empty workgroup."""
         steps = build_next_steps(self.workgroup)
 
         self.assertEqual([step.code for step in steps[:2]], ["no_uploads", "no_identities"])
         self.assertEqual(steps[0].url, reverse("caidapp:new_upload"))
 
     def test_manual_identification_is_next_for_unidentified_identification_upload(self):
+        """Prioritize manual identification when an identification upload contains unidentified media."""
         archive = UploadedArchiveFactory(
             owner=self.caiduser,
             is_for_identification=True,
@@ -38,6 +40,7 @@ class WorkgroupNextStepsServiceTest(TestCase):
         self.assertEqual(steps[0].url, reverse("caidapp:manual_identification"))
 
     def test_build_next_steps_for_existing_identities(self):
+        """Recommend missing media, representatives, codes, and merges for an existing identity collection."""
         UploadedArchiveFactory(owner=self.caiduser)
         identity_without_media = IndividualIdentityFactory(owner_workgroup=self.workgroup, name="Solo Identity")
         identity_with_code = IndividualIdentityFactory(owner_workgroup=self.workgroup, name="B75 Cumel")
@@ -69,9 +72,12 @@ class WorkgroupNextStepsServiceTest(TestCase):
         self.assertEqual(identity_without_media.count_of_mediafiles(), 0)
 
     def test_representative_suggestion_ignores_identities_without_mediafiles(self):
+        """Count only identities with media when recommending representative selection."""
         UploadedArchiveFactory(owner=self.caiduser)
         empty_identity = IndividualIdentityFactory(owner_workgroup=self.workgroup, name="Empty")
-        identity_without_representative = IndividualIdentityFactory(owner_workgroup=self.workgroup, name="Needs representative")
+        identity_without_representative = IndividualIdentityFactory(
+            owner_workgroup=self.workgroup, name="Needs representative"
+        )
         mediafile = MediaFileFactory(parent=UploadedArchiveFactory(owner=self.caiduser), identity=None)
         AnimalObservationFactory(
             mediafile=mediafile,
@@ -92,12 +98,14 @@ class WorkgroupNextStepsServiceTest(TestCase):
 
 class DashIdentitiesNextStepViewTest(TestCase):
     def setUp(self):
+        """Authenticate an admin with taxon checks disabled for dashboard next-step presentation."""
         self.caiduser = CaidUserFactory(admin=True)
         self.caiduser.workgroup.check_taxon_before_identification = False
         self.caiduser.workgroup.save(update_fields=["check_taxon_before_identification"])
         self.client.force_login(self.caiduser.user)
 
     def test_dashboard_offers_manual_identification_for_unidentified_upload(self):
+        """Present manual identification as the primary action with its pending item count."""
         archive = UploadedArchiveFactory(
             owner=self.caiduser,
             is_for_identification=True,
@@ -113,6 +121,7 @@ class DashIdentitiesNextStepViewTest(TestCase):
         self.assertContains(response, "Manual identification (1)")
 
     def test_dashboard_contains_primary_next_step(self):
+        """Show the no-uploads recommendation as the primary dashboard next step for an empty workgroup."""
         response = self.client.get(reverse("caidapp:dash_identities"))
 
         self.assertEqual(response.status_code, 200)

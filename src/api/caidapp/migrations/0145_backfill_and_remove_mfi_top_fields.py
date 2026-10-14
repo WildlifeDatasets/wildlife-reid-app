@@ -12,6 +12,7 @@ def _extract_rank_paired_points(raw_points, rank_index):
 
 
 def backfill_top_fields_to_suggestions(apps, schema_editor):
+    """Copy legacy top-ranked matches into suggestion rows when none exist for the result."""
     MediafilesForIdentification = apps.get_model("caidapp", "MediafilesForIdentification")
     MediafileIdentificationSuggestion = apps.get_model("caidapp", "MediafileIdentificationSuggestion")
     MediaFile = apps.get_model("caidapp", "MediaFile")

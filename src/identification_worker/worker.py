@@ -651,7 +651,8 @@ def predict(
 
                 if (database_batch_size >= database_size) and (encoding_batch_size >= len(metadata)):
                     logger.info("Starting full identification.")
-                    # model_source creates the architecture; optional weights_path loads locally trained weights into it.
+                    # model_source creates the architecture;
+                    # optional weights_path loads locally trained weights into it.
                     identification_model_path = identification_model["model_source"]
                     identification_model_weights_path = identification_model.get("weights_path", "")
                     identification_output, id2label = predict_full(
@@ -665,7 +666,8 @@ def predict(
                     )
                 else:
                     logger.info("Starting batched identification.")
-                    # model_source creates the architecture; optional weights_path loads locally trained weights into it.
+                    # model_source creates the architecture;
+                    # optional weights_path loads locally trained weights into it.
                     identification_model_path = identification_model["model_source"]
                     identification_model_weights_path = identification_model.get("weights_path", "")
                     identification_output, id2label = predict_batch(
@@ -1017,7 +1019,9 @@ def detect_most_similar(
             )
 
             # Score the mega shortlist with LightGlue match counts
-            score_grid = MatchLightGlue(features="aliked", num_workers=2)(aliked_dataset, aliked_dataset, pairs=matcher_pairs)
+            score_grid = MatchLightGlue(features="aliked", num_workers=2)(
+                aliked_dataset, aliked_dataset, pairs=matcher_pairs
+            )
 
             # Convert score grid to match counts
             match_counts = np.array([score_grid[idx_a, idx_b] for idx_a, idx_b in matcher_pairs], dtype=float)

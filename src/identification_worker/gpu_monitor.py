@@ -6,7 +6,6 @@ import threading
 import torch
 from celery import signals
 
-
 logger = logging.getLogger("app")
 
 GPU_HEARTBEAT_INTERVAL_SECONDS = 5 * 60

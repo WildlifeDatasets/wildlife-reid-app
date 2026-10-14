@@ -2,14 +2,15 @@ from datetime import datetime
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from caidapp import admin, models
 from django.test import TestCase
 
-from caidapp import admin, models
 from .factories import WorkGroupFactory
 
 
 class IdentificationModelSourceTest(TestCase):
     def test_build_trained_identification_model_name_replaces_existing_timestamp(self):
+        """Replace an existing training timestamp instead of appending another timestamp to the model name."""
         created_at = datetime(2026, 7, 10, 9, 45, 30)
 
         name = models.build_trained_identification_model_name(
@@ -21,6 +22,7 @@ class IdentificationModelSourceTest(TestCase):
         self.assertEqual(name, "LynxV4-MegaDescriptor-v2-T-256-my-fancy-wg-20260710-094530")
 
     def test_hf_model_source_is_used_directly(self):
+        """Use a Hub source directly and report no local checkpoint path."""
         identification_model = models.IdentificationModel(
             name="HF model",
             model_path="hf-hub:strakajk/LynxV4-MegaDescriptor-v2-T-256",
@@ -33,6 +35,7 @@ class IdentificationModelSourceTest(TestCase):
         self.assertEqual(identification_model.get_runtime_checkpoint_path(), "")
 
     def test_local_checkpoint_uses_base_model_source(self):
+        """Resolve the base architecture separately from a local checkpoint file."""
         identification_model = models.IdentificationModel(
             name="Local checkpoint",
             model_path="file:/shared_data/media/models/lynx/model.pth",
@@ -49,6 +52,7 @@ class IdentificationModelSourceTest(TestCase):
         )
 
     def test_local_checkpoint_can_inherit_base_model_from_source_model(self):
+        """Inherit the runtime architecture from the source identification model."""
         workgroup = WorkGroupFactory()
         source_model = models.IdentificationModel.objects.create(
             name="Base",
@@ -68,6 +72,7 @@ class IdentificationModelSourceTest(TestCase):
         )
 
     def test_legacy_local_checkpoint_without_base_source_uses_legacy_fallback(self):
+        """Use the legacy architecture fallback for old local checkpoints without a base source."""
         identification_model = models.IdentificationModel(
             name="Legacy",
             model_path="/shared_data/media/models/legacy/model.pth",
@@ -79,6 +84,7 @@ class IdentificationModelSourceTest(TestCase):
         )
 
     def test_local_checkpoint_check_reports_existing_file(self):
+        """Report an existing local checkpoint as valid."""
         with TemporaryDirectory() as directory:
             checkpoint = Path(directory) / "model.pth"
             checkpoint.touch()
@@ -93,6 +99,7 @@ class IdentificationModelSourceTest(TestCase):
         self.assertEqual(result.status, "ok")
 
     def test_local_checkpoint_check_reports_missing_file(self):
+        """Report a missing local checkpoint as invalid with an explanatory detail."""
         identification_model = models.IdentificationModel(
             name="Missing checkpoint",
             model_path="file:/missing/model.pth",
@@ -105,6 +112,7 @@ class IdentificationModelSourceTest(TestCase):
         self.assertIn("neexistuje", result.detail)
 
     def test_remote_model_check_does_not_require_local_checkpoint(self):
+        """Treat a remote Hub source as external without requiring a local file."""
         identification_model = models.IdentificationModel(
             name="Hub model",
             model_path="hf-hub:strakajk/LynxV4-MegaDescriptor-v2-T-256",

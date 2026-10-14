@@ -17,8 +17,8 @@ from django.db.models import Count, Exists, F, OuterRef, Q
 from django.db.models.query import QuerySet
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-from django.utils.text import slugify
 from django.urls import NoReverseMatch, reverse, reverse_lazy
+from django.utils.text import slugify
 from location_field.models.plain import PlainLocationField
 from tqdm import tqdm
 
@@ -54,9 +54,7 @@ ORIENTATION_CHOICES = (
 )
 TAXON_NOT_CLASSIFIED = "Not Classified"
 DEFAULT_IDENTITY_CODE_REGEX = r"B\d+"
-DEFAULT_IDENTITY_MERGE_DISTINGUISHING_REGEX = (
-    r"(?i)(?<![a-z0-9])juv[._ -]*(\d{2,4})[._ -]+(\d+)(?!\d)"
-)
+DEFAULT_IDENTITY_MERGE_DISTINGUISHING_REGEX = r"(?i)(?<![a-z0-9])juv[._ -]*(\d{2,4})[._ -]+(\d+)(?!\d)"
 IDENTIFICATION_MODEL_HF_PREFIX = "hf-hub:"
 IDENTIFICATION_MODEL_TIMM_PREFIX = "timm:"
 IDENTIFICATION_MODEL_FILE_PREFIX = "file:"
@@ -227,17 +225,9 @@ class IdentificationModel(models.Model):
             raise ValidationError({"model_path": "Model source is required."})
 
         if identification_model_source_looks_like_local_path(self.model_path):
-            if not (
-                self.base_model_path
-                or self.source_identification_model_id
-                or self.source_identification_model
-            ):
+            if not (self.base_model_path or self.source_identification_model_id or self.source_identification_model):
                 raise ValidationError(
-                    {
-                        "base_model_path": (
-                            "Base model source is required when model_path points to a local checkpoint."
-                        )
-                    }
+                    {"base_model_path": ("Base model source is required when model_path points to a local checkpoint.")}
                 )
 
     def get_runtime_model_source(self) -> str:
@@ -430,6 +420,7 @@ class WorkGroup(models.Model):
     # next_step_updated_at = models.DateTimeField("Next step updated at", blank=True, null=True)
 
     def get_identity_code_regex(self) -> str:
+        """Return the configured identity code regex, falling back when empty or invalid."""
         pattern = self.identity_code_regex or DEFAULT_IDENTITY_CODE_REGEX
         try:
             re.compile(pattern)
@@ -439,6 +430,7 @@ class WorkGroup(models.Model):
         return pattern
 
     def get_identity_merge_distinguishing_regex(self) -> str:
+        """Return the merge distinguishing regex, falling back when empty or invalid."""
         pattern = self.identity_merge_distinguishing_regex or DEFAULT_IDENTITY_MERGE_DISTINGUISHING_REGEX
         try:
             re.compile(pattern)
@@ -492,8 +484,7 @@ class WorkGroup(models.Model):
     def identification_model_is_initialized(self) -> bool:
         """Return whether the selected model matches the initialized reference embeddings."""
         return bool(
-            self.identification_model_id
-            and self.identification_model_id == self.identification_initialized_model_id
+            self.identification_model_id and self.identification_model_id == self.identification_initialized_model_id
         )
 
     def number_of_uploaded_archives(self) -> int:
@@ -561,7 +552,9 @@ class WorkGroup(models.Model):
         if self.check_taxon_before_identification and self.default_taxon_for_identification:
             observation_taxon = self.default_taxon_for_identification
         elif self.check_taxon_before_identification:
-            logger.warning(f"No default taxon for identification set in {self=}. Filtering only by representative mediafiles.")
+            logger.warning(
+                f"No default taxon for identification set in {self=}. Filtering only by representative mediafiles."
+            )
 
         mediafiles_qs = self.mediafiles_for_identification(
             representative_only=True,
@@ -633,8 +626,8 @@ class WorkGroup(models.Model):
 
         return qs.distinct()
 
-
-    def file_path(self, filename:str):
+    def file_path(self, filename: str):
+        """Build a media-root path namespaced by the workgroup's slug and hash."""
         workgroup = self
         # turn workgroup name into url firendly string
         pth = Path(settings.MEDIA_ROOT) / f"workgroups/{slugify(workgroup.name)}/{workgroup.hash}/{str(filename)}"
@@ -642,14 +635,14 @@ class WorkGroup(models.Model):
         logger.debug(f"{pth.exists()=}")
         return pth
 
-    def file_url(self, filename:str):
+    def file_url(self, filename: str):
+        """Build a media URL namespaced by the workgroup's slug and hash."""
         workgroup = self
         download_url = settings.MEDIA_URL + f"workgroups/{slugify(workgroup.name)}/{workgroup.hash}/{str(filename)}"
         # wrapp into url
         logger.debug(f"{download_url=}")
 
         return download_url
-
 
 
 class ObservationImport(models.Model):
@@ -770,11 +763,7 @@ class CaIDUser(models.Model):
 
     def number_of_uploaded_media_files_with_known_taxon(self) -> int:
         """Return number of uploaded files with known taxon."""
-        return (
-            MediaFile.objects.filter(parent__owner=self, observations__taxon__isnull=False)
-            .distinct()
-            .count()
-        )
+        return MediaFile.objects.filter(parent__owner=self, observations__taxon__isnull=False).distinct().count()
 
     def number_of_media_files_with_missing_taxa_general(self) -> int:
         """Return number of uploaded files with missing taxon.
@@ -1067,7 +1056,9 @@ class UploadedArchive(models.Model):
     contains_single_taxon = models.BooleanField(default=False)
     taxon_for_identification_at_upload = models.CharField(max_length=255, blank=True, default="")
     taxon_for_identification = models.ForeignKey(Taxon, on_delete=models.SET_NULL, null=True, blank=True)
-    import_finished = models.BooleanField("Media Files Import Finished Correctly", default=False) # TODO rename to import_finished
+    import_finished = models.BooleanField(
+        "Media Files Import Finished Correctly", default=False
+    )  # TODO rename to import_finished
 
     earliest_captured_at = models.DateTimeField("Earliest Captured at", blank=True, null=True)
     latest_captured_at = models.DateTimeField("Latest Captured at", blank=True, null=True)
@@ -1295,11 +1286,7 @@ class UploadedArchive(models.Model):
 
     def count_of_identities(self):
         """Return number of unique identities in the archive."""
-        return (
-            IndividualIdentity.objects.filter(animalobservation__mediafile__parent=self)
-            .distinct()
-            .count()
-        )
+        return IndividualIdentity.objects.filter(animalobservation__mediafile__parent=self).distinct().count()
 
     def count_of_taxons(self):
         """Return number of unique taxons in the archive."""
@@ -1586,7 +1573,9 @@ class Sequence(models.Model):
     def identities(self):
         """Return unique identities aggregated from all observations in the sequence."""
         return _unique_sorted_model_objects(
-            observation.identity for mediafile in self.mediafile_set.all() for observation in mediafile.observations.all()
+            observation.identity
+            for mediafile in self.mediafile_set.all()
+            for observation in mediafile.observations.all()
         )
 
     @property
@@ -1614,6 +1603,7 @@ class Sequence(models.Model):
         if not mediafiles:
             return None
         return max(mediafile.captured_at for mediafile in mediafiles)
+
 
 class BBoxSequence(models.Model):
     local_id = models.IntegerField(null=True, blank=True)
@@ -2026,20 +2016,24 @@ class AnimalObservation(models.Model):
     @property
     def has_object_data(self) -> bool:
         """Return whether this row contains data belonging to an actual observation."""
-        return any(
-            value is not None
-            for value in (
-                self.taxon_id,
-                self.predicted_taxon_id,
-                self.predicted_taxon_confidence,
-                self.identity_id,
-                self.bbox_x_center,
-                self.bbox_y_center,
-                self.bbox_width,
-                self.bbox_height,
-                self.metadata_json,
+        return (
+            any(
+                value is not None
+                for value in (
+                    self.taxon_id,
+                    self.predicted_taxon_id,
+                    self.predicted_taxon_confidence,
+                    self.identity_id,
+                    self.bbox_x_center,
+                    self.bbox_y_center,
+                    self.bbox_width,
+                    self.bbox_height,
+                    self.metadata_json,
+                )
             )
-        ) or self.identity_is_representative or self.orientation != "N"
+            or self.identity_is_representative
+            or self.orientation != "N"
+        )
 
     def save(self, *args, **kwargs):
         """Save the observation and schedule ReID initialization after representative changes."""
@@ -2520,8 +2514,9 @@ class Notification(models.Model):
 
 class NotificationRecipient(models.Model):
     notification = models.ForeignKey(
-        Notification, on_delete=models.CASCADE,
-        related_name = "recipients",
+        Notification,
+        on_delete=models.CASCADE,
+        related_name="recipients",
     )
     user = models.ForeignKey(CaIDUser, on_delete=models.CASCADE)
     read = models.BooleanField(default=False)

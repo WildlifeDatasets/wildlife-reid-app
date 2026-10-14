@@ -6,7 +6,6 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 import numpy as np
-
 from bbox_detection import detect_file
 
 

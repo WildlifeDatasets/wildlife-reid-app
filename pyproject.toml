@@ -2,7 +2,7 @@
 line-length = 120
 extend-exclude = '''
 (
-  \.tox
+  /(\.tox|\.codex_tmp|node_modules|temp_data)/
 )
 '''
 
@@ -12,4 +12,4 @@ profile = "black"
 # known_third_party = []
 known_first_party = ["fgvc"]
 known_local_folder = ["api", "utils", "worker_utils"]
-extend_skip = [".tox"]
+extend_skip = [".tox", ".codex_tmp", "node_modules", "temp_data"]

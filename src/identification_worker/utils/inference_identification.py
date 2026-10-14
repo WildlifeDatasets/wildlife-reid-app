@@ -64,6 +64,7 @@ def _normalize_bbox_cxcywh(bbox_cxcywh: torch.Tensor, width: int, height: int) -
     bbox[..., 3] /= height
     return bbox.flatten().tolist()
 
+
 @dataclass
 class Prediction:
     name: str
@@ -230,8 +231,8 @@ def _load_sam3_model() -> Any | None:
         return SAM3_PREDICTOR
 
     try:
-        from sam3.model_builder import build_sam3_image_model
         from sam3.model.sam3_image_processor import Sam3Processor
+        from sam3.model_builder import build_sam3_image_model
     except ImportError as exc:
         logger.warning("SAM3 package unavailable: %s", exc)
         return None
@@ -284,10 +285,10 @@ def get_segmentation_model() -> Literal["sam3", "sam"]:
     SEGMENTATION_BACKEND = "sam"
     return SEGMENTATION_BACKEND
 
+
 def del_identification_model():
     """Release the identification model."""
     global IDENTIFICATION_MODELS
-    global IDENTIFICATION_MODEL_CACHE_KEY
     global IDENTIFICATION_MODEL_CACHE_KEY
     IDENTIFICATION_MODELS = None
     IDENTIFICATION_MODEL_CACHE_KEY = None
@@ -296,9 +297,7 @@ def del_identification_model():
 
 def del_sam_model():
     """Release segmentation GPU memory while retaining weights in CPU memory."""
-    global SAM
     global SAM_PREDICTOR
-    global SAM3
     global SAM3_PREDICTOR
     global SEGMENTATION_BACKEND
 
@@ -462,8 +461,7 @@ def _is_valid_xyxy_bbox(bbox) -> bool:
 def _get_masking_bbox(row: pd.Series, image_path: str, row_idx) -> list[int] | None:
     """Get the bbox for masking from the row."""
     has_relative_bbox = all(
-        column in row.index and not pd.isna(row[column]) and row[column] != ""
-        for column in BBOX_RELATIVE_COLUMNS
+        column in row.index and not pd.isna(row[column]) and row[column] != "" for column in BBOX_RELATIVE_COLUMNS
     )
 
     # try to build bbox from relative columns
@@ -508,13 +506,13 @@ def _get_masking_bbox(row: pd.Series, image_path: str, row_idx) -> list[int] | N
     try:
         bbox = detection_results[0]["bbox"]
     except (IndexError, KeyError, TypeError) as exc:
-        logger.warning(f"Detection result for image {image_path} at metadata row {row_idx} does not contain a usable bbox: {exc}")
+        logger.warning(
+            f"Detection result for image {image_path} at metadata row {row_idx} does not contain a usable bbox: {exc}"
+        )
         return None
 
     if not _is_valid_xyxy_bbox(bbox):
-        logger.warning(
-            f"Degenerate detection bbox for image {image_path} at metadata row {row_idx}: {bbox}"
-        )
+        logger.warning(f"Degenerate detection bbox for image {image_path} at metadata row {row_idx}: {bbox}")
         return None
 
     logger.debug(f"Masking bbox from detection_results: bbox={bbox}")
@@ -679,7 +677,8 @@ def compute_partial(
 
 
 def _get_top_predictions(similarity, database_metadata, top_k: int = 1):
-    """
+    """Return the top predictions for each query image.
+
     Returns:
         List[List[Prediction]]
     """
@@ -884,7 +883,6 @@ def identify(
     similarity = wildfusion(query_features, database_features, B=image_budget)
     logger.debug(f"{similarity.shape=}")
     IDENTIFICATION_MODELS = None
-    IDENTIFICATION_MODEL_CACHE_KEY = None
 
     output, result_idx = identify_from_similarity(
         similarity, database_metadata, query_metadata, top_k, post_process=os.environ.get("POST_PROCESS", None)

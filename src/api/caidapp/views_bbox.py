@@ -1,7 +1,7 @@
 """Explicit media-file scope for redetection; proposals never write annotations."""
 
-from datetime import timedelta
 import uuid
+from datetime import timedelta
 
 from django import forms
 from django.contrib.auth.decorators import login_required
@@ -10,9 +10,10 @@ from django.http import Http404, HttpResponseBadRequest, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
-from django.views.decorators.http import require_POST, require_GET
+from django.views.decorators.http import require_GET, require_POST
 
-from . import bbox_services as service, models
+from . import bbox_services as service
+from . import models
 
 
 class RedetectionForm(forms.Form):
@@ -40,6 +41,7 @@ class RedetectionForm(forms.Form):
 
 
 def prepare_redetection(request, mediafile_ids):
+    """Render redetection confirmation for accessible images with a signed user-bound selection."""
     mediafiles = models.MediaFile.objects.for_user(request.user.caiduser).filter(pk__in=mediafile_ids)
     ids = list(mediafiles.filter(media_type="image").order_by("pk").values_list("pk", flat=True))
     token = signing.dumps(
@@ -60,6 +62,7 @@ def prepare_redetection(request, mediafile_ids):
 @login_required
 @require_POST
 def start_redetection(request):
+    """Validate a signed selection and create or resume its image detection batch."""
     form = RedetectionForm(request.POST)
     try:
         selection = signing.loads(request.POST.get("selection", ""), salt="bbox-selection", max_age=3600)
@@ -103,6 +106,7 @@ def _expire_jobs(jobs):
 @login_required
 @require_GET
 def detection_status(request, batch):
+    """Expire stale jobs and render status for the user's accessible detection batch."""
     jobs = (
         models.BboxDetectionJob.objects.filter(batch=batch, requested_by=request.user.caiduser)
         .filter(
@@ -128,6 +132,7 @@ def detection_status(request, batch):
 @login_required
 @require_POST
 def propose_bbox(request, mediafile_id):
+    """Reuse a recent matching bbox proposal or queue a new suggestion job for an accessible image."""
     mediafile = get_object_or_404(
         models.MediaFile.objects.for_user(request.user.caiduser), pk=mediafile_id, media_type="image"
     )
@@ -157,6 +162,7 @@ def propose_bbox(request, mediafile_id):
 @login_required
 @require_GET
 def proposal_status(request, job_id):
+    """Expire stale proposals and return detection data for the user's accessible suggestion job."""
     jobs = models.BboxDetectionJob.objects.filter(
         pk=job_id,
         requested_by=request.user.caiduser,

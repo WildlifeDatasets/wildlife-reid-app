@@ -11,7 +11,6 @@ from django.urls import reverse
 
 from .models import Album, AnimalObservation, IndividualIdentity, MediaFile, user_has_access_filter_params
 
-
 PAGE_SIZE = 24
 SOURCE_KINDS = {"observation", "mediafile", "identity", "album"}
 
@@ -24,8 +23,7 @@ def _workgroup(request):
 def _mediafiles_for_request(request):
     caiduser = request.user.caiduser
     return MediaFile.objects.filter(
-        Q(album__albumsharerole__user=caiduser)
-        | Q(**user_has_access_filter_params(caiduser, "parent__owner"))
+        Q(album__albumsharerole__user=caiduser) | Q(**user_has_access_filter_params(caiduser, "parent__owner"))
     ).distinct()
 
 
@@ -140,10 +138,25 @@ def _source_payload(kind, source):
             "detail_url": f"{reverse('caidapp:media_file_update', args=[source.mediafile_id])}#observation-{source.id}",
         }
     if kind == "mediafile":
-        return {"kind": kind, "id": source.id, "label": source.original_filename or f"Media file {source.id}", "detail_url": reverse("caidapp:media_file_update", args=[source.id])}
+        return {
+            "kind": kind,
+            "id": source.id,
+            "label": source.original_filename or f"Media file {source.id}",
+            "detail_url": reverse("caidapp:media_file_update", args=[source.id]),
+        }
     if kind == "identity":
-        return {"kind": kind, "id": source.id, "label": source.name, "detail_url": reverse("caidapp:individual_identity_update", args=[source.id])}
-    return {"kind": kind, "id": source.hash, "label": source.name, "detail_url": reverse("caidapp:album", args=[source.hash])}
+        return {
+            "kind": kind,
+            "id": source.id,
+            "label": source.name,
+            "detail_url": reverse("caidapp:individual_identity_update", args=[source.id]),
+        }
+    return {
+        "kind": kind,
+        "id": source.hash,
+        "label": source.name,
+        "detail_url": reverse("caidapp:album", args=[source.hash]),
+    }
 
 
 def _parse_page(request):
@@ -165,11 +178,13 @@ def _numeric_id_or_error(source_id):
 
 @login_required
 def comparison(request):
+    """Render the comparison workspace."""
     return render(request, "caidapp/comparison.html")
 
 
 @login_required
 def comparison_source(request):
+    """Return a paginated comparison source restricted to visible media files and albums."""
     kind = request.GET.get("kind")
     source_id = request.GET.get("id")
     mode = request.GET.get("mode")
@@ -197,9 +212,13 @@ def comparison_source(request):
         serialize_item = _item_for_mediafile
     elif kind == "identity":
         source = get_object_or_404(_identities_for_request(request, mediafiles), pk=source_id)
-        item_queryset = AnimalObservation.objects.filter(
-            mediafile__in=mediafiles, identity=source, is_no_detection_placeholder=False
-        ).select_related("mediafile__locality", "identity").order_by("-identity_is_representative", "-mediafile__captured_at", "-id")
+        item_queryset = (
+            AnimalObservation.objects.filter(
+                mediafile__in=mediafiles, identity=source, is_no_detection_placeholder=False
+            )
+            .select_related("mediafile__locality", "identity")
+            .order_by("-identity_is_representative", "-mediafile__captured_at", "-id")
+        )
         serialize_item = _item_for_observation
     else:
         if mode is None:
@@ -207,9 +226,11 @@ def comparison_source(request):
         source = get_object_or_404(_visible_albums(request), hash=source_id)
         album_mediafiles = mediafiles.filter(album=source).distinct()
         if mode == "observations":
-            item_queryset = AnimalObservation.objects.filter(
-                mediafile__in=album_mediafiles, is_no_detection_placeholder=False
-            ).select_related("mediafile__locality", "identity").order_by("mediafile__captured_at", "mediafile_id", "id")
+            item_queryset = (
+                AnimalObservation.objects.filter(mediafile__in=album_mediafiles, is_no_detection_placeholder=False)
+                .select_related("mediafile__locality", "identity")
+                .order_by("mediafile__captured_at", "mediafile_id", "id")
+            )
             serialize_item = _item_for_observation
         else:
             item_queryset = album_mediafiles.select_related("locality").order_by("captured_at", "id")
@@ -221,33 +242,30 @@ def comparison_source(request):
     except (EmptyPage, PageNotAnInteger):
         raise Http404("Page not found")
     page_objects = list(page.object_list)
-    mediafile_ids = {
-        item.mediafile_id if isinstance(item, AnimalObservation) else item.id
-        for item in page_objects
-    }
+    mediafile_ids = {item.mediafile_id if isinstance(item, AnimalObservation) else item.id for item in page_objects}
     editable_mediafile_ids = set(
-        MediaFile.objects.for_user(request.user.caiduser)
-        .filter(id__in=mediafile_ids)
-        .values_list("id", flat=True)
+        MediaFile.objects.for_user(request.user.caiduser).filter(id__in=mediafile_ids).values_list("id", flat=True)
     )
-    return JsonResponse({
-        "source": _source_payload(kind, source),
-        "items": [
-            serialize_item(
-                item,
-                (item.mediafile_id if isinstance(item, AnimalObservation) else item.id)
-                in editable_mediafile_ids,
-            )
-            for item in page_objects
-        ],
-        "page": page.number,
-        "num_pages": paginator.num_pages,
-        "count": paginator.count,
-    })
+    return JsonResponse(
+        {
+            "source": _source_payload(kind, source),
+            "items": [
+                serialize_item(
+                    item,
+                    (item.mediafile_id if isinstance(item, AnimalObservation) else item.id) in editable_mediafile_ids,
+                )
+                for item in page_objects
+            ],
+            "page": page.number,
+            "num_pages": paginator.num_pages,
+            "count": paginator.count,
+        }
+    )
 
 
 @login_required
 def comparison_search(request):
+    """Search visible comparison sources and return at most 30 matching entries."""
     kind = request.GET.get("kind")
     query = (request.GET.get("q") or "").strip()
     if kind not in SOURCE_KINDS:
@@ -260,18 +278,31 @@ def comparison_search(request):
         filters = Q(mediafile__original_filename__icontains=query)
         if numeric_query is not None:
             filters |= Q(pk=numeric_query)
-        results = AnimalObservation.objects.filter(mediafile__in=mediafiles).filter(filters).select_related("mediafile").order_by("-id")[:30]
-        data = [{"kind": kind, "id": item.id, "label": f"Observation {item.id} — {item.mediafile.original_filename}"} for item in results]
+        results = (
+            AnimalObservation.objects.filter(mediafile__in=mediafiles)
+            .filter(filters)
+            .select_related("mediafile")
+            .order_by("-id")[:30]
+        )
+        data = [
+            {"kind": kind, "id": item.id, "label": f"Observation {item.id} — {item.mediafile.original_filename}"}
+            for item in results
+        ]
     elif kind == "mediafile":
         filters = Q(original_filename__icontains=query)
         if numeric_query is not None:
             filters |= Q(pk=numeric_query)
         results = mediafiles.filter(filters).order_by("-id")[:30]
-        data = [{"kind": kind, "id": item.id, "label": item.original_filename or f"Media file {item.id}"} for item in results]
+        data = [
+            {"kind": kind, "id": item.id, "label": item.original_filename or f"Media file {item.id}"}
+            for item in results
+        ]
     elif kind == "identity":
-        results = _identities_for_request(request, mediafiles).filter(
-            Q(name__icontains=query) | Q(code__icontains=query)
-        ).order_by("name", "id")[:30]
+        results = (
+            _identities_for_request(request, mediafiles)
+            .filter(Q(name__icontains=query) | Q(code__icontains=query))
+            .order_by("name", "id")[:30]
+        )
         data = [{"kind": kind, "id": item.id, "label": item.name} for item in results]
     else:
         results = _visible_albums(request).filter(name__icontains=query).order_by("name", "id")[:30]

@@ -1,15 +1,16 @@
+from caidapp.app_tests.factories import CaidUserFactory, NotificationFactory, NotificationRecipientFactory
 from django.test import TestCase
 from django.urls import reverse
-
-from caidapp.app_tests.factories import CaidUserFactory, NotificationFactory, NotificationRecipientFactory
 
 
 class NotificationNavbarTest(TestCase):
     def setUp(self):
+        """Authenticate a notification recipient for navigation and read-state tests."""
         self.caiduser = CaidUserFactory()
         self.client.force_login(self.caiduser.user)
 
     def test_unread_notification_shows_indicator_in_top_navigation(self):
+        """Show one accessible bell with an unread indicator when unread notifications exist."""
         NotificationRecipientFactory(
             notification=NotificationFactory(),
             user=self.caiduser,
@@ -24,6 +25,7 @@ class NotificationNavbarTest(TestCase):
         self.assertEqual(response.content.count(b'<i class="bi bi-bell"></i>'), 1)
 
     def test_read_notifications_do_not_show_indicator(self):
+        """Omit the unread badge when all notifications have been read."""
         NotificationRecipientFactory(
             notification=NotificationFactory(),
             user=self.caiduser,
@@ -37,6 +39,7 @@ class NotificationNavbarTest(TestCase):
         self.assertContains(response, 'aria-label="Notifications"')
 
     def test_mark_all_notifications_as_read_only_updates_current_user(self):
+        """Mark only the current user's notifications as read and record read timestamps."""
         own_unread = NotificationRecipientFactory(
             notification=NotificationFactory(),
             user=self.caiduser,
@@ -59,6 +62,7 @@ class NotificationNavbarTest(TestCase):
         self.assertFalse(other_unread.read)
 
     def test_notification_list_includes_mark_all_as_read_button(self):
+        """Offer a mark-all-read action on the notification list."""
         response = self.client.get(reverse("caidapp:notifications"))
 
         self.assertContains(response, "Mark all as read")

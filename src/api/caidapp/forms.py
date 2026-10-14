@@ -44,6 +44,7 @@ class WorkGroupInvitationForm(forms.ModelForm):
         self.target_workgroup = target_workgroup
 
     def clean_user_identifier(self):
+        """Resolve one invited user and reject existing members or duplicate invitations."""
         identifier = self.cleaned_data["user_identifier"].strip()
         matches = models.CaIDUser.objects.filter(
             Q(user__username__iexact=identifier) | Q(user__email__iexact=identifier)
@@ -97,8 +98,6 @@ class UserIdentificationModelForm(forms.Form):
     identification_model = forms.ModelChoiceField(queryset=models.IdentificationModel.objects.all(), required=True)
 
 
-
-
 class WorkgroupForm(forms.ModelForm):
     class Meta:
         model = WorkGroup
@@ -123,6 +122,7 @@ class WorkgroupForm(forms.ModelForm):
                 "the extracted values differ, they will not be suggested for merging."
             ),
         }
+
 
 # class MergeIdentityForm(forms.Form):
 #     queryset = IndividualIdentity.objects.filter()
@@ -196,10 +196,13 @@ class WorkgroupMemberWorkflowForm(forms.ModelForm):
             "is_observer": "Read-only observer",
         }
         help_texts = {
-            "is_observer": "Observer can view data but cannot change any records. This overrides all editing permissions.",
+            "is_observer": (
+                "Observer can view data but cannot change any records. This overrides all editing permissions."
+            ),
         }
 
     def clean(self):
+        """Disable edit flags for observers and reject making a workgroup admin read-only."""
         cleaned_data = super().clean()
         if cleaned_data.get("is_observer"):
             if self.instance.workgroup_admin:
@@ -652,13 +655,12 @@ class NewUploadForm(forms.Form):
         self.can_choose_identified_dataset = bool(
             user
             and self.can_use_reid
-            and (
-                user.caiduser.show_base_dataset
-                or user.caiduser.show_base_between_regular_uploads
-            )
+            and (user.caiduser.show_base_dataset or user.caiduser.show_base_between_regular_uploads)
             and (user.is_staff or user.caiduser.workgroup_admin)
         )
-        self.show_reid_options = self.can_use_reid and (self.show_upload_target_choice or not self.can_use_taxon_classification)
+        self.show_reid_options = self.can_use_reid and (
+            self.show_upload_target_choice or not self.can_use_taxon_classification
+        )
 
         if self.show_upload_target_choice:
             self.fields["upload_target"].required = True
@@ -677,6 +679,7 @@ class NewUploadForm(forms.Form):
             self.fields["contains_identities"].widget = forms.HiddenInput()
 
     def clean(self):
+        """Normalize upload routing and regex input and validate the spreadsheet extension."""
         cleaned_data = super().clean()
         cleaned_data["path_regex"] = normalize_regex_input(cleaned_data.get("path_regex", ""))
         upload_target = cleaned_data.get("upload_target") or self.fields["upload_target"].initial
@@ -688,7 +691,9 @@ class NewUploadForm(forms.Form):
         spreadsheet_file = cleaned_data.get("spreadsheet_file")
 
         if self.show_upload_target_choice and not upload_target:
-            self.add_error("upload_target", "Choose whether this upload should start in taxon processing or re-identification.")
+            self.add_error(
+                "upload_target", "Choose whether this upload should start in taxon processing or re-identification."
+            )
 
         if upload_target == "identification":
             cleaned_data["is_for_identification"] = True
@@ -838,6 +843,7 @@ class MediaFileFilenameMetadataForm(forms.Form):
     )
 
     def clean_path_regex(self):
+        """Normalize a filename metadata regex copied from user input."""
         return normalize_regex_input(self.cleaned_data["path_regex"])
 
 
@@ -857,7 +863,9 @@ class SpreadsheetFileImportForm(forms.Form):
     create_missing_identities = forms.BooleanField(
         required=False,
         label="Create missing identities",
-        help_text="Create an identity only when identity_id is blank and unique_name is an explicit name, not a file path.",
+        help_text=(
+            "Create an identity only when identity_id is blank and unique_name is an explicit name, not a file path."
+        ),
     )
 
 

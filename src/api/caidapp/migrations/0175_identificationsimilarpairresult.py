@@ -1,5 +1,5 @@
-from django.db import migrations, models
 import django.db.models.deletion
+from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
@@ -19,7 +19,14 @@ class Migration(migrations.Migration):
                 ("output_csv_filename", models.CharField(blank=True, default="", max_length=255)),
                 ("mega_pairs", models.JSONField(blank=True, default=list)),
                 ("local_pairs", models.JSONField(blank=True, default=list)),
-                ("workgroup", models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name="similar_pair_results", to="caidapp.workgroup")),
+                (
+                    "workgroup",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="similar_pair_results",
+                        to="caidapp.workgroup",
+                    ),
+                ),
             ],
             options={"ordering": ("-created_at", "-id")},
         ),

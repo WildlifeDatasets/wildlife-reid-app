@@ -14,7 +14,6 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import QuerySet
-from django.forms import modelformset_factory
 from django.http import HttpResponseNotAllowed
 from django.shortcuts import HttpResponse, get_object_or_404, redirect, render
 from django.urls import reverse_lazy
@@ -28,14 +27,6 @@ from .models import Locality, MediaFile, UploadedArchive, get_all_relevant_local
 from .views_tools import add_querystring_to_context
 
 logger = logging.getLogger("app")
-
-
-def _spreadsheet_cell_has_value(value) -> bool:
-    if pd.isna(value):
-        return False
-    if isinstance(value, str):
-        return value.strip() != ""
-    return True
 
 
 def _spreadsheet_cell_requests_clear(value) -> bool:
@@ -84,7 +75,8 @@ class LocalityDeleteView(LoginRequiredMixin, DeleteView):
         if mediafile_count:
             messages.warning(
                 self.request,
-                f"Locality '{locality_name}' was deleted. {mediafile_count} media files kept their files and now have no locality assigned.",
+                f"Locality '{locality_name}' was deleted. {mediafile_count} media files kept their files "
+                "and now have no locality assigned.",
             )
         else:
             messages.info(self.request, f"Locality '{locality_name}' was deleted.")
@@ -132,8 +124,14 @@ def update_locality(request, locality_id=None):
             "button": "Save",
             "locality": locality,
             "delete_button_url": delete_button_url,
-            "observations_url": f"{reverse_lazy('caidapp:observations')}?locality={locality.id}" if locality_id is not None else None,
-            "sequences_url": f"{reverse_lazy('caidapp:sequences')}?locality_hash={locality.hash}" if locality_id is not None else None,
+            "observations_url": (
+                f"{reverse_lazy('caidapp:observations')}?locality={locality.id}" if locality_id is not None else None
+            ),
+            "sequences_url": (
+                f"{reverse_lazy('caidapp:sequences')}?locality_hash={locality.hash}"
+                if locality_id is not None
+                else None
+            ),
         },
     )
 
@@ -159,6 +157,7 @@ def update_locality(request, locality_id=None):
 #         },
 #     )
 #
+
 
 def _set_localities_to_mediafiles_of_uploadedarchive(request, uploaded_archive: UploadedArchive, locality: Locality):
     """Set locality to mediafiles of uploaded archive."""

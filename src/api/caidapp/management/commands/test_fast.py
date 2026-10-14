@@ -5,6 +5,7 @@ class Command(DjangoTestCommand):
     help = "Run Django tests while excluding tests tagged with 'long' by default."
 
     def handle(self, *test_labels, **options):
+        """Exclude long tests by default unless the caller explicitly selects test tags."""
         if not options.get("tag"):
             excluded_tags = list(options.get("exclude_tag") or [])
             if "long" not in excluded_tags:

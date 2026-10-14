@@ -5,9 +5,10 @@ import traceback
 from pathlib import Path
 
 import pandas as pd
-from celery import Celery
+
 # Celery adds the working directory to sys.path only while loading this module.
 from bbox_detection import detect_file
+from celery import Celery
 from detection_utils import inference_detection
 from detection_utils.inference_video import create_image_from_video
 from progress import ProgressReporter

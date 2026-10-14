@@ -1,10 +1,10 @@
-from django.test import TestCase
-
 from caidapp import models, tasks
+from django.test import TestCase
 
 
 class IdentificationWorkerGpuMonitoringTest(TestCase):
     def test_records_unavailable_gpu_heartbeat(self):
+        """Persist unavailable GPU heartbeat details including device, error, and recording time."""
         heartbeat_id = tasks.record_identification_worker_gpu_heartbeat.run(
             available=False,
             device="cuda:0",
@@ -18,6 +18,7 @@ class IdentificationWorkerGpuMonitoringTest(TestCase):
         self.assertIsNotNone(heartbeat.recorded_at)
 
     def test_records_available_gpu_heartbeat(self):
+        """Persist the available device name and free GPU memory from a heartbeat."""
         heartbeat_id = tasks.record_identification_worker_gpu_heartbeat.run(
             available=True,
             device="cuda:0",

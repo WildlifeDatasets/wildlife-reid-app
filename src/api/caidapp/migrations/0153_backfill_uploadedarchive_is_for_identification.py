@@ -2,6 +2,7 @@ from django.db import migrations
 
 
 def set_is_for_identification_from_archive_flags(apps, schema_editor):
+    """Mark historical identity, single-taxon, or target-taxon archives for identification."""
     UploadedArchive = apps.get_model("caidapp", "UploadedArchive")
     UploadedArchive.objects.filter(contains_identities=True).update(is_for_identification=True)
     UploadedArchive.objects.filter(contains_single_taxon=True).update(is_for_identification=True)

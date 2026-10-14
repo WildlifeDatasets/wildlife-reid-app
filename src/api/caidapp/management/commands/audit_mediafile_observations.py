@@ -1,9 +1,7 @@
+from caidapp.models import AnimalObservation, MediaFile
 from django.core.management.base import BaseCommand, CommandError
 from django.db import DEFAULT_DB_ALIAS, transaction
 from django.db.models import Count, Q
-
-from caidapp.models import AnimalObservation, MediaFile
-
 
 OBJECT_DATA_QUERY = (
     Q(taxon__isnull=False)
@@ -23,6 +21,7 @@ OBJECT_DATA_QUERY = (
 
 
 def invariant_violations(database=DEFAULT_DB_ALIAS):
+    """Return querysets for missing observations and conflicting or malformed placeholders."""
     mediafiles = MediaFile.objects.using(database).annotate(
         observation_count=Count("observations"),
         placeholder_count=Count(
@@ -33,9 +32,9 @@ def invariant_violations(database=DEFAULT_DB_ALIAS):
     return {
         "missing": mediafiles.filter(observation_count=0),
         "conflicting": mediafiles.filter(observation_count__gt=1, placeholder_count__gt=0),
-        "malformed": AnimalObservation.objects.using(database).filter(is_no_detection_placeholder=True).filter(
-            OBJECT_DATA_QUERY
-        ),
+        "malformed": AnimalObservation.objects.using(database)
+        .filter(is_no_detection_placeholder=True)
+        .filter(OBJECT_DATA_QUERY),
     }
 
 
@@ -43,6 +42,7 @@ class Command(BaseCommand):
     help = "Audit the invariant that every media file has an observation and placeholders are unambiguous."
 
     def add_arguments(self, parser):
+        """Expose the database selector and explicit repair flag for the observation audit."""
         parser.add_argument(
             "--repair",
             action="store_true",
@@ -55,6 +55,7 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
+        """Report observation invariant violations and repair them only when requested."""
         database = options["database"]
         violations = invariant_violations(database)
         counts = {name: queryset.count() for name, queryset in violations.items()}
@@ -84,9 +85,7 @@ class Command(BaseCommand):
             # be part of a conflict and must not be deleted as if it were empty.
             violations["malformed"].update(is_no_detection_placeholder=False)
 
-            conflicting_ids = list(
-                invariant_violations(database)["conflicting"].values_list("id", flat=True)
-            )
+            conflicting_ids = list(invariant_violations(database)["conflicting"].values_list("id", flat=True))
             AnimalObservation.objects.using(database).filter(
                 mediafile_id__in=conflicting_ids,
                 is_no_detection_placeholder=True,

@@ -6,15 +6,15 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('caidapp', '0147_identificationoutliersuggestionresult'),
+        ("caidapp", "0147_identificationoutliersuggestionresult"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='BBoxSequence',
+            name="BBoxSequence",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('local_id', models.IntegerField(blank=True, null=True)),
+                ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
+                ("local_id", models.IntegerField(blank=True, null=True)),
             ],
         ),
     ]

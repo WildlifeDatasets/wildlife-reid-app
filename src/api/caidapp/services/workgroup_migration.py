@@ -41,12 +41,8 @@ def migrate_user_to_workgroup(
     )
 
     # Identification suggestions are transient and may refer to the old model.
-    unfinished_identifications = models.MediafilesForIdentification.objects.filter(
-        mediafile__parent__owner=user
-    )
-    affected_archive_ids = list(
-        unfinished_identifications.values_list("mediafile__parent_id", flat=True).distinct()
-    )
+    unfinished_identifications = models.MediafilesForIdentification.objects.filter(mediafile__parent__owner=user)
+    affected_archive_ids = list(unfinished_identifications.values_list("mediafile__parent_id", flat=True).distinct())
     unfinished_identifications.delete()
     models.UploadedArchive.objects.filter(pk__in=affected_archive_ids).update(
         identification_status="C",
@@ -56,9 +52,7 @@ def migrate_user_to_workgroup(
 
     # Archives, localities, albums, collections, and devices remain owned by the
     # user. Identities are the data that are owned directly by a workgroup.
-    models.IndividualIdentity.objects.filter(owner_workgroup=source_workgroup).update(
-        owner_workgroup=target_workgroup
-    )
+    models.IndividualIdentity.objects.filter(owner_workgroup=source_workgroup).update(owner_workgroup=target_workgroup)
 
     user.workgroup = target_workgroup
     user.workgroup_admin = False

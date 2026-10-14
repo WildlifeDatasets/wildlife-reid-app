@@ -1,8 +1,7 @@
 from dataclasses import dataclass
 from pathlib import Path
 
-from django.contrib import admin
-from django.contrib import messages
+from django.contrib import admin, messages
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db.migrations.recorder import MigrationRecorder
 from django.utils.html import format_html
@@ -63,6 +62,7 @@ class IdentificationModelAdmin(admin.ModelAdmin):
 
     @admin.display(description="Checkpoint")
     def checkpoint_status(self, obj):
+        """Render the checkpoint validation result as a colored admin status label."""
         result = check_identification_model_file(obj)
         colors = {"ok": "green", "external": "#666", "invalid": "#b91c1c"}
         labels = {"ok": "OK", "external": "Vzdálený", "invalid": "CHYBA"}
@@ -75,6 +75,7 @@ class IdentificationModelAdmin(admin.ModelAdmin):
 
     @admin.action(description="Ověřit soubory vybraných identifikačních modelů")
     def verify_selected_model_files(self, request, queryset):
+        """Check selected model files and report invalid configurations without deleting them."""
         results = [(model, check_identification_model_file(model)) for model in queryset]
         invalid = [(model, result) for model, result in results if result.status == "invalid"]
         ok_count = sum(result.status == "ok" for _, result in results)
@@ -94,15 +95,14 @@ class IdentificationModelAdmin(admin.ModelAdmin):
             messages.ERROR if invalid else messages.SUCCESS,
         )
         if invalid:
-            details = "; ".join(
-                f"#{model.pk} {model.name}: {result.detail}" for model, result in invalid
-            )
+            details = "; ".join(f"#{model.pk} {model.name}: {result.detail}" for model, result in invalid)
             self.message_user(
                 request,
                 "Doporučení: označte tyto neplatné záznamy a použijte standardní akci "
                 f"„Delete selected Identification models“ (s potvrzením). {details}",
                 messages.WARNING,
             )
+
 
 @admin.register(models.IdentificationWorkerGpuHeartbeat)
 class IdentificationWorkerGpuHeartbeatAdmin(admin.ModelAdmin):
@@ -131,16 +131,20 @@ class IdentificationWorkerGpuHeartbeatAdmin(admin.ModelAdmin):
 
     @admin.display(boolean=True, description="CUDA available")
     def status(self, obj):
+        """Display whether the worker reported an available CUDA device."""
         return obj.available
 
     @admin.display(description="Error")
     def error_summary(self, obj):
+        """Return at most 160 characters of the worker error for the admin list."""
         return obj.error_message[:160] if obj.error_message else ""
 
     def has_add_permission(self, request):
+        """Prevent manually adding worker heartbeat records through the admin."""
         return False
 
     def has_change_permission(self, request, obj=None):
+        """Prevent editing worker heartbeat records through the admin."""
         return False
 
 

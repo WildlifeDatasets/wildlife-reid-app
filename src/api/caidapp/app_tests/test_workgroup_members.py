@@ -1,6 +1,3 @@
-from django.test import TestCase
-from django.urls import reverse
-
 from caidapp import forms
 from caidapp.app_tests.factories import (
     AnimalObservationFactory,
@@ -11,10 +8,13 @@ from caidapp.app_tests.factories import (
     UploadedArchiveFactory,
     WorkGroupFactory,
 )
+from django.test import TestCase
+from django.urls import reverse
 
 
 class WorkgroupMemberManagementTest(TestCase):
     def setUp(self):
+        """Create an admin, a regular member, and an outsider for workgroup management checks."""
         self.workgroup = WorkGroupFactory(name="Research team")
         self.admin = CaidUserFactory(admin=True)
         self.admin.workgroup = self.workgroup
@@ -27,11 +27,13 @@ class WorkgroupMemberManagementTest(TestCase):
         self.outsider = CaidUserFactory()
 
     def test_workgroup_settings_no_longer_contains_user_selector(self):
+        """Keep user membership selection out of the general workgroup settings form."""
         form = forms.WorkgroupForm(instance=self.workgroup)
 
         self.assertNotIn("caidusers", form.fields)
 
     def test_edit_permissions_are_enabled_by_default(self):
+        """Enable record-edit permissions by default without making new members observers."""
         user = CaidUserFactory()
 
         self.assertTrue(user.can_edit_taxon_data)
@@ -40,6 +42,7 @@ class WorkgroupMemberManagementTest(TestCase):
         self.assertFalse(user.is_observer)
 
     def test_admin_sees_only_users_from_own_workgroup(self):
+        """List only the current workgroup's members with workflow edit links."""
         self.client.force_login(self.admin.user)
 
         response = self.client.get(reverse("caidapp:workgroup_members"))
@@ -51,6 +54,7 @@ class WorkgroupMemberManagementTest(TestCase):
         self.assertContains(response, reverse("caidapp:workgroup_member_update", args=[self.member.pk]))
 
     def test_regular_member_cannot_open_workgroup_user_list(self):
+        """Deny the workgroup member list to regular members."""
         self.client.force_login(self.member.user)
 
         response = self.client.get(reverse("caidapp:workgroup_members"))
@@ -58,6 +62,7 @@ class WorkgroupMemberManagementTest(TestCase):
         self.assertEqual(response.status_code, 403)
 
     def test_admin_can_update_member_workflow_access(self):
+        """Allow an admin to change another member's visible workflows."""
         self.client.force_login(self.admin.user)
 
         response = self.client.post(
@@ -71,6 +76,7 @@ class WorkgroupMemberManagementTest(TestCase):
         self.assertFalse(self.member.show_reid)
 
     def test_admin_can_make_member_read_only_observer(self):
+        """Disable all edit permissions when an admin makes a member a read-only observer."""
         self.client.force_login(self.admin.user)
 
         response = self.client.post(
@@ -86,6 +92,7 @@ class WorkgroupMemberManagementTest(TestCase):
         self.assertFalse(self.member.can_edit_other_records)
 
     def test_workgroup_admin_cannot_be_made_observer(self):
+        """Reject making a workgroup admin an observer and keep the existing role."""
         self.client.force_login(self.admin.user)
 
         response = self.client.post(
@@ -99,6 +106,7 @@ class WorkgroupMemberManagementTest(TestCase):
         self.assertFalse(self.admin.is_observer)
 
     def test_observer_cannot_submit_changes(self):
+        """Reject observer writes with one visible permission explanation."""
         self.member.is_observer = True
         self.member.save(update_fields=["is_observer"])
         self.client.force_login(self.member.user)
@@ -111,6 +119,7 @@ class WorkgroupMemberManagementTest(TestCase):
         self.assertEqual(response.content.count(b"Read-only observers cannot modify records."), 1)
 
     def test_member_without_other_permission_cannot_change_other_records(self):
+        """Deny edits to other record types when the member lacks that permission."""
         self.member.can_edit_other_records = False
         self.member.save(update_fields=["can_edit_other_records"])
         self.client.force_login(self.member.user)
@@ -120,6 +129,7 @@ class WorkgroupMemberManagementTest(TestCase):
         self.assertEqual(response.status_code, 403)
 
     def test_member_without_taxon_permission_cannot_update_taxon(self):
+        """Deny taxon edits and preserve the taxon name when taxon permission is disabled."""
         taxon = TaxonFactory()
         self.member.can_edit_taxon_data = False
         self.member.save(update_fields=["can_edit_taxon_data"])
@@ -132,6 +142,7 @@ class WorkgroupMemberManagementTest(TestCase):
         self.assertNotEqual(taxon.name, "Changed")
 
     def test_member_without_identity_permission_cannot_update_identity(self):
+        """Deny identity edits and preserve the identity name when identity permission is disabled."""
         identity = IndividualIdentityFactory(owner_workgroup=self.workgroup)
         self.member.can_edit_identity_data = False
         self.member.save(update_fields=["can_edit_identity_data"])
@@ -147,6 +158,7 @@ class WorkgroupMemberManagementTest(TestCase):
         self.assertNotEqual(identity.name, "Changed")
 
     def test_member_without_identity_permission_cannot_tamper_via_taxon_form(self):
+        """Reject a hidden identity change submitted through a taxon-edit form."""
         archive = UploadedArchiveFactory(owner=self.member)
         mediafile = MediaFileFactory(parent=archive)
         taxon = TaxonFactory()
@@ -180,6 +192,7 @@ class WorkgroupMemberManagementTest(TestCase):
         self.assertEqual(observation.identity, current_identity)
 
     def test_admin_cannot_update_user_from_another_workgroup(self):
+        """Hide another workgroup's member from the workflow update endpoint."""
         self.client.force_login(self.admin.user)
 
         response = self.client.post(
@@ -190,6 +203,7 @@ class WorkgroupMemberManagementTest(TestCase):
         self.assertEqual(response.status_code, 404)
 
     def test_regular_member_cannot_change_own_workflow_access(self):
+        """Ignore regular members' attempts to change their own workflow visibility."""
         self.client.force_login(self.member.user)
         self.member.refresh_from_db()
         self.member.show_taxon_classification = True
@@ -211,6 +225,7 @@ class WorkgroupMemberManagementTest(TestCase):
         self.assertTrue(self.member.show_reid)
 
     def test_admin_can_change_own_workflow_access(self):
+        """Allow workgroup admins to change their own workflow visibility."""
         self.client.force_login(self.admin.user)
         self.admin.refresh_from_db()
         self.admin.show_taxon_classification = True

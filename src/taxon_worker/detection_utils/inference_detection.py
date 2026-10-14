@@ -214,8 +214,8 @@ def _load_sam3_model() -> Any | None:
         return SAM3_PREDICTOR
 
     try:
-        from sam3.model_builder import build_sam3_image_model
         from sam3.model.sam3_image_processor import Sam3Processor
+        from sam3.model_builder import build_sam3_image_model
     except ImportError as exc:
         logger.warning("SAM3 package unavailable: %s", exc)
         return None
@@ -253,7 +253,6 @@ def _load_sam3_model() -> Any | None:
 
 def del_sam3_model():
     """Release SAM3 GPU memory while retaining weights in CPU memory."""
-    global SAM3
     global SAM3_PREDICTOR
 
     SAM3_PREDICTOR = None
@@ -370,7 +369,7 @@ def detect_animals_in_one_image(image_rgb: np.ndarray) -> Optional[List[Dict[str
     megadetector_results = detect_animals_with_megadetector(image_rgb)
 
     # SAM3 fallback when MegaDetector finds nothing or only low-confidence boxes
-    max_conf = (max(float(det["confidence"]) for det in megadetector_results) if megadetector_results else None)
+    max_conf = max(float(det["confidence"]) for det in megadetector_results) if megadetector_results else None
     if megadetector_results is None or max_conf < SAM3_FALLBACK_CONF:
         logger.info(
             "MegaDetector empty or low-confidence (max_conf=%s, threshold=%s); trying SAM3 fallback.",
@@ -517,9 +516,7 @@ def detect_animal_on_metadata(metadata: pd.DataFrame, border=0.0, progress_callb
     """
     assert "full_image_path" in metadata
     logger.info("Detection stage: starting for %s media files.", len(metadata))
-    for position, (row_idx, row) in enumerate(
-        tqdm(metadata.iterrows(), total=len(metadata), desc="Animal detection")
-    ):
+    for position, (row_idx, row) in enumerate(tqdm(metadata.iterrows(), total=len(metadata), desc="Animal detection")):
         if progress_callback is not None:
             progress_callback(position, len(metadata))
         image_abs_path = row["full_image_path"]

@@ -1,17 +1,17 @@
 from io import StringIO
 
+from caidapp import models, tasks
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.db import IntegrityError, transaction
 from django.test import TestCase
-
-from caidapp import models, tasks
 
 from .factories import AnimalObservationFactory, MediaFileFactory, TaxonFactory
 
 
 class ObservationInvariantTest(TestCase):
     def test_new_mediafile_has_one_no_detection_placeholder(self):
+        """Create exactly one empty no-detection placeholder for every new media file."""
         mediafile = MediaFileFactory()
 
         observations = list(mediafile.observations.all())
@@ -21,6 +21,7 @@ class ObservationInvariantTest(TestCase):
         self.assertFalse(observations[0].has_object_data)
 
     def test_real_observation_removes_placeholder(self):
+        """Remove the placeholder when a separately created real observation replaces it."""
         mediafile = MediaFileFactory()
         placeholder_id = mediafile.observations.get().id
 
@@ -31,6 +32,7 @@ class ObservationInvariantTest(TestCase):
         self.assertFalse(observation.is_no_detection_placeholder)
 
     def test_adding_object_data_promotes_placeholder(self):
+        """Promote a placeholder to a real observation when object data is assigned."""
         mediafile = MediaFileFactory()
         observation = mediafile.observations.get()
         observation.taxon = TaxonFactory()
@@ -41,6 +43,7 @@ class ObservationInvariantTest(TestCase):
         self.assertFalse(observation.is_no_detection_placeholder)
 
     def test_deleting_last_observation_restores_placeholder(self):
+        """Create a fresh placeholder when the last observation is deleted directly."""
         mediafile = MediaFileFactory(taxon=TaxonFactory())
         observation = mediafile.observations.get()
 
@@ -52,6 +55,7 @@ class ObservationInvariantTest(TestCase):
         self.assertTrue(replacement.is_no_detection_placeholder)
 
     def test_mediafile_cascade_delete_does_not_recreate_child(self):
+        """Avoid recreating child observations during a media-file cascade deletion."""
         mediafile = MediaFileFactory()
         mediafile_id = mediafile.id
 
@@ -62,6 +66,7 @@ class ObservationInvariantTest(TestCase):
         self.assertFalse(models.AnimalObservation.objects.filter(mediafile_id=mediafile_id).exists())
 
     def test_only_one_placeholder_is_allowed_per_mediafile(self):
+        """Reject a second no-detection placeholder for the same media file."""
         mediafile = MediaFileFactory()
 
         with self.assertRaises(IntegrityError), transaction.atomic():
@@ -71,6 +76,7 @@ class ObservationInvariantTest(TestCase):
             )
 
     def test_two_detections_reuse_placeholder_then_create_second_observation(self):
+        """Reuse the initial placeholder for detection one and create a second row for detection two."""
         mediafile = MediaFileFactory()
         placeholder_id = mediafile.observations.get().id
         taxon = TaxonFactory()
@@ -108,6 +114,7 @@ class ObservationInvariantTest(TestCase):
         self.assertAlmostEqual(observations[1].bbox_x_center, 0.7)
 
     def test_empty_detection_result_restores_single_placeholder(self):
+        """Restore one empty placeholder when a detection result contains no objects."""
         mediafile = MediaFileFactory()
         taxon = TaxonFactory()
         tasks._sync_observations_from_detection_results(
@@ -144,12 +151,11 @@ class ObservationInvariantTest(TestCase):
         self.assertIsNone(observation.bbox_x_center)
 
     def test_detection_sync_rolls_back_all_rows_if_a_later_detection_is_invalid(self):
+        """Roll back all detection rows when a later detection fails validation."""
         mediafile = MediaFileFactory()
         first = AnimalObservationFactory(mediafile=mediafile, bbox_x_center=0.2)
         second = AnimalObservationFactory(mediafile=mediafile, bbox_x_center=0.8)
-        original_rows = list(
-            mediafile.observations.order_by("id").values_list("id", "bbox_x_center")
-        )
+        original_rows = list(mediafile.observations.order_by("id").values_list("id", "bbox_x_center"))
         taxon = TaxonFactory()
         detection_results = [
             {
@@ -183,6 +189,7 @@ class ObservationInvariantTest(TestCase):
         self.assertEqual({first.id, second.id}, {row[0] for row in original_rows})
 
     def test_audit_is_read_only_by_default_and_repair_is_explicit(self):
+        """Leave audit findings unchanged by default and repair them only with the explicit flag."""
         mediafile = MediaFileFactory()
         mediafile.observations.all().delete()
         output = StringIO()
@@ -197,12 +204,11 @@ class ObservationInvariantTest(TestCase):
         call_command("audit_mediafile_observations", stdout=output)
 
     def test_audit_repairs_malformed_and_conflicting_placeholders(self):
+        """Promote malformed placeholders and remove conflicting empty placeholders during repair."""
         malformed_mediafile = MediaFileFactory()
         malformed_mediafile.observations.update(predicted_taxon_confidence=0.42)
         conflicting_mediafile = MediaFileFactory()
-        models.AnimalObservation.objects.bulk_create(
-            [models.AnimalObservation(mediafile=conflicting_mediafile)]
-        )
+        models.AnimalObservation.objects.bulk_create([models.AnimalObservation(mediafile=conflicting_mediafile)])
         output = StringIO()
 
         with self.assertRaises(CommandError):
@@ -217,6 +223,7 @@ class ObservationInvariantTest(TestCase):
         call_command("audit_mediafile_observations", stdout=output)
 
     def test_audit_preserves_data_on_placeholder_that_is_also_conflicting(self):
+        """Preserve taxon and bbox data when a malformed placeholder also conflicts with another observation."""
         mediafile = MediaFileFactory()
         placeholder = mediafile.observations.get()
         taxon = TaxonFactory()
@@ -224,9 +231,7 @@ class ObservationInvariantTest(TestCase):
             taxon=taxon,
             bbox_x_center=0.4,
         )
-        models.AnimalObservation.objects.bulk_create(
-            [models.AnimalObservation(mediafile=mediafile)]
-        )
+        models.AnimalObservation.objects.bulk_create([models.AnimalObservation(mediafile=mediafile)])
         output = StringIO()
 
         call_command("audit_mediafile_observations", "--repair", stdout=output)
