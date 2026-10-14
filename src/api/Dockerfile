@@ -1,4 +1,4 @@
-FROM python:3.10.13-slim
+FROM python:3.14.8-slim AS base
 
 # install system dependencies
 #RUN sudo add-apt-repository ppa:ubuntugis/ppa
@@ -29,29 +29,25 @@ COPY --from=ghcr.io/astral-sh/uv:0.5.2 /uv /uvx /bin/
 RUN uv venv /code/.venv
 ENV PATH="/code/.venv/bin:$PATH"
 
-COPY ./src/api/requirements.txt /api/requirements.txt
+COPY ./src/api/requirements-py314.lock /tmp/requirements-py314.lock
 
 # install python dependencies
 ENV APP_DIR='/api'
 WORKDIR $APP_DIR
-RUN uv pip install --no-cache-dir --upgrade pip build && \
-    uv pip install --no-cache-dir --compile --prerelease=allow -r requirements.txt && \
+RUN uv pip sync --no-cache-dir --compile /tmp/requirements-py314.lock && \
+    uv pip check && \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/* /tmp/* /var/tmp/*
-RUN uv pip install https://github.com/BohemianVRA/FGVC/releases/download/v1.5.4-dev/fgvc-1.5.4.dev0-py3-none-any.whl
 
-RUN uv pip install pytz --upgrade
-RUN uv pip install tzdata --upgrade
+RUN python -c "import django; assert django.VERSION[:2] == (5, 2), django.get_version()"
 
-RUN uv pip install openpyxl==3.1.5 pyproj==3.7.0 django-cruds-adminlte==0.0.16
-RUN uv pip install --upgrade 'sentry-sdk[django]'
-RUN uv pip install django-compressor==4.5.1 csscompressor==0.9.5
-RUN uv pip install django-filter==24.3 django-crispy-forms==2.3
-RUN uv pip install factory_boy==3.2.0
-
-COPY ./src/api /api
-
-# expose ports and run application
-WORKDIR $APP_DIR
 ENV PYTHONUNBUFFERED=1
+
+FROM base AS dev
+COPY ./src/api/start_dev.sh /api/start_dev.sh
+EXPOSE 22280
+CMD ["bash", "./start_dev.sh"]
+
+FROM base AS production
+COPY ./src/api /api
 EXPOSE 8080
-CMD bash ./start.sh
+CMD ["bash", "./start.sh"]

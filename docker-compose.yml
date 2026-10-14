@@ -65,6 +65,7 @@ services:
     build:
       context: .
       dockerfile: ./src/api/Dockerfile
+      target: production
     restart: always
     env_file:
       - "src/variables.env"

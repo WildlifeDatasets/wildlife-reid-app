@@ -1,18 +1,22 @@
 import logging
 
-from caidapp.models import ObservationImport, WorkGroup, WorkGroupInvitation
-from django.contrib.auth import get_user_model
-from django.test import TestCase
-from django.urls import NoReverseMatch, URLPattern, URLResolver, reverse
-
 from caidapp.app_tests.factories import (
+    AnimalObservationFactory,
+    IndividualIdentityFactory,
+    LocalityFactory,
+    MediaFileFactory,
+    NotificationFactory,
+    NotificationRecipientFactory,
+    TaxonFactory,
+    UploadedArchiveFactory,
     UserFactory,
     WorkGroupFactory,
     WorkGroupInvitationFactory,
-    UploadedArchiveFactory,
-    MediaFileFactory, AnimalObservationFactory, IndividualIdentityFactory, LocalityFactory,
-    NotificationFactory, NotificationRecipientFactory, TaxonFactory
 )
+from caidapp.models import ObservationImport
+from django.contrib.auth import get_user_model
+from django.test import TestCase
+from django.urls import NoReverseMatch, URLPattern, URLResolver, reverse
 
 logger = logging.getLogger(__name__)
 
@@ -21,9 +25,12 @@ User = get_user_model()
 
 class UrlSmokeTest(TestCase):
     MUTATING_NAMES = {
+        "bbox_proposal",
+        "bbox_redetection_start",
         "clear_identity_suggestions",
         "exclude_merge_identity_suggestion",
         "notifications-mark-all-as-read",
+        "run_similar_identity_pairs",
         "toggle_identity_representative",
     }
     SKIPPED_VIEWS = {
@@ -37,7 +44,7 @@ class UrlSmokeTest(TestCase):
     }
 
     def setUp(self):
-
+        """Create accessible media, observations, and related records for URL checks."""
         self.user = UserFactory()
         self.user2 = UserFactory()
         self.user.is_staff = True
@@ -45,7 +52,6 @@ class UrlSmokeTest(TestCase):
 
         self.caiduser = self.user.caiduser
         self.caiduser2 = self.user2.caiduser
-
 
         self.workgroup = WorkGroupFactory()
 
@@ -55,7 +61,6 @@ class UrlSmokeTest(TestCase):
         self.caiduser.save()
 
         self.client.force_login(self.user)
-
 
         # invitation
         self.wg_invitation = WorkGroupInvitationFactory(
@@ -92,10 +97,7 @@ class UrlSmokeTest(TestCase):
         self.locality = LocalityFactory(owner=self.caiduser)
         self.notification = NotificationFactory()
 
-        self.recipient = NotificationRecipientFactory(
-            notification=self.notification,
-            user=self.caiduser
-        )
+        self.recipient = NotificationRecipientFactory(notification=self.notification, user=self.caiduser)
 
     def test_all_named_caidapp_urls(self):
         """Go over all named URLs in caidapp and try GET."""
@@ -124,7 +126,12 @@ class UrlSmokeTest(TestCase):
             except NoReverseMatch:
                 continue
 
-            response = self.client.get(url)
+            query = {}
+            if name == "comparison_source":
+                query = {"kind": "mediafile", "id": self.mediafile.pk}
+            elif name == "comparison_search":
+                query = {"kind": "mediafile"}
+            response = self.client.get(url, query)
             self.assertIn(
                 response.status_code,
                 [200, 302, 403],  # 403 pro neautorizované přístupy, které jsou v pořádku

@@ -43,5 +43,8 @@ openpyxl==3.0.*
 # New install in production 2025-06-07
 # ultralytics==8.0.232
 timm==0.6.13
+# Explicit Hub dependency for the orientation model and SAM3; retain the legacy
+# Hub API used by timm 0.6.13 (including huggingface_hub.utils.EntryNotFoundError).
+huggingface-hub==0.36.0
 opencv-python-headless==4.5.5.64
 

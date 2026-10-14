@@ -64,7 +64,8 @@ services:
     image: caid/api:dev
     build:
       context: .
-      dockerfile: ./src/api/Dockerfile_dev
+      dockerfile: ./src/api/Dockerfile
+      target: dev
     restart: "no"
     ports:
       - "22280:22280"  # direct access to API for development purposes (with auto-reload of static files)

@@ -12,7 +12,8 @@ fi
 # prepare django
 # python manage.py makemigrations --noinput --verbosity 2
 python manage.py migrate --noinput --verbosity 2
-python manage.py collectstatic --noinput --verbosity 2
+# handyhelpers bundles css-b64-images test CSS referencing an absent fixture image.
+python manage.py collectstatic --noinput --verbosity 2 --ignore '*css-b64-images*test*'
 
 # start "local" celery worker
 C_FORCE_ROOT=false celery -A caidapp.celery_app worker --pool threads --concurrency 12 --loglevel info &
