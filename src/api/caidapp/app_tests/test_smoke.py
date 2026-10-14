@@ -1,18 +1,22 @@
 import logging
 
-from caidapp.models import ObservationImport, WorkGroup, WorkGroupInvitation
-from django.contrib.auth import get_user_model
-from django.test import TestCase
-from django.urls import NoReverseMatch, URLPattern, URLResolver, reverse
-
 from caidapp.app_tests.factories import (
+    AnimalObservationFactory,
+    IndividualIdentityFactory,
+    LocalityFactory,
+    MediaFileFactory,
+    NotificationFactory,
+    NotificationRecipientFactory,
+    TaxonFactory,
+    UploadedArchiveFactory,
     UserFactory,
     WorkGroupFactory,
     WorkGroupInvitationFactory,
-    UploadedArchiveFactory,
-    MediaFileFactory, AnimalObservationFactory, IndividualIdentityFactory, LocalityFactory,
-    NotificationFactory, NotificationRecipientFactory, TaxonFactory
 )
+from caidapp.models import ObservationImport
+from django.contrib.auth import get_user_model
+from django.test import TestCase
+from django.urls import NoReverseMatch, URLPattern, URLResolver, reverse
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +44,7 @@ class UrlSmokeTest(TestCase):
     }
 
     def setUp(self):
-
+        """Create accessible media, observations, and related records for URL checks."""
         self.user = UserFactory()
         self.user2 = UserFactory()
         self.user.is_staff = True
@@ -48,7 +52,6 @@ class UrlSmokeTest(TestCase):
 
         self.caiduser = self.user.caiduser
         self.caiduser2 = self.user2.caiduser
-
 
         self.workgroup = WorkGroupFactory()
 
@@ -58,7 +61,6 @@ class UrlSmokeTest(TestCase):
         self.caiduser.save()
 
         self.client.force_login(self.user)
-
 
         # invitation
         self.wg_invitation = WorkGroupInvitationFactory(
@@ -95,10 +97,7 @@ class UrlSmokeTest(TestCase):
         self.locality = LocalityFactory(owner=self.caiduser)
         self.notification = NotificationFactory()
 
-        self.recipient = NotificationRecipientFactory(
-            notification=self.notification,
-            user=self.caiduser
-        )
+        self.recipient = NotificationRecipientFactory(notification=self.notification, user=self.caiduser)
 
     def test_all_named_caidapp_urls(self):
         """Go over all named URLs in caidapp and try GET."""

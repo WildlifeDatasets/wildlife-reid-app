@@ -12,6 +12,7 @@ REFRESH_INTERVAL = timedelta(hours=3)
 
 
 def refresh_identification_dashboard_snapshot(workgroup):
+    """Recompute and persist identification statistics for one workgroup."""
     caiduser = models.CaIDUser(workgroup=workgroup)
     identity_queue_count = (
         MediafilesForIdentification.objects.filter(mediafile__parent__owner__workgroup=workgroup)
@@ -108,6 +109,7 @@ def refresh_identification_dashboard_snapshot(workgroup):
 
 
 def identification_dashboard_context(workgroup):
+    """Read cached dashboard statistics and restore next-step timestamps."""
     snapshot = models.IdentificationDashboardSnapshot.objects.filter(workgroup=workgroup).first()
     # Bootstrap once if the background refresher has not reached this group yet.
     # Always serve an existing snapshot, even when stale or refresh fails.
