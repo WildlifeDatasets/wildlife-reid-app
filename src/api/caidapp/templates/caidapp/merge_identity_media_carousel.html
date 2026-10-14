@@ -1,0 +1,37 @@
+<div class="card h-100">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+            <div>
+                <div class="text-body-secondary small">{{ role }}</div>
+                <a class="h5 text-decoration-none" href="{% url 'caidapp:individual_identity_update' identity.id %}">{{ identity.name }}</a>
+                {% if identity.code %}<div class="small text-body-secondary">{{ identity.code }}</div>{% endif %}
+            </div>
+            <a class="small" href="{% url 'caidapp:individual_identity_mediafiles' identity.id %}">{{ mediafiles_count }} media file{{ mediafiles_count|pluralize }}</a>
+        </div>
+        {% if mediafiles %}
+            <div id="{{ carousel_id }}" class="carousel slide border rounded overflow-hidden" data-bs-interval="false" data-merge-side="{{ side }}">
+                <div class="carousel-inner">
+                    {% for mediafile in mediafiles %}
+                        <div class="carousel-item{% if forloop.first %} active{% endif %}" data-mediafile-id="{{ mediafile.id }}">
+                            <a href="{% url 'caidapp:media_file_update' mediafile.id %}" class="d-block bg-body-tertiary">
+                                {% if mediafile.thumbnail %}
+                                    <img src="{{ mediafile.thumbnail.url }}" class="d-block w-100" style="height: 17rem; object-fit: contain;" alt="{{ mediafile.name }}" loading="lazy">
+                                {% else %}
+                                    <div class="d-flex align-items-center justify-content-center text-body-secondary" style="height: 17rem;" role="img" aria-label="Media file has no thumbnail"><i class="bi bi-image fs-1" aria-hidden="true"></i></div>
+                                {% endif %}
+                            </a>
+                            <div class="small text-truncate px-2 py-1" title="{{ mediafile.name }}">{{ mediafile.name }}</div>
+                        </div>
+                    {% endfor %}
+                </div>
+                {% if mediafiles|length > 1 %}
+                    <button class="carousel-control-prev" type="button" data-bs-target="#{{ carousel_id }}" data-bs-slide="prev" aria-label="Previous media file"><span class="carousel-control-prev-icon bg-dark rounded" aria-hidden="true"></span></button>
+                    <button class="carousel-control-next" type="button" data-bs-target="#{{ carousel_id }}" data-bs-slide="next" aria-label="Next media file"><span class="carousel-control-next-icon bg-dark rounded" aria-hidden="true"></span></button>
+                {% endif %}
+            </div>
+            <div class="small text-body-secondary mt-1">{% if mediafiles_count > 40 %}Showing up to 40 media files. Open the full list to browse all.{% else %}Browse with the arrows.{% endif %}</div>
+        {% else %}
+            <div class="border rounded bg-body-tertiary text-body-secondary p-4 text-center">No media files for this identity.</div>
+        {% endif %}
+    </div>
+</div>

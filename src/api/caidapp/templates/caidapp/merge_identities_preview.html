@@ -1,0 +1,77 @@
+{% extends 'base.html' %}
+{% load widget_tweaks %}
+
+{% block head %}
+    {{ block.super }}
+    {{ form.media }}
+{% endblock %}
+
+{% block content %}
+    <div class="pagetitle"><h1>Merge Individual Identities</h1>{% include 'caidapp/include_breadcrumb_nav.html' %}</div>
+    <div class="alert alert-info">Observations from <strong>{{ individual_from.name }}</strong> will be assigned to <strong>{{ individual_to.name }}</strong>. The source identity will then be deleted.</div>
+    <div class="row g-3 align-items-stretch mb-4">
+        <div class="col-lg">
+            {% include 'caidapp/merge_identity_media_carousel.html' with identity=individual_from mediafiles=from_mediafiles mediafiles_count=from_mediafiles_count role='Merge from' side='from' carousel_id='merge-from-carousel' %}
+        </div>
+        <div class="col-lg-auto d-flex flex-column align-items-center justify-content-center gap-2">
+            <span class="fs-2" aria-hidden="true">&rarr;</span>
+            <a id="swap-merge-direction" class="btn btn-outline-secondary btn-sm" href="{{ swap_url }}" aria-label="Swap merge direction"><i class="bi bi-arrow-left-right" aria-hidden="true"></i> Swap direction</a>
+        </div>
+        <div class="col-lg">
+            {% include 'caidapp/merge_identity_media_carousel.html' with identity=individual_to mediafiles=to_mediafiles mediafiles_count=to_mediafiles_count role='Keep as' side='to' carousel_id='merge-to-carousel' %}
+        </div>
+    </div>
+    <div class="row g-4">
+        <div class="col-lg-7">
+            <h2 class="h4">Merged identity details</h2>
+            <p class="text-body-secondary">Review the suggested values before merging.</p>
+            <form method="post" id="merge-identities-form" onsubmit="return confirm('Merge {{ individual_from.name|escapejs }} into {{ individual_to.name|escapejs }}?');">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ return_url }}">
+                {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+                {% for field in form %}
+                    <div class="mb-3">
+                        <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                        {{ field.errors }}
+                        {% if field.field.widget.input_type == 'checkbox' %}{{ field|add_class:'form-check-input' }}{% else %}{{ field|add_class:'form-control' }}{% endif %}
+                        {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+                    </div>
+                {% endfor %}
+                <button type="submit" class="btn btn-primary">Merge into {{ individual_to.name }}</button>
+                <a class="btn btn-secondary" href="{{ cancel_button_url }}">Cancel</a>
+            </form>
+        </div>
+        <div class="col-lg-5">
+            <div class="card"><div class="card-body">
+                <h2 class="h5 mt-1">Differences</h2>
+                {% if differences %}
+                    <dl class="row mb-0">
+                        {% for field, values in differences.items %}
+                            <dt class="col-sm-4">{{ field }}</dt><dd class="col-sm-8">{{ values }}</dd>
+                        {% endfor %}
+                    </dl>
+                {% else %}<p class="text-body-secondary mb-0">No differences in the compared fields.</p>{% endif %}
+            </div></div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block script %}
+    {{ block.super }}
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const swap = document.getElementById('swap-merge-direction');
+            function updateSwapUrl() {
+                const from = document.querySelector('#merge-from-carousel .carousel-item.active');
+                const to = document.querySelector('#merge-to-carousel .carousel-item.active');
+                const url = new URL(swap.href, window.location.href);
+                url.searchParams.set('from_mediafile_id', to ? to.dataset.mediafileId : '');
+                url.searchParams.set('to_mediafile_id', from ? from.dataset.mediafileId : '');
+                swap.href = url.pathname + url.search;
+            }
+            document.querySelectorAll('[data-merge-side]').forEach(function (carousel) {
+                carousel.addEventListener('slid.bs.carousel', updateSwapUrl);
+            });
+        });
+    </script>
+{% endblock %}
