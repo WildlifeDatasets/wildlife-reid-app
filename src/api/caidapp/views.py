@@ -1738,14 +1738,19 @@ def get_individual_identity_zoomed(request, foridentification_id: int, reid_sugg
     )
 
 
+def _identification_queue(workgroup):
+    """Order pending reviews by their strongest suggestion, with unscored items last."""
+    return (
+        MediafilesForIdentification.objects.filter(mediafile__parent__owner__workgroup=workgroup)
+        .annotate(max_score=Max("top_mediafiles__score"))
+        .order_by(F("max_score").desc(nulls_last=True), "pk")
+    )
+
+
 @login_required
 def not_identified_mediafiles(request):
     """View for mediafiles with individualities that are not identified."""
-    foridentification_set = (
-        MediafilesForIdentification.objects.filter(mediafile__parent__owner__workgroup=request.user.caiduser.workgroup)
-        .annotate(max_score=Max("top_mediafiles__score"))
-        .order_by("-max_score")
-    )
+    foridentification_set = _identification_queue(request.user.caiduser.workgroup)
 
     # sort by highest score
     # for foridentification in foridentification_set:
@@ -1806,9 +1811,7 @@ def get_individual_identity_from_foridentification(
 ):
     """Show and update media file."""
     t0 = time.time()
-    foridentifications = MediafilesForIdentification.objects.filter(
-        mediafile__parent__owner__workgroup=request.user.caiduser.workgroup
-    ).order_by("?")
+    foridentifications = _identification_queue(request.user.caiduser.workgroup)
     if media_file_id:
         foridentification = foridentifications.get(mediafile__id=media_file_id)
     else:

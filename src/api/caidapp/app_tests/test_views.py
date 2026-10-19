@@ -4184,6 +4184,55 @@ class IdentificationUploadsViewTest(TestCase):
         self.assertTrue(models.MediafilesForIdentification.objects.filter(id=queue_item.id).exists())
         self.assertFalse(mediafile.observations.filter(identity=identity).exists())
 
+    def test_reid_confirmation_returns_to_highest_confidence(self):
+        """Both Select variants resume at the highest score in the workgroup review list."""
+        archive = UploadedArchiveFactory(owner=self.caiduser, is_for_identification=True)
+        identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Candidate")
+        candidate = MediaFileFactory(parent=archive, metadata_json={})
+        pending = []
+        for score in (None, 0.4, 0.9, 0.9, 0.6):
+            mediafile = MediaFileFactory(parent=archive, metadata_json={})
+            queue_item = models.MediafilesForIdentification.objects.create(mediafile=mediafile)
+            pending.append(queue_item)
+            if score is not None:
+                models.MediafileIdentificationSuggestion.objects.create(
+                    for_identification=queue_item, mediafile=candidate, identity=identity, score=score
+                )
+        # Multiple suggestions must rank an item by its maximum, rather than its average.
+        models.MediafileIdentificationSuggestion.objects.create(
+            for_identification=pending[2], mediafile=candidate, identity=identity, score=0.1
+        )
+        foreign_mediafile = MediaFileFactory(parent=UploadedArchiveFactory(owner=CaidUserFactory()))
+        foreign_queue_item = models.MediafilesForIdentification.objects.create(mediafile=foreign_mediafile)
+        models.MediafileIdentificationSuggestion.objects.create(
+            for_identification=foreign_queue_item, mediafile=candidate, identity=identity, score=1.0
+        )
+
+        self.assertEqual(
+            list(views._identification_queue(self.caiduser.workgroup)),
+            [pending[2], pending[3], pending[4], pending[1], pending[0]],
+        )
+        for representative in (False, True):
+            with self.subTest(representative=representative):
+                mediafile = MediaFileFactory(parent=archive, metadata_json={})
+                observation = AnimalObservationFactory(mediafile=mediafile)
+                queue_item = models.MediafilesForIdentification.objects.create(mediafile=mediafile)
+                response = self.client.get(
+                    reverse("caidapp:set_individual_identity", args=[queue_item.id, identity.id]),
+                    {"representative": "1"} if representative else {},
+                    follow=True,
+                )
+
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.context["foridentification"], pending[2])
+                self.assertEqual(response.context["next_foridentification"], pending[3])
+                self.assertNotContains(response, ">Skip</a>")
+                self.assertContains(response, reverse("caidapp:get_individual_identity", args=[pending[3].id]))
+                observation.refresh_from_db()
+                self.assertEqual(observation.identity, identity)
+                self.assertEqual(observation.identity_is_representative, representative)
+                self.assertFalse(models.MediafilesForIdentification.objects.filter(pk=queue_item.pk).exists())
+
     def test_manual_identification_suggestion_menu_links_candidate_media_to_its_detail(self):
         """Link candidate media details from the manual-identification suggestion action menu."""
         archive = UploadedArchiveFactory(owner=self.caiduser, is_for_identification=True)
