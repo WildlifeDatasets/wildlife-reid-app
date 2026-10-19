@@ -1,18 +1,21 @@
-celery[redis]==5.2.7
+celery[redis]==5.4.0
 
 # database
 psycopg2-binary~=2.9.5
-SQLAlchemy~=1.4.44
+# SQLAlchemy~=1.4.44
+SQLAlchemy==2.0.52
 
 
 # timm==0.9.7  # works fine, just in taxonworker is 0.9.12
-timm==0.9.12
-pycocotools==2.0.7
-# pandas==2.0.2
-pandas==1.5.3 # because of glue
-kornia==0.7.1
 
-# because of glue
+# Included in the base image
+# timm==0.9.12
+# pycocotools==2.0.7 comes from the base image as 2.0+nv0.8.1.
+
+pandas==2.2.3
+kornia>=0.8.3,<0.9
+
+# Keep NumPy 1.x. 1.26.4 has a cp312 wheel; NumPy 2 is a separate upgrade.
 numpy==1.26.4
 
 # FGVC library
@@ -23,7 +26,8 @@ numpy==1.26.4
 # Wildlife-tools library
 # wildlife-tools==0.0.5
 
-wandb
+# 0.28.1 requires protobuf>=5. 0.28.0 requires click>=8.2. The image has protobuf==4.24.4 and click==8.1.8.
+wandb==0.25.0
 
 # opencv-python==4.8.0.74
 
@@ -35,11 +39,12 @@ pyexiftool==0.5.*
 scikit-image==0.24.*
 
 # timezones
-pytz==2025.2
-tzdata==2025.2
+pytz #==2025.2
+tzdata #==2025.2
 
-# we need update because of .webp support
-pillow==12.0.0
+# Base image pins pillow==11.1.0. That build includes WebP.
+pillow==11.1.0
 
 umap-learn
-protobuf==3.20.3
+# Base image pins protobuf==4.24.4.
+protobuf==4.24.4
