@@ -1,5 +1,3 @@
-
-
 def _sequence_voting(seq_preds, top_k):
     candidate_stats = {}
 

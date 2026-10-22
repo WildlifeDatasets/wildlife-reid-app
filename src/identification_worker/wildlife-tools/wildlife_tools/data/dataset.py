@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import pickle
 from typing import Callable
@@ -9,7 +10,7 @@ import pandas as pd
 import pycocotools.mask as mask_coco
 from PIL import Image
 from wildlife_tools.tools import realize
-import logging
+
 logger = logging.getLogger(__name__)
 
 
@@ -82,7 +83,7 @@ class WildlifeDataset:
         except Exception as e:
             logger.warning(f"{path=}")
             print(f"{path=}")
-            raise(e)
+            raise (e)
         return img
 
     def __getitem__(self, idx):
