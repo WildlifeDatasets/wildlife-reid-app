@@ -678,7 +678,8 @@ def compute_partial(
 
 
 def _get_top_predictions(similarity, database_metadata, top_k: int = 1):
-    """
+    """Get the top-k most similar distinct identities for each query.
+
     Returns:
         List[List[Prediction]]
     """

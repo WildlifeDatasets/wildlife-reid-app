@@ -81,6 +81,7 @@ def start_gpu_monitor(celery_app) -> None:
 
 
 def stop_gpu_monitor() -> None:
+    """Signal the GPU monitor thread to stop."""
     _stop_event.set()
 
 

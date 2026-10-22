@@ -4,6 +4,7 @@ from progress import ProgressReporter
 
 
 def test_identification_progress_reports_weighted_stage():
+    """Progress inside a stage is mapped into that stage's weighted range."""
     task = Mock()
     reporter = ProgressReporter(task, operation="identify")
 
@@ -21,6 +22,7 @@ def test_identification_progress_reports_weighted_stage():
 
 
 def test_identification_progress_is_monotonic():
+    """A later update for an earlier stage never lowers the reported percent."""
     task = Mock()
     reporter = ProgressReporter(task, operation="init")
 

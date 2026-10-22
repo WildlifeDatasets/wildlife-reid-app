@@ -63,6 +63,7 @@ class EmbeddingProcessing:
         return self._similarity_cache
 
     def pairwise_similarity(self, idx_a: int, idx_b: int) -> float:
+        """Get the similarity between two embeddings."""
         return float(np.dot(self.embeddings[idx_a], self.embeddings[idx_b]))
 
     def reduce_embeddings(
@@ -367,7 +368,6 @@ class EmbeddingProcessing:
         - query_idx: query embedding index
         - best_other_label: label of the nearest alternative cluster
         """
-
         lbl = self._get_labels()
         other_members = np.where(lbl == best_other_label)[0]
         if len(other_members) == 0:
