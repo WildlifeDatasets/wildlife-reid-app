@@ -598,30 +598,6 @@ def get_lynx_id_as_parent_name(relative_path: str) -> Optional[str]:
         return None
 
 
-def get_lynx_id_in_sumava(relative_path: str) -> Optional[str]:
-    """
-    Get linx ID based on directory path in Sumava dataset.
-
-    Function is dependent on Sumava dataset directory structure.
-
-    Parameters
-    ----------
-    relative_path: str
-        Relative path to the media file.
-
-    Returns
-    -------
-    str :
-        Identification of the lynx as a string or None if not applicable.
-
-    """
-    path = Path(relative_path)
-    if (path.parts[0] not in ("TRIDENA", "NETRIDENA")) and len(path.parts) > 2:
-        return path.parts[2]
-    else:
-        return None
-
-
 def make_zipfile(output_filename: Path, source_dir: Path):
     """Make archive (zip, tar.gz) from a folder.
 
@@ -999,13 +975,16 @@ class SumavaInitialProcessing:
 
 
 def add_column_with_lynx_id(df: pd.DataFrame, contain_identities: bool = False) -> pd.DataFrame:
-    """Create column with lynx id based on directory structure."""
+    """Create column with lynx id based on directory structure.
+
+    Identities are inferred from directories only for uploads marked as containing identities.
+    Otherwise only explicit values (path mapping, path regex) are kept, because the API turns
+    every unique_name into an assigned identity.
+    """
     if contain_identities:
         generated_unique_name = df["original_path"].apply(get_lynx_id_as_parent_name)
     else:
-        # If we don't know about identity, we can check if the structure is similar to SUMAVA
-        # Get ID of lynx from directories in basedir beside "TRIDENA" and "NETRIDENA"
-        generated_unique_name = df["original_path"].apply(get_lynx_id_in_sumava)
+        generated_unique_name = pd.Series([None] * len(df), index=df.index, dtype=object)
     if "unique_name" in df.columns:
         has_unique_name = df["unique_name"].notnull() & (df["unique_name"] != "")
         df["unique_name"] = df["unique_name"].where(has_unique_name, generated_unique_name)
