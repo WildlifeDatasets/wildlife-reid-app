@@ -40,11 +40,13 @@ class ProgressReporter:
         self.last_update_at = 0.0
 
     def stage(self, name: str, message: str):
+        """Switch to a new stage and publish its start immediately."""
         self.stage_name = name
         self.message = message
         self.update(0, 1, force=True)
 
     def update(self, completed, total, message: str = None, force: bool = False):
+        """Publish progress within the current stage, throttled unless forced."""
         start, end = self.ranges[self.stage_name]
         fraction = 0.0 if not total else min(max(float(completed) / float(total), 0.0), 1.0)
         percent = min(int(start + ((end - start) * fraction)), 99)

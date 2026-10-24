@@ -177,7 +177,7 @@ def test_analyze_dir_sumava_unique_names(dataset):
     duplicates.to_csv("test_duplicates.csv", encoding="utf-8-sig")
     assert len(metadata) > 3
     assert len(metadata.locality.unique()) > 1, "There should be some localities."
-    assert len(metadata.unique_name.unique()) > 1, "There should be some unique names."
+    assert metadata.unique_name.isnull().all(), "Identities must not be inferred without contains_identities."
     assert len(duplicates) > 0
     rows_with_duplicate = metadata[metadata.content_hash == duplicates.content_hash[0]]
     assert len(rows_with_duplicate) > 0
@@ -241,6 +241,28 @@ def test_make_dataset_keeps_video_extension_when_converting_images(tmp_path, mon
 
     assert Path(result.loc[0, "image_path"]).suffix == ".webp"
     assert Path(result.loc[1, "image_path"]).suffix == ".mp4"
+
+
+def test_add_column_with_lynx_id_does_not_infer_identity_without_contains_identities():
+    df = pd.DataFrame(
+        {
+            "original_path": ["Brdy/2026-10-01/IMG_0001.jpg", "Brdy/Charles/IMG_0002.jpg"],
+            "unique_name": [None, "Charles"],
+        }
+    )
+
+    result = dataset_tools.add_column_with_lynx_id(df, contain_identities=False)
+
+    assert pd.isnull(result.loc[0, "unique_name"])
+    assert result.loc[1, "unique_name"] == "Charles"
+
+
+def test_add_column_with_lynx_id_uses_parent_dir_with_contains_identities():
+    df = pd.DataFrame({"original_path": ["Brdy/Charles/IMG_0001.jpg"]})
+
+    result = dataset_tools.add_column_with_lynx_id(df, contain_identities=True)
+
+    assert result.loc[0, "unique_name"] == "Charles"
 
 
 def test_path_structure_identity_mapping_sets_unique_name():

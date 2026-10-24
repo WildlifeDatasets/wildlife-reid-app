@@ -231,6 +231,7 @@ def _load_sam3_model() -> Any | None:
         return SAM3_PREDICTOR
 
     try:
+        from sam3.model_builder import build_sam3_image_model
         from sam3.model.sam3_image_processor import Sam3Processor
         from sam3.model_builder import build_sam3_image_model
     except ImportError as exc:
@@ -290,6 +291,7 @@ def del_identification_model():
     """Release the identification model."""
     global IDENTIFICATION_MODELS
     global IDENTIFICATION_MODEL_CACHE_KEY
+    global IDENTIFICATION_MODEL_CACHE_KEY
     IDENTIFICATION_MODELS = None
     IDENTIFICATION_MODEL_CACHE_KEY = None
     torch.cuda.empty_cache()
@@ -297,6 +299,7 @@ def del_identification_model():
 
 def del_sam_model():
     """Release segmentation GPU memory while retaining weights in CPU memory."""
+    # SAM and SAM3 are only read here (moved to CPU), so they need no 'global'.
     global SAM_PREDICTOR
     global SAM3_PREDICTOR
     global SEGMENTATION_BACKEND
@@ -677,7 +680,7 @@ def compute_partial(
 
 
 def _get_top_predictions(similarity, database_metadata, top_k: int = 1):
-    """Return the top predictions for each query image.
+    """Get the top-k most similar distinct identities for each query.
 
     Returns:
         List[List[Prediction]]
@@ -851,6 +854,7 @@ def identify(
     logger.info(f"Starting identification of {len(query_metadata)} images.")
 
     global IDENTIFICATION_MODELS
+    global IDENTIFICATION_MODEL_CACHE_KEY
     get_identification_model(identification_model_path, model_checkpoint=identification_model_weights_path)
 
     # gather features
@@ -883,6 +887,7 @@ def identify(
     similarity = wildfusion(query_features, database_features, B=image_budget)
     logger.debug(f"{similarity.shape=}")
     IDENTIFICATION_MODELS = None
+    IDENTIFICATION_MODEL_CACHE_KEY = None
 
     output, result_idx = identify_from_similarity(
         similarity, database_metadata, query_metadata, top_k, post_process=os.environ.get("POST_PROCESS", None)
