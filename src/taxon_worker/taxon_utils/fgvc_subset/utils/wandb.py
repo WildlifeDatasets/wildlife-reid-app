@@ -7,8 +7,6 @@ import pandas as pd
 import timm
 import torch
 
-from fgvc.version import __version__
-
 try:
     import wandb
 
@@ -101,7 +99,7 @@ def init_wandb(
         name=run_name,
         config={
             **{k: v for k, v in config.items() if k not in ("tags", "notes")},
-            "fgvc_version": __version__,
+            # This is the local subset; no installed FGVC package supplies a version.
             "timm_version": timm.__version__,
             "torch_version": torch.__version__,
         },

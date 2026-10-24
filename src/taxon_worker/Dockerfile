@@ -1,12 +1,11 @@
 FROM mjirik/wrid-mlbase:23.05
-#FROM nvcr.io/nvidia/pytorch:23.05-py3
-#
-## install linux dependencies
-#RUN apt-get update --yes && \
-#    # - apt-get upgrade is run to patch known vulnerabilities in apt-get packages as
-#    #   the ubuntu base image is rebuilt too seldom sometimes (less than once a month)
-#    # apt-get upgrade --yes && \
-#    apt-get install --yes --no-install-recommends \
+# FROM nvcr.io/nvidia/pytorch:23.05-py3
+
+ARG DEBIAN_FRONTEND=noninteractive
+
+# Previously supplied by mjirik/wrid-mlbase:23.05; keep the worker self-contained
+# until a new shared base is validated for both ML workers.
+#RUN apt-get update && apt-get install -y --no-install-recommends \
 #    wget \
 #    git \
 #    ffmpeg \
@@ -14,27 +13,59 @@ FROM mjirik/wrid-mlbase:23.05
 #    libxext6 \
 #    tesseract-ocr \
 #    exiftool \
-#    && \
-#    apt-get clean && rm -rf /var/lib/apt/lists/*
+#    libwebp-dev \
+# && rm -rf /var/lib/apt/lists/*
 
+# The old NVIDIA base configures an unavailable extra pip index in several files.
+# Recheck this workaround when upgrading to a newer PyTorch/CUDA base image:
+# it may no longer be needed there. Upgrading the torch wheel alone will not fix it.
+# Keep PyPI, other settings, and explicit --index-url options intact.
+RUN python - <<'PY'
+from configparser import ConfigParser
+from pathlib import Path
 
-# download weights into resources
-RUN mkdir -p ~/resources && \
-    wget http://ptak.felk.cvut.cz/plants/DanishFungiDataset/md_v5a.0.0.pt \
-    -O /root/resources/md_v5a.0.0.pt
+for filename in (
+    "/etc/xdg/pip/pip.conf",
+    "/etc/pip.conf",
+    "/usr/pip.conf",
+    "/root/.pip/pip.conf",
+    "/root/.config/pip/pip.conf",
+):
+    path = Path(filename)
+    if not path.is_file():
+        continue
+    config = ConfigParser(interpolation=None)
+    config.read(path)
+    changed = False
+    for section in config.sections():
+        for option in ("extra-index-url", "trusted-host"):
+            if not config.has_option(section, option):
+                continue
+            values = config.get(section, option).split()
+            kept = [value for value in values if value.rstrip("/") not in (
+                "https://pypi.ngc.nvidia.com", "http://pypi.ngc.nvidia.com", "pypi.ngc.nvidia.com",
+            )]
+            if kept != values:
+                changed = True
+                if kept:
+                    config.set(section, option, "\n".join(kept))
+                else:
+                    config.remove_option(section, option)
+    if changed:
+        with path.open("w") as output:
+            config.write(output)
+PY
 
-# call torchub to load model into cache, 915bbf2 is v7.0 with no dependency on ultralytics
+# MegaDetector weights and YOLOv5 Hub code are cached in /shared_data at runtime.
 RUN pip install pillow==10.3.0 tqdm==4.66.3 opencv-python-headless==4.6.0.66
-RUN python -c "import torch; torch.hub.load('ultralytics/yolov5:915bbf2', 'custom','/root/resources/md_v5a.0.0.pt', force_reload=True, trust_repo=True) and print('yolov5 loaded')"
-RUN ls /root/resources
 
 # install python dependencies
 ENV APP_DIR='/taxon_worker'
 WORKDIR $APP_DIR
-RUN pip install --no-cache-dir --upgrade pip build && \
-    pip install --no-cache-dir --compile timm==0.9.12 && \
-    rm -rf /var/lib/apt/lists/* /var/cache/apt/* /tmp/* /var/tmp/*
-RUN pip install https://github.com/BohemianVRA/FGVC/releases/download/v1.5.4-dev/fgvc-1.5.4.dev0-py3-none-any.whl
+#RUN pip install --no-cache-dir --upgrade pip build && \
+#    pip install --no-cache-dir --compile timm==0.9.12 && \
+#    rm -rf /var/lib/apt/lists/* /var/cache/apt/* /tmp/* /var/tmp/*
+#RUN pip install https://github.com/BohemianVRA/FGVC/releases/download/v1.5.4-dev/fgvc-1.5.4.dev0-py3-none-any.whl
 
 # install torch and flash-attn to match sam3 requirements
 RUN pip install torch==2.7.0 torchvision==0.22.0 torchaudio==2.7.0 --index-url https://download.pytorch.org/whl/cu128
@@ -58,7 +89,7 @@ RUN pip install --no-cache-dir --upgrade pip build && \
 #     opencv-python==4.5.5.64 \
 #     opencv-python-headless==4.5.5.64 && \
 #     rm -rf /var/lib/apt/lists/* /var/cache/apt/* /tmp/* /var/tmp/*
-# 
+#
 # RUN pip install timm==0.6.13
 
 RUN pip install numpy==1.26.4

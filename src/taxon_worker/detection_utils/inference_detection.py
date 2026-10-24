@@ -15,6 +15,13 @@ from PIL import Image
 from torch.nn import functional as F
 from tqdm import tqdm
 
+from .model_cache import (
+    MEGADETECTOR_CHECKPOINT_PATH,
+    MEGADETECTOR_URL,
+    TORCH_HUB_CACHE_DIR,
+    download_checkpoint_if_missing,
+)
+
 try:
     from ..infrastructure_utils import mem
 except ImportError:
@@ -50,39 +57,6 @@ WARM_UP_DETECTION_MODEL_ON_START = os.getenv("TAXON_WARM_UP_DETECTION_MODEL_ON_S
     "yes",
 )
 SAM3_FALLBACK_CONF = float(os.getenv("TAXON_SAM3_FALLBACK_CONF", "0.5"))
-
-
-def download_file(url: str, output_file: str):
-    """Download file from url."""
-    import requests
-
-    # r = requests.get(url, allow_redirects=True)
-    # with open(output_file, "wb") as f:
-    #     f.write(r.content)
-    # download file from url with tqdm progressbar
-    # https://stackoverflow.com/a/37573701/4419811
-    # Streaming, so we can iterate over the response.
-    r = requests.get(url, stream=True)
-    # Total size in bytes.
-    total_size = int(r.headers.get("content-length", 0))
-    block_size = 1024  # 1 Kibibyte
-    t = tqdm(total=total_size, unit="iB", unit_scale=True)
-    with open(output_file, "wb") as f:
-        for data in r.iter_content(block_size):
-            t.update(len(data))
-            f.write(data)
-    t.close()
-    if total_size != 0 and t.n != total_size:
-        logger.error("ERROR, something went wrong")
-
-
-def download_file_if_does_not_exists(url: str, output_file: str):
-    """Download file from url."""
-    logger.debug(f"Checking if file ({output_file}) does not exists.")
-    if not os.path.exists(output_file):
-        logger.debug(f"File does not exists. Downloading from url: {url} to {output_file}.")
-        Path(output_file).parent.mkdir(parents=True, exist_ok=True)
-        download_file(url, output_file)
 
 
 def download_sam3_checkpoint_if_missing(
@@ -138,10 +112,9 @@ def get_detection_model(force_reload: bool = False):
     logger.debug("Before detection model.")
     logger.debug(f"{mem.get_vram(DEVICE)}     {mem.get_ram()}")
     if DETECTION_MODEL is None:
-        model_url = r"https://github.com/ecologize/CameraTraps/releases/download/v5.0/md_v5a.0.0.pt"
-        filename = model_url.split("/")[-1]
-        model_file = Path("/root/resources/") / filename
-        download_file_if_does_not_exists(model_url, model_file)
+        model_file = download_checkpoint_if_missing(MEGADETECTOR_URL, MEGADETECTOR_CHECKPOINT_PATH)
+        TORCH_HUB_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        torch.hub.set_dir(str(TORCH_HUB_CACHE_DIR))
 
         logger.debug(f"Loading model from file: {model_file}. {model_file.exists()=}")
 
@@ -150,7 +123,6 @@ def get_detection_model(force_reload: bool = False):
             "ultralytics/yolov5:915bbf2",  # repo_or_dir tag v7.0
             "custom",  # model
             str(model_file.expanduser()),  # args for callable model
-            # force_reload=True,
             force_reload=force_reload,
             trust_repo=True,
             device=DEVICE,

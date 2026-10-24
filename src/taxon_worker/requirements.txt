@@ -37,6 +37,9 @@ easyocr==1.7.1
 # for exiftool
 pyexiftool==0.5.*
 scikit-image==0.24.*
+# Used directly by the local FGVC dataset subset; retain its 1.x transform API
+# and compatibility with the worker's OpenCV pins after removing FGVC.
+albumentations==1.3.1
 
 openpyxl==3.0.*
 

@@ -17,7 +17,9 @@ try:
     from taxon_utils import data_processing_pipeline, dataset_tools
     from taxon_utils.config import RABBITMQ_URL, REDIS_URL
     from taxon_utils.log import setup_logging
-except ModuleNotFoundError:
+except ModuleNotFoundError as exc:
+    if exc.name != "taxon_utils":
+        raise
     from .taxon_utils import data_processing_pipeline, dataset_tools
     from .taxon_utils.config import RABBITMQ_URL, REDIS_URL
     from .taxon_utils.log import setup_logging
