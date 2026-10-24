@@ -111,7 +111,6 @@ env.bak/
 venv.bak/
 src/detection_worker/resources/
 src/taxon_worker/cache.json
-src/api/static/assets/
 
 # Spyder project settings
 .spyderproject
@@ -159,7 +158,6 @@ cache.json
 *.pt
 *.swp
 
-src/api/caidapp/static/assets_
 src/api/static
 caid_import
 

@@ -278,7 +278,6 @@ DATA_UPLOAD_MAX_NUMBER_FILES = int(os.getenv("DATA_UPLOAD_MAX_NUMBER_FILES", "10
 if DEBUG:
     STATICFILES_DIRS = [
         BASE_DIR / "caidapp" / "static",  # app statika (volitelné)
-        # Path(SHARED_DATA_PATH) / "static",      # NiceAdmin assets
     ]
     # STATIC_ROOT = None
 
