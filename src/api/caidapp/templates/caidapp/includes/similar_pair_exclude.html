@@ -1,0 +1,6 @@
+<form method="post" action="{% url 'caidapp:exclude_merge_identity_suggestion' %}" onsubmit="return confirm('Never suggest merging these two identities again, in either direction?');">
+    {% csrf_token %}
+    <input type="hidden" name="excluded_suggestion" value="{{ card.a.identity.id }}|{{ card.b.identity.id }}">
+    <input type="hidden" name="next" value="{{ request.get_full_path }}" class="js-pairs-return-url">
+    <button type="submit" class="btn btn-outline-warning btn-sm" title="Exclude this pair from all merge suggestion methods">Never suggest</button>
+</form>

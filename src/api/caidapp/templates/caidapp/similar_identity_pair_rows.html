@@ -17,13 +17,14 @@
                 </div>
                 {% include 'caidapp/similar_identity_pair_row_side.html' with side=card.b side_class='similar-pair-row-right' %}
                 <div class="similar-pair-row-score small">
-                    {% if score_type == 'mega' %}<span class="text-body-secondary">Cosine similarity</span><strong class="d-block">{{ card.similarity|floatformat:3 }}</strong>{% else %}<span class="text-body-secondary">Matched points</span><strong class="d-block">{{ card.similarity|floatformat:0 }}</strong>{% endif %}
+                    {% if score_type == 'mega' %}<span class="text-body-secondary">Cosine similarity</span><strong class="d-block">{{ card.similarity|floatformat:3 }}</strong>{% elif score_type == 'name' %}<span class="text-body-secondary">Name/code distance</span><strong class="d-block">{{ card.similarity|floatformat:0 }}</strong>{% else %}<span class="text-body-secondary">Matched points</span><strong class="d-block">{{ card.similarity|floatformat:0 }}</strong>{% endif %}
                 </div>
                 <div class="similar-pair-row-actions">
                     {% if card.is_resolved %}
                         <span class="badge text-bg-secondary" title="An original identity was merged or deleted, or both sides refer to the same identity">Resolved</span>
                     {% else %}
                         <a class="btn btn-outline-secondary btn-sm js-pair-preview" href="{{ card.preview_url }}" data-forward-url="{{ card.forward_preview_url }}" data-reverse-url="{{ card.reverse_preview_url }}">Merge preview</a>
+                        {% include 'caidapp/includes/similar_pair_exclude.html' %}
                     {% endif %}
                 </div>
             </article>

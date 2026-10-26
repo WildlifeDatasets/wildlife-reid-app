@@ -15,6 +15,8 @@ from caidapp.models import (
     IdentificationSimilarPairResult,
     IndividualIdentity,
     MediaFile,
+    MergeIdentitySuggestionExclusion,
+    MergeIdentitySuggestionResult,
     NotificationRecipient,
 )
 from django.test import TestCase
@@ -25,10 +27,18 @@ class SimilarIdentityPairsTest(TestCase):
     def setUp(self):
         """Prepare staff, a regular member, and temporary media for similar-identity pair searches."""
         self.staff = CaidUserFactory(admin=False)
+        self.staff.workgroup_admin = False
+        self.staff.save(update_fields=["workgroup_admin"])
+        # Keep User's cached profile aligned with the factory's workgroup and role.
+        self.staff.user.caiduser = self.staff
         self.staff.user.is_staff = True
         self.staff.user.save(update_fields=["is_staff"])
         self.workgroup = self.staff.workgroup
         self.nonstaff = CaidUserFactory(admin=True, workgroup=self.workgroup)
+        self.nonstaff.workgroup = self.workgroup
+        self.nonstaff.workgroup_admin = True
+        self.nonstaff.save(update_fields=["workgroup", "workgroup_admin"])
+        self.nonstaff.user.caiduser = self.nonstaff
         self.client.force_login(self.staff.user)
         self.temporary_media = TemporaryDirectory()
         self.addCleanup(self.temporary_media.cleanup)
@@ -673,6 +683,139 @@ class SimilarIdentityPairsTest(TestCase):
 
         self.assertEqual(urlparse(response.url).path, reverse("caidapp:merge_identities", args=[fourth.pk, third.pk]))
         self.assertEqual(parse_qs(urlparse(response.url).query)["next"], [return_url])
+
+    def test_search_prepares_name_matches_even_without_visual_inputs(self):
+        """Run shared name matching in the background and retain its results if visual matching cannot start."""
+        first = IndividualIdentityFactory(owner_workgroup=self.workgroup, name="Marta 12", code=None)
+        second = IndividualIdentityFactory(owner_workgroup=self.workgroup, name="Marta 12 L", code=None)
+        archive = UploadedArchiveFactory(owner=self.staff)
+        mediafile = MediaFile.objects.create(parent=archive, media_type="image", original_filename="representative.jpg")
+        AnimalObservationFactory(mediafile=mediafile, identity=first, identity_is_representative=True)
+        result = IdentificationSimilarPairResult.objects.create(
+            workgroup=self.workgroup, input_csv_filename="empty.csv"
+        )
+        with patch(
+            "caidapp.tasks._prepare_dataframe_for_identification", return_value={"class_id": [], "image_path": []}
+        ):
+            tasks.prepare_similar_identity_pairs(result.pk)
+        result.refresh_from_db()
+
+        self.assertEqual(result.status, "error")
+        self.assertEqual(len(result.name_pairs), 1)
+        pair = result.name_pairs[0]
+        self.assertEqual({pair["class_id_a"], pair["class_id_b"]}, {first.pk, second.pk})
+        self.assertIn(mediafile.pk, (pair["mediafile_a_id"], pair["mediafile_b_id"]))
+        response = self.client.get(
+            reverse("caidapp:similar_identity_pairs_result", args=[result.pk]), {"layout": "rows"}
+        )
+        self.assertContains(response, "Name matches")
+        self.assertContains(response, "Name/code distance")
+        self.assertContains(response, "Name-based suggestions are available below")
+        self.assertContains(response, "Merge preview")
+
+    def test_name_matches_are_limited_to_ten_and_do_not_use_placeholders(self):
+        """Snapshot at most ten ranked matches without treating no-detection placeholders as identity previews."""
+        identities = [IndividualIdentityFactory(owner_workgroup=self.workgroup) for _ in range(12)]
+        suggestions = [[identities[0].pk, identity.pk, index] for index, identity in enumerate(identities[1:])]
+        saved = MergeIdentitySuggestionResult.objects.create(workgroup=self.workgroup, suggestions=suggestions)
+        mediafile = MediaFile.objects.create(parent=UploadedArchiveFactory(owner=self.staff), media_type="image")
+        mediafile.observations.update(identity=identities[0])
+
+        with patch("caidapp.tasks.compute_identity_suggestions", return_value=saved.pk):
+            pairs = tasks._prepare_name_identity_pairs(self.workgroup)
+
+        self.assertEqual(len(pairs), 10)
+        self.assertEqual([pair["similarity"] for pair in pairs], list(range(10)))
+        self.assertTrue(all(pair["mediafile_a_id"] is None and pair["mediafile_b_id"] is None for pair in pairs))
+
+    def test_never_suggest_is_shared_by_all_methods_and_preserves_return_url(self):
+        """Exclude both directions from old saved visual/name results and from future name generation."""
+        first = IndividualIdentityFactory(owner_workgroup=self.workgroup, name="Marta 12", code=None)
+        second = IndividualIdentityFactory(owner_workgroup=self.workgroup, name="Marta 12 L", code=None)
+        pair = {"class_id_a": first.pk, "class_id_b": second.pk}
+        reverse_pair = {"class_id_a": second.pk, "class_id_b": first.pk}
+        result = IdentificationSimilarPairResult.objects.create(
+            workgroup=self.workgroup, status="done", mega_pairs=[pair], local_pairs=[reverse_pair], name_pairs=[pair]
+        )
+        return_url = reverse("caidapp:similar_identity_pairs_result", args=[result.pk]) + "?layout=rows&show_resolved=1"
+
+        response = self.client.post(
+            reverse("caidapp:exclude_merge_identity_suggestion"),
+            {
+                "excluded_suggestion": f"{second.pk}|{first.pk}",
+                "next": return_url,
+            },
+        )
+
+        self.assertRedirects(response, return_url, fetch_redirect_response=False)
+        self.assertEqual(MergeIdentitySuggestionExclusion.objects.filter(workgroup=self.workgroup).count(), 1)
+        page = self.client.get(return_url)
+        for key in ("mega_cards", "local_cards", "name_cards"):
+            self.assertEqual(page.context[key], [])
+        self.assertEqual(tasks._prepare_name_identity_pairs(self.workgroup), [])
+        self.assertEqual(
+            tasks._normalize_similar_identity_pairs(
+                [{**reverse_pair, "path_a": "/a.jpg", "path_b": "/b.jpg"}], self.workgroup
+            ),
+            [],
+        )
+        self.staff.workgroup_admin = True
+        self.staff.save(update_fields=["workgroup_admin"])
+        denied_merge = self.client.post(
+            reverse("caidapp:merge_similar_identity_pairs", args=[result.pk]), {"pairs": ["2"]}
+        )
+        self.assertEqual(denied_merge.status_code, 302)
+        self.assertTrue(IndividualIdentity.objects.filter(pk=first.pk).exists())
+
+    def test_name_pairs_follow_visual_pairs_in_review_queue_and_bulk_merge(self):
+        """Keep stable global indices and allow reviewing or merging name-based suggestions with the existing tools."""
+        first, second, third = [IndividualIdentityFactory(owner_workgroup=self.workgroup) for _ in range(3)]
+        result = IdentificationSimilarPairResult.objects.create(
+            workgroup=self.workgroup,
+            status="done",
+            mega_pairs=[{"class_id_a": first.pk, "class_id_b": second.pk}],
+            name_pairs=[{"class_id_a": second.pk, "class_id_b": third.pk, "similarity": 1}],
+        )
+        url = reverse("caidapp:similar_identity_pairs_result", args=[result.pk])
+        page = self.client.get(url)
+        self.assertEqual(page.context["name_cards"][0]["review_index"], 1)
+        self.assertContains(page, "Name/code distance: 1")
+        merged = self.client.post(
+            reverse("caidapp:merge_identities", args=[first.pk, second.pk]),
+            {
+                "name": second.name,
+                "sex": "U",
+                "coat_type": "U",
+                "action": "merge_next",
+                "review_result": result.pk,
+                "review_index": 0,
+                "next": url,
+            },
+        )
+        self.assertEqual(urlparse(merged.url).path, reverse("caidapp:merge_identities", args=[second.pk, third.pk]))
+        self.assertEqual(parse_qs(urlparse(merged.url).query)["review_index"], ["1"])
+        self.staff.workgroup_admin = True
+        self.staff.save(update_fields=["workgroup_admin"])
+        bulk = self.client.post(
+            reverse("caidapp:merge_similar_identity_pairs", args=[result.pk]), {"pairs": ["1"], "next": url}
+        )
+        self.assertRedirects(bulk, url, fetch_redirect_response=False)
+        self.assertFalse(IndividualIdentity.objects.filter(pk=second.pk).exists())
+        self.assertTrue(IndividualIdentity.objects.filter(pk=third.pk).exists())
+
+    def test_excluding_pair_rejects_foreign_identities_and_external_return_url(self):
+        """Do not create cross-workgroup exclusions or redirect outside this application."""
+        first = IndividualIdentityFactory(owner_workgroup=self.workgroup)
+        foreign = IndividualIdentityFactory(owner_workgroup=CaidUserFactory().workgroup)
+        response = self.client.post(
+            reverse("caidapp:exclude_merge_identity_suggestion"),
+            {
+                "excluded_suggestion": f"{first.pk}|{foreign.pk}",
+                "next": "https://example.org/outside",
+            },
+        )
+        self.assertRedirects(response, reverse("caidapp:suggest_merge_identities"), fetch_redirect_response=False)
+        self.assertFalse(MergeIdentitySuggestionExclusion.objects.exists())
 
     def test_nonstaff_cannot_start_view_or_download_results(self):
         """Deny pair search, result pages, and CSV downloads to non-staff members."""

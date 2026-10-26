@@ -3347,7 +3347,7 @@ def run_similar_identity_pairs_for_workgroup(workgroup: WorkGroup) -> models.Ide
     """Create a run and queue metadata preparation outside the HTTP request."""
     result = models.IdentificationSimilarPairResult.objects.create(
         workgroup=workgroup,
-        message="Preparing identified observations for the similarity search.",
+        message="Preparing name matches and identified observations for the similarity search.",
         task_id=str(uuid.uuid4()),
     )
     result.input_csv_filename = f"identification_similar_pairs_{result.id}.csv"
@@ -3385,6 +3385,8 @@ def prepare_similar_identity_pairs(result_id: int) -> int:
     workgroup = result.workgroup
     logger.info("Preparing similar pair input result_id=%s workgroup_id=%s", result.id, workgroup.id)
     try:
+        result.name_pairs = _prepare_name_identity_pairs(workgroup)
+        result.save(update_fields=["name_pairs"])
         mediafiles = (
             MediaFile.objects.filter(
                 parent__owner__workgroup=workgroup,
@@ -3441,9 +3443,44 @@ def prepare_similar_identity_pairs(result_id: int) -> int:
     return result.id
 
 
+def _prepare_name_identity_pairs(workgroup, limit=10):
+    """Snapshot the best existing name/code matches, using real observations for media previews."""
+    suggestions_id = compute_identity_suggestions(workgroup.id)
+    suggestions = models.MergeIdentitySuggestionResult.objects.get(pk=suggestions_id).suggestions[:limit]
+    identity_ids = {identity_id for source_id, target_id, _ in suggestions for identity_id in (source_id, target_id)}
+    identities = IndividualIdentity.objects.filter(pk__in=identity_ids, owner_workgroup=workgroup).in_bulk()
+    previews = {}
+    for identity_id in identities:
+        observation = (
+            models.AnimalObservation.objects.filter(
+                identity_id=identity_id,
+                is_no_detection_placeholder=False,
+                mediafile__parent__owner__workgroup=workgroup,
+            )
+            .select_related("mediafile")
+            .order_by("-identity_is_representative", "-mediafile__captured_at", "-id")
+            .first()
+        )
+        previews[identity_id] = observation.mediafile if observation else None
+    pairs = []
+    for source_id, target_id, distance in suggestions:
+        if source_id not in identities or target_id not in identities:
+            continue
+        pair = {"similarity": distance}
+        for side, identity_id in (("a", source_id), ("b", target_id)):
+            mediafile = previews[identity_id]
+            pair[f"class_id_{side}"] = identity_id
+            pair[f"label_{side}"] = identities[identity_id].name
+            pair[f"mediafile_{side}_id"] = mediafile.pk if mediafile else None
+            pair[f"path_{side}"] = mediafile.original_filename if mediafile else ""
+        pairs.append(pair)
+    return pairs
+
+
 def _normalize_similar_identity_pairs(raw_pairs: list[dict], workgroup: WorkGroup) -> list[dict]:
     """Resolve worker paths and identity IDs while keeping the source scores intact."""
     normalized = []
+    excluded_pairs = models.MergeIdentitySuggestionExclusion.excluded_pair_ids(workgroup)
     for raw_pair in raw_pairs or []:
         if not isinstance(raw_pair, dict):
             continue
@@ -3456,6 +3493,8 @@ def _normalize_similar_identity_pairs(raw_pairs: list[dict], workgroup: WorkGrou
         except (KeyError, TypeError, ValueError):
             continue
         if identity_a_id == identity_b_id:
+            continue
+        if tuple(sorted((identity_a_id, identity_b_id))) in excluded_pairs:
             continue
         identity_ids = set(
             IndividualIdentity.objects.filter(

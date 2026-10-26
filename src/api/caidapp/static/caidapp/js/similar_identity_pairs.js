@@ -22,7 +22,7 @@
     else current.searchParams.delete('reversed');
     const returnUrl = current.pathname + current.search + current.hash;
     if (save) history.replaceState(null, '', returnUrl);
-    form.querySelector('.js-pairs-return-url').value = returnUrl;
+    document.querySelectorAll('.js-pairs-return-url').forEach(input => { input.value = returnUrl; });
     const filter = document.querySelector('#similar-pairs-filter-form input[name="reversed"]');
     if (filter) filter.value = reversed;
     document.querySelectorAll('.js-pairs-layout').forEach(link => {

@@ -7141,15 +7141,19 @@ class MergeIdentitiesWithPreview(LoginRequiredMixin, View):
         except (TypeError, ValueError):
             return None
         result = models.IdentificationSimilarPairResult.objects.filter(
-            pk=result_id, workgroup=workgroup, status="done"
+            pk=result_id, workgroup=workgroup, status__in=("done", "error")
         ).first()
         if result is None:
             return None
-        pairs = (result.mega_pairs or []) + (result.local_pairs or [])
+        pairs = result.ordered_pairs()
         if not 0 <= index < len(pairs):
             return None
         pair = pairs[index]
         if {pair.get("class_id_a"), pair.get("class_id_b")} != {individual_from.pk, individual_to.pk}:
+            return None
+        if tuple(
+            sorted((individual_from.pk, individual_to.pk))
+        ) in models.MergeIdentitySuggestionExclusion.excluded_pair_ids(workgroup):
             return None
         return {"result": result, "index": index, "pairs": pairs}
 
@@ -7165,9 +7169,12 @@ class MergeIdentitiesWithPreview(LoginRequiredMixin, View):
         )
         return_params = urllib.parse.parse_qs(urllib.parse.urlsplit(return_url).query)
         reversed_indices = _parse_reversed_pair_indices(return_params.get("reversed", [""])[0])
+        excluded_pairs = models.MergeIdentitySuggestionExclusion.excluded_pair_ids(request.user.caiduser.workgroup)
         for index, pair in enumerate(remaining, start=queue["index"] + 1):
             source_id, target_id = pair.get("class_id_a"), pair.get("class_id_b")
             if source_id == target_id or source_id not in available_ids or target_id not in available_ids:
+                continue
+            if tuple(sorted((source_id, target_id))) in excluded_pairs:
                 continue
             source_mediafile_id, target_mediafile_id = pair.get("mediafile_a_id"), pair.get("mediafile_b_id")
             if index in reversed_indices:
@@ -8023,14 +8030,21 @@ def cancel_merge_identity_suggestions(request):
 @require_POST
 def exclude_merge_identity_suggestion(request):
     """Persistently suppress one identity pair from merge suggestions."""
+    workgroup = request.user.caiduser.workgroup
+    if workgroup is None:
+        raise PermissionDenied
+    return_url = request.POST.get("next") or reverse("caidapp:suggest_merge_identities")
+    if not url_has_allowed_host_and_scheme(
+        return_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+    ):
+        return_url = reverse("caidapp:suggest_merge_identities")
     value = request.POST.get("excluded_suggestion", "")
     try:
         identity_id1, identity_id2 = (int(item) for item in value.split("|", 1))
     except (TypeError, ValueError):
         messages.error(request, "Invalid merge suggestion.")
-        return redirect("caidapp:suggest_merge_identities")
+        return redirect(return_url)
 
-    workgroup = request.user.caiduser.workgroup
     identities = {
         identity.id: identity
         for identity in IndividualIdentity.objects.filter(
@@ -8040,7 +8054,7 @@ def exclude_merge_identity_suggestion(request):
     }
     if len(identities) != 2 or identity_id1 == identity_id2:
         messages.error(request, "The identities could not be excluded.")
-        return redirect("caidapp:suggest_merge_identities")
+        return redirect(return_url)
 
     identity_a_id, identity_b_id = sorted((identity_id1, identity_id2))
     models.MergeIdentitySuggestionExclusion.objects.get_or_create(
@@ -8053,7 +8067,7 @@ def exclude_merge_identity_suggestion(request):
         f"'{identities[identity_id1].name}' and '{identities[identity_id2].name}' "
         "will no longer be suggested together.",
     )
-    return redirect("caidapp:suggest_merge_identities")
+    return redirect(return_url)
 
 
 @login_required
@@ -8508,7 +8522,8 @@ def similar_identity_pairs_view(request, result_id: int = None):
         return render(request, "caidapp/similar_identity_pairs.html", {"result": None})
 
     show_resolved = request.GET.get("show_resolved") == "1"
-    raw_pairs = (result.mega_pairs or []) + (result.local_pairs or [])
+    raw_pairs = result.ordered_pairs()
+    excluded_pairs = models.MergeIdentitySuggestionExclusion.excluded_pair_ids(workgroup)
     layout = "rows" if request.GET.get("layout") == "rows" else "cards"
     reversed_indices = _parse_reversed_pair_indices(request.GET.get("reversed", ""))
     reversed_indices = {index for index in reversed_indices if index < len(raw_pairs)}
@@ -8552,6 +8567,8 @@ def similar_identity_pairs_view(request, result_id: int = None):
         for index, pair in enumerate(pairs, start=offset):
             identity_a = identities.get(pair.get("class_id_a"))
             identity_b = identities.get(pair.get("class_id_b"))
+            if identity_a and identity_b and tuple(sorted((identity_a.pk, identity_b.pk))) in excluded_pairs:
+                continue
             is_resolved = not identity_a or not identity_b or identity_a.pk == identity_b.pk
             if is_resolved:
                 resolved_count += 1
@@ -8603,6 +8620,9 @@ def similar_identity_pairs_view(request, result_id: int = None):
 
     mega_cards, mega_resolved_count = make_cards(result.mega_pairs or [])
     local_cards, local_resolved_count = make_cards(result.local_pairs or [], offset=len(result.mega_pairs or []))
+    name_cards, name_resolved_count = make_cards(
+        result.name_pairs or [], offset=len(result.mega_pairs or []) + len(result.local_pairs or [])
+    )
 
     return render(
         request,
@@ -8611,8 +8631,9 @@ def similar_identity_pairs_view(request, result_id: int = None):
             "result": result,
             "mega_cards": mega_cards,
             "local_cards": local_cards,
+            "name_cards": name_cards,
             "show_resolved": show_resolved,
-            "resolved_count": mega_resolved_count + local_resolved_count,
+            "resolved_count": mega_resolved_count + local_resolved_count + name_resolved_count,
             "layout": layout,
             "cards_layout_url": layout_url("cards"),
             "rows_layout_url": layout_url("rows"),
@@ -8652,7 +8673,7 @@ def merge_similar_identity_pairs_view(request, result_id):
     if not caiduser.workgroup_admin or caiduser.workgroup_id is None:
         raise PermissionDenied
     result = get_object_or_404(
-        models.IdentificationSimilarPairResult, pk=result_id, workgroup=caiduser.workgroup, status="done"
+        models.IdentificationSimilarPairResult, pk=result_id, workgroup=caiduser.workgroup, status__in=("done", "error")
     )
     fallback_url = reverse("caidapp:similar_identity_pairs_result", args=[result.pk])
     return_url = request.POST.get("next") or fallback_url
@@ -8660,7 +8681,7 @@ def merge_similar_identity_pairs_view(request, result_id):
         return_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()
     ):
         return_url = fallback_url
-    pairs = (result.mega_pairs or []) + (result.local_pairs or [])
+    pairs = result.ordered_pairs()
     try:
         indices = list(dict.fromkeys(int(value) for value in request.POST.getlist("pairs")))
         if not indices or any(index < 0 or index >= len(pairs) for index in indices):
@@ -8678,6 +8699,10 @@ def merge_similar_identity_pairs_view(request, result_id):
             raise ValueError
     except (TypeError, ValueError):
         messages.error(request, "Select valid unresolved suggestions. No identities were merged.")
+        return redirect(return_url)
+    excluded_pairs = models.MergeIdentitySuggestionExclusion.excluded_pair_ids(caiduser.workgroup)
+    if any(tuple(sorted(pair)) in excluded_pairs for pair in selected):
+        messages.error(request, "A selected pair was marked Never suggest. No identities were merged.")
         return redirect(return_url)
     if len(identity_ids) != len(set(identity_ids)):
         messages.error(
@@ -8717,9 +8742,15 @@ def merge_selected_identities_view(request):
             messages.info(request, "No suggestions were selected for merging.")
             return redirect("caidapp:suggest_merge_identities")
 
+        excluded_pairs = models.MergeIdentitySuggestionExclusion.excluded_pair_ids(request.user.caiduser.workgroup)
+        merged_count = 0
+        excluded_count = 0
         for suggestion in selected_suggestions:
             try:
                 id1, id2 = suggestion.split("|")
+                if tuple(sorted((int(id1), int(id2)))) in excluded_pairs:
+                    excluded_count += 1
+                    continue
                 # Retrieve the identities ensuring they belong to the user's workgroup
                 identity1 = get_object_or_404(
                     IndividualIdentity, pk=id1, owner_workgroup=request.user.caiduser.workgroup
@@ -8733,6 +8764,7 @@ def merge_selected_identities_view(request):
                 # Perform the merge.
                 # Replace the following call with your actual merge logic.
                 merge_identities_helper(request, identity1, identity2)
+                merged_count += 1
                 # For example, if you have a function that handles merging:
                 # merge_identities_no_preview(request, identity_a.id, identity_b.id)
 
@@ -8748,7 +8780,10 @@ def merge_selected_identities_view(request):
                 # Skip this suggestion if it doesn't have the correct format
                 continue
 
-        messages.success(request, "Selected identities merged successfully.")
+        if merged_count:
+            messages.success(request, f"Merged {merged_count} selected identity pairs.")
+        if excluded_count:
+            messages.info(request, f"Skipped {excluded_count} pairs marked Never suggest.")
         return redirect("caidapp:suggest_merge_identities")
     else:
         messages.error(request, "Invalid request method.")

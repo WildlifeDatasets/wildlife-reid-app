@@ -6,7 +6,7 @@
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-start gap-2 mb-3">
                             <span class="badge text-bg-secondary">Pair {{ forloop.counter }}</span>
-                            <strong>{% if score_type == 'mega' %}Cosine similarity: {{ card.similarity|floatformat:3 }}{% else %}Matched points: {{ card.similarity|floatformat:0 }}{% endif %}</strong>
+                            <strong>{% if score_type == 'mega' %}Cosine similarity: {{ card.similarity|floatformat:3 }}{% elif score_type == 'name' %}Name/code distance: {{ card.similarity|floatformat:0 }}{% else %}Matched points: {{ card.similarity|floatformat:0 }}{% endif %}</strong>
                         </div>
                         {% if not card.is_resolved %}
                             <div class="form-check mb-3"{% if not request.user.caiduser.workgroup_admin %} title="Only workgroup administrators can use this action"{% endif %}>
@@ -29,6 +29,7 @@
                                 {% endif %}
                                 {% if not card.is_resolved and card.a.identity and card.b.identity %}
                                     <a class="btn btn-outline-secondary btn-sm" href="{{ card.preview_url }}">Merge preview</a>
+                                    {% include 'caidapp/includes/similar_pair_exclude.html' %}
                                 {% endif %}
                             </div>
                         {% endif %}

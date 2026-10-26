@@ -128,12 +128,7 @@ def compute_identity_suggestions(workgroup_id: int, limit: int = 100, progress_c
     logger.debug(f"Computing identity suggestions for workgroup {workgroup.name} ({workgroup.id})")
 
     all_identities = list(IndividualIdentity.objects.filter(owner_workgroup=workgroup))
-    excluded_pairs = {
-        tuple(sorted((identity_a_id, identity_b_id)))
-        for identity_a_id, identity_b_id in models.MergeIdentitySuggestionExclusion.objects.filter(
-            workgroup=workgroup
-        ).values_list("identity_a_id", "identity_b_id")
-    }
+    excluded_pairs = models.MergeIdentitySuggestionExclusion.excluded_pair_ids(workgroup)
     total = len(all_identities)
     total_pairs = total * (total - 1) // 2
     print(f"Total identities: {total}")

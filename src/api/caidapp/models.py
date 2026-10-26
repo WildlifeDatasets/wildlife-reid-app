@@ -2551,6 +2551,14 @@ class MergeIdentitySuggestionExclusion(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
+    @classmethod
+    def excluded_pair_ids(cls, workgroup):
+        """Return direction-independent exclusions shared by all merge suggestion methods."""
+        return {
+            tuple(sorted(pair))
+            for pair in cls.objects.filter(workgroup=workgroup).values_list("identity_a_id", "identity_b_id")
+        }
+
     class Meta:
         constraints = [
             models.UniqueConstraint(
@@ -2575,7 +2583,7 @@ class IdentificationOutlierSuggestionResult(models.Model):
 
 
 class IdentificationSimilarPairResult(models.Model):
-    """One manual search for visually similar media from different identities."""
+    """One manual search for visual and name-based identity merge candidates."""
 
     workgroup = models.ForeignKey(WorkGroup, on_delete=models.CASCADE, related_name="similar_pair_results")
     created_at = models.DateTimeField(auto_now_add=True)
@@ -2587,6 +2595,11 @@ class IdentificationSimilarPairResult(models.Model):
     output_csv_filename = models.CharField(max_length=255, blank=True, default="")
     mega_pairs = models.JSONField(default=list, blank=True)
     local_pairs = models.JSONField(default=list, blank=True)
+    name_pairs = models.JSONField(default=list, blank=True)
+
+    def ordered_pairs(self):
+        """Keep stable review indices across visual methods followed by name matching."""
+        return (self.mega_pairs or []) + (self.local_pairs or []) + (self.name_pairs or [])
 
     class Meta:
         ordering = ("-created_at", "-id")

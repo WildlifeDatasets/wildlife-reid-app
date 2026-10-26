@@ -19,7 +19,7 @@
                 <i class="bi bi-info-circle" aria-hidden="true"></i>
             </button>
         </div>
-        <p class="text-body-secondary mb-0">This search compares embeddings saved during identification initialization, which normally includes representative observations; it cannot reliably distinguish two identities in the same media file.</p>
+        <p class="text-body-secondary mb-0">Find merge candidates using saved visual embeddings and identity names or codes. Visual matching cannot reliably distinguish two identities in the same media file.</p>
     </div>
     <a class="btn btn-outline-secondary" href="{% url 'caidapp:dash_identities' %}">Identification dashboard</a>
 </div>
@@ -71,7 +71,8 @@
         </div>
     </div>
 
-    {% if result.status == 'done' %}
+    {% if result.status == 'done' or result.status == 'error' and name_cards %}
+        {% if result.status == 'error' and name_cards %}<p class="text-body-secondary">The visual search did not finish. Name-based suggestions are available below.</p>{% endif %}
         <div class="d-flex justify-content-end mb-3">
             <div class="btn-group btn-group-sm" role="group" aria-label="Suggestion layout">
                 <a class="btn btn-outline-secondary js-pairs-layout{% if layout != 'rows' %} active{% endif %}" href="{{ cards_layout_url }}"{% if layout != 'rows' %} aria-current="true"{% endif %}><i class="bi bi-grid" aria-hidden="true"></i> Cards</a>
@@ -103,6 +104,7 @@
             </div>
             <p class="small text-body-secondary mt-2 mb-0">{% if not request.user.caiduser.workgroup_admin %}Only workgroup administrators can use direct merge. {% endif %}Select pairs below. Each source identity will be merged into the target shown. Each identity may appear in only one selected pair.</p>
         </form>
+        {% if result.status == 'done' %}
         <section class="mb-5">
             <h2 class="h4">MegaDescriptor pairs <span class="text-body-secondary">({{ mega_cards|length }})</span></h2>
             <p class="text-body-secondary">Similarity is cosine similarity; higher values indicate more similar embeddings.</p>
@@ -119,6 +121,16 @@
                 {% include 'caidapp/similar_identity_pair_rows.html' with cards=local_cards score_type='local' %}
             {% else %}
                 {% include 'caidapp/similar_identity_pair_cards.html' with cards=local_cards score_type='local' %}
+            {% endif %}
+        </section>
+        {% endif %}
+        <section class="mb-5">
+            <h2 class="h4">Name matches <span class="text-body-secondary">({{ name_cards|length }})</span></h2>
+            <p class="text-body-secondary">Up to 10 best matches using the same name/code rules as the name-based merge suggestions. Lower distance means a closer match; matching codes score 0. Run search to refresh these suggestions.</p>
+            {% if layout == 'rows' %}
+                {% include 'caidapp/similar_identity_pair_rows.html' with cards=name_cards score_type='name' %}
+            {% else %}
+                {% include 'caidapp/similar_identity_pair_cards.html' with cards=name_cards score_type='name' %}
             {% endif %}
         </section>
     {% endif %}

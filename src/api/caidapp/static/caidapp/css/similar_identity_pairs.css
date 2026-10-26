@@ -15,9 +15,9 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    flex: 0 0 6.5rem;
-    width: 6.5rem;
-    height: 5.5rem;
+    flex: 0 0 13rem;
+    width: 13rem;
+    height: 11rem;
     border-radius: .25rem;
     background: var(--bs-secondary-bg);
     overflow: hidden;
@@ -26,12 +26,14 @@
 .similar-pair-row-thumbnail img { width: 100%; height: 100%; object-fit: contain; }
 .similar-pair-row-info { min-width: 0; overflow-wrap: anywhere; }
 .similar-pair-row-direction { text-align: center; }
+.similar-pair-row-actions { display: flex; flex-direction: column; align-items: flex-start; gap: .5rem; }
 .similar-pair-row-direction .btn { font-size: 1.25rem; line-height: 1; padding: .5rem .625rem; }
 .similar-pair-row-direction .btn-check:checked + .btn,
 .similar-pair-row-direction .btn-check:checked + .btn:hover { color: #fff; background: var(--bs-secondary); }
 @media (max-width: 1100px) {
     .similar-pair-row { grid-template-columns: 1.25rem minmax(0, 1fr) 2.75rem minmax(0, 1fr) 6rem 7rem; gap: .625rem; }
-    .similar-pair-row-thumbnail { flex-basis: 4.5rem; width: 4.5rem; height: 4.5rem; }
+    .similar-pair-row-side { flex-direction: column; align-items: flex-start; }
+    .similar-pair-row-thumbnail { flex-basis: auto; width: 9rem; max-width: 100%; height: 9rem; }
 }
 @media (max-width: 760px) {
     .similar-pair-row { grid-template-columns: 1.25rem minmax(0, 1fr) 2.75rem; }
