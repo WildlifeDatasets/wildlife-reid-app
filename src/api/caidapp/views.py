@@ -7123,7 +7123,68 @@ def get_individuals(request, id1, id2) -> Tuple[models.IndividualIdentity, model
     return individual_identity1, individual_identity2
 
 
+def _parse_reversed_pair_indices(value):
+    """Read optional saved-pair direction choices from the list URL."""
+    return {int(part) for part in value.split(",") if part.isascii() and part.isdecimal()}
+
+
 class MergeIdentitiesWithPreview(LoginRequiredMixin, View):
+    @staticmethod
+    def _review_queue(request, individual_from, individual_to):
+        """Accept a saved search cursor only for its original pair and authorized workgroup."""
+        workgroup = request.user.caiduser.workgroup
+        if not request.user.is_staff or workgroup is None:
+            return None
+        try:
+            result_id = int(request.POST.get("review_result") or request.GET.get("review_result", ""))
+            index = int(request.POST.get("review_index") or request.GET.get("review_index", ""))
+        except (TypeError, ValueError):
+            return None
+        result = models.IdentificationSimilarPairResult.objects.filter(
+            pk=result_id, workgroup=workgroup, status="done"
+        ).first()
+        if result is None:
+            return None
+        pairs = (result.mega_pairs or []) + (result.local_pairs or [])
+        if not 0 <= index < len(pairs):
+            return None
+        pair = pairs[index]
+        if {pair.get("class_id_a"), pair.get("class_id_b")} != {individual_from.pk, individual_to.pk}:
+            return None
+        return {"result": result, "index": index, "pairs": pairs}
+
+    @staticmethod
+    def _next_review_url(request, queue, return_url):
+        """Find the next still-valid saved pair after the merge, without merging it."""
+        remaining = queue["pairs"][queue["index"] + 1 :]
+        identity_ids = {pair.get(key) for pair in remaining for key in ("class_id_a", "class_id_b")}
+        available_ids = set(
+            IndividualIdentity.objects.filter(
+                pk__in=identity_ids, owner_workgroup=request.user.caiduser.workgroup
+            ).values_list("pk", flat=True)
+        )
+        return_params = urllib.parse.parse_qs(urllib.parse.urlsplit(return_url).query)
+        reversed_indices = _parse_reversed_pair_indices(return_params.get("reversed", [""])[0])
+        for index, pair in enumerate(remaining, start=queue["index"] + 1):
+            source_id, target_id = pair.get("class_id_a"), pair.get("class_id_b")
+            if source_id == target_id or source_id not in available_ids or target_id not in available_ids:
+                continue
+            source_mediafile_id, target_mediafile_id = pair.get("mediafile_a_id"), pair.get("mediafile_b_id")
+            if index in reversed_indices:
+                source_id, target_id = target_id, source_id
+                source_mediafile_id, target_mediafile_id = target_mediafile_id, source_mediafile_id
+            params = {
+                "next": return_url,
+                "review_result": queue["result"].pk,
+                "review_index": index,
+                "from_mediafile_id": source_mediafile_id or "",
+                "to_mediafile_id": target_mediafile_id or "",
+            }
+            return (
+                reverse("caidapp:merge_identities", args=[source_id, target_id]) + "?" + urllib.parse.urlencode(params)
+            )
+        return None
+
     @staticmethod
     def _mediafiles_for_preview(identity, requested_id):
         mediafiles = list(identity.observation_mediafiles().order_by("-captured_at", "-id")[:40])
@@ -7155,6 +7216,7 @@ class MergeIdentitiesWithPreview(LoginRequiredMixin, View):
     def _render_preview(self, request, individual_from, individual_to, form):
         differences = generate_differences(individual_to, individual_from)
         return_url = self._return_url(request)
+        review_queue = self._review_queue(request, individual_from, individual_to)
         from_mediafiles = self._mediafiles_for_preview(individual_from, request.GET.get("from_mediafile_id"))
         to_mediafiles = self._mediafiles_for_preview(individual_to, request.GET.get("to_mediafile_id"))
         from_mediafile_id = from_mediafiles[0].pk if from_mediafiles else ""
@@ -7167,6 +7229,10 @@ class MergeIdentitiesWithPreview(LoginRequiredMixin, View):
                 "next": return_url,
             }
         )
+        if review_queue:
+            swap_url += "&" + urllib.parse.urlencode(
+                {"review_result": review_queue["result"].pk, "review_index": review_queue["index"]}
+            )
         return render(
             request,
             "caidapp/merge_identities_preview.html",
@@ -7184,6 +7250,7 @@ class MergeIdentitiesWithPreview(LoginRequiredMixin, View):
                 "swap_url": swap_url,
                 "cancel_button_url": return_url,
                 "return_url": return_url,
+                "review_queue": review_queue,
             },
         )
 
@@ -7208,6 +7275,7 @@ class MergeIdentitiesWithPreview(LoginRequiredMixin, View):
 
         form = IndividualIdentityForm(request.POST, instance=individual_to)
         if form.is_valid():
+            review_queue = self._review_queue(request, individual_from, individual_to)
             individual_identity = form.save(commit=False)
             individual_identity.updated_by = request.user.caiduser
             individual_identity.save()
@@ -7222,15 +7290,22 @@ class MergeIdentitiesWithPreview(LoginRequiredMixin, View):
 
             individual_from.delete()
 
+            if request.POST.get("action") == "merge_next" and review_queue:
+                next_url = self._next_review_url(request, review_queue, self._return_url(request))
+                if next_url:
+                    return redirect(next_url)
+                messages.success(request, "Identity merged. No further unresolved suggestions in this search.")
             return redirect(self._return_url(request))
 
         # On failure, re-render the form with errors
         return self._render_preview(request, individual_from, individual_to, form)
 
 
-class MergeIdentitiesNoPreview(View):
+class MergeIdentitiesNoPreview(LoginRequiredMixin, View):
     def get(self, request, individual_identity_from_id, individual_identity_to_id):
         """Merge two individual identities without preview."""
+        if not request.user.caiduser.workgroup_admin or request.user.caiduser.workgroup_id is None:
+            raise PermissionDenied
         individual_from, individual_to = get_individuals(
             request, individual_identity_from_id, individual_identity_to_id
         )
@@ -8434,6 +8509,15 @@ def similar_identity_pairs_view(request, result_id: int = None):
 
     show_resolved = request.GET.get("show_resolved") == "1"
     raw_pairs = (result.mega_pairs or []) + (result.local_pairs or [])
+    layout = "rows" if request.GET.get("layout") == "rows" else "cards"
+    reversed_indices = _parse_reversed_pair_indices(request.GET.get("reversed", ""))
+    reversed_indices = {index for index in reversed_indices if index < len(raw_pairs)}
+
+    def layout_url(value):
+        params = request.GET.copy()
+        params["layout"] = value
+        return "?" + params.urlencode()
+
     mediafile_ids = {
         pair.get(f"mediafile_{side}_id")
         for pair in raw_pairs
@@ -8462,10 +8546,10 @@ def similar_identity_pairs_view(request, result_id: int = None):
         .in_bulk()
     )
 
-    def make_cards(pairs):
+    def make_cards(pairs, offset=0):
         cards = []
         resolved_count = 0
-        for pair in pairs:
+        for index, pair in enumerate(pairs, start=offset):
             identity_a = identities.get(pair.get("class_id_a"))
             identity_b = identities.get(pair.get("class_id_b"))
             is_resolved = not identity_a or not identity_b or identity_a.pk == identity_b.pk
@@ -8486,12 +8570,39 @@ def similar_identity_pairs_view(request, result_id: int = None):
                     }
                 )
             cards.append(
-                {"a": sides[0], "b": sides[1], "similarity": pair.get("similarity"), "is_resolved": is_resolved}
+                {
+                    "a": sides[0],
+                    "b": sides[1],
+                    "similarity": pair.get("similarity"),
+                    "is_resolved": is_resolved,
+                    "review_index": index,
+                    "is_reversed": index in reversed_indices,
+                }
             )
+            card = cards[-1]
+            if not is_resolved:
+                for direction, source, target in (("forward", sides[0], sides[1]), ("reverse", sides[1], sides[0])):
+                    params = {
+                        "from_mediafile_id": source["mediafile"].pk if source["mediafile"] else "",
+                        "to_mediafile_id": target["mediafile"].pk if target["mediafile"] else "",
+                        "next": request.get_full_path(),
+                        "review_result": result.pk,
+                        "review_index": index,
+                    }
+                    card[f"{direction}_preview_url"] = (
+                        reverse("caidapp:merge_identities", args=[source["identity"].pk, target["identity"].pk])
+                        + "?"
+                        + urllib.parse.urlencode(params)
+                    )
+                card["preview_url"] = (
+                    card["reverse_preview_url"] if card["is_reversed"] else card["forward_preview_url"]
+                )
+                card["merge_source"] = sides[1] if card["is_reversed"] else sides[0]
+                card["merge_target"] = sides[0] if card["is_reversed"] else sides[1]
         return cards, resolved_count
 
     mega_cards, mega_resolved_count = make_cards(result.mega_pairs or [])
-    local_cards, local_resolved_count = make_cards(result.local_pairs or [])
+    local_cards, local_resolved_count = make_cards(result.local_pairs or [], offset=len(result.mega_pairs or []))
 
     return render(
         request,
@@ -8502,6 +8613,10 @@ def similar_identity_pairs_view(request, result_id: int = None):
             "local_cards": local_cards,
             "show_resolved": show_resolved,
             "resolved_count": mega_resolved_count + local_resolved_count,
+            "layout": layout,
+            "cards_layout_url": layout_url("cards"),
+            "rows_layout_url": layout_url("rows"),
+            "reversed_pairs_value": ",".join(map(str, sorted(reversed_indices))),
             "output_csv_available": workgroup.file_path(result.output_csv_filename).is_file(),
             "input_csv_available": workgroup.file_path(result.input_csv_filename).is_file(),
         },
@@ -8530,8 +8645,72 @@ def download_similar_identity_pairs_csv(request, result_id: int, kind: str):
 
 
 @login_required
+@require_POST
+def merge_similar_identity_pairs_view(request, result_id):
+    """Merge disjoint selected saved pairs atomically, restricted to workgroup administrators."""
+    caiduser = request.user.caiduser
+    if not caiduser.workgroup_admin or caiduser.workgroup_id is None:
+        raise PermissionDenied
+    result = get_object_or_404(
+        models.IdentificationSimilarPairResult, pk=result_id, workgroup=caiduser.workgroup, status="done"
+    )
+    fallback_url = reverse("caidapp:similar_identity_pairs_result", args=[result.pk])
+    return_url = request.POST.get("next") or fallback_url
+    if not url_has_allowed_host_and_scheme(
+        return_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+    ):
+        return_url = fallback_url
+    pairs = (result.mega_pairs or []) + (result.local_pairs or [])
+    try:
+        indices = list(dict.fromkeys(int(value) for value in request.POST.getlist("pairs")))
+        if not indices or any(index < 0 or index >= len(pairs) for index in indices):
+            raise ValueError
+        reversed_indices = {int(value) for value in request.POST.getlist("reverse_pairs")}
+        if any(index < 0 or index >= len(pairs) for index in reversed_indices):
+            raise ValueError
+        selected = []
+        for index in indices:
+            pair = (pairs[index].get("class_id_a"), pairs[index].get("class_id_b"))
+            selected.append(pair[::-1] if index in reversed_indices else pair)
+        selected = list(dict.fromkeys(selected))
+        identity_ids = [pk for pair in selected for pk in pair]
+        if None in identity_ids or any(source == target for source, target in selected):
+            raise ValueError
+    except (TypeError, ValueError):
+        messages.error(request, "Select valid unresolved suggestions. No identities were merged.")
+        return redirect(return_url)
+    if len(identity_ids) != len(set(identity_ids)):
+        messages.error(
+            request,
+            "An identity appears in more than one selected pair. "
+            "Select non-overlapping pairs. No identities were merged.",
+        )
+        return redirect(return_url)
+    with transaction.atomic():
+        identities = {
+            identity.pk: identity
+            for identity in IndividualIdentity.objects.select_for_update()
+            .filter(pk__in=identity_ids, owner_workgroup=caiduser.workgroup)
+            .order_by("pk")
+        }
+        if len(identities) != len(identity_ids):
+            messages.error(
+                request,
+                "Some selected identities are no longer available. Refresh the list. No identities were merged.",
+            )
+            return redirect(return_url)
+        for source_id, target_id in selected:
+            identities[target_id].updated_by = caiduser
+            merge_identities_helper(request, identities[source_id], identities[target_id])
+    messages.success(request, f"Merged {len(selected)} selected identity pairs.")
+    return redirect(return_url)
+
+
+@login_required
 def merge_selected_identities_view(request):
     """Merge selected identities based on suggestions."""
+    if not request.user.caiduser.workgroup_admin or request.user.caiduser.workgroup_id is None:
+        raise PermissionDenied
     if request.method == "POST":
         selected_suggestions = request.POST.getlist("suggestions")
         if not selected_suggestions:

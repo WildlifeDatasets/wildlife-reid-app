@@ -29,6 +29,10 @@
             <form method="post" id="merge-identities-form" onsubmit="return confirm('Merge {{ individual_from.name|escapejs }} into {{ individual_to.name|escapejs }}?');">
                 {% csrf_token %}
                 <input type="hidden" name="next" value="{{ return_url }}">
+                {% if review_queue %}
+                    <input type="hidden" name="review_result" value="{{ review_queue.result.id }}">
+                    <input type="hidden" name="review_index" value="{{ review_queue.index }}">
+                {% endif %}
                 {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
                 {% for field in form %}
                     <div class="mb-3">
@@ -38,7 +42,8 @@
                         {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
                     </div>
                 {% endfor %}
-                <button type="submit" class="btn btn-primary">Merge into {{ individual_to.name }}</button>
+                {% if review_queue %}<button type="submit" class="btn btn-primary" name="action" value="merge_next">Merge and review next</button>{% endif %}
+                <button type="submit" class="btn {% if review_queue %}btn-outline-primary{% else %}btn-primary{% endif %}">Merge into {{ individual_to.name }}</button>
                 <a class="btn btn-secondary" href="{{ cancel_button_url }}">Cancel</a>
             </form>
         </div>

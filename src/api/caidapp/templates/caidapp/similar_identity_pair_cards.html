@@ -8,12 +8,19 @@
                             <span class="badge text-bg-secondary">Pair {{ forloop.counter }}</span>
                             <strong>{% if score_type == 'mega' %}Cosine similarity: {{ card.similarity|floatformat:3 }}{% else %}Matched points: {{ card.similarity|floatformat:0 }}{% endif %}</strong>
                         </div>
+                        {% if not card.is_resolved %}
+                            <div class="form-check mb-3"{% if not request.user.caiduser.workgroup_admin %} title="Only workgroup administrators can use this action"{% endif %}>
+                                <input type="checkbox" class="form-check-input" name="pairs" value="{{ card.review_index }}" id="bulk-merge-pair-{{ card.review_index }}" form="bulk-similar-merge-form"{% if not request.user.caiduser.workgroup_admin %} disabled{% endif %}>
+                                {% if card.is_reversed %}<input type="hidden" name="reverse_pairs" value="{{ card.review_index }}" form="bulk-similar-merge-form">{% endif %}
+                                <label class="form-check-label small{% if not request.user.caiduser.workgroup_admin %} text-body-secondary{% endif %}" for="bulk-merge-pair-{{ card.review_index }}">Merge {{ card.merge_source.identity.name }} into {{ card.merge_target.identity.name }}</label>
+                            </div>
+                        {% endif %}
                         {% if card.is_resolved %}
                             <div class="small text-body-secondary mb-3"><span class="badge text-bg-secondary">Resolved</span> This suggestion is no longer current: an original identity is unavailable (merged or deleted), or both sides refer to the same identity.</div>
                         {% endif %}
                         <div class="row g-3">
-                            {% include 'caidapp/similar_identity_pair_side.html' with side=card.a side_label='A' %}
-                            {% include 'caidapp/similar_identity_pair_side.html' with side=card.b side_label='B' %}
+                            {% include 'caidapp/similar_identity_pair_side.html' with side=card.a %}
+                            {% include 'caidapp/similar_identity_pair_side.html' with side=card.b %}
                         </div>
                         {% if card.a.mediafile and card.b.mediafile or card.a.identity and card.b.identity %}
                             <div class="d-flex flex-wrap gap-2 mt-3">
@@ -21,7 +28,7 @@
                                     <a class="btn btn-outline-primary btn-sm" href="{% url 'caidapp:comparison' %}?a_kind=mediafile&amp;a_id={{ card.a.mediafile.id }}&amp;b_kind=mediafile&amp;b_id={{ card.b.mediafile.id }}"><i class="bi bi-layout-split" aria-hidden="true"></i> Open comparison</a>
                                 {% endif %}
                                 {% if not card.is_resolved and card.a.identity and card.b.identity %}
-                                    <a class="btn btn-outline-secondary btn-sm" href="{% url 'caidapp:merge_identities' card.a.identity.id card.b.identity.id %}?from_mediafile_id={{ card.a.mediafile.id|default:'' }}&amp;to_mediafile_id={{ card.b.mediafile.id|default:'' }}&amp;next={{ request.get_full_path|urlencode }}">Merge preview</a>
+                                    <a class="btn btn-outline-secondary btn-sm" href="{{ card.preview_url }}">Merge preview</a>
                                 {% endif %}
                             </div>
                         {% endif %}

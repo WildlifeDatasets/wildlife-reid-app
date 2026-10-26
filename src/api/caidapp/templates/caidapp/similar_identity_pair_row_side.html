@@ -1,0 +1,15 @@
+<div class="similar-pair-row-side {{ side_class }}">
+    {% if side.mediafile %}
+        <a href="{% url 'caidapp:media_file_update' side.mediafile.id %}" class="similar-pair-row-thumbnail" title="Open media file detail">
+            {% if side.mediafile.thumbnail %}<img src="{{ side.mediafile.thumbnail.url }}" alt="Media file preview" loading="lazy">{% else %}<span class="small text-body-secondary">No preview</span>{% endif %}
+        </a>
+    {% else %}<div class="similar-pair-row-thumbnail small text-body-secondary">No preview</div>{% endif %}
+    <div class="similar-pair-row-info">
+        {% if side.identity %}
+            <a href="{% url 'caidapp:individual_identity_update' side.identity.id %}" class="fw-semibold">{{ side.identity.name }}</a>
+            {% if side.identity.code %}<div class="small text-body-secondary">{{ side.identity.code }}</div>{% endif %}
+            <div class="small text-body-secondary">{{ side.identity.mediafile_count }} media file{{ side.identity.mediafile_count|pluralize }}</div>
+        {% else %}<strong>{{ side.label }}</strong>{% endif %}
+        <div class="small text-body-secondary text-truncate" title="{{ side.filename }}">{{ side.filename }}</div>
+    </div>
+</div>

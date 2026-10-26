@@ -1,0 +1,34 @@
+{% if cards %}
+    <div class="similar-pair-rows">
+        {% for card in cards %}
+            <article class="similar-pair-row{% if card.is_resolved %} text-body-secondary{% endif %}" data-pair-index="{{ card.review_index }}" data-name-a="{{ card.a.identity.name }}" data-name-b="{{ card.b.identity.name }}">
+                <div class="similar-pair-row-select"{% if not request.user.caiduser.workgroup_admin %} title="Only workgroup administrators can use direct merge"{% endif %}>
+                    {% if not card.is_resolved %}
+                        <input type="checkbox" class="form-check-input" name="pairs" value="{{ card.review_index }}" id="bulk-merge-pair-{{ card.review_index }}" form="bulk-similar-merge-form" aria-label="Select merge {{ card.merge_source.identity.name }} into {{ card.merge_target.identity.name }}"{% if not request.user.caiduser.workgroup_admin %} disabled{% endif %}>
+                    {% endif %}
+                </div>
+                {% include 'caidapp/similar_identity_pair_row_side.html' with side=card.a side_class='similar-pair-row-left' %}
+                <div class="similar-pair-row-direction">
+                    {% if not card.is_resolved %}
+                        <input type="checkbox" class="btn-check js-pair-direction" id="reverse-pair-{{ card.review_index }}" name="reverse_pairs" value="{{ card.review_index }}" form="bulk-similar-merge-form" autocomplete="off" aria-label="Reverse merge direction for {{ card.a.identity.name }} and {{ card.b.identity.name }}"{% if card.is_reversed %} checked{% endif %}>
+                        <label class="btn btn-outline-secondary" for="reverse-pair-{{ card.review_index }}" title="Merge {{ card.merge_source.identity.name }} into {{ card.merge_target.identity.name }}. Click to reverse." aria-describedby="merge-direction-{{ card.review_index }}"><span class="js-pair-arrow" aria-hidden="true">{% if card.is_reversed %}&larr;{% else %}&rarr;{% endif %}</span></label>
+                        <span class="visually-hidden js-pair-direction-description" id="merge-direction-{{ card.review_index }}">Merge {{ card.merge_source.identity.name }} into {{ card.merge_target.identity.name }}</span>
+                    {% else %}<span class="text-body-secondary" aria-hidden="true">&mdash;</span>{% endif %}
+                </div>
+                {% include 'caidapp/similar_identity_pair_row_side.html' with side=card.b side_class='similar-pair-row-right' %}
+                <div class="similar-pair-row-score small">
+                    {% if score_type == 'mega' %}<span class="text-body-secondary">Cosine similarity</span><strong class="d-block">{{ card.similarity|floatformat:3 }}</strong>{% else %}<span class="text-body-secondary">Matched points</span><strong class="d-block">{{ card.similarity|floatformat:0 }}</strong>{% endif %}
+                </div>
+                <div class="similar-pair-row-actions">
+                    {% if card.is_resolved %}
+                        <span class="badge text-bg-secondary" title="An original identity was merged or deleted, or both sides refer to the same identity">Resolved</span>
+                    {% else %}
+                        <a class="btn btn-outline-secondary btn-sm js-pair-preview" href="{{ card.preview_url }}" data-forward-url="{{ card.forward_preview_url }}" data-reverse-url="{{ card.reverse_preview_url }}">Merge preview</a>
+                    {% endif %}
+                </div>
+            </article>
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="alert alert-light border">{% if show_resolved %}No pairs found by this method.{% else %}No unresolved pairs from this method. Enable “Show resolved suggestions” to include merged or deleted identities.{% endif %}</div>
+{% endif %}

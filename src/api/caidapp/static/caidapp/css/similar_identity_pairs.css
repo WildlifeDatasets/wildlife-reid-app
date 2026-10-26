@@ -1,0 +1,46 @@
+.similar-pair-rows { border: 1px solid var(--bs-border-color); border-radius: .375rem; overflow: hidden; }
+.similar-pair-row {
+    display: grid;
+    grid-template-columns: 1.25rem minmax(0, 1fr) 3rem minmax(0, 1fr) 7.5rem 7.5rem;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    background: var(--bs-body-bg);
+}
+.similar-pair-row + .similar-pair-row { border-top: 1px solid var(--bs-border-color); }
+.similar-pair-row:hover { background: var(--bs-tertiary-bg); }
+.similar-pair-row:has(input[name="pairs"]:checked) { background: var(--bs-primary-bg-subtle); }
+.similar-pair-row-side { display: flex; align-items: center; gap: .75rem; min-width: 0; }
+.similar-pair-row-thumbnail {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 6.5rem;
+    width: 6.5rem;
+    height: 5.5rem;
+    border-radius: .25rem;
+    background: var(--bs-secondary-bg);
+    overflow: hidden;
+    text-align: center;
+}
+.similar-pair-row-thumbnail img { width: 100%; height: 100%; object-fit: contain; }
+.similar-pair-row-info { min-width: 0; overflow-wrap: anywhere; }
+.similar-pair-row-direction { text-align: center; }
+.similar-pair-row-direction .btn { font-size: 1.25rem; line-height: 1; padding: .5rem .625rem; }
+.similar-pair-row-direction .btn-check:checked + .btn,
+.similar-pair-row-direction .btn-check:checked + .btn:hover { color: #fff; background: var(--bs-secondary); }
+@media (max-width: 1100px) {
+    .similar-pair-row { grid-template-columns: 1.25rem minmax(0, 1fr) 2.75rem minmax(0, 1fr) 6rem 7rem; gap: .625rem; }
+    .similar-pair-row-thumbnail { flex-basis: 4.5rem; width: 4.5rem; height: 4.5rem; }
+}
+@media (max-width: 760px) {
+    .similar-pair-row { grid-template-columns: 1.25rem minmax(0, 1fr) 2.75rem; }
+    .similar-pair-row-select { grid-column: 1; grid-row: 1; }
+    .similar-pair-row-left { grid-column: 2; grid-row: 1; }
+    .similar-pair-row-direction { grid-column: 3; grid-row: 1 / 3; }
+    .similar-pair-row-direction .js-pair-arrow { display: inline-block; transform: rotate(90deg); }
+    .similar-pair-row-right { grid-column: 2; grid-row: 2; }
+    .similar-pair-row-score { grid-column: 2; grid-row: 3; }
+    .similar-pair-row-score strong { display: inline !important; margin-left: .5rem; }
+    .similar-pair-row-actions { grid-column: 2; grid-row: 4; }
+}

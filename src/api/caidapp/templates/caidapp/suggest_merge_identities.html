@@ -135,18 +135,23 @@
       <form method="post" action="{% url 'caidapp:merge_selected_identities' %}">
         {% csrf_token %}
         <div class="mb-3 d-flex flex-wrap justify-content-between gap-2">
-          <div class="d-flex flex-wrap gap-2">
-            <button type="button" class="btn btn-outline-secondary btn-sm" id="select-all-merge-suggestions">Select all</button>
-            <button type="button" class="btn btn-outline-secondary btn-sm" id="select-distance-zero-merge-suggestions">Select distance 0</button>
+          <div class="d-flex flex-wrap gap-2 align-items-center" title="Only workgroup administrators can use direct merge">
+            <button type="button" class="btn btn-outline-secondary btn-sm" id="select-all-merge-suggestions"{% if not request.user.caiduser.workgroup_admin %} disabled{% endif %}>Select all</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" id="select-distance-zero-merge-suggestions"{% if not request.user.caiduser.workgroup_admin %} disabled{% endif %}>Select distance 0</button>
+            {% include 'caidapp/includes/workgroup_admin_badge.html' %}
           </div>
+          <span{% if not request.user.caiduser.workgroup_admin %} tabindex="0" title="Only workgroup administrators can use this action" aria-label="Direct merge: only workgroup administrators can use this action"{% endif %}>
           <button type="submit" class="btn btn-primary"
+                  {% if not request.user.caiduser.workgroup_admin %}disabled{% endif %}
                   onclick="return confirm('Are you sure you want to merge the selected suggestions?');">Merge Selected</button>
+          </span>
         </div>
+        {% if not request.user.caiduser.workgroup_admin %}<p class="small text-body-secondary">Only workgroup administrators can use direct merge. You can review individual pairs with Merge with preview.</p>{% endif %}
         <ul class="list-group suggestion-hover-list">
           {% for identity1, identity2, distance in suggestions %}
             <li class="list-group-item merge-suggestion-row">
               <div class="form-check mb-0">
-                <input class="form-check-input" type="checkbox" name="suggestions"
+                <input class="form-check-input" type="checkbox" name="suggestions"{% if not request.user.caiduser.workgroup_admin %} disabled title="Only workgroup administrators can use this action"{% endif %}
                        value="{{ identity1.id }}|{{ identity2.id }}" data-distance="{{ distance }}"
                        id="suggestion-{{ identity1.id }}-{{ identity2.id }}">
               </div>
@@ -166,10 +171,17 @@
               <div class="merge-distance text-body-secondary">distance: {{ distance }}</div>
               <div class="merge-suggestion-actions d-flex align-items-center justify-content-end">
                 <a class="btn btn-secondary me-1" href="{% url 'caidapp:merge_identities' identity1.id identity2.id %}?from_mediafile_id={{ identity1.merge_preview_mediafile_id|default:'' }}&amp;to_mediafile_id={{ identity2.merge_preview_mediafile_id|default:'' }}&amp;next={{ request.get_full_path|urlencode }}">Merge with preview</a>
+                {% if request.user.caiduser.workgroup_admin %}
                 <a class="btn btn-secondary" href="{% url 'caidapp:merge_identities_no_preview' identity1.id identity2.id %}"
                    onclick="return confirm('Are you sure you want to merge {{ identity1.name }} into {{ identity2.name }}?');">Merge</a>
                 <a class="btn btn-outline-secondary ms-1" href="{% url 'caidapp:merge_identities_no_preview' identity2.id identity1.id %}"
                    onclick="return confirm('Are you sure you want to merge {{ identity2.name }} into {{ identity1.name }}?');">Merge reverse</a>
+                {% else %}
+                <span tabindex="0" title="Only workgroup administrators can use this action" aria-label="Direct merge: only workgroup administrators can use this action">
+                  <button type="button" class="btn btn-secondary" disabled>Merge</button>
+                  <button type="button" class="btn btn-outline-secondary ms-1" disabled>Merge reverse</button>
+                </span>
+                {% endif %}
                 <button
                   type="submit"
                   class="btn btn-outline-warning ms-1"
@@ -218,7 +230,7 @@
 
       <script>
         (function () {
-          const checkboxes = Array.from(document.querySelectorAll('input[name="suggestions"]'));
+          const checkboxes = Array.from(document.querySelectorAll('input[name="suggestions"]:not(:disabled)'));
           const selectAll = document.getElementById("select-all-merge-suggestions");
           const selectZero = document.getElementById("select-distance-zero-merge-suggestions");
           if (selectAll) selectAll.addEventListener("click", function () {

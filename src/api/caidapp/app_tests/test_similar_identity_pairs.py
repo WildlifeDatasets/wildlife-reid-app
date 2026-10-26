@@ -1,7 +1,7 @@
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import MagicMock, patch
-from urllib.parse import quote
+from urllib.parse import parse_qs, urlparse
 
 from caidapp import tasks
 from caidapp.app_tests.factories import (
@@ -13,6 +13,7 @@ from caidapp.app_tests.factories import (
 from caidapp.models import (
     IdentificationOutlierSuggestionResult,
     IdentificationSimilarPairResult,
+    IndividualIdentity,
     MediaFile,
     NotificationRecipient,
 )
@@ -232,7 +233,10 @@ class SimilarIdentityPairsTest(TestCase):
                 for key in ("mega_cards", "local_cards"):
                     self.assertEqual(len(shown.context[key]), 2)
                     self.assertTrue(shown.context[key][0]["is_resolved"])
-                self.assertContains(shown, "next=" + quote(view_url + "?show_resolved=1", safe="/"))
+                active_card = shown.context["mega_cards"][1]
+                self.assertEqual(
+                    parse_qs(urlparse(active_card["preview_url"]).query)["next"], [view_url + "?show_resolved=1"]
+                )
 
         result.refresh_from_db()
         self.assertEqual(result.mega_pairs, pairs)
@@ -261,6 +265,414 @@ class SimilarIdentityPairsTest(TestCase):
         shown = self.client.get(url, {"show_resolved": "1"})
         self.assertEqual(len(shown.context["mega_cards"]), 2)
         self.assertNotContains(shown, "Merge preview")
+
+    def test_review_cursor_keeps_saved_order_when_resolved_pairs_are_hidden(self):
+        """Link both methods to stable saved indices even when earlier cards are hidden."""
+        first = IndividualIdentityFactory(owner_workgroup=self.workgroup)
+        second = IndividualIdentityFactory(owner_workgroup=self.workgroup)
+        active = {"class_id_a": first.pk, "class_id_b": second.pk}
+        result = IdentificationSimilarPairResult.objects.create(
+            workgroup=self.workgroup, status="done", mega_pairs=[{}, active], local_pairs=[active]
+        )
+
+        response = self.client.get(reverse("caidapp:similar_identity_pairs_result", args=[result.pk]))
+
+        self.assertEqual(response.context["mega_cards"][0]["review_index"], 1)
+        self.assertEqual(response.context["local_cards"][0]["review_index"], 2)
+        self.assertContains(response, f"review_result={result.pk}&amp;review_index=1")
+        self.assertContains(response, f"review_result={result.pk}&amp;review_index=2")
+        self.assertNotContains(response, 'class="small text-body-secondary">A</div>')
+        self.assertNotContains(response, 'class="small text-body-secondary">B</div>')
+
+    def test_merge_and_review_next_skips_unavailable_pairs_and_continues_across_methods(self):
+        """Open the next valid preview after one merge, and return to the filtered list when finished."""
+        first, second, third = [IndividualIdentityFactory(owner_workgroup=self.workgroup) for _ in range(3)]
+        foreign = IndividualIdentityFactory(owner_workgroup=CaidUserFactory().workgroup)
+        result = IdentificationSimilarPairResult.objects.create(
+            workgroup=self.workgroup,
+            status="done",
+            mega_pairs=[
+                {"class_id_a": first.pk, "class_id_b": second.pk},
+                {"class_id_a": first.pk, "class_id_b": third.pk},
+                {"class_id_a": second.pk, "class_id_b": second.pk},
+                {"class_id_a": second.pk, "class_id_b": foreign.pk},
+            ],
+            local_pairs=[{"class_id_a": second.pk, "class_id_b": third.pk}],
+        )
+        return_url = reverse("caidapp:similar_identity_pairs_result", args=[result.pk]) + "?show_resolved=1"
+        data = {
+            "name": second.name,
+            "sex": "U",
+            "coat_type": "U",
+            "next": return_url,
+            "review_result": result.pk,
+            "review_index": 0,
+            "action": "merge_next",
+        }
+
+        response = self.client.post(reverse("caidapp:merge_identities", args=[first.pk, second.pk]), data)
+
+        next_url = urlparse(response.url)
+        self.assertEqual(next_url.path, reverse("caidapp:merge_identities", args=[second.pk, third.pk]))
+        self.assertEqual(parse_qs(next_url.query)["review_index"], ["4"])
+        self.assertEqual(parse_qs(next_url.query)["next"], [return_url])
+        self.assertTrue(type(third).objects.filter(pk=third.pk).exists())
+        preview = self.client.get(response.url)
+        self.assertContains(preview, "Merge and review next")
+        self.assertNotContains(preview, "Browse with the arrows")
+        self.assertEqual(preview.context["review_queue"]["index"], 4)
+
+        data.update(name=third.name, review_index=4)
+        finished = self.client.post(response.url, data)
+
+        self.assertRedirects(finished, return_url, fetch_redirect_response=False)
+        self.assertFalse(type(second).objects.filter(pk=second.pk).exists())
+        self.assertTrue(type(third).objects.filter(pk=third.pk).exists())
+        self.assertContains(self.client.get(finished.url), "No further unresolved suggestions")
+
+    def test_review_queue_survives_swap_and_invalid_form(self):
+        """Keep the original queue cursor when reversing merge direction and correcting validation errors."""
+        first, second, third = [IndividualIdentityFactory(owner_workgroup=self.workgroup) for _ in range(3)]
+        result = IdentificationSimilarPairResult.objects.create(
+            workgroup=self.workgroup,
+            status="done",
+            mega_pairs=[
+                {"class_id_a": first.pk, "class_id_b": second.pk},
+                {"class_id_a": first.pk, "class_id_b": third.pk},
+            ],
+        )
+        return_url = reverse("caidapp:similar_identity_pairs_result", args=[result.pk])
+        preview = self.client.get(
+            reverse("caidapp:merge_identities", args=[first.pk, second.pk]),
+            {"review_result": result.pk, "review_index": 0, "next": return_url},
+        )
+        swapped = self.client.get(preview.context["swap_url"])
+        self.assertContains(swapped, "Merge and review next")
+        self.assertEqual(swapped.context["review_queue"]["index"], 0)
+        data = {
+            "name": "",
+            "sex": "U",
+            "coat_type": "U",
+            "next": return_url,
+            "review_result": result.pk,
+            "review_index": 0,
+            "action": "merge_next",
+        }
+        merge_url = reverse("caidapp:merge_identities", args=[second.pk, first.pk])
+        invalid = self.client.post(merge_url, data)
+        self.assertEqual(invalid.status_code, 200)
+        self.assertContains(invalid, "Merge and review next")
+        self.assertContains(invalid, 'name="review_index" value="0"')
+        self.assertTrue(type(second).objects.filter(pk=second.pk).exists())
+
+        data["name"] = first.name
+        response = self.client.post(merge_url, data)
+
+        self.assertEqual(urlparse(response.url).path, reverse("caidapp:merge_identities", args=[first.pk, third.pk]))
+
+    def test_queue_requires_matching_pair_workgroup_and_staff_access(self):
+        """Ignore missing, malformed, mismatched, and inaccessible saved-review cursors."""
+        first, second, third = [IndividualIdentityFactory(owner_workgroup=self.workgroup) for _ in range(3)]
+        own_result = IdentificationSimilarPairResult.objects.create(
+            workgroup=self.workgroup,
+            status="done",
+            mega_pairs=[{"class_id_a": first.pk, "class_id_b": second.pk}],
+        )
+        foreign_result = IdentificationSimilarPairResult.objects.create(
+            workgroup=CaidUserFactory().workgroup, status="done", mega_pairs=own_result.mega_pairs
+        )
+        merge_url = reverse("caidapp:merge_identities", args=[first.pk, second.pk])
+        for params in (
+            {},
+            {"review_result": "bad", "review_index": "bad"},
+            {"review_result": own_result.pk, "review_index": -1},
+            {"review_result": own_result.pk, "review_index": 10},
+            {"review_result": foreign_result.pk, "review_index": 0},
+        ):
+            with self.subTest(params=params):
+                self.assertNotContains(self.client.get(merge_url, params), "Merge and review next")
+        valid_params = {"review_result": own_result.pk, "review_index": 0}
+        mismatched = reverse("caidapp:merge_identities", args=[first.pk, third.pk])
+        self.assertNotContains(self.client.get(mismatched, valid_params), "Merge and review next")
+        self.client.force_login(self.nonstaff.user)
+        self.assertNotContains(self.client.get(merge_url, valid_params), "Merge and review next")
+
+    def test_regular_merge_with_review_cursor_still_returns_to_list(self):
+        """Advance through previews only when the explicit merge-and-review action was chosen."""
+        first, second, third = [IndividualIdentityFactory(owner_workgroup=self.workgroup) for _ in range(3)]
+        result = IdentificationSimilarPairResult.objects.create(
+            workgroup=self.workgroup,
+            status="done",
+            mega_pairs=[
+                {"class_id_a": first.pk, "class_id_b": second.pk},
+                {"class_id_a": second.pk, "class_id_b": third.pk},
+            ],
+        )
+        return_url = reverse("caidapp:similar_identity_pairs_result", args=[result.pk])
+
+        response = self.client.post(
+            reverse("caidapp:merge_identities", args=[first.pk, second.pk]),
+            {
+                "name": second.name,
+                "sex": "U",
+                "coat_type": "U",
+                "next": return_url,
+                "review_result": result.pk,
+                "review_index": 0,
+            },
+        )
+
+        self.assertRedirects(response, return_url, fetch_redirect_response=False)
+        self.assertTrue(type(third).objects.filter(pk=third.pk).exists())
+
+    def test_nonadmin_direct_merge_controls_are_visible_disabled_and_enforced(self):
+        """Advertise the admin action to staff members without allowing forged direct-merge requests."""
+        first, second = [IndividualIdentityFactory(owner_workgroup=self.workgroup) for _ in range(2)]
+        result = IdentificationSimilarPairResult.objects.create(
+            workgroup=self.workgroup, status="done", mega_pairs=[{"class_id_a": first.pk, "class_id_b": second.pk}]
+        )
+        response = self.client.get(reverse("caidapp:similar_identity_pairs_result", args=[result.pk]))
+        self.assertContains(response, "Workgroup admin")
+        self.assertContains(response, "Only workgroup administrators can use this action")
+        self.assertContains(response, 'form="bulk-similar-merge-form" disabled')
+        self.assertContains(response, "Merge preview")
+        denied = self.client.post(reverse("caidapp:merge_similar_identity_pairs", args=[result.pk]), {"pairs": ["0"]})
+        self.assertEqual(denied.status_code, 403)
+        self.assertEqual(
+            self.client.post(
+                reverse("caidapp:merge_selected_identities"), {"suggestions": [f"{first.pk}|{second.pk}"]}
+            ).status_code,
+            403,
+        )
+        self.assertEqual(
+            self.client.get(reverse("caidapp:merge_identities_no_preview", args=[first.pk, second.pk])).status_code, 403
+        )
+        self.assertTrue(IndividualIdentity.objects.filter(pk=first.pk).exists())
+
+    def test_admin_bulk_merge_deduplicates_pairs_and_preserves_selected_direction(self):
+        """Merge independent selected pairs once, moving observations into the displayed targets."""
+        self.staff.workgroup_admin = True
+        self.staff.save(update_fields=["workgroup_admin"])
+        first, second, third, fourth, unselected = [
+            IndividualIdentityFactory(owner_workgroup=self.workgroup) for _ in range(5)
+        ]
+        mediafile = MediaFile.objects.create(parent=UploadedArchiveFactory(owner=self.staff), media_type="image")
+        observation = AnimalObservationFactory(mediafile=mediafile, identity=first)
+        pairs = [
+            {"class_id_a": first.pk, "class_id_b": second.pk},
+            {"class_id_a": third.pk, "class_id_b": fourth.pk},
+            {"class_id_a": fourth.pk, "class_id_b": unselected.pk},
+        ]
+        result = IdentificationSimilarPairResult.objects.create(
+            workgroup=self.workgroup, status="done", mega_pairs=pairs, local_pairs=[pairs[0]]
+        )
+        return_url = reverse("caidapp:similar_identity_pairs_result", args=[result.pk]) + "?show_resolved=1"
+
+        response = self.client.post(
+            reverse("caidapp:merge_similar_identity_pairs", args=[result.pk]),
+            {"pairs": ["0", "1", "3"], "next": return_url},
+        )
+
+        self.assertRedirects(response, return_url, fetch_redirect_response=False)
+        self.assertFalse(IndividualIdentity.objects.filter(pk__in=[first.pk, third.pk]).exists())
+        self.assertEqual(IndividualIdentity.objects.filter(pk__in=[second.pk, fourth.pk, unselected.pk]).count(), 3)
+        observation.refresh_from_db()
+        self.assertEqual(observation.identity_id, second.pk)
+        second.refresh_from_db()
+        self.assertEqual(second.updated_by_id, self.staff.pk)
+        self.assertContains(self.client.get(return_url), "Merged 2 selected identity pairs.")
+
+    def test_bulk_merge_rejects_overlapping_pairs_without_changes(self):
+        """Reject an ambiguous batch before modifying any identity."""
+        self.staff.workgroup_admin = True
+        self.staff.save(update_fields=["workgroup_admin"])
+        first, second, third = [IndividualIdentityFactory(owner_workgroup=self.workgroup) for _ in range(3)]
+        result = IdentificationSimilarPairResult.objects.create(
+            workgroup=self.workgroup,
+            status="done",
+            mega_pairs=[
+                {"class_id_a": first.pk, "class_id_b": second.pk},
+                {"class_id_a": second.pk, "class_id_b": third.pk},
+            ],
+        )
+
+        response = self.client.post(
+            reverse("caidapp:merge_similar_identity_pairs", args=[result.pk]), {"pairs": ["0", "1"]}
+        )
+
+        self.assertContains(self.client.get(response.url), "Select non-overlapping pairs")
+        self.assertEqual(IndividualIdentity.objects.filter(pk__in=[first.pk, second.pk, third.pk]).count(), 3)
+
+    def test_bulk_merge_rejects_stale_foreign_and_invalid_selections(self):
+        """Validate every saved pair before merging, including workgroup ownership and submitted indices."""
+        self.staff.workgroup_admin = True
+        self.staff.save(update_fields=["workgroup_admin"])
+        first, second = [IndividualIdentityFactory(owner_workgroup=self.workgroup) for _ in range(2)]
+        foreign = IndividualIdentityFactory(owner_workgroup=CaidUserFactory().workgroup)
+        deleted = IndividualIdentityFactory(owner_workgroup=self.workgroup)
+        deleted_id = deleted.pk
+        deleted.delete()
+        result = IdentificationSimilarPairResult.objects.create(
+            workgroup=self.workgroup,
+            status="done",
+            mega_pairs=[
+                {"class_id_a": first.pk, "class_id_b": second.pk},
+                {"class_id_a": deleted_id, "class_id_b": foreign.pk},
+            ],
+        )
+        url = reverse("caidapp:merge_similar_identity_pairs", args=[result.pk])
+        for indices in ([], ["-1"], ["bad"], ["99"], ["0", "1"]):
+            with self.subTest(indices=indices):
+                response = self.client.post(url, {"pairs": indices, "next": "https://example.org/outside"})
+                self.assertRedirects(
+                    response,
+                    reverse("caidapp:similar_identity_pairs_result", args=[result.pk]),
+                    fetch_redirect_response=False,
+                )
+                self.assertEqual(IndividualIdentity.objects.filter(pk__in=[first.pk, second.pk]).count(), 2)
+        other_result = IdentificationSimilarPairResult.objects.create(workgroup=foreign.owner_workgroup, status="done")
+        self.assertEqual(
+            self.client.post(
+                reverse("caidapp:merge_similar_identity_pairs", args=[other_result.pk]), {"pairs": ["0"]}
+            ).status_code,
+            404,
+        )
+        self.assertEqual(self.client.get(url).status_code, 405)
+
+    def test_bulk_merge_rolls_back_the_batch_on_failure(self):
+        """Roll back earlier merges if a later pair fails during the same batch."""
+        from caidapp.views import merge_identities_helper
+
+        self.staff.workgroup_admin = True
+        self.staff.save(update_fields=["workgroup_admin"])
+        identities = [IndividualIdentityFactory(owner_workgroup=self.workgroup) for _ in range(4)]
+        original_ids = [identity.pk for identity in identities]
+        result = IdentificationSimilarPairResult.objects.create(
+            workgroup=self.workgroup,
+            status="done",
+            mega_pairs=[
+                {"class_id_a": original_ids[0], "class_id_b": original_ids[1]},
+                {"class_id_a": original_ids[2], "class_id_b": original_ids[3]},
+            ],
+        )
+
+        def fail_second(request, source, target):
+            if source.pk == original_ids[2]:
+                raise RuntimeError("Simulated second-pair failure")
+            merge_identities_helper(request, source, target)
+
+        with patch("caidapp.views.merge_identities_helper", side_effect=fail_second), self.assertRaises(RuntimeError):
+            self.client.post(reverse("caidapp:merge_similar_identity_pairs", args=[result.pk]), {"pairs": ["0", "1"]})
+
+        self.assertEqual(IndividualIdentity.objects.filter(pk__in=original_ids).count(), 4)
+
+    def test_row_layout_and_direction_preserve_list_state_and_media_previews(self):
+        """Render a full-width row and carry its selected direction and list filters into merge preview."""
+        first, second = [IndividualIdentityFactory(owner_workgroup=self.workgroup) for _ in range(2)]
+        archive = UploadedArchiveFactory(owner=self.staff)
+        first_media = MediaFile.objects.create(parent=archive, media_type="image")
+        second_media = MediaFile.objects.create(parent=archive, media_type="image")
+        result = IdentificationSimilarPairResult.objects.create(
+            workgroup=self.workgroup,
+            status="done",
+            mega_pairs=[
+                {
+                    "class_id_a": first.pk,
+                    "class_id_b": second.pk,
+                    "mediafile_a_id": first_media.pk,
+                    "mediafile_b_id": second_media.pk,
+                }
+            ],
+        )
+        url = reverse("caidapp:similar_identity_pairs_result", args=[result.pk])
+        response = self.client.get(url, {"layout": "rows", "show_resolved": "1", "reversed": "0"})
+
+        self.assertTemplateUsed(response, "caidapp/similar_identity_pair_rows.html")
+        self.assertContains(response, 'class="similar-pair-row"')
+        self.assertContains(response, "js-pair-direction")
+        self.assertContains(response, 'name="reverse_pairs" value="0"')
+        self.assertContains(response, 'aria-current="true"')
+        card = response.context["mega_cards"][0]
+        self.assertTrue(card["is_reversed"])
+        self.assertEqual(card["merge_source"]["identity"], second)
+        preview = urlparse(card["preview_url"])
+        self.assertEqual(preview.path, reverse("caidapp:merge_identities", args=[second.pk, first.pk]))
+        params = parse_qs(preview.query)
+        self.assertEqual(params["from_mediafile_id"], [str(second_media.pk)])
+        self.assertEqual(params["to_mediafile_id"], [str(first_media.pk)])
+        self.assertIn("layout=rows", params["next"][0])
+        self.assertIn("reversed=0", params["next"][0])
+        cards_url = response.context["cards_layout_url"]
+        self.assertIn("show_resolved=1", cards_url)
+        self.assertIn("reversed=0", cards_url)
+        cards = self.client.get(url + cards_url)
+        self.assertTemplateUsed(cards, "caidapp/similar_identity_pair_cards.html")
+        self.assertEqual(cards.context["mega_cards"][0]["merge_source"]["identity"], second)
+
+    def test_unknown_layout_and_malformed_direction_fall_back_to_cards(self):
+        """Use the original layout for unsupported values and ignore invalid direction indices."""
+        first, second = [IndividualIdentityFactory(owner_workgroup=self.workgroup) for _ in range(2)]
+        result = IdentificationSimilarPairResult.objects.create(
+            workgroup=self.workgroup, status="done", mega_pairs=[{"class_id_a": first.pk, "class_id_b": second.pk}]
+        )
+        response = self.client.get(
+            reverse("caidapp:similar_identity_pairs_result", args=[result.pk]),
+            {"layout": "unknown", "reversed": "-1,bad,999"},
+        )
+
+        self.assertEqual(response.context["layout"], "cards")
+        self.assertFalse(response.context["mega_cards"][0]["is_reversed"])
+        self.assertEqual(response.context["reversed_pairs_value"], "")
+
+    def test_bulk_merge_uses_row_direction_and_rejects_invalid_direction_indices(self):
+        """Keep the row's chosen target and apply no changes for malformed direction choices."""
+        self.staff.workgroup_admin = True
+        self.staff.save(update_fields=["workgroup_admin"])
+        first, second = [IndividualIdentityFactory(owner_workgroup=self.workgroup) for _ in range(2)]
+        result = IdentificationSimilarPairResult.objects.create(
+            workgroup=self.workgroup, status="done", mega_pairs=[{"class_id_a": first.pk, "class_id_b": second.pk}]
+        )
+        url = reverse("caidapp:merge_similar_identity_pairs", args=[result.pk])
+        for direction in ("bad", "-1", "99"):
+            response = self.client.post(url, {"pairs": ["0"], "reverse_pairs": [direction]})
+            self.assertEqual(response.status_code, 302)
+            self.assertTrue(IndividualIdentity.objects.filter(pk=second.pk).exists())
+        return_url = reverse("caidapp:similar_identity_pairs_result", args=[result.pk]) + "?layout=rows&reversed=0"
+
+        response = self.client.post(url, {"pairs": ["0"], "reverse_pairs": ["0"], "next": return_url})
+
+        self.assertRedirects(response, return_url, fetch_redirect_response=False)
+        self.assertTrue(IndividualIdentity.objects.filter(pk=first.pk).exists())
+        self.assertFalse(IndividualIdentity.objects.filter(pk=second.pk).exists())
+
+    def test_review_next_respects_direction_choices_on_the_original_rows(self):
+        """Use the next row's saved direction when continuing from merge preview."""
+        first, second, third, fourth = [IndividualIdentityFactory(owner_workgroup=self.workgroup) for _ in range(4)]
+        result = IdentificationSimilarPairResult.objects.create(
+            workgroup=self.workgroup,
+            status="done",
+            mega_pairs=[
+                {"class_id_a": first.pk, "class_id_b": second.pk},
+                {"class_id_a": third.pk, "class_id_b": fourth.pk},
+            ],
+        )
+        return_url = reverse("caidapp:similar_identity_pairs_result", args=[result.pk]) + "?layout=rows&reversed=1"
+
+        response = self.client.post(
+            reverse("caidapp:merge_identities", args=[first.pk, second.pk]),
+            {
+                "name": second.name,
+                "sex": "U",
+                "coat_type": "U",
+                "next": return_url,
+                "action": "merge_next",
+                "review_result": result.pk,
+                "review_index": 0,
+            },
+        )
+
+        self.assertEqual(urlparse(response.url).path, reverse("caidapp:merge_identities", args=[fourth.pk, third.pk]))
+        self.assertEqual(parse_qs(urlparse(response.url).query)["next"], [return_url])
 
     def test_nonstaff_cannot_start_view_or_download_results(self):
         """Deny pair search, result pages, and CSV downloads to non-staff members."""

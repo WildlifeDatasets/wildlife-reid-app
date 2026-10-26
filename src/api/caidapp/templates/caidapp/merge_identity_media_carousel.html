@@ -29,7 +29,7 @@
                     <button class="carousel-control-next" type="button" data-bs-target="#{{ carousel_id }}" data-bs-slide="next" aria-label="Next media file"><span class="carousel-control-next-icon bg-dark rounded" aria-hidden="true"></span></button>
                 {% endif %}
             </div>
-            <div class="small text-body-secondary mt-1">{% if mediafiles_count > 40 %}Showing up to 40 media files. Open the full list to browse all.{% else %}Browse with the arrows.{% endif %}</div>
+            {% if mediafiles_count > 40 %}<div class="small text-body-secondary mt-1">Showing up to 40 media files. Open the full list to browse all.</div>{% endif %}
         {% else %}
             <div class="border rounded bg-body-tertiary text-body-secondary p-4 text-center">No media files for this identity.</div>
         {% endif %}

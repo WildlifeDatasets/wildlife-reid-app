@@ -24,6 +24,7 @@ IDENTITY_WRITE_ROUTES = {
     "merge_identities",
     "merge_identities_no_preview",
     "merge_selected_identities",
+    "merge_similar_identity_pairs",
     "refresh_merge_identities_suggestions",
     "clear_identity_suggestions",
     "accept_identification_outlier_suggestion",
