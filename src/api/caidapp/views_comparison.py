@@ -149,14 +149,57 @@ def _source_payload(kind, source):
             "kind": kind,
             "id": source.id,
             "label": source.name,
+            "description": source.code or "",
             "detail_url": reverse("caidapp:individual_identity_update", args=[source.id]),
         }
     return {
         "kind": kind,
         "id": source.hash,
         "label": source.name,
+        "description": source.description,
         "detail_url": reverse("caidapp:album", args=[source.hash]),
     }
+
+
+def _related_sources(request, mediafiles, mediafile_ids):
+    """Collect visible identities and albums for each displayed media file in two queries."""
+    related = {pk: {"identities": [], "albums": []} for pk in mediafile_ids}
+    identities = (
+        AnimalObservation.objects.filter(
+            mediafile_id__in=mediafile_ids,
+            identity__in=_identities_for_request(request, mediafiles),
+            is_no_detection_placeholder=False,
+        )
+        .values("mediafile_id", "identity_id", "identity__name")
+        .order_by("identity__name", "identity_id")
+        .distinct()
+    )
+    for row in identities:
+        related[row["mediafile_id"]]["identities"].append(
+            {
+                "kind": "identity",
+                "id": row["identity_id"],
+                "label": row["identity__name"],
+                "detail_url": reverse("caidapp:individual_identity_update", args=[row["identity_id"]]),
+            }
+        )
+    albums = (
+        _visible_albums(request)
+        .filter(mediafiles__id__in=mediafile_ids)
+        .values("mediafiles__id", "hash", "name")
+        .order_by("name", "id")
+        .distinct()
+    )
+    for row in albums:
+        related[row["mediafiles__id"]]["albums"].append(
+            {
+                "kind": "album",
+                "id": row["hash"],
+                "label": row["name"],
+                "detail_url": reverse("caidapp:album", args=[row["hash"]]),
+            }
+        )
+    return related
 
 
 def _parse_page(request):
@@ -246,14 +289,24 @@ def comparison_source(request):
     editable_mediafile_ids = set(
         MediaFile.objects.for_user(request.user.caiduser).filter(id__in=mediafile_ids).values_list("id", flat=True)
     )
+    related = _related_sources(request, mediafiles, mediafile_ids)
+    source_payload = _source_payload(kind, source)
+    if kind == "identity":
+        source_payload["mediafile_count"] = item_queryset.values("mediafile_id").order_by().distinct().count()
+    elif kind == "album":
+        source_payload["mediafile_count"] = album_mediafiles.count()
     return JsonResponse(
         {
-            "source": _source_payload(kind, source),
+            "source": source_payload,
             "items": [
-                serialize_item(
-                    item,
-                    (item.mediafile_id if isinstance(item, AnimalObservation) else item.id) in editable_mediafile_ids,
-                )
+                {
+                    **serialize_item(
+                        item,
+                        (item.mediafile_id if isinstance(item, AnimalObservation) else item.id)
+                        in editable_mediafile_ids,
+                    ),
+                    "related_sources": related[item.mediafile_id if isinstance(item, AnimalObservation) else item.id],
+                }
                 for item in page_objects
             ],
             "page": page.number,

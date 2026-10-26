@@ -249,6 +249,11 @@ class MergeIdentitySuggestionsViewTest(TestCase):
         self.assertContains(response, "Merge from")
         self.assertContains(response, "Keep as")
         self.assertContains(response, "Swap direction")
+        self.assertContains(
+            response,
+            f'{reverse("caidapp:comparison")}?a_kind=identity&amp;a_id={source.id}'
+            f"&amp;b_kind=identity&amp;b_id={target.id}",
+        )
         self.assertEqual(response.context["from_mediafiles"][0], source_mediafile)
         self.assertEqual(response.context["to_mediafiles"][0], target_mediafile)
         self.assertEqual(response.context["form"].initial["name"], "Target")

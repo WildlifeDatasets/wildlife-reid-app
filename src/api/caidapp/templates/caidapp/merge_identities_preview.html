@@ -9,6 +9,7 @@
 {% block content %}
     <div class="pagetitle"><h1>Merge Individual Identities</h1>{% include 'caidapp/include_breadcrumb_nav.html' %}</div>
     <div class="alert alert-info">Observations from <strong>{{ individual_from.name }}</strong> will be assigned to <strong>{{ individual_to.name }}</strong>. The source identity will then be deleted.</div>
+    <p><a class="btn btn-outline-primary btn-sm" href="{% url 'caidapp:comparison' %}?a_kind=identity&amp;a_id={{ individual_from.id }}&amp;b_kind=identity&amp;b_id={{ individual_to.id }}" target="_blank" rel="noopener"><i class="bi bi-layout-split" aria-hidden="true"></i> Compare identities</a></p>
     <div class="row g-3 align-items-stretch mb-4">
         <div class="col-lg">
             {% include 'caidapp/merge_identity_media_carousel.html' with identity=individual_from mediafiles=from_mediafiles mediafiles_count=from_mediafiles_count role='Merge from' side='from' carousel_id='merge-from-carousel' %}

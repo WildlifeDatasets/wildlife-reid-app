@@ -109,6 +109,7 @@
       + '</select><div class="comparison-search-wrap"><input class="form-control form-control-sm js-search" autocomplete="off" aria-label="Search source ' + slot.toUpperCase() + '" placeholder="Search name, code, filename or ID">'
       + '<div class="comparison-search-results d-none" aria-label="Search results"></div></div></div>'
       + '<div class="comparison-source-meta mt-2 small"></div>'
+      + '<div class="comparison-related-sources mt-2 small"></div>'
       + '<div class="comparison-mode mt-2"><label for="comparison-mode-' + slot + '" class="small me-2">Album contents</label>'
       + '<select id="comparison-mode-' + slot + '" class="form-select form-select-sm d-inline-block w-auto js-mode"><option value="mediafiles">Media files</option><option value="observations">Observations</option></select></div>'
       + '<div class="comparison-status small mt-2" role="status" aria-live="polite"></div>'
@@ -130,7 +131,10 @@
     if (p.source) query(p, '.js-kind').value = p.source.kind;
     query(p, '.js-mode').value = p.mode;
     query(p, '.comparison-source-meta').innerHTML = p.data
-      ? '<a href="' + escape(p.data.source.detail_url) + '">' + escape(p.data.source.label) + '</a>'
+      ? escape(kinds[p.source.kind]) + ': <a href="' + escape(p.data.source.detail_url) + '">'
+        + escape(p.data.source.label) + '</a>'
+        + (p.data.source.description ? ' · ' + escape(p.data.source.description) : '')
+        + (p.data.source.mediafile_count != null ? ' · ' + p.data.source.mediafile_count + ' media files' : '')
       : escape(p.source?.label || (p.source ? kinds[p.source.kind] + ' ' + p.source.id : 'Choose a source, or add items while browsing.'));
     const status = query(p, '.comparison-status');
     status.classList.toggle('text-danger', !!p.error);
@@ -191,6 +195,7 @@
 
   function renderViewer(p) {
     const item = selected(p);
+    renderRelatedSources(p, item);
     const viewer = query(p, '.comparison-viewer');
     const video = item?.media_type === 'video';
     const validBox = item?.bbox && item.bbox.length === 4 && item.bbox.every(Number.isFinite)
@@ -234,6 +239,20 @@
       image.onerror = () => { viewer.innerHTML = '<div class="comparison-viewer-empty">Media file could not be loaded.</div>'; };
       if (image.complete) positionImage(p);
     }
+  }
+
+  function renderRelatedSources(p, item) {
+    const container = query(p, '.comparison-related-sources');
+    container.innerHTML = item ? Object.entries({identities: 'Identities', albums: 'Albums'}).map(([key, label]) => {
+      const sources = item.related_sources?.[key] || [];
+      return '<div class="text-body-secondary">' + label + ': ' + (sources.length ? sources.map(source =>
+        '<span class="d-inline-block me-2"><a href="' + escape(source.detail_url) + '">' + escape(source.label) + '</a>'
+        + (!sameSource(p.source, source) ? ' <button type="button" class="btn btn-link btn-sm p-0 text-body-secondary js-related-source"'
+          + ' data-kind="' + escape(source.kind) + '" data-id="' + escape(source.id) + '" data-label="' + escape(source.label) + '">'
+          + 'Show ' + escape(source.label) + ' instead of this ' + (item.observation_id ? 'observation' : 'media file') + '</button>' : '')
+        + '</span>'
+      ).join('') : 'None') + '</div>';
+    }).join('') : '';
   }
 
   function positionImage(p) {
@@ -317,6 +336,10 @@
       generation: 0, error: '', loading: false};
     resetView(p);
     wireSearch(p);
+    query(p, '.comparison-related-sources').addEventListener('click', event => {
+      const button = event.target.closest('.js-related-source');
+      if (button) setSource(p, {kind: button.dataset.kind, id: button.dataset.id, label: button.dataset.label}, true);
+    });
     query(p, '.js-mode').addEventListener('change', event => {
       if (!p.source) return;
       p.mode = event.target.value;

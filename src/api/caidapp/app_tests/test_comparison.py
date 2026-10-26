@@ -236,3 +236,52 @@ class ComparisonEndpointsTest(TestCase):
         self.assertEqual(self.source(kind="unknown", id="1").status_code, 400)
         self.assertEqual(self.source(kind="identity", id="not-a-number").status_code, 400)
         self.assertEqual(self.source(kind="album", id="missing", mode="bad").status_code, 400)
+
+    def test_related_sources_are_unique_visible_and_exclude_placeholder_identities(self):
+        """Offer all visible identities and albums without duplicating siblings or exposing private sources."""
+        mediafile = MediaFileFactory(parent=self.archive)
+        identities = [IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup) for _ in range(2)]
+        for identity in [*identities, identities[0]]:
+            AnimalObservationFactory(mediafile=mediafile, identity=identity)
+        placeholder_identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup)
+        models.AnimalObservation.objects.bulk_create(
+            [
+                models.AnimalObservation(
+                    mediafile=mediafile, identity=placeholder_identity, is_no_detection_placeholder=True
+                )
+            ]
+        )
+        other = CaidUserFactory(admin=True)
+        hidden_identity = IndividualIdentityFactory(owner_workgroup=other.workgroup)
+        AnimalObservationFactory(mediafile=mediafile, identity=hidden_identity)
+        visible_album = AlbumFactory(owner=self.caiduser)
+        shared_album = AlbumFactory(owner=other)
+        private_album = AlbumFactory(owner=other)
+        models.AlbumShareRole.objects.create(album=shared_album, user=self.caiduser)
+        for album in [visible_album, shared_album, private_album]:
+            album.mediafiles.add(mediafile)
+
+        related = self.source(kind="mediafile", id=mediafile.id).json()["items"][0]["related_sources"]
+
+        self.assertCountEqual([item["id"] for item in related["identities"]], [identity.id for identity in identities])
+        self.assertCountEqual([item["id"] for item in related["albums"]], [visible_album.hash, shared_album.hash])
+        self.assertTrue(all(item["detail_url"] for items in related.values() for item in items))
+
+    def test_source_information_counts_mediafiles_separately_from_observations(self):
+        """Describe a selected identity or album and distinguish media-file totals from observation totals."""
+        identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, code="LYNX-42")
+        mediafile = MediaFileFactory(parent=self.archive)
+        AnimalObservationFactory(mediafile=mediafile, identity=identity)
+        AnimalObservationFactory(mediafile=mediafile, identity=identity)
+        album = AlbumFactory(owner=self.caiduser, description="Field survey")
+        album.mediafiles.add(mediafile)
+
+        payload = self.source(kind="identity", id=identity.id).json()
+        album_payload = self.source(kind="album", id=album.hash, mode="observations").json()
+
+        self.assertEqual(payload["count"], 2)
+        self.assertEqual(payload["source"]["mediafile_count"], 1)
+        self.assertEqual(payload["source"]["description"], "LYNX-42")
+        self.assertEqual(album_payload["source"]["mediafile_count"], 1)
+        self.assertEqual(album_payload["source"]["description"], "Field survey")
+        self.assertEqual(len(payload["items"][0]["related_sources"]["albums"]), 1)

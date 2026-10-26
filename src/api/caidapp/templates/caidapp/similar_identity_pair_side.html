@@ -11,6 +11,7 @@
             <div class="small text-body-secondary">{{ side_label }}</div>
             {% if side.identity %}
                 <a href="{% url 'caidapp:individual_identity_update' side.identity.id %}" class="fw-semibold">{{ side.identity }}</a>
+                <div class="small text-body-secondary">{{ side.identity.mediafile_count }} media file{{ side.identity.mediafile_count|pluralize }}</div>
             {% else %}
                 <strong>{{ side.label }}</strong>
             {% endif %}

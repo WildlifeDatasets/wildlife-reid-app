@@ -8438,10 +8438,20 @@ def similar_identity_pairs_view(request, result_id: int = None):
         id__in=mediafile_ids,
         parent__owner__workgroup=workgroup,
     ).in_bulk()
-    identities = IndividualIdentity.objects.filter(
-        id__in=identity_ids,
-        owner_workgroup=workgroup,
-    ).in_bulk()
+    identities = (
+        IndividualIdentity.objects.filter(
+            id__in=identity_ids,
+            owner_workgroup=workgroup,
+        )
+        .annotate(
+            mediafile_count=Count(
+                "animalobservation__mediafile",
+                filter=Q(animalobservation__is_no_detection_placeholder=False),
+                distinct=True,
+            )
+        )
+        .in_bulk()
+    )
 
     def make_cards(pairs):
         cards = []

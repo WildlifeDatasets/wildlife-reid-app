@@ -3,7 +3,12 @@ from tempfile import TemporaryDirectory
 from unittest.mock import MagicMock, patch
 
 from caidapp import tasks
-from caidapp.app_tests.factories import CaidUserFactory, IndividualIdentityFactory, UploadedArchiveFactory
+from caidapp.app_tests.factories import (
+    AnimalObservationFactory,
+    CaidUserFactory,
+    IndividualIdentityFactory,
+    UploadedArchiveFactory,
+)
 from caidapp.models import (
     IdentificationOutlierSuggestionResult,
     IdentificationSimilarPairResult,
@@ -152,12 +157,32 @@ class SimilarIdentityPairsTest(TestCase):
             f'{reverse("caidapp:comparison")}?a_kind=mediafile&amp;a_id={first_media.id}'
             f"&amp;b_kind=mediafile&amp;b_id={second_media.id}",
         )
-        self.assertContains(response, "Review A into B")
+        self.assertContains(response, "Merge preview", count=2)
+        self.assertNotContains(response, "Review A into B")
+        self.assertNotContains(response, "Review B into A")
         self.assertContains(response, f"from_mediafile_id={first_media.id}")
         self.assertContains(response, f"to_mediafile_id={second_media.id}")
         info = self.client.get(reverse("caidapp:identification_information"))
         self.assertContains(info, "Similar identity pairs")
         self.assertContains(info, "1 Mega pairs, 1 Local pairs")
+
+    def test_pair_mediafile_count_deduplicates_observations_and_excludes_placeholders(self):
+        """Count real media files once even when an identity has multiple observations per file."""
+        identity = IndividualIdentityFactory(owner_workgroup=self.workgroup)
+        archive = UploadedArchiveFactory(owner=self.staff)
+        mediafile = MediaFile.objects.create(parent=archive, media_type="image")
+        AnimalObservationFactory(mediafile=mediafile, identity=identity)
+        AnimalObservationFactory(mediafile=mediafile, identity=identity)
+        placeholder_mediafile = MediaFile.objects.create(parent=archive, media_type="image")
+        placeholder_mediafile.observations.update(identity=identity)
+        result = IdentificationSimilarPairResult.objects.create(
+            workgroup=self.workgroup, status="done", mega_pairs=[{"class_id_a": identity.id}]
+        )
+
+        response = self.client.get(reverse("caidapp:similar_identity_pairs_result", args=[result.id]))
+
+        self.assertEqual(response.context["mega_cards"][0]["a"]["identity"].mediafile_count, 1)
+        self.assertContains(response, "1 media file")
 
     def test_nonstaff_cannot_start_view_or_download_results(self):
         """Deny pair search, result pages, and CSV downloads to non-staff members."""
