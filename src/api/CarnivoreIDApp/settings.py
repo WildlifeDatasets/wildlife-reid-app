@@ -167,7 +167,7 @@ STORAGES = {
 # COMPRESS_OFFLINE = False
 
 # umožní WhiteNoise najít soubory přes Django finders
-WHITENOISE_USE_FINDERS = True
+WHITENOISE_USE_FINDERS = DEBUG
 
 
 def _immutable_file_test(path, url):
@@ -269,7 +269,7 @@ STATIC_URL = "/static/"
 MEDIA_URL = "/media/"
 MEDIA_ROOT = Path(SHARED_DATA_PATH) / "media"
 # use python manage.py collectstatic
-STATIC_ROOT = Path(SHARED_DATA_PATH) / "static"
+STATIC_ROOT = Path(os.getenv("DJANGO_STATIC_ROOT", str(Path(SHARED_DATA_PATH) / "static")))
 
 # The new upload flow can submit many individual media files in one multipart
 # request before they are packed into an archive server-side.

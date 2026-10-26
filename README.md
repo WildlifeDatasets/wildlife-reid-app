@@ -33,6 +33,14 @@ date && docker compose down && git pull && docker compose up -d --build && date
 ```
 
 
+Production static assets are collected once during the API image build and served
+by WhiteNoise through nginx. Restarts do not run `collectstatic` or read static
+assets from the SSHFS volume. After changing static assets, rebuild and recreate
+the API container (`docker compose up -d --build api`). Deploy the updated
+`src/nginx/nginx.conf` together with the image; if nginx is already running,
+restart it (`docker compose restart nginx`) to load the new static route.
+Development still collects bind-mounted assets at startup for `nginx_dev`.
+
 ## Advanced setup
 
 ### Import directory

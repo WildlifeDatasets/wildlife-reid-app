@@ -49,5 +49,14 @@ CMD ["bash", "./start_dev.sh"]
 
 FROM base AS production
 COPY ./src/api /api
+# Keep collected assets outside /shared_data: that path is mounted over SSHFS
+# at runtime. Docker caches this layer until application sources change.
+ENV DJANGO_STATIC_ROOT=/opt/caid-static
+RUN mkdir -p /data && \
+    DEBUG=False SHARED_DATA_PATH=/tmp/static-build PRIVATE_DATA_PATH=/tmp/static-build \
+    POSTGRES_DB=static_build POSTGRES_HOST=unused POSTGRES_PORT=5432 \
+    POSTGRES_USER=unused POSTGRES_PASSWORD=unused \
+    RABBITMQ_URL=memory:// REDIS_URL=cache+memory:// \
+    python manage.py collectstatic --noinput --verbosity 1 --ignore '*css-b64-images*test*'
 EXPOSE 8080
 CMD ["bash", "./start.sh"]

@@ -4,9 +4,9 @@
 # python manage.py makemigrations --noinput --verbosity 2
 python manage.py migrate --noinput --verbosity 2
 
-# Collect application static files in both development and production.
+# Development sources are bind-mounted, so collect them at startup for nginx_dev.
 # handyhelpers bundles css-b64-images test CSS referencing an absent fixture image.
-python manage.py collectstatic --noinput --verbosity 2 --ignore '*css-b64-images*test*'
+python manage.py collectstatic --noinput --verbosity 1 --ignore '*css-b64-images*test*'
 
 # start "local" celery worker
 C_FORCE_ROOT=false celery -A caidapp.celery_app worker --pool threads --concurrency 4 --loglevel info &
