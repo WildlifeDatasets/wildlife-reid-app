@@ -301,6 +301,44 @@ class MergeIdentitySuggestionsViewTest(TestCase):
         self.assertIn("name", response.context["form"].errors)
         self.assertTrue(IndividualIdentity.objects.filter(pk=source.pk).exists())
 
+    def test_merge_returns_to_suggestions_after_swap_and_invalid_submission(self):
+        """Keep the originating suggestions page through swapping, validation errors, and a successful merge."""
+        source = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Source")
+        target = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Target")
+        return_url = reverse("caidapp:similar_identity_pairs") + "?page=2"
+        preview = self.client.get(
+            reverse("caidapp:merge_identities", args=[source.pk, target.pk]), {"next": return_url}
+        )
+        swapped = self.client.get(preview.context["swap_url"])
+        self.assertEqual(swapped.context["cancel_button_url"], return_url)
+        merge_url = reverse("caidapp:merge_identities", args=[target.pk, source.pk])
+        invalid = self.client.post(merge_url, {"name": "", "next": swapped.context["return_url"]})
+        self.assertEqual(invalid.status_code, 200)
+        self.assertEqual(invalid.context["return_url"], return_url)
+
+        response = self.client.post(
+            merge_url,
+            {"name": "Merged", "sex": "U", "coat_type": "U", "next": invalid.context["return_url"]},
+        )
+
+        self.assertRedirects(response, return_url, fetch_redirect_response=False)
+        self.assertFalse(IndividualIdentity.objects.filter(pk=target.pk).exists())
+
+    def test_merge_uses_identity_list_when_return_url_is_missing_or_external(self):
+        """Fall back to the identity list without allowing redirects to an external host or the submitted form."""
+        for next_url in (None, "https://example.org/outside"):
+            with self.subTest(next_url=next_url):
+                source = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup)
+                target = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup)
+                merge_url = reverse("caidapp:merge_identities", args=[source.pk, target.pk])
+                data = {"name": "Merged", "sex": "U", "coat_type": "U"}
+                if next_url:
+                    data["next"] = next_url
+
+                response = self.client.post(merge_url, data, HTTP_REFERER="http://testserver" + merge_url)
+
+                self.assertRedirects(response, reverse("caidapp:individual_identities"), fetch_redirect_response=False)
+
     def test_select_second_identity_for_merge_prefills_best_fuzzy_match_and_enables_select2(self):
         """Prefill the closest fuzzy candidate and enable searchable identity selection."""
         identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Marta 12")

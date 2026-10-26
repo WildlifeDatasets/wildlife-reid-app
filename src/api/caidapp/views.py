@@ -7140,13 +7140,21 @@ class MergeIdentitiesWithPreview(LoginRequiredMixin, View):
                 ]
         return mediafiles[:40]
 
-    def _render_preview(self, request, individual_from, individual_to, form):
-        differences = generate_differences(individual_to, individual_from)
-        return_url = request.GET.get("next") or request.POST.get("next") or request.META.get("HTTP_REFERER")
+    @staticmethod
+    def _return_url(request):
+        """Preserve the originating page through preview, direction swaps, and submission."""
+        return_url = request.GET.get("next") or request.POST.get("next")
+        if not return_url and request.method == "GET":
+            return_url = request.META.get("HTTP_REFERER")
         if not return_url or not url_has_allowed_host_and_scheme(
             return_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()
         ):
             return_url = reverse("caidapp:individual_identities")
+        return return_url
+
+    def _render_preview(self, request, individual_from, individual_to, form):
+        differences = generate_differences(individual_to, individual_from)
+        return_url = self._return_url(request)
         from_mediafiles = self._mediafiles_for_preview(individual_from, request.GET.get("from_mediafile_id"))
         to_mediafiles = self._mediafiles_for_preview(individual_to, request.GET.get("to_mediafile_id"))
         from_mediafile_id = from_mediafiles[0].pk if from_mediafiles else ""
@@ -7214,7 +7222,7 @@ class MergeIdentitiesWithPreview(LoginRequiredMixin, View):
 
             individual_from.delete()
 
-            return redirect("caidapp:individual_identities")
+            return redirect(self._return_url(request))
 
         # On failure, re-render the form with errors
         return self._render_preview(request, individual_from, individual_to, form)
