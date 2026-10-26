@@ -8432,6 +8432,7 @@ def similar_identity_pairs_view(request, result_id: int = None):
     if result is None:
         return render(request, "caidapp/similar_identity_pairs.html", {"result": None})
 
+    show_resolved = request.GET.get("show_resolved") == "1"
     raw_pairs = (result.mega_pairs or []) + (result.local_pairs or [])
     mediafile_ids = {
         pair.get(f"mediafile_{side}_id")
@@ -8463,7 +8464,15 @@ def similar_identity_pairs_view(request, result_id: int = None):
 
     def make_cards(pairs):
         cards = []
+        resolved_count = 0
         for pair in pairs:
+            identity_a = identities.get(pair.get("class_id_a"))
+            identity_b = identities.get(pair.get("class_id_b"))
+            is_resolved = not identity_a or not identity_b or identity_a.pk == identity_b.pk
+            if is_resolved:
+                resolved_count += 1
+                if not show_resolved:
+                    continue
             sides = []
             for side in ("a", "b"):
                 path = pair.get(f"path_{side}") or ""
@@ -8476,16 +8485,23 @@ def similar_identity_pairs_view(request, result_id: int = None):
                         "filename": Path(path).name,
                     }
                 )
-            cards.append({"a": sides[0], "b": sides[1], "similarity": pair.get("similarity")})
-        return cards
+            cards.append(
+                {"a": sides[0], "b": sides[1], "similarity": pair.get("similarity"), "is_resolved": is_resolved}
+            )
+        return cards, resolved_count
+
+    mega_cards, mega_resolved_count = make_cards(result.mega_pairs or [])
+    local_cards, local_resolved_count = make_cards(result.local_pairs or [])
 
     return render(
         request,
         "caidapp/similar_identity_pairs.html",
         {
             "result": result,
-            "mega_cards": make_cards(result.mega_pairs or []),
-            "local_cards": make_cards(result.local_pairs or []),
+            "mega_cards": mega_cards,
+            "local_cards": local_cards,
+            "show_resolved": show_resolved,
+            "resolved_count": mega_resolved_count + local_resolved_count,
             "output_csv_available": workgroup.file_path(result.output_csv_filename).is_file(),
             "input_csv_available": workgroup.file_path(result.input_csv_filename).is_file(),
         },

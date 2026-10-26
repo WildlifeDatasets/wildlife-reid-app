@@ -1,6 +1,7 @@
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import MagicMock, patch
+from urllib.parse import quote
 
 from caidapp import tasks
 from caidapp.app_tests.factories import (
@@ -175,14 +176,91 @@ class SimilarIdentityPairsTest(TestCase):
         AnimalObservationFactory(mediafile=mediafile, identity=identity)
         placeholder_mediafile = MediaFile.objects.create(parent=archive, media_type="image")
         placeholder_mediafile.observations.update(identity=identity)
+        other_identity = IndividualIdentityFactory(owner_workgroup=self.workgroup)
         result = IdentificationSimilarPairResult.objects.create(
-            workgroup=self.workgroup, status="done", mega_pairs=[{"class_id_a": identity.id}]
+            workgroup=self.workgroup,
+            status="done",
+            mega_pairs=[{"class_id_a": identity.id, "class_id_b": other_identity.id}],
         )
 
         response = self.client.get(reverse("caidapp:similar_identity_pairs_result", args=[result.id]))
 
         self.assertEqual(response.context["mega_cards"][0]["a"]["identity"].mediafile_count, 1)
         self.assertContains(response, "1 media file")
+
+    def test_merged_pairs_are_hidden_by_default_and_can_be_shown(self):
+        """Hide stale pairs in both methods after merging, retaining the saved result for optional review."""
+        source = IndividualIdentityFactory(owner_workgroup=self.workgroup, name="Old identity")
+        target = IndividualIdentityFactory(owner_workgroup=self.workgroup)
+        remaining = IndividualIdentityFactory(owner_workgroup=self.workgroup)
+        merged_pair = {
+            "class_id_a": source.pk,
+            "class_id_b": target.pk,
+            "label_a": source.name,
+            "similarity": 0.99,
+        }
+        active_pair = {"class_id_a": target.pk, "class_id_b": remaining.pk, "similarity": 0.8}
+        pairs = [merged_pair, active_pair]
+        result = IdentificationSimilarPairResult.objects.create(
+            workgroup=self.workgroup, status="done", mega_pairs=pairs, local_pairs=pairs
+        )
+        url = reverse("caidapp:similar_identity_pairs_result", args=[result.pk])
+        before = self.client.get(url)
+        self.assertEqual(len(before.context["mega_cards"]), 2)
+        self.assertEqual(before.context["resolved_count"], 0)
+
+        merged = self.client.post(
+            reverse("caidapp:merge_identities", args=[source.pk, target.pk]),
+            {"name": target.name, "sex": "U", "coat_type": "U", "next": url},
+        )
+        self.assertRedirects(merged, url, fetch_redirect_response=False)
+
+        for view_url in (url, reverse("caidapp:similar_identity_pairs")):
+            with self.subTest(view_url=view_url):
+                hidden = self.client.get(view_url)
+                self.assertEqual(hidden.context["resolved_count"], 2)
+                self.assertFalse(hidden.context["show_resolved"])
+                for key in ("mega_cards", "local_cards"):
+                    self.assertEqual(len(hidden.context[key]), 1)
+                    self.assertFalse(hidden.context[key][0]["is_resolved"])
+                self.assertNotContains(hidden, "Old identity")
+                shown = self.client.get(view_url, {"show_resolved": "1"})
+                self.assertTrue(shown.context["show_resolved"])
+                self.assertContains(shown, 'value="1" checked')
+                self.assertContains(shown, "Old identity")
+                self.assertContains(shown, "Merge preview", count=2)
+                for key in ("mega_cards", "local_cards"):
+                    self.assertEqual(len(shown.context[key]), 2)
+                    self.assertTrue(shown.context[key][0]["is_resolved"])
+                self.assertContains(shown, "next=" + quote(view_url + "?show_resolved=1", safe="/"))
+
+        result.refresh_from_db()
+        self.assertEqual(result.mega_pairs, pairs)
+        self.assertEqual(result.local_pairs, pairs)
+
+    def test_deleted_identity_and_identical_sides_are_resolved_without_mediafile_requirements(self):
+        """Resolve unavailable or identical identity pairs while keeping valid pairs without media previews."""
+        first = IndividualIdentityFactory(owner_workgroup=self.workgroup)
+        second = IndividualIdentityFactory(owner_workgroup=self.workgroup)
+        deleted_id = second.pk
+        second.delete()
+        result = IdentificationSimilarPairResult.objects.create(
+            workgroup=self.workgroup,
+            status="done",
+            mega_pairs=[
+                {"class_id_a": first.pk, "class_id_b": deleted_id},
+                {"class_id_a": first.pk, "class_id_b": first.pk},
+            ],
+        )
+        url = reverse("caidapp:similar_identity_pairs_result", args=[result.pk])
+
+        hidden = self.client.get(url)
+        self.assertEqual(hidden.context["mega_cards"], [])
+        self.assertEqual(hidden.context["resolved_count"], 2)
+        self.assertContains(hidden, "No unresolved pairs")
+        shown = self.client.get(url, {"show_resolved": "1"})
+        self.assertEqual(len(shown.context["mega_cards"]), 2)
+        self.assertNotContains(shown, "Merge preview")
 
     def test_nonstaff_cannot_start_view_or_download_results(self):
         """Deny pair search, result pages, and CSV downloads to non-staff members."""

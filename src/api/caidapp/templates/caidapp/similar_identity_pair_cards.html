@@ -8,6 +8,9 @@
                             <span class="badge text-bg-secondary">Pair {{ forloop.counter }}</span>
                             <strong>{% if score_type == 'mega' %}Cosine similarity: {{ card.similarity|floatformat:3 }}{% else %}Matched points: {{ card.similarity|floatformat:0 }}{% endif %}</strong>
                         </div>
+                        {% if card.is_resolved %}
+                            <div class="small text-body-secondary mb-3"><span class="badge text-bg-secondary">Resolved</span> This suggestion is no longer current: an original identity is unavailable (merged or deleted), or both sides refer to the same identity.</div>
+                        {% endif %}
                         <div class="row g-3">
                             {% include 'caidapp/similar_identity_pair_side.html' with side=card.a side_label='A' %}
                             {% include 'caidapp/similar_identity_pair_side.html' with side=card.b side_label='B' %}
@@ -17,7 +20,7 @@
                                 {% if card.a.mediafile and card.b.mediafile %}
                                     <a class="btn btn-outline-primary btn-sm" href="{% url 'caidapp:comparison' %}?a_kind=mediafile&amp;a_id={{ card.a.mediafile.id }}&amp;b_kind=mediafile&amp;b_id={{ card.b.mediafile.id }}"><i class="bi bi-layout-split" aria-hidden="true"></i> Open comparison</a>
                                 {% endif %}
-                                {% if card.a.identity and card.b.identity %}
+                                {% if not card.is_resolved and card.a.identity and card.b.identity %}
                                     <a class="btn btn-outline-secondary btn-sm" href="{% url 'caidapp:merge_identities' card.a.identity.id card.b.identity.id %}?from_mediafile_id={{ card.a.mediafile.id|default:'' }}&amp;to_mediafile_id={{ card.b.mediafile.id|default:'' }}&amp;next={{ request.get_full_path|urlencode }}">Merge preview</a>
                                 {% endif %}
                             </div>
@@ -28,5 +31,5 @@
         {% endfor %}
     </div>
 {% else %}
-    <div class="alert alert-light border">No pairs found by this method.</div>
+    <div class="alert alert-light border">{% if show_resolved %}No pairs found by this method.{% else %}No unresolved pairs from this method. Enable “Show resolved suggestions” to include merged or deleted identities.{% endif %}</div>
 {% endif %}
