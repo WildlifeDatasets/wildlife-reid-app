@@ -70,6 +70,17 @@
     </div>
 
     {% if result.status == 'done' %}
+        <form method="get" class="mb-4">
+            {% for key, value in request.GET.items %}
+                {% if key != 'show_resolved' %}<input type="hidden" name="{{ key }}" value="{{ value }}">{% endif %}
+            {% endfor %}
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="show-resolved" name="show_resolved" value="1"{% if show_resolved %} checked{% endif %} onchange="this.form.submit()">
+                <label class="form-check-label" for="show-resolved">Show resolved suggestions ({{ resolved_count }})</label>
+            </div>
+            <div class="small text-body-secondary">Suggestions whose original identities were merged or deleted are hidden by default.</div>
+            <noscript><button class="btn btn-outline-secondary btn-sm mt-2" type="submit">Apply filter</button></noscript>
+        </form>
         <section class="mb-5">
             <h2 class="h4">MegaDescriptor pairs <span class="text-body-secondary">({{ mega_cards|length }})</span></h2>
             <p class="text-body-secondary">Similarity is cosine similarity; higher values indicate more similar embeddings.</p>
