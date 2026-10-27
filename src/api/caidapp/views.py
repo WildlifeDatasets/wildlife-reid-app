@@ -109,6 +109,7 @@ from .models import (
 )
 from .services.home_dashboard import render_home_dashboard_context
 from .services.identification_dashboard import identification_dashboard_context
+from .services.media_bboxes import mediafile_bbox_unions
 from .services.workgroup_migration import migrate_user_to_workgroup
 from .tasks import (
     _iterate_over_locality_checks,
@@ -7226,6 +7227,10 @@ class MergeIdentitiesWithPreview(LoginRequiredMixin, View):
         review_queue = self._review_queue(request, individual_from, individual_to)
         from_mediafiles = self._mediafiles_for_preview(individual_from, request.GET.get("from_mediafile_id"))
         to_mediafiles = self._mediafiles_for_preview(individual_to, request.GET.get("to_mediafile_id"))
+        bboxes = mediafile_bbox_unions([media.pk for media in from_mediafiles + to_mediafiles], by_identity=True)
+        for identity, mediafiles in ((individual_from, from_mediafiles), (individual_to, to_mediafiles)):
+            for mediafile in mediafiles:
+                mediafile.merge_bbox = bboxes.get((mediafile.pk, identity.pk))
         from_mediafile_id = from_mediafiles[0].pk if from_mediafiles else ""
         to_mediafile_id = to_mediafiles[0].pk if to_mediafiles else ""
         swap_url = reverse("caidapp:merge_identities", args=[individual_to.pk, individual_from.pk])
@@ -8561,6 +8566,8 @@ def similar_identity_pairs_view(request, result_id: int = None):
         .in_bulk()
     )
 
+    bboxes = mediafile_bbox_unions(mediafiles.keys(), by_identity=True)
+
     def make_cards(pairs, offset=0):
         cards = []
         resolved_count = 0
@@ -8584,6 +8591,7 @@ def similar_identity_pairs_view(request, result_id: int = None):
                         "identity": identities.get(identity_id),
                         "label": pair.get(f"label_{side}") or "Unknown identity",
                         "filename": Path(path).name,
+                        "bbox": bboxes.get((pair.get(f"mediafile_{side}_id"), identity_id)),
                     }
                 )
             cards.append(
@@ -8663,6 +8671,55 @@ def download_similar_identity_pairs_csv(request, result_id: int, kind: str):
     if not csv_path.is_file():
         raise Http404
     return FileResponse(open(csv_path, "rb"), as_attachment=True, filename=filename, content_type="text/csv")
+
+
+@login_required
+@require_POST
+def exclude_similar_identity_pairs_view(request, result_id):
+    """Exclude selected saved pairs symmetrically; only workgroup administrators may batch this action."""
+    caiduser = request.user.caiduser
+    if not caiduser.workgroup_admin or caiduser.workgroup_id is None:
+        raise PermissionDenied
+    result = get_object_or_404(
+        models.IdentificationSimilarPairResult, pk=result_id, workgroup=caiduser.workgroup, status__in=("done", "error")
+    )
+    fallback_url = reverse("caidapp:similar_identity_pairs_result", args=[result.pk])
+    return_url = request.POST.get("next") or fallback_url
+    if not url_has_allowed_host_and_scheme(
+        return_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+    ):
+        return_url = fallback_url
+    pairs = result.ordered_pairs()
+    try:
+        indices = {int(value) for value in request.POST.getlist("pairs")}
+        if not indices or any(index < 0 or index >= len(pairs) for index in indices):
+            raise ValueError
+        selected = set()
+        for index in indices:
+            source, target = pairs[index].get("class_id_a"), pairs[index].get("class_id_b")
+            if source is None or target is None or source == target:
+                raise ValueError
+            selected.add(tuple(sorted((source, target))))
+    except (TypeError, ValueError):
+        messages.error(request, "Select valid unresolved suggestions. No exclusions were saved.")
+        return redirect(return_url)
+    identity_ids = {pk for pair in selected for pk in pair}
+    with transaction.atomic():
+        available_ids = set(
+            IndividualIdentity.objects.select_for_update()
+            .filter(pk__in=identity_ids, owner_workgroup=caiduser.workgroup)
+            .order_by("pk")
+            .values_list("pk", flat=True)
+        )
+        if available_ids != identity_ids:
+            messages.error(request, "Some selected identities are no longer available. No exclusions were saved.")
+            return redirect(return_url)
+        for source, target in sorted(selected):
+            models.MergeIdentitySuggestionExclusion.objects.get_or_create(
+                workgroup=caiduser.workgroup, identity_a_id=source, identity_b_id=target
+            )
+    messages.success(request, f"Marked {len(selected)} pairs Never suggest for all merge suggestion methods.")
+    return redirect(return_url)
 
 
 @login_required

@@ -4,6 +4,7 @@
 {% block head %}
     {{ block.super }}
     <link rel="stylesheet" href="{% static 'caidapp/css/similar_identity_pairs.css' %}">
+    <link rel="stylesheet" href="{% static 'caidapp/css/bbox_preview.css' %}">
     {% if result and result.status == 'processing' %}<meta http-equiv="refresh" content="10">{% endif %}
 {% endblock %}
 
@@ -92,17 +93,18 @@
             <noscript><button class="btn btn-outline-secondary btn-sm mt-2" type="submit">Apply filter</button></noscript>
         </form>
         <form id="bulk-similar-merge-form" method="post" action="{% url 'caidapp:merge_similar_identity_pairs' result.id %}" class="mb-4"
-              onsubmit="return confirm('Merge the selected identity pairs directly, without a preview? The source identities will be deleted.');">
+              onsubmit="return confirm(event.submitter && event.submitter.value === 'exclude' ? 'Never suggest the selected identity pairs again, in either direction?' : 'Merge the selected identity pairs directly, without a preview? The source identities will be deleted.');">
             {% csrf_token %}
             <input type="hidden" name="next" value="{{ request.get_full_path }}" class="js-pairs-return-url">
             <div class="d-flex flex-wrap gap-2 align-items-center">
                 <span{% if not request.user.caiduser.workgroup_admin %} tabindex="0" title="Only workgroup administrators can use this action" aria-label="Direct merge: only workgroup administrators can use this action"{% endif %}>
                     <button type="submit" class="btn btn-outline-primary"{% if not request.user.caiduser.workgroup_admin %} disabled{% endif %}>Merge selected directly</button>
+                    <button type="submit" class="btn btn-outline-warning" name="action" value="exclude" formaction="{% url 'caidapp:exclude_similar_identity_pairs' result.id %}"{% if not request.user.caiduser.workgroup_admin %} disabled{% endif %}>Never suggest selected</button>
                 </span>
                 {% include 'caidapp/includes/workgroup_admin_badge.html' %}
                 <span class="small text-body-secondary" id="bulk-merge-selection-count" role="status" aria-live="polite"></span>
             </div>
-            <p class="small text-body-secondary mt-2 mb-0">{% if not request.user.caiduser.workgroup_admin %}Only workgroup administrators can use direct merge. {% endif %}Select pairs below. Each source identity will be merged into the target shown. Each identity may appear in only one selected pair.</p>
+            <p class="small text-body-secondary mt-2 mb-0">{% if not request.user.caiduser.workgroup_admin %}Only workgroup administrators can use bulk actions. {% endif %}Select pairs to merge or exclude. For merging, each source will be assigned to the target shown and each identity may appear in only one selected pair.</p>
         </form>
         {% if result.status == 'done' %}
         <section class="mb-5">
@@ -140,4 +142,5 @@
 {% block script %}
     {{ block.super }}
     <script src="{% static 'caidapp/js/similar_identity_pairs.js' %}"></script>
+    <script src="{% static 'caidapp/js/bbox_preview.js' %}"></script>
 {% endblock %}

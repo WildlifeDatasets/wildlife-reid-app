@@ -237,6 +237,49 @@ class ComparisonEndpointsTest(TestCase):
         self.assertEqual(self.source(kind="identity", id="not-a-number").status_code, 400)
         self.assertEqual(self.source(kind="album", id="missing", mode="bad").status_code, 400)
 
+    def test_mediafile_source_has_union_bbox_while_observation_keeps_its_own_box(self):
+        """Enable whole-media zoom without replacing the bbox of individual observations."""
+        mediafile = MediaFileFactory(parent=self.archive, media_type="image")
+        observation = AnimalObservationFactory(
+            mediafile=mediafile, bbox_x_center=0.2, bbox_y_center=0.3, bbox_width=0.2, bbox_height=0.2
+        )
+        AnimalObservationFactory(
+            mediafile=mediafile, bbox_x_center=0.7, bbox_y_center=0.6, bbox_width=0.2, bbox_height=0.4
+        )
+
+        combined = self.source(kind="mediafile", id=mediafile.pk).json()["items"][0]["bbox"]
+        single = self.source(kind="observation", id=observation.pk).json()["items"][0]["bbox"]
+
+        for actual, expected in zip(combined, [0.45, 0.5, 0.7, 0.6]):
+            self.assertAlmostEqual(actual, expected)
+        self.assertEqual(single, [0.2, 0.3, 0.2, 0.2])
+
+    def test_comparison_exclusion_uses_shared_store_and_read_only_users_cannot_change_it(self):
+        """Offer the shared Never suggest action to editors and enforce read-only permissions."""
+        first, second = [IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup) for _ in range(2)]
+        url = reverse("caidapp:comparison") + f"?a_kind=identity&a_id={first.pk}&b_kind=identity&b_id={second.pk}"
+        page = self.client.get(url)
+        self.assertContains(page, 'id="comparison-exclude-form"')
+        response = self.client.post(
+            reverse("caidapp:exclude_merge_identity_suggestion"),
+            {
+                "excluded_suggestion": f"{first.pk}|{second.pk}",
+                "next": url,
+            },
+        )
+        self.assertRedirects(response, url, fetch_redirect_response=False)
+        self.assertEqual(models.MergeIdentitySuggestionExclusion.objects.count(), 1)
+        self.caiduser.workgroup_admin = False
+        self.caiduser.is_observer = True
+        self.caiduser.can_edit_identity_data = False
+        self.caiduser.save(update_fields=["workgroup_admin", "is_observer", "can_edit_identity_data"])
+        page = self.client.get(url)
+        self.assertNotContains(page, 'id="comparison-exclude-form"')
+        denied = self.client.post(
+            reverse("caidapp:exclude_merge_identity_suggestion"), {"excluded_suggestion": f"{second.pk}|{first.pk}"}
+        )
+        self.assertEqual(denied.status_code, 403)
+
     def test_related_sources_are_unique_visible_and_exclude_placeholder_identities(self):
         """Offer all visible identities and albums without duplicating siblings or exposing private sources."""
         mediafile = MediaFileFactory(parent=self.archive)

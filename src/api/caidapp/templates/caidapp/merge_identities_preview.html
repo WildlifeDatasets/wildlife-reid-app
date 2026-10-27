@@ -1,15 +1,22 @@
 {% extends 'base.html' %}
-{% load widget_tweaks %}
+{% load widget_tweaks static %}
 
 {% block head %}
     {{ block.super }}
     {{ form.media }}
+    <link rel="stylesheet" href="{% static 'caidapp/css/bbox_preview.css' %}">
 {% endblock %}
 
 {% block content %}
     <div class="pagetitle"><h1>Merge Individual Identities</h1>{% include 'caidapp/include_breadcrumb_nav.html' %}</div>
     <div class="alert alert-info">Observations from <strong>{{ individual_from.name }}</strong> will be assigned to <strong>{{ individual_to.name }}</strong>. The source identity will then be deleted.</div>
     <p><a class="btn btn-outline-primary btn-sm" href="{% url 'caidapp:comparison' %}?a_kind=identity&amp;a_id={{ individual_from.id }}&amp;b_kind=identity&amp;b_id={{ individual_to.id }}" target="_blank" rel="noopener"><i class="bi bi-layout-split" aria-hidden="true"></i> Compare identities</a></p>
+    <form method="post" action="{% url 'caidapp:exclude_merge_identity_suggestion' %}" class="mb-3" onsubmit="return confirm('Never suggest merging these two identities again, in either direction?');">
+        {% csrf_token %}
+        <input type="hidden" name="excluded_suggestion" value="{{ individual_from.id }}|{{ individual_to.id }}">
+        <input type="hidden" name="next" value="{{ return_url }}">
+        <button type="submit" class="btn btn-outline-warning btn-sm">Never suggest</button>
+    </form>
     <div class="row g-3 align-items-stretch mb-4">
         <div class="col-lg">
             {% include 'caidapp/merge_identity_media_carousel.html' with identity=individual_from mediafiles=from_mediafiles mediafiles_count=from_mediafiles_count role='Merge from' side='from' carousel_id='merge-from-carousel' %}
@@ -64,6 +71,7 @@
 
 {% block script %}
     {{ block.super }}
+    <script src="{% static 'caidapp/js/bbox_preview.js' %}"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             const swap = document.getElementById('swap-merge-direction');

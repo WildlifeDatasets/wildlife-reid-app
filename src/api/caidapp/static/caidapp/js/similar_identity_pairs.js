@@ -4,13 +4,15 @@
   if (!form) return;
   const selections = Array.from(document.querySelectorAll('input[name="pairs"][form="bulk-similar-merge-form"]:not(:disabled)'));
   const directions = Array.from(document.querySelectorAll('.js-pair-direction'));
-  const button = form.querySelector('button[type="submit"]');
+  const buttons = Array.from(form.querySelectorAll('button[type="submit"]'));
   const status = document.getElementById('bulk-merge-selection-count');
 
   function updateSelection() {
     const count = selections.filter(checkbox => checkbox.checked).length;
-    button.disabled = count === 0;
-    if (selections.length) button.hidden = count === 0;
+    buttons.forEach(button => {
+      button.disabled = count === 0;
+      if (selections.length) button.hidden = count === 0;
+    });
     status.textContent = count + (count === 1 ? ' pair selected' : ' pairs selected');
   }
 

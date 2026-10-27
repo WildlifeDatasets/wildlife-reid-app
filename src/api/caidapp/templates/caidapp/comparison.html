@@ -13,6 +13,15 @@
     <div><h1 class="h3 mb-1">Compare media</h1><p class="text-body-secondary mb-0">Browse two independent sources side by side.</p></div>
     <button type="button" class="btn btn-outline-secondary btn-sm js-comparison-fullscreen"><i class="bi bi-arrows-fullscreen"></i> Full screen</button>
   </div>
+  {% if can_exclude_pair %}
+  <form id="comparison-exclude-form" method="post" action="{% url 'caidapp:exclude_merge_identity_suggestion' %}" class="mb-3" hidden
+        onsubmit="return confirm('Never suggest merging these two identities again, in either direction?');">
+    {% csrf_token %}
+    <input type="hidden" name="excluded_suggestion">
+    <input type="hidden" name="next">
+    <button type="submit" class="btn btn-outline-warning btn-sm">Never suggest these identities</button>
+  </form>
+  {% endif %}
   <div class="comparison-panels">
     <section class="comparison-panel" data-slot="a" aria-label="First comparison source"></section>
     <section class="comparison-panel" data-slot="b" aria-label="Second comparison source"></section>
@@ -21,5 +30,5 @@
 {% endblock %}
 
 {% block script %}
-<script src="{% static 'caidapp/js/comparison.js' %}?v=3"></script>
+<script src="{% static 'caidapp/js/comparison.js' %}?v=4"></script>
 {% endblock %}

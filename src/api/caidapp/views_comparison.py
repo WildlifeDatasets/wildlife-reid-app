@@ -10,6 +10,7 @@ from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
 
 from .models import Album, AnimalObservation, IndividualIdentity, MediaFile, user_has_access_filter_params
+from .services.media_bboxes import mediafile_bbox_unions
 
 PAGE_SIZE = 24
 SOURCE_KINDS = {"observation", "mediafile", "identity", "album"}
@@ -222,7 +223,14 @@ def _numeric_id_or_error(source_id):
 @login_required
 def comparison(request):
     """Render the comparison workspace."""
-    return render(request, "caidapp/comparison.html")
+    caiduser = request.user.caiduser
+    return render(
+        request,
+        "caidapp/comparison.html",
+        {
+            "can_exclude_pair": caiduser.workgroup_id is not None and caiduser.can_edit("identity"),
+        },
+    )
 
 
 @login_required
@@ -290,6 +298,15 @@ def comparison_source(request):
         MediaFile.objects.for_user(request.user.caiduser).filter(id__in=mediafile_ids).values_list("id", flat=True)
     )
     related = _related_sources(request, mediafiles, mediafile_ids)
+    bbox_unions = mediafile_bbox_unions([item.pk for item in page_objects if isinstance(item, MediaFile)])
+    items = []
+    for item in page_objects:
+        mediafile_id = item.mediafile_id if isinstance(item, AnimalObservation) else item.pk
+        data = serialize_item(item, mediafile_id in editable_mediafile_ids)
+        if isinstance(item, MediaFile):
+            data["bbox"] = bbox_unions.get(item.pk)
+        data["related_sources"] = related[mediafile_id]
+        items.append(data)
     source_payload = _source_payload(kind, source)
     if kind == "identity":
         source_payload["mediafile_count"] = item_queryset.values("mediafile_id").order_by().distinct().count()
@@ -298,17 +315,7 @@ def comparison_source(request):
     return JsonResponse(
         {
             "source": source_payload,
-            "items": [
-                {
-                    **serialize_item(
-                        item,
-                        (item.mediafile_id if isinstance(item, AnimalObservation) else item.id)
-                        in editable_mediafile_ids,
-                    ),
-                    "related_sources": related[item.mediafile_id if isinstance(item, AnimalObservation) else item.id],
-                }
-                for item in page_objects
-            ],
+            "items": items,
             "page": page.number,
             "num_pages": paginator.num_pages,
             "count": paginator.count,

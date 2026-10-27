@@ -612,6 +612,11 @@ urlpatterns = [
     path("similar_identity_pairs/run/", views.run_similar_identity_pairs_view, name="run_similar_identity_pairs"),
     path("similar_identity_pairs/", views.similar_identity_pairs_view, name="similar_identity_pairs"),
     path(
+        "similar_identity_pairs/<int:result_id>/exclude/",
+        views.exclude_similar_identity_pairs_view,
+        name="exclude_similar_identity_pairs",
+    ),
+    path(
         "similar_identity_pairs/<int:result_id>/merge/",
         views.merge_similar_identity_pairs_view,
         name="merge_similar_identity_pairs",

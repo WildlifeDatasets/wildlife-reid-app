@@ -14,6 +14,18 @@
   const selected = p => p.items.find(item => String(item.id) === String(p.itemId));
   const sameSource = (a, b) => (!a && !b) || (a && b && a.kind === b.kind && String(a.id) === String(b.id));
 
+  function updatePairActions() {
+    const form = document.getElementById('comparison-exclude-form');
+    if (!form) return;
+    const a = panels.a?.data?.source, b = panels.b?.data?.source;
+    const available = a?.kind === 'identity' && b?.kind === 'identity' && String(a.id) !== String(b.id);
+    form.hidden = !available;
+    if (available) {
+      form.elements.excluded_suggestion.value = a.id + '|' + b.id;
+      form.elements.next.value = location.pathname + location.search;
+    }
+  }
+
   function saveURL(p) {
     const params = new URLSearchParams(location.search);
     for (const key of ['kind', 'id', 'mode', 'page', 'item']) params.delete(p.slot + '_' + key);
@@ -156,6 +168,7 @@
     ).join('');
     renderNavigation(p);
     renderViewer(p);
+    updatePairActions();
   }
 
   function renderNavigation(p) {
