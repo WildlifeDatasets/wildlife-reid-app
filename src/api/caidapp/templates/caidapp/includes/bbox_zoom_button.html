@@ -1,0 +1,5 @@
+<div class="btn-group btn-group-sm" role="group" aria-label="Preview controls">
+    <button type="button" class="btn btn-outline-secondary js-preview-smaller" aria-label="Decrease preview size" title="Smaller preview">&minus;</button>
+    <button type="button" class="btn btn-outline-secondary js-bbox-zoom" aria-pressed="false"{% if not bbox %} disabled title="No usable bounding boxes for this preview"{% else %} title="Zoom to the bounding rectangle containing all relevant boxes"{% endif %}>Zoom to bbox</button>
+    <button type="button" class="btn btn-outline-secondary js-preview-larger" aria-label="Increase preview size" title="Larger preview">+</button>
+</div>

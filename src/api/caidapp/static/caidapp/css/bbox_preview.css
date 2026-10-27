@@ -1,0 +1,7 @@
+.bbox-zoom-media { position: relative; overflow: hidden; }
+.bbox-zoom-media img { transform-origin: 0 0; }
+.merge-bbox-media { height: 17rem; }
+.similar-pair-thumbnail-widget { flex: 0 0 13rem; max-width: 100%; }
+@media (max-width: 1100px) {
+    .similar-pair-thumbnail-widget { flex-basis: auto; width: 9rem; }
+}
