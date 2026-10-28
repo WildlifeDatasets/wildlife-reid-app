@@ -43,6 +43,8 @@ class ComparisonEndpointsTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "caidapp/comparison.html")
         self.assertContains(response, 'id="comparison-app"')
+        self.assertContains(response, 'aria-label="Both panel controls"', count=1)
+        self.assertContains(response, 'aria-label="Zoom in both panels"', count=1)
         self.assertContains(response, reverse("caidapp:comparison_source"))
         self.assertContains(response, reverse("caidapp:comparison_search"))
         self.assertContains(response, 'id="comparison-tray"')

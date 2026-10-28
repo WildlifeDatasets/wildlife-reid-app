@@ -11,12 +11,7 @@
     <div class="pagetitle"><h1>Merge Individual Identities</h1>{% include 'caidapp/include_breadcrumb_nav.html' %}</div>
     <div class="alert alert-info">Observations from <strong>{{ individual_from.name }}</strong> will be assigned to <strong>{{ individual_to.name }}</strong>. The source identity will then be deleted.</div>
     <p><a class="btn btn-outline-primary btn-sm" href="{% url 'caidapp:comparison' %}?a_kind=identity&amp;a_id={{ individual_from.id }}&amp;b_kind=identity&amp;b_id={{ individual_to.id }}" target="_blank" rel="noopener"><i class="bi bi-layout-split" aria-hidden="true"></i> Compare identities</a></p>
-    <form method="post" action="{% url 'caidapp:exclude_merge_identity_suggestion' %}" class="mb-3" onsubmit="return confirm('Never suggest merging these two identities again, in either direction?');">
-        {% csrf_token %}
-        <input type="hidden" name="excluded_suggestion" value="{{ individual_from.id }}|{{ individual_to.id }}">
-        <input type="hidden" name="next" value="{{ return_url }}">
-        <button type="submit" class="btn btn-outline-warning btn-sm">Never suggest</button>
-    </form>
+    {% include 'caidapp/includes/bbox_zoom_button.html' %}
     <div class="row g-3 align-items-stretch mb-4">
         <div class="col-lg">
             {% include 'caidapp/merge_identity_media_carousel.html' with identity=individual_from mediafiles=from_mediafiles mediafiles_count=from_mediafiles_count role='Merge from' side='from' carousel_id='merge-from-carousel' %}
@@ -49,9 +44,17 @@
                         {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
                     </div>
                 {% endfor %}
-                {% if review_queue %}<button type="submit" class="btn btn-primary" name="action" value="merge_next">Merge and review next</button>{% endif %}
-                <button type="submit" class="btn {% if review_queue %}btn-outline-primary{% else %}btn-primary{% endif %}">Merge into {{ individual_to.name }}</button>
-                <a class="btn btn-secondary" href="{{ cancel_button_url }}">Cancel</a>
+                <div class="d-flex flex-wrap gap-2">
+                    {% if review_queue %}<button type="submit" class="btn btn-primary" name="action" value="merge_next">Merge and review next</button>{% endif %}
+                    <button type="submit" class="btn {% if review_queue %}btn-outline-primary{% else %}btn-primary{% endif %}">Merge into {{ individual_to.name }}</button>
+                    <a class="btn btn-secondary" href="{{ cancel_button_url }}">Cancel</a>
+                    <button type="submit" form="exclude-merge-identities-form" class="btn btn-outline-warning">Never suggest</button>
+                </div>
+            </form>
+            <form method="post" id="exclude-merge-identities-form" action="{% url 'caidapp:exclude_merge_identity_suggestion' %}" onsubmit="return confirm('Never suggest merging these two identities again, in either direction?');">
+                {% csrf_token %}
+                <input type="hidden" name="excluded_suggestion" value="{{ individual_from.id }}|{{ individual_to.id }}">
+                <input type="hidden" name="next" value="{{ return_url }}">
             </form>
         </div>
         <div class="col-lg-5">

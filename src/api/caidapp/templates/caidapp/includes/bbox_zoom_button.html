@@ -1,5 +1,8 @@
-<div class="btn-group btn-group-sm" role="group" aria-label="Preview controls">
-    <button type="button" class="btn btn-outline-secondary js-preview-smaller" aria-label="Decrease preview size" title="Smaller preview">&minus;</button>
-    <button type="button" class="btn btn-outline-secondary js-bbox-zoom" aria-pressed="false"{% if not bbox %} disabled title="No usable bounding boxes for this preview"{% else %} title="Zoom to the bounding rectangle containing all relevant boxes"{% endif %}>Zoom to bbox</button>
-    <button type="button" class="btn btn-outline-secondary js-preview-larger" aria-label="Increase preview size" title="Larger preview">+</button>
+<div class="d-flex flex-wrap align-items-center gap-2 mb-3" data-bbox-controls>
+    <span class="small text-body-secondary">All previews</span>
+    <div class="btn-group btn-group-sm" role="group" aria-label="All preview controls">
+        <button type="button" class="btn btn-outline-secondary js-preview-smaller" aria-label="Decrease all preview sizes" title="Smaller previews">&minus;</button>
+        <button type="button" class="btn btn-outline-secondary js-bbox-zoom" aria-pressed="false" title="Zoom all previews with usable bounding boxes">Zoom to bbox</button>
+        <button type="button" class="btn btn-outline-secondary js-preview-larger" aria-label="Increase all preview sizes" title="Larger previews">+</button>
+    </div>
 </div>

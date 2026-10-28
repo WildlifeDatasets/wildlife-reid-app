@@ -21,7 +21,6 @@
                                 {% endif %}
                             </a>
                             <div class="small text-truncate px-2 py-1" title="{{ mediafile.name }}">{{ mediafile.name }}</div>
-                            {% if mediafile.thumbnail %}<div class="text-center pb-2">{% include 'caidapp/includes/bbox_zoom_button.html' with bbox=mediafile.merge_bbox %}</div>{% endif %}
                         </div>
                     {% endfor %}
                 </div>

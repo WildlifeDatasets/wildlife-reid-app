@@ -900,8 +900,12 @@ class SimilarIdentityPairsTest(TestCase):
         list_url = reverse("caidapp:similar_identity_pairs_result", args=[result.pk])
         page = self.client.get(list_url)
         self.assertAlmostEqual(page.context["mega_cards"][0]["a"]["bbox"][2], 0.7)
+        self.assertContains(page, "data-bbox-controls", count=1)
+        self.assertContains(page, 'aria-label="Increase all preview sizes"', count=1)
         preview = self.client.get(reverse("caidapp:merge_identities", args=[first.pk, second.pk]), {"next": list_url})
         self.assertContains(preview, "Never suggest")
+        self.assertContains(preview, "data-bbox-controls", count=1)
+        self.assertContains(preview, 'aria-label="Increase all preview sizes"', count=1)
         self.assertAlmostEqual(preview.context["from_mediafiles"][0].merge_bbox[2], 0.7)
         self.assertAlmostEqual(preview.context["to_mediafiles"][0].merge_bbox[2], 1)
 

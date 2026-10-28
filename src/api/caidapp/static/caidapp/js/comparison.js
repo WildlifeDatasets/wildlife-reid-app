@@ -7,6 +7,7 @@
   const panels = {};
   const pageSize = 24;
   let syncingTray = false;
+  let sharedView = 'full', sharedZoom = 1;
   const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
   }[c]));
@@ -46,10 +47,52 @@
   }
 
   function resetView(p) {
-    p.view = 'full';
-    p.zoom = 1;
+    p.view = sharedView;
+    p.zoom = sharedZoom;
     p.panX = p.panY = 0;
     p.drag = null;
+  }
+
+  function hasBox(item) {
+    return item?.media_type !== 'video' && item?.bbox?.length === 4
+      && item.bbox.every(Number.isFinite) && item.bbox[2] > 0 && item.bbox[3] > 0;
+  }
+
+  function updateSharedControls() {
+    const items = Object.values(panels).map(selected).filter(Boolean);
+    const imageAvailable = items.some(item => item.media_type !== 'video');
+    const crop = app.querySelector('.js-comparison-crop');
+    if (crop) {
+      crop.disabled = sharedView !== 'crop' && !items.some(hasBox);
+      crop.textContent = sharedView === 'crop' ? 'Full media' : 'Zoom to bbox';
+      crop.setAttribute('aria-pressed', String(sharedView === 'crop'));
+      crop.classList.toggle('active', sharedView === 'crop');
+    }
+    for (const [selector, disabled] of [
+      ['.js-comparison-zoom-out', !imageAvailable || sharedZoom <= .5],
+      ['.js-comparison-zoom-in', !imageAvailable || sharedZoom >= 12],
+      ['.js-comparison-reset', !imageAvailable]
+    ]) {
+      const button = app.querySelector(selector);
+      if (button) button.disabled = disabled;
+    }
+  }
+
+  function renderSharedView() {
+    for (const p of Object.values(panels)) {
+      resetView(p);
+      if (selected(p)?.media_type !== 'video') renderViewer(p);
+    }
+    updateSharedControls();
+  }
+
+  function zoomBoth(factor) {
+    sharedZoom = Math.min(12, Math.max(.5, sharedZoom * factor));
+    for (const p of Object.values(panels)) {
+      p.zoom = sharedZoom;
+      positionImage(p);
+    }
+    updateSharedControls();
   }
 
   function stopLoad(p) {
@@ -126,12 +169,7 @@
       + '<select id="comparison-mode-' + slot + '" class="form-select form-select-sm d-inline-block w-auto js-mode"><option value="mediafiles">Media files</option><option value="observations">Observations</option></select></div>'
       + '<div class="comparison-status small mt-2" role="status" aria-live="polite"></div>'
       + '<div class="comparison-viewer mt-3" tabindex="0" aria-label="Media viewer ' + slot.toUpperCase() + '"></div>'
-      + '<div class="comparison-viewer-controls mt-2"><div class="btn-group btn-group-sm">'
-      + '<button type="button" class="btn btn-outline-secondary js-full">Full media</button>'
-      + '<button type="button" class="btn btn-outline-secondary js-crop">BBox zoom</button>'
-      + '<button type="button" class="btn btn-outline-secondary js-zoom-out" aria-label="Zoom out">−</button>'
-      + '<button type="button" class="btn btn-outline-secondary js-zoom-in" aria-label="Zoom in">+</button>'
-      + '<button type="button" class="btn btn-outline-secondary js-reset">Reset view</button></div>'
+      + '<div class="comparison-viewer-controls mt-2">'
       + '<div class="dropdown"><button type="button" class="btn btn-sm btn-outline-primary dropdown-toggle js-item-actions-toggle" data-bs-toggle="dropdown" aria-expanded="false" disabled>Actions</button>'
       + '<ul class="dropdown-menu dropdown-menu-end js-item-actions"></ul></div></div>'
       + '<div class="comparison-item-meta small mt-2"></div>'
@@ -211,12 +249,10 @@
     renderRelatedSources(p, item);
     const viewer = query(p, '.comparison-viewer');
     const video = item?.media_type === 'video';
-    const validBox = item?.bbox && item.bbox.length === 4 && item.bbox.every(Number.isFinite)
-      && item.bbox[2] > 0 && item.bbox[3] > 0;
-    query(p, '.js-crop').disabled = !item || video || !validBox;
-    query(p, '.js-crop').classList.toggle('active', p.view === 'crop');
-    for (const control of ['.js-reset', '.js-zoom-in', '.js-zoom-out']) query(p, control).disabled = !item || video;
-    query(p, '.js-full').disabled = !item;
+    const validBox = hasBox(item);
+    p.view = sharedView === 'crop' && validBox ? 'crop' : 'full';
+    p.zoom = sharedZoom;
+    updateSharedControls();
     const actionsToggle = query(p, '.js-item-actions-toggle');
     const actionsMenu = query(p, '.js-item-actions');
     const actions = item ? [
@@ -364,16 +400,11 @@
       const button = event.target.closest('[data-item]');
       if (button) chooseItem(p, button.dataset.item);
     });
-    query(p, '.js-full').onclick = query(p, '.js-reset').onclick = () => {resetView(p); renderViewer(p);};
-    query(p, '.js-crop').onclick = () => {resetView(p); p.view = 'crop'; renderViewer(p);};
-    function zoom(factor) {p.zoom = Math.min(12, Math.max(.5, p.zoom * factor)); positionImage(p);}
-    query(p, '.js-zoom-in').onclick = () => zoom(1.25);
-    query(p, '.js-zoom-out').onclick = () => zoom(.8);
     const viewer = query(p, '.comparison-viewer');
     viewer.addEventListener('wheel', event => {
       if (!viewer.querySelector('img')) return;
       event.preventDefault();
-      zoom(event.deltaY < 0 ? 1.12 : 1 / 1.12);
+      zoomBoth(event.deltaY < 0 ? 1.12 : 1 / 1.12);
     }, {passive: false});
     viewer.addEventListener('pointerdown', event => {
       if (!viewer.querySelector('img')) return;
@@ -400,6 +431,18 @@
     else window.addEventListener('resize', () => positionImage(p));
     return p;
   }
+
+  app.querySelector('.js-comparison-zoom-out')?.addEventListener('click', () => zoomBoth(.8));
+  app.querySelector('.js-comparison-zoom-in')?.addEventListener('click', () => zoomBoth(1.25));
+  app.querySelector('.js-comparison-crop')?.addEventListener('click', () => {
+    sharedView = sharedView === 'crop' ? 'full' : 'crop';
+    renderSharedView();
+  });
+  app.querySelector('.js-comparison-reset')?.addEventListener('click', () => {
+    sharedView = 'full';
+    sharedZoom = 1;
+    renderSharedView();
+  });
 
   // Capture both URL sources before either panel writes back its state.
   const params = new URLSearchParams(location.search);

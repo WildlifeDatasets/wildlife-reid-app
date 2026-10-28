@@ -80,6 +80,7 @@
                 <a class="btn btn-outline-secondary js-pairs-layout{% if layout == 'rows' %} active{% endif %}" href="{{ rows_layout_url }}"{% if layout == 'rows' %} aria-current="true"{% endif %}><i class="bi bi-list" aria-hidden="true"></i> Rows</a>
             </div>
         </div>
+        {% include 'caidapp/includes/bbox_zoom_button.html' %}
         <form method="get" class="mb-4" id="similar-pairs-filter-form">
             {% for key, value in request.GET.items %}
                 {% if key != 'show_resolved' and key != 'reversed' %}<input type="hidden" name="{{ key }}" value="{{ value }}">{% endif %}

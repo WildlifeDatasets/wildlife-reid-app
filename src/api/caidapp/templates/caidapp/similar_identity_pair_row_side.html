@@ -4,7 +4,6 @@
         <a href="{% url 'caidapp:media_file_update' side.mediafile.id %}" class="similar-pair-row-thumbnail bbox-zoom-media" title="Open media file detail" data-bbox="{{ side.bbox|join:',' }}" data-full-src="{% if side.mediafile.image_file %}{{ side.mediafile.image_file.url }}{% elif side.mediafile.mediafile %}{{ side.mediafile.mediafile.url }}{% endif %}">
             {% if side.mediafile.thumbnail %}<img src="{{ side.mediafile.thumbnail.url }}" alt="Media file preview" loading="lazy">{% else %}<span class="small text-body-secondary">No preview</span>{% endif %}
         </a>
-        {% if side.mediafile.thumbnail %}<div class="mt-1">{% include 'caidapp/includes/bbox_zoom_button.html' with bbox=side.bbox %}</div>{% endif %}
     {% else %}<div class="similar-pair-row-thumbnail small text-body-secondary">No preview</div>{% endif %}
     </div>
     <div class="similar-pair-row-info">
