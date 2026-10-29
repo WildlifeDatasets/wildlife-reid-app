@@ -713,10 +713,13 @@ class SimilarIdentityPairsTest(TestCase):
         self.assertContains(response, "Name-based suggestions are available below")
         self.assertContains(response, "Merge preview")
 
-    def test_name_matches_are_limited_to_ten_and_do_not_use_placeholders(self):
-        """Snapshot at most ten ranked matches without treating no-detection placeholders as identity previews."""
-        identities = [IndividualIdentityFactory(owner_workgroup=self.workgroup) for _ in range(12)]
-        suggestions = [[identities[0].pk, identity.pk, index] for index, identity in enumerate(identities[1:])]
+    def test_name_matches_keep_all_exact_and_twenty_others_without_placeholder_previews(self):
+        """Preserve all zero-distance pairs plus twenty others without using placeholder previews."""
+        distances = [0] * 25 + list(range(1, 24))
+        identities = [IndividualIdentityFactory(owner_workgroup=self.workgroup) for _ in range(len(distances) + 1)]
+        suggestions = [
+            [identities[0].pk, identity.pk, distance] for identity, distance in zip(identities[1:], distances)
+        ]
         saved = MergeIdentitySuggestionResult.objects.create(workgroup=self.workgroup, suggestions=suggestions)
         mediafile = MediaFile.objects.create(parent=UploadedArchiveFactory(owner=self.staff), media_type="image")
         mediafile.observations.update(identity=identities[0])
@@ -724,8 +727,8 @@ class SimilarIdentityPairsTest(TestCase):
         with patch("caidapp.tasks.compute_identity_suggestions", return_value=saved.pk):
             pairs = tasks._prepare_name_identity_pairs(self.workgroup)
 
-        self.assertEqual(len(pairs), 10)
-        self.assertEqual([pair["similarity"] for pair in pairs], list(range(10)))
+        self.assertEqual(len(pairs), 45)
+        self.assertEqual([pair["similarity"] for pair in pairs], [0] * 25 + list(range(1, 21)))
         self.assertTrue(all(pair["mediafile_a_id"] is None and pair["mediafile_b_id"] is None for pair in pairs))
 
     def test_never_suggest_is_shared_by_all_methods_and_preserves_return_url(self):

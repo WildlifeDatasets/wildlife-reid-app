@@ -3443,10 +3443,11 @@ def prepare_similar_identity_pairs(result_id: int) -> int:
     return result.id
 
 
-def _prepare_name_identity_pairs(workgroup, limit=10):
-    """Snapshot the best existing name/code matches, using real observations for media previews."""
+def _prepare_name_identity_pairs(workgroup, limit=20):
+    """Keep every exact name/code match and up to limit other ranked matches from the shared matcher."""
     suggestions_id = compute_identity_suggestions(workgroup.id)
-    suggestions = models.MergeIdentitySuggestionResult.objects.get(pk=suggestions_id).suggestions[:limit]
+    ranked = models.MergeIdentitySuggestionResult.objects.get(pk=suggestions_id).suggestions
+    suggestions = [pair for pair in ranked if pair[2] == 0] + [pair for pair in ranked if pair[2] > 0][:limit]
     identity_ids = {identity_id for source_id, target_id, _ in suggestions for identity_id in (source_id, target_id)}
     identities = IndividualIdentity.objects.filter(pk__in=identity_ids, owner_workgroup=workgroup).in_bulk()
     previews = {}
