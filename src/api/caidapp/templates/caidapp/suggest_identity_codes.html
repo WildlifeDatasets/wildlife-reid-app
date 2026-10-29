@@ -147,12 +147,16 @@
       });
     </script>
   {% elif identities %}
-    <form method="post" action="{% url 'caidapp:apply_selected_identity_code_suggestions' %}">
+    <p class="text-body-secondary">
+      Showing {{ page_obj.start_index }}–{{ page_obj.end_index }} of {{ page_obj.paginator.count }} suggestions.
+    </p>
+    {% include "caidapp/includes/identity_code_pagination.html" %}
+    <form id="identity-code-selection-form" method="post" action="{% url 'caidapp:apply_selected_identity_code_suggestions' %}">
       {% csrf_token %}
       <div class="d-flex justify-content-between align-items-center mb-3">
         <div class="form-check">
           <input class="form-check-input" type="checkbox" id="select-all-identities">
-          <label class="form-check-label" for="select-all-identities">Select all</label>
+          <label class="form-check-label" for="select-all-identities">Select all on this page</label>
         </div>
         <button type="submit" class="btn btn-primary">Apply to selected</button>
       </div>
@@ -186,15 +190,23 @@
         {% endfor %}
       </ul>
     </form>
+    {% include "caidapp/includes/identity_code_pagination.html" %}
 
     <script>
       document.addEventListener("DOMContentLoaded", function () {
         const selectAll = document.getElementById("select-all-identities");
         const checkboxes = Array.from(document.querySelectorAll(".js-identity-checkbox"));
+        const form = document.getElementById("identity-code-selection-form");
 
         if (!selectAll || checkboxes.length === 0) {
           return;
         }
+
+        form.addEventListener("formdata", function (event) {
+          const selectedIds = checkboxes.filter(checkbox => checkbox.checked).map(checkbox => checkbox.value);
+          event.formData.delete("identity_ids");
+          event.formData.set("identity_ids_json", JSON.stringify(selectedIds));
+        });
 
         selectAll.addEventListener("change", function () {
           checkboxes.forEach(function (checkbox) {
