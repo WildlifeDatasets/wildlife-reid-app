@@ -1,5 +1,8 @@
+import json
 from unittest.mock import MagicMock, patch
+from urllib.parse import urlencode
 
+from caidapp import views
 from caidapp.app_tests.factories import (
     AnimalObservationFactory,
     CaidUserFactory,
@@ -7,7 +10,7 @@ from caidapp.app_tests.factories import (
     MediaFileFactory,
     UploadedArchiveFactory,
 )
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 
 
@@ -90,6 +93,68 @@ class IdentityCodeSuggestionsViewTest(TestCase):
         messages = list(response.context["messages"])
         self.assertTrue(any("Applied code suggestions to 1 identities." in str(message) for message in messages))
 
+    @patch("caidapp.views._celery_worker_available", return_value=False)
+    def test_suggestions_paginate_by_two_hundred_without_regenerating(self, _worker_available_mock):
+        """Page synchronous and cached suggestions in stable groups of 200 without losing entries."""
+        identities = IndividualIdentityFactory.build_batch(401, owner_workgroup=self.workgroup, name="B75 Cumel")
+        type(identities[0]).objects.bulk_create(identities)
+        url = reverse("caidapp:show_identity_code_suggestions")
+        with patch(
+            "caidapp.views._compute_identity_code_suggestions_sync", wraps=views._compute_identity_code_suggestions_sync
+        ) as compute:
+            first = self.client.get(url)
+            second = self.client.get(url, {"page": 2})
+            third = self.client.get(url, {"page": 3})
+            invalid = self.client.get(url, {"page": "invalid"})
+            beyond_last = self.client.get(url, {"page": 999})
+
+        compute.assert_called_once_with(self.workgroup)
+        self.assertEqual([len(page.context["identities"]) for page in (first, second, third)], [200, 200, 1])
+        actual_ids = [identity.id for page in (first, second, third) for identity in page.context["identities"]]
+        self.assertCountEqual(actual_ids, [identity.id for identity in identities])
+        self.assertEqual(invalid.context["page_obj"].number, 1)
+        self.assertEqual(beyond_last.context["page_obj"].number, 3)
+        self.assertContains(first, "of 401 suggestions.")
+        self.assertContains(first, "Select all on this page")
+        self.assertContains(second, 'href="?page=3"')
+        self.assertContains(second, 'href="?page=1"')
+        for page in (first, second, third):
+            self.assertContains(page, 'name="identity_ids"', count=len(page.context["identities"]))
+
+    @override_settings(DATA_UPLOAD_MAX_NUMBER_FIELDS=1000)
+    def test_bulk_apply_compact_selection_exceeds_a_thousand_identities(self):
+        """Apply more than a thousand codes using one field while preserving workgroup isolation."""
+        identities = IndividualIdentityFactory.build_batch(1001, owner_workgroup=self.workgroup, name="B75 Cumel")
+        identity_model = type(identities[0])
+        identity_model.objects.bulk_create(identities)
+        other = IndividualIdentityFactory(name="B90 Other", code="unchanged")
+        selected_ids = [str(identity.pk) for identity in identities] + [str(other.pk), str(identities[0].pk)]
+
+        response = self.client.post(
+            reverse("caidapp:apply_selected_identity_code_suggestions"),
+            urlencode({"identity_ids_json": json.dumps(selected_ids)}),
+            content_type="application/x-www-form-urlencoded",
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(identity_model.objects.filter(owner_workgroup=self.workgroup, code="B75").count(), 1001)
+        other.refresh_from_db()
+        self.assertEqual(other.code, "unchanged")
+        identities[0].refresh_from_db()
+        self.assertEqual(identities[0].note.count("former code:"), 1)
+
+    def test_bulk_apply_rejects_invalid_compact_selection_before_changing_codes(self):
+        """Reject malformed JSON and invalid IDs without partially applying valid entries."""
+        identity = IndividualIdentityFactory(owner_workgroup=self.workgroup, name="B75 Cumel", code="original")
+        for payload in ("broken", "null", "{}", json.dumps([identity.pk, "invalid"]), "[true]", "[-1]"):
+            with self.subTest(payload=payload):
+                response = self.client.post(
+                    reverse("caidapp:apply_selected_identity_code_suggestions"), {"identity_ids_json": payload}
+                )
+                self.assertEqual(response.status_code, 302)
+                identity.refresh_from_db()
+                self.assertEqual(identity.code, "original")
+
     @patch("caidapp.views.tasks.compute_identity_code_suggestions_task.delay")
     @patch("caidapp.views._celery_worker_available")
     def test_view_starts_background_job_when_worker_is_available(self, worker_available_mock, delay_mock):
@@ -107,8 +172,9 @@ class IdentityCodeSuggestionsViewTest(TestCase):
         self.assertContains(response, "Cancel generation")
         self.assertContains(response, reverse("caidapp:cancel_identity_code_suggestions"))
 
+    @patch("caidapp.views._celery_worker_available", return_value=True)
     @patch("caidapp.views.AsyncResult")
-    def test_status_endpoint_returns_progress_meta(self, async_result_mock):
+    def test_status_endpoint_returns_progress_meta(self, async_result_mock, _worker_available_mock):
         """Return the running code-suggestion job's counters and message as progress metadata."""
         session = self.client.session
         session["identity_code_suggestions_job_id"] = "job-123"

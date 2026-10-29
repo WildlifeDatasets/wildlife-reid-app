@@ -1,5 +1,6 @@
 import datetime
 import io
+import json
 import logging
 import math
 import os
@@ -8859,11 +8860,13 @@ def show_identity_code_suggestions(request):
         if start_response["mode"] == "async":
             job_state = _get_identity_code_suggestions_state(request)
         else:
+            page_obj = Paginator(start_response["suggestions"], 200).get_page(request.GET.get("page"))
             return render(
                 request,
                 "caidapp/suggest_identity_codes.html",
                 {
-                    "identities": start_response["suggestions"],
+                    "identities": page_obj.object_list,
+                    "page_obj": page_obj,
                     "active_regex": active_regex,
                     "job_status": "success",
                     "job_running": False,
@@ -8892,12 +8895,14 @@ def show_identity_code_suggestions(request):
         request.user.caiduser.workgroup,
         job_state["suggestion_ids"],
     )
+    page_obj = Paginator(suggestions, 200).get_page(request.GET.get("page"))
 
     return render(
         request,
         "caidapp/suggest_identity_codes.html",
         {
-            "identities": suggestions,
+            "identities": page_obj.object_list,
+            "page_obj": page_obj,
             "active_regex": active_regex,
             "job_status": job_state["status"],
             "job_running": False,
@@ -8956,6 +8961,8 @@ def _start_identity_code_suggestions(request, clear_existing: bool):
         return {"mode": "async", "job_id": job.id}
 
     suggestions = _compute_identity_code_suggestions_sync(request.user.caiduser.workgroup)
+    request.session["identity_code_suggestions_ids"] = [identity.id for identity in suggestions]
+    request.session["identity_code_suggestions_generated_at"] = timezone.now().isoformat()
     return {"mode": "sync", "suggestions": suggestions}
 
 
@@ -9146,7 +9153,22 @@ def apply_selected_identity_code_suggestions(request, rename: bool = True):
         messages.error(request, "Invalid request method.")
         return redirect("caidapp:show_identity_code_suggestions")
 
-    selected_identity_ids = request.POST.getlist("identity_ids")
+    try:
+        selected_identity_ids = (
+            json.loads(request.POST["identity_ids_json"])
+            if "identity_ids_json" in request.POST
+            else request.POST.getlist("identity_ids")
+        )
+        if not isinstance(selected_identity_ids, list) or any(
+            type(value) not in (str, int) for value in selected_identity_ids
+        ):
+            raise ValueError("Expected a list of identity IDs")
+        selected_identity_ids = list(dict.fromkeys(int(value) for value in selected_identity_ids))
+        if any(value <= 0 or value > 2**63 - 1 for value in selected_identity_ids):
+            raise ValueError("Invalid identity ID")
+    except (ValueError, TypeError):
+        messages.error(request, "Invalid identity selection. No codes were changed.")
+        return redirect("caidapp:show_identity_code_suggestions")
     if not selected_identity_ids:
         messages.info(request, "No identities were selected.")
         return redirect("caidapp:show_identity_code_suggestions")
