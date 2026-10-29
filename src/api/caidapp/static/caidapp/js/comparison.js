@@ -17,11 +17,21 @@
 
   function updatePairActions() {
     const form = document.getElementById('comparison-exclude-form');
-    if (!form) return;
+    const preview = document.getElementById('comparison-merge-preview');
     const a = panels.a?.data?.source, b = panels.b?.data?.source;
     const available = a?.kind === 'identity' && b?.kind === 'identity' && String(a.id) !== String(b.id);
-    form.hidden = !available;
-    if (available) {
+    if (preview) {
+      preview.hidden = !available;
+      preview.removeAttribute('href');
+      if (available) {
+        const url = new URL(preview.dataset.urlTemplate, location.origin);
+        url.pathname = url.pathname.replace(/\/0\/0\/$/, '/' + a.id + '/' + b.id + '/');
+        url.searchParams.set('next', location.pathname + location.search);
+        preview.href = url.pathname + url.search;
+      }
+    }
+    if (form) form.hidden = !available;
+    if (form && available) {
       form.elements.excluded_suggestion.value = a.id + '|' + b.id;
       form.elements.next.value = location.pathname + location.search;
     }

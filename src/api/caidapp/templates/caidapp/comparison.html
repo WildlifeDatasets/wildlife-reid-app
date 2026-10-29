@@ -23,6 +23,8 @@
     </div>
   </div>
   {% if can_exclude_pair %}
+  <a id="comparison-merge-preview" class="btn btn-primary btn-sm mb-3" hidden
+     data-url-template="{% url 'caidapp:merge_identities' 0 0 %}">Merge preview</a>
   <form id="comparison-exclude-form" method="post" action="{% url 'caidapp:exclude_merge_identity_suggestion' %}" class="mb-3" hidden
         onsubmit="return confirm('Never suggest merging these two identities again, in either direction?');">
     {% csrf_token %}
@@ -39,5 +41,5 @@
 {% endblock %}
 
 {% block script %}
-<script src="{% static 'caidapp/js/comparison.js' %}?v=5"></script>
+<script src="{% static 'caidapp/js/comparison.js' %}?v=6"></script>
 {% endblock %}

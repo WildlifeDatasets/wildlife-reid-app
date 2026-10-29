@@ -262,6 +262,8 @@ class ComparisonEndpointsTest(TestCase):
         url = reverse("caidapp:comparison") + f"?a_kind=identity&a_id={first.pk}&b_kind=identity&b_id={second.pk}"
         page = self.client.get(url)
         self.assertContains(page, 'id="comparison-exclude-form"')
+        self.assertContains(page, 'id="comparison-merge-preview"')
+        self.assertContains(page, reverse("caidapp:merge_identities", args=[0, 0]))
         response = self.client.post(
             reverse("caidapp:exclude_merge_identity_suggestion"),
             {
@@ -277,6 +279,7 @@ class ComparisonEndpointsTest(TestCase):
         self.caiduser.save(update_fields=["workgroup_admin", "is_observer", "can_edit_identity_data"])
         page = self.client.get(url)
         self.assertNotContains(page, 'id="comparison-exclude-form"')
+        self.assertNotContains(page, 'id="comparison-merge-preview"')
         denied = self.client.post(
             reverse("caidapp:exclude_merge_identity_suggestion"), {"excluded_suggestion": f"{second.pk}|{first.pk}"}
         )
