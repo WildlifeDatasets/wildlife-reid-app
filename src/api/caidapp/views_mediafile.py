@@ -82,6 +82,12 @@ def _set_taxon_for_sequence(mediafile: MediaFile, taxon, caiduser, commit=True):
         if taxon_id is not None:
             update_values["is_no_detection_placeholder"] = False
         updated_count = obs_qs.update(**update_values)
+        if taxon_id is not None:
+            # This bulk update can turn placeholders into real observations and bypasses save signals.
+            from .observation_embeddings import schedule_embeddings
+
+            workgroup_id = mediafile.parent.owner.workgroup_id
+            transaction.on_commit(lambda: schedule_embeddings(workgroup_id), robust=True)
 
     return updated_count
 

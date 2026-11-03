@@ -26,6 +26,7 @@ app.conf.task_routes = {
     "detectionsimplelog": {"queue": "detection_worker"},
     # identification workflow
     "init_identification": {"queue": "identification_worker"},
+    "compute_observation_embeddings": {"queue": "identification_worker"},
     "train_identification": {"queue": "identification_worker"},
     "identify": {"queue": "identification_worker"},
     "detect_identification_outliers": {"queue": "identification_worker"},

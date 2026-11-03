@@ -1,7 +1,10 @@
+import hashlib
+import json
 import logging
 import os.path
 import re
 import shutil
+import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, Union
@@ -1964,6 +1967,56 @@ class MediaFile(models.Model):
     def preview_url(self):
         """Get preview URL."""
         return self.preview.url if self.preview and self.preview.name else ""
+
+
+class ObservationEmbeddingSchedule(models.Model):
+    """One pending debounce timer per workgroup, separate from editable settings."""
+
+    workgroup = models.OneToOneField(WorkGroup, on_delete=models.CASCADE, primary_key=True)
+    task_id = models.CharField(max_length=255, null=True, blank=True)
+    eta = models.DateTimeField(null=True, blank=True)
+
+
+class EmbeddingProfile(models.Model):
+    """Immutable, content-addressed specification of one embedding space."""
+
+    uuid = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    fingerprint = models.CharField(max_length=64, unique=True, editable=False)
+    specification = models.JSONField()
+    dimension = models.PositiveIntegerField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def save(self, *args, **kwargs):
+        """Reject profile edits so historical vectors keep their meaning."""
+        fingerprint = hashlib.sha256(
+            json.dumps(self.specification, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()
+        ).hexdigest()
+        if self.dimension <= 0 or self.specification.get("dimension") != self.dimension:
+            raise ValidationError("Embedding profile dimension must match its specification.")
+        if self.pk:
+            old = type(self).objects.get(pk=self.pk)
+            if old.specification != self.specification or old.dimension != self.dimension or old.uuid != self.uuid:
+                raise ValidationError("Embedding profiles are immutable; create a new profile.")
+        self.fingerprint = fingerprint
+        super().save(*args, **kwargs)
+
+
+class ObservationEmbedding(models.Model):
+    """A vector for a particular observation input version and encoder profile."""
+
+    observation = models.ForeignKey("AnimalObservation", on_delete=models.CASCADE, related_name="embeddings")
+    profile = models.ForeignKey(EmbeddingProfile, on_delete=models.PROTECT, related_name="embeddings")
+    input_fingerprint = models.CharField(max_length=64)
+    input_specification = models.JSONField()
+    vector = models.JSONField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["observation", "profile", "input_fingerprint"], name="unique_observation_embedding_input"
+            )
+        ]
 
 
 class AnimalObservation(models.Model):

@@ -7,6 +7,7 @@ class CaidappConfig(AppConfig):
 
     def ready(self):
         """The code run on application init is here."""
+        import caidapp.observation_embedding_signals  # noqa: F401
         import caidapp.signals  # noqa: F401
 
         pass

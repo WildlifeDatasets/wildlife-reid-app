@@ -504,6 +504,22 @@ def on_success_predict_taxon(
         uploaded_archive.save()
 
 
+@shared_task
+def prepare_observation_embeddings(workgroup_id, task_id):
+    """Start embedding preparation after a workgroup's input changes settle."""
+    from .observation_embeddings import prepare_scheduled_embeddings
+
+    return prepare_scheduled_embeddings(workgroup_id, task_id)
+
+
+@shared_task
+def store_observation_embeddings(output, manifest_path):
+    """Persist validated versioned vectors returned by the identification worker."""
+    from .observation_embeddings import store_embeddings
+
+    return store_embeddings(output, manifest_path)
+
+
 def _prepare_dataframe_for_identification(
     mediafiles,
     *,
