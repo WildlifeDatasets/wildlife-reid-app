@@ -195,6 +195,7 @@ MEDIAFILE_EXPORT_SCHEMAS = {
 SEQUENCE_DOWNLOAD_SESSION_KEY = "sequence_download_mediafile_ids"
 SEQUENCE_DOWNLOAD_RETURN_URL_SESSION_KEY = "sequence_download_return_url"
 OBSERVATION_DOWNLOAD_SESSION_KEY = "observation_download_mediafile_ids"
+OBSERVATION_DOWNLOAD_OBSERVATION_IDS_SESSION_KEY = "observation_download_observation_ids"
 OBSERVATION_DOWNLOAD_RETURN_URL_SESSION_KEY = "observation_download_return_url"
 OBSERVATION_PER_PAGE_OPTIONS = (24, 48, 96, 192)
 
@@ -4094,8 +4095,20 @@ def download_xlsx_for_observations_view(request: HttpRequest) -> HttpResponse:
 
 @login_required
 def prepare_observation_download(request: HttpRequest) -> HttpResponse:
-    """Start the configurable image/metadata export for the current observation scope."""
-    mediafile_ids = list(_get_mediafiles_for_observation_export(request).values_list("id", flat=True))
+    """Prepare selected observations, falling back to the current filter without a selection."""
+    mediafiles = _get_mediafiles_for_observation_export(request)
+    requested_ids = request.POST.getlist("selected_observation_ids")
+    if requested_ids or request.POST.get("select_all_filtered"):
+        observations, _ = _get_observations_queryset(request)
+        observations = observations.filter(mediafile_id__in=mediafiles.values("id"))
+        if not request.POST.get("select_all_filtered"):
+            observations = observations.filter(id__in=[int(value) for value in requested_ids if value.isdigit()])
+        observation_ids = list(observations.values_list("id", flat=True))
+        request.session[OBSERVATION_DOWNLOAD_OBSERVATION_IDS_SESSION_KEY] = observation_ids
+        mediafiles = mediafiles.filter(observations__id__in=observation_ids).distinct()
+    else:
+        request.session.pop(OBSERVATION_DOWNLOAD_OBSERVATION_IDS_SESSION_KEY, None)
+    mediafile_ids = list(mediafiles.values_list("id", flat=True))
     request.session[OBSERVATION_DOWNLOAD_SESSION_KEY] = mediafile_ids
     return_url = reverse("caidapp:observations")
     if request.GET:
@@ -4108,7 +4121,7 @@ def prepare_observation_download(request: HttpRequest) -> HttpResponse:
 def observations(request: HttpRequest) -> HttpResponse:
     """Review individual animal observations, optionally grouped by their context."""
     group_by = request.GET.get("group", "sequence")
-    if group_by not in {"sequence", "mediafile", "none"}:
+    if group_by not in {"sequence", "mediafile", "identity", "none"}:
         group_by = "sequence"
     view_mode = request.GET.get("view", "cards")
     if view_mode not in {"cards", "large_cards", "list"}:
@@ -4127,7 +4140,7 @@ def observations(request: HttpRequest) -> HttpResponse:
         "observation_id",
     }:
         sort_by = "captured_asc"
-    grouping_disabled_for_sort = group_by != "none" and sort_by in {"taxon", "identity"}
+    grouping_disabled_for_sort = group_by in {"sequence", "mediafile"} and sort_by in {"taxon", "identity"}
     if grouping_disabled_for_sort:
         group_by = "none"
     records_per_page = _get_observation_records_per_page(request)
@@ -4377,13 +4390,18 @@ def observations(request: HttpRequest) -> HttpResponse:
             )
 
         if "btnDownloadObservations" in request.POST:
+            request.session.pop(OBSERVATION_DOWNLOAD_OBSERVATION_IDS_SESSION_KEY, None)
             request.session[OBSERVATION_DOWNLOAD_SESSION_KEY] = selected_mediafile_ids
             request.session[OBSERVATION_DOWNLOAD_RETURN_URL_SESSION_KEY] = request.get_full_path()
             return redirect("caidapp:download_observations")
 
     group_ordering = []
     if group_by != "none":
-        partition_field = "mediafile__sequence_id" if group_by == "sequence" else "mediafile_id"
+        partition_field = {
+            "sequence": "mediafile__sequence_id",
+            "mediafile": "mediafile_id",
+            "identity": "identity_id",
+        }[group_by]
         if sort_by == "captured_desc":
             group_sort_expression = Max("mediafile__captured_at")
         elif sort_by == "captured_asc":
@@ -4392,6 +4410,10 @@ def observations(request: HttpRequest) -> HttpResponse:
             group_sort_expression = Min("mediafile__locality__name")
         elif sort_by == "filename":
             group_sort_expression = Min("mediafile__original_filename")
+        elif sort_by == "identity":
+            group_sort_expression = Min("identity__name")
+        elif sort_by == "taxon":
+            group_sort_expression = Min("taxon__name")
         else:
             group_sort_expression = Min("id")
         observation_queryset = observation_queryset.annotate(
@@ -4473,6 +4495,9 @@ def observations(request: HttpRequest) -> HttpResponse:
         elif group_by == "mediafile":
             key = ("mediafile", observation.mediafile_id)
             label = observation.mediafile.original_filename or f"Media file {observation.mediafile_id}"
+        elif group_by == "identity":
+            key = ("identity", observation.identity_id)
+            label = observation.identity.name if observation.identity_id else "No identity"
         else:
             key = ("observation", observation.id)
             label = None
@@ -6421,6 +6446,11 @@ def _get_sequence_download_mediafiles(request: HttpRequest) -> QuerySet:
 def _get_observation_download_mediafiles(request: HttpRequest) -> QuerySet:
     """Return mediafiles captured by the current Observations export scope."""
     mediafile_ids = request.session.get(OBSERVATION_DOWNLOAD_SESSION_KEY, [])
+    observation_ids = request.session.get(OBSERVATION_DOWNLOAD_OBSERVATION_IDS_SESSION_KEY)
+    observations = AnimalObservation.objects.select_related("taxon", "predicted_taxon", "identity").order_by("id")
+    if observation_ids is not None:
+        observations = observations.filter(id__in=observation_ids)
+        mediafile_ids = observations.filter(mediafile_id__in=mediafile_ids).values("mediafile_id")
     caiduser = request.user.caiduser
     return (
         MediaFile.objects.filter(
@@ -6433,9 +6463,7 @@ def _get_observation_download_mediafiles(request: HttpRequest) -> QuerySet:
         .prefetch_related(
             Prefetch(
                 "observations",
-                queryset=AnimalObservation.objects.select_related("taxon", "predicted_taxon", "identity").order_by(
-                    "id"
-                ),
+                queryset=observations,
             )
         )
         .order_by("sequence_id", "captured_at", "id")

@@ -3976,6 +3976,82 @@ class ObservationViewTest(TestCase):
             reverse("caidapp:import_observations"),
         )
 
+    def test_identity_grouping_keeps_siblings_separate_and_groups_across_mediafiles(self):
+        """Group by identity across files and retain individual observation selection in every layout."""
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        mediafile = MediaFileFactory(parent=archive)
+        identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Lynx A")
+        first = AnimalObservationFactory(mediafile=mediafile, identity=identity)
+        second = AnimalObservationFactory(mediafile=MediaFileFactory(parent=archive), identity=identity)
+        unassigned = AnimalObservationFactory(mediafile=mediafile, identity=None)
+        for view in ("cards", "large_cards", "list"):
+            with self.subTest(view=view):
+                response = self.client.get(
+                    reverse("caidapp:observations"), {"group": "identity", "sort": "identity", "view": view}
+                )
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.context["group_by"], "identity")
+                groups = response.context["observation_groups"]
+                self.assertEqual([group["label"] for group in groups], ["Lynx A", "No identity"])
+                self.assertEqual({obs.id for obs in groups[0]["observations"]}, {first.id, second.id})
+                self.assertEqual([obs.id for obs in groups[1]["observations"]], [unassigned.id])
+                for observation in (first, second, unassigned):
+                    self.assertContains(response, f'data-observation-id="{observation.id}"')
+                self.assertContains(response, "a group may continue on another page")
+
+    def test_data_export_limits_metadata_and_zip_to_selected_observations(self):
+        """Export exact selected rows and deduplicate containing files, rejecting inaccessible IDs."""
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        mediafile = MediaFileFactory(parent=archive)
+        selected = AnimalObservationFactory(mediafile=mediafile)
+        selected_sibling = AnimalObservationFactory(mediafile=mediafile)
+        AnimalObservationFactory(mediafile=mediafile)
+        AnimalObservationFactory(mediafile=MediaFileFactory(parent=archive))
+        inaccessible = AnimalObservationFactory()
+        response = self.client.post(
+            reverse("caidapp:prepare_observation_download"),
+            {"selected_observation_ids": [selected.id, selected_sibling.id, inaccessible.id]},
+        )
+        self.assertRedirects(response, reverse("caidapp:download_observations"))
+        self.assertEqual(self.client.session["observation_download_mediafile_ids"], [mediafile.id])
+        for endpoint in ("download_csv_for_observations_selection", "download_xlsx_for_observations_selection"):
+            response = self.client.get(reverse(f"caidapp:{endpoint}"))
+            if "xlsx" in endpoint:
+                df = pd.read_excel(BytesIO(response.content))
+            else:
+                df = pd.read_csv(StringIO(response.content.decode()))
+            self.assertEqual(set(df["observation_id"]), {selected.id, selected_sibling.id})
+        with (
+            patch.object(views, "_build_export_mediafiles_data", return_value=[{"output_name": "selected.jpg"}]),
+            patch.object(tasks.create_mediafiles_zip_with_metadata, "delay") as create_zip,
+            patch.object(tasks.clean_old_mediafile_zips, "delay"),
+        ):
+            create_zip.return_value.id = "test-task"
+            response = self.client.get(reverse("caidapp:download_zip_for_observations"))
+            self.assertEqual(response.status_code, 200)
+            records = create_zip.call_args.args[3]
+            self.assertEqual({row["observation_id"] for row in records}, {selected.id, selected_sibling.id})
+            self.assertEqual({row["mediafile_id"] for row in records}, {mediafile.id})
+
+    def test_data_export_all_filtered_respects_identity_and_resets_selection(self):
+        """Apply select-all to the full filtered scope and clear a previous selection on an unselected export."""
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup)
+        mediafile = MediaFileFactory(parent=archive)
+        selected = AnimalObservationFactory(mediafile=mediafile, identity=identity)
+        sibling = AnimalObservationFactory(mediafile=mediafile)
+        second = AnimalObservationFactory(mediafile=MediaFileFactory(parent=archive), identity=identity)
+        url = f'{reverse("caidapp:prepare_observation_download")}?identity={identity.id}'
+        self.client.post(url, {"select_all_filtered": "on", "selected_observation_ids": [selected.id]})
+        response = self.client.get(reverse("caidapp:download_csv_for_observations_selection"))
+        df = pd.read_csv(StringIO(response.content.decode()))
+        self.assertEqual(set(df["observation_id"]), {selected.id, second.id})
+        self.client.post(url)
+        self.assertNotIn("observation_download_observation_ids", self.client.session)
+        response = self.client.get(reverse("caidapp:download_csv_for_observations_selection"))
+        df = pd.read_csv(StringIO(response.content.decode()))
+        self.assertEqual(set(df["observation_id"]), {selected.id, sibling.id, second.id})
+
     def test_observation_image_export_uses_current_filter_and_download_configuration(self):
         """Use the active observation filter to prepare media-file download configuration."""
         archive = UploadedArchiveFactory(owner=self.caiduser)

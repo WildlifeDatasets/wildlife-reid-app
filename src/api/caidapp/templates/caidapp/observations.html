@@ -40,6 +40,7 @@
   <form method="post" id="observation-workbench-form" data-filtered-observation-count="{{ number_of_editable_observations }}" data-filtered-mediafile-count="{{ number_of_editable_observation_mediafiles }}" data-filtered-sequence-count="{{ number_of_editable_observation_sequences }}" data-filtered-sequence-direct-mediafile-count="{{ number_of_editable_observation_sequence_mediafiles }}" data-filtered-sequence-mediafile-count="{{ number_of_mediafiles_in_editable_observation_sequences }}">
     {% csrf_token %}
     <input class="d-none" type="checkbox" name="select_all_filtered" id="observation-select-all-filtered" data-total="{{ number_of_editable_observations }}">
+    {% if group_by == 'identity' %}<div class="small text-muted mb-2">Identity groups show observations on this page only; a group may continue on another page. Group checkboxes select editable observations on this page.</div>{% endif %}
     {% if grouping_disabled_for_sort %}<div class="alert alert-info py-2 small" role="status"><i class="bi bi-info-circle"></i> Grouping was disabled because one media file or sequence can contain multiple {% if sort_by == 'taxon' %}taxa{% else %}identities{% endif %}.</div>{% endif %}
 
     <div class="observation-action-toolbar observation-workbench-toolbar mb-3" id="observation-action-toolbar">
@@ -72,7 +73,7 @@
           <ul class="dropdown-menu dropdown-menu-end">
             <li><a class="dropdown-item" href="{% url 'caidapp:download_csv_for_observations' %}?{{ request.GET.urlencode }}"><i class="bi bi-table"></i> Export CSV</a></li>
             <li><a class="dropdown-item" href="{% url 'caidapp:download_xlsx_for_observations' %}?{{ request.GET.urlencode }}"><i class="bi bi-file-earmark-excel"></i> Export XLSX</a></li>
-            <li><a class="dropdown-item" href="{% url 'caidapp:prepare_observation_download' %}?{{ request.GET.urlencode }}"><i class="bi bi-images"></i> Export images and metadata</a></li>
+            <li><button class="dropdown-item" type="submit" formaction="{% url 'caidapp:prepare_observation_download' %}?{{ request.GET.urlencode }}" title="Export selected observations and their media files. With no selection, export the current filter."><i class="bi bi-images"></i> Export images and metadata</button></li>
             <li><hr class="dropdown-divider"></li>
             <li><a class="dropdown-item" href="{% url 'caidapp:import_observations' %}?next={{ request.get_full_path|urlencode }}"><i class="bi bi-file-earmark-arrow-up"></i> Import observation metadata</a></li>
             <li><hr class="dropdown-divider"></li>
@@ -98,8 +99,8 @@
         </div>
         <div class="dropdown">
           <div class="observation-toolbar-label mb-1">Group by</div>
-          <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">{% if group_by == 'sequence' %}Sequence{% elif group_by == 'mediafile' %}Media file{% else %}None{% endif %}</button>
-          <ul class="dropdown-menu dropdown-menu-end"><li><a class="dropdown-item {% if group_by == 'sequence' %}active{% endif %}" href="{% if sort_by == 'taxon' or sort_by == 'identity' %}{% querystring request.GET group='sequence' sort='captured_asc' page=None %}{% else %}{% querystring request.GET group='sequence' page=None %}{% endif %}">Sequence</a></li><li><a class="dropdown-item {% if group_by == 'mediafile' %}active{% endif %}" href="{% if sort_by == 'taxon' or sort_by == 'identity' %}{% querystring request.GET group='mediafile' sort='captured_asc' page=None %}{% else %}{% querystring request.GET group='mediafile' page=None %}{% endif %}">Media file</a></li><li><a class="dropdown-item {% if group_by == 'none' %}active{% endif %}" href="{% querystring request.GET group='none' page=None %}">None</a></li></ul>
+          <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">{% if group_by == 'sequence' %}Sequence{% elif group_by == 'mediafile' %}Media file{% elif group_by == 'identity' %}Identity{% else %}None{% endif %}</button>
+          <ul class="dropdown-menu dropdown-menu-end"><li><a class="dropdown-item {% if group_by == 'sequence' %}active{% endif %}" href="{% if sort_by == 'taxon' or sort_by == 'identity' %}{% querystring request.GET group='sequence' sort='captured_asc' page=None %}{% else %}{% querystring request.GET group='sequence' page=None %}{% endif %}">Sequence</a></li><li><a class="dropdown-item {% if group_by == 'mediafile' %}active{% endif %}" href="{% if sort_by == 'taxon' or sort_by == 'identity' %}{% querystring request.GET group='mediafile' sort='captured_asc' page=None %}{% else %}{% querystring request.GET group='mediafile' page=None %}{% endif %}">Media file</a></li><li><a class="dropdown-item {% if group_by == 'identity' %}active{% endif %}" href="{% querystring request.GET group='identity' sort='identity' page=None %}">Identity</a></li><li><a class="dropdown-item {% if group_by == 'none' %}active{% endif %}" href="{% querystring request.GET group='none' page=None %}">None</a></li></ul>
         </div>
         <div class="dropdown">
           <div class="observation-toolbar-label mb-1">Sort by</div>
@@ -110,8 +111,8 @@
             <li><a class="dropdown-item {% if sort_by == 'locality' %}active{% endif %}" href="{% querystring request.GET sort='locality' page=None %}">Locality: A–Z</a></li>
             <li><a class="dropdown-item {% if sort_by == 'filename' %}active{% endif %}" href="{% querystring request.GET sort='filename' page=None %}">Filename: A–Z</a></li>
             <li><hr class="dropdown-divider"></li>
-            <li><a class="dropdown-item {% if sort_by == 'taxon' %}active{% endif %}" href="{% querystring request.GET sort='taxon' group='none' page=None %}">Taxon: A–Z</a></li>
-            <li><a class="dropdown-item {% if sort_by == 'identity' %}active{% endif %}" href="{% querystring request.GET sort='identity' group='none' page=None %}">Identity: A–Z</a></li>
+            <li><a class="dropdown-item {% if sort_by == 'taxon' %}active{% endif %}" href="{% if group_by == 'identity' %}{% querystring request.GET sort='taxon' page=None %}{% else %}{% querystring request.GET sort='taxon' group='none' page=None %}{% endif %}">Taxon: A–Z</a></li>
+            <li><a class="dropdown-item {% if sort_by == 'identity' %}active{% endif %}" href="{% if group_by == 'identity' %}{% querystring request.GET sort='identity' page=None %}{% else %}{% querystring request.GET sort='identity' group='none' page=None %}{% endif %}">Identity: A–Z</a></li>
             <li><a class="dropdown-item {% if sort_by == 'observation_id' %}active{% endif %}" href="{% querystring request.GET sort='observation_id' page=None %}">Observation ID</a></li>
           </ul>
         </div>
@@ -190,7 +191,7 @@
               {% include 'caidapp/includes/observation_card.html' with observation=observation request=request group_id=group.id preview_mode=preview_mode only %}
               {% if forloop.first and group.observations|length > 1 and group.is_collapsible %}
               <div class="observation-group-controls">
-                <button type="button" class="observation-group-toggle js-toggle-observation-group" data-group-id="{{ group.id }}" aria-expanded="false" aria-controls="observation-group-{{ group.id }}" aria-label="Expand {{ group.observations|length }} observations grouped by {{ group.label }}" title="{{ group.observations|length }} observations grouped by {{ group.label }} · {{ group.mediafile_count }} media file{{ group.mediafile_count|pluralize }} on this page">{% if group_by == 'sequence' %}<i class="bi bi-collection"></i>{% else %}<i class="bi bi-image"></i>{% endif %}<span>{{ group.observations|length }}</span></button>
+                <button type="button" class="observation-group-toggle js-toggle-observation-group" data-group-id="{{ group.id }}" aria-expanded="false" aria-controls="observation-group-{{ group.id }}" aria-label="Expand {{ group.observations|length }} observations grouped by {{ group.label }}" title="{{ group.observations|length }} observations grouped by {{ group.label }} · {{ group.mediafile_count }} media file{{ group.mediafile_count|pluralize }} on this page">{% if group_by == 'sequence' %}<i class="bi bi-collection"></i>{% elif group_by == 'identity' %}<i class="bi bi-fingerprint"></i>{% else %}<i class="bi bi-image"></i>{% endif %}<span>{{ group.observations|length }}</span></button>
                 <label class="observation-group-select" title="Select all {{ group.observations|length }} editable observations in this group"><input class="form-check-input js-observation-group-checkbox" type="checkbox" data-group-id="{{ group.id }}" aria-label="Select all editable observations in {{ group.label }}"></label>
               </div>
               {% endif %}
