@@ -1,0 +1,69 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block head %}<script src="{% static 'caidapp/embedding_runs.js' %}" defer></script>{% endblock %}
+{% block body %}
+<div class="pagetitle"><h1>{{ run.operation_label }}</h1><a href="{% url 'caidapp:task_list' %}">All tasks</a></div>
+<section class="section" id="task-detail" data-status-url="{{ status_url }}" data-terminal="{{ run.is_terminal|yesno:'true,false' }}">
+  {% csrf_token %}
+  <p class="small text-body-secondary">Task {{ run.uuid }} · {{ run.created_at }}</p>
+  <p class="small text-body-secondary">{{ run.trigger|capfirst }} · Model #{{ run.model_id }}{% if run.result.profile_uuid %} · Embedding profile {{ run.result.profile_uuid }}{% endif %}</p>
+  <p>{{ run.scope_label }}</p>
+  <div id="task-refresh-message" class="alert alert-warning" role="status" hidden></div>
+  <div class="card"><div class="card-body pt-3" aria-live="polite">
+    <h2 class="h5" id="task-status">{{ run.status_label }}</h2>
+    <p id="task-message">{{ run.message }}</p>
+    <p id="task-result-summary">{{ run.result_summary }}</p>
+  </div></div>
+  <p class="small text-body-secondary">Results describe saved inputs captured during preparation. Later edits can require new embeddings without changing this run's outcome. Videos and no-detection placeholders are not embedding inputs.</p>
+  <div class="table-responsive"><table class="table"><thead><tr><th>Observation</th><th>Media file</th><th>Result</th><th>Details</th></tr></thead>
+    <tbody id="task-items">{% for item in run.items %}<tr><td>{{ item.observation_id|default:'—' }}</td><td>{% if item.mediafile_url %}<a href="{{ item.mediafile_url }}">{{ item.mediafile_label|default:item.mediafile_id }}</a>{% else %}{{ item.mediafile_label|default:item.mediafile_id }}{% endif %}</td><td>{{ item.status_label }}</td><td>{{ item.message }}</td></tr>{% empty %}<tr><td colspan="4">Preparing task inputs.</td></tr>{% endfor %}</tbody>
+  </table></div>
+  <div id="embedding-start-message" class="alert alert-info" role="status" hidden></div>
+  <button id="embedding-retry" type="button" class="btn btn-sm btn-outline-primary" data-embedding-start="{% url 'caidapp:embedding_run_start' %}" data-scope="observations" data-target-ids="{{ run.retry_ids|join:',' }}"{% if not run.retry_ids %} hidden{% endif %}>Generate missing embeddings again</button>
+  <a href="{{ result_url }}" class="btn btn-sm btn-outline-secondary">View result JSON</a>
+</section>
+{% endblock %}
+{% block script %}
+<script>
+(function () {
+  const detail = document.getElementById("task-detail");
+  const warning = document.getElementById("task-refresh-message");
+  if (detail.dataset.terminal === "true") return;
+  async function refresh() {
+    try {
+      const response = await fetch(detail.dataset.statusUrl, {headers: {Accept: "application/json"}, credentials: "same-origin"});
+      if (!response.ok || response.redirected) throw new Error("Refresh failed");
+      const data = await response.json();
+      document.getElementById("task-status").textContent = data.status_label;
+      document.getElementById("task-message").textContent = data.message || "";
+      document.getElementById("task-result-summary").textContent = data.result_summary || "";
+      const retry = document.getElementById("embedding-retry");
+      retry.dataset.targetIds = (data.retry_ids || []).join(",");
+      retry.hidden = !data.retry_ids || data.retry_ids.length === 0;
+      if (Array.isArray(data.items)) {
+        const body = document.getElementById("task-items");
+        body.replaceChildren();
+        data.items.forEach(function (item) {
+          const row = document.createElement("tr");
+          [item.observation_id || "—", item.mediafile_label || item.mediafile_id || "—", item.status_label || item.status, item.message || ""].forEach(function (value, index) {
+            const cell = document.createElement("td");
+            if (index === 1 && item.mediafile_url) {
+              const link = document.createElement("a"); link.href = item.mediafile_url; link.textContent = value; cell.appendChild(link);
+            } else cell.textContent = value;
+            row.appendChild(cell);
+          });
+          body.appendChild(row);
+        });
+      }
+      warning.hidden = true;
+      if (data.is_terminal) return;
+    } catch (error) {
+      warning.textContent = "The task status could not be refreshed. Retrying automatically; this does not mean the task failed.";
+      warning.hidden = false;
+    }
+    window.setTimeout(refresh, 4000);
+  }
+  window.setTimeout(refresh, 4000);
+})();
+</script>
+{% endblock %}

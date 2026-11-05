@@ -44,6 +44,15 @@ function buildDownloadZipUrl(button) {
     }
     const queryString = button.data("query-string") || "";
     const container = button.closest(".download-config, .dropdown-item-text");
+    if (button.data("beta-stability")) {
+        const params = new URLSearchParams(queryString);
+        const profiles = container.find(".beta-export-profile:checked");
+        if (!profiles.length) throw new Error("Select at least one embedding profile.");
+        profiles.each(function() { params.append("profile", this.value); });
+        if (container.find("#beta-export-images").prop("checked")) params.set("include_images", "1");
+        if (container.find("#beta-export-partial").prop("checked")) params.set("allow_partial", "1");
+        return `${baseUrl}?${params.toString()}`;
+    }
     const exportScheme = container.find("#downloadExportScheme").val() || "species_identity";
     const exportTemplate = container.find("#downloadExportTemplate").val() || "";
 

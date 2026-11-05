@@ -512,12 +512,51 @@ def prepare_observation_embeddings(workgroup_id, task_id):
     return prepare_scheduled_embeddings(workgroup_id, task_id)
 
 
-@shared_task
-def store_observation_embeddings(output, manifest_path):
+@shared_task(bind=True, max_retries=20)
+def store_observation_embeddings(self, output, manifest_path, run_id=None, retry_deadline=None):
     """Persist validated versioned vectors returned by the identification worker."""
+    from datetime import timedelta
+
+    from django.db import OperationalError
+    from django.utils import timezone
+
+    from .embedding_runs import fail_run
     from .observation_embeddings import store_embeddings
 
-    return store_embeddings(output, manifest_path)
+    try:
+        return store_embeddings(output, manifest_path, run_id=run_id)
+    except OperationalError as exc:
+        deadline = retry_deadline or (timezone.now() + timedelta(minutes=10)).isoformat()
+        if timezone.now() < datetime.datetime.fromisoformat(deadline):
+            raise self.retry(
+                exc=exc,
+                countdown=30,
+                kwargs={"output": output, "manifest_path": manifest_path, "run_id": run_id, "retry_deadline": deadline},
+                args=(),
+            )
+        if run_id:
+            fail_run(run_id, "Database unavailable while storing embeddings; retry limit reached.")
+        raise
+    except Exception:
+        if run_id:
+            fail_run(run_id, "Embedding result validation or storage failed.")
+        raise
+
+
+@shared_task
+def prepare_embedding_run(run_id):
+    """Prepare tracked observation snapshots outside the HTTP request."""
+    from .embedding_runs import prepare_run
+
+    return prepare_run(run_id)
+
+
+@shared_task
+def cleanup_embedding_run_files():
+    """Clean old terminal embedding manifests on the API worker."""
+    from .embedding_runs import cleanup_embedding_runs
+
+    return cleanup_embedding_runs()
 
 
 def _prepare_dataframe_for_identification(
@@ -934,6 +973,26 @@ def _create_mediafiles_zip_file(mediafiles, abs_zip_path, metadata_records=None)
 def create_mediafiles_zip(user_hash, mediafiles, abs_zip_path):
     """Create a zip file for media files in the background."""
     return _create_mediafiles_zip_file(mediafiles, abs_zip_path)
+
+
+@shared_task
+def create_beta_stability_export(caiduser_id, observation_ids, profile_uuids, output_path, **options):
+    """Recheck the user's scope and produce a beta-stability ZIP in the background."""
+    from django.core.exceptions import ValidationError
+
+    from .beta_stability_export import export_beta_stability
+    from .views_beta_stability import authorized_observations, selected_profiles
+
+    caiduser = models.CaIDUser.objects.get(pk=caiduser_id)
+    observations = authorized_observations(caiduser, observation_ids)
+    if set(observations.values_list("pk", flat=True)) != set(observation_ids):
+        raise ValidationError("The observation selection is no longer accessible.")
+    expected_parent = Path(settings.MEDIA_ROOT) / "users" / caiduser.hash
+    if Path(output_path).resolve().parent != expected_parent.resolve():
+        raise ValidationError("Unexpected beta-stability export destination.")
+    profiles = selected_profiles(observations, profile_uuids)
+    export_beta_stability(observations, profiles, output_path, **options)
+    return str(output_path)
 
 
 @shared_task

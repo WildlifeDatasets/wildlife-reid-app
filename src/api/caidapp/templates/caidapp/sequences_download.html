@@ -21,6 +21,9 @@
       </div>
 
       <form method="get" id="sequence-download-form">
+        {% if show_beta_stability_export %}
+        <div class="mb-3"><a class="btn btn-outline-primary" href="{% url 'caidapp:beta_stability_export' %}">Export for beta-stability</a></div>
+        {% endif %}
         {% if show_import_link %}
         <div class="mb-3">
           <a class="btn btn-outline-secondary" href="{% url 'caidapp:import_observations' %}">

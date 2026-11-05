@@ -37,6 +37,11 @@ app.conf.update(task_track_started=True)
 # Beat publishes this task every three hours; the API worker performs the refresh.
 app.conf.beat_schedule = {
     **(app.conf.beat_schedule or {}),
+    "cleanup-embedding-run-files-weekly": {
+        "task": "caidapp.tasks.cleanup_embedding_run_files",
+        "schedule": timedelta(days=7),
+        "options": {"queue": "celery"},
+    },
     "refresh-identification-dashboard-every-three-hours": {
         "task": "caidapp.tasks.refresh_identification_dashboard_stats",
         "schedule": timedelta(hours=3),

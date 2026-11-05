@@ -4,6 +4,7 @@
 {% load static %}
 {# add style #}
 {% block head %}
+    <script src="{% static 'caidapp/embedding_runs.js' %}" defer></script>
     {{ form.media }}
     <link href="{% static 'admin/css/vendor/select2/select2.min.css' %}" rel="stylesheet">
     <link href="{% static 'admin/css/autocomplete.css' %}" rel="stylesheet">
@@ -287,6 +288,9 @@
                                     <div class="form-group">
 
                                         <h5>Observations</h5>
+                                        <div id="embedding-start-message" class="alert alert-info" role="status" hidden></div>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary mb-2" data-embedding-start="{% url 'caidapp:embedding_run_start' %}" data-scope="mediafiles" data-target-id="{{ mediafile.id }}" data-check-unsaved="true"{% if mediafile.media_type != 'image' %} disabled{% endif %}>Generate embeddings for this media file's observations</button>
+                                        <div class="form-text mb-2">Uses saved observations and the workgroup model. Videos and no-detection placeholders are not supported.</div>
 
                                         <div>
 
@@ -298,6 +302,9 @@
                                                     {% for obs_form in inline %}
                                                         <div id="observation-{{ obs_form.instance.pk|default:'new' }}" class="mb-2 border rounded p-2 observation-form"
                                                              data-obs-id="{{ obs_form.instance.pk|default:'new' }}">
+                                                            {% if obs_form.instance.pk and not obs_form.instance.is_no_detection_placeholder and mediafile.media_type == 'image' %}
+                                                            <button type="button" class="btn btn-sm btn-outline-secondary mb-2" data-embedding-start="{% url 'caidapp:embedding_run_start' %}" data-scope="observations" data-target-id="{{ obs_form.instance.pk }}" data-check-unsaved="true">Generate this observation's embedding</button>
+                                                            {% endif %}
                                                             {#                                                            Observation {{ forloop.counter }},#}
                                                             {#                                                            pk: {{ obs_form.instance.pk }}: <br>#}
 

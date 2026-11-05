@@ -70,9 +70,15 @@ def prepare_scheduled_embeddings(workgroup_id, task_id):
             ObservationEmbeddingSchedule.objects.filter(workgroup_id=workgroup_id).update(task_id=next_id)
             transaction.on_commit(partial(_publish_preparation, workgroup_id, next_id, schedule.eta), robust=True)
             return {"status": "deferred", "task_id": next_id}
+        from .embedding_runs import create_embedding_run
+
+        # Reserve a durable run before consuming the timer, in the same transaction.
+        try:
+            run = create_embedding_run(workgroup_id, trigger="automatic")
+        except ValidationError:
+            run = None
         ObservationEmbeddingSchedule.objects.filter(workgroup_id=workgroup_id).update(task_id=None, eta=None)
-    task = enqueue_embeddings(workgroup_id, skip_invalid=True, completed_uploads_only=True)
-    return {"status": "queued" if task else "empty", "task_id": task.id if task else None}
+    return {"status": "queued" if run else "empty", "task_id": run.prepare_task_id if run else None}
 
 
 def fingerprint(specification):
@@ -113,11 +119,13 @@ def snapshot(observation):
     }
 
 
-def enqueue_embeddings(workgroup_id, observation_ids=None, *, skip_invalid=False, completed_uploads_only=False):
+def enqueue_embeddings(
+    workgroup_id, observation_ids=None, *, skip_invalid=False, completed_uploads_only=False, run_id=None
+):
     """Queue selected image observations and supply existing cache keys to the worker."""
     workgroup = WorkGroup.objects.select_related("identification_model").get(pk=workgroup_id)
     model = workgroup.identification_model
-    if model is None:
+    if model is None and run_id is None:
         raise ValidationError("Select an identification model first.")
     observations = AnimalObservation.objects.filter(
         mediafile__parent__owner__workgroup=workgroup,
@@ -129,15 +137,34 @@ def enqueue_embeddings(workgroup_id, observation_ids=None, *, skip_invalid=False
     if observation_ids is not None:
         requested = set(observation_ids)
         observations = observations.filter(pk__in=requested)
-        if set(observations.values_list("pk", flat=True)) != requested:
+        if run_id is None and set(observations.values_list("pk", flat=True)) != requested:
             raise ValidationError("Some requested observations are missing, ineligible or outside this workgroup.")
+    run = None
+    if run_id is not None:
+        from .models import TaskRun
+
+        run = TaskRun.objects.get(pk=run_id)
+        # Deleted/ineligible selected observations remain visible as skipped items.
+        selected = set(observations.values_list("pk", flat=True))
+        run.items.exclude(observation_id_snapshot__in=selected).update(
+            status="skipped", message="Observation is missing, is a placeholder or belongs to a video."
+        )
     inputs = []
     for observation in observations.order_by("pk"):
         try:
-            inputs.append(snapshot(observation))
+            row = snapshot(observation)
+            inputs.append(row)
+            if run:
+                run.items.filter(observation_id_snapshot=observation.pk).update(
+                    input_fingerprint=row["input_fingerprint"], input_specification=row["input_specification"]
+                )
         except (OSError, ValidationError):
             if not skip_invalid:
                 raise
+            if run:
+                run.items.filter(observation_id_snapshot=observation.pk).update(
+                    status="skipped", message="Source media file or bounding box is unavailable or invalid."
+                )
             logger.warning("Skipping unavailable embedding input for observation %s", observation.pk, exc_info=True)
     if not inputs:
         return None
@@ -148,8 +175,8 @@ def enqueue_embeddings(workgroup_id, observation_ids=None, *, skip_invalid=False
         cached.setdefault(profile_key, []).append(f"{observation_id}:{input_key}")
     manifest = {
         "workgroup_id": workgroup.pk,
-        "model_source": model.get_runtime_model_source(),
-        "weights_path": model.get_runtime_checkpoint_path(),
+        "model_source": run.model_snapshot["model_source"] if run else model.get_runtime_model_source(),
+        "weights_path": run.model_snapshot["weights_path"] if run else model.get_runtime_checkpoint_path(),
         "observations": inputs,
         "cached": cached,
     }
@@ -157,15 +184,31 @@ def enqueue_embeddings(workgroup_id, observation_ids=None, *, skip_invalid=False
     directory.mkdir(parents=True)
     manifest_path = directory / "input.json"
     manifest_path.write_text(json.dumps(manifest, allow_nan=False), encoding="utf-8")
+    if run:
+        run.manifest_path = str(manifest_path)
+        run.compute_task_id = str(uuid.uuid4())
+        run.store_task_id = str(uuid.uuid4())
+        run.status = "queued"
+        run.save()
+    callback = signature(
+        "caidapp.tasks.store_observation_embeddings",
+        kwargs={"manifest_path": str(manifest_path), **({"run_id": run.pk} if run else {})},
+    )
+    if run:
+        callback.set(task_id=run.store_task_id)
     return signature(
         "compute_observation_embeddings", kwargs={"manifest_path": str(manifest_path)}, queue="identification_worker"
-    ).apply_async(
-        link=signature("caidapp.tasks.store_observation_embeddings", kwargs={"manifest_path": str(manifest_path)})
-    )
+    ).apply_async(link=callback, **({"task_id": run.compute_task_id} if run else {}))
 
 
-def store_embeddings(output, manifest_path):
+def store_embeddings(output, manifest_path, run_id=None):
     """Validate worker results against submitted inputs and discard stale inputs."""
+    if run_id is not None:
+        from .models import TaskRun
+
+        completed = TaskRun.objects.filter(pk=run_id, status__in=["succeeded", "partial", "failed"]).first()
+        if completed:
+            return completed.result
     manifest = json.loads(Path(manifest_path).read_text(encoding="utf-8"))
     result_path = Path(manifest_path).with_name("output.json")
     if output.get("output_path") != str(result_path):
@@ -180,7 +223,24 @@ def store_embeddings(output, manifest_path):
         profile, _ = EmbeddingProfile.objects.get_or_create(
             fingerprint=fingerprint(spec), defaults={"specification": spec, "dimension": spec["dimension"]}
         )
-        for row in result["embeddings"]:
+        returned = {row["observation_id"]: row for row in result["embeddings"]}
+        if len(returned) != len(result["embeddings"]) or not set(returned).issubset(submitted):
+            raise ValidationError("Unexpected or duplicate result observations.")
+        run = None
+        if run_id is not None:
+            from .models import TaskRun
+
+            run = TaskRun.objects.select_for_update().get(pk=run_id)
+            if run.status in {"succeeded", "partial", "failed"}:
+                return run.result
+        for observation_id, original in submitted.items():
+            row = returned.get(observation_id)
+            if row is None:
+                cache_key = f"{observation_id}:{original['input_fingerprint']}"
+                if cache_key not in manifest.get("cached", {}).get(profile.fingerprint, []):
+                    raise ValidationError("Encoder result does not cover all submitted inputs.")
+                row = {"observation_id": observation_id, "input_fingerprint": original["input_fingerprint"]}
+
             original = submitted[row["observation_id"]]
             if row["input_fingerprint"] != original["input_fingerprint"]:
                 raise ValidationError("Encoder input fingerprint does not match the submitted input.")
@@ -196,6 +256,21 @@ def store_embeddings(output, manifest_path):
                 current = None
             if current is None or current["input_fingerprint"] != original["input_fingerprint"]:
                 stale += 1
+                if run:
+                    run.items.filter(observation_id_snapshot=observation_id).update(
+                        status="stale", message="Observation input changed or was removed during computation."
+                    )
+                continue
+            if "vector" not in row:
+                embedding = ObservationEmbedding.objects.filter(
+                    observation=observation, profile=profile, input_fingerprint=original["input_fingerprint"]
+                ).first()
+                if embedding is None:
+                    raise ValidationError("Cached embedding is no longer available.")
+                if run:
+                    run.items.filter(observation_id_snapshot=observation_id).update(
+                        status="cached", embedding=embedding
+                    )
                 continue
             vector = row["vector"]
             if (
@@ -205,11 +280,24 @@ def store_embeddings(output, manifest_path):
                 or not any(v != 0 for v in vector)
             ):
                 raise ValidationError("Encoder returned an invalid embedding vector.")
-            _, created = ObservationEmbedding.objects.get_or_create(
+            embedding, created = ObservationEmbedding.objects.get_or_create(
                 observation=observation,
                 profile=profile,
                 input_fingerprint=original["input_fingerprint"],
                 defaults={"input_specification": original["input_specification"], "vector": vector},
             )
             stored += int(created)
+            if run:
+                run.items.filter(observation_id_snapshot=observation_id).update(status="computed", embedding=embedding)
+        if run:
+            from collections import Counter
+
+            counts = dict(Counter(run.items.values_list("status", flat=True)))
+            run.result = {**counts, "profile_uuid": str(profile.uuid)}
+            run.status = "partial" if counts.get("stale", 0) or counts.get("skipped", 0) else "succeeded"
+            run.finished_at = timezone.now()
+            run.message = (
+                "Embedding results saved." if run.status == "succeeded" else "Some inputs were skipped or changed."
+            )
+            run.save()
     return {"stored": stored, "stale": stale, "profile_uuid": str(profile.uuid)}

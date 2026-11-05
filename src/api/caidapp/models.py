@@ -1969,6 +1969,48 @@ class MediaFile(models.Model):
         return self.preview.url if self.preview and self.preview.name else ""
 
 
+class TaskRun(models.Model):
+    """Durable application outcome, independent of transient Celery results."""
+
+    uuid = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    kind = models.CharField(max_length=40, default="embedding")
+    workgroup = models.ForeignKey(WorkGroup, on_delete=models.CASCADE)
+    requested_by = models.ForeignKey(CaIDUser, on_delete=models.SET_NULL, null=True, blank=True)
+    trigger = models.CharField(max_length=16, default="manual")
+    request_key = models.CharField(max_length=100, unique=True, null=True, blank=True)
+    status = models.CharField(max_length=20, default="preparing", db_index=True)
+    message = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    started_at = models.DateTimeField(null=True, blank=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    prepare_task_id = models.CharField(max_length=255, blank=True)
+    compute_task_id = models.CharField(max_length=255, blank=True)
+    store_task_id = models.CharField(max_length=255, blank=True)
+    manifest_path = models.TextField(blank=True)
+    model_snapshot = models.JSONField(default=dict)
+    result = models.JSONField(default=dict)
+
+
+class EmbeddingRunItem(models.Model):
+    """Keep the requested scope even when the underlying observation is removed."""
+
+    run = models.ForeignKey(TaskRun, on_delete=models.CASCADE, related_name="items")
+    observation = models.ForeignKey("AnimalObservation", on_delete=models.SET_NULL, null=True)
+    observation_id_snapshot = models.PositiveBigIntegerField()
+    mediafile_id_snapshot = models.PositiveBigIntegerField()
+    input_fingerprint = models.CharField(max_length=64, blank=True)
+    input_specification = models.JSONField(default=dict)
+    status = models.CharField(max_length=20, default="pending")
+    message = models.TextField(blank=True)
+    embedding = models.ForeignKey("ObservationEmbedding", on_delete=models.SET_NULL, null=True, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["run", "observation_id_snapshot"], name="unique_embedding_run_item")
+        ]
+
+
 class ObservationEmbeddingSchedule(models.Model):
     """One pending debounce timer per workgroup, separate from editable settings."""
 
@@ -2020,6 +2062,7 @@ class ObservationEmbedding(models.Model):
 
 
 class AnimalObservation(models.Model):
+    uuid = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     mediafile = models.ForeignKey(
         MediaFile,
         on_delete=models.CASCADE,

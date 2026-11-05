@@ -4097,7 +4097,14 @@ def download_xlsx_for_observations_view(request: HttpRequest) -> HttpResponse:
 def prepare_observation_download(request: HttpRequest) -> HttpResponse:
     """Prepare selected observations, falling back to the current filter without a selection."""
     mediafiles = _get_mediafiles_for_observation_export(request)
+    from .views_beta_stability import BETA_STABILITY_SELECTION_KEY
+
+    beta_observations, _ = _get_observations_queryset(request)
+    beta_observations = beta_observations.filter(mediafile_id__in=mediafiles.values("id"))
     requested_ids = request.POST.getlist("selected_observation_ids")
+    if requested_ids and not request.POST.get("select_all_filtered"):
+        beta_observations = beta_observations.filter(pk__in=[int(value) for value in requested_ids if value.isdigit()])
+    request.session[BETA_STABILITY_SELECTION_KEY] = list(beta_observations.values_list("pk", flat=True))
     if requested_ids or request.POST.get("select_all_filtered"):
         observations, _ = _get_observations_queryset(request)
         observations = observations.filter(mediafile_id__in=mediafiles.values("id"))
@@ -4390,6 +4397,9 @@ def observations(request: HttpRequest) -> HttpResponse:
             )
 
         if "btnDownloadObservations" in request.POST:
+            from .views_beta_stability import BETA_STABILITY_SELECTION_KEY
+
+            request.session[BETA_STABILITY_SELECTION_KEY] = selected_observation_ids
             request.session.pop(OBSERVATION_DOWNLOAD_OBSERVATION_IDS_SESSION_KEY, None)
             request.session[OBSERVATION_DOWNLOAD_SESSION_KEY] = selected_mediafile_ids
             request.session[OBSERVATION_DOWNLOAD_RETURN_URL_SESSION_KEY] = request.get_full_path()
@@ -6106,12 +6116,18 @@ class WorkgroupUpdateView(WorkgroupAdminRequiredMixin, UpdateView):
                     models.WorkGroup.objects.get(pk=self.object.pk)
                 )
             )
+            messages.info(
+                self.request,
+                "The identification model changed. Embedding generation and a new identification "
+                "initialization have been scheduled. Previous results remain historical.",
+            )
         return response
 
     def get_context_data(self, **kwargs):
         """Get context data for the template."""
         context = super().get_context_data(**kwargs)
         context["headline"] = "Update workgroup"
+        context["embedding_model_change_warning"] = True
         context["button"] = "Save"
         regex_prompt = _build_identity_merge_regex_chatgpt_prompt(self.object.get_identity_merge_distinguishing_regex())
         context["identity_merge_regex_chatgpt_prompt"] = regex_prompt
@@ -6711,6 +6727,7 @@ def download_observations_view(request: HttpRequest) -> HttpResponse:
             "default_export_columns": SEQUENCE_EXPORT_DEFAULT_COLUMNS,
             "export_schemas": MEDIAFILE_EXPORT_SCHEMAS,
             "download_title": "Download observations",
+            "show_beta_stability_export": True,
             "breadcrumb_url": "caidapp:observations",
             "breadcrumb_label": "Observations",
             "download_csv_url_name": "caidapp:download_csv_for_observations_selection",

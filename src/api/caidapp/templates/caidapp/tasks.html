@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% block body %}
+<div class="pagetitle"><h1>Tasks</h1></div>
+<section class="section">
+  <p class="text-body-secondary">Track embedding generation and open a task to see its saved results.</p>
+  <nav class="mb-3" aria-label="Task filters">
+    <a class="btn btn-sm btn-outline-primary" href="?state=active">Active</a>
+    <a class="btn btn-sm btn-outline-primary" href="?state=history">History</a>
+    <a class="btn btn-sm btn-outline-secondary" href="{% url 'caidapp:task_list' %}">All tasks</a>
+  </nav>
+  <div id="task-refresh-message" class="alert alert-warning" role="status" hidden></div>
+  <div id="task-list-content">
+    {% if schedule.eta %}<div class="alert alert-info" role="status">Automatic embeddings are scheduled no earlier than {{ schedule.eta }}. Further input changes may postpone this time.</div>{% endif %}
+    <div class="table-responsive"><table class="table align-middle">
+      <thead><tr><th>Task</th><th>Scope</th><th>Created</th><th>Status</th><th>Result</th></tr></thead>
+      <tbody>{% for run in runs %}<tr>
+        <td><a href="{{ run.detail_url }}">{{ run.operation_label }}</a></td><td>{{ run.scope_label }}</td><td>{{ run.created_at }}</td><td>{{ run.status_label }}</td><td>{{ run.result_summary|default:'—' }}</td>
+      </tr>{% empty %}<tr><td colspan="5">No tasks in this view.</td></tr>{% endfor %}</tbody>
+    </table></div>
+    {% if page_obj.has_other_pages %}<nav aria-label="Task pages"><ul class="pagination">
+      {% if page_obj.has_previous %}<li class="page-item"><a class="page-link" href="?state={{ request.GET.state|urlencode }}&amp;page={{ page_obj.previous_page_number }}">Previous</a></li>{% endif %}
+      <li class="page-item disabled"><span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
+      {% if page_obj.has_next %}<li class="page-item"><a class="page-link" href="?state={{ request.GET.state|urlencode }}&amp;page={{ page_obj.next_page_number }}">Next</a></li>{% endif %}
+    </ul></nav>{% endif %}
+  </div>
+</section>
+{% endblock %}
+{% block script %}
+<script>
+(function () {
+  const message = document.getElementById("task-refresh-message");
+  async function refresh() {
+    if (!document.hidden) {
+      try {
+        const response = await fetch(window.location.href, {headers: {Accept: "text/html"}, credentials: "same-origin"});
+        if (!response.ok || response.redirected) throw new Error("Refresh failed");
+        const html = new DOMParser().parseFromString(await response.text(), "text/html");
+        const content = html.getElementById("task-list-content");
+        if (!content) throw new Error("Refresh failed");
+        const current = document.getElementById("task-list-content");
+        if (!current.contains(document.activeElement)) current.replaceWith(content);
+        message.hidden = true;
+      } catch (error) {
+        message.textContent = "The task list could not be refreshed. Retrying automatically; task states have not been changed.";
+        message.hidden = false;
+      }
+    }
+    window.setTimeout(refresh, 5000);
+  }
+  window.setTimeout(refresh, 5000);
+})();
+</script>
+{% endblock %}

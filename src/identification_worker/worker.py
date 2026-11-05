@@ -12,13 +12,13 @@ print(f"numpy version: {np.__version__}")
 import pandas as pd
 import torch
 from celery import Celery, shared_task
+from gpu_monitor import register_gpu_monitor
+from progress import ProgressReporter
+from train_model import train_identification_model
 from wildlife_tools.data import FeatureDataset
 from wildlife_tools.similarity.pairwise.collectors import CollectAll
 from wildlife_tools.similarity.pairwise.lightglue import MatchLightGlue
 
-from gpu_monitor import register_gpu_monitor
-from progress import ProgressReporter
-from train_model import train_identification_model
 from utils import config
 from utils.database import get_db_connection, init_db_connection
 from utils.embedding_processing import EmbeddingProcessing
@@ -51,6 +51,7 @@ logger.debug(f"{config.POSTGRES_URL=}")
 identification_worker = Celery("identification_worker", broker=config.RABBITMQ_URL, backend=config.REDIS_URL)
 identification_worker.conf.timezone = os.environ.get("TZ", "Europe/Prague")
 identification_worker.conf.enable_utc = False
+identification_worker.conf.task_track_started = True
 init_db_connection(db_url=config.POSTGRES_URL)
 register_gpu_monitor(identification_worker)
 

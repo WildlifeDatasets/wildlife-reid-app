@@ -1,10 +1,9 @@
 """Queue a versioned observation embedding backfill for a workgroup."""
 
+from caidapp.embedding_runs import create_embedding_run
+from caidapp.models import WorkGroup
 from django.core.exceptions import ValidationError
 from django.core.management.base import BaseCommand, CommandError
-
-from caidapp.models import WorkGroup
-from caidapp.observation_embeddings import enqueue_embeddings
 
 
 class Command(BaseCommand):
@@ -18,7 +17,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         """Submit the job without requiring ground-truth identities."""
         try:
-            task = enqueue_embeddings(options["workgroup"], options["observation_id"])
+            task = create_embedding_run(options["workgroup"], options["observation_id"], trigger="cli")
         except (ValidationError, WorkGroup.DoesNotExist, OSError) as exc:
             raise CommandError(str(exc)) from exc
-        self.stdout.write(f"Queued embedding task: {task.id}" if task else "No eligible observations.")
+        self.stdout.write(f"Queued embedding run: {task.uuid}")

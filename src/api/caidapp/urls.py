@@ -4,7 +4,9 @@ from . import (
     views,
     views_admin,
     views_bbox,
+    views_beta_stability,
     views_comparison,
+    views_embedding_runs,
     views_general,
     views_locality,
     views_mediafile,
@@ -26,6 +28,11 @@ def trigger_error(request):
 
 app_name = "caidapp"
 urlpatterns = [
+    path("embedding-runs/", views_embedding_runs.embedding_run_start, name="embedding_run_start"),
+    path("tasks/", views_embedding_runs.task_list, name="task_list"),
+    path("tasks/<uuid:run_uuid>/", views_embedding_runs.task_detail, name="task_detail"),
+    path("tasks/<uuid:run_uuid>/status/", views_embedding_runs.task_status, name="task_status"),
+    path("tasks/<uuid:run_uuid>/result/", views_embedding_runs.task_status, name="task_result"),
     path("bbox-detection/start/", views_bbox.start_redetection, name="bbox_redetection_start"),
     path("bbox-detection/<uuid:batch>/", views_bbox.detection_status, name="bbox_detection_status"),
     path("bbox-proposal/<int:mediafile_id>/", views_bbox.propose_bbox, name="bbox_proposal"),
@@ -150,6 +157,9 @@ urlpatterns = [
     path("media_files/", views.media_files_update, name="media_files"),
     path("sequences/", views.sequences, name="sequences"),
     path("observations/", views.observations, name="observations"),
+    path(
+        "observations/export/beta-stability/", views_beta_stability.beta_stability_export, name="beta_stability_export"
+    ),
     path("observations/export/csv", views.download_csv_for_observations_view, name="download_csv_for_observations"),
     path("observations/export/xlsx", views.download_xlsx_for_observations_view, name="download_xlsx_for_observations"),
     path(

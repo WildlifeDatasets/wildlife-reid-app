@@ -3,12 +3,11 @@
 from datetime import timedelta
 from unittest.mock import Mock, patch
 
+from caidapp.models import AnimalObservation, IdentificationModel, ObservationEmbeddingSchedule
+from caidapp.observation_embeddings import prepare_scheduled_embeddings, schedule_embeddings
 from django.db import transaction
 from django.test import TestCase
 from django.utils import timezone
-
-from caidapp.models import AnimalObservation, IdentificationModel, ObservationEmbeddingSchedule
-from caidapp.observation_embeddings import prepare_scheduled_embeddings, schedule_embeddings
 
 from .factories import MediaFileFactory
 
@@ -51,10 +50,12 @@ class EmbeddingSchedulingTests(TestCase):
             publish.assert_called_once()
         self.assertEqual(prepare_scheduled_embeddings(self.workgroup.pk, first)["status"], "superseded")
         ObservationEmbeddingSchedule.objects.filter(workgroup=self.workgroup).update(eta=timezone.now())
-        with patch("caidapp.observation_embeddings.enqueue_embeddings", return_value=Mock(id="gpu-task")) as enqueue:
+        with patch(
+            "caidapp.embedding_runs.create_embedding_run", return_value=Mock(prepare_task_id="gpu-task")
+        ) as enqueue:
             ready = prepare_scheduled_embeddings(self.workgroup.pk, result["task_id"])
             self.assertEqual(ready, {"status": "queued", "task_id": "gpu-task"})
-            enqueue.assert_called_once_with(self.workgroup.pk, skip_invalid=True, completed_uploads_only=True)
+            enqueue.assert_called_once_with(self.workgroup.pk, trigger="automatic")
             self.assertEqual(prepare_scheduled_embeddings(self.workgroup.pk, result["task_id"])["status"], "superseded")
         self.assertIsNone(ObservationEmbeddingSchedule.objects.get(workgroup=self.workgroup).task_id)
 

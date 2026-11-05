@@ -1,0 +1,26 @@
+<!doctype html><html lang="cs"><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>Beta-stability · ruční kontrola</title>
+<style>body{font:16px system-ui;background:#f3f5f8;color:#182433;margin:0}main{max-width:1200px;margin:auto;padding:24px}button{padding:12px 18px;margin:6px;border:1px solid #aaa;border-radius:8px;cursor:pointer;font:inherit}button:disabled{opacity:.4;cursor:default}.pair{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}.card{background:white;padding:12px;border-radius:12px}svg{width:100%;height:360px;background:#e3e9ef}.id{font:12px monospace;overflow-wrap:anywhere}#status{padding:12px;background:#e1ebfa;border-radius:8px}#error{color:#b00020}h2{margin-top:30px}</style>
+<main><h1>Beta-stability · kontrola dvojic</h1><p>Ukazují vyznačené objekty stejného biologického jedince?</p>
+<p id="status">Čekám na algoritmus…</p><div id="pair" class="pair"></div><p id="error"></p>
+<div id="answers"><button data-decision="correct">Stejný jedinec</button><button data-decision="incorrect">Jiný jedinec</button><button data-decision="cant_tell">Nelze rozhodnout</button></div>
+<button id="finish">Dokončit s dosavadními odpověďmi</button><div id="results"></div>
+<p>Odpovědi se ukládají lokálně. Zavření této stránky výpočet nezastaví. Pro ukončení použij tlačítko Dokončit; server pak zavři pomocí Ctrl+C v terminálu.</p></main>
+<script>
+const base=__BASE__; let pair=null,busy=false,shown=false,stopping=false;
+function card(item){const d=document.createElement('div');d.className='card';
+const ns='http://www.w3.org/2000/svg',svg=document.createElementNS(ns,'svg');svg.setAttribute('viewBox',`0 0 ${item.width} ${item.height}`);
+const img=document.createElementNS(ns,'image');img.setAttribute('href',base+'image/'+encodeURIComponent(item.uuid));img.setAttribute('width',item.width);img.setAttribute('height',item.height);svg.append(img);
+if(item.bbox){const r=document.createElementNS(ns,'rect');['x','y','width','height'].forEach((k,i)=>r.setAttribute(k,item.bbox[i]));r.setAttribute('fill','none');r.setAttribute('stroke','#ff3030');r.setAttribute('stroke-width',Math.max(item.width,item.height)/200);svg.append(r)}
+d.append(svg);const label=document.createElement('p');label.className='id';label.textContent=item.uuid;d.append(label);return d}
+async function post(route,body){const response=await fetch(base+route,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const data=await response.json();if(!response.ok)throw Error(data.error||'Požadavek selhal');return data}
+async function poll(){if(busy)return;try{const response=await fetch(base+'pair');if(!response.ok)throw Error('Server neodpovídá');const data=await response.json();
+document.querySelector('#status').textContent=`Odpovězeno: ${data.reviewed}. `+(data.finished?(data.exit_code===0?'Výpočet dokončen. Výsledky: '+data.output:'Výpočet selhal. Podrobnosti: '+data.output+'/run.log'):(stopping?'Dokončuji výpočet…':data.pair?'Posuď tuto dvojici.':'Čekám na další dvojici…'));
+if((data.pair?.id||null)!==(pair?.id||null)){pair=data.pair;const host=document.querySelector('#pair');host.replaceChildren();if(pair){host.append(card(pair.left),card(pair.right))}}
+document.querySelectorAll('[data-decision]').forEach(b=>b.disabled=!pair||data.finished||stopping);document.querySelector('#finish').disabled=data.finished||stopping;
+if(data.finished&&!shown&&data.clusters){shown=true;const host=document.querySelector('#results');for(const cluster of data.clusters){const title=document.createElement('h2');title.textContent='Skupina '+cluster.id+' · '+cluster.observations.length+' observations';host.append(title);const grid=document.createElement('div');grid.className='pair';cluster.observations.forEach(o=>grid.append(card(o)));host.append(grid)}}
+}catch(e){document.querySelector('#error').textContent=e.message}}
+document.querySelectorAll('[data-decision]').forEach(b=>b.onclick=async()=>{if(busy||!pair)return;busy=true;document.querySelectorAll('[data-decision]').forEach(x=>x.disabled=true);try{await post('answer',{id:pair.id,decision:b.dataset.decision});document.querySelector('#error').textContent=''}catch(e){document.querySelector('#error').textContent=e.message}finally{busy=false;await poll()}});
+document.querySelector('#finish').onclick=async()=>{if(busy)return;busy=true;try{await post('stop',{});stopping=true}catch(e){document.querySelector('#error').textContent=e.message}finally{busy=false;await poll()}};
+poll();setInterval(poll,1000);
+</script></html>

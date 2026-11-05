@@ -18,7 +18,16 @@
         <script>
         $(document).ready(function() {
             console.log('document is ready');
-            $('#myForm').on('submit', function() {
+            const modelSelect = document.getElementById('id_identification_model');
+            const initialModel = modelSelect ? modelSelect.value : null;
+            $('#myForm').on('submit', function(event) {
+                {% if embedding_model_change_warning %}
+                if (modelSelect && modelSelect.value !== initialModel && !window.confirm('Changing the identification model schedules automatic embedding generation and a new identification initialization. Existing embeddings remain available for their original model. Continue?')) {
+                    event.preventDefault();
+                    event.stopImmediatePropagation();
+                    return false;
+                }
+                {% endif %}
                 console.log('form is submitted');
                 $('#loadingModal').modal('show');
             });
@@ -67,6 +76,9 @@
                                         {% endif %}
                                         {% if field.help_text %}
                                             <div class="form-text">{{ field.help_text }}</div>
+                                        {% endif %}
+                                        {% if embedding_model_change_warning and field.name == 'identification_model' %}
+                                            <div class="form-text">Changing the model schedules embedding generation and a new identification initialization. Existing vectors are retained for their original model.</div>
                                         {% endif %}
                                         {% if field.name == "identity_merge_distinguishing_regex" and identity_merge_regex_chatgpt_url %}
                                             <a class="btn btn-sm btn-outline-primary mt-2"

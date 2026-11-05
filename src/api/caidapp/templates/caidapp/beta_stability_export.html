@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block body %}
+<div class="pagetitle"><h1>Export for beta-stability</h1></div>
+<section class="section">
+  <div class="card"><div class="card-body download-config">
+    <h5 class="card-title">{{ observation_count }} selected observations</h5>
+    <p>Choose the embedding versions to export. Each version will contain the same observations.</p>
+    {% for profile in profiles %}
+    <div class="form-check mb-2">
+      <input class="form-check-input beta-export-profile" type="checkbox" value="{{ profile.uuid }}" id="profile-{{ profile.uuid }}">
+      <label class="form-check-label" for="profile-{{ profile.uuid }}">
+        {{ profile.specification.model_source }} · {{ profile.created_at|date:"Y-m-d H:i" }} · {{ profile.dimension }} dimensions
+        <span class="text-muted small">({{ profile.uuid }})</span>
+      </label>
+    </div>
+    {% empty %}
+    <p>No embeddings are available for this selection yet. Wait for their computation before exporting.</p>
+    {% endfor %}
+    <div class="form-check mt-3">
+      <input class="form-check-input" type="checkbox" id="beta-export-images">
+      <label class="form-check-label" for="beta-export-images">Include source images for review outside this application</label>
+    </div>
+    <div class="form-check mt-2">
+      <input class="form-check-input" type="checkbox" id="beta-export-partial">
+      <label class="form-check-label" for="beta-export-partial">Allow partial export: omit observations missing current embeddings</label>
+    </div>
+    <p class="text-muted small mt-3">Videos without a frame location, no-detection placeholders and unavailable inputs are omitted. The ZIP lists every omitted observation and the reason. Existing identity assignments are not included.</p>
+    <button type="button" class="btn btn-primary download-mediafiles-button" data-beta-stability="true"
+      data-base-url="{% url 'caidapp:beta_stability_export' %}" data-query-string="download=1"
+      {% if not profiles or not observation_count %}disabled{% endif %}>Prepare and download ZIP</button>
+    <a class="btn btn-outline-secondary" href="{% url 'caidapp:download_observations' %}">Back</a>
+  </div></div>
+</section>
+<script src="{% static 'caidapp/download_button.js' %}"></script>
+{% endblock %}
