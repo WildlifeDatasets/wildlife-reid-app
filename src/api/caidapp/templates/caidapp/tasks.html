@@ -2,10 +2,11 @@
 {% block body %}
 <div class="pagetitle"><h1>Tasks</h1></div>
 <section class="section">
-  <p class="text-body-secondary">Track embedding generation and open a task to see its saved results.</p>
+  <p class="text-body-secondary">Follow background tasks and download completed exports, even after leaving the original page.</p>
   <nav class="mb-3" aria-label="Task filters">
     <a class="btn btn-sm btn-outline-primary" href="?state=active">Active</a>
     <a class="btn btn-sm btn-outline-primary" href="?state=history">History</a>
+    <a class="btn btn-sm btn-outline-primary" href="?state=downloads">Downloads</a>
     <a class="btn btn-sm btn-outline-secondary" href="{% url 'caidapp:task_list' %}">All tasks</a>
   </nav>
   <div id="task-refresh-message" class="alert alert-warning" role="status" hidden></div>
@@ -14,7 +15,7 @@
     <div class="table-responsive"><table class="table align-middle">
       <thead><tr><th>Task</th><th>Scope</th><th>Created</th><th>Status</th><th>Result</th></tr></thead>
       <tbody>{% for run in runs %}<tr>
-        <td><a href="{{ run.detail_url }}">{{ run.operation_label }}</a></td><td>{{ run.scope_label }}</td><td>{{ run.created_at }}</td><td>{{ run.status_label }}</td><td>{{ run.result_summary|default:'—' }}</td>
+        <td><a href="{{ run.detail_url }}">{{ run.operation_label }}</a></td><td>{{ run.scope_label }}</td><td>{{ run.created_at }}</td><td>{{ run.status_label }}</td><td>{{ run.result_summary|default:'—' }}{% if run.download_url %}<br><a href="{{ run.download_url }}">Download</a>{% endif %}{% if run.expires_at %}<br><small>Available until {{ run.expires_at }}</small>{% endif %}</td>
       </tr>{% empty %}<tr><td colspan="5">No tasks in this view.</td></tr>{% endfor %}</tbody>
     </table></div>
     {% if page_obj.has_other_pages %}<nav aria-label="Task pages"><ul class="pagination">

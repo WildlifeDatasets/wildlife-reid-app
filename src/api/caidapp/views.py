@@ -6692,13 +6692,17 @@ def download_zip_for_sequences_view(request) -> JsonResponse:
     datetime_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
     user_hash = request.user.caiduser.hash
     abs_zip_path = Path(settings.MEDIA_ROOT) / "users" / user_hash / f"sequence_mediafiles.{datetime_str}.zip"
-    task = tasks.create_mediafiles_zip_with_metadata.delay(
-        user_hash, mediafiles_data, str(abs_zip_path), metadata_records
+    from .export_runs import start_export
+
+    run = start_export(
+        request.user.caiduser,
+        "create_mediafiles_zip_with_metadata",
+        [user_hash, mediafiles_data, str(abs_zip_path), metadata_records],
+        2,
+        filename=abs_zip_path.name,
+        label="Sequence media files export",
     )
-    _ = tasks.clean_old_mediafile_zips.delay(
-        str(abs_zip_path.parent), glob_pattern="sequence_mediafiles.*.zip", max_age_days=7
-    )
-    return JsonResponse({"task_id": task.id})
+    return _export_run_response(run)
 
 
 @login_required
@@ -6790,13 +6794,17 @@ def download_zip_for_observations_view(request) -> JsonResponse:
     datetime_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
     user_hash = request.user.caiduser.hash
     abs_zip_path = Path(settings.MEDIA_ROOT) / "users" / user_hash / f"observation_mediafiles.{datetime_str}.zip"
-    task = tasks.create_mediafiles_zip_with_metadata.delay(
-        user_hash, mediafiles_data, str(abs_zip_path), metadata_records
+    from .export_runs import start_export
+
+    run = start_export(
+        request.user.caiduser,
+        "create_mediafiles_zip_with_metadata",
+        [user_hash, mediafiles_data, str(abs_zip_path), metadata_records],
+        2,
+        filename=abs_zip_path.name,
+        label="Observations export",
     )
-    _ = tasks.clean_old_mediafile_zips.delay(
-        str(abs_zip_path.parent), glob_pattern="observation_mediafiles.*.zip", max_age_days=7
-    )
-    return JsonResponse({"task_id": task.id})
+    return _export_run_response(run)
 
 
 @login_required
@@ -6908,57 +6916,54 @@ def download_zip_for_mediafiles_view(request, uploadedarchive_id: Optional[int] 
 
     # Start the Celery task
 
-    task = tasks.create_mediafiles_zip.delay(user_hash, mediafiles_data, str(abs_zip_path))
+    from .export_runs import start_export
 
-    _ = tasks.clean_old_mediafile_zips.delay(str(abs_zip_path.parent), glob_pattern="mediafiles_*.zip", max_age_days=7)
+    run = start_export(
+        request.user.caiduser,
+        "create_mediafiles_zip",
+        [user_hash, mediafiles_data, str(abs_zip_path)],
+        2,
+        filename=abs_zip_path.name,
+        label="Media files export",
+    )
+    return _export_run_response(run)
 
-    # Return the task ID so the frontend can poll for completion
-    return JsonResponse({"task_id": task.id})
+
+def _export_run_response(run):
+    """Preserve automatic download polling and expose a durable task link."""
+    return JsonResponse(
+        {
+            "task_id": run.prepare_task_id,
+            "detail_url": reverse("caidapp:task_detail", kwargs={"run_uuid": run.uuid}),
+        }
+    )
 
 
 @login_required
 def check_zip_status_view(request, task_id):
     """Check the status of the zip creation task."""
-    # find task based on task_id
-    task = AsyncResult(task_id)
-    logger.debug(f"Check status of the task: {task_id=}: {task.state=}")
+    from .export_runs import refresh_export
+    from .views_embedding_runs import _payload
 
-    # Define response mappings
-    status_mapping = {
-        "PENDING": "pending",
-        "STARTED": "pending",  # Treat STARTED as pending
-        "SUCCESS": "ready",
-        "FAILURE": "error",
-    }
-
-    response = {
-        "status": status_mapping.get(task.state, "unknown"),
-    }
-
-    if task.state == "SUCCESS":
-        logger.debug(f"{task.result=}")
-        fn_name = Path(task.result).name
-        # Task is complete, return the download link
-        # download_url = f"/media/users/{request.user.caiduser.hash}/mediafiles.zip"
-        # download_url = f"{settings.MEDIA_URL}users/{request.user.caiduser.hash}/mediafiles.zip"
-        download_url = f"{settings.MEDIA_URL}users/{request.user.caiduser.hash}/{fn_name}"
-        logger.debug(f"{download_url=}")
-        # download_url = request.build_absolute_uri(download_url)
-        # logger.debug(f"{download_url=}")
-
-        response["download_url"] = download_url
-        # return JsonResponse()
-
-    # elif task.state == "PENDING":
-    # response = {"status": "pending"}
-    # return JsonResponse({"status": "pending"})
-    elif task.state == "FAILURE":
-        response["message"] = str(task.result)
-        # response = {"status": "error", "message": str(task.result)}
-        # return JsonResponse({"status": "error", "message": str(task.result)})
-
-    logger.debug(f"{response=}")
-    return JsonResponse(response)
+    run = get_object_or_404(
+        models.TaskRun,
+        kind="export",
+        requested_by=request.user.caiduser,
+        prepare_task_id=task_id,
+    )
+    run = refresh_export(run)
+    payload = _payload(run)
+    return JsonResponse(
+        {
+            "status": (
+                "ready"
+                if payload["download_url"]
+                else ("error" if run.status in {"succeeded", "failed", "attention"} else "pending")
+            ),
+            "download_url": payload["download_url"],
+            "message": payload["result_summary"] or run.message,
+        }
+    )
 
 
 def _generate_new_hash_for_localities():

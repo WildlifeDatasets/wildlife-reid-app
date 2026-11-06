@@ -4021,15 +4021,15 @@ class ObservationViewTest(TestCase):
             else:
                 df = pd.read_csv(StringIO(response.content.decode()))
             self.assertEqual(set(df["observation_id"]), {selected.id, selected_sibling.id})
+        from caidapp.export_runs import start_export
+
         with (
             patch.object(views, "_build_export_mediafiles_data", return_value=[{"output_name": "selected.jpg"}]),
-            patch.object(tasks.create_mediafiles_zip_with_metadata, "delay") as create_zip,
-            patch.object(tasks.clean_old_mediafile_zips, "delay"),
+            patch("caidapp.export_runs.start_export", wraps=start_export) as create_zip,
         ):
-            create_zip.return_value.id = "test-task"
             response = self.client.get(reverse("caidapp:download_zip_for_observations"))
             self.assertEqual(response.status_code, 200)
-            records = create_zip.call_args.args[3]
+            records = create_zip.call_args.args[2][3]
             self.assertEqual({row["observation_id"] for row in records}, {selected.id, selected_sibling.id})
             self.assertEqual({row["mediafile_id"] for row in records}, {mediafile.id})
 

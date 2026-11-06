@@ -5,12 +5,14 @@ import uuid
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
-from django.http import JsonResponse
+from django.db.models import Q
+from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
+from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
-from . import embedding_runs, models
+from . import embedding_runs, export_runs, models
 
 STATUS_LABELS = {
     "preparing": "Preparing inputs",
@@ -36,7 +38,14 @@ ITEM_LABELS = {
 def _runs_for(request):
     """Share runs with members of their owning workgroup only."""
     workgroup_id = request.user.caiduser.workgroup_id
-    return models.TaskRun.objects.filter(workgroup_id=workgroup_id) if workgroup_id else models.TaskRun.objects.none()
+    return models.TaskRun.objects.filter(
+        Q(kind="embedding", workgroup_id=workgroup_id) | Q(kind="export", requested_by=request.user.caiduser)
+    )
+
+
+def _refresh(run):
+    """Dispatch status checks without applying embedding lifecycle rules to exports."""
+    return export_runs.refresh_export(run) if run.kind == "export" else embedding_runs.refresh_run(run)
 
 
 def _payload(run, include_items=False):
@@ -51,6 +60,32 @@ def _payload(run, include_items=False):
         result_url=reverse("caidapp:task_result", kwargs={"run_uuid": run.uuid}),
     )
     result = payload.get("result") or {}
+    if run.kind == "export":
+        artifact = run.artifact
+        try:
+            available = (
+                run.status == "succeeded"
+                and artifact.expires_at is not None
+                and artifact.expires_at > timezone.now()
+                and export_runs.artifact_path(artifact).is_file()
+            )
+        except (ValidationError, OSError):
+            available = False
+        payload.update(
+            operation_label=result.get("label", "Export"),
+            scope_label=artifact.filename,
+            filename=artifact.filename,
+            size=artifact.size,
+            expires_at=artifact.expires_at.isoformat() if artifact.expires_at else None,
+            download_url=reverse("caidapp:task_download", kwargs={"run_uuid": run.uuid}) if available else None,
+            result_summary=(
+                ("Ready to download" if available else "File is no longer available")
+                if run.status == "succeeded"
+                else run.message
+            ),
+            retry_ids=[],
+        )
+        return payload
     payload["result_summary"] = " · ".join(
         f"{result[key]} {label}"
         for key, label in (
@@ -154,8 +189,10 @@ def task_list(request):
         runs = runs.exclude(status__in=TERMINAL_STATUSES)
     elif state == "history":
         runs = runs.filter(status__in=TERMINAL_STATUSES)
+    elif state == "downloads":
+        runs = runs.filter(kind="export")
     page = Paginator(runs, 25).get_page(request.GET.get("page"))
-    payloads = [_payload(embedding_runs.refresh_run(run)) for run in page]
+    payloads = [_payload(_refresh(run)) for run in page]
     schedule = models.ObservationEmbeddingSchedule.objects.filter(
         workgroup_id=request.user.caiduser.workgroup_id, task_id__isnull=False
     ).first()
@@ -168,7 +205,7 @@ def task_list(request):
 @require_GET
 def task_detail(request, run_uuid):
     """Render the durable result, independently of the browser that started it."""
-    run = embedding_runs.refresh_run(get_object_or_404(_runs_for(request), uuid=run_uuid))
+    run = _refresh(get_object_or_404(_runs_for(request), uuid=run_uuid))
     payload = _payload(run, include_items=True)
     return render(
         request,
@@ -181,5 +218,26 @@ def task_detail(request, run_uuid):
 @require_GET
 def task_status(request, run_uuid):
     """Expose state and item outcomes only through authorized public run UUIDs."""
-    run = embedding_runs.refresh_run(get_object_or_404(_runs_for(request), uuid=run_uuid))
+    run = _refresh(get_object_or_404(_runs_for(request), uuid=run_uuid))
     return JsonResponse(_payload(run, include_items=True))
+
+
+@login_required
+@require_GET
+def task_download(request, run_uuid):
+    """Serve an unexpired private export exclusively to the user who requested it."""
+    run = get_object_or_404(models.TaskRun, uuid=run_uuid, kind="export", requested_by=request.user.caiduser)
+    if run.status != "succeeded":
+        raise Http404
+    artifact = run.artifact
+    if not artifact.expires_at or artifact.expires_at <= timezone.now():
+        return HttpResponse("This export has expired. Please request a new export.", status=410)
+    try:
+        path = export_runs.artifact_path(artifact)
+        stream = path.open("rb")
+    except (ValidationError, OSError):
+        return HttpResponse("The export file is no longer available. Please request a new export.", status=410)
+    response = FileResponse(stream, as_attachment=True, filename=artifact.filename)
+    response["Cache-Control"] = "private, no-store"
+    response["X-Content-Type-Options"] = "nosniff"
+    return response

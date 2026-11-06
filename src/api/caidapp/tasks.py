@@ -976,6 +976,22 @@ def create_mediafiles_zip(user_hash, mediafiles, abs_zip_path):
 
 
 @shared_task
+def execute_export_run(run_id, task_name, args, kwargs):
+    """Create a tracked downloadable artifact using the existing export implementation."""
+    from .export_runs import execute_export
+
+    return execute_export(run_id, task_name, args, kwargs)
+
+
+@shared_task
+def cleanup_export_files():
+    """Remove expired private export files without deleting their history."""
+    from .export_runs import cleanup_exports
+
+    return cleanup_exports()
+
+
+@shared_task
 def create_beta_stability_export(caiduser_id, observation_ids, profile_uuids, output_path, **options):
     """Recheck the user's scope and produce a beta-stability ZIP in the background."""
     from django.core.exceptions import ValidationError
@@ -988,7 +1004,16 @@ def create_beta_stability_export(caiduser_id, observation_ids, profile_uuids, ou
     if set(observations.values_list("pk", flat=True)) != set(observation_ids):
         raise ValidationError("The observation selection is no longer accessible.")
     expected_parent = Path(settings.MEDIA_ROOT) / "users" / caiduser.hash
-    if Path(output_path).resolve().parent != expected_parent.resolve():
+    tracked = (
+        models.ExportArtifact.objects.filter(path=str(output_path), run__requested_by=caiduser, run__kind="export")
+        .select_related("run")
+        .first()
+    )
+    if tracked:
+        from .export_runs import artifact_path
+
+        artifact_path(tracked)
+    elif Path(output_path).resolve().parent != expected_parent.resolve():
         raise ValidationError("Unexpected beta-stability export destination.")
     profiles = selected_profiles(observations, profile_uuids)
     export_beta_stability(observations, profiles, output_path, **options)

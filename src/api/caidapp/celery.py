@@ -37,6 +37,11 @@ app.conf.update(task_track_started=True)
 # Beat publishes this task every three hours; the API worker performs the refresh.
 app.conf.beat_schedule = {
     **(app.conf.beat_schedule or {}),
+    "cleanup-export-files-weekly": {
+        "task": "caidapp.tasks.cleanup_export_files",
+        "schedule": timedelta(days=7),
+        "options": {"queue": "celery"},
+    },
     "cleanup-embedding-run-files-weekly": {
         "task": "caidapp.tasks.cleanup_embedding_run_files",
         "schedule": timedelta(days=7),

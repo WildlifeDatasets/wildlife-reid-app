@@ -50,20 +50,24 @@ def beta_stability_export(request):
             profiles = selected_profiles(observations, request.GET.getlist("profile"))
         except (ValueError, ValidationError) as exc:
             return JsonResponse({"message": str(exc)}, status=400)
-        from .tasks import clean_old_mediafile_zips, create_beta_stability_export
+        from .export_runs import start_export
+        from .views import _export_run_response
 
         caiduser = request.user.caiduser
         output = Path(settings.MEDIA_ROOT) / "users" / caiduser.hash / f"beta_stability.{uuid.uuid4()}.zip"
-        task = create_beta_stability_export.delay(
-            caiduser.pk,
-            ids,
-            [str(profile.uuid) for profile in profiles],
-            str(output),
-            include_images=request.GET.get("include_images") == "1",
-            allow_partial=request.GET.get("allow_partial") == "1",
+        run = start_export(
+            caiduser,
+            "create_beta_stability_export",
+            [caiduser.pk, ids, [str(profile.uuid) for profile in profiles], str(output)],
+            3,
+            filename=output.name,
+            label="Beta-stability export",
+            kwargs={
+                "include_images": request.GET.get("include_images") == "1",
+                "allow_partial": request.GET.get("allow_partial") == "1",
+            },
         )
-        clean_old_mediafile_zips.delay(str(output.parent), glob_pattern="beta_stability.*.zip", max_age_days=7)
-        return JsonResponse({"task_id": task.id})
+        return _export_run_response(run)
     profiles = (
         models.EmbeddingProfile.objects.filter(embeddings__observation__in=observations)
         .distinct()

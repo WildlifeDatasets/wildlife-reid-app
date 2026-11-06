@@ -1992,6 +1992,16 @@ class TaskRun(models.Model):
     result = models.JSONField(default=dict)
 
 
+class ExportArtifact(models.Model):
+    """Private downloadable result whose lifetime is independent of task history."""
+
+    run = models.OneToOneField(TaskRun, on_delete=models.CASCADE, related_name="artifact")
+    path = models.TextField()
+    filename = models.CharField(max_length=255)
+    size = models.PositiveBigIntegerField(default=0)
+    expires_at = models.DateTimeField(null=True, blank=True)
+
+
 class EmbeddingRunItem(models.Model):
     """Keep the requested scope even when the underlying observation is removed."""
 

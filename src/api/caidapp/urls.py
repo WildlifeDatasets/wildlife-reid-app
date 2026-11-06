@@ -28,6 +28,7 @@ def trigger_error(request):
 
 app_name = "caidapp"
 urlpatterns = [
+    path("tasks/<uuid:run_uuid>/download/", views_embedding_runs.task_download, name="task_download"),
     path("embedding-runs/", views_embedding_runs.embedding_run_start, name="embedding_run_start"),
     path("tasks/", views_embedding_runs.task_list, name="task_list"),
     path("tasks/<uuid:run_uuid>/", views_embedding_runs.task_detail, name="task_detail"),

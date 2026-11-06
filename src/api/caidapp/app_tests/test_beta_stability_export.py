@@ -28,7 +28,7 @@ class BetaStabilityExportTests(TestCase):
         """Create two observations in one image and two independent embedding spaces."""
         self.directory = TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
-        override = self.settings(MEDIA_ROOT=self.directory.name)
+        override = self.settings(MEDIA_ROOT=self.directory.name, PRIVATE_DATA_PATH=self.directory.name)
         override.enable()
         self.addCleanup(override.disable)
         self.mediafile = MediaFileFactory()
@@ -191,21 +191,47 @@ class BetaStabilityExportTests(TestCase):
         self.login()
         response = self.client.get(reverse("caidapp:beta_stability_export"))
         self.assertContains(response, str(self.profiles[0].uuid))
-        with patch("caidapp.tasks.create_beta_stability_export.delay") as task, patch(
-            "caidapp.tasks.clean_old_mediafile_zips.delay"
-        ):
-            task.return_value.id = "export-task"
-            response = self.client.get(
-                reverse("caidapp:beta_stability_export"),
-                {
-                    "download": "1",
-                    "profile": str(self.profiles[0].uuid),
-                    "include_images": "1",
-                },
+        with patch("caidapp.export_runs.signature") as publish:
+            with self.captureOnCommitCallbacks(execute=True):
+                response = self.client.get(
+                    reverse("caidapp:beta_stability_export"),
+                    {"download": "1", "profile": str(self.profiles[0].uuid), "include_images": "1"},
+                )
+        run_id, task_name, args, options = publish.call_args.kwargs["args"]
+        self.assertEqual(task_name, "create_beta_stability_export")
+        self.assertEqual(args[1], [self.first.pk, self.second.pk])
+        self.assertTrue(options["include_images"])
+        self.assertIn("detail_url", response.json())
+        self.assertTrue(response.json()["task_id"])
+
+    def test_tracked_beta_export_writes_a_private_downloadable_artifact(self):
+        """The unchanged beta encoder export also supports the new protected destination."""
+        from caidapp.export_runs import execute_export
+        from caidapp.models import TaskRun
+
+        self.login()
+        with patch("caidapp.export_runs.signature") as publish:
+            with self.captureOnCommitCallbacks(execute=True):
+                response = self.client.get(
+                    reverse("caidapp:beta_stability_export"),
+                    {
+                        "download": "1",
+                        "profile": str(self.profiles[0].uuid),
+                    },
+                )
+        self.assertEqual(response.status_code, 200)
+        execute_export(*publish.call_args.kwargs["args"])
+        run = TaskRun.objects.get(kind="export")
+        self.assertEqual(run.status, "succeeded")
+        self.assertIn("export_downloads", run.artifact.path)
+        with zipfile.ZipFile(run.artifact.path) as archive:
+            self.assertEqual(
+                json.loads(archive.read("manifest.json"))["observation_uuids"],
+                [str(self.first.uuid), str(self.second.uuid)],
             )
-        self.assertEqual(response.json(), {"task_id": "export-task"})
-        self.assertEqual(task.call_args.args[1], [self.first.pk, self.second.pk])
-        self.assertTrue(task.call_args.kwargs["include_images"])
+        download = self.client.get(reverse("caidapp:task_download", kwargs={"run_uuid": run.uuid}))
+        self.assertEqual(download.status_code, 200)
+        download.close()
 
     def test_web_rejects_foreign_observations_and_unavailable_profiles(self):
         """Session IDs and profile UUIDs must not bypass workgroup access checks."""

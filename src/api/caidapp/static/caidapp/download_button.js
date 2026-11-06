@@ -100,6 +100,11 @@ $(document).on("click", ".download-mediafiles-button", function(event) {
     $.get(uploadedarchiveUrl, function(data) {
         console.log("Calling pollTaskStatus(data), data=");
         console.log(data);
+        if (data.detail_url) {
+            const notice = $("<div>").addClass("alert alert-info mt-2").text("Export requested. You can leave this page and download it later from Tasks. ");
+            $("<a>").attr("href", data.detail_url).text("View export task").appendTo(notice);
+            button.after(notice);
+        }
         pollTaskStatus(data.task_id, alertTimeout); // Reuse pollTaskStatus logic
     }).fail(function(xhr) {
         clearTimeout(alertTimeout);

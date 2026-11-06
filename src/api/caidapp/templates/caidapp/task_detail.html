@@ -6,7 +6,7 @@
 <section class="section" id="task-detail" data-status-url="{{ status_url }}" data-terminal="{{ run.is_terminal|yesno:'true,false' }}">
   {% csrf_token %}
   <p class="small text-body-secondary">Task {{ run.uuid }} · {{ run.created_at }}</p>
-  <p class="small text-body-secondary">{{ run.trigger|capfirst }} · Model #{{ run.model_id }}{% if run.result.profile_uuid %} · Embedding profile {{ run.result.profile_uuid }}{% endif %}</p>
+  {% if run.kind != 'export' %}<p class="small text-body-secondary">{{ run.trigger|capfirst }} · Model #{{ run.model_id }}{% if run.result.profile_uuid %} · Embedding profile {{ run.result.profile_uuid }}{% endif %}</p>{% endif %}
   <p>{{ run.scope_label }}</p>
   <div id="task-refresh-message" class="alert alert-warning" role="status" hidden></div>
   <div class="card"><div class="card-body pt-3" aria-live="polite">
@@ -14,12 +14,18 @@
     <p id="task-message">{{ run.message }}</p>
     <p id="task-result-summary">{{ run.result_summary }}</p>
   </div></div>
+  {% if run.kind == 'export' %}
+  <p id="export-expiry">{% if run.expires_at %}Available until {{ run.expires_at }} · {{ run.size }} bytes{% endif %}</p>
+  <a id="export-download" class="btn btn-primary"{% if run.download_url %} href="{{ run.download_url }}"{% else %} hidden{% endif %}>Download</a>
+  <p class="small text-body-secondary">This export is private to you. You can return here to download it until it expires. The task history remains after the file is removed.</p>
+  {% else %}
   <p class="small text-body-secondary">Results describe saved inputs captured during preparation. Later edits can require new embeddings without changing this run's outcome. Videos and no-detection placeholders are not embedding inputs.</p>
   <div class="table-responsive"><table class="table"><thead><tr><th>Observation</th><th>Media file</th><th>Result</th><th>Details</th></tr></thead>
     <tbody id="task-items">{% for item in run.items %}<tr><td>{{ item.observation_id|default:'—' }}</td><td>{% if item.mediafile_url %}<a href="{{ item.mediafile_url }}">{{ item.mediafile_label|default:item.mediafile_id }}</a>{% else %}{{ item.mediafile_label|default:item.mediafile_id }}{% endif %}</td><td>{{ item.status_label }}</td><td>{{ item.message }}</td></tr>{% empty %}<tr><td colspan="4">Preparing task inputs.</td></tr>{% endfor %}</tbody>
   </table></div>
   <div id="embedding-start-message" class="alert alert-info" role="status" hidden></div>
   <button id="embedding-retry" type="button" class="btn btn-sm btn-outline-primary" data-embedding-start="{% url 'caidapp:embedding_run_start' %}" data-scope="observations" data-target-ids="{{ run.retry_ids|join:',' }}"{% if not run.retry_ids %} hidden{% endif %}>Generate missing embeddings again</button>
+  {% endif %}
   <a href="{{ result_url }}" class="btn btn-sm btn-outline-secondary">View result JSON</a>
 </section>
 {% endblock %}
@@ -38,9 +44,17 @@
       document.getElementById("task-message").textContent = data.message || "";
       document.getElementById("task-result-summary").textContent = data.result_summary || "";
       const retry = document.getElementById("embedding-retry");
-      retry.dataset.targetIds = (data.retry_ids || []).join(",");
-      retry.hidden = !data.retry_ids || data.retry_ids.length === 0;
-      if (Array.isArray(data.items)) {
+      if (retry) {
+        retry.dataset.targetIds = (data.retry_ids || []).join(",");
+        retry.hidden = !data.retry_ids || data.retry_ids.length === 0;
+      }
+      const download = document.getElementById("export-download");
+      if (download) {
+        download.hidden = !data.download_url;
+        if (data.download_url) download.href = data.download_url;
+        document.getElementById("export-expiry").textContent = data.expires_at ? "Available until " + data.expires_at + " · " + data.size + " bytes" : "";
+      }
+      if (Array.isArray(data.items) && document.getElementById("task-items")) {
         const body = document.getElementById("task-items");
         body.replaceChildren();
         data.items.forEach(function (item) {
