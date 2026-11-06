@@ -89,16 +89,21 @@ def _payload(run, include_items=False):
 @login_required
 @require_POST
 def embedding_run_start(request):
-    """Validate an explicit saved selection and queue its preparation asynchronously."""
+    """Queue a saved selection or all observations matching the current filter."""
     caiduser = request.user.caiduser
     if not caiduser.workgroup_id:
         return JsonResponse({"message": "Join a workgroup before generating embeddings."}, status=400)
     scope = request.POST.get("scope")
-    if scope not in {"observations", "mediafiles"}:
-        return JsonResponse({"message": "Choose observations or media files explicitly."}, status=400)
+    if scope not in {"observations", "mediafiles", "filtered_observations"}:
+        return JsonResponse({"message": "Choose a valid embedding scope."}, status=400)
     try:
-        ids = sorted({int(value) for value in request.POST.getlist(f"{scope[:-1]}_ids")})
-        if not ids or any(value <= 0 for value in ids):
+        ids = []
+        if scope in {"observations", "mediafiles"}:
+            ids = sorted({int(value) for value in request.POST.getlist(f"{scope[:-1]}_ids")})
+            if not ids or any(value <= 0 for value in ids):
+                raise ValueError
+        elif request.POST.getlist("observation_ids") or request.POST.getlist("mediafile_ids"):
+            # A malformed explicit selection must never expand to the entire workgroup.
             raise ValueError
         request_key = request.POST.get("request_key") or None
         if request_key:
@@ -106,7 +111,20 @@ def embedding_run_start(request):
     except (ValueError, TypeError):
         return JsonResponse({"message": "Select at least one valid target."}, status=400)
     mediafiles = models.MediaFile.objects.for_user(caiduser).filter(parent__owner__workgroup_id=caiduser.workgroup_id)
-    if scope == "observations":
+    if scope == "filtered_observations":
+        from .views import _get_observations_queryset, _parse_int_query_param_or_404
+
+        accessible, observation_filter = _get_observations_queryset(request)
+        if not observation_filter.is_valid():
+            return JsonResponse(
+                {"message": "Correct the observation filters before generating embeddings."}, status=400
+            )
+        accessible = accessible.filter(mediafile__in=mediafiles)
+        sequence_id = _parse_int_query_param_or_404(request.GET.get("sequence"), "sequence id")
+        if sequence_id is not None:
+            accessible = accessible.filter(mediafile__sequence_id=sequence_id)
+        ids = list(accessible.values_list("pk", flat=True))
+    elif scope == "observations":
         accessible = models.AnimalObservation.objects.filter(mediafile__in=mediafiles, pk__in=ids)
     else:
         accessible = mediafiles.filter(pk__in=ids)
@@ -115,7 +133,7 @@ def embedding_run_start(request):
     try:
         run = embedding_runs.create_embedding_run(
             caiduser.workgroup_id,
-            observation_ids=ids if scope == "observations" else None,
+            observation_ids=ids if scope != "mediafiles" else None,
             mediafile_ids=ids if scope == "mediafiles" else None,
             requested_by=caiduser,
             trigger="manual",

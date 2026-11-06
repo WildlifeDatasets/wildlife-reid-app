@@ -9,7 +9,7 @@ from django.contrib.messages import get_messages
 from django.test import Client, TestCase
 from django.urls import reverse
 
-from .factories import AlbumFactory, CaidUserFactory, MediaFileFactory, UploadedArchiveFactory
+from .factories import AlbumFactory, CaidUserFactory, MediaFileFactory, SequenceFactory, UploadedArchiveFactory
 
 
 class EmbeddingRunViewsTests(TestCase):
@@ -90,6 +90,77 @@ class EmbeddingRunViewsTests(TestCase):
             set(run.items.values_list("observation_id_snapshot", flat=True)), {self.first.pk, self.second.pk}
         )
 
+    def test_unfiltered_scope_includes_colleagues_but_not_shared_foreign_data(self):
+        """Without a filter, all accessible group observations belong to the snapshot."""
+        colleague = CaidUserFactory()
+        colleague.workgroup = self.workgroup
+        colleague.save(update_fields=["workgroup"])
+        other = MediaFileFactory(parent=UploadedArchiveFactory(owner=colleague)).observations.first()
+        foreign = MediaFileFactory()
+        album = AlbumFactory(owner=self.member)
+        album.mediafiles.add(foreign)
+        response = self.client.post(
+            self.start_url + "?page=999",
+            {"scope": "filtered_observations", "request_key": str(uuid.uuid4())},
+        )
+        self.assertEqual(response.status_code, 202)
+        run = models.TaskRun.objects.get(uuid=response.json()["uuid"])
+        self.assertEqual(
+            set(run.items.values_list("observation_id_snapshot", flat=True)),
+            {self.first.pk, self.second.pk, other.pk},
+        )
+        self.assertEqual(run.model_snapshot["model_id"], self.model.pk)
+        self.assertEqual(run.requested_by_id, self.member.pk)
+
+    def test_filtered_scope_keeps_observation_boundaries_and_ignores_pagination(self):
+        """Select-all-filtered covers matching observations, not siblings in the same file."""
+        self.first.orientation = "L"
+        self.first.save(update_fields=["orientation"])
+        response = self.client.post(self.start_url + "?orientation=L&page=999", {"scope": "filtered_observations"})
+        self.assertEqual(response.status_code, 202)
+        run = models.TaskRun.objects.get(uuid=response.json()["uuid"])
+        self.assertEqual(list(run.items.values_list("observation_id_snapshot", flat=True)), [self.first.pk])
+
+    def test_filtered_scope_honors_sequence_filter(self):
+        """The separate sequence query parameter must not expand a filtered selection."""
+        sequence = SequenceFactory(uploaded_archive=self.mediafile.parent)
+        models.MediaFile.objects.filter(pk=self.mediafile.pk).update(sequence=sequence)
+        MediaFileFactory(parent=self.mediafile.parent)
+        response = self.client.post(self.start_url + f"?sequence={sequence.pk}", {"scope": "filtered_observations"})
+        self.assertEqual(response.status_code, 202)
+        run = models.TaskRun.objects.get(uuid=response.json()["uuid"])
+        self.assertEqual(
+            set(run.items.values_list("observation_id_snapshot", flat=True)), {self.first.pk, self.second.pk}
+        )
+
+    def test_filtered_scope_rejects_conflicting_explicit_ids(self):
+        """A malformed selection cannot silently turn into a broader workgroup action."""
+        response = self.start(scope="filtered_observations")
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(models.TaskRun.objects.exists())
+
+    def test_empty_filtered_scope_never_falls_back_to_workgroup(self):
+        """An explicitly selected filter with no matches must not enqueue every observation."""
+        response = self.client.post(self.start_url + "?orientation=L", {"scope": "filtered_observations"})
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(models.TaskRun.objects.exists())
+
+    def test_filtered_scope_requires_membership(self):
+        """The client cannot substitute another group when it has no current workgroup."""
+        models.CaIDUser.objects.filter(pk=self.member.pk).update(workgroup=None)
+        response = self.client.post(
+            self.start_url, {"scope": "filtered_observations", "workgroup_id": self.workgroup.pk}
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(models.TaskRun.objects.exists())
+
+    def test_observations_page_explains_empty_selection_scope(self):
+        """An empty selection explicitly uses all filtered observations."""
+        response = self.client.get(reverse("caidapp:observations"))
+        self.assertContains(response, 'data-empty-scope="filtered_observations"')
+        self.assertContains(response, 'data-filtered-scope="filtered_observations"')
+        self.assertContains(response, "Generate embeddings for all filtered observations")
+
     def test_double_click_key_reuses_run_but_fresh_key_allows_another_run(self):
         """Suppress a repeated request without forbidding an intentional independent computation."""
         request_key = str(uuid.uuid4())
@@ -130,7 +201,12 @@ class EmbeddingRunViewsTests(TestCase):
 
     def test_invalid_scope_and_missing_selection_return_readable_error(self):
         """Malformed input is rejected before a durable run or task is created."""
-        for data in ({"scope": "all"}, {"scope": "observations"}, {"scope": "observations", "observation_ids": ["x"]}):
+        for data in (
+            {"scope": "all"},
+            {"scope": "workgroup"},
+            {"scope": "observations"},
+            {"scope": "observations", "observation_ids": ["x"]},
+        ):
             with self.subTest(data=data):
                 response = self.client.post(self.start_url, data)
                 self.assertEqual(response.status_code, 400)

@@ -22,27 +22,50 @@
       form.addEventListener("change", function () { dirty = true; });
       form.addEventListener("input", function () { dirty = true; });
     }
+    function updateScopeLabel() {
+      const label = button.querySelector("[data-embedding-label]");
+      if (!label || !form) return;
+      const filtered = form.querySelector("[name=select_all_filtered]");
+      const selected = form.querySelector(".js-observation-checkbox:checked:not(:disabled)");
+      label.textContent = selected && !(filtered && filtered.checked)
+        ? "Generate embeddings for selected observations"
+        : "Generate embeddings for all filtered observations";
+    }
+    if (button.dataset.emptyScope && form) {
+      form.addEventListener("change", updateScopeLabel);
+      form.addEventListener("click", function () { queueMicrotask(updateScopeLabel); });
+      updateScopeLabel();
+    }
     button.addEventListener("click", async function () {
       const message = document.getElementById("embedding-start-message");
       function show(text) {
         if (message) { message.textContent = text; message.hidden = false; }
       }
       if (dirty || (button.dataset.checkUnsaved && formSnapshot() !== initialSnapshot)) { show("Save your changes before generating embeddings. The task uses saved observations."); return; }
-      const scope = button.dataset.scope;
+      let scope = button.dataset.scope;
       let ids = button.dataset.targetId ? [button.dataset.targetId] : [];
       if (!ids.length && button.dataset.targetIds) ids = button.dataset.targetIds.split(",").filter(Boolean);
       if (!ids.length && form) {
         ids = Array.from(form.querySelectorAll(".js-observation-checkbox:checked:not(:disabled)"), function (checkbox) { return checkbox.value; });
         const allFiltered = form.querySelector("[name=select_all_filtered]");
         if (allFiltered && allFiltered.checked) {
-          show("Select observations on this page explicitly before generating embeddings."); return;
+          if (!button.dataset.filteredScope) {
+            show("Select observations on this page explicitly before generating embeddings."); return;
+          }
+          scope = button.dataset.filteredScope;
+          ids = [];
         }
       }
-      if (!ids.length) { show("Select at least one observation on this page."); return; }
+      if (!ids.length && scope === button.dataset.scope && button.dataset.emptyScope) scope = button.dataset.emptyScope;
+      if (!ids.length && scope !== button.dataset.emptyScope && scope !== button.dataset.filteredScope) {
+        show("Select at least one observation on this page."); return;
+      }
       const body = new FormData();
       body.append("scope", scope);
       ids.forEach(function (id) { body.append(scope === "mediafiles" ? "mediafile_ids" : "observation_ids", id); });
-      const selection = JSON.stringify([scope, ids.slice().sort()]);
+      const url = new URL(button.dataset.embeddingStart, window.location.href);
+      if (scope === button.dataset.filteredScope) url.search = button.dataset.filterQuery || "";
+      const selection = JSON.stringify([scope, ids.slice().sort(), url.search]);
       if (button.dataset.requestSelection !== selection) delete button.dataset.requestKey;
       button.dataset.requestSelection = selection;
       if (!button.dataset.requestKey) button.dataset.requestKey = requestKey();
@@ -52,7 +75,7 @@
       button.disabled = true;
       show("Submitting embedding task…");
       try {
-        const response = await fetch(button.dataset.embeddingStart, {method: "POST", body: body, headers: {Accept: "application/json"}, credentials: "same-origin"});
+        const response = await fetch(url, {method: "POST", body: body, headers: {Accept: "application/json"}, credentials: "same-origin"});
         const data = await response.json();
         if (!response.ok) {
           // A rejected request can be corrected; an uncertain network result keeps its key.
