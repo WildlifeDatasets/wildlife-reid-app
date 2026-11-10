@@ -87,6 +87,7 @@ services:
     depends_on:
       - taxon_worker
       - identification_worker
+      - duplicate_worker
     labels:
       com.piva-ai.group: "applications"
     networks:
@@ -120,6 +121,42 @@ services:
     depends_on:
       - broker
       - redis
+    labels:
+      com.piva-ai.group: "applications"
+    networks:
+      - backend
+
+  duplicate_worker:
+    platform: linux/amd64
+    # Reuse the taxon image without loading classifiers or reserving a GPU.
+    image: ${TAXON_WORKER_IMAGE:-taxon_worker}${TAG:-:latest}
+    build:
+      context: .
+      dockerfile: src/taxon_worker/Dockerfile
+    restart: always
+    working_dir: /taxon_worker
+    command: ["celery", "-A", "duplicate_worker.duplicate_worker", "worker", "--pool=prefork", "--concurrency=1", "--hostname=duplicates@%h", "--loglevel=info", "--queues=duplicate_worker", "--max-tasks-per-child=1"]
+    cpus: 2
+    mem_limit: 2g
+    environment:
+      NVIDIA_VISIBLE_DEVICES: void
+      OMP_NUM_THREADS: 1
+      OPENBLAS_NUM_THREADS: 1
+    env_file:
+      - src/variables.env
+      - src/variables.prod.env
+      - .env
+    volumes:
+      - shared_data_external:/shared_data
+    depends_on:
+      - broker
+      - redis
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A duplicate_worker.duplicate_worker inspect ping --destination=duplicates@$$HOSTNAME --timeout=5"]
+      interval: 30s
+      timeout: 15s
+      start_period: 45s
+      retries: 3
     labels:
       com.piva-ai.group: "applications"
     networks:

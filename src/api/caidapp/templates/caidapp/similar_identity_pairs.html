@@ -5,7 +5,7 @@
     {{ block.super }}
     <link rel="stylesheet" href="{% static 'caidapp/css/similar_identity_pairs.css' %}">
     <link rel="stylesheet" href="{% static 'caidapp/css/bbox_preview.css' %}">
-    {% if result and result.status == 'processing' %}<meta http-equiv="refresh" content="10">{% endif %}
+    {% if result.status == 'processing' or result.pixel_status == 'processing' %}<meta http-equiv="refresh" content="10">{% endif %}
 {% endblock %}
 
 {% block body %}
@@ -39,11 +39,46 @@
     </div>
 </div>
 
+{% if not result or result.input_csv_filename or not result.pixel_status %}
+{% with workgroup=request.user.caiduser.workgroup %}
+    {% if workgroup.identification_init_status == 'Scheduled' or workgroup.identification_init_status == 'Processing' %}
+        <div class="alert alert-info" role="status">
+            Identification reference preparation is {{ workgroup.identification_init_status|lower }} for this workgroup.
+            Wait for it to finish before running a visual search.
+            <a href="{% url 'caidapp:dash_identities' %}">View preparation progress</a>
+        </div>
+    {% elif not workgroup.identification_model_is_initialized or 'No reference embeddings' in result.message or "KeyError: 'embedding'" in result.message %}
+        <div class="alert alert-warning">
+            <p class="mb-2">Visual merge suggestions need identification reference embeddings for this workgroup.
+                Prepare references for the whole workgroup, then run the search again.
+                Generating observation embeddings is a separate operation. Name-based suggestions do not need this preparation.</p>
+            {% if request.user.caiduser.workgroup_admin %}
+                <form method="post" action="{% url 'caidapp:init_identification' %}">
+                    {% csrf_token %}
+                    <button class="btn btn-primary" type="submit">Prepare identification references</button>
+                </form>
+            {% else %}
+                <span class="d-inline-block" tabindex="0" title="Only workgroup administrators can start reference preparation">
+                    <button class="btn btn-primary" type="button" disabled>Prepare identification references</button>
+                </span>
+                {% include 'caidapp/includes/workgroup_admin_badge.html' %}
+            {% endif %}
+        </div>
+    {% endif %}
+{% endwith %}
+{% endif %}
+
 <div class="d-flex flex-wrap gap-2 mb-4">
     <form method="post" action="{% url 'caidapp:run_similar_identity_pairs' %}">
         {% csrf_token %}
         <button class="btn btn-primary" type="submit">Run search</button>
     </form>
+    <form method="post" action="{% url 'caidapp:run_similar_identity_pairs' %}">
+        {% csrf_token %}
+        <input type="hidden" name="method" value="pixel">
+        <button class="btn btn-outline-primary" type="submit">Find identities sharing identical images</button>
+    </form>
+    <a class="btn btn-outline-secondary" href="{% url 'caidapp:duplicates' %}">Fingerprint preparation</a>
     <a class="btn btn-outline-secondary" href="{% url 'caidapp:identification_information' %}">Identification information</a>
     {% if result and input_csv_available %}
         <a class="btn btn-outline-secondary" href="{% url 'caidapp:download_similar_identity_pairs_csv' result.id 'input' %}">Input CSV</a>
@@ -52,6 +87,14 @@
         <a class="btn btn-outline-secondary" href="{% url 'caidapp:download_similar_identity_pairs_csv' result.id 'output' %}">Pairs CSV</a>
     {% endif %}
 </div>
+
+{% if result.pixel_status %}
+    <div class="alert alert-{% if result.pixel_status == 'error' %}warning{% else %}info{% endif %}" role="status">
+        <strong>Identical image pixels: {{ result.pixel_status }}.</strong>
+        {{ result.pixel_message|default:'Checking cached fingerprints and preparing missing fingerprints for this workgroup.' }}
+        This method does not need identification initialization or a GPU.
+    </div>
+{% endif %}
 
 {% if not result %}
     <div class="alert alert-info">No similarity search has run for this workgroup yet.</div>
@@ -72,7 +115,7 @@
         </div>
     </div>
 
-    {% if result.status == 'done' or result.status == 'error' and name_cards %}
+    {% if result.status == 'done' or result.status == 'error' and name_cards or result.status == 'error' and pixel_cards %}
         {% if result.status == 'error' and name_cards %}<p class="text-body-secondary">The visual search did not finish. Name-based suggestions are available below.</p>{% endif %}
         <div class="d-flex justify-content-end mb-3">
             <div class="btn-group btn-group-sm" role="group" aria-label="Suggestion layout">
@@ -107,7 +150,7 @@
             </div>
             <p class="small text-body-secondary mt-2 mb-0">{% if not request.user.caiduser.workgroup_admin %}Only workgroup administrators can use bulk actions. {% endif %}Select pairs to merge or exclude. For merging, each source will be assigned to the target shown and each identity may appear in only one selected pair.</p>
         </form>
-        {% if result.status == 'done' %}
+        {% if result.status == 'done' and result.input_csv_filename or result.status == 'done' and not result.pixel_status %}
         <section class="mb-5">
             <h2 class="h4">MegaDescriptor pairs <span class="text-body-secondary">({{ mega_cards|length }})</span></h2>
             <p class="text-body-secondary">Similarity is cosine similarity; higher values indicate more similar embeddings.</p>
@@ -127,6 +170,7 @@
             {% endif %}
         </section>
         {% endif %}
+        {% if result.input_csv_filename or name_cards or not result.pixel_status %}
         <section class="mb-5">
             <h2 class="h4">Name matches <span class="text-body-secondary">({{ name_cards|length }})</span></h2>
             <p class="text-body-secondary">Up to 10 best matches using the same name/code rules as the name-based merge suggestions. Lower distance means a closer match; matching codes score 0. Run search to refresh these suggestions.</p>
@@ -136,6 +180,18 @@
                 {% include 'caidapp/similar_identity_pair_cards.html' with cards=name_cards score_type='name' %}
             {% endif %}
         </section>
+        {% endif %}
+        {% if result.pixel_status == 'done' %}
+        <section class="mb-5">
+            <h2 class="h4">Identical image pixels <span class="text-body-secondary">({{ pixel_cards|length }})</span></h2>
+            <p class="text-body-secondary">These identities label matching objects in exact image copies. Different bounding boxes in the same image and video reference frames do not establish identity. Review both identities before merging.</p>
+            {% if layout == 'rows' %}
+                {% include 'caidapp/similar_identity_pair_rows.html' with cards=pixel_cards score_type='pixel' %}
+            {% else %}
+                {% include 'caidapp/similar_identity_pair_cards.html' with cards=pixel_cards score_type='pixel' %}
+            {% endif %}
+        </section>
+        {% endif %}
     {% endif %}
 {% endif %}
 {% endblock %}

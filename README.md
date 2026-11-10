@@ -112,6 +112,10 @@ Run the following commands to build and start the application in the development
 docker compose -f docker-compose.dev.yml up -d --build
 ```
 
+This also starts `duplicate_worker_dev`, a CPU-only process using the taxon worker
+image and the shared media volume. It consumes only the duplicate queue; no extra
+Compose file or GPU is required. Its health check verifies that Celery responds.
+
 Run the following commands to view the final development mode configuration with overrides from `docker-compose.dev.yml`. 
 ```bash
 docker compose -f docker-compose.dev.yml config

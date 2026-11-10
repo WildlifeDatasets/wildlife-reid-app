@@ -45,6 +45,45 @@ class SimilarIdentityPairsTest(TestCase):
         media_settings = self.settings(MEDIA_ROOT=self.temporary_media.name)
         media_settings.enable()
         self.addCleanup(media_settings.disable)
+        pixel_queue = patch("caidapp.tasks.prepare_pixel_identity_pairs.apply_async")
+        self.pixel_queue = pixel_queue.start()
+        self.addCleanup(pixel_queue.stop)
+
+    def test_missing_references_offer_preparation_to_workgroup_admins(self):
+        """Offer whole-group preparation to admins and explain the restriction to other members."""
+        url = reverse("caidapp:similar_identity_pairs")
+        response = self.client.get(url)
+        self.assertContains(response, "Visual merge suggestions need identification reference embeddings")
+        self.assertContains(response, "disabled>Prepare identification references")
+        self.assertNotContains(response, f'action="{reverse("caidapp:init_identification")}"')
+        self.staff.workgroup_admin = True
+        self.staff.save(update_fields=["workgroup_admin"])
+        response = self.client.get(url)
+        self.assertContains(response, f'action="{reverse("caidapp:init_identification")}"')
+        self.assertNotContains(response, "disabled>Prepare identification references")
+
+    def test_pending_initialization_shows_progress_instead_of_another_start_action(self):
+        """Avoid offering duplicate initialization while group reference preparation is pending."""
+        for status in ("Scheduled", "Processing"):
+            with self.subTest(status=status):
+                self.workgroup.identification_init_status = status
+                self.workgroup.save(update_fields=["identification_init_status"])
+                response = self.client.get(reverse("caidapp:similar_identity_pairs"))
+                self.assertContains(response, "View preparation progress")
+                self.assertNotContains(response, "Prepare identification references")
+
+    def test_empty_worker_database_offers_recovery_even_when_model_marked_initialized(self):
+        """Recover from empty dev worker storage despite successful initialization recorded in Django."""
+        with patch("caidapp.models.WorkGroup.identification_model_is_initialized", return_value=True):
+            response = self.client.get(reverse("caidapp:similar_identity_pairs"))
+            self.assertNotContains(response, "Visual merge suggestions need identification reference embeddings")
+            for message in ("KeyError: 'embedding'", "No reference embeddings found for workgroup 1."):
+                with self.subTest(message=message):
+                    result = IdentificationSimilarPairResult.objects.create(
+                        workgroup=self.workgroup, status="error", message=message
+                    )
+                    response = self.client.get(reverse("caidapp:similar_identity_pairs_result", args=[result.pk]))
+                    self.assertContains(response, "Visual merge suggestions need identification reference embeddings")
 
     def test_start_queues_csv_preparation_without_scanning_media_in_http_request(self):
         """Queue CSV preparation outside the request and dispatch the similarity worker from that task."""
@@ -805,6 +844,45 @@ class SimilarIdentityPairsTest(TestCase):
         self.assertRedirects(bulk, url, fetch_redirect_response=False)
         self.assertFalse(IndividualIdentity.objects.filter(pk=second.pk).exists())
         self.assertTrue(IndividualIdentity.objects.filter(pk=third.pk).exists())
+
+    def test_pixel_pairs_follow_other_methods_in_review_queue_and_bulk_merge(self):
+        """Review the next exact-pixel candidate and bulk merge it using the same saved pair index."""
+        first, second, third, fourth = [IndividualIdentityFactory(owner_workgroup=self.workgroup) for _ in range(4)]
+        result = IdentificationSimilarPairResult.objects.create(
+            workgroup=self.workgroup,
+            status="done",
+            mega_pairs=[{"class_id_a": first.pk, "class_id_b": second.pk}],
+            name_pairs=[{"class_id_a": second.pk, "class_id_b": third.pk, "similarity": 1}],
+            pixel_pairs=[{"class_id_a": third.pk, "class_id_b": fourth.pk, "similarity": 2}],
+            pixel_status="done",
+        )
+        url = reverse("caidapp:similar_identity_pairs_result", args=[result.pk])
+        page = self.client.get(url)
+        self.assertEqual(page.context["pixel_cards"][0]["review_index"], 2)
+        self.assertContains(page, "Matching samples: 2")
+        merged = self.client.post(
+            reverse("caidapp:merge_identities", args=[second.pk, third.pk]),
+            {
+                "name": third.name,
+                "sex": "U",
+                "coat_type": "U",
+                "action": "merge_next",
+                "review_result": result.pk,
+                "review_index": 1,
+                "next": url,
+            },
+        )
+        self.assertEqual(urlparse(merged.url).path, reverse("caidapp:merge_identities", args=[third.pk, fourth.pk]))
+        self.assertEqual(parse_qs(urlparse(merged.url).query)["review_index"], ["2"])
+        self.staff.workgroup_admin = True
+        self.staff.save(update_fields=["workgroup_admin"])
+        bulk = self.client.post(
+            reverse("caidapp:merge_similar_identity_pairs", args=[result.pk]), {"pairs": ["2"], "next": url}
+        )
+        self.assertRedirects(bulk, url, fetch_redirect_response=False)
+        self.assertFalse(IndividualIdentity.objects.filter(pk=third.pk).exists())
+        self.assertTrue(IndividualIdentity.objects.filter(pk=fourth.pk).exists())
+        self.assertEqual(self.client.get(url).context["pixel_cards"], [])
 
     def test_excluding_pair_rejects_foreign_identities_and_external_return_url(self):
         """Do not create cross-workgroup exclusions or redirect outside this application."""

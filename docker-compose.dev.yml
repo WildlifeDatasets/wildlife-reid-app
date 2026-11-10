@@ -86,9 +86,8 @@ services:
       - shared-data:/shared_data
 #    expose:
 #      - 22280  # this limit access to the inner nginx only
-#    depends_on:
-#      - taxon_worker_dev
-#      - identification_worker_dev
+    depends_on:
+      - duplicate_worker_dev
     labels:
       com.piva-ai.group: "applications"
     networks:
@@ -124,6 +123,43 @@ services:
     depends_on:
       - broker_dev
       - redis_dev
+    labels:
+      com.piva-ai.group: "applications"
+    networks:
+      - dev_backend
+
+  duplicate_worker_dev:
+    platform: linux/amd64
+    # Reuse the taxon image, but run only CPU duplicate tasks in this process.
+    image: caid/taxon_worker:dev
+    build:
+      context: .
+      dockerfile: src/taxon_worker/Dockerfile_dev
+    restart: "no"
+    working_dir: /taxon_worker
+    command: ["celery", "-A", "duplicate_worker.duplicate_worker", "worker", "--pool=prefork", "--concurrency=1", "--hostname=duplicates@%h", "--loglevel=info", "--queues=duplicate_worker", "--max-tasks-per-child=1"]
+    cpus: 2
+    mem_limit: 2g
+    env_file:
+      - "src/variables.env"
+      - "src/variables.dev.env"
+      - ".env"
+    environment:
+      NVIDIA_VISIBLE_DEVICES: void
+      OMP_NUM_THREADS: 1
+      OPENBLAS_NUM_THREADS: 1
+    volumes:
+      - ./src/taxon_worker:/taxon_worker
+      - shared-data:/shared_data
+    depends_on:
+      - broker_dev
+      - redis_dev
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A duplicate_worker.duplicate_worker inspect ping --destination=duplicates@$$HOSTNAME --timeout=5"]
+      interval: 30s
+      timeout: 15s
+      start_period: 45s
+      retries: 3
     labels:
       com.piva-ai.group: "applications"
     networks:

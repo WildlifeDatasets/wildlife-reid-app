@@ -236,6 +236,12 @@ def load_features(db_connection, organization_id, *, start: int = -1, end: int =
             organization_id, start=start, end=end, rows=list(rows)
         )
 
+    if reference_images.empty:
+        raise ValueError(
+            f"No reference embeddings found for workgroup {organization_id}. "
+            "Run identification initialization for this workgroup, wait for it to finish, and retry the search. "
+            "Generating observation embeddings alone does not populate the identification reference database."
+        )
     features = [json.loads(e) for e in reference_images["embedding"]]
     # logger.debug(f"Loaded features {len(reference_images)}, rows: <{start}, {end})")
     return features, reference_images

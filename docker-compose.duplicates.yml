@@ -1,0 +1,4 @@
+# Compatibility overlay for older startup commands. The CPU duplicate worker
+# is now included in docker-compose.yml by default; no extra file is needed.
+services:
+  duplicate_worker: {}

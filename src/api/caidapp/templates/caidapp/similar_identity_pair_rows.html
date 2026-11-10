@@ -17,7 +17,7 @@
                 </div>
                 {% include 'caidapp/similar_identity_pair_row_side.html' with side=card.b side_class='similar-pair-row-right' %}
                 <div class="similar-pair-row-score small">
-                    {% if score_type == 'mega' %}<span class="text-body-secondary">Cosine similarity</span><strong class="d-block">{{ card.similarity|floatformat:3 }}</strong>{% elif score_type == 'name' %}<span class="text-body-secondary">Name/code distance</span><strong class="d-block">{{ card.similarity|floatformat:0 }}</strong>{% else %}<span class="text-body-secondary">Matched points</span><strong class="d-block">{{ card.similarity|floatformat:0 }}</strong>{% endif %}
+                    {% if score_type == 'mega' %}<span class="text-body-secondary">Cosine similarity</span><strong class="d-block">{{ card.similarity|floatformat:3 }}</strong>{% elif score_type == 'name' %}<span class="text-body-secondary">Name/code distance</span><strong class="d-block">{{ card.similarity|floatformat:0 }}</strong>{% elif score_type == 'pixel' %}<span class="text-body-secondary">Matching samples</span><strong class="d-block">{{ card.similarity|floatformat:0 }}</strong>{% else %}<span class="text-body-secondary">Matched points</span><strong class="d-block">{{ card.similarity|floatformat:0 }}</strong>{% endif %}
                 </div>
                 <div class="similar-pair-row-actions">
                     {% if card.is_resolved %}

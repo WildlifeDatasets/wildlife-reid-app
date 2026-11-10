@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="pagetitle"><h1>Duplicate suggestions</h1></div>
+<p role="status">Scan: <strong>{{ scan.status }}</strong>. {% if scan.purpose == "exact" %}{{ scan.processed }} / {{ scan.total }} files processed.{% else %}{{ scan.items|length }} media files.{% endif %} {{ scan.message }}</p>
+{% if scan.status == 'queued' %}<p>Waiting for the dedicated duplicate worker or processing. This page refreshes automatically. Dispatched batches time out after two hours if the worker is unavailable.</p><script>setTimeout(() => location.reload(), 5000);</script>{% endif %}
+{% include "caidapp/duplicate_proposals.html" %}
+{% if issues %}<details class="mt-3"><summary>Skipped or limited inputs ({{ issues|length }})</summary>{% for item in issues %}<p>{{ item.name }}: {{ item.error }} {{ item.pixel_error }}</p>{% endfor %}</details>{% endif %}
+<a class="btn btn-outline-secondary mt-3" href="{% url 'caidapp:duplicates' %}">Workgroup duplicates</a>
+{% endblock %}

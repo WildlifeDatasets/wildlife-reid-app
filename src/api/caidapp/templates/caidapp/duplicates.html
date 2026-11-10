@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="pagetitle"><h1>Duplicates — {{ workgroup.name }}</h1></div>
+<nav class="nav nav-pills mb-3" aria-label="Suggestion category">
+  <a class="nav-link active" href="{% url 'caidapp:duplicates' %}">Media file duplicates</a>
+  <a class="nav-link" href="{% url 'caidapp:duplicate_identity_suggestions' %}">Identities sharing an image</a>
+</nav>
+<p>Exact duplicate detection runs automatically after imports and source changes. Only missing or outdated fingerprints are computed; all stored fingerprints in this working group are compared. There is no limit on the group's file count.</p>
+<div class="row g-3 mb-3" aria-label="Processing summary">
+  <div class="col-sm-4"><div class="card card-body"><strong>{{ total }}</strong> media files in completed imports</div></div>
+  <div class="col-sm-4"><div class="card card-body"><strong>{{ hashed }}</strong> with current fingerprints</div></div>
+  <div class="col-sm-4"><div class="card card-body"><strong>{{ errors }}</strong> failed inputs</div></div>
+</div>
+<p role="status">{% if schedule.active_scan_id %}{% if worker_progress %}Worker processing batch: {{ worker_progress.completed }} / {{ worker_progress.total }} files. {% else %}Waiting for the duplicate worker to accept the batch. {% endif %}Saved: {{ schedule.active_scan.processed }} / {{ schedule.active_scan.total }} files in this run. {{ delivery_message }}{% elif schedule.task_id %}Automatic check scheduled for {{ schedule.eta }}.{% elif scan %}Last run: {{ scan.finished_at|default:scan.created_at }}. {{ scan.message }}{% else %}No check has completed yet. Existing imports are picked up by automatic maintenance.{% endif %} {{ schedule.message }}</p>
+<div class="d-flex flex-wrap gap-2 mb-3">
+  <form method="post" action="{% url 'caidapp:duplicate_scan_start' %}">{% csrf_token %}<button class="btn btn-outline-primary" type="submit">Check working group now</button></form>
+  {% if can_force %}<form method="post" action="{% url 'caidapp:duplicate_scan_start' %}">{% csrf_token %}<input type="hidden" name="force" value="on"><button class="btn btn-outline-secondary" type="submit">Recalculate all fingerprints</button></form>{% endif %}
+</div>
+<p class="text-muted">A matching video reference frame is listed separately and never proves that the whole videos are identical. Finding duplicates does not merge or delete anything automatically.</p>
+{% include "caidapp/duplicate_proposals.html" %}
+{% if issues %}<details class="mt-3"><summary>Unavailable or limited inputs (first {{ issues|length }})</summary>{% for media in issues %}<p>{{ media.original_filename }}: {{ media.hash_message }}</p>{% endfor %}</details>{% endif %}
+{% if pending %}<script>setTimeout(() => location.reload(), 5000);</script>{% endif %}
+{% endblock %}

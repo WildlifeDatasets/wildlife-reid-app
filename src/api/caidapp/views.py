@@ -8556,7 +8556,7 @@ def run_similar_identity_pairs_view(request):
     if workgroup is None:
         return message_view(request, "No workgroup assigned.")
 
-    result = tasks.run_similar_identity_pairs_for_workgroup(workgroup)
+    result = tasks.run_similar_identity_pairs_for_workgroup(workgroup, pixel_only=request.POST.get("method") == "pixel")
     if result.status == "error":
         messages.error(request, result.message)
     else:
@@ -8682,6 +8682,10 @@ def similar_identity_pairs_view(request, result_id: int = None):
     name_cards, name_resolved_count = make_cards(
         result.name_pairs or [], offset=len(result.mega_pairs or []) + len(result.local_pairs or [])
     )
+    pixel_cards, pixel_resolved_count = make_cards(
+        result.pixel_pairs or [],
+        offset=len(result.mega_pairs or []) + len(result.local_pairs or []) + len(result.name_pairs or []),
+    )
 
     return render(
         request,
@@ -8691,8 +8695,9 @@ def similar_identity_pairs_view(request, result_id: int = None):
             "mega_cards": mega_cards,
             "local_cards": local_cards,
             "name_cards": name_cards,
+            "pixel_cards": pixel_cards,
             "show_resolved": show_resolved,
-            "resolved_count": mega_resolved_count + local_resolved_count + name_resolved_count,
+            "resolved_count": mega_resolved_count + local_resolved_count + name_resolved_count + pixel_resolved_count,
             "layout": layout,
             "cards_layout_url": layout_url("cards"),
             "rows_layout_url": layout_url("rows"),

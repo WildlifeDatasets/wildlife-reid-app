@@ -1640,6 +1640,15 @@ class MediaFile(models.Model):
     #     ("U", "Unknown"),
     # )
     objects = MediaFileManager()
+    file_sha256 = models.CharField(max_length=64, blank=True, default="", db_index=True, editable=False)
+    pixel_sha256 = models.CharField(max_length=64, blank=True, default="", db_index=True, editable=False)
+    reference_sha256 = models.CharField(max_length=64, blank=True, default="", db_index=True, editable=False)
+    hash_version = models.CharField(max_length=32, blank=True, default="", editable=False)
+    hash_status = models.CharField(max_length=16, blank=True, default="", editable=False)
+    hash_revision = models.PositiveIntegerField(default=0, editable=False)
+    hash_details = models.JSONField(default=dict, editable=False)
+    hash_message = models.TextField(blank=True, default="", editable=False)
+    hash_computed_at = models.DateTimeField(null=True, blank=True, editable=False)
     MEDIA_TYPE_CHOICES = (
         ("image", "Image"),
         ("video", "Video"),
@@ -2203,6 +2212,107 @@ class AnimalObservation(models.Model):
         return f"xywh=percent:{x*100:.4f},{y*100:.4f},{self.bbox_width*100:.4f},{self.bbox_height*100:.4f}"
 
 
+class DuplicateScan(models.Model):
+    """Persistent, independent duplicate scan; Redis is only a transport."""
+
+    request_key = models.UUIDField(default=uuid.uuid4)
+    uuid = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    requested_by = models.ForeignKey(CaIDUser, on_delete=models.SET_NULL, null=True, blank=True)
+    workgroup = models.ForeignKey(WorkGroup, on_delete=models.CASCADE, null=True, blank=True)
+    purpose = models.CharField(max_length=16, default="legacy")
+    total = models.PositiveIntegerField(default=0)
+    processed = models.PositiveIntegerField(default=0)
+    failed_count = models.PositiveIntegerField(default=0)
+    skipped = models.PositiveIntegerField(default=0)
+    status = models.CharField(max_length=16, default="queued")
+    task_id = models.CharField(max_length=64, blank=True)
+    include_crops = models.BooleanField(default=True)
+    items = models.JSONField(default=list)
+    algorithm = models.CharField(max_length=64, blank=True)
+    message = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["requested_by", "request_key"], name="unique_duplicate_request")]
+
+
+class DuplicateProposal(models.Model):
+    """An exact equivalence group or a directed crop pair, with durable review history."""
+
+    uuid = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    fingerprint = models.CharField(max_length=64, unique=True, null=True, blank=True)
+    scan = models.ForeignKey(DuplicateScan, on_delete=models.CASCADE, related_name="proposals")
+    kind = models.CharField(max_length=16)
+    status = models.CharField(max_length=16, default="pending", db_index=True)
+    evidence = models.JSONField(default=dict)
+    decision = models.JSONField(default=dict)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+
+
+class DuplicateProposalMember(models.Model):
+    """Nullable live reference plus immutable evidence survives permanent deletion."""
+
+    proposal = models.ForeignKey(DuplicateProposal, on_delete=models.CASCADE, related_name="members")
+    mediafile = models.ForeignKey(MediaFile, on_delete=models.SET_NULL, null=True)
+    original_id = models.BigIntegerField()
+    snapshot = models.JSONField(default=dict)
+    position = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["position", "pk"]
+        constraints = [models.UniqueConstraint(fields=["proposal", "original_id"], name="unique_duplicate_member")]
+
+
+class DuplicateHashSchedule(models.Model):
+    """One debounced timer and one active hashing run per workgroup."""
+
+    workgroup = models.OneToOneField(WorkGroup, on_delete=models.CASCADE)
+    task_id = models.CharField(max_length=64, null=True, blank=True)
+    eta = models.DateTimeField(null=True, blank=True)
+    active_scan = models.ForeignKey(DuplicateScan, on_delete=models.SET_NULL, null=True, blank=True)
+    dirty = models.BooleanField(default=False)
+    message = models.TextField(blank=True)
+
+
+class DuplicateHashBatch(models.Model):
+    """A bounded worker input, not a limit on the workgroup's size."""
+
+    uuid = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    scan = models.ForeignKey(DuplicateScan, on_delete=models.CASCADE, related_name="hash_batches")
+    status = models.CharField(max_length=16, default="pending")
+    items = models.JSONField(default=list)
+    message = models.TextField(blank=True)
+    dispatched_at = models.DateTimeField(null=True, blank=True)
+
+
+class DuplicateIdentitySuggestion(models.Model):
+    """Human-reviewed identity candidates supported by matching observations in exact image copies."""
+
+    workgroup = models.ForeignKey(WorkGroup, on_delete=models.CASCADE)
+    identity_a = models.ForeignKey(IndividualIdentity, on_delete=models.CASCADE, related_name="duplicate_candidates_a")
+    identity_b = models.ForeignKey(IndividualIdentity, on_delete=models.CASCADE, related_name="duplicate_candidates_b")
+    active = models.BooleanField(default=True)
+    evidence = models.JSONField(default=list)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["workgroup", "identity_a", "identity_b"],
+                name="unique_duplicate_identity_pair",
+            )
+        ]
+
+
+class DuplicateFileCleanup(models.Model):
+    """Durable post-commit deletion intent, not a trash or restore mechanism."""
+
+    storage_name = models.CharField(max_length=500)
+    status = models.CharField(max_length=16, default="pending")
+    message = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
 class BboxDetectionJob(models.Model):
     """One media file in a detection batch; also caches non-mutating proposals."""
 
@@ -2702,10 +2812,13 @@ class IdentificationSimilarPairResult(models.Model):
     mega_pairs = models.JSONField(default=list, blank=True)
     local_pairs = models.JSONField(default=list, blank=True)
     name_pairs = models.JSONField(default=list, blank=True)
+    pixel_pairs = models.JSONField(default=list, blank=True)
+    pixel_status = models.CharField(max_length=16, blank=True, default="")
+    pixel_message = models.TextField(blank=True, default="")
 
     def ordered_pairs(self):
-        """Keep stable review indices across visual methods followed by name matching."""
-        return (self.mega_pairs or []) + (self.local_pairs or []) + (self.name_pairs or [])
+        """Keep stable review indices across visual, name, and exact-pixel methods."""
+        return (self.mega_pairs or []) + (self.local_pairs or []) + (self.name_pairs or []) + (self.pixel_pairs or [])
 
     class Meta:
         ordering = ("-created_at", "-id")

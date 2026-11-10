@@ -52,6 +52,78 @@ from .models import (
 logger = logging.getLogger("app")
 
 
+@shared_task(name="caidapp.tasks.prepare_duplicate_hashes", queue="celery")
+def prepare_duplicate_hashes(workgroup_id, task_id):
+    """Claim one workgroup timer; hashing does not require an initialized identification model."""
+    from .duplicate_hashes import prepare_hashes
+
+    return prepare_hashes(workgroup_id, task_id)
+
+
+@shared_task(name="caidapp.tasks.dispatch_duplicate_hash_batch", queue="celery")
+def dispatch_duplicate_hash_batch(scan_id):
+    """Continue a durable scan with just one batch in flight per workgroup."""
+    from .duplicate_hashes import dispatch_next_batch
+
+    dispatch_next_batch(scan_id)
+
+
+@shared_task(name="caidapp.tasks.finish_duplicate_hashes", queue="celery")
+def finish_duplicate_hashes(result, batch_id):
+    """Persist exact fingerprints and refresh proposals after the group's last batch."""
+    from .duplicate_hashes import fail_batch, finish_batch
+
+    try:
+        finish_batch(batch_id)
+    except Exception:
+        logger.exception("Could not import exact hashes for batch %s", batch_id)
+        fail_batch(batch_id, "Could not read the worker's hash results")
+
+
+@shared_task(name="caidapp.tasks.fail_duplicate_hashes", queue="celery")
+def fail_duplicate_hashes(batch_id):
+    """Record a failed worker batch and allow the remaining files to continue."""
+    from .duplicate_hashes import fail_batch
+
+    fail_batch(batch_id)
+
+
+@shared_task(name="caidapp.tasks.maintain_duplicate_hashes", queue="celery")
+def maintain_duplicate_hashes():
+    """Backfill existing groups and recover interrupted exact-hash work periodically."""
+    from .duplicate_hashes import maintain_hashes
+
+    maintain_hashes()
+
+
+@shared_task(name="caidapp.tasks.finish_duplicate_scan", queue="celery")
+def finish_duplicate_scan(result, scan_id):
+    """Persist duplicate proposals without changing media files or observations."""
+    from .duplicate_services import fail_scan, finish_scan
+
+    try:
+        finish_scan(scan_id)
+    except Exception:
+        logger.exception("Could not import duplicate scan %s", scan_id)
+        fail_scan(scan_id, "Could not import duplicate scan results.")
+
+
+@shared_task(name="caidapp.tasks.fail_duplicate_scan", queue="celery")
+def fail_duplicate_scan(scan_id):
+    """Record a worker failure durably."""
+    from .duplicate_services import fail_scan
+
+    fail_scan(scan_id)
+
+
+@shared_task(name="caidapp.tasks.cleanup_duplicate_files", queue="celery")
+def cleanup_duplicate_files(ids):
+    """Execute durable file-deletion intents only after the metadata merge committed."""
+    from .duplicate_services import cleanup_files
+
+    cleanup_files(ids)
+
+
 @shared_task(
     name="caidapp.tasks.refresh_identification_dashboard_stats",
     queue="celery",
@@ -3443,16 +3515,96 @@ def _notify_similar_pair_staff(result, message: str, level: int) -> None:
     )
 
 
-def run_similar_identity_pairs_for_workgroup(workgroup: WorkGroup) -> models.IdentificationSimilarPairResult:
+@shared_task(name="caidapp.tasks.prepare_pixel_identity_pairs")
+def prepare_pixel_identity_pairs(result_id: int, pixel_only=False, attempt=0) -> int:
+    """Wait for incremental hashes, then snapshot object-level matches independently of ReID."""
+    from . import duplicate_hashes as hashes
+
+    result = models.IdentificationSimilarPairResult.objects.select_related("workgroup").get(pk=result_id)
+    if result.pixel_status != "processing":
+        return result.id
+    try:
+        hashes.recover_group(result.workgroup_id)
+        media = hashes.group_media(result.workgroup_id)
+        pending = media.filter(hashes._needs_hash()).count()
+        if pending:
+            if attempt >= 240:
+                raise ValueError("Image fingerprint preparation did not finish. Check the duplicate worker and retry.")
+            schedule = models.DuplicateHashSchedule.objects.filter(workgroup_id=result.workgroup_id).first()
+            if attempt == 0 or not schedule or (not schedule.task_id and not schedule.active_scan_id):
+                hashes.schedule_hashes(result.workgroup_id, immediate=True)
+            models.IdentificationSimilarPairResult.objects.filter(pk=result.pk).update(
+                pixel_message=f"Waiting for fingerprints for {pending} media files. Existing fingerprints are reused."
+            )
+            prepare_pixel_identity_pairs.apply_async(
+                args=[result.pk, pixel_only, attempt + 1], countdown=15, queue="celery"
+            )
+            return result.id
+
+        with transaction.atomic():
+            models.WorkGroup.objects.select_for_update().get(pk=result.workgroup_id)
+            hashes.refresh_identity_suggestions(result.workgroup_id)
+            suggestions = list(
+                models.DuplicateIdentitySuggestion.objects.filter(workgroup_id=result.workgroup_id, active=True)
+                .select_related("identity_a", "identity_b")
+                .order_by("pk")
+            )
+        pairs = []
+        for suggestion in suggestions:
+            if not suggestion.evidence:
+                continue
+            sample = suggestion.evidence[0]
+            pair = {"similarity": len(suggestion.evidence), "evidence": suggestion.evidence}
+            for side in ("a", "b"):
+                identity = getattr(suggestion, f"identity_{side}")
+                pair[f"class_id_{side}"] = identity.pk
+                pair[f"label_{side}"] = identity.name
+                pair[f"mediafile_{side}_id"] = sample[f"mediafile_{side}"]
+            pairs.append(pair)
+        failed = media.filter(Q(hash_status="error") | Q(media_type="image", pixel_sha256="")).count()
+        message = f"Found {len(pairs)} identity pairs sharing identical image pixels and matching object locations."
+        if failed:
+            message += f" {failed} media files could not be fingerprinted; results cover available fingerprints."
+        values = {"pixel_pairs": pairs, "pixel_status": "done", "pixel_message": message}
+        if pixel_only:
+            values.update(status="done", message=message, finished_at=now())
+        models.IdentificationSimilarPairResult.objects.filter(pk=result.pk).update(**values)
+    except Exception as exc:
+        logger.exception("Could not prepare pixel-based identity suggestions for result %s", result.pk)
+        values = {"pixel_status": "error", "pixel_message": str(exc)}
+        if pixel_only:
+            values.update(status="error", message=str(exc), finished_at=now())
+        models.IdentificationSimilarPairResult.objects.filter(pk=result.pk).update(**values)
+    return result.id
+
+
+def run_similar_identity_pairs_for_workgroup(
+    workgroup: WorkGroup, *, pixel_only=False
+) -> models.IdentificationSimilarPairResult:
     """Create a run and queue metadata preparation outside the HTTP request."""
     result = models.IdentificationSimilarPairResult.objects.create(
         workgroup=workgroup,
         message="Preparing name matches and identified observations for the similarity search.",
         task_id=str(uuid.uuid4()),
+        pixel_status="processing",
     )
-    result.input_csv_filename = f"identification_similar_pairs_{result.id}.csv"
-    result.output_csv_filename = f"identification_similar_pairs_{result.id}_most_similar.csv"
-    result.save(update_fields=["input_csv_filename", "output_csv_filename"])
+    if not pixel_only:
+        result.input_csv_filename = f"identification_similar_pairs_{result.id}.csv"
+        result.output_csv_filename = f"identification_similar_pairs_{result.id}_most_similar.csv"
+        result.save(update_fields=["input_csv_filename", "output_csv_filename"])
+
+    try:
+        prepare_pixel_identity_pairs.apply_async(args=[result.pk, pixel_only], queue="celery", retry=False)
+    except Exception as exc:
+        result.pixel_status = "error"
+        result.pixel_message = str(exc)
+        if pixel_only:
+            result.status = "error"
+            result.message = str(exc)
+            result.finished_at = now()
+        result.save(update_fields=["pixel_status", "pixel_message", "status", "message", "finished_at"])
+    if pixel_only:
+        return result
 
     try:
         prepare_similar_identity_pairs.apply_async(

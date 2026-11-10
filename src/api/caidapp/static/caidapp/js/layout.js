@@ -148,7 +148,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     syncContainedImageOverlays();
-    window.addEventListener('resize', syncContainedImageOverlays);
+    window.addEventListener('resize', () => syncContainedImageOverlays());
 
     if ('ResizeObserver' in window) {
         const overlayResizeObserver = new ResizeObserver(entries => {

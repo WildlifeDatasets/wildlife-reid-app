@@ -1,0 +1,16 @@
+<form method="get" class="mb-3"><label for="proposal-status">Status</label> <select id="proposal-status" name="status" class="form-select w-auto d-inline">
+<option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>To review</option>
+<option value="resolved" {% if status_filter == 'resolved' %}selected{% endif %}>Resolved</option>
+<option value="dismissed" {% if status_filter == 'dismissed' %}selected{% endif %}>Dismissed</option>
+<option value="stale" {% if status_filter == 'stale' %}selected{% endif %}>Obsolete</option>
+<option value="all" {% if status_filter == 'all' %}selected{% endif %}>All</option>
+</select> <button class="btn btn-outline-primary" type="submit">Filter</button></form>
+<div class="table-responsive"><table class="table"><thead><tr><th>Kind</th><th>Media files</th><th>Status</th><th></th></tr></thead><tbody>
+{% for proposal in page_obj %}<tr><td>{{ proposal.kind_label }}</td><td>
+{% for member in proposal.members.all %}<div>{% if not member.mediafile_id %}<del>{% endif %}{{ member.snapshot.name|default:member.original_id }} (#{{ member.original_id }}){% if not member.mediafile_id %}</del> — removed{% endif %}</div>{% endfor %}
+</td><td>{{ proposal.status }}</td><td><a class="btn btn-outline-primary" href="{% url 'caidapp:duplicate_review' proposal.uuid %}">{% if proposal.status == 'pending' %}Review{% else %}History{% endif %}</a></td></tr>
+{% empty %}<tr><td colspan="4">No suggestions in this status.</td></tr>{% endfor %}
+</tbody></table></div>
+{% if page_obj.has_previous %}<a href="?status={{ status_filter }}&page={{ page_obj.previous_page_number }}">Previous</a>{% endif %}
+<span>Page {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+{% if page_obj.has_next %}<a href="?status={{ status_filter }}&page={{ page_obj.next_page_number }}">Next</a>{% endif %}

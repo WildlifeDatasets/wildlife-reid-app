@@ -6,6 +6,7 @@ from . import (
     views_bbox,
     views_beta_stability,
     views_comparison,
+    views_duplicates,
     views_embedding_runs,
     views_general,
     views_locality,
@@ -28,6 +29,13 @@ def trigger_error(request):
 
 app_name = "caidapp"
 urlpatterns = [
+    path("duplicates/", views_duplicates.duplicate_list, name="duplicates"),
+    path("duplicate-identities/", views_duplicates.identity_suggestions, name="duplicate_identity_suggestions"),
+    path("duplicate-scans/", views_duplicates.scan_start, name="duplicate_scan_start"),
+    path("duplicate-scans/<uuid:scan_uuid>/", views_duplicates.scan_detail, name="duplicate_scan"),
+    path("duplicate-scans/<uuid:scan_uuid>/status/", views_duplicates.scan_status, name="duplicate_scan_status"),
+    path("duplicate-scans/<uuid:scan_uuid>/matches/", views_duplicates.scan_matches, name="duplicate_scan_matches"),
+    path("duplicate-matches/<uuid:proposal_uuid>/review/", views_duplicates.review, name="duplicate_review"),
     path("tasks/<uuid:run_uuid>/download/", views_embedding_runs.task_download, name="task_download"),
     path("embedding-runs/", views_embedding_runs.embedding_run_start, name="embedding_run_start"),
     path("tasks/", views_embedding_runs.task_list, name="task_list"),

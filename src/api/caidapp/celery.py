@@ -37,6 +37,11 @@ app.conf.update(task_track_started=True)
 # Beat publishes this task every three hours; the API worker performs the refresh.
 app.conf.beat_schedule = {
     **(app.conf.beat_schedule or {}),
+    "maintain-exact-duplicate-hashes": {
+        "task": "caidapp.tasks.maintain_duplicate_hashes",
+        "schedule": timedelta(minutes=15),
+        "options": {"queue": "celery", "expires": 15 * 60},
+    },
     "cleanup-export-files-weekly": {
         "task": "caidapp.tasks.cleanup_export_files",
         "schedule": timedelta(days=7),

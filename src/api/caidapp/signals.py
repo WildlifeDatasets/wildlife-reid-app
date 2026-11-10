@@ -94,3 +94,11 @@ def restore_placeholder_after_last_observation_delete(sender, instance, using="d
         lambda: _ensure_mediafile_has_observation(mediafile_id, using=using),
         using=using,
     )
+
+
+@receiver(post_delete, sender=models.MediaFile)
+def invalidate_duplicate_proposals(sender, instance, **kwargs):
+    """Remove obsolete duplicate suggestions even after deletion outside the duplicate UI."""
+    from .duplicate_services import invalidate_deleted_media
+
+    invalidate_deleted_media(instance.pk)
