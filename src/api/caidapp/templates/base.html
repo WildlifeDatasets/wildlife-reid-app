@@ -210,22 +210,27 @@
 
                 <!-- Standard Links -->
                 <li class="nav-item">
-                    <a class="nav-link" href="{% url 'caidapp:media_files' %}">
-                        <i class="bi bi-images"></i> <span>Media files</span>
+                    <a class="nav-link" href="{% url 'caidapp:sequences' %}">
+                        <i class="bi bi-collection"></i> <span>Media files</span>
                     </a>
                 </li>
+                {% if user.is_staff or user.is_superuser or user.caiduser.workgroup_admin %}
                 <li class="nav-item">
-                    <a class="nav-link" href="{% url 'caidapp:sequences' %}">
-                        <i class="bi bi-collection"></i> <span>Sequences</span>
+                    <a class="nav-link d-flex align-items-center" href="{% url 'caidapp:media_files' %}">
+                        <i class="bi bi-images"></i> <span>Media files old</span>
+                        <span class="ms-auto" title="Administrators only">
+                            <i class="bi bi-lock-fill" aria-hidden="true"></i>
+                            <span class="visually-hidden">Administrators only</span>
+                        </span>
                     </a>
+                </li>
+                {% endif %}
+                <li class="nav-item">
                     <a class="nav-link" href="{% url 'caidapp:observations' %}">
                         <i class="bi bi-bounding-box"></i> <span>Observations</span>
                     </a>
                     <a class="nav-link" href="{% url 'caidapp:task_list' %}">
                         <i class="bi bi-list-task"></i> <span>Tasks</span>
-                    </a>
-                    <a class="nav-link" href="{% url 'caidapp:comparison' %}">
-                        <i class="bi bi-layout-split"></i> <span>Comparison</span>
                     </a>
                 </li>
                 <li class="nav-item">
