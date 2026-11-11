@@ -83,6 +83,22 @@ def _describe_proposals(page):
         proposal.summary = service.proposal_summary(proposal)
 
 
+def _proposal_page(rows, number):
+    """Rank the whole visible catalogue before pagination, retaining only IDs between batches."""
+    ranked = []
+    for proposal in rows.iterator(chunk_size=100):
+        summary = service.proposal_summary(proposal)
+        count = summary["difference_count"]
+        ranked.append((not summary["perfect"], count if count is not None else float("inf"), proposal.pk))
+    ranked.sort()
+    page = Paginator([pk for _, _, pk in ranked], 20).get_page(number)
+    ids = list(page.object_list)
+    by_id = {proposal.pk: proposal for proposal in rows.filter(pk__in=ids)}
+    page.object_list = [by_id[pk] for pk in ids if pk in by_id]
+    _describe_proposals(page)
+    return page
+
+
 @login_required
 @require_GET
 def duplicate_list(request):
@@ -94,8 +110,7 @@ def duplicate_list(request):
     media = hashes.group_media(user.workgroup_id)
     scan = models.DuplicateScan.objects.filter(workgroup_id=user.workgroup_id).order_by("-pk").first()
     status = request.GET.get("status", "pending")
-    page = Paginator(_visible_proposals(request, scan, status), 20).get_page(request.GET.get("page"))
-    _describe_proposals(page)
+    page = _proposal_page(_visible_proposals(request, scan, status), request.GET.get("page"))
     schedule = models.DuplicateHashSchedule.objects.filter(workgroup_id=user.workgroup_id).first()
     batch = (
         schedule.active_scan.hash_batches.filter(status="queued").first()
@@ -217,8 +232,7 @@ def scan_detail(request, scan_uuid):
         service.refresh_scan(scan)
     status = request.GET.get("status", "pending")
     proposals = _visible_proposals(request, scan, status)
-    page = Paginator(proposals, 20).get_page(request.GET.get("page"))
-    _describe_proposals(page)
+    page = _proposal_page(proposals, request.GET.get("page"))
     accessible = set(models.MediaFile.objects.for_user(request.user.caiduser).values_list("pk", flat=True))
     return render(
         request,
@@ -275,8 +289,7 @@ def scan_matches(request, scan_uuid):
     rows = _visible_proposals(request, scan, request.GET.get("status", "pending"))
     if request.GET.get("type") in KIND_LABELS:
         rows = rows.filter(kind=request.GET["type"])
-    page = Paginator(rows, 20).get_page(request.GET.get("page"))
-    _describe_proposals(page)
+    page = _proposal_page(rows, request.GET.get("page"))
     return JsonResponse(
         {
             "count": page.paginator.count,
@@ -307,7 +320,11 @@ def scan_matches(request, scan_uuid):
 
 
 def _next_proposal(request, scan, kept_id=None):
-    next_row = _visible_proposals(request, scan, "pending").first()
+    rows = _visible_proposals(request, scan, "pending")
+    next_row = rows.filter(members__mediafile_id=kept_id).first() if kept_id else None
+    if next_row is None:
+        next_page = _proposal_page(rows, 1)
+        next_row = next_page[0] if next_page else None
     if next_row:
         url = reverse("caidapp:duplicate_review", args=[next_row.uuid])
         if kept_id and next_row.members.filter(mediafile_id=kept_id).exists():

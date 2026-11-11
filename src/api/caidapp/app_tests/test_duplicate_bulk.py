@@ -155,3 +155,37 @@ class DuplicateBulkTest(TestCase):
         self.assertContains(response, "text-success")
         self.assertContains(response, 'name="proposals"')
         self.assertNotContains(response, "(#")
+
+    def test_catalogue_sorts_perfect_then_fewest_differing_fields(self):
+        """Perfect matches lead even when they were created later than conflicting groups."""
+        high = self.group_proposal([self.media(), self.media(note="Different", location="50,14")])
+        medium = self.group_proposal([self.media(), self.media(note="Different")])
+        perfect = self.group_proposal([self.media(), self.media()])
+        hidden = self.group_proposal([self.media(), self.media(metadata_json={"extra": 1})])
+        with patch("caidapp.duplicate_hashes.recover_group"):
+            response = self.client.get(reverse("caidapp:duplicates"))
+        self.assertEqual([row.pk for row in response.context["page_obj"]], [perfect.pk, hidden.pk, medium.pk, high.pk])
+
+    def test_perfect_match_moves_to_first_page_and_api_uses_same_order(self):
+        """Sort before slicing pages, with stable order among equally matching groups."""
+        earlier = [self.group_proposal([self.media(), self.media(note="Different")]) for _ in range(21)]
+        perfect = self.group_proposal([self.media(), self.media()])
+        with patch("caidapp.duplicate_hashes.recover_group"):
+            first = self.client.get(reverse("caidapp:duplicates"))
+            second = self.client.get(reverse("caidapp:duplicates"), {"page": 2})
+        self.assertEqual(first.context["page_obj"][0].pk, perfect.pk)
+        self.assertEqual([row.pk for row in second.context["page_obj"]], [earlier[-2].pk, earlier[-1].pk])
+        with patch("caidapp.duplicate_services.refresh_scan"):
+            api = self.client.get(reverse("caidapp:duplicate_scan_matches", args=[perfect.scan.uuid]))
+        self.assertEqual(api.json()["results"][0]["uuid"], str(perfect.uuid))
+
+    def test_show_next_follows_match_order(self):
+        """Individual review advances to the next perfect match before older conflicting groups."""
+        self.group_proposal([self.media(), self.media(note="Different")])
+        current = self.group_proposal([self.media(), self.media()])
+        following = self.group_proposal([self.media(), self.media()])
+        url = reverse("caidapp:duplicate_review", args=[current.uuid])
+        preview = self.client.get(url)
+        with patch("caidapp.tasks.cleanup_duplicate_files.delay"):
+            result = self.client.post(url, {"token": preview.context["token"]})
+        self.assertEqual(result.url, reverse("caidapp:duplicate_review", args=[following.uuid]))
