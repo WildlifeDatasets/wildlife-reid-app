@@ -2,7 +2,7 @@ import logging
 import re
 
 import django_filters
-from django.db.models import Count, Q, Value
+from django.db.models import Count, OuterRef, Q, Subquery, Value
 from django.db.models.functions import Concat
 
 from . import models
@@ -130,6 +130,31 @@ class IndividualIdentityFilter(django_filters.FilterSet):
 
 
 class MediaFileFilter(django_filters.FilterSet):
+    sequence_files_min = django_filters.NumberFilter(
+        method="filter_sequence_size",
+        label="Media files in sequence: minimum",
+        min_value=1,
+    )
+    sequence_files_max = django_filters.NumberFilter(
+        method="filter_sequence_size",
+        label="Media files in sequence: maximum",
+        min_value=1,
+    )
+
+    def filter_sequence_size(self, queryset, name, value):
+        """Count complete sequences independently of other media file filters."""
+        sequence_size = (
+            models.MediaFile.objects.filter(sequence_id=OuterRef("sequence_id"))
+            .order_by()
+            .values("sequence_id")
+            .annotate(total=Count("pk"))
+            .values("total")
+        )
+        lookup = "gte" if name == "sequence_files_min" else "lte"
+        return queryset.alias(sequence_file_total=Subquery(sequence_size)).filter(
+            **{f"sequence_file_total__{lookup}": value}
+        )
+
     # A free-text search filter. This uses a custom method to apply full text search.
 
     request = None

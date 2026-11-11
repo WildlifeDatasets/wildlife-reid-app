@@ -4678,10 +4678,22 @@ SEQUENCE_PER_PAGE_OPTIONS = [12, 24, 48, 96, 192]
 SEQUENCE_SORT_OPTIONS = {
     "captured_desc": {"label": "Newest first", "order_by": ("-first_captured_at", "-first_mediafile_id", "-pk")},
     "captured_asc": {"label": "Oldest first", "order_by": ("first_captured_at", "first_mediafile_id", "pk")},
-    "count_desc": {"label": "Most files first", "order_by": ("-mediafile_count", "-first_captured_at", "-pk")},
-    "count_asc": {"label": "Fewest files first", "order_by": ("mediafile_count", "first_captured_at", "pk")},
-    "sequence_asc": {"label": "Sequence number ascending", "order_by": ("local_id", "first_captured_at", "pk")},
-    "sequence_desc": {"label": "Sequence number descending", "order_by": ("-local_id", "-first_captured_at", "-pk")},
+    "count_desc": {
+        "label": "Media file count: most first",
+        "order_by": ("-mediafile_count", "-first_captured_at", "-pk"),
+    },
+    "count_asc": {
+        "label": "Media file count: fewest first",
+        "order_by": ("mediafile_count", "first_captured_at", "pk"),
+    },
+    "sequence_asc": {
+        "label": "Sequence ID within upload: ascending",
+        "order_by": ("local_id", "first_captured_at", "pk"),
+    },
+    "sequence_desc": {
+        "label": "Sequence ID within upload: descending",
+        "order_by": ("-local_id", "-first_captured_at", "-pk"),
+    },
 }
 
 

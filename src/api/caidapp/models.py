@@ -1566,6 +1566,30 @@ class Sequence(models.Model):
     local_id = models.IntegerField(null=True, blank=True)
 
     @property
+    def individuals_summary(self):
+        """Summarize recorded individuals without treating video bboxes as simultaneous."""
+        known_ids = set()
+        minimum = 0
+        unidentified_count = 0
+        for mediafile in self.mediafile_set.all():
+            observations = [obs for obs in mediafile.observations.all() if not obs.is_no_detection_placeholder]
+            file_known_ids = {obs.identity_id for obs in observations if obs.identity_id is not None}
+            unknown = sum(obs.identity_id is None for obs in observations)
+            known_ids.update(file_known_ids)
+            unidentified_count += unknown
+            if mediafile.media_type == "image":
+                minimum = max(minimum, len(file_known_ids) + unknown)
+            elif observations:
+                # A video currently has no frame/time coordinate on its observations.
+                minimum = max(minimum, 1)
+        return {
+            "known": len(known_ids),
+            "minimum": max(minimum, len(known_ids)),
+            "is_exact": unidentified_count == 0,
+            "unidentified_observations": unidentified_count,
+        }
+
+    @property
     def taxons(self):
         """Return unique taxons aggregated from all observations in the sequence."""
         return _unique_sorted_model_objects(

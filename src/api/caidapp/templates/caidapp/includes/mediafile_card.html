@@ -70,11 +70,7 @@
     </div>
     <div class="card-body">
         {% if sequence_lead_card %}
-            <div class="d-flex justify-content-end align-items-start gap-2 mb-2">
-                {% if sequence.captured_at_start %}
-                    <span class="small text-muted">{{ sequence.captured_at_start|date:'Y-m-d H:i' }}</span>
-                {% endif %}
-            </div>
+            {% include "caidapp/includes/sequence_summary.html" with sequence=sequence only %}
             {% if sequence.primary_locality %}
                 <div class="small mb-1">
                     <strong>Locality:</strong>
@@ -103,6 +99,7 @@
             {% endif %}
         {% endif %}
         {% if selectable %}
+            {% if sequence_lead_card %}<div class="small text-muted">Cover media file:</div>{% endif %}
             <label class="form-label small fw-semibold mb-2" for="{% if sequence_lead_card and sequence.mediafile_count == 1 %}sequence-checkbox-{{ sequence.id }}{% else %}mediafile-checkbox-{{ mediafile.id }}{% endif %}">
                 {{ mediafile.original_filename|default:mediafile.id }}
             </label>

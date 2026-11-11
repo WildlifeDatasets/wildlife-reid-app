@@ -219,7 +219,7 @@
             <td>{% if sequence.cover_mediafile and sequence.cover_mediafile.card_image %}<a class="position-relative d-inline-block" href="{% url 'caidapp:media_file_update' sequence.cover_mediafile.id %}?next={{ request.get_full_path|urlencode }}"><img class="sequence-table-thumb rounded {% if sequence.cover_mediafile.motion_thumbnail %}js-motion-preview{% endif %}" src="{{ sequence.cover_mediafile.card_image.url }}"{% if sequence.cover_mediafile.motion_thumbnail %} data-motion-src="{{ sequence.cover_mediafile.motion_thumbnail.url }}"{% endif %} loading="lazy" alt="Sequence cover">{% if sequence.cover_mediafile.media_type == 'video' %}<span class="media-type-video-badge" title="Video" aria-label="Video"><i class="bi bi-play-fill" aria-hidden="true"></i></span>{% endif %}</a>{% else %}<div class="sequence-table-thumb-placeholder rounded"></div>{% endif %}</td>
             <td class="small">
               <div class="sequence-table-cell-lines">
-                <div><span class="text-muted">Count:</span> {{ sequence.mediafile_count }}</div>
+                {% include "caidapp/includes/sequence_summary.html" with sequence=sequence compact=True only %}
               </div>
             </td>
             <td class="small">
