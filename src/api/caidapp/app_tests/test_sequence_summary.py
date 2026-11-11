@@ -2,8 +2,9 @@
 
 from types import SimpleNamespace
 
-from caidapp.models import Sequence
-from django.test import SimpleTestCase, TestCase
+from caidapp.filters import MediaFileFilter
+from caidapp.models import MediaFile, Sequence
+from django.test import RequestFactory, SimpleTestCase, TestCase
 from django.urls import reverse
 
 from .factories import (
@@ -106,6 +107,52 @@ class SequenceSizeViewTest(TestCase):
         self.assertNotContains(response, "ID within upload: 10")
         self.assertContains(response, "Media files in sequence: minimum")
         self.assertContains(response, "<h1>Media files and sequences</h1>")
+
+
+class SequenceSizeRangeTest(TestCase):
+    """Check inclusive bounds and avoid a sequence recount for every media file."""
+
+    @classmethod
+    def setUpTestData(cls):
+        """Include both range boundaries and files without a sequence."""
+        cls.owner = CaidUserFactory()
+        archive = UploadedArchiveFactory(owner=cls.owner)
+        cls.sequences = {}
+        for size in (4, 5, 20, 21):
+            sequence = SequenceFactory(uploaded_archive=archive)
+            cls.sequences[size] = sequence.pk
+            MediaFile.objects.bulk_create(
+                [MediaFile(parent=archive, sequence=sequence, media_type="video") for _ in range(size)]
+            )
+        MediaFile.objects.bulk_create([MediaFile(parent=archive)])
+
+    def filtered(self, params):
+        """Run the shared filter used by media-file and sequence views."""
+        request = RequestFactory().get("/", params)
+        request.user = self.owner.user
+        return MediaFileFilter(params, queryset=MediaFile.objects.all(), request=request).qs
+
+    def test_range_and_single_bounds(self):
+        """Count media files, including videos, with inclusive min/max limits."""
+        for params, sizes in (
+            ({"sequence_files_min": 5, "sequence_files_max": 20}, (5, 20)),
+            ({"sequence_files_min": 5}, (5, 20, 21)),
+            ({"sequence_files_max": 20}, (4, 5, 20)),
+            ({"sequence_files_min": 20, "sequence_files_max": 5}, ()),
+        ):
+            with self.subTest(params=params):
+                self.assertEqual(
+                    set(self.filtered(params).values_list("sequence_id", flat=True)),
+                    {self.sequences[size] for size in sizes},
+                )
+
+    def test_range_counts_sequences_without_correlated_subqueries(self):
+        """Both bounds must share a grouped count independent of the outer row."""
+        query = self.filtered({"sequence_files_min": 5, "sequence_files_max": 20}).order_by()
+        sql = str(query.query).upper()
+        self.assertEqual(sql.count("GROUP BY"), 1)
+        self.assertEqual(sql.count("HAVING"), 1)
+        self.assertNotIn("CORRELATED", query.explain().upper())
 
 
 class ObservationGroupSummaryTest(TestCase):

@@ -2,7 +2,7 @@ import logging
 import re
 
 import django_filters
-from django.db.models import Count, OuterRef, Q, Subquery, Value
+from django.db.models import Count, Q, Value
 from django.db.models.functions import Concat
 
 from . import models
@@ -142,18 +142,24 @@ class MediaFileFilter(django_filters.FilterSet):
     )
 
     def filter_sequence_size(self, queryset, name, value):
-        """Count complete sequences independently of other media file filters."""
-        sequence_size = (
-            models.MediaFile.objects.filter(sequence_id=OuterRef("sequence_id"))
+        """Group sequence sizes once instead of recounting for every candidate file."""
+        minimum = self.form.cleaned_data.get("sequence_files_min")
+        maximum = self.form.cleaned_data.get("sequence_files_max")
+        # Both controls call this method. Apply their validated bounds together
+        # on the first active control so SQL contains only one grouped subquery.
+        if name == "sequence_files_max" and minimum is not None:
+            return queryset
+        sequence_sizes = (
+            models.MediaFile.objects.exclude(sequence_id=None)
             .order_by()
             .values("sequence_id")
             .annotate(total=Count("pk"))
-            .values("total")
         )
-        lookup = "gte" if name == "sequence_files_min" else "lte"
-        return queryset.alias(sequence_file_total=Subquery(sequence_size)).filter(
-            **{f"sequence_file_total__{lookup}": value}
-        )
+        if minimum is not None:
+            sequence_sizes = sequence_sizes.filter(total__gte=minimum)
+        if maximum is not None:
+            sequence_sizes = sequence_sizes.filter(total__lte=maximum)
+        return queryset.filter(sequence_id__in=sequence_sizes.values("sequence_id"))
 
     # A free-text search filter. This uses a custom method to apply full text search.
 
