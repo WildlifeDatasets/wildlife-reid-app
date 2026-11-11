@@ -1,6 +1,7 @@
 """Duplicate suggestion list, merge previews, and authenticated API endpoints."""
 
 import json
+import math
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -487,6 +488,14 @@ def review(request, proposal_uuid):
                 "media": media,
                 "role": ("keep" if media.pk == keep_id else "delete") if plan else "candidate",
                 "facts": facts,
+                "boxes": [
+                    box
+                    for observation in real
+                    if (box := [getattr(observation, field) for field in service.BBOX_FIELDS])
+                    and all(value is not None and math.isfinite(value) for value in box)
+                    and box[2] > 0
+                    and box[3] > 0
+                ],
             }
         )
     swap_url = ""
@@ -526,6 +535,7 @@ def review(request, proposal_uuid):
             "retained": by_id.get(keep_id),
             "selected_remove": remove_ids[0] if len(remove_ids) == 1 else None,
             "evidence_json": proposal.evidence,
+            "bbox_data": {card["media"].pk: card["boxes"] for card in cards},
             "kind_label": KIND_LABELS.get(proposal.kind, proposal.kind),
         },
     )

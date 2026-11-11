@@ -6,6 +6,7 @@
 .duplicate-original{display:block;color:var(--bs-secondary-color);margin-top:.25rem}.duplicate-original[hidden]{display:none}.duplicate-help{position:relative;color:var(--bs-secondary-color);font-size:.85rem;vertical-align:baseline}.duplicate-help-text{display:none;position:absolute;z-index:10;bottom:calc(100% + .4rem);right:0;width:230px;max-width:65vw;padding:.5rem;border-radius:.35rem;background:var(--bs-body-color);color:var(--bs-body-bg);font-size:.8rem;font-weight:400;text-align:left;white-space:normal}.duplicate-help:hover .duplicate-help-text,.duplicate-help:focus .duplicate-help-text{display:block}.duplicate-fact dd{position:relative}.duplicate-fact-actions{display:inline-block;margin-left:.5rem}.duplicate-fact-value[aria-live]{font-weight:600}
 .duplicate-card{position:relative}.duplicate-card>.mediafile-info-trigger{position:absolute;top:.7rem;right:.7rem}.duplicate-role{padding-right:1.5rem}.duplicate-image{height:240px}.duplicate-fact{display:grid;grid-template-columns:7rem minmax(0,1fr);gap:.5rem;padding:.2rem 0;border:0}.duplicate-fact-different{padding-left:0;border:0}.duplicate-fact dt{font-size:.85rem;align-self:start}.duplicate-fact-different dt{color:var(--bs-warning-text-emphasis,#664d03)}.duplicate-fact dd{min-width:0;font-size:.9rem}.duplicate-difference{padding:.1rem .2rem}.duplicate-fact-actions{margin-left:.25rem}.duplicate-fact-actions .btn{padding:.08rem .3rem;font-size:.75rem}.duplicate-original{font-size:.75rem;margin-top:.1rem}.duplicate-facts{margin-top:.65rem!important}.duplicate-help{font-size:.75rem}@media(max-width:575px){.duplicate-image{height:180px}.duplicate-fact{grid-template-columns:6rem minmax(0,1fr);gap:.35rem}}
 .duplicate-review-layout{display:grid;grid-template-columns:minmax(0,1fr);gap:1rem}.duplicate-review-pair,.duplicate-review-actions{min-width:0}.duplicate-upload{overflow-wrap:anywhere}@media(min-width:1500px){.duplicate-review-layout{grid-template-columns:minmax(0,1fr) 15rem;align-items:start}.duplicate-review-actions{position:sticky;top:5rem}.duplicate-review-actions .btn{width:100%;white-space:normal}}
+.duplicate-image{display:block}
 </style>{% endblock %}
 {% block body %}
 <div class="pagetitle"><h1>{{ kind_label }}</h1></div>
@@ -49,6 +50,7 @@
 {% if proposal.decision %}<details class="mt-3"><summary>Decision history</summary>{% for merge in proposal.decision.merges %}<p>{{ merge.at }}: retained media file #{{ merge.kept }}, removed {{ merge.removed }}.</p>{% endfor %}{% if proposal.decision.dismissed_by %}<p>The remaining suggestion was dismissed.</p>{% endif %}</details>{% endif %}
 </aside></div>
 {{ evidence_json|json_script:'duplicate-evidence' }}
+{{ bbox_data|json_script:'duplicate-bboxes' }}
 <script>
 (() => {
  document.querySelectorAll('.duplicate-copy-note').forEach(button=>button.addEventListener('click',()=>{
@@ -83,12 +85,30 @@
      button.textContent='Undo';}
  }));
  const evidence=JSON.parse(document.getElementById('duplicate-evidence').textContent);
- if(!evidence.polygon)return;
- const image=[...document.querySelectorAll('.duplicate-image')].find(img=>Number(img.dataset.mediaId)===evidence.source_id);
- if(!image)return;
- const canvas=[...document.querySelectorAll('.duplicate-canvas')].find(c=>c.dataset.mediaId===image.dataset.mediaId);
- function draw(){const w=image.clientWidth,h=image.clientHeight;canvas.width=w;canvas.height=h;const scale=Math.min(w/image.naturalWidth,h/image.naturalHeight),iw=image.naturalWidth*scale,ih=image.naturalHeight*scale;const ctx=canvas.getContext('2d');ctx.strokeStyle='#ff9900';ctx.lineWidth=3;ctx.beginPath();evidence.polygon.forEach(([x,y],i)=>ctx[i?'lineTo':'moveTo']((w-iw)/2+x*iw,(h-ih)/2+y*ih));ctx.closePath();ctx.stroke();}
- image.addEventListener('load',draw);window.addEventListener('resize',draw);if(image.complete)draw();
+ const bboxData=JSON.parse(document.getElementById('duplicate-bboxes').textContent);
+ document.querySelectorAll('.duplicate-image').forEach(image=>{
+   const canvas=[...document.querySelectorAll('.duplicate-canvas')].find(c=>c.dataset.mediaId===image.dataset.mediaId);
+   function draw(){
+     if(!image.naturalWidth||!image.naturalHeight)return;
+     const w=image.clientWidth,h=image.clientHeight,dpr=window.devicePixelRatio||1;
+     canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);
+     const ctx=canvas.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);
+     const scale=Math.min(w/image.naturalWidth,h/image.naturalHeight),iw=image.naturalWidth*scale,ih=image.naturalHeight*scale;
+     const ox=(w-iw)/2,oy=(h-ih)/2;
+     ctx.save();ctx.beginPath();ctx.rect(ox,oy,iw,ih);ctx.clip();
+     (bboxData[image.dataset.mediaId]||[]).forEach(([x,y,bw,bh])=>{
+       const left=ox+(x-bw/2)*iw,top=oy+(y-bh/2)*ih;
+       ctx.strokeStyle='#fff';ctx.lineWidth=4;ctx.strokeRect(left,top,bw*iw,bh*ih);
+       ctx.strokeStyle='#dc3545';ctx.lineWidth=2;ctx.strokeRect(left,top,bw*iw,bh*ih);
+     });
+     if(evidence.polygon&&Number(image.dataset.mediaId)===evidence.source_id){
+       ctx.strokeStyle='#ff9900';ctx.lineWidth=3;ctx.beginPath();
+       evidence.polygon.forEach(([x,y],i)=>ctx[i?'lineTo':'moveTo'](ox+x*iw,oy+y*ih));ctx.closePath();ctx.stroke();
+     }
+     ctx.restore();
+   }
+   image.addEventListener('load',draw);new ResizeObserver(draw).observe(image);if(image.complete)draw();
+ });
 })();
 </script>
 {% endblock %}

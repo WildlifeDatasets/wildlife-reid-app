@@ -24,6 +24,21 @@ from .factories import (
 
 
 class DuplicateReviewTest(TestCase):
+    def test_review_includes_all_valid_observation_boxes_for_each_image(self):
+        """Draw multiple objects and zero-valued coordinates, excluding boxless observations."""
+        a, b = self.media(), self.media()
+        first = dict(bbox_x_center=0.0, bbox_y_center=0.2, bbox_width=0.2, bbox_height=0.3)
+        second = dict(bbox_x_center=0.6, bbox_y_center=0.5, bbox_width=0.1, bbox_height=0.2)
+        AnimalObservationFactory(mediafile=a, **first)
+        AnimalObservationFactory(mediafile=a, **second)
+        AnimalObservationFactory(mediafile=a, bbox_width=None)
+        AnimalObservationFactory(mediafile=b, **second)
+        proposal = self.proposal([a, b])
+        response = self.client.get(reverse("caidapp:duplicate_review", args=[proposal.uuid]))
+        self.assertEqual(response.context["bbox_data"][a.pk], [[0.0, 0.2, 0.2, 0.3], [0.6, 0.5, 0.1, 0.2]])
+        self.assertEqual(response.context["bbox_data"][b.pk], [[0.6, 0.5, 0.1, 0.2]])
+        self.assertContains(response, 'id="duplicate-bboxes"')
+
     def test_equal_metadata_prefers_longer_original_filename(self):
         """Prefer potentially informative filenames after matching metadata scores."""
         short = self.media(original_filename="image.jpg")
