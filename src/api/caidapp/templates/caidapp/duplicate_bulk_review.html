@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% load mediafile_info %}
+{% block body %}
+<div class="pagetitle"><h1>Confirm duplicate removal</h1></div>
+<p>{{ previews|length }} groups · <strong>{{ remove_count }} media files to delete</strong></p>
+<p class="text-danger">Deletion is permanent. The red files, their observations and their own previews will be deleted. Green files remain unchanged.</p>
+{% if perfect_only %}<p>Only exact duplicates with matching metadata, observations and album memberships are included. Upload, sequence and original filename may differ.</p>{% endif %}
+{% if skipped %}<p>{{ skipped }} ineligible or overlapping groups were skipped.</p>{% endif %}
+{% if limited %}<p class="alert alert-info">This batch contains the first 200 eligible groups. Run the action again to review the remaining groups.</p>{% endif %}
+{% for row in previews %}<section class="card mb-3"><div class="card-body p-3">
+{% for member in row.summary.members %}{% if member.media %}<div class="d-flex align-items-center gap-2 {% if member.role == 'keep' %}text-success{% else %}text-danger{% endif %}"><strong>{% if member.role == 'keep' %}Retain{% else %}Delete{% endif %}: {{ member.name }}</strong>{% mediafile_info member.media request %}</div><div class="small text-muted mb-2">Upload: {{ member.media.parent.name|default:'—' }}</div>{% endif %}{% endfor %}
+{% if row.summary.warnings %}<div class="alert alert-warning mb-0"><strong>{{ row.summary.difference_count }} metadata fields differ</strong><ul class="mb-0">{% for warning in row.summary.warnings %}<li>{{ warning.label }}<ul>{% for value in warning.values %}<li>{{ value.name }}: {{ value.value }}</li>{% endfor %}</ul></li>{% endfor %}</ul></div>{% elif not row.summary.perfect %}<p class="text-warning mb-0">Other metadata or observations differ. Review this group individually if any of those details should be preserved.</p>{% endif %}
+</div></section>{% endfor %}
+<form method="post" action="{% url 'caidapp:duplicate_bulk_review' %}" class="d-flex gap-2 flex-wrap">{% csrf_token %}<input type="hidden" name="action" value="apply"><input type="hidden" name="token" value="{{ token }}"><button class="btn btn-danger" type="submit">Permanently delete {{ remove_count }} media files</button><a class="btn btn-outline-secondary" href="{% url 'caidapp:duplicates' %}">Cancel</a></form>
+{% endblock %}
