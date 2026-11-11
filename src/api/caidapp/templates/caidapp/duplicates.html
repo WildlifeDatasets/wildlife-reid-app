@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block body %}
-<div class="pagetitle"><h1>Duplicates — {{ workgroup.name }}</h1></div>
+<div class="pagetitle"><h1 class="text-break">Duplicates — {{ workgroup.name }}</h1></div>
 <nav class="nav nav-pills mb-3" aria-label="Suggestion category">
   <a class="nav-link active" href="{% url 'caidapp:duplicates' %}">Media file duplicates</a>
   <a class="nav-link" href="{% url 'caidapp:duplicate_identity_suggestions' %}">Identities sharing an image</a>
@@ -19,5 +19,5 @@
 <p class="text-muted">A matching video reference frame is listed separately and never proves that the whole videos are identical. Finding duplicates does not merge or delete anything automatically.</p>
 {% include "caidapp/duplicate_proposals.html" %}
 {% if issues %}<details class="mt-3"><summary>Unavailable or limited inputs (first {{ issues|length }})</summary>{% for media in issues %}<p>{{ media.original_filename }}: {{ media.hash_message }}</p>{% endfor %}</details>{% endif %}
-{% if pending %}<script>setTimeout(() => location.reload(), 5000);</script>{% endif %}
+{% if pending %}<script>function refreshDuplicates(){setTimeout(()=>{if(!document.querySelector('.duplicate-select:checked, .modal.show'))location.reload();else refreshDuplicates();},5000);}refreshDuplicates();</script>{% endif %}
 {% endblock %}

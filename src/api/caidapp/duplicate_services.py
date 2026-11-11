@@ -297,6 +297,157 @@ def retention_score(media):
     return score
 
 
+def preferred_media(rows):
+    """Use the same deterministic survivor in lists, previews and bulk actions."""
+    return max(rows, key=lambda media: (retention_score(media), -media.pk))
+
+
+METADATA_FIELDS = ("captured_at", "locality_id", "location", "note", "metadata_json", "media_type")
+
+
+def metadata_fingerprint(media, observations, albums, covers=()):
+    """Compare domain data without record IDs, provenance timestamps, upload or sequence membership."""
+    ignored = {"id", "uuid", "mediafile", "updated_by", "updated_at", "taxon_verified_at"}
+    annotations = [
+        digest(
+            {
+                field.attname: obs.get(field.attname)
+                for field in models.AnimalObservation._meta.concrete_fields
+                if field.name not in ignored
+            }
+        )
+        for obs in observations
+        if not obs.get("is_no_detection_placeholder")
+    ]
+    return digest(
+        {
+            "media": {field: media.get(field) for field in METADATA_FIELDS},
+            "observations": sorted(annotations),
+            "albums": sorted(albums),
+            "album_covers": sorted(covers),
+        }
+    )
+
+
+def proposal_summary(proposal):
+    """Compare cached metadata without reading sources; destructive previews recheck the actual files."""
+    members = list(proposal.members.all())
+    rows = [member.mediafile for member in members if member.mediafile_id]
+    kept = preferred_media(rows) if rows else None
+    observations = [obs for media in rows for obs in media.observations.all()]
+    warnings = _difference_warnings(rows, observations) if len(rows) > 1 else []
+    eligible = proposal.status == "pending" and len(rows) > 1 and proposal.kind in {"byte_exact", "pixel_exact"}
+    signatures = [
+        metadata_fingerprint(
+            {field: getattr(media, field) for field in METADATA_FIELDS},
+            [obs.__dict__ for obs in media.observations.all()],
+            [album.pk for album in media.album_set.all()],
+            [album.pk for album in media.cover.all()],
+        )
+        for media in rows
+    ]
+    perfect = eligible and len(set(signatures)) == 1 and not warnings
+    return {
+        "keep_id": kept.pk if kept else None,
+        "difference_count": len(warnings) if len(rows) > 1 else None,
+        "warnings": warnings,
+        "perfect": perfect,
+        "eligible": eligible,
+        "members": [
+            {
+                "media": member.mediafile,
+                "name": (
+                    member.mediafile.original_filename
+                    if member.mediafile_id
+                    else member.snapshot.get("name", "Removed media file")
+                ),
+                "role": (
+                    ("keep" if member.mediafile_id == kept.pk else "delete")
+                    if kept and (eligible or proposal.status == "resolved")
+                    else "reference"
+                ),
+            }
+            for member in members
+        ],
+    }
+
+
+MAX_BULK_PROPOSALS = 200
+
+
+def bulk_preview(proposals, user, perfect_only=False):
+    """Freeze a bounded, disjoint set of whole-file deletions for explicit confirmation."""
+    plans, previews, used = [], [], set()
+    skipped, limited = 0, False
+    for proposal in proposals:
+        summary = proposal_summary(proposal)
+        if not summary["eligible"] or (perfect_only and not summary["perfect"]):
+            skipped += 1
+            continue
+        if len(plans) >= MAX_BULK_PROPOSALS:
+            limited = True
+            break
+        plan = build_plan(proposal, user, summary["keep_id"])
+        # Use the signed audit snapshot, not potentially stale list-prefetch objects,
+        # for perfect-only eligibility at the destructive confirmation boundary.
+        state = plan["audit"]
+        fingerprints = [
+            metadata_fingerprint(
+                media,
+                [obs for obs in state["observations"] if obs["mediafile_id"] == media["id"]],
+                [album["album_id"] for album in state["albums"] if album["mediafile_id"] == media["id"]],
+                [album["id"] for album in state["album_covers"] if album["cover_id"] == media["id"]],
+            )
+            for media in state["media"]
+        ]
+        summary["perfect"] = len(set(fingerprints)) == 1 and not plan["warnings"]
+        if perfect_only and not summary["perfect"]:
+            skipped += 1
+            continue
+        current = {media.pk: media for media in plan["members"]}
+        for member in summary["members"]:
+            if member["media"]:
+                member["media"] = current[member["media"].pk]
+        summary["warnings"] = plan["warnings"]
+        summary["difference_count"] = len(plan["warnings"])
+        ids = {plan["keep_id"], *plan["remove_ids"]}
+        if ids & used:
+            skipped += 1
+            continue
+        used |= ids
+        plans.append({"id": proposal.pk, "token": preview_token(proposal, user, plan), "members": sorted(ids)})
+        previews.append({"proposal": proposal, "summary": summary})
+    if not plans:
+        raise ValueError(
+            "No eligible duplicate groups. Select exact duplicates or review the suggestions individually."
+        )
+    token = signing.dumps({"user": user.pk, "plans": plans}, salt="duplicate-bulk-v1", compress=True)
+    return {
+        "token": token,
+        "previews": previews,
+        "skipped": skipped,
+        "limited": limited,
+        "remove_count": sum(len(plan["members"]) - 1 for plan in plans),
+    }
+
+
+@transaction.atomic
+def apply_bulk(user, token, allowed_proposal_ids):
+    """Apply the complete signed batch or roll it all back, including durable cleanup intents."""
+    data = signing.loads(token, salt="duplicate-bulk-v1", max_age=1800)
+    plans = data["plans"]
+    if data["user"] != user.pk or not 1 <= len(plans) <= MAX_BULK_PROPOSALS:
+        raise ValueError("Invalid bulk preview")
+    if not {plan["id"] for plan in plans}.issubset(set(allowed_proposal_ids)):
+        raise ValueError("Access or proposal status changed. Review the list again.")
+    ids = sorted({member for plan in plans for member in plan["members"]})
+    # A single global lock order avoids deadlocks with overlapping individual reviews.
+    list(models.MediaFile.objects.select_for_update().filter(pk__in=ids).order_by("pk").values_list("pk", flat=True))
+    for plan in plans:
+        apply_merge(plan["id"], user, plan["token"])
+    return sum(len(plan["members"]) - 1 for plan in plans)
+
+
 def _difference_warnings(rows, observations):
     """Compare meaningful file facts and assigned identities, without reconciling anonymous observations."""
     warnings = []
@@ -310,8 +461,8 @@ def _difference_warnings(rows, observations):
         for media in rows
     }
 
-    def compare(key, label, values):
-        if len({digest(value) for value in values.values()}) > 1:
+    def compare(key, label, values, comparison=None):
+        if len({digest(value) for value in (comparison if comparison is not None else values).values()}) > 1:
             warnings.append(
                 {
                     "field": key,
@@ -365,7 +516,7 @@ def _difference_warnings(rows, observations):
         ("note", "Notes differ"),
     ]:
         values = {media.pk: str(getattr(media, field)) if getattr(media, field) else None for media in rows}
-        compare(field, label, values)
+        compare(field, label, values, {media.pk: media.locality_id for media in rows} if field == "locality" else None)
     return warnings
 
 
@@ -440,6 +591,7 @@ def build_plan(proposal, user, keep_id, remove_ids=None, lock=False):
             )
         ),
         "albums": list(models.Album.mediafiles.through.objects.filter(mediafile_id__in=ids).order_by("pk").values()),
+        "album_covers": list(models.Album.objects.filter(cover_id__in=ids).order_by("pk").values("id", "cover_id")),
     }
     for media in rows:
         snapshot = snapshots[media.pk]

@@ -1,6 +1,7 @@
 """Duplicate suggestion list, merge previews, and authenticated API endpoints."""
 
 import json
+import uuid
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -61,7 +62,25 @@ def _visible_proposals(request, scan, status):
     rows = rows.exclude(pk__in=hidden)
     if status in {"pending", "resolved", "dismissed", "stale"}:
         rows = rows.filter(status=status)
-    return rows.order_by("pk").prefetch_related("members__mediafile")
+    return (
+        rows.order_by("pk")
+        .select_related("scan")
+        .prefetch_related(
+            "members__mediafile__parent",
+            "members__mediafile__locality",
+            "members__mediafile__sequence",
+            "members__mediafile__observations__taxon",
+            "members__mediafile__observations__identity",
+            "members__mediafile__album_set",
+            "members__mediafile__cover",
+        )
+    )
+
+
+def _describe_proposals(page):
+    for proposal in page:
+        proposal.kind_label = KIND_LABELS.get(proposal.kind, proposal.kind)
+        proposal.summary = service.proposal_summary(proposal)
 
 
 @login_required
@@ -76,8 +95,7 @@ def duplicate_list(request):
     scan = models.DuplicateScan.objects.filter(workgroup_id=user.workgroup_id).order_by("-pk").first()
     status = request.GET.get("status", "pending")
     page = Paginator(_visible_proposals(request, scan, status), 20).get_page(request.GET.get("page"))
-    for proposal in page:
-        proposal.kind_label = KIND_LABELS.get(proposal.kind, proposal.kind)
+    _describe_proposals(page)
     schedule = models.DuplicateHashSchedule.objects.filter(workgroup_id=user.workgroup_id).first()
     batch = (
         schedule.active_scan.hash_batches.filter(status="queued").first()
@@ -104,8 +122,37 @@ def duplicate_list(request):
             "page_obj": page,
             "status_filter": status,
             "pending": bool(schedule and (schedule.task_id or schedule.active_scan_id)),
+            "bulk_allowed": True,
         },
     )
+
+
+@login_required
+@require_POST
+def bulk_review(request):
+    """Preview explicit group selections or perfect matches; only a signed confirmation deletes."""
+    user = request.user.caiduser
+    if not user.workgroup_id:
+        raise PermissionDenied("Select a working group first")
+    rows = _visible_proposals(request, None, "pending")
+    try:
+        if request.POST.get("action") == "apply":
+            count = service.apply_bulk(user, request.POST.get("token", ""), rows.values_list("pk", flat=True))
+            messages.success(request, f"Removed {count} duplicate media files. Retained files were not changed.")
+            return redirect("caidapp:duplicates")
+        perfect_only = request.POST.get("action") == "perfect"
+        if not perfect_only:
+            selected = {str(uuid.UUID(value)) for value in request.POST.getlist("proposals")}
+            if not selected or len(selected) > service.MAX_BULK_PROPOSALS:
+                raise ValueError(f"Select between 1 and {service.MAX_BULK_PROPOSALS} groups")
+            rows = rows.filter(uuid__in=selected)
+            if rows.count() != len(selected):
+                raise ValueError("Some selected proposals are unavailable")
+        preview = service.bulk_preview(rows.iterator(chunk_size=100), user, perfect_only=perfect_only)
+        return render(request, "caidapp/duplicate_bulk_review.html", {**preview, "perfect_only": perfect_only})
+    except (ValueError, TypeError, KeyError, signing.BadSignature, OSError) as exc:
+        messages.error(request, str(exc))
+        return redirect("caidapp:duplicates")
 
 
 @login_required
@@ -171,8 +218,7 @@ def scan_detail(request, scan_uuid):
     status = request.GET.get("status", "pending")
     proposals = _visible_proposals(request, scan, status)
     page = Paginator(proposals, 20).get_page(request.GET.get("page"))
-    for proposal in page:
-        proposal.kind_label = KIND_LABELS.get(proposal.kind, proposal.kind)
+    _describe_proposals(page)
     accessible = set(models.MediaFile.objects.for_user(request.user.caiduser).values_list("pk", flat=True))
     return render(
         request,
@@ -181,6 +227,7 @@ def scan_detail(request, scan_uuid):
             "scan": scan,
             "page_obj": page,
             "status_filter": status,
+            "bulk_allowed": bool(scan.workgroup_id),
             "issues": [
                 item
                 for item in scan.items
@@ -229,6 +276,7 @@ def scan_matches(request, scan_uuid):
     if request.GET.get("type") in KIND_LABELS:
         rows = rows.filter(kind=request.GET["type"])
     page = Paginator(rows, 20).get_page(request.GET.get("page"))
+    _describe_proposals(page)
     return JsonResponse(
         {
             "count": page.paginator.count,
@@ -238,6 +286,9 @@ def scan_matches(request, scan_uuid):
                     "uuid": str(row.uuid),
                     "kind": row.kind,
                     "status": row.status,
+                    "metadata_difference_count": row.summary["difference_count"],
+                    "perfect_metadata_match": row.summary["perfect"],
+                    "suggested_keep_id": row.summary["keep_id"],
                     "evidence": row.evidence,
                     "members": [
                         {
@@ -319,7 +370,7 @@ def review(request, proposal_uuid):
     keep_id, remove_ids = None, []
     try:
         if proposal.status == "pending" and len(members) >= 2:
-            preferred = max(members, key=lambda media: (service.retention_score(media), -media.pk))
+            preferred = service.preferred_media(members)
             keep_id = int(request.GET.get("keep", preferred.pk))
             remove_ids = (
                 [int(key) for key in request.GET.getlist("remove")]

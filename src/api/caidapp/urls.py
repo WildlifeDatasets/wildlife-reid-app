@@ -30,6 +30,7 @@ def trigger_error(request):
 app_name = "caidapp"
 urlpatterns = [
     path("duplicates/", views_duplicates.duplicate_list, name="duplicates"),
+    path("duplicates/bulk-review/", views_duplicates.bulk_review, name="duplicate_bulk_review"),
     path("duplicate-identities/", views_duplicates.identity_suggestions, name="duplicate_identity_suggestions"),
     path("duplicate-scans/", views_duplicates.scan_start, name="duplicate_scan_start"),
     path("duplicate-scans/<uuid:scan_uuid>/", views_duplicates.scan_detail, name="duplicate_scan"),
