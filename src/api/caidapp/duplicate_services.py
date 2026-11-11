@@ -299,7 +299,7 @@ def retention_score(media):
 
 def preferred_media(rows):
     """Use the same deterministic survivor in lists, previews and bulk actions."""
-    return max(rows, key=lambda media: (retention_score(media), -media.pk))
+    return max(rows, key=lambda media: (retention_score(media), len(media.original_filename or ""), -media.pk))
 
 
 METADATA_FIELDS = ("captured_at", "locality_id", "location", "note", "metadata_json", "media_type")

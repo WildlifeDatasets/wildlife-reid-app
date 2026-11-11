@@ -24,6 +24,24 @@ from .factories import (
 
 
 class DuplicateReviewTest(TestCase):
+    def test_equal_metadata_prefers_longer_original_filename(self):
+        """Prefer potentially informative filenames after matching metadata scores."""
+        short = self.media(original_filename="image.jpg")
+        long = self.media(original_filename="image_salamandra_locality_2026.jpg")
+        proposal = self.proposal([short, long])
+        response = self.client.get(reverse("caidapp:duplicate_review", args=[proposal.uuid]))
+        self.assertEqual(response.context["plan"]["keep_id"], long.pk)
+        self.assertEqual(service.proposal_summary(proposal)["keep_id"], long.pk)
+
+    def test_filename_length_does_not_override_richer_metadata_or_manual_choice(self):
+        """Metadata quality and an explicit user choice remain more important than filename length."""
+        short = self.media(original_filename="a.jpg", note="Field information")
+        long = self.media(original_filename="much_longer_original_filename.jpg")
+        proposal = self.proposal([short, long])
+        self.assertEqual(service.preferred_media([short, long]).pk, short.pk)
+        response = self.client.get(reverse("caidapp:duplicate_review", args=[proposal.uuid]), {"keep": long.pk})
+        self.assertEqual(response.context["plan"]["keep_id"], long.pk)
+
     def test_default_retains_the_file_with_more_metadata(self):
         """Choose richer metadata even when that file is not the first group member."""
         a, b = self.media(), self.media(note="Field note", locality=LocalityFactory(owner=self.user))
