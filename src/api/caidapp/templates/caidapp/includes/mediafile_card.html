@@ -1,3 +1,4 @@
+{% load mediafile_info %}
 <div class="card sequence-mediafile-card {% if not mediafile.matches_current_filter %}sequence-nonmatching-mediafile{% endif %} {{ extra_card_class|default:'' }}" data-sequence-id="{{ sequence.id }}" data-matches-filter="{% if mediafile.matches_current_filter %}true{% else %}false{% endif %}">
     <div class="position-relative">
         {% if mediafile.card_image %}
@@ -165,13 +166,6 @@
         </div>
     </div>
     <div class="position-absolute bottom-0 end-0 p-2">
-        <span
-            class="sequence-info-icon"
-            data-bs-toggle-tooltip="true"
-            data-bs-title="{% if mediafile.taxons_display %}Taxon: {{ mediafile.taxons_display }}&#10;{% endif %}{% if mediafile.identities_display %}Identity: {{ mediafile.identities_display }}&#10;{% endif %}{% if mediafile.locality and show_locality %}Locality: {% if request.session.private_mode %}{{ mediafile.locality.visible_name }}{% else %}{{ mediafile.locality.name }}{% endif %}&#10;{% endif %}{{ mediafile.captured_at|date:'Y-m-d H:i' }}"
-            title="{% if mediafile.taxons_display %}Taxon: {{ mediafile.taxons_display }}&#10;{% endif %}{% if mediafile.identities_display %}Identity: {{ mediafile.identities_display }}&#10;{% endif %}{% if mediafile.locality and show_locality %}Locality: {% if request.session.private_mode %}{{ mediafile.locality.visible_name }}{% else %}{{ mediafile.locality.name }}{% endif %}&#10;{% endif %}{{ mediafile.captured_at|date:'Y-m-d H:i' }}"
-        >
-            <i class="bi bi-info-circle"></i>
-        </span>
+        {% mediafile_info mediafile request %}
     </div>
 </div>

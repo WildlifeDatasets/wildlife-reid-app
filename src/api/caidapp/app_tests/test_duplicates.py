@@ -24,6 +24,45 @@ from .factories import (
 
 
 class DuplicateReviewTest(TestCase):
+    def test_default_retains_the_file_with_more_metadata(self):
+        """Choose richer metadata even when that file is not the first group member."""
+        a, b = self.media(), self.media(note="Field note", locality=LocalityFactory(owner=self.user))
+        proposal = self.proposal([a, b])
+        response = self.client.get(reverse("caidapp:duplicate_review", args=[proposal.uuid]))
+        self.assertEqual(response.context["plan"]["keep_id"], b.pk)
+        self.assertEqual(response.context["plan"]["remove_ids"], [a.pk])
+        self.assertContains(response, f"Upload: {self.archive.name}")
+
+    def test_verified_taxon_and_representative_identity_count_as_three_facts(self):
+        """Reviewed labels outweigh one extra ordinary metadata value."""
+        for field in ["taxon_verified", "identity_is_representative"]:
+            with self.subTest(field=field):
+                a, b = self.media(note="One extra fact"), self.media()
+                AnimalObservationFactory(
+                    mediafile=a,
+                    identity=IndividualIdentityFactory(owner_workgroup=self.user.workgroup),
+                    taxon_verified=False,
+                    identity_is_representative=False,
+                )
+                AnimalObservationFactory(
+                    mediafile=b,
+                    identity=IndividualIdentityFactory(owner_workgroup=self.user.workgroup),
+                    **{"taxon_verified": False, "identity_is_representative": False, field: True},
+                )
+                self.assertEqual(service.retention_score(b) - service.retention_score(a), 1)
+                proposal = self.proposal([a, b])
+                response = self.client.get(reverse("caidapp:duplicate_review", args=[proposal.uuid]))
+                self.assertEqual(response.context["plan"]["keep_id"], b.pk)
+
+    def test_manual_survivor_overrides_information_score(self):
+        """Keep explicit choices, including the survivor selected for a subsequent pair."""
+        a, b = self.media(), self.media(note="More information")
+        proposal = self.proposal([a, b])
+        response = self.client.get(reverse("caidapp:duplicate_review", args=[proposal.uuid]), {"keep": a.pk})
+        self.assertEqual(response.context["plan"]["keep_id"], a.pk)
+        swapped = self.client.get(response.context["swap_url"])
+        self.assertEqual(swapped.context["plan"]["keep_id"], b.pk)
+
     def apply_edits(self, proposal, kept, edits):
         """Apply explicit edits against a freshly signed preview."""
         plan = service.build_plan(proposal, self.user, kept.pk)
@@ -109,7 +148,7 @@ class DuplicateReviewTest(TestCase):
         a, b = self.media(note="first"), self.media(note="second", location="50,14")
         proposal = self.proposal([a, b])
         url = reverse("caidapp:duplicate_review", args=[proposal.uuid])
-        response = self.client.get(url)
+        response = self.client.get(url, {"keep": a.pk})
         self.assertContains(response, 'id="retained-note"')
         self.assertContains(response, 'name="take_location"')
         with patch("caidapp.tasks.cleanup_duplicate_files.delay"):
@@ -139,7 +178,7 @@ class DuplicateReviewTest(TestCase):
                 source = self.media(locality=None if source_empty else locality)
                 proposal = self.proposal([kept, source])
                 url = reverse("caidapp:duplicate_review", args=[proposal.uuid])
-                response = self.client.get(url)
+                response = self.client.get(url, {"keep": kept.pk})
                 options = response.context["plan"]["transfer_options"]
                 option = next(row for row in options if row["field"] == "locality")
                 self.assertEqual(option["source_id"], source.pk)

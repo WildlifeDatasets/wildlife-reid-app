@@ -54,6 +54,7 @@
     <!-- App layout CSS -->
     <link href="{% static 'caidapp/css/layout.css' %}" rel="stylesheet">
     <link href="{% static 'caidapp/css/color_scheme.css' %}" rel="stylesheet">
+    <link href="{% static 'caidapp/css/mediafile-info.css' %}" rel="stylesheet">
 
     <!-- Custom app styles -->
     {% compress css %}
@@ -334,6 +335,8 @@
 
 <!-- Layout Control JS -->
 <script src="{% static 'caidapp/js/layout.js' %}"></script>
+{% include 'caidapp/includes/mediafile_info_modal.html' %}
+<script src="{% static 'caidapp/js/mediafile-info.js' %}"></script>
 
 {% compress js %}
 <script>

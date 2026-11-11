@@ -1,3 +1,4 @@
+<div class="small text-muted text-break">Upload: {{ mediafile.parent.name|default:'—' }}</div>
 <div class="small text-muted">{{ mediafile.captured_at|date:'Y-m-d H:i' }}</div>
 {% if mediafile.taxons %}
     <div class="small">

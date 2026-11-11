@@ -319,7 +319,8 @@ def review(request, proposal_uuid):
     keep_id, remove_ids = None, []
     try:
         if proposal.status == "pending" and len(members) >= 2:
-            keep_id = int(request.GET.get("keep", members[0].pk))
+            preferred = max(members, key=lambda media: (service.retention_score(media), -media.pk))
+            keep_id = int(request.GET.get("keep", preferred.pk))
             remove_ids = (
                 [int(key) for key in request.GET.getlist("remove")]
                 if "subset" in request.GET
@@ -341,7 +342,7 @@ def review(request, proposal_uuid):
         differences = {warning["field"] for warning in plan["warnings"]} if plan else set()
         facts = []
         for field, label, value in [
-            ("identities", "Assigned identities", identities or "No assigned identity"),
+            ("identities", "Identities", identities or "No assigned identity"),
             ("taxa", "Taxa", taxa or "No taxon"),
             ("captured_at", "Captured", media.captured_at),
             ("locality", "Locality", media.locality),

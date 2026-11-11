@@ -261,7 +261,13 @@ def invalidate_deleted_media(mediafile_id):
 def proposal_media(proposal, user, lock=False):
     """Authorize all live members, not just the user who initiated the scan."""
     ids = list(proposal.members.filter(mediafile__isnull=False).values_list("mediafile_id", flat=True))
-    queryset = models.MediaFile.objects.for_user(user).filter(pk__in=ids).order_by("pk")
+    queryset = (
+        models.MediaFile.objects.for_user(user)
+        .filter(pk__in=ids)
+        .order_by("pk")
+        .select_related("parent", "locality", "sequence")
+        .prefetch_related("observations__identity", "observations__taxon")
+    )
     if proposal.scan.workgroup_id:
         if proposal.scan.workgroup_id != user.workgroup_id:
             raise ValueError("The duplicate proposal belongs to another workgroup")
@@ -272,6 +278,23 @@ def proposal_media(proposal, user, lock=False):
     if len(rows) != len(ids):
         raise ValueError("Some proposal members are no longer accessible")
     return rows
+
+
+def retention_score(media):
+    """Prefer richer records; a verified taxon or representative identity counts as three facts."""
+    score = sum(
+        bool(getattr(media, field)) for field in ("captured_at", "locality_id", "location", "note", "metadata_json")
+    )
+    for observation in media.observations.all():
+        if observation.is_no_detection_placeholder:
+            continue
+        if observation.taxon_id:
+            score += 3 if observation.taxon_verified else 1
+        if observation.identity_id:
+            score += 3 if observation.identity_is_representative else 1
+        if all(getattr(observation, field) is not None for field in BBOX_FIELDS):
+            score += 1
+    return score
 
 
 def _difference_warnings(rows, observations):

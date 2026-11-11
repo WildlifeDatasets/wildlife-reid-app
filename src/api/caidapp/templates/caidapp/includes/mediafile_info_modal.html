@@ -1,0 +1,11 @@
+<div class="modal fade" id="mediafile-info-modal" tabindex="-1" aria-labelledby="mediafile-info-title" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable"><div class="modal-content">
+    <div class="modal-header"><h2 class="modal-title fs-5" id="mediafile-info-title">Media file metadata</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+    <div class="modal-body">
+      <dl class="mediafile-info-rows"></dl>
+      <label class="form-label fw-semibold" for="mediafile-info-raw">Source metadata</label>
+      <textarea class="form-control font-monospace" id="mediafile-info-raw" rows="7" readonly></textarea>
+    </div>
+    <div class="modal-footer"><span class="small me-auto" id="mediafile-info-copy-status" role="status"></span><button class="btn btn-outline-secondary" type="button" id="mediafile-info-copy">Copy all</button><a class="btn btn-primary" id="mediafile-info-detail" target="_blank" rel="noopener">Edit media file <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i></a></div>
+  </div></div>
+</div>
