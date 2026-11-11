@@ -38,8 +38,9 @@
 {% include "caidapp/includes/duplicate_identity_merges.html" %}
 {% if error %}<div class="alert alert-warning" role="alert">{{ error }}</div>{% endif %}
 {% if plan %}
-{% if plan.warnings %}<details class="mb-3"><summary>Differences ({{ plan.warnings|length }})</summary>
-<ul>{% for warning in plan.warnings %}<li>{{ warning.label }}</li>{% endfor %}</ul>
+{% if plan.total_difference_count %}<details class="mb-3"><summary>Differences ({{ plan.total_difference_count }})</summary>
+{% include "caidapp/includes/duplicate_difference_details.html" with differences=plan.warnings only %}
+{% include "caidapp/includes/duplicate_difference_details.html" with differences=plan.extra_differences only %}
 </details>{% endif %}
 <p class="small text-muted">Changes save on confirmation. Deletion is permanent.</p>
 <form method="post" id="duplicate-delete-form">{% csrf_token %}<input type="hidden" name="token" value="{{ token }}"><button class="btn btn-danger" type="submit">Save, delete and show next</button></form>

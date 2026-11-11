@@ -51,7 +51,12 @@ def mediafile_info(mediafile, request=None):
             rows.append(
                 {
                     "label": f"Observation #{obs.pk}",
-                    "value": f"Taxon: {obs.taxon or '—'}; Identity: {obs.identity or '—'}; Bbox (cx, cy, w, h): {box}",
+                    "value": (
+                        f"Taxon: {obs.taxon or '—'}; Taxon verified: {'Yes' if obs.taxon_verified else 'No'}; "
+                        f"Identity: {obs.identity or '—'}; "
+                        f"Representative identity: {'Yes' if obs.identity_is_representative else 'No'}; "
+                        f"Bbox (cx, cy, w, h): {box}"
+                    ),
                 }
             )
         metadata = (

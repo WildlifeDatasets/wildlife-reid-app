@@ -33,6 +33,13 @@ class MediafileInfoTest(TestCase):
         self.assertIn(f"Observation #{first.pk}", labels)
         self.assertIn(f"Observation #{second.pk}", labels)
         self.assertIn(str(first.identity), context["summary"])
+        self.assertTrue(
+            any(
+                "Taxon verified:" in row["value"] and "Representative identity:" in row["value"]
+                for row in payload["rows"]
+                if row["label"].startswith("Observation #")
+            )
+        )
         self.assertIn(f"Upload: {media.parent.name}", context["summary"])
         self.assertIn({"label": "Upload", "value": media.parent.name}, payload["rows"])
         html = render_to_string("caidapp/includes/mediafile_info.html", context)

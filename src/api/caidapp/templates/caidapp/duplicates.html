@@ -7,6 +7,7 @@
   {% include "caidapp/includes/duplicate_progress.html" with stats=summary_stats %}
 </div>
 {% include "caidapp/duplicate_proposals.html" %}
+{% if duplicate_jobs %}<details class="mt-3"><summary>Recent duplicate tasks</summary><ul>{% for job in duplicate_jobs %}<li><a href="{% url 'caidapp:duplicate_job' job.uuid %}">{% if job.kind == 'duplicate_preview' %}Removal preview{% else %}Confirmed removal{% endif %} · {{ job.created_at }} · {{ job.status }}</a></li>{% endfor %}</ul></details>{% endif %}
 {% if issues %}<details class="mt-3"><summary>Unavailable or limited inputs (first {{ issues|length }})</summary>{% for media in issues %}<p>{{ media.original_filename }}: {{ media.hash_message }}</p>{% endfor %}</details>{% endif %}
 {% if pending %}<script>function refreshDuplicates(){setTimeout(()=>{if(!document.querySelector('.duplicate-select:checked, .modal.show, .duplicate-summary:hover, .duplicate-summary:focus-within'))location.reload();else refreshDuplicates();},5000);}refreshDuplicates();</script>{% endif %}
 {% endblock %}

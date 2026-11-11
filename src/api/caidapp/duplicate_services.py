@@ -269,7 +269,7 @@ def proposal_media(proposal, user, lock=False):
         .filter(pk__in=ids)
         .order_by("pk")
         .select_related("parent", "locality", "sequence")
-        .prefetch_related("observations__identity", "observations__taxon")
+        .prefetch_related("observations__identity", "observations__taxon", "album_set", "cover")
     )
     if proposal.scan.workgroup_id:
         if proposal.scan.workgroup_id != user.workgroup_id:
@@ -308,31 +308,164 @@ def preferred_media(rows):
 METADATA_FIELDS = ("captured_at", "locality_id", "location", "note", "metadata_json", "media_type")
 
 
-def metadata_fingerprint(media, observations, albums, covers=()):
+def metadata_state(media, observations, albums, covers=()):
     """Compare domain data without record IDs, provenance timestamps, upload or sequence membership."""
     ignored = {"id", "uuid", "mediafile", "updated_by", "updated_at", "taxon_verified_at"}
     annotations = [
-        digest(
-            {
-                field.attname: obs.get(field.attname)
-                for field in models.AnimalObservation._meta.concrete_fields
-                if field.name not in ignored
-            }
-        )
+        {
+            field.attname: (
+                comparable_metadata(obs.get(field.attname)) if field.name == "metadata_json" else obs.get(field.attname)
+            )
+            for field in models.AnimalObservation._meta.concrete_fields
+            if field.name not in ignored
+        }
         for obs in observations
         if not obs.get("is_no_detection_placeholder")
     ]
-    return digest(
-        {
-            "media": {
-                field: comparable_metadata(media.get(field)) if field == "metadata_json" else media.get(field)
-                for field in METADATA_FIELDS
-            },
-            "observations": sorted(annotations),
-            "albums": sorted(albums),
-            "album_covers": sorted(covers),
-        }
+    fields = {
+        field: comparable_metadata(media.get(field)) if field == "metadata_json" else media.get(field)
+        for field in METADATA_FIELDS
+    }
+    for field in ("location", "note", "metadata_json"):
+        if fields[field] is None or fields[field] == "" or fields[field] == {}:
+            fields[field] = None
+    return {
+        "media": fields,
+        "observations": sorted(annotations, key=digest),
+        "albums": sorted(albums),
+        "album_covers": sorted(covers),
+    }
+
+
+def metadata_fingerprint(media, observations, albums, covers=()):
+    """Fingerprint the same normalized domain data used to explain detailed differences."""
+    return digest(metadata_state(media, observations, albums, covers))
+
+
+def _changed_metadata_paths(values, prefix=""):
+    missing = object()
+    if any(isinstance(value, dict) for value in values) and all(
+        value is None or isinstance(value, dict) for value in values
+    ):
+        values = [{} if value is None else value for value in values]
+    if all(isinstance(value, dict) for value in values):
+        result = []
+        for key in sorted(set().union(*(value.keys() for value in values))):
+            items = [value.get(key, missing) for value in values]
+            path = f"{prefix}.{key}" if prefix else str(key)
+            if any(item is missing for item in items):
+                result.append(path)
+            else:
+                result.extend(_changed_metadata_paths(items, path))
+        return result
+    return [prefix or "metadata"] if len({digest(value) for value in values}) > 1 else []
+
+
+def detailed_differences(rows, states, warnings):
+    """Explain every stricter comparison category without exposing raw EXIF/GPS values in tooltips."""
+    if len(rows) < 2:
+        return []
+    details = []
+    ordinary = {warning["field"] for warning in warnings}
+
+    def add(field, label, values):
+        if len({digest(value) for value in values}) <= 1:
+            return
+        details.append(
+            {
+                "field": field,
+                "label": label,
+                "values": [
+                    {
+                        "id": media.pk,
+                        "name": media.original_filename,
+                        "upload": media.parent.name if media.parent else "—",
+                        "value": (
+                            ", ".join("Yes" if item else "No" for item in value)
+                            if isinstance(value, list) and value and all(isinstance(item, bool) for item in value)
+                            else serializable(value)
+                        ),
+                    }
+                    for media, value in zip(rows, values)
+                ],
+            }
+        )
+
+    paths = _changed_metadata_paths([state["media"]["metadata_json"] for state in states])
+    if paths:
+        details.append(
+            {"field": "source_metadata", "label": "Source metadata differs: " + ", ".join(paths), "values": []}
+        )
+    if "media_type" not in ordinary:
+        add("media_type", "Media types differ", [state["media"]["media_type"] for state in states])
+    objects = [state["observations"] for state in states]
+    add("observation_count", "Number of detected observations differs", [len(items) for items in objects])
+    boxes = [
+        sorted(
+            {
+                digest(tuple(obs[field] for field in BBOX_FIELDS)): tuple(obs[field] for field in BBOX_FIELDS)
+                for obs in items
+                if any(obs[field] is not None for field in BBOX_FIELDS)
+            }.values(),
+            key=digest,
+        )
+        for items in objects
+    ]
+    add("bounding_boxes", "Observation bounding boxes differ", boxes)
+    ignored = set(BBOX_FIELDS) | {"is_no_detection_placeholder"}
+    for field in objects[0][0] if all(objects) else {}:
+        if (
+            field in ignored
+            or (field == "identity_id" and "identities" in ordinary)
+            or (field == "taxon_id" and "taxa" in ordinary)
+        ):
+            continue
+        values = [sorted({digest(obs[field]): obs[field] for obs in items}.values(), key=digest) for items in objects]
+        if field == "metadata_json":
+            if len({digest(value) for value in values}) > 1:
+                paths = (
+                    _changed_metadata_paths([value[0] for value in values])
+                    if all(len(value) == 1 for value in values)
+                    else []
+                )
+                details.append(
+                    {
+                        "field": "observation_metadata",
+                        "label": "Observation metadata differs"
+                        + (": " + ", ".join(paths) if paths else " between objects"),
+                        "values": [],
+                    }
+                )
+            continue
+        label = {
+            "taxon_verified": "Taxon verification differs",
+            "identity_is_representative": "Representative identity flags differ",
+            "identity_id": "Identity assignment per observation differs",
+            "taxon_id": "Taxon assignment per observation differs",
+            "predicted_taxon_id": "Predicted taxon differs",
+            "predicted_taxon_confidence": "Taxon prediction confidence differs",
+            "orientation": "Observation orientation differs",
+        }.get(field, "Observation field differs: " + field)
+        add(field, label, values)
+    add(
+        "albums",
+        "Album membership differs",
+        [sorted([f"{album.name} (#{album.pk})" for album in media.album_set.all()]) for media in rows],
     )
+    add(
+        "album_covers",
+        "Album cover references differ",
+        [sorted([f"{album.name} (#{album.pk})" for album in media.cover.all()]) for media in rows],
+    )
+    if not details and not warnings and len({digest(state) for state in states}) > 1:
+        details.append(
+            {
+                "field": "observation_assignments",
+                "label": "Observation field combinations differ between objects",
+                "values": [],
+            }
+        )
+    return details
 
 
 def proposal_summary(proposal):
@@ -343,8 +476,8 @@ def proposal_summary(proposal):
     observations = [obs for media in rows for obs in media.observations.all()]
     warnings = _difference_warnings(rows, observations) if len(rows) > 1 else []
     eligible = proposal.status == "pending" and len(rows) > 1 and proposal.kind in {"byte_exact", "pixel_exact"}
-    signatures = [
-        metadata_fingerprint(
+    states = [
+        metadata_state(
             {field: getattr(media, field) for field in METADATA_FIELDS},
             [obs.__dict__ for obs in media.observations.all()],
             [album.pk for album in media.album_set.all()],
@@ -352,11 +485,14 @@ def proposal_summary(proposal):
         )
         for media in rows
     ]
-    perfect = eligible and len(set(signatures)) == 1 and not warnings
+    perfect = eligible and len({digest(state) for state in states}) == 1 and not warnings
+    extra = detailed_differences(rows, states, warnings)
     return {
         "keep_id": kept.pk if kept else None,
         "difference_count": len(warnings) if len(rows) > 1 else None,
         "warnings": warnings,
+        "extra_differences": extra,
+        "total_difference_count": len(warnings) + len(extra) if len(rows) > 1 else None,
         "perfect": perfect,
         "eligible": eligible,
         "members": [
@@ -383,9 +519,11 @@ def identity_merge_candidates(proposal, mediafiles=None):
     group_id = proposal.scan.workgroup_id
     if not group_id or proposal.status != "pending" or proposal.kind not in {"byte_exact", "pixel_exact"}:
         return []
-    rows = list(mediafiles) if mediafiles is not None else [
-        member.mediafile for member in proposal.members.all() if member.mediafile_id
-    ]
+    rows = (
+        list(mediafiles)
+        if mediafiles is not None
+        else [member.mediafile for member in proposal.members.all() if member.mediafile_id]
+    )
     locations = {}
     identities = {}
     for media in rows:
@@ -407,9 +545,10 @@ def identity_merge_candidates(proposal, mediafiles=None):
             key = tuple(round(value, 6) for value in box)
             locations.setdefault(key, {}).setdefault(identity.pk, set()).add(media.pk)
     excluded = {
-        tuple(sorted(pair)) for pair in models.MergeIdentitySuggestionExclusion.objects.filter(
-            workgroup_id=group_id
-        ).values_list("identity_a_id", "identity_b_id")
+        tuple(sorted(pair))
+        for pair in models.MergeIdentitySuggestionExclusion.objects.filter(workgroup_id=group_id).values_list(
+            "identity_a_id", "identity_b_id"
+        )
     }
     pairs = {}
     kept = preferred_media(rows) if rows else None
@@ -425,8 +564,10 @@ def identity_merge_candidates(proposal, mediafiles=None):
             if kept and a == kept.pk:
                 source, target, a, b = second, first, b, a
             pairs[(first, second)] = {
-                "source": identities[source], "target": identities[target],
-                "source_media_id": a, "target_media_id": b,
+                "source": identities[source],
+                "target": identities[target],
+                "source_media_id": a,
+                "target_media_id": b,
             }
     return list(pairs.values())
 
@@ -436,7 +577,7 @@ MAX_BULK_PROPOSALS = 200
 
 def bulk_preview(proposals, user, perfect_only=False):
     """Freeze a bounded, disjoint set of whole-file deletions for explicit confirmation."""
-    plans, previews, used = [], [], set()
+    plans, previews, used, unsigned = [], [], set(), []
     skipped, limited = 0, False
     for proposal in proposals:
         summary = proposal_summary(proposal)
@@ -469,17 +610,23 @@ def bulk_preview(proposals, user, perfect_only=False):
                 member["media"] = current[member["media"].pk]
         summary["warnings"] = plan["warnings"]
         summary["difference_count"] = len(plan["warnings"])
+        summary["extra_differences"] = plan["extra_differences"]
+        summary["total_difference_count"] = plan["total_difference_count"]
         ids = {plan["keep_id"], *plan["remove_ids"]}
         if ids & used:
             skipped += 1
             continue
         used |= ids
-        plans.append({"id": proposal.pk, "token": preview_token(proposal, user, plan), "members": sorted(ids)})
+        plans.append({"id": proposal.pk, "members": sorted(ids)})
+        unsigned.append((proposal, {key: plan[key] for key in ("keep_id", "remove_ids", "snapshot")}))
         previews.append({"proposal": proposal, "summary": summary})
     if not plans:
         raise ValueError(
             "No eligible duplicate groups. Select exact duplicates or review the suggestions individually."
         )
+    # Start the review expiry window only after all potentially slow source reads.
+    for item, (proposal, plan) in zip(plans, unsigned):
+        item["token"] = preview_token(proposal, user, plan)
     token = signing.dumps({"user": user.pk, "plans": plans}, salt="duplicate-bulk-v1", compress=True)
     return {
         "token": token,
@@ -491,9 +638,9 @@ def bulk_preview(proposals, user, perfect_only=False):
 
 
 @transaction.atomic
-def apply_bulk(user, token, allowed_proposal_ids):
+def apply_bulk(user, token, allowed_proposal_ids, *, preview_max_age=1800):
     """Apply the complete signed batch or roll it all back, including durable cleanup intents."""
-    data = signing.loads(token, salt="duplicate-bulk-v1", max_age=1800)
+    data = signing.loads(token, salt="duplicate-bulk-v1", max_age=preview_max_age)
     plans = data["plans"]
     if data["user"] != user.pk or not 1 <= len(plans) <= MAX_BULK_PROPOSALS:
         raise ValueError("Invalid bulk preview")
@@ -503,7 +650,7 @@ def apply_bulk(user, token, allowed_proposal_ids):
     # A single global lock order avoids deadlocks with overlapping individual reviews.
     list(models.MediaFile.objects.select_for_update().filter(pk__in=ids).order_by("pk").values_list("pk", flat=True))
     for plan in plans:
-        apply_merge(plan["id"], user, plan["token"])
+        apply_merge(plan["id"], user, plan["token"], preview_max_age=preview_max_age)
     return sum(len(plan["members"]) - 1 for plan in plans)
 
 
@@ -668,6 +815,16 @@ def build_plan(proposal, user, keep_id, remove_ids=None, lock=False):
             raise ValueError("A source media file changed. Run duplicate detection again.")
         state["media"].append(serializable(models.MediaFile.objects.filter(pk=media.pk).values().get()))
     warnings = _difference_warnings(rows, observations)
+    comparison_states = [
+        metadata_state(
+            media,
+            [obs for obs in state["observations"] if obs["mediafile_id"] == media["id"]],
+            [album["album_id"] for album in state["albums"] if album["mediafile_id"] == media["id"]],
+            [album["id"] for album in state["album_covers"] if album["cover_id"] == media["id"]],
+        )
+        for media in state["media"]
+    ]
+    extra = detailed_differences(rows, comparison_states, warnings)
     if proposal.kind == "crop":
         warnings.append(
             {
@@ -683,6 +840,8 @@ def build_plan(proposal, user, keep_id, remove_ids=None, lock=False):
         "keep_id": keep_id,
         "remove_ids": remove_ids,
         "warnings": warnings,
+        "extra_differences": extra,
+        "total_difference_count": len(warnings) + len(extra),
         "transfer_options": transfer_options(rows, observations, warnings),
         "snapshot": digest(state),
         "audit": state,
@@ -722,9 +881,9 @@ def dismiss_proposal(proposal_id, user):
 
 
 @transaction.atomic
-def apply_merge(proposal_id, user, token, edits=None):
+def apply_merge(proposal_id, user, token, edits=None, *, preview_max_age=1800):
     """Apply opt-in edits and delete the reviewed counterparts atomically, preserving survivor geometry."""
-    signed = signing.loads(token, salt="duplicate-delete-v2", max_age=1800)
+    signed = signing.loads(token, salt="duplicate-delete-v2", max_age=preview_max_age)
     proposal = models.DuplicateProposal.objects.get(pk=proposal_id)
     # Acquire media locks before proposal locks: deleting media also invalidates
     # other proposals and must not deadlock with a concurrent overlapping merge.

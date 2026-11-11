@@ -116,6 +116,14 @@ def fail_duplicate_scan(scan_id):
     fail_scan(scan_id)
 
 
+@shared_task(name="caidapp.tasks.process_duplicate_job", queue="celery", acks_late=True, reject_on_worker_lost=True)
+def process_duplicate_job(run_id):
+    """Run slow duplicate preparation or confirmed removal independently of HTTP clients."""
+    from .duplicate_jobs import process
+
+    process(run_id)
+
+
 @shared_task(name="caidapp.tasks.cleanup_duplicate_files", queue="celery")
 def cleanup_duplicate_files(ids):
     """Execute durable file-deletion intents only after the metadata merge committed."""

@@ -1,0 +1,1 @@
+{% if differences %}<ul class="small mb-0 text-break">{% for difference in differences %}<li>{{ difference.label }}{% if difference.values %}<ul>{% for value in difference.values %}<li>{{ value.name }}{% if value.upload %} ({{ value.upload }}){% endif %}: {{ value.value }}</li>{% endfor %}</ul>{% endif %}</li>{% endfor %}</ul>{% endif %}

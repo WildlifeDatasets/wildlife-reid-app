@@ -1,7 +1,6 @@
 """Duplicate suggestion list, merge previews, and authenticated API endpoints."""
 
 import json
-import uuid
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -15,6 +14,7 @@ from django.urls import reverse
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
 from . import duplicate_hashes as hashes
+from . import duplicate_jobs as jobs
 from . import duplicate_services as service
 from . import models
 
@@ -89,7 +89,7 @@ def _proposal_page(rows, number):
     ranked = []
     for proposal in rows.iterator(chunk_size=100):
         summary = service.proposal_summary(proposal)
-        count = summary["difference_count"]
+        count = summary["total_difference_count"]
         ranked.append((not summary["perfect"], count if count is not None else float("inf"), proposal.pk))
     ranked.sort()
     page = Paginator([pk for _, _, pk in ranked], 20).get_page(number)
@@ -107,7 +107,10 @@ def _processing_summary(total, ready, errors):
     ready_percent = 100 * ready / total if total else 0
     error_percent = 100 * errors / total if total else 0
     return {
-        "total": total, "ready": ready, "errors": errors, "pending": total - ready - errors,
+        "total": total,
+        "ready": ready,
+        "errors": errors,
+        "pending": total - ready - errors,
         "ready_dash": f"{ready_percent:.3f} {100 - ready_percent:.3f}",
         "error_dash": f"{error_percent:.3f} {100 - error_percent:.3f}",
         "error_offset": f"{-ready_percent:.3f}",
@@ -158,6 +161,11 @@ def duplicate_list(request):
             "status_filter": status,
             "pending": bool(schedule and (schedule.task_id or schedule.active_scan_id)),
             "bulk_allowed": True,
+            "duplicate_jobs": models.TaskRun.objects.filter(
+                requested_by=user, workgroup_id=user.workgroup_id, kind__in=jobs.KINDS
+            )
+            .defer("model_snapshot", "result")
+            .order_by("-pk")[:5],
         },
     )
 
@@ -169,25 +177,64 @@ def bulk_review(request):
     user = request.user.caiduser
     if not user.workgroup_id:
         raise PermissionDenied("Select a working group first")
-    rows = _visible_proposals(request, None, "pending")
     try:
         if request.POST.get("action") == "apply":
-            count = service.apply_bulk(user, request.POST.get("token", ""), rows.values_list("pk", flat=True))
-            messages.success(request, f"Removed {count} duplicate media files. Retained files were not changed.")
-            return redirect("caidapp:duplicates")
-        perfect_only = request.POST.get("action") == "perfect"
-        if not perfect_only:
-            selected = {str(uuid.UUID(value)) for value in request.POST.getlist("proposals")}
-            if not selected or len(selected) > service.MAX_BULK_PROPOSALS:
-                raise ValueError(f"Select between 1 and {service.MAX_BULK_PROPOSALS} groups")
-            rows = rows.filter(uuid__in=selected)
-            if rows.count() != len(selected):
-                raise ValueError("Some selected proposals are unavailable")
-        preview = service.bulk_preview(rows.iterator(chunk_size=100), user, perfect_only=perfect_only)
-        return render(request, "caidapp/duplicate_bulk_review.html", {**preview, "perfect_only": perfect_only})
+            run = jobs.start_removal(user, request.POST.get("token", ""))
+        else:
+            selected = None if request.POST.get("action") == "perfect" else request.POST.getlist("proposals")
+            run = jobs.start_preview(user, selected)
+        return redirect("caidapp:duplicate_job", run_uuid=run.uuid)
     except (ValueError, TypeError, KeyError, signing.BadSignature, OSError) as exc:
         messages.error(request, str(exc))
         return redirect("caidapp:duplicates")
+
+
+def _duplicate_job(request, run_uuid):
+    user = request.user.caiduser
+    return get_object_or_404(
+        models.TaskRun, uuid=run_uuid, kind__in=jobs.KINDS, requested_by=user, workgroup_id=user.workgroup_id
+    )
+
+
+@login_required
+@require_GET
+def duplicate_job(request, run_uuid):
+    """A short, reconnectable status request never performs hashing or deletion."""
+    run = _duplicate_job(request, run_uuid)
+    if run.status == "queued":
+        jobs.retry_delivery(run)
+        run.refresh_from_db()
+    if request.GET.get("format") == "json":
+        return JsonResponse(
+            {
+                "uuid": str(run.uuid),
+                "kind": run.kind,
+                "status": run.status,
+                "message": run.message,
+                "removed": run.result.get("removed"),
+                "ready_to_review": run.kind == "duplicate_preview" and run.status == "succeeded",
+            }
+        )
+    if run.kind == "duplicate_preview" and run.status == "succeeded":
+        return render(request, "caidapp/duplicate_bulk_review.html", jobs.preview_context(run, request.user.caiduser))
+    return render(
+        request,
+        "caidapp/duplicate_job.html",
+        {
+            "run": run,
+            "pending": run.status not in jobs.TERMINAL,
+            "can_retry": run.status == "queued" or (run.status == "failed" and run.started_at is None),
+        },
+    )
+
+
+@login_required
+@require_POST
+def retry_duplicate_job(request, run_uuid):
+    """Retry delivery of a queued task without creating another deletion job."""
+    run = _duplicate_job(request, run_uuid)
+    jobs.retry_delivery(run)
+    return redirect("caidapp:duplicate_job", run_uuid=run.uuid)
 
 
 @login_required
@@ -297,7 +344,8 @@ def scan_matches(request, scan_uuid):
                     "uuid": str(row.uuid),
                     "kind": row.kind,
                     "status": row.status,
-                    "metadata_difference_count": row.summary["difference_count"],
+                    "metadata_difference_count": row.summary["total_difference_count"],
+                    "difference_details": row.summary["warnings"] + row.summary["extra_differences"],
                     "perfect_metadata_match": row.summary["perfect"],
                     "suggested_keep_id": row.summary["keep_id"],
                     "evidence": row.evidence,

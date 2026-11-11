@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="pagetitle"><h1>{% if run.kind == 'duplicate_preview' %}Preparing duplicate preview{% else %}Duplicate removal{% endif %}</h1></div>
+<p role="status"><strong>{{ run.status|capfirst }}</strong> · {{ run.message }}</p>
+{% if pending %}<p>The operation runs in the API worker. You can close this page and return using its link; refreshing does not submit another deletion.</p>{% endif %}
+{% if run.model_snapshot.groups %}<p>{{ run.model_snapshot.groups }} confirmed groups · {{ run.model_snapshot.remove_count }} media files</p>{% endif %}
+{% if run.status == 'failed' %}<p class="text-warning">No changes from this job were committed. Prepare a new preview if files or metadata changed.</p>{% endif %}
+<div class="d-flex gap-2 flex-wrap"><a href="{% url 'caidapp:duplicates' %}" class="btn btn-outline-primary">Back to duplicate suggestions</a>
+{% if can_retry %}<form method="post" action="{% url 'caidapp:retry_duplicate_job' run.uuid %}">{% csrf_token %}<button type="submit" class="btn btn-outline-secondary">Retry delivery</button></form>{% endif %}</div>
+{% if pending %}<script>setTimeout(()=>location.reload(),3000);</script>{% endif %}
+{% endblock %}
