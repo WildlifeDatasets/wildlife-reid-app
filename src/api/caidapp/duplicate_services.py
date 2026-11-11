@@ -3,9 +3,11 @@
 import hashlib
 import json
 import logging
+import math
 import uuid
 from datetime import timedelta
 from functools import partial
+from itertools import combinations
 from pathlib import Path
 
 from celery import signature
@@ -17,6 +19,7 @@ from django.db.models import Q
 from django.utils import timezone
 
 from . import models
+from .duplicate_metadata import comparable_metadata
 
 logger = logging.getLogger(__name__)
 MAX_FILES = 100
@@ -321,7 +324,10 @@ def metadata_fingerprint(media, observations, albums, covers=()):
     ]
     return digest(
         {
-            "media": {field: media.get(field) for field in METADATA_FIELDS},
+            "media": {
+                field: comparable_metadata(media.get(field)) if field == "metadata_json" else media.get(field)
+                for field in METADATA_FIELDS
+            },
             "observations": sorted(annotations),
             "albums": sorted(albums),
             "album_covers": sorted(covers),
@@ -370,6 +376,59 @@ def proposal_summary(proposal):
             for member in members
         ],
     }
+
+
+def identity_merge_candidates(proposal, mediafiles=None):
+    """Offer reviewed merges for the same object across exact image copies in this group."""
+    group_id = proposal.scan.workgroup_id
+    if not group_id or proposal.status != "pending" or proposal.kind not in {"byte_exact", "pixel_exact"}:
+        return []
+    rows = list(mediafiles) if mediafiles is not None else [
+        member.mediafile for member in proposal.members.all() if member.mediafile_id
+    ]
+    locations = {}
+    identities = {}
+    for media in rows:
+        if media.media_type != "image":
+            continue
+        for observation in media.observations.all():
+            if observation.is_no_detection_placeholder or not observation.identity_id:
+                continue
+            identity = observation.identity
+            if identity.owner_workgroup_id != group_id:
+                continue
+            box = [getattr(observation, field) for field in BBOX_FIELDS]
+            if any(value is None or not math.isfinite(value) for value in box) or min(box[2:]) <= 0:
+                continue
+            cx, cy, width, height = box
+            if cx - width / 2 < 0 or cy - height / 2 < 0 or cx + width / 2 > 1 or cy + height / 2 > 1:
+                continue
+            identities[identity.pk] = identity
+            key = tuple(round(value, 6) for value in box)
+            locations.setdefault(key, {}).setdefault(identity.pk, set()).add(media.pk)
+    excluded = {
+        tuple(sorted(pair)) for pair in models.MergeIdentitySuggestionExclusion.objects.filter(
+            workgroup_id=group_id
+        ).values_list("identity_a_id", "identity_b_id")
+    }
+    pairs = {}
+    kept = preferred_media(rows) if rows else None
+    for members in locations.values():
+        for first, second in combinations(sorted(members), 2):
+            if (first, second) in excluded or (first, second) in pairs:
+                continue
+            sample = next(((a, b) for a in sorted(members[first]) for b in sorted(members[second]) if a != b), None)
+            if sample is None:
+                continue
+            a, b = sample
+            source, target = first, second
+            if kept and a == kept.pk:
+                source, target, a, b = second, first, b, a
+            pairs[(first, second)] = {
+                "source": identities[source], "target": identities[target],
+                "source_media_id": a, "target_media_id": b,
+            }
+    return list(pairs.values())
 
 
 MAX_BULK_PROPOSALS = 200

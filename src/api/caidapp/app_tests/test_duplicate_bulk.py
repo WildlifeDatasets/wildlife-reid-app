@@ -73,6 +73,39 @@ class DuplicateBulkTest(TestCase):
                 self.assertEqual(summary["difference_count"], 0)
                 self.assertFalse(summary["perfect"])
 
+    def test_runtime_metadata_is_included_in_perfect_preview_and_confirmation(self):
+        """Reimports differ in provenance only; list, count and signed preview must agree."""
+        a = self.media(metadata_json={
+            "full_image_path": "/processing/first/image.webp",
+            "exif": "{'SourceFile': '/tmp/first/image.jpg', 'File:FileModifyDate': 'first', 'EXIF:Make': 'Apple'}",
+        })
+        b = self.media(metadata_json={
+            "full_image_path": "/processing/second/image.webp",
+            "exif": "{'SourceFile': '/tmp/second/image.jpg', 'File:FileModifyDate': 'second', 'EXIF:Make': 'Apple'}",
+        })
+        proposal = self.group_proposal([a, b])
+        summary = service.proposal_summary(proposal)
+        self.assertEqual(summary["difference_count"], 0)
+        self.assertTrue(summary["perfect"])
+        kept_id = summary["keep_id"]
+        before = models.MediaFile.objects.filter(pk=kept_id).values().get()
+        response = self.client.post(reverse("caidapp:duplicate_bulk_review"), {"action": "perfect"})
+        self.assertEqual(response.context["remove_count"], 1)
+        self.assertTrue(response.context["previews"][0]["summary"]["perfect"])
+        self.assertNotContains(response, "Other metadata or observations differ")
+        self.confirm(response)
+        self.assertEqual(models.MediaFile.objects.filter(pk=kept_id).values().get(), before)
+        self.assertEqual(models.MediaFile.objects.filter(pk__in=[a.pk, b.pk]).count(), 1)
+
+    def test_meaningful_exif_change_still_blocks_perfect_action(self):
+        """Ignoring runtime provenance must not ignore capture-time facts."""
+        a = self.media(metadata_json={"exif": "{'EXIF:DateTimeOriginal': '2026:09:13 21:56:16'}"})
+        b = self.media(metadata_json={"exif": "{'EXIF:DateTimeOriginal': '2026:09:14 21:56:16'}"})
+        proposal = self.group_proposal([a, b])
+        self.assertFalse(service.proposal_summary(proposal)["perfect"])
+        with self.assertRaisesRegex(ValueError, "No eligible duplicate groups"):
+            service.bulk_preview([proposal], self.user, perfect_only=True)
+
     def test_preview_then_confirm_triplicate(self):
         """Preview changes nothing; confirmation removes both red files and preserves the green one."""
         a, b, c = [self.media() for _ in range(3)]

@@ -45,7 +45,6 @@
 
 {% block content %}
   <h1>Merge Identities Suggestion</h1>
-  <p><a href="{% url 'caidapp:duplicate_identity_suggestions' %}">Also review identities sharing an exact image</a></p>
 
   {% if job_running %}
     {{ job_progress|json_script:"merge-suggestions-initial-progress" }}

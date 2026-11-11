@@ -1,23 +1,12 @@
 {% extends "base.html" %}
+{% block head %}<style>.duplicate-summary{position:relative;flex-shrink:0;margin:0}.duplicate-summary>button{display:flex;align-items:center;gap:.6rem;border:0;background:none;color:inherit;text-align:left;cursor:pointer;border-radius:.4rem;padding:.2rem}.duplicate-summary>button::-webkit-details-marker{display:none}.duplicate-summary>button:focus-visible{outline:2px solid var(--bs-primary);outline-offset:3px}.duplicate-summary-ring{width:52px;height:52px;flex-shrink:0}.duplicate-summary-ring circle{fill:none;stroke-width:5}.duplicate-summary-ring .track{stroke:var(--bs-secondary-bg,#e9ecef)}.duplicate-summary-ring .ready{stroke:#198754}.duplicate-summary-ring .failed{stroke:#dc3545}.duplicate-summary-ring text{fill:currentColor;font-size:9px;font-weight:600;text-anchor:middle;dominant-baseline:central}.duplicate-summary-caption{font-size:.8rem;line-height:1.4}.duplicate-summary-caption strong{display:block}.duplicate-summary-details{display:none;position:absolute;right:0;top:calc(100% + .3rem);z-index:20;min-width:255px;max-width:calc(100vw - 2rem);padding:.7rem .9rem;border:1px solid var(--bs-border-color,#dee2e6);border-radius:.5rem;background:var(--bs-body-bg,#fff);color:var(--bs-body-color,#212529);box-shadow:0 .25rem .75rem #0002;font-size:.85rem}.duplicate-summary:hover .duplicate-summary-details,.duplicate-summary:focus-within .duplicate-summary-details,.duplicate-summary.is-open .duplicate-summary-details{display:block}.duplicate-summary-details p{margin:0 0 .25rem}.duplicate-summary-details p:last-child{margin-bottom:0}.duplicate-summary.is-dismissed .duplicate-summary-details{display:none}.duplicate-summary-details{width:min(370px,calc(100vw - 2rem));max-height:70vh;overflow:auto}.duplicate-summary-controls{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.6rem}.duplicate-summary-controls .btn{font-size:.8rem;padding:.25rem .5rem}@media(max-width:575px){.duplicate-summary{width:100%}.duplicate-summary-details{left:0;right:auto}}
+</style>{% endblock %}
 {% block body %}
-<div class="pagetitle"><h1 class="text-break">Duplicates — {{ workgroup.name }}</h1></div>
-<nav class="nav nav-pills mb-3" aria-label="Suggestion category">
-  <a class="nav-link active" href="{% url 'caidapp:duplicates' %}">Media file duplicates</a>
-  <a class="nav-link" href="{% url 'caidapp:duplicate_identity_suggestions' %}">Identities sharing an image</a>
-</nav>
-<p>Exact duplicate detection runs automatically after imports and source changes. Only missing or outdated fingerprints are computed; all stored fingerprints in this working group are compared. There is no limit on the group's file count.</p>
-<div class="row g-3 mb-3" aria-label="Processing summary">
-  <div class="col-sm-4"><div class="card card-body"><strong>{{ total }}</strong> media files in completed imports</div></div>
-  <div class="col-sm-4"><div class="card card-body"><strong>{{ hashed }}</strong> with current fingerprints</div></div>
-  <div class="col-sm-4"><div class="card card-body"><strong>{{ errors }}</strong> failed inputs</div></div>
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+  <div class="pagetitle mb-0"><h1 class="text-break mb-0">Duplicates — {{ workgroup.name }}</h1></div>
+  {% include "caidapp/includes/duplicate_progress.html" with stats=summary_stats %}
 </div>
-<p role="status">{% if schedule.active_scan_id %}{% if worker_progress %}Worker processing batch: {{ worker_progress.completed }} / {{ worker_progress.total }} files. {% else %}Waiting for the duplicate worker to accept the batch. {% endif %}Saved: {{ schedule.active_scan.processed }} / {{ schedule.active_scan.total }} files in this run. {{ delivery_message }}{% elif schedule.task_id %}Automatic check scheduled for {{ schedule.eta }}.{% elif scan %}Last run: {{ scan.finished_at|default:scan.created_at }}. {{ scan.message }}{% else %}No check has completed yet. Existing imports are picked up by automatic maintenance.{% endif %} {{ schedule.message }}</p>
-<div class="d-flex flex-wrap gap-2 mb-3">
-  <form method="post" action="{% url 'caidapp:duplicate_scan_start' %}">{% csrf_token %}<button class="btn btn-outline-primary" type="submit">Check working group now</button></form>
-  {% if can_force %}<form method="post" action="{% url 'caidapp:duplicate_scan_start' %}">{% csrf_token %}<input type="hidden" name="force" value="on"><button class="btn btn-outline-secondary" type="submit">Recalculate all fingerprints</button></form>{% endif %}
-</div>
-<p class="text-muted">A matching video reference frame is listed separately and never proves that the whole videos are identical. Finding duplicates does not merge or delete anything automatically.</p>
 {% include "caidapp/duplicate_proposals.html" %}
 {% if issues %}<details class="mt-3"><summary>Unavailable or limited inputs (first {{ issues|length }})</summary>{% for media in issues %}<p>{{ media.original_filename }}: {{ media.hash_message }}</p>{% endfor %}</details>{% endif %}
-{% if pending %}<script>function refreshDuplicates(){setTimeout(()=>{if(!document.querySelector('.duplicate-select:checked, .modal.show'))location.reload();else refreshDuplicates();},5000);}refreshDuplicates();</script>{% endif %}
+{% if pending %}<script>function refreshDuplicates(){setTimeout(()=>{if(!document.querySelector('.duplicate-select:checked, .modal.show, .duplicate-summary:hover, .duplicate-summary:focus-within'))location.reload();else refreshDuplicates();},5000);}refreshDuplicates();</script>{% endif %}
 {% endblock %}

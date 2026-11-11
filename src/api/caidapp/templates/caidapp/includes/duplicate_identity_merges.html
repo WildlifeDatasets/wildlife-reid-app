@@ -1,0 +1,10 @@
+{% if identity_merges %}
+<div class="duplicate-identity-merges mt-2">
+  <p class="small text-muted mb-1">Different identities on the same object in these copies:</p>
+  {% for pair in identity_merges %}
+  <div class="mb-2"><span class="small">{{ pair.source }} → {{ pair.target }}</span><br>
+    <a class="btn btn-sm btn-outline-primary" href="{% url 'caidapp:merge_identities' pair.source.pk pair.target.pk %}?next={{ request.get_full_path|urlencode }}&amp;from_mediafile_id={{ pair.source_media_id }}&amp;to_mediafile_id={{ pair.target_media_id }}">Review identity merge</a>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}

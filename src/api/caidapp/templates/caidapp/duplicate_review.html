@@ -35,11 +35,12 @@
 </dl>
 </section></div>{% endfor %}</div></div>
 <aside class="duplicate-review-actions" aria-label="Duplicate review actions">
+{% include "caidapp/includes/duplicate_identity_merges.html" %}
 {% if error %}<div class="alert alert-warning" role="alert">{{ error }}</div>{% endif %}
 {% if plan %}
 {% if plan.warnings %}<details class="mb-3"><summary>Differences ({{ plan.warnings|length }})</summary>
 <ul>{% for warning in plan.warnings %}<li>{{ warning.label }}</li>{% endfor %}</ul>
-{% if proposal.scan.workgroup_id %}<a href="{% url 'caidapp:duplicate_identity_suggestions' %}">Review identity merge suggestions</a>{% endif %}</details>{% endif %}
+</details>{% endif %}
 <p class="small text-muted">Changes save on confirmation. Deletion is permanent.</p>
 <form method="post" id="duplicate-delete-form">{% csrf_token %}<input type="hidden" name="token" value="{{ token }}"><button class="btn btn-danger" type="submit">Save, delete and show next</button></form>
 {% endif %}

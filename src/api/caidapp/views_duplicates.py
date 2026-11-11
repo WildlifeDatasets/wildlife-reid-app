@@ -8,7 +8,6 @@ from django.contrib.auth.decorators import login_required
 from django.core import signing
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
-from django.db import transaction
 from django.db.models import Q
 from django.http import Http404, HttpResponseBadRequest, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -71,6 +70,7 @@ def _visible_proposals(request, scan, status):
             "members__mediafile__sequence",
             "members__mediafile__observations__taxon",
             "members__mediafile__observations__identity",
+            "members__mediafile__observations__identity",
             "members__mediafile__album_set",
             "members__mediafile__cover",
         )
@@ -81,6 +81,7 @@ def _describe_proposals(page):
     for proposal in page:
         proposal.kind_label = KIND_LABELS.get(proposal.kind, proposal.kind)
         proposal.summary = service.proposal_summary(proposal)
+        proposal.identity_merges = service.identity_merge_candidates(proposal)
 
 
 def _proposal_page(rows, number):
@@ -97,6 +98,21 @@ def _proposal_page(rows, number):
     page.object_list = [by_id[pk] for pk in ids if pk in by_id]
     _describe_proposals(page)
     return page
+
+
+def _processing_summary(total, ready, errors):
+    """Build disjoint compact-ring segments, also for empty or concurrently changing imports."""
+    ready = min(max(ready, 0), total)
+    errors = min(max(errors, 0), total - ready)
+    ready_percent = 100 * ready / total if total else 0
+    error_percent = 100 * errors / total if total else 0
+    return {
+        "total": total, "ready": ready, "errors": errors, "pending": total - ready - errors,
+        "ready_dash": f"{ready_percent:.3f} {100 - ready_percent:.3f}",
+        "error_dash": f"{error_percent:.3f} {100 - error_percent:.3f}",
+        "error_offset": f"{-ready_percent:.3f}",
+        "label": f"{round(ready_percent)}%" if total else "—",
+    }
 
 
 @login_required
@@ -120,6 +136,9 @@ def duplicate_list(request):
     progress = hashes.batch_progress(batch) if batch else None
     if progress and not progress["active"]:
         progress = None
+    total = media.count()
+    hashed = media.filter(hash_status="ready", hash_version=hashes.HASH_VERSION).count()
+    errors = media.filter(hash_status="error").count()
     return render(
         request,
         "caidapp/duplicates.html",
@@ -130,9 +149,10 @@ def duplicate_list(request):
             "schedule": schedule,
             "worker_progress": progress,
             "delivery_message": batch.message if batch else "",
-            "total": media.count(),
-            "hashed": media.filter(hash_status="ready", hash_version=hashes.HASH_VERSION).count(),
-            "errors": media.filter(hash_status="error").count(),
+            "total": total,
+            "hashed": hashed,
+            "errors": errors,
+            "summary_stats": _processing_summary(total, hashed, errors),
             "issues": media.exclude(hash_message="").order_by("pk")[:50],
             "page_obj": page,
             "status_filter": status,
@@ -196,28 +216,6 @@ def scan_start(request):
             status=202,
         )
     return redirect(url)
-
-
-@login_required
-@require_GET
-def identity_suggestions(request):
-    """Offer the established identity-merge preview using exact-image, observation-level evidence."""
-    group = request.user.caiduser.workgroup
-    if group is None:
-        raise PermissionDenied("Select a working group first")
-    with transaction.atomic():
-        models.WorkGroup.objects.select_for_update().get(pk=group.pk)
-        hashes.refresh_identity_suggestions(group.pk)
-    rows = (
-        models.DuplicateIdentitySuggestion.objects.filter(workgroup=group, active=True)
-        .select_related(
-            "identity_a",
-            "identity_b",
-        )
-        .order_by("pk")
-    )
-    page = Paginator(rows, 20).get_page(request.GET.get("page"))
-    return render(request, "caidapp/duplicate_identity_suggestions.html", {"page_obj": page, "workgroup": group})
 
 
 @login_required
@@ -471,6 +469,7 @@ def review(request, proposal_uuid):
             "proposal": proposal,
             "members": cards,
             "all_members": members,
+            "identity_merges": service.identity_merge_candidates(proposal, chosen),
             "plan": plan,
             "token": token,
             "error": error,

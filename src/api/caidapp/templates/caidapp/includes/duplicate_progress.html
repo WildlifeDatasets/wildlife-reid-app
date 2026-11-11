@@ -1,0 +1,50 @@
+<div class="duplicate-summary">
+  <button type="button" aria-label="Fingerprint processing summary" aria-controls="duplicate-summary-details" aria-expanded="false">
+    <svg class="duplicate-summary-ring" viewBox="0 0 48 48" aria-hidden="true">
+      <circle class="track" cx="24" cy="24" r="20" />
+      <g transform="rotate(-90 24 24)">
+        <circle class="ready" cx="24" cy="24" r="20" pathLength="100" stroke-dasharray="{{ stats.ready_dash }}" />
+        <circle class="failed" cx="24" cy="24" r="20" pathLength="100" stroke-dasharray="{{ stats.error_dash }}" stroke-dashoffset="{{ stats.error_offset }}" />
+      </g>
+      <text x="24" y="24">{{ stats.label }}</text>
+    </svg>
+    <span class="duplicate-summary-caption"><strong>Fingerprints</strong>{{ stats.total }} media files</span>
+  </button>
+  <div class="duplicate-summary-details" id="duplicate-summary-details" role="region" aria-label="Fingerprint processing details">
+    <p><strong>{{ stats.total }}</strong> media files in completed imports</p>
+    <p><strong>{{ stats.ready }}</strong> with current fingerprints</p>
+    <p><strong>{{ stats.errors }}</strong> failed inputs</p>
+    {% if stats.pending %}<p><strong>{{ stats.pending }}</strong> pending or outdated</p>{% endif %}
+    <hr class="my-2">
+    <p class="text-muted">Exact duplicates are checked automatically after imports and source changes.</p>
+    <p role="status">{% if schedule.active_scan_id %}{% if worker_progress %}Worker processing batch: {{ worker_progress.completed }} / {{ worker_progress.total }} files. {% else %}Waiting for the duplicate worker to accept the batch. {% endif %}Saved: {{ schedule.active_scan.processed }} / {{ schedule.active_scan.total }} files in this run. {{ delivery_message }}{% elif schedule.task_id %}Automatic check scheduled for {{ schedule.eta }}.{% elif scan %}Last run: {{ scan.finished_at|default:scan.created_at }}. {{ scan.message }}{% else %}No check has completed yet. Existing imports are picked up by automatic maintenance.{% endif %} {{ schedule.message }}</p>
+    <details class="mt-2"><summary>About duplicate detection</summary><p class="mt-1 text-muted">A matching video reference frame is listed separately and never proves that the whole videos are identical. Finding duplicates does not merge or delete anything automatically.</p></details>
+    <div class="duplicate-summary-controls">
+      <form method="post" action="{% url 'caidapp:duplicate_scan_start' %}">{% csrf_token %}<button class="btn btn-outline-primary" type="submit">Check working group now</button></form>
+      {% if can_force %}<form method="post" action="{% url 'caidapp:duplicate_scan_start' %}">{% csrf_token %}<input type="hidden" name="force" value="on"><button class="btn btn-outline-secondary" type="submit">Recalculate all fingerprints</button></form>{% endif %}
+    </div>
+  </div>
+</div>
+
+<script>
+(()=>{
+ const root=document.querySelector('.duplicate-summary');
+ if(!root)return;
+ const button=root.querySelector('button'),panel=root.querySelector('.duplicate-summary-details');
+ function position(){
+   root.classList.remove('is-dismissed');
+   const box=root.getBoundingClientRect(),width=panel.getBoundingClientRect().width;
+   const minLeft=Math.max(16,root.parentElement.getBoundingClientRect().left);
+   const left=Math.max(minLeft,Math.min(box.right-width,innerWidth-width-16));
+   panel.style.left=(left-box.left)+'px';panel.style.right='auto';
+ }
+ root.addEventListener('mouseenter',position);
+ root.addEventListener('focusin',position);
+ root.addEventListener('mouseleave',()=>root.classList.remove('is-open'));
+ button.addEventListener('click',()=>{position();root.classList.toggle('is-open');button.setAttribute('aria-expanded',String(root.classList.contains('is-open')));});
+ function dismiss(){root.classList.add('is-dismissed');root.classList.remove('is-open');button.setAttribute('aria-expanded','false');}
+ root.addEventListener('keydown',event=>{if(event.key==='Escape')dismiss();});
+ document.addEventListener('click',event=>{if(!root.contains(event.target))dismiss();});
+ window.addEventListener('resize',()=>{if(root.matches(':hover,:focus-within')||root.classList.contains('is-open'))position();});
+})();
+</script>

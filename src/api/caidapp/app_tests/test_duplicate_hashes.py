@@ -580,12 +580,15 @@ class ExactIdentityEvidenceTest(_HashTestSetup, TestCase):
         return a, b, obs_a, obs_b
 
     def test_matching_objects_suggest_identity_merge(self):
-        """Exact copies plus matching observation locations provide a separate merge-suggestion category."""
+        """Exact copies offer identity merge directly in their duplicate review."""
         _, _, first, second = self.annotated_copies()
         self.finish(self.start())
         suggestion = models.DuplicateIdentitySuggestion.objects.get(active=True)
         self.assertEqual({suggestion.identity_a_id, suggestion.identity_b_id}, {first.identity_id, second.identity_id})
-        response = self.client.get(reverse("caidapp:duplicate_identity_suggestions"))
+        proposal = models.DuplicateProposal.objects.filter(
+            scan__workgroup=self.group, members__mediafile_id=first.mediafile_id, status="pending"
+        ).first()
+        response = self.client.get(reverse("caidapp:duplicate_review", args=[proposal.uuid]))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Review identity merge")
 
