@@ -527,11 +527,11 @@
                                                 </a>
                                                 <br>
                                         {% endif %}
-                                            {% if mediafile.instance.sequence.mediafile_set.count > 1 %}
+                                            {% if mediafile.instance.containing_sequence_mediafile_count > 1 %}
                                                 Sequence:
                                                 <a class="link-secondary"
                                                    href="{% url 'caidapp:sequences'%}?sequence={{ mediafile.instance.sequence.id }}">
-                                                    {{ mediafile.instance.sequence.mediafile_set.count }} media files in sequence
+                                                    {{ mediafile.instance.containing_sequence_mediafile_count }} media files in sequence
                                                 </a>
                                                 <br>
                                         {% endif %}

@@ -44,6 +44,7 @@ from django.db import transaction
 from django.db.models import (
     CharField,
     Count,
+    Exists,
     F,
     Func,
     IntegerField,
@@ -3985,6 +3986,7 @@ def _get_observations_queryset(request: HttpRequest) -> Tuple[QuerySet, filters.
         "predicted_taxon",
         "identity",
         "updated_by",
+        "updated_by__user",
     )
     observation_filter = filters.AnimalObservationFilter(request.GET, queryset=observations, request=request)
     return observation_filter.qs.distinct(), observation_filter
@@ -4169,7 +4171,7 @@ def observations(request: HttpRequest) -> HttpResponse:
         id__in=matching_mediafiles.order_by().values("id")
     )
     editable_observations = observation_queryset.filter(mediafile_id__in=editable_mediafiles.order_by().values("id"))
-    editable_sequence_ids = list(
+    editable_sequence_ids = (
         editable_observations.exclude(mediafile__sequence_id__isnull=True)
         .order_by()
         .values_list("mediafile__sequence_id", flat=True)
@@ -4596,12 +4598,12 @@ def observations(request: HttpRequest) -> HttpResponse:
         "preview_mode": preview_mode,
         "records_per_page": records_per_page,
         "observation_per_page_options": OBSERVATION_PER_PAGE_OPTIONS,
-        "number_of_observations": observation_queryset.count(),
+        "number_of_observations": paginator.count,
         "number_of_mediafiles": matching_mediafiles.count(),
         "show_observation_result_summary": True,
         "number_of_editable_observations": editable_observations.count(),
         "number_of_editable_observation_mediafiles": editable_observations.values("mediafile_id").distinct().count(),
-        "number_of_editable_observation_sequences": len(editable_sequence_ids),
+        "number_of_editable_observation_sequences": editable_sequence_ids.count(),
         "number_of_editable_observation_sequence_mediafiles": editable_sequence_direct_mediafile_count,
         "number_of_mediafiles_in_editable_observation_sequences": editable_sequence_mediafile_count,
         "form_bulk_processing": form_bulk_processing,
@@ -5379,6 +5381,7 @@ def sequences(
     page_sequence_ids = [obj.id for obj in page_with_sequences.object_list]
     sequence_mediafiles = (
         MediaFile.objects.filter(sequence_id__in=page_sequence_ids)
+        .annotate(_is_preidentified=Exists(MediafilesForIdentification.objects.filter(mediafile_id=OuterRef("pk"))))
         .select_related("parent", "locality", "updated_by", "sequence")
         .prefetch_related("observations__taxon", "observations__identity")
         .order_by("captured_at", "id")
@@ -5683,7 +5686,18 @@ def media_files_update(
         .annotate(count=Count("pk"))
         .values("count")[:1]
     )
+    sequence_mediafile_count = (
+        MediaFile.objects.filter(sequence_id=OuterRef("sequence_id"))
+        .order_by()
+        .values("sequence_id")
+        .annotate(count=Count("pk"))
+        .values("count")[:1]
+    )
     full_mediafiles = full_mediafiles.annotate(
+        _is_preidentified=Exists(MediafilesForIdentification.objects.filter(mediafile_id=OuterRef("pk"))),
+        containing_sequence_mediafile_count=Coalesce(
+            Subquery(sequence_mediafile_count, output_field=IntegerField()), Value(0)
+        ),
         observation_count=Coalesce(Subquery(observation_count, output_field=IntegerField()), Value(0)),
         first_observation_identity_id=Subquery(first_observation.values("identity_id")[:1]),
         first_observation_identity_name=Subquery(first_observation.values("identity__name")[:1]),

@@ -1760,9 +1760,10 @@ class MediaFile(models.Model):
         """Return a small, static image suitable for cards and bbox overlays."""
         candidates = [self.static_thumbnail]
         if self.media_type == "image":
-            candidates.append(self.preview)
+            candidates.extend([self.thumbnail, self.preview])
         candidates.append(self.image_file)
-        candidates.append(self.thumbnail)
+        if self.media_type == "video":
+            candidates.append(self.thumbnail)
         return next((candidate for candidate in candidates if candidate and candidate.name), None)
 
     @property
@@ -1774,6 +1775,8 @@ class MediaFile(models.Model):
 
     def is_preidentified(self):
         """Return True if mediafile is preidentified."""
+        if hasattr(self, "_is_preidentified"):
+            return self._is_preidentified
         return MediafilesForIdentification.objects.filter(mediafile=self).exists()
 
     @property
