@@ -1,0 +1,18 @@
+{% load crispy_forms_tags %}
+<div class="col-12"><h2 class="h6 mb-0">Observation and media file properties</h2></div>
+{% for field in filter.form %}
+  {% if field.name != 'search' and field.name != 'observations_per_mediafile' and field.name != 'observations_per_mediafile_min' and field.name != 'observations_per_mediafile_max' and field.name != 'objects_per_image' and field.name != 'objects_per_image_min' and field.name != 'objects_per_image_max' %}
+    <div class="col-12 col-sm-6 col-lg-4 col-xl-3">{{ field|as_crispy_field }}</div>
+  {% endif %}
+{% endfor %}
+<div class="col-12"><h2 class="h6 mb-1">Counts in the containing media file</h2>
+  <p class="small text-muted mb-0">Counts include all observations in the media file, independently of other filters. Zero bboxes means no annotated geometry, not necessarily an empty scene.</p>
+</div>
+<div class="col-12 col-sm-6">{{ filter.form.observations_per_mediafile|as_crispy_field }}</div>
+<div class="col-12 col-sm-6">{{ filter.form.objects_per_image|as_crispy_field }}</div>
+<div class="col-12"><details><summary>Advanced count ranges</summary><div class="row g-3 mt-1">
+  <div class="col-12 col-sm-6 col-lg-3">{{ filter.form.observations_per_mediafile_min|as_crispy_field }}</div>
+  <div class="col-12 col-sm-6 col-lg-3">{{ filter.form.observations_per_mediafile_max|as_crispy_field }}</div>
+  <div class="col-12 col-sm-6 col-lg-3">{{ filter.form.objects_per_image_min|as_crispy_field }}</div>
+  <div class="col-12 col-sm-6 col-lg-3">{{ filter.form.objects_per_image_max|as_crispy_field }}</div>
+</div></details></div>

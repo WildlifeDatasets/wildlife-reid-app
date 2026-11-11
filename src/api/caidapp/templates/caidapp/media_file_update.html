@@ -848,7 +848,7 @@ ID: {{ mediafile.id }}
                     button.disabled = true;
                     output.textContent = "Waiting for detection. You can continue editing.";
                     try {
-                        const response = await fetch("{% url 'caidapp:bbox_proposal' mediafile.id %}", {
+                        const response = await fetch("{% url 'caidapp:bbox_proposal' mediafile.id %}?bbox_job={{ request.GET.bbox_job|urlencode }}", {
                             method: "POST", headers: {"X-CSRFToken": document.querySelector('[name="csrfmiddlewaretoken"]').value},
                         });
                         if (!response.ok) throw new Error("Cannot request suggestions. Try again later.");

@@ -4010,6 +4010,10 @@ def _get_mediafiles_for_observation_export(request: HttpRequest) -> QuerySet:
         "identity_is_representative",
         "has_bbox",
         "has_identity",
+        "observation_type",
+        "observations_per_mediafile",
+        "observations_per_mediafile_min",
+        "observations_per_mediafile_max",
         "multiple_in_mediafile",
         "objects_per_image",
         "objects_per_image_min",
@@ -4211,6 +4215,7 @@ def observations(request: HttpRequest) -> HttpResponse:
         }
         selection_actions = {
             "btnRedetectBboxes",
+            "btnFillMissingBboxes",
             "btnBulkProcessing_set_full_image_bbox",
             "btnBulkProcessing_remove_bbox",
             "btnDeleteObservations",
@@ -4229,6 +4234,11 @@ def observations(request: HttpRequest) -> HttpResponse:
             from .views_bbox import prepare_redetection
 
             return prepare_redetection(request, selected_mediafile_ids)
+
+        if requested_selection_action == "btnFillMissingBboxes":
+            from .views_bbox import prepare_fill_missing
+
+            return prepare_fill_missing(request, selected_mediafile_ids, selected_observation_ids)
 
         if requested_selection_action in {
             "btnBulkProcessing_set_full_image_bbox",
@@ -5394,6 +5404,11 @@ def sequences(
         from .views_bbox import prepare_redetection
 
         return prepare_redetection(request, _resolve_selected_mediafile_ids_from_post(request, full_mediafiles))
+
+    if request.method == "POST" and "btnFillMissingBboxes" in request.POST:
+        from .views_bbox import prepare_fill_missing
+
+        return prepare_fill_missing(request, _resolve_selected_mediafile_ids_from_post(request, full_mediafiles))
 
     page_mediafile_ids = [mediafile.id for sequence in ordered_sequences for mediafile in sequence.mediafile_set.all()]
     request.session["mediafile_ids_page"] = page_mediafile_ids

@@ -45,6 +45,7 @@ urlpatterns = [
     path("tasks/<uuid:run_uuid>/status/", views_embedding_runs.task_status, name="task_status"),
     path("tasks/<uuid:run_uuid>/result/", views_embedding_runs.task_status, name="task_result"),
     path("bbox-detection/start/", views_bbox.start_redetection, name="bbox_redetection_start"),
+    path("bbox-detection/fill-missing/", views_bbox.start_fill_missing, name="bbox_fill_missing_start"),
     path("bbox-detection/<uuid:batch>/", views_bbox.detection_status, name="bbox_detection_status"),
     path("bbox-proposal/<int:mediafile_id>/", views_bbox.propose_bbox, name="bbox_proposal"),
     path("bbox-proposal/status/<int:job_id>/", views_bbox.proposal_status, name="bbox_proposal_status"),

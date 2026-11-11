@@ -15,6 +15,7 @@ from PIL import Image
 from torch.nn import functional as F
 from tqdm import tqdm
 
+from .errors import DetectorUnavailableError
 from .model_cache import (
     MEGADETECTOR_CHECKPOINT_PATH,
     MEGADETECTOR_URL,
@@ -177,7 +178,7 @@ def del_detection_model():
     torch.cuda.empty_cache()
 
 
-def _load_sam3_model() -> Any | None:
+def _load_sam3_model(*, strict=False) -> Any | None:
     """Load SAM3 once and move the cached CPU model to the inference device."""
     global SAM3
     global SAM3_PREDICTOR
@@ -190,6 +191,10 @@ def _load_sam3_model() -> Any | None:
         from sam3.model_builder import build_sam3_image_model
     except ImportError as exc:
         logger.warning("SAM3 package unavailable: %s", exc)
+        if strict:
+            raise DetectorUnavailableError(
+                "SAM3 package is unavailable. Rebuild the taxon worker with SAM3 installed."
+            ) from exc
         return None
 
     logger.debug(f"Before SAM3 model: {mem.get_vram(DEVICE)}     {mem.get_ram()}")
@@ -198,6 +203,18 @@ def _load_sam3_model() -> Any | None:
             download_sam3_checkpoint_if_missing()
         except Exception as exc:
             logger.warning("SAM3 weights unavailable: %s", exc)
+            if strict:
+                status = getattr(getattr(exc, "response", None), "status_code", None)
+                if status in (401, 403):
+                    raise DetectorUnavailableError(
+                        "SAM3 weights are unavailable: Hugging Face denied access. "
+                        "Request access to facebook/sam3 at https://huggingface.co/facebook/sam3 "
+                        "and configure HF_TOKEN for the approved account in the taxon worker."
+                    ) from exc
+                raise DetectorUnavailableError(
+                    "SAM3 weights could not be downloaded. Check the taxon worker's network access "
+                    "and Hugging Face configuration."
+                ) from exc
             return None
 
         try:
@@ -212,6 +229,10 @@ def _load_sam3_model() -> Any | None:
             logger.warning("Failed to load SAM3 model: %s", exc)
             SAM3 = None
             torch.cuda.empty_cache()
+            if strict:
+                raise DetectorUnavailableError(
+                    "SAM3 model could not be loaded. Check its checkpoint and the taxon worker's package versions."
+                ) from exc
             return None
     else:
         logger.info("Reusing cached SAM3 model from CPU memory.")
@@ -265,10 +286,10 @@ def detect_animals_with_megadetector(image_rgb: np.ndarray) -> Optional[List[Dic
 
 def detect_animals_with_sam3(image_rgb: np.ndarray, *, strict=False) -> Optional[List[Dict[str, Any]]]:
     """Detect animals with SAM3 text prompt. Returns MegaDetector-compatible detection dicts."""
-    predictor = _load_sam3_model()
+    predictor = _load_sam3_model(strict=strict)
     if predictor is None:
         if strict:
-            raise RuntimeError("SAM3 is unavailable. Check its package, checkpoint and GPU configuration.")
+            raise DetectorUnavailableError("SAM3 is unavailable. Check its package, checkpoint and GPU configuration.")
         return None
 
     height, width = image_rgb.shape[:2]

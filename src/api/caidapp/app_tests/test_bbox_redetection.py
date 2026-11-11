@@ -191,6 +191,21 @@ class BboxRedetectionTest(TestCase):
         self.mediafile.save()
         self.assertEqual(self.client.post(url).status_code, 404)
 
+    def test_failed_proposal_exposes_worker_message_without_changing_observations(self):
+        """Show an actionable detector error and allow a fresh attempt after configuration is fixed."""
+        original = list(self.mediafile.observations.values())
+        url = reverse("caidapp:bbox_proposal", args=[self.mediafile.pk])
+        first = self.client.post(url).json()
+        job = models.BboxDetectionJob.objects.get()
+        message = "SAM3 weights are unavailable: Hugging Face denied access. Configure HF_TOKEN."
+        tasks.finish_bbox_detection({"status": "error", "message": message}, job.pk)
+        self.assertEqual(
+            self.client.get(first["url"]).json(),
+            {"status": "failed", "message": message, "detections": []},
+        )
+        self.assertEqual(original, list(self.mediafile.observations.values()))
+        self.assertNotEqual(first, self.client.post(url).json())
+
     def test_observation_selection_expands_to_all_siblings_and_deduplicates(self):
         """Expand a selected observation to its media file once and avoid duplicate detection dispatch."""
         first = self.observation([0, 0, 0.3, 0.3])

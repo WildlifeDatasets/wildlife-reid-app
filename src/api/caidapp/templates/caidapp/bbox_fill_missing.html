@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="pagetitle"><h1>Fill missing bounding boxes</h1></div>
+<div class="card"><div class="card-body pt-3">
+  <p>Process <strong>{{ observation_count }} selected observations without a bbox</strong> in <strong>{{ mediafile_count }} media files</strong>. Each media file is detected once. Existing bboxes and unselected observations are preserved.</p>
+  {% if empty_count %}<p>{{ empty_count }} media files have no observations. Detections will create observations; files with no detections receive a no-detection placeholder.</p>{% endif %}
+  {% if video_count %}<p>{{ video_count }} video media files will be skipped. Frame/time coordinates are not supported yet.</p>{% endif %}
+  {% if not mediafile_count %}<p>No selected editable image observations need a bbox.</p>{% endif %}
+  <p>A single new detection is assigned automatically only when it can be matched to the sole object observation without a bbox in that media file. Its identity, taxon and other annotations are kept.</p>
+  <p>Selected no-detection placeholders are reused for the first detection; additional detections create observations without identities or taxa. Ambiguous assignments are left for manual review in the media file detail.</p>
+  <form method="post" action="{% url 'caidapp:bbox_fill_missing_start' %}">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <p class="text-muted">No detections or detector errors leave existing annotations unchanged. Files edited while detection is running are skipped.</p>
+    <button type="submit" class="btn btn-primary" {% if not mediafile_count %}disabled{% endif %}>Fill missing bboxes</button>
+    <a class="btn btn-outline-secondary" href="{% url 'caidapp:observations' %}">Cancel</a>
+  </form>
+</div></div>
+{% endblock %}

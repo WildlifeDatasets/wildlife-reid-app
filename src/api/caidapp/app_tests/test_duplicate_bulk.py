@@ -155,10 +155,20 @@ class DuplicateBulkTest(TestCase):
     def test_runtime_reference_ids_do_not_block_perfect_match(self):
         """Sequence-local positions and cached ReID observation references are not source facts."""
         a = self.media(
-            metadata_json={"sequence_number": 9, "reid_observation_id": 194279, "datetime": "2025-09-05 23:52:41"}
+            metadata_json={
+                "sequence_number": 9,
+                "reid_observation_id": 194279,
+                "delta_datetime": "0 days 00:00:45",
+                "datetime": "2025-09-05 23:52:41",
+            }
         )
         b = self.media(
-            metadata_json={"sequence_number": 6, "reid_observation_id": 194460, "datetime": "2025-09-05 23:52:41"}
+            metadata_json={
+                "sequence_number": 6,
+                "reid_observation_id": 194460,
+                "delta_datetime": "0 days 00:00:00",
+                "datetime": "2025-09-05 23:52:41",
+            }
         )
         proposal = self.group_proposal([a, b])
         summary = service.proposal_summary(proposal)
@@ -167,6 +177,7 @@ class DuplicateBulkTest(TestCase):
         self.assertEqual(summary["extra_differences"], [])
         a.refresh_from_db()
         self.assertEqual(a.metadata_json["reid_observation_id"], 194279)
+        self.assertEqual(a.metadata_json["delta_datetime"], "0 days 00:00:45")
 
     def test_strict_differences_have_specific_labels_and_values(self):
         """Explain verification/geometry/EXIF differences in both catalogue and signed plan."""

@@ -264,25 +264,50 @@ class AnimalObservationFilter(django_filters.FilterSet):
     orientation = django_filters.ChoiceFilter(choices=models.ORIENTATION_CHOICES)
     taxon_verified = django_filters.BooleanFilter(label="Taxon verified")
     identity_is_representative = django_filters.BooleanFilter(label="Representative identity")
-    has_bbox = django_filters.BooleanFilter(method="filter_has_bbox", label="Has bounding box")
+    has_bbox = django_filters.BooleanFilter(
+        method="filter_has_bbox",
+        label="BBox of this observation",
+        help_text="Filters individual observations, independently of other observations in the same media file.",
+    )
     has_identity = django_filters.BooleanFilter(method="filter_has_identity", label="Has identity")
-    multiple_in_mediafile = django_filters.BooleanFilter(
-        method="filter_multiple_in_mediafile", label="Image has multiple observations"
+    observation_type = django_filters.ChoiceFilter(
+        method="filter_observation_type",
+        label="Record type",
+        choices=(("object", "Observed object"), ("placeholder", "No-detection placeholder")),
+    )
+    observations_per_mediafile = django_filters.ChoiceFilter(
+        method="filter_observation_count",
+        label="Object observations per media file",
+        choices=(("0", "0"), ("1", "1"), ("2", "2 or more")),
+        help_text=(
+            "Counts all object observations in the media file, including those without a bbox. Excludes placeholders."
+        ),
+    )
+    observations_per_mediafile_min = django_filters.NumberFilter(
+        method="filter_observation_count_min",
+        label="Object observations (minimum)",
+        min_value=0,
+    )
+    observations_per_mediafile_max = django_filters.NumberFilter(
+        method="filter_observation_count_max",
+        label="Object observations (maximum)",
+        min_value=0,
     )
     objects_per_image = django_filters.ChoiceFilter(
         method="filter_objects_per_image",
         choices=(
-            ("0", "0 objects (no bounding box)"),
-            ("1", "1 object"),
-            ("2", "2 or more objects"),
+            ("0", "0 bboxes"),
+            ("1", "1 bbox"),
+            ("2", "2 or more bboxes"),
         ),
-        label="Objects per image",
+        label="Bboxes per media file",
+        help_text="Counts bboxes across all observations in the media file, independently of other filters.",
     )
     objects_per_image_min = django_filters.NumberFilter(
-        method="filter_objects_per_image_min", label="Objects per image (minimum)", min_value=0
+        method="filter_objects_per_image_min", label="Bboxes (minimum)", min_value=0
     )
     objects_per_image_max = django_filters.NumberFilter(
-        method="filter_objects_per_image_max", label="Objects per image (maximum)", min_value=0
+        method="filter_objects_per_image_max", label="Bboxes (maximum)", min_value=0
     )
     search = django_filters.CharFilter(method="filter_search", label="Search")
 
@@ -295,6 +320,15 @@ class AnimalObservationFilter(django_filters.FilterSet):
         if request is None:
             raise ValueError("request must be provided to AnimalObservationFilter")
         caiduser = request.user.caiduser
+        # Preserve old bookmarked URLs without keeping the redundant control in the UI.
+        if args and args[0] is not None:
+            data = args[0].copy()
+            if not any(key in data for key in ("objects_per_image", "objects_per_image_min", "objects_per_image_max")):
+                if data.get("multiple_in_mediafile", "").lower() == "true":
+                    data["objects_per_image"] = "2"
+                elif data.get("multiple_in_mediafile", "").lower() == "false":
+                    data["objects_per_image_max"] = "1"
+            args = (data, *args[1:])
         super().__init__(*args, **kwargs)
         self.filters["identity"].queryset = models.IndividualIdentity.objects.filter(
             owner_workgroup=caiduser.workgroup
@@ -309,11 +343,41 @@ class AnimalObservationFilter(django_filters.FilterSet):
         ).order_by("name", "id")
 
     def filter_has_bbox(self, queryset, name, value):
-        """Filter observations by the presence of a bbox center when a choice is supplied."""
+        """Filter individual observations by complete, positive-size bbox geometry."""
         if value is None:
             return queryset
-        lookup = {"bbox_x_center__isnull": not value}
-        return queryset.filter(**lookup)
+        from .observation_geometry import HAS_BBOX
+
+        return queryset.filter(HAS_BBOX) if value else queryset.exclude(HAS_BBOX)
+
+    def filter_observation_type(self, queryset, name, value):
+        """Separate observed objects from explicit no-detection records."""
+        return queryset.filter(is_no_detection_placeholder=value == "placeholder")
+
+    def _filter_by_observation_count(self, queryset, minimum=None, maximum=None):
+        """Count all object observations in each containing media file."""
+        counts = (
+            models.AnimalObservation.objects.order_by()
+            .values("mediafile_id")
+            .annotate(object_count=Count("id", filter=Q(is_no_detection_placeholder=False)))
+        )
+        if minimum is not None:
+            counts = counts.filter(object_count__gte=minimum)
+        if maximum is not None:
+            counts = counts.filter(object_count__lte=maximum)
+        return queryset.filter(mediafile_id__in=counts.values("mediafile_id"))
+
+    def filter_observation_count(self, queryset, name, value):
+        """Select zero, one, or multiple object observations per media file."""
+        return self._filter_by_observation_count(queryset, int(value), None if value == "2" else int(value))
+
+    def filter_observation_count_min(self, queryset, name, value):
+        """Require a minimum number of object observations."""
+        return self._filter_by_observation_count(queryset, minimum=value)
+
+    def filter_observation_count_max(self, queryset, name, value):
+        """Limit the number of object observations."""
+        return self._filter_by_observation_count(queryset, maximum=value)
 
     def filter_has_identity(self, queryset, name, value):
         """Filter observations by whether an identity is assigned."""
@@ -321,26 +385,14 @@ class AnimalObservationFilter(django_filters.FilterSet):
             return queryset
         return queryset.filter(identity__isnull=not value)
 
-    def filter_multiple_in_mediafile(self, queryset, name, value):
-        """Filter by whether the containing media file has at least two bounding boxes."""
-        if value is None:
-            return queryset
-        return (
-            self._filter_by_bbox_count(queryset, minimum=2)
-            if value
-            else self._filter_by_bbox_count(queryset, maximum=1)
-        )
-
     def _filter_by_bbox_count(self, queryset, minimum=None, maximum=None):
-        """Keep observations whose image has the requested number of real boxes.
+        """Count usable bboxes across every observation in the containing media file."""
+        from .observation_geometry import HAS_BBOX
 
-        Empty legacy ``AnimalObservation`` rows are deliberately not counted:
-        they describe an image without an annotated object rather than an object.
-        """
         mediafile_counts = (
             models.AnimalObservation.objects.order_by()
             .values("mediafile_id")
-            .annotate(bbox_count=Count("id", filter=Q(bbox_x_center__isnull=False)))
+            .annotate(bbox_count=Count("id", filter=HAS_BBOX))
         )
         if minimum is not None:
             mediafile_counts = mediafile_counts.filter(bbox_count__gte=minimum)

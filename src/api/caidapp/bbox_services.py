@@ -4,6 +4,7 @@ import json
 import logging
 import math
 import uuid
+from collections import defaultdict
 from functools import partial
 from pathlib import Path
 
@@ -91,7 +92,7 @@ def validate_detections(result):
     return detections
 
 
-def create_jobs(caiduser, mediafiles, options, *, purpose="replace", batch=None):
+def create_jobs(caiduser, mediafiles, options, *, purpose="replace", batch=None, observation_ids=None):
     """Create an idempotent batch for images and dispatch queued jobs after commit."""
     batch = batch or uuid.uuid4()
     jobs = []
@@ -100,14 +101,31 @@ def create_jobs(caiduser, mediafiles, options, *, purpose="replace", batch=None)
         existing = list(models.BboxDetectionJob.objects.filter(batch=batch, requested_by=caiduser))
         if existing:
             return batch, existing
+        selected_by_mediafile = defaultdict(list)
+        if purpose == "fill" and observation_ids is not None:
+            for mediafile_id, observation_id in models.AnimalObservation.objects.filter(
+                pk__in=observation_ids, mediafile__in=mediafiles
+            ).values_list("mediafile_id", "pk"):
+                selected_by_mediafile[mediafile_id].append(observation_id)
         for mediafile in mediafiles.order_by("pk").distinct():
             if mediafile.media_type != "image":
                 continue
+            job_options = dict(options)
+            if purpose == "fill":
+                from .observation_geometry import HAS_BBOX
+
+                targets = mediafile.observations.exclude(HAS_BBOX)
+                if observation_ids is not None:
+                    targets = targets.filter(pk__in=selected_by_mediafile[mediafile.pk])
+                target_ids = list(targets.order_by("pk").values_list("pk", flat=True))
+                if not target_ids and mediafile.observations.exists():
+                    continue
+                job_options["observation_ids"] = target_ids
             job = models.BboxDetectionJob(
                 batch=batch,
                 requested_by=caiduser,
                 mediafile=mediafile,
-                options=options,
+                options=job_options,
                 purpose=purpose,
                 task_id=str(uuid.uuid4()),
             )
@@ -235,6 +253,11 @@ def finish_job(job_id, result):
             job.status, job.message = "conflict", "Media file or observations changed since detection started."
         elif job.purpose == "suggest":
             job.status, job.result = "succeeded", result
+        elif job.purpose == "fill":
+            job.result = fill_missing(mediafile, observations, detections, job)
+            job.result["detector"] = result.get("detector")
+            job.status = "review" if job.result["counts"]["review"] else "succeeded"
+            job.message = job.result["message"]
         else:
             job.result = reconcile(mediafile, observations, detections, job)
             job.result["detector"] = result.get("detector")
@@ -251,6 +274,76 @@ def finish_job(job_id, result):
         job.result.get("counts") if isinstance(job.result, dict) else None,
     )
     return job.status
+
+
+def fill_missing(mediafile, observations, detections, job):
+    """Fill selected missing boxes only when object assignment is unambiguous."""
+    from .observation_geometry import HAS_BBOX
+
+    boxed_ids = set(mediafile.observations.filter(HAS_BBOX).values_list("pk", flat=True))
+    existing_boxes = [xyxy(o) for o in observations if o.pk in boxed_ids]
+    # Every detection overlapping an existing box is reserved for that object;
+    # do not let multiple detections of it be assigned to a missing observation.
+    candidates = [
+        d for d in detections if not any(iou(box, d["bbox"]) >= job.options["min_iou"] for box in existing_boxes)
+    ]
+    targets = [o for o in observations if o.pk in job.options["observation_ids"] and o.pk not in boxed_ids]
+    missing_objects = [o for o in observations if not o.is_no_detection_placeholder and o.pk not in boxed_ids]
+    counts = {
+        "updated": 0,
+        "created": 0,
+        "cleared": 0,
+        "deleted": 0,
+        "kept": len(boxed_ids),
+        "ignored": len(detections) - len(candidates),
+        "review": 0,
+    }
+    audit = []
+    timestamp = timezone.now()
+    message = "No new animal detections. Existing observations were preserved."
+    if candidates:
+        if len(missing_objects) == 1 and len(candidates) == 1 and missing_objects[0] in targets:
+            observation = missing_objects[0]
+            _set_box(observation, candidates[0]["bbox"], job.requested_by, timestamp)
+            counts["updated"] = 1
+            audit.append({"observation_id": observation.pk, "detection_index": 0})
+            message = "Filled the missing bbox. Identity and taxon were preserved."
+        elif not missing_objects and (not observations or any(o.is_no_detection_placeholder for o in targets)):
+            placeholder = next((o for o in targets if o.is_no_detection_placeholder), None)
+            for index, detection in enumerate(candidates):
+                observation = (
+                    placeholder
+                    if index == 0 and placeholder is not None
+                    else models.AnimalObservation(mediafile=mediafile)
+                )
+                created = observation.pk is None
+                _set_box(observation, detection["bbox"], job.requested_by, timestamp)
+                counts["created" if created else "updated"] += 1
+                audit.append({"observation_id": observation.pk, "detection_index": index, "created": created})
+            message = "Created observations from detections, reusing the selected placeholder when present."
+        else:
+            counts["review"] = len(targets)
+            audit.extend({"observation_id": o.pk, "review": True} for o in targets)
+            message = (
+                "Assignment is ambiguous. No observations were changed. "
+                "Open the media file detail and use Suggest BBox to assign detections manually."
+            )
+    elif not observations:
+        models.AnimalObservation.objects.create(mediafile=mediafile, is_no_detection_placeholder=True)
+        message = "No animals found. Created a no-detection placeholder."
+    if counts["updated"] or counts["created"]:
+        _invalidate_reid(mediafile, observations)
+        mediafile.updated_at, mediafile.updated_by = timestamp, job.requested_by
+        mediafile.save(update_fields=["updated_at", "updated_by", "used_for_init_identification", "metadata_json"])
+    return {
+        "counts": counts,
+        "matches": audit,
+        "detections": candidates,
+        "all_detections": detections,
+        "message": message,
+        "provenance": "automatic",
+        "options": job.options,
+    }
 
 
 def reconcile(mediafile, observations, detections, job):

@@ -43,6 +43,9 @@
     <div class="collapse mt-2" name="collapseFilterProcessing" id="collapseFilterProcessing">
         <div class="border rounded bg-body-tertiary p-3">
             <div class="row g-3 align-items-end">
+                {% if filter.form.observation_type %}
+                    {% include 'caidapp/includes/observation_filter_fields.html' %}
+                {% else %}
                 {% for field in filter.form %}
                     {% if field.name != "search" and field.name != "search_regex" %}
                         <div class="col-12 col-sm-6 col-lg-4 col-xl-3">
@@ -50,6 +53,7 @@
                         </div>
                     {% endif %}
                 {% endfor %}
+                {% endif %}
                 <div class="col-12 col-sm-auto">
                     <button class="btn btn-primary" type="submit">
                         <i class="bi bi-funnel"></i>

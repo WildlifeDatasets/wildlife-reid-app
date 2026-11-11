@@ -10,6 +10,7 @@ import pandas as pd
 from bbox_detection import detect_file
 from celery import Celery
 from detection_utils import inference_detection
+from detection_utils.errors import DetectorUnavailableError
 from detection_utils.inference_video import create_image_from_video
 from progress import ProgressReporter
 
@@ -59,6 +60,9 @@ def redetect_bboxes(self, relative_path, options):
             len(result.get("detections", [])),
         )
         return result
+    except DetectorUnavailableError as exc:
+        logger.exception("BBox detector unavailable task_id=%s source=%s", task_id, Path(relative_path).name)
+        return {"status": "error", "message": str(exc)}
     except Exception:
         logger.exception("BBox detection failed task_id=%s source=%s", task_id, Path(relative_path).name)
         return {"status": "error", "message": "Detection failed. Check the taxon worker logs and model availability."}

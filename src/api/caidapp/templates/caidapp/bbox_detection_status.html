@@ -5,15 +5,15 @@
 <div class="table-responsive"><table class="table"><thead><tr><th>Media file</th><th>Status</th><th>Result</th></tr></thead><tbody>
 {% for job in jobs %}<tr>
   <td><a href="{% url 'caidapp:media_file_update' job.mediafile_id %}">{{ job.mediafile.original_filename|default:job.mediafile_id }}</a></td>
-  <td>{{ job.status }}</td>
+  <td>{% if job.status == 'review' %}Needs assignment{% else %}{{ job.status }}{% endif %}</td>
   <td>{% if job.result.counts %}
     {{ job.result.counts.updated }} updated, {{ job.result.counts.created }} created,
     {{ job.result.counts.cleared }} cleared, {{ job.result.counts.deleted }} deleted,
     {{ job.result.counts.kept }} kept, {{ job.result.counts.ignored }} new detections ignored.
-    {% if job.result.counts.review %}<strong>{{ job.result.counts.review }} ambiguous matches — review these observations:</strong>
+    {% if job.result.counts.review %}<strong>{{ job.result.counts.review }} observations need review.</strong>
       {% for match in job.result.matches %}{% if match.review %} #{{ match.observation_id }}{% endif %}{% endfor %}
     {% endif %}
-  {% endif %}{{ job.message }}</td>
+  {% endif %}{{ job.message }}{% if job.status == 'review' %} <a href="{% url 'caidapp:media_file_update' job.mediafile_id %}?bbox_job={{ job.pk }}">Assign in media file detail</a>{% endif %}</td>
 </tr>{% endfor %}
 </tbody></table></div>
 <a class="btn btn-outline-primary" href="{% url 'caidapp:observations' %}">Observations</a>

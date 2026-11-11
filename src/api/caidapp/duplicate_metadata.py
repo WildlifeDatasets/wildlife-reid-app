@@ -8,7 +8,7 @@ GENERATED_PATH_FIELDS = frozenset({
     "absolute_media_path", "full_image_path", "image_path", "preview_path",
     "thumbnail_path", "static_thumbnail_path",
 })
-RUNTIME_REFERENCE_FIELDS = frozenset({"sequence_number", "reid_observation_id"})
+RUNTIME_REFERENCE_FIELDS = frozenset({"sequence_number", "reid_observation_id", "delta_datetime"})
 EXIF_RUNTIME_FIELDS = frozenset({
     "SourceFile", "File:Directory", "File:FileAccessDate", "File:FileModifyDate",
     "File:FileInodeChangeDate", "File:FilePermissions",

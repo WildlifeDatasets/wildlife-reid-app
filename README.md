@@ -12,6 +12,38 @@ echo "ALLAUTH_GOOGLE_CLIENT_SECRET=..." >> .env
 echo "CAID_HOST=147.228..." >> .env
 ```
 
+SAM3 requires access to the gated model [facebook/sam3](https://huggingface.co/facebook/sam3):
+
+1. Log in to Hugging Face with the account that owns `HF_TOKEN`.
+2. Open the model page, complete the access form and accept its conditions.
+   If the request requires approval, wait until access is granted.
+3. Give the token permission to read the model. For a fine-grained token, enable
+   **Read contents of gated repos you can access** and save the token permissions.
+
+A token alone does not grant model access: the account must also complete the
+model's access process. Otherwise, downloading `sam3.pt` fails with HTTP 403
+(`you are not in the authorized list`), including when MegaDetector triggers the
+SAM3 fallback during bbox suggestions.
+
+If you only granted model access or changed permissions on the existing token,
+click **Suggest BBox** again. Failed proposals are not reused, and the worker
+retries downloading the missing weights. No container restart is needed when
+the same token is already present in the worker. The first successful attempt
+needs time to download and load SAM3; if the page stops waiting, click again
+later to retrieve the pending/completed proposal.
+
+If you changed the token value in `.env`, recreate the taxon worker so it receives
+the new value (a simple restart does not reload environment variables):
+
+```bash
+docker compose up -d --force-recreate taxon_worker
+```
+
+The development service is `taxon_worker_dev`.
+If access is denied, interactive bbox suggestions report the error and leave
+observations unchanged. MegaDetector-only redetection remains available from the
+bulk redetection confirmation page; it still applies the selected confidence threshold.
+
 ```bash
 export CAID_HOST="147.228..."
 ```
@@ -197,6 +229,38 @@ Unlike `manage.py test`, this is a live smoke check against the running developm
 The sample data can be added by creating `ArchiveCollection` with name `sample_data` and selection of several 
 `UploadedArchive` instances into this collection.
 
+
+## Observation filters and missing bounding boxes
+
+The Observations filters distinguish **BBox of this observation** from counts in
+the **containing media file**. Object-observation counts include objects without
+a bbox and exclude no-detection placeholders. Bbox counts include complete,
+positive-size normalized boxes. Both counts use all observations in the media
+file, independently of other filters. The old multiple-observations checkbox is
+replaced by these explicit counts.
+
+To fill missing geometry, filter **BBox of this observation = No**, select the
+observations (or all matching observations across pages), then choose
+**Actions → Fill missing bboxes…**. Choose Auto (MegaDetector with SAM3 fallback),
+MegaDetector, or SAM3 on the confirmation page. Each image media file is detected
+once; videos are skipped until frame/time coordinates are supported.
+
+Existing bboxes and unselected observations are preserved. A sole object
+observation without a bbox receives a sole new detection automatically, keeping
+its ID, identity, taxon and other annotations. Detections overlapping existing
+bboxes are reserved for those existing objects. Multiple possible assignments
+require manual review, even when the number of detections equals the number of
+observations. The results link to the media-file detail: click **Suggest BBox**
+on the appropriate observation, choose a saved detection and save the form.
+Retained proposals are reused only while the source and annotations are unchanged.
+
+Selected no-detection placeholders are reused for the first detection; additional
+detections create observations without taxa or identities. **Sequences → Fill
+missing bboxes…** also supports media files with no observations, creating
+observations from detections or a no-detection placeholder when no animal is found.
+Files changed during detection are skipped, and detector errors leave annotations
+unchanged. This action uses the existing bbox worker and job table; no additional
+database migration is required.
 
 # License
 
