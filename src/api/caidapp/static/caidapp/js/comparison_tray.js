@@ -51,7 +51,7 @@
       }
     }
     const link = document.getElementById('comparison-tray-open');
-    const ready = !!(state.a && state.b);
+    const ready = !!(state.a || state.b);
     link.classList.toggle('disabled', !ready);
     link.setAttribute('aria-disabled', String(!ready));
     link.tabIndex = ready ? 0 : -1;
