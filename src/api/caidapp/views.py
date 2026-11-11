@@ -110,6 +110,7 @@ from .models import (
 )
 from .services.home_dashboard import render_home_dashboard_context
 from .services.identification_dashboard import identification_dashboard_context
+from .services.individual_summary import summarize_individuals
 from .services.media_bboxes import mediafile_bbox_unions
 from .services.workgroup_migration import migrate_user_to_workgroup
 from .tasks import (
@@ -4536,8 +4537,41 @@ def observations(request: HttpRequest) -> HttpResponse:
 
     for group in groups:
         group_observations = group["observations"]
+        observations_by_mediafile = {}
+        for observation in group_observations:
+            observations_by_mediafile.setdefault(observation.mediafile_id, []).append(observation)
+        real_observations = [obs for obs in group_observations if not obs.is_no_detection_placeholder]
+        group["individuals_summary"] = summarize_individuals(
+            (members[0].mediafile.media_type, members) for members in observations_by_mediafile.values()
+        )
+        group["summary_title"] = {
+            "sequence": "Sequence summary",
+            "mediafile": "Media file summary",
+            "identity": "Identity summary",
+        }.get(group_by, "Observation summary")
+        group["taxons"] = sorted(
+            {obs.taxon_id: obs.taxon for obs in real_observations if obs.taxon_id}.values(),
+            key=lambda taxon: (str(taxon), taxon.pk),
+        )
+        group["identities"] = sorted(
+            {obs.identity_id: obs.identity for obs in real_observations if obs.identity_id}.values(),
+            key=lambda identity: (str(identity), identity.pk),
+        )
+        group["localities"] = sorted(
+            {
+                obs.mediafile.locality_id: obs.mediafile.locality
+                for obs in group_observations
+                if obs.mediafile.locality_id
+            }.values(),
+            key=lambda locality: (locality.name, locality.pk),
+        )
+        group["primary_locality"] = group["localities"][0] if group["localities"] else None
+        group["additional_localities"] = group["localities"][1:]
+        group["sequence_count"] = len(
+            {obs.mediafile.sequence_id for obs in group_observations if obs.mediafile.sequence_id}
+        )
         group["mediafile_count"] = len({observation.mediafile_id for observation in group_observations})
-        group["bbox_count"] = sum(observation.bbox_x_center is not None for observation in group_observations)
+        group["bbox_count"] = sum(observation.bbox_x_center is not None for observation in real_observations)
         group["taxon_count"] = len({observation.taxon_id for observation in group_observations if observation.taxon_id})
         group["identity_count"] = len(
             {observation.identity_id for observation in group_observations if observation.identity_id}
@@ -5512,7 +5546,8 @@ def sequences(
 
     context = {
         **page_context,
-        "page_title": page_title.replace("Media files", "Sequences"),
+        "page_title": "Media files and sequences"
+        + (page_title[len("Media files") :] if page_title.startswith("Media files") else ""),
         "user_is_staff": request.user.is_staff,
         "form_bulk_processing": form_bulk_processing,
         "albums_available": albums_available,

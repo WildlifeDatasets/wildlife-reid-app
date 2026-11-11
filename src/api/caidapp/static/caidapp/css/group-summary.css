@@ -1,0 +1,11 @@
+.media-metadata-field{display:flex;align-items:baseline;gap:.5rem;min-width:0;margin-bottom:.28rem}
+.media-metadata-field>i{flex:0 0 1rem;width:1rem;text-align:center;color:var(--bs-secondary-color)}
+.media-metadata-field>span,.media-metadata-field>time{min-width:0;overflow-wrap:anywhere}
+.metadata-disclosure{margin-bottom:.5rem}
+.metadata-disclosure>summary{cursor:pointer;list-style:none;font-size:.85rem;font-weight:600;padding:.25rem 0}
+.metadata-disclosure>summary::-webkit-details-marker{display:none}
+.metadata-disclosure>summary .bi-chevron-right{display:inline-block;transition:transform .2s ease;margin-right:.25rem}
+.metadata-disclosure[open]>summary .bi-chevron-right{transform:rotate(90deg)}
+.metadata-disclosure .group-summary-fields{padding-top:.35rem}
+.observation-group-lead .observation-card .card-body:has(.metadata-disclosure){min-height:0}
+@media (prefers-reduced-motion:reduce){.metadata-disclosure>summary .bi-chevron-right{transition:none}}

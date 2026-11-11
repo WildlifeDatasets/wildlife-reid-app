@@ -1,0 +1,32 @@
+<div class="small group-summary-fields">
+  <div class="media-metadata-field"><i class="bi bi-images" role="img" aria-label="Media files" title="Media files"></i><span>{{ summary.mediafile_count }} media file{{ summary.mediafile_count|pluralize }}</span></div>
+  {% if show_observation_counts %}
+    <div class="media-metadata-field"><i class="bi bi-bounding-box" role="img" aria-label="Observations and bounding boxes" title="Observations and bounding boxes"></i><span>{{ summary.observations|length }} observations · {{ summary.bbox_count }} bboxes</span></div>
+    {% if summary.sequence_count %}<div class="media-metadata-field"><i class="bi bi-collection" role="img" aria-label="Sequences" title="Sequences"></i><span>{{ summary.sequence_count }} sequence{{ summary.sequence_count|pluralize }}</span></div>{% endif %}
+  {% endif %}
+  {% with individuals=summary.individuals_summary %}
+    <div class="media-metadata-field" title="Based on recorded observations in this summary's scope. Minimum = the greater of distinct known identities and the largest simultaneous object count in an image. Video observations are not assumed simultaneous.">
+      <i class="bi bi-people" role="img" aria-label="Individuals" title="Individuals"></i>
+      <span>{% if not individuals.is_exact %}at least {% endif %}{{ individuals.minimum }} individual{{ individuals.minimum|pluralize }} <span class="text-muted">({{ individuals.known }} identified{% if not individuals.is_exact %}; {{ individuals.unidentified_observations }} unidentified observations{% endif %})</span></span>
+    </div>
+  {% endwith %}
+  {% if not compact %}
+    {% if summary.captured_at_start %}<div class="media-metadata-field text-muted"><i class="bi bi-calendar3" role="img" aria-label="Captured" title="Captured"></i><span>{{ summary.captured_at_start|date:'Y-m-d H:i' }}{% if summary.captured_at_end != summary.captured_at_start %} – {{ summary.captured_at_end|date:'Y-m-d H:i' }}{% endif %}</span></div>{% endif %}
+    {% if summary.taxons %}<div class="media-metadata-field"><i class="bi bi-tag" role="img" aria-label="Taxa" title="Taxa"></i><span>{% for taxon in summary.taxons %}<a class="link-secondary" href="{% if observation_links %}{% url 'caidapp:observations' %}{% else %}{% url 'caidapp:media_files' %}{% endif %}?taxon={{ taxon.id }}">{{ taxon }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}</span></div>{% endif %}
+    {% if summary.primary_locality %}
+      <div class="media-metadata-field">
+        <i class="bi bi-geo-alt" role="img" aria-label="Locality" title="Locality"></i>
+        <span>
+          <a class="link-secondary" href="{% if observation_links %}{% url 'caidapp:observations' %}?locality={{ summary.primary_locality.id }}{% else %}{% url 'caidapp:media_files_locality' summary.primary_locality.hash %}{% endif %}">{% if request.session.private_mode %}{{ summary.primary_locality.visible_name }}{% else %}{{ summary.primary_locality.name }}{% endif %}</a>
+          {% if summary.additional_localities %}
+            <button class="btn btn-sm btn-outline-secondary sequence-locality-extra-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#summary-localities-{{ summary_key }}" aria-expanded="false" aria-controls="summary-localities-{{ summary_key }}" aria-label="Show additional localities">+{{ summary.additional_localities|length }}</button>
+            <span class="collapse sequence-locality-extra-list" id="summary-localities-{{ summary_key }}">
+              {% for locality in summary.additional_localities %}<span class="d-block"><a class="link-secondary" href="{% if observation_links %}{% url 'caidapp:observations' %}?locality={{ locality.id }}{% else %}{% url 'caidapp:media_files_locality' locality.hash %}{% endif %}">{% if request.session.private_mode %}{{ locality.visible_name }}{% else %}{{ locality.name }}{% endif %}</a></span>{% endfor %}
+            </span>
+          {% endif %}
+        </span>
+      </div>
+    {% endif %}
+    {% if summary.identities %}<div class="media-metadata-field"><i class="bi bi-fingerprint" role="img" aria-label="Identities" title="Identities"></i><span>{% for identity in summary.identities %}<a class="link-secondary" href="{% if observation_links %}{% url 'caidapp:observations' %}?identity={{ identity.id }}{% else %}{% url 'caidapp:individual_identity_mediafiles' identity.id %}{% endif %}">{{ identity }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}</span></div>{% endif %}
+  {% endif %}
+</div>

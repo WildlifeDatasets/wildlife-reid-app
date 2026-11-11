@@ -1,15 +1,4 @@
 <div class="small border-bottom pb-2 mb-2 sequence-summary">
-  <div><strong>Sequence summary</strong>{% if sequence.local_id is not None %} · ID within upload: {{ sequence.local_id }}{% endif %}</div>
-  <div>Media files: {{ sequence.mediafile_count }}</div>
-  {% with summary=sequence.individuals_summary %}
-    <div title="Based on recorded observations in the complete sequence. Minimum = the greater of distinct known identities and the largest simultaneous object count in an image. Video observations are not assumed simultaneous. Unidentified observations may show the same individuals repeatedly.">
-      Individuals: {% if not summary.is_exact %}at least {% endif %}{{ summary.minimum }}
-      <span class="text-muted">({{ summary.known }} identified{% if not summary.is_exact %}; {{ summary.unidentified_observations }} unidentified observations{% endif %})</span>
-    </div>
-  {% endwith %}
-  {% if not compact %}
-    {% if sequence.captured_at_start %}<div class="text-muted">{{ sequence.captured_at_start|date:'Y-m-d H:i' }}{% if sequence.captured_at_end != sequence.captured_at_start %} – {{ sequence.captured_at_end|date:'Y-m-d H:i' }}{% endif %}</div>{% endif %}
-    {% if sequence.taxons_display %}<div>Taxa: {{ sequence.taxons_display }}</div>{% endif %}
-    {% if sequence.identities_display %}<div>Identities: {{ sequence.identities_display }}</div>{% endif %}
-  {% endif %}
+  {% if not hide_heading %}<div><strong>Sequence summary</strong></div>{% endif %}
+  {% include 'caidapp/includes/group_summary_fields.html' with summary=sequence summary_key=sequence.id request=request compact=compact only %}
 </div>

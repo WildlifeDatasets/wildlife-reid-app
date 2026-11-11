@@ -9,8 +9,11 @@ from django.urls import reverse
 from .factories import (
     AnimalObservationFactory,
     CaidUserFactory,
+    IndividualIdentityFactory,
+    LocalityFactory,
     MediaFileFactory,
     SequenceFactory,
+    TaxonFactory,
     UploadedArchiveFactory,
 )
 
@@ -81,8 +84,8 @@ class SequenceSizeViewTest(TestCase):
         )
         self.assertEqual([seq.pk for seq in response.context["sequence_objects"]], [self.large.pk])
         self.assertEqual(response.context["number_of_mediafiles"], 1)
-        self.assertContains(response, "Media files: 2")
-        self.assertContains(response, "Individuals: at least 2")
+        self.assertContains(response, "2 media files")
+        self.assertContains(response, "at least 2 individuals")
 
     def test_file_count_sort_differs_from_local_sequence_id(self):
         """Both sort choices must remain explicit and behave independently."""
@@ -100,5 +103,63 @@ class SequenceSizeViewTest(TestCase):
         """Show the same summary in tabular and card views."""
         response = self.client.get(reverse("caidapp:sequences"), {"view": "list"})
         self.assertContains(response, "Sequence summary", count=2)
-        self.assertContains(response, "ID within upload: 10")
+        self.assertNotContains(response, "ID within upload: 10")
         self.assertContains(response, "Media files in sequence: minimum")
+        self.assertContains(response, "<h1>Media files and sequences</h1>")
+
+
+class ObservationGroupSummaryTest(TestCase):
+    """Ensure summaries follow the displayed grouping, filter, and page."""
+
+    def setUp(self):
+        """Create sibling observations and a second media file with distinct metadata."""
+        self.owner = CaidUserFactory()
+        self.client.force_login(self.owner.user)
+        archive = UploadedArchiveFactory(owner=self.owner)
+        sequence = SequenceFactory(uploaded_archive=archive)
+        self.taxon = TaxonFactory(name="Lynx lynx")
+        self.locality = LocalityFactory(owner=self.owner, name="Forest camera")
+        self.identity = IndividualIdentityFactory(owner_workgroup=self.owner.workgroup)
+        self.first = MediaFileFactory(parent=archive, sequence=sequence, locality=self.locality)
+        second = MediaFileFactory(parent=archive, sequence=sequence, locality=self.locality)
+        AnimalObservationFactory(mediafile=self.first, identity=self.identity, taxon=self.taxon)
+        AnimalObservationFactory(mediafile=self.first, identity=None, taxon=self.taxon)
+        AnimalObservationFactory(mediafile=second, identity=self.identity, taxon=self.taxon)
+
+    def test_summary_follows_grouping_in_all_layouts(self):
+        """Count each displayed group while leaving observation-level selection intact."""
+        for view in ("cards", "large_cards", "list"):
+            for grouping, title, sizes in (
+                ("sequence", "Sequence summary", [2]),
+                ("mediafile", "Media file summary", [1, 1]),
+                ("identity", "Identity summary", [1, 2]),
+            ):
+                with self.subTest(view=view, grouping=grouping):
+                    response = self.client.get(reverse("caidapp:observations"), {"view": view, "group": grouping})
+                    groups = response.context["observation_groups"]
+                    self.assertEqual(sorted(group["mediafile_count"] for group in groups), sizes)
+                    self.assertContains(response, title)
+                    self.assertContains(response, "Displayed observations · current filter and page")
+                    self.assertContains(response, f'href="{reverse("caidapp:observations")}?taxon={self.taxon.pk}"')
+                    self.assertContains(
+                        response, f'href="{reverse("caidapp:observations")}?locality={self.locality.pk}"'
+                    )
+                    self.assertEqual(sum(len(group["observations"]) for group in groups), 3)
+
+    def test_summary_excludes_sibling_observations_filtered_by_identity(self):
+        """A known-identity filter must not count unidentified siblings in the same file."""
+        response = self.client.get(reverse("caidapp:observations"), {"identity": self.identity.pk})
+        summary = response.context["observation_groups"][0]["individuals_summary"]
+        self.assertEqual(summary["minimum"], 1)
+        self.assertTrue(summary["is_exact"])
+        self.assertEqual(summary["unidentified_observations"], 0)
+
+    def test_summary_is_limited_to_displayed_page(self):
+        """A sequence continuing on another page must not silently summarize hidden observations."""
+        for _ in range(23):
+            AnimalObservationFactory(mediafile=self.first, identity=None, taxon=self.taxon)
+        response = self.client.get(reverse("caidapp:observations"), {"per_page": 24})
+        group = response.context["observation_groups"][0]
+        self.assertEqual(len(group["observations"]), 24)
+        self.assertEqual(group["individuals_summary"]["unidentified_observations"], 23)
+        self.assertFalse(group["individuals_summary"]["is_exact"])

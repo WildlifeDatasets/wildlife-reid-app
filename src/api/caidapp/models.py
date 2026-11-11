@@ -1568,26 +1568,11 @@ class Sequence(models.Model):
     @property
     def individuals_summary(self):
         """Summarize recorded individuals without treating video bboxes as simultaneous."""
-        known_ids = set()
-        minimum = 0
-        unidentified_count = 0
-        for mediafile in self.mediafile_set.all():
-            observations = [obs for obs in mediafile.observations.all() if not obs.is_no_detection_placeholder]
-            file_known_ids = {obs.identity_id for obs in observations if obs.identity_id is not None}
-            unknown = sum(obs.identity_id is None for obs in observations)
-            known_ids.update(file_known_ids)
-            unidentified_count += unknown
-            if mediafile.media_type == "image":
-                minimum = max(minimum, len(file_known_ids) + unknown)
-            elif observations:
-                # A video currently has no frame/time coordinate on its observations.
-                minimum = max(minimum, 1)
-        return {
-            "known": len(known_ids),
-            "minimum": max(minimum, len(known_ids)),
-            "is_exact": unidentified_count == 0,
-            "unidentified_observations": unidentified_count,
-        }
+        from .services.individual_summary import summarize_individuals
+
+        return summarize_individuals(
+            (mediafile.media_type, mediafile.observations.all()) for mediafile in self.mediafile_set.all()
+        )
 
     @property
     def taxons(self):

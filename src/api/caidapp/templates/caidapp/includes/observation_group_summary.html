@@ -1,0 +1,5 @@
+<details class="metadata-disclosure js-observation-group-summary" open>
+  <summary><i class="bi bi-chevron-right" aria-hidden="true"></i> {{ group.summary_title }}</summary>
+  <div class="small text-muted">Displayed observations · current filter and page</div>
+  {% include 'caidapp/includes/group_summary_fields.html' with summary=group summary_key=group.id request=request observation_links=True show_observation_counts=True only %}
+</details>

@@ -31,7 +31,7 @@
                         data-sequence-id="{{ sequence.id }}"
                         data-bs-toggle-tooltip="true"
                         data-bs-title="{{ sequence.mediafile_count }} media files in sequence"
-                        aria-expanded="false"
+                        aria-expanded="{{ sequence_expanded|yesno:'true,false' }}"
                         title="{{ sequence.mediafile_count }} media files in sequence">
                     <i class="bi bi-images"></i>
                     <span>{{ sequence.mediafile_count }}</span>
@@ -70,38 +70,17 @@
     </div>
     <div class="card-body">
         {% if sequence_lead_card %}
-            {% include "caidapp/includes/sequence_summary.html" with sequence=sequence only %}
-            {% if sequence.primary_locality %}
-                <div class="small mb-1">
-                    <strong>Locality:</strong>
-                    <a class="link-secondary" href="{% url 'caidapp:media_files_locality' sequence.primary_locality.hash %}">
-                        {% if request.session.private_mode %}{{ sequence.primary_locality.visible_name }}{% else %}{{ sequence.primary_locality.name }}{% endif %}
-                    </a>
-                    {% if sequence.additional_localities %}
-                        <button class="btn btn-sm btn-outline-secondary sequence-locality-extra-toggle" type="button"
-                                data-bs-toggle="collapse"
-                                data-bs-target="#sequence-card-localities-{{ sequence.id }}"
-                                aria-expanded="false"
-                                aria-controls="sequence-card-localities-{{ sequence.id }}">
-                            +{{ sequence.additional_localities|length }}
-                        </button>
-                        <div class="collapse sequence-locality-extra-list" id="sequence-card-localities-{{ sequence.id }}">
-                            {% for locality in sequence.additional_localities %}
-                                <div>
-                                    <a class="link-secondary" href="{% url 'caidapp:media_files_locality' locality.hash %}">
-                                        {% if request.session.private_mode %}{{ locality.visible_name }}{% else %}{{ locality.name }}{% endif %}
-                                    </a>
-                                </div>
-                            {% endfor %}
-                        </div>
-                    {% endif %}
-                </div>
-            {% endif %}
+            <details class="sequence-disclosure js-sequence-summary"{% if not sequence_expanded %} open{% endif %}>
+                <summary><i class="bi bi-chevron-right" aria-hidden="true"></i> Sequence summary</summary>
+                {% include "caidapp/includes/sequence_summary.html" with sequence=sequence request=request hide_heading=True only %}
+            </details>
+            <details class="sequence-disclosure js-first-mediafile-details"{% if sequence_expanded %} open{% endif %}>
+                <summary><i class="bi bi-chevron-right" aria-hidden="true"></i> First media file details</summary>
+                <div class="pt-2">
         {% endif %}
         {% if selectable %}
-            {% if sequence_lead_card %}<div class="small text-muted">Cover media file:</div>{% endif %}
-            <label class="form-label small fw-semibold mb-2" for="{% if sequence_lead_card and sequence.mediafile_count == 1 %}sequence-checkbox-{{ sequence.id }}{% else %}mediafile-checkbox-{{ mediafile.id }}{% endif %}">
-                {{ mediafile.original_filename|default:mediafile.id }}
+            <label class="form-label media-metadata-field small fw-semibold mb-2" for="{% if sequence_lead_card and sequence.mediafile_count == 1 %}sequence-checkbox-{{ sequence.id }}{% else %}mediafile-checkbox-{{ mediafile.id }}{% endif %}">
+                <i class="bi bi-image" role="img" aria-label="Media file" title="Media file"></i><span>{{ mediafile.original_filename|default:mediafile.id }}</span>
             </label>
             <input
                 type="hidden"
@@ -116,7 +95,11 @@
             <div class="fw-semibold mb-2">{{ mediafile.original_filename|default:mediafile.id }}</div>
         {% endif %}
 
-        {% include "caidapp/includes/mediafile_card_meta.html" with mediafile=mediafile show_locality=show_locality request=request only %}
+        {% if sequence_lead_card %}
+            {% include "caidapp/includes/mediafile_card_meta.html" with mediafile=mediafile show_locality=True request=request only %}
+        {% else %}
+            {% include "caidapp/includes/mediafile_card_meta.html" with mediafile=mediafile show_locality=show_locality request=request only %}
+        {% endif %}
 
         <div class="mt-3 d-flex justify-content-start align-items-center gap-2">
             <a class="btn btn-secondary btn-sm"
@@ -161,8 +144,15 @@
                 </ul>
             </div>
         </div>
+        {% if sequence_lead_card %}
+                <div class="text-end mt-2">{% mediafile_info mediafile request %}</div>
+                </div>
+            </details>
+        {% endif %}
     </div>
+    {% if not sequence_lead_card %}
     <div class="position-absolute bottom-0 end-0 p-2">
         {% mediafile_info mediafile request %}
     </div>
+    {% endif %}
 </div>

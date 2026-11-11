@@ -21,6 +21,12 @@
     {% endif %}
   </a>
   <div class="card-body">
+    {% if group_lead and group.is_collapsible %}
+      {% include 'caidapp/includes/observation_group_summary.html' with group=group request=request only %}
+      <details class="metadata-disclosure js-first-observation-details">
+        <summary><i class="bi bi-chevron-right" aria-hidden="true"></i> First observation details</summary>
+        <div class="pt-2">
+    {% endif %}
     {% if observation.is_no_detection_placeholder %}
       <div class="mb-2"><span class="badge text-bg-light border" title="No object was found in this media file">No detection</span></div>
     {% elif observation.bbox_x_center is None %}
@@ -40,6 +46,10 @@
       <button type="button" class="btn btn-sm btn-link text-secondary observation-info-button js-observation-info ms-auto" data-observation-info-template="observation-info-template-{{ observation.id }}" data-observation-info-title="{{ observation.mediafile.original_filename|default:'Observation details' }}" data-bs-toggle-tooltip="true" title="Taxon: {% if observation.is_no_detection_placeholder %}No object detected{% else %}{{ observation.taxon|default:'No taxon' }}{% endif %}{% if observation.predicted_taxon %}&#10;Predicted taxon: {{ observation.predicted_taxon }}{% if observation.predicted_taxon_confidence is not None %} ({{ observation.predicted_taxon_confidence|floatformat:4 }}){% endif %}{% endif %}&#10;Taxon verified: {{ observation.taxon_verified|yesno:'Yes,No' }}&#10;Identity: {{ observation.identity|default:'No identity' }}{% if observation.identity %}&#10;Representative: {{ observation.identity_is_representative|yesno:'Yes,No' }}{% endif %}&#10;Media file: {{ observation.mediafile.original_filename|default:observation.mediafile_id }}{% if observation.mediafile.locality %}&#10;Locality: {% if request.session.private_mode %}{{ observation.mediafile.locality.visible_name }}{% else %}{{ observation.mediafile.locality.name }}{% endif %}{% endif %}{% if observation.mediafile.captured_at %}&#10;Captured: {{ observation.mediafile.captured_at|date:'Y-m-d H:i' }}{% endif %}{% if observation.mediafile.sequence_id %}&#10;Sequence ID: {{ observation.mediafile.sequence_id }}{% endif %}&#10;Orientation: {{ observation.get_orientation_display }}&#10;BBox: {% if observation.bbox_x_center is not None %}{{ observation.bbox_x_center }}, {{ observation.bbox_y_center }}, {{ observation.bbox_width }}, {{ observation.bbox_height }}{% else %}-{% endif %}&#10;Observation ID: {{ observation.id }}&#10;Media file ID: {{ observation.mediafile_id }}{% if observation.updated_at %}&#10;Updated: {{ observation.updated_at|date:'Y-m-d H:i' }}{% endif %}" aria-label="Show observation details"><i class="bi bi-info-circle" aria-hidden="true"></i></button>
       {% include 'caidapp/includes/comparison_button.html' with kind='observation' source_id=observation.id label=observation.mediafile.original_filename %}
     </div>
+    {% if group_lead and group.is_collapsible %}
+        </div>
+      </details>
+    {% endif %}
   </div>
   <template id="observation-info-template-{{ observation.id }}">
     <dl class="row mb-0 observation-info-details user-select-text">

@@ -4,6 +4,7 @@
 {% load widget_tweaks %}
 {% load custom_filters %}
 {% block head %}
+<link href="{% static 'caidapp/css/group-summary.css' %}" rel="stylesheet">
 <link href="{% static 'admin/css/vendor/select2/select2.min.css' %}" rel="stylesheet">
 <script src="{% static 'admin/js/vendor/select2/select2.full.js' %}"></script>
 <script src="{% static 'admin/js/vendor/select2/i18n/cs.js' %}"></script>
@@ -14,13 +15,14 @@
 .sequence-grid{display:flex;flex-wrap:wrap;column-gap:.55rem;row-gap:1.25rem;align-items:stretch}.sequence-grid-sequence-break{flex:0 0 1.15rem;width:1.15rem;height:1px}.sequence-grid .sequence-mediafile-card{flex:0 0 300px;width:300px;max-width:100%;display:flex;flex-direction:column;background:var(--wrid-media-card-bg);border-color:rgba(var(--bs-secondary-rgb),.55);border-radius:0;overflow:hidden;box-shadow:0 0 0 5px rgba(var(--bs-secondary-rgb),.45);transition:box-shadow .2s ease,border-color .16s ease,transform .16s ease,opacity .16s ease,filter .16s ease;will-change:transform}.sequence-grid .sequence-mediafile-card.sequence-hover-highlight{border-color:rgba(var(--bs-primary-rgb),.72);box-shadow:0 0 0 5px rgba(var(--bs-primary-rgb),.58),0 .45rem 1rem rgba(var(--bs-primary-rgb),.22);transform:translateY(-1px)}.sequence-grid .sequence-mediafile-card.sequence-expanded-visible.sequence-nonmatching-mediafile{opacity:.52;filter:saturate(.65)}.sequence-grid .sequence-lead-card{border-top-left-radius:.75rem;border-bottom-left-radius:.75rem}.sequence-grid .sequence-end-card,.sequence-grid .sequence-collapsed-card{margin-right:1rem;border-top-right-radius:.75rem;border-bottom-right-radius:.75rem}.sequence-grid .sequence-collapsed-card{margin-right:1.4rem;box-shadow:5px 5px 0 0 rgba(var(--bs-secondary-rgb),.42),10px 10px 0 0 rgba(var(--bs-secondary-rgb),.24)}.sequence-grid .sequence-collapsed-card.sequence-hover-highlight{box-shadow:8px 8px 0 0 rgba(var(--bs-primary-rgb),.5),16px 16px 0 0 rgba(var(--bs-primary-rgb),.3),0 .65rem 1.15rem rgba(var(--bs-primary-rgb),.18);transform:translate(-1px,-2px)}.sequence-grid .sequence-mediafile-card img,.sequence-grid .sequence-mediafile-image-placeholder{border-radius:0}.sequence-grid .sequence-extra-card{display:none}.sequence-grid .sequence-extra-card.sequence-expanded-visible{display:flex}.sequence-grid .sequence-mediafile-card .card-body{min-height:11.5rem;display:flex;flex:1 1 auto;flex-direction:column}.sequence-grid .sequence-mediafile-card .card-body>.mt-3{margin-top:auto!important}.sequence-toggle-icon.toggle-sequence-active{background-color:var(--bs-primary);color:#fff}.sequence-grid .sequence-collapsed-summary{font-size:.8rem;color:var(--bs-secondary-color)}@media (prefers-reduced-motion:reduce){.sequence-grid .sequence-mediafile-card{transition:none!important}}[data-bs-theme=dark] .sequence-grid .sequence-mediafile-card{box-shadow:0 0 0 5px rgba(var(--bs-secondary-rgb),.62)}[data-bs-theme=dark] .sequence-grid .sequence-collapsed-card{box-shadow:5px 5px 0 0 rgba(var(--bs-secondary-rgb),.5),10px 10px 0 0 rgba(var(--bs-secondary-rgb),.32)}[data-bs-theme=dark] .sequence-grid .sequence-mediafile-card.sequence-hover-highlight{box-shadow:0 0 0 5px rgba(var(--bs-primary-rgb),.74),0 .55rem 1.2rem rgba(var(--bs-primary-rgb),.28)}[data-bs-theme=dark] .sequence-grid .sequence-mediafile-card.sequence-expanded-visible.sequence-nonmatching-mediafile{opacity:.45;filter:saturate(.55)}[data-bs-theme=dark] .sequence-grid .sequence-collapsed-card.sequence-hover-highlight{box-shadow:8px 8px 0 0 rgba(var(--bs-primary-rgb),.62),16px 16px 0 0 rgba(var(--bs-primary-rgb),.4),0 .7rem 1.25rem rgba(var(--bs-primary-rgb),.24)}@media (max-width:767px){.sequence-grid .sequence-mediafile-card{flex-basis:100%;width:100%;border-radius:.75rem}.sequence-grid-sequence-break{display:none}.sequence-grid .sequence-lead-card,.sequence-grid .sequence-end-card,.sequence-grid .sequence-collapsed-card{margin-left:0;margin-right:0;border-radius:.75rem}}
 .sequence-checkbox-prominent{width:1.3rem;height:1.3rem;cursor:pointer;box-shadow:0 0 0 .12rem rgba(var(--bs-primary-rgb),.18)}.sequence-grid{column-gap:.25rem}.sequence-grid-sequence-break{flex-basis:.45rem;width:.45rem}.sequence-grid .sequence-end-card,.sequence-grid .sequence-collapsed-card{margin-right:.45rem}.sequence-grid .sequence-collapsed-card{margin-right:.65rem}.sequence-grid .sequence-collapsed-card .sequence-mediafile-checkbox-overlay{display:none}
 .verification-taxon-heading{flex:0 0 100%;width:100%;margin-top:1rem;padding:.35rem 0;border-bottom:1px solid rgba(0,0,0,.12);color:#495057;font-weight:600}.verification-toolbar{border-color:rgba(var(--bs-primary-rgb),.2);background:rgba(var(--bs-primary-rgb),.04)}
+.sequence-disclosure{margin-bottom:.5rem}.sequence-disclosure>summary{cursor:pointer;list-style:none;font-size:.85rem;font-weight:600;padding:.25rem 0}.sequence-disclosure>summary::-webkit-details-marker{display:none}.sequence-disclosure>summary .bi-chevron-right{display:inline-block;transition:transform .2s ease;margin-right:.25rem}.sequence-disclosure[open]>summary .bi-chevron-right{transform:rotate(90deg)}.sequence-disclosure .sequence-summary{border-bottom:0!important;margin:0!important;padding-top:.35rem}.sequence-grid .sequence-lead-card .card-body{min-height:0}@media (prefers-reduced-motion:reduce){.sequence-disclosure>summary .bi-chevron-right{transition:none}}
 </style>
 {% endblock %}
 {% block body %}
 {% if user.is_authenticated %}
 <div class="pagetitle">
   <h1>{{ page_title }}</h1>
-  <nav><ol class="breadcrumb"><li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li><li class="breadcrumb-item active">Sequences</li></ol></nav>
+  <nav><ol class="breadcrumb"><li class="breadcrumb-item"><a href="{% url 'caidapp:uploads' %}">Uploads</a></li><li class="breadcrumb-item active">Media files and sequences</li></ol></nav>
 </div>
 <section class="section">
   {% include "caidapp/filter_collapse.html" %}
@@ -219,7 +221,7 @@
             <td>{% if sequence.cover_mediafile and sequence.cover_mediafile.card_image %}<a class="position-relative d-inline-block" href="{% url 'caidapp:media_file_update' sequence.cover_mediafile.id %}?next={{ request.get_full_path|urlencode }}"><img class="sequence-table-thumb rounded {% if sequence.cover_mediafile.motion_thumbnail %}js-motion-preview{% endif %}" src="{{ sequence.cover_mediafile.card_image.url }}"{% if sequence.cover_mediafile.motion_thumbnail %} data-motion-src="{{ sequence.cover_mediafile.motion_thumbnail.url }}"{% endif %} loading="lazy" alt="Sequence cover">{% if sequence.cover_mediafile.media_type == 'video' %}<span class="media-type-video-badge" title="Video" aria-label="Video"><i class="bi bi-play-fill" aria-hidden="true"></i></span>{% endif %}</a>{% else %}<div class="sequence-table-thumb-placeholder rounded"></div>{% endif %}</td>
             <td class="small">
               <div class="sequence-table-cell-lines">
-                {% include "caidapp/includes/sequence_summary.html" with sequence=sequence compact=True only %}
+                <div class="sequence-list-hide-on-expand">{% include "caidapp/includes/sequence_summary.html" with sequence=sequence compact=True only %}</div>
               </div>
             </td>
             <td class="small">
@@ -303,12 +305,12 @@
         {% for mediafile in sequence.mediafile_set.all %}
           {% if forloop.first %}
             {% if sequence.mediafile_count == 1 %}
-              {% include "caidapp/includes/mediafile_card.html" with mediafile=mediafile sequence=sequence selectable=True show_locality=False request=request sequence_lead_card=True extra_card_class="sequence-member-card sequence-lead-card sequence-end-card" only %}
+              {% include "caidapp/includes/mediafile_card.html" with mediafile=mediafile sequence=sequence selectable=True show_locality=False request=request sequence_lead_card=True sequence_expanded=show_overview_button extra_card_class="sequence-member-card sequence-lead-card sequence-end-card" only %}
             {% else %}
               {% if show_overview_button %}
-                {% include "caidapp/includes/mediafile_card.html" with mediafile=mediafile sequence=sequence selectable=True show_locality=False request=request sequence_lead_card=True extra_card_class="sequence-member-card sequence-lead-card" only %}
+                {% include "caidapp/includes/mediafile_card.html" with mediafile=mediafile sequence=sequence selectable=True show_locality=False request=request sequence_lead_card=True sequence_expanded=show_overview_button extra_card_class="sequence-member-card sequence-lead-card" only %}
               {% else %}
-                {% include "caidapp/includes/mediafile_card.html" with mediafile=mediafile sequence=sequence selectable=True show_locality=False request=request sequence_lead_card=True extra_card_class="sequence-member-card sequence-lead-card sequence-collapsed-card" only %}
+                {% include "caidapp/includes/mediafile_card.html" with mediafile=mediafile sequence=sequence selectable=True show_locality=False request=request sequence_lead_card=True sequence_expanded=show_overview_button extra_card_class="sequence-member-card sequence-lead-card sequence-collapsed-card" only %}
               {% endif %}
             {% endif %}
           {% else %}
@@ -515,6 +517,10 @@ document.addEventListener("DOMContentLoaded", function() {
     });
     document.querySelectorAll(`.sequence-lead-card[data-sequence-id="${sequenceId}"]`).forEach(function(card){
       card.classList.toggle("sequence-collapsed-card", !expanded);
+      const summary=card.querySelector(".js-sequence-summary");
+      const firstDetails=card.querySelector(".js-first-mediafile-details");
+      if(summary){ summary.open=!expanded; }
+      if(firstDetails){ firstDetails.open=expanded; }
     });
     syncSequenceButtons(sequenceId, expanded);
   }
@@ -536,6 +542,10 @@ document.addEventListener("DOMContentLoaded", function() {
       setSequenceExpandedState(sequenceId, expanded);
     }
   }
+  document.querySelectorAll(".sequence-lead-card").forEach(function(card){
+    const firstDetails=card.querySelector(".js-first-mediafile-details");
+    syncSequenceButtons(card.dataset.sequenceId, !!firstDetails&&firstDetails.open);
+  });
   function syncSequenceSelection(sequenceId, checked){
     document.querySelectorAll(`.js-sequence-checkbox[value="${sequenceId}"]`).forEach(function(peer){ peer.checked=checked; });
     document.querySelectorAll(`.js-mediafile-checkbox[data-sequence-id="${sequenceId}"]`).forEach(function(mediafileCheckbox){

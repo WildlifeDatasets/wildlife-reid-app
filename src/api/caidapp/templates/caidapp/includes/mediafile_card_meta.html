@@ -1,30 +1,11 @@
-<div class="small text-muted text-break">Upload: {{ mediafile.parent.name|default:'—' }}</div>
-<div class="small text-muted">{{ mediafile.captured_at|date:'Y-m-d H:i' }}</div>
+<div class="media-metadata-field small text-muted"><i class="bi bi-archive" role="img" aria-label="Upload" title="Upload"></i><span>{{ mediafile.parent.name|default:'—' }}</span></div>
+{% if mediafile.captured_at %}<div class="media-metadata-field small text-muted"><i class="bi bi-calendar3" role="img" aria-label="Captured" title="Captured"></i><time datetime="{{ mediafile.captured_at|date:'c' }}">{{ mediafile.captured_at|date:'Y-m-d H:i' }}</time></div>{% endif %}
 {% if mediafile.taxons %}
-    <div class="small">
-        Taxon:
-        {% for taxon in mediafile.taxons %}
-            <a class="link-secondary" href="{% url 'caidapp:media_files' %}?taxon={{ taxon.id }}">{{ taxon }}</a>{% if not forloop.last %}, {% endif %}
-        {% endfor %}
-    </div>
+  <div class="media-metadata-field small"><i class="bi bi-tag" role="img" aria-label="Taxa" title="Taxa"></i><span>{% for taxon in mediafile.taxons %}<a class="link-secondary" href="{% url 'caidapp:media_files' %}?taxon={{ taxon.id }}">{{ taxon }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}</span></div>
 {% endif %}
 {% if mediafile.identities %}
-    <div class="small">
-        Identity:
-        {% for identity in mediafile.identities %}
-            <a class="link-secondary" href="{% url 'caidapp:individual_identity_mediafiles' identity.id %}">{{ identity }}</a>{% if not forloop.last %}, {% endif %}
-        {% endfor %}
-    </div>
+  <div class="media-metadata-field small"><i class="bi bi-fingerprint" role="img" aria-label="Identities" title="Identities"></i><span>{% for identity in mediafile.identities %}<a class="link-secondary" href="{% url 'caidapp:individual_identity_mediafiles' identity.id %}">{{ identity }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}</span></div>
 {% endif %}
 {% if mediafile.locality and show_locality %}
-    <div class="small">
-        Locality:
-        <a class="link-secondary" href="{% url 'caidapp:media_files_locality' mediafile.locality.hash %}">
-            {% if request.session.private_mode %}
-                {{ mediafile.locality.visible_name }}
-            {% else %}
-                {{ mediafile.locality.name }}
-            {% endif %}
-        </a>
-    </div>
+  <div class="media-metadata-field small"><i class="bi bi-geo-alt" role="img" aria-label="Locality" title="Locality"></i><a class="link-secondary" href="{% url 'caidapp:media_files_locality' mediafile.locality.hash %}">{% if request.session.private_mode %}{{ mediafile.locality.visible_name }}{% else %}{{ mediafile.locality.name }}{% endif %}</a></div>
 {% endif %}
