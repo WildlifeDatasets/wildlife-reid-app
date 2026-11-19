@@ -653,9 +653,7 @@ def get_filtered_mediafiles(
 
     filter_params.update(extra_filters)
 
-    return UploadedArchive.objects.annotate(**_uploads_general_order_annotation()).filter(
-        **user_has_access_filter_params(user.caiduser, "owner"), **filter_params
-    )
+    return UploadedArchive.objects.filter(**user_has_access_filter_params(user.caiduser, "owner"), **filter_params)
 
 
 @login_required
@@ -1103,12 +1101,18 @@ def clear_identity_suggestions_view(request):
 def paginate_queryset(queryset, request):
     """Paginate a queryset and return page context."""
     order_by = uploaded_archive_get_order_by(request)
+    annotations = _uploads_general_order_annotation()
+    order_field = order_by.lstrip("-")
+    if order_field in annotations:
+        queryset = queryset.annotate(**{order_field: annotations[order_field]})
+    queryset = queryset.select_related("owner__workgroup", "taxon_for_identification", "locality_at_upload_object")
     queryset = queryset.order_by(order_by)
 
     records_per_page = get_item_number_uploaded_archives(request)
     paginator = Paginator(queryset, per_page=records_per_page)
     _, _, page_context = _prepare_page(paginator, request=request)
 
+    views_uploads.prepare_upload_card_summaries(page_context["page_obj"], request.user.caiduser)
     for uploadedarchive in page_context["page_obj"]:
         uploadedarchive.update_status()
 
@@ -1149,8 +1153,8 @@ def _multiple_species_button_style_and_tooltips(request) -> dict:
 
 def _taxon_workflow_state(caiduser) -> dict:
     access_filter = models.user_has_access_filter_params(caiduser, "owner")
-    missing_taxa_count = len(models.get_mediafiles_with_missing_taxon(caiduser))
-    missing_verification_count = len(models.get_mediafiles_with_missing_verification(caiduser))
+    missing_taxa_count = models.get_mediafiles_with_missing_taxon(caiduser).count()
+    missing_verification_count = models.get_mediafiles_with_missing_verification(caiduser).count()
     ready_for_identification_count = models.UploadedArchive.objects.filter(
         **access_filter,
         contains_single_taxon=False,

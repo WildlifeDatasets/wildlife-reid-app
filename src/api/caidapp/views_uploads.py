@@ -1,7 +1,9 @@
 import logging
+from collections import defaultdict
 from typing import Optional
 
 from django.contrib.auth.decorators import login_required
+from django.db.models import Count, F, Q
 from django.http import HttpResponse
 from django.shortcuts import render
 from django.utils import timezone
@@ -10,6 +12,49 @@ from . import models, views
 from .models import UploadedArchive
 
 logger = logging.getLogger(__name__)
+
+
+def prepare_upload_card_summaries(archives, caiduser):
+    """Load summaries for the visible page without fetching every media file or observation."""
+    archives = list(archives)
+    archive_ids = [archive.pk for archive in archives]
+    if not archive_ids:
+        return
+    counts = {
+        row["parent_id"]: row
+        for row in models.MediaFile.objects.filter(parent_id__in=archive_ids)
+        .order_by()
+        .values("parent_id")
+        .annotate(
+            mediafiles=Count("pk", distinct=True),
+            identities=Count("observations__identity", distinct=True),
+            identification_taxon=Count(
+                "pk", filter=Q(observations__taxon=F("parent__taxon_for_identification")), distinct=True
+            ),
+            unverified=Count("pk", filter=Q(observations__taxon_verified=False), distinct=True),
+        )
+    }
+    missing = dict(
+        models.get_mediafiles_with_missing_taxon(caiduser, parent_id__in=archive_ids)
+        .order_by()
+        .values("parent_id")
+        .annotate(total=Count("pk"))
+        .values_list("parent_id", "total")
+    )
+    localities = defaultdict(list)
+    for locality in (
+        models.Locality.objects.filter(mediafiles__parent_id__in=archive_ids)
+        .annotate(card_archive_id=F("mediafiles__parent_id"))
+        .order_by("name")
+        .distinct()
+    ):
+        localities[locality.card_archive_id].append(locality)
+    for archive in archives:
+        archive._card_counts = counts.get(archive.pk, {})
+        archive._card_counts["missing"] = missing.get(archive.pk, 0)
+        archive._card_localities = localities[archive.pk]
+        if not archive._card_localities and archive.locality_at_upload_object_id:
+            archive._card_localities = [archive.locality_at_upload_object]
 
 
 def _uploadedarchive_taxons_display(uploadedarchive: UploadedArchive) -> str:
@@ -66,9 +111,6 @@ def uploads_ready_for_identification(request):
             "workgroup": workgroup,
         },
     )
-
-
-from collections import defaultdict
 
 
 def _get_check_dates(

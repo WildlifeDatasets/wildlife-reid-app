@@ -1153,6 +1153,8 @@ class UploadedArchive(models.Model):
             # "TAID"
         ):
             return self.mediafiles_at_upload
+        if hasattr(self, "_card_counts"):
+            return self._card_counts.get("mediafiles", 0)
         return MediaFile.objects.filter(parent=self).count()
 
     def count_of_representative_mediafiles(self):
@@ -1163,6 +1165,8 @@ class UploadedArchive(models.Model):
         """Return number of mediafiles with taxon for identification in the archive."""
         if self.taxon_for_identification is None:
             return None
+        if hasattr(self, "_card_counts"):
+            return self._card_counts.get("identification_taxon", 0)
         return (
             MediaFile.objects.filter(parent=self, observations__taxon=self.taxon_for_identification).distinct().count()
         )
@@ -1181,6 +1185,8 @@ class UploadedArchive(models.Model):
 
     def localities(self):
         """Return unique localities used by media files in this upload."""
+        if hasattr(self, "_card_localities"):
+            return self._card_localities
         localities = Locality.objects.filter(mediafiles__parent=self).distinct().order_by("name")
         if localities.exists():
             return localities
@@ -1191,6 +1197,8 @@ class UploadedArchive(models.Model):
     @property
     def locality(self) -> Optional[Locality]:
         """Compatibility accessor returning the first locality in the upload."""
+        if hasattr(self, "_card_localities"):
+            return next(iter(self._card_localities), None)
         return self.localities().first()
 
     @property
@@ -1248,6 +1256,8 @@ class UploadedArchive(models.Model):
 
     def count_of_mediafiles_with_missing_taxon(self):
         """Return number of media files with missing taxon."""
+        if hasattr(self, "_card_counts"):
+            return self._card_counts.get("missing", 0)
         return self.mediafiles_with_missing_taxon().count()
 
     def count_of_mediafiles_with_taxon(self):
@@ -1275,6 +1285,8 @@ class UploadedArchive(models.Model):
 
     def count_of_mediafiles_with_unverified_taxon(self):
         """Return number of media files with unverified taxon."""
+        if hasattr(self, "_card_counts"):
+            return self._card_counts.get("unverified", 0)
         return self.mediafile_set.filter(observations__taxon_verified=False).distinct().count()
 
     def percents_of_mediafiles_with_verified_taxon(self) -> float:
@@ -1289,6 +1301,8 @@ class UploadedArchive(models.Model):
 
     def count_of_identities(self):
         """Return number of unique identities in the archive."""
+        if hasattr(self, "_card_counts"):
+            return self._card_counts.get("identities", 0)
         return IndividualIdentity.objects.filter(animalobservation__mediafile__parent=self).distinct().count()
 
     def count_of_taxons(self):
