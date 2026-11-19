@@ -71,5 +71,18 @@ def migrate_user_to_workgroup(
 
     # The source is now empty. Cascades remove its obsolete model and result data.
     source_workgroup.delete()
+
+    def schedule_target_reid_refresh():
+        """Rebuild references after all transferred observations are committed."""
+        from ..tasks import schedule_init_identification_for_workgroup
+
+        # Reload scheduling state in case the enclosing transaction changed it.
+        workgroup = models.WorkGroup.objects.get(pk=target_workgroup.pk)
+        schedule_init_identification_for_workgroup(workgroup)
+
+    # Invitation acceptance has an enclosing transaction. Never dispatch work
+    # before that commits, or after a rollback. Broker errors must not turn a
+    # completed migration into an HTTP error; robust callbacks log the failure.
+    transaction.on_commit(schedule_target_reid_refresh, robust=True)
     logger.info("Migration completed: user %s is now in workgroup %s", user, target_workgroup)
     return user
