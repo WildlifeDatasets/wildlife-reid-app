@@ -28,9 +28,7 @@ from celery import current_app, signature
 from celery.result import AsyncResult
 from django.conf import settings
 from django.contrib import messages
-from django.contrib.auth import get_user_model
-from django.contrib.auth import login as auth_login
-from django.contrib.auth import logout
+from django.contrib.auth import SESSION_KEY, get_user_model, logout
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 
@@ -296,7 +294,7 @@ def impersonate_user(request):
         form = UserSelectForm(request.POST)
         if form.is_valid():
             user = form.cleaned_data["user"]
-            request.session["original_user_id"] = request.user.id
+            request.session["original_user_id"] = int(request.session[SESSION_KEY])
             request.session["impersonate_user_id"] = user.id
             return redirect("caidapp:home")
     else:
@@ -310,14 +308,9 @@ def stop_impersonation(request):
     """Stop impersonation."""
     if "impersonate_user_id" in request.session:
         del request.session["impersonate_user_id"]
-    if "original_user_id" in request.session:
-        original_user = User.objects.get(id=request.session["original_user_id"])
-        auth_login(request, original_user)
-
-        if "original_user_id" in request.session:
-            # remove original_user_id from session
-            request.session.pop("original_user_id")
-            # del request.session["original_user_id"]
+    # Authentication still belongs to the original account; middleware only
+    # replaces request.user for the duration of an impersonated request.
+    request.session.pop("original_user_id", None)
     return redirect("caidapp:home")
 
 

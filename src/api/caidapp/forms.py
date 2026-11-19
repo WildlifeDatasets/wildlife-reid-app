@@ -16,6 +16,7 @@ from .models import (
     UploadedArchive,
     WorkGroup,
 )
+from .user_labels import format_user_label
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
@@ -879,9 +880,7 @@ class UserSelectForm(forms.Form):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.fields["user"].label_from_instance = lambda obj: (
-            f"{obj.first_name} {obj.last_name}".strip() if obj.first_name or obj.last_name else obj.username
-        )
+        self.fields["user"].label_from_instance = format_user_label
 
 
 class ColumnMappingForm(forms.Form):

@@ -7,6 +7,8 @@ from django.template.loader import render_to_string
 from django.urls import reverse_lazy
 from django.utils.deprecation import MiddlewareMixin
 
+from .user_labels import format_user_label
+
 User = get_user_model()
 
 
@@ -193,6 +195,9 @@ class RecordEditPermissionMiddleware(MiddlewareMixin):
 class ImpersonateMiddleware(MiddlewareMixin):
     def process_request(self, request):
         """Impersonate user."""
+        request.impersonation_return_label = ""
+        if request.user.is_authenticated and request.session.get("impersonate_user_id"):
+            request.impersonation_return_label = format_user_label(request.user)
         if request.user.is_authenticated and request.user.is_superuser:
             impersonate_user_id = request.session.get("impersonate_user_id")
             if impersonate_user_id:

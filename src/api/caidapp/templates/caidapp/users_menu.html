@@ -68,7 +68,7 @@
             {% endif %}
             {% if request.session.impersonate_user_id %}
                 <li>
-                    <a class="dropdown-item d-flex align-items-center" href="{% url 'caidapp:stop_impersonation' %}">
+                    <a class="dropdown-item d-flex align-items-center" href="{% url 'caidapp:stop_impersonation' %}" title="Return to {{ request.impersonation_return_label }}">
                         <i class="bi bi-person-x"></i>
                         Stop Impersonation</a>
                 </li>
