@@ -304,6 +304,7 @@
                                                              data-obs-id="{{ obs_form.instance.pk|default:'new' }}">
                                                             {% if obs_form.instance.pk and not obs_form.instance.is_no_detection_placeholder and mediafile.media_type == 'image' %}
                                                             <button type="button" class="btn btn-sm btn-outline-secondary mb-2" data-embedding-start="{% url 'caidapp:embedding_run_start' %}" data-scope="observations" data-target-id="{{ obs_form.instance.pk }}" data-check-unsaved="true">Generate this observation's embedding</button>
+                                                            {% include 'caidapp/includes/identity_candidate_button.html' with observation=obs_form.instance editor=True %}
                                                             {% endif %}
                                                             {#                                                            Observation {{ forloop.counter }},#}
                                                             {#                                                            pk: {{ obs_form.instance.pk }}: <br>#}

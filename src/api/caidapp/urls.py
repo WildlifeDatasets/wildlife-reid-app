@@ -9,6 +9,7 @@ from . import (
     views_duplicates,
     views_embedding_runs,
     views_general,
+    views_identity_candidates,
     views_locality,
     views_mediafile,
     views_uploads,
@@ -29,6 +30,16 @@ def trigger_error(request):
 
 app_name = "caidapp"
 urlpatterns = [
+    path(
+        "observations/<uuid:observation_uuid>/identity-candidates/",
+        views_identity_candidates.identity_candidates,
+        name="observation_identity_candidates",
+    ),
+    path(
+        "observations/<uuid:observation_uuid>/accept-identity/",
+        views_identity_candidates.accept_identity_candidate,
+        name="observation_accept_identity",
+    ),
     path("duplicates/", views_duplicates.duplicate_list, name="duplicates"),
     path("duplicates/bulk-review/", views_duplicates.bulk_review, name="duplicate_bulk_review"),
     path("duplicates/jobs/<uuid:run_uuid>/", views_duplicates.duplicate_job, name="duplicate_job"),

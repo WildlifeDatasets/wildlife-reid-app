@@ -5,6 +5,7 @@
 
 ## 2026-11
 
+* [added] Suggest identity for selected bbox.
 * [fixed] Slow Camera Trap Checks, Media files, and Observations lists, including filtering by sequence size and loading previews.
 * [added] Automatic exact duplicate detection across a workgroup, processed in the background.
 * [added] Duplicate review and confirmed bulk removal with metadata editing and identity-merge suggestions.

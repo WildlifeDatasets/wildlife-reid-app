@@ -1,0 +1,9 @@
+{% if observation.pk and not observation.is_no_detection_placeholder and observation.mediafile.media_type == 'image' %}
+<button type="button" class="btn btn-sm btn-outline-primary js-identity-candidates"
+        data-candidates-url="{% url 'caidapp:observation_identity_candidates' observation.uuid %}"
+        data-accept-url="{% url 'caidapp:observation_accept_identity' observation.uuid %}"
+        data-embedding-url="{% url 'caidapp:embedding_run_start' %}"
+        data-observation-id="{{ observation.pk }}"{% if editor %} data-editor="true"{% endif %}>
+  <i class="bi bi-fingerprint" aria-hidden="true"></i> Suggest identity
+</button>
+{% endif %}
