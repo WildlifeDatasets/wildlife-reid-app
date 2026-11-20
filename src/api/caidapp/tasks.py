@@ -11,6 +11,7 @@ import threading
 import traceback
 import uuid
 from datetime import timedelta
+from hashlib import sha256
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Generator
@@ -22,6 +23,7 @@ import pandas as pd
 import tqdm
 from celery import current_app, shared_task, signature
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Exists, OuterRef, Q
 from django.utils.timezone import now
@@ -416,172 +418,78 @@ def on_success_predict_taxon(
     zip_file: str,
     csv_file: str,
     extract_identites: bool = False,
+    expected_taxon_task_id=None,
+    manifest_path=None,
     **kwargs,
 ):
-    """Import media files after running predict function in taxon worker.
-
-    This function is called after the taxon classification is finished. After this function the detection is called.
-    """
-    status = output.get("status", "unknown")
-    logger.info(
-        "Entering on_success_predict_taxon: %s",
-        _task_log_context(
-            "on_success_predict_taxon",
-            getattr(getattr(self, "request", None), "id", None),
-            {
-                "uploaded_archive_id": uploaded_archive_id,
-                "status": status,
-                "extract_identites": extract_identites,
-                "zip_file": zip_file,
-                "csv_file": csv_file,
-            },
-        ),
-    )
-    print(f"Taxon classification finished with status {status}")
-    logger.info(f"Taxon classification finished with status '{status}'. Updating database record.")
+    """Apply taxon results and finish an upload in one database transaction."""
     try:
-        logger.debug(
-            "Loading UploadedArchive for taxon callback: %s",
-            _task_log_context(
-                "on_success_predict_taxon",
-                getattr(getattr(self, "request", None), "id", None),
-                {"uploaded_archive_id": uploaded_archive_id},
-            ),
-        )
-        uploaded_archive = UploadedArchive.objects.get(id=uploaded_archive_id)
-        logger.debug(
-            "Loaded UploadedArchive for taxon callback: %s",
-            _task_log_context(
-                "on_success_predict_taxon",
-                getattr(getattr(self, "request", None), "id", None),
-                {
-                    "uploaded_archive_id": uploaded_archive_id,
-                    "current_taxon_status": uploaded_archive.taxon_status,
-                    "current_identification_status": uploaded_archive.identification_status,
-                },
-            ),
-        )
+        with transaction.atomic():
+            archive = UploadedArchive.objects.select_for_update().filter(pk=uploaded_archive_id).first()
+            if archive is None:
+                return
+            if expected_taxon_task_id is not None and (
+                archive.taxon_task_id != expected_taxon_task_id or archive.taxon_status != "TAIP"
+            ):
+                return
+            if output.get("status") != "DONE":
+                archive.taxon_status = "F"
+                archive.identification_status = "F"
+                archive.finished_at = now()
+                archive.status_message = output.get("error", "Taxon classification failed.")
+                archive.save()
+                if archive.owner_id:
+                    recipients = (
+                        {"workgroups": [archive.owner.workgroup]}
+                        if archive.owner.workgroup_id
+                        else {"users": [archive.owner]}
+                    )
+                    models.Notification.create_for(
+                        message=f"Taxon classification failed: {archive.status_message}",
+                        level=models.Notification.ERROR,
+                        **recipients,
+                    )
+                return
 
-        if "status" not in output:
-            logger.critical(f"Unexpected error {output=} is missing 'status' field.")
-            uploaded_archive.taxon_status = "U"
-            uploaded_archive.identification = "U"
-        elif output["status"] == "DONE":
-            logger.debug(
-                "Taxon callback output is DONE: %s",
-                _task_log_context(
-                    "on_success_predict_taxon",
-                    getattr(getattr(self, "request", None), "id", None),
-                    {
-                        "uploaded_archive_id": uploaded_archive_id,
-                        "output_keys": sorted(output.keys()),
-                    },
-                ),
-            )
-            uploaded_archive.zip_file = zip_file
-            uploaded_archive.csv_file = csv_file
-            uploaded_archive.import_error_spreadsheet = str(Path(csv_file).with_suffix(".failed.csv"))
-            logger.debug("Creating thumbnail for uploaded archive %s", uploaded_archive_id)
-            make_thumbnail_for_uploaded_archive(uploaded_archive)
-            # update_metadata_csv_by_uploaded_archive(uploaded_archive)
-            # create missing take effect only if the processing is done for the first time
-            # in other cases the file should be removed from CSV before the processing is run
-            logger.debug(f"{uploaded_archive.contains_identities=}")
-            logger.debug(
-                "Updating UploadedArchive from metadata csv: %s",
-                _task_log_context(
-                    "on_success_predict_taxon",
-                    getattr(getattr(self, "request", None), "id", None),
-                    {
-                        "uploaded_archive_id": uploaded_archive_id,
-                        "create_missing": True,
-                        "extract_identites": extract_identites,
-                    },
-                ),
-            )
+            archive.zip_file = zip_file
+            archive.csv_file = csv_file
+            archive.import_error_spreadsheet = str(Path(csv_file).with_suffix(".failed.csv"))
+            make_thumbnail_for_uploaded_archive(archive)
             update_uploaded_archive_by_metadata_csv(
-                uploaded_archive, create_missing=True, extract_identites=extract_identites
+                archive,
+                create_missing=expected_taxon_task_id is None,
+                extract_identites=extract_identites,
+                require_registered_media=expected_taxon_task_id is not None,
             )
-            if uploaded_archive.taxon_for_identification:
-                logger.debug(
-                    "Assigning unidentified media for identification: %s",
-                    _task_log_context(
-                        "on_success_predict_taxon",
-                        getattr(getattr(self, "request", None), "id", None),
-                        {"uploaded_archive_id": uploaded_archive_id},
-                    ),
-                )
-                assign_unidentified_to_identification(caiduser=uploaded_archive.owner)
-            uploaded_archive.import_finished = True
-            uploaded_archive.is_for_identification = (
-                (uploaded_archive.taxon_for_identification is not None)
-                or uploaded_archive.contains_single_taxon
-                or uploaded_archive.contains_identities
-                or uploaded_archive.is_for_identification
+            if archive.taxon_for_identification and archive.owner_id:
+                assign_unidentified_to_identification(caiduser=archive.owner)
+            archive.make_sequences()
+            archive.import_finished = True
+            archive.is_for_identification = (
+                archive.taxon_for_identification_id is not None
+                or archive.contains_single_taxon
+                or archive.contains_identities
+                or archive.is_for_identification
             )
-            uploaded_archive.taxon_status = "TAID"
-            uploaded_archive.identification_status = "IR"  # Ready for identification
-            uploaded_archive.status_message = "Taxon classification finished."
-            uploaded_archive.finished_at = django.utils.timezone.now()
-            logger.debug(
-                "Saving UploadedArchive after taxon callback: %s",
-                _task_log_context(
-                    "on_success_predict_taxon",
-                    getattr(getattr(self, "request", None), "id", None),
-                    {"uploaded_archive_id": uploaded_archive_id},
-                ),
+            archive.taxon_status = "TAID"
+            archive.identification_status = "IR"
+            archive.status_message = "Taxon classification finished."
+            archive.finished_at = now()
+            archive.save()
+            archive.update_earliest_and_latest_captured_at()
+            transaction.on_commit(
+                lambda: schedule_init_identification_after_representative_upload(archive), robust=True
             )
-            uploaded_archive.save()
-            schedule_init_identification_after_representative_upload(uploaded_archive)
-            logger.debug("Updating capture time range for uploaded archive %s", uploaded_archive_id)
-            uploaded_archive.update_earliest_and_latest_captured_at()
-            logger.debug("Creating sequences for uploaded archive %s", uploaded_archive_id)
-            uploaded_archive.make_sequences()
-            logger.debug("Running async detection on success taxon classification")
-            # run_detection_async(uploaded_archive)  # this is probably not necessary
-        else:
-            logger.warning(
-                "Taxon callback received non-DONE status: %s",
-                _task_log_context(
-                    "on_success_predict_taxon",
-                    getattr(getattr(self, "request", None), "id", None),
-                    {"uploaded_archive_id": uploaded_archive_id, "status": output.get("status")},
-                ),
-            )
-            uploaded_archive.taxon_status = "F"
-            uploaded_archive.identification_status = "F"
-            uploaded_archive.finished_at = django.utils.timezone.now()
-            if "error" in output:
-                logger.error(f"{output['error']=}")
-                uploaded_archive.status_message = output["error"]
-
-                nt_kwargs = dict(
-                    message=f"Taxon classification failed: {output['error']}",
-                    level=models.Notification.ERROR,
-                )
-
-                if uploaded_archive.owner.workgroup:
-                    nt_kwargs["workgroups"] = [uploaded_archive.owner.workgroup]
-
-                else:
-                    nt_kwargs["users"] = [uploaded_archive.owner]
-                models.Notification.create_for(**nt_kwargs)
-            uploaded_archive.save()
-    except Exception as e:
-        logger.debug(str(traceback.format_exc()))
-        logger.error(
-            "Error during on_success_predict_taxon: %s | %s",
-            e,
-            _task_log_context(
-                "on_success_predict_taxon",
-                getattr(getattr(self, "request", None), "id", None),
-                {"uploaded_archive_id": uploaded_archive_id, "status": status},
-            ),
+            if manifest_path is not None:
+                transaction.on_commit(lambda: Path(manifest_path).unlink(missing_ok=True), robust=True)
+    except Exception:
+        logger.exception("Could not apply taxon results for upload %s", uploaded_archive_id)
+        archives = UploadedArchive.objects.filter(pk=uploaded_archive_id)
+        if expected_taxon_task_id is not None:
+            archives = archives.filter(taxon_task_id=expected_taxon_task_id, taxon_status="TAIP")
+        archives.update(
+            taxon_status="F", identification_status="F", finished_at=now(), status_message=traceback.format_exc()
         )
-        uploaded_archive.taxon_status = "F"
-        uploaded_archive.finished_at = django.utils.timezone.now()
-        uploaded_archive.status_message = str(traceback.format_exc())
-        uploaded_archive.save()
 
 
 @shared_task
@@ -910,6 +818,7 @@ def finish_identification_run_statistic(statistic_id: int | None, status: str, t
         logger.warning("Could not finish identification run statistic %s", statistic_id, exc_info=True)
 
 
+# TODO(remove-legacy-predict): Remove this disabled dispatch block with the cleanup in TODO.md.
 # def run_taxon_classification_async(uploaded_archive: UploadedArchive, link=None, link_error=None):
 #     """Run taxon classification asynchronously."""
 #
@@ -1192,19 +1101,167 @@ def make_zipfile(output_filename: Path, source_dir: Path):
 
 
 @shared_task(bind=True)
-def on_error_with_uploaded_archive(self, task_id: str, *args, uploaded_archive_id: int, **kwargs):
+def on_error_with_uploaded_archive(
+    self, task_id: str, *args, uploaded_archive_id: int, expected_taxon_task_id=None, **kwargs
+):
     """Error callback invoked after running predict function in inference worker."""
     logger.critical(f"Worker task with id '{task_id}' failed due to unexpected internal error.")
     logger.debug(f"self={self}")
     logger.debug(f"args={args}")
     logger.debug(f"kwargs={kwargs}")
-    uploaded_archive = UploadedArchive.objects.get(id=uploaded_archive_id)
-    uploaded_archive.taxon_status = "F"
-    uploaded_archive.finished_at = django.utils.timezone.now()
-    uploaded_archive.save()
     result = self.AsyncResult(task_id)
-    error_message = result.result if result.failed() else "No error message available"
+    error_message = str(result.result) if result.failed() else "Taxon processing failed."
+    archives = UploadedArchive.objects.filter(pk=uploaded_archive_id)
+    if expected_taxon_task_id is not None:
+        archives = archives.filter(taxon_task_id=expected_taxon_task_id, taxon_status="TAIP")
+    archives.update(
+        taxon_status="F", identification_status="F", finished_at=now(), status_message=error_message
+    )
     logger.error(f"Detection error message: {error_message}")
+
+
+@shared_task
+def register_prepared_taxon_archive(
+    uploaded_archive_id, prepare_task_id, manifest_path, output_archive_file, output_metadata_file, extract_identities,
+):
+    """Register archive media before scheduling classification of the registered IDs."""
+    archive = UploadedArchive.objects.get(pk=uploaded_archive_id)
+    try:
+        with transaction.atomic():
+            archive = UploadedArchive.objects.select_for_update().get(pk=uploaded_archive_id)
+            if archive.taxon_task_id != prepare_task_id or archive.taxon_status != "TAIP":
+                return
+            metadata = pd.read_csv(manifest_path, index_col=0)
+            metadata["media_id"] = pd.Series(index=metadata.index, dtype="Int64")
+            locality = get_locality(archive.owner, str(archive.locality_at_upload))
+            for index, row in metadata.iterrows():
+                _update_database_by_one_row_of_metadata(
+                    metadata, index, row, True, False, locality,
+                    Path(settings.MEDIA_ROOT) / archive.outputdir, 400, archive, register_only=True,
+                )
+            if not archive.import_finished:
+                _restore_prepared_media_originals(archive, metadata)
+            metadata.to_csv(manifest_path, encoding="utf-8-sig")
+
+            inference_id = str(uuid.uuid4())
+            archive.taxon_task_id = inference_id
+            archive.save(update_fields=["taxon_task_id"])
+        signature(
+            "predict_prepared_media",
+            kwargs={"archive": {
+                "manifest_path": manifest_path,
+                "output_dir": str(Path(settings.MEDIA_ROOT) / archive.outputdir),
+                "output_archive_file": output_archive_file,
+                "output_metadata_file": output_metadata_file,
+            }},
+        ).apply_async(
+            task_id=inference_id,
+            link=on_success_predict_taxon.s(
+                uploaded_archive_id=uploaded_archive_id,
+                zip_file=os.path.relpath(output_archive_file, settings.MEDIA_ROOT),
+                csv_file=os.path.relpath(output_metadata_file, settings.MEDIA_ROOT),
+                extract_identites=extract_identities,
+                expected_taxon_task_id=inference_id,
+                manifest_path=manifest_path,
+            ),
+            link_error=on_error_with_uploaded_archive.s(
+                uploaded_archive_id=uploaded_archive_id, expected_taxon_task_id=inference_id,
+            ),
+        )
+    except Exception:
+        UploadedArchive.objects.filter(pk=uploaded_archive_id, taxon_task_id=archive.taxon_task_id).update(
+            taxon_status="F", identification_status="F", finished_at=now(), status_message=traceback.format_exc(),
+        )
+        raise
+
+
+def _restore_prepared_media_originals(archive, metadata):
+    """Keep originals and replace extraction-time dates with usable ZIP timestamps."""
+    from zipfile import ZipFile
+
+    from .services.original_media import (
+        archive_entries,
+        capture_time_from_zip,
+        has_source_zip_times,
+        restore_media_original,
+    )
+
+    registered = archive.mediafile_set.select_for_update().in_bulk(metadata["media_id"].tolist())
+    for field in ("datetime", "datetime_source"):
+        if field in metadata:
+            metadata[field] = metadata[field].astype(object)
+    preserve_zip_times = has_source_zip_times(archive)
+    with archive.archivefile.open("rb") as stream, ZipFile(stream) as source:
+        entries = archive_entries(source)
+        for index, row in metadata.iterrows():
+            media = registered[int(row["media_id"])]
+            times = restore_media_original(media, stream, source, entries, preserve_zip_times=preserve_zip_times)
+            if _is_missing_metadata_value(row.get("datetime")) or row.get("datetime_source") == "File system":
+                timestamp, date_source = capture_time_from_zip(times)
+                if timestamp is not None:
+                    metadata.at[index, "datetime"] = timestamp
+                    metadata.at[index, "datetime_source"] = date_source
+
+
+def queue_added_image_inference(media_id):
+    """Submit only the registered image, using its persisted path."""
+    media = MediaFile.objects.get(pk=media_id, added_directory__isnull=False)
+    return signature(
+        "predict_prepared_media",
+        kwargs={
+            "files": [
+                {"media_id": media.pk, "media_type": media.media_type, "image_path": media.image_file.name}
+            ]
+        },
+    ).apply_async(link=apply_added_image_inference.s(media_id))
+
+
+@shared_task
+def create_original_media_zip(upload_id, output_path):
+    """Build a private ZIP from the upload's currently registered original media."""
+    from .services.original_media import write_original_export
+
+    mediafiles = MediaFile.objects.filter(parent_id=upload_id).order_by("pk")
+    write_original_export(mediafiles.iterator(), output_path)
+    return output_path
+
+
+@shared_task
+@transaction.atomic
+def apply_added_image_inference(results, media_id):
+    """Apply one result once, preserving any edits made while inference ran."""
+    if len(results) != 1 or results[0]["media_id"] != media_id or results[0]["detection_results"] is None:
+        raise ValueError(f"Missing inference result for added media ID {media_id}.")
+    media = MediaFile.objects.select_for_update().filter(pk=media_id, added_directory__isnull=False).first()
+    if media is None or media.updated_by_id is not None:
+        return
+    metadata = media.metadata_json or {}
+    if metadata.get("taxon_inference_complete"):
+        return
+    observations = list(media.observations.select_for_update())
+    if any(
+        not obs.is_no_detection_placeholder or obs.updated_by_id is not None or obs.taxon_verified
+        for obs in observations
+    ):
+        return
+    result = results[0]
+    archive = media.parent
+    taxon = (
+        archive.taxon_for_identification
+        if archive.contains_single_taxon and archive.taxon_for_identification_id
+        else get_taxon(result["predicted_category"])
+    )
+    _sync_observations_from_detection_results_atomic(
+        media,
+        result["detection_results"],
+        taxon=taxon,
+        predicted_taxon=get_taxon(result["predicted_category_raw"]),
+        predicted_taxon_confidence=result["predicted_prob_raw"],
+        identity=None,
+        identity_is_representative=False,
+    )
+    media.metadata_json = {**metadata, **result, "taxon_inference_complete": True}
+    media.save(update_fields=["metadata_json"])
 
 
 def make_thumbnail_for_uploaded_archive(uploaded_archive: UploadedArchive):
@@ -1223,129 +1280,84 @@ def make_thumbnail_for_uploaded_archive(uploaded_archive: UploadedArchive):
         uploaded_archive.thumbnail = os.path.relpath(abs_thumbnail_path, settings.MEDIA_ROOT)
 
 
-def run_species_prediction_async(
-    uploaded_archive: UploadedArchive,
-    link=None,
-    link_error=None,
-    extract_identites: bool = False,
-    force_init: bool = False,
-):
-    """Run species prediction asynchronously."""
+def run_species_prediction_async(uploaded_archive: UploadedArchive, *, extract_identites=False, force_init=False):
+    """Prepare a ZIP import, then register and classify its media in separate tasks."""
+    prepare_id = str(uuid.uuid4())
+    with transaction.atomic():
+        archive = UploadedArchive.objects.select_for_update().get(pk=uploaded_archive.pk)
+        if archive.mediafile_set.filter(added_directory__isnull=False).exists():
+            raise ValidationError("Archive-based classification is unavailable after images have been added.")
+        if archive.taxon_status == "TAIP":
+            raise ValidationError("Taxon processing is already running for this upload.")
+        _run_taxon_classification_init_message(archive, commit=False)
+        if force_init:
+            archive.import_finished = False
+        archive.taxon_task_id = prepare_id
+        output_archive_file, output_dir, output_metadata_file = _run_taxon_classification_init(archive, commit=True)
+
     try:
-        logger.info(
-            "Initializing taxon prediction: %s",
-            _task_log_context(
-                "run_species_prediction_async",
-                extra={
-                    "uploaded_archive_id": uploaded_archive.id,
-                    "force_init": force_init,
-                    "extract_identites": extract_identites,
-                    "contains_identities": uploaded_archive.contains_identities,
-                },
-            ),
-        )
-        _run_taxon_classification_init_message(uploaded_archive, commit=False)
-        output_archive_file, output_dir, output_metadata_file = _run_taxon_classification_init(
-            uploaded_archive, commit=True
-        )
-    except Exception as e:
-        logger.error(f"Error during init: {e}")
-        import traceback
+        if force_init:
+            archive.mediafile_set.all().delete()
+        else:
+            update_metadata_csv_by_uploaded_archive(archive)
 
-        uploaded_archive.taxon_status = "F"
-        uploaded_archive.status_message = traceback.format_exc()
-        uploaded_archive.save()
-        return
-    logger.debug(f"updating uploaded archive, {uploaded_archive.csv_file=}")
-    # csv_file = Path(settings.MEDIA_ROOT) / str(uploaded_archive.csv_file)
-    # logger.debug(f"{csv_file} {Path(csv_file).exists()}")
-
-    # output_dir = Path(settings.MEDIA_ROOT) / uploaded_archive.outputdir
-
-    logger.debug(f"{output_metadata_file=}, {output_metadata_file.exists()=}")
-    if Path(output_metadata_file).exists():
-        df = pd.read_csv(output_metadata_file, index_col=0)
-        logger.debug(f"{len(df)=}")
-    else:
-        logger.warning(
-            "Output metadata file does not exist before dispatch: %s",
-            _task_log_context(
-                "run_species_prediction_async",
-                extra={
-                    "uploaded_archive_id": uploaded_archive.id,
-                    "output_metadata_file": str(output_metadata_file),
-                },
-            ),
-        )
-
-    if link is None:
-        logger.debug("setting default link for run_species_prediction_async to ")
-        link = (
-            on_success_predict_taxon.s(
-                uploaded_archive_id=uploaded_archive.id,
-                zip_file=os.path.relpath(str(output_archive_file), settings.MEDIA_ROOT),
-                csv_file=os.path.relpath(str(output_metadata_file), settings.MEDIA_ROOT),
-                extract_identites=extract_identites,
-            ),
-        )
-    if link_error is None:
-        link_error = (on_error_with_uploaded_archive.s(uploaded_archive_id=uploaded_archive.id),)
-
-    if force_init:
-        # remove all mediafiles
-        uploaded_archive.mediafile_set.all().delete()
-    else:
-        # if the metadata file exists, it is updated
-        update_metadata_csv_by_uploaded_archive(uploaded_archive)
-
-    if uploaded_archive.owner.workgroup is not None:
-        sequence_time_limit_s = uploaded_archive.owner.workgroup.sequence_time_limit
-        detection_model_path = uploaded_archive.owner.workgroup.detection_model_path
-        detection_model_architecture = uploaded_archive.owner.workgroup.detection_model_architecture
-    else:
-        sequence_time_limit_s = 120
-        detection_model_path = None
-        detection_model_architecture = None
-
-    # send celery message to the data worker
-    logger.info("Sending request to inference worker.")
-    logger.debug(f"{uploaded_archive.contains_identities=}")
-    sig = signature(
-        "predict",
-        kwargs={
-            "input_archive_file": str(Path(settings.MEDIA_ROOT) / uploaded_archive.archivefile.name),
-            "output_dir": str(output_dir),
-            "output_archive_file": str(output_archive_file),
-            "output_metadata_file": str(output_metadata_file),
-            "contains_identities": uploaded_archive.contains_identities,
-            "force_init": force_init,
-            "sequence_time_limit_s": sequence_time_limit_s,
-            "detection_model_path": detection_model_path,
-            "detection_model_architecture": detection_model_architecture,
-            "path_structure_regex": uploaded_archive.path_structure_regex or None,
-            "path_structure_mapping": uploaded_archive.import_mapping.get("directory_mapping") or None,
-        },
-    )
-
-    logger.debug(f"{link=}, {link_error=}")
-    task = sig.apply_async(
-        link=link,
-        link_error=link_error,
-    )
-    uploaded_archive.taxon_task_id = task.id
-    uploaded_archive.save(update_fields=["taxon_task_id"])
-    logger.info(
-        "Created worker task: %s",
-        _task_log_context(
-            "run_species_prediction_async",
-            task.task_id,
-            {
-                "uploaded_archive_id": uploaded_archive.id,
-                "queue_task": "predict",
+        manifest_path = str(output_dir / f"prepared-{prepare_id}.csv")
+        signature(
+            "prepare_taxon_archive",
+            kwargs={
+                "input_archive_file": str(Path(settings.MEDIA_ROOT) / archive.archivefile.name),
                 "output_dir": str(output_dir),
+                "output_metadata_file": str(output_metadata_file),
+                "manifest_path": manifest_path,
+                "contains_identities": archive.contains_identities,
+                "force_init": force_init,
+                "path_structure_regex": archive.path_structure_regex or None,
+                "path_structure_mapping": archive.import_mapping.get("directory_mapping") or None,
             },
-        ),
+        ).apply_async(
+            task_id=prepare_id,
+            link=register_prepared_taxon_archive.si(
+                archive.pk, prepare_id, manifest_path, str(output_archive_file), str(output_metadata_file),
+                extract_identites,
+            ),
+            link_error=on_error_with_uploaded_archive.s(
+                uploaded_archive_id=archive.pk, expected_taxon_task_id=prepare_id,
+            ),
+        )
+    except Exception:
+        UploadedArchive.objects.filter(pk=archive.pk, taxon_task_id=prepare_id).update(
+            taxon_status="F", identification_status="F", finished_at=now(), status_message=traceback.format_exc(),
+        )
+        logger.exception("Could not start archive preparation for upload %s", archive.pk)
+
+
+@transaction.atomic
+def reset_taxon_processing(upload_id, expected_task_id):
+    """Release a stuck upload and invalidate the old worker task and its callbacks."""
+    archive = UploadedArchive.objects.select_for_update().get(pk=upload_id)
+    if archive.taxon_status != "TAIP" or archive.taxon_task_id != expected_task_id:
+        return False
+    task_id = archive.taxon_task_id
+    if task_id:
+        root = Path(settings.MEDIA_ROOT).resolve()
+        output_dir = (root / archive.outputdir).resolve()
+        if output_dir == root or not output_dir.is_relative_to(root):
+            raise ValidationError("The upload has an invalid media directory.")
+        output_dir.mkdir(parents=True, exist_ok=True)
+        marker = output_dir / f".taxon-cancelled-{sha256(task_id.encode()).hexdigest()}"
+        marker.touch()
+        transaction.on_commit(lambda: current_app.control.revoke(task_id), robust=True)
+
+    archive.taxon_task_id = ""
+    archive.taxon_status = "F"
+    if archive.identification_status == "TAIP":
+        archive.identification_status = "F"
+    archive.finished_at = now()
+    archive.status_message = "Taxon processing was reset by an administrator. It can be started again."
+    archive.save(
+        update_fields=["taxon_task_id", "taxon_status", "identification_status", "finished_at", "status_message"]
     )
+    return True
 
 
 def _run_taxon_classification_init_message(uploaded_archive: UploadedArchive, commit: bool = False):
@@ -1496,6 +1508,7 @@ def update_uploaded_archive_by_metadata_csv(
     thumbnail_width: int = 400,
     create_missing: bool = True,
     extract_identites: bool = False,
+    require_registered_media: bool = False,
 ) -> None:
     """Extract filenames from uploaded archive CSV and create MediaFile objects.
 
@@ -1509,6 +1522,8 @@ def update_uploaded_archive_by_metadata_csv(
     output_dir = Path(settings.MEDIA_ROOT) / uploaded_archive.outputdir
 
     df = pd.read_csv(csv_file, index_col=0)
+    if require_registered_media and (df["media_id"].isna().any() or not df["media_id"].is_unique):
+        raise ValueError("Each result row must identify one unique registered media file.")
 
     locality = get_locality(uploaded_archive.owner, str(uploaded_archive.locality_at_upload))
 
@@ -1525,9 +1540,12 @@ def update_uploaded_archive_by_metadata_csv(
                 output_dir,
                 thumbnail_width,
                 uploaded_archive,
+                require_registered_media=require_registered_media,
             )
             status_counts.increment(status)
         except Exception:
+            if require_registered_media:
+                raise
             logger.error(f"Error during processing row {index}: {row}")
             logger.error(traceback.format_exc())
             status_counts.increment("error")
@@ -1643,6 +1661,9 @@ def _update_database_by_one_row_of_metadata(
     thumbnail_width,
     uploaded_archive,
     orientation_score_threshold=0.5,
+    *,
+    register_only=False,
+    require_registered_media=False,
 ) -> str:
     # rel_pth, _ = _get_rel_and_abs_paths_based_on_csv_row(row, output_dir)
     logger.debug(f"Processing row {index}")
@@ -1734,13 +1755,21 @@ def _update_database_by_one_row_of_metadata(
             identity.save()
         return identity
 
-    identity = _resolve_identity()
     identity_is_representative = False
     mediafile_location = _parse_mediafile_location()
 
-    mf = uploaded_archive.mediafile_set.filter(mediafile=str(media_rel_pth)).first()
-    if mf is None and media_rel_pth != image_rel_pth:
-        mf = uploaded_archive.mediafile_set.filter(mediafile=str(image_rel_pth)).first()
+    if require_registered_media:
+        mf = uploaded_archive.mediafile_set.get(pk=int(row["media_id"]))
+        if mf.mediafile.name.replace("\\", "/") != media_rel_pth.as_posix() or mf.image_file.name.replace(
+            "\\", "/"
+        ) != image_rel_pth.as_posix():
+            raise ValueError(f"Registered media paths changed for media ID {mf.pk}.")
+    else:
+        mf = uploaded_archive.mediafile_set.filter(mediafile__in={str(media_rel_pth), media_rel_pth.as_posix()}).first()
+        if mf is None and media_rel_pth != image_rel_pth:
+            mf = uploaded_archive.mediafile_set.filter(
+                mediafile__in={str(image_rel_pth), image_rel_pth.as_posix()}
+            ).first()
 
     if mf is not None:
         # logger.debug("Using Mediafile generated before")
@@ -1753,8 +1782,8 @@ def _update_database_by_one_row_of_metadata(
             mf = MediaFile(
                 parent=uploaded_archive,
                 # mediafile=str(image_rel_pth),
-                mediafile=str(media_rel_pth),
-                image_file=str(image_rel_pth),
+                mediafile=media_rel_pth.as_posix(),
+                image_file=image_rel_pth.as_posix(),
                 captured_at=captured_at,
                 locality=row_locality,
                 media_type=row["media_type"],
@@ -1784,19 +1813,31 @@ def _update_database_by_one_row_of_metadata(
             status = "deleted"
             return status
 
+    if register_only:
+        df.at[index, "media_id"] = mf.pk
+        return status
+
+    identity = _resolve_identity()
+    if require_registered_media and not uploaded_archive.import_finished:
+        identity_is_representative = uploaded_archive.contains_identities and uploaded_archive.contains_single_taxon
     _apply_prepared_mediafile_variants(mf, row, output_dir)
     if not _mediafile_variants_exist(mf):
         # Fallback for legacy CSVs or manually repaired media directories.
         mf.make_thumbnail_for_mediafile_if_necessary(thumbnail_width=thumbnail_width)
 
     metadata_json = row.to_dict()
+    for field in ("original_file_times", "original_file_sha256", "original_file_is_mediafile"):
+        metadata_json.pop(field, None)
     # remove None and NaN values
     metadata_json = {k: v for k, v in metadata_json.items() if v is not None and not pd.isna(v)}
     # logger.debug(f"{metadata_json=}")
-    mf.metadata_json = metadata_json
+    mf.metadata_json = {**(mf.metadata_json or {}), **metadata_json}
 
     # if the mediafile was updated by user, we believe into users input
-    if mf.updated_by is None:
+    has_reviewed_observations = require_registered_media and mf.observations.filter(
+        Q(updated_by__isnull=False) | Q(taxon_verified=True)
+    ).exists()
+    if mf.updated_by is None and not has_reviewed_observations:
         status = status + " and not updated by user"
         # logger.debug(f"{row.keys()=}")
         # logger.debug(f"{uploaded_archive.contains_identities=}")
@@ -1836,7 +1877,7 @@ def _update_database_by_one_row_of_metadata(
         has_detection_results = False
         detection_results_provided = False
         try:
-            if ("detection_results" in row) and (row["detection_results"] is not None):
+            if "detection_results" in row and not _is_missing_metadata_value(row["detection_results"]):
                 detection_results_provided = True
                 detection_results = ast.literal_eval(row["detection_results"])
                 logger.debug(f"detection_results={detection_results}")
@@ -1851,6 +1892,8 @@ def _update_database_by_one_row_of_metadata(
                     orientation_score_threshold=orientation_score_threshold,
                 )
         except Exception as e:
+            if require_registered_media:
+                raise
             logger.warning(f"Error during setting orientation in media file {mf.mediafile}: {e}")
             logger.debug(traceback.format_exc())
 

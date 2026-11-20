@@ -102,3 +102,14 @@ def invalidate_duplicate_proposals(sender, instance, **kwargs):
     from .duplicate_services import invalidate_deleted_media
 
     invalidate_deleted_media(instance.pk)
+
+
+@receiver(post_delete, sender=models.MediaFile)
+def release_private_original(sender, instance, using, **kwargs):
+    """Clean up an original only after the media deletion has committed."""
+    if instance.original_file:
+        from .services.original_media import delete_unreferenced_original
+
+        name = instance.original_file
+        upload_id = instance.parent_id
+        transaction.on_commit(lambda: delete_unreferenced_original(name, upload_id, using), using=using, robust=True)

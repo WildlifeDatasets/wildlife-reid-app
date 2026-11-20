@@ -13,7 +13,12 @@ from django.utils import timezone
 
 from .models import ExportArtifact, TaskRun
 
-EXPORT_TASKS = {"create_mediafiles_zip", "create_mediafiles_zip_with_metadata", "create_beta_stability_export"}
+EXPORT_TASKS = {
+    "create_beta_stability_export",
+    "create_mediafiles_zip",
+    "create_mediafiles_zip_with_metadata",
+    "create_original_media_zip",
+}
 
 
 def export_root():

@@ -65,6 +65,17 @@
         </li>
         {% if request.user.is_staff or request.session.impersonate_user_id %}
           <li><hr class="dropdown-divider"></li>
+          {% include "caidapp/reset_taxon_processing_item.html" %}
+          {% if uploadedarchive.import_finished %}
+            <li>
+              <form method="post" action="{% url 'caidapp:export_original_media' uploadedarchive.id %}">
+                {% csrf_token %}
+                <button type="submit" class="dropdown-item">
+                  <i class="bi bi-download"></i> Export original media
+                </button>
+              </form>
+            </li>
+          {% endif %}
           {% if uploadedarchive.archivefile %}
             <li>
               <a class="dropdown-item" href="{{ uploadedarchive.archivefile.url }}">

@@ -3,6 +3,17 @@
 
 ## Release v0.5.0 – identification workflow overhaul
 
+## 2026-11
+
+* [fixed] Slow Camera Trap Checks, Media files, and Observations lists, including filtering by sequence size and loading previews.
+* [added] Automatic exact duplicate detection across a workgroup, processed in the background.
+* [added] Duplicate review and confirmed bulk removal with metadata editing and identity-merge suggestions.
+* [changed] Duplicate suggestions highlight metadata differences, prioritize perfect matches and richer records, and ignore import-specific metadata.
+* [added] Shared media-file metadata preview with copying and editing, and duplicate comparison with bbox overlays.
+* [changed] Renamed Sequences to Media files in navigation and reorganized related menus.
+* [changed] Redesigned `taxon_worker` workflow to separate import, classification, and sequence recalculation, with individual media-file processing and recovery of stalled tasks.
+* [added] Preservation and recovery of original files and ZIP timestamps, with original-file export for administrators.
+
 ## 2026-09
 
 * [added] Merge identity suggestion

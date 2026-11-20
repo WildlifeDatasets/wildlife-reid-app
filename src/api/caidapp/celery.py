@@ -19,7 +19,10 @@ app.config_from_object("django.conf:settings", namespace="CELERY")
 # update celery configuration
 app.conf.task_routes = {
     # recognition workflow
-    "predict": {"queue": "taxon_worker"},
+    # TODO(remove-legacy-predict): Remove this disabled route with the cleanup in TODO.md.
+    # "predict": {"queue": "taxon_worker"},
+    "prepare_taxon_archive": {"queue": "taxon_worker"},
+    "predict_prepared_media": {"queue": "taxon_worker"},
     "redetect_bboxes": {"queue": "taxon_worker"},
     # detection workflow
     "detect": {"queue": "detection_worker"},

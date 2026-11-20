@@ -73,6 +73,7 @@
             Verify taxons </a>
     </li>
     {% if request.user.is_staff or request.session.impersonate_user_id %}
+        {% include "caidapp/reset_taxon_processing_item.html" %}
         <li>
             <hr class="dropdown-divider">
         </li>

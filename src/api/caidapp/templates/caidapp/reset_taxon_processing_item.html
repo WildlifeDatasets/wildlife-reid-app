@@ -1,0 +1,11 @@
+{% if uploadedarchive.taxon_status == "TAIP" %}
+  <li>
+    <form method="post" action="{% url 'caidapp:reset_taxon_processing' uploadedarchive.id %}">
+      {% csrf_token %}
+      <input type="hidden" name="task_id" value="{{ uploadedarchive.taxon_task_id }}">
+      <button type="submit" class="dropdown-item">
+        <i class="bi bi-stop-circle"></i> Reset taxon processing
+      </button>
+    </form>
+  </li>
+{% endif %}

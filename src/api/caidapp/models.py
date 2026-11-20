@@ -23,7 +23,6 @@ from django.dispatch import receiver
 from django.urls import NoReverseMatch, reverse, reverse_lazy
 from django.utils.text import slugify
 from location_field.models.plain import PlainLocationField
-from tqdm import tqdm
 
 from . import fs_data
 from .fs_data import convert_to_mp4
@@ -1416,33 +1415,11 @@ class UploadedArchive(models.Model):
             status_style=status_style,
         )
 
-    def get_sequence_by_id(self, sequence_id: Union[int, None]) -> "Sequence":
-        """Return sequence by id or create a new one."""
-        if sequence_id is None:
-            sequence = None
-            sequence_id = self.sequence_set.count()
-        else:
-            sequence = Sequence.objects.filter(uploaded_archive=self, local_id=sequence_id).first()
-        if sequence is None:
-            sequence = Sequence.objects.create(uploaded_archive=self, local_id=sequence_id)
-            sequence.save()
-            # logger.debug("Sequence created.")
-
-        return sequence
-
     def make_sequences(self):
-        """Create sequences from media files."""
-        mediafiles = MediaFile.objects.filter(parent=self)
-        for mediafile in tqdm(mediafiles, desc="Creating sequences"):
-            try:
-                sequence_id = mediafile.metadata_json.get("sequence_number", None)
-            except Exception as e:
-                logger.debug(f"Problem with getting sequence_number from mediafile {mediafile}.")
-                logger.debug(f"Error: {e}")
-                sequence_id = None
-            sequence = self.get_sequence_by_id(sequence_id)
-            mediafile.sequence = sequence
-            mediafile.save()
+        """Recalculate sequences from current capture times and localities."""
+        from .services.sequences import recalculate_upload_sequences
+
+        return recalculate_upload_sequences(self.pk)
 
     @property
     def metadata_csv_url(self):
@@ -1716,6 +1693,9 @@ class MediaFile(models.Model):
         choices=MEDIA_TYPE_CHOICES,
     )
     original_filename = models.CharField(max_length=512, blank=True, default="")
+    original_file = models.CharField(blank=True, default="", max_length=500, editable=False)
+    added_directory = models.CharField(max_length=40, null=True, blank=True, editable=False)
+    addition_key = models.CharField(max_length=255, null=True, blank=True, editable=False)
 
     sequence = models.ForeignKey(Sequence, on_delete=models.SET_NULL, null=True, blank=True)
     note = models.TextField(blank=True, default="")
@@ -1724,6 +1704,10 @@ class MediaFile(models.Model):
 
     class Meta:
         ordering = ["captured_at", "id"]
+        constraints = [
+            models.UniqueConstraint(fields=["parent", "added_directory"], name="unique_added_media_directory"),
+            models.UniqueConstraint(fields=["parent", "addition_key"], name="unique_media_addition_key"),
+        ]
 
     def __str__(self):
         return str(self.original_filename)

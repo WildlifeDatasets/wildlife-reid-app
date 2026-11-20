@@ -62,6 +62,8 @@ SAM3_FALLBACK_CONF = float(os.getenv("TAXON_SAM3_FALLBACK_CONF", "0.5"))
 
 def download_sam3_checkpoint_if_missing(
     checkpoint_path: str = SAM3_CHECKPOINT_PATH,
+    *,
+    on_download=None,
 ) -> str:
     """Download SAM3 weights from Hugging Face if not present locally."""
     if os.path.exists(checkpoint_path):
@@ -69,7 +71,9 @@ def download_sam3_checkpoint_if_missing(
 
     from huggingface_hub import hf_hub_download
 
-    logger.info(f"SAM3 checkpoint not found at {checkpoint_path}, downloading from Hugging Face.")
+    logger.info("SAM3 checkpoint not found at %s, downloading from Hugging Face.", checkpoint_path)
+    if on_download is not None:
+        on_download()
     Path(checkpoint_path).parent.mkdir(parents=True, exist_ok=True)
     downloaded = hf_hub_download(repo_id=SAM3_HF_REPO_ID, filename=SAM3_HF_FILENAME)
     shutil.copy(downloaded, checkpoint_path)
@@ -178,7 +182,7 @@ def del_detection_model():
     torch.cuda.empty_cache()
 
 
-def _load_sam3_model(*, strict=False) -> Any | None:
+def _load_sam3_model(*, strict=False, on_download=None) -> Any | None:
     """Load SAM3 once and move the cached CPU model to the inference device."""
     global SAM3
     global SAM3_PREDICTOR
@@ -200,7 +204,7 @@ def _load_sam3_model(*, strict=False) -> Any | None:
     logger.debug(f"Before SAM3 model: {mem.get_vram(DEVICE)}     {mem.get_ram()}")
     if SAM3 is None:
         try:
-            download_sam3_checkpoint_if_missing()
+            download_sam3_checkpoint_if_missing(on_download=on_download)
         except Exception as exc:
             logger.warning("SAM3 weights unavailable: %s", exc)
             if strict:
@@ -284,9 +288,11 @@ def detect_animals_with_megadetector(image_rgb: np.ndarray) -> Optional[List[Dic
     ]
 
 
-def detect_animals_with_sam3(image_rgb: np.ndarray, *, strict=False) -> Optional[List[Dict[str, Any]]]:
+def detect_animals_with_sam3(
+    image_rgb: np.ndarray, *, strict=False, on_download=None
+) -> Optional[List[Dict[str, Any]]]:
     """Detect animals with SAM3 text prompt. Returns MegaDetector-compatible detection dicts."""
-    predictor = _load_sam3_model(strict=strict)
+    predictor = _load_sam3_model(strict=strict, on_download=on_download)
     if predictor is None:
         if strict:
             raise DetectorUnavailableError("SAM3 is unavailable. Check its package, checkpoint and GPU configuration.")
@@ -353,7 +359,7 @@ def warm_up_detection_model_on_start():
 warm_up_detection_model_on_start()
 
 
-def detect_animals_in_one_image(image_rgb: np.ndarray) -> Optional[List[Dict[str, Any]]]:
+def detect_animals_in_one_image(image_rgb: np.ndarray, *, on_sam3_download=None) -> Optional[List[Dict[str, Any]]]:
     """Detect an animal in a given image.
 
     Expected classes are: {0: 'animal', 1: 'person', 2: 'vehicle'}
@@ -369,7 +375,7 @@ def detect_animals_in_one_image(image_rgb: np.ndarray) -> Optional[List[Dict[str
             max_conf,
             SAM3_FALLBACK_CONF,
         )
-        sam3_results = detect_animals_with_sam3(image_rgb)
+        sam3_results = detect_animals_with_sam3(image_rgb, on_download=on_sam3_download)
         if sam3_results:
             logger.info("SAM3 fallback returned %s detection(s).", len(sam3_results))
             return sam3_results
@@ -501,7 +507,9 @@ def detect_animal_orientation(image_rgb: np.array, image_size: int = 176):
     return CLS_TO_ORIENTATION[cls_idx], score
 
 
-def detect_animal_on_metadata(metadata: pd.DataFrame, border=0.0, progress_callback=None) -> pd.DataFrame:
+def detect_animal_on_metadata(
+    metadata: pd.DataFrame, border=0.0, progress_callback=None, *, save_detection_images=True, on_sam3_download=None
+) -> pd.DataFrame:
     """Do the detection and segmentation on images in metadata.
 
     Returns:
@@ -521,7 +529,7 @@ def detect_animal_on_metadata(metadata: pd.DataFrame, border=0.0, progress_callb
             image = cv2.imread(str(image_abs_path))
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
             # logger.debug(f"{image.shape=}")
-            results = detect_animals_in_one_image(image_rgb=image)
+            results = detect_animals_in_one_image(image_rgb=image, on_sam3_download=on_sam3_download)
 
             # "bbox": list(int(_) for _ in results[i][:4].tolist()),
 
@@ -534,13 +542,15 @@ def detect_animal_on_metadata(metadata: pd.DataFrame, border=0.0, progress_callb
 
             row["detection_results"] = results
             for ii, result in enumerate(results):
-                # if result["class"] == "animal":
-                base_path = Path(image_abs_path).parent.parent / "detection_images"
-                save_path = base_path / (Path(image_abs_path).stem + f".{ii}" + Path(image_abs_path).suffix)
-                base_path.mkdir(exist_ok=True, parents=True)
-
                 padded_image = pad_image(image, result["bbox"], border=border)
-                Image.fromarray(padded_image).convert("RGB").save(save_path)
+                if save_detection_images:
+                    image_path = Path(image_abs_path)
+                    base_path = image_path.parent.parent / "detection_images"
+                    base_path.mkdir(exist_ok=True, parents=True)
+                    crop = Image.fromarray(padded_image).convert("RGB")
+                    crop.save(base_path / f"{image_path.stem}.{ii}{image_path.suffix}")
+                    if ii == 0:
+                        crop.save(base_path / image_path.name)
 
                 # predict the orientation
                 try:
@@ -550,11 +560,6 @@ def detect_animal_on_metadata(metadata: pd.DataFrame, border=0.0, progress_callb
                 except Exception:
                     row["detection_results"][ii]["orientation"] = "unknown"
                     row["detection_results"][ii]["orientation_score"] = -1.0
-
-                if ii == 0:
-                    # if there is at least one detection save the very first one as the main image
-                    save_path = base_path / (Path(image_abs_path).name)
-                    Image.fromarray(padded_image).convert("RGB").save(save_path)
 
             metadata.loc[row_idx] = row
         except Exception:

@@ -2126,14 +2126,66 @@ def run_taxon_classification(request, uploadedarchive_id, force_init=False):
     if uploaded_archive.mediafiles_at_upload == 0:
         uploaded_archive.number_of_media_files_in_archive()
 
-    run_species_prediction_async(
-        uploaded_archive,
-        force_init=force_init,
-        extract_identites=uploaded_archive.contains_identities,
-    )
+    try:
+        run_species_prediction_async(
+            uploaded_archive,
+            force_init=force_init,
+            extract_identites=uploaded_archive.contains_identities,
+        )
+    except ValidationError as exc:
+        messages.error(request, exc.messages[0])
     # next_page = request.GET.get("next", "/caidapp/uploads")
     # return redirect(next_page)
     return redirect(request.META.get("HTTP_REFERER", "/"))
+
+
+@staff_or_impersonated_staff_required
+@require_POST
+def reset_taxon_processing(request, uploadedarchive_id):
+    """Allow staff to release a stuck upload for a new run."""
+    from .tasks import reset_taxon_processing as reset_processing
+
+    archive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id)
+    try:
+        reset = reset_processing(archive.pk, request.POST.get("task_id", ""))
+    except (OSError, ValidationError):
+        logger.exception("Could not reset taxon processing for upload %s", archive.pk)
+        messages.error(request, "Could not reset taxon processing. Check access to the upload's media directory.")
+    else:
+        if reset:
+            messages.success(request, "Taxon processing was reset. You can run classification again.")
+        else:
+            messages.info(request, "The processing run has changed. Reload the upload and try again if needed.")
+    return redirect("caidapp:uploadedarchive_detail", uploadedarchive_id=archive.pk)
+
+
+@staff_or_impersonated_staff_required
+@require_POST
+def export_original_media(request, uploadedarchive_id):
+    """Queue an admin-only export of currently registered original media."""
+    from .export_runs import start_export
+
+    archive = get_object_or_404(UploadedArchive, pk=uploadedarchive_id, import_finished=True)
+    mediafiles = archive.mediafile_set
+    missing = mediafiles.filter(original_file="").filter(
+        Q(metadata_json__original_file_is_mediafile__isnull=True) | Q(metadata_json__original_file_is_mediafile=False)
+    )
+    if not mediafiles.exists() or missing.exists():
+        messages.error(request, "Original files are missing. Restore the upload's originals before exporting.")
+        return redirect("caidapp:uploadedarchive_detail", uploadedarchive_id=archive.pk)
+    try:
+        run = start_export(
+            request.user.caiduser,
+            "create_original_media_zip",
+            [archive.pk, None],
+            1,
+            filename=f"upload-{archive.pk}-originals.zip",
+            label="Original media export",
+        )
+    except ValidationError as exc:
+        messages.error(request, exc.messages[0])
+        return redirect("caidapp:uploadedarchive_detail", uploadedarchive_id=archive.pk)
+    return redirect("caidapp:task_detail", run_uuid=run.uuid)
 
 
 # def init_identification(request, taxon_str:str="Lynx Lynx"):
@@ -7051,7 +7103,6 @@ def refresh_data(request):
     uploaded_archives = UploadedArchive.objects.all()
     for uploaded_archive in uploaded_archives:
         uploaded_archive.update_earliest_and_latest_captured_at()
-        uploaded_archive.make_sequences()
 
         if uploaded_archive.contains_single_taxon and uploaded_archive.taxon_for_identification is None:
             # this fixes the compatibility with the old version before 2024-05
@@ -9361,12 +9412,21 @@ def uploads_status_api(request, group: str):
                         "stage": str(info.get("stage", "")),
                         "message": str(info.get("message", "Processing upload")),
                     }
-                elif state == "SUCCESS" and isinstance(info, dict) and info.get("status") == "ERROR":
+                elif state in {"FAILURE", "REVOKED"} or (
+                    state == "SUCCESS" and isinstance(info, dict) and info.get("status") == "ERROR"
+                ):
                     progress = {
                         "state": state,
                         "percent": None,
                         "stage": "failed",
                         "message": "Processing failed",
+                    }
+                elif state == "SUCCESS" and isinstance(info, dict) and info.get("status") == "PREPARED":
+                    progress = {
+                        "state": state,
+                        "percent": 44,
+                        "stage": "register_media",
+                        "message": "Registering prepared media",
                     }
                 elif state == "SUCCESS":
                     progress = {

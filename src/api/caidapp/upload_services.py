@@ -4,11 +4,14 @@ import logging
 import zipfile
 from dataclasses import dataclass, field
 from pathlib import PurePosixPath
+from shutil import copyfileobj
 from typing import Any
 
 import pandas as pd
 from django.core.files.base import ContentFile
 from django.utils import timezone
+
+from .zip_media_times import read_zip_file_times, zip_info_with_times
 
 logger = logging.getLogger(__name__)
 
@@ -436,10 +439,16 @@ def build_upload_zip(
         if has_single_zip_upload:
             upload_files[0].seek(0)
             with zipfile.ZipFile(upload_files[0], "r") as source_zip:
-                for name in source_zip.namelist():
+                for source_info in source_zip.infolist():
+                    name = source_info.filename
                     if normalized_spreadsheet_bytes and PurePosixPath(name).name == NORMALIZED_SPREADSHEET_FILENAME:
                         continue
-                    zip_file.writestr(name, source_zip.read(name))
+                    times = read_zip_file_times(upload_files[0], source_info)
+                    info = zip_info_with_times(name, times)
+                    info.compress_type = zipfile.ZIP_DEFLATED
+                    info.external_attr = source_info.external_attr
+                    with source_zip.open(source_info) as source, zip_file.open(info, "w", force_zip64=True) as target:
+                        copyfileobj(source, target)
             upload_files[0].seek(0)
         else:
             for index, upload_file in enumerate(upload_files):

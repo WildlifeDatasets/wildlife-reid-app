@@ -1237,7 +1237,7 @@ def analyze_dataset_directory(
     num_cores: Optional[int] = None,
     latin_to_taxonomy_csv_path: Optional[Path] = None,
     contains_identities: bool = False,
-    sequence_time_limit_s: int = 120,
+    sequence_time_limit_s: Optional[int] = 120,
     path_structure_regex: Optional[str] = None,
     path_structure_mapping: Optional[dict] = None,
 ):
@@ -1282,8 +1282,8 @@ def analyze_dataset_directory(
     df, hashes = find_unique_names_between_duplicate_files(df, basedir=Path(dataset_dir_path), num_cores=num_cores)
     df["content_hash"] = hashes
 
-    sequence_time_limit_s = int(sequence_time_limit_s)
-    df = extend_df_with_sequence_id(df, time_limit=f"{sequence_time_limit_s}s")
+    if sequence_time_limit_s is not None:
+        df = extend_df_with_sequence_id(df, time_limit=f"{int(sequence_time_limit_s)}s")
 
     # Turn NaN int None
     df = df.where(pd.notnull(df), None)
@@ -1398,7 +1398,7 @@ def data_preprocessing(
     num_cores: Optional[int] = None,
     contains_identities: bool = False,
     post_update_csv_path: Path = Path("mediafile.post_update.csv"),
-    sequence_time_limit_s: int = 120,
+    sequence_time_limit_s: Optional[int] = 120,
     path_structure_regex: Optional[str] = None,
     path_structure_mapping: Optional[dict] = None,
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
@@ -1421,37 +1421,51 @@ def data_preprocessing(
 
     duplicates: DataFrame - List of duplicate files
     """
-    # create temporary directory
-    import tempfile
+    from tempfile import TemporaryDirectory
 
-    post_update_csv_path = Path(post_update_csv_path)
+    with TemporaryDirectory() as staging_dir:
+        source_dir = Path(staging_dir)
+        extract_archive(zip_path, output_dir=source_dir)
+        return prepare_media_directory(
+            source_dir,
+            media_dir_path,
+            num_cores=num_cores,
+            contains_identities=contains_identities,
+            post_update_csv_path=Path(post_update_csv_path),
+            sequence_time_limit_s=sequence_time_limit_s,
+            path_structure_regex=path_structure_regex,
+            path_structure_mapping=path_structure_mapping,
+        )
 
-    tmp_dir = Path(tempfile.gettempdir()) / str(uuid.uuid4())
-    tmp_dir.mkdir(exist_ok=False, parents=True)
 
-    # extract files to the temporary directory
-    logger.debug(f"extract zip archive: {zip_path=}")
-    extract_archive(zip_path, output_dir=tmp_dir)
-
-    logger.debug(f"analyze dataset directory: {tmp_dir=}")
-    # create metadata directory, hashing file names, datetime, sequences
+def prepare_media_directory(
+    source_dir: Path,
+    media_dir_path: Path,
+    *,
+    num_cores: Optional[int] = None,
+    contains_identities: bool = False,
+    post_update_csv_path: Optional[Path] = None,
+    sequence_time_limit_s: Optional[int] = None,
+    path_structure_regex: Optional[str] = None,
+    path_structure_mapping: Optional[dict] = None,
+) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    """Prepare metadata and normalized media from an already staged directory."""
     df, duplicates = analyze_dataset_directory(
-        tmp_dir,
+        source_dir,
         num_cores=num_cores,
         contains_identities=contains_identities,
         sequence_time_limit_s=sequence_time_limit_s,
         path_structure_regex=path_structure_regex,
         path_structure_mapping=path_structure_mapping,
     )
-    # post_update CSV is used for updating the metadata after all files are processed
-
-    find_any_spreadsheet_and_save_as_csv(tmp_dir, post_update_csv_path)
+    if post_update_csv_path is not None:
+        find_any_spreadsheet_and_save_as_csv(source_dir, post_update_csv_path)
 
     # df["original_path"].map(lambda fn: dataset_tools.make_hash(fn, prefix="media_data"))
     df = make_dataset(
         dataframe=df,
         dataset_name=None,
-        dataset_base_dir=tmp_dir,
+        dataset_base_dir=source_dir,
         output_path=media_dir_path,
         hash_filename=True,
         make_tar=False,
@@ -1460,8 +1474,6 @@ def data_preprocessing(
         tqdm_desc="copying files",
         mode="convert",
     )
-
-    shutil.rmtree(tmp_dir, ignore_errors=True)
 
     return df, duplicates
 

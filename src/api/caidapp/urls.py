@@ -149,6 +149,16 @@ urlpatterns = [
         name="run_taxon_classification_force_init",
     ),
     path("refresh_data/", views.refresh_data, name="refresh_data"),
+    path(
+        "<int:uploadedarchive_id>/export_original_media/",
+        views.export_original_media,
+        name="export_original_media",
+    ),
+    path(
+        "<int:uploadedarchive_id>/reset_taxon_processing/",
+        views.reset_taxon_processing,
+        name="reset_taxon_processing",
+    ),
     # Localities
     # TODO remove manage_localities
     # path("manage_localities/", views_locality.manage_localities, name="manage_localities"),

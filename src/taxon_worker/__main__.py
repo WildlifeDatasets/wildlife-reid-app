@@ -21,7 +21,8 @@ taxon_worker = Celery("taxon_worker", broker=RABBITMQ_URL, backend=REDIS_URL)
 MEDIA_DIR_PATH = Path("/shared_data/media")
 
 
-@taxon_worker.task(bind=True, name="predict")
+# TODO(remove-legacy-predict): Remove this obsolete entry point with the cleanup in TODO.md.
+# @taxon_worker.task(bind=True, name="predict")
 def predict(
     self,
     input_archive_file: str,

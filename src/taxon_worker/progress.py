@@ -1,6 +1,8 @@
 import logging
 import time
 
+from celery.exceptions import Ignore
+
 logger = logging.getLogger(__name__)
 
 
@@ -23,7 +25,7 @@ class ProgressReporter:
         ("finalize", 20),
     )
 
-    def __init__(self, task, do_init: bool):
+    def __init__(self, task, do_init: bool, *, cancellation_marker=None):
         weights = self.INIT_STAGE_WEIGHTS if do_init else self.RESUME_STAGE_WEIGHTS
         total_weight = sum(weight for _, weight in weights)
         offset = 0.0
@@ -33,20 +35,30 @@ class ProgressReporter:
             self.ranges[name] = (offset, offset + width)
             offset += width
         self.task = task
+        self.cancellation_marker = cancellation_marker
         self.stage_name = weights[0][0]
         self.message = "Starting processing"
         self.last_percent = -1
         self.last_update_at = 0.0
 
     def stage(self, name: str, message: str):
+        """Start a named stage and publish its initial progress."""
         self.stage_name = name
         self.message = message
         self.update(0, 1, force=True)
 
     def callback(self, message: str):
+        """Return a progress callback for work inside the current stage."""
         return lambda completed, total: self.update(completed, total, message=message)
 
+    def report_sam3_download(self):
+        """Show why progress may remain at the current detection percentage."""
+        self.update(0, 1, message="Downloading SAM3 model weights", force=True)
+
     def update(self, completed, total, message: str = None, force: bool = False):
+        """Check for cancellation and publish progress when due."""
+        if self.cancellation_marker is not None and self.cancellation_marker.exists():
+            raise Ignore("Taxon processing was reset by an administrator.")
         start, end = self.ranges[self.stage_name]
         fraction = 0.0 if not total else min(max(float(completed) / float(total), 0.0), 1.0)
         percent = min(int(start + ((end - start) * fraction)), 99)
