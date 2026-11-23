@@ -1,6 +1,7 @@
+import hashlib
 import json
 import logging
-import shutil
+import tempfile
 import traceback
 from pathlib import Path
 from typing import Optional, Tuple, Union
@@ -15,8 +16,9 @@ import yaml
 from PIL import Image
 from scipy.special import softmax
 from tqdm import tqdm
+from wildlife_model_cache import WEIGHTS_DIR
 
-from .config import RESOURCES_DIR, WANDB_API_KEY, WANDB_ARTIFACT_PATH, WANDB_ARTIFACT_PATH_CROPPED
+from .config import WANDB_API_KEY, WANDB_ARTIFACT_PATH, WANDB_ARTIFACT_PATH_CROPPED
 from .dataset_tools import data_preprocessing
 
 # from fgvc.core.training import predict
@@ -40,118 +42,57 @@ MEDIA_DIR_PATH = Path("/shared_data/media")
 TAXON_CLASSIFICATION_MODEL_DICT = None
 
 
-def get_model_config(is_cropped: bool = False) -> Tuple[dict, str, dict]:
-    """Load model configuration from W&B including training config and fine-tuned checkpoint."""
-    # load model_meta.json and check if the artifact path is the same as the previous one
-    model_meta_path = Path(RESOURCES_DIR) / "model_meta.json"
-    reset_model = True
-    if model_meta_path.is_file():
-        with open(model_meta_path) as f:
-            model_meta = json.load(f)
-        if model_meta["WANDB_ARTIFACT_PATH"] == WANDB_ARTIFACT_PATH:
-            reset_model = False
-        else:
-            logger.debug(f"New model={WANDB_ARTIFACT_PATH}. " + f"Old model={model_meta.get('artifact_path', 'None')}.")
-    if reset_model:
-        logger.debug("Resetting model.")
-        shutil.rmtree(RESOURCES_DIR, ignore_errors=True)
-        model_meta = {"WANDB_ARTIFACT_PATH": WANDB_ARTIFACT_PATH}
-        model_meta_path.parent.mkdir(exist_ok=True, parents=True)
-        with open(model_meta_path, "w") as f:
-            json.dump(model_meta, f)
-
-    # get artifact and run from W&B
-    if is_cropped:
-        wandb_artifact_path = WANDB_ARTIFACT_PATH_CROPPED
-        model_config_path = Path(RESOURCES_DIR) / "model_config_cropped.json"
-    else:
-        wandb_artifact_path = WANDB_ARTIFACT_PATH
-        model_config_path = Path(RESOURCES_DIR) / "model_config.json"
+def get_model_config(is_cropped: bool = False) -> Tuple[dict, Path, dict]:
+    """Load the W&B artifact and its configuration from a complete cached revision."""
+    artifact_ref = WANDB_ARTIFACT_PATH_CROPPED if is_cropped else WANDB_ARTIFACT_PATH
+    ref_key = hashlib.sha256(artifact_ref.encode()).hexdigest()
+    cache_dir = WEIGHTS_DIR / "wandb" / ref_key
     try:
-        api = wandb.Api(api_key=WANDB_API_KEY)
-        artifact = api.artifact(wandb_artifact_path)
+        artifact = wandb.Api(api_key=WANDB_API_KEY).artifact(artifact_ref)
+        digest = hashlib.sha256(artifact.digest.encode()).hexdigest()
+        model_dir = cache_dir / digest
+        if not model_dir.is_dir():
+            cache_dir.mkdir(parents=True, exist_ok=True)
+            with tempfile.TemporaryDirectory(dir=cache_dir) as staging:
+                download_dir = Path(staging) / "artifact"
+                artifact.download(root=str(download_dir))
+                with (download_dir / "config.yaml").open() as config_file:
+                    artifact_config = yaml.safe_load(config_file)
+                try:
+                    config = artifact.logged_by().config
+                except Exception as exc:
+                    logger.warning("Failed to get run config from W&B artifact: %s", exc)
+                    config = {
+                        "number_of_classes": len(artifact_config["id2label"]),
+                        "architecture": "swin_small_patch4_window7_224",
+                        "augmentations": "vit_heavy",
+                        "image_size": [224, 224],
+                        "batch_size": 64,
+                    }
+                checkpoints = [entry.name for entry in artifact.files() if Path(entry.name).suffix.lower() == ".pth"]
+                if len(checkpoints) != 1:
+                    raise ValueError("Expected exactly one .pth file in the W&B artifact")
+                if not (download_dir / checkpoints[0]).is_file():
+                    raise FileNotFoundError(download_dir / checkpoints[0])
+                with (download_dir / "model_config.json").open("w") as config_file:
+                    json.dump({"config": config, "checkpoint": checkpoints[0]}, config_file)
+                try:
+                    download_dir.rename(model_dir)
+                except OSError:
+                    if not model_dir.is_dir():
+                        raise
+    except (wandb.CommError, requests.exceptions.ConnectionError):
+        cached = [path.parent for path in cache_dir.glob("*/model_config.json")]
+        if not cached:
+            raise
+        model_dir = max(cached, key=lambda path: (path / "model_config.json").stat().st_mtime)
+        logger.warning("W&B is unavailable. Using a cached model for %s.", artifact_ref)
 
-        logger.debug(f"Downloading artifact {wandb_artifact_path}.")
-        artifact_files = [x.name for x in artifact.files()]
-        logger.debug(f"Artifact files: {artifact_files}")
-
-        # check if all artifact files are downloaded and optionally download artifact files
-        all_files_downloaded = all([(Path(RESOURCES_DIR) / x).is_file() for x in artifact_files])
-        if not all_files_downloaded:
-            logger.debug("Downloading artifact files.")
-            artifact.download(root=RESOURCES_DIR)
-
-        # get artifact contents
-        assert (
-            sum([Path(x).suffix.lower() == ".pth" for x in artifact_files]) == 1
-        ), "Only one '.pth' file expected in the W&B artifact."
-        _suffix2name = {Path(x).suffix.lower(): x for x in artifact_files}
-        checkpoint_path = Path(RESOURCES_DIR) / _suffix2name[".pth"]
-        artifact_config_path = Path(RESOURCES_DIR) / "config.yaml"
-        with open(artifact_config_path) as f:
-            artifact_config = yaml.safe_load(f)
-
-        config = {}
-        try:
-            # this is not working since 2025-12
-            run = artifact.logged_by()
-            config = run.config
-
-        except Exception as e:
-            logger.warning(f"Failed to get run config from W&B artifact: {e}")
-
-            # "zcu_cv/CarnivoreID-Classification/swin_small_patch4_window7_224-CrossEntropyLoss-vit_heavy:v3",
-            # "zcu_cv/CarnivoreID-Classification/swin_small_patch4_window7_224-CrossEntropyLoss-vit_heavy:latest",
-            # logger.error(f"Could not get run config from W&B artifact: {e}")
-
-            config = {}
-            config["number_of_classes"] = len(artifact_config["id2label"])
-            config["architecture"] = "swin_small_patch4_window7_224"
-            config["augmentations"] = "vit_heavy"
-            config["image_size"] = [224, 224]
-            config["batch_size"] = 64
-            logger.debug(f"Using default config: {config}")
-
-        # save model config locally for later use without internet
-        model_config_path.parent.mkdir(exist_ok=True, parents=True)
-        with open(model_config_path, "w") as f:
-            json.dump(config, f)
-
-        # # Try primary method: read config.yaml from artifact
-        # try:
-        #     cfg_path = artifact.get_path("config.yaml").download(root=RESOURCES_DIR)
-        #     with open(cfg_path) as f:
-        #         config = yaml.safe_load(f)
-        # except Exception as e:
-        #     logger.warning(f"Failed to load config.yaml from artifact: {e}")
-        #     # Fallback: try wandb-metadata.json
-        #     try:
-        #         meta_path = artifact.get_path("wandb-metadata.json").download(
-        #             root=RESOURCES_DIR
-        #         )
-        #         with open(meta_path) as f:
-        #             meta = json.load(f)
-        #         config = meta.get("config", {})
-        #     except Exception as e:
-        #         logger.error("Could not load any config from artifact.")
-        #         raise
-
-        # # Save model config locally for offline use
-        # model_config_path.parent.mkdir(exist_ok=True, parents=True)
-        # with open(model_config_path, "w") as f:
-        #     json.dump(config, f)
-
-    except (wandb.CommError, ConnectionError):
-        logger.error("Connection Error. Cannot reach W&B server. Trying previous configuration.")
-        artifact_files = [fn.relative_to(RESOURCES_DIR) for fn in Path(RESOURCES_DIR).glob("*")]
-        with open(model_config_path) as f:
-            config = json.load(f)
-
-    except requests.exceptions.HTTPError:
-        logger.debug(f"{wandb_artifact_path} artifact not found on W&B server.")
-        logger.debug(f"{WANDB_API_KEY[:4]}...")  # log only part of the API key
-
-    return config, checkpoint_path, artifact_config
+    with (model_dir / "model_config.json").open() as config_file:
+        model_config = json.load(config_file)
+    with (model_dir / "config.yaml").open() as config_file:
+        artifact_config = yaml.safe_load(config_file)
+    return model_config["config"], model_dir / model_config["checkpoint"], artifact_config
 
 
 def load_model_and_predict_and_add_not_classified(
@@ -245,7 +186,7 @@ def get_taxon_classification_model():
         except Exception as e:
             logger.error("Error loading model configuration from W&B.")
             logger.debug(f"{WANDB_API_KEY[:4]}...")  # log only part of the API key
-            logger.debug(f"{WANDB_ARTIFACT_PATH=}, {RESOURCES_DIR=}")
+            logger.debug("W&B model cache: %s", WEIGHTS_DIR / "wandb")
             raise e
 
         logger.info("Creating model and loading fine-tuned checkpoint.")

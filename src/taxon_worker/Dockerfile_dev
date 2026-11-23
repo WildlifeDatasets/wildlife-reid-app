@@ -94,24 +94,14 @@ RUN pip install --no-cache-dir --upgrade pip build && \
 
 RUN pip install numpy==1.26.4
 
-RUN python - <<EOF
-import timm
-timm.create_model(
-    "hf-hub:strakajk/Lynx-Orientation-ResNet10t-176",
-    pretrained=True,
-    num_classes=4
-)
-EOF
-
+COPY ./src/wildlife_model_cache.py /opt/wildlife/
+ENV PYTHONPATH=/opt/wildlife
 COPY ./src/taxon_worker /taxon_worker
 
 RUN pip uninstall -y opencv-python opencv-python-headless opencv opencv-contrib-python cv2 && \
     rm -rf /usr/local/lib/python3.10/dist-packages/cv2* && \
     rm -rf /usr/local/lib/python3.10/site-packages/cv2* && \
     pip install --no-cache-dir opencv-python-headless==4.8.1.78
-
-# Download EasyOCR models during image build so the first runtime OCR task does not block on model fetching.
-RUN python -c "import easyocr; easyocr.Reader(['en']); print('easyocr models loaded')"
 
 # expose ports and run application
 WORKDIR $APP_DIR

@@ -1,7 +1,6 @@
 import ast
 import logging
 import os
-import shutil
 import traceback
 from dataclasses import dataclass
 from pathlib import Path
@@ -17,6 +16,7 @@ from PIL import Image
 from segment_anything import SamPredictor, sam_model_registry
 from segment_anything.modeling import Sam
 from tqdm import tqdm
+from wildlife_model_cache import WEIGHTS_DIR, download_checkpoint_if_missing, download_sam3_checkpoint_if_missing
 from wildlife_tools import realize
 from wildlife_tools.data import FeatureDataset, WildlifeDataset
 from wildlife_tools.features import AlikedExtractor, DeepFeatures
@@ -49,9 +49,6 @@ IDENTIFICATION_MODEL_CACHE_KEY: tuple[str, str] | None = None
 SAM3 = None
 SAM3_PREDICTOR: Any | None = None
 SEGMENTATION_BACKEND: Literal["sam3", "sam"] | None = None
-SAM3_CHECKPOINT_PATH = "/root/resources/sam3/sam3.pt"
-SAM3_HF_REPO_ID = "facebook/sam3"
-SAM3_HF_FILENAME = "sam3.pt"
 BBOX_RELATIVE_COLUMNS = ("bbox_cx", "bbox_cy", "bbox_w", "bbox_h")
 
 
@@ -81,55 +78,6 @@ class CarnivoreDataset(WildlifeDataset):
     def image_paths(self):
         """Return the image paths."""
         return self.metadata["path"].astype(str).values
-
-
-def download_file(url: str, output_file: str):
-    """Download file from url."""
-    import requests
-
-    # r = requests.get(url, allow_redirects=True)
-    # with open(output_file, "wb") as f:
-    #     f.write(r.content)
-    # download file from url with tqdm progressbar
-    # https://stackoverflow.com/a/37573701/4419811
-    # Streaming, so we can iterate over the response.
-    r = requests.get(url, stream=True)
-    # Total size in bytes.
-    total_size = int(r.headers.get("content-length", 0))
-    block_size = 1024  # 1 Kibibyte
-    t = tqdm(total=total_size, unit="iB", unit_scale=True)
-    with open(output_file, "wb") as f:
-        for data in r.iter_content(block_size):
-            t.update(len(data))
-            f.write(data)
-    t.close()
-    if total_size != 0 and t.n != total_size:
-        logger.error("ERROR, something went wrong")
-
-
-def download_file_if_does_not_exists(url: str, output_file: str):
-    """Download file from url."""
-    logger.debug("Checking if file does not exists.")
-    if not os.path.exists(output_file):
-        logger.debug(f"File does not exists. Downloading. {output_file=}")
-        Path(output_file).parent.mkdir(parents=True, exist_ok=True)
-        download_file(url, output_file)
-
-
-def download_sam3_checkpoint_if_missing(
-    checkpoint_path: str = SAM3_CHECKPOINT_PATH,
-) -> str:
-    """Download SAM3 weights from Hugging Face if not present locally."""
-    if os.path.exists(checkpoint_path):
-        return checkpoint_path
-
-    from huggingface_hub import hf_hub_download
-
-    logger.info(f"SAM3 checkpoint not found at {checkpoint_path}, downloading from Hugging Face.")
-    Path(checkpoint_path).parent.mkdir(parents=True, exist_ok=True)
-    downloaded = hf_hub_download(repo_id=SAM3_HF_REPO_ID, filename=SAM3_HF_FILENAME)
-    shutil.copy(downloaded, checkpoint_path)
-    return checkpoint_path
 
 
 def get_identification_model(model_name, model_checkpoint=""):
@@ -203,15 +151,12 @@ def _load_sam_model() -> SamPredictor:
     }
     model_version = os.environ["SAM_MODEL_VERSION"]
     if SAM is None:
-        download_file_if_does_not_exists(
-            f"https://dl.fbaipublicfiles.com/segment_anything/{model_zoo[model_version]}.pth",
-            # f"http://ptak.felk.cvut.cz/plants/DanishFungiDataset/{model_zoo[model_version]}.pth",
-            f"/root/resources/{model_zoo[model_version]}.pth",
+        filename = f"{model_zoo[model_version]}.pth"
+        checkpoint_path = download_checkpoint_if_missing(
+            f"https://dl.fbaipublicfiles.com/segment_anything/{filename}", WEIGHTS_DIR / "sam" / filename
         )
-
-        logger.info(f"Initializing SAM model ({model_version}) and loading pre-trained checkpoint.")
-        _checkpoint_path = Path(f"/root/resources/{model_zoo[model_version]}.pth").expanduser()
-        SAM = sam_model_registry[model_version](checkpoint=str(_checkpoint_path))
+        logger.info("Initializing SAM model (%s) and loading pre-trained checkpoint.", model_version)
+        SAM = sam_model_registry[model_version](checkpoint=str(checkpoint_path))
     else:
         logger.info(f"Reusing cached SAM model ({model_version}) from CPU memory.")
 
@@ -241,16 +186,15 @@ def _load_sam3_model() -> Any | None:
     logger.debug(f"Before segmentation model: {mem.get_vram(DEVICE)}     {mem.get_ram()}")
     if SAM3 is None:
         try:
-            download_sam3_checkpoint_if_missing()
+            checkpoint_path = download_sam3_checkpoint_if_missing()
         except Exception as exc:
             logger.warning("SAM3 weights unavailable: %s", exc)
             return None
 
         try:
             logger.info("Initializing SAM3 model and loading pre-trained checkpoint.")
-            _checkpoint_path = Path(SAM3_CHECKPOINT_PATH).expanduser()
             SAM3 = build_sam3_image_model(
-                checkpoint_path=str(_checkpoint_path),
+                checkpoint_path=str(checkpoint_path),
                 load_from_HF=False,
                 device="cpu",
             )

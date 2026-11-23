@@ -7,7 +7,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, Mock, patch
 
-from detection_utils.model_cache import download_checkpoint_if_missing
+from wildlife_model_cache import download_checkpoint_if_missing
 
 
 class ModelCacheTest(unittest.TestCase):
@@ -45,6 +45,20 @@ class ModelCacheTest(unittest.TestCase):
             self.download()
         self.assertFalse(self.checkpoint.exists())
         self.assertEqual(list(self.checkpoint.parent.iterdir()), [])
+
+    def test_concurrent_publication_is_accepted_when_rename_cannot_overwrite(self):
+        """Reuse a peer's complete file if SSHFS refuses to overwrite it."""
+
+        def peer_wins(temporary_path, destination):
+            self.assertEqual(temporary_path.read_bytes(), b"abcdef")
+            self.assertFalse(destination.exists())
+            destination.write_bytes(b"abcdef")
+            raise PermissionError("destination already exists")
+
+        with patch.object(Path, "replace", autospec=True, side_effect=peer_wins):
+            self.assertEqual(self.download(), self.checkpoint)
+        self.assertEqual(self.checkpoint.read_bytes(), b"abcdef")
+        self.assertEqual(list(self.checkpoint.parent.iterdir()), [self.checkpoint])
 
     def test_interrupted_download_is_cleaned_up_and_retried(self):
         """An interrupted transfer must be retried successfully on the next invocation."""

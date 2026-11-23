@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import List, Optional, Tuple, Union
 
 import cv2
-import easyocr
 import exiftool
 import numpy as np
 import pandas as pd
@@ -25,6 +24,7 @@ from tqdm import tqdm
 from .datetime_identification_ocr import (
     OCRDataset,
     _process_datetime_without_spaces,
+    get_english_ocr_reader,
     is_correct_datetime_format,
     process_datetime_from_ocr,
 )
@@ -342,7 +342,7 @@ def get_datetime_from_easyocr(file: Union[Path, np.ndarray]) -> typing.Tuple[str
     global EASYREADER
 
     if EASYREADER is None:
-        EASYREADER = easyocr.Reader(["en"])
+        EASYREADER = get_english_ocr_reader()
 
     if isinstance(file, (str, Path)):
         if file.suffix.lower() in (".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff"):

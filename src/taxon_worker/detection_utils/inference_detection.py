@@ -1,6 +1,5 @@
 import logging
 import os
-import shutil
 import traceback
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
@@ -14,14 +13,10 @@ import torchvision.transforms as T
 from PIL import Image
 from torch.nn import functional as F
 from tqdm import tqdm
+from wildlife_model_cache import download_sam3_checkpoint_if_missing
 
 from .errors import DetectorUnavailableError
-from .model_cache import (
-    MEGADETECTOR_CHECKPOINT_PATH,
-    MEGADETECTOR_URL,
-    TORCH_HUB_CACHE_DIR,
-    download_checkpoint_if_missing,
-)
+from .model_cache import TORCH_HUB_CACHE_DIR, get_megadetector_checkpoint
 
 try:
     from ..infrastructure_utils import mem
@@ -46,9 +41,6 @@ ORIENTATION_MODEL = None
 
 SAM3 = None
 SAM3_PREDICTOR: Any | None = None
-SAM3_CHECKPOINT_PATH = "/root/resources/sam3/sam3.pt"
-SAM3_HF_REPO_ID = "facebook/sam3"
-SAM3_HF_FILENAME = "sam3.pt"
 
 CLS_TO_ORIENTATION = {0: "back", 1: "front", 2: "left", 3: "right"}
 KEEP_DETECTION_MODEL_LOADED = os.getenv("TAXON_KEEP_DETECTION_MODEL_LOADED", "").lower() in ("1", "true", "yes")
@@ -58,26 +50,6 @@ WARM_UP_DETECTION_MODEL_ON_START = os.getenv("TAXON_WARM_UP_DETECTION_MODEL_ON_S
     "yes",
 )
 SAM3_FALLBACK_CONF = float(os.getenv("TAXON_SAM3_FALLBACK_CONF", "0.5"))
-
-
-def download_sam3_checkpoint_if_missing(
-    checkpoint_path: str = SAM3_CHECKPOINT_PATH,
-    *,
-    on_download=None,
-) -> str:
-    """Download SAM3 weights from Hugging Face if not present locally."""
-    if os.path.exists(checkpoint_path):
-        return checkpoint_path
-
-    from huggingface_hub import hf_hub_download
-
-    logger.info("SAM3 checkpoint not found at %s, downloading from Hugging Face.", checkpoint_path)
-    if on_download is not None:
-        on_download()
-    Path(checkpoint_path).parent.mkdir(parents=True, exist_ok=True)
-    downloaded = hf_hub_download(repo_id=SAM3_HF_REPO_ID, filename=SAM3_HF_FILENAME)
-    shutil.copy(downloaded, checkpoint_path)
-    return checkpoint_path
 
 
 def pad_image(image: np.ndarray, bbox: Union[list, np.ndarray], border: float = 0.25) -> np.ndarray:
@@ -117,7 +89,7 @@ def get_detection_model(force_reload: bool = False):
     logger.debug("Before detection model.")
     logger.debug(f"{mem.get_vram(DEVICE)}     {mem.get_ram()}")
     if DETECTION_MODEL is None:
-        model_file = download_checkpoint_if_missing(MEGADETECTOR_URL, MEGADETECTOR_CHECKPOINT_PATH)
+        model_file = get_megadetector_checkpoint()
         TORCH_HUB_CACHE_DIR.mkdir(parents=True, exist_ok=True)
         torch.hub.set_dir(str(TORCH_HUB_CACHE_DIR))
 
@@ -204,7 +176,7 @@ def _load_sam3_model(*, strict=False, on_download=None) -> Any | None:
     logger.debug(f"Before SAM3 model: {mem.get_vram(DEVICE)}     {mem.get_ram()}")
     if SAM3 is None:
         try:
-            download_sam3_checkpoint_if_missing(on_download=on_download)
+            checkpoint_path = download_sam3_checkpoint_if_missing(on_download=on_download)
         except Exception as exc:
             logger.warning("SAM3 weights unavailable: %s", exc)
             if strict:
@@ -223,9 +195,8 @@ def _load_sam3_model(*, strict=False, on_download=None) -> Any | None:
 
         try:
             logger.info("Initializing SAM3 model and loading pre-trained checkpoint.")
-            _checkpoint_path = Path(SAM3_CHECKPOINT_PATH).expanduser()
             SAM3 = build_sam3_image_model(
-                checkpoint_path=str(_checkpoint_path),
+                checkpoint_path=str(checkpoint_path),
                 load_from_HF=False,
                 device="cpu",
             )

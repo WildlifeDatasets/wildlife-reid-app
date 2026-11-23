@@ -1,47 +1,23 @@
-"""Persistent MegaDetector weights and Torch Hub cache for the taxon worker."""
+"""Persistent MegaDetector weights and YOLOv5 code for the taxon worker."""
 
-import logging
-import os
-import tempfile
-from pathlib import Path
+import shutil
 
-logger = logging.getLogger("app")
+from wildlife_model_cache import (
+    SHARED_DATA_DIR,
+    WEIGHTS_DIR,
+    cache_checkpoint,
+    download_checkpoint_if_missing,
+    has_checkpoint,
+)
 
-# Keep weights and YOLOv5 code in the shared volume to shorten image builds and
-# preserve the download cache across image rebuilds and Docker/container restarts.
-SHARED_DATA_DIR = Path(os.getenv("SHARED_DATA_PATH", "/shared_data"))
-MEGADETECTOR_CHECKPOINT_PATH = SHARED_DATA_DIR / "models" / "megadetector" / "md_v5a.0.0.pt"
+MEGADETECTOR_CHECKPOINT_PATH = WEIGHTS_DIR / "megadetector" / "md_v5a.0.0.pt"
 TORCH_HUB_CACHE_DIR = SHARED_DATA_DIR / "cache" / "torch" / "hub"
 MEGADETECTOR_URL = "https://github.com/ecologize/CameraTraps/releases/download/v5.0/md_v5a.0.0.pt"
 
 
-def download_checkpoint_if_missing(url: str, checkpoint_path: Path) -> Path:
-    """Reuse a non-empty checkpoint or download and atomically publish a complete file."""
-    import requests
-
-    checkpoint_path = Path(checkpoint_path)
-    if checkpoint_path.is_file() and checkpoint_path.stat().st_size > 0:
-        return checkpoint_path
-
-    checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
-    temporary_path = None
-    try:
-        logger.info("Downloading model checkpoint %s to %s", url, checkpoint_path)
-        with requests.get(url, stream=True, timeout=(30, 300)) as response:
-            response.raise_for_status()
-            expected_size = int(response.headers.get("content-length", 0))
-            with tempfile.NamedTemporaryFile(
-                dir=checkpoint_path.parent, prefix=checkpoint_path.name + ".", suffix=".part", delete=False
-            ) as output:
-                temporary_path = Path(output.name)
-                downloaded_size = 0
-                for chunk in response.iter_content(chunk_size=1024 * 1024):
-                    output.write(chunk)
-                    downloaded_size += len(chunk)
-            if downloaded_size == 0 or (expected_size and downloaded_size != expected_size):
-                raise ValueError(f"Incomplete model download: got {downloaded_size} bytes, expected {expected_size}")
-        temporary_path.replace(checkpoint_path)
-        return checkpoint_path
-    finally:
-        if temporary_path is not None:
-            temporary_path.unlink(missing_ok=True)
+def get_megadetector_checkpoint():
+    """Reuse a previously cached MegaDetector checkpoint when initializing the new cache."""
+    legacy_path = SHARED_DATA_DIR / "models" / "megadetector" / MEGADETECTOR_CHECKPOINT_PATH.name
+    if has_checkpoint(legacy_path):
+        return cache_checkpoint(MEGADETECTOR_CHECKPOINT_PATH, lambda path: shutil.copyfile(legacy_path, path))
+    return download_checkpoint_if_missing(MEGADETECTOR_URL, MEGADETECTOR_CHECKPOINT_PATH)

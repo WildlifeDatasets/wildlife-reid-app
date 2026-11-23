@@ -6,8 +6,25 @@ from pathlib import Path
 import cv2
 import easyocr
 import pandas as pd
+from easyocr.config import detection_models, recognition_models
+from easyocr.utils import calculate_md5, download_and_unzip
 from torch.utils.data import DataLoader, Dataset
 from tqdm.auto import tqdm
+from wildlife_model_cache import WEIGHTS_DIR, cache_checkpoint
+
+
+def get_english_ocr_reader():
+    """Cache the English recognition and CRAFT detection weights before loading EasyOCR."""
+    model_dir = WEIGHTS_DIR / "easyocr"
+
+    def fetch_model(temporary_path, model):
+        download_and_unzip(model["url"], model["filename"], str(temporary_path.parent))
+        if calculate_md5(str(temporary_path)) != model["md5sum"]:
+            raise ValueError(f"Invalid EasyOCR checkpoint: {temporary_path.name}")
+
+    for model in (detection_models["craft"], recognition_models["gen2"]["english_g2"]):
+        cache_checkpoint(model_dir / model["filename"], lambda path: fetch_model(path, model))
+    return easyocr.Reader(["en"], model_storage_directory=str(model_dir), download_enabled=False)
 
 
 def is_correct_datetime_format(date):
@@ -262,7 +279,7 @@ def get_datetime_from_ocr(
     )
 
     # create ocr reader
-    reader = easyocr.Reader(["en"])
+    reader = get_english_ocr_reader()
 
     results_raw = []
     results_clean = []
