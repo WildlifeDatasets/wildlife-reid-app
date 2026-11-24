@@ -41,8 +41,12 @@ def migrate_user_to_workgroup(
     )
 
     # Identification suggestions are transient and may refer to the old model.
-    unfinished_identifications = models.MediafilesForIdentification.objects.filter(mediafile__parent__owner=user)
-    affected_archive_ids = list(unfinished_identifications.values_list("mediafile__parent_id", flat=True).distinct())
+    unfinished_identifications = models.MediafilesForIdentification.objects.filter(
+        observation__mediafile__parent__owner=user
+    )
+    affected_archive_ids = list(
+        unfinished_identifications.values_list("observation__mediafile__parent_id", flat=True).distinct()
+    )
     unfinished_identifications.delete()
     models.UploadedArchive.objects.filter(pk__in=affected_archive_ids).update(
         identification_status="C",

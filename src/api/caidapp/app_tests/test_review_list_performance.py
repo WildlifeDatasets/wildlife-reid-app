@@ -74,7 +74,7 @@ class ReviewListQueryTest(TestCase):
         """Bulk-loaded identification state must preserve each card's action."""
         self.add_mediafiles(2)
         queued, other = MediaFile.objects.filter(parent=self.archive).order_by("pk")
-        MediafilesForIdentification.objects.create(mediafile=queued)
+        MediafilesForIdentification.objects.create(observation=queued.observations.first())
         response = self.client.get(reverse("caidapp:media_files"))
         self.assertContains(response, reverse("caidapp:get_individual_identity_by_media_file", args=[queued.pk]))
         self.assertNotContains(response, reverse("caidapp:get_individual_identity_by_media_file", args=[other.pk]))

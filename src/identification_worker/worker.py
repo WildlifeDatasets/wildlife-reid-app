@@ -15,27 +15,25 @@ from celery import Celery, shared_task
 from gpu_monitor import register_gpu_monitor
 from progress import ProgressReporter
 from train_model import train_identification_model
+from wildlife_model_cache import log_model_operation
 from wildlife_tools.data import FeatureDataset
 from wildlife_tools.similarity.pairwise.collectors import CollectAll
 from wildlife_tools.similarity.pairwise.lightglue import MatchLightGlue
 
 from utils import config
-from utils.database import get_db_connection, init_db_connection
+from utils.feature_snapshot import FeatureSnapshot, load_analysis_inputs, load_match_inputs
 from utils.embedding_processing import EmbeddingProcessing
 from utils.inference_identification import (
-    BBOX_RELATIVE_COLUMNS,
     calibrate_models,
     compute_partial,
     del_models,
-    encode_images,
+    get_identification_model,
     get_keypoints,
     identify,
     identify_from_similarity,
-    init_models,
     prepare_feature_types,
 )
 from utils.log import setup_logging
-from utils.sequence_identification import extend_df_with_datetime, extend_df_with_sequence_id
 
 os.environ.setdefault("TZ", "Europe/Prague")
 if hasattr(time, "tzset"):
@@ -46,19 +44,24 @@ logger = logging.getLogger("app")
 
 logger.debug(f"{config.RABBITMQ_URL=}")
 logger.debug(f"{config.REDIS_URL=}")
-logger.debug(f"{config.POSTGRES_URL=}")
 
 identification_worker = Celery("identification_worker", broker=config.RABBITMQ_URL, backend=config.REDIS_URL)
 identification_worker.conf.timezone = os.environ.get("TZ", "Europe/Prague")
 identification_worker.conf.enable_utc = False
 identification_worker.conf.task_track_started = True
-init_db_connection(db_url=config.POSTGRES_URL)
 register_gpu_monitor(identification_worker)
 
 
 @identification_worker.task(name="compute_observation_embeddings")
 def compute_observation_embeddings(manifest_path):
-    """Compute missing versioned observation vectors in a shared-file job manifest."""
+    """Compute missing global and ALIKED features for a set of observations.
+
+    `manifest_path` points to `input.json` (UTF-8 JSON) on shared storage.
+    It describes the feature profile, cache keys and observations, including
+    the source path, bbox and input version for each observation. Write newly
+    computed features and their profile to `output.json` next to the manifest
+    and return its path for Django to import.
+    """
     from utils.observation_embeddings import compute_manifest
 
     return compute_manifest(manifest_path)
@@ -72,7 +75,14 @@ def train_identification(
     identification_model: dict = None,
     **kwargs,
 ):
-    """Process and store Reference Image records in the database."""
+    """Train an identification model from labeled observations.
+
+    `input_metadata_file` points to a CSV with `image_path`, `label` and
+    `sequence_number` columns. The trainer derives the masked-image paths
+    from `image_path`. `identification_model` selects the base architecture,
+    optional initial weights and output checkpoint (.pth). Return the task
+    status and error details if training fails.
+    """
     logger.debug(f"{identification_model=}")
     if identification_model is None:
         identification_model = {
@@ -99,158 +109,39 @@ def train_identification(
     return {"status": "DONE"}
 
 
-@identification_worker.task(bind=True, name="init_identification")
-def init(
-    self,
-    input_metadata_file: str,
-    organization_id: int,
-    identification_model: dict = None,
-    **kwargs,
-):
-    """Process and store Reference Image records in the database."""
-    logger.debug(f"{identification_model=}")
-    if identification_model is None:
-        identification_model = {
-            "name": "",
-            # model_source is required: HF/timm model used to create the architecture.
-            "model_source": "hf-hub:strakajk/LynxV4-MegaDescriptor-v2-T-256",
-            # weights_path is optional: local checkpoint loaded into model_source before inference.
-            "weights_path": "",
-        }
-
-    try:
-        progress = ProgressReporter(self, operation="init")
-        progress.stage("load_metadata", "Loading initialization metadata")
-        logger.info(f"Applying init task with args: {input_metadata_file=}, {organization_id=}.")
-        # log celery worker id
-        logger.debug(f"celery {self.request.id=}")
-
-        # read metadata file
-        metadata = pd.read_csv(input_metadata_file)
-        progress.update(1, 1)
-        assert "image_path" in metadata
-        assert "class_id" in metadata
-        assert "label" in metadata
-
-        # remove all unused columns
-        metadata_columns = ["image_path", "class_id", "label", "detection_results", *BBOX_RELATIVE_COLUMNS]
-        metadata = metadata[[column for column in metadata_columns if column in metadata.columns]]
-
-        # generate embeddings
-        progress.stage("prepare_database", "Preparing reference image database")
-        db_connection = get_db_connection()
-        database_size = db_connection.reference_image.get_reference_images_count(organization_id)
-        logger.debug(f"Database size: {database_size}")
-        db_connection.reference_image.del_reference_images(organization_id)
-        progress.update(1, 1)
-
-        progress.stage("init_models", "Initializing identification models")
-        # model_source creates the architecture; optional weights_path loads locally trained weights into it.
-        identification_model_path = identification_model["model_source"]
-        identification_model_weights_path = identification_model.get("weights_path", "")
-        init_models(
-            identification_model_path,
-            identification_model_weights_path=identification_model_weights_path,
-        )
-        progress.update(1, 1)
-        encoding_batch_size = int(os.environ["ENCODING_BATCH_SIZE"])
-        target_num_splits = math.ceil(len(metadata) / encoding_batch_size)
-        metadata_splits = np.array_split(metadata, target_num_splits)
-        logger.info(
-            f"Starting embedding images: {len(metadata)}, " f"data will be processed in {len(metadata_splits)} batches"
-        )
-        for i, _metadata in enumerate(metadata_splits):
-            logger.debug(f"[{i + 1}/{target_num_splits}] - {len(_metadata)}")
-            progress.stage(
-                "encode_embeddings",
-                f"Encoding reference embeddings ({i + 1}/{target_num_splits})",
-            )
-            progress.update(i, target_num_splits)
-            _features = encode_images(
-                _metadata,
-                identification_model_path=identification_model_path,
-                identification_model_weights_path=identification_model_weights_path,
-            )
-            progress.update(i + 0.5, target_num_splits)
-            _features = [json.dumps(e) for e in _features]
-            _metadata["embedding"] = _features
-
-            logger.info("Storing feature vectors into the database.")
-            progress.update(
-                i + 0.5,
-                target_num_splits,
-                message=f"Storing reference embeddings ({i + 1}/{target_num_splits})",
-            )
-            db_connection.reference_image.create_reference_images(organization_id, _metadata)
-            progress.update(i + 1, target_num_splits)
-        del_models()
-
-        progress.stage("finalize", "Finalizing identification initialization")
-        database_size = db_connection.reference_image.get_reference_images_count(organization_id)
-        logger.debug(f"Database size: {database_size}")
-        progress.update(1, 1)
-
-        logger.info("Finished init identification processing.")
-        out = {
-            "status": "DONE",
-            "message": f"Identification initiated with {len(metadata['image_path'])} images.",
-        }
-    except Exception:
-        logger.debug(f"{identification_model=}")
-        err = traceback.format_exc()
-        logger.critical(f"Returning unexpected error output: '{err}'.")
-        out = {"status": "ERROR", "error": err}
-    return out
+# @identification_worker.task(bind=True, name="iworker_simple_log")
+# def iworker_simple_log(self, *args, **kwargs):
+#     """Simple log task."""
+#     logger.info(f"Applying simple log task with args: {args=}, {kwargs=}.")
+#     return {"status": "DONE"}
+#
+#
+# @shared_task(bind=True, name="shared_simple_log")
+# def shared_simple_log(self, *args, **kwargs):
+#     """Simple log task."""
+#     logger.info(f"Applying simple log task with args: {args=}, {kwargs=}.")
+#     return {"status": "DONE"}
 
 
-@identification_worker.task(bind=True, name="iworker_simple_log")
-def iworker_simple_log(self, *args, **kwargs):
-    """Simple log task."""
-    logger.info(f"Applying simple log task with args: {args=}, {kwargs=}.")
-    return {"status": "DONE"}
+def load_features(references, *, start=0, end=None, rows=None):
+    """Read the feature pairs and metadata of the selected reference rows.
 
-
-@shared_task(bind=True, name="shared_simple_log")
-def shared_simple_log(self, *args, **kwargs):
-    """Simple log task."""
-    logger.info(f"Applying simple log task with args: {args=}, {kwargs=}.")
-    return {"status": "DONE"}
-
-
-def load_features(db_connection, organization_id, *, start: int = -1, end: int = -1, rows: tuple = ()):
-    """Loads specific or all rows from database."""
-    # logger.debug("Started loading features from database")
-
-    if rows:
-        reference_images = []
-        for idx in rows:
-            _reference_images = db_connection.reference_image.get_reference_images(
-                organization_id, start=idx, end=idx + 1
-            )
-            reference_images.append(_reference_images)
-        reference_images = pd.concat(reference_images)
-        # reference_images = db_connection.reference_image.get_reference_images(
-        #   organization_id, rows=rows)
-    else:
-        reference_images = db_connection.reference_image.get_reference_images(
-            organization_id, start=start, end=end, rows=list(rows)
-        )
-
-    if reference_images.empty:
-        raise ValueError(
-            f"No reference embeddings found for workgroup {organization_id}. "
-            "Run identification initialization for this workgroup, wait for it to finish, and retry the search. "
-            "Generating observation embeddings alone does not populate the identification reference database."
-        )
-    features = [json.loads(e) for e in reference_images["embedding"]]
-    # logger.debug(f"Loaded features {len(reference_images)}, rows: <{start}, {end})")
-    return features, reference_images
+    `references` is a FeatureSnapshot backed by `references.jsonl`. Read the
+    half-open range `start:end` or the explicit zero-based indices in `rows`.
+    Return the feature pairs and a parallel DataFrame with the remaining
+    fields, including the reference observation IDs.
+    """
+    table = pd.DataFrame(references.read(rows if rows is not None else range(len(references))[start:end]))
+    return table.pop("embedding").tolist(), table
 
 
 def get_priority_pairs_from_parts(priority_parts: list, image_budget: int):
-    """Merge priority_parts and get pairs.
+    """Select up to `image_budget` references per query for local matching.
 
-    Specific for local descriptors (matcher=MatchLightGlue(features='aliked')).
+    Each part is a query-by-reference priority matrix for one reference
+    batch. Parts must share the query order and follow the reference
+    snapshot order. Return the (query index, reference index) pairs and
+    the set of reference indices to load again.
     """
     priority = np.concatenate(priority_parts, 1)
 
@@ -266,29 +157,34 @@ def get_priority_pairs_from_parts(priority_parts: list, image_budget: int):
 
 def predict_full(
     metadata: pd.DataFrame,
-    db_connection: object,
-    organization_id: int,
+    references: FeatureSnapshot,
     identification_model_path,
     identification_model_weights_path="",
     top_k: int = 1,
     progress: ProgressReporter | None = None,
+    *,
+    stored_queries: FeatureSnapshot,
 ):
-    """Predict identification for all samples."""
-    # load features from database
+    """Compare all prepared queries and references together in memory.
+
+    `metadata` is the DataFrame for the observations being identified,
+    loaded from `query_metadata.json`. Its indices locate the corresponding
+    global and ALIKED features in `stored_queries` (`queries.jsonl`).
+    `references` (`references.jsonl`) holds labeled observations with their
+    metadata and features. Return ranked results and an identity-ID-to-label
+    mapping.
+    """
+    # Read the full reference snapshot.
     if progress:
         progress.stage("load_references", "Loading reference embeddings")
-    database_features, reference_images = load_features(db_connection, organization_id)
+    database_features, reference_images = load_features(references)
 
-    # generate query embeddings
+    # Load stored query features in metadata order.
     if progress:
-        progress.stage("identify", "Encoding query images")
-    query_features = encode_images(
-        metadata,
-        identification_model_path,
-        identification_model_weights_path=identification_model_weights_path,
-    )
+        progress.stage("identify", "Loading query features")
+    query_features = [row["embedding"] for row in stored_queries.read(metadata.index)]
 
-    # prepare metadata for database
+    # Build the metadata expected by WildFusion.
     query_metadata = pd.DataFrame(
         {
             "path": metadata["image_path"],
@@ -306,6 +202,9 @@ def predict_full(
         }
     )
 
+    database_metadata["observation_id"] = reference_images["observation_id"]
+    database_metadata["review_version"] = reference_images["review_version"]
+
     if progress:
         progress.stage("identify", "Comparing query images with references")
         progress.update(1, 3)
@@ -319,6 +218,7 @@ def predict_full(
         top_k=top_k,
         cal_images=int(os.environ["CALIBRATION_IMAGES"]),
         image_budget=int(os.environ["IMAGE_BUDGET"]),
+        use_sequence_post_processing=False,
     )
     if progress:
         progress.update(1, 1)
@@ -330,15 +230,23 @@ def predict_full(
 
 def predict_batch(
     metadata: pd.DataFrame,
-    db_connection: object,
-    organization_id: int,
+    references: FeatureSnapshot,
     database_size: int,
     identification_model_path: str,
     identification_model_weights_path: str = "",
     top_k: int = 1,
     progress: ProgressReporter | None = None,
+    *,
+    stored_queries: FeatureSnapshot,
 ):
-    """Predict identification in batches."""
+    """Compare the prepared query and reference snapshots in batches.
+
+    `metadata` comes from `query_metadata.json` and indexes the same rows in
+    `stored_queries` (`queries.jsonl`). `references` is the ordered snapshot
+    of labeled observations (`references.jsonl`); `database_size` is its row
+    count. Use the same row order for calibration, candidate scoring and
+    paired-point extraction. Return ranked results and identity labels.
+    """
     database_batch_size = int(os.environ["DATABASE_BATCH_SIZE"])
     encoding_batch_size = int(os.environ["ENCODING_BATCH_SIZE"])
     cal_images = int(os.environ["CALIBRATION_IMAGES"])
@@ -347,13 +255,10 @@ def predict_batch(
     # initialize and calibrate models
     if progress:
         progress.stage("load_references", "Initializing models and calibration data")
-    init_models(
-        identification_model_path,
-        identification_model_weights_path=identification_model_weights_path,
-    )
+    get_identification_model(identification_model_path, model_checkpoint=identification_model_weights_path)
 
     # TODO: get random calibration images?
-    calibration_features, reference_images = load_features(db_connection, organization_id, start=0, end=cal_images)
+    calibration_features, reference_images = load_features(references, start=0, end=cal_images)
     calibration_metadata = pd.DataFrame(
         {
             "path": reference_images["image_path"],
@@ -370,11 +275,8 @@ def predict_batch(
     metadata_splits = np.array_split(metadata, target_num_splits)
     # TODO: split by sequence_id
 
-    # prepare database split indexes
-    database_split_idx = np.arange(np.ceil(database_size // database_batch_size + 1)) * database_batch_size
-    database_split_idx = list(database_split_idx.astype(int))
-    if database_split_idx[-1] != database_size:
-        database_split_idx.append(database_size)
+    # Split the reference snapshot into contiguous row ranges.
+    database_split_idx = [*range(0, database_size, database_batch_size), database_size]
 
     # iterate over query splits/batches
     identification_output = {}
@@ -382,14 +284,9 @@ def predict_batch(
         progress_str = f"[{qi + 1}/{target_num_splits}] - {len(_metadata)}"
         logger.debug(f"predict_batch: {progress_str}")
         if progress:
-            progress.stage("identify", f"Encoding query batch {qi + 1}/{target_num_splits}")
+            progress.stage("identify", f"Loading query batch {qi + 1}/{target_num_splits}")
             progress.update(qi, target_num_splits)
-        query_features = encode_images(
-            _metadata,
-            identification_model_path,
-            identification_model_weights_path=identification_model_weights_path,
-            tqdm_desc=progress_str,
-        )
+        query_features = [row["embedding"] for row in stored_queries.read(_metadata.index)]
         # prepare query metadata
         query_metadata = pd.DataFrame(
             {
@@ -415,8 +312,7 @@ def predict_batch(
                     message=f"Computing priority matrix {db_idx}/{len(database_split_idx) - 1}",
                 )
             database_features, reference_images = load_features(
-                db_connection,
-                organization_id,
+                references,
                 start=database_split_idx[db_idx - 1],
                 end=database_split_idx[db_idx],
             )
@@ -432,6 +328,9 @@ def predict_batch(
                     ),
                 }
             )
+
+            database_metadata["observation_id"] = reference_images["observation_id"].to_numpy()
+            database_metadata["review_version"] = reference_images["review_version"].to_numpy()
 
             # accumulate priority matrix for query_features
             logger.debug("Computing priority matrix")
@@ -464,10 +363,7 @@ def predict_batch(
         num_local_descriptors = 2
         scores = [np.zeros([len(query_features), database_size]) for _ in range(num_local_descriptors)]
 
-        split_idx = np.arange(np.ceil(len(database_idx) // database_batch_size + 1)) * database_batch_size
-        split_idx = list(split_idx.astype(int))
-        if split_idx[-1] != len(database_idx):
-            split_idx.append(len(database_idx))
+        split_idx = [*range(0, len(database_idx), database_batch_size), len(database_idx)]
 
         for sidx in range(1, len(split_idx)):
             if progress:
@@ -486,7 +382,7 @@ def predict_batch(
                 _pairs[pi][1] = dbidx_to_idx[_pairs[pi][1]]
 
             # get features
-            database_features, reference_images = load_features(db_connection, organization_id, rows=_database_idx)
+            database_features, reference_images = load_features(references, rows=_database_idx)
 
             # prepare database metadata
             database_metadata = pd.DataFrame(
@@ -530,12 +426,13 @@ def predict_batch(
             full_database_metadata,
             query_metadata,
             top_k=top_k,
-            post_process=os.environ.get("POST_PROCESS", None),
+            post_process=None,
         )
 
         # calculate keypoints
         collector = CollectAll()
-        keypoint_matcher = MatchLightGlue(features="aliked", collector=collector)
+        with log_model_operation("LightGlue model load", "ALIKED matcher"):
+            keypoint_matcher = MatchLightGlue(features="aliked", collector=collector)
 
         keypoints = []
         total_keypoints = max(len(result_idx), 1)
@@ -549,7 +446,7 @@ def predict_batch(
             query_aliked_features, _ = prepare_feature_types([query_features[qidx]])
             keypoint_query_features = FeatureDataset(query_aliked_features, query_metadata.iloc[[qidx]])
 
-            database_features, reference_images = load_features(db_connection, organization_id, rows=didx)
+            database_features, reference_images = load_features(references, rows=didx)
             database_metadata = pd.DataFrame(
                 {
                     "path": reference_images["image_path"],
@@ -592,9 +489,22 @@ def predict(
     top_k: int = 1,
     sequence_time: str = "480s",
     identification_model: dict = None,
+    *,
+    feature_config: dict,
     **kwargs,
 ):
-    """Process and compare input samples with Reference Image records from the database."""
+    """Run the Celery `identify` task over prepared observation features.
+
+    `input_metadata_file_path` points to `query_metadata.json` on shared
+    storage. Its directory must also contain `queries.jsonl` in matching row
+    order and `references.jsonl` with the selected labeled observations.
+    `feature_config` provides the expected checkpoint digest.
+
+    Choose the full or batched matcher and write JSON to
+    `output_json_file_path`. The result contains query and reference
+    observation IDs, candidate identities, scores and paired points.
+    Return the task status and the output path on success.
+    """
     logger.debug(f"{identification_model=}")
 
     if identification_model is None:
@@ -614,24 +524,17 @@ def predict(
         logger.info(f"Applying identify task with args: {input_metadata_file_path=}, {organization_id=}.")
         logger.debug(f"celery task id={self.request.id=}")
 
-        # read metadata file
-        metadata = pd.read_csv(input_metadata_file_path)
+        # Load metadata JSON and its two companion JSONL snapshots.
+        metadata, queries, references = load_match_inputs(
+            input_metadata_file_path, identification_model.get("weights_path", ""), feature_config
+        )
         progress.update(1, 1)
         if len(metadata) == 0:
             logger.info("Input data is empty. Finishing the job.")
             out = {"status": "ERROR", "error": "Input data is empty."}
         else:
-            assert "image_path" in metadata
-            assert "mediafile_id" in metadata
-            first_image_path = metadata["image_path"].iloc[0]
-            assert Path(first_image_path).exists(), f"File '{first_image_path}' does not exist."
-            logger.debug(f"first image = {first_image_path}, {Path(first_image_path).exists()}")
-
-            # fetch embeddings of reference samples from the database
-            progress.stage("load_references", "Checking reference image database")
-            logger.info("Loading reference feature vectors from the database.")
-            db_connection = get_db_connection()
-            database_size = db_connection.reference_image.get_reference_images_count(organization_id)
+            progress.stage("load_references", "Checking reference features")
+            database_size = len(references)
             progress.update(1, 1)
 
             if database_size == 0:
@@ -642,24 +545,8 @@ def predict(
                 }
             else:
                 logger.debug(f"Starting identification with: {len(metadata)} query files.")
-                # estimate sequence id
-                if ("sequence_number" not in metadata) and ("locality_name" in metadata):
-                    progress.stage("prepare_sequences", "Estimating sequences")
-                    logger.debug("Estimating sequence number and datetime.")
-                    metadata["locality"] = metadata["locality_name"]
-                    metadata = extend_df_with_datetime(metadata)
-                    metadata = extend_df_with_sequence_id(metadata, sequence_time)
-                    metadata["sequence_number"] = np.where(
-                        metadata["locality"].isna(),
-                        -1,
-                        metadata["sequence_number"],
-                    )
-                    progress.update(1, 1)
-                else:
-                    progress.stage("prepare_sequences", "Using existing sequences")
-                    progress.update(1, 1)
-                query_image_path = list(metadata.image_path)
-                query_masked_path = [p.replace("/images/", "/masked_images/") for p in query_image_path]
+                query_image_path = list(metadata.original_path)
+                query_masked_path = list(metadata.image_path)
 
                 database_batch_size = int(os.environ["DATABASE_BATCH_SIZE"])
                 encoding_batch_size = int(os.environ["ENCODING_BATCH_SIZE"])
@@ -672,12 +559,12 @@ def predict(
                     identification_model_weights_path = identification_model.get("weights_path", "")
                     identification_output, id2label = predict_full(
                         metadata,
-                        db_connection,
-                        organization_id,
+                        references,
                         identification_model_path=identification_model_path,
                         identification_model_weights_path=identification_model_weights_path,
                         top_k=top_k,
                         progress=progress,
+                        stored_queries=queries,
                     )
                 else:
                     logger.info("Starting batched identification.")
@@ -687,13 +574,13 @@ def predict(
                     identification_model_weights_path = identification_model.get("weights_path", "")
                     identification_output, id2label = predict_batch(
                         metadata,
-                        db_connection,
-                        organization_id,
+                        references,
                         database_size,
                         identification_model_path=identification_model_path,
                         identification_model_weights_path=identification_model_weights_path,
                         top_k=top_k,
                         progress=progress,
+                        stored_queries=queries,
                     )
 
                 progress.stage("save_output", "Saving identification suggestions")
@@ -733,42 +620,23 @@ def detect_identification_outliers(
     # mediafile_paths=None,
     **kwargs,
 ):
-    """
-    Perform outlier detection and return suspicious database images and their candidate identities.
+    """Flag potentially misassigned observations using their global vectors.
 
-    This function analyzes the provided metadata and available reference embeddings to detect which
-    database images appear suspiciously labeled or potentially mislabeled. It identifies, for each such query image:
-      - the image index,
-      - its current (predicted) identity (`class_id`),
-      - candidate alternative identities with similarity scores,
-      - the file path to at least one candidate media file, allowing the API to resolve the corresponding MediaFile id.
+    `input_metadata_file` is a JSONL snapshot from Django with a labeled
+    observation on each line, including its original media path and feature
+    pair. Only identities with at least `min_cluster_size` usable rows
+    participate. Return suggestions with the current and alternative
+    identities, their similarity difference and the media paths for review.
     """
     try:
-        # read metadata file
-        metadata = pd.read_csv(input_metadata_file)
+        # Load the labeled observation snapshot (JSONL).
+        metadata = load_analysis_inputs(input_metadata_file)
         assert "image_path" in metadata
         assert "class_id" in metadata, "Identity id should be in `class_id` column"
         assert "label" in metadata, "Label should be in `label` column"
 
         mediafile_paths = list(metadata["image_path"])
         class_ids = list(metadata["class_id"])
-
-        logger.info("Loading reference feature vectors from the database.")
-        db_connection = get_db_connection()
-        _, reference_images = load_features(db_connection, organization_id)
-
-        logger.info(
-            "Starting identification outlier detection for organization_id=%s with %s explicit paths.",
-            organization_id,
-            0 if mediafile_paths is None else len(mediafile_paths),
-        )
-
-        # Add embeddings from reference_images to metadata by matching image_path
-        metadata["image_name"] = metadata["image_path"].apply(lambda x: os.path.basename(x))
-        reference_images["image_name"] = reference_images["image_path"].apply(lambda x: os.path.basename(x))
-        if "embedding" not in metadata.columns:
-            path_to_embedding = dict(zip(reference_images["image_name"], reference_images["embedding"]))
-            metadata["embedding"] = metadata["image_name"].map(path_to_embedding)
 
         # Drop rows with missing embeddings
         logger.info(f"Dropping rows with missing embeddings: {metadata.embedding.isna().sum()}")
@@ -914,7 +782,12 @@ def detect_identification_outliers(
 
 
 def _most_similar_cross_label_pairs(embeddings, class_ids, top_k: int = 20, image_paths=None) -> pd.DataFrame:
-    """Return top-k pairs with different identities and different media paths."""
+    """Return the most similar unordered pairs with different identity labels.
+
+    `embeddings` contains one global vector per row of `class_ids`.
+    When `image_paths` is supplied in the same order, exclude pairs from
+    the same source media file. Return row indices and cosine similarities.
+    """
     embeddings = np.asarray(embeddings, dtype=np.float32)
     class_ids = np.asarray(class_ids)
     columns = ["idx_a", "idx_b", "similarity"]
@@ -958,7 +831,12 @@ def _most_similar_cross_label_pairs(embeddings, class_ids, top_k: int = 20, imag
 
 
 def _pair_payload(metadata: pd.DataFrame, idx_a, idx_b, similarity, mega_similarity=None) -> dict:
-    """Build a JSON-serializable pair record from metadata rows."""
+    """Serialize two positional metadata rows for identity comparison.
+
+    The DataFrame provides `image_path`, `class_id` and `label` per row.
+    Include the supplied score and, if present, the global cosine score
+    used to shortlist the pair before local matching.
+    """
     payload = {"idx_a": int(idx_a), "idx_b": int(idx_b), "similarity": float(similarity)}
     for side, idx in (("a", idx_a), ("b", idx_b)):
         row = metadata.iloc[int(idx)]
@@ -977,29 +855,23 @@ def detect_most_similar(
     input_metadata_file: str = "",
     top_k: int = 20,
     aliked_pair_budget: int = 200,
+    output_csv_file: str | None = None,
     **kwargs,
 ):
-    """Find the most similar cross-identity pairs using mega cosine and LightGlue.
+    """Find visually similar observations with different known identities.
 
-    MegaDescriptor cosine ranks all pairs with different class_id. LightGlue then
-    scores the top `aliked_pair_budget` of those pairs using stored ALIKED features.
+    `input_metadata_file` is a JSONL snapshot of labeled observations with the
+    original media path, class ID, label and global and ALIKED features.
+    Global cosine similarity shortlists up to `aliked_pair_budget` pairs
+    for LightGlue. Return up to `top_k` results per method and export both
+    sets to `output_csv_file` or a CSV alongside the input.
     """
     try:
-        # Read metadata file
-        metadata = pd.read_csv(input_metadata_file)
+        # Load the labeled observation snapshot (JSONL).
+        metadata = load_analysis_inputs(input_metadata_file)
         assert "image_path" in metadata
         assert "class_id" in metadata, "Identity id should be in `class_id` column"
         assert "label" in metadata, "Label should be in `label` column"
-
-        logger.info("Loading reference feature vectors from the database.")
-        _, reference_images = load_features(get_db_connection(), organization_id)
-
-        # Add embeddings from reference_images to metadata by matching image_path
-        metadata["image_name"] = metadata["image_path"].apply(lambda x: os.path.basename(x))
-        reference_images["image_name"] = reference_images["image_path"].apply(lambda x: os.path.basename(x))
-        if "embedding" not in metadata.columns:
-            path_to_embedding = dict(zip(reference_images["image_name"], reference_images["embedding"]))
-            metadata["embedding"] = metadata["image_name"].map(path_to_embedding)
 
         # Drop rows with missing embeddings
         logger.info(f"Dropping rows with missing embeddings: {metadata.embedding.isna().sum()}")
@@ -1034,9 +906,9 @@ def detect_most_similar(
             )
 
             # Score the mega shortlist with LightGlue match counts
-            score_grid = MatchLightGlue(features="aliked", num_workers=2)(
-                aliked_dataset, aliked_dataset, pairs=matcher_pairs
-            )
+            with log_model_operation("LightGlue model load", "ALIKED matcher"):
+                matcher = MatchLightGlue(features="aliked", num_workers=2)
+            score_grid = matcher(aliked_dataset, aliked_dataset, pairs=matcher_pairs)
 
             # Convert score grid to match counts
             match_counts = np.array([score_grid[idx_a, idx_b] for idx_a, idx_b in matcher_pairs], dtype=float)
@@ -1053,7 +925,10 @@ def detect_most_similar(
         pair_rows = [{**item, "source": "mega"} for item in mega_pairs]
         pair_rows.extend({**item, "source": "local"} for item in local_pairs)
 
-        output_csv = Path(input_metadata_file).with_name(f"{Path(input_metadata_file).stem}_most_similar.csv")
+        output_csv = (
+            Path(output_csv_file) if output_csv_file
+            else Path(input_metadata_file).with_name(f"{Path(input_metadata_file).stem}_most_similar.csv")
+        )
         pd.DataFrame(pair_rows).to_csv(output_csv, index=False)
         logger.info("Saved most-similar pairs file to %s", output_csv)
 

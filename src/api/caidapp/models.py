@@ -610,21 +610,13 @@ class WorkGroup(models.Model):
             observation_filters["identity_is_representative"] = True
         if observation_taxon is not None:
             observation_filters["taxon"] = observation_taxon
-        if require_identity is True and observation_filters:
-            observation_filters["identity__isnull"] = False
+        if require_identity is not None:
+            observation_filters["identity__isnull"] = not require_identity
         if observation_filters or require_observations:
-            matching_observation = AnimalObservation.objects.filter(mediafile=OuterRef("pk"), **observation_filters)
-            qs = qs.annotate(has_matching_identification_observation=Exists(matching_observation)).filter(
-                has_matching_identification_observation=True
+            matching = AnimalObservation.objects.filter(
+                mediafile=OuterRef("pk"), is_no_detection_placeholder=False, **observation_filters
             )
-
-        if require_identity is True and not observation_filters:
-            qs = qs.filter(observations__identity__isnull=False)
-        elif require_identity is False:
-            identity_observation = AnimalObservation.objects.filter(mediafile=OuterRef("pk"), identity__isnull=False)
-            qs = qs.annotate(has_identity_observation=Exists(identity_observation)).filter(
-                has_identity_observation=False
-            )
+            qs = qs.filter(Exists(matching))
 
         return qs.distinct()
 
@@ -1775,7 +1767,7 @@ class MediaFile(models.Model):
         """Return True if mediafile is preidentified."""
         if hasattr(self, "_is_preidentified"):
             return self._is_preidentified
-        return MediafilesForIdentification.objects.filter(mediafile=self).exists()
+        return MediafilesForIdentification.objects.filter(observation__mediafile=self).exists()
 
     @property
     def taxons(self):
@@ -2041,11 +2033,12 @@ class EmbeddingRunItem(models.Model):
 
 
 class ObservationEmbeddingSchedule(models.Model):
-    """One pending debounce timer per workgroup, separate from editable settings."""
+    """The pending timer and feature reset generation for a workgroup."""
 
     workgroup = models.OneToOneField(WorkGroup, on_delete=models.CASCADE, primary_key=True)
     task_id = models.CharField(max_length=255, null=True, blank=True)
     eta = models.DateTimeField(null=True, blank=True)
+    generation = models.PositiveBigIntegerField(default=0)
 
 
 class EmbeddingProfile(models.Model):
@@ -2080,6 +2073,8 @@ class ObservationEmbedding(models.Model):
     input_fingerprint = models.CharField(max_length=64)
     input_specification = models.JSONField()
     vector = models.JSONField()
+    local_features = models.JSONField(null=True, blank=True)
+    feature_image = models.CharField(max_length=500, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -2344,13 +2339,26 @@ class BboxDetectionJob(models.Model):
 
 
 class MediafilesForIdentification(models.Model):
-    mediafile = models.ForeignKey(MediaFile, on_delete=models.SET_NULL, null=True, blank=True)
+    """One pending review for an observation."""
 
+    observation = models.OneToOneField(AnimalObservation, on_delete=models.CASCADE, related_name="identity_review")
     paired_points = models.JSONField(blank=True, null=True)
+    input_version = models.CharField(max_length=64, blank=True)
+    model_version = models.JSONField(default=dict, blank=True)
+    provenance = models.CharField(max_length=20, default="reid")
+    generated_at = models.DateTimeField(auto_now=True)
+    run = models.ForeignKey(IdentificationRunStatistic, on_delete=models.SET_NULL, null=True, blank=True)
+
+    @property
+    def mediafile(self):
+        """Return the media file containing the target observation."""
+        return self.observation.mediafile
 
 
 class MediafileIdentificationSuggestion(models.Model):
-    # TODO Ise Observation
+    reference_observation = models.ForeignKey(
+        AnimalObservation, on_delete=models.CASCADE, null=True, blank=True, related_name="identity_references"
+    )
     for_identification = models.ForeignKey(
         MediafilesForIdentification, related_name="top_mediafiles", on_delete=models.CASCADE
     )
@@ -2359,6 +2367,7 @@ class MediafileIdentificationSuggestion(models.Model):
     score = models.FloatField(null=True, blank=True)
     name = models.CharField(max_length=255, blank=True, default="")
     paired_points = models.JSONField(blank=True, null=True)
+    feature_images = models.JSONField(default=list, blank=True)
     identity = models.ForeignKey(IndividualIdentity, on_delete=models.SET_NULL, null=True, blank=True)
 
     class Meta:

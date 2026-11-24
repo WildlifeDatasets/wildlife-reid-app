@@ -1,9 +1,6 @@
 celery[redis]==5.4.0
 
 # database
-psycopg2-binary~=2.9.5
-# SQLAlchemy~=1.4.44
-SQLAlchemy==2.0.52
 
 
 # timm==0.9.7  # works fine, just in taxonworker is 0.9.12

@@ -7,8 +7,14 @@
 {#                       Unknown image#}
                             <div class="{{ col_style }} me-5" id="card{{ mediafile.id }}">
                                 <div class="card">
-                                    <img class="card-img-top" src="{{ foridentification.mediafile.image_file.url }}"
-                                         alt="Camera trap">
+                                    {% with preview=foridentification.mediafile.image_file|default:foridentification.mediafile.card_image %}
+                                        {% if preview %}
+                                        <div class="position-relative">
+                                            <img class="card-img-top" src="{{ preview.url }}" alt="Media file under review">
+                                            {% include "caidapp/includes/identification_bbox_overlay.html" %}
+                                        </div>
+                                        {% endif %}
+                                    {% endwith %}
                                     <div class="card-body">
                                         {{ foridentification.mediafile }}
                                     </div>
@@ -19,18 +25,14 @@
 {#                    Top N #}
                             <div class="{{ col_style }}" id="card{{ mediafile.id }}">
                                 <div class="card">
-                                    <img class="card-img-top"
-{#                                         src="{{ top_mediafile.mediafile.url }}" alt="Camera trap"#}
-                                            src="{{ top_mediafile.image_file.url }}" alt="Camera trap"
-
-{#                                            {% if top_mediafile.mediafile.media_type == 'video' %}#}
-{#                                         src="{{  top_mediafile.mediafile.thumbnail.url }}"#}
-{#                                         alt="Camera trap GIF thumbnail image"#}
-{#                                            {% else %}#}
-{#                                         src="{{ top_mediafile.mediafile.mediafile.url }}"#}
-{#                                         alt="Camera trap image"#}
-{#                                            {% endif %}#}
-                                    >
+                                    {% with preview=top_mediafile.image_file|default:top_mediafile.card_image %}
+                                        {% if preview %}
+                                            <div class="position-relative">
+                                                <img class="card-img-top" src="{{ preview.url }}" alt="Reference media file">
+                                                {% include "caidapp/includes/identification_bbox_overlay.html" with review_bbox=reference_bbox %}
+                                            </div>
+                                        {% endif %}
+                                    {% endwith %}
                                     <div class="card-body">
                                         <div class="card-title">
 
@@ -46,14 +48,13 @@
                                         <p class="card-text">
                                             {{ top_score|mul:100|floatformat:2 }}%
                                         </p>
-                                        <p class="card-text">
+                                        <div class="card-text">
                                         {% if top_identity %}
-                                            <a href="{% url 'caidapp:set_individual_identity' foridentification.id top_identity.id %}"
-                                                   class="btn btn-primary">Select</a>
+                                            {% include "caidapp/includes/confirm_identification.html" with candidate_identity=top_identity %}
                                             {% else %}
                                                 Identity does not exist
                                             {% endif %}
-                                        </p>
+                                        </div>
                                     </div>
                                 </div>
                             </div>

@@ -27,21 +27,14 @@
                         {% with mediafile=mediafileforidentification.mediafile %}
                         <div class="col-lg-3">
                             <div class="card">
-                                <img class="card-img-top" src="{{ mediafile.thumbnail.url }}" alt="Cameratrap image">
+                                {% if mediafile.card_image %}<img class="card-img-top" src="{{ mediafile.card_image.url }}" alt="Media file under review">{% endif %}
                                 <div class="card-body">
                                     {#                                <h5 class="card-title">{{ mediafile }}</h5>#}
                                     <p class="card-text">
                                         Top score: {{ mediafileforidentification.max_score|mul:100|floatformat:0 }} %<br>
-                                        {% if mediafile.taxons %}
-                                            Category:
-                                            {% for mf_taxon in mediafile.taxons %}
-                                                <a class="link-secondary"
-                                                   href="{% url 'caidapp:media_files' %}?taxon={{ mf_taxon.id }}"
-                                                >
-                                                    {{ mf_taxon.name }}
-                                                </a>
-                                            {% endfor %}
-                                            <br>
+                                        Observation #{{ mediafileforidentification.observation_id }}<br>
+                                        {% if mediafileforidentification.observation.taxon %}
+                                            {{ mediafileforidentification.observation.taxon }}<br>
                                         {% endif %}
                                         {% if mediafile.locality %}
                                         Locality: <a class="link-secondary" href="{%  url 'caidapp:media_files_locality' mediafile.locality.id %}">{{ mediafile.locality }}</a><br>

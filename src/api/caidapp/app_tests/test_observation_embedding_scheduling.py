@@ -18,6 +18,8 @@ class EmbeddingSchedulingTests(TestCase):
         self.mediafile = MediaFileFactory()
         self.observation = self.mediafile.observations.first()
         self.observation.is_no_detection_placeholder = False
+        self.observation.bbox_x_center = self.observation.bbox_y_center = 0.5
+        self.observation.bbox_width = self.observation.bbox_height = 0.3
         self.observation.save()
         self.workgroup = self.mediafile.parent.owner.workgroup
 
@@ -114,7 +116,7 @@ class EmbeddingSchedulingTests(TestCase):
             with self.captureOnCommitCallbacks(execute=True):
                 archive.import_finished = True
                 archive.save(update_fields=["import_finished"])
-            schedule.assert_called_once_with(self.workgroup.pk)
+            schedule.assert_called_once_with(self.workgroup.pk, delay_minutes=0)
             schedule.reset_mock()
             with self.captureOnCommitCallbacks(execute=True):
                 self.workgroup.identification_model = model

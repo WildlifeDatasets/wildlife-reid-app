@@ -1,0 +1,6 @@
+{% if review_bbox %}
+<svg class="position-absolute top-0 start-0 w-100 h-100 pe-none" viewBox="0 0 1 1" preserveAspectRatio="none" aria-hidden="true">
+    <rect x="{{ review_bbox.0 }}" y="{{ review_bbox.1 }}" width="{{ review_bbox.2 }}" height="{{ review_bbox.3 }}"
+          fill="none" stroke="#ffc107" stroke-width="2" vector-effect="non-scaling-stroke"/>
+</svg>
+{% endif %}

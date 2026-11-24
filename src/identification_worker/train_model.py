@@ -11,6 +11,7 @@ from train.callbacks import AccuracyCallback, EpochCheckpoint, FileEpochLog
 from train.data_split import split_data
 from train.tools import load_data, save_data
 from train.trainer import CarnivoreIDTrainer
+from wildlife_model_cache import log_model_operation
 from wildlife_tools import realize
 from wildlife_tools.data import WildlifeDataset
 from wildlife_tools.train import ArcFaceLoss
@@ -24,7 +25,6 @@ logger = logging.getLogger("app")
 
 logger.debug(f"{config.RABBITMQ_URL=}")
 logger.debug(f"{config.REDIS_URL=}")
-logger.debug(f"{config.POSTGRES_URL=}")
 
 
 def _resolve_training_source(identification_model: dict) -> tuple[str, str, str]:
@@ -83,8 +83,8 @@ def get_io_size(model):
 
 def load_model(model_name, model_checkpoint=""):
     """Load model from timm with optional checkpoint."""
-    # load model checkpoint
-    model = timm.create_model(model_name, num_classes=0, pretrained=True)
+    with log_model_operation("timm model load", model_name):
+        model = timm.create_model(model_name, num_classes=0, pretrained=True)
 
     if model_checkpoint:
         model_ckpt = torch.load(model_checkpoint)["model"]

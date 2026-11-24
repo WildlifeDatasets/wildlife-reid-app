@@ -2,10 +2,11 @@
 
 import hashlib
 import json
+import sys
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from utils.observation_embeddings import compute_manifest, fingerprint
 
@@ -19,10 +20,6 @@ class ObservationEncoderTests(unittest.TestCase):
         image = root / "image.jpg"
         image.write_bytes(b"image-content")
         self.specification = {"source_sha256": hashlib.sha256(image.read_bytes()).hexdigest()}
-        self.encoder = Mock()
-        self.encoder.specification = {"dimension": 2, "model_state_sha256": "model-v1"}
-        self.encoder.encode.return_value = [0.1, 0.9]
-        self.factory = Mock(return_value=self.encoder)
         self.manifest = {
             "model_source": "test",
             "weights_path": "",
@@ -42,28 +39,47 @@ class ObservationEncoderTests(unittest.TestCase):
     def run_manifest(self):
         """Write the manifest and execute the production cache selection loop."""
         self.path.write_text(json.dumps(self.manifest), encoding="utf-8")
-        return compute_manifest(self.path, self.factory)
+        return compute_manifest(self.path)
 
-    def test_cache_hit_skips_only_matching_observation(self):
-        """Multiple observations on a shared media file still have separate cache keys."""
-        self.manifest["cached"] = {fingerprint(self.encoder.specification): [f"1:{fingerprint(self.specification)}"]}
-        result = self.run_manifest()
-        self.assertEqual((result["computed"], result["cached"]), (1, 1))
-        self.assertEqual(self.encoder.encode.call_args.args[0]["observation_id"], 2)
+    def test_shared_run_uses_wildfusion_encoder_only_for_missing_observations(self):
+        """Use the existing global and ALIKED extractor with independent crop paths."""
+        config = {"weights_sha256": "", "segmentation": "sam3", "revision": "test"}
+        self.manifest["feature_config"] = config
+        self.manifest["cached_profile"] = "shared-profile"
+        for row in self.manifest["observations"]:
+            row["input_specification"] = {**self.specification, "bbox_cxcywh": [0.5, 0.5, 0.3, 0.3]}
+            row["input_fingerprint"] = fingerprint(row["input_specification"])
+            row["feature_image"] = str(self.path.with_name(f"crop-{row['observation_id']}.png"))
+        cached, missing = self.manifest["observations"]
+        self.manifest["cached"] = {"shared-profile": [f"1:{cached['input_fingerprint']}"]}
+        local = {"keypoints": [[1, 2]], "descriptors": [[0.2, 0.5]], "image_size": [10, 10]}
+        inference = Mock()
+        inference.get_segmentation_model.return_value = "sam3"
 
-    def test_new_weights_or_input_require_recomputation(self):
-        """Never reuse vectors from a different model state or input revision."""
-        self.manifest["cached"] = {fingerprint(self.encoder.specification): ["1:old-input"]}
-        self.assertEqual(self.run_manifest()["computed"], 2)
-        self.encoder.specification = {**self.encoder.specification, "model_state_sha256": "model-v2"}
-        self.assertEqual(self.run_manifest()["computed"], 2)
+        def encode(metadata, model, weights):
+            self.assertEqual(metadata["observation_id"].tolist(), [2])
+            self.assertEqual(metadata["bbox_w"].tolist(), [0.3])
+            metadata["image_path"] = metadata["feature_image"]
+            return [([0.1, 0.9], local)]
 
-    def test_changed_source_fails_even_for_cached_input(self):
-        """Fail if media changed between preparation and execution."""
+        inference.encode_images.side_effect = encode
+        with patch.dict(sys.modules, {"utils.inference_identification": inference}):
+            result = self.run_manifest()
+        response = json.loads(Path(result["output_path"]).read_text(encoding="utf-8"))
+        self.assertEqual(response["profile"]["feature_config"], config)
+        self.assertEqual(response["embeddings"][0]["local_features"], local)
+        self.assertEqual(response["embeddings"][0]["feature_image"], missing["feature_image"])
+
+
+    def test_changed_source_is_rejected_before_encoding(self):
+        """Keep features tied to the bytes submitted for the observation."""
+        self.manifest["feature_config"] = {"weights_sha256": "", "segmentation": "sam3", "revision": "test"}
         Path(self.manifest["observations"][0]["image_path"]).write_bytes(b"replacement")
-        with self.assertRaisesRegex(ValueError, "Source media changed"):
-            self.run_manifest()
-        self.encoder.encode.assert_not_called()
+        inference = Mock()
+        with patch.dict(sys.modules, {"utils.inference_identification": inference}):
+            with self.assertRaisesRegex(ValueError, "Source media changed"):
+                self.run_manifest()
+        inference.encode_images.assert_not_called()
 
 
 if __name__ == "__main__":

@@ -176,11 +176,6 @@ services:
 #    container_name: caid-dev-identification-worker
     restart: "no"
     environment:
-      POSTGRES_DB: identification_worker
-      POSTGRES_HOST: identification_worker_db_dev
-      POSTGRES_PORT: 5432
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
       TZ: Europe/Prague
       RABBITMQ_HOST: broker_dev
       RABBITMQ_URL: "amqp://user:22pmDB%c@broker_dev:5672"
@@ -196,7 +191,6 @@ services:
             - driver: nvidia
               device_ids: [ '0' ]
               capabilities: [ gpu ]
-    #      - "src/variables.dev.env" # this will override the POSTGRES_DB and other variables
     volumes:
       - ./src/identification_worker:/identification_worker
       - identification-worker-data-dev:/data  # data used only by Worker
@@ -204,29 +198,6 @@ services:
     depends_on:
       - broker_dev
       - redis_dev
-      - identification_worker_db_dev
-    #      - identification-worker
-    labels:
-      com.piva-ai.group: "applications"
-    networks:
-      - dev_backend
-
-  identification_worker_db_dev:
-    image: postgres:14.4-alpine
-#    container_name: caid-dev-identification-worker-db
-    restart: "no"
-#    ports:
-#      - "5433:5432"
-    environment:
-      TZ: Europe/Prague
-      POSTGRES_DB: identification_worker
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
-      PGDATA: /var/lib/postgresql/data/pgdata
-    volumes:
-      - identification-worker-db-data-dev:/var/lib/postgresql/data
-    expose:
-      - 5432
     #      - identification-worker
     labels:
       com.piva-ai.group: "applications"
@@ -270,8 +241,6 @@ volumes:
   taxon-worker-data-dev:
     driver: local
   identification-worker-data-dev:
-    driver: local
-  identification-worker-db-data-dev:
     driver: local
   private-data-dev:
     driver: local

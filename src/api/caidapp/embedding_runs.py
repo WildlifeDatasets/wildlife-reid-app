@@ -14,6 +14,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from .models import AnimalObservation, EmbeddingRunItem, TaskRun, WorkGroup
+from .observation_embeddings import backfill_observations, embedding_generation
 
 TERMINAL = {"succeeded", "partial", "failed"}
 
@@ -67,8 +68,8 @@ def create_embedding_run(
             if set(allowed.values_list("pk", flat=True)) != requested:
                 raise ValidationError("Some requested media files are missing or outside this workgroup.")
             observations = observations.filter(mediafile_id__in=requested)
-        if trigger == "automatic":
-            observations = observations.filter(mediafile__parent__import_finished=True)
+        if trigger in {"automatic", "backfill"}:
+            observations = observations.filter(pk__in=backfill_observations(workgroup_id))
         rows = list(observations.values_list("pk", "mediafile_id"))
         if not rows:
             raise ValidationError("No observations in the requested scope.")
@@ -82,6 +83,7 @@ def create_embedding_run(
                 "model_id": model.pk,
                 "model_source": model.get_runtime_model_source(),
                 "weights_path": model.get_runtime_checkpoint_path(),
+                "generation": embedding_generation(workgroup_id),
             },
         )
         EmbeddingRunItem.objects.bulk_create(
@@ -119,12 +121,14 @@ def prepare_run(run_id):
             run_id=run.pk,
         )
         if task is None:
-            run.refresh_from_db()
-            run.status = "partial"
-            run.message = "No eligible inputs; see individual observations."
-            run.result = dict(Counter(run.items.values_list("status", flat=True)))
-            run.finished_at = timezone.now()
-            run.save()
+            now = timezone.now()
+            TaskRun.objects.filter(pk=run.pk, status="preparing").update(
+                status="partial",
+                message="No eligible inputs; see individual observations.",
+                result=dict(Counter(run.items.values_list("status", flat=True))),
+                finished_at=now,
+                updated_at=now,
+            )
     except Exception:
         fail_run(run_id, "Embedding preparation failed. Check source media files and the selected model.")
         raise

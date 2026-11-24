@@ -1,7 +1,7 @@
 from unittest.mock import Mock, call, patch
 
 from caidapp import models, tasks, views
-from caidapp.app_tests.factories import CaidUserFactory, MediaFileFactory, UploadedArchiveFactory
+from caidapp.app_tests.factories import AnimalObservationFactory, CaidUserFactory, MediaFileFactory, UploadedArchiveFactory
 from django.test import TestCase
 from django.urls import reverse
 
@@ -104,9 +104,9 @@ class IdentificationRunStatisticTest(TestCase):
         self.assertIsNotNone(statistic.finished_at)
         self.assertGreaterEqual(statistic.duration_seconds, 0)
 
-    @patch("caidapp.views.signature")
+    @patch("caidapp.tasks.signature")
     def test_bulk_identification_dispatch_creates_statistic(self, signature_mock):
-        """Create a run statistic with separate image and video counts during bulk dispatch."""
+        """Count eligible images and skip videos during bulk dispatch."""
         caiduser = CaidUserFactory()
         workgroup = caiduser.workgroup
         workgroup.check_taxon_before_identification = False
@@ -118,8 +118,8 @@ class IdentificationRunStatisticTest(TestCase):
         workgroup.identification_initialized_model = workgroup.identification_model
         workgroup.save()
         archive = UploadedArchiveFactory(owner=caiduser, is_for_identification=True, import_finished=True)
-        MediaFileFactory(parent=archive, media_type="image", identity=None)
-        MediaFileFactory(parent=archive, media_type="video", identity=None)
+        for media_type in ("image", "video"):
+            AnimalObservationFactory(mediafile=MediaFileFactory(parent=archive, media_type=media_type))
         signature_mock.return_value.apply_async.return_value = Mock(id="identify-task-1")
 
         started = views.run_identification_bulk(workgroup, uploaded_archives=[archive])
@@ -128,4 +128,4 @@ class IdentificationRunStatisticTest(TestCase):
         statistic = models.IdentificationRunStatistic.objects.get(task_id="identify-task-1")
         self.assertEqual(statistic.operation, "identify")
         self.assertEqual(statistic.image_number, 1)
-        self.assertEqual(statistic.video_number, 1)
+        self.assertEqual(statistic.video_number, 0)

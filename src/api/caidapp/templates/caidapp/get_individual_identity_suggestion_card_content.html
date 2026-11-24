@@ -27,7 +27,7 @@
                 <ul class="dropdown-menu dropdown-menu-end">
                     <li>
                         <a class="dropdown-item"
-                           href="{% url 'caidapp:media_file_update' reid_suggestion.mediafile.id %}?next={{ request.get_full_path|urlencode }}">
+                           href="{% url 'caidapp:media_file_update' reid_suggestion.mediafile.id %}?next={{ request.get_full_path|urlencode }}{% if reid_suggestion.reference_observation_id %}#observation-{{ reid_suggestion.reference_observation_id }}{% endif %}">
                             <i class="bi bi-box-arrow-up-right me-2"></i>Open media detail
                         </a>
                     </li>
@@ -38,28 +38,16 @@
     <p class="card-text">
         {{ reid_suggestion.score|mul:100|floatformat:2 }}%
     </p>
-    <p class="card-text">
+    <div class="card-text">
         {% if reid_suggestion.identity %}
-            <a href="{% url 'caidapp:set_individual_identity' foridentification.id reid_suggestion.identity.id %}"
-                    {% if reid_suggestion.is_representative_dict.is_candidate == True %}
-               class="btn btn-secondary"
-                    {% else %}
-               class="btn btn-primary"
-                    {% endif %}
-            >Select</a>
-            <a href="{% url 'caidapp:set_individual_identity' foridentification.id reid_suggestion.identity.id %}?representative=1"
-                    {% if reid_suggestion.is_representative_dict.is_candidate == True %}
-               class="btn btn-primary"
-                    {% else %}
-               class="btn btn-secondary"
-                    {% endif %}
-            >Select as <i class="bi bi-star-fill"></i></a>
-            <a href="{% url 'caidapp:get_individual_identity_zoomed' foridentification.id reid_suggestion.id %}"
+            {% include "caidapp/includes/confirm_identification.html" with candidate_identity=reid_suggestion.identity representative_candidate=reid_suggestion.is_representative_dict.is_candidate show_representative=True %}
+
+            <a href="{% url 'caidapp:get_individual_identity_zoomed' foridentification.id reid_suggestion.id %}{{ review_query }}"
                class="btn btn-secondary"><i class="bi bi-search"></i></a>
-            <a href="{% url 'caidapp:get_individual_identity_zoomed_paired_points' foridentification.id reid_suggestion.id %}"
+            <a href="{% url 'caidapp:get_individual_identity_zoomed_paired_points' foridentification.id reid_suggestion.id %}{{ review_query }}"
                class="btn btn-secondary"><i class="fa-solid fa-arrows-to-dot"></i></a>
         {% else %}
             Identity does not exist
         {% endif %}
-    </p>
+    </div>
 </div>

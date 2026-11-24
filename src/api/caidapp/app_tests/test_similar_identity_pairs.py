@@ -11,6 +11,7 @@ from caidapp.app_tests.factories import (
     UploadedArchiveFactory,
 )
 from caidapp.models import (
+    IdentificationModel,
     IdentificationOutlierSuggestionResult,
     IdentificationSimilarPairResult,
     IndividualIdentity,
@@ -113,6 +114,10 @@ class SimilarIdentityPairsTest(TestCase):
         self.assertFalse(self.workgroup.file_path(result.input_csv_filename).exists())
         prepare_mock.assert_called_once_with(args=[result.id], task_id=result.task_id, queue="celery", retry=False)
 
+        self.workgroup.identification_model = IdentificationModel.objects.create(
+            name="Test model", model_path="hf-hub:example/model", workgroup=self.workgroup
+        )
+        self.workgroup.save(update_fields=["identification_model"])
         job = MagicMock(id="similar-job-1")
         with patch("caidapp.tasks._prepare_dataframe_for_identification", return_value=csv_data), patch(
             "caidapp.tasks.signature"
@@ -125,7 +130,8 @@ class SimilarIdentityPairsTest(TestCase):
         self.assertTrue(self.workgroup.file_path(result.input_csv_filename).is_file())
         self.assertEqual(result.output_csv_filename, f"identification_similar_pairs_{result.id}_most_similar.csv")
         signature_mock.assert_called_once()
-        self.assertEqual(signature_mock.call_args.args[0], "detect_most_similar")
+        self.assertEqual(signature_mock.call_args.args[0], tasks.prepare_shared_identification.name)
+        self.assertEqual(signature_mock.call_args.kwargs["kwargs"]["operation"], "detect_most_similar")
         self.assertEqual(signature_mock.call_args.kwargs["kwargs"]["organization_id"], self.workgroup.id)
         self.assertEqual(signature_mock.return_value.apply_async.call_count, 1)
         recipients = NotificationRecipient.objects.values_list("user_id", flat=True)

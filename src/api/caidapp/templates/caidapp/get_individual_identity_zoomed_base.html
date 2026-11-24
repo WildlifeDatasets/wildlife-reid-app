@@ -21,7 +21,7 @@
             </div><!-- End Page Title -->
 
             <div class="section">
-                {% if foridentifications %}
+                {% if foridentification %}
                     <div class="section-title">
                         <h2> Unknown identity
                         </h2>
@@ -34,28 +34,30 @@
                                     class="link-secondary"> {{ foridentification.mediafile.parent }}</a>
                             </p>
                             <p>
-                                {{ foridentifications|length }} media files left to identify.
+                                {% if not review_return_url %}{{ foridentifications.count }} observations left to identify.{% endif %}
                             </p>
                         </div>
                         <div class="col-md-3">
+                            {% if not review_return_url %}
                             <a href="{% url 'caidapp:remove_foridentification' foridentification.id %}"
                                class="btn btn-danger"
                                onclick="return confirm('Remove mediafile from list for identification?')"><i
                                     class="fa fa-trash"></i></a>
+                            {% endif %}
                         </div>
                         <div class="col-md-5">
 
                             {% if reid_suggestion_id_prev %}
-                            <a href="{% url 'caidapp:get_individual_identity_zoomed' foridentification.id reid_suggestion_id_prev %}"
+                            <a href="{% url 'caidapp:get_individual_identity_zoomed' foridentification.id reid_suggestion_id_prev %}{{ review_query }}"
                                class="btn btn-secondary"> Prev </a>
                             {% endif %}
                             {% if reid_suggestion_id_next %}
-                            <a href="{% url 'caidapp:get_individual_identity_zoomed' foridentification.id reid_suggestion_id_next %}"
+                            <a href="{% url 'caidapp:get_individual_identity_zoomed' foridentification.id reid_suggestion_id_next %}{{ review_query }}"
                                class="btn btn-secondary"> Next </a>
                             {% endif %}
-                            <a href="{% url 'caidapp:get_individual_identity' foridentification.id %}"
+                            <a href="{% url 'caidapp:get_individual_identity' foridentification.id %}{{ review_query }}"
                                class="btn btn-secondary"><i class="bi bi-zoom-out"></i></a>
-                            <a href="{{ btn_link }}"
+                            <a href="{{ btn_link }}{{ review_query }}"
                                class="btn btn-secondary"><i class="{{ btn_icon_style }}"></i>
                                 <i class="fa-solid fa-arrows-to-point"></i>
                             </a>
@@ -64,7 +66,7 @@
                     {% block inner_block %}
                     {% endblock %}
                 {% else %}
-                    <p>No media files left to identify.</p>
+                    <p>No observations left to identify.</p>
                 {% endif %}
             </div>  {# End section #}
         {% endif %}

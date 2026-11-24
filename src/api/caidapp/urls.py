@@ -9,7 +9,6 @@ from . import (
     views_duplicates,
     views_embedding_runs,
     views_general,
-    views_identity_candidates,
     views_locality,
     views_mediafile,
     views_uploads,
@@ -31,14 +30,9 @@ def trigger_error(request):
 app_name = "caidapp"
 urlpatterns = [
     path(
-        "observations/<uuid:observation_uuid>/identity-candidates/",
-        views_identity_candidates.identity_candidates,
-        name="observation_identity_candidates",
-    ),
-    path(
-        "observations/<uuid:observation_uuid>/accept-identity/",
-        views_identity_candidates.accept_identity_candidate,
-        name="observation_accept_identity",
+        "observations/<uuid:observation_uuid>/identity-suggestions/",
+        views.get_individual_identity_from_foridentification,
+        name="observation_identity_suggestions",
     ),
     path("duplicates/", views_duplicates.duplicate_list, name="duplicates"),
     path("duplicates/bulk-review/", views_duplicates.bulk_review, name="duplicate_bulk_review"),
@@ -51,6 +45,9 @@ urlpatterns = [
     path("duplicate-matches/<uuid:proposal_uuid>/review/", views_duplicates.review, name="duplicate_review"),
     path("tasks/<uuid:run_uuid>/download/", views_embedding_runs.task_download, name="task_download"),
     path("embedding-runs/", views_embedding_runs.embedding_run_start, name="embedding_run_start"),
+    path(
+        "embedding-runs/workgroup/", views_embedding_runs.manage_workgroup_embeddings, name="manage_workgroup_embeddings"
+    ),
     path("tasks/", views_embedding_runs.task_list, name="task_list"),
     path("tasks/<uuid:run_uuid>/", views_embedding_runs.task_detail, name="task_detail"),
     path("tasks/<uuid:run_uuid>/status/", views_embedding_runs.task_status, name="task_status"),

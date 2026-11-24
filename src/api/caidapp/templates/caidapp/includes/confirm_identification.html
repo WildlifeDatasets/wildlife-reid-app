@@ -1,0 +1,12 @@
+{% if review_token %}
+<form method="post" action="{% url 'caidapp:set_individual_identity' foridentification.id candidate_identity.id %}" class="d-inline">
+    {% csrf_token %}
+    <input type="hidden" name="review" value="{{ review_token }}">
+    <button type="submit" class="btn {% if representative_candidate %}btn-secondary{% else %}btn-primary{% endif %}">Select</button>
+    {% if show_representative %}
+        <button type="submit" name="representative" value="1" class="btn {% if representative_candidate %}btn-primary{% else %}btn-secondary{% endif %}">
+            Select as <i class="bi bi-star-fill" aria-label="representative"></i>
+        </button>
+    {% endif %}
+</form>
+{% endif %}

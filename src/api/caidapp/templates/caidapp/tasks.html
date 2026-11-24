@@ -3,6 +3,26 @@
 <div class="pagetitle"><h1>Tasks</h1></div>
 <section class="section">
   <p class="text-body-secondary">Follow background tasks and download completed exports, even after leaving the original page.</p>
+  {% if request.user.caiduser.workgroup_admin and request.user.caiduser.workgroup_id %}
+  <div class="mb-3">
+    <form method="post" action="{% url 'caidapp:manage_workgroup_embeddings' %}" class="d-inline">
+      {% csrf_token %}
+      <button type="submit" name="action" value="backfill" class="btn btn-sm btn-outline-primary">Compute missing embeddings and ALIKED features</button>
+    </form>
+    <details class="mt-2">
+      <summary class="text-danger">Reset workgroup embeddings</summary>
+      <form method="post" action="{% url 'caidapp:manage_workgroup_embeddings' %}" class="mt-2">
+        {% csrf_token %}
+        <p>This removes every embedding, ALIKED feature set, and pending re-identification suggestion in this workgroup.</p>
+        <label class="form-check">
+          <input type="checkbox" class="form-check-input" name="confirm_reset" value="yes" required>
+          I confirm the reset
+        </label>
+        <button type="submit" name="action" value="reset" class="btn btn-sm btn-outline-danger mt-2">Reset embeddings and ALIKED features</button>
+      </form>
+    </details>
+  </div>
+  {% endif %}
   <nav class="mb-3" aria-label="Task filters">
     <a class="btn btn-sm btn-outline-primary" href="?state=active">Active</a>
     <a class="btn btn-sm btn-outline-primary" href="?state=history">History</a>

@@ -45,6 +45,30 @@ class EmbeddingRunViewsTests(TestCase):
         data.update(overrides)
         return self.client.post(self.start_url, data, HTTP_ACCEPT="application/json")
 
+    def test_workgroup_backfill_and_reset_require_admin_and_use_the_current_group(self):
+        """Backfill runs for a valid bbox without a label and only admins may reset."""
+        url = reverse("caidapp:manage_workgroup_embeddings")
+        self.member.workgroup_admin = False
+        self.member.save(update_fields=["workgroup_admin"])
+        self.assertEqual(self.client.post(url, {"action": "reset", "confirm_reset": "yes"}).status_code, 403)
+        self.member.workgroup_admin = True
+        self.member.save(update_fields=["workgroup_admin"])
+        self.first.bbox_x_center = self.first.bbox_y_center = 0.5
+        self.first.bbox_width = self.first.bbox_height = 0.2
+        self.first.save()
+        response = self.client.post(url, {"action": "backfill"})
+        run = models.TaskRun.objects.get(trigger="backfill")
+        self.assertRedirects(
+            response, reverse("caidapp:task_detail", kwargs={"run_uuid": run.uuid}), fetch_redirect_response=False
+        )
+        self.assertEqual(list(run.items.values_list("observation_id_snapshot", flat=True)), [self.first.pk])
+        self.client.post(url, {"action": "reset"})
+        run.refresh_from_db()
+        self.assertEqual(run.status, "preparing")
+        self.client.post(url, {"action": "reset", "confirm_reset": "yes"})
+        run.refresh_from_db()
+        self.assertEqual(run.status, "failed")
+
     def test_single_observation_selection_preserves_sibling(self):
         """Starting from a grouped media file must not silently select its other observation."""
         response = self.start()
@@ -243,6 +267,9 @@ class EmbeddingRunViewsTests(TestCase):
 
     def test_model_switch_schedules_embedding_scan_and_identification_init_after_commit(self):
         """Use the single workgroup model selection to schedule both independent pipelines."""
+        self.first.bbox_x_center = self.first.bbox_y_center = 0.5
+        self.first.bbox_width = self.first.bbox_height = 0.2
+        self.first.save()
         self.member.workgroup_admin = True
         self.member.save(update_fields=["workgroup_admin"])
         replacement = models.IdentificationModel.objects.create(

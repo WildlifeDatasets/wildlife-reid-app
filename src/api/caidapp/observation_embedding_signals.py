@@ -7,7 +7,7 @@ from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 
 from . import models
-from .observation_embeddings import schedule_embeddings
+from .observation_embeddings import invalidate_observation_features, schedule_embeddings
 
 INPUT_FIELDS = {
     models.AnimalObservation: (
@@ -56,10 +56,14 @@ def schedule_changed_embedding_input(sender, instance, raw=False, using="default
     if current == instance._embedding_previous_input and not instance._embedding_file_replaced:
         return
     if sender is models.AnimalObservation:
+        if instance._embedding_previous_input is not None:
+            invalidate_observation_features(models.AnimalObservation.objects.filter(pk=instance.pk))
         if current["is_no_detection_placeholder"]:
             return
         workgroups = models.WorkGroup.objects.filter(caiduser__uploadedarchive__mediafile__observations=instance)
     elif sender is models.MediaFile:
+        if instance._embedding_previous_input is not None:
+            invalidate_observation_features(models.AnimalObservation.objects.filter(mediafile=instance))
         workgroups = models.WorkGroup.objects.filter(caiduser__uploadedarchive__mediafile=instance)
     elif sender is models.WorkGroup:
         workgroups = models.WorkGroup.objects.filter(pk=instance.pk)
@@ -79,4 +83,9 @@ def schedule_changed_embedding_input(sender, instance, raw=False, using="default
             return
         workgroups = models.WorkGroup.objects.filter(caiduser__uploadedarchive=instance)
     for workgroup_id in workgroups.values_list("pk", flat=True).distinct():
-        transaction.on_commit(partial(schedule_embeddings, workgroup_id), using=using, robust=True)
+        schedule = (
+            partial(schedule_embeddings, workgroup_id, delay_minutes=0)
+            if sender is models.UploadedArchive
+            else partial(schedule_embeddings, workgroup_id)
+        )
+        transaction.on_commit(schedule, using=using, robust=True)

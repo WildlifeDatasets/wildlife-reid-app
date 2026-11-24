@@ -16,7 +16,12 @@ from PIL import Image
 from segment_anything import SamPredictor, sam_model_registry
 from segment_anything.modeling import Sam
 from tqdm import tqdm
-from wildlife_model_cache import WEIGHTS_DIR, download_checkpoint_if_missing, download_sam3_checkpoint_if_missing
+from wildlife_model_cache import (
+    WEIGHTS_DIR,
+    download_checkpoint_if_missing,
+    download_sam3_checkpoint_if_missing,
+    log_model_operation,
+)
 from wildlife_tools import realize
 from wildlife_tools.data import FeatureDataset, WildlifeDataset
 from wildlife_tools.features import AlikedExtractor, DeepFeatures
@@ -97,9 +102,8 @@ def get_identification_model(model_name, model_checkpoint=""):
     logger.debug(f"{model_name=}")
     mem.wait_for_gpu_memory(0.5)
 
-    logger.info("Initializing identification model.")
-    # load model checkpoint
-    model = timm.create_model(model_name, num_classes=0, pretrained=True)
+    with log_model_operation("timm model load", model_name):
+        model = timm.create_model(model_name, num_classes=0, pretrained=True)
     if model_checkpoint:
         model_ckpt = torch.load(model_checkpoint, map_location=torch.device("cpu"))["model"]
         model.load_state_dict(model_ckpt)
@@ -113,9 +117,13 @@ def get_identification_model(model_name, model_checkpoint=""):
         "auto_augment": "rand-m10-n2-mstd1",
     }
 
+    with log_model_operation("LightGlue model load", "ALIKED matcher"):
+        matcher = MatchLightGlue(features="aliked")
+    with log_model_operation("GlueFactory model load", "ALIKED extractor"):
+        extractor = AlikedExtractor()
     matcher_aliked = SimilarityPipelineExtended(
-        matcher=MatchLightGlue(features="aliked"),
-        extractor=AlikedExtractor(),
+        matcher=matcher,
+        extractor=extractor,
         transform=T.Compose([T.Resize([512, 512]), T.ToTensor()]),
         calibration=IsotonicCalibration(),
     )
@@ -474,14 +482,19 @@ def mask_images(metadata: pd.DataFrame, tqdm_desc="Masking images") -> pd.DataFr
 
     for row_idx, row in tqdm(metadata.iterrows(), total=len(metadata), desc=tqdm_desc):
         image_path = row["image_path"]
+        feature_path = row.get("feature_image")
         bbox = _get_masking_bbox(row, image_path, row_idx)
         if bbox is None:
+            if feature_path and row.get("bbox_cx") is not None and not pd.isna(row["bbox_cx"]):
+                raise ValueError(f"Invalid bbox for observation {row['observation_id']}.")
             masked_paths.append(str(image_path))
             continue
 
         try:
             cropped_animal = segment_animal(image_path, bbox)
         except Exception as exc:
+            if feature_path:
+                raise
             logger.warning(f"Skipping mask for image {image_path} at metadata row {row_idx} with bbox {bbox}: {exc}")
             masked_paths.append(str(image_path))
             continue
@@ -489,8 +502,8 @@ def mask_images(metadata: pd.DataFrame, tqdm_desc="Masking images") -> pd.DataFr
         # save masked image
         base_path = Path(image_path).parent.parent / "masked_images"
 
-        save_path = base_path / Path(image_path).name
-        base_path.mkdir(exist_ok=True, parents=True)
+        save_path = Path(feature_path) if feature_path else base_path / Path(image_path).name
+        save_path.parent.mkdir(exist_ok=True, parents=True)
         Image.fromarray(cropped_animal).convert("RGB").save(save_path)
         masked_paths.append(str(save_path))
 
@@ -745,6 +758,14 @@ def identify_from_similarity(
         "pred_class_ids": pred_class_ids,
         "scores": scores,
     }
+    if "observation_id" in database_metadata:
+        output["pred_observation_ids"] = [
+            [int(database_metadata.iloc[pred.db_idx]["observation_id"]) for pred in row] for row in predictions
+        ]
+    if "review_version" in database_metadata:
+        output["pred_reference_versions"] = [
+            [database_metadata.iloc[pred.db_idx]["review_version"] for pred in row] for row in predictions
+        ]
     return output, result_idx
 
 
@@ -791,6 +812,7 @@ def identify(
     top_k: int = 3,
     cal_images: int = 50,
     image_budget: int = 100,
+    use_sequence_post_processing: bool = True,
 ) -> dict:
     """Compare input feature vectors with the reference feature vectors and make predictions."""
     assert len(query_features) == len(query_metadata)
@@ -834,13 +856,15 @@ def identify(
     IDENTIFICATION_MODEL_CACHE_KEY = None
 
     output, result_idx = identify_from_similarity(
-        similarity, database_metadata, query_metadata, top_k, post_process=os.environ.get("POST_PROCESS", None)
+        similarity, database_metadata, query_metadata, top_k,
+        post_process=os.environ.get("POST_PROCESS") if use_sequence_post_processing else None,
     )
 
     # calculate keypoints
     max_kp = int(os.environ.get("VISUALIZATION_KEYPOINTS", 10))
     collector = CollectAll()
-    keypoint_matcher = MatchLightGlue(features="aliked", collector=collector)
+    with log_model_operation("LightGlue model load", "ALIKED matcher"):
+        keypoint_matcher = MatchLightGlue(features="aliked", collector=collector)
 
     keypoints = []
     logger.debug(result_idx)

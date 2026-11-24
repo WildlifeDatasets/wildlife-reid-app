@@ -31,14 +31,13 @@
                                         <p class="card-text">
                                             {{ top_score|floatformat:2 }}
                                         </p>
-                                        <p class="card-text">
+                                        <div class="card-text">
                                             {% if top_identity %}
-                                                <a href="{% url 'caidapp:set_individual_identity' foridentification.id top_identity.id %}"
-                                                   class="btn btn-primary">Select</a>
+                                                {% include "caidapp/includes/confirm_identification.html" with candidate_identity=top_identity %}
                                             {% else %}
                                                 Identity does not exist
                                             {% endif %}
-                                        </p>
+                                        </div>
                                     </div>
                                 </div>
                             </div>

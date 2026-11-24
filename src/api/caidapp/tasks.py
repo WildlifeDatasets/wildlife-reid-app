@@ -1,5 +1,6 @@
 import ast
 import copy
+import csv
 import datetime
 import json
 import logging
@@ -21,11 +22,11 @@ import django
 import numpy as np
 import pandas as pd
 import tqdm
-from celery import current_app, shared_task, signature
+from celery import chain, current_app, shared_task, signature
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import transaction
-from django.db.models import Exists, OuterRef, Q
+from django.db.models import Q
 from django.utils.timezone import now
 from PIL import Image
 
@@ -47,6 +48,7 @@ from .models import (
     get_unique_name,
     user_has_access_filter_params,
 )
+from .services.identity_review import input_version, model_version
 
 # from joblib import Parallel, delayed
 # from tqdm import tqdm
@@ -344,17 +346,6 @@ def resolve_identification_selection(
     return mediafiles, observation_taxon, require_observations
 
 
-def clear_identification_queue_for_uploaded_archive(uploaded_archive: UploadedArchive) -> tuple[int, int]:
-    """Delete queued manual identification items and suggestions for one upload."""
-    queue_qs = MediafilesForIdentification.objects.filter(mediafile__parent=uploaded_archive)
-    deleted_queue_count = queue_qs.count()
-    deleted_suggestion_count = models.MediafileIdentificationSuggestion.objects.filter(
-        for_identification__in=queue_qs
-    ).count()
-    queue_qs.delete()
-    return deleted_queue_count, deleted_suggestion_count
-
-
 def get_uploaded_archives_pending_identification(workgroup: WorkGroup):
     """Return identification uploads that still have at least one eligible unidentified media file."""
     candidate_archives = UploadedArchive.objects.filter(
@@ -539,6 +530,90 @@ def prepare_embedding_run(run_id):
     return prepare_run(run_id)
 
 
+def identification_feature_job(workgroup, model, metadata_path, operation, output_path=None, *, generation=None):
+    """Create an API task that prepares features before calling the matcher."""
+    from .observation_embeddings import embedding_generation
+
+    if model is None:
+        raise ValidationError("Select an identification model first.")
+    return signature(
+        prepare_shared_identification.name,
+        kwargs={
+            "organization_id": workgroup.pk,
+            "metadata_path": str(metadata_path),
+            "identification_model": {
+                "model_source": model.get_runtime_model_source(),
+                "weights_path": model.get_runtime_checkpoint_path(),
+            },
+            "operation": operation,
+            "output_path": str(output_path) if output_path else None,
+            "generation": embedding_generation(workgroup.pk) if generation is None else generation,
+        },
+    )
+
+
+@shared_task(bind=True)
+def prepare_shared_identification(
+    self, organization_id, metadata_path, identification_model, operation, output_path=None, generation=0
+):
+    """Prepare and encode the missing features before publishing an identification result."""
+    from .services.shared_identification import prepare_identification
+
+    if operation not in {"init", "identify", "detect_identification_outliers", "detect_most_similar"}:
+        raise ValueError("Unsupported identification operation.")
+    manifest_path = prepare_identification(organization_id, metadata_path, identification_model, operation, generation)
+    compute = signature(
+        "compute_observation_embeddings", kwargs={"manifest_path": manifest_path}, queue="identification_worker"
+    )
+    finish = finish_shared_identification.s(
+        manifest_path=manifest_path,
+        organization_id=organization_id,
+        identification_model=identification_model,
+        operation=operation,
+        output_path=output_path,
+    )
+    return self.replace(chain(compute, finish))
+
+
+@shared_task(bind=True)
+def finish_shared_identification(self, output, manifest_path, organization_id, identification_model, operation, output_path):
+    """Commit computed features and run the matcher entirely on persisted inputs."""
+    from .observation_embeddings import store_embeddings
+    from .services.shared_identification import export_match_inputs
+
+    result = store_embeddings(output, manifest_path)
+    if result["stale"]:
+        raise ValidationError("An observation changed during feature extraction. Start a new run.")
+    if operation == "init":
+        return {"status": "DONE", "message": "Representative observation features are ready."}
+    export_match_inputs(manifest_path, result["profile_uuid"])
+    path = Path(manifest_path)
+    if operation != "identify":
+        worker_inputs = {
+            "organization_id": organization_id,
+            "input_metadata_file": str(path.with_name("references.jsonl")),
+        }
+        if output_path:
+            worker_inputs["output_csv_file"] = output_path
+        return self.replace(signature(
+            operation,
+            kwargs=worker_inputs,
+            queue="identification_worker",
+        ))
+    return self.replace(signature(
+        "identify",
+        kwargs={
+            "input_metadata_file_path": str(path.with_name("query_metadata.json")),
+            "organization_id": organization_id,
+            "output_json_file_path": output_path,
+            "identification_model": identification_model,
+            "top_k": 3,
+            "feature_config": json.loads(Path(manifest_path).read_text(encoding="utf-8"))["feature_config"],
+        },
+        queue="identification_worker",
+    ))
+
+
 @shared_task
 def cleanup_embedding_run_files():
     """Clean old terminal embedding manifests on the API worker."""
@@ -553,12 +628,14 @@ def _prepare_dataframe_for_identification(
     representative_only: bool = False,
     require_identity: bool = False,
     observation_taxon=None,
+    unidentified_only=False,
 ) -> dict:
     media_root = Path(settings.MEDIA_ROOT)
     csv_data = {
         "image_path": [],
         "mediafile_id": [],
         "observation_id": [],
+        "input_version": [],
         "taxon_id": [],
         "taxon": [],
         "class_id": [],
@@ -590,10 +667,12 @@ def _prepare_dataframe_for_identification(
             require_identity=require_identity,
             observation_taxon=observation_taxon,
         )
+        if unidentified_only:
+            observations = [observation for observation in observations if observation.identity_id is None]
         if observations:
             for observation in observations:
                 _append_identification_csv_row(csv_data, mediafile, image_path, observation=observation)
-        elif not representative_only and not require_identity and observation_taxon is None:
+        elif not unidentified_only and not representative_only and not require_identity and observation_taxon is None:
             _append_identification_csv_row(csv_data, mediafile, image_path, observation=None)
 
     if skipped_mediafile_ids:
@@ -641,6 +720,8 @@ def _append_identification_csv_row(csv_data: dict, mediafile: MediaFile, image_p
     csv_data["image_path"].append(image_path)
     csv_data["mediafile_id"].append(mediafile.id)
     csv_data["observation_id"].append(observation.id if observation is not None else None)
+    if "input_version" in csv_data:
+        csv_data["input_version"].append(input_version(observation, mediafile) if observation else "")
     csv_data["taxon_id"].append(taxon.id if taxon else None)
     csv_data["taxon"].append(str(taxon.name) if taxon else None)
     csv_data["class_id"].append(int(identity.id) if identity else None)
@@ -722,12 +803,12 @@ def _get_identification_source_image_path(mediafile: MediaFile, media_root: Path
         source_path = _first_existing_mediafile_path(
             mediafile,
             media_root,
-            ["image_file", "static_thumbnail", "preview", "thumbnail"],
+            ["image_file", "mediafile", "static_thumbnail", "preview", "thumbnail"],
         )
         if source_path:
             return str(source_path)
         raise FileNotFoundError(
-            f"Image mediafile {mediafile.id} has no existing image_file/static_thumbnail/preview/thumbnail."
+            f"Media file {mediafile.id} has no readable source image or preview."
         )
 
     image_file_name = getattr(mediafile.image_file, "name", "")
@@ -2395,8 +2476,6 @@ def identify_on_success(self, output: dict, *args, **kwargs):
     uploaded_archive_id: int = kwargs.pop("uploaded_archive_id")
     statistic_id = kwargs.pop("statistic_id", None)
     uploaded_archive = UploadedArchive.objects.get(id=uploaded_archive_id)
-    # uploaded_archive.identification_status = "IAID"
-    uploaded_archive.save()
     owner = uploaded_archive.owner
     workgroup = owner.workgroup
 
@@ -2425,7 +2504,6 @@ def identify_on_success(self, output: dict, *args, **kwargs):
 
             # TODO - should the app return some error response to the user?
         elif output["status"] == "DONE":
-            finish_identification_run_statistic(statistic_id, "finished")
             # load output file
             output_json_file = output["output_json_file"]
             with open(output_json_file, "r") as f:
@@ -2438,25 +2516,13 @@ def identify_on_success(self, output: dict, *args, **kwargs):
             assert "scores" in data
             assert "keypoints" in data
 
-            media_root = Path(settings.MEDIA_ROOT)
-            deleted_queue_count, deleted_suggestion_count = clear_identification_queue_for_uploaded_archive(
-                uploaded_archive
-            )
-            logger.info(
-                "Cleared identification queue after successful rerun for upload %s: mediafiles=%s suggestions=%s",
-                uploaded_archive.id,
-                deleted_queue_count,
-                deleted_suggestion_count,
-            )
-
-            mediafile_ids = data["mediafile_ids"]
-            len_mediafile_ids = len(mediafile_ids)
-            for i, mediafile_id in enumerate(mediafile_ids):
-
-                _prepare_mediafile_for_identification(data, i, media_root, mediafile_id)
+            processed = _store_identification_results(data, workgroup, [uploaded_archive.id], kwargs, statistic_id)
+            if processed is None:
+                return
+            len_mediafile_ids = processed.get(uploaded_archive.id, 0)
 
             uploaded_archive.identification_status = "IAID"
-            uploaded_archive.status_message = f"Identification suggestions ready for {len_mediafile_ids} media files."
+            uploaded_archive.status_message = f"Identification suggestions ready for {len_mediafile_ids} observations."
             uploaded_archive.save()
             logger.debug("Identication suggestions done.")
             # go over all uploaded archives of the workgroup
@@ -2465,7 +2531,7 @@ def identify_on_success(self, output: dict, *args, **kwargs):
                 workgroup.identification_reid_status = "Finished"
                 workgroup.identification_reid_at = now()
                 workgroup.identification_reid_message = (
-                    f"Identification suggestions ready for {len_mediafile_ids} media files."
+                    f"Identification suggestions ready for {len_mediafile_ids} observations."
                 )
                 workgroup.identification_scheduled_run_task_id = None
                 workgroup.identification_scheduled_run_eta = None
@@ -2559,7 +2625,6 @@ def identify_bulk_on_success(self, output: dict, *args, **kwargs):
                 uploaded_archive.status_message = msg
                 uploaded_archive.save(update_fields=["identification_status", "status_message"])
         elif output["status"] == "DONE":
-            finish_identification_run_statistic(statistic_id, "finished")
             output_json_file = output["output_json_file"]
             with open(output_json_file, "r") as f:
                 data = json.load(f)
@@ -2570,40 +2635,23 @@ def identify_bulk_on_success(self, output: dict, *args, **kwargs):
             assert "scores" in data
             assert "keypoints" in data
 
-            media_root = Path(settings.MEDIA_ROOT)
-            mediafile_ids = data["mediafile_ids"]
-            mediafiles = list(MediaFile.objects.filter(id__in=mediafile_ids).select_related("parent"))
-            count_by_archive_id = {}
-            for mediafile in mediafiles:
-                if mediafile.parent_id is None:
-                    continue
-                count_by_archive_id[mediafile.parent_id] = count_by_archive_id.get(mediafile.parent_id, 0) + 1
-
-            for uploaded_archive in uploaded_archives:
-                deleted_queue_count, deleted_suggestion_count = clear_identification_queue_for_uploaded_archive(
-                    uploaded_archive
-                )
-                logger.info(
-                    "Cleared identification queue after successful bulk rerun for upload %s: "
-                    "mediafiles=%s suggestions=%s",
-                    uploaded_archive.id,
-                    deleted_queue_count,
-                    deleted_suggestion_count,
-                )
-
-            for i, mediafile_id in enumerate(mediafile_ids):
-                _prepare_mediafile_for_identification(data, i, media_root, mediafile_id)
-
+            count_by_archive_id = _store_identification_results(
+                data, workgroup, [archive.pk for archive in uploaded_archives], kwargs, statistic_id
+            )
+            if count_by_archive_id is None:
+                return
             for uploaded_archive in uploaded_archives:
                 processed_count = count_by_archive_id.get(uploaded_archive.id, 0)
                 uploaded_archive.identification_status = "IAID"
-                uploaded_archive.status_message = f"Identification suggestions ready for {processed_count} media files."
+                uploaded_archive.status_message = (
+                    f"Identification suggestions ready for {processed_count} observations."
+                )
                 uploaded_archive.save(update_fields=["identification_status", "status_message"])
 
             workgroup.identification_reid_status = "Finished"
             workgroup.identification_reid_at = now()
             workgroup.identification_reid_message = (
-                f"Identification suggestions ready for {len(mediafile_ids)} media files "
+                f"Identification suggestions ready for {sum(count_by_archive_id.values())} observations "
                 f"across {len(uploaded_archives)} uploads."
             )
             workgroup.identification_scheduled_run_task_id = None
@@ -2702,114 +2750,138 @@ def identify_bulk_on_error(self, uuid, *args, **kwargs):
     )
 
 
-def _prepare_mediafile_for_identification(data, i, media_root, mediafile_id):
-    """Prepare media files for i-th queried image."""
-    reid_top_k_class_ids = data["pred_class_ids"][i]
-    reid_top_k_labels = data["pred_labels"][i]
-    reid_top_k_image_paths = data["pred_image_paths"][i]
-    reid_top_k_scores = data["scores"][i]
-    unknown_mediafile = MediaFile.objects.get(id=mediafile_id)
-    unknown_observation = _identification_output_observation(data, i, unknown_mediafile)
+@transaction.atomic
+def _store_identification_results(data, workgroup, archive_ids, options, statistic_id):
+    """Persist only outputs from the submitted input versions and selected uploads."""
+    from .observation_embeddings import embedding_generation
 
-    # update mediafile.metadata_json (model.JsonField) with the new data
-    metadata_json = unknown_mediafile.metadata_json or {}
-    metadata_json["reid_top_k_class_ids"] = reid_top_k_class_ids
-    metadata_json["reid_top_k_labels"] = reid_top_k_labels
-    metadata_json["reid_top_k_image_paths"] = reid_top_k_image_paths
-    metadata_json["reid_top_k_scores"] = reid_top_k_scores
-    if unknown_observation is not None:
-        metadata_json["reid_observation_id"] = unknown_observation.id
-    unknown_mediafile.metadata_json = metadata_json
-    unknown_mediafile.save()
+    models.WorkGroup.objects.select_for_update().get(pk=workgroup.pk)
+    statistic = None
+    if statistic_id:
+        statistic = (
+            models.IdentificationRunStatistic.objects.select_for_update()
+            .filter(pk=statistic_id, workgroup=workgroup)
+            .first()
+        )
+        if statistic is None or statistic.finished_at:
+            return None
+    submitted = {}
+    manifest = options.get("input_metadata_file")
+    version = options.get("model_version")
+    if not manifest or not version:
+        logger.warning("Skipping identification output submitted before versioned reviews were enabled.")
+        finish_identification_run_statistic(statistic_id, "finished")
+        return {}
+    if options.get("embedding_generation", 0) != embedding_generation(workgroup.pk):
+        logger.info("Skipping identification output submitted before the feature reset for workgroup %s.", workgroup.pk)
+        finish_identification_run_statistic(statistic_id, "finished")
+        return None
+    if version != model_version(workgroup.identification_model):
+        logger.info("Skipping output from a previous identification model for workgroup %s.", workgroup.pk)
+        finish_identification_run_statistic(statistic_id, "finished")
+        return {}
+    with open(manifest, newline="", encoding="utf-8") as stream:
+        for row in csv.DictReader(stream):
+            if row.get("observation_id") and row.get("input_version"):
+                submitted[int(row["observation_id"])] = row["input_version"]
+    counts = {}
+    for index, mediafile_id in sorted(enumerate(data["mediafile_ids"]), key=lambda row: row[1]):
+        archive_id = _prepare_mediafile_for_identification(
+            data,
+            index,
+            mediafile_id,
+            submitted,
+            version,
+            archive_ids,
+            workgroup.pk,
+            run_id=statistic_id,
+        )
+        if archive_id is not None:
+            counts[archive_id] = counts.get(archive_id, 0) + 1
+    finish_identification_run_statistic(statistic_id, "finished")
+    return counts
 
-    # old processing
-    if (reid_top_k_scores[0]) > settings.IDENTITY_MANUAL_CONFIRMATION_THRESHOLD:
 
-        identity_id = reid_top_k_class_ids[0]  # top-1
-        identity = IndividualIdentity.objects.get(id=identity_id)
-        if unknown_observation is not None:
-            unknown_observation.identity = identity
-            unknown_observation.save(update_fields=["identity"])
-        else:
-            logger.warning(
-                "Automatic identity result for mediafile %s has no target observation; leaving it unassigned.",
-                unknown_mediafile.id,
+@transaction.atomic
+def _prepare_mediafile_for_identification(
+    data, index, mediafile_id, submitted, version, archive_ids, workgroup_id, *, run_id=None
+):
+    """Replace the pending result for exactly one unchanged observation."""
+    observation_ids = data.get("observation_ids") or []
+    observation_id = observation_ids[index] if index < len(observation_ids) else None
+    expected = submitted.get(observation_id)
+    if not expected:
+        return None
+
+    mediafile = (
+        MediaFile.objects.select_for_update(of=("self",))
+        .filter(pk=mediafile_id, parent_id__in=archive_ids, parent__owner__workgroup_id=workgroup_id)
+        .first()
+    )
+    if mediafile is None:
+        return None
+    observation = (
+        mediafile.observations.select_for_update()
+        .filter(pk=observation_id, is_no_detection_placeholder=False, identity__isnull=True)
+        .first()
+    )
+    if observation is None or input_version(observation, mediafile) != expected:
+        logger.info("Skipping stale identification output for observation %s.", observation_id)
+        return None
+
+    if run_id and MediafilesForIdentification.objects.filter(observation=observation, run_id__gte=run_id).exists():
+        return None
+
+    scores = data["scores"][index]
+    candidates = []
+    keypoints = data["keypoints"][index]
+    root = Path(settings.MEDIA_ROOT).resolve()
+    for rank, score in enumerate(scores):
+        reference = (
+            models.AnimalObservation.objects.filter(
+                pk=data["pred_observation_ids"][index][rank],
+                identity_id=data["pred_class_ids"][index][rank],
+                identity__owner_workgroup_id=workgroup_id,
+                identity_is_representative=True,
+                is_no_detection_placeholder=False,
+                mediafile__parent__owner__workgroup_id=workgroup_id,
             )
-        logger.debug(
-            f"{unknown_mediafile} is {identity.name} with score={reid_top_k_scores[0]}. "
-            + "No need of manual confirmation."
+            .select_related("mediafile", "identity")
+            .first()
         )
-        if identity.name != reid_top_k_labels[0]:  # top-1
-            logger.warning(f"Identity name mismatch: {identity.name} != {reid_top_k_labels[0]}")
-
-    else:
-        mfi, _ = MediafilesForIdentification.objects.get_or_create(
-            mediafile=unknown_mediafile,
+        if reference is None or input_version(reference, reference.mediafile) != data["pred_reference_versions"][index][rank]:
+            continue
+        try:
+            feature_images = [
+                Path(image).resolve().relative_to(root).as_posix()
+                for image in (data["query_masked_path"][index], data["pred_masked_paths"][index][rank])
+            ]
+        except ValueError:
+            continue
+        candidates.append(
+            models.MediafileIdentificationSuggestion(
+                mediafile=reference.mediafile,
+                reference_observation=reference,
+                feature_images=feature_images,
+                identity=reference.identity,
+                score=score,
+                paired_points=keypoints[rank] if rank < len(keypoints) else None,
+                name=reference.identity.name,
+            )
         )
 
-        # new processing
-        # delete mediafile suggestions related to mediafile for identification - mfi
-        models.MediafileIdentificationSuggestion.objects.filter(for_identification=mfi).delete()
-
-        # top_k_class_ids = data["pred_class_ids"][i]
-        # top_k_labels = data["pred_labels"][i]
-        # top_k_paths = data["pred_image_paths"][i]
-        # top_k_scores = data["scores"][i]
-        #
-        paired_points_for_k_images = data["keypoints"][i]
-
-        for identity_id, top_score, top_name, top_path, top_paired_points in zip(
-            reid_top_k_class_ids,
-            reid_top_k_scores,
-            reid_top_k_labels,
-            reid_top_k_image_paths,
-            paired_points_for_k_images,
-        ):
-            try:
-                top_mediafile = _resolve_mediafile_from_worker_path(top_path)
-                if top_mediafile is None:
-                    logger.warning(
-                        "Could not resolve worker suggestion path '%s' back to MediaFile for %s.",
-                        top_path,
-                        unknown_mediafile,
-                    )
-                    continue
-
-                identity = IndividualIdentity.objects.get(id=identity_id)
-                if identity.name != top_name:
-                    logger.warning(f"Identity name mismatch: {identity.name} != {top_name} for {unknown_mediafile=}")
-
-                mfi_suggestion = models.MediafileIdentificationSuggestion(
-                    for_identification=mfi,
-                    mediafile=top_mediafile,
-                    identity=identity,
-                    score=top_score,
-                    paired_points=top_paired_points,
-                    name=top_name or "Unknown",
-                )
-
-                mfi_suggestion.save()
-            except Exception as e:
-                logger.debug(f"{reid_top_k_image_paths=}")
-                logger.debug(f"{top_path=}")
-                logger.debug(traceback.format_exc())
-                logger.error(f"Error during identification of {unknown_mediafile}: {e}: {traceback.format_exc()}")
-
-
-def _identification_output_observation(data, i, mediafile: MediaFile):
-    observation_ids = data.get("observation_ids")
-    if not observation_ids or i >= len(observation_ids):
-        return None
-    observation_id = observation_ids[i]
-    if observation_id in (None, ""):
-        return None
-    try:
-        return mediafile.observations.get(id=observation_id)
-    except models.AnimalObservation.DoesNotExist:
-        logger.warning(
-            "Identification output observation %s does not belong to mediafile %s.", observation_id, mediafile.id
-        )
-        return None
+    if not candidates:
+        MediafilesForIdentification.objects.filter(observation=observation).delete()
+        return mediafile.parent_id
+    item, _ = MediafilesForIdentification.objects.update_or_create(
+        observation=observation,
+        defaults={"input_version": expected, "model_version": version, "provenance": "reid", "run_id": run_id},
+    )
+    item.top_mediafiles.all().delete()
+    for candidate in candidates:
+        candidate.for_identification = item
+    models.MediafileIdentificationSuggestion.objects.bulk_create(candidates)
+    return mediafile.parent_id
 
 
 # def _identity_mismatch_waning(
@@ -2982,7 +3054,6 @@ def init_identification(workgroup_id: int, selection: dict | None = None):
     workgroup = WorkGroup.objects.get(pk=workgroup_id)
 
     process_for_message = "initialization"
-    called_function_name = "init_identification"
     selection = selection or {}
     mediafiles_qs = workgroup.mediafiles_for_identification(
         uploaded_archive_ids=selection.get("uploaded_archive_ids"),
@@ -3003,6 +3074,7 @@ def init_identification(workgroup_id: int, selection: dict | None = None):
     logger.debug("Generating CSV for init_identification...")
     output_dir = Path(settings.MEDIA_ROOT) / workgroup.name
     output_dir.mkdir(exist_ok=True, parents=True)
+    mediafiles_qs = mediafiles_qs.filter(media_type="image")
     csv_data = _prepare_dataframe_for_identification(
         mediafiles_qs,
         representative_only=selection.get("representative_only", True),
@@ -3058,23 +3130,11 @@ def init_identification(workgroup_id: int, selection: dict | None = None):
     )
     workgroup.save()
     logger.debug(f"Calling {process_for_message} identification...")
-    kwargs = {
-        "input_metadata_file": str(identity_metadata_file),
-        "organization_id": workgroup.id,
-        # csv file should contain image_path, class_id, label
-        "identification_model": {
-            "name": workgroup.identification_model.name,
-            "model_source": workgroup.identification_model.get_runtime_model_source(),
-            "weights_path": workgroup.identification_model.get_runtime_checkpoint_path(),
-        },
-    }
-    logger.debug(f"{kwargs=}")
-    sig = signature(
-        called_function_name,
-        # "init_identification",
-        kwargs=kwargs,
-    )
-    # task =
+    run_directory = output_dir / "reid_init_runs" / uuid.uuid4().hex
+    run_directory.mkdir(parents=True)
+    manifest_csv = run_directory / identity_metadata_file.name
+    pd.DataFrame(csv_data).to_csv(manifest_csv, index=False)
+    sig = identification_feature_job(workgroup, workgroup.identification_model, manifest_csv, "init")
     task = sig.apply_async(
         link=init_identification_on_success.s(
             workgroup_id=workgroup.id,
@@ -3234,88 +3294,54 @@ def _iterate_over_locality_checks(path: Path, caiduser: CaIDUser) -> Generator[S
 
 def assign_unidentified_to_identification(caiduser: CaIDUser):
     """Assign unidentified media files to identification for the workgroup of the given user."""
-    taxon_str = ""
-    if caiduser.workgroup is None:
-        logger.error("CaIDUser has no workgroup assigned. Cannot assign unidentified media files to identification.")
-    if caiduser.workgroup.default_taxon_for_identification is not None:
-        taxon_str = caiduser.workgroup.default_taxon_for_identification.name
-    else:
-        logger.error("Workgroup has no default taxon for identification assigned. Using all media files.")
-        # kwargs = {}
+    workgroup = caiduser.workgroup
+    if workgroup is None:
+        return
+    observations = models.AnimalObservation.objects.filter(
+        mediafile__parent__owner__workgroup=workgroup,
+        identity__isnull=True,
+        is_no_detection_placeholder=False,
+        identity_review__isnull=True,
+    ).select_related("mediafile")
+    if workgroup.default_taxon_for_identification_id:
+        observations = observations.filter(taxon=workgroup.default_taxon_for_identification)
+    identities = list(IndividualIdentity.objects.filter(owner_workgroup=workgroup).exclude(name=""))
 
-    logger.debug(
-        f"Assigning unidentified media files to identification for {caiduser.workgroup} and taxon {taxon_str}."
-    )
-    existing_mfi_ids = MediafilesForIdentification.objects.values_list("mediafile_id", flat=True)
-    logger.debug(f"Number of Mediafiles already in identification: {existing_mfi_ids.count()}")
-
-    identity_observation = models.AnimalObservation.objects.filter(
-        mediafile=OuterRef("pk"),
-        identity__isnull=False,
-    )
-    base_qs = (
-        models.MediaFile.objects.filter(parent__owner__workgroup=caiduser.workgroup)
-        .annotate(has_identity_observation=Exists(identity_observation))
-        .filter(has_identity_observation=False)
-    )
-    if taxon_str:
-        base_qs = base_qs.filter(observations__taxon__name=taxon_str)
-    logger.debug(f"Base queryset count (before exclude): {base_qs.count()}")
-
-    mediafiles = (
-        base_qs.exclude(id__in=list(existing_mfi_ids))
-        .select_related("parent", "locality", "updated_by", "sequence")
-        .distinct()
-    )
-
-    # mediafiles = models.MediaFile.objects.filter(
-    #     parent__owner__workgroup=caiduser.workgroup,
-    #     taxon__name=taxon_str,
-    #     identity__isnull=True,
-    # ).exclude(
-    #     id__in=Subquery(MediafilesForIdentification.objects.values('mediafile_id'))
-    # )
-
-    identities = models.IndividualIdentity.objects.filter(
-        owner_workgroup=caiduser.workgroup,
-    )
-
-    for unknown_mediafile in mediafiles:
-        # check if mediafile is already in MediafilesForIdentification
-        mfi, _ = MediafilesForIdentification.objects.get_or_create(
-            mediafile=unknown_mediafile,
-        )
-        # place for some similarity between identities and filename of current file
-        # try to find some of identity name in unknown_mediafile.original_filename
-
-        orig_fn = str(unknown_mediafile.original_filename).lower()
-        for identity in identities:
-            if len(identity.name) > 0:
-                score = 0
-                if identity.name.lower() in orig_fn:
-                    score += 0.1
-                if identity.code and (identity.code.lower() in orig_fn):
-                    score += 0.1
-                if score > 0:
-                    identity_mediafile = (
-                        identity.observation_mediafiles()
-                        .filter(
-                            observations__identity=identity,
-                            observations__identity_is_representative=True,
-                        )
-                        .first()
-                    )
-                    if identity_mediafile is None:
-                        continue
-                    mfi_suggestion = models.MediafileIdentificationSuggestion(
-                        for_identification=mfi,
-                        mediafile=identity_mediafile,
+    for observation in observations.iterator():
+        with transaction.atomic():
+            mediafile = MediaFile.objects.select_for_update().get(pk=observation.mediafile_id)
+            target = mediafile.observations.filter(
+                pk=observation.pk, identity__isnull=True, is_no_detection_placeholder=False
+            ).first()
+            if target is None:
+                continue
+            item, created = MediafilesForIdentification.objects.get_or_create(
+                observation=target,
+                defaults={"input_version": input_version(target, mediafile), "provenance": "filename"},
+            )
+            if not created:
+                continue
+            filename = mediafile.original_filename.lower()
+            for identity in identities:
+                score = 0.1 * (identity.name.lower() in filename) + 0.1 * bool(
+                    identity.code and identity.code.lower() in filename
+                )
+                if not score:
+                    continue
+                reference = models.AnimalObservation.objects.filter(
+                    identity=identity,
+                    identity_is_representative=True,
+                    is_no_detection_placeholder=False,
+                    mediafile__parent__owner__workgroup=workgroup,
+                ).first()
+                if reference:
+                    item.top_mediafiles.create(
                         identity=identity,
+                        mediafile_id=reference.mediafile_id,
+                        reference_observation=reference,
                         score=score,
                         name=identity.name,
                     )
-                    mfi_suggestion.save()
-    logger.debug(f"Unidentified media files added to the list. Found {mediafiles.count()} media files.")
 
 
 @shared_task(bind=True)
@@ -3370,6 +3396,7 @@ def run_identification_outlier_detection_for_workgroup(
         MediaFile.objects.filter(
             parent__owner__workgroup=workgroup,
             observations__identity__isnull=False,
+            media_type="image",
         )
         .select_related("locality", "sequence", "parent")
         .distinct()
@@ -3392,25 +3419,6 @@ def run_identification_outlier_detection_for_workgroup(
         suggestions=[],
     )
 
-    media_root = Path(settings.MEDIA_ROOT)
-    mediafile_paths = [str(media_root / mf.image_file.name) for mf in mediafiles_qs]
-
-    sig = signature(
-        "detect_identification_outliers",
-        kwargs={
-            "organization_id": workgroup.id,
-            "input_metadata_file": str(metadata_file),
-            "mediafile_paths": mediafile_paths,
-            "identification_model": {
-                "name": workgroup.identification_model.name if workgroup.identification_model else "",
-                "path": (
-                    str(workgroup.identification_model.model_path)
-                    if workgroup.identification_model and workgroup.identification_model.model_path
-                    else "hf-hub:strakajk/LynxV4-MegaDescriptor-v2-T-256"
-                ),
-            },
-        },
-    )
     _notify_identification_staff(
         workgroup,
         f"Identification outlier detection started for workgroup {workgroup}.",
@@ -3419,7 +3427,9 @@ def run_identification_outlier_detection_for_workgroup(
         result.id,
     )
     try:
-        sig.apply_async(
+        identification_feature_job(
+            workgroup, workgroup.identification_model, metadata_file, "detect_identification_outliers"
+        ).apply_async(
             link=identification_outlier_detection_on_success.s(result_id=result.id),
             link_error=identification_outlier_detection_on_error.s(result_id=result.id),
         )
@@ -3478,13 +3488,13 @@ def _resolve_mediafile_from_worker_path(path_str: str) -> MediaFile | None:
         return None
 
     media_root = Path(settings.MEDIA_ROOT)
-    normalized_path_str = str(path_str).replace("/masked_images/", "/images/")
+    normalized_path_str = str(path_str).replace("\\", "/").replace("/masked_images/", "/images/")
     try:
         relpath = Path(normalized_path_str).relative_to(media_root)
     except Exception:
         return None
 
-    return MediaFile.objects.filter(image_file=str(relpath)).first()
+    return MediaFile.objects.filter(image_file=relpath.as_posix()).first()
 
 
 def _normalize_identification_outlier_suggestions(raw_suggestions: list[dict]) -> list[dict]:
@@ -3694,6 +3704,7 @@ def prepare_similar_identity_pairs(result_id: int) -> int:
             MediaFile.objects.filter(
                 parent__owner__workgroup=workgroup,
                 observations__identity__isnull=False,
+                media_type="image",
             )
             .select_related("locality", "sequence", "parent")
             .distinct()
@@ -3709,12 +3720,9 @@ def prepare_similar_identity_pairs(result_id: int) -> int:
 
         result.message = f"Comparing {len(csv_data['image_path'])} identified observations."
         result.save(update_fields=["message"])
-        job = signature(
-            "detect_most_similar",
-            kwargs={
-                "organization_id": workgroup.id,
-                "input_metadata_file": str(metadata_file),
-            },
+        job = identification_feature_job(
+            workgroup, workgroup.identification_model, metadata_file, "detect_most_similar",
+            workgroup.file_path(result.output_csv_filename),
         ).apply_async(
             link=similar_identity_pairs_on_success.s(result_id=result.id),
             link_error=similar_identity_pairs_on_error.s(result_id=result.id),

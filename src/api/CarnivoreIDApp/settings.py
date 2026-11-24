@@ -350,3 +350,6 @@ if SENTRY_DSN:
             "continuous_profiling_auto_start": True,
         },
     )
+
+IDENTIFICATION_FEATURE_REVISION = os.environ.get("IDENTIFICATION_FEATURE_REVISION", "wildfusion-v2")
+IDENTIFICATION_FEATURE_SEGMENTATION = os.environ.get("IDENTIFICATION_FEATURE_SEGMENTATION", "sam3")

@@ -173,11 +173,6 @@ services:
     container_name: carnivoreid-app-identification-worker
     restart: always
     environment:
-      POSTGRES_DB: identification_worker
-      POSTGRES_HOST: identification_worker_db
-      POSTGRES_PORT: 5432
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
       TZ: Europe/Prague
       RABBITMQ_HOST: broker
       RABBITMQ_URL: "amqp://user:22pmDB%c@broker:5672"
@@ -199,29 +194,6 @@ services:
     depends_on:
       - broker
       - redis
-      - identification_worker_db
-    #      - identification-worker
-    labels:
-      com.piva-ai.group: "applications"
-    networks:
-      - backend
-
-  identification_worker_db:
-    image: postgres:14.4-alpine
-    container_name: carnivoreid-app-identification-worker-db
-    restart: always
-    environment:
-      TZ: Europe/Prague
-      POSTGRES_DB: identification_worker
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
-      PGDATA: /var/lib/postgresql/data/pgdata
-    volumes:
-      - identification-worker-db-data:/var/lib/postgresql/data
-#      - shared_data_external:/shared_data_external
-#  - shared_data_external:/shared_data
-    expose:
-      - 5432
     #      - identification-worker
     labels:
       com.piva-ai.group: "applications"
@@ -272,10 +244,6 @@ volumes:
       com.piva-ai.group: "applications"
       com.piva-ai.backup: "yes"
   identification-worker-data:  # mame
-    labels:
-      com.piva-ai.group: "applications"
-      com.piva-ai.backup: "yes"
-  identification-worker-db-data: # mame
     labels:
       com.piva-ai.group: "applications"
       com.piva-ai.backup: "yes"

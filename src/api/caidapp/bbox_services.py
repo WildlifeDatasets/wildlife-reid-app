@@ -12,6 +12,7 @@ from celery import signature
 from django.conf import settings
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 from scipy.optimize import linear_sum_assignment
 
@@ -194,9 +195,16 @@ def _set_box(observation, box, user, timestamp):
     observation.save()
 
 
-def _invalidate_reid(mediafile, observations):
-    models.MediafilesForIdentification.objects.filter(mediafile=mediafile).delete()
-    models.MediafileIdentificationSuggestion.objects.filter(mediafile=mediafile).delete()
+def _invalidate_reid(mediafile, observations, observation_ids=None):
+    reviews = models.MediafilesForIdentification.objects.filter(observation__mediafile=mediafile)
+    references = models.MediafileIdentificationSuggestion.objects.filter(mediafile=mediafile)
+    if observation_ids is not None:
+        reviews = reviews.filter(observation_id__in=observation_ids)
+        references = references.filter(
+            Q(reference_observation_id__in=observation_ids) | Q(reference_observation__isnull=True)
+        )
+    reviews.delete()
+    references.delete()
     if mediafile.used_for_init_identification or any(o.identity_is_representative for o in observations):
         from .tasks import schedule_init_identification_for_workgroup
 
@@ -332,7 +340,9 @@ def fill_missing(mediafile, observations, detections, job):
         models.AnimalObservation.objects.create(mediafile=mediafile, is_no_detection_placeholder=True)
         message = "No animals found. Created a no-detection placeholder."
     if counts["updated"] or counts["created"]:
-        _invalidate_reid(mediafile, observations)
+        changed_ids = {match["observation_id"] for match in audit}
+        affected = [observation for observation in observations if observation.pk in changed_ids]
+        _invalidate_reid(mediafile, affected, observation_ids=changed_ids)
         mediafile.updated_at, mediafile.updated_by = timestamp, job.requested_by
         mediafile.save(update_fields=["updated_at", "updated_by", "used_for_init_identification", "metadata_json"])
     return {
@@ -393,13 +403,18 @@ def reconcile(mediafile, observations, detections, job):
             counts["ignored"] += 1
     # Only rows that had a bbox at launch participate in the unmatched policy.
     # Existing bbox-less annotations are preserved because geometry cannot identify them.
+    removed = []
+    changed_ids = {match["observation_id"] for match in audit}
     for observation in old:
         if observation.pk in matched_ids:
             continue
         if options["unmatched"] == "delete":
+            changed_ids.add(observation.pk)
+            removed.append(observation)
             observation.delete()
             counts["deleted"] += 1
         elif options["unmatched"] == "clear":
+            changed_ids.add(observation.pk)
             _set_box(observation, None, job.requested_by, timestamp)
             counts["cleared"] += 1
         else:
@@ -407,7 +422,8 @@ def reconcile(mediafile, observations, detections, job):
     if not mediafile.observations.exists():
         models.AnimalObservation.objects.create(mediafile=mediafile, is_no_detection_placeholder=True)
     if any(counts[key] for key in ("updated", "created", "cleared", "deleted")):
-        _invalidate_reid(mediafile, observations)
+        affected = removed + [observation for observation in observations if observation.pk in changed_ids]
+        _invalidate_reid(mediafile, affected, observation_ids=changed_ids)
         mediafile.updated_at, mediafile.updated_by = timestamp, job.requested_by
         mediafile.save(update_fields=["updated_at", "updated_by", "used_for_init_identification", "metadata_json"])
     return {"counts": counts, "matches": audit, "detections": detections, "provenance": "automatic", "options": options}

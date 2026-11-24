@@ -224,55 +224,37 @@ class MediaFileLocationFallbackTest(TestCase):
         self.assertEqual(csv_data["observation_id"], [matching.id])
 
     @override_settings(IDENTITY_MANUAL_CONFIRMATION_THRESHOLD=0.5)
-    def test_prepare_mediafile_for_identification_updates_output_observation(self):
-        """Write identification output to its observation and retain the observation reference in metadata."""
+    def test_shared_identification_uses_exact_reference_bbox_and_requires_review(self):
+        """Use the worker's reference observation ID even if several boxes share a source."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
-        mediafile = MediaFileFactory(parent=archive, identity=None, metadata_json=None)
-        observation = AnimalObservationFactory(mediafile=mediafile, identity=None)
-        identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Matched identity")
+        target = AnimalObservationFactory(mediafile=MediaFileFactory(parent=archive))
+        reference_media = MediaFileFactory(parent=archive)
+        identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup)
+        AnimalObservationFactory(mediafile=reference_media, identity=identity, identity_is_representative=True)
+        match = AnimalObservationFactory(mediafile=reference_media, identity=identity, identity_is_representative=True)
+        root = Path(settings.MEDIA_ROOT)
         data = {
-            "pred_class_ids": [[identity.id]],
+            "observation_ids": [target.pk],
+            "pred_class_ids": [[identity.pk]],
             "pred_labels": [[identity.name]],
-            "pred_image_paths": [["unused"]],
+            "pred_image_paths": [["same-source.jpg"]],
+            "pred_observation_ids": [[match.pk]],
+            "pred_reference_versions": [[tasks.input_version(match, reference_media)]],
+            "query_masked_path": [str(root / "query.png")],
+            "pred_masked_paths": [[str(root / "match.png")]],
             "scores": [[0.9]],
             "keypoints": [[]],
-            "observation_ids": [observation.id],
         }
-
-        tasks._prepare_mediafile_for_identification(data, 0, Path(settings.MEDIA_ROOT), mediafile.id)
-
-        observation.refresh_from_db()
-        mediafile.refresh_from_db()
-        self.assertEqual(observation.identity_id, identity.id)
-        self.assertFalse(hasattr(mediafile, "identity_id"))
-        self.assertEqual(mediafile.metadata_json["reid_observation_id"], observation.id)
-
-    def test_prepare_mediafile_for_identification_resolves_masked_reference_paths(self):
-        """Resolve a masked reference path to its original candidate media file and identity."""
-        archive = UploadedArchiveFactory(owner=self.caiduser)
-        unknown_mediafile = MediaFileFactory(parent=archive, identity=None, metadata_json=None)
-        candidate_identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Matched identity")
-        candidate_mediafile = MediaFileFactory(
-            parent=archive,
-            identity=candidate_identity,
-            image_file="images/reference.jpg",
-            mediafile="images/reference.jpg",
-            preview="previews/reference.jpg",
+        media = target.mediafile
+        tasks._prepare_mediafile_for_identification(
+            data, 0, media.pk, {target.pk: tasks.input_version(target, media)}, {}, [archive.pk],
+            self.caiduser.workgroup_id,
         )
-        data = {
-            "pred_class_ids": [[candidate_identity.id]],
-            "pred_labels": [[candidate_identity.name]],
-            "pred_image_paths": [[str(Path(settings.MEDIA_ROOT) / "masked_images" / "reference.jpg")]],
-            "scores": [[0.4]],
-            "keypoints": [[[[1, 2]], [[3, 4]]]],
-        }
-
-        tasks._prepare_mediafile_for_identification(data, 0, Path(settings.MEDIA_ROOT), unknown_mediafile.id)
-
-        mfi = MediafilesForIdentification.objects.get(mediafile=unknown_mediafile)
-        suggestion = MediafileIdentificationSuggestion.objects.get(for_identification=mfi)
-        self.assertEqual(suggestion.mediafile_id, candidate_mediafile.id)
-        self.assertEqual(suggestion.identity_id, candidate_identity.id)
+        suggestion = MediafileIdentificationSuggestion.objects.get(for_identification__observation=target)
+        self.assertEqual(suggestion.reference_observation_id, match.pk)
+        self.assertEqual(suggestion.feature_images, ["query.png", "match.png"])
+        target.refresh_from_db()
+        self.assertIsNone(target.identity_id)
 
     def test_create_dataframe_from_mediafiles_exports_identity_codes_and_effective_location(self):
         """Export identity codes, effective coordinates, locality coordinates, and original paths."""

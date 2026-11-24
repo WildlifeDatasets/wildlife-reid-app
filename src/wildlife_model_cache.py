@@ -3,6 +3,8 @@
 import logging
 import os
 import tempfile
+import time
+from contextlib import contextmanager
 from pathlib import Path
 
 logger = logging.getLogger("app")
@@ -10,6 +12,20 @@ logger = logging.getLogger("app")
 SHARED_DATA_DIR = Path(os.getenv("SHARED_DATA_PATH", "/shared_data"))
 WEIGHTS_DIR = SHARED_DATA_DIR / "models" / "weights"
 SAM3_CHECKPOINT_PATH = WEIGHTS_DIR / "sam3" / "sam3.pt"
+
+
+@contextmanager
+def log_model_operation(operation: str, model):
+    """Log the phase, outcome, and elapsed time without exposing request details."""
+    started = time.monotonic()
+    logger.info("%s started: %s", operation, model)
+    try:
+        yield
+    except Exception as exc:
+        logger.warning("%s failed after %.1f s (%s): %s", operation, time.monotonic() - started, type(exc).__name__, model)
+        raise
+    else:
+        logger.info("%s completed in %.1f s: %s", operation, time.monotonic() - started, model)
 
 
 def has_checkpoint(path: Path) -> bool:
@@ -31,21 +47,22 @@ def publish_checkpoint(temporary_path: Path, checkpoint_path: Path) -> None:
             raise
 
 
-def cache_checkpoint(checkpoint_path, fetch, *, on_download=None) -> Path:
+def cache_checkpoint(checkpoint_path, fetch, *, on_download=None, operation="Model checkpoint download") -> Path:
     """Stage each attempt separately so readers see only completed downloads."""
     checkpoint_path = Path(checkpoint_path)
     if has_checkpoint(checkpoint_path):
         return checkpoint_path
 
-    checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
-    if on_download is not None:
-        on_download()
-    with tempfile.TemporaryDirectory(dir=checkpoint_path.parent) as staging:
-        temporary_path = Path(staging) / checkpoint_path.name
-        fetch(temporary_path)
-        if not has_checkpoint(temporary_path):
-            raise ValueError(f"Incomplete model download: {checkpoint_path}")
-        publish_checkpoint(temporary_path, checkpoint_path)
+    with log_model_operation(operation, checkpoint_path):
+        checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
+        if on_download is not None:
+            on_download()
+        with tempfile.TemporaryDirectory(dir=checkpoint_path.parent) as staging:
+            temporary_path = Path(staging) / checkpoint_path.name
+            fetch(temporary_path)
+            if not has_checkpoint(temporary_path):
+                raise ValueError(f"Incomplete model download: {checkpoint_path}")
+            publish_checkpoint(temporary_path, checkpoint_path)
     return checkpoint_path
 
 
@@ -55,7 +72,6 @@ def download_checkpoint_if_missing(url: str, checkpoint_path: Path) -> Path:
     def fetch(temporary_path):
         import requests
 
-        logger.info("Downloading model checkpoint %s to %s", url, checkpoint_path)
         with requests.get(url, stream=True, timeout=(30, 300)) as response:
             response.raise_for_status()
             expected_size = int(response.headers.get("content-length", 0))
@@ -76,7 +92,6 @@ def download_sam3_checkpoint_if_missing(*, on_download=None) -> Path:
     def fetch(temporary_path):
         from huggingface_hub import hf_hub_download
 
-        logger.info("Downloading SAM3 checkpoint from Hugging Face")
         hf_hub_download(repo_id="facebook/sam3", filename="sam3.pt", local_dir=temporary_path.parent)
 
     return cache_checkpoint(SAM3_CHECKPOINT_PATH, fetch, on_download=on_download)

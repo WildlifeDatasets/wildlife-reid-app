@@ -1,4 +1,5 @@
 import datetime
+import json
 import logging
 import tempfile
 from io import BytesIO, StringIO
@@ -11,7 +12,9 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
-from django.test import TestCase, override_settings
+from django.db import connection
+from django.test import Client, TestCase, override_settings
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils import timezone
 
@@ -1068,7 +1071,7 @@ class MediaFileUpdateEmptyObservationTest(TestCase):
         """Offer identity confirmation for media files with identification suggestions."""
         archive = UploadedArchiveFactory(owner=self.caiduser, is_for_identification=True)
         mediafile = MediaFileFactory(parent=archive)
-        models.MediafilesForIdentification.objects.create(mediafile=mediafile)
+        models.MediafilesForIdentification.objects.create(observation=AnimalObservationFactory(mediafile=mediafile))
 
         response = self.client.get(reverse("caidapp:media_file_update", args=[mediafile.id]))
 
@@ -4217,7 +4220,9 @@ class IdentificationUploadsViewTest(TestCase):
             image_file="output/missing/images/unknown.jpg",
             original_filename="unknown.jpg",
         )
-        queue_item = models.MediafilesForIdentification.objects.create(mediafile=mediafile)
+        queue_item = models.MediafilesForIdentification.objects.create(
+            observation=AnimalObservationFactory(mediafile=mediafile)
+        )
 
         response = self.client.get(reverse("caidapp:get_individual_identity", args=[queue_item.id]))
 
@@ -4231,12 +4236,14 @@ class IdentificationUploadsViewTest(TestCase):
         archive = UploadedArchiveFactory(owner=self.caiduser, is_for_identification=True)
         mediafile = MediaFileFactory(parent=archive, metadata_json={})
         observation = AnimalObservationFactory(mediafile=mediafile)
-        mediafile.metadata_json["reid_observation_id"] = observation.id
-        mediafile.save(update_fields=["metadata_json"])
-        queue_item = models.MediafilesForIdentification.objects.create(mediafile=mediafile)
+        queue_item = models.MediafilesForIdentification.objects.create(observation=observation)
         identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Candidate")
 
-        response = self.client.get(reverse("caidapp:set_individual_identity", args=[queue_item.id, identity.id]))
+        page = self.client.get(reverse("caidapp:get_individual_identity", args=[queue_item.id]))
+        response = self.client.post(
+            reverse("caidapp:set_individual_identity", args=[queue_item.id, identity.id]),
+            {"review": page.context["review_token"] or ""},
+        )
 
         self.assertRedirects(response, reverse("caidapp:get_individual_identity"))
         observation.refresh_from_db()
@@ -4245,20 +4252,75 @@ class IdentificationUploadsViewTest(TestCase):
         self.assertFalse(hasattr(mediafile, "identity"))
         self.assertFalse(models.MediafilesForIdentification.objects.filter(id=queue_item.id).exists())
 
-    def test_reid_selection_with_multiple_observations_requires_manual_choice(self):
-        """Require explicit observation choice instead of applying a suggestion to an ambiguous media file."""
-        archive = UploadedArchiveFactory(owner=self.caiduser, is_for_identification=True)
+    def test_observation_review_reads_saved_suggestions_and_returns_after_zoom(self):
+        """Scope the review to its bbox through zoom and confirmation."""
+        archive = UploadedArchiveFactory(owner=self.caiduser)
         mediafile = MediaFileFactory(parent=archive, metadata_json={})
-        AnimalObservationFactory(mediafile=mediafile)
-        AnimalObservationFactory(mediafile=mediafile)
-        queue_item = models.MediafilesForIdentification.objects.create(mediafile=mediafile)
-        identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Candidate")
+        target = AnimalObservationFactory(
+            mediafile=mediafile, bbox_x_center=0.5, bbox_y_center=0.5, bbox_width=0.4, bbox_height=0.2
+        )
+        sibling = AnimalObservationFactory(mediafile=mediafile)
+        item = models.MediafilesForIdentification.objects.create(observation=target)
+        identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup)
+        reference = MediaFileFactory(parent=archive)
+        suggestion = models.MediafileIdentificationSuggestion.objects.create(
+            for_identification=item, identity=identity, mediafile=reference, score=0.8, name=identity.name
+        )
+        target_url = reverse("caidapp:observation_identity_suggestions", args=[target.uuid])
+        sibling_url = reverse("caidapp:observation_identity_suggestions", args=[sibling.uuid])
+        return_url = reverse("caidapp:observations") + f"?group_by=mediafile#observation-{target.pk}"
+        with CaptureQueriesContext(connection) as queries:
+            page = self.client.get(target_url, {"next": return_url})
+        self.assertEqual(page.status_code, 200)
+        self.assertFalse(any("observationembedding" in query["sql"].lower() for query in queries))
+        self.assertEqual(page.context["target_observation"], target)
+        self.assertEqual(page.context["reid_suggestions"], [suggestion])
+        self.assertContains(page, '<rect x="0.30000000" y="0.40000000"')
+        self.assertContains(self.client.get(sibling_url), "No saved identity suggestions")
 
-        response = self.client.get(reverse("caidapp:set_individual_identity", args=[queue_item.id, identity.id]))
+        zoom_url = reverse("caidapp:get_individual_identity_zoomed", args=[item.pk, suggestion.pk])
+        token = page.context["review_token"]
+        zoom = self.client.get(zoom_url, {"review": token})
+        self.assertContains(zoom, token)
+        confirmation = reverse("caidapp:set_individual_identity", args=[item.pk, identity.pk])
+        self.assertEqual(self.client.get(confirmation).status_code, 405)
+        csrf_client = Client(enforce_csrf_checks=True)
+        csrf_client.force_login(self.caiduser.user)
+        self.assertEqual(csrf_client.post(confirmation, {"review": token}).status_code, 403)
+        response = self.client.post(confirmation, {"review": token})
+        self.assertRedirects(response, return_url, fetch_redirect_response=False)
+        target.refresh_from_db()
+        sibling.refresh_from_db()
+        self.assertEqual(target.identity, identity)
+        self.assertIsNone(sibling.identity_id)
 
-        self.assertRedirects(response, reverse("caidapp:media_file_update", args=[mediafile.id]))
-        self.assertTrue(models.MediafilesForIdentification.objects.filter(id=queue_item.id).exists())
+    def test_observation_review_rejects_changed_crop_and_keeps_sibling_review(self):
+        """A stale token cannot apply a result to an edited observation or affect its sibling."""
+        archive = UploadedArchiveFactory(owner=self.caiduser)
+        mediafile = MediaFileFactory(parent=archive)
+        target = AnimalObservationFactory(mediafile=mediafile)
+        sibling = AnimalObservationFactory(mediafile=mediafile)
+        item = models.MediafilesForIdentification.objects.create(
+            observation=target, input_version=tasks.input_version(target, mediafile)
+        )
+        sibling_item = models.MediafilesForIdentification.objects.create(observation=sibling)
+        identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup)
+        for queue_item in (item, sibling_item):
+            models.MediafileIdentificationSuggestion.objects.create(
+                for_identification=queue_item, identity=identity, mediafile=mediafile, score=0.8
+            )
+        url = reverse("caidapp:observation_identity_suggestions", args=[target.uuid])
+        token = self.client.get(url).context["review_token"]
+        target.orientation = "L"
+        target.save(update_fields=["orientation"])
+        confirmation = reverse("caidapp:set_individual_identity", args=[item.pk, identity.pk])
+        self.assertEqual(self.client.post(confirmation, {"review": token}).status_code, 409)
         self.assertFalse(mediafile.observations.filter(identity=identity).exists())
+        self.assertContains(self.client.get(url), "No saved identity suggestions")
+        sibling_url = reverse("caidapp:observation_identity_suggestions", args=[sibling.uuid])
+        self.assertEqual(self.client.get(sibling_url).context["foridentification"], sibling_item)
+        self.client.force_login(CaidUserFactory().user)
+        self.assertEqual(self.client.get(sibling_url).status_code, 404)
 
     def test_reid_confirmation_returns_to_highest_confidence(self):
         """Both Select variants resume at the highest score in the workgroup review list."""
@@ -4268,7 +4330,9 @@ class IdentificationUploadsViewTest(TestCase):
         pending = []
         for score in (None, 0.4, 0.9, 0.9, 0.6):
             mediafile = MediaFileFactory(parent=archive, metadata_json={})
-            queue_item = models.MediafilesForIdentification.objects.create(mediafile=mediafile)
+            queue_item = models.MediafilesForIdentification.objects.create(
+                observation=AnimalObservationFactory(mediafile=mediafile)
+            )
             pending.append(queue_item)
             if score is not None:
                 models.MediafileIdentificationSuggestion.objects.create(
@@ -4279,7 +4343,9 @@ class IdentificationUploadsViewTest(TestCase):
             for_identification=pending[2], mediafile=candidate, identity=identity, score=0.1
         )
         foreign_mediafile = MediaFileFactory(parent=UploadedArchiveFactory(owner=CaidUserFactory()))
-        foreign_queue_item = models.MediafilesForIdentification.objects.create(mediafile=foreign_mediafile)
+        foreign_queue_item = models.MediafilesForIdentification.objects.create(
+            observation=AnimalObservationFactory(mediafile=foreign_mediafile)
+        )
         models.MediafileIdentificationSuggestion.objects.create(
             for_identification=foreign_queue_item, mediafile=candidate, identity=identity, score=1.0
         )
@@ -4292,10 +4358,11 @@ class IdentificationUploadsViewTest(TestCase):
             with self.subTest(representative=representative):
                 mediafile = MediaFileFactory(parent=archive, metadata_json={})
                 observation = AnimalObservationFactory(mediafile=mediafile)
-                queue_item = models.MediafilesForIdentification.objects.create(mediafile=mediafile)
-                response = self.client.get(
+                queue_item = models.MediafilesForIdentification.objects.create(observation=observation)
+                page = self.client.get(reverse("caidapp:get_individual_identity", args=[queue_item.id]))
+                response = self.client.post(
                     reverse("caidapp:set_individual_identity", args=[queue_item.id, identity.id]),
-                    {"representative": "1"} if representative else {},
+                    {"review": page.context["review_token"], "representative": "1" if representative else "0"},
                     follow=True,
                 )
 
@@ -4313,7 +4380,9 @@ class IdentificationUploadsViewTest(TestCase):
         """Link candidate media details from the manual-identification suggestion action menu."""
         archive = UploadedArchiveFactory(owner=self.caiduser, is_for_identification=True)
         unknown_mediafile = MediaFileFactory(parent=archive, identity=None, metadata_json={})
-        queue_item = models.MediafilesForIdentification.objects.create(mediafile=unknown_mediafile)
+        queue_item = models.MediafilesForIdentification.objects.create(
+            observation=AnimalObservationFactory(mediafile=unknown_mediafile)
+        )
         identity = IndividualIdentityFactory(owner_workgroup=self.caiduser.workgroup, name="Candidate")
         candidate_mediafile = MediaFileFactory(parent=archive, identity=identity, metadata_json={})
         models.MediafileIdentificationSuggestion.objects.create(
@@ -5012,7 +5081,7 @@ class IdentificationRerunTest(TestCase):
         """Stream the latest workgroup initialization CSV as a download with its original contents."""
         csv_path = Path(settings.MEDIA_ROOT) / self.workgroup.name / "init_identification.csv"
         csv_path.parent.mkdir(parents=True, exist_ok=True)
-        csv_path.write_text("image_path,mediafile_id\nfirst.webp,1\n", encoding="utf-8")
+        csv_path.write_bytes(b"image_path,mediafile_id\nfirst.webp,1\n")
 
         response = self.client.get(reverse("caidapp:download_init_identification_csv"))
 
@@ -5037,8 +5106,8 @@ class IdentificationRerunTest(TestCase):
         latest_csv_path = reid_runs_dir / "20260626-120000" / "identification_metadata.csv"
         older_csv_path.parent.mkdir(parents=True, exist_ok=True)
         latest_csv_path.parent.mkdir(parents=True, exist_ok=True)
-        older_csv_path.write_text("image_path,mediafile_id\nold.webp,1\n", encoding="utf-8")
-        latest_csv_path.write_text("image_path,mediafile_id\nlatest.webp,2\n", encoding="utf-8")
+        older_csv_path.write_bytes(b"image_path,mediafile_id\nold.webp,1\n")
+        latest_csv_path.write_bytes(b"image_path,mediafile_id\nlatest.webp,2\n")
 
         response = self.client.get(reverse("caidapp:download_run_identification_csv"))
 
@@ -5283,14 +5352,14 @@ class IdentificationRerunTest(TestCase):
             import_finished=True,
             identification_status="C",
         )
-        MediaFileFactory(parent=archive_ready, identity=None)
+        AnimalObservationFactory(mediafile=MediaFileFactory(parent=archive_ready, identity=None))
         archive_ready_two = UploadedArchiveFactory(
             owner=self.caiduser,
             is_for_identification=True,
             import_finished=True,
             identification_status="IR",
         )
-        MediaFileFactory(parent=archive_ready_two, identity=None)
+        AnimalObservationFactory(mediafile=MediaFileFactory(parent=archive_ready_two, identity=None))
 
         archive_with_identity = UploadedArchiveFactory(
             owner=self.caiduser,
@@ -5324,7 +5393,7 @@ class IdentificationRerunTest(TestCase):
         self.assertEqual(called_workgroup.id, self.workgroup.id)
         self.assertEqual({archive.id for archive in called_archives}, {archive_ready.id, archive_ready_two.id})
 
-    @patch("caidapp.views.signature")
+    @patch("caidapp.tasks.signature")
     @patch("caidapp.views._prepare_dataframe_for_identification")
     def test_run_identification_bulk_dispatches_one_job_for_multiple_uploads(
         self,
@@ -5338,14 +5407,14 @@ class IdentificationRerunTest(TestCase):
             import_finished=True,
             identification_status="IR",
         )
-        MediaFileFactory(parent=archive_one, identity=None)
+        AnimalObservationFactory(mediafile=MediaFileFactory(parent=archive_one, identity=None))
         archive_two = UploadedArchiveFactory(
             owner=self.caiduser,
             is_for_identification=True,
             import_finished=True,
             identification_status="C",
         )
-        MediaFileFactory(parent=archive_two, identity=None)
+        AnimalObservationFactory(mediafile=MediaFileFactory(parent=archive_two, identity=None))
         prepare_dataframe_mock.return_value = {
             "image_path": ["one.jpg", "two.jpg"],
             "class_id": [1, 2],
@@ -5365,7 +5434,8 @@ class IdentificationRerunTest(TestCase):
 
         self.assertTrue(status_ok)
         signature_mock.assert_called_once()
-        self.assertEqual(signature_mock.call_args.args[0], "identify")
+        self.assertEqual(signature_mock.call_args.args[0], tasks.prepare_shared_identification.name)
+        self.assertEqual(signature_mock.call_args.kwargs["kwargs"]["operation"], "identify")
         bulk_kwargs = signature_mock.call_args.kwargs["kwargs"]
         self.assertEqual(bulk_kwargs["organization_id"], self.workgroup.id)
         self.assertNotIn("uploaded_archive_id", bulk_kwargs)
@@ -5384,7 +5454,7 @@ class IdentificationRerunTest(TestCase):
         self.assertEqual(self.workgroup.identification_scheduled_run_task_id, identify_task.id)
         self.assertIn("Running identification for 2 uploads", self.workgroup.identification_reid_message)
 
-    @patch("caidapp.views.signature")
+    @patch("caidapp.tasks.signature")
     @patch("caidapp.views._prepare_dataframe_for_identification")
     def test_run_identification_keeps_existing_queue_until_worker_success(
         self,
@@ -5405,7 +5475,9 @@ class IdentificationRerunTest(TestCase):
             "label": ["unknown"],
         }
 
-        queue_item = models.MediafilesForIdentification.objects.create(mediafile=mediafile)
+        queue_item = models.MediafilesForIdentification.objects.create(
+            observation=AnimalObservationFactory(mediafile=mediafile)
+        )
         models.MediafileIdentificationSuggestion.objects.create(
             for_identification=queue_item,
             mediafile=mediafile,
@@ -5423,7 +5495,8 @@ class IdentificationRerunTest(TestCase):
         status_ok = views.run_identification(archive, workgroup=self.workgroup)
 
         self.assertTrue(status_ok)
-        self.assertEqual(signature_mock.call_args.args[0], "identify")
+        self.assertEqual(signature_mock.call_args.args[0], tasks.prepare_shared_identification.name)
+        self.assertEqual(signature_mock.call_args.kwargs["kwargs"]["operation"], "identify")
         self.assertTrue(models.MediafilesForIdentification.objects.filter(id=queue_item.id).exists())
         self.assertEqual(
             models.MediafileIdentificationSuggestion.objects.filter(for_identification=queue_item).count(),
@@ -5431,43 +5504,112 @@ class IdentificationRerunTest(TestCase):
         )
         signature_result.apply_async.assert_called_once()
 
-    @patch("caidapp.tasks._prepare_mediafile_for_identification")
-    def test_identify_on_success_clears_existing_queue_for_upload_on_success(self, prepare_mediafile_mock):
-        """Clear obsolete review queue entries only when successful worker output is being applied."""
-        archive = UploadedArchiveFactory(
-            owner=self.caiduser,
-            is_for_identification=True,
-            import_finished=True,
-            identification_status="IAIP",
-        )
-        mediafile = MediaFileFactory(parent=archive, identity=None)
-        queue_item = models.MediafilesForIdentification.objects.create(mediafile=mediafile)
-        models.MediafileIdentificationSuggestion.objects.create(
-            for_identification=queue_item,
-            mediafile=mediafile,
-            name="old suggestion",
-            score=0.4,
-        )
+    def test_identify_callback_only_replaces_submitted_observation(self):
+        """A callback uses its original input version and preserves reviews for other boxes."""
+        archive = UploadedArchiveFactory(owner=self.caiduser, is_for_identification=True)
+        mediafile = MediaFileFactory(parent=archive)
+        target = AnimalObservationFactory(mediafile=mediafile)
+        sibling = AnimalObservationFactory(mediafile=mediafile)
+        stale = AnimalObservationFactory(mediafile=mediafile)
+        items = {
+            observation.pk: models.MediafilesForIdentification.objects.create(observation=observation)
+            for observation in (target, sibling, stale)
+        }
         output_dir = Path(settings.MEDIA_ROOT) / archive.outputdir
         output_dir.mkdir(parents=True, exist_ok=True)
-        output_json_file = output_dir / "identification_result.json"
-        output_json_file.write_text(
-            '{"mediafile_ids": [%d], "pred_image_paths": [[]], "pred_class_ids": [[]], '
-            '"pred_labels": [[]], "scores": [[]], "keypoints": [[]]}' % mediafile.id,
+        manifest = output_dir / "inputs.csv"
+        manifest.write_text(
+            "observation_id,input_version\n"
+            + "".join(f"{o.pk},{tasks.input_version(o, mediafile)}\n" for o in (target, stale)),
             encoding="utf-8",
         )
-
+        stale.bbox_x_center = 0.4
+        stale.save(update_fields=["bbox_x_center"])
+        output = output_dir / "result.json"
+        output.write_text(
+            json.dumps(
+                {
+                    "mediafile_ids": [mediafile.pk, mediafile.pk],
+                    "observation_ids": [target.pk, stale.pk],
+                    **{
+                        key: [[], []]
+                        for key in ("pred_image_paths", "pred_class_ids", "pred_labels", "scores", "keypoints")
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
         tasks.identify_on_success.run(
-            {"status": "DONE", "output_json_file": str(output_json_file)},
+            {"status": "DONE", "output_json_file": str(output)},
             uploaded_archive_id=archive.id,
+            input_metadata_file=str(manifest),
+            model_version=tasks.model_version(self.identification_model),
         )
+        queryset = models.MediafilesForIdentification.objects
+        self.assertFalse(queryset.filter(pk=items[target.pk].pk).exists())
+        self.assertTrue(queryset.filter(pk=items[sibling.pk].pk).exists())
+        self.assertFalse(queryset.filter(observation=stale).exists())
 
-        self.assertFalse(models.MediafilesForIdentification.objects.filter(id=queue_item.id).exists())
-        self.assertEqual(
-            models.MediafileIdentificationSuggestion.objects.filter(for_identification=queue_item).count(),
-            0,
+    def test_identify_callback_ignores_output_from_before_embedding_reset(self):
+        """The result of an earlier matcher run cannot restore deleted suggestions."""
+        from caidapp.observation_embeddings import reset_workgroup_embeddings
+
+        reset_workgroup_embeddings(self.workgroup.pk)
+        options = {
+            "input_metadata_file": "old-input.csv",
+            "model_version": tasks.model_version(self.identification_model),
+            "embedding_generation": 0,
+        }
+        self.assertIsNone(tasks._store_identification_results({}, self.workgroup, [], options, None))
+
+    @override_settings(IDENTITY_MANUAL_CONFIRMATION_THRESHOLD=0.5)
+    def test_regenerated_reviews_keep_two_boxes_separate_and_ignore_duplicate_callback(self):
+        """Regeneration stages high scores for review and applies a run only once."""
+        archive = UploadedArchiveFactory(owner=self.caiduser, is_for_identification=True)
+        mediafile = MediaFileFactory(parent=archive)
+        first = AnimalObservationFactory(mediafile=mediafile)
+        second = AnimalObservationFactory(mediafile=mediafile)
+        identity = IndividualIdentityFactory(owner_workgroup=self.workgroup)
+        reference = MediaFileFactory(parent=archive, image_file="images/review-reference.jpg")
+        reference_observation = AnimalObservationFactory(mediafile=reference, identity=identity, identity_is_representative=True)
+        output_dir = Path(settings.MEDIA_ROOT) / archive.outputdir
+        output_dir.mkdir(parents=True, exist_ok=True)
+        manifest = output_dir / "review-inputs.csv"
+        manifest.write_text(
+            "observation_id,input_version\n"
+            + "".join(f"{o.pk},{tasks.input_version(o, mediafile)}\n" for o in (first, second)),
+            encoding="utf-8",
         )
-        prepare_mediafile_mock.assert_called_once()
+        run = models.IdentificationRunStatistic.objects.create(operation="identify", workgroup=self.workgroup)
+        data = {
+            "mediafile_ids": [mediafile.pk, mediafile.pk],
+            "observation_ids": [first.pk, second.pk],
+            "pred_image_paths": [[reference.image_file.path]] * 2,
+            "pred_observation_ids": [[reference_observation.pk]] * 2,
+            "pred_reference_versions": [[tasks.input_version(reference_observation, reference)]] * 2,
+            "query_masked_path": [mediafile.image_file.path] * 2,
+            "pred_masked_paths": [[reference.image_file.path]] * 2,
+            "pred_class_ids": [[identity.pk]] * 2,
+            "pred_labels": [[identity.name]] * 2,
+            "scores": [[0.9], [0.8]],
+            "keypoints": [[], []],
+        }
+        options = {
+            "input_metadata_file": str(manifest),
+            "model_version": tasks.model_version(self.identification_model),
+        }
+        self.assertEqual(
+            tasks._store_identification_results(data, self.workgroup, [archive.pk], options, run.pk), {archive.pk: 2}
+        )
+        first_review = models.MediafilesForIdentification.objects.get(observation=first)
+        second_review = models.MediafilesForIdentification.objects.get(observation=second)
+        self.assertEqual(first_review.top_mediafiles.get().score, 0.9)
+        self.assertEqual(second_review.top_mediafiles.get().reference_observation_id, reference_observation.pk)
+        self.assertFalse(mediafile.observations.filter(identity__isnull=False).exists())
+        first_review.delete()
+        self.assertIsNone(tasks._store_identification_results(data, self.workgroup, [archive.pk], options, run.pk))
+        self.assertFalse(models.MediafilesForIdentification.objects.filter(observation=first).exists())
+        self.assertTrue(models.MediafilesForIdentification.objects.filter(pk=second_review.pk).exists())
 
     @patch("caidapp.views.current_app.control.revoke")
     def test_stop_init_identification_revokes_running_reid_task(self, revoke_mock):
@@ -5617,7 +5759,8 @@ class IdentificationRerunTest(TestCase):
         self.assertEqual(self.workgroup.identification_init_status, "Processing")
         self.assertEqual(self.workgroup.identification_scheduled_init_task_id, worker_task.id)
         self.assertIsNone(self.workgroup.identification_scheduled_init_eta)
-        self.assertEqual(signature_mock.call_args.args[0], "init_identification")
+        self.assertEqual(signature_mock.call_args.args[0], tasks.prepare_shared_identification.name)
+        self.assertEqual(signature_mock.call_args.kwargs["kwargs"]["operation"], "init")
         payload = signature_mock.call_args.kwargs["kwargs"]["identification_model"]
         self.assertEqual(payload["model_source"], "hf-hub:BVRA/MegaDescriptor-T-224")
         self.assertEqual(payload["weights_path"], "/tmp/test-model.pth")

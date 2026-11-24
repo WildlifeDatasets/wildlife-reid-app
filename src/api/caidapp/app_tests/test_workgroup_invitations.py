@@ -31,7 +31,9 @@ class WorkgroupMigrationTest(TestCase):
         self.locality = LocalityFactory(owner=self.user)
         self.album = AlbumFactory(owner=self.user)
         self.identity = IndividualIdentityFactory(owner_workgroup=self.source)
-        self.identification = models.MediafilesForIdentification.objects.create(mediafile=self.mediafile)
+        self.identification = models.MediafilesForIdentification.objects.create(
+            observation=self.mediafile.observations.first()
+        )
 
     def test_migrates_data_and_deletes_personal_workgroup(self):
         """Move personal workgroup data, reset access and identification state, and delete the emptied group."""

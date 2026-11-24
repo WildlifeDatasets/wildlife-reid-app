@@ -137,7 +137,14 @@
             </div><!-- End Page Title -->
 
             <div class="section">
-                {% if foridentification_count %}
+                {% if foridentification %}
+                    {% if review_return_url %}
+                        <a href="{{ review_return_url }}" class="btn btn-outline-secondary mb-3">Back</a>
+                        <p class="text-body-secondary">Saved identification suggestions for this observation.</p>
+                    {% endif %}
+                    {% if not review_is_current %}
+                        <p class="text-warning-emphasis">This identification result is outdated. Run identification again for this observation.</p>
+                    {% endif %}
                     <div class="section-title">
                         <h2> Unknown identity
                         </h2>
@@ -152,7 +159,7 @@
                                     class="link-secondary"> {{ foridentification.mediafile.parent }}</a>
                             </p>
                             <p>
-                                {{ foridentification_count }} media files left to identify.
+                                {% if foridentification_count %}{{ foridentification_count }} observations left to identify.{% endif %}
                             </p>
                         </div>
                         <div class="col-md-4">
@@ -174,11 +181,12 @@
                                         class="d-flex align-items-center gap-2 mt-3 mb-3"
                                 >
                             <a href="{% url 'caidapp:not_identified_mediafiles' %}" class="btn btn-secondary"><i class="bi bi-list"></i>All for confirmation</a>
-                            <a class="btn btn-secondary " href="{% url 'caidapp:individual_identity_create' %}?next={{ request.path }}"
+                            <a class="btn btn-secondary " href="{% url 'caidapp:individual_identity_create' %}?next={{ request.get_full_path|urlencode }}"
                                data-bs-toggle="tooltip" title="This is a new identity. Create a new identity for this media file."
                             >
                                 <i class="bi bi-plus-lg"></i>
                                 This is new identity</a>
+                                    {% if not review_return_url %}
                                     {% if next_foridentification %}
                                         <a href="{% url 'caidapp:get_individual_identity' next_foridentification.id %}" class="btn btn-primary">
                                               <i class="bi bi-chevron-right"></i>
@@ -195,6 +203,7 @@
                                class="btn btn-danger"
                                onclick="return confirm('Remove mediafile from list for identification?')"><i
                                     class="fa fa-trash"></i></a>
+                            {% endif %}
                             </div>
                         </div>
                     </div>
@@ -207,7 +216,7 @@
                         <div class="col-md-3 me-5" id="unknown-card-{{ foridentification.mediafile.id }}">
 {#                            <div class="{{ col_style }} me-5" id="card{{ mediafile.id }}">#}
                             <div class="card">
-                                {% if foridentification.mediafile.card_image %}<img class="card-img-top"
+                                {% if foridentification.mediafile.card_image %}<div class="position-relative"><img class="card-img-top"
                                         src="{{ foridentification.mediafile.card_image.url }}"
                                         loading="lazy"
 {#                                        {% if foridentification.mediafile.media_type == 'video' %}#}
@@ -218,10 +227,12 @@
 {#                                        alt="Camera trap image"#}
 {#                                        {% endif %}#}
                                         alt="Camera trap image with unknown identity"
-                                >{% endif %}
+                                >
+                                {% include "caidapp/includes/identification_bbox_overlay.html" %}
+                                </div>{% endif %}
                                 <div class="card-body">
                                     <div class="card-title">
-                                        Unknown
+                                        {% if target_observation %}Observation #{{ target_observation.pk }}{% else %}Unknown{% endif %}
                                     </div>
                                     <p class="card-text">
                                         File: <a class="link-secondary" href="{% url 'caidapp:media_file_update' foridentification.mediafile.id %}"
@@ -241,7 +252,7 @@
                                     </p>
 
                                     <p class="card-text">
-                                        {{ foridentification_count }} media files left to identify.
+                                        {% if foridentification_count %}{{ foridentification_count }} observations left to identify.{% endif %}
                                     </p>
 
                                 </div>
@@ -340,7 +351,7 @@
 
                     </div>
                 {% else %}
-                    <p>No media files left to identify.</p>
+                    <p>No observations left to identify.</p>
                 {% endif %}
 
 
@@ -356,7 +367,7 @@
     {% endwith %}
 
     <script>
-        document.getElementById('goToFirstSlide').addEventListener('click', function () {
+        document.getElementById('goToFirstSlide')?.addEventListener('click', function () {
           const carousel = new bootstrap.Carousel(document.getElementById('carouselIdSuggestion'), {
             interval: false
           });
@@ -366,7 +377,7 @@
 
 
         // Search functionality
-        document.getElementById('carouselSearch').addEventListener('input', function () {
+        document.getElementById('carouselSearch')?.addEventListener('input', function () {
   const searchQuery = document.getElementById('carouselSearch').value.trim().toLowerCase();
   const cards = document.querySelectorAll('#carouselIdSuggestion .card');
   const carouselItems = document.querySelectorAll('#carouselIdSuggestion .carousel-item');
@@ -417,7 +428,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 const identityId = el.dataset.identityId;
                 const foridentificationId = el.dataset.foridentificationId;
 
-                fetch(`/caidapp/ajax/identity-card/${foridentificationId}/${identityId}/`)
+                fetch(`/caidapp/ajax/identity-card/${foridentificationId}/${identityId}/{{ review_query|escapejs }}`)
                     .then(response => response.text())
                     .then(html => {
                         el.innerHTML = html;

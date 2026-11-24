@@ -35,6 +35,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 # from django.contrib.auth.models import User
 from django.contrib.auth.views import LoginView
 from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector
+from django.core import signing
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.files.base import ContentFile
 from django.core.paginator import Page, Paginator
@@ -107,8 +108,10 @@ from .models import (
     get_all_relevant_localities,
     user_has_access_filter_params,
 )
+from .observation_embeddings import embedding_generation
 from .services.home_dashboard import render_home_dashboard_context
 from .services.identification_dashboard import identification_dashboard_context
+from .services.identity_review import input_version, model_version
 from .services.individual_summary import summarize_individuals
 from .services.media_bboxes import mediafile_bbox_unions
 from .services.workgroup_migration import migrate_user_to_workgroup
@@ -811,10 +814,9 @@ def identification_information(request) -> HttpResponse:
             owner__workgroup=workgroup,
             is_for_identification=True,
         ).count(),
-        "queued_mediafiles": MediafilesForIdentification.objects.filter(mediafile__parent__owner__workgroup=workgroup)
-        .values("mediafile_id")
-        .distinct()
-        .count(),
+        "queued_mediafiles": MediafilesForIdentification.objects.filter(
+            observation__mediafile__parent__owner__workgroup=workgroup
+        ).count(),
     }
 
     return render(
@@ -863,7 +865,7 @@ def download_run_identification_csv(request):
 
     reid_runs_dir = Path(settings.MEDIA_ROOT) / caiduser.workgroup.name / "reid_runs"
     candidates = list(reid_runs_dir.glob("*/identification_metadata.csv")) if reid_runs_dir.exists() else []
-    csv_path = max(candidates, key=lambda path: path.stat().st_mtime) if candidates else None
+    csv_path = max(candidates, key=lambda path: (path.stat().st_mtime_ns, path.parent.name)) if candidates else None
     return _download_identification_csv(
         csv_path,
         f"run_identification_workgroup_{caiduser.workgroup.id}.csv",
@@ -1076,7 +1078,7 @@ def clear_identity_suggestions_view(request):
     if not caiduser.workgroup_admin:
         return HttpResponseNotAllowed("Only workgroup admins can clear identity suggestions.")
 
-    queue_qs = MediafilesForIdentification.objects.filter(mediafile__parent__owner__workgroup=workgroup)
+    queue_qs = MediafilesForIdentification.objects.filter(observation__mediafile__parent__owner__workgroup=workgroup)
     deleted_queue_count = queue_qs.count()
     deleted_suggestion_count = models.MediafileIdentificationSuggestion.objects.filter(
         for_identification__in=queue_qs
@@ -1085,7 +1087,7 @@ def clear_identity_suggestions_view(request):
 
     messages.success(
         request,
-        f"Deleted identification queue for {deleted_queue_count} media files and "
+        f"Deleted identification queue for {deleted_queue_count} observations and "
         + f"{deleted_suggestion_count} suggestions in workgroup {workgroup.name}.",
     )
     logger.info(
@@ -1220,7 +1222,7 @@ def _home_next_step(caiduser) -> dict:
             }
 
         confirmation_count = MediafilesForIdentification.objects.filter(
-            mediafile__parent__owner__workgroup=workgroup
+            observation__mediafile__parent__owner__workgroup=workgroup
         ).count()
         if confirmation_count > 0:
             return {
@@ -1584,17 +1586,19 @@ def delete_individual_identity(request, individual_identity_id):
 @login_required
 def get_individual_identity_zoomed_by_identity(request, foridentification_id: int, identity_id: int):
     """Show detail by identity."""
-    foridentifications = MediafilesForIdentification.objects.filter(
-        mediafile__parent__owner__workgroup=request.user.caiduser.workgroup
-    ).order_by("?")
-    foridentification = MediafilesForIdentification.objects.get(id=foridentification_id)
-    if foridentification.mediafile.parent.owner.workgroup != request.user.caiduser.workgroup:
-        return HttpResponseNotAllowed("Not allowed to work with this media file.")
-
-    identity = IndividualIdentity.objects.get(id=identity_id)
+    foridentifications = _review_items(request)
+    foridentification = get_object_or_404(
+        foridentifications.select_related("observation__mediafile"), pk=foridentification_id
+    )
+    review_context = _review_context(request, foridentification)
+    identity = get_object_or_404(IndividualIdentity, pk=identity_id, owner_workgroup=request.user.caiduser.workgroup)
     top_mediafile = (
         identity.observation_mediafiles()
-        .filter(observations__identity=identity, observations__identity_is_representative=True)
+        .filter(
+            parent__owner__workgroup=request.user.caiduser.workgroup,
+            observations__identity=identity,
+            observations__identity_is_representative=True,
+        )
         .first()
     )
     top_name = identity.name
@@ -1611,6 +1615,7 @@ def get_individual_identity_zoomed_by_identity(request, foridentification_id: in
         template,
         {
             "foridentification": foridentification,
+            **review_context,
             "foridentifications": foridentifications,
             # "reid_suggestion_id": reid_suggestion_id,
             # reid_sugestion_index: None,
@@ -1634,14 +1639,19 @@ def get_individual_identity_zoomed_paired_points(request, foridentification_id: 
 @login_required
 def get_individual_identity_zoomed(request, foridentification_id: int, reid_suggestion_id: int, points=False):
     """Show and update media file."""
-    foridentifications = MediafilesForIdentification.objects.filter(
-        mediafile__parent__owner__workgroup=request.user.caiduser.workgroup
-    ).order_by("?")
-    foridentification = MediafilesForIdentification.objects.get(id=foridentification_id)
-    if foridentification.mediafile.parent.owner.workgroup != request.user.caiduser.workgroup:
-        return HttpResponseNotAllowed("Not allowed to work with this media file.")
-
-    reid_suggestion = models.MediafileIdentificationSuggestion.objects.get(id=reid_suggestion_id)
+    foridentifications = _review_items(request)
+    foridentification = get_object_or_404(
+        foridentifications.select_related("observation__mediafile"), pk=foridentification_id
+    )
+    review_context = _review_context(request, foridentification)
+    if not review_context["review_is_current"]:
+        raise Http404("The saved identification result is stale.")
+    reid_suggestion = get_object_or_404(
+        _review_suggestions(request, foridentification).select_related(
+            "mediafile", "identity", "reference_observation"
+        ),
+        pk=reid_suggestion_id,
+    )
     top_mediafile = reid_suggestion.mediafile
     top_name = reid_suggestion.name
     top_score = reid_suggestion.score
@@ -1667,8 +1677,13 @@ def get_individual_identity_zoomed(request, foridentification_id: int, reid_sugg
         pth1 = Path(settings.MEDIA_ROOT) / str(top_mediafile.mediafile.name).replace("/images/", "/masked_images/")
         if top_mediafile.media_type == "video":
             pth1 = pth1.with_suffix(".jpg")
-        pil_img0 = Image.open(pth0)
-        pil_img1 = Image.open(pth1)
+        if len(reid_suggestion.feature_images) == 2:
+            pth0, pth1 = (Path(settings.MEDIA_ROOT) / image for image in reid_suggestion.feature_images)
+        try:
+            pil_img0 = Image.open(pth0)
+            pil_img1 = Image.open(pth1)
+        except OSError as exc:
+            raise Http404("The images used for paired points are unavailable.") from exc
         img0 = np.array(pil_img0)
         img1 = np.array(pil_img1)
 
@@ -1726,11 +1741,13 @@ def get_individual_identity_zoomed(request, foridentification_id: int, reid_sugg
         template,
         {
             "foridentification": foridentification,
+            **review_context,
             "foridentifications": foridentifications,
             "reid_suggestion_id": reid_suggestion_id,
             "reid_suggestion_index": reid_suggestion_index,
             "top_mediafile": top_mediafile,
             "top_identity": reid_suggestion.identity,
+            "reference_bbox": _identification_bbox(reid_suggestion.reference_observation, top_mediafile),
             "top_score": top_score,
             "top_name": top_name,
             "html_img_src": html_img_src,
@@ -1743,7 +1760,7 @@ def get_individual_identity_zoomed(request, foridentification_id: int, reid_sugg
 def _identification_queue(workgroup):
     """Order pending reviews by their strongest suggestion, with unscored items last."""
     return (
-        MediafilesForIdentification.objects.filter(mediafile__parent__owner__workgroup=workgroup)
+        MediafilesForIdentification.objects.filter(observation__mediafile__parent__owner__workgroup=workgroup)
         .annotate(max_score=Max("top_mediafiles__score"))
         .order_by(F("max_score").desc(nulls_last=True), "pk")
     )
@@ -1752,7 +1769,9 @@ def _identification_queue(workgroup):
 @login_required
 def not_identified_mediafiles(request):
     """View for mediafiles with individualities that are not identified."""
-    foridentification_set = _identification_queue(request.user.caiduser.workgroup)
+    foridentification_set = _identification_queue(request.user.caiduser.workgroup).select_related(
+        "observation__mediafile__parent", "observation__mediafile__locality", "observation__taxon"
+    )
 
     # sort by highest score
     # for foridentification in foridentification_set:
@@ -1774,34 +1793,126 @@ def not_identified_mediafiles(request):
 
 
 def get_best_representative_mediafiles(identity, orientation=None, max_count=5) -> list[MediaFile]:
-    """Get best representative mediafiles for identity."""
-    # Pokud máme předem načtené reprezentativní mediafiles
-    candidates = getattr(identity, "representative_mediafiles_candidates", None)
-    if candidates is not None:
-        if candidates:
-            return candidates[:max_count]
-        # fallback na reprezentativní bez orientace
-        fallback = list(
-            identity.observation_mediafiles()
-            .filter(observations__identity=identity, observations__identity_is_representative=True)
-            .order_by("-captured_at")[:max_count]
+    """Prefer references of the same orientation within the identity's workgroup."""
+    mediafiles = identity.observation_mediafiles().filter(parent__owner__workgroup=identity.owner_workgroup)
+    representative = {"observations__identity": identity, "observations__identity_is_representative": True}
+    for candidates in (
+        mediafiles.filter(**representative, observations__orientation=orientation),
+        mediafiles.filter(**representative),
+        mediafiles,
+    ):
+        selected = list(candidates.distinct().order_by("-captured_at", "pk")[:max_count])
+        if selected:
+            return selected
+    return []
+
+
+def _review_items(request):
+    """Scope review items to editable media files in the current workgroup."""
+    member = request.user.caiduser
+    if not member.workgroup_id:
+        return MediafilesForIdentification.objects.none()
+    return MediafilesForIdentification.objects.filter(
+        observation__is_no_detection_placeholder=False,
+        observation__mediafile__in=MediaFile.objects.for_user(member).filter(
+            parent__owner__workgroup_id=member.workgroup_id
+        ),
+    )
+
+
+def _review_suggestions(request, item):
+    """Use only live suggestions and references in the review workgroup."""
+    group_id = request.user.caiduser.workgroup_id
+    return item.top_mediafiles.filter(
+        Q(reference_observation__isnull=True)
+        | Q(
+            reference_observation__identity_id=F("identity_id"),
+            reference_observation__is_no_detection_placeholder=False,
+        ),
+        identity__owner_workgroup_id=group_id,
+        mediafile__parent__owner__workgroup_id=group_id,
+    )
+
+
+def _review_state(item, observation, workgroup):
+    """Capture saved annotation and result state without opening any media files."""
+    return [
+        item.pk,
+        input_version(observation, item.mediafile),
+        model_version(workgroup.identification_model),
+        str(item.generated_at),
+        list(item.top_mediafiles.order_by("pk").values_list("pk", flat=True)),
+    ]
+
+
+def _review_is_current(item, observation, workgroup):
+    """Check the result against the current observation and selected model."""
+    return (not item.input_version or item.input_version == input_version(observation, item.mediafile)) and (
+        not item.model_version or item.model_version == model_version(workgroup.identification_model)
+    )
+
+
+def _review_return_url(request, value):
+    """Allow local return navigation only."""
+    if (
+        value
+        and value.startswith("/")
+        and not value.startswith("//")
+        and url_has_allowed_host_and_scheme(value, allowed_hosts=set(), require_https=request.is_secure())
+    ):
+        return value
+    return ""
+
+
+def _review_context(request, item, observation=None, return_url=""):
+    """Keep the same confirmation state across cards and zoom links."""
+    if observation is None:
+        observation = item.observation
+    current = _review_is_current(item, observation, request.user.caiduser.workgroup)
+    token = request.GET.get("review")
+    if not current:
+        token = None
+    if token:
+        review = _load_review(token)
+        if review is None or review["state"] != _review_state(item, observation, request.user.caiduser.workgroup):
+            raise Http404("This review changed. Reopen the saved suggestions.")
+        return_url = _review_return_url(request, review["next"])
+    elif current:
+        token = signing.dumps(
+            {"state": _review_state(item, observation, request.user.caiduser.workgroup), "next": return_url},
+            salt="identification-review",
         )
-        if fallback:
-            return fallback
-        return list(identity.observation_mediafiles().order_by("-captured_at")[:max_count])
-    else:
-        # fallback: přímé dotazy jako dřív
-        qs = identity.observation_mediafiles()
-        mf = qs.filter(
-            observations__identity=identity,
-            observations__identity_is_representative=True,
-            observations__orientation=orientation,
-        )
-        if not mf.exists():
-            mf = qs.filter(observations__identity=identity, observations__identity_is_representative=True)
-        if not mf.exists():
-            mf = qs.all()
-        return list(mf.distinct().order_by("-captured_at")[:max_count])
+    return {
+        "target_observation": observation,
+        "review_bbox": _identification_bbox(observation, item.mediafile),
+        "review_is_current": current,
+        "review_token": token,
+        "review_return_url": return_url,
+        "review_query": "?" + urllib.parse.urlencode({"review": token}) if token else "",
+    }
+
+
+def _identification_bbox(observation, mediafile):
+    """Return normalized overlay coordinates for an image observation."""
+    if observation is None or mediafile.media_type != "image":
+        return None
+    x, y, width, height = (
+        observation.bbox_x_center,
+        observation.bbox_y_center,
+        observation.bbox_width,
+        observation.bbox_height,
+    )
+    if any(value is None or not math.isfinite(value) for value in (x, y, width, height)) or min(width, height) <= 0:
+        return None
+    return [format(value, ".8f") for value in (x - width / 2, y - height / 2, width, height)]
+
+
+def _load_review(token):
+    """Read a confirmation token issued by a review page."""
+    try:
+        return signing.loads(token, salt="identification-review", max_age=86400)
+    except signing.BadSignature:
+        return None
 
 
 @login_required
@@ -1810,172 +1921,121 @@ def get_individual_identity_from_foridentification(
     foridentification_id: Optional[int] = None,
     media_file_id: Optional[int] = None,
     max_representative_mediafiles: int = 5,
+    observation_uuid=None,
 ):
-    """Show and update media file."""
-    t0 = time.time()
-    foridentifications = _identification_queue(request.user.caiduser.workgroup)
-    if media_file_id:
-        foridentification = foridentifications.get(mediafile__id=media_file_id)
+    """Review saved identification suggestions for a queue item or a selected observation."""
+    member = request.user.caiduser
+    items = _review_items(request).select_related("observation__mediafile__parent")
+    direct = observation_uuid is not None
+    observation = None
+    return_url = ""
+    if direct:
+        if not member.workgroup_id:
+            raise Http404
+        observation = get_object_or_404(
+            AnimalObservation.objects.select_related("mediafile"),
+            uuid=observation_uuid,
+            is_no_detection_placeholder=False,
+            mediafile__media_type="image",
+            mediafile__in=MediaFile.objects.for_user(member).filter(parent__owner__workgroup_id=member.workgroup_id),
+        )
+        detail_url = reverse("caidapp:media_file_update", args=[observation.mediafile_id])
+        return_url = (
+            _review_return_url(request, request.GET.get("next")) or f"{detail_url}#observation-{observation.pk}"
+        )
+        item = items.filter(observation=observation).first()
+        if (
+            item is None
+            or not _review_is_current(item, observation, member.workgroup)
+            or not _review_suggestions(request, item).exists()
+        ):
+            return message_view(
+                request,
+                "No saved identity suggestions are available for this observation.",
+                link=reverse("caidapp:identification_information"),
+                button_label="Open identification workflow",
+                link_secondary=return_url,
+                button_label_secondary="Back",
+            )
+    elif foridentification_id is not None:
+        item = get_object_or_404(items, pk=foridentification_id)
+    elif media_file_id is not None:
+        media_items = items.filter(observation__mediafile_id=media_file_id)
+        item = _identification_queue(member.workgroup).filter(pk__in=media_items.values("pk")).first()
     else:
-        if foridentification_id is None:
-            foridentification = foridentifications.first()
-        else:
-            foridentification = MediafilesForIdentification.objects.get(id=foridentification_id)
+        item = _identification_queue(member.workgroup).filter(pk__in=items.values("pk")).first()
 
-    if foridentification is not None:
-        identity_ids = foridentification.top_mediafiles.values_list("identity_id", flat=True)
-        logger.debug(f"{identity_ids=}")
+    if item is None:
+        return message_view(request, "No media files for identification.")
 
-        identity_ids = [i for i in identity_ids if i is not None]
-        logger.debug(f"{identity_ids=}")
+    context = _review_context(request, item, observation, return_url)
+    observation = context["target_observation"]
+    suggestions = (
+        list(_review_suggestions(request, item).select_related("identity", "mediafile", "reference_observation"))
+        if context["review_is_current"]
+        else []
+    )
+    for suggestion in suggestions:
+        representatives = get_best_representative_mediafiles(
+            suggestion.identity, orientation=observation.orientation if observation else None
+        )
+        suggestion.representative_mediafiles = (
+            [suggestion.mediafile] + [media for media in representatives if media != suggestion.mediafile]
+        )[:max_representative_mediafiles]
+        suggestion.is_representative_dict = is_candidate_for_representative_mediafile(
+            suggestion.mediafile, suggestion.identity
+        )
 
-        reid_observation_id = (foridentification.mediafile.metadata_json or {}).get("reid_observation_id")
-        unknown_observation = foridentification.mediafile.observations.filter(id=reid_observation_id).first()
-        if unknown_observation is None and foridentification.mediafile.observations.count() == 1:
-            unknown_observation = foridentification.mediafile.observations.first()
-        orientation_of_unknown = unknown_observation.orientation if unknown_observation is not None else None
-
-        # remaining_identities = (
-        #     IndividualIdentity.objects.filter(
-        #         Q(owner_workgroup=request.user.caiduser.workgroup) & ~Q(name="nan") &
-        #         ~Q(id__in=identity_ids)
-        #     )
-        #     .all()
-        #     .order_by("name")
-        # )
-
-        # -------------------------------- vvvvv ------
-
-        # připrav filtr: reprezentativní a orientované (pokud zadané)
-        mediafile_filter = {"identity_is_representative": True}
-        if orientation_of_unknown is not None:
-            mediafile_filter["orientation"] = orientation_of_unknown
-
-        # prefetch_candidates = Prefetch(
-        #     "mediafile_set",
-        #     queryset=MediaFile.objects.filter(**mediafile_filter).order_by("-captured_at"),
-        #     to_attr="representative_mediafiles_candidates"
-        # )
-        # remaining_identities = (
-        #     IndividualIdentity.objects.filter(
-        #         Q(owner_workgroup=request.user.caiduser.workgroup),
-        #         ~Q(name="nan"),
-        #         ~Q(id__in=identity_ids)
-        #     )
-        #     .prefetch_related(prefetch_candidates)
-        #     .order_by("name")
-        # )
-        # ----------------------
-        remaining_identities = IndividualIdentity.objects.filter(
-            Q(owner_workgroup=request.user.caiduser.workgroup),
-            ~Q(name="nan"),
-            ~Q(id__in=identity_ids),
-        ).order_by("name")
-        # -------------------------------- ^^^^^ ------
-
-        logger.debug(f"  1 {time.time() - t0=:.2f} [s]")
-
-        # Add `representative_mediafiles` to related identities
-        # for identity in related_identities:
-        #     identity.representative_mediafiles = identity.mediafile_set.filter(identity_is_representative=True)
-
-        reid_suggestions = list(foridentification.top_mediafiles.all().select_related("identity", "mediafile"))
-        for reid_suggestion in reid_suggestions:
-            if reid_suggestion.identity is None:
-                # i.e. The identity was removed from the app
-                # remove from foridentification.top_mediafiles
-                try:
-                    reid_suggestion.delete()
-                    logger.warning(
-                        "Missing identity for reid_suggestion. Removed one suggestion for "
-                        + f"{foridentification.mediafile.mediafile.name=}"
-                    )
-                except Exception as e:
-                    logger.debug(traceback.format_exc())
-                    logger.error(f"Error removing reid_suggestion from foridentification.top_mediafiles: {e}")
-            else:
-                representative_mediafiles: list = get_best_representative_mediafiles(
-                    reid_suggestion.identity, orientation=orientation_of_unknown
-                )
-                # insert as first element the reid_suggestion mediafile
-                representative_mediafiles = [reid_suggestion.mediafile] + [
-                    mf for mf in representative_mediafiles if mf != reid_suggestion.mediafile
-                ]
-
-                reid_suggestion.representative_mediafiles = representative_mediafiles[:max_representative_mediafiles]
-                reid_suggestion.is_representative_dict = is_candidate_for_representative_mediafile(
-                    reid_suggestion.mediafile, reid_suggestion.identity
-                )
-
-        logger.debug(f"  2 {time.time() - t0=:.2f} [s]")
-
-        logger.debug(f"  3 {time.time() - t0=:.2f} [s]")
-        # for identity in identities:
-        #     identity.representative_mediafiles = identity.mediafile_set.filter(identity_is_representative=True)
-
-        # max_score for current foridentification
-        current_max_score = foridentification.top_mediafiles.aggregate(max_score=Max("score"))["max_score"] or 0.0
-
-        logger.debug(f"  4 {time.time() - t0=:.2f} [s]")
-        # find the next foridentification with lower max_score
-        from django.db.models.functions import Coalesce
-
-        next_foridentification = (
-            foridentifications.exclude(pk=foridentification.pk)
+    remaining = IndividualIdentity.objects.none()
+    next_item = None
+    queue_count = None
+    if not context["review_return_url"]:
+        remaining = (
+            IndividualIdentity.objects.filter(owner_workgroup=member.workgroup)
+            .exclude(Q(name="nan") | Q(pk__in=[suggestion.identity_id for suggestion in suggestions]))
+            .order_by("name")
+        )
+        queue = _identification_queue(member.workgroup).filter(pk__in=items.values("pk"))
+        queue_count = items.count()
+        current_score = item.top_mediafiles.aggregate(max_score=Max("score"))["max_score"] or 0.0
+        next_item = (
+            queue.exclude(pk=item.pk)
             .annotate(max_score=Coalesce(Max("top_mediafiles__score"), 0.0))
-            .filter(max_score__lte=current_max_score)
-            .order_by("-max_score")
+            .filter(max_score__lte=current_score)
+            .order_by("-max_score", "pk")
             .first()
         )
 
-    else:
-        return message_view(request, "No mediafiles for identification.")
-
-    logger.debug(f"  5 {time.time() - t0=:.2f} [s]")
     return render(
         request,
         "caidapp/get_individual_identity.html",
         {
-            "foridentification": foridentification,
-            "remaining_identities": remaining_identities,
-            "reid_suggestions": reid_suggestions,
-            "next_foridentification": next_foridentification,
-            "foridentification_count": foridentifications.count(),
-            # "related_identities": identity_ids,
+            **context,
+            "foridentification": item,
+            "remaining_identities": remaining,
+            "reid_suggestions": suggestions,
+            "next_foridentification": next_item,
+            "foridentification_count": queue_count,
         },
     )
 
 
-def get_individual_identity_remaining_card_content(
-    request,
-    foridentification_id: int,
-    identity_id: int,
-) -> HttpResponse:
-    """Get remaining card content for individual identity."""
-    identity = get_object_or_404(
-        IndividualIdentity,
-        id=identity_id,
-        owner_workgroup=request.user.caiduser.workgroup,
-    )
-    foridentification_id = get_object_or_404(
-        MediafilesForIdentification,
-        id=foridentification_id,
-        mediafile__parent__owner__workgroup=request.user.caiduser.workgroup,
-    )
-    mediafile = foridentification_id.mediafile
-    is_representative_dict = is_candidate_for_representative_mediafile(mediafile, identity)
-
+@login_required
+def get_individual_identity_remaining_card_content(request, foridentification_id: int, identity_id: int):
+    """Load a reference card for manual identity selection."""
+    item = get_object_or_404(_review_items(request).select_related("observation__mediafile"), pk=foridentification_id)
+    identity = get_object_or_404(IndividualIdentity, pk=identity_id, owner_workgroup=request.user.caiduser.workgroup)
     identity.representative_mediafiles = get_best_representative_mediafiles(identity, max_count=3)
-
-    html = render_to_string(
+    return render(
+        request,
         "caidapp/get_individual_identity_remaining_card_content.html",
-        context=dict(
-            individual_identity=identity,
-            foridentification=foridentification_id,
-            is_representative_dict=is_representative_dict,
-        ),
+        {
+            **_review_context(request, item),
+            "individual_identity": identity,
+            "foridentification": item,
+            "is_representative_dict": is_candidate_for_representative_mediafile(item.mediafile, identity),
+        },
     )
-    return HttpResponse(html)
 
 
 def is_candidate_for_representative_mediafile(
@@ -2004,7 +2064,7 @@ def is_candidate_for_representative_mediafile(
     debug_info = ""
 
     threshold = 1.0 - np.exp(-count_of_representative_mediafiles / representative_count_coefficient)  # i
-    meta = mediafile.metadata_json
+    meta = mediafile.metadata_json or {}
     logger.debug(f"{mediafile.metadata_json=}")
     if "detection_results" in meta and len(meta["detection_results"]) > 0:
 
@@ -2069,48 +2129,45 @@ def remove_foridentification(request, foridentification_id: int):
     foridentification = get_object_or_404(
         MediafilesForIdentification,
         id=foridentification_id,
-        mediafile__parent__owner__workgroup=request.user.caiduser.workgroup,
+        observation__mediafile__parent__owner__workgroup=request.user.caiduser.workgroup,
     )
     foridentification.delete()
     return redirect("caidapp:get_individual_identity")
 
 
 @login_required
+@require_POST
+@transaction.atomic
 def set_individual_identity(request, mediafiles_for_identification_id: int, individual_identity_id: int):
-    """Set identity for the observation being identified."""
-    mediafiles_for_identification = get_object_or_404(MediafilesForIdentification, id=mediafiles_for_identification_id)
-    representative = request.GET.get("representative") == "1"
-    individual_identity = get_object_or_404(IndividualIdentity, id=individual_identity_id)
+    """Apply the selection to the same observation and result the reviewer saw."""
+    items = _review_items(request)
+    item = get_object_or_404(items, pk=mediafiles_for_identification_id)
+    # Bbox edits lock the media file before changing observations or clearing results.
+    mediafile = get_object_or_404(MediaFile.objects.select_for_update(), pk=item.observation.mediafile_id)
+    item = items.select_for_update(of=("self",)).filter(pk=item.pk, observation__mediafile=mediafile).first()
+    if item is None:
+        return HttpResponse("The review changed. Reopen identification.", status=409)
+    observation = mediafile.observations.select_for_update().get(pk=item.observation_id)
+    observation.mediafile = mediafile
+    item.observation = observation
+    member = request.user.caiduser
+    review = _load_review(request.POST.get("review", ""))
+    if (
+        not review
+        or not _review_is_current(item, observation, member.workgroup)
+        or review["state"] != _review_state(item, observation, member.workgroup)
+    ):
+        return HttpResponse("The review changed. Reopen identification.", status=409)
 
-    # if request.user.caiduser.workgroup != mediafile.parent.owner.workgroup:
-    #     return HttpResponseNotAllowed("Not allowed to work with this media file.")
-    if request.user.caiduser.workgroup != individual_identity.owner_workgroup:
-        return HttpResponseNotAllowed("Not allowed to work with this media file.")
-    if request.user.caiduser.workgroup != mediafiles_for_identification.mediafile.parent.owner.workgroup:
-        return HttpResponseNotAllowed("Not allowed to work with this media file.")
-
-    mediafile = mediafiles_for_identification.mediafile
-    reid_observation_id = (mediafile.metadata_json or {}).get("reid_observation_id")
-    observation = mediafile.observations.filter(id=reid_observation_id).first() if reid_observation_id else None
-    if observation is None:
-        observations = list(mediafile.observations.order_by("id")[:2])
-        if len(observations) == 1:
-            observation = observations[0]
-    if observation is None:
-        messages.warning(
-            request,
-            "This media file has multiple or no observations. Choose the target animal in the media file editor.",
-        )
-        return redirect("caidapp:media_file_update", pk=mediafile.id)
-
-    observation.identity = individual_identity
-    observation.identity_is_representative = representative
-    observation.updated_by = request.user.caiduser
+    identity = get_object_or_404(IndividualIdentity, pk=individual_identity_id, owner_workgroup=member.workgroup)
+    observation.identity = identity
+    observation.identity_is_representative = request.POST.get("representative") == "1"
+    observation.updated_by = member
     observation.updated_at = django.utils.timezone.now()
     observation.save(update_fields=["identity", "identity_is_representative", "updated_by", "updated_at"])
-    mediafiles_for_identification.delete()
+    item.delete()
 
-    return redirect("caidapp:get_individual_identity")
+    return redirect(_review_return_url(request, review["next"]) or reverse("caidapp:get_individual_identity"))
 
 
 @staff_or_impersonated_staff_required
@@ -2500,7 +2557,7 @@ def _single_species_button_style(request, dashboard_stats=None) -> dict:
     exists_unidentified = n_unidentified > 0
 
     n_for_confirmation = MediafilesForIdentification.objects.filter(
-        mediafile__parent__owner__workgroup=workgroup
+        observation__mediafile__parent__owner__workgroup=workgroup
     ).count()
     exists_for_confirmation = n_for_confirmation > 0
 
@@ -2651,7 +2708,10 @@ def run_identification_bulk(
     )
     logger.debug(f"Generating CSV for bulk identification with {len(mediafiles)} records...")
 
-    csv_data = _prepare_dataframe_for_identification(mediafiles, observation_taxon=observation_taxon)
+    mediafiles = mediafiles.filter(media_type="image")
+    csv_data = _prepare_dataframe_for_identification(
+        mediafiles, observation_taxon=observation_taxon, unidentified_only=True
+    )
     df = pd.DataFrame(csv_data)
     if df.shape[0] == 0:
         logger.warning("No records found for bulk identification in workgroup %s.", workgroup.id)
@@ -2664,7 +2724,7 @@ def run_identification_bulk(
         video_number=video_number,
     )
 
-    run_name = django.utils.timezone.now().strftime("%Y%m%d-%H%M%S")
+    run_name = f"{django.utils.timezone.now():%Y%m%d-%H%M%S}-{uuid.uuid4().hex}"
     output_dir = Path(settings.MEDIA_ROOT) / workgroup.name / "reid_runs" / run_name
     output_dir.mkdir(parents=True, exist_ok=True)
     identity_metadata_file = output_dir / "identification_metadata.csv"
@@ -2687,25 +2747,18 @@ def run_identification_bulk(
         workgroup.identification_model = model
         workgroup.save()
 
-    identify_signature = signature(
-        "identify",
-        kwargs=dict(
-            input_metadata_file_path=str(identity_metadata_file),
-            organization_id=workgroup.id,
-            output_json_file_path=str(output_json_file),
-            top_k=3,
-            identification_model={
-                "name": initialized_model.name,
-                "model_source": initialized_model.get_runtime_model_source(),
-                "weights_path": initialized_model.get_runtime_checkpoint_path(),
-            },
-        ),
+    generation = embedding_generation(workgroup.pk)
+    identify_signature = tasks.identification_feature_job(
+        workgroup, initialized_model, identity_metadata_file, "identify", output_json_file, generation=generation
     )
     identify_task = identify_signature.apply_async(
         link=tasks.identify_bulk_on_success.s(
             workgroup_id=workgroup.id,
             uploaded_archive_ids=uploaded_archive_ids,
             statistic_id=statistic.id,
+            input_metadata_file=str(identity_metadata_file),
+            model_version=model_version(initialized_model),
+            embedding_generation=generation,
         ),
         link_error=tasks.identify_bulk_on_error.s(
             workgroup_id=workgroup.id,
@@ -2759,13 +2812,18 @@ def run_identification(
     logger.debug(f"Generating CSV for init_identification with {len(mediafiles)} records...")
     uploaded_archive.identification_status = "IAIP"
 
-    csv_data = _prepare_dataframe_for_identification(mediafiles, observation_taxon=observation_taxon)
+    mediafiles = mediafiles.filter(media_type="image")
+    csv_data = _prepare_dataframe_for_identification(
+        mediafiles, observation_taxon=observation_taxon, unidentified_only=True
+    )
     media_root = Path(settings.MEDIA_ROOT)
 
-    identity_metadata_file = media_root / uploaded_archive.outputdir / "identification_metadata.csv"
+    run_dir = media_root / uploaded_archive.outputdir / "reid_runs" / uuid.uuid4().hex
+    run_dir.mkdir(parents=True, exist_ok=True)
+    identity_metadata_file = run_dir / "identification_metadata.csv"
     df = pd.DataFrame(csv_data)
     df.to_csv(identity_metadata_file, index=False)
-    output_json_file = media_root / uploaded_archive.outputdir / "identification_result.json"
+    output_json_file = run_dir / "identification_result.json"
 
     # if no records in df
     if df.shape[0] == 0:
@@ -2812,25 +2870,17 @@ def run_identification(
         workgroup.identification_model = model
         workgroup.save()
 
-    identify_signature = signature(
-        "identify",
-        kwargs=dict(
-            input_metadata_file_path=str(identity_metadata_file),
-            organization_id=uploaded_archive.owner.workgroup.id,
-            output_json_file_path=str(output_json_file),
-            top_k=3,
-            uploaded_archive_id=uploaded_archive.id,
-            identification_model={
-                "name": initialized_model.name,
-                "model_source": initialized_model.get_runtime_model_source(),
-                "weights_path": initialized_model.get_runtime_checkpoint_path(),
-            },
-        ),
+    generation = embedding_generation(workgroup.pk)
+    identify_signature = tasks.identification_feature_job(
+        workgroup, initialized_model, identity_metadata_file, "identify", output_json_file, generation=generation
     )
     identify_task = identify_signature.apply_async(
         link=identify_on_success.s(
             uploaded_archive_id=uploaded_archive.id,
             statistic_id=statistic.id,
+            input_metadata_file=str(identity_metadata_file),
+            model_version=model_version(initialized_model),
+            embedding_generation=generation,
         ),
         link_error=on_error_in_upload_processing.s(statistic_id=statistic.id),
     )
@@ -5430,7 +5480,11 @@ def sequences(
     page_sequence_ids = [obj.id for obj in page_with_sequences.object_list]
     sequence_mediafiles = (
         MediaFile.objects.filter(sequence_id__in=page_sequence_ids)
-        .annotate(_is_preidentified=Exists(MediafilesForIdentification.objects.filter(mediafile_id=OuterRef("pk"))))
+        .annotate(
+            _is_preidentified=Exists(
+                MediafilesForIdentification.objects.filter(observation__mediafile_id=OuterRef("pk"))
+            )
+        )
         .select_related("parent", "locality", "updated_by", "sequence")
         .prefetch_related("observations__taxon", "observations__identity")
         .order_by("captured_at", "id")
@@ -5743,7 +5797,7 @@ def media_files_update(
         .values("count")[:1]
     )
     full_mediafiles = full_mediafiles.annotate(
-        _is_preidentified=Exists(MediafilesForIdentification.objects.filter(mediafile_id=OuterRef("pk"))),
+        _is_preidentified=Exists(MediafilesForIdentification.objects.filter(observation__mediafile_id=OuterRef("pk"))),
         containing_sequence_mediafile_count=Coalesce(
             Subquery(sequence_mediafile_count, output_field=IntegerField()), Value(0)
         ),

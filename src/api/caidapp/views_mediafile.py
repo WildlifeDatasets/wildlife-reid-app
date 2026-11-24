@@ -167,17 +167,23 @@ class ObservationInline(InlineFormSetFactory):
 class BboxDerivativeInvalidationMixin:
     @transaction.atomic
     def forms_valid(self, form, inlines):
-        """Save formsets and invalidate identification derivatives when observation bboxes change."""
+        """Invalidate identification derivatives when saved inputs change."""
         from .bbox_services import BBOX_FIELDS, _invalidate_reid
 
         mediafile = MediaFile.objects.select_for_update().get(pk=self.object.pk)
         old = list(mediafile.observations.select_for_update().order_by("pk"))
-        before = [(o.pk, *(getattr(o, field) for field in BBOX_FIELDS)) for o in old]
+        fields = (*BBOX_FIELDS, "orientation", "is_no_detection_placeholder")
+        before = {o.pk: tuple(getattr(o, field) for field in fields) for o in old}
+        source = (mediafile.image_file.name, mediafile.mediafile.name, mediafile.media_type)
         response = super().forms_valid(form, inlines)
-        after = list(mediafile.observations.order_by("pk").values_list("pk", *BBOX_FIELDS))
-        if before != after:
-            mediafile.refresh_from_db()
-            _invalidate_reid(mediafile, old)
+        after = {pk: tuple(values) for pk, *values in mediafile.observations.values_list("pk", *fields)}
+        mediafile.refresh_from_db()
+        source_changed = source != (mediafile.image_file.name, mediafile.mediafile.name, mediafile.media_type)
+        changed = {pk for pk in before.keys() | after.keys() if before.get(pk) != after.get(pk)}
+        if changed or source_changed:
+            targets = None if source_changed else changed
+            affected = old if targets is None else [observation for observation in old if observation.pk in targets]
+            _invalidate_reid(mediafile, affected, observation_ids=targets)
             mediafile.save(update_fields=["used_for_init_identification", "metadata_json"])
         return response
 

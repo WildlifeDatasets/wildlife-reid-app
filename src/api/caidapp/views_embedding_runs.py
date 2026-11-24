@@ -2,17 +2,19 @@
 
 import uuid
 
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
 from django.db.models import Q
-from django.http import FileResponse, Http404, HttpResponse, JsonResponse
-from django.shortcuts import get_object_or_404, render
+from django.http import FileResponse, Http404, HttpResponse, HttpResponseForbidden, JsonResponse
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
 from . import embedding_runs, export_runs, models
+from .observation_embeddings import reset_workgroup_embeddings
 
 STATUS_LABELS = {
     "preparing": "Preparing inputs",
@@ -177,6 +179,31 @@ def embedding_run_start(request):
     except ValidationError as exc:
         return JsonResponse({"message": "; ".join(exc.messages)}, status=400)
     return JsonResponse(_payload(run), status=202)
+
+
+@login_required
+@require_POST
+def manage_workgroup_embeddings(request):
+    """Start a workgroup backfill or clear its feature data after confirmation."""
+    caiduser = request.user.caiduser
+    if not caiduser.workgroup_id or not caiduser.workgroup_admin:
+        return HttpResponseForbidden()
+    action = request.POST.get("action")
+    if action == "backfill":
+        try:
+            run = embedding_runs.create_embedding_run(
+                caiduser.workgroup_id, requested_by=caiduser, trigger="backfill"
+            )
+        except ValidationError as exc:
+            messages.error(request, "; ".join(exc.messages))
+        else:
+            return redirect("caidapp:task_detail", run_uuid=run.uuid)
+    elif action == "reset" and request.POST.get("confirm_reset") == "yes":
+        count = reset_workgroup_embeddings(caiduser.workgroup_id)
+        messages.success(request, f"Reset embeddings and ALIKED features in this workgroup. Removed {count} feature sets.")
+    else:
+        messages.error(request, "Confirm the reset before removing feature data.")
+    return redirect("caidapp:task_list")
 
 
 @login_required

@@ -14,12 +14,9 @@ REFRESH_INTERVAL = timedelta(hours=3)
 def refresh_identification_dashboard_snapshot(workgroup):
     """Recompute and persist identification statistics for one workgroup."""
     caiduser = models.CaIDUser(workgroup=workgroup)
-    identity_queue_count = (
-        MediafilesForIdentification.objects.filter(mediafile__parent__owner__workgroup=workgroup)
-        .values("mediafile_id")
-        .distinct()
-        .count()
-    )
+    identity_queue_count = MediafilesForIdentification.objects.filter(
+        observation__mediafile__parent__owner__workgroup=workgroup
+    ).count()
 
     finished_archives = list(
         UploadedArchive.objects.filter(

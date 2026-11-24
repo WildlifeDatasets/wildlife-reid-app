@@ -1,9 +1,12 @@
 {% if observation.pk and not observation.is_no_detection_placeholder and observation.mediafile.media_type == 'image' %}
-<button type="button" class="btn btn-sm btn-outline-primary js-identity-candidates"
-        data-candidates-url="{% url 'caidapp:observation_identity_candidates' observation.uuid %}"
-        data-accept-url="{% url 'caidapp:observation_accept_identity' observation.uuid %}"
-        data-embedding-url="{% url 'caidapp:embedding_run_start' %}"
-        data-observation-id="{{ observation.pk }}"{% if editor %} data-editor="true"{% endif %}>
-  <i class="bi bi-fingerprint" aria-hidden="true"></i> Suggest identity
-</button>
+  {% url 'caidapp:observation_identity_suggestions' observation.uuid as review_url %}
+  {% if editor %}
+    <button type="button" class="btn btn-sm btn-outline-primary mb-2" data-saved-identity-review="{{ review_url }}?next={{ request.get_full_path|urlencode }}%23observation-{{ observation.pk }}">
+      <i class="bi bi-fingerprint" aria-hidden="true"></i> Review identity suggestions
+    </button>
+  {% else %}
+    <a class="btn btn-sm btn-outline-primary" href="{{ review_url }}?next={{ request.get_full_path|urlencode }}%23{{ observation_anchor }}{{ observation.pk }}">
+      <i class="bi bi-fingerprint" aria-hidden="true"></i> Review identity suggestions
+    </a>
+  {% endif %}
 {% endif %}

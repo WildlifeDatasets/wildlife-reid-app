@@ -5,6 +5,8 @@
 
 ## 2026-11
 
+* [changed] Identification worker uses observation embeddings and ALIKED features stored in the central API database.
+* [changed] Identity suggestions are stored and reviewed per observation.
 * [added] Suggest identity for selected bbox.
 * [fixed] Slow Camera Trap Checks, Media files, and Observations lists, including filtering by sequence size and loading previews.
 * [added] Automatic exact duplicate detection across a workgroup, processed in the background.
