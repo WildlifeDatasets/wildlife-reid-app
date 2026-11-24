@@ -1,8 +1,8 @@
 # Implementační plán: uložené návrhy identity a sjednocení úložiště
 
-První tři etapy jsou implementované. Etapa 3 používá aplikační databázi pro
-identifikaci i analýzy identit. Ověření na GPU a nasazení zůstávají otevřené.
-Etapa 4 je plánovaná.
+První čtyři etapy jsou implementované. Etapa 4 přidává volitelný širší výběr
+referencí, ruční seskupování neznámých observací a kontrolu známých přiřazení.
+Ověření kvality na reálných datech, úplné ověření na GPU a nasazení zůstávají otevřené.
 
 ## Cíl a hranice
 
@@ -11,8 +11,8 @@ Etapa 4 je plánovaná.
 - [x] Etapa 1: otevírat existující identifikační UI nad uloženými
   `MediafileIdentificationSuggestion`, bez synchronního prohledávání galerie.
 - [x] Etapa 2: bezpečně navázat návrhy na jednotlivé observations a jejich vstupní verze.
-- [ ] Etapa 3: sjednotit úložiště příznaků při zachování identifikační metody a minimálních změnách workeru.
-- [ ] Etapa 4: volitelně rozšířit reference a umožnit návrhy mezi neznámými observations.
+- [x] Etapa 3: sjednotit úložiště příznaků při zachování identifikační metody a minimálních změnách workeru.
+- [x] Etapa 4: volitelně rozšířit reference a umožnit návrhy mezi neznámými observations.
 
 Priorita: nejprve zprovoznit čtení toho, co už máme. V etapě 1 se nemění
 `identification_worker`, algoritmus identifikace, generování embeddingů ani databázové schéma.
@@ -200,18 +200,23 @@ globálních a lokálních příznaků zůstávají použitelné.
 | Neznámý–neznámý | Observations bez identity | Jiné observations bez identity | Dvojice k ručnímu seskupení |
 | Kontrola přiřazení | Observations se známou identitou | Jiné známé observations ve zvolené galerii | Shody a rozpory k ruční kontrole |
 
-- [ ] Přidat možnost porovnávat se všemi identifikovanými observations, tedy i s
+- [x] Přidat možnost porovnávat se všemi identifikovanými observations, tedy i s
   nereprezentativními. V každém režimu vyloučit porovnání observation se sebou.
-- [ ] Pro režim neznámý–neznámý vracet top-k jednotlivých observations. Všechna
+- [x] Pro režim neznámý–neznámý vracet top-k jednotlivých observations. Všechna
   neznámá data nesmějí sdílet zástupný `class_id`, který by je při výběru sloučil.
-- [ ] Po ručním potvrzení umožnit přiřazení do samostatné dočasné identity
+- [x] Po ručním potvrzení umožnit přiřazení do samostatné dočasné identity
   (`Unknown-0042` apod.) s pozdějším pojmenováním. Řetězec podobností A–B a B–C
   slouží k revizi kandidátů. Potvrzená identita se eviduje na observations.
-- [ ] Při kontrole známých porovnat nejlepší jinou referenci stejné identity s
+- [x] Při kontrole známých porovnat nejlepší jinou referenci stejné identity s
   nejlepší referencí jiné identity. Výsledek uložit jako podnět ke kontrole.
   Potvrzené přiřazení zůstává na uživateli.
-- [ ] Použít stejnou uloženou sadu příznaků ve všech režimech a vyhodnotit kvalitu
-  každého režimu na známých případech.
+- [x] Použít současné uložené příznaky ve všech režimech. Seskupování a kontrola
+  přiřazení řadí dvojice podle kosinové podobnosti globálních embeddingů.
+- [ ] Vyhodnotit kvalitu každého režimu na známých případech.
+
+Přehled Tasks zobrazuje inicializaci, identifikaci, outliery, návrhy na sloučení
+a běhy porovnávání observací. Běžná revize identity zobrazuje jen observace bez
+identity. Potvrzení outlieru cílí na konkrétní verzi jedné observace.
 
 ## Hlavní soubory při realizaci
 

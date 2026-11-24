@@ -19,5 +19,7 @@ def get_megadetector_checkpoint():
     """Reuse a previously cached MegaDetector checkpoint when initializing the new cache."""
     legacy_path = SHARED_DATA_DIR / "models" / "megadetector" / MEGADETECTOR_CHECKPOINT_PATH.name
     if has_checkpoint(legacy_path):
-        return cache_checkpoint(MEGADETECTOR_CHECKPOINT_PATH, lambda path: shutil.copyfile(legacy_path, path))
+        return cache_checkpoint(
+            MEGADETECTOR_CHECKPOINT_PATH, lambda path: shutil.copyfile(legacy_path, path), operation="Checkpoint copy"
+        )
     return download_checkpoint_if_missing(MEGADETECTOR_URL, MEGADETECTOR_CHECKPOINT_PATH)

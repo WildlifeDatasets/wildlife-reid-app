@@ -53,11 +53,11 @@ class EmbeddingSchedulingTests(TestCase):
         self.assertEqual(prepare_scheduled_embeddings(self.workgroup.pk, first)["status"], "superseded")
         ObservationEmbeddingSchedule.objects.filter(workgroup=self.workgroup).update(eta=timezone.now())
         with patch(
-            "caidapp.embedding_runs.create_embedding_run", return_value=Mock(prepare_task_id="gpu-task")
+            "caidapp.identification_refresh.create_refresh", return_value=Mock(pk=42)
         ) as enqueue:
             ready = prepare_scheduled_embeddings(self.workgroup.pk, result["task_id"])
-            self.assertEqual(ready, {"status": "queued", "task_id": "gpu-task"})
-            enqueue.assert_called_once_with(self.workgroup.pk, trigger="automatic")
+            self.assertEqual(ready, {"status": "queued", "run_id": 42})
+            enqueue.assert_called_once_with(self.workgroup)
             self.assertEqual(prepare_scheduled_embeddings(self.workgroup.pk, result["task_id"])["status"], "superseded")
         self.assertIsNone(ObservationEmbeddingSchedule.objects.get(workgroup=self.workgroup).task_id)
 

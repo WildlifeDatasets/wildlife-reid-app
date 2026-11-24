@@ -31,10 +31,14 @@ class ModelCacheTest(unittest.TestCase):
 
     def test_repeated_loads_reuse_persisted_weights(self):
         """Download once and reuse the file on later calls with the same volume contents."""
-        self.assertEqual(self.download(), self.checkpoint)
+        with self.assertLogs("app", level="INFO") as logs:
+            self.assertEqual(self.download(), self.checkpoint)
+        self.assertIn("Model checkpoint download started", logs.output[0])
+        self.assertIn("Model checkpoint download completed in", logs.output[1])
         self.assertEqual(self.checkpoint.read_bytes(), b"abcdef")
         self.get.reset_mock()
-        self.assertEqual(self.download(), self.checkpoint)
+        with self.assertNoLogs("app", level="INFO"):
+            self.assertEqual(self.download(), self.checkpoint)
         self.get.assert_not_called()
         self.assertEqual(list(self.checkpoint.parent.iterdir()), [self.checkpoint])
 
@@ -68,8 +72,11 @@ class ModelCacheTest(unittest.TestCase):
             raise OSError("connection interrupted")
 
         self.response.iter_content.side_effect = interrupted_chunks
-        with self.assertRaisesRegex(OSError, "connection interrupted"):
-            self.download()
+        with self.assertLogs("app", level="INFO") as logs:
+            with self.assertRaisesRegex(OSError, "connection interrupted"):
+                self.download()
+        self.assertIn("Model checkpoint download started", logs.output[0])
+        self.assertIn("Model checkpoint download failed after", logs.output[1])
         self.assertFalse(self.checkpoint.exists())
         self.assertEqual(list(self.checkpoint.parent.iterdir()), [])
         self.response.iter_content.side_effect = None

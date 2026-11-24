@@ -16,7 +16,7 @@ import yaml
 from PIL import Image
 from scipy.special import softmax
 from tqdm import tqdm
-from wildlife_model_cache import WEIGHTS_DIR
+from wildlife_model_cache import WEIGHTS_DIR, log_model_operation
 
 from .config import WANDB_API_KEY, WANDB_ARTIFACT_PATH, WANDB_ARTIFACT_PATH_CROPPED
 from .dataset_tools import data_preprocessing
@@ -48,18 +48,21 @@ def get_model_config(is_cropped: bool = False) -> Tuple[dict, Path, dict]:
     ref_key = hashlib.sha256(artifact_ref.encode()).hexdigest()
     cache_dir = WEIGHTS_DIR / "wandb" / ref_key
     try:
-        artifact = wandb.Api(api_key=WANDB_API_KEY).artifact(artifact_ref)
+        with log_model_operation("W&B artifact lookup", artifact_ref):
+            artifact = wandb.Api(api_key=WANDB_API_KEY).artifact(artifact_ref)
         digest = hashlib.sha256(artifact.digest.encode()).hexdigest()
         model_dir = cache_dir / digest
         if not model_dir.is_dir():
             cache_dir.mkdir(parents=True, exist_ok=True)
             with tempfile.TemporaryDirectory(dir=cache_dir) as staging:
                 download_dir = Path(staging) / "artifact"
-                artifact.download(root=str(download_dir))
+                with log_model_operation("W&B artifact download", artifact_ref):
+                    artifact.download(root=str(download_dir))
                 with (download_dir / "config.yaml").open() as config_file:
                     artifact_config = yaml.safe_load(config_file)
                 try:
-                    config = artifact.logged_by().config
+                    with log_model_operation("W&B run configuration lookup", artifact_ref):
+                        config = artifact.logged_by().config
                 except Exception as exc:
                     logger.warning("Failed to get run config from W&B artifact: %s", exc)
                     config = {

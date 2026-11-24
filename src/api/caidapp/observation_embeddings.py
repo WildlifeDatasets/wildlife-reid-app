@@ -40,14 +40,18 @@ def embedding_generation(workgroup_id):
     )
 
 
-def backfill_observations(workgroup_id):
-    """Select valid image bbox inputs from finished uploads, regardless of labels."""
+def _workgroup_image_inputs(workgroup_id):
     return AnimalObservation.objects.filter(
-        HAS_BBOX,
+        is_no_detection_placeholder=False,
         mediafile__parent__owner__workgroup_id=workgroup_id,
         mediafile__parent__import_finished=True,
         mediafile__media_type="image",
     ).filter(Q(mediafile__image_file__gt="") | Q(mediafile__mediafile__gt=""))
+
+
+def backfill_observations(workgroup_id):
+    """Select valid image bbox inputs from finished uploads, regardless of labels."""
+    return _workgroup_image_inputs(workgroup_id).filter(HAS_BBOX)
 
 
 def _remove_feature_images(images):
@@ -86,6 +90,7 @@ def invalidate_observation_features(observations):
 def reset_workgroup_embeddings(workgroup_id):
     """Clear all feature profiles and cancel pending work from the old generation."""
     from .embedding_runs import TERMINAL, fail_run
+    from .identification_refresh import KIND
 
     WorkGroup.objects.select_for_update().get(pk=workgroup_id)
     schedule, _ = ObservationEmbeddingSchedule.objects.get_or_create(workgroup_id=workgroup_id)
@@ -93,6 +98,11 @@ def reset_workgroup_embeddings(workgroup_id):
     schedule.task_id = None
     schedule.eta = None
     schedule.save(update_fields=["generation", "task_id", "eta"])
+    WorkGroup.objects.filter(pk=workgroup_id).update(
+        identification_initialized_model=None,
+        identification_init_status="Not initiated",
+        identification_init_message="",
+    )
     run_ids = (
         TaskRun.objects.filter(workgroup_id=workgroup_id, kind="embedding")
         .exclude(status__in=TERMINAL)
@@ -100,22 +110,24 @@ def reset_workgroup_embeddings(workgroup_id):
     )
     for run_id in list(run_ids):
         fail_run(run_id, "Embeddings were reset. Start a new run to generate them again.")
+    for run in TaskRun.objects.filter(workgroup_id=workgroup_id, kind=KIND).exclude(status__in=TERMINAL):
+        for step in run.result["steps"].values():
+            if step["status"] in {"queued", "running"}:
+                step.update(status="skipped", message="Image features were reset.")
+        run.status = "failed"
+        run.message = "Image features were reset."
+        run.finished_at = timezone.now()
+        run.save(update_fields=["status", "message", "result", "finished_at", "updated_at"])
     scope = {"observation__mediafile__parent__owner__workgroup_id": workgroup_id}
     MediafilesForIdentification.objects.filter(provenance="reid", **scope).delete()
     return delete_embedding_rows(ObservationEmbedding.objects.filter(**scope))
 
 
 def _publish_preparation(workgroup_id, task_id, eta):
-    """Publish a timer after commit; release its reservation if the broker fails."""
-    try:
-        signature("caidapp.tasks.prepare_observation_embeddings", args=[workgroup_id, task_id]).apply_async(
-            task_id=task_id, eta=eta
-        )
-    except Exception:
-        ObservationEmbeddingSchedule.objects.filter(workgroup_id=workgroup_id, task_id=task_id).update(
-            task_id=None, eta=None
-        )
-        raise
+    """Publish a timer after commit, retaining it for recovery if the broker fails."""
+    signature("caidapp.tasks.prepare_observation_embeddings", args=[workgroup_id, task_id]).apply_async(
+        task_id=task_id, eta=eta
+    )
 
 
 def schedule_embeddings(workgroup_id, delay_minutes=None):
@@ -126,7 +138,7 @@ def schedule_embeddings(workgroup_id, delay_minutes=None):
         workgroup = WorkGroup.objects.select_for_update().filter(pk=workgroup_id).first()
         if workgroup is None or not workgroup.identification_model_id:
             return None
-        if not backfill_observations(workgroup_id).exists():
+        if not _workgroup_image_inputs(workgroup_id).exists():
             return None
         schedule, _ = ObservationEmbeddingSchedule.objects.get_or_create(workgroup=workgroup)
         pending = schedule.task_id
@@ -152,15 +164,20 @@ def prepare_scheduled_embeddings(workgroup_id, task_id):
             ObservationEmbeddingSchedule.objects.filter(workgroup_id=workgroup_id).update(task_id=next_id)
             transaction.on_commit(partial(_publish_preparation, workgroup_id, next_id, schedule.eta), robust=True)
             return {"status": "deferred", "task_id": next_id}
-        from .embedding_runs import create_embedding_run
+        from .identification_refresh import active_refresh, create_refresh
+        from .tasks import advance_identification_refresh
 
         # Reserve a durable run before consuming the timer, in the same transaction.
+        if active_refresh(workgroup_id):
+            return {"status": "waiting"}
         try:
-            run = create_embedding_run(workgroup_id, trigger="automatic")
+            run = create_refresh(workgroup)
         except ValidationError:
             run = None
         ObservationEmbeddingSchedule.objects.filter(workgroup_id=workgroup_id).update(task_id=None, eta=None)
-    return {"status": "queued" if run else "empty", "task_id": run.prepare_task_id if run else None}
+        if run:
+            transaction.on_commit(lambda: advance_identification_refresh.delay(run.pk), robust=True)
+    return {"status": "queued" if run else "empty", "run_id": run.pk if run else None}
 
 
 def fingerprint(specification):
@@ -428,4 +445,12 @@ def store_embeddings(output, manifest_path, run_id=None):
                 "Embedding results saved." if run.status == "succeeded" else "Some inputs were skipped or changed."
             )
             run.save()
+            if run.trigger == "backfill" and (counts.get("computed") or counts.get("cached")):
+                model_id = run.model_snapshot["model_id"]
+                WorkGroup.objects.filter(pk=workgroup_id, identification_model_id=model_id).update(
+                    identification_initialized_model_id=model_id,
+                    identification_init_at=run.finished_at,
+                    identification_init_status="Finished",
+                    identification_init_message=run.message,
+                )
     return {"stored": stored, "stale": stale, "profile_uuid": str(profile.uuid)}

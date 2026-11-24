@@ -6,15 +6,16 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
-from django.db.models import Q
+from django.db.models import Q, Value
 from django.http import FileResponse, Http404, HttpResponse, HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
-from . import embedding_runs, export_runs, models
+from . import embedding_runs, export_runs, identification_refresh, models, observation_comparisons
 from .observation_embeddings import reset_workgroup_embeddings
+from .services.identity_review import input_version
 
 STATUS_LABELS = {
     "preparing": "Preparing inputs",
@@ -41,27 +42,60 @@ def _runs_for(request):
     """Share runs with members of their owning workgroup only."""
     workgroup_id = request.user.caiduser.workgroup_id
     return models.TaskRun.objects.filter(
-        Q(kind="embedding", workgroup_id=workgroup_id) | Q(kind="export", requested_by=request.user.caiduser)
+        Q(
+            kind__in=("embedding", identification_refresh.KIND, *observation_comparisons.COMPARISON_LABELS),
+            workgroup_id=workgroup_id,
+        )
+        | Q(kind="export", requested_by=request.user.caiduser)
     )
 
 
 def _refresh(run):
     """Dispatch status checks without applying embedding lifecycle rules to exports."""
+    if run.kind in observation_comparisons.COMPARISON_LABELS:
+        return observation_comparisons.refresh(run)
+    if run.kind == identification_refresh.KIND:
+        return run
     return export_runs.refresh_export(run) if run.kind == "export" else embedding_runs.refresh_run(run)
 
 
-def _payload(run, include_items=False):
+def _payload(run, include_items=False, *, staff_links=False):
     """Add presentation labels and local URLs to the service's public payload."""
     payload = embedding_runs.serialize_run(run, include_items=include_items)
     payload.update(
         status_label=STATUS_LABELS.get(run.status, run.status),
         is_terminal=run.status in TERMINAL_STATUSES,
-        operation_label="Embeddings",
+        operation_label="Calculate missing image features" if run.trigger == "backfill" else "Embeddings",
         detail_url=reverse("caidapp:task_detail", kwargs={"run_uuid": run.uuid}),
         status_url=reverse("caidapp:task_status", kwargs={"run_uuid": run.uuid}),
         result_url=reverse("caidapp:task_result", kwargs={"run_uuid": run.uuid}),
     )
     result = payload.get("result") or {}
+    if run.kind == identification_refresh.KIND:
+        steps = []
+        for key, label in identification_refresh.STEPS.items():
+            entry = result["steps"][key]
+            detail_url = ""
+            if include_items and entry.get("record_id") and (staff_links or key not in {"outliers", "merges"}):
+                detail_url = _refresh_step_url(key, entry["record_id"], run.workgroup_id)
+            status = entry["status"]
+            steps.append({
+                "key": key, "label": label, "status_label": STATUS_LABELS.get(status, status.capitalize()),
+                "message": entry.get("message", ""), "detail_url": detail_url,
+            })
+        payload.update(
+            operation_label="Refresh identification suggestions", scope_label="Workgroup",
+            steps=steps, result_summary="", result={},
+        )
+        return payload
+    if run.kind in observation_comparisons.COMPARISON_LABELS:
+        payload.update(
+            operation_label=observation_comparisons.COMPARISON_LABELS[run.kind],
+            scope_label="Workgroup",
+            result_summary=run.message,
+            result={},
+        )
+        return payload
     if run.kind == "export":
         artifact = run.artifact
         try:
@@ -121,6 +155,20 @@ def _payload(run, include_items=False):
         else []
     )
     return payload
+
+
+def _refresh_step_url(step, record_id, workgroup_id):
+    if step in {"features", "unknown"}:
+        uuid = models.TaskRun.objects.filter(pk=record_id, workgroup_id=workgroup_id).values_list("uuid", flat=True).first()
+        return reverse("caidapp:task_detail", args=[uuid]) if uuid else ""
+    if step == "identify":
+        return reverse("caidapp:not_identified_mediafiles")
+    # The standalone analysis pages still enforce staff access.
+    route = {
+        "outliers": "caidapp:identification_outlier_suggestions_result",
+        "merges": "caidapp:similar_identity_pairs_result",
+    }[step]
+    return reverse(route, args=[record_id])
 
 
 @login_required
@@ -189,7 +237,14 @@ def manage_workgroup_embeddings(request):
     if not caiduser.workgroup_id or not caiduser.workgroup_admin:
         return HttpResponseForbidden()
     action = request.POST.get("action")
-    if action == "backfill":
+    if action == "refresh":
+        try:
+            run = identification_refresh.request_refresh(caiduser.workgroup_id, caiduser)
+        except ValidationError as exc:
+            messages.error(request, exc.message)
+        else:
+            return redirect("caidapp:task_detail", run_uuid=run.uuid)
+    elif action == "backfill":
         try:
             run = embedding_runs.create_embedding_run(
                 caiduser.workgroup_id, requested_by=caiduser, trigger="backfill"
@@ -210,7 +265,7 @@ def manage_workgroup_embeddings(request):
 @require_GET
 def task_list(request):
     """List recent workgroup jobs alongside the existing automatic debounce timer."""
-    runs = _runs_for(request).order_by("-created_at")
+    runs = _runs_for(request)
     state = request.GET.get("state", "all")
     if state == "active":
         runs = runs.exclude(status__in=TERMINAL_STATUSES)
@@ -218,8 +273,40 @@ def task_list(request):
         runs = runs.filter(status__in=TERMINAL_STATUSES)
     elif state == "downloads":
         runs = runs.filter(kind="export")
-    page = Paginator(runs, 25).get_page(request.GET.get("page"))
-    payloads = [_payload(_refresh(run)) for run in page]
+    sources = {"task": runs}
+    group_id = request.user.caiduser.workgroup_id
+    if group_id and state != "downloads":
+        sources["identification"] = models.IdentificationRunStatistic.objects.filter(workgroup_id=group_id)
+        if request.user.is_staff:
+            sources["outliers"] = models.IdentificationOutlierSuggestionResult.objects.filter(workgroup_id=group_id)
+            sources["similar"] = models.IdentificationSimilarPairResult.objects.filter(workgroup_id=group_id)
+    projections = []
+    for kind, queryset in sources.items():
+        active = {
+            "identification": Q(finished_at__isnull=True),
+            "outliers": Q(status__in=["pending", "processing"]),
+            "similar": Q(status="processing") | Q(pixel_status="processing"),
+        }.get(kind)
+        if active is not None and state in {"active", "history"}:
+            queryset = queryset.filter(active if state == "active" else ~active)
+        projections.append(queryset.order_by().annotate(task_type=Value(kind)).values_list(
+            "pk", "created_at", "task_type"
+        ))
+
+    index = projections[0].union(*projections[1:], all=True) if len(projections) > 1 else projections[0]
+    page = Paginator(index.order_by("-created_at", "task_type", "-pk"), 25).get_page(request.GET.get("page"))
+    page_rows = list(page)
+    records = {kind: queryset.in_bulk([pk for pk, _, source in page_rows if source == kind])
+               for kind, queryset in sources.items()}
+    payloads = []
+    for pk, _, kind in page_rows:
+        run = records[kind].get(pk)
+        if run is None:
+            continue
+        if kind == "task":
+            payloads.append(_payload(_refresh(run)))
+        else:
+            payloads.append(_identification_task_payload(kind, run))
     schedule = models.ObservationEmbeddingSchedule.objects.filter(
         workgroup_id=request.user.caiduser.workgroup_id, task_id__isnull=False
     ).first()
@@ -228,12 +315,69 @@ def task_list(request):
     )
 
 
+def _identification_task_payload(kind, run):
+    """Link each identification job to its existing workgroup review page."""
+    if kind == "identification":
+        status = "running" if run.finished_at is None else ("succeeded" if run.status == "finished" else "failed")
+        return {
+            "operation_label": run.get_operation_display(),
+            "scope_label": f"{run.image_number} images, {run.video_number} videos",
+            "created_at": run.created_at,
+            "status_label": STATUS_LABELS[status],
+            "detail_url": reverse("caidapp:dash_identities"),
+        }
+    label, route = {
+        "outliers": ("Identification outliers", "caidapp:identification_outlier_suggestions_result"),
+        "similar": ("Identity merge suggestions", "caidapp:similar_identity_pairs_result"),
+    }[kind]
+    active = run.status in {"pending", "processing"} or getattr(run, "pixel_status", "") == "processing"
+    status = "running" if active else ("succeeded" if run.status == "done" else "failed")
+    return {
+        "operation_label": label,
+        "scope_label": "Workgroup",
+        "created_at": run.created_at,
+        "status_label": STATUS_LABELS[status],
+        "detail_url": reverse(route, args=[run.pk]),
+        "result_summary": run.message if status == "succeeded" else "",
+    }
+
+
 @login_required
 @require_GET
 def task_detail(request, run_uuid):
     """Render the durable result, independently of the browser that started it."""
     run = _refresh(get_object_or_404(_runs_for(request), uuid=run_uuid))
-    payload = _payload(run, include_items=True)
+    payload = _payload(run, include_items=True, staff_links=request.user.is_staff)
+    if run.kind in observation_comparisons.COMPARISON_LABELS:
+        from .views import _identification_bbox, user_can_manage_identification
+
+        rows = run.result.get("rows", [])
+        if run.kind == "review_known":
+            rows = sorted(rows, key=_comparison_margin, reverse=True)
+        page = Paginator(rows, 25).get_page(request.GET.get("page"))
+        saved = [item for row in page for item in [row["query"], *row["candidates"]]]
+        live = models.AnimalObservation.objects.filter(
+            mediafile__parent__owner__workgroup_id=run.workgroup_id,
+            is_no_detection_placeholder=False,
+        ).select_related("mediafile", "identity").in_bulk({item["id"] for item in saved})
+        assigned = run.result.get("assigned", {})
+        for item in saved:
+            observation = live.get(item["id"])
+            if observation is not None:
+                item["media"] = observation.mediafile
+                item["bbox"] = _identification_bbox(observation, observation.mediafile)
+                item["current_identity"] = str(observation.identity) if observation.identity_id else ""
+                expected = assigned.get(str(item["id"]), item)["version"]
+                item["is_current"] = input_version(observation, observation.mediafile) == expected
+        for row in page:
+            query_id = assigned.get(str(row["query"]["id"]), {}).get("assigned_identity_id")
+            for candidate in row["candidates"]:
+                candidate_id = assigned.get(str(candidate["id"]), {}).get("assigned_identity_id")
+                candidate["grouped"] = query_id is not None and query_id == candidate_id
+        return render(request, "caidapp/observation_comparison.html", {
+            "run": payload, "page_obj": page,
+            "can_group": run.kind == "compare_unknown" and user_can_manage_identification(request.user),
+        })
     return render(
         request,
         "caidapp/task_detail.html",
@@ -246,7 +390,51 @@ def task_detail(request, run_uuid):
 def task_status(request, run_uuid):
     """Expose state and item outcomes only through authorized public run UUIDs."""
     run = _refresh(get_object_or_404(_runs_for(request), uuid=run_uuid))
-    return JsonResponse(_payload(run, include_items=True))
+    return JsonResponse(_payload(run, include_items=True, staff_links=request.user.is_staff))
+
+
+def _comparison_margin(row):
+    scores = {candidate["role"]: candidate["score"] for candidate in row["candidates"]}
+    return scores["other"] - scores["own"] if {"own", "other"}.issubset(scores) else float("-inf")
+
+
+@login_required
+@require_POST
+def start_observation_comparison(request):
+    from .views import user_can_manage_identification
+
+    if not user_can_manage_identification(request.user):
+        return HttpResponseForbidden()
+    user = request.user.caiduser
+    try:
+        run = observation_comparisons.start(
+            user.workgroup, user, request.POST.get("mode"),
+            include_non_representative=request.POST.get("gallery") == "all_identified",
+        )
+    except ValidationError as exc:
+        messages.error(request, exc.message)
+        return redirect("caidapp:pre_identify")
+    return redirect("caidapp:task_detail", run_uuid=run.uuid)
+
+
+@login_required
+@require_POST
+def group_observation_pair(request, run_uuid):
+    from .views import user_can_manage_identification
+
+    if not user_can_manage_identification(request.user):
+        return HttpResponseForbidden()
+    run = get_object_or_404(_runs_for(request), uuid=run_uuid, kind="compare_unknown", status="succeeded")
+    try:
+        identity = observation_comparisons.group_pair(
+            run, int(request.POST.get("query_id", "")), int(request.POST.get("candidate_id", "")),
+            request.user.caiduser,
+        )
+    except (ValidationError, ValueError) as exc:
+        messages.warning(request, exc.message if isinstance(exc, ValidationError) else "Select a valid pair.")
+    else:
+        messages.success(request, f"Pair assigned to {identity.name}.")
+    return redirect("caidapp:task_detail", run_uuid=run.uuid)
 
 
 @login_required

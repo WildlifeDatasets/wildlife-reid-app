@@ -99,6 +99,9 @@
             <i class="bi bi-book"></i>
         </a>
         {% if user.is_authenticated %}
+            <a class="nav-link text-light" href="{% url 'caidapp:task_list' %}" title="Tasks" aria-label="Tasks">
+                <i class="bi bi-list-task" aria-hidden="true"></i>
+            </a>
             <a class="nav-link text-light position-relative"
                href="{% url 'caidapp:notifications' %}"
                title="Notifications"
@@ -229,9 +232,6 @@
                 <li class="nav-item">
                     <a class="nav-link" href="{% url 'caidapp:observations' %}">
                         <i class="bi bi-bounding-box"></i> <span>Observations</span>
-                    </a>
-                    <a class="nav-link" href="{% url 'caidapp:task_list' %}">
-                        <i class="bi bi-list-task"></i> <span>Tasks</span>
                     </a>
                 </li>
                 <li class="nav-item">

@@ -92,22 +92,25 @@ def validated_local_features(row, submitted):
     return {"local_features": local, "feature_image": image.as_posix()}
 
 
-def reference_observations(workgroup):
-    """Select the current labeled representatives in the workgroup."""
+def reference_observations(workgroup, *, include_non_representative=False):
+    """Select the current labeled image references in the workgroup."""
     references = AnimalObservation.objects.filter(
         mediafile__parent__owner__workgroup=workgroup,
         mediafile__parent__import_finished=True,
         mediafile__media_type="image",
         identity__owner_workgroup=workgroup,
-        identity_is_representative=True,
         is_no_detection_placeholder=False,
     )
+    if not include_non_representative:
+        references = references.filter(identity_is_representative=True)
     if workgroup.check_taxon_before_identification and workgroup.default_taxon_for_identification_id:
         references = references.filter(taxon_id=workgroup.default_taxon_for_identification_id)
     return references
 
 
-def prepare_identification(organization_id, metadata_path, model, operation, generation=None):
+def prepare_identification(
+    organization_id, metadata_path, model, operation, generation=None, *, include_non_representative=False
+):
     """Build versioned inputs from the submitted queries and Django's reference selection."""
     workgroup = WorkGroup.objects.get(pk=organization_id)
     current_generation = embedding_generation(organization_id)
@@ -122,17 +125,24 @@ def prepare_identification(organization_id, metadata_path, model, operation, gen
         mediafile__media_type="image",
         is_no_detection_placeholder=False,
     )
-    if operation == "identify":
+    if operation == "compare_unknown":
+        query_ids = reference_ids = ids
+        observations = observations.filter(identity__isnull=True)
+    elif operation in {"identify", "review_known"}:
         query_ids = ids
-        reference_ids = list(reference_observations(workgroup).order_by("pk").values_list("pk", flat=True))
-        observations = observations.filter(identity__isnull=True) | reference_observations(workgroup)
+        references = reference_observations(workgroup, include_non_representative=include_non_representative)
+        reference_ids = list(references.order_by("pk").values_list("pk", flat=True))
+        if operation == "identify":
+            observations = observations.filter(identity__isnull=True) | references
+        else:
+            observations = observations.filter(identity__owner_workgroup=workgroup) | references
     else:
         query_ids = []
         reference_ids = ids
         observations = observations.filter(identity__owner_workgroup=workgroup)
         if operation == "init":
             observations = observations.filter(identity_is_representative=True)
-    if not reference_ids or (operation == "identify" and not query_ids):
+    if not reference_ids or (operation in {"identify", "compare_unknown", "review_known"} and not query_ids):
         raise ValidationError("Identification needs eligible image observations and labeled references.")
     by_id = {row.pk: row for row in observations.select_related("mediafile")}
     if set(query_ids + reference_ids) - by_id.keys():
@@ -146,6 +156,7 @@ def prepare_identification(organization_id, metadata_path, model, operation, gen
         "query_ids": query_ids,
         "reference_ids": reference_ids,
         "operation": operation,
+        "include_non_representative": include_non_representative,
     }
     prepare_feature_manifest(manifest)
     directory = Path(metadata_path).parent / f"features-{uuid.uuid4().hex}"
@@ -161,7 +172,9 @@ def export_match_inputs(manifest_path, profile_uuid):
     manifest = json.loads(path.read_text(encoding="utf-8"))
     inputs = {row["observation_id"]: row for row in manifest["observations"]}
     reference_ids = set(manifest["reference_ids"])
-    only_representatives = manifest["operation"] == "identify"
+    query_ids = set(manifest["query_ids"])
+    operation = manifest["operation"]
+    only_representatives = operation in {"identify", "review_known"} and not manifest.get("include_non_representative")
     workgroup_id = manifest["workgroup_id"]
     selected = ObservationEmbedding.objects.filter(
         profile__uuid=profile_uuid,
@@ -169,6 +182,9 @@ def export_match_inputs(manifest_path, profile_uuid):
         observation__mediafile__parent__owner__workgroup_id=workgroup_id,
         local_features__isnull=False,
     ).select_related("observation__identity", "observation__mediafile__sequence").order_by("observation_id")
+    global_only = operation in {"compare_unknown", "review_known"}
+    if global_only:
+        selected = selected.defer("local_features")
     exported = set()
     query_metadata = []
     with (
@@ -182,14 +198,14 @@ def export_match_inputs(manifest_path, profile_uuid):
             observation = feature.observation
             mediafile = observation.mediafile
             ref = pk in reference_ids
+            expects_identity = operation != "compare_unknown" and (ref or operation == "review_known")
             if (
                 observation.is_no_detection_placeholder
-                or (ref and (
-                    (only_representatives and not observation.identity_is_representative)
-                    or observation.identity_id is None
-                    or observation.identity.owner_workgroup_id != workgroup_id
+                or (only_representatives and ref and not observation.identity_is_representative)
+                or (expects_identity and observation.identity_id is None)
+                or (observation.identity_id is not None and (
+                    not expects_identity or observation.identity.owner_workgroup_id != workgroup_id
                 ))
-                or (not ref and observation.identity_id is not None)
             ):
                 raise ValidationError("An observation changed during identification preparation. Start a new run.")
             row = {
@@ -202,9 +218,12 @@ def export_match_inputs(manifest_path, profile_uuid):
                 "sequence_number": mediafile.sequence.local_id if mediafile.sequence_id else -1,
                 "review_version": input_version(observation, mediafile),
             }
-            stream = references if ref else queries
-            stream.write(json.dumps({**row, "embedding": [feature.vector, feature.local_features]}, allow_nan=False) + "\n")
-            if not ref:
+            local = None if global_only else feature.local_features
+            line = json.dumps({**row, "embedding": [feature.vector, local]}, allow_nan=False) + "\n"
+            if ref:
+                references.write(line)
+            if pk in query_ids:
+                queries.write(line)
                 query_metadata.append(row)
             exported.add(pk)
     if exported != inputs.keys():

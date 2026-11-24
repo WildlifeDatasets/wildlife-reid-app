@@ -141,7 +141,7 @@ class EmbeddingRunServiceTests(ObservationEmbeddingTests):
         ObservationEmbeddingSchedule.objects.update_or_create(
             workgroup=self.workgroup, defaults={"task_id": "timer", "eta": timezone.now() - timedelta(seconds=1)}
         )
-        with patch("caidapp.embedding_runs.create_embedding_run", side_effect=RuntimeError("unexpected")):
+        with patch("caidapp.identification_refresh.create_refresh", side_effect=RuntimeError("unexpected")):
             with self.assertRaises(RuntimeError):
                 prepare_scheduled_embeddings(self.workgroup.pk, "timer")
         self.assertEqual(ObservationEmbeddingSchedule.objects.get(workgroup=self.workgroup).task_id, "timer")

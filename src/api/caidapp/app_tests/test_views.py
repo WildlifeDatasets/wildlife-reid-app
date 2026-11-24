@@ -4960,7 +4960,7 @@ class IdentificationRerunTest(TestCase):
         scheduled = tasks.schedule_init_identification_after_representative_upload(archive)
 
         self.assertTrue(scheduled)
-        schedule_mock.assert_called_once_with(self.workgroup)
+        schedule_mock.assert_called_once_with(self.workgroup, delay_minutes=0)
 
     @patch("caidapp.tasks.schedule_init_identification_for_workgroup")
     def test_unfinished_representative_upload_does_not_schedule_identification_init(self, schedule_mock):
@@ -4983,19 +4983,13 @@ class IdentificationRerunTest(TestCase):
         schedule_mock.assert_not_called()
 
     @patch("caidapp.tasks.schedule_reid_identification_for_workgroup")
-    @patch("caidapp.tasks.init_identification.apply_async")
-    def test_schedule_init_identification_does_not_pre_schedule_reid(self, apply_async_mock, schedule_reid_mock):
-        """Schedule initialization alone without queuing identification before it completes."""
-        task = Mock()
-        task.id = "init-task-1"
-        apply_async_mock.return_value = task
-
+    @patch("caidapp.observation_embeddings.schedule_embeddings")
+    def test_schedule_init_identification_uses_shared_timer(self, schedule_mock, schedule_reid_mock):
+        """Route old initialization triggers through the refresh scheduler."""
         tasks.schedule_init_identification_for_workgroup(self.workgroup, delay_minutes=0)
 
         schedule_reid_mock.assert_not_called()
-        self.workgroup.refresh_from_db()
-        self.assertEqual(self.workgroup.identification_scheduled_init_task_id, "init-task-1")
-        self.assertEqual(self.workgroup.identification_init_status, "Scheduled")
+        schedule_mock.assert_called_once_with(self.workgroup.pk, delay_minutes=0)
 
     @patch("caidapp.tasks.schedule_reid_identification_for_workgroup")
     def test_failed_init_identification_does_not_schedule_reid(self, schedule_reid_mock):
@@ -5675,9 +5669,9 @@ class IdentificationRerunTest(TestCase):
         self.assertIsNone(self.workgroup.identification_scheduled_run_task_id)
         self.assertIn("Waiting for initialization", self.workgroup.identification_reid_message)
 
-    @patch("caidapp.tasks.schedule_init_identification_for_workgroup")
-    def test_changing_workgroup_model_schedules_initialization_after_commit(self, schedule_init_mock):
-        """Schedule initialization after committing a change to the workgroup's selected model."""
+    @patch("caidapp.observation_embedding_signals.schedule_embeddings")
+    def test_changing_workgroup_model_schedules_refresh_after_commit(self, schedule_mock):
+        """Schedule the refresh after committing a change to the workgroup's selected model."""
         new_model = models.IdentificationModel.objects.create(
             name="New model",
             public=True,
@@ -5703,7 +5697,7 @@ class IdentificationRerunTest(TestCase):
         self.assertEqual(response.status_code, 302)
         self.workgroup.refresh_from_db()
         self.assertEqual(self.workgroup.identification_model, new_model)
-        schedule_init_mock.assert_called_once()
+        schedule_mock.assert_called_once_with(self.workgroup.pk)
 
     @patch("caidapp.views.current_app.control.revoke")
     def test_stop_init_identification_revokes_running_init_task(self, revoke_mock):

@@ -1760,7 +1760,11 @@ def get_individual_identity_zoomed(request, foridentification_id: int, reid_sugg
 def _identification_queue(workgroup):
     """Order pending reviews by their strongest suggestion, with unscored items last."""
     return (
-        MediafilesForIdentification.objects.filter(observation__mediafile__parent__owner__workgroup=workgroup)
+        MediafilesForIdentification.objects.filter(
+            observation__mediafile__parent__owner__workgroup=workgroup,
+            observation__identity__isnull=True,
+            observation__is_no_detection_placeholder=False,
+        )
         .annotate(max_score=Max("top_mediafiles__score"))
         .order_by(F("max_score").desc(nulls_last=True), "pk")
     )
@@ -1925,7 +1929,9 @@ def get_individual_identity_from_foridentification(
 ):
     """Review saved identification suggestions for a queue item or a selected observation."""
     member = request.user.caiduser
-    items = _review_items(request).select_related("observation__mediafile__parent")
+    items = _review_items(request).filter(observation__identity__isnull=True).select_related(
+        "observation__mediafile__parent"
+    )
     direct = observation_uuid is not None
     observation = None
     return_url = ""
@@ -1996,7 +2002,7 @@ def get_individual_identity_from_foridentification(
             .order_by("name")
         )
         queue = _identification_queue(member.workgroup).filter(pk__in=items.values("pk"))
-        queue_count = items.count()
+        queue_count = queue.count()
         current_score = item.top_mediafiles.aggregate(max_score=Max("score"))["max_score"] or 0.0
         next_item = (
             queue.exclude(pk=item.pk)
@@ -2649,7 +2655,8 @@ def run_identification_on_unidentified(request):
     if workgroup.identification_scheduled_run_task_id:
         current_app.control.revoke(workgroup.identification_scheduled_run_task_id, terminate=True)
 
-    tasks.run_identification_on_unidentified_for_workgroup(workgroup.id, request=request)
+    options = {"include_non_representative": True} if request.POST.get("gallery") == "all_identified" else {}
+    tasks.run_identification_on_unidentified_for_workgroup(workgroup.id, request=request, **options)
     return redirect(request.META.get("HTTP_REFERER", "/"))
 
 
@@ -2681,7 +2688,9 @@ def run_identification_bulk(
     workgroup: models.WorkGroup,
     uploaded_archives=None,
     selection: dict | None = None,
-) -> bool:
+    *,
+    defer_submission=False,
+) -> bool | models.IdentificationRunStatistic:
     """Run one identification job for all eligible uploads in the workgroup."""
     if not workgroup.identification_model_is_initialized():
         logger.warning(
@@ -2713,6 +2722,8 @@ def run_identification_bulk(
         mediafiles, observation_taxon=observation_taxon, unidentified_only=True
     )
     df = pd.DataFrame(csv_data)
+    if "observation_ids" in selection:
+        df = df[df["observation_id"].isin(list(selection["observation_ids"]))]
     if df.shape[0] == 0:
         logger.warning("No records found for bulk identification in workgroup %s.", workgroup.id)
         return False
@@ -2748,10 +2759,12 @@ def run_identification_bulk(
         workgroup.save()
 
     generation = embedding_generation(workgroup.pk)
+    reference_options = {"include_non_representative": True} if selection.get("include_non_representative") else {}
     identify_signature = tasks.identification_feature_job(
-        workgroup, initialized_model, identity_metadata_file, "identify", output_json_file, generation=generation
+        workgroup, initialized_model, identity_metadata_file, "identify", output_json_file, generation=generation,
+        **reference_options,
     )
-    identify_task = identify_signature.apply_async(
+    callbacks = dict(
         link=tasks.identify_bulk_on_success.s(
             workgroup_id=workgroup.id,
             uploaded_archive_ids=uploaded_archive_ids,
@@ -2759,6 +2772,7 @@ def run_identification_bulk(
             input_metadata_file=str(identity_metadata_file),
             model_version=model_version(initialized_model),
             embedding_generation=generation,
+            **reference_options,
         ),
         link_error=tasks.identify_bulk_on_error.s(
             workgroup_id=workgroup.id,
@@ -2766,14 +2780,30 @@ def run_identification_bulk(
             statistic_id=statistic.id,
         ),
     )
-    statistic.task_id = identify_task.id
+    if defer_submission:
+        statistic.task_id = str(uuid.uuid4())
+
+        def publish():
+            try:
+                identify_signature.apply_async(task_id=statistic.task_id, **callbacks)
+            except Exception:
+                logger.exception("Could not submit identification run %s.", statistic.pk)
+                tasks.finish_identification_run_statistic(statistic.pk, "failed", statistic.task_id)
+                tasks.identify_bulk_on_error(
+                    statistic.task_id, workgroup_id=workgroup.pk,
+                    uploaded_archive_ids=uploaded_archive_ids, statistic_id=statistic.pk,
+                )
+
+        transaction.on_commit(publish)
+    else:
+        statistic.task_id = identify_signature.apply_async(**callbacks).id
     statistic.save(update_fields=["task_id"])
     workgroup.identification_reid_status = "Processing"
     workgroup.identification_reid_at = django.utils.timezone.now()
     workgroup.identification_reid_message = (
         f"Running identification for {len(uploaded_archive_ids)} uploads and {df.shape[0]} media files."
     )
-    workgroup.identification_scheduled_run_task_id = identify_task.id
+    workgroup.identification_scheduled_run_task_id = statistic.task_id
     workgroup.identification_scheduled_run_eta = None
     workgroup.save(
         update_fields=[
@@ -2784,8 +2814,7 @@ def run_identification_bulk(
             "identification_scheduled_run_eta",
         ]
     )
-    logger.debug(f"{identify_task=}")
-    return True
+    return statistic if defer_submission else True
 
 
 def run_identification(
@@ -6290,15 +6319,9 @@ class WorkgroupUpdateView(WorkgroupAdminRequiredMixin, UpdateView):
         identification_model_changed = "identification_model" in form.changed_data
         response = super().form_valid(form)
         if identification_model_changed:
-            transaction.on_commit(
-                lambda: tasks.schedule_init_identification_for_workgroup(
-                    models.WorkGroup.objects.get(pk=self.object.pk)
-                )
-            )
             messages.info(
                 self.request,
-                "The identification model changed. Embedding generation and a new identification "
-                "initialization have been scheduled. Previous results remain historical.",
+                "The identification model changed. An identification refresh has been scheduled.",
             )
         return response
 
@@ -8508,7 +8531,7 @@ def identification_outlier_suggestions_view(request, result_id: int = None):
             button_label="Start detection",
         )
 
-    def _mediafile_card_data(mediafile: MediaFile | None) -> dict | None:
+    def _mediafile_card_data(mediafile: MediaFile | None, observation=None) -> dict | None:
         if mediafile is None:
             return None
         raw_name = str(mediafile.original_filename or mediafile.mediafile or mediafile.id)
@@ -8523,8 +8546,14 @@ def identification_outlier_suggestions_view(request, result_id: int = None):
             "display_name": short_name,
             "full_name": raw_name,
             "tooltip_text": "\n".join(tooltip_parts),
+            "bbox": _identification_bbox(observation, mediafile) if observation else None,
         }
 
+    group_media = MediaFile.objects.filter(parent__owner__workgroup=workgroup)
+    group_observations = models.AnimalObservation.objects.filter(
+        mediafile__in=group_media, is_no_detection_placeholder=False
+    ).select_related("mediafile")
+    group_identities = IndividualIdentity.objects.filter(owner_workgroup=workgroup)
     suggestion_cards = []
     for raw_item in result.suggestions or []:
         suspicious_mediafile = None
@@ -8535,18 +8564,27 @@ def identification_outlier_suggestions_view(request, result_id: int = None):
         current_identity_id = raw_item.get("current_identity_id")
 
         if suspicious_mediafile_id:
-            suspicious_mediafile = MediaFile.objects.filter(id=suspicious_mediafile_id).first()
+            suspicious_mediafile = group_media.filter(pk=suspicious_mediafile_id).first()
+        observation = None
+        if suspicious_mediafile and raw_item.get("observation_id"):
+            observation = group_observations.filter(
+                pk=raw_item["observation_id"], mediafile=suspicious_mediafile
+            ).first()
         if current_identity_id:
-            current_identity = IndividualIdentity.objects.filter(id=current_identity_id).first()
+            current_identity = group_identities.filter(pk=current_identity_id).first()
         elif suspicious_mediafile:
             current_identity = suspicious_mediafile.identity_from_observations
 
         for raw_candidate in raw_item.get("suggestions", []):
-            candidate_mediafile = MediaFile.objects.filter(id=raw_candidate.get("mediafile_id")).first()
+            candidate_mediafile = group_media.filter(pk=raw_candidate.get("mediafile_id")).first()
+            reference = group_observations.filter(
+                pk=raw_candidate.get("observation_id"), mediafile=candidate_mediafile,
+                identity_id=raw_candidate.get("identity_id"),
+            ).first() if raw_candidate.get("observation_id") else None
             candidate_cards.append(
                 {
-                    "identity": IndividualIdentity.objects.filter(id=raw_candidate.get("identity_id")).first(),
-                    "mediafile": _mediafile_card_data(candidate_mediafile),
+                    "identity": group_identities.filter(pk=raw_candidate.get("identity_id")).first(),
+                    "mediafile": _mediafile_card_data(candidate_mediafile, reference),
                     "score": raw_candidate.get("score"),
                     "reason": raw_candidate.get("reason", ""),
                 }
@@ -8554,16 +8592,24 @@ def identification_outlier_suggestions_view(request, result_id: int = None):
 
         suggestion_cards.append(
             {
-                "suspicious_mediafile": _mediafile_card_data(suspicious_mediafile),
+                "suspicious_mediafile": _mediafile_card_data(suspicious_mediafile, observation),
+                "observation": observation,
+                "can_accept": (
+                    observation is not None
+                    and raw_item.get("input_version") == input_version(observation, suspicious_mediafile)
+                ) if raw_item.get("observation_id") else (
+                    suspicious_mediafile is not None and suspicious_mediafile.observations.count() == 1
+                ),
                 "current_identity": current_identity,
                 "reason": raw_item.get("reason", ""),
                 "candidates": candidate_cards,
             }
         )
 
-    csv_url = workgroup.file_url("identification_outliers.csv")
-    extended_csv_path = workgroup.file_path("identification_outliers_extended.csv")
-    extended_csv_url = workgroup.file_url("identification_outliers_extended.csv")
+    csv_name = f"identification_outliers_{result.pk}"
+    csv_url = workgroup.file_url(f"{csv_name}.csv") if workgroup.file_path(f"{csv_name}.csv").is_file() else ""
+    extended_csv_path = workgroup.file_path(f"{csv_name}_extended.csv")
+    extended_csv_url = workgroup.file_url(f"{csv_name}_extended.csv") if extended_csv_path.is_file() else ""
     logger.debug(f"{csv_url=}")
 
     similarity_plot_html = None
@@ -8670,52 +8716,69 @@ def identification_outlier_suggestions_view(request, result_id: int = None):
 
 
 @login_required
+@require_POST
+@transaction.atomic
 def accept_identification_outlier_suggestion_view(request):
-    """Accept one suggested identity for a suspicious media file."""
-    if request.method != "POST":
-        raise PermissionDenied
-
+    """Accept a saved suggestion for one unchanged observation."""
     if not request.user.is_staff:
         raise PermissionDenied
 
-    suspicious_mediafile_id = request.POST.get("suspicious_mediafile_id")
-    suggested_identity_id = request.POST.get("suggested_identity_id")
-    result_id = request.POST.get("result_id")
-    next_url = request.POST.get("next") or reverse_lazy("caidapp:identification_outlier_suggestions")
-
-    suspicious_mediafile = get_object_or_404(MediaFile, id=suspicious_mediafile_id)
-    suggested_identity = get_object_or_404(IndividualIdentity, id=suggested_identity_id)
-
-    if suspicious_mediafile.parent.owner.workgroup != request.user.caiduser.workgroup:
-        return HttpResponseNotAllowed("Not allowed to work with this media file.")
-    if suggested_identity.owner_workgroup != request.user.caiduser.workgroup:
-        return HttpResponseNotAllowed("Not allowed to use this identity.")
-
-    observations = list(suspicious_mediafile.observations.order_by("id")[:2])
-    if len(observations) != 1:
-        messages.warning(
-            request,
-            "Identity was not changed because this media file does not have exactly one observation.",
-        )
+    workgroup_id = request.user.caiduser.workgroup_id
+    if not workgroup_id:
+        raise PermissionDenied
+    result = get_object_or_404(
+        models.IdentificationOutlierSuggestionResult.objects.select_for_update(),
+        workgroup_id=workgroup_id, status="done",
+        pk=_parse_int_query_param_or_404(request.POST.get("result_id"), "result"),
+    )
+    next_url = _review_return_url(request, request.POST.get("next")) or reverse(
+        "caidapp:identification_outlier_suggestions_result", args=[result.pk]
+    )
+    observation_id = _parse_int_query_param_or_404(request.POST.get("observation_id"), "observation")
+    mediafile_id = _parse_int_query_param_or_404(request.POST.get("suspicious_mediafile_id"), "media file")
+    suggested_identity_id = _parse_int_query_param_or_404(request.POST.get("suggested_identity_id"), "identity")
+    matching = [
+        (index, item)
+        for index, item in enumerate(result.suggestions or [])
+        if ((observation_id and item.get("observation_id") == observation_id)
+            or (not observation_id and not item.get("observation_id")
+                and item.get("suspicious_mediafile_id") == mediafile_id))
+        and any(candidate.get("identity_id") == suggested_identity_id for candidate in item.get("suggestions", []))
+    ]
+    if len(matching) != 1:
+        messages.warning(request, "This outlier suggestion is no longer available.")
         return redirect(next_url)
-    observation = observations[0]
+    index, suggestion = matching[0]
+    suspicious_mediafile = get_object_or_404(
+        MediaFile.objects.select_for_update(of=("self",)),
+        pk=suggestion.get("suspicious_mediafile_id"), parent__owner__workgroup_id=workgroup_id,
+    )
+    observations = suspicious_mediafile.observations.select_for_update().order_by("pk")
+    if observation_id:
+        observations = observations.filter(pk=observation_id)
+    matches = list(observations[:2])
+    if len(matches) != 1:
+        messages.warning(request, "This suggestion no longer identifies a single observation.")
+        return redirect(next_url)
+    observation = matches[0]
+    expected_version = suggestion.get("input_version")
+    if (
+        observation.is_no_detection_placeholder
+        or observation.identity_id != suggestion.get("current_identity_id")
+        or (observation_id and expected_version != input_version(observation, suspicious_mediafile))
+    ):
+        messages.warning(request, "This observation changed. Run outlier detection again to get an updated suggestion.")
+        return redirect(next_url)
+    suggested_identity = get_object_or_404(
+        IndividualIdentity, pk=suggested_identity_id, owner_workgroup_id=workgroup_id
+    )
     observation.identity = suggested_identity
+    observation.identity_is_representative = False
     observation.updated_by = request.user.caiduser
     observation.updated_at = django.utils.timezone.now()
-    observation.save(update_fields=["identity", "updated_by", "updated_at"])
-
-    if result_id:
-        result = models.IdentificationOutlierSuggestionResult.objects.filter(
-            id=result_id,
-            workgroup=request.user.caiduser.workgroup,
-        ).first()
-        if result is not None:
-            result.suggestions = [
-                item
-                for item in (result.suggestions or [])
-                if int(item.get("suspicious_mediafile_id") or -1) != suspicious_mediafile.id
-            ]
-            result.save(update_fields=["suggestions"])
+    observation.save(update_fields=["identity", "identity_is_representative", "updated_by", "updated_at"])
+    result.suggestions.pop(index)
+    result.save(update_fields=["suggestions"])
 
     messages.success(
         request,

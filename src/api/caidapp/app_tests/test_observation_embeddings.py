@@ -114,14 +114,23 @@ class ObservationEmbeddingTests(TestCase):
         output.write_text(json.dumps({"profile": spec, "embeddings": payload}), encoding="utf-8")
         result = store_embeddings({"output_path": str(output)}, path)
         self.assertEqual(result["stored"], 2)
+        submitted = path.with_name("queries.csv")
+        model = {"model_source": "test-model", "weights_path": ""}
+        submitted.write_text(f"observation_id\n{self.first.pk}\n{self.second.pk}\n", encoding="utf-8")
+        comparison = Path(prepare_identification(self.workgroup.pk, submitted, model, "compare_unknown"))
+        export_match_inputs(comparison, result["profile_uuid"])
+        for name in ("queries.jsonl", "references.jsonl"):
+            samples = [json.loads(line) for line in comparison.with_name(name).read_text().splitlines()]
+            self.assertEqual([sample["observation_id"] for sample in samples], [self.first.pk, self.second.pk])
+            self.assertTrue(all(sample["embedding"][1] is None for sample in samples))
+
         self.second.identity = IndividualIdentityFactory(owner_workgroup=self.workgroup)
         self.second.identity_is_representative = True
         self.second.taxon = self.workgroup.default_taxon_for_identification
         self.second.save()
-        submitted = path.with_name("queries.csv")
         submitted.write_text(f"observation_id\n{self.first.pk}\n", encoding="utf-8")
         match = Path(prepare_identification(
-            self.workgroup.pk, submitted, {"model_source": "test-model", "weights_path": ""}, "identify"
+            self.workgroup.pk, submitted, model, "identify"
         ))
         export_match_inputs(match, result["profile_uuid"])
         reference = json.loads(match.with_name("references.jsonl").read_text(encoding="utf-8"))
@@ -129,6 +138,13 @@ class ObservationEmbeddingTests(TestCase):
         self.assertEqual((query["observation_id"], reference["observation_id"]), (self.first.pk, self.second.pk))
         self.assertEqual((query["original_path"], reference["original_path"]), (source, source))
         self.assertEqual(reference["embedding"][1]["descriptors"], [[0.3, 0.5]])
+        self.second.identity_is_representative = False
+        self.second.save(update_fields=["identity_is_representative"])
+        self.assertRaises(ValidationError, prepare_identification, self.workgroup.pk, submitted, model, "identify")
+        expanded = prepare_identification(
+            self.workgroup.pk, submitted, model, "identify", include_non_representative=True,
+        )
+        export_match_inputs(expanded, result["profile_uuid"])
         prepare_feature_manifest(manifest)
         self.assertCountEqual(manifest["cached"][fingerprint(spec)], [
             f"{row['observation_id']}:{row['input_fingerprint']}" for row in rows

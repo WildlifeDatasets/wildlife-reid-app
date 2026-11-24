@@ -39,8 +39,8 @@
         </p>
       </div>
       <div>
-        <a class="btn btn-outline-secondary btn-sm" href="{{ csv_url }}">Input CSV</a>
-        <a class="btn btn-outline-secondary btn-sm" href="{{ extended_csv_url }}">Extended CSV</a>
+        {% if csv_url %}<a class="btn btn-outline-secondary btn-sm" href="{{ csv_url }}">Input CSV</a>{% endif %}
+        {% if extended_csv_url %}<a class="btn btn-outline-secondary btn-sm" href="{{ extended_csv_url }}">Extended CSV</a>{% endif %}
         <a class="btn btn-secondary" href="{% url 'caidapp:run_identification_outlier_detection' %}">Run again</a>
       </div>
     </div>
@@ -111,15 +111,15 @@
                   <div class="card border rounded-4 overflow-hidden">
                 {% if card.suspicious_mediafile %}
                   {% with mediafile=card.suspicious_mediafile.object %}
-                      <div class="ratio ratio-4x3 bg-body-tertiary">
+                      <div class="bg-body-tertiary">
                         {% if mediafile.thumbnail %}
-                          <a href="{% url 'caidapp:media_file_update' mediafile.id %}?next={{ request.get_full_path|urlencode }}">
+                          <a class="d-block position-relative" href="{% url 'caidapp:media_file_update' mediafile.id %}?next={{ request.get_full_path|urlencode }}{% if card.observation %}#observation-{{ card.observation.id }}{% endif %}">
                             <img
                               class="card-img-top w-100"
-                              style="object-fit: cover;"
-                              src="{{ mediafile.thumbnail.url }}"
+                              src="{% if mediafile.preview %}{{ mediafile.preview.url }}{% else %}{{ mediafile.thumbnail.url }}{% endif %}"
                               alt="Media file thumbnail"
                             >
+                            {% include 'caidapp/includes/identification_bbox_overlay.html' with review_bbox=card.suspicious_mediafile.bbox %}
                           </a>
                         {% else %}
                           <div class="d-flex align-items-center justify-content-center text-muted h-100">No thumbnail</div>
@@ -168,15 +168,15 @@
                         <div class="card border rounded-4 overflow-hidden h-100">
                           {% if candidate.mediafile %}
                             {% with mediafile=candidate.mediafile.object %}
-                              <div class="ratio ratio-4x3 bg-body-tertiary">
+                              <div class="bg-body-tertiary">
                                 {% if mediafile.thumbnail %}
-                                  <a href="{% url 'caidapp:media_file_update' mediafile.id %}?next={{ request.get_full_path|urlencode }}">
+                                  <a class="d-block position-relative" href="{% url 'caidapp:media_file_update' mediafile.id %}?next={{ request.get_full_path|urlencode }}">
                                     <img
-                                      class="card-img-top w-100 h-100"
-                                      style="object-fit: cover;"
-                                      src="{{ mediafile.thumbnail.url }}"
+                                      class="card-img-top w-100"
+                                      src="{% if mediafile.preview %}{{ mediafile.preview.url }}{% else %}{{ mediafile.thumbnail.url }}{% endif %}"
                                       alt="Suggested media file thumbnail"
                                     >
+                                    {% include 'caidapp/includes/identification_bbox_overlay.html' with review_bbox=candidate.mediafile.bbox %}
                                   </a>
                                 {% else %}
                                   <div class="d-flex align-items-center justify-content-center text-muted h-100">No thumbnail</div>
@@ -211,10 +211,11 @@
                                   {{ candidate.mediafile.display_name }}
                                 </div>
                                 <div class="mt-3">
-                                  {% if card.suspicious_mediafile and candidate.identity %}
+                                  {% if card.can_accept and candidate.identity %}
                                     <form method="post" action="{% url 'caidapp:accept_identification_outlier_suggestion' %}" class="d-inline">
                                       {% csrf_token %}
                                       <input type="hidden" name="suspicious_mediafile_id" value="{{ card.suspicious_mediafile.object.id }}">
+                                      {% if card.observation %}<input type="hidden" name="observation_id" value="{{ card.observation.id }}">{% endif %}
                                       <input type="hidden" name="suggested_identity_id" value="{{ candidate.identity.id }}">
                                       <input type="hidden" name="result_id" value="{{ result.id }}">
                                       <input type="hidden" name="next" value="{{ request.get_full_path }}">

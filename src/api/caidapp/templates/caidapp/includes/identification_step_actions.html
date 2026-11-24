@@ -1,0 +1,32 @@
+{% if user.caiduser.workgroup_admin %}
+    <form method="post" action="{% url 'caidapp:manage_workgroup_embeddings' %}">
+        {% csrf_token %}
+        <button class="dropdown-item ps-4" type="submit" name="action" value="backfill">
+            Calculate missing image features
+        </button>
+    </form>
+    <a class="dropdown-item ps-4" href="{% url 'caidapp:pre_identify' %}">
+        Suggest identities for unidentified observations
+    </a>
+    <form method="post" action="{% url 'caidapp:start_observation_comparison' %}">
+        {% csrf_token %}
+        <button class="dropdown-item ps-4" type="submit" name="mode" value="compare_unknown">
+            Find similar unidentified observations
+        </button>
+    </form>
+    <form method="post" action="{% url 'caidapp:start_observation_comparison' %}">
+        {% csrf_token %}
+        <button class="dropdown-item ps-4" type="submit" name="mode" value="review_known">
+            Review assigned identities
+        </button>
+    </form>
+{% endif %}
+{% if user.is_staff %}
+    <a class="dropdown-item ps-4" href="{% url 'caidapp:run_identification_outlier_detection' %}">
+        Check for misassigned identities
+    </a>
+    <form method="post" action="{% url 'caidapp:run_similar_identity_pairs' %}">
+        {% csrf_token %}
+        <button class="dropdown-item ps-4" type="submit">Find possible identity merges</button>
+    </form>
+{% endif %}

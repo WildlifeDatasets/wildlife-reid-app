@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+{% block body %}
+<div class="pagetitle">
+  <h1>{{ run.operation_label }}</h1>
+  <a href="{% url 'caidapp:task_list' %}">All tasks</a>
+</div>
+<p id="comparison-progress" role="status">{{ run.status_label }}. {{ run.message }}</p>
+{% if page_obj %}
+<div class="table-responsive">
+  <table class="table align-middle">
+    <thead><tr><th>Observation</th><th>Candidate observations</th></tr></thead>
+    <tbody>
+      {% for row in page_obj %}
+      <tr>
+        <td>
+          {% include 'caidapp/includes/comparison_observation.html' with item=row.query %}
+        </td>
+        <td>
+          <ul class="list-unstyled mb-0">
+            {% for candidate in row.candidates %}
+            <li class="mb-2">
+              {% if candidate.role == 'own' %}<strong>Same identity</strong>{% elif candidate.role == 'other' %}<strong>Different identity</strong>{% endif %}
+              <span>Similarity {{ candidate.score|floatformat:3 }}</span>
+              {% include 'caidapp/includes/comparison_observation.html' with item=candidate %}
+              {% if candidate.grouped and row.query.is_current and candidate.is_current %}
+                <span class="text-body-secondary">Grouped</span>
+              {% elif can_group and row.query.is_current and candidate.is_current %}
+                <form class="d-inline" method="post" action="{% url 'caidapp:group_observation_pair' run.uuid %}">
+                  {% csrf_token %}
+                  <input type="hidden" name="query_id" value="{{ row.query.id }}">
+                  <input type="hidden" name="candidate_id" value="{{ candidate.id }}">
+                  <button class="btn btn-sm btn-outline-primary" type="submit">Group pair</button>
+                </form>
+              {% endif %}
+            </li>
+            {% endfor %}
+          </ul>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% if page_obj.has_other_pages %}
+<nav aria-label="Comparison results">
+  {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}">Previous</a>{% endif %}
+  <span class="mx-2">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+  {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}">Next</a>{% endif %}
+</nav>
+{% endif %}
+{% endif %}
+{% if not run.is_terminal %}
+{{ run.status_url|json_script:"comparison-status-url" }}
+<script>
+  const statusUrl = JSON.parse(document.getElementById("comparison-status-url").textContent);
+  const refresh = async () => {
+    try {
+      const response = await fetch(statusUrl, {headers: {"Accept": "application/json"}});
+      if (response.ok) {
+        const status = await response.json();
+        if (status.is_terminal) {
+          window.location.reload();
+          return;
+        }
+        document.getElementById("comparison-progress").textContent = status.status_label + ". " + status.message;
+      }
+    } finally {
+      window.setTimeout(refresh, 4000);
+    }
+  };
+  window.setTimeout(refresh, 4000);
+</script>
+{% endif %}
+{% endblock %}

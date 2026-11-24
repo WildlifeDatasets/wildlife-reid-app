@@ -8,6 +8,7 @@ from typing import Optional, Tuple, Union
 import timm
 import torch
 import torch.nn as nn
+from wildlife_model_cache import log_model_operation
 
 logger = logging.getLogger(__name__)
 
@@ -79,13 +80,15 @@ def get_model(
         PyTorch model from `timm` library.
     """
     pretrained = pretrained and checkpoint_path is None
-    model = timm.create_model(architecture_name, pretrained=pretrained)
+    with log_model_operation("timm model load", architecture_name):
+        model = timm.create_model(architecture_name, pretrained=pretrained)
 
     # load model with classification head if missing
     # models like ViT trained with DINO do not have a classification head by default
     # classification head is missing to get `in_features` value in the method `set_prediction_head`
     if model.default_cfg["num_classes"] == 0 and target_size is not None:
-        model = timm.create_model(architecture_name, pretrained=pretrained, num_classes=1000)
+        with log_model_operation("timm model load with classification head", architecture_name):
+            model = timm.create_model(architecture_name, pretrained=pretrained, num_classes=1000)
 
     # load custom weights
     if checkpoint_path is not None:

@@ -4,7 +4,7 @@
 {% endblock %}
 {% block body %}
     <div class="container">
-        <h2 class="pagetitle"> Compare media files with unknown identity with database</h2>
+        <h2 class="pagetitle">Compare observations</h2>
         <nav>
             <ol class="breadcrumb">
                 {#                icon for goibg bac#}
@@ -26,11 +26,23 @@
                 {{ user.caiduser.workgroup.number_of_uploaded_archives_ready_for_identification }} uploaded archives<br>
 
 
-                <a class="btn btn-primary mt-3" href="{% url 'caidapp:run_identification_on_unidentified' %}"
-                   data-bs-toggle="tooltip"
-                   title="Compare {{ user.caiduser.workgroup.number_of_media_files_with_missing_identity }} media files with the base dataset? The processing will take some time."
-                   onclick="return confirm('Compare {{ user.caiduser.workgroup.number_of_media_files_with_missing_identity }} media files with the base dataset? The processing will take some time.')"
-                >Compare unknown media files with database</a>
+                <form method="post" action="{% url 'caidapp:run_identification_on_unidentified' %}" class="mt-3">
+                    {% csrf_token %}
+                    <label for="identification-gallery" class="form-label">Reference observations</label>
+                    <select id="identification-gallery" name="gallery" class="form-select w-auto mb-3">
+                        <option value="representatives">Representative observations</option>
+                        <option value="all_identified">All identified observations</option>
+                    </select>
+                    <button class="btn btn-primary" type="submit">Suggest identities for unidentified observations</button>
+                    <button class="btn btn-outline-primary" type="submit" name="mode" value="compare_unknown"
+                            formaction="{% url 'caidapp:start_observation_comparison' %}">
+                        Group unidentified observations
+                    </button>
+                    <button class="btn btn-outline-primary" type="submit" name="mode" value="review_known"
+                            formaction="{% url 'caidapp:start_observation_comparison' %}">
+                        Review assigned identities
+                    </button>
+                </form>
             </div>
         </div>
         <div class="card">

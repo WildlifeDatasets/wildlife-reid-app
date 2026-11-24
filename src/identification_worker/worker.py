@@ -611,6 +611,54 @@ def predict(
     return out
 
 
+@identification_worker.task(name="compare_observations")
+def compare_observations(references_path, mode, top_k=3):
+    """Compare observation-level global vectors and exclude the query by ID."""
+    if mode not in {"compare_unknown", "review_known"}:
+        raise ValueError("Unsupported observation comparison mode.")
+    references = pd.read_json(references_path, lines=True, convert_dates=False)
+    queries = pd.read_json(Path(references_path).with_name("queries.jsonl"), lines=True, convert_dates=False)
+    reference_vectors = np.asarray([features[0] for features in references["embedding"]], dtype=np.float32)
+    query_vectors = np.asarray([features[0] for features in queries["embedding"]], dtype=np.float32)
+    reference_vectors /= np.linalg.norm(reference_vectors, axis=1, keepdims=True)
+    query_vectors /= np.linalg.norm(query_vectors, axis=1, keepdims=True)
+    reference_ids = references["observation_id"].to_numpy()
+    reference_labels = references["class_id"].to_numpy()
+
+    def observation_data(row):
+        return {
+            "id": int(row["observation_id"]),
+            "mediafile_id": int(row["mediafile_id"]),
+            "identity": row["label"],
+            "version": row["review_version"],
+        }
+
+    rows = []
+    for start in range(0, len(queries), 128):
+        scores = query_vectors[start : start + 128] @ reference_vectors.T
+        for offset, similarities in enumerate(scores):
+            query = queries.iloc[start + offset]
+            others = reference_ids != query["observation_id"]
+            candidates = []
+            if mode == "compare_unknown":
+                groups = [("similar", others, top_k)]
+            else:
+                same_identity = reference_labels == query["class_id"]
+                groups = [("own", others & same_identity, 1), ("other", others & ~same_identity, 1)]
+            for role, mask, limit in groups:
+                indices = np.flatnonzero(mask)
+                ranked = indices[np.argsort(-similarities[indices], kind="stable")[:limit]]
+                for index in ranked:
+                    candidates.append({
+                        **observation_data(references.iloc[index]),
+                        "role": role,
+                        "score": float(np.clip(similarities[index], -1, 1)),
+                    })
+            if candidates:
+                rows.append({"query": observation_data(query), "candidates": candidates})
+    return {"status": "DONE", "rows": rows}
+
+
 @identification_worker.task(bind=True, name="detect_identification_outliers")
 def detect_identification_outliers(
     self,
@@ -647,6 +695,9 @@ def detect_identification_outliers(
         class_ids = class_ids[class_ids < min_cluster_size]
         logger.info(f"Dropping class_ids that are underrepresented < {min_cluster_size}: {list(class_ids.index)}")
         metadata = metadata[~metadata["class_id"].isin(class_ids.index)].reset_index(drop=True).copy()
+        if metadata["class_id"].nunique() < 2:
+            return {"status": "DONE", "message": "At least two identities with enough observations are required.",
+                    "suggestions": []}
 
         # Embeddings are saved as a string and contain megadescriptor and local descriptor features [[mega, local], ...]
         embeddings = [json.loads(e) for e in metadata["embedding"]]
@@ -665,19 +716,18 @@ def detect_identification_outliers(
 
         # Add the suspects data to the metadata
         suspects_by_idx = suspects.set_index("idx").reindex(metadata.index)
-        best_other_image_path_by_idx = {}
+        best_other_index = {}
         for row in suspects.itertuples(index=False):
             best_other_metadata_idx = ep.best_other_member_index(row.idx, row.best_other_label)
-            best_other_image_path_by_idx[row.idx] = (
-                None if best_other_metadata_idx is None else metadata.iloc[best_other_metadata_idx]["image_path"]
-            )
+            if best_other_metadata_idx is not None:
+                best_other_index[row.idx] = best_other_metadata_idx
 
-        best_other_image_path = pd.Series(best_other_image_path_by_idx).reindex(metadata.index)
+        best_other_rows = pd.Series(best_other_index).reindex(metadata.index)
         metadata["own_similarity"] = suspects_by_idx["own_similarity"].to_numpy()
         metadata["best_other_similarity"] = suspects_by_idx["best_other_similarity"].to_numpy()
         metadata["delta"] = suspects_by_idx["delta"].to_numpy()
         metadata["best_other_label"] = suspects_by_idx["best_other_label"].to_numpy()
-        metadata["best_other_image_path"] = best_other_image_path.to_numpy()
+        metadata["best_other_image_path"] = best_other_rows.map(metadata["image_path"]).to_numpy()
         metadata["is_suspect"] = suspects_by_idx["is_suspect"].to_numpy()
 
         # Add reduced embeddings to the metadata
@@ -715,6 +765,7 @@ def detect_identification_outliers(
 
             best_other_label = row.get("best_other_label")
             best_other_image_path = row.get("best_other_image_path")
+            best_other_idx = best_other_index.get(idx)
             delta = row.get("delta")
 
             if pd.isna(best_other_label):
@@ -731,6 +782,9 @@ def detect_identification_outliers(
             suggestions.append(
                 {
                     "query_idx": idx,
+                    "observation_id": int(row["observation_id"]),
+                    "input_version": row["review_version"],
+                    "suspicious_mediafile_id": int(row["mediafile_id"]),
                     "suspicious_path": row["image_path"],
                     "current_identity_id": int(row["class_id"]),
                     "reason": (
@@ -741,6 +795,10 @@ def detect_identification_outliers(
                     "suggestions": [
                         {
                             "identity_id": int(best_other_label),
+                            "observation_id": int(metadata.iloc[best_other_idx]["observation_id"])
+                            if best_other_idx is not None else None,
+                            "mediafile_id": int(metadata.iloc[best_other_idx]["mediafile_id"])
+                            if best_other_idx is not None else None,
                             "mediafile_path": None if pd.isna(best_other_image_path) else best_other_image_path,
                             "score": None if pd.isna(delta) else float(delta),
                             "reason": (
@@ -761,7 +819,9 @@ def detect_identification_outliers(
             metadata = metadata.drop(columns=["embedding"])
 
         # Save metadata with extended information
-        extended_metadata_file = input_metadata_file.replace(".csv", "_extended.csv")
+        extended_metadata_file = kwargs.get("output_csv_file") or Path(input_metadata_file).with_name(
+            f"{Path(input_metadata_file).stem}_extended.csv"
+        )
         metadata.to_csv(extended_metadata_file, index=False)
         logger.info(f"Saved extended metadata file to {extended_metadata_file}")
         logger.info("Prepared %s suspect suggestions.", len(suggestions))
@@ -774,7 +834,7 @@ def detect_identification_outliers(
 
     return {
         "status": "DONE",
-        "message": "Demo identification outlier output with suggestions for the first two media files.",
+        "message": f"Found {len(suggestions)} potentially misassigned observations.",
         "suggestions": suggestions,
         "organization_id": organization_id,
         "input_metadata_file": input_metadata_file,

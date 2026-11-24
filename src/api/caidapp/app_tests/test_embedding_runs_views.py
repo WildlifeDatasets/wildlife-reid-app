@@ -265,8 +265,8 @@ class EmbeddingRunViewsTests(TestCase):
         self.assertContains(response, str(local.uuid))
         self.assertNotContains(response, str(foreign.uuid))
 
-    def test_model_switch_schedules_embedding_scan_and_identification_init_after_commit(self):
-        """Use the single workgroup model selection to schedule both independent pipelines."""
+    def test_model_switch_schedules_one_identification_refresh_after_commit(self):
+        """The model change schedules one shared workflow after the database commit."""
         self.first.bbox_x_center = self.first.bbox_y_center = 0.5
         self.first.bbox_width = self.first.bbox_height = 0.2
         self.first.save()
@@ -284,20 +284,16 @@ class EmbeddingRunViewsTests(TestCase):
             "detection_model_path": self.workgroup.detection_model_path,
             "detection_model_architecture": self.workgroup.detection_model_architecture,
         }
-        with patch("caidapp.tasks.schedule_init_identification_for_workgroup") as initialize:
-            with patch("caidapp.observation_embeddings._publish_preparation") as publish:
-                with self.captureOnCommitCallbacks(execute=True):
-                    response = self.client.post(reverse("caidapp:workgroup-update", args=[self.workgroup.pk]), data)
-                    initialize.assert_not_called()
-                    publish.assert_not_called()
+        with patch("caidapp.observation_embeddings._publish_preparation") as publish:
+            with self.captureOnCommitCallbacks(execute=True):
+                response = self.client.post(reverse("caidapp:workgroup-update", args=[self.workgroup.pk]), data)
+                publish.assert_not_called()
         self.assertEqual(response.status_code, 302)
         self.workgroup.refresh_from_db()
         self.assertEqual(self.workgroup.identification_model_id, replacement.pk)
-        initialize.assert_called_once()
         publish.assert_called_once()
         schedule = models.ObservationEmbeddingSchedule.objects.get(workgroup=self.workgroup)
         self.assertIsNotNone(schedule.task_id)
         self.assertIsNotNone(schedule.eta)
         notices = " ".join(str(message) for message in get_messages(response.wsgi_request)).lower()
-        self.assertIn("embedding", notices)
-        self.assertIn("initializ", notices)
+        self.assertIn("identification refresh", notices)

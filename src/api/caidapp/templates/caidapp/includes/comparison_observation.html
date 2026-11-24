@@ -1,0 +1,19 @@
+{% if item.media %}
+  <div>
+    <a href="{% url 'caidapp:media_file_update' item.media.id %}?next={{ request.get_full_path|urlencode }}#observation-{{ item.id }}">
+      Observation {{ item.id }}
+      {% if item.media.preview or item.media.thumbnail %}
+        <span class="d-block position-relative" style="width: min(12rem, 100%);">
+          <img class="w-100" loading="lazy"
+               src="{% if item.media.preview %}{{ item.media.preview.url }}{% else %}{{ item.media.thumbnail.url }}{% endif %}"
+               alt="Observation {{ item.id }}">
+          {% include 'caidapp/includes/identification_bbox_overlay.html' with review_bbox=item.bbox %}
+        </span>
+      {% endif %}
+    </a>
+    {% if item.current_identity %}<div>{{ item.current_identity }}</div>{% endif %}
+    {% if not item.is_current %}<div class="text-body-secondary">Changed since comparison</div>{% endif %}
+  </div>
+{% else %}
+  <span class="text-body-secondary">Observation {{ item.id }} is unavailable.</span>
+{% endif %}

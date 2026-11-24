@@ -5,22 +5,7 @@
   <p class="text-body-secondary">Follow background tasks and download completed exports, even after leaving the original page.</p>
   {% if request.user.caiduser.workgroup_admin and request.user.caiduser.workgroup_id %}
   <div class="mb-3">
-    <form method="post" action="{% url 'caidapp:manage_workgroup_embeddings' %}" class="d-inline">
-      {% csrf_token %}
-      <button type="submit" name="action" value="backfill" class="btn btn-sm btn-outline-primary">Compute missing embeddings and ALIKED features</button>
-    </form>
-    <details class="mt-2">
-      <summary class="text-danger">Reset workgroup embeddings</summary>
-      <form method="post" action="{% url 'caidapp:manage_workgroup_embeddings' %}" class="mt-2">
-        {% csrf_token %}
-        <p>This removes every embedding, ALIKED feature set, and pending re-identification suggestion in this workgroup.</p>
-        <label class="form-check">
-          <input type="checkbox" class="form-check-input" name="confirm_reset" value="yes" required>
-          I confirm the reset
-        </label>
-        <button type="submit" name="action" value="reset" class="btn btn-sm btn-outline-danger mt-2">Reset embeddings and ALIKED features</button>
-      </form>
-    </details>
+    <a class="btn btn-sm btn-outline-primary" href="{% url 'caidapp:pre_identify' %}">Compare observations</a>
   </div>
   {% endif %}
   <nav class="mb-3" aria-label="Task filters">
@@ -31,7 +16,7 @@
   </nav>
   <div id="task-refresh-message" class="alert alert-warning" role="status" hidden></div>
   <div id="task-list-content">
-    {% if schedule.eta %}<div class="alert alert-info" role="status">Automatic embeddings are scheduled no earlier than {{ schedule.eta }}. Further input changes may postpone this time.</div>{% endif %}
+    {% if schedule.eta and state != 'downloads' and state != 'history' %}<div class="alert alert-info" role="status">Identification refresh is scheduled for {{ schedule.eta }} and starts when the workgroup is ready. Further changes may postpone it.</div>{% endif %}
     <div class="table-responsive"><table class="table align-middle">
       <thead><tr><th>Task</th><th>Scope</th><th>Created</th><th>Status</th><th>Result</th></tr></thead>
       <tbody>{% for run in runs %}<tr>

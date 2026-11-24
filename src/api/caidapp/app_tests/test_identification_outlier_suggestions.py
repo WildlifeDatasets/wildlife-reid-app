@@ -9,6 +9,7 @@ from caidapp.app_tests.factories import (
     UploadedArchiveFactory,
 )
 from caidapp.models import IdentificationOutlierSuggestionResult, MediaFile
+from caidapp.services.identity_review import input_version
 from django.conf import settings
 from django.test import TestCase
 from django.urls import reverse
@@ -136,6 +137,35 @@ class IdentificationOutlierSuggestionsAcceptViewTest(TestCase):
         self.assertEqual(observation.identity, self.suggested_identity)
         self.assertEqual(result.suggestions, [])
 
+    def test_accepts_explicit_box_and_rejects_changed_sibling(self):
+        media = MediaFile.objects.create(parent=self.archive, media_type="image", image_file="images/suspicious.jpg")
+        first = AnimalObservationFactory(mediafile=media, identity=self.current_identity)
+        second = AnimalObservationFactory(mediafile=media, identity=self.current_identity)
+        media.refresh_from_db()
+        result = IdentificationOutlierSuggestionResult.objects.create(
+            workgroup=self.workgroup, status="done",
+            suggestions=[
+                {
+                    "observation_id": observation.pk, "suspicious_mediafile_id": media.pk,
+                    "current_identity_id": self.current_identity.pk, "input_version": input_version(observation, media),
+                    "suggestions": [{"identity_id": self.suggested_identity.pk, "mediafile_id": media.pk}],
+                }
+                for observation in (first, second)
+            ],
+        )
+        url = reverse("caidapp:accept_identification_outlier_suggestion")
+        data = {"result_id": result.pk, "suggested_identity_id": self.suggested_identity.pk}
+        self.assertEqual(self.client.post(url, {**data, "observation_id": first.pk}).status_code, 302)
+        second.bbox_x_center = 0.4
+        second.save(update_fields=["bbox_x_center"])
+        self.assertEqual(self.client.post(url, {**data, "observation_id": second.pk}).status_code, 302)
+        first.refresh_from_db()
+        second.refresh_from_db()
+        result.refresh_from_db()
+        self.assertEqual(first.identity_id, self.suggested_identity.pk)
+        self.assertEqual(second.identity_id, self.current_identity.pk)
+        self.assertEqual([row["observation_id"] for row in result.suggestions], [second.pk])
+
 
 class IdentificationOutlierStaffAccessTest(TestCase):
     def setUp(self):
@@ -146,7 +176,7 @@ class IdentificationOutlierStaffAccessTest(TestCase):
     def test_workgroup_admin_without_staff_cannot_access_outlier_actions(self):
         """Hide outlier controls and deny outlier endpoints to workgroup admins without staff access."""
         response = self.client.get(reverse("caidapp:dash_identities"))
-        self.assertNotContains(response, "Run ID outlier detection")
+        self.assertNotContains(response, "Check for misassigned identities")
         self.assertNotContains(response, "Show ID outliers")
 
         self.assertEqual(self.client.get(reverse("caidapp:run_identification_outlier_detection")).status_code, 403)
@@ -171,7 +201,7 @@ class IdentificationOutlierStaffAccessTest(TestCase):
         run_detection.return_value = (result, None)
 
         response = self.client.get(reverse("caidapp:dash_identities"))
-        self.assertContains(response, "Run ID outlier detection")
+        self.assertContains(response, "Check for misassigned identities")
         self.assertContains(response, "Show ID outliers")
         self.assertEqual(self.client.get(reverse("caidapp:identification_outlier_suggestions")).status_code, 200)
 

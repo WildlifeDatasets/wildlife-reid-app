@@ -125,31 +125,34 @@
             <div>
 
                 <div class="dropdown d-inline-block">
-                    <a class="btn btn-secondary dropdown-toggle" href="#" role="button"
-                       data-bs-toggle="dropdown" aria-expanded="false">
-                        <i class="bi bi-three-dots"></i>
-                    </a>
+                    <button class="btn btn-secondary" type="button" data-bs-toggle="dropdown"
+                            data-bs-auto-close="outside" aria-expanded="false" aria-label="Identification actions">
+                        <i class="bi bi-three-dots" aria-hidden="true"></i>
+                    </button>
 
-                    <ul class="dropdown-menu">
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        {% if user.caiduser.workgroup_admin %}
+                            <li>
+                                <form method="post" action="{% url 'caidapp:manage_workgroup_embeddings' %}">
+                                    {% csrf_token %}
+                                    <button class="dropdown-item fw-semibold" type="submit" name="action" value="refresh">
+                                        <i class="bi bi-arrow-clockwise" aria-hidden="true"></i> Refresh identification suggestions
+                                    </button>
+                                </form>
+                            </li>
+                        {% endif %}
+                        {% if user.caiduser.workgroup_admin or user.is_staff %}
+                            <li>
+                                <details>
+                                    <summary class="dropdown-item">Run individual steps</summary>
+                                    {% include 'caidapp/includes/identification_step_actions.html' %}
+                                </details>
+                            </li>
+                        {% endif %}
                         <li>
 
                             <a class="dropdown-item" href="{% url 'caidapp:media_files' %}?init_identification_candidates=true"><i
                                     class="bi bi-eye"></i> Check representative images </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item {{ btn_styles.init_identification.class }}"
-                               href="{% url 'caidapp:init_identification' %}"
-                                    {% if user.caiduser.workgroup.identification_init_status %}
-                               data-bs-toggle="tooltip"
-                               title="Initiated at: {{ user.caiduser.workgroup.identification_init_at|date:'Y-m-d H:i' }}, {{ user.caiduser.workgroup.identification_init_status }}, {{ user.caiduser.workgroup.identification_init_message }}"
-                                    {% endif %}
-                               onclick="return confirm('{{ btn_styles.init_identification.confirm }}')"
-                            ><i class="fas fa-fingerprint"></i> Init identification
-
-                                {% if user.caiduser.workgroup.identification_init_status == "Processing" %}
-                                    <i class="fa fa-spinner fa-spin"></i>
-                                {% endif %}
-                            </a>
                         </li>
                         {% if user.caiduser.workgroup_admin or user.is_staff %}
                             <li>
@@ -172,38 +175,12 @@
                                 </a>
 
                             </li>
-                            <li>
-
-                                <a class="dropdown-item {{ btn_styles.run_identification.class }}"
-                                   href="{% url 'caidapp:pre_identify' %}"
-                                   data-bs-toggle="tooltip" title="{{ btn_styles.run_identification.tooltip }}"
-                                   onclick="return confirm('{{ btn_styles.run_identification.confirm }}')"
-                                >
-                                    <i class="bi bi-question-circle"></i> Compare with identity database
-                                    {% if user.caiduser.workgroup.identification_reid_status == "Processing" %}
-                                        <i class="fa fa-spinner fa-spin"></i>
-                                    {% endif %}
-                                </a>
-                            </li>
                         {% endif %}
                         {% if user.is_staff %}
-                            <li>
-                                <a class="dropdown-item" href="{% url 'caidapp:run_identification_outlier_detection' %}">
-                                    <i class="bi bi-search"></i> Run ID outlier detection
-                                </a>
-                            </li>
                             <li>
                                 <a class="dropdown-item" href="{% url 'caidapp:identification_outlier_suggestions' %}">
                                     <i class="bi bi-grid"></i> Show ID outliers
                                 </a>
-                            </li>
-                            <li>
-                                <form method="post" action="{% url 'caidapp:run_similar_identity_pairs' %}" class="m-0">
-                                    {% csrf_token %}
-                                    <button type="submit" class="dropdown-item">
-                                        <i class="bi bi-search-heart"></i> Find similar identity pairs
-                                    </button>
-                                </form>
                             </li>
                             <li>
                                 <a class="dropdown-item" href="{% url 'caidapp:similar_identity_pairs' %}">
@@ -213,6 +190,24 @@
                         {% endif %}
                         <li><hr class="dropdown-divider"></li>
                         {% if user.caiduser.workgroup_admin %}
+                            <li>
+                                <form method="post" action="{% url 'caidapp:manage_workgroup_embeddings' %}">
+                                    {% csrf_token %}
+                                    <details>
+                                        <summary class="dropdown-item text-danger">Reset image features</summary>
+                                        <div class="px-3 pb-2">
+                                            <p class="small mb-2">Remove image features and pending identification suggestions for this workgroup.</p>
+                                            <label class="d-block mb-2">
+                                                <input type="checkbox" name="confirm_reset" value="yes" required>
+                                                Confirm reset
+                                            </label>
+                                            <button type="submit" name="action" value="reset" class="btn btn-sm btn-danger">
+                                                Reset
+                                            </button>
+                                        </div>
+                                    </details>
+                                </form>
+                            </li>
                             <li>
                                 <a class="dropdown-item" href="{% url 'caidapp:download_init_identification_csv' %}">
                                     <i class="bi bi-download"></i>
@@ -259,15 +254,15 @@
                     <span class="ident-progress-dot ident-progress-unknown {% if user.caiduser.workgroup.identification_init_status != 'Processing' and user.caiduser.workgroup.identification_init_status != 'Scheduled' %}d-none{% endif %}"
                           data-operation="init"
                           data-bs-toggle="tooltip"
-                          data-bs-title="Init identification: {{ user.caiduser.workgroup.identification_init_status }}{% if user.caiduser.workgroup.identification_init_status == 'Processing' and user.caiduser.workgroup.identification_init_at %} | started {{ user.caiduser.workgroup.identification_init_at|date:'Y-m-d H:i' }}{% endif %}{% if user.caiduser.workgroup.identification_scheduled_init_eta %} | scheduled {{ user.caiduser.workgroup.identification_scheduled_init_eta|date:'Y-m-d H:i' }}{% endif %}{% if user.caiduser.workgroup.identification_scheduled_init_task_id %} | task {{ user.caiduser.workgroup.identification_scheduled_init_task_id }}{% endif %}{% if user.caiduser.workgroup.identification_init_message %} - {{ user.caiduser.workgroup.identification_init_message }}{% endif %}"
-                          title="Init identification: {{ user.caiduser.workgroup.identification_init_status }}{% if user.caiduser.workgroup.identification_init_status == 'Processing' and user.caiduser.workgroup.identification_init_at %} | started {{ user.caiduser.workgroup.identification_init_at|date:'Y-m-d H:i' }}{% endif %}{% if user.caiduser.workgroup.identification_scheduled_init_eta %} | scheduled {{ user.caiduser.workgroup.identification_scheduled_init_eta|date:'Y-m-d H:i' }}{% endif %}{% if user.caiduser.workgroup.identification_scheduled_init_task_id %} | task {{ user.caiduser.workgroup.identification_scheduled_init_task_id }}{% endif %}{% if user.caiduser.workgroup.identification_init_message %} - {{ user.caiduser.workgroup.identification_init_message }}{% endif %}">
+                          data-bs-title="Calculate missing image features: {{ user.caiduser.workgroup.identification_init_status }}{% if user.caiduser.workgroup.identification_init_status == 'Processing' and user.caiduser.workgroup.identification_init_at %} | started {{ user.caiduser.workgroup.identification_init_at|date:'Y-m-d H:i' }}{% endif %}{% if user.caiduser.workgroup.identification_scheduled_init_eta %} | scheduled {{ user.caiduser.workgroup.identification_scheduled_init_eta|date:'Y-m-d H:i' }}{% endif %}{% if user.caiduser.workgroup.identification_scheduled_init_task_id %} | task {{ user.caiduser.workgroup.identification_scheduled_init_task_id }}{% endif %}{% if user.caiduser.workgroup.identification_init_message %} - {{ user.caiduser.workgroup.identification_init_message }}{% endif %}"
+                          title="Calculate missing image features: {{ user.caiduser.workgroup.identification_init_status }}{% if user.caiduser.workgroup.identification_init_status == 'Processing' and user.caiduser.workgroup.identification_init_at %} | started {{ user.caiduser.workgroup.identification_init_at|date:'Y-m-d H:i' }}{% endif %}{% if user.caiduser.workgroup.identification_scheduled_init_eta %} | scheduled {{ user.caiduser.workgroup.identification_scheduled_init_eta|date:'Y-m-d H:i' }}{% endif %}{% if user.caiduser.workgroup.identification_scheduled_init_task_id %} | task {{ user.caiduser.workgroup.identification_scheduled_init_task_id }}{% endif %}{% if user.caiduser.workgroup.identification_init_message %} - {{ user.caiduser.workgroup.identification_init_message }}{% endif %}">
                         <i class="fas fa-fingerprint"></i>
                     </span>
                     <span class="ident-progress-dot ident-progress-unknown {% if user.caiduser.workgroup.identification_reid_status != 'Processing' and user.caiduser.workgroup.identification_reid_status != 'Scheduled' %}d-none{% endif %}"
                           data-operation="run"
                           data-bs-toggle="tooltip"
-                          data-bs-title="Compare with identity database: {{ user.caiduser.workgroup.identification_reid_status }}{% if user.caiduser.workgroup.identification_reid_status == 'Processing' and user.caiduser.workgroup.identification_reid_at %} | started {{ user.caiduser.workgroup.identification_reid_at|date:'Y-m-d H:i' }}{% endif %}{% if user.caiduser.workgroup.identification_scheduled_run_eta %} | scheduled {{ user.caiduser.workgroup.identification_scheduled_run_eta|date:'Y-m-d H:i' }}{% endif %}{% if user.caiduser.workgroup.identification_scheduled_run_task_id %} | task {{ user.caiduser.workgroup.identification_scheduled_run_task_id }}{% endif %}{% if user.caiduser.workgroup.identification_reid_message %} - {{ user.caiduser.workgroup.identification_reid_message }}{% endif %}"
-                          title="Compare with identity database: {{ user.caiduser.workgroup.identification_reid_status }}{% if user.caiduser.workgroup.identification_reid_status == 'Processing' and user.caiduser.workgroup.identification_reid_at %} | started {{ user.caiduser.workgroup.identification_reid_at|date:'Y-m-d H:i' }}{% endif %}{% if user.caiduser.workgroup.identification_scheduled_run_eta %} | scheduled {{ user.caiduser.workgroup.identification_scheduled_run_eta|date:'Y-m-d H:i' }}{% endif %}{% if user.caiduser.workgroup.identification_scheduled_run_task_id %} | task {{ user.caiduser.workgroup.identification_scheduled_run_task_id }}{% endif %}{% if user.caiduser.workgroup.identification_reid_message %} - {{ user.caiduser.workgroup.identification_reid_message }}{% endif %}">
+                          data-bs-title="Suggest identities for unidentified observations: {{ user.caiduser.workgroup.identification_reid_status }}{% if user.caiduser.workgroup.identification_reid_status == 'Processing' and user.caiduser.workgroup.identification_reid_at %} | started {{ user.caiduser.workgroup.identification_reid_at|date:'Y-m-d H:i' }}{% endif %}{% if user.caiduser.workgroup.identification_scheduled_run_eta %} | scheduled {{ user.caiduser.workgroup.identification_scheduled_run_eta|date:'Y-m-d H:i' }}{% endif %}{% if user.caiduser.workgroup.identification_scheduled_run_task_id %} | task {{ user.caiduser.workgroup.identification_scheduled_run_task_id }}{% endif %}{% if user.caiduser.workgroup.identification_reid_message %} - {{ user.caiduser.workgroup.identification_reid_message }}{% endif %}"
+                          title="Suggest identities for unidentified observations: {{ user.caiduser.workgroup.identification_reid_status }}{% if user.caiduser.workgroup.identification_reid_status == 'Processing' and user.caiduser.workgroup.identification_reid_at %} | started {{ user.caiduser.workgroup.identification_reid_at|date:'Y-m-d H:i' }}{% endif %}{% if user.caiduser.workgroup.identification_scheduled_run_eta %} | scheduled {{ user.caiduser.workgroup.identification_scheduled_run_eta|date:'Y-m-d H:i' }}{% endif %}{% if user.caiduser.workgroup.identification_scheduled_run_task_id %} | task {{ user.caiduser.workgroup.identification_scheduled_run_task_id }}{% endif %}{% if user.caiduser.workgroup.identification_reid_message %} - {{ user.caiduser.workgroup.identification_reid_message }}{% endif %}">
                         <i class="bi bi-question-circle"></i>
                     </span>
                 </span>
@@ -578,80 +573,9 @@
                         <h3 class="card-title">Identity suggestion</h3>
                         <div class="card-text">
                             <p>
-                                The identity suggestion is based on the comparison of the uploaded images with the
-                                representative images of known identities.
-                                The reference identity database is updated automatically when the set of representative
-                                images is changed.
-                                The suggestion generation is done automatically in the background when new media files
-                                are uploaded.
+                                Identification refreshes after imports and changes to observations or the selected model.
+                                <a href="{% url 'caidapp:task_list' %}?state=active">View active tasks</a>
                             </p>
-                            <p>
-                                {#                                    {% if user.caiduser.workgroup.identification_scheduled_init_eta %}#}
-                                {#                                        <br>#}
-                                {#                                        <span title="Update at {{ user.caiduser.workgroup.identification_scheduled_init_eta|date:'Y-m-d H:i' }}">#}
-                                {#                                        Database update in {{ user.caiduser.workgroup.identification_scheduled_init_eta|timeuntil }}#}
-                                {##}
-                                {#                                            (#}
-                                {#                                        <a href="{% url 'caidapp:init_identification' %}" class="link-secondary">Update now</a>#}
-                                {#                                        ).#}
-                                {#                                        </span>#}
-                                {#                                    {% endif %}#}
-                                {##}
-                                {##}
-                                {#                                    {%  if user.caiduser.workgroup.identification_scheduled_run_eta %}#}
-                                {#                                        <br>#}
-                                {#                                        <span title="Suggestion generation at {{ user.caiduser.workgroup.identification_scheduled_run_eta|date:'Y-m-d H:i' }}">#}
-                                {#                                        Suggestion generation#}
-                                {#                                        in {{ user.caiduser.workgroup.identification_scheduled_run_eta|timeuntil }}.#}
-                                {#                                        </span>#}
-                                {#                                    {% endif %}#}
-
-                                {% if user.caiduser.workgroup.identification_scheduled_init_eta %}
-                                    {% now "Y-m-d H:i" as now %}
-
-                                    {% if user.caiduser.workgroup.identification_scheduled_init_eta > now %}
-                                        <span title="Update at {{ user.caiduser.workgroup.identification_scheduled_init_eta|date:'Y-m-d H:i' }}">
-                                            Database update in {{ user.caiduser.workgroup.identification_scheduled_init_eta|timeuntil }}
-                                            (<a href="{% url 'caidapp:init_identification' %}" class="link-secondary">Update now</a>).
-                                        </span>
-                                        <br>
-                                        <span>
-                                            <a href="{% url 'caidapp:run_identification_on_unidentified' %}" class="link-secondary">
-                                                Do suggestions now
-                                            </a>
-                                        </span>
-                                    {% else %}
-                                        <span>
-                                            Database updated at {{ user.caiduser.workgroup.identification_scheduled_init_eta|date:'Y-m-d H:i' }}
-                                            (<a href="{% url 'caidapp:init_identification' %}" class="link-secondary">Update now</a>).
-                                        </span>
-                                    {% endif %}
-                                {% endif %}
-                                <br>
-                                {% if user.caiduser.workgroup.identification_scheduled_run_eta %}
-                                    {% now "Y-m-d H:i" as now %}
-                                    {% if user.caiduser.workgroup.identification_scheduled_run_eta > now %}
-                                        <span title="Suggestion generation at {{ user.caiduser.workgroup.identification_scheduled_run_eta|date:'Y-m-d H:i' }}. {{ suggestion_run_info }}">
-                                            Suggestion generation in {{ user.caiduser.workgroup.identification_scheduled_run_eta|timeuntil }}
-                                            {% if user.caiduser.workgroup_admin %}
-                                            (<a href="{% url 'caidapp:run_identification_on_unidentified' %}" class="link-secondary">Do suggestions now</a>)
-                                            {% endif %}
-                                            .
-                                        </span>
-                                    {% else %}
-                                        <span title="{{ suggestion_run_info }}">
-                                            Suggestion generated at {{ user.caiduser.workgroup.identification_scheduled_run_eta|date:'Y-m-d H:i' }}
-                                            {% if user.caiduser.workgroup_admin %}
-                                                (<a href="{% url 'caidapp:run_identification_on_unidentified' %}" class="link-secondary">Do suggestions now</a>)
-                                            {% endif %}
-                                            .
-                                        </span>
-                                    {% endif %}
-                                {% endif %}
-
-
-                            </p>
-
                             <div class="position-absolute bottom-0 end-0 p-3">
                                     <span
                                             {#                                            data-bs-toggle="tooltip"#}
@@ -738,7 +662,7 @@ Run ({{ user.caiduser.workgroup.identification_reid_status }} {{ user.caiduser.w
             const progress = item.progress;
             const percent = progress && progress.percent !== null ? progress.percent : 0;
             const message = progress ? progress.message : (item.message || '');
-            const label = operation === 'init' ? 'Init identification' : 'Compare with identity database';
+            const label = operation === 'init' ? 'Calculate missing image features' : 'Suggest identities for unidentified observations';
             const details = [];
             if (item.started_at) details.push('started ' + formatIdentificationDate(item.started_at));
             if (item.eta) details.push('scheduled ' + formatIdentificationDate(item.eta));

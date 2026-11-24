@@ -1,4 +1,5 @@
 celery[redis]==5.2.7
+tzdata==2024.1
 
 # PyTorch
 # for cpu version

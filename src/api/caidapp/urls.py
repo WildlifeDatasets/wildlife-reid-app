@@ -49,6 +49,8 @@ urlpatterns = [
         "embedding-runs/workgroup/", views_embedding_runs.manage_workgroup_embeddings, name="manage_workgroup_embeddings"
     ),
     path("tasks/", views_embedding_runs.task_list, name="task_list"),
+    path("tasks/compare-observations/", views_embedding_runs.start_observation_comparison, name="start_observation_comparison"),
+    path("tasks/<uuid:run_uuid>/group-pair/", views_embedding_runs.group_observation_pair, name="group_observation_pair"),
     path("tasks/<uuid:run_uuid>/", views_embedding_runs.task_detail, name="task_detail"),
     path("tasks/<uuid:run_uuid>/status/", views_embedding_runs.task_status, name="task_status"),
     path("tasks/<uuid:run_uuid>/result/", views_embedding_runs.task_status, name="task_result"),

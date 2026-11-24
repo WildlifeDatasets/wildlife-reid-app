@@ -31,6 +31,7 @@ from django.utils.timezone import now
 from PIL import Image
 
 from . import fs_data, model_tools, models
+from . import observation_comparisons  # noqa: F401  (register comparison tasks on the API worker)
 from .fs_data import make_thumbnail_from_file
 from .log_tools import StatusCounts
 from .model_extra import compute_identity_suggestions
@@ -491,6 +492,30 @@ def prepare_observation_embeddings(workgroup_id, task_id):
     return prepare_scheduled_embeddings(workgroup_id, task_id)
 
 
+@shared_task
+def advance_identification_refresh(run_id):
+    """Advance one durable identification refresh."""
+    from .identification_refresh import advance
+
+    advance(run_id)
+
+
+@shared_task
+def maintain_identification_refreshes():
+    """Advance saved refreshes and pick up due follow-ups after worker restarts."""
+    from .embedding_runs import TERMINAL
+    from .identification_refresh import KIND
+
+    active = models.TaskRun.objects.filter(kind=KIND).exclude(status__in=TERMINAL)
+    pending = models.ObservationEmbeddingSchedule.objects.filter(
+        task_id__isnull=False, eta__lte=now()
+    ).exclude(workgroup_id__in=active.values("workgroup_id"))
+    for workgroup_id, task_id in pending.values_list("workgroup_id", "task_id"):
+        prepare_observation_embeddings.delay(workgroup_id, task_id)
+    for run_id in active.values_list("pk", flat=True):
+        advance_identification_refresh.delay(run_id)
+
+
 @shared_task(bind=True, max_retries=20)
 def store_observation_embeddings(self, output, manifest_path, run_id=None, retry_deadline=None):
     """Persist validated versioned vectors returned by the identification worker."""
@@ -530,7 +555,9 @@ def prepare_embedding_run(run_id):
     return prepare_run(run_id)
 
 
-def identification_feature_job(workgroup, model, metadata_path, operation, output_path=None, *, generation=None):
+def identification_feature_job(
+    workgroup, model, metadata_path, operation, output_path=None, *, generation=None, include_non_representative=False
+):
     """Create an API task that prepares features before calling the matcher."""
     from .observation_embeddings import embedding_generation
 
@@ -548,20 +575,27 @@ def identification_feature_job(workgroup, model, metadata_path, operation, outpu
             "operation": operation,
             "output_path": str(output_path) if output_path else None,
             "generation": embedding_generation(workgroup.pk) if generation is None else generation,
+            **({"include_non_representative": True} if include_non_representative else {}),
         },
     )
 
 
 @shared_task(bind=True)
 def prepare_shared_identification(
-    self, organization_id, metadata_path, identification_model, operation, output_path=None, generation=0
+    self, organization_id, metadata_path, identification_model, operation, output_path=None, generation=0,
+    include_non_representative=False,
 ):
     """Prepare and encode the missing features before publishing an identification result."""
     from .services.shared_identification import prepare_identification
 
-    if operation not in {"init", "identify", "detect_identification_outliers", "detect_most_similar"}:
+    if operation not in {
+        "init", "identify", "detect_identification_outliers", "detect_most_similar", "compare_unknown", "review_known",
+    }:
         raise ValueError("Unsupported identification operation.")
-    manifest_path = prepare_identification(organization_id, metadata_path, identification_model, operation, generation)
+    manifest_path = prepare_identification(
+        organization_id, metadata_path, identification_model, operation, generation,
+        include_non_representative=include_non_representative,
+    )
     compute = signature(
         "compute_observation_embeddings", kwargs={"manifest_path": manifest_path}, queue="identification_worker"
     )
@@ -588,6 +622,11 @@ def finish_shared_identification(self, output, manifest_path, organization_id, i
         return {"status": "DONE", "message": "Representative observation features are ready."}
     export_match_inputs(manifest_path, result["profile_uuid"])
     path = Path(manifest_path)
+    if operation in {"compare_unknown", "review_known"}:
+        return self.replace(signature(
+            "compare_observations", kwargs={"references_path": str(path.with_name("references.jsonl")),
+                                            "mode": operation}, queue="identification_worker",
+        ))
     if operation != "identify":
         worker_inputs = {
             "organization_id": organization_id,
@@ -2795,6 +2834,7 @@ def _store_identification_results(data, workgroup, archive_ids, options, statist
             archive_ids,
             workgroup.pk,
             run_id=statistic_id,
+            include_non_representative=options.get("include_non_representative", False),
         )
         if archive_id is not None:
             counts[archive_id] = counts.get(archive_id, 0) + 1
@@ -2804,7 +2844,8 @@ def _store_identification_results(data, workgroup, archive_ids, options, statist
 
 @transaction.atomic
 def _prepare_mediafile_for_identification(
-    data, index, mediafile_id, submitted, version, archive_ids, workgroup_id, *, run_id=None
+    data, index, mediafile_id, submitted, version, archive_ids, workgroup_id, *, run_id=None,
+    include_non_representative=False,
 ):
     """Replace the pending result for exactly one unchanged observation."""
     observation_ids = data.get("observation_ids") or []
@@ -2842,14 +2883,18 @@ def _prepare_mediafile_for_identification(
                 pk=data["pred_observation_ids"][index][rank],
                 identity_id=data["pred_class_ids"][index][rank],
                 identity__owner_workgroup_id=workgroup_id,
-                identity_is_representative=True,
                 is_no_detection_placeholder=False,
                 mediafile__parent__owner__workgroup_id=workgroup_id,
             )
             .select_related("mediafile", "identity")
             .first()
         )
-        if reference is None or input_version(reference, reference.mediafile) != data["pred_reference_versions"][index][rank]:
+        if (
+            reference is None
+            or reference.pk == observation.pk
+            or (not include_non_representative and not reference.identity_is_representative)
+            or input_version(reference, reference.mediafile) != data["pred_reference_versions"][index][rank]
+        ):
             continue
         try:
             feature_images = [
@@ -2929,7 +2974,7 @@ def run_identification_on_unidentified_for_workgroup_task(workgroup_id: int):
     return run_identification_on_unidentified_for_workgroup(workgroup_id)
 
 
-def run_identification_on_unidentified_for_workgroup(workgroup_id: int, request=None):
+def run_identification_on_unidentified_for_workgroup(workgroup_id: int, request=None, *, include_non_representative=False):
     """Run identification suggestions in one batch for all eligible uploads in a workgroup."""
     logger.debug(f"Running identification suggestions for workgroup {workgroup_id}...")
     from .views import run_identification_bulk
@@ -2970,7 +3015,10 @@ def run_identification_on_unidentified_for_workgroup(workgroup_id: int, request=
         level=models.Notification.DEBUG,
     )
 
-    status_ok = run_identification_bulk(workgroup, uploaded_archives=uploaded_archives)
+    selection = {"include_non_representative": True} if include_non_representative else None
+    status_ok = run_identification_bulk(
+        workgroup, uploaded_archives=uploaded_archives, **({"selection": selection} if selection else {})
+    )
     if request:
         from django.contrib import messages
 
@@ -3009,26 +3057,10 @@ def run_identification_on_unidentified_for_workgroup(workgroup_id: int, request=
 
 
 def schedule_init_identification_for_workgroup(workgroup: models.WorkGroup, delay_minutes: int = 10):
-    """Schedule initialization of identification for a workgroup."""
-    logger.debug(f"Scheduling init_identification for {workgroup=} in {delay_minutes} minutes.")
-    # Cancel previously scheduled task
-    if workgroup.identification_scheduled_init_task_id:
-        current_app.control.revoke(workgroup.identification_scheduled_init_task_id, terminate=True)
+    """Fold former representative-only initialization triggers into the shared refresh."""
+    from .observation_embeddings import schedule_embeddings
 
-    eta = now() + timedelta(minutes=delay_minutes)
-    task = init_identification.apply_async(args=[workgroup.id], eta=eta)
-
-    workgroup.identification_scheduled_init_task_id = task.id
-    workgroup.identification_scheduled_init_eta = eta
-    workgroup.identification_init_status = "Scheduled"
-
-    workgroup.save(
-        update_fields=[
-            "identification_scheduled_init_task_id",
-            "identification_scheduled_init_eta",
-            "identification_init_status",
-        ]
-    )
+    return schedule_embeddings(workgroup.pk, delay_minutes=delay_minutes)
 
 
 def schedule_init_identification_after_representative_upload(uploaded_archive: UploadedArchive) -> bool:
@@ -3044,7 +3076,7 @@ def schedule_init_identification_after_representative_upload(uploaded_archive: U
         "Scheduling identification initialization after completed representative upload: upload=%s",
         uploaded_archive.id,
     )
-    schedule_init_identification_for_workgroup(uploaded_archive.owner.workgroup)
+    schedule_init_identification_for_workgroup(uploaded_archive.owner.workgroup, delay_minutes=0)
     return True
 
 
@@ -3389,7 +3421,7 @@ def compute_identity_code_suggestions_task(self, workgroup_id: int):
 
 
 def run_identification_outlier_detection_for_workgroup(
-    workgroup: WorkGroup,
+    workgroup: WorkGroup, *, defer_submission=False,
 ) -> models.IdentificationOutlierSuggestionResult:
     """Prepare metadata and start identification outlier detection for a workgroup."""
     mediafiles_qs = (
@@ -3406,18 +3438,14 @@ def run_identification_outlier_detection_for_workgroup(
     # output_dir = Path(settings.MEDIA_ROOT) / workgroup.name / workgroup.hash
     # output_dir.mkdir(exist_ok=True, parents=True)
     # metadata_file = output_dir / "identification_outliers.csv"
-    metadata_file = workgroup.file_path("identification_outliers.csv")
-    metadata_file.parent.mkdir(exist_ok=True, parents=True)
-
     csv_data = _prepare_dataframe_for_identification(mediafiles_qs, require_identity=True)
-    pd.DataFrame(csv_data).to_csv(metadata_file, index=False)
-
     result = models.IdentificationOutlierSuggestionResult.objects.create(
         workgroup=workgroup,
         status="processing",
         message=f"Prepared {len(csv_data['image_path'])} identified media files for outlier detection.",
         suggestions=[],
     )
+    metadata_file = workgroup.file_path(f"identification_outliers_{result.pk}.csv")
 
     _notify_identification_staff(
         workgroup,
@@ -3426,26 +3454,34 @@ def run_identification_outlier_detection_for_workgroup(
         "caidapp:identification_outlier_suggestions_result",
         result.id,
     )
-    try:
-        identification_feature_job(
-            workgroup, workgroup.identification_model, metadata_file, "detect_identification_outliers"
-        ).apply_async(
-            link=identification_outlier_detection_on_success.s(result_id=result.id),
-            link_error=identification_outlier_detection_on_error.s(result_id=result.id),
-        )
-    except Exception as exc:
-        logger.exception("Could not start identification outlier detection for workgroup %s", workgroup.id)
-        result.status = "error"
-        result.message = str(exc)
-        result.save(update_fields=["status", "message"])
-        _notify_identification_staff(
-            workgroup,
-            f"Identification outlier detection failed to start for workgroup {workgroup}: {exc}",
-            models.Notification.ERROR,
-            "caidapp:identification_outlier_suggestions_result",
-            result.id,
-        )
-        return result, metadata_file
+    def publish():
+        try:
+            metadata_file.parent.mkdir(exist_ok=True, parents=True)
+            pd.DataFrame(csv_data).to_csv(metadata_file, index=False)
+            identification_feature_job(
+                workgroup, workgroup.identification_model, metadata_file, "detect_identification_outliers",
+                metadata_file.with_name(f"{metadata_file.stem}_extended.csv"),
+            ).apply_async(
+                link=identification_outlier_detection_on_success.s(result_id=result.id),
+                link_error=identification_outlier_detection_on_error.s(result_id=result.id),
+            )
+        except Exception as exc:
+            logger.exception("Could not start identification outlier detection for workgroup %s", workgroup.id)
+            result.status = "error"
+            result.message = str(exc)
+            result.save(update_fields=["status", "message"])
+            _notify_identification_staff(
+                workgroup,
+                f"Identification outlier detection failed to start for workgroup {workgroup}: {exc}",
+                models.Notification.ERROR,
+                "caidapp:identification_outlier_suggestions_result",
+                result.id,
+            )
+
+    if defer_submission:
+        transaction.on_commit(publish)
+    else:
+        publish()
     return result, metadata_file
 
 
@@ -3640,7 +3676,7 @@ def prepare_pixel_identity_pairs(result_id: int, pixel_only=False, attempt=0) ->
 
 
 def run_similar_identity_pairs_for_workgroup(
-    workgroup: WorkGroup, *, pixel_only=False
+    workgroup: WorkGroup, *, pixel_only=False, defer_submission=False
 ) -> models.IdentificationSimilarPairResult:
     """Create a run and queue metadata preparation outside the HTTP request."""
     result = models.IdentificationSimilarPairResult.objects.create(
@@ -3654,6 +3690,14 @@ def run_similar_identity_pairs_for_workgroup(
         result.output_csv_filename = f"identification_similar_pairs_{result.id}_most_similar.csv"
         result.save(update_fields=["input_csv_filename", "output_csv_filename"])
 
+    if defer_submission:
+        transaction.on_commit(lambda: _publish_similar_identity_pairs(result, workgroup, pixel_only))
+    else:
+        _publish_similar_identity_pairs(result, workgroup, pixel_only)
+    return result
+
+
+def _publish_similar_identity_pairs(result, workgroup, pixel_only):
     try:
         prepare_pixel_identity_pairs.apply_async(args=[result.pk, pixel_only], queue="celery", retry=False)
     except Exception as exc:
@@ -3665,7 +3709,7 @@ def run_similar_identity_pairs_for_workgroup(
             result.finished_at = now()
         result.save(update_fields=["pixel_status", "pixel_message", "status", "message", "finished_at"])
     if pixel_only:
-        return result
+        return
 
     try:
         prepare_similar_identity_pairs.apply_async(
@@ -3686,7 +3730,6 @@ def run_similar_identity_pairs_for_workgroup(
             f"Similar identity pair search failed for workgroup {workgroup}: {exc}",
             models.Notification.ERROR,
         )
-    return result
 
 
 @shared_task(name="caidapp.tasks.prepare_similar_identity_pairs")

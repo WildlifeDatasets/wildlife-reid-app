@@ -6,7 +6,7 @@
 <section class="section" id="task-detail" data-status-url="{{ status_url }}" data-terminal="{{ run.is_terminal|yesno:'true,false' }}">
   {% csrf_token %}
   <p class="small text-body-secondary">Task {{ run.uuid }} · {{ run.created_at }}</p>
-  {% if run.kind != 'export' %}<p class="small text-body-secondary">{{ run.trigger|capfirst }} · Model #{{ run.model_id }}{% if run.result.profile_uuid %} · Embedding profile {{ run.result.profile_uuid }}{% endif %}</p>{% endif %}
+  {% if run.model_id %}<p class="small text-body-secondary">{{ run.trigger|capfirst }} · Model #{{ run.model_id }}{% if run.result.profile_uuid %} · Embedding profile {{ run.result.profile_uuid }}{% endif %}</p>{% endif %}
   <p>{{ run.scope_label }}</p>
   <div id="task-refresh-message" class="alert alert-warning" role="status" hidden></div>
   <div class="card"><div class="card-body pt-3" aria-live="polite">
@@ -14,7 +14,25 @@
     <p id="task-message">{{ run.message }}</p>
     <p id="task-result-summary">{{ run.result_summary }}</p>
   </div></div>
-  {% if run.kind == 'export' %}
+  {% if run.steps %}
+  <div class="table-responsive">
+    <table class="table align-middle">
+      <thead><tr><th>Step</th><th>Status</th><th>Result</th></tr></thead>
+      <tbody>
+        {% for step in run.steps %}
+        <tr data-refresh-step="{{ step.key }}">
+          <td>{{ step.label }}</td>
+          <td data-step-status>{{ step.status_label }}</td>
+          <td>
+            <span data-step-message>{{ step.message }}</span>
+            <a data-step-link {% if step.detail_url %}href="{{ step.detail_url }}"{% else %}hidden{% endif %}>View result</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% elif run.kind == 'export' %}
   <p id="export-expiry">{% if run.expires_at %}Available until {{ run.expires_at }} · {{ run.size }} bytes{% endif %}</p>
   <a id="export-download" class="btn btn-primary"{% if run.download_url %} href="{{ run.download_url }}"{% else %} hidden{% endif %}>Download</a>
   <p class="small text-body-secondary">This export is private to you. You can return here to download it until it expires. The task history remains after the file is removed.</p>
@@ -43,6 +61,15 @@
       document.getElementById("task-status").textContent = data.status_label;
       document.getElementById("task-message").textContent = data.message || "";
       document.getElementById("task-result-summary").textContent = data.result_summary || "";
+      for (const step of data.steps || []) {
+        const row = detail.querySelector('[data-refresh-step="' + step.key + '"]');
+        if (!row) continue;
+        row.querySelector("[data-step-status]").textContent = step.status_label;
+        row.querySelector("[data-step-message]").textContent = step.message || "";
+        const link = row.querySelector("[data-step-link]");
+        link.hidden = !step.detail_url;
+        if (step.detail_url) link.href = step.detail_url;
+      }
       const retry = document.getElementById("embedding-retry");
       if (retry) {
         retry.dataset.targetIds = (data.retry_ids || []).join(",");

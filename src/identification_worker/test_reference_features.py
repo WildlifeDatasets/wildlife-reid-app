@@ -8,11 +8,35 @@ from tempfile import TemporaryDirectory
 from unittest.mock import Mock
 
 import pandas as pd
+import numpy as np
 
 from utils.feature_snapshot import FeatureSnapshot, load_analysis_inputs, load_match_inputs
 
 
 class ReferenceFeaturesTest(unittest.TestCase):
+    def test_comparison_uses_observation_ids_and_separate_identity_groups(self):
+        """Same-file observations remain distinct, and a query cannot match itself."""
+        tree = ast.parse(Path(__file__).with_name("worker.py").read_text(encoding="utf-8"))
+        function = next(node for node in tree.body if isinstance(node, ast.FunctionDef)
+                        and node.name == "compare_observations")
+        function.decorator_list = []
+        namespace = {"pd": pd, "np": np, "Path": Path}
+        exec(compile(ast.Module(body=[function], type_ignores=[]), "worker.py", "exec"), namespace)
+        rows = [
+            {"observation_id": pk, "mediafile_id": 8, "review_version": f"version-{pk}", "class_id": label,
+             "label": str(label), "embedding": [vector, {}]}
+            for pk, label, vector in ((1, 1, [1, 0]), (2, 1, [0, 1]), (3, 2, [1, 0]))
+        ]
+        with TemporaryDirectory() as directory:
+            references = Path(directory) / "references.jsonl"
+            references.write_text("".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8")
+            references.with_name("queries.jsonl").write_text(json.dumps(rows[0]) + "\n", encoding="utf-8")
+            compare = namespace["compare_observations"]
+            unknown = compare(references, "compare_unknown")["rows"][0]["candidates"]
+            known = compare(references, "review_known")["rows"][0]["candidates"]
+        self.assertEqual([candidate["id"] for candidate in unknown], [3, 2])
+        self.assertEqual([(candidate["role"], candidate["id"]) for candidate in known], [("own", 2), ("other", 3)])
+
     def test_observation_snapshot_keeps_same_file_rows_and_candidate_order(self):
         """Ranked row reads and paged reads address the same observations."""
         rows = [

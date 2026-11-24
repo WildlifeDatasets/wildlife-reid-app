@@ -13,7 +13,7 @@ import torchvision.transforms as T
 from PIL import Image
 from torch.nn import functional as F
 from tqdm import tqdm
-from wildlife_model_cache import download_sam3_checkpoint_if_missing
+from wildlife_model_cache import download_sam3_checkpoint_if_missing, log_model_operation
 
 from .errors import DetectorUnavailableError
 from .model_cache import TORCH_HUB_CACHE_DIR, get_megadetector_checkpoint
@@ -96,14 +96,15 @@ def get_detection_model(force_reload: bool = False):
         logger.debug(f"Loading model from file: {model_file}. {model_file.exists()=}")
 
         torch.hub._validate_not_a_forked_repo = lambda a, b, c: True
-        DETECTION_MODEL = torch.hub.load(
-            "ultralytics/yolov5:915bbf2",  # repo_or_dir tag v7.0
-            "custom",  # model
-            str(model_file.expanduser()),  # args for callable model
-            force_reload=force_reload,
-            trust_repo=True,
-            device=DEVICE,
-        )
+        with log_model_operation("Torch Hub model load", "MegaDetector (ultralytics/yolov5:915bbf2)"):
+            DETECTION_MODEL = torch.hub.load(
+                "ultralytics/yolov5:915bbf2",
+                "custom",
+                str(model_file.expanduser()),
+                force_reload=force_reload,
+                trust_repo=True,
+                device=DEVICE,
+            )
         DETECTION_MODEL.conf = 0.05
         warm_up_detection_model(DETECTION_MODEL)
 
@@ -135,7 +136,8 @@ def warm_up_detection_model(model):
 def get_orientation_model(model_name="resnet10t", model_checkpoint=""):
     """Load the orientation classification model."""
     # create model
-    model = timm.create_model(model_name, num_classes=4, pretrained=True)
+    with log_model_operation("timm model load", model_name):
+        model = timm.create_model(model_name, num_classes=4, pretrained=True)
 
     # load model checkpoint
     if model_checkpoint:
