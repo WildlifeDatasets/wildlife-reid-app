@@ -1,6 +1,7 @@
 import logging
 import os
 from typing import Optional
+from urllib.parse import unquote, urlsplit
 
 import django
 from django.contrib import messages
@@ -10,7 +11,7 @@ from django.db import transaction
 from django.db.models.query import QuerySet
 from django.http import Http404, JsonResponse, StreamingHttpResponse
 from django.shortcuts import get_object_or_404, redirect, resolve_url
-from django.urls import reverse, reverse_lazy
+from django.urls import Resolver404, get_script_prefix, resolve, reverse, reverse_lazy
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.generic import DeleteView
@@ -19,7 +20,7 @@ from extra_views import InlineFormSetFactory, UpdateWithInlinesView
 from . import forms, model_extra, models
 from .forms import MediaFileForm
 from .models import Album, AnimalObservation, MediaFile
-from .views import sequences
+from .views import _review_items, sequences
 
 logger = logging.getLogger(__name__)
 
@@ -233,6 +234,25 @@ class MediaFileUpdateView(LoginRequiredMixin, BboxDerivativeInvalidationMixin, U
         if self.request.POST.get("mark_empty_image"):
             return reverse("caidapp:media_file_update", args=[self.object.id])
         return self._get_next_url()
+
+    def forms_valid(self, form, inlines):
+        """Fall back to the review queue if saving made the return item unavailable."""
+        response = super().forms_valid(form, inlines)
+        # The bbox mixin invalidates saved suggestions after the redirect is constructed.
+        path = unquote(urlsplit(response.url).path)
+        script_prefix = get_script_prefix().rstrip("/")
+        if not path.startswith(f"{script_prefix}/"):
+            return response
+        try:
+            match = resolve(path[len(script_prefix) :], urlconf=getattr(self.request, "urlconf", None))
+        except Resolver404:
+            return response
+        if match.view_name == "caidapp:get_individual_identity" and "foridentification_id" in match.kwargs:
+            if not _review_items(self.request).filter(
+                pk=match.kwargs["foridentification_id"], observation__identity__isnull=True
+            ).exists():
+                return redirect("caidapp:get_individual_identity")
+        return response
 
     def _get_taxon_from_inline_observations(self):
         """Get taxon from inline observations, prefer first non-null."""

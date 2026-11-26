@@ -897,6 +897,45 @@ class MediaFileUpdateEmptyObservationTest(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response.url, source_url)
 
+    def test_mediafile_update_redirects_to_queue_after_bbox_invalidates_review(self):
+        """Keep a live review link and return to the queue once a bbox change removes it."""
+        archive = UploadedArchiveFactory(owner=self.caiduser, is_for_identification=True)
+        mediafile = MediaFileFactory(parent=archive, metadata_json={})
+        observation = AnimalObservationFactory(
+            mediafile=mediafile,
+            orientation="N",
+            bbox_x_center=0.5,
+            bbox_y_center=0.5,
+            bbox_width=0.4,
+            bbox_height=0.2,
+        )
+        item = models.MediafilesForIdentification.objects.create(observation=observation)
+        detail_url = reverse("caidapp:media_file_update", args=[mediafile.pk])
+        review_url = reverse("caidapp:get_individual_identity", args=[item.pk])
+        data = self._base_mediafile_update_post_data(
+            mediafile,
+            total_forms=1,
+            initial_forms=1,
+            extra_form_data={
+                "next": review_url,
+                "observations-0-id": str(observation.pk),
+                "observations-0-mediafile": str(mediafile.pk),
+                "observations-0-orientation": "N",
+                "observations-0-bbox_x_center": "0.5",
+                "observations-0-bbox_y_center": "0.5",
+                "observations-0-bbox_width": "0.4",
+                "observations-0-bbox_height": "0.2",
+            },
+        )
+
+        self.assertRedirects(self.client.post(detail_url, data), review_url)
+
+        data["observations-0-bbox_width"] = "0.3"
+        self.assertRedirects(self.client.post(detail_url, data), reverse("caidapp:get_individual_identity"))
+        observation.refresh_from_db()
+        self.assertAlmostEqual(observation.bbox_width, 0.3)
+        self.assertFalse(models.MediafilesForIdentification.objects.filter(pk=item.pk).exists())
+
     def test_mediafile_update_add_related_links_keep_observation_prefix(self):
         """Preserve observation formset prefixes on add-related links, including the empty-form template."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
