@@ -277,6 +277,11 @@ def proposal_status(request, job_id):
     )
     _expire_jobs(jobs)
     job = get_object_or_404(jobs)
+    coordinate_frame = job.snapshot.get("bbox_coordinate_frame")
+    if job.status in {"succeeded", "review"} and coordinate_frame != service.BBOX_COORDINATE_FRAME:
+        return JsonResponse(
+            {"status": "conflict", "message": "This proposal is outdated. Click Suggest BBox again.", "detections": []}
+        )
     return JsonResponse(
         {
             "status": "succeeded" if job.purpose == "fill" and job.status == "review" else job.status,

@@ -21,6 +21,7 @@ from . import models
 logger = logging.getLogger("app")
 
 BBOX_FIELDS = ("bbox_x_center", "bbox_y_center", "bbox_width", "bbox_height")
+BBOX_COORDINATE_FRAME = "stored_pixels"
 DEFAULT_OPTIONS = {"detector": "auto", "confidence": 0.5, "min_iou": 0.2, "create_new": True, "unmatched": "clear"}
 
 
@@ -38,6 +39,7 @@ def observation_snapshot(mediafile):
         raise ValueError("Image path is outside the media directory")
     stat = path.stat()
     snapshot = {
+        "bbox_coordinate_frame": BBOX_COORDINATE_FRAME,
         "source": name,
         "size": stat.st_size,
         "mtime": stat.st_mtime_ns,

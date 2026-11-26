@@ -2,11 +2,13 @@
 
 import sys
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
-import numpy as np
 from bbox_detection import detect_file
+from PIL import Image
 
 
 class DetectionContractTest(unittest.TestCase):
@@ -20,9 +22,14 @@ class DetectionContractTest(unittest.TestCase):
         modules = patch.dict(sys.modules, {"detection_utils": SimpleNamespace(inference_detection=self.detector)})
         modules.start()
         self.addCleanup(modules.stop)
-        image = patch("bbox_detection.cv2.imread", return_value=np.zeros((100, 200, 3), dtype=np.uint8))
-        image.start()
-        self.addCleanup(image.stop)
+        directory = TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        root = Path(directory.name)
+        media_root = patch("bbox_detection.MEDIA_ROOT", root)
+        media_root.start()
+        self.addCleanup(media_root.stop)
+        self.image_path = root / "example.jpg"
+        Image.new("RGB", (200, 100)).save(self.image_path)
 
     def test_empty_success_is_explicit(self):
         result = detect_file("example.jpg", self.options)
@@ -51,6 +58,22 @@ class DetectionContractTest(unittest.TestCase):
         detect_file("example.jpg", {**self.options, "detector": "sam3"})
         self.detector.detect_animals_with_megadetector.assert_not_called()
 
+    def test_jpeg_uses_the_preview_pixel_orientation(self):
+        """Normalize a detection against the stored raster even when EXIF requests a rotation."""
+        image = Image.new("RGB", (200, 100))
+        exif = image.getexif()
+        exif[274] = 6  # Orientation: rotate 90 degrees clockwise for display.
+        image.save(self.image_path, exif=exif)
+        self.detector.detect_animals_with_sam3.return_value = [
+            {"class": "animal", "confidence": 0.8, "bbox": [60, 10, 140, 30]}
+        ]
+
+        result = detect_file("example.jpg", {**self.options, "detector": "sam3"})
+
+        detector_image = self.detector.detect_animals_with_sam3.call_args.args[0]
+        self.assertEqual(detector_image.shape, (100, 200, 3))
+        self.assertEqual(result["detections"][0]["bbox"], [0.3, 0.1, 0.7, 0.3])
+
     def test_megadetector_only_does_not_run_sam(self):
         detect_file("example.jpg", {**self.options, "detector": "megadetector"})
         self.detector.detect_animals_with_sam3.assert_not_called()
@@ -60,7 +83,8 @@ class DetectionContractTest(unittest.TestCase):
             detect_file("../../private.jpg", self.options)
 
     def test_unreadable_image_is_an_error(self):
-        with patch("bbox_detection.cv2.imread", return_value=None), self.assertRaises(ValueError):
+        self.image_path.write_bytes(b"invalid image")
+        with self.assertRaisesRegex(ValueError, "Cannot read the image"):
             detect_file("example.jpg", self.options)
 
 

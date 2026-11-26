@@ -191,6 +191,20 @@ class BboxRedetectionTest(TestCase):
         self.mediafile.save()
         self.assertEqual(self.client.post(url).status_code, 404)
 
+    def test_proposal_from_previous_coordinate_frame_is_not_reused(self):
+        """Hide legacy proposal coordinates and queue a fresh detection on request."""
+        url = reverse("caidapp:bbox_proposal", args=[self.mediafile.pk])
+        first = self.client.post(url).json()
+        job = models.BboxDetectionJob.objects.get()
+        service.finish_job(job.pk, self.result([0, 0, 1, 1]))
+        del job.snapshot["bbox_coordinate_frame"]
+        job.save(update_fields=["snapshot"])
+
+        outdated = self.client.get(first["url"]).json()
+        self.assertEqual(outdated["status"], "conflict")
+        self.assertEqual(outdated["detections"], [])
+        self.assertNotEqual(first, self.client.post(url).json())
+
     def test_failed_proposal_exposes_worker_message_without_changing_observations(self):
         """Show an actionable detector error and allow a fresh attempt after configuration is fixed."""
         original = list(self.mediafile.observations.values())

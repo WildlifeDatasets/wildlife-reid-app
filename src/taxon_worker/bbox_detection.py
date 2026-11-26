@@ -7,17 +7,19 @@ from time import monotonic
 import cv2
 
 logger = logging.getLogger("app")
+MEDIA_ROOT = Path("/shared_data/media")
 
 
 def detect_file(relative_path, options, *, task_id=None):
     from detection_utils import inference_detection as detection
 
-    root = Path("/shared_data/media").resolve()
+    root = MEDIA_ROOT.resolve()
     path = (root / relative_path).resolve()
     if not path.is_relative_to(root):
         raise ValueError("Image path is outside the media directory")
     logger.info("BBox source read started task_id=%s source=%s", task_id, path.name)
-    image = cv2.imread(str(path))
+    # Preview generation and stored bboxes use the image's raw pixel orientation.
+    image = cv2.imread(str(path), cv2.IMREAD_COLOR | cv2.IMREAD_IGNORE_ORIENTATION)
     if image is None:
         raise ValueError("Cannot read the image")
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
