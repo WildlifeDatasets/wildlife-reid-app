@@ -17,6 +17,7 @@ STEPS = {
     "features": "Calculate missing image features",
     "identify": "Suggest identities for unidentified observations",
     "unknown": "Find similar unidentified observations",
+    "known": "Review assigned identities",
     "outliers": "Check for misassigned identities",
     "merges": "Find possible identity merges",
 }
@@ -73,6 +74,17 @@ def _launch(step, group):
         if len(list(observations.filter(identity__isnull=True).values_list("pk", flat=True)[:2])) < 2:
             return "At least two unidentified observations with bounding boxes are required."
         return observation_comparisons.start(group, None, "compare_unknown", defer_submission=True)
+    if step == "known":
+        known = observations.filter(identity__owner_workgroup=group)
+        if not known.exists():
+            return "No identified observations with bounding boxes are available."
+        references = reference_observations(group, include_non_representative=True, restrict_taxon=False)
+        reference_ids = list(references.values_list("pk", flat=True)[:2])
+        if not reference_ids or (len(reference_ids) == 1 and not known.exclude(pk=reference_ids[0]).exists()):
+            return "No other identified reference observation is available."
+        return observation_comparisons.start(
+            group, None, "review_known", include_non_representative=True, defer_submission=True,
+        )
     if step == "identify":
         if not reference_observations(group, include_non_representative=True).exists():
             return "No identified reference observations are available."
@@ -104,7 +116,7 @@ def _launch(step, group):
 
 def _child_status(step, child_id):
     """Read completion from the same records used by standalone jobs."""
-    if step in {"features", "unknown"}:
+    if step in {"features", "unknown", "known"}:
         child = models.TaskRun.objects.filter(pk=child_id).first()
         if child is None:
             return "failed"
@@ -155,7 +167,7 @@ def advance(run_id):
         progress["status"] = status
 
     for step in STEPS:
-        progress = steps[step]
+        progress = steps.setdefault(step, {"status": "queued"})
         if progress["status"] != "queued":
             continue
         if changed or steps["features"]["status"] == "failed":

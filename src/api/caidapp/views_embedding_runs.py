@@ -74,7 +74,9 @@ def _payload(run, include_items=False, *, staff_links=False):
     if run.kind == identification_refresh.KIND:
         steps = []
         for key, label in identification_refresh.STEPS.items():
-            entry = result["steps"][key]
+            entry = result["steps"].get(key)
+            if entry is None:
+                continue
             detail_url = ""
             if include_items and entry.get("record_id") and (staff_links or key not in {"outliers", "merges"}):
                 detail_url = _refresh_step_url(key, entry["record_id"], run.workgroup_id)
@@ -158,7 +160,7 @@ def _payload(run, include_items=False, *, staff_links=False):
 
 
 def _refresh_step_url(step, record_id, workgroup_id):
-    if step in {"features", "unknown"}:
+    if step in {"features", "unknown", "known"}:
         uuid = models.TaskRun.objects.filter(pk=record_id, workgroup_id=workgroup_id).values_list("uuid", flat=True).first()
         return reverse("caidapp:task_detail", args=[uuid]) if uuid else ""
     if step == "identify":

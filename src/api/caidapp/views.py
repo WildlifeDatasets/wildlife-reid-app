@@ -111,6 +111,7 @@ from .models import (
 from .observation_embeddings import embedding_generation
 from .services.home_dashboard import render_home_dashboard_context
 from .services.identification_dashboard import identification_dashboard_context
+from .services.identification_coverage import workgroup_coverage
 from .services.identity_review import input_version, model_version
 from .services.individual_summary import summarize_individuals
 from .services.media_bboxes import mediafile_bbox_unions
@@ -837,6 +838,7 @@ def identification_information(request) -> HttpResponse:
             "recent_outlier_results": recent_outlier_results,
             "latest_outlier_result": recent_outlier_results[0] if recent_outlier_results else None,
             "counts": counts,
+            "coverage": workgroup_coverage(workgroup),
         },
     )
 

@@ -92,7 +92,7 @@ def validated_local_features(row, submitted):
     return {"local_features": local, "feature_image": image.as_posix()}
 
 
-def reference_observations(workgroup, *, include_non_representative=False):
+def reference_observations(workgroup, *, include_non_representative=False, restrict_taxon=True):
     """Select the current labeled image references in the workgroup."""
     references = AnimalObservation.objects.filter(
         mediafile__parent__owner__workgroup=workgroup,
@@ -103,7 +103,7 @@ def reference_observations(workgroup, *, include_non_representative=False):
     )
     if not include_non_representative:
         references = references.filter(identity_is_representative=True)
-    if workgroup.check_taxon_before_identification and workgroup.default_taxon_for_identification_id:
+    if restrict_taxon and workgroup.check_taxon_before_identification and workgroup.default_taxon_for_identification_id:
         references = references.filter(taxon_id=workgroup.default_taxon_for_identification_id)
     return references
 
@@ -130,7 +130,9 @@ def prepare_identification(
         observations = observations.filter(identity__isnull=True)
     elif operation in {"identify", "review_known"}:
         query_ids = ids
-        references = reference_observations(workgroup, include_non_representative=include_non_representative)
+        references = reference_observations(
+            workgroup, include_non_representative=include_non_representative, restrict_taxon=operation == "identify",
+        )
         reference_ids = list(references.order_by("pk").values_list("pk", flat=True))
         if operation == "identify":
             observations = observations.filter(identity__isnull=True) | references

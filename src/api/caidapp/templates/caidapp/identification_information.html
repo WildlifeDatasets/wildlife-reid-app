@@ -17,6 +17,35 @@
     <li class="breadcrumb-item active">Information</li>
 </ol>
 
+<div class="card mb-4">
+    <div class="card-body">
+        <h2 class="card-title">Observation coverage</h2>
+        <dl class="row mb-2">
+            <dt class="col-sm-8">Images</dt><dd class="col-sm-4">{{ coverage.images }}</dd>
+            <dt class="col-sm-8">Observations</dt>
+            <dd class="col-sm-4">{{ coverage.observations }} ({{ coverage.identified }} identified, {{ coverage.unidentified }} unidentified)</dd>
+            <dt class="col-sm-8">Eligible for automatic comparison</dt><dd class="col-sm-4">{{ coverage.eligible }}</dd>
+            <dt class="col-sm-8">Observations with saved embeddings (any model)</dt><dd class="col-sm-4">{{ coverage.embedded }}</dd>
+            <dt class="col-sm-8">Observations with similarity suggestions</dt><dd class="col-sm-4">{{ coverage.with_suggestions }}</dd>
+        </dl>
+        <table class="table table-sm mb-2">
+            <thead><tr><th>Comparison</th><th class="text-end">Observations with suggestions</th></tr></thead>
+            <tbody>
+                <tr><td><a href="{% url 'caidapp:not_identified_mediafiles' %}">Unidentified against known identities</a></td><td class="text-end">{{ coverage.identity_suggestions }}</td></tr>
+                <tr>
+                    <td>{% if coverage.unknown_run %}<a href="{% url 'caidapp:task_detail' coverage.unknown_run.uuid %}">Similar unidentified observations</a>{% else %}Similar unidentified observations{% endif %}</td>
+                    <td class="text-end">{{ coverage.unknown_comparisons }}</td>
+                </tr>
+                <tr>
+                    <td>{% if coverage.known_run %}<a href="{% url 'caidapp:task_detail' coverage.known_run.uuid %}">Review assigned identities</a>{% else %}Review assigned identities{% endif %}</td>
+                    <td class="text-end">{{ coverage.known_comparisons }}</td>
+                </tr>
+            </tbody>
+        </table>
+        <p class="small text-body-secondary mb-0">Automatic comparison uses images from completed uploads with saved bounding boxes. Suggestion counts cover the current model and use the latest successful run for each comparison. An observation can have suggestions in more than one row.</p>
+    </div>
+</div>
+
 {% if model_ready %}
     <div class="alert alert-success d-flex align-items-center" role="alert">
         <i class="bi bi-check-circle-fill me-2"></i>
