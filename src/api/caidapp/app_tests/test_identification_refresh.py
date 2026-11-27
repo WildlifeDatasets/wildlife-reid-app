@@ -76,12 +76,14 @@ class IdentificationRefreshTest(TestCase):
             refresh.advance(run.pk)
             self.assertEqual([call.args[0] for call in launch.call_args_list], ["features"])
             child.status = "failed"
-            child.save(update_fields=["status"])
+            child.message = "Computing image features failed. The worker ran out of memory."
+            child.save(update_fields=["status", "message"])
             refresh.advance(run.pk)
         run.refresh_from_db()
         self.assertEqual(run.status, "failed")
         self.assertEqual(run.result["steps"]["identify"]["status"], "skipped")
         self.assertEqual(run.result["steps"]["features"]["record_id"], child.pk)
+        self.assertEqual(run.result["steps"]["features"]["message"], child.message)
 
     def test_followup_timer_waits_and_creates_one_run_after_completion(self):
         first = refresh.request_refresh(self.group.pk, self.member)

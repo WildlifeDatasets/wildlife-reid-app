@@ -1,5 +1,6 @@
 """Track embedding work without changing the identification worker protocol."""
 
+import errno
 import shutil
 import uuid
 from collections import Counter
@@ -17,21 +18,74 @@ from .models import AnimalObservation, EmbeddingRunItem, TaskRun, WorkGroup
 from .observation_embeddings import backfill_observations, embedding_generation
 
 TERMINAL = {"succeeded", "partial", "failed"}
+TASK_STAGES = {"prepare": "Preparing inputs", "compute": "Computing image features", "store": "Saving results"}
 
 
-def fail_run(run_id, message):
+def task_ids(run):
+    return {"prepare": run.prepare_task_id, "compute": run.compute_task_id, "store": run.store_task_id}
+
+
+def failure_details(stage, task_id, *, error=None, state="FAILURE"):
+    """Summarize exceptions without sending arbitrary worker messages to the browser."""
+    error_type = type(error).__name__ if isinstance(error, BaseException) else ""
+    detail = str(error).lower() if isinstance(error, BaseException) else ""
+    if state == "REVOKED":
+        reason = "The task was revoked."
+    elif error_type in {"OutOfMemoryError", "MemoryError"} or "cuda out of memory" in detail:
+        reason = "The worker ran out of memory."
+    elif error_type in {"WorkerLostError", "Terminated"}:
+        reason = "The worker process exited before completing the task. Check worker logs for a restart or memory limit."
+    elif error_type in {"TimeLimitExceeded", "SoftTimeLimitExceeded", "TimeoutError"}:
+        reason = "The task exceeded a time limit."
+    elif isinstance(error, FileNotFoundError) or error_type in {"LocalEntryNotFoundError", "EntryNotFoundError"}:
+        reason = "A required image, model file, or shared task file was unavailable. Check the task log for the file."
+    elif isinstance(error, PermissionError):
+        reason = "The process could not access a required file."
+    elif isinstance(error, OSError) and error.errno in {errno.ENOSPC, errno.EDQUOT}:
+        reason = "The storage volume ran out of free space or reached its quota."
+    elif error_type == "OperationalError":
+        reason = "The application database could not complete this operation."
+    elif isinstance(error, ValidationError):
+        reason = "The task inputs or results failed validation. Check the task log for details."
+    elif detail in {
+        "the model checkpoint changed after this run was prepared.",
+        "source media changed after this run was prepared.",
+        "the worker segmentation backend does not match the configured feature profile.",
+    }:
+        reason = str(error)
+    else:
+        reason = "The task failed. Use its Celery task ID to find the underlying error in the logs."
+    return {
+        "stage": stage,
+        "stage_label": TASK_STAGES[stage],
+        "task_id": task_id,
+        "state": state,
+        "error_type": error_type,
+        "reason": reason,
+    }
+
+
+def record_failure(run_id, stage, task_id, *, error=None, state="FAILURE"):
+    diagnostic = failure_details(stage, task_id, error=error, state=state)
+    fail_run(run_id, f"{diagnostic['stage_label']} failed. {diagnostic['reason']}", diagnostic=diagnostic)
+
+
+def fail_run(run_id, message, *, diagnostic=None):
     """Record a public failure without exposing worker tracebacks or paths."""
     with transaction.atomic():
         run = TaskRun.objects.select_for_update().filter(pk=run_id).first()
         if run is None or run.status in TERMINAL:
             return
         run.items.filter(status="pending").update(status="failed", message=message)
+        result = dict(Counter(run.items.values_list("status", flat=True)))
+        if diagnostic:
+            result["failure"] = diagnostic
         TaskRun.objects.filter(pk=run_id).update(
             status="failed",
             message=message,
             finished_at=timezone.now(),
             updated_at=timezone.now(),
-            result=dict(Counter(run.items.values_list("status", flat=True))),
+            result=result,
         )
 
 
@@ -96,10 +150,11 @@ def create_embedding_run(
         def publish():
             try:
                 signature("caidapp.tasks.prepare_embedding_run", args=[run.pk]).apply_async(task_id=run.prepare_task_id)
-            except Exception:
-                fail_run(run.pk, "Could not submit embedding preparation. Please try again.")
+            except Exception as exc:
+                record_failure(run.pk, "prepare", run.prepare_task_id, error=exc)
+                raise
 
-        transaction.on_commit(publish)
+        transaction.on_commit(publish, robust=True)
     return run
 
 
@@ -129,8 +184,8 @@ def prepare_run(run_id):
                 finished_at=now,
                 updated_at=now,
             )
-    except Exception:
-        fail_run(run_id, "Embedding preparation failed. Check source media files and the selected model.")
+    except Exception as exc:
+        record_failure(run_id, "prepare", run.prepare_task_id, error=exc)
         raise
 
 
@@ -145,10 +200,16 @@ def refresh_run(run):
         task = AsyncResult(task_id)
         state = task.state
         if state in {"FAILURE", "REVOKED"}:
-            fail_run(run.pk, "Embedding task failed or was revoked. Please try again.")
+            stage = "compute" if run.compute_task_id else "prepare"
+            record_failure(run.pk, stage, task_id, error=task.result, state=state)
         elif run.compute_task_id and state == "SUCCESS":
-            callback_state = AsyncResult(run.store_task_id).state if run.store_task_id else None
-            if callback_state in {"FAILURE", "REVOKED", "SUCCESS"}:
+            callback = AsyncResult(run.store_task_id) if run.store_task_id else None
+            callback_state = callback.state if callback is not None else None
+            if callback_state in {"FAILURE", "REVOKED"}:
+                record_failure(run.pk, "store", run.store_task_id, error=callback.result, state=callback_state)
+                run.refresh_from_db()
+                return run
+            if callback_state == "SUCCESS":
                 run.status = "attention"
                 run.message = "Computation ended but the result could not be confirmed in the database."
             else:
@@ -177,6 +238,25 @@ def refresh_run(run):
     return run
 
 
+def run_diagnostics(run):
+    """Recover the cause on older failed runs while their Celery results are retained."""
+    ids = task_ids(run)
+    failure = run.result.get("failure")
+    if not failure and run.status == "failed":
+        for stage in ("store", "compute", "prepare"):
+            if not ids[stage]:
+                continue
+            try:
+                task = AsyncResult(ids[stage])
+                state = task.state
+                if state in {"FAILURE", "REVOKED"}:
+                    failure = failure_details(stage, ids[stage], error=task.result, state=state)
+                    break
+            except Exception:
+                break
+    return {"task_ids": ids, "failure": failure}
+
+
 def serialize_run(run, include_items=False):
     """Expose safe status data, excluding filesystem paths and model checkpoints."""
     data = {
@@ -189,7 +269,7 @@ def serialize_run(run, include_items=False):
         "started_at": run.started_at.isoformat() if run.started_at else None,
         "finished_at": run.finished_at.isoformat() if run.finished_at else None,
         "result": run.result,
-        "model_id": run.model_snapshot.get("model_id"),
+        "model_id": run.model_snapshot.get("model_id", run.model_snapshot.get("id")),
         "counts": dict(Counter(run.items.values_list("status", flat=True))),
     }
     if include_items:

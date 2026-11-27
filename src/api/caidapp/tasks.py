@@ -524,7 +524,7 @@ def store_observation_embeddings(self, output, manifest_path, run_id=None, retry
     from django.db import OperationalError
     from django.utils import timezone
 
-    from .embedding_runs import fail_run
+    from .embedding_runs import record_failure
     from .observation_embeddings import store_embeddings
 
     try:
@@ -539,11 +539,11 @@ def store_observation_embeddings(self, output, manifest_path, run_id=None, retry
                 args=(),
             )
         if run_id:
-            fail_run(run_id, "Database unavailable while storing embeddings; retry limit reached.")
+            record_failure(run_id, "store", self.request.id, error=exc)
         raise
-    except Exception:
+    except Exception as exc:
         if run_id:
-            fail_run(run_id, "Embedding result validation or storage failed.")
+            record_failure(run_id, "store", self.request.id, error=exc)
         raise
 
 

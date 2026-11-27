@@ -14,6 +14,24 @@
     <p id="task-message">{{ run.message }}</p>
     <p id="task-result-summary">{{ run.result_summary }}</p>
   </div></div>
+  {% if run.diagnostics %}
+  <details class="mb-3"{% if run.diagnostics.failure %} open{% endif %}>
+    <summary>Task diagnostics</summary>
+    <p id="diagnostic-failure" class="mb-2">
+      {% with failure=run.diagnostics.failure %}
+        {% if failure %}
+          {{ failure.stage_label }} · {{ failure.state }}{% if failure.error_type %} · {{ failure.error_type }}{% endif %}
+          {% if failure.reason not in run.message %}<br>{{ failure.reason }}{% endif %}
+        {% endif %}
+      {% endwith %}
+    </p>
+    <dl class="mb-0">
+      <dt>Preparation task ID</dt><dd><code data-task-id="prepare">{{ run.diagnostics.task_ids.prepare|default:"—" }}</code></dd>
+      <dt>Computation task ID</dt><dd><code data-task-id="compute">{{ run.diagnostics.task_ids.compute|default:"—" }}</code></dd>
+      <dt>Storage task ID</dt><dd><code data-task-id="store">{{ run.diagnostics.task_ids.store|default:"—" }}</code></dd>
+    </dl>
+  </details>
+  {% endif %}
   {% if run.steps %}
   <div class="table-responsive">
     <table class="table align-middle">
@@ -61,6 +79,18 @@
       document.getElementById("task-status").textContent = data.status_label;
       document.getElementById("task-message").textContent = data.message || "";
       document.getElementById("task-result-summary").textContent = data.result_summary || "";
+      const diagnostic = document.getElementById("diagnostic-failure");
+      if (diagnostic && data.diagnostics) {
+        for (const [stage, taskId] of Object.entries(data.diagnostics.task_ids)) {
+          detail.querySelector('[data-task-id="' + stage + '"]').textContent = taskId || "—";
+        }
+        const failure = data.diagnostics.failure;
+        if (failure) {
+          diagnostic.closest("details").open = true;
+          diagnostic.textContent = [failure.stage_label, failure.state, failure.error_type].filter(Boolean).join(" · ");
+          if (!(data.message || "").includes(failure.reason)) diagnostic.textContent += ". " + failure.reason;
+        }
+      }
       for (const step of data.steps || []) {
         const row = detail.querySelector('[data-refresh-step="' + step.key + '"]');
         if (!row) continue;

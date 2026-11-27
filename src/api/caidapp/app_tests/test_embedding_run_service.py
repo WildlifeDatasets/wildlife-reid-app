@@ -82,6 +82,29 @@ class EmbeddingRunServiceTests(ObservationEmbeddingTests):
             prepare_run(run.pk)
         enqueue.assert_called_once()
 
+    def test_failed_computation_persists_safe_diagnostic(self):
+        run = TaskRun.objects.create(workgroup=self.workgroup, compute_task_id="gpu-job", status="running")
+        error = RuntimeError("CUDA out of memory. Private details: /private/weights.bin")
+        with patch("caidapp.embedding_runs.AsyncResult", return_value=Mock(state="FAILURE", result=error)):
+            refresh_run(run)
+        self.assertEqual(run.status, "failed")
+        self.assertEqual(run.result["failure"]["stage"], "compute")
+        self.assertEqual(run.result["failure"]["task_id"], "gpu-job")
+        self.assertIn("ran out of memory", run.message)
+        self.assertNotIn("/private/", str(run.result))
+
+    def test_failed_storage_is_terminal_and_reports_the_storage_task_id(self):
+        run = TaskRun.objects.create(
+            workgroup=self.workgroup, compute_task_id="gpu-job", store_task_id="store-job", status="running",
+        )
+        backend = [Mock(state="SUCCESS"), Mock(state="FAILURE", result=FileNotFoundError("/private/output.json"))]
+        with patch("caidapp.embedding_runs.AsyncResult", side_effect=backend):
+            refresh_run(run)
+        self.assertEqual(run.status, "failed")
+        self.assertEqual(run.result["failure"]["stage"], "store")
+        self.assertEqual(run.result["failure"]["task_id"], "store-job")
+        self.assertNotIn("/private/", run.message)
+
     def test_cleanup_retains_active_and_outside_directories(self):
         """Delete only old terminal manifests under the dedicated directory."""
         root = Path(self.directory.name)

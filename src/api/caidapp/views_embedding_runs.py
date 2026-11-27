@@ -81,9 +81,17 @@ def _payload(run, include_items=False, *, staff_links=False):
             if include_items and entry.get("record_id") and (staff_links or key not in {"outliers", "merges"}):
                 detail_url = _refresh_step_url(key, entry["record_id"], run.workgroup_id)
             status = entry["status"]
+            message = entry.get("message", "")
+            if include_items and key == "features" and status == "failed" and entry.get("record_id"):
+                child = models.TaskRun.objects.filter(
+                    pk=entry["record_id"], workgroup_id=run.workgroup_id, kind="embedding",
+                ).first()
+                if child:
+                    failure = embedding_runs.run_diagnostics(child)["failure"]
+                    message = f"{failure['stage_label']} failed. {failure['reason']}" if failure else child.message
             steps.append({
                 "key": key, "label": label, "status_label": STATUS_LABELS.get(status, status.capitalize()),
-                "message": entry.get("message", ""), "detail_url": detail_url,
+                "message": message, "detail_url": detail_url,
             })
         payload.update(
             operation_label="Refresh identification suggestions", scope_label="Workgroup",
@@ -134,6 +142,10 @@ def _payload(run, include_items=False, *, staff_links=False):
         )
         if result.get(key)
     )
+    if run.status == "failed" and not include_items:
+        payload["result_summary"] = run.message
+    if include_items and run.kind == "embedding":
+        payload["diagnostics"] = embedding_runs.run_diagnostics(run)
     payload["scope_label"] = f"{run.items.count()} observations"
     for item in payload.get("items", []):
         item["status_label"] = ITEM_LABELS.get(item.get("status"), item.get("status", ""))

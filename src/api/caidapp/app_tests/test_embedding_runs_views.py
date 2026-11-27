@@ -2,7 +2,7 @@
 
 import uuid
 from tempfile import TemporaryDirectory
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from caidapp import models
 from django.contrib.messages import get_messages
@@ -104,6 +104,20 @@ class EmbeddingRunViewsTests(TestCase):
         )
         self.assertEqual(retry.status_code, 202)
         self.assertNotEqual(retry.json()["uuid"], str(run.uuid))
+
+    def test_old_failure_displays_celery_evidence_without_exposing_private_paths(self):
+        run = models.TaskRun.objects.create(workgroup=self.workgroup, status="failed", compute_task_id="compute-job")
+        detail_url = reverse("caidapp:task_detail", kwargs={"run_uuid": run.uuid})
+        status_url = reverse("caidapp:task_status", kwargs={"run_uuid": run.uuid})
+        backend = Mock(state="FAILURE", result=FileNotFoundError("/private/model/config.json"))
+        with patch("caidapp.embedding_runs.AsyncResult", return_value=backend):
+            detail = self.client.get(detail_url)
+            status = self.client.get(status_url)
+        self.assertContains(detail, "compute-job")
+        self.assertContains(detail, "FileNotFoundError")
+        self.assertNotContains(detail, "/private/")
+        self.assertNotContains(status, "/private/")
+        self.assertEqual(status.json()["diagnostics"]["failure"]["stage"], "compute")
 
     def test_mediafile_scope_expands_all_observations(self):
         """An explicit media-file action includes both observations belonging to that file."""

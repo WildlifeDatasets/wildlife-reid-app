@@ -5,6 +5,7 @@
 
 ## 2026-11
 
+* [fixed] No memory on embeddings caused by SAM3 and its mask candidates
 * [changed] Identification worker uses observation embeddings and ALIKED features stored in the central API database.
 * [changed] Identity suggestions are stored and reviewed per observation.
 * [added] Suggest identity for selected bbox.

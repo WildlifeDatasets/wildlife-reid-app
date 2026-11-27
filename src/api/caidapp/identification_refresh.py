@@ -165,6 +165,10 @@ def advance(run_id):
         if status is None:
             return
         progress["status"] = status
+        if step == "features" and status in {"failed", "partial"}:
+            progress["message"] = models.TaskRun.objects.filter(
+                pk=progress["record_id"], workgroup=group, kind="embedding"
+            ).values_list("message", flat=True).first() or "Image features could not be prepared."
 
     for step in STEPS:
         progress = steps.setdefault(step, {"status": "queued"})
