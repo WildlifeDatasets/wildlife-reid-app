@@ -183,8 +183,9 @@
                                 <div class="{% if form.show_upload_target_choice %}mt-3 {% endif %}d-none" id="new-upload-identified-dataset-option">
                                     <div class="form-check">
                                         {{ form.contains_identities|add_class:"form-check-input" }}
-                                        <label for="{{ form.contains_identities.id_for_label }}" class="form-check-label">
-                                            Select this when the upload contains identified individuals and the images are representative, so the upload should become part of the base dataset.
+                                        <label for="{{ form.contains_identities.id_for_label }}" class="form-check-label"
+                                               title="Select this when the upload contains identified individuals and the images are representative, so the upload should become part of the base dataset.">
+                                            Identified individuals with high-quality, representative media files
                                         </label>
                                     </div>
                                 </div>
