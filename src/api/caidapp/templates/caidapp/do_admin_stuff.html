@@ -10,6 +10,15 @@
         </li>
         {% if request.user.is_superuser %}
             <li>
+                <form method="post" action="{% url 'caidapp:download_model_weights' %}">
+                    {% csrf_token %}
+                    <button class="dropdown-item d-flex align-items-center" type="submit">
+                        <i class="bi bi-cloud-download"></i>
+                        Download model weights
+                    </button>
+                </form>
+            </li>
+            <li>
                 <a class="dropdown-item d-flex align-items-center" href="{% url 'caidapp:impersonate_user' %}">
                     <i class="bi bi-person"></i>
                     Impersonate User</a>

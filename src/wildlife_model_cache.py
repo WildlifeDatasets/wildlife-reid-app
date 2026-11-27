@@ -95,3 +95,19 @@ def download_sam3_checkpoint_if_missing(*, on_download=None) -> Path:
         hf_hub_download(repo_id="facebook/sam3", filename="sam3.pt", local_dir=temporary_path.parent)
 
     return cache_checkpoint(SAM3_CHECKPOINT_PATH, fetch, on_download=on_download)
+
+
+def prepare_model_weights(task, steps):
+    """Report model-level progress and keep downloading after an individual failure."""
+    failures = []
+    for index, (label, prepare) in enumerate(steps, start=1):
+        try:
+            task.update_state(state="PROGRESS", meta={"current": label, "done": index - 1, "total": len(steps)})
+        except Exception:
+            logger.warning("Could not publish model download progress", exc_info=True)
+        try:
+            prepare()
+        except Exception as exc:
+            logger.error("Could not prepare model weights for %s (%s)", label, type(exc).__name__)
+            failures.append(label)
+    return {"total": len(steps), "failures": failures}

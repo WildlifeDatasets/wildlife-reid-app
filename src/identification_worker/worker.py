@@ -4,6 +4,7 @@ import math
 import os
 import time
 import traceback
+from functools import partial
 from pathlib import Path
 
 import numpy as np
@@ -15,16 +16,19 @@ from celery import Celery, shared_task
 from celery.exceptions import Ignore
 from gpu_monitor import register_gpu_monitor
 from progress import ProgressReporter
-from train_model import train_identification_model
-from wildlife_model_cache import log_model_operation
+from train_model import load_model, train_identification_model
 from wildlife_tools.data import FeatureDataset
+from wildlife_tools.features import AlikedExtractor
 from wildlife_tools.similarity.pairwise.collectors import CollectAll
 from wildlife_tools.similarity.pairwise.lightglue import MatchLightGlue
 
+from wildlife_model_cache import log_model_operation, prepare_model_weights
+
 from utils import config
-from utils.feature_snapshot import FeatureSnapshot, load_analysis_inputs, load_match_inputs
 from utils.embedding_processing import EmbeddingProcessing
+from utils.feature_snapshot import FeatureSnapshot, load_analysis_inputs, load_match_inputs
 from utils.inference_identification import (
+    cache_sam_weights,
     calibrate_models,
     compute_partial,
     del_models,
@@ -51,6 +55,18 @@ identification_worker.conf.timezone = os.environ.get("TZ", "Europe/Prague")
 identification_worker.conf.enable_utc = False
 identification_worker.conf.task_track_started = True
 register_gpu_monitor(identification_worker)
+
+
+@identification_worker.task(bind=True, name="download_identification_model_weights")
+def download_identification_model_weights(self, model_sources):
+    """Prepare configured ReID backbones, the fallback segmenter and local feature weights."""
+    steps = [
+        ("SAM fallback", cache_sam_weights),
+        ("ALIKED", partial(AlikedExtractor, device="cpu")),
+        ("LightGlue (ALIKED)", partial(MatchLightGlue, features="aliked", device="cpu")),
+        *((source, partial(load_model, source)) for source in model_sources),
+    ]
+    return prepare_model_weights(self, steps)
 
 
 @identification_worker.task(bind=True, name="compute_observation_embeddings")

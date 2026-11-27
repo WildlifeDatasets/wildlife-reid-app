@@ -1985,7 +1985,7 @@ class TaskRun(models.Model):
 
     uuid = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     kind = models.CharField(max_length=40, default="embedding")
-    workgroup = models.ForeignKey(WorkGroup, on_delete=models.CASCADE)
+    workgroup = models.ForeignKey(WorkGroup, on_delete=models.CASCADE, null=True, blank=True)
     requested_by = models.ForeignKey(CaIDUser, on_delete=models.SET_NULL, null=True, blank=True)
     trigger = models.CharField(max_length=16, default="manual")
     request_key = models.CharField(max_length=100, unique=True, null=True, blank=True)

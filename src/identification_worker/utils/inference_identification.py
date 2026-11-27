@@ -144,6 +144,20 @@ def get_identification_model(model_name, model_checkpoint=""):
     return IDENTIFICATION_MODELS
 
 
+def cache_sam_weights() -> Path:
+    """Cache the configured fallback SAM checkpoint."""
+    model_zoo = {
+        "vit_b": "sam_vit_b_01ec64",
+        "vit_l": "sam_vit_l_0b3195",
+        "vit_h": "sam_vit_h_4b8939",
+    }
+    model_version = os.environ["SAM_MODEL_VERSION"]
+    filename = f"{model_zoo[model_version]}.pth"
+    return download_checkpoint_if_missing(
+        f"https://dl.fbaipublicfiles.com/segment_anything/{filename}", WEIGHTS_DIR / "sam" / filename
+    )
+
+
 def _load_sam_model() -> SamPredictor:
     """Load SAM once and move the cached CPU model to the inference device."""
     global SAM
@@ -153,17 +167,9 @@ def _load_sam_model() -> SamPredictor:
         return SAM_PREDICTOR
 
     logger.debug(f"Before segmentation model: {mem.get_vram(DEVICE)}     {mem.get_ram()}")
-    model_zoo = {
-        "vit_b": "sam_vit_b_01ec64",
-        "vit_l": "sam_vit_l_0b3195",
-        "vit_h": "sam_vit_h_4b8939",
-    }
     model_version = os.environ["SAM_MODEL_VERSION"]
     if SAM is None:
-        filename = f"{model_zoo[model_version]}.pth"
-        checkpoint_path = download_checkpoint_if_missing(
-            f"https://dl.fbaipublicfiles.com/segment_anything/{filename}", WEIGHTS_DIR / "sam" / filename
-        )
+        checkpoint_path = cache_sam_weights()
         logger.info("Initializing SAM model (%s) and loading pre-trained checkpoint.", model_version)
         SAM = sam_model_registry[model_version](checkpoint=str(checkpoint_path))
     else:

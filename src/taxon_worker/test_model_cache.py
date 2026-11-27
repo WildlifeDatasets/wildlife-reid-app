@@ -5,9 +5,28 @@ import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import MagicMock, Mock, call, patch
 
-from wildlife_model_cache import download_checkpoint_if_missing
+from wildlife_model_cache import download_checkpoint_if_missing, prepare_model_weights
+
+
+class ModelWeightProgressTest(unittest.TestCase):
+    def test_reports_each_model_and_continues_after_a_failed_download(self):
+        """Report the next model on a gated download and retain the failed model name."""
+        task = Mock()
+        gated = Mock(side_effect=PermissionError("download denied"))
+        cached = Mock()
+        with self.assertLogs("app", level="ERROR"):
+            result = prepare_model_weights(task, [("SAM3", gated), ("MegaDetector", cached)])
+        self.assertEqual(result, {"total": 2, "failures": ["SAM3"]})
+        self.assertEqual(
+            task.update_state.call_args_list,
+            [
+                call(state="PROGRESS", meta={"current": "SAM3", "done": 0, "total": 2}),
+                call(state="PROGRESS", meta={"current": "MegaDetector", "done": 1, "total": 2}),
+            ],
+        )
+        cached.assert_called_once_with()
 
 
 class ModelCacheTest(unittest.TestCase):

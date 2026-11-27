@@ -39,6 +39,11 @@ app.conf.update(task_track_started=True)
 # Beat publishes this task every three hours; the API worker performs the refresh.
 app.conf.beat_schedule = {
     **(app.conf.beat_schedule or {}),
+    "maintain-model-weight-download": {
+        "task": "caidapp.tasks.maintain_model_weight_download",
+        "schedule": timedelta(minutes=1),
+        "options": {"queue": "celery", "expires": 60},
+    },
     "maintain-identification-refreshes": {
         "task": "caidapp.tasks.maintain_identification_refreshes",
         "schedule": timedelta(seconds=15),

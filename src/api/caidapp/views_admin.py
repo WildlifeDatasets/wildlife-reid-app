@@ -3,14 +3,26 @@ import logging
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
 from django.db.models import Q
+from django.http import HttpResponseForbidden
 from django.shortcuts import redirect
 from django.urls import reverse
+from django.views.decorators.http import require_POST
 from tqdm import tqdm
 
-from . import models
+from . import model_weight_runs, models
 from .models import MediaFile
 
 logger = logging.getLogger(__name__)
+
+
+@staff_member_required
+@require_POST
+def download_model_weights(request):
+    """Start the shared model download and open its task details."""
+    if not model_weight_runs.can_manage(request.user):
+        return HttpResponseForbidden()
+    run = model_weight_runs.start(request.user.caiduser)
+    return redirect("caidapp:task_detail", run_uuid=run.uuid)
 
 
 @staff_member_required

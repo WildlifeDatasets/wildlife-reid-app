@@ -13,8 +13,8 @@ from tqdm.auto import tqdm
 from wildlife_model_cache import WEIGHTS_DIR, cache_checkpoint
 
 
-def get_english_ocr_reader():
-    """Cache the English recognition and CRAFT detection weights before loading EasyOCR."""
+def cache_english_ocr_weights():
+    """Cache the English recognition and CRAFT detection weights."""
     model_dir = WEIGHTS_DIR / "easyocr"
 
     def fetch_model(temporary_path, model):
@@ -24,6 +24,12 @@ def get_english_ocr_reader():
 
     for model in (detection_models["craft"], recognition_models["gen2"]["english_g2"]):
         cache_checkpoint(model_dir / model["filename"], lambda path: fetch_model(path, model))
+    return model_dir
+
+
+def get_english_ocr_reader():
+    """Create the EasyOCR reader using the cached weights."""
+    model_dir = cache_english_ocr_weights()
     return easyocr.Reader(["en"], model_storage_directory=str(model_dir), download_enabled=False)
 
 

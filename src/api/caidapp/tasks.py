@@ -493,6 +493,16 @@ def prepare_observation_embeddings(workgroup_id, task_id):
 
 
 @shared_task
+def maintain_model_weight_download():
+    """Save the download outcome even when nobody has the task page open."""
+    from .model_weight_runs import ACTIVE_KEY, refresh
+
+    run = models.TaskRun.objects.filter(request_key=ACTIVE_KEY).first()
+    if run is not None:
+        refresh(run)
+
+
+@shared_task
 def advance_identification_refresh(run_id):
     """Advance one durable identification refresh."""
     from .identification_refresh import advance

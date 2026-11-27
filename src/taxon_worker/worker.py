@@ -3,6 +3,7 @@ import logging
 import shutil
 import time
 import traceback
+from functools import partial
 from hashlib import sha256
 from pathlib import Path
 
@@ -14,8 +15,12 @@ from celery import Celery
 from celery.exceptions import Ignore
 from detection_utils import inference_detection
 from detection_utils.errors import DetectorUnavailableError
+from detection_utils.inference_detection import ORIENTATION_MODEL_SOURCE, get_orientation_model
 from detection_utils.inference_video import create_image_from_video
+from detection_utils.model_cache import get_megadetector_checkpoint
 from progress import ProgressReporter
+
+from wildlife_model_cache import download_sam3_checkpoint_if_missing, prepare_model_weights
 
 try:
     from taxon_utils import data_processing_pipeline, dataset_tools
@@ -41,6 +46,25 @@ except Exception as e:
     raise e
 
 MEDIA_DIR_PATH = Path("/shared_data/media")
+
+
+@taxon_worker.task(bind=True, name="download_taxon_model_weights", track_started=True)
+def download_taxon_model_weights(self):
+    """Prepare the detection, OCR, orientation and species classification caches."""
+    from taxon_utils.config import WANDB_ARTIFACT_PATH, WANDB_ARTIFACT_PATH_CROPPED
+    from taxon_utils.datetime_identification_ocr import cache_english_ocr_weights
+
+    steps = [
+        ("MegaDetector", get_megadetector_checkpoint),
+        ("SAM3", download_sam3_checkpoint_if_missing),
+        ("EasyOCR (English)", cache_english_ocr_weights),
+        ("Lynx orientation", partial(get_orientation_model, ORIENTATION_MODEL_SOURCE, device="cpu")),
+        ("Species classification", data_processing_pipeline.get_model_config),
+    ]
+    if WANDB_ARTIFACT_PATH_CROPPED != WANDB_ARTIFACT_PATH:
+        prepare_crop_weights = partial(data_processing_pipeline.get_model_config, is_cropped=True)
+        steps.append(("Species classification (crops)", prepare_crop_weights))
+    return prepare_model_weights(self, steps)
 
 
 @taxon_worker.task(bind=True, name="redetect_bboxes", soft_time_limit=300, time_limit=360)

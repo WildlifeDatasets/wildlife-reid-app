@@ -13,7 +13,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
-from . import embedding_runs, export_runs, identification_refresh, models, observation_comparisons
+from . import embedding_runs, export_runs, identification_refresh, model_weight_runs, models, observation_comparisons
 from .observation_embeddings import reset_workgroup_embeddings
 from .services.identity_review import input_version
 
@@ -41,19 +41,21 @@ ITEM_LABELS = {
 
 
 def _runs_for(request):
-    """Share runs with members of their owning workgroup only."""
+    """Scope task visibility to the workgroup, requester or installation administrators."""
     workgroup_id = request.user.caiduser.workgroup_id
-    return models.TaskRun.objects.filter(
-        Q(
-            kind__in=("embedding", identification_refresh.KIND, *observation_comparisons.COMPARISON_LABELS),
-            workgroup_id=workgroup_id,
-        )
-        | Q(kind="export", requested_by=request.user.caiduser)
-    )
+    scope = Q(
+        kind__in=("embedding", identification_refresh.KIND, *observation_comparisons.COMPARISON_LABELS),
+        workgroup_id=workgroup_id,
+    ) | Q(kind="export", requested_by=request.user.caiduser)
+    if model_weight_runs.can_manage(request.user):
+        scope |= Q(kind=model_weight_runs.KIND)
+    return models.TaskRun.objects.filter(scope)
 
 
 def _refresh(run):
     """Dispatch status checks without applying embedding lifecycle rules to exports."""
+    if run.kind == model_weight_runs.KIND:
+        return model_weight_runs.refresh(run)
     if run.kind in observation_comparisons.COMPARISON_LABELS:
         return observation_comparisons.refresh(run)
     if run.kind == identification_refresh.KIND:
@@ -73,6 +75,23 @@ def _payload(run, include_items=False, *, staff_links=False):
         result_url=reverse("caidapp:task_result", kwargs={"run_uuid": run.uuid}),
     )
     result = payload.get("result") or {}
+    if run.kind == model_weight_runs.KIND:
+        payload.update(
+            operation_label="Download model weights",
+            scope_label="Installation",
+            steps=[
+                {
+                    "key": key,
+                    "label": label,
+                    "status_label": STATUS_LABELS[result[key]["status"]],
+                    "message": result[key]["message"],
+                }
+                for key, label in model_weight_runs.WORKERS.items()
+            ],
+            result_summary=run.message if not include_items else "",
+            result={},
+        )
+        return payload
     if run.kind == identification_refresh.KIND:
         steps = []
         for key, label in identification_refresh.STEPS.items():
@@ -290,7 +309,7 @@ def manage_workgroup_embeddings(request):
 @login_required
 @require_GET
 def task_list(request):
-    """List recent workgroup jobs alongside the existing automatic debounce timer."""
+    """List recent authorized tasks alongside the automatic embedding schedule."""
     runs = _runs_for(request)
     state = request.GET.get("state", "all")
     if state == "active":

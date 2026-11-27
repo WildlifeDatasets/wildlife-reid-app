@@ -38,6 +38,7 @@ MEDIA_DIR = Path("/shared_data/media")
 DETECTION_MODEL = None
 DETECTION_MODEL_WARMED_UP = False
 ORIENTATION_MODEL = None
+ORIENTATION_MODEL_SOURCE = "hf-hub:strakajk/Lynx-Orientation-ResNet10t-176"
 
 SAM3 = None
 SAM3_PREDICTOR: Any | None = None
@@ -133,7 +134,7 @@ def warm_up_detection_model(model):
         logger.warning(f"Detection model warm-up failed: {traceback.format_exc()}")
 
 
-def get_orientation_model(model_name="resnet10t", model_checkpoint=""):
+def get_orientation_model(model_name="resnet10t", model_checkpoint="", *, device=DEVICE):
     """Load the orientation classification model."""
     # create model
     with log_model_operation("timm model load", model_name):
@@ -144,7 +145,7 @@ def get_orientation_model(model_name="resnet10t", model_checkpoint=""):
         model_ckpt = torch.load(model_checkpoint)["model"]
         model.load_state_dict(model_ckpt)
 
-    model = model.to(DEVICE).eval()
+    model = model.to(device).eval()
     return model
 
 
@@ -453,10 +454,7 @@ def detect_animal_orientation(image_rgb: np.array, image_size: int = 176):
     global ORIENTATION_MODEL
 
     if ORIENTATION_MODEL is None:
-        ORIENTATION_MODEL = get_orientation_model(
-            "hf-hub:strakajk/Lynx-Orientation-ResNet10t-176"
-            # "resnet10t", "resources/resnet10_02-b-13-02_19-08-16_orientation.pth"
-        )
+        ORIENTATION_MODEL = get_orientation_model(ORIENTATION_MODEL_SOURCE)
 
     transforms = T.Compose(
         [
